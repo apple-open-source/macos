@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -817,6 +817,9 @@ checkAddress(SCDynamicStoreRef		store,
 			case PPP_RUNNING :
 				/* if we're really UP and RUNNING */
 				break;
+			case PPP_ONHOLD :
+				/* if we're effectively UP and RUNNING */
+				break;
 			case PPP_IDLE :
 				/* if we're not connected at all */
 				SCLog(_sc_debug, LOG_INFO, CFSTR("  PPP link idle, dial-on-traffic to connect"));
@@ -1160,8 +1163,10 @@ SCNetworkCheckReachabilityByName(const char			*nodename,
 	Boolean			haveDNS		= FALSE;
 	int			i;
 	Boolean			ok		= TRUE;
+#ifdef	CHECK_IPV6_REACHABILITY
 	struct addrinfo		*res		= NULL;
 	struct addrinfo 	*resP;
+#endif	/* CHECK_IPV6_REACHABILITY */
 	CFArrayRef		serviceOrder	= NULL;
 	SCDynamicStoreRef	store		= NULL;
 
@@ -1235,6 +1240,8 @@ SCNetworkCheckReachabilityByName(const char			*nodename,
 	/*
 	 * resolve the nodename into an address
 	 */
+
+#ifdef	CHECK_IPV6_REACHABILITY
 	i = getaddrinfo(nodename, NULL, NULL, &res);
 	if (i != 0) {
 		SCLog(_sc_verbose, LOG_ERR,
@@ -1297,6 +1304,7 @@ SCNetworkCheckReachabilityByName(const char			*nodename,
 	      LOG_INFO,
 	      CFSTR("getaddrinfo() returned no addresses, try gethostbyname()"));
 #endif	/* DEBUG */
+#endif	/* CHECK_IPV6_REACHABILITY */
 
 	h = gethostbyname(nodename);
 	if (h && h->h_length) {
@@ -1403,7 +1411,9 @@ SCNetworkCheckReachabilityByName(const char			*nodename,
 
 	_CheckReachabilityFree(config, active, serviceOrder, defaultRoute);
 	if (store)	CFRelease(store);
+#ifdef	CHECK_IPV6_REACHABILITY
 	if (res)	freeaddrinfo(res);
+#endif	/* CHECK_IPV6_REACHABILITY */
 
 	return ok;
 }

@@ -1,5 +1,6 @@
 /* Target-dependent code for Hitachi H8/500, for GDB.
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1998, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -32,6 +33,7 @@
 #include "value.h"
 #include "dis-asm.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #define UNSIGNED_SHORT(X) ((X) & 0xffff)
 
@@ -251,7 +253,7 @@ h8500_register_size (int regno)
     case PC_REGNUM:
       return 4;
     default:
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 }
 
@@ -286,7 +288,7 @@ h8500_register_virtual_type (int regno)
     case PC_REGNUM:
       return builtin_type_unsigned_long;
     default:
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 }
 
@@ -414,7 +416,7 @@ h8500_set_pointer_size (int newsize)
 }
 
 static void
-big_command (void)
+big_command (char *arg, int from_tty)
 {
   h8500_set_pointer_size (32);
   code_size = 4;
@@ -422,7 +424,7 @@ big_command (void)
 }
 
 static void
-medium_command (void)
+medium_command (char *arg, int from_tty)
 {
   h8500_set_pointer_size (32);
   code_size = 4;
@@ -430,7 +432,7 @@ medium_command (void)
 }
 
 static void
-compact_command (void)
+compact_command (char *arg, int from_tty)
 {
   h8500_set_pointer_size (32);
   code_size = 2;
@@ -438,7 +440,7 @@ compact_command (void)
 }
 
 static void
-small_command (void)
+small_command (char *arg, int from_tty)
 {
   h8500_set_pointer_size (16);
   code_size = 2;
@@ -474,7 +476,7 @@ h8500_is_trapped_internalvar (char *name)
     return 0;
 }
 
-value_ptr
+struct value *
 h8500_value_of_trapped_internalvar (struct internalvar *var)
 {
   LONGEST regval;
@@ -510,7 +512,7 @@ h8500_value_of_trapped_internalvar (struct internalvar *var)
   get_saved_register (regbuf, NULL, NULL, selected_frame, regnum, NULL);
   regval |= regbuf[0] << 8 | regbuf[1];		/* XXX host/target byte order */
 
-  free (var->value);		/* Free up old value */
+  xfree (var->value);		/* Free up old value */
 
   var->value = value_from_longest (builtin_type_unsigned_long, regval);
   release_value (var->value);	/* Unchain new value */
@@ -521,7 +523,7 @@ h8500_value_of_trapped_internalvar (struct internalvar *var)
 }
 
 void
-h8500_set_trapped_internalvar (struct internalvar *var, value_ptr newval,
+h8500_set_trapped_internalvar (struct internalvar *var, struct value *newval,
 			       int bitpos, int bitsize, int offset)
 {
   char *page_regnum, *regnum;
@@ -584,13 +586,13 @@ h8500_write_sp (CORE_ADDR v)
 }
 
 CORE_ADDR
-h8500_read_pc (int pid)
+h8500_read_pc (ptid_t ptid)
 {
   return read_register (PC_REGNUM);
 }
 
 void
-h8500_write_pc (CORE_ADDR v, int pid)
+h8500_write_pc (CORE_ADDR v, ptid_t ptid)
 {
   write_register (PC_REGNUM, v);
 }
@@ -599,12 +601,6 @@ CORE_ADDR
 h8500_read_fp (void)
 {
   return read_register (PR6_REGNUM);
-}
-
-void
-h8500_write_fp (CORE_ADDR v)
-{
-  write_register (PR6_REGNUM, v);
 }
 
 void

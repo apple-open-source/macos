@@ -406,6 +406,7 @@ Filesz      Memsz       Flags       Align
 
 #ifndef emacs
 #define fatal(a, b, c) fprintf (stderr, a, b, c), exit (1)
+#include <string.h>
 #else
 #include <config.h>
 extern void fatal (char *, ...);
@@ -415,7 +416,6 @@ extern void fatal (char *, ...);
 #include <stdio.h>
 #include <sys/stat.h>
 #include <memory.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -470,7 +470,7 @@ typedef struct {
 /*
  * NetBSD does not have normal-looking user-land ELF support.
  */
-# ifdef __alpha__
+# if defined __alpha__ || defined __sparc_v9__
 #  define ELFSIZE	64
 # else
 #  define ELFSIZE	32
@@ -479,6 +479,9 @@ typedef struct {
 
 # ifndef PT_LOAD
 #  define PT_LOAD	Elf_pt_load
+#  if 0						/* was in pkgsrc patches for 20.7 */
+#   define SHT_PROGBITS Elf_sht_progbits
+#  endif
 #  define SHT_SYMTAB	Elf_sht_symtab
 #  define SHT_DYNSYM	Elf_sht_dynsym
 #  define SHT_NULL	Elf_sht_null
@@ -489,13 +492,18 @@ typedef struct {
 #  define SHN_UNDEF	Elf_eshn_undefined
 #  define SHN_ABS	Elf_eshn_absolute
 #  define SHN_COMMON	Elf_eshn_common
-# endif
+# endif /* !PT_LOAD */
 
 # ifdef __alpha__
 #  include <sys/exec_ecoff.h>
 #  define HDRR		struct ecoff_symhdr
 #  define pHDRR		HDRR *
-# endif
+# endif /* __alpha__ */
+
+#ifdef __mips__			/* was in pkgsrc patches for 20.7 */
+# define SHT_MIPS_DEBUG	DT_MIPS_FLAGS
+# define HDRR		struct Elf_Shdr
+#endif /* __mips__ */
 #endif /* __NetBSD__ */
 
 #ifdef __OpenBSD__
@@ -613,7 +621,7 @@ find_section (name, section_names, file_name, old_file_h, old_section_h, noerror
       if (noerror)
 	return -1;
       else
-	fatal ("Can't find %s in %s.\n", name, file_name, 0);
+	fatal ("Can't find %s in %s.\n", name, file_name);
     }
 
   return idx;

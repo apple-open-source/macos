@@ -8,7 +8,7 @@
         M_FILES = (); 
         OTHER_LIBS = (); 
         OTHER_LINKED = (ktrace.c, subr.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, ktrace.1); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, ktrace.1); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

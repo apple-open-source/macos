@@ -1,5 +1,0 @@
-# Created and modified by checkpoint; do not edit
-# CVSVersionInfo.txt,v 1.5 2000/05/22 19:18:44 kdienes Exp
-# 
-ProjectName: binutils
-ProjectVersion: 12

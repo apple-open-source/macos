@@ -70,7 +70,7 @@
 #	to -g)
 #    DEBUG_BUILD_CFLAGS:  flags passed during debug builds (defaults to -DDEBUG)
 #    OPTIMIZE_BUILD_CFLAGS:  flags passed during optimized builds (defaults
-#	to -O)
+#	to -Os)
 #    PROFILE_BUILD_CFLAGS:  flags passed during profile builds (defaults
 #	to -pg -DPROFILE)
 #    LOCAL_DIR_INCLUDE_DIRECTIVE:  flag used to add current directory to
@@ -126,7 +126,7 @@ DEBUG_SYMBOLS_CFLAG = -g # this flag is passed to all builds, not just debug bui
 DEBUG_BUILD_CFLAGS = -DDEBUG # this flag is only passed to debug builds
 DEBUG_BUILD_JFLAGS = -g # this flag is only passed to debug builds
 DEBUG_BUILD_LDFLAGS =
-OPTIMIZE_BUILD_CFLAGS = -O
+OPTIMIZE_BUILD_CFLAGS = -Os
 OPTIMIZE_BUILD_LDFLAGS =
 PROFILE_BUILD_CFLAGS = -pg -DPROFILE
 ifeq "$(OS)" "SOLARIS"

@@ -1,3 +1,14 @@
 override DEBUG_SUFFIX = _debug
 PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(DEBUG_SUFFIX)$(LIBRARY_EXT)
 PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(PROFILE_SUFFIX)$(LIBRARY_EXT)
+MANPAGES = kvm.3 kvm_getfiles.3 kvm_getprocs.3 kvm_open.3 kvm_geterr.3 \
+		kvm_getloadavg.3 kvm_nlist.3 kvm_read.3 
+
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man3"
+	install -c -m 644 $(MANPAGES) "$(DSTROOT)/usr/share/man/man3"
+	ln -f "$(DSTROOT)/usr/share/man/man3/kvm_open.3" "$(DSTROOT)/usr/share/man/man3/kvm_openfiles.3"
+	ln -f "$(DSTROOT)/usr/share/man/man3/kvm_open.3" "$(DSTROOT)/usr/share/man/man3/kvm_close.3"
+	ln -f "$(DSTROOT)/usr/share/man/man3/kvm_read.3" "$(DSTROOT)/usr/share/man/man3/kvm_write.3"
+	ln -f "$(DSTROOT)/usr/share/man/man3/kvm_getprocs.3" "$(DSTROOT)/usr/share/man/man3/kvm_getargv.3"
+	ln -f "$(DSTROOT)/usr/share/man/man3/kvm_getprocs.3" "$(DSTROOT)/usr/share/man/man3/kvm_getenvv.3"

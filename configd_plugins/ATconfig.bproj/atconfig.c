@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,9 @@
 
 /*
  * Modification History
+ *
+ * April 29, 2002		Allan Nathanson <ajn@apple.com>
+ * - add global state information (primary service, interface)
  *
  * June 24, 2001		Allan Nathanson <ajn@apple.com>
  * - update to public SystemConfiguration.framework APIs
@@ -49,13 +52,13 @@
 
 #define HOSTCONFIG	"/etc/hostconfig"
 
-
 SCDynamicStoreRef	store		= NULL;
 CFRunLoopSourceRef	rls		= NULL;
 
 CFMutableDictionaryRef	oldGlobals	= NULL;
 CFMutableArrayRef	oldConfigFile	= NULL;
 CFMutableDictionaryRef	oldDefaults	= NULL;
+CFMutableDictionaryRef	oldStartup	= NULL;
 
 Boolean			_verbose	= FALSE;
 
@@ -70,7 +73,7 @@ updateDefaults(const void *key, const void *val, void *context)
 	CFNumberRef		defaultNetwork;
 	CFStringRef		defaultZone;
 
-	if (!CFDictionaryGetValueIfPresent(oldDefaults, ifName, (void **)&oldDict) ||
+	if (!CFDictionaryGetValueIfPresent(oldDefaults, ifName, (const void **)&oldDict) ||
 	    !CFEqual(oldDict, newDict)) {
 		char		ifr_name[IFNAMSIZ];
 
@@ -85,10 +88,10 @@ updateDefaults(const void *key, const void *val, void *context)
 		 */
 		if (CFDictionaryGetValueIfPresent(newDict,
 						  kSCPropNetAppleTalkNetworkID,
-						  (void **)&defaultNetwork) &&
+						  (const void **)&defaultNetwork) &&
 		    CFDictionaryGetValueIfPresent(newDict,
 						  kSCPropNetAppleTalkNodeID,
-						  (void **)&defaultNode)
+						  (const void **)&defaultNode)
 		    ) {
 			struct at_addr	init_address;
 			int		status;
@@ -109,7 +112,7 @@ updateDefaults(const void *key, const void *val, void *context)
 		 */
 		if (CFDictionaryGetValueIfPresent(newDict,
 						  kSCPropNetAppleTalkDefaultZone,
-						  (void **)&defaultZone)
+						  (const void **)&defaultZone)
 		    ) {
 			at_nvestr_t	zone;
 
@@ -356,7 +359,7 @@ encodeName(CFStringRef name, CFStringEncoding encoding)
 		return NULL;
 	}
 
-	if (encoding == kCFStringEncodingMacRoman) {
+	if (encoding == kCFStringEncodingASCII) {
 		return CFRetain(name);
 	}
 
@@ -370,6 +373,23 @@ encodeName(CFStringRef name, CFStringEncoding encoding)
 	if (bytes) {
 		unsigned char	*byte;
 		CFIndex		i;
+
+		/*
+		 * check if the MacRoman string can be represented as ASCII
+		 */
+		if (encoding == kCFStringEncodingMacRoman) {
+			CFDataRef       ascii;
+
+			ascii = CFStringCreateExternalRepresentation(NULL,
+								     name,
+								     kCFStringEncodingASCII,
+								     0);
+			if (ascii) {
+				CFRelease(ascii);
+				CFRelease(bytes);
+				return CFRetain(name);
+			}
+		}
 
 		encodedName = CFStringCreateMutable(NULL, 0);
 
@@ -402,10 +422,11 @@ updateConfiguration()
 	CFStringRef		computerName;
 	CFStringEncoding	computerNameEncoding;
 	CFArrayRef		config;
-	CFArrayRef		configuredInterfaces	= NULL;
+	CFArrayRef		configuredServices	= NULL;
 	CFDictionaryRef		dict;
 	CFIndex			i;
 	CFIndex			ifCount			= 0;
+	CFArrayRef		interfaces		= NULL;
 	CFStringRef		key;
 	CFArrayRef		keys;
 	CFMutableArrayRef	newConfig;
@@ -413,10 +434,11 @@ updateConfiguration()
 	CFMutableDictionaryRef	newDefaults;
 	CFMutableDictionaryRef	newDict;
 	CFMutableDictionaryRef	newGlobals;
+	CFMutableDictionaryRef	newStartup;
 	CFMutableDictionaryRef	newState;
 	CFMutableDictionaryRef	newZones;
 	CFNumberRef		num;
-	CFStringRef		primaryPort		= NULL;
+	CFStringRef		primaryPort		= NULL;	/* primary interface */
 	CFStringRef		primaryZone		= NULL;
 	CFArrayRef		serviceOrder		= NULL;
 	CFDictionaryRef		setGlobals		= NULL;
@@ -450,6 +472,10 @@ updateConfiguration()
 						  0,
 						  &kCFTypeDictionaryKeyCallBacks,
 						  &kCFTypeDictionaryValueCallBacks);
+	newStartup    = CFDictionaryCreateMutable(NULL,
+						  0,
+						  &kCFTypeDictionaryKeyCallBacks,
+						  &kCFTypeDictionaryValueCallBacks);
 	newState      = CFDictionaryCreateMutable(NULL,
 						  0,
 						  &kCFTypeDictionaryKeyCallBacks,
@@ -460,7 +486,7 @@ updateConfiguration()
 						  &kCFTypeDictionaryValueCallBacks);
 
 	/* initialize overall state */
-	CFDictionarySetValue(newGlobals, CFSTR("APPLETALK"), CFSTR("-NO-"));
+	CFDictionarySetValue(newStartup, CFSTR("APPLETALK"), CFSTR("-NO-"));
 
 	(void)SCDynamicStoreLock(store);
 
@@ -510,15 +536,33 @@ updateConfiguration()
 	}
 
 	/*
-	 * get the list of ALL configured interfaces
+	 * get the list of ALL active interfaces
 	 */
-	configuredInterfaces = entity_all(store, kSCEntNetAppleTalk, serviceOrder);
-	if (configuredInterfaces) {
-		ifCount = CFArrayGetCount(configuredInterfaces);
+	key  = SCDynamicStoreKeyCreateNetworkInterface(NULL, kSCDynamicStoreDomainState);
+	dict = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	if (dict) {
+		if (isA_CFDictionary(dict)) {
+			interfaces = CFDictionaryGetValue(dict,
+							  kSCDynamicStorePropNetInterfaces);
+			interfaces = isA_CFArray(interfaces);
+			if (interfaces) {
+				CFRetain(interfaces);
+			}
+		}
+		CFRelease(dict);
 	}
 
 	/*
-	 * get the list of previously configured interfaces
+	 * get the list of ALL configured services
+	 */
+	configuredServices = entity_all(store, kSCEntNetAppleTalk, serviceOrder);
+	if (configuredServices) {
+		ifCount = CFArrayGetCount(configuredServices);
+	}
+
+	/*
+	 * get the list of previously configured services
 	 */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
@@ -555,10 +599,17 @@ updateConfiguration()
 		CFStringRef		defaultZone;
 
 		/* get AppleTalk service dictionary */
-		service = CFArrayGetValueAtIndex(configuredInterfaces, i);
+		service = CFArrayGetValueAtIndex(configuredServices, i);
 
 		/* get interface name */
 		ifName  = CFDictionaryGetValue(service, kSCPropNetInterfaceDeviceName);
+
+		/* check inteface availability */
+		if (!interfaces ||
+		    !CFArrayContainsValue(interfaces, CFRangeMake(0, CFArrayGetCount(interfaces)), ifName)) {
+			/* if interface not available */
+			goto nextIF;
+		}
 
 		/* check interface link status */
 		key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
@@ -568,27 +619,32 @@ updateConfiguration()
 		dict = SCDynamicStoreCopyValue(store, key);
 		CFRelease(key);
 		if (dict) {
-			Boolean	linkStatus	= TRUE;	/* assume the link is "up" */
+			Boolean	linkStatus	= TRUE;  /* assume the link is "up" */
+			Boolean	ifDetaching	= FALSE; /* assume link is not detaching */
 
 			/* the link key for this interface is available */
 			if (isA_CFDictionary(dict)) {
-				CFBooleanRef	bool;
+				CFBooleanRef	bVal;
 
-				bool = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
-				if (isA_CFBoolean(bool)) {
-					linkStatus = CFBooleanGetValue(bool);
+				bVal = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
+				if (isA_CFBoolean(bVal)) {
+					linkStatus = CFBooleanGetValue(bVal);
 				}
+
+				/* check if interface is detaching - value
+				   doesn't really matter, only that it exists */
+				ifDetaching = CFDictionaryContainsKey(dict, kSCPropNetLinkDetaching);
 			}
 			CFRelease(dict);
 
-			if (!linkStatus) {
-				/* if link status down */
+			if (!linkStatus || ifDetaching) {
+				/* if link status down or the interface is detaching */
 				goto nextIF;
 			}
 		}
 
 		/*
-		 * Determine configuration method for this interface
+		 * Determine configuration method for this service
 		 */
 		configMethod = CFDictionaryGetValue(service, kSCPropNetAppleTalkConfigMethod);
 		if (!isA_CFString(configMethod)) {
@@ -604,6 +660,18 @@ updateConfiguration()
 			      CFSTR("Unexpected AppleTalk ConfigMethod: %@"),
 			      configMethod);
 			goto nextIF;
+		}
+
+		/*
+		 * the first service to be defined will always be "primary"
+		 */
+		if (CFArrayGetCount(newConfigFile) == 0) {
+			CFDictionarySetValue(newGlobals,
+					     kSCDynamicStorePropNetPrimaryService,
+					     CFDictionaryGetValue(service, CFSTR("ServiceID")));
+			CFDictionarySetValue(newGlobals,
+					     kSCDynamicStorePropNetPrimaryInterface,
+					     ifName);
 		}
 
 		/*
@@ -679,7 +747,7 @@ updateConfiguration()
 					continue;
 				}
 
-				if (CFDictionaryGetValueIfPresent(newZones, zone, (void **)&ifList)) {
+				if (CFDictionaryGetValueIfPresent(newZones, zone, (const void **)&ifList)) {
 					/* known zone */
 					newIFList = CFArrayCreateMutableCopy(NULL, 0, ifList);
 				} else {
@@ -714,7 +782,7 @@ updateConfiguration()
 						    kSCPropNetAppleTalkComputerName);
 		if (CFDictionaryGetValueIfPresent(service,
 						  kSCPropNetAppleTalkComputerNameEncoding,
-						  (void **)&num) &&
+						  (const void **)&num) &&
 		    isA_CFNumber(num)) {
 			CFNumberGetValue(num, kCFNumberIntType, &computerNameEncoding);
 		} else {
@@ -722,14 +790,15 @@ updateConfiguration()
 		}
 		str = encodeName(computerName, computerNameEncoding);
 		if (str) {
-			CFDictionaryAddValue(newGlobals,
+			CFDictionaryAddValue(newStartup,
 					     CFSTR("APPLETALK_HOSTNAME"),
 					     str);
 			CFRelease(str);
 		}
 
 		/*
-		 * declare the first configured AppleTalk interface as the "home port".
+		 * declare the first configured AppleTalk service / interface
+		 * as the "home port".
 		 */
 		if (CFArrayGetCount(newConfigFile) == 0) {
 			CFStringAppend(portConfig, CFSTR("*"));
@@ -761,7 +830,7 @@ updateConfiguration()
 
 		if ((CFDictionaryGetValueIfPresent(service,
 						   kSCPropNetAppleTalkDefaultZone,
-						   (void **)&defaultZone) == TRUE)) {
+						   (const void **)&defaultZone) == TRUE)) {
 			/*
 			 * set the default zone for this interface
 			 */
@@ -778,16 +847,16 @@ updateConfiguration()
 				/*
 				 * first AppleTalk interface
 				 */
-				CFDictionarySetValue(newGlobals, CFSTR("APPLETALK"), ifName);
+				CFDictionarySetValue(newStartup, CFSTR("APPLETALK"), ifName);
 				break;
 			case 2:
 				/* second AppleTalk interface */
-				if (!CFEqual(CFDictionaryGetValue(newGlobals, CFSTR("APPLETALK")),
+				if (!CFEqual(CFDictionaryGetValue(newStartup, CFSTR("APPLETALK")),
 					     CFSTR("-ROUTER-"))) {
 					/*
 					 * if not routing (yet), configure as multi-home
 					 */
-					CFDictionarySetValue(newGlobals, CFSTR("APPLETALK"), CFSTR("-MULTIHOME-"));
+					CFDictionarySetValue(newStartup, CFSTR("APPLETALK"), CFSTR("-MULTIHOME-"));
 				}
 				break;
 		}
@@ -795,7 +864,7 @@ updateConfiguration()
 		if (CFEqual(configMethod, kSCValNetAppleTalkConfigMethodRouter) ||
 		    CFEqual(configMethod, kSCValNetAppleTalkConfigMethodSeedRouter)) {
 			/* if not a simple node, enable routing */
-			CFDictionarySetValue(newGlobals, CFSTR("APPLETALK"), CFSTR("-ROUTER-"));
+			CFDictionarySetValue(newStartup, CFSTR("APPLETALK"), CFSTR("-ROUTER-"));
 		}
 
 		/*
@@ -870,13 +939,13 @@ updateConfiguration()
 	 * Check if we have a "ComputerName" and look elsewhere if we don't have
 	 * one yet.
 	 */
-	if (!CFDictionaryContainsKey(newGlobals, CFSTR("APPLETALK_HOSTNAME")) &&
+	if (!CFDictionaryContainsKey(newStartup, CFSTR("APPLETALK_HOSTNAME")) &&
 	    (setGlobals != NULL)) {
 		computerName = CFDictionaryGetValue(setGlobals,
 						    kSCPropNetAppleTalkComputerName);
 		if (CFDictionaryGetValueIfPresent(setGlobals,
 						  kSCPropNetAppleTalkComputerNameEncoding,
-						  (void **)&num) &&
+						  (const void **)&num) &&
 		    isA_CFNumber(num)) {
 			CFNumberGetValue(num, kCFNumberIntType, &computerNameEncoding);
 		} else {
@@ -884,18 +953,18 @@ updateConfiguration()
 		}
 		str = encodeName(computerName, computerNameEncoding);
 		if (str) {
-			CFDictionaryAddValue(newGlobals,
+			CFDictionaryAddValue(newStartup,
 					     CFSTR("APPLETALK_HOSTNAME"),
 					     str);
 			CFRelease(str);
 		}
 	}
-	if (!CFDictionaryContainsKey(newGlobals, CFSTR("APPLETALK_HOSTNAME"))) {
+	if (!CFDictionaryContainsKey(newStartup, CFSTR("APPLETALK_HOSTNAME"))) {
 		computerName = SCDynamicStoreCopyComputerName(store, &computerNameEncoding);
 		if (computerName) {
 			str = encodeName(computerName, computerNameEncoding);
 			if (str) {
-				CFDictionaryAddValue(newGlobals,
+				CFDictionaryAddValue(newStartup,
 						     CFSTR("APPLETALK_HOSTNAME"),
 						     str);
 				CFRelease(str);
@@ -910,9 +979,9 @@ updateConfiguration()
 	newConfig = CFArrayCreateMutableCopy(NULL, 0, config);
 	configSet(newConfig,
 		  CFSTR("APPLETALK"),
-		  CFDictionaryGetValue(newGlobals, CFSTR("APPLETALK")));
+		  CFDictionaryGetValue(newStartup, CFSTR("APPLETALK")));
 
-	if (CFDictionaryGetValueIfPresent(newGlobals,
+	if (CFDictionaryGetValueIfPresent(newStartup,
 					  CFSTR("APPLETALK_HOSTNAME"),
 					  (void *)&computerName)) {
 		/* if "Computer Name" was specified */
@@ -924,9 +993,14 @@ updateConfiguration()
 
 	/* compare the previous and current configurations */
 
+	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							 kSCDynamicStoreDomainState,
+							 kSCEntNetAppleTalk);
+
 	if (CFEqual(oldGlobals    , newGlobals   ) &&
 	    CFEqual(oldConfigFile , newConfigFile) &&
-	    CFEqual(oldDefaults   , newDefaults  )
+	    CFEqual(oldDefaults   , newDefaults  ) &&
+	    CFEqual(oldStartup    , newStartup   )
 	    ) {
 		/*
 		 * the configuration has not changed
@@ -934,6 +1008,7 @@ updateConfiguration()
 		CFRelease(newGlobals);
 		CFRelease(newConfigFile);
 		CFRelease(newDefaults);
+		CFRelease(newStartup);
 	} else if (CFArrayGetCount(newConfigFile) <= 1) {
 		/*
 		 * the configuration has changed but there are no
@@ -944,6 +1019,7 @@ updateConfiguration()
 		 * 3. flag this as a new configuration
 		 */
 		configRemove(newConfig, CFSTR("APPLETALK_HOSTNAME"));
+		CFArrayAppendValue(state, key);	// remove State:/Network/Global/AppleTalk
 		(void)unlink(AT_CFG_FILE);
 		changed = TRUE;
 	} else {
@@ -954,9 +1030,12 @@ updateConfiguration()
 		 * 3. flag this as a new configuration
 		 */
 		configWrite(AT_CFG_FILE, newConfigFile);
+		CFDictionarySetValue(newState, key, newGlobals);
 		CFDictionaryApplyFunction(newDefaults, updateDefaults, NULL);
 		changed = TRUE;
 	}
+
+	CFRelease(key);
 
 	/* update State:/Network/Service/XXX/AppleTalk keys */
 
@@ -978,6 +1057,8 @@ updateConfiguration()
 		oldConfigFile = newConfigFile;
 		CFRelease(oldDefaults);
 		oldDefaults   = newDefaults;
+		CFRelease(oldStartup);
+		oldStartup    = newStartup;
 	}
 
 	/* update overall state of AppleTalk stack */
@@ -987,8 +1068,10 @@ updateConfiguration()
 	}
 	CFRelease(config);
 	CFRelease(newConfig);
-	if (configuredInterfaces)
-	    CFRelease(configuredInterfaces);
+	if (interfaces)
+	    CFRelease(interfaces);
+	if (configuredServices)
+	    CFRelease(configuredServices);
 	if (setGlobals)	CFRelease(setGlobals);
 	return changed;
 }
@@ -1058,8 +1141,8 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
 	if (bundleVerbose) {
 		_verbose = TRUE;
-	}       
-        
+	}
+
 	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
 	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
 
@@ -1071,6 +1154,10 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 						  &kCFTypeDictionaryValueCallBacks);
 	oldConfigFile = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	oldDefaults   = CFDictionaryCreateMutable(NULL,
+						  0,
+						  &kCFTypeDictionaryKeyCallBacks,
+						  &kCFTypeDictionaryValueCallBacks);
+	oldStartup    = CFDictionaryCreateMutable(NULL,
 						  0,
 						  &kCFTypeDictionaryKeyCallBacks,
 						  &kCFTypeDictionaryValueCallBacks);
@@ -1148,6 +1235,7 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 	if (oldGlobals)		CFRelease(oldGlobals);
 	if (oldConfigFile)	CFRelease(oldConfigFile);
 	if (oldDefaults)	CFRelease(oldDefaults);
+	if (oldStartup)		CFRelease(oldStartup);
 	if (store) 		CFRelease(store);
 	if (keys)		CFRelease(keys);
 	if (patterns)		CFRelease(patterns);

@@ -198,7 +198,7 @@ void WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt32 tarBlock )
 {
 	PrintError(GPtr, msgID, 0);
 
-	if (GPtr->logLevel > 0 && !GPtr->guiControl && (tarID | tarBlock) == 0)
+	if (GPtr->logLevel > 0 && !GPtr->guiControl && (tarID | tarBlock) != 0)
 		printf("(%ld, %ld)\n", (long)tarID, (long)tarBlock);
 }
 

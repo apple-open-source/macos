@@ -39,6 +39,9 @@
 #import "LUAgent.h"
 #import <NetInfo/syslock.h>
 
+/* The number of caches maintained by the CacheAgent */
+#define NCACHE 26
+
 @interface CacheAgent : LUAgent
 {
 	struct
@@ -56,31 +59,31 @@
 		BOOL enabled;
 	} allStore[NCATEGORIES];
 
-	LUArray *rootInitGroups;
-	char *initgroupsUserName;
-
 	LUDictionary *stats;
 
 	syslock *cacheLock;
 
 	unsigned int lastSweep;
 	unsigned int sweepTime;
+	id cserver;
 }
 
 - (BOOL)cacheIsEnabledForCategory:(LUCategory)cat;
 
-- (void)addObject:(LUDictionary *)item;
+- (void)addObject:(LUDictionary *)item key:(char *)key category:(LUCategory)cat;
 - (void)removeObject:(LUDictionary *)item;
 
 - (void)addArray:(LUArray *)array;
 
-- (LUArray *)initgroupsForUser:(char *)name;
-- (void)setInitgroups:(LUArray *)groups forUser:(char *)name;
+- (void)setInitgroups:(LUDictionary *)item forUser:(char *)name;
 
 - (void)flushCache;
 - (void)flushCacheForCategory:(LUCategory)cat;
 
 - (BOOL)containsObject:(id)obj;
 - (void)sweepCache;
+
+- (BOOL)isValid:(LUDictionary *)item;
+- (BOOL)isArrayValid:(LUArray *)array;
 
 @end

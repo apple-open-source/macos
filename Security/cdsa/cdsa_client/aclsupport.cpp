@@ -22,6 +22,7 @@
 
 #include <Security/osxsigning.h>
 #include <Security/osxsigner.h>
+#include <Security/trackingallocator.h>
 #include "aclsupport.h"
 #include "keychainacl.h"
 #include <memory>
@@ -40,10 +41,11 @@ TrustedApplicationImpl::TrustedApplicationImpl(const CssmData &signature, const 
 {
 }
 
-TrustedApplicationImpl::TrustedApplicationImpl(const char *path, const CssmData &comment, bool enabled) :	mSignature(CssmAllocator::standard(), calcSignature(path)),
+TrustedApplicationImpl::TrustedApplicationImpl(const char *path, const CssmData &comment, bool enabled) :	mSignature(CssmAllocator::standard()),
 	mComment(CssmAllocator::standard(), comment),
 	mEnabled(enabled)
 {
+    calcSignature(path, mSignature);
 }
 
 
@@ -71,17 +73,18 @@ void TrustedApplicationImpl::enabled(bool enabled)
 bool TrustedApplicationImpl::sameSignature(const char *path)
 {
 	// return true if object at given path has same signature
-	return (mSignature.get() == calcSignature(path).get());
+    CssmAutoData otherSignature(CssmAllocator::standard());
+    calcSignature(path, otherSignature);
+	return (mSignature.get() == otherSignature);
 }
 
-CssmAutoData TrustedApplicationImpl::calcSignature(const char *path)
+void TrustedApplicationImpl::calcSignature(const char *path, CssmOwnedData &signature)
 {
 	// generate a signature for the given object
-	auto_ptr<CodeSigning::OSXCode> objToVerify(CodeSigning::OSXCode::at(path));
+    RefPointer<CodeSigning::OSXCode> objToVerify(CodeSigning::OSXCode::at(path));
 	CodeSigning::OSXSigner signer;
-	auto_ptr<CodeSigning::OSXSigner::OSXSignature> signature(signer.sign(*objToVerify));
-
-	return CssmAutoData(CssmAllocator::standard(), signature->data(), signature->length());
+    auto_ptr<CodeSigning::OSXSigner::OSXSignature> osxSignature(signer.sign(*objToVerify));
+    signature.copy(osxSignature->data(), osxSignature->length());
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +112,7 @@ RefPointer<TrustedApplicationImpl>(new TrustedApplicationImpl(signature, comment
 // ---------------------------------------------------------------------------
 
 KeychainACL::KeychainACL(const Key &key) :
-    mLabel(CssmAllocator::standard())
+    mLabel(CssmAllocator::standard()), mSelector(CssmAllocator::standard())
 {
     mKey = key;
 	initialize();
@@ -119,9 +122,13 @@ void KeychainACL::initialize()
 {
 	mAnyAllow=false;
 	mAlwaysAskUser=false;
+	
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR defaultSelector 
+		= { CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION, 0 };
+	mSelector.copy(&defaultSelector, sizeof(defaultSelector));
 
 	AutoAclEntryInfoList aclInfos;
-	mKey->getAcl(NULL, aclInfos);
+	mKey->getAcl(aclInfos);
 	mHandle = CSSM_INVALID_HANDLE;
 	const AclEntryInfo *theInfo = NULL;
 	for(uint32 entry=0; entry<aclInfos.size(); entry++)
@@ -162,9 +169,9 @@ void KeychainACL::initialize()
 
 		case CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT:
 			mAlwaysAskUser=true;
-			element = element->next();
-			assert(element && element->type() == CSSM_LIST_ELEMENT_DATUM && element->next() == NULL);
-			mLabel = element->data();
+			assert(subject.length() == 3);
+			mSelector = subject[1].data();
+			mLabel = subject[2].data();
 			return;
 		
 		case CSSM_ACL_SUBJECT_TYPE_THRESHOLD:
@@ -208,9 +215,9 @@ void KeychainACL::initialize()
 			// Must be last subList in list.
 			assert(ix == n - 1);
 			mAlwaysAskUser=true;
-			subElement = subElement->next();
-			assert(subElement && subElement->type() == CSSM_LIST_ELEMENT_DATUM && subElement->next() == NULL);
-			mLabel = subElement->data();
+			assert(subList.length() == 3);
+			mSelector = subList[1].data();
+			mLabel = subList[2].data();
 			break;
 
 
@@ -253,7 +260,8 @@ void KeychainACL::commit()
 {
 	TrackingAllocator allocator(CssmAllocator::standard());
 
-	KeychainAclFactory aclFactory(allocator);
+        // hhs replaced with new aclFactory
+	AclFactory aclFactory;
 
 	CssmList &list = *new(allocator) CssmList();
 
@@ -285,6 +293,7 @@ void KeychainACL::commit()
 	{
 		CssmList &sublist = *new(allocator) CssmList();
 		sublist.append(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT));
+		sublist.append(new(allocator) ListElement(mSelector.get()));
 		sublist.append(new(allocator) ListElement(mLabel.get()));
 		list.append(new(allocator) ListElement(sublist));	
 	}
@@ -295,9 +304,9 @@ void KeychainACL::commit()
 	CSSM_ACL_AUTHORIZATION_TAG decryptTag = CSSM_ACL_AUTHORIZATION_DECRYPT;
 	anyDecryptAuthGroup.NumberOfAuthTags = 1;
 	anyDecryptAuthGroup.AuthTags = &decryptTag;
-	const AccessCredentials *promptCred = aclFactory.keychainPromptCredentials();
+	const AccessCredentials *promptCred = aclFactory.promptCred ();
 	AclEdit edit(mHandle, aclEntry);
-	mKey->changeAcl(promptCred, edit);
+	mKey->changeAcl(edit, promptCred);
 }
 
 void KeychainACL::anyAllow(bool allow)

@@ -1,0 +1,129 @@
+\section{\module{readline} ---
+         GNU readline interface}
+
+\declaremodule{builtin}{readline}
+  \platform{Unix}
+\sectionauthor{Skip Montanaro}{skip@mojam.com}
+\modulesynopsis{GNU readline support for Python.}
+
+
+The \module{readline} module defines a number of functions used either
+directly or from the \refmodule{rlcompleter} module to facilitate
+completion and history file read and write from the Python
+interpreter.
+
+The \module{readline} module defines the following functions:
+
+
+\begin{funcdesc}{parse_and_bind}{string}
+Parse and execute single line of a readline init file.
+\end{funcdesc}
+
+\begin{funcdesc}{get_line_buffer}{}
+Return the current contents of the line buffer.
+\end{funcdesc}
+
+\begin{funcdesc}{insert_text}{string}
+Insert text into the command line.
+\end{funcdesc}
+
+\begin{funcdesc}{read_init_file}{\optional{filename}}
+Parse a readline initialization file.
+The default filename is the last filename used.
+\end{funcdesc}
+
+\begin{funcdesc}{read_history_file}{\optional{filename}}
+Load a readline history file.
+The default filename is \file{\~{}/.history}.
+\end{funcdesc}
+
+\begin{funcdesc}{write_history_file}{\optional{filename}}
+Save a readline history file.
+The default filename is \file{\~{}/.history}.
+\end{funcdesc}
+
+\begin{funcdesc}{get_history_length}{}
+Return the desired length of the history file.  Negative values imply
+unlimited history file size.
+\end{funcdesc}
+
+\begin{funcdesc}{set_history_length}{length}
+Set the number of lines to save in the history file.
+\function{write_history_file()} uses this value to truncate the
+history file when saving.  Negative values imply unlimited history
+file size.
+\end{funcdesc}
+
+\begin{funcdesc}{set_startup_hook}{\optional{function}}
+Set or remove the startup_hook function.  If \var{function} is specified,
+it will be used as the new startup_hook function; if omitted or
+\code{None}, any hook function already installed is removed.  The
+startup_hook function is called with no arguments just
+before readline prints the first prompt.
+\end{funcdesc}
+
+\begin{funcdesc}{set_pre_input_hook}{\optional{function}}
+Set or remove the pre_input_hook function.  If \var{function} is specified,
+it will be used as the new pre_input_hook function; if omitted or
+\code{None}, any hook function already installed is removed.  The
+pre_input_hook function is called with no arguments after the first prompt
+has been printed and just before readline starts reading input characters.
+\end{funcdesc}
+
+\begin{funcdesc}{set_completer}{\optional{function}}
+Set or remove the completer function.  If \var{function} is specified,
+it will be used as the new completer function; if omitted or
+\code{None}, any completer function already installed is removed.  The
+completer function is called as \code{\var{function}(\var{text},
+\var{state})}, for \var{state} in \code{0}, \code{1}, \code{2}, ...,
+until it returns a non-string value.  It should return the next
+possible completion starting with \var{text}.
+\end{funcdesc}
+
+\begin{funcdesc}{get_begidx}{}
+Get the beginning index of the readline tab-completion scope.
+\end{funcdesc}
+
+\begin{funcdesc}{get_endidx}{}
+Get the ending index of the readline tab-completion scope.
+\end{funcdesc}
+
+\begin{funcdesc}{set_completer_delims}{string}
+Set the readline word delimiters for tab-completion.
+\end{funcdesc}
+
+\begin{funcdesc}{get_completer_delims}{}
+Get the readline word delimiters for tab-completion.
+\end{funcdesc}
+
+\begin{funcdesc}{add_history}{line}
+Append a line to the history buffer, as if it was the last line typed.
+\end{funcdesc}
+
+
+\begin{seealso}
+  \seemodule{rlcompleter}{Completion of Python identifiers at the
+                          interactive prompt.}
+\end{seealso}
+
+
+\subsection{Example \label{readline-example}}
+
+The following example demonstrates how to use the
+\module{readline} module's history reading and writing functions to
+automatically load and save a history file named \file{.pyhist} from
+the user's home directory.  The code below would normally be executed
+automatically during interactive sessions from the user's
+\envvar{PYTHONSTARTUP} file.
+
+\begin{verbatim}
+import os
+histfile = os.path.join(os.environ["HOME"], ".pyhist")
+try:
+    readline.read_history_file(histfile)
+except IOError:
+    pass
+import atexit
+atexit.register(readline.write_history_file, histfile)
+del os, histfile
+\end{verbatim}

@@ -21,7 +21,7 @@
 //
 #include "securityserver.h"
 #include "server.h"
-#include <MacYarrow/yarrowseed.h>
+#include "entropy.h"
 
 #include <Security/daemon.h>
 #include <Security/osxsigner.h>
@@ -38,6 +38,7 @@
 // ACL subject types (their makers are instantiated here)
 #include <Security/acl_any.h>
 #include <Security/acl_password.h>
+#include <Security/acl_protectedpw.h>
 #include <Security/acl_threshold.h>
 #include <Security/acl_codesigning.h>
 #include <Security/acl_comment.h>
@@ -70,16 +71,18 @@ int main(int argc, char *argv[])
 {
 	// program arguments (preset to defaults)
 	bool forceCssmInit = false;
+	bool reExecute = false;
 	int workerTimeout = 0;
 	int maxThreads = 0;
 	const char *authorizationConfig = "/etc/authorization";
 	const char *bootstrapName = "SecurityServer";
+    const char *entropyFile = "/var/db/SystemEntropyCache";
 
 	// parse command line arguments
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:dfN:t:T:")) != -1) {
+	while ((arg = getopt(argc, argv, "a:dEfN:t:T:X")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
@@ -87,6 +90,9 @@ int main(int argc, char *argv[])
 		case 'd':
 			debugMode++;
 			break;
+        case 'E':
+            entropyFile = optarg;
+            break;
         case 'f':
             forceCssmInit = true;
             break;
@@ -101,6 +107,9 @@ int main(int argc, char *argv[])
 			if ((workerTimeout = atoi(optarg)) < 0)
 				workerTimeout = 0;
 			break;
+		case 'X':
+			reExecute = true;
+			break;
 		default:
 			usage(argv[0]);
 		}
@@ -110,7 +119,7 @@ int main(int argc, char *argv[])
 	if (optind < argc)
 		usage(argv[0]);
 		
-	// configure logging
+	// configure logging first
 	if (debugMode) {
 		Syslog::open(argv[0], LOG_AUTHPRIV, LOG_PERROR);
 		Syslog::notice("SecurityServer started in debug mode");
@@ -122,17 +131,23 @@ int main(int argc, char *argv[])
     // in debug mode, issue a warning
     if (uid_t uid = getuid()) {
 #if defined(NDEBUG)
-        Syslog::alert("Unprivileged SecurityServer aborted (uid=%d)", uid);
+        Syslog::alert("Tried to run SecurityServer as user %d: aborted", uid);
         fprintf(stderr, "You are not allowed to run SecurityServer\n");
         exit(1);
 #else
-        debug("SS", "Running unprivileged (uid=%d); some features may not work", uid);
+        fprintf(stderr, "SecurityServer is unprivileged; some features may not work.\n");
+        debug("SS", "Running as user %d (you have been warned)", uid);
 #endif //NDEBUG
     }
     
     // turn into a properly diabolical daemon unless debugMode is on
-    if (!debugMode && !Daemon::incarnate())
-        exit(1);
+	if (!debugMode) {
+		if (!Daemon::incarnate())
+			exit(1);	// can't daemonize
+		
+		if (reExecute && !Daemon::executeSelf(argv))
+			exit(1);	// can't self-execute
+	}
 	
 	// create a code signing engine
 	CodeSigning::OSXSigner signer;
@@ -143,16 +158,22 @@ int main(int argc, char *argv[])
 	// establish the ACL machinery
 	new AnyAclSubject::Maker();
 	new PasswordAclSubject::Maker();
+    new ProtectedPasswordAclSubject::Maker();
 	new ThresholdAclSubject::Maker();
-    new KeychainPromptAclSubject::Maker();
     new CommentAclSubject::Maker();
     new CodeSignatureAclSubject::Maker(signer);
-    
-    // create the RootSession object
-    RootSession rootSession;
+    new KeychainPromptAclSubject::Maker();
+	
+	// add a temporary registration for a subject type that went out in 10.2 seed 1
+	// this should probably be removed for the next major release >10.2
+	new KeychainPromptAclSubject::Maker(CSSM_WORDID__RESERVED_1);
 	
     // create the main server object and register it
  	Server server(authority, bootstrapName);
+    
+    // create the RootSession object (if -d, give it graphics and tty attributes)
+    RootSession rootSession(server.primaryServicePort(),
+		debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0);
 
     // set server configuration from arguments, if specified
 	if (workerTimeout)
@@ -161,7 +182,11 @@ int main(int argc, char *argv[])
 		server.maxThreads(maxThreads);
     
 	// add the RNG seed timer to it
-    YarrowTimer yarrow(server);
+# if defined(NDEBUG)
+    EntropyManager entropy(server, entropyFile);
+# else
+    if (!getuid()) new EntropyManager(server, entropyFile);
+# endif
         
     // set up signal handlers
     if (signal(SIGCHLD, handleSIGCHLD) == SIG_ERR)
@@ -224,9 +249,11 @@ static void handleSIGOther(int sig)
     switch (sig) {
     case SIGINT:
         debug("SS", "Interrupt signal; terminating");
+        Syslog::notice("received interrupt signal; terminating");
         exit(0);
     case SIGTERM:
         debug("SS", "Termination signal; terminating");
+        Syslog::notice("received termination signal; terminating");
         exit(0);
     }
 }

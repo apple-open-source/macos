@@ -1,3 +1,5 @@
+#ifndef _S_INTERFACES_H
+#define _S_INTERFACES_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -30,22 +32,21 @@
  * - initial version
  */
 
-#import <sys/socket.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <netinet/bootp.h>
-#import <net/if_arp.h>
-#import <netinet/if_ether.h>
-#import <net/if_dl.h>
-#import <net/if_types.h>
-#import <mach/boolean.h>
-#import <sys/param.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <net/if_arp.h>
+#include <netinet/if_ether.h>
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <mach/boolean.h>
+#include <sys/param.h>
 
 
-#import "dynarray.h"
+#include "dynarray.h"
 
 #define INDEX_BAD	((int)(-1))
 
@@ -106,7 +107,8 @@ int			ifl_index(interface_list_t * list_p,
  * Purpose:
  *   Interface-specific routines.
  */
-interface_t *		if_dup(interface_t * intface);
+interface_t *		if_dup(interface_t * intface); /* dup an entry */
+void			if_free(interface_t * * if_p_p); /* free dup'd entry */
 char *			if_name(interface_t * if_p);
 short			if_flags(interface_t * if_p);
 void			if_setflags(interface_t * if_p, short flags);
@@ -144,3 +146,4 @@ dl_to_arp_hwtype(int dltype)
     }
     return (type);
 }
+#endif _S_INTERFACES_H

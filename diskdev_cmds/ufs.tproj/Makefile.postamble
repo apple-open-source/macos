@@ -99,6 +99,10 @@
 # derived files should go.
 #
 
+after_install:
+	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man8
+	install -m 644 -o root -g wheel -c ufs.util.8 $(DSTROOT)/usr/share/man/man8
+
 buildContentsDir:
 	mkdir -p $(DSTROOT)$(INSTALLDIR)/Contents/Resources/English.lproj
 	cp -pr Info.plist $(DSTROOT)$(INSTALLDIR)/Contents

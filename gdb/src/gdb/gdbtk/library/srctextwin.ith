@@ -1,5 +1,5 @@
-# SrcTextWin class definition, for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# SrcTextWin class definition, for Insight
+# Copyright 1997, 1998, 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -13,7 +13,7 @@
 
 
 class SrcTextWin {
-  inherit itk::Widget
+  inherit itk::Widget GDBWin
 
   public {
     variable Tracing	;# 1 if we are running in trace mode
@@ -61,6 +61,7 @@ class SrcTextWin {
     method jump_to_here {{win {}} {y -1} {threads -1}}
     method set_bp_at_line {{type N} {win {}} {y -1} {threads "-1"}}
     method remove_bp_at_line {{win {}} {y -1}}
+    method enable_disable_at_line {action}
     method set_tp_at_line {{win {}} {y -1}}
     method next_hit_at_line {{win {}} {y -1}}
     method remove_tp_at_line {{win {}} {y -1}}
@@ -86,11 +87,15 @@ class SrcTextWin {
     method do_thread_bp {listbox}
     method test_get {var}
     method clear_file {}
+    method get_file {}
+    method set_tag_to_stack {}
+
+    # GDB Events
+    method breakpoint {event}
+    method tracepoint {event}
+    method set_variable {event}
   }
 
-  protected {
-    method handle_set_hook {var val}
-  }
   private {
     variable top	;# toplevel window
     variable twin	;# top text window of pane
@@ -128,7 +133,7 @@ class SrcTextWin {
     method _mtime_changed {filename}
     method _initialize_srctextwin {}
     method _clear_cache {}
-    method _highlightAsmLine {win addr pc_addr tagname} {}
+    method _highlightAsmLine {win addr pc_addr tagname filename funcname} {}
 
     proc makeBreakDot {size colorList {image {}}}
   }

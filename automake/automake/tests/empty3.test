@@ -1,0 +1,18 @@
+#! /bin/sh
+
+# A test for missing _SOURCES variable.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = pavel
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'pavel\.[co]' Makefile.in

@@ -53,8 +53,14 @@
 // 
 // 
 // 
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-any.cpp,v 1.3 2001/06/27 23:09:14 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-any.cpp,v 1.4 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-any.cpp,v $
+// Revision 1.4  2002/03/21 05:38:44  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.3.44.1  2002/03/20 00:36:48  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.3  2001/06/27 23:09:14  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -273,13 +279,21 @@ void
 AsnAny::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
 {
     if (ai == NULL)
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-81);
+		#else
         longjmp (env, -81);
-
+		#endif
+		
 	// XXX This is wrong.
     value = static_cast<CSM_Buffer *>(ai->typeToClone->Clone());
 
     if (value == NULL)
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-82);
+		#else
         longjmp (env, -82);
+		#endif
     else
         value->BDec (b, bytesDecoded, env);
 }

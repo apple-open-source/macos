@@ -28,6 +28,63 @@ OSDefineMetaClassAndStructors(IOCDMediaBSDClient, IOMediaBSDClient)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+{
+    UInt32 index;
+
+    for ( index = 0; index < sizeof(reserved) * 8; index++, reserved >>= 1 )
+    {
+        if ( (reserved & 1) )
+        {
+            if ( data[index] )  return true;
+        }
+    }
+
+    return false;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( void *      address,
+                                                  UInt32      length,
+                                                  IODirection direction )
+{
+    IOMemoryDescriptor * buffer = 0;
+
+    if ( address && length )
+    {
+        buffer = IOMemoryDescriptor::withAddress(         // (create the buffer)
+                                /* address   */ (vm_address_t) address,
+                                /* length    */                length,
+                                /* direction */                direction,
+                                /* task      */                current_task() );
+    }
+
+    if ( buffer )
+    {
+        if ( buffer->prepare() != kIOReturnSuccess )     // (prepare the buffer)
+        {
+            buffer->release();
+            buffer = 0;
+        }
+    }
+
+    return buffer;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void DKIOC_COMPLETE_BUFFER(IOMemoryDescriptor * buffer)
+{
+    if ( buffer )
+    {
+        buffer->complete();                             // (complete the buffer)
+        buffer->release();                               // (release the buffer)
+    }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 IOCDMedia * IOCDMediaBSDClient::getProvider() const
 {
     //
@@ -51,49 +108,23 @@ int IOCDMediaBSDClient::ioctl( dev_t         dev,
     // Process a CD-specific ioctl.
     //
 
-    int error = 0;
+    IOMemoryDescriptor * buffer = 0;
+    int                  error  = 0;
+    IOReturn             status = kIOReturnSuccess;
 
     switch ( cmd )
     {
-        case DKIOCCDREAD:                             // readCD(dk_cd_read_t *);
+        case DKIOCCDREAD:                              // readCD(dk_cd_read_t *)
         {
-            UInt64               actualByteCount = 0;
-            IOMemoryDescriptor * buffer          = 0;
-            dk_cd_read_t *       request         = (dk_cd_read_t *)data;
-            IOReturn             status          = kIOReturnSuccess;
+            UInt64         actualByteCount = 0;
+            dk_cd_read_t * request         = (dk_cd_read_t *) data;
 
-            if ( request->reserved0080[0] ||
-                 request->reserved0080[1] ||
-                 request->reserved0080[2] ||
-                 request->reserved0080[3] ||
-                 request->reserved0080[4] ||
-                 request->reserved0080[5] )
-            {
-                error = EINVAL;
-                break;
-            }
+            if ( DKIOC_IS_RESERVED(data, 0xFC00) )  { error = EINVAL;  break; }
 
-            if ( request->buffer && request->bufferLength )
-            {
-                buffer = IOMemoryDescriptor::withAddress( 
-                           /* address   */ (vm_address_t) request->buffer,
-                           /* length    */                request->bufferLength,
-                           /* direction */                kIODirectionIn,
-                           /* task      */                current_task() );
-
-                if ( buffer == 0 )                               // (no buffer?)
-                {
-                    error = ENOMEM;
-                    break;
-                }
-
-                if ( buffer->prepare() != kIOReturnSuccess ) // (prepare buffer)
-                {
-                    buffer->release();
-                    error = EFAULT;           // (wiring or permissions failure)
-                    break;
-                }
-            }
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
 
             status = getProvider()->readCD(
                        /* client          */                this,
@@ -103,67 +134,113 @@ int IOCDMediaBSDClient::ioctl( dev_t         dev,
                        /* sectorType      */ (CDSectorType) request->sectorType,
                        /* actualByteCount */                &actualByteCount );
 
-            error = getProvider()->errnoFromReturn(status);
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 
             request->bufferLength = (UInt32) actualByteCount;
 
-            if ( buffer )
-            {
-                buffer->complete();                     // (complete the buffer)
-                buffer->release();         // (release our retain on the buffer)
-            }
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
-        case DKIOCCDREADISRC:                  // readISRC(dk_cd_read_isrc_t *);
+        case DKIOCCDREADISRC:                   // readISRC(dk_cd_read_isrc_t *)
         {
-            dk_cd_read_isrc_t * request = (dk_cd_read_isrc_t *)data;
-            IOReturn            status  = kIOReturnSuccess;
+            dk_cd_read_isrc_t * request = (dk_cd_read_isrc_t *) data;
 
-            if ( request->reserved0112[0] ||
-                 request->reserved0112[1] )
-            {
-                error = EINVAL;
-                break;
-            }
+            if ( DKIOC_IS_RESERVED(data, 0xC000) )  { error = EINVAL;  break; }
 
             status = getProvider()->readISRC(request->track, request->isrc);
-            error  = getProvider()->errnoFromReturn(status);
 
         } break;
 
-        case DKIOCCDREADMCN:                     // readMCN(dk_cd_read_mcn_t *);
+        case DKIOCCDREADMCN:                      // readMCN(dk_cd_read_mcn_t *)
         {
-            dk_cd_read_mcn_t * request = (dk_cd_read_mcn_t *)data;
-            IOReturn           status  = kIOReturnSuccess;
+            dk_cd_read_mcn_t * request = (dk_cd_read_mcn_t *) data;
 
-            if ( request->reserved0112[0] ||
-                 request->reserved0112[1] )
-            {
-                error = EINVAL;
-                break;
-            }
+            if ( DKIOC_IS_RESERVED(data, 0xC000) )  { error = EINVAL;  break; }
 
             status = getProvider()->readMCN(request->mcn);
-            error  = getProvider()->errnoFromReturn(status);
 
         } break;
 
-        case DKIOCCDGETSPEED:                          // getSpeed(u_int16_t *);
+        case DKIOCCDGETSPEED:                           // getSpeed(u_int16_t *)
         {
-            IOReturn status;
-
             status = getProvider()->getSpeed((u_int16_t *)data);
-            error  = getProvider()->errnoFromReturn(status);
 
         } break;
 
-        case DKIOCCDSETSPEED:                          // setSpeed(u_int16_t *);
+        case DKIOCCDSETSPEED:                           // setSpeed(u_int16_t *)
         {
-            IOReturn status;
-
             status = getProvider()->setSpeed(*(u_int16_t *)data);
-            error  = getProvider()->errnoFromReturn(status);
+
+        } break;
+
+        case DKIOCCDREADTOC:                     // readTOC(dk_cd_read_toc_t *);
+        {
+            dk_cd_read_toc_t * request = (dk_cd_read_toc_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x037C) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
+
+            status = getProvider()->readTOC(
+                       /* buffer          */ buffer,
+                       /* format          */ request->format,
+                       /* formatAsTime    */ request->formatAsTime,
+                       /* address         */ request->address.session,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREADDISCINFO:      // readDiscInfo(dk_cd_read_disc_info_t *)
+        {
+            dk_cd_read_disc_info_t * request = (dk_cd_read_disc_info_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x03FF) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
+
+            status = getProvider()->readDiscInfo(
+                       /* buffer          */ buffer,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREADTRACKINFO:   // readTrackInfo(dk_cd_read_track_info_t *)
+        {
+            dk_cd_read_track_info_t * request;
+
+            request = (dk_cd_read_track_info_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x020F) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
+
+            status = getProvider()->readTrackInfo(
+                       /* buffer          */ buffer,
+                       /* address         */ request->address,
+                       /* addressType     */ request->addressType,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
@@ -178,7 +255,7 @@ int IOCDMediaBSDClient::ioctl( dev_t         dev,
         } break;
     }
 
-    return error;                                       // (return error status)
+    return error ? error : getProvider()->errnoFromReturn(status);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

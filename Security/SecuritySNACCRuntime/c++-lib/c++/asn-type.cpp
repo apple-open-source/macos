@@ -48,8 +48,14 @@
 //
 // MS 92
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-type.cpp,v 1.2 2001/06/27 23:09:15 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-type.cpp,v 1.3 2002/03/21 05:38:45 dmitch Exp $
 // $Log: asn-type.cpp,v $
+// Revision 1.3  2002/03/21 05:38:45  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.2.44.1  2002/03/20 00:36:50  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.2  2001/06/27 23:09:15  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -133,7 +139,11 @@ AsnType	 *AsnType::Copy() const
 void AsnType::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
 {
   Asn1Error << "ERROR - Attempt to decode an improperly formed ANY type (programming error)." << endl;
-  longjmp (env, -80);
+ #if SNACC_EXCEPTION_ENABLE
+ SnaccExcep::throwMe(-80);
+ #else
+ longjmp (env, -80);
+ #endif
 }
 
 AsnLen AsnType::BEnc (BUF_TYPE b)

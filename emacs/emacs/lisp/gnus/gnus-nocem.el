@@ -1,5 +1,6 @@
 ;;; gnus-nocem.el --- NoCeM pseudo-cancellation treatment
-;; Copyright (C) 1995,96,97,98 Free Software Foundation, Inc.
+
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -27,8 +28,6 @@
 
 (eval-when-compile (require 'cl))
 
-(eval-when-compile (require 'cl))
-
 (require 'gnus)
 (require 'nnmail)
 (require 'gnus-art)
@@ -47,16 +46,17 @@
   :type '(repeat (string :tag "Group")))
 
 (defcustom gnus-nocem-issuers
-  '("AutoMoose-1" "Automoose-1"		; CancelMoose[tm]
-    "rbraver@ohww.norman.ok.us"		; Robert Braver
-    "clewis@ferret.ocunix.on.ca"	; Chris Lewis
-    "jem@xpat.com"			; Despammer from Korea
-    "snowhare@xmission.com"		; Benjamin "Snowhare" Franz
-    "red@redpoll.mrfs.oh.us (Richard E. Depew)" ; ARMM! ARMM!
-    )
+  '("AutoMoose-1"			; CancelMoose[tm]
+    "clewis@ferret.ocunix"		; Chris Lewis
+    "cosmo.roadkill"
+    "SpamHippo"
+    "hweede@snafu.de")
   "*List of NoCeM issuers to pay attention to.
 
-This can also be a list of `(ISSUER CONDITIONS)' elements."
+This can also be a list of `(ISSUER CONDITION ...)' elements.
+
+See <URL:http://www.xs4all.nl/~rosalind/nocemreg/nocemreg.html> for an
+issuer registry."
   :group 'gnus-nocem
   :type '(repeat (choice string sexp)))
 
@@ -84,6 +84,21 @@ isn't bound, the message will be used unconditionally."
 Otherwise don't fetch messages which have references or whose message-id
 matches an previously scanned and verified nocem message."
   :group 'gnus-nocem
+  :type 'boolean)
+
+(defcustom gnus-nocem-check-article-limit 500
+  "*If non-nil, the maximum number of articles to check in any NoCeM group."
+  :group 'gnus-nocem
+  :version "21.1"
+  :type '(choice (const :tag "unlimited" nil)
+		 (integer 1000)))
+
+(defcustom gnus-nocem-check-from t
+  "Non-nil means check for valid issuers in message bodies.
+Otherwise don't bother fetching articles unless their author matches a
+valid issuer, which is much faster if you are selective about the issuers."
+  :group 'gnus-nocem
+  :version "21.1"
   :type 'boolean)
 
 ;;; Internal variables
@@ -123,7 +138,7 @@ matches an previously scanned and verified nocem message."
   (interactive)
   (let ((groups gnus-nocem-groups)
 	(gnus-inhibit-demon t)
-	group active gactive articles)
+	group active gactive articles check-headers)
     (gnus-make-directory gnus-nocem-directory)
     ;; Load any previous NoCeM headers.
     (gnus-nocem-load-cache)
@@ -148,7 +163,7 @@ matches an previously scanned and verified nocem message."
 	  (save-excursion
 	    (let ((dependencies (make-vector 10 nil))
 		  headers header)
-	      (nnheader-temp-write nil
+	      (with-temp-buffer
 		(setq headers
 		      (if (eq 'nov
 			      (gnus-retrieve-headers
@@ -169,13 +184,34 @@ matches an previously scanned and verified nocem message."
 		  ;; are not allowed to have references, so we can
 		  ;; ignore scanning followups.
 		  (and (string-match "@@NCM" (mail-header-subject header))
+		       (and gnus-nocem-check-from
+			    (let ((case-fold-search t))
+			      (catch 'ok
+				(mapcar
+				 (lambda (author)
+				   (if (consp author)
+				       (setq author (car author)))
+				   (if (string-match
+					author (mail-header-from header))
+				       (throw 'ok t)))
+				 gnus-nocem-issuers)
+				nil)))
 		       (or gnus-nocem-liberal-fetch
 			   (and (or (string= "" (mail-header-references
 						 header))
 				    (null (mail-header-references header)))
 				(not (member (mail-header-message-id header)
 					     gnus-nocem-seen-message-ids))))
-		       (gnus-nocem-check-article group header)))))))
+		       (push header check-headers)))
+		(let* ((i 0)
+		       (check-headers
+			(last check-headers gnus-nocem-check-article-limit))
+		       (len (length check-headers)))
+		  (dolist (h check-headers)
+		    (gnus-message
+		     7 "Checking article %d in %s for NoCeM (%d of %d)..."
+		     (mail-header-number h) group (incf i) len)
+		    (gnus-nocem-check-article group h)))))))
 	(setq gnus-nocem-active
 	      (cons (list group gactive)
 		    (delq (assoc group gnus-nocem-active)
@@ -187,14 +223,13 @@ matches an previously scanned and verified nocem message."
 (defun gnus-nocem-check-article (group header)
   "Check whether the current article is an NCM article and that we want it."
   ;; Get the article.
-  (gnus-message 7 "Checking article %d in %s for NoCeM..."
-		(mail-header-number header) group)
   (let ((date (mail-header-date header))
+	(gnus-newsgroup-name group)
 	issuer b e type)
     (when (or (not date)
-	      (nnmail-time-less
-	       (nnmail-time-since (nnmail-date-to-time date))
-	       (nnmail-days-to-time gnus-nocem-expiry-wait)))
+	      (time-less-p
+	       (time-since (date-to-time date))
+	       (days-to-time gnus-nocem-expiry-wait)))
       (gnus-request-article-this-buffer (mail-header-number header) group)
       (goto-char (point-min))
       (when (re-search-forward "-----BEGIN PGP MESSAGE-----" nil t)
@@ -273,7 +308,7 @@ matches an previously scanned and verified nocem message."
 			      gnus-nocem-real-group-hashtb)
 	    ;; Valid group.
 	    (beginning-of-line)
-	    (while (= (following-char) ?\t)
+	    (while (eq (char-after) ?\t)
 	      (forward-line -1))
 	    (setq id (buffer-substring (point) (1- (search-forward "\t"))))
 	    (unless (gnus-gethash id gnus-nocem-hashtb)
@@ -281,7 +316,7 @@ matches an previously scanned and verified nocem message."
 	      (gnus-sethash id t gnus-nocem-hashtb)
 	      (push id ncm))
 	    (forward-line 1)
-	    (while (= (following-char) ?\t)
+	    (while (eq (char-after) ?\t)
 	      (forward-line 1))))))
       (when ncm
 	(setq gnus-nocem-touched-alist t)
@@ -304,13 +339,13 @@ matches an previously scanned and verified nocem message."
   "Save the NoCeM cache."
   (when (and gnus-nocem-alist
 	     gnus-nocem-touched-alist)
-    (nnheader-temp-write (gnus-nocem-cache-file)
+    (with-temp-file (gnus-nocem-cache-file)
       (gnus-prin1 `(setq gnus-nocem-alist ',gnus-nocem-alist)))
     (setq gnus-nocem-touched-alist nil)))
 
 (defun gnus-nocem-save-active ()
   "Save the NoCeM active file."
-  (nnheader-temp-write (gnus-nocem-active-file)
+  (with-temp-file (gnus-nocem-active-file)
     (gnus-prin1 `(setq gnus-nocem-active ',gnus-nocem-active))))
 
 (defun gnus-nocem-alist-to-hashtb ()
@@ -318,11 +353,11 @@ matches an previously scanned and verified nocem message."
   (let* ((alist gnus-nocem-alist)
 	 (pprev (cons nil alist))
 	 (prev pprev)
-	 (expiry (nnmail-days-to-time gnus-nocem-expiry-wait))
+	 (expiry (days-to-time gnus-nocem-expiry-wait))
 	 entry)
     (setq gnus-nocem-hashtb (gnus-make-hashtable (* (length alist) 51)))
     (while (setq entry (car alist))
-      (if (not (nnmail-time-less (nnmail-time-since (car entry)) expiry))
+      (if (not (time-less-p (time-since (car entry)) expiry))
 	  ;; This entry has expired, so we remove it.
 	  (setcdr prev (cdr alist))
 	(setq prev alist)

@@ -1,4 +1,4 @@
-;;; imenu.el --- Framework for mode-specific buffer indexes.
+;;; imenu.el --- framework for mode-specific buffer indexes
 
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
@@ -59,7 +59,7 @@
 ;;  [christian] - Christian Egli Christian.Egli@hcsd.hac.com
 ;;  [karl] - Karl Fogel kfogel@floss.life.uiuc.edu
 
-;;; Code
+;;; Code:
 
 (eval-when-compile (require 'cl))
 
@@ -114,6 +114,14 @@ Another non-nil value means always display the index in a completion buffer."
   :type '(choice (const :tag "On Mouse" nil)
 		 (const :tag "Never" never)
 		 (other :tag "Always" t))
+  :group 'imenu)
+
+(defcustom imenu-after-jump-hook nil
+  "*Hooks called after jumping to a place in the buffer.
+
+Useful things to use here include `reposition-window', `recenter', and
+\(lambda () (recenter 0)) to show at top of screen."
+  :type 'hook
   :group 'imenu)
 
 ;;;###autoload
@@ -179,8 +187,8 @@ or like this:
  (MENU-TITLE REGEXP INDEX FUNCTION ARGUMENTS...)
 with zero or more ARGUMENTS.  The former format creates a simple element in
 the index alist when it matches; the latter creates a special element
-of the form  (NAME FUNCTION POSITION-MARKER ARGUMENTS...)
-with FUNCTION and ARGUMENTS beiong copied from `imenu-generic-expression'.
+of the form  (NAME POSITION-MARKER FUNCTION ARGUMENTS...)
+with FUNCTION and ARGUMENTS copied from `imenu-generic-expression'.
 
 MENU-TITLE is a string used as the title for the submenu or nil if the
 entries are not nested.
@@ -196,13 +204,13 @@ function, variable or type) that is to appear in the menu.
 The variable is buffer-local.
 
 The variable `imenu-case-fold-search' determines whether or not the
-regexp matches are case sensitive. and `imenu-syntax-alist' can be
+regexp matches are case sensitive, and `imenu-syntax-alist' can be
 used to alter the syntax table for the search.
 
 For example, see the value of `lisp-imenu-generic-expression' used by
-`lisp-mode' and `emacs-lisp-mode' with `imenu-syntax-alist' set
-locally to give the characters which normally have \"punctuation\"
-syntax \"word\" syntax during matching.")
+`fortran-mode' with `imenu-syntax-alist' set locally to give the
+characters which normally have \"symbol\" syntax \"word\" syntax
+during matching.")
 
 ;;;###autoload
 (make-variable-buffer-local 'imenu-generic-expression)
@@ -255,6 +263,22 @@ It should return the name for that index item.
 This variable is local in all buffers.")
 ;;;###autoload
 (make-variable-buffer-local 'imenu-extract-index-name-function)
+
+;;;###autoload
+(defvar imenu-name-lookup-function nil
+  "Function to compare string with index item.
+
+This function will be called with two strings, and should return
+non-nil if they match.
+
+If nil, comparison is done with `string='.
+Set this to some other function for more advanced comparisons,
+such as \"begins with\" or \"name matches and number of
+arguments match\".
+
+This variable is local in all buffers.")
+;;;###autoload
+(make-variable-buffer-local 'imenu-name-lookup-function)
 
 ;;;###autoload
 (defvar imenu-default-goto-function 'imenu-default-goto-function
@@ -542,7 +566,8 @@ This variable is local in all buffers, once set.")
 	       ;; truncate if necessary
 	       (if (and (numberp imenu-max-item-length)
 			(> (length (car item)) imenu-max-item-length))
-		   (setcar item (substring (car item) 0 imenu-max-item-length)))))))
+		   (setcar item (substring (car item) 0
+					   imenu-max-item-length)))))))
 	  menulist))
 
 
@@ -594,42 +619,47 @@ as a way for the user to ask to recalculate the buffer's index alist."
     (setq alist imenu--index-alist imenu--cleanup-seen (list alist)))
 
   (and alist
-       (mapcar
-	(function
-	 (lambda (item)
-	   (cond
-	    ((markerp (cdr item))
-	     (set-marker (cdr item) nil))
-	    ;; Don't process one alist twice.
-	    ((memq (cdr item) imenu--cleanup-seen))
-	    ((imenu--subalist-p item)
-	     (imenu--cleanup (cdr item))))))
+       (mapc
+	(lambda (item)
+	  (cond
+	   ((markerp (cdr item))
+	    (set-marker (cdr item) nil))
+	   ;; Don't process one alist twice.
+	   ((memq (cdr item) imenu--cleanup-seen))
+	   ((imenu--subalist-p item)
+	    (imenu--cleanup (cdr item)))))
 	alist)
        t))
 
 (defun imenu--create-keymap-2 (alist counter &optional commands)
   (let ((map nil))
     (mapcar
-     (function
-      (lambda (item)
-	(cond
-	 ((imenu--subalist-p item)
-	  (append (list (setq counter (1+ counter))
-			(car item) 'keymap (car item))
-		  (imenu--create-keymap-2 (cdr item) (+ counter 10) commands)))
-	 (t
-	  (let ((end (if commands `(lambda () (interactive)
-				     (imenu--menubar-select ',item))
-		       (cons '(nil) item))))
-	    (cons (car item)
-		  (cons (car item) end)))))))
+     (lambda (item)
+       (cond
+	((imenu--subalist-p item)
+	 (nconc (list (setq counter (1+ counter))
+		      (car item) 'keymap (car item))
+		(imenu--create-keymap-2 (cdr item) (+ counter 10) commands)))
+	(t
+	 (let ((end (if commands `(lambda ()
+				    (interactive)
+				    (imenu--menubar-select ',item))
+		      (cons '(nil) item))))
+	   (cons (car item)
+		 (cons (car item) end)
+		 ;; Fixme: Using this (to speded up menus), instead of
+		 ;; the line above, breaks the case where `imenu' is
+		 ;; bound to a mouse key.  The code in imenu needs
+		 ;; fixing somehow to cope.
+		 ;; (list 'menu-item (car item) end :key-sequence nil)
+		 )))))
      alist)))
 
 ;; If COMMANDS is non-nil, make a real keymap
 ;; with a real command used as the definition.
 ;; If it is nil, make something suitable for x-popup-menu.
 (defun imenu--create-keymap-1 (title alist &optional commands)
-  (append (list 'keymap title) (imenu--create-keymap-2 alist 0 commands)))
+  (cons 'keymap (cons title (imenu--create-keymap-2 alist 0 commands))))
 
 (defun imenu--in-alist (str alist)
   "Check whether the string STR is contained in multi-level ALIST."
@@ -649,7 +679,9 @@ as a way for the user to ask to recalculate the buffer's index alist."
       (cond ((listp tail)
 	     (if (setq res (imenu--in-alist str tail))
 		 (setq alist nil)))
-	    ((string= str head)
+	    ((if imenu-name-lookup-function
+                 (funcall imenu-name-lookup-function str head)
+               (string= str head))
 	     (setq alist nil res elt))))
     res))
 
@@ -663,6 +695,7 @@ a string, all the characters in the string get the specified syntax.
 This is typically used to give word syntax to characters which
 normally have symbol syntax to simplify `imenu-expression'
 and speed-up matching.")
+;;;###autoload
 (make-variable-buffer-local 'imenu-syntax-alist)
 
 (defun imenu-default-create-index-function ()
@@ -695,18 +728,6 @@ Their results are gathered into an index alist."
 	 (imenu--generic-function imenu-generic-expression))
 	(t
 	 (error "This buffer cannot use `imenu-default-create-index-function'"))))
-
-(defun imenu--replace-spaces (name replacement)
-  ;; Replace all spaces in NAME with REPLACEMENT.
-  ;; That second argument should be a string.
-  (mapconcat
-   (function
-    (lambda (ch)
-      (if (char-equal ch ?\ )
-	  replacement
-	(char-to-string ch))))
-   name
-   ""))
 
 ;; Not used and would require cl at run time
 ;;; (defun imenu--flatten-index-alist (index-alist &optional concat-names prefix)
@@ -780,10 +801,9 @@ PATTERNS."
       ;; The character(s) to modify may be a single char or a string.
       (if (numberp (caar slist))
 	  (modify-syntax-entry (caar slist) (cdar slist) table)
-	(mapcar (function
-		 (lambda (c)
-		   (modify-syntax-entry c (cdar slist) table)))
-		(caar slist)))
+	(mapc (lambda (c)
+		(modify-syntax-entry c (cdar slist) table))
+	      (caar slist)))
       (setq slist (cdr slist)))
     (goto-char (point-max))
     (imenu-progress-message prev-pos 0 t)
@@ -792,39 +812,38 @@ PATTERNS."
 	  (set-syntax-table table)
 	  ;; map over the elements of imenu-generic-expression
 	  ;; (typically functions, variables ...)
-	  (mapcar
-	   (function
-	    (lambda (pat)
-	      (let ((menu-title (car pat))
-		    (regexp (nth 1 pat))
-		    (index (nth 2 pat))
-		    (function (nth 3 pat))
-		    (rest (nthcdr 4 pat)))
-		;; Go backwards for convenience of adding items in order.
-		(goto-char (point-max))
-		(while (re-search-backward regexp nil t)
-		  (imenu-progress-message prev-pos nil t)
-		  (setq beg (match-beginning index))
-		  ;; Add this sort of submenu only when we've found an
-		  ;; item for it, avoiding empty, duff menus.
-		  (unless (assoc menu-title index-alist)
-		    (push (list menu-title) index-alist))
-		  (if imenu-use-markers
-		      (setq beg (set-marker (make-marker) beg)))
-		  (let ((item
-			 (if function
-			     (nconc (list (match-string-no-properties index)
-					  beg function)
-				    rest)
-			   (cons (match-string-no-properties index)
-				 beg)))
-			;; This is the desired submenu,
-			;; starting with its title (or nil).
-			(menu (assoc menu-title index-alist)))
-		    ;; Insert the item unless it is already present.
-		    (unless (member item (cdr menu))
-		      (setcdr menu
-			      (cons item (cdr menu)))))))))
+	  (mapc
+	   (lambda (pat)
+	     (let ((menu-title (car pat))
+		   (regexp (nth 1 pat))
+		   (index (nth 2 pat))
+		   (function (nth 3 pat))
+		   (rest (nthcdr 4 pat)))
+	       ;; Go backwards for convenience of adding items in order.
+	       (goto-char (point-max))
+	       (while (re-search-backward regexp nil t)
+		 (imenu-progress-message prev-pos nil t)
+		 (setq beg (match-beginning index))
+		 ;; Add this sort of submenu only when we've found an
+		 ;; item for it, avoiding empty, duff menus.
+		 (unless (assoc menu-title index-alist)
+		   (push (list menu-title) index-alist))
+		 (if imenu-use-markers
+		     (setq beg (copy-marker beg)))
+		 (let ((item
+			(if function
+			    (nconc (list (match-string-no-properties index)
+					 beg function)
+				   rest)
+			  (cons (match-string-no-properties index)
+				beg)))
+		       ;; This is the desired submenu,
+		       ;; starting with its title (or nil).
+		       (menu (assoc menu-title index-alist)))
+		   ;; Insert the item unless it is already present.
+		   (unless (member item (cdr menu))
+		     (setcdr menu
+			     (cons item (cdr menu))))))))
 	   patterns)
 	  (set-syntax-table old-table)))
     (imenu-progress-message prev-pos 100 t)
@@ -855,10 +874,10 @@ Returns t for rescan and otherwise a position number."
 	choice
 	(prepared-index-alist
 	 (mapcar
-	  (function
-	   (lambda (item)
-	     (cons (imenu--replace-spaces (car item) imenu-space-replacement)
-		   (cdr item))))
+	  (lambda (item)
+	    (cons (subst-char-in-string ?\ (aref imenu-space-replacement 0)
+					(car item))
+		  (cdr item)))
 	  index-alist)))
     (cond (prompt)
 	  ((and name (imenu--in-alist name prepared-index-alist))
@@ -990,15 +1009,12 @@ See the command `imenu' for more information."
 	  imenu-generic-expression
 	  (not (eq imenu-create-index-function
 		   'imenu-default-create-index-function)))
-      (let ((newmap (make-sparse-keymap))
-	    (menu-bar (lookup-key (current-local-map) [menu-bar])))
+      (let ((newmap (make-sparse-keymap)))
+	(set-keymap-parent newmap (current-local-map))
 	(setq imenu--last-menubar-index-alist nil)
-	(define-key newmap [menu-bar]
-	  (append (make-sparse-keymap) menu-bar))
 	(define-key newmap [menu-bar index]
-	  (cons name (nconc (make-sparse-keymap "Imenu")
-			    (make-sparse-keymap))))
-	(use-local-map (append newmap (current-local-map)))
+	  `(menu-item ,name ,(make-sparse-keymap "Imenu")))
+	(use-local-map newmap)
 	(add-hook 'menu-bar-update-hook 'imenu-update-menubar))
     (error "The mode `%s' does not support Imenu" mode-name)))
 
@@ -1065,6 +1081,8 @@ for more information."
   (and index-item
        (progn
 	 (push-mark)
+	 ;; Fixme: sort this out so that we can use menu-item with
+	 ;; :key-sequence in imenu--create-keymap-2.
 	 (let* ((is-special-item (listp (cdr index-item)))
 		(function
 		 (if is-special-item
@@ -1072,7 +1090,14 @@ for more information."
 	       (position (if is-special-item
 			     (cadr index-item) (cdr index-item)))
 	       (rest (if is-special-item (cddr index-item))))
-	   (apply function (car index-item) position rest)))))
+	   (apply function (car index-item) position rest))))
+  (run-hooks 'imenu-after-jump-hook))
+
+(dolist (mess
+	 '("^No items suitable for an index found in this buffer$"
+	   "^This buffer cannot use `imenu-default-create-index-function'$"
+	   "^The mode `.*' does not support Imenu$"))
+  (add-to-list 'debug-ignored-errors mess))
 
 (provide 'imenu)
 

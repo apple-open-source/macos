@@ -27,6 +27,7 @@
 #define _MODULE_ATTACHER_H_
 
 #include <Security/cssmtype.h>
+#include "sslBuildFlags.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -39,7 +40,14 @@ extern "C" {
 extern CSSM_RETURN attachToModules(
 	CSSM_CSP_HANDLE		*cspHand,
 	CSSM_CL_HANDLE		*clHand,
-	CSSM_TP_HANDLE		*tpHand);
+	CSSM_TP_HANDLE		*tpHand
+	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
+	,
+	/* manually attach to secure CSP/DL; eventually we get this from 
+	 * SecKeychainAPI */
+	CSSM_CSP_HANDLE		*cspDlHandle
+	#endif
+	);
 
 #ifdef	__cplusplus
 }

@@ -1,0 +1,421 @@
+			The Insight Testsuite
+			---------------------
+		   Keith Seitz (keiths@cygnus.com)
+			     May 1, 2001
+
+RUNNING THE TESTSUITE
+
+The Insight testsuite is run in much the same way that gdb's testsuites
+are run. The one big difference is the environment variable GDB_DISPLAY,
+which governs what display should be used for the tests.
+
+When GDB_DISPLAY is not set in the user's environment, the Insight testsuite
+will attempt to run Xvfb, an X server with a virtual frame buffer. Using
+Xvfb, the testsuite can run without interuppting the user.
+
+When Xvfb is not available, the testsuite will mark the Insight tests
+"untested" and print out some appropriate warning to the testsuite log
+file.
+
+If GDB_DISPLAY is set in the user's environment, the testsuite will attempt
+to use this display for the tests. If this display is a desktop display,
+it is very likely that any interaction between the user and his desktop
+will interfere with the tests. Some tests warp the cursor, i.e., they
+force the mouse to move on the screen. If you don't want this to happen to
+you, put Xvfb in your path.
+
+On Cygwin systems, Xvfb is not supported. Only two choices are available in
+this environment: run the testsuites using the desktop or do not run the
+testsuite. To run the testsuite on Cygwin, just define the environment
+variable GDB_DISPLAY to anything.
+
+The examples below summarize the usage of the environment variable GDB_DISPLAY
+on unix/X-Windows hosts and Cygwin hosts. In all examples, assume that DISPLAY
+set to the local workstation's main display (:0).
+
+To run the testsuite using Xvfb -- unix only (Xvfb must be in PATH):
+$ make check
+
+To run the testsuite using a given display (either the desktop or a peviously
+started Xvfb):
+$ GDB_DISPLAY=$DISPLAY make check
+
+To run the testsuite on Cygwin:
+$ GDB_DISPLAY=foo make check
+
+
+TESTSUITE INFRASTRUCTURE
+
+The rest of this document deals with writing tests for Insight. This reading
+is only noteworthy for developers and contributors.
+
+The Insight testsuite consists of two large portions of code: code which is
+run in dejagnu and code which runs in Insight's built-in Tcl interpreter. Files
+containing dejagnu code (those files ending in ".exp" in the testsuite directory)
+are "glue code" between gdb's dejagnu testsuite and Insight's Tcl testsuite.
+
+Dejagnu testsuite files are considered "drivers" for any particular set of
+tests, since they allow dejagnu to control Insight's Tcl testsuite.
+
+
+Dejagnu Testsuite Infrastructure
+
+The dejagnu code is responsible for doing several things. Some of the more
+important responsibilities include:
+
+o Initializing the display
+o Determining if tests should be run
+o Results accounting
+o Compiling testcases in various languages
+o Repoting results to gdb's testsuite
+
+There are various functions defined to facilitate the writing of tests. These
+functions currently reside in gdb's gdb.exp (src/gdb/testsuite/lib/gdb.exp) and
+include:
+
+Pulic functions:
+proc gdbtk_initialize_display {}
+
+  gdbtk_initialize_display should be the first function called from the
+  (dejagnu) test file. It initializes the DISPLAY variable on unix systems
+  and determines (for all host systems) whether or not the testsuite should
+  run. It returns 1 if the test should run. If tests should not run, it
+  marks the test as "untested" and leaves a suitable message about why
+  the test should not run. If gdbtk_initialize_display returns zero, a test
+  should simply exit.
+
+proc gdbtk_start {test}
+
+  This function marks the start of a test and will execute Insight for
+  testing. The TEST parameter should be the file name of the Tcl test
+  file to load into Insight's Tcl interpreter. It returns a list of
+  test results suitable for passing to gdbtk_done or gdbtk_analyze_results.
+  See gdbtk_analyze_results for more information on the format of results.
+
+  gdbtk_start is responsible for communicating target startup information
+  to Insight, so that Insight's testsuite may be run on any target supported
+  by gdb. It does this by setting several environment variables just before
+  it starts Insight. These environment variables are:
+
+  OBJDIR
+    The object directory of the dejagnu testsuite (i.e.,
+    objdir/gdb/testsuite).
+  SRCDIR
+    The dejagnu source directory in which the tests are located (i.e,
+    src/gdb/testsuite)
+  SUBDIR
+    The dejagnu testsuite subdirectory for the test (i.e., gdb.gdbtk)
+  DEFS
+    The location of the testsuite definitions file (i.e.,
+    src/gdb/testsuite/gdb.gdbtk/defs)
+
+  Note that DEFS is converted to abs$lute tcl-style paths. On unix,
+  this means that DEFS would point to, for example,
+  /home/keiths/insight/src/gdb/testsuite/gdb.gdbtk/defs. On Cygwin it
+  would point to C:/cygwin/home/keiths/insight/src/gdb/testsuite/gdb.gdbtk/defs.
+  This is because of a descrepency between Cygwin's posix paths and Tcl's
+  not-quite-posix paths.
+
+proc gdbtk_analyze_results {results}
+  This function translates the list of results in RESULTS into dejagnu
+  results, reporting the number of failures, errors, passes, and expected
+  failures and passes. It currently does not deal with "untested" and other
+  test statuses from dejagnu since Insight's tcl testsuite does not
+  issue such results.
+
+  The format of the results expected by gdbtk_analyze_results is simple:
+  it is a list of {status name description msg}. "status" is the execution
+  status of one of the tcl tests run. This can be "PASS", "FAIL", "ERROR",
+  "XFAIL", or "XPASS".
+
+  "name" is the name of the test, and it is reported in all testsuite
+  results in dejagnu. This speeds location of the failing test. This
+  "name" may also be given to Insight's testsuite, telling it to
+  only run this test. See "do_tests" in Tcl Testsuite Infrastructure
+  for more information.
+
+  "description" is a textual description of the test given by "name".
+
+  "msg" is currently not used.
+
+proc gdbtk_done {{results {}}}
+  gdbtk_done takes any RESULTS and passes it gdbtk_analyze_results for
+  outputting to the dejagnu part of the testsuite. It may be called
+  without an argument, in which case it will only terminate Xvfb if it
+  was started. Tests must call gdbtk_done _once_ at the end of their
+  test drivers.
+
+Private functions:
+proc _gdbtk_export_target_info
+  This functin exports information about the target into the environment
+  so that Insight's testsuite may run programs on any supported gdb
+  target. This target information is passed into the Tcl testsuite
+  via an environment variable, TARGET_INFO, which is really a Tcl array,
+  i.e., the array is constructed in tcl and exported into the environment
+  with Tcl's "array get" command).
+
+  There are four elements to the array:
+  TARGET_INFO(init)   - (optional) A list of commands to execute in gdb
+                        to initialize the session. This usually includes
+                        setting baud rates and remote protocol options.
+  TARGET_INFO(target) - (required) The complete "target" command to connect
+                        to the given target.
+  TARGET_INFO(load)   - (optional) The complete "load" command to load an
+                        executable into a target.
+  TARGET_INFO(run)    - (required) The complete "run" command, sans arguments,
+			to start a process on the target. For remote targets,
+                        this is usually just "continue".
+  
+proc _gdbtk_xvfb_init
+  This procedure actually determines whether the an Insight test should
+  run and what DISPLAY it should use for that test. It is called by
+  gdbtk_initialize_display to do most of the dirty work.
+
+  It has a simple heuristic: If GDB_DISPLAY is not set and Xvfb is available
+  (on unix), it starts Xvfb, using the current process id as the screen number.
+  If Xvfb is not available and GDB_DISPLAY was not set, it skips the tests.
+
+proc _gdbtk_xvfb_exit
+  _gdbtk_xvfb_exit will kill any previously started Xvfb.
+
+Private globals:
+global _xvfb_spawn_id
+  This variable holds the spawn_id of any Xvfb process started
+  by the testsuite (or it is left undefined).
+
+global _using_windows
+  A global variable which indicates whether the testsuite is running
+  on cygwin. Unfortunately, as of writing, the global variable
+  tcl_platform(platform) is "unix" on Cygwin, so it is not possible
+  to rely on this for platform-dependent operations.
+
+  Instead, this variable is set by gdbtk_initialize_display. The test
+  it uses to determine if Cygwin is being used: it looks for the program
+  cygpath in the PATH. Therefore, cygpath is REQUIRED to run the testsuite
+  on Cygwin. (gdbtk_start also uses cygpath to determine Windows
+  pathnames for Cygwin.)
+
+
+Testsuite Driver Basics
+
+Given the above interfaces for connecting Insight's Tcl testsuite and
+gdb's dejagnu testsuite, the basic testsuite driver file should look
+(minimally) like this:
+
+File: mytest.exp
+1   load_lib "insight-support.exp"
+2   if {[gdbtk_initialize_display]} {
+3     # We found a display to use
+4     gdb_exit;   # Make sure any previous gdb is gone
+5     set results [gdbtk_start mytest.test]
+6
+7     # Done!
+8     gdbtk_done [split $results \n]
+9   }
+
+Line 1 loads the insight testsuite support library which contains definitions
+for all the procedures used in dejagnu to initialize and run the Insight testsuite.
+Line 2 calls gdbtk_initialize_display to ascertain whether there is a display
+to use for the test. This could use an existing display (if GDB_DISPLAY is
+set in the environment) or gdbk_initialize_display could startup an Xvfb
+for use by the testsuite.
+
+Line 4 forces any previously executing gdb to terminate.
+
+Line 5 signals the start of the test run. "mytest.test" is the name of the
+Tcl test file to execute in Insight's built-in Tcl interpreter. The output
+of gdbtk_start_test is all of the results of the Tcl test from Insight, which
+is subsequently passed to gdbk_analyze_results via gdbtk_done on Line 8.
+
+Note how nothing happens if gdbtk_initialize_display returns false.
+
+
+Tcl Testsuite Infrastructure
+
+The heart of Insight's testsuite is its Tcl testsuite. It is these tests
+which run directly in Insight's Tcl interpreter and allow test writers
+access to Insight's internals. Tcl testsuite files have the filename suffix
+".test" to distinguish them from their driver files, which end in ".exp".
+
+The design of the Insight Tcl testsuite parallels Tcl's testsuite. It has
+many powerful features, including the ability to run ANY test in a given
+Tcl test file. See the description of utility routines below for more
+information about running any set of tests from a file.
+
+The bulk of the code implementing the Tcl testsuite infrastructure in
+Insight is contained in the testsuite definitions file, "defs", located
+in src/gdb/testsuite/gdb.gdbtk. This file contains routines necessary
+to write tests for Insight.
+
+Public functions:
+proc gdbtk_read_defs {}
+  This function, located in Insight's core Tcl library, attempts to load
+  the testsuite definitions file. If it fails, it will either pop up
+  a dialog box with the error (if running interactively) or it will
+  print the error to stderr and exit (if running non-interactively).
+
+  If successful, it will return true.
+
+proc gdbtk_test_file {filename}
+  This function is used to load the file given by FILENAME into
+  Insight. It will automatically append ".exe" to any FILENAME
+  on Cygwin-hosted systems.
+
+  If successful, it will load the given file into Insight and
+  return the output of gdb's file command. It will call "error"
+  if it was succesful, therefore all calls to "gdbtk_test_file"
+  should be called using "catch".
+
+  Test authors should not use "gdb_cmd {file FILENAME}" to load
+  files into gdb unless they are testing interface code between
+  gdb and Insight.
+
+proc gdbtk_test_run {{prog_args {}}}
+  gdbtk_test_run runs the previoiusly loaded executable, passing
+  the given arguments to the inferior. Like Insight's Run button,
+  it will do whatever is necessary to get the executable running,
+  including any target initialization (setting baud rate and remote
+  protocol options), downloading the executable to the target, and
+  finally starting execution.
+
+  Test authors should NEVER use "gdb_cmd {run ARGUMENTS}" to run an
+  executable. Doing so will insure that your tests will only run on
+  a native debugger.
+
+  It returns true if successful or false otherwise. It will report
+  the error in a dialog box (if running interactively) or it will
+  print the error to stderr.
+
+proc gdbtk_test {name description script answer}
+  This is Tcl testsuite equivalent of "expect". "name" is a canonical
+  name of the test, usually of the form "shortname-major.minor". This is
+  the name that is used when running selected tests from a given file.
+  If "name" starts with an asterisk (*), it designates that the test
+  is expected to fail.
+
+  "description" is a short textual description of the test to help
+  humans understand what it does.
+
+  "script" is the actual test script to run. The result of this script
+  will be compared against "answer" to determine if the test passed
+  or failed.
+
+  It calls gdbtk_print_verbose to print out the results to the terminal
+  (if running interactively) or to the log file.
+
+proc gdbtk_test_done {}
+  gdbtk_test_done is called at the very end of all tcl tests. It is used
+  to exit Insight and return control back to the dejagnu driver which
+  started the tests.
+  
+proc gdbtk_dotests {file args}
+  Obsolete.
+
+proc do_test {{file {}} {verbose {}} {tests {}}}
+  This procedure is used to invoke the Insight test(s) given in FILE
+  which match the regular expression(s) in TESTS. This is invoked
+  from Insight's console window to run tests interactively.
+
+  VERBOSE sets the verbosity of the test run. When set to one,
+  the testsuite will report all results in human readable form.
+  When set  greater than one, it will print out results as a list,
+  i.e., for passing to gdbtk_analyze_results. If zero, it will only
+  print errors and failures in human readable form.
+
+Public global variables:
+objdir   - The objdir from dejagnu. See gdbtk_start for more information.
+srcdir   - The srcdir from dejagnu. See gdbtk_start for more information.
+test_ran - Indicates whether the last test ran or not. See example below.
+
+Private functions:
+proc gdbtk_test_error {desc}
+  An internal function used to report a framework error in the testsuite.
+  "desc" is a description of the error. It calls gdbtk_test_done.
+
+proc gdbtk_print_verbose {status name description script code answer}
+  A helper procedure to gdbtk_test which prints out results to the terminal
+  or the logfile (or both or none).
+
+Private global variables:
+_test - An array used by the testsuite internals.
+
+
+Tcl Test Basics
+
+Armed with the basic interface described above, it is possible to test Insight's
+GUI. Please do not write tests which attempt to imitate a user (moving the
+mouse and clicking buttons), unless there is no other way to test the functionality.
+
+The basic test file (with one test) looks like this (nonsensical one):
+File: mytest.test
+1  if {![gdbtk_read_defs]} {
+2    break
+3  }
+4  
+5  global objdir test_ran
+6  set program [file join $objdir mytest]
+7  if {[catch {gdbtk_test_file $program} t]} {
+8    gdbtk_test_error "loading \"$program\": $t"
+9  }
+10 if {![gdbtk_test_run]} { exit 1 }
+11
+12 global foo
+13 set foo 1
+14
+15 # Test:  mytest-1.1
+16 # Desc:  check if a source window was created
+17 gdbtk_test mytest-1.1 {source window created} {
+18   set window [ManagedWin::find SrcWin]
+19   llength $window
+20   set foo 13
+21 } {1}
+22
+23 if {$test_ran} {
+24   set foo 1
+25 }
+26
+27 # Done
+28 gdbtk_test_done
+
+Line 1 calls the Inisght function gdbtk_read_defs to read in the testsuite
+definitions file.
+
+Line 6 then specifies the name of a file (mytest) in the object directory
+which is loaded into gdb on Line 7. If loading the file into Insight
+failed, gdbtk_test_error is called to publish the error (and terminate the
+test run for this file).
+
+Line 10 runs the executable on the target, and exits if it was unable
+to do so.
+
+Line 13 simply sets a global variable foo to illustrate the purpose
+of the global "test_ran". Before the test "mytest-1.1" runs, foo is set to
+one. In order to support running specific tests, the state of the debugger
+cannot be altered INSIDE gdbtk_test scripts, since the contents of the
+script may not be run if the user requested only a specific test to run.
+
+Line 20 in the middle of the test modifies the global foo. If subsequent
+test relied on foo being one, we would have a state violation, since
+mytest-1.1 may have (or may have not) run.
+
+Therefore, we can check if a test ran and reset foo by checking the
+global "test_ran". If set, we know that the previous test (mytest-1.1)
+was run, and that foo is now thirteen. We reset the result back to one.
+
+(Aside: Some tests do not follow this rule explicitly: they can assume
+that all tests run sequentially. In these cases, running a specific
+test in the file will probably fail, since the debugger is not brought
+to a known state along the way.)
+
+Lines 17-21 contain the actual test. The test's name is "mytest-1.1". It
+is this name that may be referred to when asking the testsuite to run
+a specific test. The description of this test is "source window created",
+indicating that mytest-1.1's purpose is to check whether a source window
+was created.
+
+If gdbtk_test determines that this test is to run, it will execute the
+next part, lines 18-20, and compare the output of that script (llength
+$window) with "1". If the result is not "1", a failure is recorded. If
+it is "1", a pass is recorded.
+
+Finally, the test file is done and exits on line 28.

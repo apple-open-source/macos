@@ -72,10 +72,30 @@ inferior_event_handler (enum inferior_event_type event_type,
 
     case INF_EXEC_COMPLETE:
       /* Is there anything left to do for the command issued to
-         complete? */
-      do_all_continuations ();
-      /* Reset things after target has stopped for the async commands. */
+         complete? 
+	 One tricky point.  The continuations may start the inferior
+	 going again.  So we do complete_execution before running
+	 them, and then print the prompt afterwards if we haven't
+	 gotten started again.
+      */
+      target_executing = 0;
       complete_execution ();
+      
+      do_all_continuations ();
+      /* Reset things after target has stopped for the async commands. 
+       */
+      if (!target_executing)
+	{
+	  if (sync_execution) 
+	    {
+	      display_gdb_prompt (0);
+	    }
+	  else
+	    {
+	      if (exec_done_display_p)
+		printf_unfiltered ("completed.\n");
+	    }
+	}
       break;
 
     case INF_EXEC_CONTINUE:
@@ -122,11 +142,5 @@ complete_execution (void)
   if (sync_execution)
     {
       do_exec_error_cleanups (ALL_CLEANUPS);
-      display_gdb_prompt (0);
-    }
-  else
-    {
-      if (exec_done_display_p)
-	printf_unfiltered ("completed.\n");
     }
 }

@@ -74,21 +74,50 @@ MachServer::~MachServer()
 
 
 //
-// Utility access
+// Add and remove extra listening ports.
+// Messages directed to those ports are dispatched through the main handler.
+// To get automatic call-out to another handler, use the Handler class.
 //
-void MachServer::notifyIfDead(Port port) const
+void MachServer::add(Port receiver)
 {
-	port.requestNotify(mServerPort, MACH_NOTIFY_DEAD_NAME, true);
+	debug("machsrv", "adding port %d to primary dispatch", receiver.port());
+	mPortSet += receiver;
+}
+
+void MachServer::remove(Port receiver)
+{
+	debug("machsrv", "removing port %d from primary dispatch", receiver.port());
+	mPortSet -= receiver;
+}
+
+
+//
+// Register for mach port notifications
+//
+void MachServer::notifyIfDead(Port port, bool doNotify) const
+{
+	if (doNotify)
+		port.requestNotify(mServerPort, MACH_NOTIFY_DEAD_NAME, true);
+	else
+		port.cancelNotify(MACH_NOTIFY_DEAD_NAME);
+}
+
+void MachServer::notifyIfUnused(Port port, bool doNotify) const
+{
+	if (doNotify)
+		port.requestNotify(port, MACH_NOTIFY_NO_SENDERS, true);
+	else
+		port.cancelNotify(MACH_NOTIFY_NO_SENDERS);
 }
 
 
 //
 // Initiate service.
 // This call will take control of the current thread and use it to service
-// incoming requests. The thread will not be released until an error happens.
+// incoming requests. The thread will not be released until an error happens, which
+// will cause an exception to be thrown. In other words, this never returns normally.
 // We may also be creating additional threads to service concurrent requests
 // as appropriate.
-// @@@ Additional threads are not being reaped at this point.
 // @@@ Msg-errors in additional threads are not acted upon.
 //
 void MachServer::run(size_t maxSize, mach_msg_options_t options)
@@ -114,7 +143,8 @@ void MachServer::run(size_t maxSize, mach_msg_options_t options)
 
 //
 // This is the core of a server thread at work. It takes over the thread until
-// something makes it exit normally. Then it returns. Errors cause exceptions.
+// (a) an error occurs, throwing an exception
+// (b) low-load timeout happens, causing a normal return (doTimeout only)
 // This code is loosely based on mach_msg_server.c, but is drifting away for
 // various reasons of flexibility and resilience.
 //
@@ -126,7 +156,7 @@ void MachServer::runServerThread(bool doTimeout)
     Message bufRequest(mMaxSize);
     Message bufReply(mMaxSize);
 	
-	// all exits from runServerThread are through exceptions or "goto exit"
+	// all exits from runServerThread are through exceptions
 	try {
 		// register as a worker thread
 		debug("machsrv", "%p starting service on port %d", this, int(mServerPort));
@@ -182,13 +212,13 @@ void MachServer::runServerThread(bool doTimeout)
 			
 			// receive next IPC request (or wait for timeout)
 			switch (mach_msg_return_t mr = indefinite ?
-				mach_msg_overwrite_trap(bufRequest,
+				mach_msg_overwrite(bufRequest,
 					MACH_RCV_MSG | mMsgOptions,
 					0, mMaxSize, mPortSet,
 					MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL,
 					(mach_msg_header_t *) 0, 0)
                     :
-				mach_msg_overwrite_trap(bufRequest,
+				mach_msg_overwrite(bufRequest,
 					MACH_RCV_MSG | MACH_RCV_TIMEOUT | mMsgOptions,
 					0, mMaxSize, mPortSet,
 					mach_msg_timeout_t(timeout.mSeconds()), MACH_PORT_NULL,
@@ -221,14 +251,20 @@ void MachServer::runServerThread(bool doTimeout)
 				debug("machsrvreq",
                     "servicing port %d request id=%d",
                     bufRequest.localPort().port(), bufRequest.msgId());
-                if (bufRequest.localPort() == mServerPort) {	// primary
+				
+				// try subsidiary handlers first
+				bool handled = false;
+				for (HandlerSet::const_iterator it = mHandlers.begin();
+						it != mHandlers.end(); it++)
+					if (bufRequest.localPort() == (*it)->port()) {
+						(*it)->handle(bufRequest, bufReply);
+						handled = true;
+					}
+				if (!handled) {
+					// unclaimed, send to main handler
                     handle(bufRequest, bufReply);
-                } else {
-                    for (HandlerSet::const_iterator it = mHandlers.begin();
-                            it != mHandlers.end(); it++)
-                        if (bufRequest.localPort() == (*it)->port())
-                            (*it)->handle(bufRequest, bufReply);
                 }
+
 				debug("machsrvreq", "request complete");
 				{ StLock<Mutex> _(managerLock); idleCount++; }
 			}
@@ -259,7 +295,7 @@ void MachServer::runServerThread(bool doTimeout)
              *  To avoid falling off the kernel's fast RPC path unnecessarily,
              *  we only supply MACH_SEND_TIMEOUT when absolutely necessary.
              */
-			switch (mach_msg_return_t mr = mach_msg_overwrite_trap(bufReply,
+			switch (mach_msg_return_t mr = mach_msg_overwrite(bufReply,
                           (MACH_MSGH_BITS_REMOTE(bufReply.bits()) ==
                                                 MACH_MSG_TYPE_MOVE_SEND_ONCE) ?
                           MACH_SEND_MSG | mMsgOptions :
@@ -458,13 +494,15 @@ void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port)
 
 void MachServer::notifyPortDestroyed(Port) { }
 
-void cdsa_mach_notify_send_once(mach_port_t)
-{ MachServer::active().notifySendOnce(); }
+void cdsa_mach_notify_send_once(mach_port_t port)
+{ MachServer::active().notifySendOnce(port); }
 
-void MachServer::notifySendOnce() { }
+void MachServer::notifySendOnce(Port) { }
 
-void cdsa_mach_notify_no_senders(mach_port_t)
-{ /* legacy handler - not used by system */ }
+void cdsa_mach_notify_no_senders(mach_port_t port, mach_port_mscount_t count)
+{ MachServer::active().notifyNoSenders(port, count); }
+
+void MachServer::notifyNoSenders(Port, mach_port_mscount_t) { }
 
 
 } // end namespace MachPlusPlus

@@ -21,7 +21,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <mach-o/loader.h>
+#ifndef _MACH_O_GETSECT_H_
+#define _MACH_O_GETSECT_H_
+
+#include <mach-o/loader.h>
 
 extern const struct section *getsectbyname(
     const char *segname,
@@ -55,3 +58,5 @@ extern const struct segment_command *getsegbyname(
 extern unsigned long get_end(void);
 extern unsigned long get_etext(void);
 extern unsigned long get_edata(void);
+
+#endif /* _MACH_O_GETSECT_H_ */

@@ -79,29 +79,6 @@ long LoadFile(char *fileSpec)
   return length;
 }
 
-long CopyFile(char *fileSpec, char **addr, long *length)
-{
-  long len;
-  char *file;
-  
-  len = LoadFile(fileSpec);
-  if (len == -1) return -1;
-  
-  file = malloc(len + 2);
-  if (file == NULL) return -1;
-  
-  strncpy(file, (char *)kLoadAddr, len);
-  
-  // Just to make sure.
-  file[len] = '\0';
-  file[len + 1] = '\0';
-  
-  *addr = file;
-  *length = len;
-  
-  return 0;
-}
-
 long GetFileInfo(char *dirSpec, char *name, long *flags, long *time)
 {
   long ret, index = 0;

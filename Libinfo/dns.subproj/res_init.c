@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static char rcsid[] = "$Id: res_init.c,v 1.3 2000/08/01 23:12:13 lindak Exp $";
+static char rcsid[] = "$Id: res_init.c,v 1.5 2002/03/26 20:12:06 ajn Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -121,7 +121,7 @@ static char rcsid[] = "$Id: res_init.c,v 1.3 2000/08/01 23:12:13 lindak Exp $";
  * - Internal resolver variables can be set from the value of the "options"
  *   property.
  */
-#if defined(__APPLE__)
+#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
 #  include <netinfo/ni.h>
 #  define NI_PATH_RESCONF "/locations/resolver"
 #  define NI_TIMEOUT 10
@@ -403,7 +403,7 @@ res_init()
 #endif
 	    (void) fclose(fp);
 	}
-#ifdef	__APPLE__
+#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
 	else netinfo_res_init(&haveenv, &havesearch);
 #endif
 
@@ -510,7 +510,7 @@ net_mask(in)		/* XXX - should really use system's version of this */
 }
 #endif
 
-#ifdef	__APPLE__
+#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
 static int
 netinfo_res_init(haveenv, havesearch)
 	int *haveenv;
@@ -602,7 +602,7 @@ netinfo_res_init(haveenv, havesearch)
 		    for (n = 0;
 		         n < nl.ni_namelist_len && nsort < MAXRESOLVSORT;
 			 n++) {
-			char ch;
+			char ch = '\0';
 			char *cp;
 			const char *sp;
 			struct in_addr a;

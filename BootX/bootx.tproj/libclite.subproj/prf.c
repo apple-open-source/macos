@@ -38,7 +38,7 @@
 /*
  *  prf.c - Helpers for the printf function.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -95,7 +95,7 @@ printn(n, b, flag, minwidth, putfn_p, putfn_arg)
 }
 
 void prf(
-	char *fmt,
+	const char *fmt,
 	unsigned int *adx,
 	void (*putfn_p)(),
 	void *putfn_arg

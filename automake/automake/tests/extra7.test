@@ -1,0 +1,52 @@
+#! /bin/sh
+
+# Check to make sure that when distdir is invoked in a VPATH
+# configuration and has to distribute directory X, it actually merge
+# $(srcdir)/X and ./X, with the files from the later overriding the
+# files from the former.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am << 'END'
+EXTRA_DIST=foo/bar baz
+
+check: distdir
+	test -f $(distdir)/foo/bar/baz
+	test -f $(distdir)/foo/bar/baz2
+	test -f $(distdir)/baz/foo
+	test -f $(distdir)/baz/foo2
+	grep source $(distdir)/foo/bar/baz
+	grep build $(distdir)/foo/bar/baz2
+	grep source $(distdir)/baz/foo
+	grep build $(distdir)/baz/foo2
+END
+
+# Create some files in $(srcdir)
+mkdir foo
+mkdir foo/bar
+echo source > foo/bar/baz
+echo source > foo/bar/baz2
+mkdir baz
+echo source > baz/foo
+echo source > baz/foo2
+
+$ACLOCAL
+$AUTOMAKE
+$AUTOCONF
+mkdir build
+cd build
+../configure
+
+# Create some files in $(builddir) that will override part of the
+# files if $(srcdir) when the distribution is made.
+mkdir foo
+mkdir foo/bar
+echo build > foo/bar/baz2
+mkdir baz
+echo build > baz/foo2
+
+$MAKE check

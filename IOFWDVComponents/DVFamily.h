@@ -11,6 +11,7 @@
 #ifndef __DVFAMILY__
 #define __DVFAMILY__
 
+#include <IOKit/avc/IOFireWireAVCConsts.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -97,9 +98,6 @@ typedef UInt32 DVClientID;
 
 // AVC
 enum {
-    // command types
-    kAVCControlCommand			= 0x00,
-    kAVCStatusInquiryCommand        	= 0x01,
     kAVCSupportInquiryCommand       	= 0x02,
     kAVCReportInquiryCommand        	= 0x03,
 
@@ -192,18 +190,7 @@ enum {
     kAVCPositionValueInquiry                = 0x71,
 
     kAVCMechaModeInquiryOpcode              = 0xd0,
-    kAVCMechaModeDummyOperand               = 0x7f,
-
-    // Signal mode
-    kAVCOutputSignalModeOpcode              = 0x78,
-    kAVCInputSignalModeOpcode               = 0x79, 
-    kAVCSignalModeSD525_60                  = 0x00,
-    kAVCSignalModeSDL525_60                 = 0x04,
-    kAVCSignalModeHD1125_60                 = 0x08,
-    kAVCSignalModeSD625_50                  = 0x80, 
-    kAVCSignalModeSDL625_50                 = 0x84, 
-    kAVCSignalModeHD1250_50                 = 0x88,
-    kAVCSignalModeDummyOperand              = 0xff          
+    kAVCMechaModeDummyOperand               = 0x7f
 
 };
 

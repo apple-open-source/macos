@@ -1,0 +1,26 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog); 
+        Headers = (getopt.h, common.h, bashgetopt.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (psize.sh); 
+        SUBPROJECTS = (); 
+        Sources = (
+            psize.c, 
+            mkbuiltins.c, 
+            evalstring.c, 
+            evalfile.c, 
+            getopt.c, 
+            common.c, 
+            bashgetopt.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = builtins; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -67,9 +67,9 @@
 #include "../Family/ppp_defs.h"
 #include "../Family/if_ppp.h"
 #include "../Family/ppp_domain.h"
-#include "../ppp/pppd/pppd.h"
-#include "../ppp/pppd/fsm.h"
-#include "../ppp/pppd/lcp.h"
+#include "../Helpers/pppd/pppd.h"
+#include "../Helpers/pppd/fsm.h"
+#include "../Helpers/pppd/lcp.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -172,6 +172,8 @@ void *dialog_reminder_thread(void *arg)
 ----------------------------------------------------------------------------- */
 void dialog_reminder_watch(void *arg)
 {
+    int tlim;
+
     switch (reminderresult) {
         case -1: 
             // rearm reminder watch dog every 2 seconds
@@ -180,6 +182,14 @@ void dialog_reminder_watch(void *arg)
         case 0:
             // user click stay connected
             TIMEOUT(dialog_reminder, 0, reminder);
+            // reset the idle timer
+            UNTIMEOUT(check_idle, NULL);
+            if (idle_time_hook != 0)
+                tlim = (*idle_time_hook)(NULL);
+            else
+                tlim = idle_time_limit;
+            if (tlim > 0)
+                TIMEOUT(check_idle, NULL, tlim);
             break;
         default :
             // user clicked Disconnect or timeout expired
@@ -227,14 +237,14 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen)
             CFRelease(url);
         }
         
-        array = CFArrayCreateMutable(NULL, 0, NULL);  
+        array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);  
         if (array) {
             CFArrayAppendValue(array, CFSTR("Password:"));
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
             CFRelease(array);
         }
 
-        array = CFArrayCreateMutable(NULL, 0, NULL);  
+        array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);  
         if (array) {
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldValuesKey, array);
             CFRelease(array);
@@ -343,6 +353,7 @@ int dialog_ask(CFStringRef message, CFStringRef ok, CFStringRef cancel, int time
             CFUserNotificationReceiveResponse(alert, timeout, &flags);
             CFRelease(alert);
         }
+        CFRelease(dict);
     }
 
     // the 2 lower bits of the response flags will give the button pressed

@@ -62,4 +62,6 @@
 - (void)print;
 - (void)print:(FILE *)f;
 
+- (unsigned int)memorySize;
+
 @end

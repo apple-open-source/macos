@@ -1,4 +1,5 @@
-#   Copyright (C) 1988, 1990, 1991, 1992, 1994, 1997 Free Software Foundation, Inc.
+#   Copyright 1988, 1990, 1991, 1992, 1994, 1997, 1999, 2000
+#   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -371,7 +372,7 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$gdb_prompt $"\
     # This fails on some linux systems for unknown reasons.  On the
     # systems where it fails, sometimes it works fine when run manually.
     # The testsuite failures may not be limited to just aout systems.
-    setup_xfail "i*86-pc-linuxaout-gnu" "hppa*-*-hpux*"
+    setup_xfail "i*86-pc-linuxaout-gnu"
     set description "backtrace through signal handler"
     send_gdb "backtrace\n"
     gdb_expect {

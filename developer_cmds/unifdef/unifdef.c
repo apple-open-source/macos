@@ -64,6 +64,8 @@ __RCSID("$NetBSD: unifdef.c,v 1.5 1997/10/20 02:23:14 lukem Exp $");
 
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define BSS
 FILE   *input;

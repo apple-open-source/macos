@@ -23,7 +23,7 @@
 #ifndef	_DIGEST_CONTEXT_H_
 #define _DIGEST_CONTEXT_H_
 
-#include <AppleCSP/DigestObject.h>
+#include <Security/digestobject.h>
 #include "AppleCSPContext.h"
 #include <Security/utilities.h>
 
@@ -42,6 +42,7 @@ public:
 	void init(const Context &context, bool);
 	void update(const CssmData &data);
 	void final(CssmData &data);
+	CSPFullPluginSession::CSPContext *clone(CssmAllocator &);	// clone internal state
 	size_t outputSize(bool, size_t);
 
 private:

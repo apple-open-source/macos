@@ -44,6 +44,16 @@ OSMetaClassDefineReservedUnused(IOAudioToggleControl, 13);
 OSMetaClassDefineReservedUnused(IOAudioToggleControl, 14);
 OSMetaClassDefineReservedUnused(IOAudioToggleControl, 15);
 
+// New code added here
+IOAudioToggleControl *IOAudioToggleControl::createPassThruMuteControl (bool initialValue,
+                                               UInt32 channelID,
+                                               const char *channelName,
+                                               UInt32 cntrlID)
+{
+    return create(initialValue, channelID, channelName, cntrlID, kIOAudioToggleControlSubTypeMute, kIOAudioControlUsagePassThru);
+}
+
+// Original code...
 IOAudioToggleControl *IOAudioToggleControl::create(bool initialValue,
                                                UInt32 channelID,
                                                const char *channelName,

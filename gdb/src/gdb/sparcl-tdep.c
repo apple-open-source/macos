@@ -1,5 +1,6 @@
 /* Target dependent code for the Fujitsu SPARClite for GDB, the GNU debugger.
-   Copyright 1994, 1995, 1996, 1999  Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,6 +24,7 @@
 #include "breakpoint.h"
 #include "target.h"
 #include "serial.h"
+#include "regcache.h"
 #include <sys/types.h>
 
 #if (!defined(__GO32__) && !defined(_WIN32)) || defined(__CYGWIN32__)
@@ -36,14 +38,14 @@
 static struct target_ops sparclite_ops;
 
 static char *remote_target_name = NULL;
-static serial_t remote_desc = NULL;
+static struct serial *remote_desc = NULL;
 static int serial_flag;
 #ifdef HAVE_SOCKETS
 static int udp_fd = -1;
 #endif
 
-static serial_t open_tty (char *name);
-static int send_resp (serial_t desc, char c);
+static struct serial *open_tty (char *name);
+static int send_resp (struct serial *desc, char c);
 static void close_tty (void * ignore);
 #ifdef HAVE_SOCKETS
 static int recv_udp_buf (int fd, unsigned char *buf, int len, int timeout);
@@ -257,27 +259,27 @@ sparclite_stopped_data_address (void)
     return 0;
 }
 
-static serial_t
+static struct serial *
 open_tty (char *name)
 {
-  serial_t desc;
+  struct serial *desc;
 
-  desc = SERIAL_OPEN (name);
+  desc = serial_open (name);
   if (!desc)
     perror_with_name (name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (desc, baud_rate))
+      if (serial_setbaudrate (desc, baud_rate))
 	{
-	  SERIAL_CLOSE (desc);
+	  serial_close (desc);
 	  perror_with_name (name);
 	}
     }
 
-  SERIAL_RAW (desc);
+  serial_raw (desc);
 
-  SERIAL_FLUSH_INPUT (desc);
+  serial_flush_input (desc);
 
   return desc;
 }
@@ -285,12 +287,12 @@ open_tty (char *name)
 /* Read a single character from the remote end, masking it down to 7 bits. */
 
 static int
-readchar (serial_t desc, int timeout)
+readchar (struct serial *desc, int timeout)
 {
   int ch;
   char s[10];
 
-  ch = SERIAL_READCHAR (desc, timeout);
+  ch = serial_readchar (desc, timeout);
 
   switch (ch)
     {
@@ -311,11 +313,11 @@ readchar (serial_t desc, int timeout)
 }
 
 static void
-debug_serial_write (serial_t desc, char *buf, int len)
+debug_serial_write (struct serial *desc, char *buf, int len)
 {
   char s[10];
 
-  SERIAL_WRITE (desc, buf, len);
+  serial_write (desc, buf, len);
   if (remote_debug > 0)
     {
       while (len-- > 0)
@@ -329,7 +331,7 @@ debug_serial_write (serial_t desc, char *buf, int len)
 
 
 static int
-send_resp (serial_t desc, char c)
+send_resp (struct serial *desc, char c)
 {
   debug_serial_write (desc, &c, 1);
   return readchar (desc, remote_timeout);
@@ -341,7 +343,7 @@ close_tty (void *ignore)
   if (!remote_desc)
     return;
 
-  SERIAL_CLOSE (remote_desc);
+  serial_close (remote_desc);
 
   remote_desc = NULL;
 }
@@ -411,9 +413,9 @@ sparclite_open (char *name, int from_tty)
   unpush_target (&sparclite_ops);
 
   if (remote_target_name)
-    free (remote_target_name);
+    xfree (remote_target_name);
 
-  remote_target_name = strsave (name);
+  remote_target_name = xstrdup (name);
 
   /* We need a 'serial' or 'udp' keyword to disambiguate host:port, which can
      mean either a serial port on a terminal server, or the IP address of a
@@ -620,7 +622,7 @@ download (char *target_name, char *args, int from_tty,
 					    sizeof (marker));
 		  if (strncmp (marker.signature, "DaTa", 4) == 0)
 		    {
-		      if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+		      if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
 			section_address = bfd_getb32 (marker.sdata);
 		      else
 			section_address = bfd_getl32 (marker.sdata);
@@ -836,7 +838,7 @@ sparclite_download (char *filename, int from_tty)
     download (remote_target_name, filename, from_tty, sparclite_udp_write,
 	      sparclite_udp_start);
 #else
-    abort ();			/* sparclite_open should prevent this! */
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");			/* sparclite_open should prevent this! */
 #endif
   else
     download (remote_target_name, filename, from_tty, sparclite_serial_write,

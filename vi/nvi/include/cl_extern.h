@@ -10,9 +10,7 @@ void flash __P((void));
 #ifndef HAVE_CURSES_IDLOK
 void idlok __P((WINDOW *, int));
 #endif
-#ifndef HAVE_CURSES_KEYPAD
-int keypad __P((void *, int));
-#endif
+int nvi_keypad __P((void *, int));
 #ifndef HAVE_CURSES_NEWTERM
 void *newterm __P((const char *, FILE *, FILE *));
 #endif

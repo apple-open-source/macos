@@ -1,5 +1,6 @@
 #include <NetInfo/system_log.h>
 #include <NetInfo/syslock.h>
+#include <string.h>
 #include <stdlib.h>
 
 #ifndef streq

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,12 +43,10 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			xmlData;	/* data (XML serialized) */
 	xmlDataOut_t			xmlDataRef;	/* serialized data */
 	int				xmlDataLen;
 	int				sc_status;
 	CFArrayRef			allKeys;
-	CFStringRef			xmlError;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyNotifiedKeys:"));
 
@@ -89,24 +87,7 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 	}
 
 	/* un-serialize the list of keys which have changed */
-	xmlData = CFDataCreate(NULL, xmlDataRef, xmlDataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	allKeys = CFPropertyListCreateFromXMLData(NULL,
-						  xmlData,
-						  kCFPropertyListImmutable,
-						  &xmlError);
-	CFRelease(xmlData);
-	if (!allKeys) {
-		if (xmlError) {
-			SCLog(_sc_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() list: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&allKeys, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

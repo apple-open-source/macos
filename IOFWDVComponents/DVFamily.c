@@ -2,7 +2,6 @@
 #include <mach/mach_error.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
-#include <IOKit/iokitmig.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -11,27 +10,30 @@
 #include <syslog.h>	// Debug messages
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-#include <IOKit/DV/IOFWDVClient.h>
 #include <IOKit/IOMessage.h>
+
+#include <IOKit/firewire/IOFireWireLib.h>
+#include <IOKit/avc/IOFireWireAVCConsts.h>
+#include "DVLib.h"
+
 #include "DVFamily.h"
 
 #define kNTSCCompressedBufferSize	120000
 #define	kPALCompressedBufferSize	144000
 
-#define kMaxDevice 32
 #define kMaxNotifications 64
 
 typedef struct device_info_struct {
-    io_connect_t fConnection;
-    UInt64 fGUID;
+    DVDevice *fDevice;
     UInt32 fNumOutputFrames;
     UInt32 fOpens;
     UInt32 frameSize;
-    vm_address_t bufMem[kDVNumOutputFrames+4];
-    vm_size_t shmemSize[kDVNumOutputFrames+4];
-    IOFWDVSharedVars *fSharedVars;	// Structure shared with kernel driver
+    UInt8* bufMem[kDVMaxFrames];
+    DVFrameVars *fReadSharedVars;	// Structure shared with isoc program thread
+    DVFrameVars *fWriteSharedVars;	// Structure shared with isoc program thread
+    DVGlobalOutPtr fWrite;
+    DVGlobalInPtr fRead;
     UInt8		fOutputMode;		// AVC output signal mode - NTSC/SDL etc.
-    char fName[256];
 } device_info;
 
 // notification stuff
@@ -43,79 +45,11 @@ typedef struct DVNotificationEntryStruct {
 } DVNotificationEntry, *DVNotificationEntryPtr;
 
 
-typedef struct {
-    mach_msg_header_t	msgHdr;
-    union {
-        OSNotificationHeader	notifyHeader;
-        //DVRequest		dvRequest;
-        UInt8			grr[72];	// Enough for IOServiceInterestContent
-    } body;
-    mach_msg_trailer_t	trailer;
-} ReceiveMsg;
-
-static mach_port_t fMasterDevicePort;
-static IONotificationPortRef	sNotifyPort;			// Our IOKit notification port
-static mach_port_t		sNotifyMachPort;		// notify port as a mach port
-static io_iterator_t		sMatchEnumer;			// Iterator over matching devices
-static io_iterator_t		sTermEnumer;			// Iterator over terminated devices
-
+static DVThread *sThread;
 static UInt32 fNumDevices, fNumAlive;
-static device_info devices[kMaxDevice];
+static device_info devices[kDVMaxDevicesActive];
 static DVNotificationEntry sNotifications[kMaxNotifications];
 static int inited = 0;
-
-static int exec_cmd(UInt32 cmd, UInt32 dev)
-{   
-    int err; 
-    unsigned int size = 0;
-        
-    err = io_connect_method_scalarI_scalarO(devices[dev].fConnection, cmd, NULL, 0,
-        NULL, &size);
-    return err;
-}    
-
-static int mapframes(int dev)
-{
-    int 			i;
-    vm_size_t		sharedSize;
-    kern_return_t 	err;
-
-    // map frame buffers
-    for (i = 0 ; i < devices[dev].fNumOutputFrames ; i++) {
-        err = IOConnectMapMemory(devices[dev].fConnection,i,mach_task_self(),
-            &devices[dev].bufMem[i],&devices[dev].shmemSize[i],kIOMapAnywhere);
-        //syslog(LOG_INFO, "Mapped %d to 0x%x\n", i, devices[dev].bufMem[i]);
-        if(err == kIOReturnSuccess)
-            bzero((void *)devices[dev].bufMem[i], devices[dev].shmemSize[i]);
-    }
-
-    // Map status struct
-    err = IOConnectMapMemory(devices[dev].fConnection,kDVNumOutputFrames+4,mach_task_self(),
-                                (vm_address_t *)&devices[dev].fSharedVars,&sharedSize,kIOMapAnywhere);
-    return err;
-}
-
-static void unmapframes(int dev)
-{
-    int i;
-    kern_return_t err;
-
-// unmapping is an insta-panic with not much evidence left in the wreckage, let's just leak instead.
-return;
-
-    // map frame buffers
-    for (i = 0 ; i < kDVNumOutputFrames + 4 ; i++) {
-  //      printf("Unmapping %d-0x%x\n", i, devices[dev].bufMem[i]);
-        if(devices[dev].bufMem[i]) {
-            err = IOConnectUnmapMemory(devices[dev].fConnection,i,mach_task_self(), NULL);
-            //devices[dev].bufMem[i]);
-     //       printf("err 0x%x\n", err);
-            devices[dev].bufMem[i] = NULL;
-        }
-    }
-
-    devices[dev].fSharedVars = NULL;    
-}
 
 static void postEvent( DVEventHeaderPtr event )
 {
@@ -131,142 +65,73 @@ static void postEvent( DVEventHeaderPtr event )
     }
 }
 
-static void deviceArrived(void *refcon, io_iterator_t iterator )
+static void deviceMessage(void * refcon, UInt32 messageType, void *messageArgument)
 {
-    io_object_t obj;
-    //syslog(LOG_INFO,"deviceArrived(0x%x, 0x%x)\n", refcon, iterator);
-    while(obj = IOIteratorNext(iterator)) {
-        CFMutableDictionaryRef properties;
-        CFNumberRef dataDesc;
-        CFStringRef strDesc;
-        kern_return_t err;
-        UInt64 GUID;
-        int refound = 0;
-        int device;
- 
-        // syslog(LOG_INFO, "object 0x%x arrived!\n", obj);
-        err = IORegistryEntryCreateCFProperties(obj, &properties, kCFAllocatorDefault, kNilOptions);
+    DVDeviceRefNum refNum = (DVDeviceRefNum)refcon;
+    
+	device_info *dev = &devices[refNum];
+    //syslog(LOG_INFO,"Got message: refcon %d, type 0x%x arg %p\n",
+    //    refcon, messageType, messageArgument);
+    
+    switch(messageType) {
+        case kIOMessageServiceIsTerminated:
+            //syslog(LOG_INFO, "Terminating device %d\n", refNum);
+            break;
 
-        dataDesc = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR("GUID"));
-        CFNumberGetValue(dataDesc, kCFNumberSInt64Type, &GUID);
-        for(device=1; device<kMaxDevice; device++) {
-            if(GUID == devices[device].fGUID) {
-                refound = 1;
-                break;
+        case kIOFWMessageServiceIsRequestingClose:
+            if(dev->fOpens > 0) {
+                //syslog(LOG_INFO, "Force closing device %d\n", refNum);
+                if(dev->fWrite)
+                    DVDisableWrite(refNum);
+                if(dev->fRead)
+                    DVDisableRead(refNum);
+                dev->fOpens = 1;
+                DVCloseDriver(refNum);
             }
-        }
-        if(!refound) {
-            device = fNumDevices+1;
-            strDesc = (CFStringRef)CFDictionaryGetValue(properties, CFSTR("FireWire Product Name"));
-            if(strDesc) {
-                devices[device].fName[0] = 0;
-                CFStringGetCString(strDesc, devices[device].fName,
-                    sizeof(devices[device].fName), kCFStringEncodingMacRoman);
-            }
-        }
-        CFRelease(properties);
-        if ((err = IOServiceOpen(obj, mach_task_self(), 11,
-             &devices[device].fConnection)) != kIOReturnSuccess) {
-             fprintf(stderr,"DVFamily : IOServiceOpen failed: 0x%x\n", err);
-             continue; 
-        }
-        devices[device].fGUID = GUID;
-        devices[device].fOpens = 0;
-        fNumAlive++;
-        if(!refound)
-            fNumDevices++;
-        //syslog(LOG_INFO, "Found a device, GUID: 0x%x%08x name: %s\n",
-        //        (UInt32)(GUID>>32), (UInt32)(GUID & 0xffffffff), devices[device].fName);
+            break;
             
-        {
-            // post a DV event to let the curious know...
-            DVConnectionEvent theEvent;
-            theEvent.eventHeader.deviceID	= (DVDeviceID) device;
-            theEvent.eventHeader.theEvent 	= kDVDeviceAdded;
-            postEvent( &theEvent.eventHeader );
-        }
+        case kIOMessageServiceWasClosed:
+            //syslog(LOG_INFO, "device %d closing\n", refNum);
+            break;
+        default:
+            break;
     }
+    
 }
 
-static void deviceRemoved(void *refcon, io_iterator_t iterator )
+static void deviceArrived(void *refcon, DVDevice *device, UInt32 index, UInt32 refound)
 {
-    io_object_t obj;
-    while(obj = IOIteratorNext(iterator)) {
-        CFMutableDictionaryRef properties;
-        CFNumberRef dataDesc;
-         kern_return_t err;
-        UInt64 GUID;
-        int device;
- 
-      //  syslog(LOG_INFO, "object 0x%x departed!\n", obj);
-        err = IORegistryEntryCreateCFProperties(obj, &properties, kCFAllocatorDefault, kNilOptions);
-
-        dataDesc = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR("GUID"));
-        CFNumberGetValue(dataDesc, kCFNumberSInt64Type, &GUID);
-     //   syslog(LOG_INFO, "device gone, GUID: 0x%x%08x\n",
-     //           (UInt32)(GUID>>32), (UInt32)(GUID & 0xffffffff));
-        CFRelease(properties);
-        for(device=1; device<kMaxDevice; device++) {
-            device_info *dev = devices+device;
-            if(GUID == dev->fGUID) {
-                if(dev->fConnection) {
-                    DVConnectionEvent theEvent;
-                    
-                    // Close the connection
-                    IOServiceClose(dev->fConnection);
-                    dev->fConnection = NULL;
-                    fNumAlive--;
+    //syslog(LOG_INFO,"deviceArrived(0x%x, 0x%x)\n", refcon, index);
+    fNumAlive++;
+    devices[index].fDevice = device;
+    if(!refound)
+        fNumDevices++;
+    //syslog(LOG_INFO, "Found a device, GUID: 0x%x%08x name: %s\n",
+    //        (UInt32)(GUID>>32), (UInt32)(GUID & 0xffffffff), devices[device].fName);
         
-                    // post a DV event to let the curious know...
-                    theEvent.eventHeader.deviceID	= (DVDeviceID) (dev-devices);
-                    theEvent.eventHeader.theEvent 	= kDVDeviceRemoved;
-                    postEvent( &theEvent.eventHeader );
-                }
-                break;
-            }
-        }
-        IOObjectRelease(obj);
+    {
+        // post a DV event to let the curious know...
+        DVConnectionEvent theEvent;
+        theEvent.eventHeader.deviceID	= (DVDeviceID) index;
+        theEvent.eventHeader.theEvent 	= kDVDeviceAdded;
+        postEvent( &theEvent.eventHeader );
     }
 }
-
 
 static SInt32 init(void)
 {
-    UInt32 i;
-    kern_return_t err;
-
-    for(i = 0 ; i < kMaxDevice ; i++) devices[i].fGUID = 0;
     fNumDevices = 0;
     fNumAlive = 0;
-
-    if ((err = IOMasterPort(bootstrap_port, &fMasterDevicePort)) !=
-        KERN_SUCCESS) {
-        fprintf(stderr,"DVFamily : IOMasterPort failed: %d\n", err);
-        return err;
-    }
-
-    sNotifyPort = IONotificationPortCreate(fMasterDevicePort);
-    sNotifyMachPort = IONotificationPortGetMachPort(sNotifyPort);
-
     
-    if ((err = IOServiceAddMatchingNotification( sNotifyPort,
-            kIOMatchedNotification, IOServiceMatching( kDVKernelDriverName ),
-            deviceArrived, (void *)12345, &sMatchEnumer )) != kIOReturnSuccess) {
-        return err;
-    }
+   // sThread = DVCreateThread(IOServiceMatching( kDVKernelDriverName ), deviceArrived, (void *)12345, deviceRemoved, (void *)12346);
+    sThread = DVCreateThread(deviceArrived, (void *)12345, nil, nil, deviceMessage);
+    DVRunThread(sThread);
     
-    if ((err = IOServiceAddMatchingNotification( sNotifyPort,
-            kIOTerminatedNotification, IOServiceMatching( kDVKernelDriverName ),
-            deviceRemoved, (void *)12346, &sTermEnumer )) != kIOReturnSuccess) {
-        return err;
-    }
-    
-
-    deviceArrived((void *)12345, sMatchEnumer);
-    deviceRemoved((void *)12346, sTermEnumer);
-
+    //syslog(LOG_INFO, "workloop is: %p\n", workLoop);
 
     inited = 1;
+    //syslog(LOG_INFO, "Initted\n");
+    
     return noErr;
 }
 
@@ -333,15 +198,19 @@ OSErr DVDisposeNotification( DVDeviceRefNum refNum, DVNotificationID notifyID )
 
 OSErr DVDoAVCTransaction( DVDeviceRefNum refNum, AVCTransactionParamsPtr pParams )
 {
-    int err;
-    mach_msg_type_number_t outputCnt = pParams->responseBufferSize;
-    err = io_connect_method_structureI_structureO(
-        devices[refNum].fConnection, kAVCCommand,
-        pParams->commandBufferPtr, pParams->commandLength,
-        pParams->responseBufferPtr, &outputCnt
-    );
-    pParams->responseBufferSize = outputCnt;
-    // printf("DVDoAVCTransaction %d %d\n",pParams->commandLength,err);
+    IOReturn err;
+    device_info *dev = &devices[refNum];
+    //syslog(LOG_INFO, "DVDoAVCTransaction, open %d, interface %p\n", dev->fOpens, dev->fDevice.fAVCInterface);
+    
+	err = (*dev->fDevice->fAVCInterface)->AVCCommand(dev->fDevice->fAVCInterface,
+                                    pParams->commandBufferPtr, pParams->commandLength,
+                                    pParams->responseBufferPtr, &pParams->responseBufferSize);
+    //syslog(LOG_INFO, "DVDoAVCTransaction returns %d: %x %x %x %x\n",
+    //    pParams->responseBufferSize, pParams->responseBufferPtr[0], pParams->responseBufferPtr[1],
+    //                                    pParams->responseBufferPtr[2], pParams->responseBufferPtr[3]);
+
+    //if(err)
+    //    syslog(LOG_INFO, "DVDoAVCTransaction(), err 0x%x\n", err);
     return err;
 }
 
@@ -353,15 +222,8 @@ UInt32 DVCountDevices( void )
 {
     if(!inited)
         init();
-    else {
-        ReceiveMsg msg;
-        kern_return_t err;
-        err = mach_msg(&msg.msgHdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
-                       0, sizeof(msg), sNotifyMachPort, 1 /* mSec timeout */, MACH_PORT_NULL);
-        if(err == MACH_MSG_SUCCESS && msg.msgHdr.msgh_id == kOSNotificationMessageID)
-            IODispatchCalloutFromMessage(NULL, &msg.msgHdr, sNotifyPort);
-    }
     // Return total number of devices, not just the number currently connected.
+    //syslog(LOG_INFO, "DVCountDevices() = %d\n", fNumDevices);
     return fNumDevices;
 }
 
@@ -379,8 +241,8 @@ OSErr DVSetDeviceName( DVDeviceID deviceID, char * str )
 
 OSErr DVGetDeviceName( DVDeviceID deviceID, char * str )
 {
-    strcpy(str, devices[deviceID].fName);
-    return noErr; // FIXME
+    strcpy(str, devices[deviceID].fDevice->fName);
+    return noErr;
 }
 
 OSErr DVUnregisterClientApp( DVClientID dvClientID )
@@ -404,47 +266,45 @@ OSStatus DVGetNextClientEvent( DVClientID dvClientID )
 
 OSErr DVOpenDriver( DVDeviceID deviceID, DVDeviceRefNum *pRefNum )
 {
-    IOReturn err; 
+    IOReturn err = kIOReturnSuccess; 
     device_info *dev = &devices[deviceID];
-//printf("DVOpenDriver(0x%x, 0x%x)\n", deviceID, pRefNum);
+//syslog(LOG_INFO, "DVOpenDriver(0x%x, 0x%x)\n", deviceID, pRefNum);
     *pRefNum = deviceID;
 
     if(dev->fOpens > 0) {
         dev->fOpens++;
         return noErr;
+        //return kAlreadyEnabledErr;
     }
-    
+        
     do {
-        // Get device standard
-        UInt32 standard;
-        err = DVGetDeviceStandard(*pRefNum, &standard );
-
-        // allocate frame buffers
-        dev->fNumOutputFrames = exec_cmd(kDVGetNumOutputFrames,*pRefNum);
-        //syslog(LOG_INFO,"output frames %d\n",dev->fNumOutputFrames);
-        err = exec_cmd(kDVReadStart,*pRefNum);
-        if(err != kIOReturnSuccess) break;
-        err = mapframes(*pRefNum);
-        if(err != kIOReturnSuccess) break;
-        err = exec_cmd(kDVReadStop,*pRefNum);
-        if(err != kIOReturnSuccess) break;
+        if(dev->fDevice->fObject == 0) {
+            err = kDVDisconnectedErr;
+            break;
+        }
+        //err = DVDeviceOpen(sThread, dev->fDevice);
+        //if(err != kIOReturnSuccess) break;
+        
+        dev->fNumOutputFrames = 5;
         dev->fOpens++;
     } while (0);
     
     if(err != kIOReturnSuccess) {
         syslog(LOG_INFO, "error opening DV device: %x", err);
-        DVCountDevices();	// Update device states
+        dev->fOpens = 1;
+        DVCloseDriver(deviceID);
     }
     return err; // FIXME
 }
 
 OSErr DVCloseDriver( DVDeviceRefNum refNum )
 {
-//printf("DVCloseDriver(0x%x), opens = %d\n", refNum, devices[refNum].fOpens);
-    devices[refNum].fOpens--;
-    if(devices[refNum].fOpens == 0) {
-        unmapframes(refNum);
-        exec_cmd(kDVReadExit,refNum);
+    device_info *dev = &devices[refNum];
+//syslog(LOG_INFO, "DVCloseDriver(0x%x), opens = %d\n", refNum, devices[refNum].fOpens);
+    if(dev->fOpens > 0) {
+        dev->fOpens--;
+        if(dev->fOpens == 0) {
+        }
     }
     return noErr;
 }
@@ -457,6 +317,7 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
     OSErr                  theErr = noErr;
     UInt32                 currentSignal, AVCStatus;
 
+//syslog(LOG_INFO, "DVGetDeviceStandard(0x%x)\n", refNum);
     // fill up the avc frame
     avcFrame.cmdType_respCode  = kAVCStatusInquiryCommand;
     avcFrame.headerAddress     = 0x20;                        // for now
@@ -471,6 +332,10 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
     transactionParams.responseHandler       = nil;
     
     theErr = DVDoAVCTransaction(refNum, &transactionParams );
+    if(theErr) {
+        //syslog(LOG_INFO, "DVGetDeviceStandard(), err 0x%x\n", theErr);
+        return theErr;
+    }
     currentSignal = ((responseBuffer[ 2 ] << 8) | responseBuffer[ 3 ]);
     AVCStatus = responseBuffer[ 0 ];
 
@@ -496,6 +361,7 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
             return( theErr );
     
         default:
+            syslog(LOG_INFO, "DVGetDeviceStandard(), err 0x%x\n", kUnknownStandardErr);
             return( kUnknownStandardErr ); // how should I handle this?
     }
 }
@@ -506,45 +372,87 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
 
 OSErr DVIsEnabled( DVDeviceRefNum refNum, Boolean *isEnabled)
 {
-    *isEnabled = true;
+    //syslog(LOG_INFO, "DVIsEnabled, returning %d\n", devices[refNum].fRead);
+    *isEnabled = devices[refNum].fRead != 0;
     return noErr; // FIXME
 }
 
 OSErr DVEnableRead( DVDeviceRefNum refNum )
 {
     OSErr err;
-    //printf("DVEnableRead(%d)\n", refNum);
-    err = exec_cmd(kDVReadStart,refNum);
-    // err = mapframes(refNum);
-    return err; // FIXME
+    device_info *dev = &devices[refNum];
+    //syslog(LOG_INFO, "DVEnableRead entry\n");
+    if(dev->fRead) {
+        //syslog(LOG_INFO, "DVEnableRead, already enabled!\n");
+        return noErr;
+    }
+    if(dev->fWrite) {
+        //syslog(LOG_INFO, "DVEnableRead, already writing!\n");
+        return kAlreadyEnabledErr;
+    }
+    do {
+        err = DVDeviceOpen(sThread, dev->fDevice);
+        if(err != kIOReturnSuccess) break;
+        dev->fRead = DVAllocRead(dev->fDevice, sThread);
+        err = DVReadAllocFrames(dev->fRead, dev->fNumOutputFrames, 
+            &dev->fReadSharedVars, dev->bufMem);
+        if(err != kIOReturnSuccess) break;
+        err = DVReadStart(dev->fRead);
+    } while (0);
+    if(err) {
+        syslog(LOG_INFO, "DVEnableRead(), err 0x%x\n", err);
+        DVDisableRead(refNum);
+    }
+    return err;
 }
 
 OSErr DVDisableRead( DVDeviceRefNum refNum )
 {
-    OSErr err;
-    //printf("DVDisableRead(%d)\n", refNum);
-    err = exec_cmd(kDVReadStop,refNum);
-    return err; // FIXME
+    device_info *dev = &devices[refNum];
+    if(dev->fRead) {
+        //syslog(LOG_INFO, "DVDisableRead\n");
+        DVReadStop(dev->fRead);
+        DVReadFreeFrames(dev->fRead);
+        DVReadFree(dev->fRead);
+        dev->fRead = NULL;
+        DVDeviceClose(dev->fDevice);
+    }
+    return noErr;
 }
 
 OSErr DVReadFrame( DVDeviceRefNum refNum, Ptr *ppReadBuffer, UInt32 * pSize )
 {
-    int index = devices[refNum].fSharedVars->fReader % devices[refNum].fNumOutputFrames;
+    device_info *dev = &devices[refNum];
+    int index, i;
+    
     // wait for writer
-    // if (*devices[refNum].fReader + 1 >= *devices[refNum].fWriter) return -1;
-    if (devices[refNum].fSharedVars->fReader + 1 >= devices[refNum].fSharedVars->fWriter) return -1;
-
+     for(i=dev->fReadSharedVars->fReader; i<dev->fReadSharedVars->fWriter; i++) {
+        index = i % dev->fNumOutputFrames;
+        if(dev->fReadSharedVars->fFrameStatus[index] == kReady)
+            break;
+    }
+    if (i >= dev->fReadSharedVars->fWriter)
+        return -1;
     // copy frame
-    *ppReadBuffer = (Ptr)devices[refNum].bufMem[index];
-    *pSize = devices[refNum].fSharedVars->fFrameSize[index];
-
-    // fprintf(stderr,"DVReadFrame reader=%d\n",*devices[refNum].fReader % devices[refNum].fNumOutputFrames);
+    *ppReadBuffer = dev->bufMem[index];
+    *pSize = dev->fReadSharedVars->fFrameSize[index];
+    dev->fReadSharedVars->fFrameStatus[index] = kReading;
+    //syslog(LOG_INFO,"DVReadFrame returning frame %d @ %x\n", index, *ppReadBuffer);
+    dev->fReadSharedVars->fReader = i;
     return noErr; // FIXME
 }
 
 OSErr DVReleaseFrame( DVDeviceRefNum refNum, Ptr pReadBuffer )
 {
-    devices[refNum].fSharedVars->fReader += 1;
+    int i;
+    device_info *dev = &devices[refNum];
+    for(i=0; i<dev->fNumOutputFrames; i++) {
+        if(pReadBuffer == dev->bufMem[i])
+            break;
+    }
+    //syslog(LOG_INFO, "released frame %d=%p, fReader now %d\n",
+    //        i, pReadBuffer, dev->fReadSharedVars->fReader);
+    dev->fReadSharedVars->fFrameStatus[i] = kEmpty;
     return noErr; // FIXME
 }
 
@@ -554,38 +462,82 @@ OSErr DVReleaseFrame( DVDeviceRefNum refNum, Ptr pReadBuffer )
 
 OSErr DVEnableWrite( DVDeviceRefNum refNum )
 {
-    OSErr err;
-    unsigned int 	size = 0;
-    int mode = devices[refNum].fOutputMode;
+    IOReturn err;
+    device_info *dev = &devices[refNum];
+        //syslog(LOG_INFO, "DVEnableWrite entry\n");
 
-    err = io_connect_method_scalarI_scalarO(devices[refNum].fConnection, kDVSetWriteSignalMode, &mode, 1,
-        NULL, &size);
-
-    err = exec_cmd(kDVWriteStart,refNum);
-    // err = mapframes(refNum);
-    return err; // FIXME
+    if(dev->fWrite) {
+        //syslog(LOG_INFO, "DVEnableWrite, already enabled!\n");
+        return noErr;
+    }
+    if(dev->fRead) {
+        //syslog(LOG_INFO, "DVEnableWrite, already reading!\n");
+        return kAlreadyEnabledErr;
+    }
+    
+    do {
+        err = DVDeviceOpen(sThread, dev->fDevice);
+        if(err != kIOReturnSuccess) break;
+        dev->fWrite = DVAllocWrite(dev->fDevice, sThread);
+        err = DVWriteSetSignalMode(dev->fWrite, dev->fOutputMode);
+        if(err)
+            break;
+        err = DVWriteAllocFrames(dev->fWrite, dev->fNumOutputFrames, 
+            &dev->fWriteSharedVars, dev->bufMem);
+        if(err)
+            break;
+            
+        err = DVWriteStart(dev->fWrite);
+    } while (0);
+    
+    if(err) {
+        syslog(LOG_INFO, "DVEnableWrite(), err 0x%x\n", err);
+        DVDisableWrite(refNum);
+    }
+    return err;
 }
 
 OSErr DVDisableWrite( DVDeviceRefNum refNum )
 {
-    OSErr err;
-    err = exec_cmd(kDVWriteStop,refNum);
-    return err; // FIXME
+    //OSErr err;
+    device_info *dev = &devices[refNum];
+    //syslog(LOG_INFO, "DVDisableWrite\n");
+    if(dev->fWrite) {
+        DVWriteStop(dev->fWrite);
+        DVWriteFreeFrames(dev->fWrite);
+        DVWriteFree(dev->fWrite);
+        dev->fWrite = NULL;
+        DVDeviceClose(dev->fDevice);
+    }
+    
+    return noErr;
 }
 
 OSErr DVGetEmptyFrame( DVDeviceRefNum refNum, Ptr *ppEmptyFrameBuffer, UInt32 * pSize )
 {
     // check for error
-    if (devices[refNum].fSharedVars->fStatus == 2) return -2;
+    if(!devices[refNum].fWrite) {
+        syslog(LOG_INFO, "DVGetEmptyFrame, not writing!!\n");
+        return kNotEnabledErr;
+    }
+
+    if (devices[refNum].fWriteSharedVars->fStatus == 2)
+    {
+        syslog(LOG_INFO, "DVGetEmptyFrame, status %d\n", devices[refNum].fWriteSharedVars->fStatus);
+        return -2;
+    }
 
     // wait for reader
     // if (*devices[refNum].fWriter + 2 >= *devices[refNum].fReader + devices[refNum].fNumOutputFrames) return -1;
-    if (devices[refNum].fSharedVars->fWriter + 1 >=
-        devices[refNum].fSharedVars->fReader + devices[refNum].fNumOutputFrames) return -1;
-
+    if (devices[refNum].fWriteSharedVars->fWriter + 1 >=
+        devices[refNum].fWriteSharedVars->fReader + devices[refNum].fNumOutputFrames)
+    {
+        //syslog(LOG_INFO, "DVGetEmptyFrame, no frame available: %d-%d\n",
+        //    devices[refNum].fWriteSharedVars->fWriter, devices[refNum].fWriteSharedVars->fReader);
+        return -1;
+    }
     // copy frame
-    *ppEmptyFrameBuffer = (Ptr)devices[refNum].bufMem[devices[refNum].fSharedVars->fWriter %
-                                                            devices[refNum].fNumOutputFrames];
+    *ppEmptyFrameBuffer = devices[refNum].bufMem[devices[refNum].fWriteSharedVars->fWriter % devices[refNum].fNumOutputFrames];
     *pSize = devices[refNum].frameSize;
 
     return noErr; // FIXME
@@ -593,7 +545,12 @@ OSErr DVGetEmptyFrame( DVDeviceRefNum refNum, Ptr *ppEmptyFrameBuffer, UInt32 * 
 
 OSErr DVWriteFrame( DVDeviceRefNum refNum, Ptr pWriteBuffer )
 {
-    devices[refNum].fSharedVars->fWriter += 1;
+    device_info *dev = &devices[refNum];
+    if(!dev->fWrite) {
+        syslog(LOG_INFO, "DVWriteFrame, not writing!!\n");
+        return kNotEnabledErr;
+    }
+    dev->fWriteSharedVars->fWriter += 1;
 
     return noErr; // FIXME
 }
@@ -608,5 +565,5 @@ OSErr DVSetWriteSignalMode( DVDeviceRefNum refNum, UInt8 mode)
 
 UInt32 getNumDroppedFrames(DVDeviceRefNum refNum)
 {
-    return devices[refNum].fSharedVars->fDroppedFrames;
+    return devices[refNum].fWriteSharedVars->fDroppedFrames;
 }

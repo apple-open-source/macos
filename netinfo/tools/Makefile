@@ -12,7 +12,7 @@ NAME = tools
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = nicl nidomain nidump nifind nigrep niload nireport niutil
+TOOLS = mkslapdconf nicl nidomain nidump nifind nigrep niload nireport niutil
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

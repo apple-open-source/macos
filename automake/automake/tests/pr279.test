@@ -1,0 +1,31 @@
+#! /bin/sh
+
+# Test for PR 279.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(foo, 0.1, dev@null)
+AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
+AC_PROG_CC
+AM_CONDITIONAL(FOOTEST, false)
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = foreign
+
+if FOOTEST
+xtralib =
+else
+xtralib =
+endif
+
+bin_PROGRAMS = foo
+foo_LDADD = ${xtralib}
+foo_DEPENDENCIES =
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -11,7 +11,7 @@
 \entry {autoload}{11}
 \initial {C}
 \entry {citation}{3}
-\entry {citation delimiter}{5}
+\entry {citation delimiter}{4}
 \entry {citation info field (sc-)}{6}
 \entry {citation interface specification}{10}
 \entry {citation leader}{4}

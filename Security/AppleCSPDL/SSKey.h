@@ -72,6 +72,7 @@ private:
 	SSDatabase mSSDatabase;
 	SSUniqueRecord mUniqueId;
 	CSSM_DB_RECORDTYPE mRecordType;
+	SecurityServer::ClientSession &mClientSession;
 };
 
 

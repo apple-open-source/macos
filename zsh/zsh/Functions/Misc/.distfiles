@@ -1,0 +1,7 @@
+DISTFILES_SRC='
+.distfiles
+allopt       harden       nslookup     zkbd         zstyle+
+checkmail    is-at-least  run-help     zmv
+colors       mere         zed          zrecompile
+getjobs      promptnl
+'

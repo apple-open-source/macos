@@ -35,6 +35,8 @@ int tab_value 	   = DEFAULT_TAB_VALUE;		/* history display tab value		*/
 int pc_area_lines  = DEFAULT_PC_LINES;		/* user controlled pc area max lines	*/
 int cmd_area_lines = DEFAULT_CMD_LINES;		/* user controlled cmd area max lines	*/
 int max_history    = DEFAULT_HISTORY_SIZE;	/* max nbr of lines of history recorded	*/
+int hexdump_width  = DEFAULT_HEXDUMP_WIDTH;	/* hexdump line bytes per line		*/
+int hexdump_group  = DEFAULT_HEXDUMP_GROUP;	/* hexdump bytes per group		*/
 
 int mb_testing 	   = 0;				/* set by SET mb_testing for debugging	*/
 
@@ -59,6 +61,8 @@ static int  new_tab_value      = DEFAULT_TAB_VALUE;
 static int  new_pc_area_lines  = DEFAULT_PC_LINES;
 static int  new_cmd_area_lines = DEFAULT_CMD_LINES;
 static int  new_max_history    = DEFAULT_HISTORY_SIZE;
+static int  new_hexdump_width  = DEFAULT_HEXDUMP_WIDTH;
+static int  new_hexdump_group  = DEFAULT_HEXDUMP_GROUP;
 static int  new_testing;
 
 /*--------------------------------------------------------------------------------------*/
@@ -369,7 +373,7 @@ static void set_tab(char *theSetting, Gdb_Set_Type type, void *value, int show,
 		    int confirm)
 {
     if (new_tab_value < 0 | new_tab_value > 20)
-    	gdb_error("invalid tab value (must be 0 to 20).");
+    	gdb_error("invalid tab value (must be 0 to 20)");
     else
     	tab_value = new_tab_value;
 }
@@ -436,6 +440,42 @@ static void set_history_size(char *theSetting, Gdb_Set_Type type, void *value, i
 #define HISTORY_DESCRIPTION "Set number of remembered history lines"
 
 
+/*-------------------------------------------------------------------*
+ | set_hexdump_width - SET mb-hexdump-width <hexdump bytes per line> |
+ *-------------------------------------------------------------------*/
+
+static void set_hexdump_width(char *theSetting, Gdb_Set_Type type, void *value, int show,
+		    	      int confirm)
+{
+    if (new_hexdump_width < 1 || new_hexdump_width >= 1024)
+    	gdb_error("invalid value");
+    else if (new_hexdump_width % hexdump_group != 0)
+    	gdb_error("hexdump width must be a multiple of the group value");
+    else
+    	hexdump_width = new_hexdump_width;
+}
+
+#define HEXDUMP_WIDTH_DESCRIPTION "Set hexdump number of bytes per line"
+
+
+/*-----------------------------------------------------------------*
+ | set_hexdump_group - SET mb-hexdump-group <hexdump hex grouping> |
+ *-----------------------------------------------------------------*/
+
+static void set_hexdump_group(char *theSetting, Gdb_Set_Type type, void *value, int show,
+		    	      int confirm)
+{
+    if (new_hexdump_group < 1 || new_hexdump_group >= 1024)
+    	gdb_error("invalid value");
+    else if (hexdump_width % new_hexdump_group != 0)
+    	gdb_error("hexdump width must be a multiple of the group value");
+    else
+    	hexdump_group = new_hexdump_group;
+}
+
+#define HEXDUMP_GROUP_DESCRIPTION "Set number of bytes grouped together without intervening spaces"
+
+
 /*-----------------------------------------------------*
  | set_mb_testing - internal switch to control testing |
  *-----------------------------------------------------*/
@@ -485,6 +525,9 @@ void init_macsbug_set(void)
     gdb_define_set("mb-pc-area",      set_pc_area,      Set_Int,    &new_pc_area_lines,  0, PC_AREA_DESCRIPTION);
     gdb_define_set("mb-cmd-area",     set_cmd_area,     Set_Int,    &new_cmd_area_lines, 0, CMD_AREA_DESCRIPTION);
     gdb_define_set("mb-history",      set_history_size, Set_Int,    &new_max_history,    0, HISTORY_DESCRIPTION);
+   
+    gdb_define_set("mb-hexdump-width",set_hexdump_width,Set_Int,    &new_hexdump_width,  0, HEXDUMP_WIDTH_DESCRIPTION);
+    gdb_define_set("mb-hexdump-group",set_hexdump_group,Set_Int,    &new_hexdump_group,  0, HEXDUMP_GROUP_DESCRIPTION);
     
     //gdb_define_set("mb-testing",    set_mb_testing,   Set_Int,    &new_testing,        0, TESTING_DESCRIPTION);
     

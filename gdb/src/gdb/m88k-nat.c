@@ -1,5 +1,6 @@
 /* Native-dependent Motorola 88xxx support for GDB, the GNU Debugger.
-   Copyright 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1990, 1991, 1992, 1993, 1995, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,7 @@
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
+#include "regcache.h"
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -74,7 +76,7 @@ fetch_inferior_registers (int regno)
   offset = (char *) &u.pt_r0 - (char *) &u;
   regaddr = offset;		/* byte offset to r0; */
 
-/*  offset = ptrace (3, inferior_pid, (PTRACE_ARG3_TYPE) offset, 0) - KERNEL_U_ADDR; */
+/*  offset = ptrace (3, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) offset, 0) - KERNEL_U_ADDR; */
   for (regno = 0; regno < NUM_REGS; regno++)
     {
       /*regaddr = register_addr (regno, offset); */
@@ -82,20 +84,20 @@ fetch_inferior_registers (int regno)
 
       for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
 	{
-	  *(int *) &buf[i] = ptrace (3, inferior_pid,
+	  *(int *) &buf[i] = ptrace (3, PIDGET (inferior_ptid),
 				     (PTRACE_ARG3_TYPE) regaddr, 0);
 	  regaddr += sizeof (int);
 	}
       supply_register (regno, buf);
     }
   /* now load up registers 36 - 38; special pc registers */
-  *(int *) &buf[0] = ptrace (3, inferior_pid,
+  *(int *) &buf[0] = ptrace (3, PIDGET (inferior_ptid),
 			     (PTRACE_ARG3_TYPE) SXIP_OFFSET, 0);
   supply_register (SXIP_REGNUM, buf);
-  *(int *) &buf[0] = ptrace (3, inferior_pid,
+  *(int *) &buf[0] = ptrace (3, PIDGET (inferior_ptid),
 			     (PTRACE_ARG3_TYPE) SNIP_OFFSET, 0);
   supply_register (SNIP_REGNUM, buf);
-  *(int *) &buf[0] = ptrace (3, inferior_pid,
+  *(int *) &buf[0] = ptrace (3, PIDGET (inferior_ptid),
 			     (PTRACE_ARG3_TYPE) SFIP_OFFSET, 0);
   supply_register (SFIP_REGNUM, buf);
 }
@@ -126,7 +128,7 @@ store_inferior_registers (int regno)
 	{
 	  regaddr = offset + regno * sizeof (int);
 	  errno = 0;
-	  ptrace (6, inferior_pid,
+	  ptrace (6, PIDGET (inferior_ptid),
 		  (PTRACE_ARG3_TYPE) regaddr, read_register (regno));
 	  if (errno != 0)
 	    {
@@ -135,13 +137,13 @@ store_inferior_registers (int regno)
 	    }
 	}
       else if (regno == SXIP_REGNUM)
-	ptrace (6, inferior_pid,
+	ptrace (6, PIDGET (inferior_ptid),
 		(PTRACE_ARG3_TYPE) SXIP_OFFSET, read_register (regno));
       else if (regno == SNIP_REGNUM)
-	ptrace (6, inferior_pid,
+	ptrace (6, PIDGET (inferior_ptid),
 		(PTRACE_ARG3_TYPE) SNIP_OFFSET, read_register (regno));
       else if (regno == SFIP_REGNUM)
-	ptrace (6, inferior_pid,
+	ptrace (6, PIDGET (inferior_ptid),
 		(PTRACE_ARG3_TYPE) SFIP_OFFSET, read_register (regno));
       else
 	printf_unfiltered ("Bad register number for store_inferior routine\n");
@@ -153,7 +155,7 @@ store_inferior_registers (int regno)
 	  /*      regaddr = register_addr (regno, offset); */
 	  errno = 0;
 	  regaddr = offset + regno * sizeof (int);
-	  ptrace (6, inferior_pid,
+	  ptrace (6, PIDGET (inferior_ptid),
 		  (PTRACE_ARG3_TYPE) regaddr, read_register (regno));
 	  if (errno != 0)
 	    {
@@ -161,11 +163,11 @@ store_inferior_registers (int regno)
 	      perror_with_name (buf);
 	    }
 	}
-      ptrace (6, inferior_pid,
+      ptrace (6, PIDGET (inferior_ptid),
 	      (PTRACE_ARG3_TYPE) SXIP_OFFSET, read_register (SXIP_REGNUM));
-      ptrace (6, inferior_pid,
+      ptrace (6, PIDGET (inferior_ptid),
 	      (PTRACE_ARG3_TYPE) SNIP_OFFSET, read_register (SNIP_REGNUM));
-      ptrace (6, inferior_pid,
+      ptrace (6, PIDGET (inferior_ptid),
 	      (PTRACE_ARG3_TYPE) SFIP_OFFSET, read_register (SFIP_REGNUM));
     }
 }

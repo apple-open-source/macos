@@ -1,5 +1,6 @@
 /* Include file for stabs debugging format support functions.
-   Copyright 1986-1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,12 +29,6 @@
 
 #ifndef EXTERN
 #define	EXTERN extern
-#endif
-
-/* Convert stab register number (from `r' declaration) to a gdb REGNUM.  */
-
-#ifndef STAB_REG_TO_REGNUM
-#define STAB_REG_TO_REGNUM(VALUE) (VALUE)
 #endif
 
 /* Hash table of global symbols whose values are not known yet.
@@ -227,5 +222,9 @@ extern int resolve_cfront_continuation
   (struct objfile *objfile, struct symbol *sym, char *p);
 
 extern char *stabsread_objc_colon (char *name);
+
+extern void free_header_files (void);
+
+extern void init_header_files (void);
 
 #undef EXTERN

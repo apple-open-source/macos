@@ -36,16 +36,9 @@ for both in-kernel and user-space use
 #ifndef __IOFireWireFamilyCommon_H__
 #define __IOFireWireFamilyCommon_H__
 
-//#include <IOKit/OSTypes.h>
-
-//#ifdef KERNEL
-	#ifndef __IOKIT_IOTYPES_H
-		#include <IOKit/IOTypes.h>
-	#endif
-//#else
-//	#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-//	#include <CarbonCore.framework/Headers/MacTypes.h>
-//#endif
+#ifndef __IOKIT_IOTYPES_H
+	#include <IOKit/IOTypes.h>
+#endif
 
 #define FWBitRange(start, end)						\
 (													\
@@ -57,14 +50,27 @@ for both in-kernel and user-space use
 #define FWBitRangePhase(start, end)					\
 	(31 - end)
 
-// FireWire messages
+// 
+// FireWire messages & errors
+//
 #define	iokit_fw_err(return) (sys_iokit|sub_iokit_firewire|return)
-#define kIOFireWireResponseBase iokit_fw_err(0x10)	/* Base of Response error codes  */
-#define kIOFireWireBusReset	(kIOFireWireResponseBase+kFWResponseBusResetError)
-							/* Bus reset during command execution  */
-#define kIOConfigNoEntry	iokit_fw_err(1)		/* Can't find requested entry in ROM */
-#define kIOFireWirePending	iokit_fw_err(2)		/* In pending queue waiting to execute */
 
+    // e0008010 -> 0xe000801f Response codes from response packets
+#define kIOFireWireResponseBase iokit_fw_err(0x10)	/* Base of Response error codes  */
+
+	// e0008020 -- Bus reset during command execution (current bus generation does
+	//             not match that specified in command.)
+#define kIOFireWireBusReset	(kIOFireWireResponseBase+kFWResponseBusResetError)
+	// e0008001 -- Can't find requested entry in ROM
+#define kIOConfigNoEntry			iokit_fw_err(1)
+	// e0008002 -- In pending queue waiting to execute
+#define kIOFireWirePending			iokit_fw_err(2)
+	// e0008003 -- Last DCL callback of program (internal use)
+#define kIOFireWireLastDCLToken		iokit_fw_err(3)
+	// e0008004
+#define kIOFireWireConfigROMInvalid	iokit_fw_err(4)
+
+	// e00087d0
 #define kIOFWMessageServiceIsRequestingClose (UInt32)iokit_fw_err(2000)
 
 // 8 quadlets
@@ -84,7 +90,8 @@ enum
 	kFWCommandNoFlags					= 0 ,
 	kFWCommandInterfaceForceNoCopy		= (1 << 0) ,
 	kFWCommandInterfaceForceCopyAlways	= (1 << 1) ,
-	kFWCommandInterfaceSyncExecute		= (1 << 2)
+	kFWCommandInterfaceSyncExecute		= (1 << 2) ,
+	kFWCommandInterfaceAbsolute			= (1 << 3)
 } ;
 
 
@@ -98,7 +105,8 @@ typedef enum
 	kFWAddressSpaceNoReadAccess 	= (1 << 1) ,
 	kFWAddressSpaceAutoWriteReply	= (1 << 2) ,
 	kFWAddressSpaceAutoReadReply	= (1 << 3) ,
-	kFWAddressSpaceAutoCopyOnWrite	= (1 << 4)
+	kFWAddressSpaceAutoCopyOnWrite	= (1 << 4) ,
+	kFWAddressSpaceShareIfExists	= (1 << 5)
 } FWAddressSpaceFlags ;
 
 //
@@ -296,24 +304,15 @@ typedef enum IOFireWireFamilyUserClientSelector_t {
 	
 	// --- user client general methods -----------
 	kFireWireReadQuad,
-	kFireWireReadQuadAbsolute,
 	kFireWireRead,
-	kFireWireReadAbsolute,
 	kFireWireWriteQuad,
-	kFireWireWriteQuadAbsolute,
 	kFireWireWrite,
-	kFireWireWriteAbsolute,
 	kFireWireCompareSwap,
-	kFireWireCompareSwapAbsolute,
 	kFireWireBusReset,
 	kFireWireCycleTime,
 	kFireWireGetGenerationAndNodeID,
 	kFireWireGetLocalNodeID,
 	kFireWireGetResetTime,
-	
-	//	// --- DCL methods ---------------------------
-	//	kFireWireCompileDCL,
-	//	kFireWireStopDCL,
 	
 	// --- debugging -----------------------------
 	kFireWireFireBugMsg,
@@ -390,6 +389,8 @@ typedef enum IOFireWireFamilyUserClientSelector_t {
 	// --- local isoch port methods ----------------------
 	kFWLocalIsochPort_Allocate,
 	kFWLocalIsochPort_ModifyJumpDCL,
+	kFWLocalIsochPort_ModifyTransferPacketDCLSize,
+	kFWLocalIsochPort_ModifyTransferPacketDCL,
 	
 	// --- isoch channel methods -------------------------
 	kFWIsochChannel_Allocate,
@@ -398,9 +399,30 @@ typedef enum IOFireWireFamilyUserClientSelector_t {
 	kFWIsochChannel_UserReleaseChannelComplete,
 	
 	// --- firewire command objects ----------------------
-	kFWCommand_Allocate,
 	kFWCommand_Release,
 	kFWCommand_Cancel,
+	kFWCommand_DidLock,
+	kFWCommand_Locked32,
+	kFWCommand_Locked64,
+	
+	// --- seize service ----------
+	kFWSeize,
+	
+	// --- firelog ----------
+	kFireLog,
+	
+    // --- More user client general methods (new in v3)
+    kFireWireGetBusCycleTime,
+	
+	//
+	// v4
+	//
+    
+	kFWGetBusGeneration,
+	kFWGetLocalNodeIDWithGeneration,
+	kFWGetRemoteNodeID,
+	kFWGetSpeedToNode,
+	kFWGetSpeedBetweenNodes,
 	
 	// -------------------------------------------
 	kNumFireWireMethods
@@ -423,7 +445,6 @@ typedef enum IOFireWireFamilyUserClientAsyncMethodSelector_t {
 	// user command objects
 	//
 	kFWCommand_Submit,
-	kFWCommand_SubmitAbsolute,
 	
 	//
 	// isoch channel
@@ -454,13 +475,14 @@ enum {
 } ;
 
 enum {
-	kFireWireCommandUseCopy				= (1 << 16)
+	kFireWireCommandUseCopy				= (1 << 16),
+	kFireWireCommandAbsolute			= (1 << 17)
 } ;
 
 #define kFireWireCommandUserFlagsMask (0x0000FFFF)
 
 #ifdef KERNEL
-	class IOFWUserClientPseudoAddrSpace ;
+	class IOFWUserPseudoAddressSpace ;
 	class IOFWUserClientPhysicalAddressSpace ;
 	class IOConfigDirectory ;
 	class IOLocalConfigDirectory ;
@@ -470,7 +492,7 @@ enum {
 	class IOFWUserIsochChannel ;
 	class IOFWUserCommand ;
 	
-	typedef IOFWUserClientPseudoAddrSpace*		FWKernAddrSpaceRef ;
+	typedef IOFWUserPseudoAddressSpace*			FWKernAddrSpaceRef ;
 	typedef IOFWUserClientPhysicalAddressSpace*	FWKernPhysicalAddrSpaceRef ;
 	typedef IOConfigDirectory* 					FWKernConfigDirectoryRef ;
 	typedef IOLocalConfigDirectory*				FWKernUnitDirRef ;
@@ -495,14 +517,35 @@ enum {
 typedef void* FWUserPacketQueueRef ;
 typedef void* FWClientCommandID ;
 
-typedef struct FWReadParamsStruct_t
+typedef struct FWWriteQuadParamsStruct_t
+{
+	FWAddress					addr ;
+	const UInt32  			 	val ;
+	Boolean						failOnReset ;
+	UInt32						generation ;
+	Boolean						isAbs ;
+} FWWriteQuadParams ;
+
+typedef struct FWReadWriteParamsStruct_t
 {	
 	FWAddress					addr ;
 	const void*  			 	buf ;
 	UInt32						size ;
 	Boolean						failOnReset ;
 	UInt32						generation ;
-} FWReadWriteParams ;
+	Boolean						isAbs ;
+} FWReadParams, FWWriteParams, FWReadQuadParams ;
+
+typedef struct FWCompareSwapParamsStruct_t
+{
+	FWAddress					addr ;
+	UInt64						cmpVal ;
+	UInt64						swapVal ;
+	IOByteCount					size ;
+	Boolean						failOnReset ;
+	UInt32						generation ;
+	Boolean						isAbs ;
+} FWCompareSwapParams ;
 
 typedef struct FWUserCommandSubmitParamsStruct_t
 {
@@ -519,6 +562,7 @@ typedef struct FWUserCommandSubmitParamsStruct_t
 	Boolean						newFailOnReset ;
 	UInt32						newGeneration ;
 	IOByteCount					newMaxPacket ;
+
 } FWUserCommandSubmitParams ;
 
 typedef struct FWUserCommandSubmitResult_t
@@ -528,6 +572,20 @@ typedef struct FWUserCommandSubmitResult_t
 	IOByteCount					bytesTransferred ;
 } FWUserCommandSubmitResult ;
 
+typedef struct 
+{
+	Boolean 	didLock ;
+	UInt64		value ;
+} FWCompareSwapLockInfo ;
+
+typedef struct FWUserCompareSwapSubmitResult_t
+{
+	FWKernCommandRef			kernCommandRef ;
+	IOReturn					result ;
+	IOByteCount					bytesTransferred ;
+	FWCompareSwapLockInfo		lockInfo ;
+} FWUserCompareSwapSubmitResult ;
+
 typedef struct FWAddrSpaceCreateParams_t {
 	UInt32		size ;
 	void*		backingStore ;
@@ -535,7 +593,12 @@ typedef struct FWAddrSpaceCreateParams_t {
 	void*		queueBuffer ;
 	UInt32		flags ;
 	UInt32		refCon ;
+
+	// for initial units address spaces:
+	Boolean		isInitialUnits ;
+	UInt32		addressLo ;
 } FWAddrSpaceCreateParams ;
+
 
 typedef struct FWIsochPortAllocateParams_t
 {
@@ -557,6 +620,8 @@ typedef struct FWLocalIsochPortAllocateParams_t
 	UInt32				startEvent ;
 	UInt32				startState ;
 	UInt32				startMask ;
+	
+	void*				userObj ;
 } FWLocalIsochPortAllocateParams ;
 
 typedef struct FWAddrSpaceCreateResult
@@ -570,6 +635,21 @@ typedef struct FWPhysicalAddrSpaceCreateParams_t
 	void*		backingStore ;
 	UInt32		flags ;
 } FWPhysicalAddrSpaceCreateParams ;
+
+typedef struct FWGetKeyValueDataResults_t
+{
+	FWKernOSDataRef		data ;
+	IOByteCount			dataLength ;
+	FWKernOSStringRef	text ;
+	UInt32				textLength ;	
+} FWGetKeyValueDataResults ;
+
+typedef struct FWGetKeyOffsetResults_t
+{
+	FWAddress			address ;
+	FWKernOSStringRef	text ;
+	UInt32				length ;
+} FWGetKeyOffsetResults ;
 
 typedef struct IOFireWireSessionRefOpaqueStuct* IOFireWireSessionRef ;
 
@@ -613,8 +693,9 @@ enum
 
 enum
 {
-    kIOFWDisablePhysicalAccess = (1 << 0),
-	kIOFWDisableAllPhysicalAccess = (1 << 1)
+    kIOFWDisablePhysicalAccess 		= (1 << 0),
+	kIOFWDisableAllPhysicalAccess 	= (1 << 1),
+	kIOFWEnableRetryOnAckD			= (1 << 2)
 };
 
 #define BitRange(start, end)						\

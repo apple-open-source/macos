@@ -1,0 +1,6 @@
+1) must add alias handling
+2) must set time limit when preparing all queries, and check size limit
+3) there was expressed a need to have access to IP in while constructing
+  queries, to have response alter in accordance to client IP. Will add
+  preprocessor for values in metatables, which would substitute things
+  like "$IP$".

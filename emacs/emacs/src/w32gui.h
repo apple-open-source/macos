@@ -18,22 +18,66 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef __W32GUI_H__
-#define __W32GUI_H__
-
+#ifndef EMACS_W32GUI_H
+#define EMACS_W32GUI_H
 #include <windows.h>
+/* Emacs takes care of ensuring that these are defined.  */
+#ifdef max
+#undef max
+#undef min
+#endif
+
 #include "w32bdf.h"
 
+/* Emulate XCharStruct.  */
+typedef struct _XCharStruct
+{
+  short rbearing;
+  short lbearing;
+  short width;
+  short ascent;
+  short descent;
+} XCharStruct;
+
+enum w32_char_font_type
+{
+  UNKNOWN_FONT,
+  ANSI_FONT,
+  UNICODE_FONT,
+  BDF_1D_FONT,
+  BDF_2D_FONT
+};
+
 typedef struct W32FontStruct {
+  enum w32_char_font_type font_type;
   TEXTMETRIC tm;
   HFONT hfont;
   bdffont *bdf;
+  int double_byte_p;
+  XCharStruct max_bounds;
+  XCharStruct scratch;
+  /* Only store info for ascii chars, if not fixed pitch.  */
+  XCharStruct * per_char;
 } W32FontStruct;
+
+typedef struct W32FontStruct XFontStruct;
+
+/* Emulate X GC's by keeping color and font info in a structure.  */
+typedef struct _XGCValues
+{
+  COLORREF foreground;
+  COLORREF background;
+  XFontStruct * font;
+} XGCValues;
+
+#define GCForeground 0x01
+#define GCBackground 0x02
+#define GCFont 0x03
 
 typedef HBITMAP Pixmap;
 typedef HBITMAP Bitmap;
-typedef struct W32FontStruct XFontStruct;
-typedef HDC GC;
+
+typedef XGCValues * GC;
 typedef COLORREF Color;
 typedef DWORD Time;
 typedef HWND Window;
@@ -83,4 +127,4 @@ extern int nCmdShow;
 
 extern int XParseGeometry ();
 
-#endif
+#endif /* EMACS_W32GUI_H */

@@ -32,13 +32,7 @@
  *	Created
  */
 
-#include <mach/mach_types.h>
-// #include "legacy/KernDevice.h"
-#include "legacy/PCI.h"
-
-#include "kernBootStruct.h"
 #include "libsaio.h"
-#include "io_inline.h"
 #include "pci.h"
 
 static BOOL testMethod1(void);
@@ -76,7 +70,6 @@ PCI_Bus_Init(
     PCI_bus_info_t *info	/* pass in the PCI boot info struct */
 )
 {
-
     unsigned int maxBusNum = 0, maxDevNum = 0, useMethod = 0;
     _pci_bus_method_t method = NULL;
     _pci_slot_info_t *slot_array;
@@ -104,14 +97,13 @@ PCI_Bus_Init(
 	}
     }
 
-
     if (useMethod == 1)
 	method = getMethod1;
     else if (useMethod == 2)
 	method = getMethod2;
     else
 	return NULL;
-	
+
     nslots = scanBus(maxBusNum, maxDevNum, method, NULL);
     slot_array = (_pci_slot_info_t *)
 	malloc(sizeof(_pci_slot_info_t) * nslots +1);

@@ -70,6 +70,7 @@ static char copyright[] =
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/file.h>
+#include <sys/wait.h>
 
 #include <err.h>
 #include <errno.h>
@@ -85,6 +86,11 @@ static char copyright[] =
 #include <tzfile.h>
 #include <unistd.h>
 #include <utmp.h>
+
+#ifdef USE_PAM
+#include <pam/pam_appl.h>
+#include <pam/pam_misc.h>
+#endif
 
 #include "pathnames.h"
 
@@ -121,7 +127,7 @@ int	authok;
 
 struct	passwd *pwd;
 int	failures;
-char	term[64], *envinit[1], *hostname, *username, *tty;
+char	term[64], *hostname, *username = NULL, *tty;
 
 int
 main(argc, argv)
@@ -133,11 +139,19 @@ main(argc, argv)
 	struct stat st;
 	struct timeval tp;
 	struct utmp utmp;
-	int ask, ch, cnt, fflag, hflag, pflag, quietlog, rootlogin, rval;
+	int ask, ch, cnt, fflag, hflag, pflag, quietlog, rootlogin = 0, rval;
 	uid_t uid;
+	uid_t euid;
+	gid_t egid;
 	char *domain, *p, *salt, *ttyn;
 	char tbuf[MAXPATHLEN + 2], tname[sizeof(_PATH_TTY) + 10];
 	char localhost[MAXHOSTNAMELEN];
+#ifdef USE_PAM
+	pam_handle_t *pamh = NULL;
+	struct pam_conv conv = { misc_conv, NULL };
+	char **pmenv;
+	pid_t pid;
+#endif
 
 	(void)signal(SIGALRM, timedout);
 	(void)alarm(timeout);
@@ -158,6 +172,9 @@ main(argc, argv)
 		syslog(LOG_ERR, "couldn't get local hostname: %m");
 	else
 		domain = strchr(localhost, '.');
+	
+	euid = geteuid();
+	egid = getegid();
 
 	fflag = hflag = pflag = 0;
 	uid = getuid();
@@ -208,6 +225,91 @@ main(argc, argv)
 	else
 		tty = ttyn;
 
+#ifdef USE_PAM
+	rval = pam_start("login", username, &conv, &pamh);
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error:  %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+	rval = pam_set_item(pamh, PAM_TTY, tty);
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+
+	rval = pam_set_item(pamh, PAM_RHOST, hostname);
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+
+	rval = pam_set_item(pamh, PAM_USER_PROMPT, "login: ");
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+
+	if( !username )
+		getloginname();
+	pam_set_item(pamh, PAM_USER, username);
+	pwd = getpwnam(username);
+	if( (pwd != NULL) && (pwd->pw_uid == 0) )
+		rootlogin = 1;
+
+	if( (pwd != NULL) && fflag && ((uid == 0) || (uid == pwd->pw_uid)) ){
+		rval = 0;
+	} else {
+
+		rval = pam_authenticate(pamh, 0);
+		while( (cnt++ < 10) && ((rval == PAM_AUTH_ERR) ||
+				(rval == PAM_USER_UNKNOWN) ||
+				(rval == PAM_CRED_INSUFFICIENT) ||
+				(rval == PAM_AUTHINFO_UNAVAIL))) {
+			badlogin(username);
+			printf("Login incorrect\n");
+			rootlogin = 0;
+			getloginname();
+			pwd = getpwnam(username);
+			if( (pwd != NULL) && (pwd->pw_uid == 0) )
+				rootlogin = 1;
+			pam_set_item(pamh, PAM_USER, username);
+			rval = pam_authenticate(pamh, 0);
+		}
+
+		if( rval != PAM_SUCCESS ) {
+			pam_get_item(pamh, PAM_USER, (void *)&username);
+			badlogin(username);
+			printf("Login incorrect\n");
+			exit(1);
+		}
+
+		rval = pam_acct_mgmt(pamh, 0);
+		if( rval == PAM_NEW_AUTHTOK_REQD ) {
+			rval = pam_chauthtok(pamh, PAM_CHANGE_EXPIRED_AUTHTOK);
+		}
+		if( rval != PAM_SUCCESS ) {
+			fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+			exit(1);
+		}
+	}
+
+	rval = pam_get_item(pamh, PAM_USER, (void *)&username);
+	if( (rval == PAM_SUCCESS) && username && *username) 
+		pwd = getpwnam(username);
+
+	rval = pam_open_session(pamh, 0);
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+
+	rval = pam_setcred(pamh, PAM_ESTABLISH_CRED);
+	if( rval != PAM_SUCCESS ) {
+		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		exit(1);
+	}
+
+#else /* USE_PAM */
 	for (cnt = 0;; ask = 1) {
 		if (ask) {
 			fflag = 0;
@@ -312,6 +414,7 @@ main(argc, argv)
 			sleep((u_int)((cnt - 3) * 5));
 		}
 	}
+#endif
 
 	/* committed to login -- turn off timeout */
 	(void)alarm((u_int)0);
@@ -322,6 +425,12 @@ main(argc, argv)
 	if (!rootlogin)
 		checknologin();
 
+	setegid(pwd->pw_gid);
+	seteuid(rootlogin ? 0 : pwd->pw_uid);
+
+      	/* First do a stat in case the homedir is automounted */
+      	stat(pwd->pw_dir,&st);
+
 	if (chdir(pwd->pw_dir) < 0) {
 		(void)printf("No home directory %s!\n", pwd->pw_dir);
 		if (chdir("/"))
@@ -329,27 +438,10 @@ main(argc, argv)
 		pwd->pw_dir = "/";
 		(void)printf("Logging in with home = \"/\".\n");
 	}
+	seteuid(euid);
+	setegid(egid);
 
 	quietlog = access(_PATH_HUSHLOGIN, F_OK) == 0;
-
-	if (pwd->pw_change || pwd->pw_expire)
-		(void)gettimeofday(&tp, (struct timezone *)NULL);
-	if (pwd->pw_change)
-		if (tp.tv_sec >= pwd->pw_change) {
-			(void)printf("Sorry -- your password has expired.\n");
-			sleepexit(1);
-		} else if (pwd->pw_change - tp.tv_sec <
-		    2 * DAYSPERWEEK * SECSPERDAY && !quietlog)
-			(void)printf("Warning: your password expires on %s",
-			    ctime(&pwd->pw_change));
-	if (pwd->pw_expire)
-		if (tp.tv_sec >= pwd->pw_expire) {
-			(void)printf("Sorry -- your account has expired.\n");
-			sleepexit(1);
-		} else if (pwd->pw_expire - tp.tv_sec <
-		    2 * DAYSPERWEEK * SECSPERDAY && !quietlog)
-			(void)printf("Warning: your account expires on %s",
-			    ctime(&pwd->pw_expire));
 
 	/* Nothing else left to fail -- really log in. */
 	memset((void *)&utmp, 0, sizeof(utmp));
@@ -373,8 +465,10 @@ main(argc, argv)
 		pwd->pw_shell = _PATH_BSHELL;
 
 	/* Destroy environment unless user has requested its preservation. */
-	if (!pflag)
-		environ = envinit;
+	if (!pflag) {
+		environ = malloc(sizeof(char *));
+		*environ = NULL;
+	}
 	(void)setenv("HOME", pwd->pw_dir, 1);
 	(void)setenv("SHELL", pwd->pw_shell, 1);
 	if (term[0] == '\0')
@@ -386,6 +480,24 @@ main(argc, argv)
 #ifdef KERBEROS
 	if (krbtkfile_env)
 		(void)setenv("KRBTKFILE", krbtkfile_env, 1);
+#endif
+
+#ifdef USE_PAM
+	pmenv = pam_getenvlist(pamh);
+	for( cnt = 0; pmenv && pmenv[cnt]; cnt++ ) 
+		putenv(pmenv[cnt]);
+
+	pid = fork();
+	if ( pid < 0 ) {
+		err(1, "fork");
+	} else if( pid != 0 ) {
+		waitpid(pid, NULL, 0);
+		pam_setcred(pamh, PAM_DELETE_CRED);
+		rval = pam_close_session(pamh, 0);
+		pam_end(pamh,rval);
+		exit(0);
+	}
+
 #endif
 
 	if (tty[sizeof("tty")-1] == 'd')
@@ -436,9 +548,9 @@ main(argc, argv)
 }
 
 #ifdef	KERBEROS
-#define	NBUFSIZ		(UT_NAMESIZE + 1 + 5)	/* .root suffix */
+#define	NBUFSIZ		(MAXLOGNAME + 1 + 5)	/* .root suffix */
 #else
-#define	NBUFSIZ		(UT_NAMESIZE + 1)
+#define	NBUFSIZ		(MAXLOGNAME + 1)
 #endif
 
 void
@@ -458,7 +570,7 @@ getloginname()
 			if (p < nbuf + (NBUFSIZ - 1))
 				*p++ = ch;
 		}
-		if (p > nbuf)
+		if (p > nbuf) {
 			if (nbuf[0] == '-')
 				(void)fprintf(stderr,
 				    "login names may not start with '-'.\n");
@@ -467,6 +579,7 @@ getloginname()
 				username = nbuf;
 				break;
 			}
+		}
 	}
 }
 

@@ -1,0 +1,417 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		00412FF400BEB84D00DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = DirectoryServiceCore.framework;
+			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
+			refType = 0;
+		};
+		00412FF500BEB84D00DD2B59 = {
+			fileRef = 00412FF400BEB84D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004E44EA01B58F3A00DD2B59 = {
+			children = (
+				004E44EB01B58F3A00DD2B59,
+				004E44EC01B58F3A00DD2B59,
+			);
+			isa = PBXGroup;
+			name = LDAPv2;
+			refType = 4;
+		};
+		004E44EB01B58F3A00DD2B59 = {
+			children = (
+				004E44FD01B59E1800DD2B59,
+				004E44FE01B59E1800DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		004E44EC01B58F3A00DD2B59 = {
+			children = (
+				004E44FF01B59E1800DD2B59,
+				004E450001B59E1800DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		004E44FD01B59E1800DD2B59 = {
+			isa = PBXFileReference;
+			name = CLDAPConfigs.cpp;
+			path = LDAPv2/CLDAPConfigs.cpp;
+			refType = 4;
+		};
+		004E44FE01B59E1800DD2B59 = {
+			isa = PBXFileReference;
+			name = CLDAPPlugIn.cpp;
+			path = LDAPv2/CLDAPPlugIn.cpp;
+			refType = 4;
+		};
+		004E44FF01B59E1800DD2B59 = {
+			isa = PBXFileReference;
+			name = CLDAPConfigs.h;
+			path = LDAPv2/CLDAPConfigs.h;
+			refType = 4;
+		};
+		004E450001B59E1800DD2B59 = {
+			isa = PBXFileReference;
+			name = CLDAPPlugIn.h;
+			path = LDAPv2/CLDAPPlugIn.h;
+			refType = 4;
+		};
+		004E450501B59E1800DD2B59 = {
+			fileRef = 004E44FF01B59E1800DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004E450601B59E1800DD2B59 = {
+			fileRef = 004E450001B59E1800DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004E450801B59E1800DD2B59 = {
+			fileRef = 004E44FD01B59E1800DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004E450901B59E1800DD2B59 = {
+			fileRef = 004E44FE01B59E1800DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004E451101B59E4200DD2B59 = {
+			fileRef = 69D8995FFEE83AC311DD2B58;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		005158E801C5853800DD2B5A = {
+			children = (
+				00A5FAE502144C9700DD2B5A,
+			);
+			isa = PBXGroup;
+			name = Libraries;
+			refType = 4;
+		};
+		0080F20900BDCDB700DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		0080F20A00BDCDB700DD2B59 = {
+			fileRef = 0080F20900BDCDB700DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A5FAE502144C9700DD2B5A = {
+			isa = PBXFileReference;
+			name = libDSPlugInCommon.a;
+			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
+			refType = 0;
+		};
+		00A5FAE602144C9700DD2B5A = {
+			fileRef = 00A5FAE502144C9700DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//000
+//001
+//002
+//003
+//004
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+		0A3C523AFF276B5811DD2B58 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		0A3C523BFF276B5811DD2B58 = {
+			fileRef = 0A3C523AFF276B5811DD2B58;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+//0C0
+//0C1
+//0C2
+//0C3
+//0C4
+		0C49BDE6FEA7C34911DD2B58 = {
+			buildStyles = (
+				35CE43FCFFA5082F11DD2B59,
+				35CE43FDFFA5082F11DD2B59,
+			);
+			isa = PBXProject;
+			mainGroup = 0C49BDE7FEA7C34911DD2B58;
+			productRefGroup = 6947FB4002383C900ADD2B8D;
+			projectDirPath = "";
+			targets = (
+				0C49BE31FEA7C34911DD2B58,
+			);
+		};
+		0C49BDE7FEA7C34911DD2B58 = {
+			children = (
+				004E44EA01B58F3A00DD2B59,
+				0C49BDF2FEA7C34911DD2B58,
+				0C49BE2DFEA7C34911DD2B58,
+				005158E801C5853800DD2B5A,
+				6947FB4002383C900ADD2B8D,
+			);
+			isa = PBXGroup;
+			name = DSLDAPPlugIn;
+			refType = 4;
+		};
+		0C49BDF2FEA7C34911DD2B58 = {
+			children = (
+				69D8995FFEE83AC311DD2B58,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		0C49BE2DFEA7C34911DD2B58 = {
+			children = (
+				0C49BE2EFEA7C34911DD2B58,
+				0C49BE30FEA7C34911DD2B58,
+				0A3C523AFF276B5811DD2B58,
+				0080F20900BDCDB700DD2B59,
+				00412FF400BEB84D00DD2B59,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		0C49BE2EFEA7C34911DD2B58 = {
+			isa = PBXFrameworkReference;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+		};
+		0C49BE30FEA7C34911DD2B58 = {
+			isa = PBXFrameworkReference;
+			name = LDAP.framework;
+			path = /System/Library/Frameworks/LDAP.framework;
+			refType = 0;
+		};
+		0C49BE31FEA7C34911DD2B58 = {
+			buildPhases = (
+				0C49BE32FEA7C34911DD2B58,
+				0C49BE4CFEA7C34911DD2B58,
+				0C49BE4EFEA7C34911DD2B58,
+				0C49BE62FEA7C34911DD2B58,
+				0C49BE66FEA7C34911DD2B58,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = LDAPv2;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = LDAPv2;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = DSLDAPPlugIn;
+			productReference = 6947FB4102383C900ADD2B8D;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigAvail</key>
+	<string>/Applications/Utilities/Directory Setup.app</string>
+	<key>CFBundleConfigFile</key>
+	<string>/Library/Preferences/DirectoryService/DSLDAPPlugInConfig.clpi</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>LDAPv2</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.LDAPv2</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServiceDSLDAPPlugIn</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>D970D52E-D515-11D3-9FF9-000502C1C736</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>D970D52E-D515-11D3-9FF9-000502C1C736</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>LDAPv2</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0C49BE32FEA7C34911DD2B58 = {
+			buildActionMask = 2147483647;
+			files = (
+				004E450501B59E1800DD2B59,
+				004E450601B59E1800DD2B59,
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		0C49BE4CFEA7C34911DD2B58 = {
+			buildActionMask = 2147483647;
+			files = (
+				004E451101B59E4200DD2B59,
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		0C49BE4EFEA7C34911DD2B58 = {
+			buildActionMask = 2147483647;
+			files = (
+				004E450801B59E1800DD2B59,
+				004E450901B59E1800DD2B59,
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		0C49BE62FEA7C34911DD2B58 = {
+			buildActionMask = 2147483647;
+			files = (
+				0C49BE63FEA7C34911DD2B58,
+				0C49BE65FEA7C34911DD2B58,
+				0A3C523BFF276B5811DD2B58,
+				0080F20A00BDCDB700DD2B59,
+				00412FF500BEB84D00DD2B59,
+				00A5FAE602144C9700DD2B5A,
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		0C49BE63FEA7C34911DD2B58 = {
+			fileRef = 0C49BE2EFEA7C34911DD2B58;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0C49BE65FEA7C34911DD2B58 = {
+			fileRef = 0C49BE30FEA7C34911DD2B58;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0C49BE66FEA7C34911DD2B58 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+//0C0
+//0C1
+//0C2
+//0C3
+//0C4
+//350
+//351
+//352
+//353
+//354
+		35CE43FCFFA5082F11DD2B59 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		35CE43FDFFA5082F11DD2B59 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//350
+//351
+//352
+//353
+//354
+//690
+//691
+//692
+//693
+//694
+		6947FB4002383C900ADD2B8D = {
+			children = (
+				6947FB4102383C900ADD2B8D,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		6947FB4102383C900ADD2B8D = {
+			isa = PBXBundleReference;
+			path = LDAPv2.dsplug;
+			refType = 3;
+		};
+		69D8995FFEE83AC311DD2B58 = {
+			isa = PBXFileReference;
+			path = DSLDAPPlugInConfig.clpi;
+			refType = 4;
+		};
+	};
+	rootObject = 0C49BDE6FEA7C34911DD2B58;
+}

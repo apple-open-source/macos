@@ -18,6 +18,7 @@
                 explore = id; 
                 forceUpdate = id; 
                 switchRootPlane = id; 
+                updatePrefs = id; 
             }; 
             CLASS = RExplorer; 
             LANGUAGE = ObjC; 
@@ -31,6 +32,7 @@
                 inspectorText = id; 
                 inspectorWindow = id; 
                 keyColumn = id; 
+                objectDescription = id; 
                 planeBrowser = id; 
                 planeWindow = id; 
                 port = id; 
@@ -43,6 +45,7 @@
                 splitView = id; 
                 trackingRect = id; 
                 typeColumn = id; 
+                updatePrefsMatrix = id; 
                 updateTimer = id; 
                 valueColumn = id; 
                 window = id; 

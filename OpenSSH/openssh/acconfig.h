@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.1.1.12 2002/03/08 21:07:16 wsanchez Exp $ */
+/* $Id: acconfig.h,v 1.1.1.14 2002/06/26 18:33:00 zarzycki Exp $ */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -12,12 +12,14 @@
 /* supported by bsd-setproctitle.c */
 #undef SPT_TYPE
 
+/* setgroups() NOOP allowed */
+#undef SETGROUPS_NOOP
+
 /* SCO workaround */
 #undef BROKEN_SYS_TERMIO_H
-#undef HAVE_BOGUS_SYS_QUEUE_H
 
-/* Define if you have SCO protected password database */
-#undef HAVE_SCO_PROTECTED_PW
+/* Define if you have SecureWare-based protected password database */
+#undef HAVE_SECUREWARE
 
 /* If your header files don't define LOGIN_PROGRAM, then use this (detected) */
 /* from environment and PATH */
@@ -31,6 +33,12 @@
 
 /* Define if your password has a pw_change field */
 #undef HAVE_PW_CHANGE_IN_PASSWD
+
+/* Define if your system uses access rights style file descriptor passing */
+#undef HAVE_ACCRIGHTS_IN_MSGHDR
+
+/* Define if your system uses ancillary data style file descriptor passing */
+#undef HAVE_CONTROL_IN_MSGHDR
 
 /* Define if you system's inet_ntoa is busted (e.g. Irix gcc issue) */
 #undef BROKEN_INET_NTOA
@@ -95,6 +103,9 @@
 /* Builtin PRNG command timeout */
 #undef ENTROPY_TIMEOUT_MSEC
 
+/* non-privileged user for privilege separation */
+#undef SSH_PRIVSEP_USER
+
 /* Define if you want to install preformatted manpages.*/
 #undef MANTYPE
 
@@ -157,6 +168,9 @@
 /* Some versions of /bin/login need the TERM supplied on the commandline */
 #undef LOGIN_NEEDS_TERM
 
+/* Define if your login program cannot handle end of options ("--") */
+#undef LOGIN_NO_ENDOPT
+
 /* Define if you want to specify the path to your lastlog file */
 #undef CONF_LASTLOG_FILE
 
@@ -177,6 +191,18 @@
 
 /* Define if libc defines __progname */
 #undef HAVE___PROGNAME
+
+/* Define if compiler implements __FUNCTION__ */
+#undef HAVE___FUNCTION__
+
+/* Define if compiler implements __func__ */
+#undef HAVE___func__
+
+/* Define if you want Kerberos 5 support */
+#undef KRB5
+
+/* Define this if you are using the Heimdal version of Kerberos V5 */
+#undef HEIMDAL
 
 /* Define if you want Kerberos 4 support */
 #undef KRB4
@@ -202,9 +228,6 @@
 /* Define if xauth is found in your path */
 #undef XAUTH_PATH
 
-/* Define if rsh is found in your path */
-#undef RSH_PATH
-
 /* Define if you want to allow MD5 passwords */
 #undef HAVE_MD5_PASSWORDS
 
@@ -219,9 +242,6 @@
 
 /* Define if you have getpwanam(3) [SunOS 4.x] */
 #undef HAVE_GETPWANAM
-
-/* Defined if in_systm.h needs to be included with netinet/ip.h (HPUX - <sigh/>) */
-#undef NEED_IN_SYSTM_H
 
 /* Define if you have an old version of PAM which takes only one argument */
 /* to pam_strerror */
@@ -275,9 +295,6 @@
 /* Use IPv4 for connection by default, IPv6 can still if explicity asked */
 #undef IPV4_DEFAULT
 
-/* If you have no atexit() but xatexit(), and want to use xatexit() */
-#undef HAVE_XATEXIT
-
 /* getaddrinfo is broken (if present) */
 #undef BROKEN_GETADDRINFO
 
@@ -320,13 +337,32 @@
 /* Define if you want smartcard support */
 #undef SMARTCARD
 
+/* Define if you want smartcard support using sectok */
+#undef USE_SECTOK
+
+/* Define if you want smartcard support using OpenSC */
+#undef USE_OPENSC
+
 /* Define if you want to use OpenSSL's internally seeded PRNG only */
 #undef OPENSSL_PRNG_ONLY
+
+/* Define if you shouldn't strip 'tty' from your ttyname in [uw]tmp */
+#undef WITH_ABBREV_NO_TTY
+
+/* Define if you want a different $PATH for the superuser */
+#undef SUPERUSER_PATH
+
+/* Path that unprivileged child will chroot() to in privep mode */
+#undef PRIVSEP_PATH
+
+/* Define if you have the `mmap' function that supports MAP_ANON|SHARED */
+#undef HAVE_MMAP_ANON_SHARED
+
+/* Define if sendmsg()/recvmsg() has problems passing file descriptors */
+#undef BROKEN_FD_PASSING
 
 @BOTTOM@
 
 /* ******************* Shouldn't need to edit below this line ************** */
-
-#include "defines.h"
 
 #endif /* _CONFIG_H */

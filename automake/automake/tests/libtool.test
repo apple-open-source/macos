@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Make sure libtool is removed.
+# Report from Kevin Dalley
+required=libtool
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_LIBTOOL_DLOPEN
+AC_DISABLE_SHARED
+AC_PROG_LIBTOOL
+AC_SUBST(LIBTOOL_DEPS)
+END
+
+: > Makefile.am
+
+: > ltmain.sh
+: > config.guess
+: > config.sub
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'rm -f libtool' Makefile.in

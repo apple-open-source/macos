@@ -35,13 +35,9 @@ includes
 #include <CoreFoundation/CoreFoundation.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+//#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
+#define SCLog
 
 #include "ppp_msg.h"
 #include "../Family/if_ppplink.h"
@@ -53,6 +49,16 @@ includes
 definitions
 ----------------------------------------------------------------------------- */
 
+#define CREATESERVICESETUP(a)	SCDynamicStoreKeyCreateNetworkServiceEntity(0, \
+                    kSCDynamicStoreDomainSetup, kSCCompAnyRegex, a)
+#define CREATESERVICESTATE(a)	SCDynamicStoreKeyCreateNetworkServiceEntity(0, \
+                    kSCDynamicStoreDomainState, kSCCompAnyRegex, a)
+#define CREATEPREFIXSETUP()	SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/"), \
+                    kSCDynamicStoreDomainSetup, kSCCompNetwork, kSCCompService)
+#define CREATEPREFIXSTATE()	SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/"), \
+                    kSCDynamicStoreDomainState, kSCCompNetwork, kSCCompService)
+#define CREATEGLOBALSETUP(a)	SCDynamicStoreKeyCreateNetworkGlobalEntity(0, \
+                    kSCDynamicStoreDomainSetup, a)
 
 /* -----------------------------------------------------------------------------
 Forward Declarations
@@ -63,106 +69,139 @@ static __inline__ CFTypeRef isA_CFDictionary(CFTypeRef obj);
 static __inline__ void my_CFRelease(CFTypeRef obj);
 static CFStringRef parse_component(CFStringRef key, CFStringRef prefix);
 static u_int32_t CFStringAddrToLong(CFStringRef string);
-static boolean_t cache_notifier(SCDSessionRef session, void * arg);
 
-static void reorder_services(SCDSessionRef session);
-static int process_servicestate(SCDSessionRef session, CFStringRef serviceID);
-static int process_servicesetup(SCDSessionRef session, CFStringRef serviceID);
+static void reorder_services();
+static int process_servicestate(CFStringRef serviceID);
+static int process_servicesetup(CFStringRef serviceID);
+static void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *info);
 
 
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
-char gLoggedInUser[32];
+CFStringRef		gLoggedInUser = NULL;
+SCDynamicStoreRef	gCfgCache = NULL;
 
 /* -----------------------------------------------------------------------------
 install the cache notification and read the initilal configured interfaces
 must be called when session cache has been setup
 ----------------------------------------------------------------------------- */
-void options_init_all(SCDSessionRef session)
+int options_init_all()
 {
-    SCDStatus		status;
-    CFStringRef         serviceID, key, prefix;
-    CFArrayRef		services;
-    u_int32_t 		i;
+    CFStringRef         key = NULL, setup = NULL;
+    CFMutableArrayRef	keys = NULL, patterns = NULL;
+    CFArrayRef		services = NULL;
+    int 		i, ret = 0;
+    CFRunLoopSourceRef	rls = NULL;
+    CFStringRef         notifs[] = {
+        kSCEntNetPPP,
+        kSCEntNetModem,
+        kSCEntNetInterface,
+    	kSCEntNetIPv4,
+        kSCEntNetDNS,
+        NULL,
+    };
 
-    gLoggedInUser[0] = 0;
-    SCDConsoleUserGet(gLoggedInUser, sizeof(gLoggedInUser), 0, 0);
+    /* opens now our session to the cache */
+    if ((gCfgCache = SCDynamicStoreCreate(0, CFSTR("PPPController"), cache_notifier, 0)) == NULL)
+        goto fail;
+    
+    if ((rls = SCDynamicStoreCreateRunLoopSource(0, gCfgCache, 0)) == NULL) 
+        goto fail;
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+
+    gLoggedInUser = SCDynamicStoreCopyConsoleUser(gCfgCache, 0, 0);
+    
+    keys = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+    patterns = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+    if (keys == NULL || patterns == NULL)
+        goto fail;
 
     /* install the notifier for the cache/setup changes */
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetPPP);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
+    for (i = 0; notifs[i]; i++) {   
+        if ((key = CREATESERVICESETUP(notifs[i])) == NULL)
+            goto fail;    
+        CFArrayAppendValue(patterns, key);
+        CFRelease(key);
+    }
+    
+    /* install the notifier for the cache/state changes */
+    if ((key = CREATESERVICESTATE(kSCEntNetPPP)) == NULL)
+        goto fail;
+    CFArrayAppendValue(patterns, key);
     CFRelease(key);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetModem);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
-    CFRelease(key);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetInterface);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
-    CFRelease(key);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetIPv4);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
-    CFRelease(key);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetDNS);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
-    CFRelease(key);
-    key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
-    status = SCDNotifierAdd(session, key, 0);
+    
+    /* install the notifier for the global changes */
+    if ((key = CREATEGLOBALSETUP(kSCEntNetIPv4)) == NULL)
+        goto fail;
+    CFArrayAppendValue(keys, key);
     CFRelease(key);
     
     /* install the notifier for user login/logout */
-    key = SCDKeyCreateConsoleUser();
-    status = SCDNotifierAdd(session, key, 0);
-    CFRelease(key);
-    
-    /* install the notifier for the cache/state changes */
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, kSCCompAnyRegex, kSCEntNetPPP);
-    status = SCDNotifierAdd(session, key, kSCDRegexKey);
-    CFRelease(key);
+    if ((key = SCDynamicStoreKeyCreateConsoleUser(0)) == NULL)
+        goto fail;
+    CFArrayAppendValue(keys, key);
+    CFRelease(key);    
 
-    /* let's say we want to be informed via call back for the changes */
-    SCDNotifierInformViaCallback(session, cache_notifier, NULL);
+    /* add all the notification in one chunk */
+    SCDynamicStoreSetNotificationKeys(gCfgCache, keys, patterns);
 
     /* read the initial configured interfaces */
-    prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetPPP);
-    status = SCDList(session, key, kSCDRegexKey, &services);
-    if (status == SCD_OK) {
-        for (i = 0; i < CFArrayGetCount(services); i++) {
-            serviceID = parse_component(CFArrayGetValueAtIndex(services, i), prefix);
-            if (serviceID) {
-                process_servicesetup(session, serviceID);            
-                CFRelease(serviceID);
-            }
+    key = CREATESERVICESETUP(kSCEntNetPPP);
+    setup = CREATEPREFIXSETUP();
+    if (key == NULL || setup == NULL)
+        goto fail;
+        
+    services = SCDynamicStoreCopyKeyList(gCfgCache, key);
+    if (services == NULL)
+        goto done;	// no PPP service setup
+
+    for (i = 0; i < CFArrayGetCount(services); i++) {
+        CFStringRef serviceID;
+        if (serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup)) {
+            process_servicesetup(serviceID);            
+            CFRelease(serviceID);
         }
-        my_CFRelease(services);
     }
     
-    my_CFRelease(prefix);
-    my_CFRelease(key);
-    reorder_services(session);
+    reorder_services();
     ppp_postupdatesetup();
     //ppp_printlist();
+done:    
+    my_CFRelease(services);
+    my_CFRelease(key);
+    my_CFRelease(setup);
+    my_CFRelease(keys);
+    my_CFRelease(patterns);
+    return ret;
+fail:
+    SCLog(TRUE, LOG_ERR, CFSTR("PPPController options_init_all : allocation failed, error = %s\n"),
+                SCErrorString(SCError()));
+    my_CFRelease(gCfgCache);
+    ret = 1;
+    goto done;
 }
 
 /* -----------------------------------------------------------------------------
 install the cache notification and read the initilal configured interfaces
 must be called when session cache has been setup
 ----------------------------------------------------------------------------- */
-int process_servicesetup(SCDSessionRef session, CFStringRef serviceID)
+int process_servicesetup(CFStringRef serviceID)
 {
-    CFDictionaryRef	service = NULL, subservice = NULL, interface;
+    CFDictionaryRef	service = NULL, interface;
     CFStringRef         subtype = NULL, iftype = NULL;
     struct ppp 		*ppp;
 
     ppp = ppp_findbyserviceID(serviceID);
 
-    interface = getEntity(session, kSCCacheDomainSetup, serviceID, kSCEntNetInterface);
+    interface = copyEntity(kSCDynamicStoreDomainSetup, serviceID, kSCEntNetInterface);
     if (interface)
         iftype = CFDictionaryGetValue(interface, kSCPropNetInterfaceType);
 
     if (!interface || 
-        (iftype && (CFStringCompare(iftype, kSCValNetInterfaceTypePPP, 0) != kCFCompareEqualTo))) {
+        (iftype && !CFEqual(iftype, kSCValNetInterfaceTypePPP))) {
         // check to see if service has disappear
         if (ppp) {
             //SCDLog(LOG_INFO, CFSTR("Service has disappear : %@"), serviceID);
@@ -171,7 +210,7 @@ int process_servicesetup(SCDSessionRef session, CFStringRef serviceID)
         goto done;
     }
 
-    service = getEntity(session, kSCCacheDomainSetup, serviceID, kSCEntNetPPP);
+    service = copyEntity(kSCDynamicStoreDomainSetup, serviceID, kSCEntNetPPP);
     if (!service)	// should we allow creating PPP configuration without PPP dictionnary ?
         goto done;
 
@@ -182,7 +221,7 @@ int process_servicesetup(SCDSessionRef session, CFStringRef serviceID)
     
     //SCDLog(LOG_INFO, CFSTR("change appears, subtype = %d, serviceID = %@\n"), subtype, serviceID);
 
-    if (ppp && CFStringCompare(subtype, ppp->subtypeRef, 0) != kCFCompareEqualTo) {
+    if (ppp && !CFEqual(subtype, ppp->subtypeRef)) {
         // subtype has changed
         ppp_dispose(ppp);
         ppp = 0;
@@ -200,7 +239,6 @@ int process_servicesetup(SCDSessionRef session, CFStringRef serviceID)
 done:            
     my_CFRelease(interface);
     my_CFRelease(service);
-    my_CFRelease(subservice);
     return 0;
 }
 
@@ -208,7 +246,7 @@ done:
 install the cache notification and read the initilal configured interfaces
 must be called when session cache has been setup
 ----------------------------------------------------------------------------- */
-int process_servicestate(SCDSessionRef session, CFStringRef serviceID)
+int process_servicestate(CFStringRef serviceID)
 {
     CFDictionaryRef	service = NULL;
     struct ppp 		*ppp;
@@ -217,7 +255,7 @@ int process_servicestate(SCDSessionRef session, CFStringRef serviceID)
     if (!ppp)
         return 0;
 
-    service = getEntity(session, kSCCacheDomainState, serviceID, kSCEntNetPPP);
+    service = copyEntity(kSCDynamicStoreDomainState, serviceID, kSCEntNetPPP);
     if (!service)
         return 0;
 
@@ -229,34 +267,27 @@ int process_servicestate(SCDSessionRef session, CFStringRef serviceID)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void reorder_services(SCDSessionRef session)
+void reorder_services()
 {
     CFDictionaryRef	ip_dict = NULL;
     CFStringRef		key, serviceID;
     CFArrayRef		serviceorder;
-    SCDHandleRef	handle = NULL;
     int 		i;
     struct ppp		*ppp;
 
-    key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
+    key = CREATEGLOBALSETUP(kSCEntNetIPv4);
     if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            ip_dict  = SCDHandleGetData(handle);
-            if (ip_dict) {
-                serviceorder = CFDictionaryGetValue(ip_dict, kSCPropNetServiceOrder);        
-                if (serviceorder) {
-                    for (i = 0; i < CFArrayGetCount(serviceorder); i++) {
-    
-                        serviceID = CFArrayGetValueAtIndex(serviceorder, i);
-                        
-                        ppp = ppp_findbyserviceID(serviceID);
-                        if (ppp) {
-                            ppp_setorder(ppp, 0xffff);
-                        }
-                    }
+        ip_dict = (CFDictionaryRef)SCDynamicStoreCopyValue(gCfgCache, key);
+        if (ip_dict) {
+            serviceorder = CFDictionaryGetValue(ip_dict, kSCPropNetServiceOrder);        
+            if (serviceorder) {
+                for (i = 0; i < CFArrayGetCount(serviceorder); i++) {
+                    serviceID = CFArrayGetValueAtIndex(serviceorder, i);                    
+                    if (ppp = ppp_findbyserviceID(serviceID))
+                        ppp_setorder(ppp, 0xffff);
                 }
             }
-            SCDHandleRelease(handle);
+            CFRelease(ip_dict);
         }
         CFRelease(key);
     }
@@ -265,85 +296,80 @@ void reorder_services(SCDSessionRef session)
 /* -----------------------------------------------------------------------------
 the configd cache/setup has changed
 ----------------------------------------------------------------------------- */
-boolean_t cache_notifier(SCDSessionRef session, void * arg)
+void cache_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *info)
 {
-    CFArrayRef          changes = NULL;
-    CFStringRef		prefixsetup = NULL, prefixstate = NULL;
-    SCDStatus           status;
+    CFStringRef		setup, state, userkey, ipkey;
     u_long		i, doreorder = 0, dopostsetup = 0;
-    char 		str[32];
 
-    status = SCDNotifierGetChanges(session, &changes);
-    if (status != SCD_OK || changes == NULL) 
-        return TRUE;
+    //SCLog(TRUE, LOG_ERR, CFSTR("PPPController cache_notifier \n"));
     
-    prefixsetup = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
-    prefixstate = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainState, kSCCompNetwork, kSCCompService);
-
-    //SCDLog(LOG_INFO, CFSTR("ppp_setup_change Changes: %@"), changes);
+    if (changedKeys == NULL) 
+        return;
     
-    for (i = 0; i < CFArrayGetCount(changes); i++) {
+    setup = CREATEPREFIXSETUP();        
+    state = CREATEPREFIXSTATE();
+    userkey = SCDynamicStoreKeyCreateConsoleUser(0);
+    ipkey = CREATEGLOBALSETUP(kSCEntNetIPv4);
+    
+    if (setup == NULL || state == NULL || userkey == NULL || ipkey == NULL) {
+        SCLog(TRUE, LOG_ERR, CFSTR("PPPController cache_notifier : can't allocate keys\n"));
+        goto done;
+    }
 
-        CFStringRef	change = NULL, serviceID = NULL, globalip = NULL, user = NULL;
+    for (i = 0; i < CFArrayGetCount(changedKeys); i++) {
+
+        CFStringRef	change, serviceID;
         
-        change = CFArrayGetValueAtIndex(changes, i);
+        change = CFArrayGetValueAtIndex(changedKeys, i);
 
         // --------- Check for change of console user --------- 
-        user = SCDKeyCreateConsoleUser();
-        if (user && CFStringCompare(change, user, 0) == kCFCompareEqualTo) {
-            str[0] = 0;
-            status = SCDConsoleUserGet(str, sizeof(str), 0, 0);
-            if (status == SCD_OK)
+        if (CFEqual(change, userkey)) {
+            my_CFRelease(gLoggedInUser);
+            if (gLoggedInUser = SCDynamicStoreCopyConsoleUser(session, 0, 0)) 
                 ppp_login();	// key appeared, user logged in
-            else
+            else 
                 ppp_logout();	// key disappeared, user logged out
-            
-            strncpy(gLoggedInUser, str, sizeof(gLoggedInUser));
-            CFRelease(user);
             continue;
         }
-	my_CFRelease(user);
 
         // ---------  Check for change in service order --------- 
-        globalip = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
-        if (globalip && CFStringCompare(change, globalip, 0) == kCFCompareEqualTo) {
+        if (CFEqual(change, ipkey)) {
             // can't just reorder the list now 
             // because the list may contain service not already created
             doreorder = 1;
-            CFRelease(globalip);
             continue;
         }
-	my_CFRelease(globalip);
 
         // --------- Check for change in other entities (state or setup) --------- 
-        serviceID = parse_component(change, prefixsetup);
+        serviceID = parse_component(change, setup);
         if (serviceID) {
-            process_servicesetup(session, serviceID);
+            process_servicesetup(serviceID);
             CFRelease(serviceID);
             dopostsetup = 1;
             continue;
         }
         
-        serviceID = parse_component(change, prefixstate);
+        serviceID = parse_component(change, state);
         if (serviceID) {
-            process_servicestate(session, serviceID);
+            process_servicestate(serviceID);
             CFRelease(serviceID);
             continue;
         }
-        
     }
 
-    my_CFRelease(prefixsetup);
-    my_CFRelease(prefixstate);
-    my_CFRelease(changes);
-
     if (doreorder) {
-        reorder_services(session);
+        reorder_services();
         //ppp_printlist();
     }
     if (dopostsetup)
         ppp_postupdatesetup();
-    return TRUE;
+
+done:
+    my_CFRelease(setup);
+    my_CFRelease(state);
+    my_CFRelease(userkey);
+    my_CFRelease(ipkey);
+    return;
 }
 
 /* -----------------------------------------------------------------------------
@@ -406,27 +432,18 @@ static CFStringRef parse_component(CFStringRef key, CFStringRef prefix)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-CFTypeRef getEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
+CFTypeRef copyEntity(CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
 {
     CFTypeRef		data = NULL;
     CFStringRef		key;
-    SCDHandleRef	handle = NULL;
 
-    if (entity) 
-        key = SCDKeyCreateNetworkServiceEntity(domain, serviceID, entity);
-    else 
-        key = SCDKeyCreate(CFSTR("%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID);
+    if (serviceID)
+        key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, domain, serviceID, entity);
+    else
+        key = SCDynamicStoreKeyCreateNetworkGlobalEntity(0, domain, entity);
+
     if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            data  = SCDHandleGetData(handle);
-            if (data) {
-                if (CFGetTypeID(data) == CFDictionaryGetTypeID())	
-                    data = (CFTypeRef)CFDictionaryCreateMutableCopy(NULL, 0, data);
-                else if (CFGetTypeID(data) == CFStringGetTypeID())
-                    data = (CFTypeRef)CFStringCreateCopy(NULL, data);
-            }
-            SCDHandleRelease(handle);
-        }
+        data = SCDynamicStoreCopyValue(gCfgCache, key);
         CFRelease(key);
     }
     return data;
@@ -468,58 +485,40 @@ int getNumber(CFDictionaryRef dict, CFStringRef property, u_int32_t *outval)
     CFNumberRef		ref;
 
     ref  = CFDictionaryGetValue(dict, property);
-    if (ref && (CFNumberGetType(ref) == kCFNumberSInt32Type)) {
+    if (ref && (CFGetTypeID(ref) == CFNumberGetTypeID())) {
         CFNumberGetValue(ref, kCFNumberSInt32Type, outval);
         return 0;
     }
     return -1;
 }
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int getNumberFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+int getNumberFromEntity(CFStringRef domain, CFStringRef serviceID, 
         CFStringRef entity, CFStringRef property, u_int32_t *outval)
 {
-    CFTypeRef		data = NULL;
-    CFStringRef		key;
-    SCDHandleRef	handle = NULL;
+    CFTypeRef		data;
     int 		err = -1;
 
-    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
-    if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            data  = SCDHandleGetData(handle);
-            if (data) 
-                err = getNumber(data, property, outval);
-            SCDHandleRelease(handle);
-        }
-        CFRelease(key);
+    if (data = copyEntity(domain, serviceID, entity)) {
+        err = getNumber(data, property, outval);
+        CFRelease(data);
     }
     return err;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int getStringFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+int getStringFromEntity(CFStringRef domain, CFStringRef serviceID, 
         CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen)
 {
-    CFTypeRef		data = NULL;
-    CFStringRef		key;
-    SCDHandleRef	handle = NULL;
+    CFTypeRef		data;
     int 		err = -1;
 
-    if (serviceID)
-        key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
-    else
-        key = SCDKeyCreateNetworkGlobalEntity(domain, entity);
-    if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            data  = SCDHandleGetData(handle);
-            if (data) {
-                err = getString(data, property, str, maxlen);
-            }
-            SCDHandleRelease(handle);
-        }
-        CFRelease(key);
+    data = copyEntity(domain, serviceID, entity);
+    if (data) {
+        err = getString(data, property, str, maxlen);
+        CFRelease(data);
     }
     return err;
 }
@@ -541,29 +540,21 @@ u_int32_t CFStringAddrToLong(CFStringRef string)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int getAddressFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+int getAddressFromEntity(CFStringRef domain, CFStringRef serviceID, 
         CFStringRef entity, CFStringRef property, u_int32_t *outval)
 {
-    CFTypeRef		data = NULL;
-    CFStringRef		key;
-    SCDHandleRef	handle = NULL;
+    CFTypeRef		data;
     int 		err = -1;
     CFArrayRef		array;
 
-    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
-    if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            data  = SCDHandleGetData(handle);
-            if (data) {
-                array = CFDictionaryGetValue(data, property);
-                if (array && CFArrayGetCount(array)) {
-                    *outval = CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0));
-                    err = 0;
-                }
-            }
-            SCDHandleRelease(handle);
+    data = copyEntity(domain, serviceID, entity);
+    if (data) {
+        array = CFDictionaryGetValue(data, property);
+        if (array && CFArrayGetCount(array)) {
+            *outval = CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0));
+            err = 0;
         }
-        CFRelease(key);
+        CFRelease(data);
     }
     return err;
 }
@@ -571,23 +562,15 @@ int getAddressFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef 
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int getServiceName(SCDSessionRef session, CFStringRef serviceID, u_char *str, u_int16_t maxlen)
+int getServiceName(CFStringRef serviceID, u_char *str, u_int16_t maxlen)
 {
-    CFTypeRef		data = NULL;
-    CFStringRef		key;
-    SCDHandleRef	handle = NULL;
+    CFTypeRef		data;
     int 		err = -1;
 
-    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService, serviceID);
-    if (key) {
-        if (SCDGet(session, key, &handle) == SCD_OK) {
-            data  = SCDHandleGetData(handle);
-            if (data) {
-                err = getString(data, kSCPropUserDefinedName, str, maxlen);
-            }
-            SCDHandleRelease(handle);
-        }
-        CFRelease(key);
+    data = copyEntity(kSCDynamicStoreDomainSetup, serviceID, 0);
+    if (data) {
+        err = getString(data, kSCPropUserDefinedName, str, maxlen);
+        CFRelease(data);
     }
     return err;
 }

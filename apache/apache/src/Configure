@@ -2,7 +2,7 @@
 ## ====================================================================
 ## The Apache Software License, Version 1.1
 ##
-## Copyright (c) 2000 The Apache Software Foundation.  All rights
+## Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
 ## reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -537,6 +537,7 @@ case "$PLAT" in
 	OS='Darwin'
 	CFLAGS="$CFLAGS -DDARWIN"
 	DEF_WANTHSREGEX=yes
+	LDFLAGS="$LDFLAGS -Wl,-bind_at_load"
 	;;
     *-dec-osf*)
 	OS='DEC OSF/1'
@@ -586,7 +587,7 @@ case "$PLAT" in
     	PLATOSVERS=`echo $PLAT | sed 's/^.*solaris2.//'`
 	OS="Solaris $PLATOSVERS"
 	CFLAGS="$CFLAGS -DSOLARIS2=$PLATOSVERS"
-	LIBS="$LIBS -lsocket -lnsl"
+	LIBS="$LIBS -lsocket -lnsl -lpthread"
 	DBM_LIB=""
 	case "$PLATOSVERS" in
 	    2[01234]*)
@@ -1130,6 +1131,9 @@ if [ "x$using_shlib" = "x1" ] ; then
 		*)
 		   LD_SHLIB="gcc"
 		   LDFLAGS_SHLIB="-shared \$(CFLAGS_SHLIB)"
+		   if [ "x`echo __ELF__ | $CC -E - | grep __ELF__`" = "x" ]; then
+		     LDFLAGS_SHLIB_EXPORT="-Wl,-E"
+		   fi
 		;;
 	    esac
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
@@ -1181,7 +1185,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 		    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -undefined suppress'
 		    ;;
 		* )
-		    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -undefined suppress -flat_namespace'
+		    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -undefined suppress -flat_namespace -Wl,-bind_at_load'
 		    ;;
 	    esac
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
@@ -1942,7 +1946,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 	#    select the special subtarget for shared core generation
 	SUBTARGET=target_shared
 	#    determine additional suffixes for libhttpd.so
-	V=1 R=3 P=23
+	V=1 R=3 P=26
 	if [ "x$SHLIB_SUFFIX_DEPTH" = "x0" ]; then
 	    SHLIB_SUFFIX_LIST=""
 	fi
@@ -2406,7 +2410,7 @@ else
       echo "** Apache requires an ANSI C Compiler, such as gcc. "
       echo ""
       echo "======== Error Output for sanity check ========"
-      (./helpers/TestCompile -v sanity)
+      (./helpers/TestCompile -v sanity) 2>&1
       echo "============= End of Error Report ============="
       echo ""
       echo " Aborting!"
@@ -2483,8 +2487,8 @@ all clean distclean depend ::
 	  if [ "x\$\$i" != "x" ]; then \\
 	    echo "===> \$(SDP)modules/\$\$i"; \\
 		case "x\$(OS)" in \\
-		  xOS390 | xTPF) (cd \$\$i && \$(MAKE) SDP='\$(SDP)' \$@) || exit 1;; \\
-		              *) (cd \$\$i && \$(MAKE) \$(MFLAGS_STATIC) SDP='\$(SDP)' CC='\$(CC)' AUX_CFLAGS='\$(CFLAGS)' RANLIB='\$(RANLIB)' \$@) || exit 1;; \\
+		  xOS390 | xTPF) (cd \$\$i && \$(MAKE) SDP='\$(SDP)' OPTIM='\$(OPTIM)' \$@) || exit 1;; \\
+		              *) (cd \$\$i && \$(MAKE) \$(MFLAGS_STATIC) SDP='\$(SDP)' CC='\$(CC)' AUX_CFLAGS='\$(CFLAGS)' RANLIB='\$(RANLIB)' OPTIM='\$(OPTIM)' \$@) || exit 1;; \\
 		esac; \\
 		echo "<=== \$(SDP)modules/\$\$i"; \\
 	  fi; \\

@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Test for install-strip.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(foo, 0.1, dev@null)
+AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
+AC_PROG_CC
+AM_CONDITIONAL(FOOTEST, false)
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+bin_SCRIPTS = foo
+END
+
+cat > foo << 'END'
+#! /bin/sh
+echo Maude
+END
+
+chmod +x foo
+
+set -e
+
+mkdir install
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+./configure --prefix=`cd install && pwd`
+$MAKE
+$MAKE install-strip

@@ -1,0 +1,91 @@
+# Jamfile for target "InstallHeaders" of project "IOATABlockStorage"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOATABlockStorage ;
+export deferred SRCROOT = /Volumes/Projects/IOATABlockStorage ;
+
+# User-defined project-wide settings for project
+
+# Target "InstallHeaders"
+
+# Implicitly computed build settings for target "InstallHeaders"
+export deferred CLONE_HEADERS = NO ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = InstallHeaders ;
+
+# User-defined build settings for target "InstallHeaders"
+export deferred INSTALLHDRS_COPY_PHASE = YES ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks" ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = InstallHeaders ;
+export deferred REZ_EXECUTABLE = YES ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred ATA_BLOCK_STORAGE_DEVICE_DEBUGGING_LEVEL = 0 ;
+	export deferred ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL = 0 ;
+	export deferred ATA_BLOCK_STORAGE_DRIVER_PM_DEBUGGING_LEVEL = 0 ;
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginTool "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+SOURCES = ;
+ProcessSources "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Copy Files
+COPY_FILES =
+	IOATABlockStorageDriver.h
+	IOATABlockStorageDevice.h
+	IOATAStorageDefines.h ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage/ata" ;
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
+	ProcessCopyFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag002 : BPTag003 ;
+}
+else {
+	NoOp "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag002 : BPTag003 ;
+}
+
+# Copy Files
+COPY_FILES = UserClientLib/ATASMARTLib.h ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage/ata" ;
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
+	ProcessCopyFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+else {
+	NoOp "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+EndTool "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
+

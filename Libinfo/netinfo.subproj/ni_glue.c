@@ -26,6 +26,7 @@
  * Copyright (C) 1989 by NeXT, Inc.
  */
 #include <libc.h>
+#include <string.h>
 #include <syslog.h>
 #include <netinfo/ni.h>
 #include <rpc/pmap_clnt.h>
@@ -84,6 +85,8 @@ static const ni_name NAME_IP_ADDRESS = "ip_address";
 static const ni_name NAME_MASTER = "master";
 static const ni_name NAME_USERS = "users";
 static const ni_name NAME_UID = "uid";
+
+static const ni_name NAME_DOMAIN_SERVERS = "domain_servers";
 
 typedef struct getreg_stuff {
 	nibind_getregister_res res;
@@ -682,9 +685,12 @@ confirm_tcp(
 		 * Somebody closed our socket. Do not close it, it could
 		 * be owned by somebody else now.
 		 */
-		auth_destroy(ni->tc->cl_auth);
-		clnt_destroy(ni->tc);
-		ni->tc = NULL;
+		if (ni->tc != NULL)
+		{
+			if (ni->tc->cl_auth != NULL) auth_destroy(ni->tc->cl_auth);
+			clnt_destroy(ni->tc);
+			ni->tc = NULL;
+		}
 	}
 	if (!needwrite && !rebind(ni) && ni->abort) {
 		return (0);
@@ -837,9 +843,10 @@ callit(
 				}
 				return (resp);
 			}
-			clnt_geterr(ni->tc, &err);
-			if (err.re_status != RPC_CANTRECV) {
-				break;
+			if (ni->tc != NULL)
+			{
+				clnt_geterr(ni->tc, &err);
+				if (err.re_status != RPC_CANTRECV) break;
 			}
 			if (i + 1 < NI_MAXCONNTRIES) {
 				/*
@@ -1016,13 +1023,47 @@ match(
 }
 
 
+static void
+add_addr_tag(ni_private *ni, ni_name addrtag)
+{
+	struct in_addr addr;
+	ni_name tag;
+	char *slash;
+
+	slash = strchr(addrtag, '/');
+	if (slash == NULL) return;
+
+	tag = slash + 1;
+	if (tag[0] == '\0') return;
+
+	*slash = '\0';
+
+	if (inet_aton(addrtag, &addr) == 0) return;
+
+	if (ni->naddrs == 0)
+	{
+		ni->addrs = (struct in_addr *)calloc(1, sizeof(struct in_addr));
+		if (ni->addrs == NULL) return;
+
+		ni->tags = (ni_name *)calloc(1, sizeof(ni_name));
+		if (ni->tags == NULL) return;
+	}
+	else
+	{
+		ni->addrs = (struct in_addr *)realloc(ni->addrs, ((ni->naddrs + 1) * sizeof(struct in_addr)));
+		if (ni->addrs == NULL) return;
+
+		ni->tags = (ni_name *)realloc(ni->tags, ((ni->naddrs + 1) * sizeof(ni_name)));
+		if (ni->tags == NULL) return;
+	}
+
+	ni->addrs[ni->naddrs] = addr;
+	ni->tags[ni->naddrs] = ni_name_dup(tag);
+	ni->naddrs++;
+}
+
 static int
-addaddr(
-	void *ni,
-	ni_index ido,
-	ni_name tag,
-	ni_private *target_ni
-	)
+addaddr(void *ni, ni_index ido, ni_name tag, ni_private *target_ni)
 {
 	ni_id id;
 	ni_namelist nl;
@@ -1031,172 +1072,141 @@ addaddr(
 
 	id.nii_object = ido;
 	NI_INIT(&nl);
-	if (ni_lookupprop(ni, &id, NAME_IP_ADDRESS, &nl) != NI_OK) {
-		return (0);
+	if (ni_lookupprop(ni, &id, NAME_IP_ADDRESS, &nl) != NI_OK) return 0;
+
+	if (nl.ni_namelist_len == 0) return 0;
+
+	if (target_ni->naddrs == 0) 
+	{
+		target_ni->addrs = (struct in_addr *)malloc(nl.ni_namelist_len * sizeof(struct in_addr));
+		target_ni->tags = (ni_name *)malloc(nl.ni_namelist_len * sizeof(ni_name));
 	}
-	if (nl.ninl_len == 0) {
-		return(0);
+	else
+	{
+		target_ni->addrs = (struct in_addr *)realloc(target_ni->addrs, ((target_ni->naddrs + nl.ni_namelist_len) * sizeof(struct in_addr)));
+		target_ni->tags = (ni_name *)realloc(target_ni->tags, ((target_ni->naddrs + nl.ni_namelist_len) * sizeof(ni_name)));
 	}
 
-	if (target_ni->naddrs == 0) {
-		target_ni->addrs =
-			(struct in_addr *)malloc(nl.ninl_len * sizeof(struct in_addr));
-		target_ni->tags =
-			(ni_name *)malloc(nl.ninl_len * sizeof(ni_name));
-	} else {
-		target_ni->addrs =
-			(struct in_addr *)realloc(target_ni->addrs,
-						((target_ni->naddrs + nl.ninl_len) * sizeof(struct in_addr)));
-		target_ni->tags =
-			(ni_name *)realloc(target_ni->tags,
-						((target_ni->naddrs + nl.ninl_len) * sizeof(ni_name)));
-	}
-
-	for (i=0; i<nl.ninl_len; i++) {
-		addr.s_addr = inet_addr(nl.ninl_val[i]);
+	for (i = 0; i < nl.ni_namelist_len; i++)
+	{
+		addr.s_addr = inet_addr(nl.ni_namelist_val[i]);
 		target_ni->addrs[target_ni->naddrs] = addr;
 		target_ni->tags[target_ni->naddrs] = ni_name_dup(tag);
 		target_ni->naddrs++;
 	}
 
 	ni_namelist_free(&nl);
-	return (1);
+	return 1;
 }
 
-
 static int
-get_daddr(
-	  ni_private *ni,
-	  ni_name dom,
-	  ni_private *target_ni
-	)
+get_daddr(ni_private *ni, ni_name dom, ni_private *target_ni)
 {
-	ni_id id;
+	ni_id nid;
 	ni_idlist ids;
-	ni_namelist nl;
 	ni_entrylist entries;
+	ni_proplist pl;
 	ni_index i;
 	ni_index j;
 	ni_name tag;
 
-	if (ni_root(ni, &id) != NI_OK) {
-		return(0);
+	if (dom == NULL) return 0;
+
+	if (!strcmp(dom, "."))
+	{
+		/* check for server list */
+		NI_INIT(&pl);
+		if (ni_statistics(ni, &pl) == NI_OK)
+		{
+			i = ni_proplist_match(pl, NAME_DOMAIN_SERVERS, NULL);
+			if (i != NI_INDEX_NULL)
+			{
+				if (pl.ni_proplist_val[i].nip_val.ni_namelist_len > 0)
+				{
+					for (j = 0; j < pl.ni_proplist_val[i].nip_val.ni_namelist_len; j++)
+					{
+						add_addr_tag(target_ni, pl.ni_proplist_val[i].nip_val.ni_namelist_val[j]);
+					}
+					ni_proplist_free(&pl);
+					return 1;
+				}
+			}
+			ni_proplist_free(&pl);
+		}
 	}
 
+	if (ni_root(ni, &nid) != NI_OK) return 0;
 	NI_INIT(&ids);
-	if (ni_lookup(ni, &id, NAME_NAME, NAME_MACHINES, &ids) != NI_OK) {
-		return (0);
-	}
+	if (ni_lookup(ni, &nid, NAME_NAME, NAME_MACHINES, &ids) != NI_OK) return 0;
 
-	id.nii_object = ids.niil_val[0];
+	nid.nii_object = ids.niil_val[0];
 	ni_idlist_free(&ids);
 
 	NI_INIT(&entries);
-	if (ni_list(ni, &id, NAME_SERVES, &entries) != NI_OK) {
-		return (0);
-	}
+	if (ni_list(ni, &nid, NAME_SERVES, &entries) != NI_OK) return 0;
 
-	for (i = 0; i < entries.niel_len; i++) {
-		if (entries.niel_val[i].names != NULL) {
-			nl = *entries.niel_val[i].names;
-			for (j = 0; j < nl.ninl_len; j++) {
-				if (match(dom, nl.ninl_val[j], &tag)) {
-					if (addaddr(ni,
-						    entries.niel_val[i].id,
-						    tag,
-						    target_ni)) {
-						ni_name_free(&tag);
-						break;
-					}
-					ni_name_free(&tag);
-				}
+	for (i = 0; i < entries.niel_len; i++)
+	{
+		if (entries.niel_val[i].names == NULL) continue;
+
+		for (j = 0; j < entries.niel_val[i].names->ni_namelist_len; j++)
+		{
+			if (match(dom, entries.niel_val[i].names->ni_namelist_val[j], &tag))
+			{
+				addaddr(ni, entries.niel_val[i].id, tag, target_ni);
+				ni_name_free(&tag);
 			}
 		}
-
 	}
+
 	ni_entrylist_free(&entries);
 	return (target_ni->naddrs > 0);
 }
-
-
-#ifdef notdef
-static int
-get_haddr(
-	  ni_private *ni,
-	  ni_name hname,
-	  ni_name tag,
-	  ni_private *target_ni
-	)
-{
-	ni_id id;
-	ni_idlist ids;
-
-	if (ni_root(ni, &id) != NI_OK) {
-		return(0);
-	}
-	NI_INIT(&ids);
-	if (ni_lookup(ni, &id, NAME_NAME, NAME_MACHINES, &ids) != NI_OK) {
-		return (0);
-	}
-	id.nii_object = ids.niil_val[0];
-	ni_idlist_free(&ids);
-
-	NI_INIT(&ids);
-	if (ni_lookup(ni, &id, NAME_NAME, hname, &ids) != NI_OK) {
-		return (0);
-	}
-	id.nii_object = ids.niil_val[0];
-	ni_idlist_free(&ids);
-	if (!addaddr(ni, id.nii_object, tag, target_ni)) {
-		return (0);
-	}
-	return (1);
-}
-#endif
-
 
 static ni_status
 getparent(ni_private *oldni, ni_private **newni)
 {
 	ni_rparent_res *resp;
-	ni_private *ni;
+	ni_private *ni = NULL;
 	ni_private *dupni;
-	int found;
+	int found = 0;
 	ni_index i;
 	struct in_addr raddr;
 	int printed = 0;
 	int inlist = 0;
 
-	found = 0;
-	while (!found) {
+	while (found == 0)
+	{
 		/*
 		 * First, find our parent, any parent
 		 */
-		for (;;) {
+		for (;;)
+		{
 			resp = RCALLIT(oldni, _ni_rparent_2, NULL);
-			if (resp == NULL) {
-				return (NI_FAILED);
-			}
-			if (resp->status != NI_NORESPONSE) {
-				break;
-			}
-			if (!printed) {
+			if (resp == NULL) return NI_FAILED;
+			if (resp->status != NI_NORESPONSE) break;
+
+			if (!printed)
+			{
 				syslog(LOG_ERR, "NetInfo timeout finding server for parent of %s/%s, sleeping",
 					inet_ntoa(oldni->addrs[0]), oldni->tags[0]);
 				printed++;
 			}
+
 			sleep(NI_SLEEPTIME);
 		}
-		if (printed) {
+
+		if (printed)
+		{
 			raddr.s_addr = htonl(resp->ni_rparent_res_u.binding.addr);
 			
 			syslog(LOG_ERR, "NetInfo %s/%s found parent %s/%s",
 					inet_ntoa(oldni->addrs[0]), oldni->tags[0],
 					inet_ntoa(raddr), resp->ni_rparent_res_u.binding.tag);
 		}
-		if (resp->status != NI_OK) {
-			return (resp->status);
-		}
+
+		if (resp->status != NI_OK) return (resp->status);
+
 		ni = ni_alloc();
 		*ni = *oldni;
 		ni_clear(ni);
@@ -1212,15 +1222,19 @@ getparent(ni_private *oldni, ni_private **newni)
 		ni = ni_alloc();
 		*ni = *dupni;
 		ni_clear(ni);
-		if (get_daddr(dupni, ".", ni)) {
-
+		if (get_daddr(dupni, ".", ni) == 0) 
+		{
+			if (oldni->abort == 1) break;
+		}
+		else
+		{
 			/*
-			 * Now make sure returned parent is head of
-			 * list
+			 * Make sure returned parent is head of list
 			 */
-			for (i = 0; i < ni->naddrs; i++) {
-				if (ni->addrs[i].s_addr ==
-				    dupni->addrs[0].s_addr) {
+			for (i = 0; i < ni->naddrs; i++)
+			{
+				if (ni->addrs[i].s_addr == dupni->addrs[0].s_addr)
+				{
 					ni_switch(ni, i);
 					inlist++;
 					break;
@@ -1236,13 +1250,14 @@ getparent(ni_private *oldni, ni_private **newni)
 			dupni->tsock = -1;
 			dupni->tport = -1;
 			dupni->tc = NULL;
-			found++;
+			found = 1;
 
 			/*
 			 * If returned parent wasn't in list, it's a rogue.
 			 * Log an error and drop the connection.
 			 */
-			if (inlist == 0) {
+			if (inlist == 0)
+			{
 				syslog(LOG_ERR, "Rogue NetInfo server detected: %s/%s",
 					inet_ntoa(dupni->addrs[0]), dupni->tags[0]);
 				reinit(ni);
@@ -1251,13 +1266,15 @@ getparent(ni_private *oldni, ni_private **newni)
 		}
 		ni_free(dupni);
 	}
-	if (found) {
+
+	if (found)
+	{
 		*newni = ni;
-		return (NI_OK);
-	} else {
-		ni_free(ni);
-		return (NI_FAILED);
+		return NI_OK;
 	}
+
+	if (ni != NULL) ni_free(ni);
+	return NI_FAILED;
 }
 
 

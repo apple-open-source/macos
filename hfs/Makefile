@@ -12,8 +12,6 @@ NAME = hfs
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-BUNDLES = hfs_japanese
-
 TOOLS = hfs_util
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble

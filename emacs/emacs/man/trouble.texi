@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985,86,87,93,94,95,1997,2001 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @iftex
 @chapter Dealing with Common Problems
@@ -16,8 +16,8 @@ also considered.
 
 @table @kbd
 @item C-g
-@itemx C-@key{BREAK} (MS-DOS)
-Quit.  Cancel running or partially typed command.
+@itemx C-@key{BREAK} @r{(MS-DOS only)}
+Quit: cancel running or partially typed command.
 @item C-]
 Abort innermost recursive editing level and cancel the command which
 invoked it (@code{abort-recursive-edit}).
@@ -55,11 +55,12 @@ recognize @kbd{C-g} while a command is running, between interactions
 with the user.  By contrast, it @emph{is} feasible to recognize
 @kbd{C-@key{BREAK}} at all times.  @xref{MS-DOS Input}.
 
+@findex keyboard-quit
   @kbd{C-g} works by setting the variable @code{quit-flag} to @code{t}
 the instant @kbd{C-g} is typed; Emacs Lisp checks this variable
 frequently and quits if it is non-@code{nil}.  @kbd{C-g} is only
 actually executed as a command if you type it while Emacs is waiting for
-input.
+input.  In that case, the command it runs is @code{keyboard-quit}.
 
   If you quit with @kbd{C-g} a second time before the first @kbd{C-g} is
 recognized, you activate the ``emergency escape'' feature and return to
@@ -72,7 +73,7 @@ special pains are taken for the particular system call within Emacs
 where the waiting occurs.  We have done this for the system calls that
 users are likely to want to quit from, but it's possible you will find
 another.  In one very common case---waiting for file input or output
-using NFS---Emacs itself knows how to quit, but most NFS implementations
+using NFS---Emacs itself knows how to quit, but many NFS implementations
 simply do not allow user programs to stop waiting for NFS when the NFS
 server is hung.
 
@@ -113,34 +114,108 @@ keymap.  @xref{Recursive Edit}.
 
   @kbd{C-x u} (@code{undo}) is not strictly speaking a way of canceling
 a command, but you can think of it as canceling a command that already
-finished executing.  @xref{Undo}.
+finished executing.  @xref{Undo}, for more information
+about the undo facility.
 
 @node Lossage, Bugs, Quitting, Top
 @section Dealing with Emacs Trouble
 
   This section describes various conditions in which Emacs fails to work
-normally, and how to recognize them and correct them.
+normally, and how to recognize them and correct them.  For a list of
+additional problems you might encounter, see @ref{Bugs and problems, ,
+Bugs and problems, efaq, GNU Emacs FAQ}, and the file @file{etc/PROBLEMS}
+in the Emacs distribution.  Type @kbd{C-h F} to read the FAQ; type
+@kbd{C-h P} to read the @file{PROBLEMS} file.
 
 @menu
-* DEL Gets Help::       What to do if @key{DEL} doesn't delete.
-* Stuck Recursive::     `[...]' in mode line around the parentheses.
-* Screen Garbled::      Garbage on the screen.
-* Text Garbled::        Garbage in the text.
-* Unasked-for Search::  Spontaneous entry to incremental search.
-* Memory Full::         How to cope when you run out of memory.
-* After a Crash::       Recovering editing in an Emacs session that crashed.
-* Emergency Escape::    Emergency escape---
-                          What to do if Emacs stops responding.
-* Total Frustration::   When you are at your wits' end.
+* DEL Does Not Delete::  What to do if @key{DEL} doesn't delete.
+* Stuck Recursive::       `[...]' in mode line around the parentheses.
+* Screen Garbled::        Garbage on the screen.
+* Text Garbled::          Garbage in the text.
+* Unasked-for Search::    Spontaneous entry to incremental search.
+* Memory Full::           How to cope when you run out of memory.
+* After a Crash::         Recovering editing in an Emacs session that crashed.
+* Emergency Escape::      Emergency escape---
+                            What to do if Emacs stops responding.
+* Total Frustration::     When you are at your wits' end.
 @end menu
 
-@node DEL Gets Help
+@node DEL Does Not Delete
 @subsection If @key{DEL} Fails to Delete
+@cindex @key{DEL} vs @key{BACKSPACE}
+@cindex @key{BACKSPACE} vs @key{DEL}
+@cindex usual erasure key
 
-  If you find that @key{DEL} enters Help like @kbd{Control-h} instead of
-deleting a character, your terminal is sending the wrong code for
-@key{DEL}.  You can work around this problem by changing the keyboard
-translation table (@pxref{Keyboard Translations}).
+  Every keyboard has a large key, a little ways above the @key{RET} or
+@key{ENTER} key, which you normally use outside Emacs to erase the
+last character that you typed.  We call this key @dfn{the usual
+erasure key}.  In Emacs, it is supposed to be equivalent to @key{DEL},
+and when Emacs is properly configured for your terminal, it translates
+that key into the character @key{DEL}.
+
+  When Emacs starts up using a window system, it determines
+automatically which key should be @key{DEL}.  In some unusual cases
+Emacs gets the wrong information from the system.  If the usual
+erasure key deletes forwards instead of backwards, that is probably
+what happened---Emacs ought to be treating the @key{DELETE} key as
+@key{DEL}, but it isn't.
+
+  With a window system, if the usual erasure key is labeled
+@key{BACKSPACE} and there is a @key{DELETE} key elsewhere, but the
+@key{DELETE} key deletes backward instead of forward, that too
+suggests Emacs got the wrong information---but in the opposite sense.
+It ought to be treating the @key{BACKSPACE} key as @key{DEL}, and
+treating @key{DELETE} differently, but it isn't.
+
+  On a text-only terminal, if you find the usual erasure key prompts
+for a Help command, like @kbd{Control-h}, instead of deleting a
+character, it means that key is actually sending the @key{BS}
+character.  Emacs ought to be treating @key{BS} as @key{DEL}, but it
+isn't.
+
+  In all of those cases, the immediate remedy is the same: use the
+command @kbd{M-x normal-erase-is-backspace-mode}.  This toggles
+between the two modes that Emacs supports for handling @key{DEL}, so
+if Emacs starts in the wrong mode, it should switch to the right mode.
+On a text-only terminal, if you want to ask for help when @key{BS} is
+treated as @key{DEL}, use @key{F1}; @kbd{C-?} may also work, if it
+sends character code 127.
+
+@findex normal-erase-is-backspace-mode
+  To fix the problem automatically for every Emacs session, you can
+put one of the following lines into your @file{.emacs} file
+(@pxref{Init File}).  For the first case above, where @key{DELETE}
+deletes forwards instead of backwards, use this line to make
+@key{DELETE} act as @key{DEL} (resulting in behavior compatible
+with Emacs 20 and previous versions):
+
+@lisp
+(normal-erase-is-backspace-mode 0)
+@end lisp
+
+@noindent
+For the other two cases, where @key{BACKSPACE} ought to act as
+@key{DEL}, use this line:
+
+@lisp
+(normal-erase-is-backspace-mode 1)
+@end lisp
+
+@vindex normal-erase-is-backspace
+  Another way to fix the problem for every Emacs session is to
+customize the variable @code{normal-erase-is-backspace}: the value
+@code{t} specifies the mode where @key{BS} or @key{BACKSPACE} is
+@key{DEL}, and @code{nil} specifies the other mode.  @xref{Easy
+Customization}.
+
+  With a window system, it can also happen that the usual erasure key
+is labeled @key{BACKSPACE}, there is a @key{DELETE} key elsewhere, and
+both keys delete forward.  This probably means that someone has
+redefined your @key{BACKSPACE} key as a @key{DELETE} key.  With X,
+this is typically done with a command to the @code{xmodmap} program
+when you start the server or log in.  The most likely motive for this
+customization was to support old versions of Emacs, so we recommend
+you simply remove it now.
 
 @node Stuck Recursive
 @subsection Recursive Editing Levels
@@ -159,10 +234,10 @@ back to top level.  @xref{Recursive Edit}.
 @subsection Garbage on the Screen
 
   If the data on the screen looks wrong, the first thing to do is see
-whether the text is really wrong.  Type @kbd{C-l}, to redisplay the
+whether the text is really wrong.  Type @kbd{C-l} to redisplay the
 entire screen.  If the screen appears correct after this, the problem
-was entirely in the previous screen update.  (Otherwise, see @ref{Text
-Garbled}.)
+was entirely in the previous screen update.  (Otherwise, see the following
+section.)
 
   Display updating problems often result from an incorrect termcap entry
 for the terminal you are using.  The file @file{etc/TERMS} in the Emacs
@@ -246,7 +321,7 @@ its memory reserve automatically when it sees sufficient free space
 available, in case you run out of memory another time.
 
   Do not use @kbd{M-x buffer-menu} to save or kill buffers when you run
-out of memory, because the buffer menu needs a fair amount memory
+out of memory, because the buffer menu needs a fair amount of memory
 itself, and the reserve supply may not be enough.
 
 @node After a Crash
@@ -309,7 +384,7 @@ If not, and you type another @kbd{C-g}, it is suspended again.
 @kbd{n} to both questions, and you will arrive at your former state.
 Presumably the quit you requested will happen soon.
 
-  The double-@kbd{C-g} feature is turned off when Emacs is running under
+  The double @kbd{C-g} feature is turned off when Emacs is running under
 the X Window System, since you can use the window manager to kill Emacs
 or to create another window and run another program.
 
@@ -349,6 +424,14 @@ they are bugs and want to fix them.
   To make it possible for us to fix a bug, you must report it.  In order
 to do so effectively, you must know when and how to do it.
 
+  Before reporting a bug, it is a good idea to see if it is already
+known.  You can find the list of known problems in the file
+@file{etc/PROBLEMS} in the Emacs distribution; type @kbd{C-h P} to read
+it.  Some additional user-level problems can be found in @ref{Bugs and
+problems, , Bugs and problems, efaq, GNU Emacs FAQ}.  Looking up your
+problem in these two documents might provide you with a solution or a
+work-around, or give you additional information about related issues.
+
 @menu
 * Criteria:  Bug Criteria.	 Have you really found a bug?
 * Understanding Bug Reporting::	 How to report a bug effectively.
@@ -387,15 +470,16 @@ command, or don't know for certain how the command is supposed to work,
 then it might actually be working right.  Rather than jumping to
 conclusions, show the problem to someone who knows for certain.
 
-  Finally, a command's intended definition may not be best for editing
-with.  This is a very important sort of problem, but it is also a matter of
-judgment.  Also, it is easy to come to such a conclusion out of ignorance
-of some of the existing features.  It is probably best not to complain
-about such a problem until you have checked the documentation in the usual
-ways, feel confident that you understand it, and know for certain that what
-you want is not available.  If you are not sure what the command is
-supposed to do after a careful reading of the manual, check the index and
-glossary for any terms that may be unclear.
+  Finally, a command's intended definition may not be the best
+possible definition for editing with.  This is a very important sort
+of problem, but it is also a matter of judgment.  Also, it is easy to
+come to such a conclusion out of ignorance of some of the existing
+features.  It is probably best not to complain about such a problem
+until you have checked the documentation in the usual ways, feel
+confident that you understand it, and know for certain that what you
+want is not available.  If you are not sure what the command is
+supposed to do after a careful reading of the manual, check the index
+and glossary for any terms that may be unclear.
 
   If after careful rereading of the manual you still do not understand
 what the command should do, that indicates a bug in the manual, which
@@ -462,20 +546,25 @@ well.
 
 @cindex reporting bugs
   The best way to send a bug report is to mail it electronically to the
-Emacs maintainers at @samp{bug-gnu-emacs@@gnu.org}.  (If you
-want to suggest a change as an improvement, use the same address.)
+Emacs maintainers at @email{bug-gnu-emacs@@gnu.org}, or to
+@email{emacs-pretest-bug@@gnu.org} if you are pretesting an Emacs beta
+release.  (If you want to suggest a change as an improvement, use the
+same address.)
 
   If you'd like to read the bug reports, you can find them on the
 newsgroup @samp{gnu.emacs.bug}; keep in mind, however, that as a
 spectator you should not criticize anything about what you see there.
 The purpose of bug reports is to give information to the Emacs
 maintainers.  Spectators are welcome only as long as they do not
-interfere with this.  In particular, some bug reports contain large
-amounts of data; spectators should not complain about this.
+interfere with this.  In particular, some bug reports contain fairly
+large amounts of data; spectators should not complain about this.
 
   Please do not post bug reports using netnews; mail is more reliable
-than netnews about reporting your correct address, which we may need in
-order to ask you for more information.
+than netnews about reporting your correct address, which we may need
+in order to ask you for more information.  If your data is more than
+500,000 bytes, please don't include it directly in the bug report;
+instead, offer to send it on request, or make it available by ftp and
+say where.
 
   If you can't send electronic mail, then mail the bug report on paper
 or machine-readable media to this address:
@@ -553,6 +642,7 @@ The precise commands we need to type to reproduce the bug.
 
 @findex open-dribble-file
 @cindex dribble file
+@cindex logging keystrokes
   The easy way to record the input to Emacs precisely is to write a
 dribble file.  To start the file, execute the Lisp expression
 
@@ -568,9 +658,9 @@ specified dribble file until the Emacs process is killed.
 @item
 @findex open-termscript
 @cindex termscript file
-@cindex @code{TERM} environment variable
+@cindex @env{TERM} environment variable
 For possible display bugs, the terminal type (the value of environment
-variable @code{TERM}), the complete termcap entry for the terminal from
+variable @env{TERM}), the complete termcap entry for the terminal from
 @file{/etc/termcap} (since that file is not identical on all machines),
 and the output that Emacs actually sent to the terminal.
 
@@ -593,6 +683,26 @@ terminal-dependent bug without access to a terminal of the type that
 stimulates the bug.@refill
 
 @item
+If non-ASCII text or internationalization is relevant, the locale that
+was current when you started Emacs.  On GNU/Linux and Unix systems, or
+if you use a Posix-style shell such as Bash, you can use this shell
+command to view the relevant values:
+
+@smallexample
+echo LC_ALL=$LC_ALL LC_COLLATE=$LC_COLLATE LC_TYPE=$LC_TYPE \
+  LC_MESSAGES=$LC_MESSAGES LC_TIME=$LC_TIME LANG=$LANG
+@end smallexample
+
+Alternatively, use the @command{locale} command, if your system has it,
+to display your locale settings.
+
+You can use the @kbd{M-!} command to execute these commands from
+Emacs, and then copy the output from the @samp{*Messages*} buffer into
+the bug report.  Alternatively, @kbd{M-x getenv @key{RET} LC_ALL
+@key{RET}} will display the value of @code{LC_ALL} in the echo area, and
+you can copy its output from the @samp{*Messages*} buffer.
+
+@item
 A description of what behavior you observe that you believe is
 incorrect.  For example, ``The Emacs process gets a fatal signal,'' or,
 ``The resulting text is as follows, which I think is wrong.''
@@ -612,6 +722,12 @@ whether the bug was happening---we would not be able to draw any
 conclusion from our observations.
 
 @item
+If the bug is that the Emacs Manual or the Emacs Lisp Reference Manual
+fails to describe the actual behavior of Emacs, or that the text is
+confusing, copy in the text from the online manual which you think is
+at fault.  If the section is small, just the section name is enough.
+
+@item
 If the manifestation of the bug is an Emacs error message, it is
 important to report the precise text of the error message, and a
 backtrace showing how the Lisp program in Emacs arrived at the error.
@@ -620,12 +736,15 @@ To get the error message text accurately, copy it from the
 @samp{*Messages*} buffer into the bug report.  Copy all of it, not just
 part.
 
-To make a backtrace for the error, evaluate the Lisp expression
-@code{(setq @w{debug-on-error t})} before the error happens (that is to
-say, you must execute that expression and then make the bug happen).
-This causes the error to run the Lisp debugger, which shows you a
-backtrace.  Copy the text of the debugger's backtrace into the bug
-report.
+@findex toggle-debug-on-error
+@pindex Edebug
+To make a backtrace for the error, use @kbd{M-x toggle-debug-on-error}
+before the error happens (that is to say, you must give that command
+and then make the bug happen).  This causes the error to run the Lisp
+debugger, which shows you a backtrace.  Copy the text of the
+debugger's backtrace into the bug report.  @xref{Debugger,, The Lisp
+Debugger, elisp, the Emacs Lisp Reference Manual}, for information on
+debugging Emacs Lisp programs with the Edebug package.
 
 This use of the debugger is possible only if you know how to make the
 bug happen again.  If you can't make it happen again, at least copy
@@ -701,30 +820,6 @@ To make Lisp errors stop Emacs and return to GDB, put a breakpoint at
 For a short listing of Lisp functions running, type the GDB
 command @code{xbacktrace}.  
 
-If you want to examine Lisp function arguments, move up the stack, and
-each time you get to a frame for the function @code{Ffuncall}, type
-these GDB commands:
-
-@example
-p *args
-pr
-@end example
-
-@noindent
-To print the first argument that the function received, use these
-commands:
-
-@example
-p args[1]
-pr
-@end example
-
-@noindent
-You can print the other arguments likewise.  The argument @code{nargs}
-of @code{Ffuncall} says how many arguments @code{Ffuncall} received;
-these include the Lisp function itself and the arguments for that
-function.
-
 The file @file{.gdbinit} defines several other commands that are useful
 for examining the data types and contents of Lisp objects.  Their names
 begin with @samp{x}.  These commands work at a lower level than
@@ -732,32 +827,15 @@ begin with @samp{x}.  These commands work at a lower level than
 @code{pr} does not, such as when debugging a core dump or when Emacs has
 had a fatal signal.
 
-@item
-If the symptom of the bug is that Emacs fails to respond, don't assume
-Emacs is ``hung''---it may instead be in an infinite loop.  To find out
-which, make the problem happen under GDB and stop Emacs once it is not
-responding.  (If Emacs is using X Windows directly, you can stop Emacs
-by typing @kbd{C-z} at the GDB job.)  Then try stepping with
-@samp{step}.  If Emacs is hung, the @samp{step} command won't return.
-If it is looping, @samp{step} will return.
+@cindex debugging Emacs, tricks and techniques
+More detailed advice and other useful techniques for debugging Emacs
+are available in the file @file{etc/DEBUG} in the Emacs distribution.
+That file also includes instructions for investigating problems
+whereby Emacs stops responding (many people assume that Emacs is
+``hung,'' whereas in fact it might be in an infinite loop).
 
-If this shows Emacs is hung in a system call, stop it again and examine
-the arguments of the call.  In your bug report, state exactly where in
-the source the system call is, and what the arguments are.
-
-If Emacs is in an infinite loop, please determine where the loop starts
-and ends.  The easiest way to do this is to use the GDB command
-@samp{finish}.  Each time you use it, Emacs resumes execution until it
-exits one stack frame.  Keep typing @samp{finish} until it doesn't
-return---that means the infinite loop is in the stack frame which you
-just tried to finish.
-
-Stop Emacs again, and use @samp{finish} repeatedly again until you get
-@emph{back to} that frame.  Then use @samp{next} to step through that
-frame.  By stepping, you will see where the loop starts and ends.  Also
-please examine the data being used in the loop and try to determine why
-the loop does not exit when it should.  Include all of this information
-in your bug report.
+To find the file @file{etc/DEBUG} in your Emacs installation, use the
+directory name stored in the variable @code{data-directory}.
 @end itemize
 
 Here are some things that are not necessary in a bug report:
@@ -772,9 +850,11 @@ which changes to the input file will make the bug go away and which
 changes will not affect it.
 
 This is often time-consuming and not very useful, because the way we
-will find the bug is by running a single example under the debugger with
-breakpoints, not by pure deduction from a series of examples.  You might
-as well save time by not searching for additional examples.
+will find the bug is by running a single example under the debugger
+with breakpoints, not by pure deduction from a series of examples.
+You might as well save time by not searching for additional examples.
+It is better to send the bug report right away, go back to editing,
+and find another bug to report.
 
 Of course, if you can find a simpler example to report @emph{instead} of
 the original one, that is a convenience.  Errors in the output will be
@@ -782,6 +862,15 @@ easier to spot, running under the debugger will take less time, etc.
 
 However, simplification is not vital; if you can't do this or don't have
 time to try, please report the bug with your original test case.
+
+@item
+A core dump file.
+
+Debugging the core dump might be useful, but it can only be done on
+your machine, with your Emacs executable.  Therefore, sending the core
+dump file to the Emacs maintainers won't be useful.  Above all, don't
+include the core file in an email bug report!  Such a large message
+can be extremely inconvenient.
 
 @item
 A system-call trace of Emacs execution.
@@ -944,14 +1033,14 @@ form that is clearly safe to install.
 
 If you would like to help pretest Emacs releases to assure they work
 well, or if you would like to work on improving Emacs, please contact
-the maintainers at @code{bug-gnu-emacs@@gnu.org}.  A pretester
+the maintainers at @email{bug-gnu-emacs@@gnu.org}.  A pretester
 should be prepared to investigate bugs as well as report them.  If you'd
 like to work on improving Emacs, please ask for suggested projects or
 suggest your own ideas.
 
 If you have already written an improvement, please tell us about it.  If
 you have not yet started work, it is useful to contact
-@code{bug-gnu-emacs@@gnu.org} before you start; it might be
+@email{bug-gnu-emacs@@gnu.org} before you start; it might be
 possible to suggest ways to make your extension fit in better with the
 rest of Emacs.
 
@@ -964,7 +1053,7 @@ ways to find it:
 @itemize @bullet
 @item
 Send a message to the mailing list
-@code{help-gnu-emacs@@gnu.org}, or post your request on
+@email{help-gnu-emacs@@gnu.org}, or post your request on
 newsgroup @code{gnu.emacs.help}.  (This mailing list and newsgroup
 interconnect, so it does not matter which one you use.)
 

@@ -179,7 +179,7 @@ do_header(dev, hname, count)
 			perror(file);
 			exit(1);
 		}
-		fprintf(outf, "#import <%s.h>\n", hname);
+		fprintf(outf, "#include <%s.h>\n", hname);
 		(void) fclose(outf);
 		return;
 	}

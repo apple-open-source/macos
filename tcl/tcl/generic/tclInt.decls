@@ -10,7 +10,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: tclInt.decls,v 1.1.1.3 2000/12/06 23:03:34 wsanchez Exp $
+# RCS: @(#) $Id: tclInt.decls,v 1.1.1.4 2002/04/05 16:13:20 jevans Exp $
 
 library tcl
 
@@ -614,6 +614,25 @@ declare 162 generic {
     void TclChannelEventScriptInvoker(ClientData clientData, int flags)
 }
 
+# New in 8.3.4, support for shared library version of tclcompiler.
+
+# ALERT: The result of 'TclGetInstructionTable' is actually an
+# InstructionDesc*" but we do not want to describe this structure in
+# "tclInt.h". It is described in "tclCompile.h". Use a cast to the
+# correct type when calling this procedure.
+
+declare 163 generic {
+	void * TclGetInstructionTable (void)
+}
+
+# ALERT: The argument of 'TclExpandCodeArray' is actually a
+# "CompileEnv*" but we do not want to describe this structure in
+# "tclInt.h". It is described in "tclCompile.h".
+
+declare 164 generic {
+	void TclExpandCodeArray (void *envPtr)
+}
+
 ##############################################################################
 
 # Define the platform specific internal Tcl interface. These functions are
@@ -650,7 +669,7 @@ declare 6 mac {
 	    Boolean createFolder, FSSpec *spec)
 }
 declare 7 mac {
-    void GetGlobalMouse(Point *mouse)
+    void GetGlobalMouseTcl(Point *mouse)
 }
 
 # The following routines are utility functions in Tcl.  They are exported
@@ -658,15 +677,15 @@ declare 7 mac {
 # however.  The first set are from the MoreFiles package.
 
 declare 8 mac {
-    pascal OSErr FSpGetDirectoryID(CONST FSSpec *spec, long *theDirID, \
+    pascal OSErr FSpGetDirectoryIDTcl(CONST FSSpec *spec, long *theDirID, \
 	    Boolean *isDirectory)
 }
 declare 9 mac {
-    pascal short FSpOpenResFileCompat(CONST FSSpec *spec, \
+    pascal short FSpOpenResFileCompatTcl(CONST FSSpec *spec, \
 	    SignedByte permission)
 }
 declare 10 mac {
-    pascal void FSpCreateResFileCompat(CONST FSSpec *spec, OSType creator, \
+    pascal void FSpCreateResFileCompatTcl(CONST FSSpec *spec, OSType creator, \
 	    OSType fileType, ScriptCode scriptTag)
 }
 
@@ -721,6 +740,9 @@ declare 23 mac {
 #  declare 24 mac {
 #      int TclMacReadlink(char *path, char *buf, int size)
 #  }
+declare 24 mac {
+    char * TclpGetTZName(int isdst)
+}
 declare 25 mac {
     int TclMacChmod(char *path, int mode)
 }
@@ -803,9 +825,11 @@ declare 19 win {
 declare 20 win {
     void TclWinAddProcess(HANDLE hProcess, DWORD id)
 }
-declare 21 win {
-    void TclpAsyncMark(Tcl_AsyncHandler async)
-}
+#  Removed permanently from 8.3.4 to match 8.4a2's removal
+#
+#  declare 21 win {
+#      void TclpAsyncMark(Tcl_AsyncHandler async)
+#  }
 
 # Added in 8.1:
 declare 22 win {
@@ -822,6 +846,12 @@ declare 25 win {
 }
 declare 26 win {
     void TclWinSetInterfaces(int wide)
+}
+
+# Added in Tcl 8.3.3 / 8.4
+
+declare 27 win {
+    void TclWinFlushDirtyChannels (void)
 }
 
 #########################

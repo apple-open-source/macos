@@ -39,7 +39,11 @@ OSStatus GetKeychainErrFromCSSMErr( OSStatus cssmError )
 				return userCanceledErr;
 			case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
 				return errSecAuthFailed;
-			default:
+			case CSSM_ERRCODE_NO_USER_INTERACTION:
+				return errSecInteractionNotAllowed;
+			case CSSM_ERRCODE_OS_ACCESS_DENIED:
+                return wrPermErr;
+            default:
 				return cssmError;
 		}
 	}
@@ -48,6 +52,8 @@ OSStatus GetKeychainErrFromCSSMErr( OSStatus cssmError )
 		switch (cssmError)
 		{
 			// DL SPECIFIC ERROR CODES
+            case CSSMERR_DL_OS_ACCESS_DENIED:
+                return wrPermErr;
 			case CSSMERR_DL_RECORD_NOT_FOUND:
 				return errSecItemNotFound;
 			case CSSMERR_DL_INVALID_UNIQUE_INDEX_DATA:
@@ -87,7 +93,7 @@ StKCItem::~StKCItem( )
     // if an error occured and the item is valid, release the item
     //
     if ( *fResult != noErr && *fItem != NULL )
-        ::SecKeychainItemRelease(*fItem ); // %%% rjp was KCItemRelease(fitem);
+        CFRelease(*fItem );
 }
 
 } // end namespace Security

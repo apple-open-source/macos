@@ -1,5 +1,3 @@
-/*	$NetBSD: crc.c,v 1.8 1997/10/17 11:37:03 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,19 +34,16 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)crc.c	8.1 (Berkeley) 6/17/93";
-#else
-__RCSID("$NetBSD: crc.c,v 1.8 1997/10/17 11:37:03 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/cksum/crc.c,v 1.4 1999/12/05 20:03:21 charnier Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
 #include <unistd.h>
-
-#include "extern.h"
 
 static const u_int32_t crctab[] = {
 	0x0,
@@ -111,7 +106,7 @@ static const u_int32_t crctab[] = {
  * locations to store the crc and the number of bytes read.  It returns 0 on
  * success and 1 on failure.  Errno is set on failure.
  */
-u_int32_t crc_total = ~0;		/* The crc over a number of files. */
+u_int32_t crc_total = ~0;			/* The crc over a number of files. */
 
 int
 crc(fd, cval, clen)

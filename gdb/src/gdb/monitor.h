@@ -1,5 +1,6 @@
 /* Definitions for remote debugging interface for ROM monitors.
-   Copyright 1990, 1991, 1992, 1996 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support. Written by Rob Savoye for Cygnus.
 
    This file is part of GDB.
@@ -20,7 +21,10 @@
    Boston, MA 02111-1307, USA.
  */
 
-#include "serial.h"
+#ifndef MONITOR_H
+#define MONITOR_H
+
+struct serial;
 
 /* This structure describes the strings necessary to give small command
    sequences to the monitor, and parse the response.
@@ -96,7 +100,7 @@ struct monitor_ops
     char *dump_registers;	/* Command to dump all regs at once */
     char *register_pattern;	/* Pattern that picks out register from reg dump */
     void (*supply_register) (char *name, int namelen, char *val, int vallen);
-    void (*load_routine) (serial_t desc, char *file,
+    void (*load_routine) (struct serial *desc, char *file,
 			  int hashmark);	/* Download routine */
     int (*dumpregs) (void);	/* routine to dump all registers */
     int (*continue_hook) (void);	/* Emit the continue command */
@@ -246,3 +250,5 @@ extern int monitor_readchar (void);
 extern char *monitor_get_dev_name (void);
 extern void init_monitor_ops (struct target_ops *);
 extern int monitor_dump_reg_block (char *dump_cmd);
+
+#endif

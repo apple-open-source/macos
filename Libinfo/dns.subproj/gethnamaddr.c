@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)gethostnamadr.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: gethnamaddr.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $";
+static char rcsid[] = "$Id: gethnamaddr.c,v 1.6 2002/06/13 01:04:37 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -88,6 +88,7 @@ static char rcsid[] = "$Id: gethnamaddr.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp
 #include <arpa/nameser.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <netdb.h>
 #include <resolv.h>
 #include <ctype.h>
@@ -111,6 +112,7 @@ static char rcsid[] = "$Id: gethnamaddr.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp
 
 #define	MAXALIASES	35
 #define	MAXADDRS	35
+#define	MAXHOSTBUF	8*1024
 
 static const char AskedForGot[] =
 			  "gethostby*.getanswer: asked for \"%s\", got \"%s\"";
@@ -120,7 +122,7 @@ static struct hostent *gethostbyname_ipv4 __P((const char *));
 
 static struct hostent host;
 static char *host_aliases[MAXALIASES];
-static char hostbuf[8*1024];
+static char *hostbuf = NULL;
 static struct in_addr host_addr;
 static FILE *hostf = NULL;
 static int stayopen = 0;
@@ -146,6 +148,8 @@ typedef union {
 } align;
 
 extern int h_errno;
+
+extern int _lu_running(void);
 
 #ifdef DEBUG
 static void
@@ -182,6 +186,13 @@ getanswer(answer, anslen, qname, qclass, qtype)
 	char tbuf[MAXDNAME+1];
 	const char *tname;
 
+	if (hostbuf == NULL) {
+		hostbuf = malloc(MAXHOSTBUF);
+		if (hostbuf == NULL)
+			return (NULL);
+	}
+	buflen = MAXHOSTBUF;
+
 	tname = qname;
 	host.h_name = NULL;
 	eom = answer->buf + anslen;
@@ -192,7 +203,6 @@ getanswer(answer, anslen, qname, qclass, qtype)
 	ancount = ntohs(hp->ancount);
 	qdcount = ntohs(hp->qdcount);
 	bp = hostbuf;
-	buflen = sizeof hostbuf;
 	cp = answer->buf + HFIXEDSZ;
 	if (qdcount != 1) {
 		h_errno = NO_RECOVERY;
@@ -361,7 +371,7 @@ getanswer(answer, anslen, qname, qclass, qtype)
 
 			bp += sizeof(align) - ((u_long)bp % sizeof(align));
 
-			if (bp + n >= &hostbuf[sizeof hostbuf]) {
+			if (bp + n >= &hostbuf[MAXHOSTBUF]) {
 				dprintf("size (%d) too big\n", n);
 				had_error++;
 				continue;
@@ -437,13 +447,18 @@ gethostbyname2(name, af)
 	const char *name;
 	int af;
 {
-	switch (af) {
-	case AF_INET:
-		return (gethostbyname_ipv4(name));
+	if (_lu_running())
+	{
+		return getipnodebyname(name, af, 0, &h_errno);
 	}
-	errno = EAFNOSUPPORT;
-	h_errno = NETDB_INTERNAL;
-	return (NULL);
+	else
+	{
+		if (af == AF_INET) return gethostbyname_ipv4(name);
+
+		errno = EAFNOSUPPORT;
+		h_errno = NETDB_INTERNAL;
+		return NULL;
+	}
 }
 
 static struct hostent *
@@ -456,6 +471,15 @@ gethostbyname_ipv4(name)
 #if !defined(__APPLE__)
 	extern struct hostent *_gethtbyname();
 #endif /* !NeXT */
+
+	if (hostbuf == NULL)
+	{
+		hostbuf = malloc(MAXHOSTBUF);
+		if (hostbuf == NULL) {
+			h_errno = NETDB_INTERNAL;
+			return (NULL);
+		}
+	}
 
 	if ((_res.options & RES_INIT) == 0 && res_init() == -1) {
 		h_errno = NETDB_INTERNAL;
@@ -633,8 +657,15 @@ _gethtent()
 		h_errno = NETDB_INTERNAL;
 		return (NULL);
 	}
+	if (hostbuf == NULL) {
+		hostbuf = malloc(MAXHOSTBUF);
+		if (hostbuf == NULL) {
+			h_errno = NETDB_INTERNAL;
+			return (NULL);
+		}
+	}
 again:
-	if (!(p = fgets(hostbuf, sizeof hostbuf, hostf))) {
+	if (!(p = fgets(hostbuf, MAXHOSTBUF, hostf))) {
 		h_errno = HOST_NOT_FOUND;
 		return (NULL);
 	}
@@ -662,7 +693,7 @@ again:
 		cp++;
 	host.h_name = cp;
 	q = host.h_aliases = host_aliases;
-	if (cp = strpbrk(cp, " \t"))
+	if ((cp = strpbrk(cp, " \t")))
 		*cp++ = '\0';
 	while (cp && *cp) {
 		if (*cp == ' ' || *cp == '\t') {
@@ -671,7 +702,7 @@ again:
 		}
 		if (q < &host_aliases[MAXALIASES - 1])
 			*q++ = cp;
-		if (cp = strpbrk(cp, " \t"))
+		if ((cp = strpbrk(cp, " \t")))
 			*cp++ = '\0';
 	}
 	*q = NULL;
@@ -687,7 +718,7 @@ _gethtbyname(name)
 	register char **cp;
 	
 	_sethtent(0);
-	while (p = _gethtent()) {
+	while ((p = _gethtent())) {
 		if (strcasecmp(p->h_name, name) == 0)
 			break;
 		for (cp = p->h_aliases; *cp != 0; cp++)
@@ -707,7 +738,7 @@ _gethtbyaddr(addr, len, type)
 	register struct hostent *p;
 
 	_sethtent(0);
-	while (p = _gethtent())
+	while ((p = _gethtent()))
 		if (p->h_addrtype == type && !bcmp(p->h_addr, addr, len))
 			break;
 	_endhtent();

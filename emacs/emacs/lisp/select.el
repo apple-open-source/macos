@@ -1,4 +1,4 @@
-;;; select.el --- lisp portion of standard selection support.
+;;; select.el --- lisp portion of standard selection support
 
 ;; Keywords: internal
 
@@ -22,6 +22,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 ;; This is for temporary compatibility with pre-release Emacs 19.
@@ -30,7 +32,11 @@
   "Return the value of an X Windows selection.
 The argument TYPE (default `PRIMARY') says which selection, 
 and the argument DATA-TYPE (default `STRING') says
-how to convert the data."
+how to convert the data.
+
+TYPE may be `SECONDARY' or `CLIPBOARD', in addition to `PRIMARY'.
+DATA-TYPE is usually `STRING', but can also be one of the symbols
+in `selection-converter-alist', which see."
   (x-get-selection-internal (or type 'PRIMARY) (or data-type 'STRING)))
 
 (defun x-get-clipboard ()
@@ -310,4 +316,4 @@ Cut buffers are considered obsolete; you should use selections instead."
 
 (provide 'select)
 
-;;; select.el ends here.
+;;; select.el ends here

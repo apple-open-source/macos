@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,24 +17,12 @@
 
 
 /*
-	File:		CCallbackMgr.h
+ *  CCallbackMgr.h -- Code that communicates with processes that install a callback
+ *  with the Keychain Manager to receive keychain events.
+ */
+#ifndef _SECURITY_CCALLBACKMGR_H_
+#define _SECURITY_CCALLBACKMGR_H_
 
-	Contains:	Code that communicates with processes that install a callback
-                with the Keychain Manager to receive keychain events.
-
-	Written by:	Sari Harrison, Craig Mortensen
-
-	Copyright:	© 1998-2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-	To Do:
-*/
-
-#ifndef __CCALLBACKMGR__
-#define __CCALLBACKMGR__
-
-#include <Security/SecKeychainAPI.h>
 #include <Security/KCEventObserver.h>
 #include <Security/KCEventNotifier.h>
 #include <Security/Keychains.h>
@@ -54,14 +42,14 @@ class CallbackInfo
 public:
 	~CallbackInfo();
 	CallbackInfo();
-	CallbackInfo(SecKeychainCallbackProcPtr inCallbackFunction,SecKeychainEventMask inEventMask,void *inContext);
+	CallbackInfo(SecKeychainCallback inCallbackFunction,SecKeychainEventMask inEventMask,void *inContext);
 	
 	bool operator ==(const CallbackInfo& other) const;
 	bool operator !=(const CallbackInfo& other) const;
 
-	SecKeychainCallbackProcPtr			mCallback;
-	SecKeychainEventMask				mEventMask;
-	void						*mContext;
+	SecKeychainCallback mCallback;
+	SecKeychainEventMask mEventMask;
+	void *mContext;
 };
 
 // typedefs
@@ -70,10 +58,6 @@ typedef CallbackInfo const *ConstCallbackInfoPtr;
 
 typedef list<CallbackInfo>::iterator CallbackInfoListIterator;
 typedef list<CallbackInfo>::const_iterator ConstCallbackInfoListIterator;
-
-#ifdef _CPP_CCALLBACKMGR
-# pragma export on
-#endif
 
 
 class CCallbackMgr : Observer
@@ -85,20 +69,14 @@ public:
 	
 	static CCallbackMgr& Instance();
 
-	static void AddCallback( SecKeychainCallbackProcPtr inCallbackFunction, SecKeychainEventMask inEventMask, void* inContext);
+	static void AddCallback( SecKeychainCallback inCallbackFunction, SecKeychainEventMask inEventMask, void* inContext);
 	//static void AddCallbackUPP(KCCallbackUPP inCallbackFunction, KCEventMask inEventMask, void* inContext);
 
-	static void RemoveCallback( SecKeychainCallbackProcPtr inCallbackFunction );
+	static void RemoveCallback( SecKeychainCallback inCallbackFunction );
     //static void RemoveCallbackUPP(KCCallbackUPP inCallbackFunction);
-	static bool HasCallbacks() { return CCallbackMgr::Instance().mEventCallbacks.size() > 0; };
-	static bool ThisProcessUsesSystemEvtCallback();
-	static bool ThisProcessCanDisplayUI();
+	static bool HasCallbacks()
+	{ return CCallbackMgr::Instance().mEventCallbacks.size() > 0; };
 	
-	static void AlertClients( SecKeychainEvent inEvent, bool inOKToAllocateMemory);
-#if 0
-	static void Idle();
-#endif
-
 private:
 
     virtual void 	Event ( CFNotificationCenterRef center, 
@@ -106,8 +84,8 @@ private:
                             const void*				object, 
                             CFDictionaryRef 		userInfo );
 
-	static void AlertClients( SecKeychainEvent inEvent, const Keychain& inKeychain,
-                                const Item &inItem, bool inOKToAllocateMemory = true);
+	static void AlertClients( SecKeychainEvent inEvent, pid_t inPid,
+		const Keychain& inKeychain, const Item &inItem);
 
 	list<CallbackInfo> 		mEventCallbacks;
 	static CCallbackMgr* 	mCCallbackMgr;
@@ -117,4 +95,4 @@ private:
 
 } // end namespace Security
 
-#endif // __CCALLBACKMGR__
+#endif // !_SECURITY_CCALLBACKMGR_H_

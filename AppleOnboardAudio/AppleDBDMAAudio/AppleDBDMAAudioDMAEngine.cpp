@@ -4,15 +4,11 @@
 #include "AppleOnboardAudio.h"
 
 #include <IOKit/IOMemoryDescriptor.h>
-#include <IOKit/audio/IOAudioDevice.h>
-#include <IOKit/audio/IOAudioTypes.h>
-#include <IOKit/audio/IOAudioDefines.h>
 #include <IOKit/audio/IOAudioDebug.h>
-//#include <IOKit/audio/IOAudioToggleControl.h>
-#include <IOKit/audio/IOAudioLevelControl.h>
 
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOWorkLoop.h>
+
 #include "AudioHardwareUtilities.h"
 #include "AppleiSubEngine.h"
 
@@ -75,6 +71,16 @@ bool AppleDBDMAAudioDMAEngine::init(OSDictionary	*properties,
 	initialSampleRate.fraction = 0;
 
 	setSampleRate(&initialSampleRate);
+           
+	mInputDualMonoMode = e_Mode_Disabled;	// aml 6.17.02	   
+		   
+	srcPhase = 1.0;				 		// aml 3.5.02
+	srcState = 0.0;			 			// aml 3.6.02
+	
+	// aml 5.10.02
+	mUseSoftwareInputGain = false;	
+	mInputGainLPtr = NULL;	
+	mInputGainRPtr = NULL;	
 
 	result = TRUE;
 
@@ -95,21 +101,46 @@ void AppleDBDMAAudioDMAEngine::free()
         interruptEventSource = 0;
     }
     
-    if (dmaCommandBufferOut && (commandBufferSize > 0)) 
-    {
+	if (NULL != dmaCommandBufferInMemDescriptor) {
+		dmaCommandBufferInMemDescriptor->release ();
+		dmaCommandBufferInMemDescriptor = NULL;
+	}
+	if (NULL != dmaCommandBufferOutMemDescriptor) {
+		dmaCommandBufferOutMemDescriptor->release ();
+		dmaCommandBufferOutMemDescriptor = NULL;
+	}
+	if (NULL != sampleBufferInMemDescriptor) {
+		sampleBufferInMemDescriptor->release ();
+		sampleBufferInMemDescriptor = NULL;
+	}
+	if (NULL != sampleBufferOutMemDescriptor) {
+		sampleBufferOutMemDescriptor->release ();
+		sampleBufferOutMemDescriptor = NULL;
+	}
+	if (NULL != stopCommandMemDescriptor) {
+		stopCommandMemDescriptor->release ();
+		stopCommandMemDescriptor = NULL;
+	}
+
+    if (dmaCommandBufferOut && (commandBufferSize > 0)) {
         IOFreeAligned(dmaCommandBufferOut, commandBufferSize);
         dmaCommandBufferOut = 0;
     }
     
-    if (dmaCommandBufferIn && (commandBufferSize > 0)) 
-    {
+    if (dmaCommandBufferIn && (commandBufferSize > 0)) {
         IOFreeAligned(dmaCommandBufferIn, commandBufferSize);
         dmaCommandBufferOut = 0;
     }
 
     if (NULL != iSubEngineNotifier) {
         iSubEngineNotifier->remove ();
+		iSubEngineNotifier = NULL;
     }
+
+	if (NULL != iSubAttach) {
+		iSubAttach->release ();
+		iSubAttach = NULL;
+	}
 
     if (NULL != lowFreqSamples) {
         IOFree (lowFreqSamples, (numBlocks * blockSize) * sizeof (float));
@@ -124,13 +155,21 @@ void AppleDBDMAAudioDMAEngine::free()
 
 bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
 {
-    vm_offset_t commandBufferPhys, sampleBufferPhys, stopCommandPhys, offset, sampleBufOut, sampleBufIn;
-    UInt32 blockNum, dmaCommand = 0;
-    bool doInterrupt = false;
-    int interruptIndex;
-    IOWorkLoop *workLoop;
-    IOAudioStream *stream;
-    
+	vm_offset_t					offset;
+	vm_offset_t					sampleBufOut;
+	vm_offset_t					sampleBufIn;
+	IOPhysicalAddress			commandBufferPhys;
+	IOPhysicalAddress			sampleBufferPhys;
+	IOPhysicalAddress			stopCommandPhys;
+    UInt32						blockNum;
+	UInt32						dmaCommand = 0;
+    Boolean						doInterrupt = false;
+    UInt32						interruptIndex;
+    IOWorkLoop *				workLoop;
+    IOAudioStream *				stream;
+	Boolean						result;
+
+	result = FALSE;
 	sampleBufIn = NULL;
     IOAudioStreamFormat format = {
             2,
@@ -149,14 +188,14 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
     fBadCmd = 0;
     fBadResult = 0;
 
-    if (!super::initHardware(provider)) {return false;}
+    FailIf (!super::initHardware(provider), Exit);
         
-        //allocate the memory for the buffer
+	// allocate the memory for the buffer
     sampleBufOut = (vm_offset_t)IOMallocAligned(round_page(numBlocks * blockSize), PAGE_SIZE);
     if(ioBaseDMAInput)
         sampleBufIn = (vm_offset_t)IOMallocAligned(round_page(numBlocks * blockSize), PAGE_SIZE);
     
-        //create the streams
+	// create the streams
     stream = new IOAudioStream;
     if (stream) {
         const IOAudioSampleRate *rate;        
@@ -187,42 +226,53 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
         }
     }
 
-    if (!status || !sampleBufOut) {return false;}
+    FailIf (!status || !sampleBufOut, Exit);
     if(ioBaseDMAInput) 
-        if(!sampleBufIn) {return false;}
+        FailIf (!sampleBufIn, Exit);
 
-        //create the DMA output part
+	// create the DMA output part
     commandBufferSize = (numBlocks + 1) * sizeof(IODBDMADescriptor);
     dmaCommandBufferOut = (IODBDMADescriptor *)IOMallocAligned(commandBufferSize, 32); 
-                                                            //needs to be more than 4 byte aligned
-    if (!dmaCommandBufferOut) {return false;}
+                                                            // needs to be more than 4 byte aligned
+    FailIf (!dmaCommandBufferOut, Exit);
 
-    commandBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)dmaCommandBufferOut);
-    sampleBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)sampleBufOut);
-    stopCommandPhys = pmap_extract(kernel_pmap, (vm_address_t) (&dmaCommandBufferOut[numBlocks]));
+	dmaCommandBufferOutMemDescriptor = IOMemoryDescriptor::withAddress (dmaCommandBufferOut, commandBufferSize, kIODirectionOut);
+	FailIf (NULL == dmaCommandBufferOutMemDescriptor, Exit);
+	sampleBufferOutMemDescriptor = IOMemoryDescriptor::withAddress ((void *)sampleBufOut, round_page (numBlocks * blockSize), kIODirectionOut);
+	FailIf (NULL == sampleBufferOutMemDescriptor, Exit);
+	stopCommandMemDescriptor = IOMemoryDescriptor::withAddress (&dmaCommandBufferOut[numBlocks], sizeof (IODBDMADescriptor *), kIODirectionOut);
+	FailIf (NULL == stopCommandMemDescriptor, Exit);
+
+	commandBufferPhys = dmaCommandBufferOutMemDescriptor->getPhysicalAddress ();
+	FailIf (NULL == commandBufferPhys, Exit);
+	sampleBufferPhys = sampleBufferOutMemDescriptor->getPhysicalAddress ();
+	FailIf (NULL == sampleBufferPhys, Exit);
+	stopCommandPhys = stopCommandMemDescriptor->getPhysicalAddress ();
+	FailIf (NULL == stopCommandPhys, Exit);
 
     offset = 0;
     dmaCommand = kdbdmaOutputMore;
     interruptIndex = kDBDMAOutputIndex;
 
-        //install an interrupt handler only on the Ouput size of it
+	// install an interrupt handler only on the Ouput size of it
     workLoop = getWorkLoop();
-    if (!workLoop) {return false;}
+    FailIf (!workLoop, Exit);
     
     interruptEventSource = IOFilterInterruptEventSource::filterInterruptEventSource(this,
                                                                                AppleDBDMAAudioDMAEngine::interruptHandler,
                                                                                AppleDBDMAAudioDMAEngine::interruptFilter,
                                                                                audioDevice->getProvider(),
                                                                                interruptIndex);
-    if (!interruptEventSource) {return false;}
+    FailIf (!interruptEventSource, Exit);
     workLoop->addEventSource(interruptEventSource);
 
-        //create the DMA program
+	// create the DMA program
     for (blockNum = 0; blockNum < numBlocks; blockNum++) {
-        vm_offset_t cmdDest;
+		IOPhysicalAddress	cmdDest;
 
         if (offset >= PAGE_SIZE) {
-            sampleBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)(sampleBufOut + (blockNum * blockSize)));
+			sampleBufferPhys = sampleBufferOutMemDescriptor->getPhysicalSegment (blockNum * blockSize, 0);
+			FailIf (NULL == sampleBufferPhys, Exit);
             offset = 0;
         }
 
@@ -233,8 +283,9 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
             doInterrupt = true;
         // Else if the next block starts on a page boundry, branch to it
         } else if ((((blockNum + 1) * sizeof(IODBDMADescriptor)) % PAGE_SIZE) == 0) {
-            cmdDest = pmap_extract(kernel_pmap, (vm_address_t) (dmaCommandBufferOut + (blockNum + 1)));
-	// No branch in the common case
+			cmdDest = dmaCommandBufferOutMemDescriptor->getPhysicalSegment ((blockNum + 1) * sizeof(IODBDMADescriptor), 0);
+			FailIf (NULL == cmdDest, Exit);
+		// No branch in the common case
         } else {
             cmdDest = 0;
         }
@@ -272,25 +323,36 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
                           0,
                           0);
     
-        //create the DMA input code
+	// create the DMA input code
     if(ioBaseDMAInput) {
         dmaCommandBufferIn = (IODBDMADescriptor *)IOMallocAligned(commandBufferSize, 32); 
-                                                            //needs to be more than 4 byte aligned
-        if (!dmaCommandBufferIn) {return false;}
+                                                            // needs to be more than 4 byte aligned
+        FailIf (!dmaCommandBufferIn, Exit);
 
-        commandBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)dmaCommandBufferIn);
-        sampleBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)sampleBufIn);
-        stopCommandPhys = pmap_extract(kernel_pmap, (vm_address_t) (&dmaCommandBufferIn[numBlocks]));
+		dmaCommandBufferInMemDescriptor = IOMemoryDescriptor::withAddress (dmaCommandBufferIn, commandBufferSize, kIODirectionOut);
+		FailIf (NULL == dmaCommandBufferInMemDescriptor, Exit);
+		sampleBufferInMemDescriptor = IOMemoryDescriptor::withAddress ((void *)sampleBufIn, round_page (numBlocks * blockSize), kIODirectionIn);
+		FailIf (NULL == sampleBufferInMemDescriptor, Exit);
+		stopCommandMemDescriptor = IOMemoryDescriptor::withAddress (&dmaCommandBufferIn[numBlocks], sizeof (IODBDMADescriptor *), kIODirectionOut);
+		FailIf (NULL == stopCommandMemDescriptor, Exit);
+
+		commandBufferPhys = dmaCommandBufferInMemDescriptor->getPhysicalAddress ();
+		FailIf (NULL == commandBufferPhys, Exit);
+		sampleBufferPhys = sampleBufferInMemDescriptor->getPhysicalAddress ();
+		FailIf (NULL == sampleBufferPhys, Exit);
+		stopCommandPhys = stopCommandMemDescriptor->getPhysicalAddress ();
+		FailIf (NULL == stopCommandPhys, Exit);
 
         doInterrupt = false;
         offset = 0;
         dmaCommand = kdbdmaInputMore;    
         
         for (blockNum = 0; blockNum < numBlocks; blockNum++) {
-            vm_offset_t cmdDest;
+			IOPhysicalAddress	cmdDest;
 
             if (offset >= PAGE_SIZE) {
-                sampleBufferPhys = pmap_extract(kernel_pmap, (vm_address_t)(sampleBufIn + (blockNum * blockSize)));
+				sampleBufferPhys = sampleBufferInMemDescriptor->getPhysicalSegment (blockNum * blockSize, 0);
+				FailIf (NULL == sampleBufferPhys, Exit);
                 offset = 0;
             }
 
@@ -299,10 +361,11 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
                 // If this is the last block, branch to the first block
             if (blockNum == (numBlocks - 1)) {
                 cmdDest = commandBufferPhys;
-                //doInterrupt = true;
+                // doInterrupt = true;
                 // Else if the next block starts on a page boundry, branch to it
             } else if ((((blockNum + 1) * sizeof(IODBDMADescriptor)) % PAGE_SIZE) == 0) {
-                cmdDest = pmap_extract(kernel_pmap, (vm_address_t) (dmaCommandBufferIn + (blockNum + 1)));
+				cmdDest = dmaCommandBufferInMemDescriptor->getPhysicalSegment ((blockNum + 1) * sizeof(IODBDMADescriptor), 0);
+				FailIf (NULL == cmdDest, Exit);
                 // No branch in the common case
             } else {
                 cmdDest = 0;
@@ -343,18 +406,28 @@ bool AppleDBDMAAudioDMAEngine::initHardware(IOService *provider)
 
     }
 
-	// Set up notifier to run when iSub shows up
     iSubBufferMemory = NULL;
-    iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), 
-                        (IOServiceNotificationHandler)&iSubEnginePublished, this);
-    if (NULL != iSubBufferMemory) {
-		// it looks like the notifier could be called before iSubEngineNotifier is set, 
-                //so if it was called, then iSubBufferMemory would no longer be NULL and we can remove the notifier
-		iSubEngineNotifier->remove ();
-    }
+	iSubEngine = NULL;
 
+	// Set up a control that sound prefs can set to tell us if we should install our notifier or not
+	iSubAttach = IOAudioToggleControl::create (FALSE,
+										kIOAudioControlChannelIDAll,
+										kIOAudioControlChannelNameAll,
+										0,
+										kIOAudioToggleControlSubTypeiSubAttach,
+										kIOAudioControlUsageOutput);
+
+	if (NULL != iSubAttach) {
+		addDefaultAudioControl (iSubAttach);
+		iSubAttach->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)iSubAttachChangeHandler, this);
+		iSubAttach->release ();
+	}
+
+	result = TRUE;
+
+Exit:
     DEBUG_IOLOG("- AppleDBDMAAudioDMAEngine::initHardware()\n");
-    return true;
+    return result;
 }
 
 
@@ -376,65 +449,15 @@ void AppleDBDMAAudioDMAEngine::stop(IOService *provider)
     DEBUG3_IOLOG(" - AppleDBDMAAudioDMAEngine[%p]::stop(%p)\n", this, provider);
 }
 
-
-IOReturn AppleDBDMAAudioDMAEngine::message (UInt32 type, IOService * provider, void * arg) {
-	bool							resultCode;
-    IOCommandGate *					cg;
-
-	debug4IOLog ("+AppleDBDMAAudioDMAEngine[%p]::message (0x%lx, %p)\n", this, type, provider);
-
-	resultCode = kIOReturnSuccess;
-
-	switch (type) {
-		case kIOMessageServiceIsTerminated:
-			if (iSubEngine == (AppleiSubEngine *)provider) {
-				debugIOLog ("iSub requesting termination\n");
-
-				// To avoid a possible race with the clip routine being called at the same time we are disposing of the
-				// buffers it is using, we will pause the engine and then restart it around disposing of these buffers.
-				pauseAudioEngine ();
-
-				cg = getCommandGate ();
-				if (NULL != cg) {
-					cg->runAction (iSubCloseAction, this);
-				}
-
-/*				moved into iSubCloseAction
-				detach (iSubEngine);
-
-				iSubEngine = NULL;
-				iSubBufferMemory = NULL;
-
-				if (NULL != lowFreqSamples) {
-					IOFree (lowFreqSamples, (numBlocks * blockSize) * sizeof (float));
-				}
-
-				if (NULL != highFreqSamples) {
-					IOFree (highFreqSamples, (numBlocks * blockSize) * sizeof (float));
-				}
-*/
-				resumeAudioEngine ();
-
-				// Set up notifier to run when iSub shows up
-				iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), (IOServiceNotificationHandler)&iSubEnginePublished, this);
-			}
-			break;
-		default:
-			;
-	}
-
-	debug4IOLog ("-AppleDBDMAAudioDMAEngine[%p]::message (0x%lx, %p)\n", this, type, provider);
-	return resultCode;
-}
-
-
 IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
 {
+	IOPhysicalAddress			commandBufferPhys;
+	IOReturn					result;
+
     debugIOLog(" + AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
 
-    if (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource) {
-        return kIOReturnError;
-    }
+	result = kIOReturnError;
+    FailIf (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource, Exit);
 
     flush_dcache((vm_offset_t)dmaCommandBufferOut, commandBufferSize, false);
     if(ioBaseDMAInput)
@@ -476,28 +499,38 @@ IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStart()
 
     interruptEventSource->enable();
 
-        //add the time stamp take to test
+	// add the time stamp take to test
     takeTimeStamp(false);
 
-        //start the input DMA first
+	// start the input DMA first
     if(ioBaseDMAInput) {
         IOSetDBDMAChannelControl(ioBaseDMAInput, IOClearDBDMAChannelControlBits(kdbdmaS0));
         IOSetDBDMABranchSelect(ioBaseDMAInput, IOSetDBDMAChannelControlBits(kdbdmaS0));
-        IODBDMAStart(ioBaseDMAInput, (IODBDMADescriptor *)pmap_extract(kernel_pmap, (vm_address_t)(dmaCommandBufferIn)));
+		commandBufferPhys = dmaCommandBufferInMemDescriptor->getPhysicalAddress ();
+		FailIf (NULL == commandBufferPhys, Exit);
+		IODBDMAStart(ioBaseDMAInput, (IODBDMADescriptor *)commandBufferPhys);
     }
     
     IOSetDBDMAChannelControl(ioBaseDMAOutput, IOClearDBDMAChannelControlBits(kdbdmaS0));
     IOSetDBDMABranchSelect(ioBaseDMAOutput, IOSetDBDMAChannelControlBits(kdbdmaS0));
-    IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)pmap_extract(kernel_pmap, (vm_address_t)(dmaCommandBufferOut)));
+	commandBufferPhys = dmaCommandBufferOutMemDescriptor->getPhysicalAddress ();
+	FailIf (NULL == commandBufferPhys, Exit);
+	IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)commandBufferPhys);
+
+	result = kIOReturnSuccess;
 
     debugIOLog(" - AppleDBDMAAudioDMAEngine::performAudioEngineStart()\n");
-    return kIOReturnSuccess;
+
+Exit:
+    return result;
 }
 
 IOReturn AppleDBDMAAudioDMAEngine::restartOutputIfFailure(){
-    if (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource) {
-        return kIOReturnError;
-    }
+	IOPhysicalAddress			commandBufferPhys;
+	IOReturn					result;
+
+	result = kIOReturnError;
+    FailIf (!ioBaseDMAOutput || !dmaCommandBufferOut || !status || !interruptEventSource, Exit);
 
 #if DEBUGLOG
 	IOLog ("Restarting DMA\n");
@@ -517,10 +550,14 @@ IOReturn AppleDBDMAAudioDMAEngine::restartOutputIfFailure(){
     
     IOSetDBDMAChannelControl(ioBaseDMAOutput, IOClearDBDMAChannelControlBits(kdbdmaS0));
     IOSetDBDMABranchSelect(ioBaseDMAOutput, IOSetDBDMAChannelControlBits(kdbdmaS0));
-    IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)pmap_extract(kernel_pmap,
-                                (vm_address_t)(dmaCommandBufferOut)));
+	commandBufferPhys = dmaCommandBufferOutMemDescriptor->getPhysicalAddress ();
+	FailIf (NULL == commandBufferPhys, Exit);
+	IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)commandBufferPhys);
 
-    return kIOReturnSuccess;
+	result = kIOReturnSuccess;
+
+Exit:
+    return result;
 }
 
 IOReturn AppleDBDMAAudioDMAEngine::performAudioEngineStop()
@@ -581,7 +618,7 @@ bool AppleDBDMAAudioDMAEngine::filterInterrupt(int index)
 
     if (status) 
     {
-        //test the takeTimeStamp :it will increment the fCurrentLoopCount and time stamp it with the time now
+        // test the takeTimeStamp :it will increment the fCurrentLoopCount and time stamp it with the time now
         takeTimeStamp();
     }
 
@@ -626,57 +663,76 @@ UInt32 AppleDBDMAAudioDMAEngine::getCurrentSampleFrame()
 
 // This gets called when a new audio stream needs to be mixed into an already playing audio stream
 void AppleDBDMAAudioDMAEngine::resetClipPosition (IOAudioStream *audioStream, UInt32 clipSampleFrame) {
-    if (NULL != iSubBufferMemory) {
-		// start the filter over again since old filter state is invalid
-		filterState.xl_1 = 0.0;
-		filterState.xr_1 = 0.0;
-		filterState.xl_2 = 0.0;
-		filterState.xr_2 = 0.0;
-		filterState.yl_1 = 0.0;
-		filterState.yr_1 = 0.0;
-		filterState.yl_2 = 0.0;
-		filterState.yr_2 = 0.0;
+    if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
+				
+        srcPhase = 1.0;			// aml 3.5.02
+        srcState = 0.0;			// aml 3.6.02
 
-                // aml 2.14.02 added for 4th order filter
-                filterState2.xl_1 = 0.0;
-                filterState2.xr_1 = 0.0;
-                filterState2.xl_2 = 0.0;
-                filterState2.xr_2 = 0.0;
-                filterState2.yl_1 = 0.0;
-                filterState2.yr_1 = 0.0;
-                filterState2.yl_2 = 0.0;
-                filterState2.yr_2 = 0.0;
-    
-                // aml 2.18.02 added for 4th order filter phase compensator
-                phaseCompState.xl_1 = 0.0;
-                phaseCompState.xr_1 = 0.0;
-                phaseCompState.xl_2 = 0.0;
-                phaseCompState.xr_2 = 0.0;
-                phaseCompState.yl_1 = 0.0;
-                phaseCompState.yr_1 = 0.0;
-                phaseCompState.yl_2 = 0.0;
-                phaseCompState.yr_2 = 0.0;
+        // start the filter over again since old filter state is invalid
+        filterState.xl_1 = 0.0;
+        filterState.xr_1 = 0.0;
+        filterState.xl_2 = 0.0;
+        filterState.xr_2 = 0.0;
+        filterState.yl_1 = 0.0;
+        filterState.yr_1 = 0.0;
+        filterState.yl_2 = 0.0;
+        filterState.yr_2 = 0.0;
+
+        // aml 2.14.02 added for 4th order filter
+        filterState2.xl_1 = 0.0;
+        filterState2.xr_1 = 0.0;
+        filterState2.xl_2 = 0.0;
+        filterState2.xr_2 = 0.0;
+        filterState2.yl_1 = 0.0;
+        filterState2.yr_1 = 0.0;
+        filterState2.yl_2 = 0.0;
+        filterState2.yr_2 = 0.0;
+
+        // aml 2.18.02 added for 4th order filter phase compensator
+        phaseCompState.xl_1 = 0.0;
+        phaseCompState.xr_1 = 0.0;
+        phaseCompState.xl_2 = 0.0;
+        phaseCompState.xr_2 = 0.0;
+        phaseCompState.yl_1 = 0.0;
+        phaseCompState.yr_1 = 0.0;
+        phaseCompState.yl_2 = 0.0;
+        phaseCompState.yr_2 = 0.0;
 
 #if DEBUGLOG
-//		IOLog ("resetClipPosition, iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld\n", iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
+        IOLog ("+resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld, clipSampleFrame=%ld\n", iSubBufferOffset, previousClippedToFrame, clipSampleFrame);
 #endif
-		if (previousClippedToFrame < clipSampleFrame) {
+        if (previousClippedToFrame < clipSampleFrame) {
 			// Resetting the clip point backwards around the end of the buffer
-			clipAdjustment = (getNumSampleFramesPerBuffer () - clipSampleFrame + previousClippedToFrame) * audioStream->format.fNumChannels;
-		} else {
-			clipAdjustment = (previousClippedToFrame - clipSampleFrame) * audioStream->format.fNumChannels;
-		}
-		iSubBufferOffset -= clipAdjustment;
-
-		if (iSubBufferOffset < 0) {
-			iSubBufferOffset += (iSubBufferMemory->getLength () / 2);
-			iSubLoopCount--;
-		}
-		previousClippedToFrame = clipSampleFrame;
-		justResetClipPosition = TRUE;
+			// aml 3.12.02 changed to iSub num channels
+			clipAdjustment = (getNumSampleFramesPerBuffer () - clipSampleFrame + previousClippedToFrame) * iSubEngine->GetNumChannels();
+        } else {
+			// aml 3.12.02 changed to iSub num channels
+			clipAdjustment = (previousClippedToFrame - clipSampleFrame) * iSubEngine->GetNumChannels();
+        }
+#if DEBUGLOG
+        if (clipAdjustment < kMinimumLatency) {
+            IOLog ("resetClipPosition: 44.1 clipAdjustment < min, clipAdjustment=%ld\n", clipAdjustment); 
+        }                
+#endif
+        // aml 3.21.02, adjust for new sample rate
+        clipAdjustment = (clipAdjustment * 1000) / ((1000 * getSampleRate()->whole) / iSubEngine->GetSampleRate());  
+        iSubBufferOffset -= clipAdjustment;
 
 #if DEBUGLOG
-//		IOLog ("now: iSubBufferOffset=%ld, previousClippedToFrame=%ld\n", iSubBufferOffset, previousClippedToFrame);
+        if (clipAdjustment > (iSubBufferMemory->getLength () / 2)) {
+            IOLog ("resetClipPosition: clipAdjustment > iSub buffer size, clipAdjustment=%ld\n", clipAdjustment); 
+        }                
+#endif
+
+        if (iSubBufferOffset < 0) {
+			iSubBufferOffset += (iSubBufferMemory->getLength () / 2);	
+			iSubLoopCount--;
+        }
+        previousClippedToFrame = clipSampleFrame;
+        justResetClipPosition = TRUE;
+
+#if DEBUGLOG
+        IOLog ("-resetClipPosition: iSubBufferOffset=%ld, previousClippedToFrame=%ld\n", iSubBufferOffset, previousClippedToFrame);
 #endif
     }
 }
@@ -688,25 +744,87 @@ IOReturn clipAppleDBDMAToOutputStreamInvertRightChannel(const void *mixBuf, void
 IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 
 // aml 2.18.02 changed to 4th order phase compensator version
-IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
+// aml 3.1.02 added iSub format struct
+// aml 3.5.02 added src phase
+// aml 3.5.02 added src state
+IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
 
 // aml 2.18.02 changed to 4th order phase compensator version
-IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
+// aml 3.1.02 added iSub format struct
+// aml 3.5.02 added src phase
+// aml 3.5.02 added src state
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
 
 // aml 2.18.02 changed to 4th order phase compensator version
-IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen);
+// aml 3.1.02 added iSub format struct
+// aml 3.5.02 added src phase
+// aml 3.5.02 added src state
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues *filterState, PreviousValues *filterState2, PreviousValues *phaseCompState, float *low, float *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 * iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState);
 
-IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+// aml 6.17.02, added dual mono mode parameter
+IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, DualMonoModeType inDualMonoMode);
+
+// aml 5.10.02, adding input clip routine with software gain control
+// aml 6.17.02, added dual mono mode parameter
+IOReturn convertAppleDBDMAFromInputStreamWithGain(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, float* inGainL, float* inGainR, DualMonoModeType inDualMonoMode);
+
+// aml 5.10.02 added utility functions
+void dBfixed2float(UInt32 indBfixed, float* ioGainPtr);
+void inputGainConverter(UInt32 inGainIndex, float* ioGainPtr);
 };
+
+// aml 5.10.02
+void AppleDBDMAAudioDMAEngine::setUseSoftwareInputGain(bool inUseSoftwareInputGain) { 
+    mUseSoftwareInputGain = inUseSoftwareInputGain; 
+
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+    if (mUseSoftwareInputGain)
+        IOLog("AppleDBDMAAudioDMAEngine::setUseSoftwareInputGain, use SW input gain = TRUE.\n"); 
+    else
+        IOLog("AppleDBDMAAudioDMAEngine::setUseSoftwareInputGain, use SW input gain = FALSE.\n"); 
+#endif                    
+    
+    return;   
+}
+
+// aml 5.10.02
+void AppleDBDMAAudioDMAEngine::setInputGainL(UInt32 inGainL) { 
+
+    if (mInputGainLPtr == NULL) {        
+        mInputGainLPtr = (float *)IOMalloc(sizeof(float));
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+        IOLog("AppleDBDMAAudioDMAEngine::setInputGainL - allocating mInputGainLPtr (0x%x).\n", mInputGainLPtr);   
+#endif                    
+    }
+    inputGainConverter(inGainL, mInputGainLPtr);
+	
+    return;   
+} 
+
+// aml 5.10.02
+void AppleDBDMAAudioDMAEngine::setInputGainR(UInt32 inGainR) { 
+
+    if (mInputGainRPtr == NULL) {        
+        mInputGainRPtr = (float *)IOMalloc(sizeof(float));
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+        IOLog("AppleDBDMAAudioDMAEngine::setInputGainR - allocating mInputGainRPtr (0x%x).\n", mInputGainRPtr);   
+#endif                    
+    }
+    inputGainConverter(inGainR, mInputGainRPtr);
+
+    return;   
+} 
 
 IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
 	IOReturn					result;
 	void *						iSubBuffer = NULL;
 	SInt32						offsetDelta;
+	SInt32						safetyOffset;
 	UInt32						iSubBufferLen = 0;
 	UInt32						sampleRate;
-
+	iSubAudioFormatType			iSubFormat;	// aml 3.1.02
+ 
 	// if the DMA went bad restart it
 	if (fBadCmd && fBadResult)
 	{
@@ -715,38 +833,55 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 		restartOutputIfFailure();
 	}
         
-	if (iSubBufferMemory) {
-		iSubBufferLen = iSubBufferMemory->getLength ();
+	if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
+ 		iSubBufferLen = iSubBufferMemory->getLength ();
 		iSubBuffer = (void*)iSubBufferMemory->getVirtualSegment (0, &iSubBufferLen);
 		// (iSubBufferLen / 2) is because iSubBufferOffset is in UInt16s so convert iSubBufferLen to UInt16 length
 		iSubBufferLen = iSubBufferLen / 2;
 
 		sampleRate = getSampleRate()->whole;
 
+		// aml 3.1.02
+		iSubFormat.altInterface = iSubEngine->GetAltInterface();
+		iSubFormat.numChannels = iSubEngine->GetNumChannels();
+		iSubFormat.bytesPerSample = iSubEngine->GetBytesPerSample();
+		iSubFormat.outputSampleRate = iSubEngine->GetSampleRate();
+
 		// Detect being out of sync with the iSub
+#if ABORT_PIPE_ON_START
+		if (needToSync == FALSE && previousClippedToFrame == firstSampleFrame && 0x0 != iSubEngine->GetCurrentLoopCount ()) {
+#else
 		if (needToSync == FALSE && previousClippedToFrame == firstSampleFrame && 0xFFFFFFFF != iSubEngine->GetCurrentLoopCount ()) {
-			if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && iSubBufferOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
-#if DEBUGLOG
-				IOLog ("****iSub is in front of write head iSubBufferOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld\n", iSubBufferOffset, iSubEngine->GetCurrentByteCount () / 2);
 #endif
+			// aml - make the reader/writer check more strict - this helps get rid of long term crunchy iSub audio
+			// the reader is now not allowed within one frame (one millisecond of audio) of the writer
+			safetyOffset = iSubBufferOffset - ((iSubFormat.outputSampleRate) / 1000);		// 6 samples at 6kHz
+			if (safetyOffset < 0) {
+				safetyOffset += iSubBufferLen;
+			}
+			if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && safetyOffset < (SInt32)(iSubEngine->GetCurrentByteCount () / 2)) {
+				#if DEBUGLOG
+				IOLog ("****iSub is in front of write head safetyOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld\n", safetyOffset, iSubEngine->GetCurrentByteCount () / 2);
+				#endif
 				needToSync = TRUE;
 				startiSub = TRUE;
 			} else if (iSubLoopCount > (iSubEngine->GetCurrentLoopCount () + 1)) {
-#if DEBUGLOG
+				#if DEBUGLOG
 				IOLog ("****looped more than the iSub iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
-#endif
+				#endif
 				needToSync = TRUE;
 				startiSub = TRUE;
 		    } else if (iSubLoopCount < iSubEngine->GetCurrentLoopCount ()) {
-#if DEBUGLOG
+				#if DEBUGLOG
 				IOLog ("****iSub is ahead of us iSubLoopCount = %ld, iSubEngine->GetCurrentLoopCount () = %ld\n", iSubLoopCount, iSubEngine->GetCurrentLoopCount ());
-#endif
+				#endif
 				needToSync = TRUE;
 				startiSub = TRUE;
-		    } else if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && iSubBufferOffset > ((SInt32)(iSubEngine->GetCurrentByteCount () + 17640) / 2)) {		// 17640 is maximum number of bytes of iSub data queued up at one time
-#if DEBUGLOG
-				IOLog ("****iSub is too far behind write head iSubBufferOffset = %ld, ((iSubEngine->GetCurrentByteCount () + 17640) / 2) = %ld\n", iSubBufferOffset, (iSubEngine->GetCurrentByteCount () + 17640) / 2);
-#endif
+		    } else if (iSubLoopCount == iSubEngine->GetCurrentLoopCount () && iSubBufferOffset > ((SInt32)( (iSubEngine->GetCurrentByteCount() + (((iSubFormat.outputSampleRate)/1000 * NUM_ISUB_FRAME_LISTS_TO_QUEUE * NUM_ISUB_FRAMES_PER_LIST) * iSubFormat.bytesPerSample * iSubFormat.numChannels) ) / 2))) {		// aml 3.27.02, this is the right number here (buffersize was 2x too large).  This number should come eventually from the iSub engine reporting it's maximum number of queued bytes.
+                     
+				#if DEBUGLOG
+				IOLog ("****iSub is too far behind write head iSubBufferOffset = %ld, (iSubEngine->GetCurrentByteCount () / 2 + max queued data) = %ld\n", iSubBufferOffset, (iSubEngine->GetCurrentByteCount() / 2 + iSubBufferLen/2));					
+				#endif
 				needToSync = TRUE;
 				startiSub = TRUE;
 		    }
@@ -754,30 +889,43 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 
 		if (FALSE == needToSync && previousClippedToFrame != firstSampleFrame && !(previousClippedToFrame == getNumSampleFramesPerBuffer () && firstSampleFrame == 0)) {
 #if DEBUGLOG
-			IOLog ("iSubBufferOffset was %ld\n", iSubBufferOffset);
+			IOLog ("clipOutput: no sync: iSubBufferOffset was %ld\n", iSubBufferOffset);
 #endif
 			if (firstSampleFrame < previousClippedToFrame) {
+#if DEBUGLOG
+				IOLog ("clipOutput: no sync: firstSampleFrame < previousClippedToFrame (delta = %ld)\n", previousClippedToFrame-firstSampleFrame);
+#endif
 				// We've wrapped around the buffer
-				offsetDelta = (getNumSampleFramesPerBuffer () - firstSampleFrame + previousClippedToFrame) * streamFormat->fNumChannels;
+				// aml 2.28.02 replaced input stream num channels with iSub output num channels
+				offsetDelta = (getNumSampleFramesPerBuffer () - firstSampleFrame + previousClippedToFrame) * iSubEngine->GetNumChannels();	
 			} else {
-				offsetDelta = (firstSampleFrame - previousClippedToFrame) * streamFormat->fNumChannels;
+#if DEBUGLOG
+				IOLog ("clipOutput: no sync: previousClippedToFrame < firstSampleFrame (delta = %ld)\n", firstSampleFrame - previousClippedToFrame);
+#endif
+				// aml 2.28.02 replaced input stream num channels with iSub output num channels
+				offsetDelta = (firstSampleFrame - previousClippedToFrame) * iSubEngine->GetNumChannels();
 			}
+			// aml 3.21.02, adjust for new sample rate
+			offsetDelta = (offsetDelta * 1000) / ((sampleRate * 1000) / iSubFormat.outputSampleRate);
 			iSubBufferOffset += offsetDelta;
 #if DEBUGLOG
-			IOLog ("clip to point was %ld, now %ld (delta = %ld)\n", previousClippedToFrame, firstSampleFrame, offsetDelta);
-			IOLog ("iSubBufferOffset is now %ld\n", iSubBufferOffset);
+			IOLog ("clipOutput: no sync: clip to point was %ld, now %ld (delta = %ld)\n", previousClippedToFrame, firstSampleFrame, offsetDelta);
+			IOLog ("clipOutput: no sync: iSubBufferOffset is now %ld\n", iSubBufferOffset);
 #endif
 			if (iSubBufferOffset > (SInt32)iSubBufferLen) {
+#if DEBUGLOG
+				IOLog ("clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset = %ld\n", iSubBufferOffset);
+#endif
 				// Our calculated spot has actually wrapped around the iSub's buffer.
 				iSubLoopCount += iSubBufferOffset / iSubBufferLen;
 				iSubBufferOffset = iSubBufferOffset % iSubBufferLen;
 #if DEBUGLOG
-				IOLog ("iSubBufferOffset > iSubBufferLen, iSubBufferOffset is now %ld\n", iSubBufferOffset);
+				IOLog ("clipOutput: no sync: iSubBufferOffset > iSubBufferLen, iSubBufferOffset is now %ld\n", iSubBufferOffset);
 #endif
 			} else if (iSubBufferOffset < 0) {
 				iSubBufferOffset += iSubBufferLen;
 #if DEBUGLOG
-				IOLog ("iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", iSubBufferOffset);
+				IOLog ("clipOutput: no sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", iSubBufferOffset);
 #endif
 			}
 		}
@@ -793,6 +941,10 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 			UInt32				curSampleFrame;
 
 			needToSync = FALSE;
+                     
+			srcPhase =  1.0;	// aml 3.5.02
+			srcState =  0.0;	// aml 3.6.02
+                        
 			// start the filter over again since old filter state is invalid
 			filterState.xl_1 = 0.0;
 			filterState.xr_1 = 0.0;
@@ -803,26 +955,30 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 			filterState.yl_2 = 0.0;
 			filterState.yr_2 = 0.0;
 
-                        // aml 2.14.02 added for 4th order filter
-                        filterState2.xl_1 = 0.0;
-                        filterState2.xr_1 = 0.0;
-                        filterState2.xl_2 = 0.0;
-                        filterState2.xr_2 = 0.0;
-                        filterState2.yl_1 = 0.0;
-                        filterState2.yr_1 = 0.0;
-                        filterState2.yl_2 = 0.0;
-                        filterState2.yr_2 = 0.0;
+			// aml 2.14.02 added for 4th order filter
+			filterState2.xl_1 = 0.0;
+			filterState2.xr_1 = 0.0;
+			filterState2.xl_2 = 0.0;
+			filterState2.xr_2 = 0.0;
+			filterState2.yl_1 = 0.0;
+			filterState2.yr_1 = 0.0;
+			filterState2.yl_2 = 0.0;
+			filterState2.yr_2 = 0.0;
 
-                        // aml 2.18.02 added for 4th order phase compensator
-                        phaseCompState.xl_1 = 0.0;
-                        phaseCompState.xr_1 = 0.0;
-                        phaseCompState.xl_2 = 0.0;
-                        phaseCompState.xr_2 = 0.0;
-                        phaseCompState.yl_1 = 0.0;
-                        phaseCompState.yr_1 = 0.0;
-                        phaseCompState.yl_2 = 0.0;
-                        phaseCompState.yr_2 = 0.0;
+			// aml 2.18.02 added for 4th order phase compensator
+			phaseCompState.xl_1 = 0.0;
+			phaseCompState.xr_1 = 0.0;
+			phaseCompState.xl_2 = 0.0;
+			phaseCompState.xr_2 = 0.0;
+			phaseCompState.yl_1 = 0.0;
+			phaseCompState.yr_1 = 0.0;
+			phaseCompState.yl_2 = 0.0;
+			phaseCompState.yr_2 = 0.0;
 
+#if ABORT_PIPE_ON_START
+			// aml 4.25.02 wipe out the iSub buffer, changed due to moving zeroing of iSub buffer in AUA write handler when aborting the pipe
+			bzero(iSubBuffer, iSubBufferLen);
+#endif
 			curSampleFrame = getCurrentSampleFrame ();
 
 			if (TRUE == restartedDMA) {
@@ -830,41 +986,69 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 				restartedDMA = FALSE;
 			} else {
 				if (firstSampleFrame < curSampleFrame) {
-					iSubBufferOffset = (getNumSampleFramesPerBuffer () - curSampleFrame + firstSampleFrame) * streamFormat->fNumChannels;
+					// aml 2.28.02 replaced input stream num channels with iSub output num channels
+					// aml 3.21.02, moved to temp variable 
+					offsetDelta = (getNumSampleFramesPerBuffer () - curSampleFrame + firstSampleFrame) * iSubEngine->GetNumChannels();
 				} else {
-					iSubBufferOffset = (firstSampleFrame - curSampleFrame) * streamFormat->fNumChannels;
+					// aml 2.28.02 replaced input stream num channels with iSub output num channels
+					// aml 3.21.02, moved to temp variable 
+					offsetDelta = (firstSampleFrame - curSampleFrame) * iSubEngine->GetNumChannels();
 				}
-				iSubBufferOffset -= 88 * 5;
 #if DEBUGLOG
-				IOLog ("firstSampleFrame = %ld, curSampleFrame = %ld\n", firstSampleFrame, curSampleFrame);
-				IOLog ("starting iSubBufferOffset = %ld, numSampleFrames = %ld\n", iSubBufferOffset, numSampleFrames);
+				IOLog ("clipOutput: need to sync: 44.1kHz offsetDelta = %ld\n", offsetDelta);
+#endif
+#if DEBUGLOG
+				if (offsetDelta < kMinimumLatency) {
+					IOLog ("clipOutput: no sync: 44.1 offsetDelta < min, offsetDelta=%ld\n", offsetDelta); 
+				}                
+#endif
+				// aml 3.21.02, adjust for new sample rate
+				offsetDelta = (offsetDelta * 1000) / ((sampleRate * 1000) / iSubFormat.outputSampleRate);
+#if DEBUGLOG
+				IOLog ("clipOutput: need to sync: iSubBufferOffset = %ld, offsetDelta = %ld\n", iSubBufferOffset, offsetDelta);
+#endif
+
+				// aml 4.24.02 this was supposed to set the offset, not add it!  Looks like a typo from case above.
+				iSubBufferOffset = offsetDelta;
+#if DEBUGLOG
+				IOLog ("clipOutput: need to sync: offsetDelta = %ld\n", offsetDelta);
+				IOLog ("clipOutput: need to sync: firstSampleFrame = %ld, curSampleFrame = %ld\n", firstSampleFrame, curSampleFrame);
+				IOLog ("clipOutput: need to sync: starting iSubBufferOffset = %ld, numSampleFrames = %ld\n", iSubBufferOffset, numSampleFrames);
 #endif
 				if (iSubBufferOffset > (SInt32)iSubBufferLen) {
+			
+					needToSync = TRUE;	// aml 4.24.02, requests larger than our buffer size = bad!
+#if DEBUGLOG
+					IOLog ("clipOutput: need to sync: SubBufferOffset too big (%ld) RESYNC!\n", iSubBufferOffset);
+#endif
+					
 					// Our calculated spot has actually wrapped around the iSub's buffer.
 					iSubLoopCount += iSubBufferOffset / iSubBufferLen;
 					iSubBufferOffset = iSubBufferOffset % iSubBufferLen;
 #if DEBUGLOG
-					IOLog ("iSubBufferOffset > iSubBufferLen (%ld), iSubBufferOffset is now %ld\n", iSubBufferLen, iSubBufferOffset);
+					IOLog ("clipOutput: need to sync: iSubBufferOffset > iSubBufferLen (%ld), iSubBufferOffset is now %ld\n", iSubBufferLen, iSubBufferOffset);
 #endif
 				} else if (iSubBufferOffset < 0) {
 					iSubBufferOffset += iSubBufferLen;
 #if DEBUGLOG
-					IOLog ("iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", iSubBufferOffset);
+					IOLog ("clipOutput: need to sync: iSubBufferOffset < 0, iSubBufferOffset is now %ld\n", iSubBufferOffset);
 #endif
 				}
 				initialiSubLead = iSubBufferOffset;
 			}
 		}
-
-         // this will be true on a slot load iMac that has the built in speakers enabled
-                // aml 2.14.02 added filterState2 for 4th order filter in all clip<> calls below
-                // aml 2.18.02 added phaseCompState for 4th order filter phase compensator in all clip<> calls below
+		// aml 2.14.02 added filterState2 for 4th order filter in all clip calls below
+		// aml 2.18.02 added phaseCompState for 4th order filter phase compensator in all clip calls below
+		// aml 3.1.02 added iSub format struct to calls below
+		// aml 3.5.02 added src phase to calls below
+		// aml 3.6.02 added src state to calls below
+		// this will be true on a slot load iMac that has the built in speakers enabled
 		if (TRUE == fNeedsPhaseInversion) {
-            result = clipAppleDBDMAToOutputStreamiSubInvertRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+            result = clipAppleDBDMAToOutputStreamiSubInvertRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
 		} else if (TRUE == fNeedsRightChanMixed) {
-            result = clipAppleDBDMAToOutputStreamiSubMixRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+            result = clipAppleDBDMAToOutputStreamiSubMixRightChannel (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
 		} else {
-            result = clipAppleDBDMAToOutputStreamiSub (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen);
+            result = clipAppleDBDMAToOutputStreamiSub (mixBuf, sampleBuf, &filterState, &filterState2, &phaseCompState, lowFreqSamples, highFreqSamples, firstSampleFrame, numSampleFrames, sampleRate, streamFormat, (SInt16*)iSubBuffer, &iSubLoopCount, &iSubBufferOffset, iSubBufferLen, &iSubFormat, &srcPhase, &srcState);
 		}
             
 		if (TRUE == startiSub) {
@@ -890,7 +1074,11 @@ IOReturn AppleDBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *s
 
 IOReturn AppleDBDMAAudioDMAEngine::convertInputSamples(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    return convertAppleDBDMAFromInputStream(sampleBuf, destBuf, firstSampleFrame, numSampleFrames, streamFormat);
+	if (mUseSoftwareInputGain) {
+		return convertAppleDBDMAFromInputStreamWithGain(sampleBuf, destBuf, firstSampleFrame, numSampleFrames, streamFormat, mInputGainLPtr, mInputGainRPtr, mInputDualMonoMode);
+	} else {
+		return convertAppleDBDMAFromInputStream(sampleBuf, destBuf, firstSampleFrame, numSampleFrames, streamFormat, mInputDualMonoMode);
+	}
 }
 
 IOReturn AppleDBDMAAudioDMAEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate)
@@ -898,18 +1086,57 @@ IOReturn AppleDBDMAAudioDMAEngine::performFormatChange(IOAudioStream *audioStrea
     return kIOReturnSuccess;
 }
 
+IOReturn AppleDBDMAAudioDMAEngine::iSubAttachChangeHandler (IOService *target, IOAudioControl *attachControl, SInt32 oldValue, SInt32 newValue) {
+    IOReturn						result;
+    AppleDBDMAAudioDMAEngine *		audioDMAEngine;
+    IOCommandGate *					cg;
+
+	debug5IOLog ("+ AppleDBDMAAudioDMAEngine::iSubAttachChangeHandler (%p, %p, 0x%lx, 0x%lx)\n", target, attachControl, oldValue, newValue);
+
+	result = kIOReturnSuccess;
+	FailIf (oldValue == newValue, Exit);
+    audioDMAEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, target);
+	FailIf (NULL == audioDMAEngine, Exit);
+
+	if (newValue) {
+		debugIOLog ("try to connect to an iSub\n");
+		// Set up notifier to run when iSub shows up
+		audioDMAEngine->iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), (IOServiceNotificationHandler)&iSubEnginePublished, audioDMAEngine);
+		if (NULL != audioDMAEngine->iSubBufferMemory) {
+			// it looks like the notifier could be called before iSubEngineNotifier is set, 
+			// so if it was called, then iSubBufferMemory would no longer be NULL and we can remove the notifier
+			debugIOLog ("iSub was already attached\n");
+			audioDMAEngine->iSubEngineNotifier->remove ();
+			audioDMAEngine->iSubEngineNotifier = NULL;
+		}
+    } else {
+		debugIOLog ("do not try to connect to iSub\n");
+		if (NULL != audioDMAEngine->iSubBufferMemory) {
+			debugIOLog ("disconnect from iSub\n");
+			// We're already attached to an iSub, so detach
+			cg = audioDMAEngine->getCommandGate ();
+			if (NULL != cg) {
+				cg->runAction (iSubCloseAction);
+			}
+		}
+
+		// We're not attached to the iSub, so just remove our notifier
+		if (NULL != audioDMAEngine->iSubEngineNotifier) {
+			debugIOLog ("remove iSub notifier\n");
+			audioDMAEngine->iSubEngineNotifier->remove ();
+			audioDMAEngine->iSubEngineNotifier = NULL;
+		}
+	}
+
+Exit:
+    debugIOLog ("- AppleDBDMAAudioDMAEngine::iSubAttachChangeHandler\n");
+    return result;
+}
+
 bool AppleDBDMAAudioDMAEngine::iSubEnginePublished (AppleDBDMAAudioDMAEngine * dbdmaEngineObject, void * refCon, IOService * newService) {
 	IOReturn						result;
 	bool							resultCode;
-	OSCollectionIterator *			collectionIterator;
-	IOAudioToggleControl *			ourMuteControl;
-	IOAudioLevelControl *			masterVolumeControl;
-	IOAudioLevelControl *			volumeControl;
-	IOAudioLevelControl *			leftVolumeControl;
-	IOAudioLevelControl *			rightVolumeControl;
     IOCommandGate *					cg;
-	UInt32							i;
-	UInt32							numControls;
 
 	debug4IOLog ("+AppleDBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p)\n", dbdmaEngineObject, (UInt32*)refCon, newService);
 
@@ -921,46 +1148,6 @@ bool AppleDBDMAAudioDMAEngine::iSubEnginePublished (AppleDBDMAAudioDMAEngine * d
 	dbdmaEngineObject->iSubEngine = (AppleiSubEngine *)newService;
 	FailIf (NULL == dbdmaEngineObject->iSubEngine, Exit);
 
-	// Set the initial volume of the iSub
-	debugIOLog ("Looking for our volume controls to set the initial iSub volume\n");
-	collectionIterator = OSCollectionIterator::withCollection (dbdmaEngineObject->defaultAudioControls);
-	FailIf (NULL == collectionIterator, Exit);
-
-	i = 0;
-	numControls = dbdmaEngineObject->defaultAudioControls->getCount ();
-	volumeControl = NULL;
-	masterVolumeControl = NULL;
-	leftVolumeControl = NULL;
-	rightVolumeControl = NULL;
-	while (i <  numControls) {
-		volumeControl = OSDynamicCast (IOAudioLevelControl, collectionIterator->getNextObject ());
-		if (NULL != volumeControl && volumeControl->getUsage () == kIOAudioControlUsageOutput) {
-			if (volumeControl->getChannelID () == 1) {
-				leftVolumeControl = volumeControl;
-				debugIOLog ("Got our left volume control\n");
-			} else if (volumeControl->getChannelID () == 2) {
-				rightVolumeControl = volumeControl;
-				debugIOLog ("Got our right volume control\n");
-			} else if (volumeControl->getChannelID () == 0) {
-				masterVolumeControl = volumeControl;
-				debugIOLog ("Got our master volume control\n");
-			}
-		}
-		i++;
-	}
-	collectionIterator->release ();
-
-	// Get the initial mute state of our control so that we can set the iSub's mute state
-	debugIOLog ("Looking for our mute control to set the initial iSub mute\n");
-	collectionIterator = OSCollectionIterator::withCollection (dbdmaEngineObject->defaultAudioControls);
-	i = 0;
-	ourMuteControl = NULL;
-	while (i <  numControls && NULL == ourMuteControl) {
-		ourMuteControl = OSDynamicCast (IOAudioToggleControl, collectionIterator->getNextObject ());
-		i++;
-	}
-	collectionIterator->release ();
-
 	// Create the memory for the high/low samples to go into
     dbdmaEngineObject->lowFreqSamples = (float *)IOMallocAligned (round_page((dbdmaEngineObject->numBlocks * dbdmaEngineObject->blockSize) * sizeof (float)), PAGE_SIZE);
 	FailIf (NULL == dbdmaEngineObject->lowFreqSamples, Exit);
@@ -970,45 +1157,61 @@ bool AppleDBDMAAudioDMAEngine::iSubEnginePublished (AppleDBDMAAudioDMAEngine * d
 	// Open the iSub which will cause it to create mute and volume controls
 	dbdmaEngineObject->attach (dbdmaEngineObject->iSubEngine);
 	cg = dbdmaEngineObject->getCommandGate ();
-	FailIf (NULL == cg, Exit);
-	result = cg->runAction (iSubOpenAction, dbdmaEngineObject);
-	FailIf (kIOReturnSuccess != result, Exit);
+	FailWithAction (NULL == cg, dbdmaEngineObject->detach (dbdmaEngineObject->iSubEngine), Exit);
+	dbdmaEngineObject->setSampleOffset(kMinimumLatencyiSub);	// HAL should notice this when iSub adds it's controls and sends out update
+	IOSleep (102);
+	result = cg->runAction (iSubOpenAction);
+	FailWithAction (kIOReturnSuccess != result, dbdmaEngineObject->detach (dbdmaEngineObject->iSubEngine), Exit);
 	dbdmaEngineObject->iSubBufferMemory = dbdmaEngineObject->iSubEngine->GetSampleBuffer ();
 	debug2IOLog ("iSubBuffer length = %ld\n", dbdmaEngineObject->iSubBufferMemory->getLength ());
 
-	// Set the volume and mute state of the iSub
-	// Since the iSub takes its volume from our volume, just set our volume and the iSub will pick it up.
-	if (NULL != leftVolumeControl && NULL != rightVolumeControl) {
-		debug3IOLog ("setting initial iSub volumes to L:%ld R:%ld\n", leftVolumeControl->getIntValue (), rightVolumeControl->getIntValue ());
-		resultCode = leftVolumeControl->flushValue ();
-		resultCode = rightVolumeControl->flushValue ();
-	} else if (NULL != masterVolumeControl) {
-		debug2IOLog ("setting initial iSub volume using master control to %ld\n", masterVolumeControl->getIntValue ());
-		resultCode = masterVolumeControl->flushValue ();
-	}
-
-	if (NULL != ourMuteControl) {
-		debug2IOLog ("setting initial iSub mute state to %ld\n", ourMuteControl->getIntValue ());
-		resultCode = ourMuteControl->flushValue ();
-	}
-
 	// remove our notifier because we only care about the first iSub
-	if (NULL != dbdmaEngineObject->iSubEngineNotifier)
+	if (NULL != dbdmaEngineObject->iSubEngineNotifier) {
 		dbdmaEngineObject->iSubEngineNotifier->remove ();
+		dbdmaEngineObject->iSubEngineNotifier = NULL;
+	}
 
 	resultCode = true;
+	dbdmaEngineObject->iSubOpen = TRUE;
 
 Exit:
-	debug4IOLog ("-AppleDBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p)\n", dbdmaEngineObject, (UInt32 *)refCon, newService);
+	if (FALSE == resultCode) {
+		// We didn't actually open the iSub
+		dbdmaEngineObject->iSubBufferMemory = NULL;
+		dbdmaEngineObject->iSubEngine = NULL;
+		dbdmaEngineObject->iSubOpen = FALSE;
+		dbdmaEngineObject->setSampleOffset(kMinimumLatency);
+
+		if (NULL != dbdmaEngineObject->lowFreqSamples) {
+			IOFree (dbdmaEngineObject->lowFreqSamples, (dbdmaEngineObject->numBlocks * dbdmaEngineObject->blockSize) * sizeof (float));
+		}
+
+		if (NULL != dbdmaEngineObject->highFreqSamples) {
+			IOFree (dbdmaEngineObject->highFreqSamples, (dbdmaEngineObject->numBlocks * dbdmaEngineObject->blockSize) * sizeof (float));
+		}
+	}
+
+	debug5IOLog ("-AppleDBDMAAudioDMAEngine::iSubEnginePublished (%p, %p, %p), result = %d\n", dbdmaEngineObject, (UInt32 *)refCon, newService, resultCode);
 	return resultCode;
 }
 
 IOReturn AppleDBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) {
-    if (owner && arg1) {
-        AppleDBDMAAudioDMAEngine *audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
+    if (NULL != owner) {
+        AppleDBDMAAudioDMAEngine *		audioEngine;
 
-        if (audioEngine) {
-            audioEngine->iSubEngine->close ((IOService *)arg1);
+		debugIOLog ("+AppleDBDMAAudioDMAEngine::iSubCloseAction\n");
+
+		audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
+
+        if (NULL != audioEngine && NULL != audioEngine->iSubEngine && TRUE == audioEngine->iSubOpen) {
+			audioEngine->pauseAudioEngine ();
+			audioEngine->beginConfigurationChange ();
+
+			audioEngine->iSubEngine->closeiSub (audioEngine);
+
+			audioEngine->completeConfigurationChange ();
+			audioEngine->resumeAudioEngine ();
+
 			audioEngine->detach (audioEngine->iSubEngine);
 
 			audioEngine->iSubEngine = NULL;
@@ -1037,6 +1240,7 @@ IOReturn AppleDBDMAAudioDMAEngine::iSubCloseAction (OSObject *owner, void *arg1,
 #endif
     }
 
+	debugIOLog ("-AppleDBDMAAudioDMAEngine::iSubCloseAction\n");
 	return kIOReturnSuccess;
 }
 
@@ -1044,20 +1248,46 @@ IOReturn AppleDBDMAAudioDMAEngine::iSubOpenAction (OSObject *owner, void *arg1, 
 	IOReturn					result;
 	bool						resultBool;
 
+	debugIOLog ("+AppleDBDMAAudioDMAEngine::iSubOpenAction\n");
+
 	result = kIOReturnError;
 	resultBool = FALSE;
 
-    if (owner && arg1) {
-        AppleDBDMAAudioDMAEngine *audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
+    if (NULL != owner) {
+        AppleDBDMAAudioDMAEngine *		audioEngine;
 
-        if (audioEngine) {
-            resultBool = audioEngine->iSubEngine->open ((IOService *)arg1);
-        }
+		audioEngine = OSDynamicCast (AppleDBDMAAudioDMAEngine, owner);
+		resultBool = audioEngine->iSubEngine->openiSub (audioEngine);
     }
 
-	if (TRUE == resultBool) {
+	if (resultBool) {
 		result = kIOReturnSuccess;
 	}
 
+	debugIOLog ("-AppleDBDMAAudioDMAEngine::iSubOpenAction\n");
 	return result;
+}
+
+bool AppleDBDMAAudioDMAEngine::willTerminate (IOService * provider, IOOptionBits options) {
+    IOCommandGate *					cg;
+
+	debug3IOLog ("+AppleDBDMAAudioDMAEngine[%p]::willTerminate (%p)\n", this, provider);
+
+	if (iSubEngine == (AppleiSubEngine *)provider) {
+		debugIOLog ("iSub requesting termination\n");
+
+		cg = getCommandGate ();
+		if (NULL != cg) {
+			cg->runAction (iSubCloseAction);
+		}
+
+		// Set up notifier to run when iSub shows up again
+		if (iSubAttach->getIntValue ()) {
+			iSubEngineNotifier = addNotification (gIOPublishNotification, serviceMatching ("AppleiSubEngine"), (IOServiceNotificationHandler)&iSubEnginePublished, this);
+		}
+	}
+
+	debug2IOLog ("-AppleDBDMAAudioDMAEngine[%p]::willTerminate - about to call super::willTerminate ()\n", this);
+
+	return super::willTerminate (provider, options);
 }

@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without

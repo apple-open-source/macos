@@ -19,17 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 July 98 - start IOKit
- */
-
-
 
 /*
     File:       PEFLoader.c
@@ -118,6 +107,7 @@
 
 */
 
+#if __ppc__
 
 #include "IOPEFInternals.h"
 
@@ -1778,7 +1768,7 @@ OSStatus    PEF_UnpackSection   ( CFContHandlerRef  containerRef,
 
         err = UnpackFullSection ( packedBase, packedEnd, outputBase, outputEnd );
         if ( err != noErr ) goto ERROR;
-
+#if EnableCFMDebugging
         if ( false && EnableCFMDebugging && (section->execSize > 8) ) { // Force some tests of partial unpacking.
 
             UInt32  word;
@@ -1800,7 +1790,7 @@ OSStatus    PEF_UnpackSection   ( CFContHandlerRef  containerRef,
 
             (*pefPrivate->Release) ( partContents );
         }
-
+#endif
     } else {
 
         if ( section->initSize < sectionOffset ) {
@@ -1810,6 +1800,7 @@ OSStatus    PEF_UnpackSection   ( CFContHandlerRef  containerRef,
             if ( err != noErr ) goto ERROR;
         }
 
+#if EnableCFMDebugging
         if ( EnableCFMDebugging ) {     // See if the partial output agrees with full output.
 
             BytePtr  fullContents   = (*pefPrivate->Allocate) ( section->execSize );
@@ -1823,8 +1814,8 @@ OSStatus    PEF_UnpackSection   ( CFContHandlerRef  containerRef,
             PEF_Assert ( PEF_CompareBytes ( fullContents + sectionOffset, bufferAddress, bufferLength ) );
 
             (*pefPrivate->Release) ( fullContents );
-
         }
+#endif
 
     }
 
@@ -2106,3 +2097,6 @@ ParameterError:
 
 }   // PEF_RelocateImportsOnly ()
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#endif /* __ppc__ */

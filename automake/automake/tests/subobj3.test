@@ -1,0 +1,49 @@
+#! /bin/sh
+
+# Test of subdir objects with C++.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(sub/hello.c)
+AM_INIT_AUTOMAKE(hello,0.23)
+dnl Prevent automake from looking in .. and ../..
+AC_CONFIG_AUX_DIR(.)
+AC_PROG_CC
+AM_PROG_CC_C_O
+AM_C_PROTOTYPES
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = hello
+hello_SOURCES = sub/hello.c
+END
+
+mkdir sub
+cat > sub/hello.c << 'END'
+#include <stdio.h>
+int
+main (int argc, char *argv[])
+{
+   printf ("yeah, yeah\n");
+   return 0;
+}
+END
+
+# Likewise for gcc.
+(gcc -v) > /dev/null 2>&1 || exit 77
+
+# Ignore user CFLAGS.
+CFLAGS=
+export CFLAGS
+
+# We use gcc and not gcc -traditional as the latter fails on some
+# Linux boxes (Red Hat 5.1 in particular).
+$ACLOCAL \
+   && $AUTOCONF \
+   && $AUTOMAKE -a \
+   && CC='gcc' ./configure \
+   && ANSI2KNR=./ansi2knr U=_ $MAKE -e SHELL=/bin/sh \
+   && ./hello

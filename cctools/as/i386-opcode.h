@@ -494,6 +494,59 @@ static const template i386_optab[] = {
 {"rsm",		0, 0x0faa, _,     NoModrm,      {0,           0, 0}, "5" },
 #endif /* i586 */
 
+#ifdef i686
+/* Pentium Pro extensions */
+{"rdpmc", 0, 0x0f33, _, NoModrm, {0, 0, 0}, "6" },
+        
+{"ud2", 0, 0x0fff, _, NoModrm, {0, 0, 0}, "6" }, /* official undefined instr. */
+
+{"cmovo",  2, 0x0f40, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovno", 2, 0x0f41, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovb",  2, 0x0f42, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovae", 2, 0x0f43, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmove",  2, 0x0f44, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovne", 2, 0x0f45, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovbe", 2, 0x0f46, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmova",  2, 0x0f47, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovs",  2, 0x0f48, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovns", 2, 0x0f49, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovp",  2, 0x0f4a, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovnp", 2, 0x0f4b, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovl",  2, 0x0f4c, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovge", 2, 0x0f4d, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovle", 2, 0x0f4e, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"cmovg",  2, 0x0f4f, _, Modrm|ReverseRegRegmem, {WordReg|WordMem, WordReg, 0},
+ "6"},
+{"fcmovb", 2, 0xdac0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmove", 2, 0xdac8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovbe",2, 0xdad0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovu", 2, 0xdad8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovnb", 2, 0xdbc0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovne", 2, 0xdbc8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovnbe",2, 0xdbd0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcmovnu", 2, 0xdbd8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+
+{"fcomi",  2, 0xdbf0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fucomi", 2, 0xdbe8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fcomip", 2, 0xdff0, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+{"fucomip",2, 0xdfe8, _, ShortForm, {FloatReg, FloatAcc, 0}, "6" },
+#endif /* i686 */
+
 /* floating point instructions */
 
 /* load */
@@ -504,6 +557,7 @@ static const template i386_optab[] = {
 {"fldl", 1, 0xd9c0, _, ShortForm, {FloatReg, 0, 0} }, /* register */
 {"filds", 1, 0xdf, 0, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem dword */
 {"fild", 1, 0xdf, 0, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem dword */
+{"fildll", 1, 0xdf, 5, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem qword */
 {"fildq", 1, 0xdf, 5, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem qword */
 {"fldt", 1, 0xdb, 5, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem efloat */
 {"fbld", 1, 0xdf, 4, Modrm, {Mem, 0, 0} },           /* %st0 <-- mem bcd */
@@ -524,6 +578,8 @@ static const template i386_optab[] = {
 {"fstpl", 1, 0xdd, 3, Modrm, {Mem, 0, 0} },           /* %st0 --> mem double */
 {"fstpl", 1, 0xddd8, _, ShortForm, {FloatReg, 0, 0} }, /* register */
 {"fistps", 1, 0xdf, 3, Modrm, {Mem, 0, 0} },           /* %st0 --> mem dword */
+{"fistp", 1, 0xdf, 3, Modrm, {Mem, 0, 0} },           /* %st0 --> mem dword */
+{"fistpll", 1, 0xdf, 7, Modrm, {Mem, 0, 0} },           /* %st0 --> mem qword */
 {"fistpq", 1, 0xdf, 7, Modrm, {Mem, 0, 0} },           /* %st0 --> mem qword */
 {"fstpt", 1, 0xdb, 7, Modrm, {Mem, 0, 0} },           /* %st0 --> mem efloat */
 {"fbstp", 1, 0xdf, 6, Modrm, {Mem, 0, 0} },           /* %st0 --> mem bcd */

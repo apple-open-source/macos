@@ -18,7 +18,7 @@
 
 /*
  	File:		HMACSHA1.h
- 	Contains:	Apple Data Security Services HMACSHA1 function declaration.
+ 	Contains:	Apple Data Security Services HMAC{SHA1,MD5} function declaration.
  	Copyright:	(C) 1999 by Apple Computer, Inc., all rights reserved
  	Written by:	Michael Brouwer <mb@apple.com>
 */
@@ -33,13 +33,14 @@ extern "C" {
 #endif
 
 #define kHMACSHA1DigestSize  20
+#define kHMACMD5DigestSize	 16
 
 /* XXX These should really be in SHA1.h */
 #define kSHA1DigestSize  	20
 #define kSHA1BlockSize  	64
 
-/* This function create an HMACSHA1 digest of kHMACSHA1DigestSize and outputs
-   it to resultPtr.  See RFC 2104 for details.  */
+/* This function create an HMACSHA1 digest of kHMACSHA1DigestSizestSize bytes
+ * and outputs it to resultPtr.  See RFC 2104 for details.  */
 void
 hmacsha1 (const void *keyPtr, UInt32 keyLen,
 		  const void *textPtr, UInt32 textLen,
@@ -48,7 +49,7 @@ hmacsha1 (const void *keyPtr, UInt32 keyLen,
 /*
  * Staged version.
  *
- * Opaque reference to an hmacsha1 session 
+ * Opaque reference to an hmac session 
  */
 struct hmacContext;
 typedef struct hmacContext *hmacContextRef;
@@ -59,7 +60,8 @@ void hmacFree(
 CSSM_RETURN hmacInit(
 	hmacContextRef hmac,
 	const void *keyPtr,
-	UInt32 keyLen);
+	UInt32 keyLen,
+	CSSM_BOOL sha1Digest);		// true -> SHA1; false -> MD5
 CSSM_RETURN hmacUpdate(
 	hmacContextRef hmac,
 	const void *textPtr,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  *
@@ -43,45 +43,53 @@ bool IODCLProgram::init(IOFireWireBus::DCLTaskInfo *info)
     if(!ok || info == NULL)
 	return ok;
     do {
-	// Have to map DCL as read/write because timestamp opcode writes
-	// into the DCL.
-        fDCLDesc = IOMemoryDescriptor::withAddress(info->fDCLBaseAddr,
-		info->fDCLSize, kIODirectionOutIn, info->fTask);
-        if(!fDCLDesc) {
-            ok = false;
-            break;
-        }
-        fDataDesc = IOMemoryDescriptor::withAddress(info->fDataBaseAddr,
-                info->fDataSize, kIODirectionOutIn, info->fTask);
-        if(!fDataDesc) {
-            ok = false;
-            break;
-        }
-	// 6250 is the total bandwidth per frame at 400Mb/sec, seems a reasonable limit!
-        fDataCursor = IONaturalMemoryCursor::withSpecification(PAGE_SIZE, 6250);
-        if(!fDataCursor) {
-            ok = false;
-            break;
-        }
-        vm_address_t kernelDCL;
         IOReturn res;
-        IOByteCount len;
-        res = fDCLDesc->prepare(kIODirectionOutIn);
-        if(res != kIOReturnSuccess) {
-            ok = false;
-            break;
-	}
-        kernelDCL = (vm_address_t)fDCLDesc->getVirtualSegment(0, &len);
-        assert(len >= info->fDCLSize);
-        fDCLTaskToKernel = kernelDCL - info->fDCLBaseAddr;
-        res = fDataDesc->prepare(kIODirectionOutIn);
-        if(res != kIOReturnSuccess) {
-            ok = false;
-            break;
+        // Have to map DCL as read/write because timestamp opcode writes
+        // into the DCL.
+        if(info->fDCLBaseAddr) {
+            fDCLDesc = IOMemoryDescriptor::withAddress(info->fDCLBaseAddr,
+            info->fDCLSize, kIODirectionOutIn, info->fTask);
+            if(!fDCLDesc) {
+                ok = false;
+                break;
+            }
+            vm_address_t kernelDCL;
+            IOByteCount len;
+            res = fDCLDesc->prepare(kIODirectionOutIn);
+            if(res != kIOReturnSuccess) {
+                ok = false;
+                break;
+            }
+            kernelDCL = (vm_address_t)fDCLDesc->getVirtualSegment(0, &len);
+            assert(len >= info->fDCLSize);
+            fDCLTaskToKernel = kernelDCL - info->fDCLBaseAddr;
         }
-        fCallUser = info->fCallUser;
-        fCallRefCon = info->fCallRefCon;
-        fDataBase = info->fDataBaseAddr;
+        if(info->fDataBaseAddr) {
+            // Horrible hack!!!!
+            if(info->fCallRefCon) {
+                fDataDesc = (IOMemoryDescriptor *)info->fCallRefCon;
+                fDataDesc->retain();
+            }
+            else
+                fDataDesc = IOMemoryDescriptor::withAddress(info->fDataBaseAddr,
+                    info->fDataSize, kIODirectionOutIn, info->fTask);
+            if(!fDataDesc) {
+                ok = false;
+                break;
+            }
+        // 6250 is the total bandwidth per frame at 400Mb/sec, seems a reasonable limit!
+            fDataCursor = IONaturalMemoryCursor::withSpecification(PAGE_SIZE, 6250);
+            if(!fDataCursor) {
+                ok = false;
+                break;
+            }
+            res = fDataDesc->prepare(kIODirectionOutIn);
+            if(res != kIOReturnSuccess) {
+                ok = false;
+                break;
+            }
+            fDataBase = info->fDataBaseAddr;
+        }
     } while (false);
     if(!ok) {
 	if(fDCLDesc)
@@ -109,33 +117,45 @@ void IODCLProgram::free()
     OSObject::free();
 }
 
-UInt32 IODCLProgram::getPhysicalSegs(void *addr, IOByteCount len,
-	IOMemoryCursor::PhysicalSegment segs[], UInt32 maxSegs)
+UInt32 
+IODCLProgram::getPhysicalSegs(
+	void *								addr, 
+	IOByteCount 						len,
+	IOMemoryCursor::PhysicalSegment 	segs[], 
+	UInt32 								maxSegs )
 {
-    UInt32 nSegs;
-    if(fDataDesc && fDataCursor) {
-        nSegs = fDataCursor->genPhysicalSegments(fDataDesc, (IOByteCount)addr - fDataBase, segs, maxSegs, len);
+    UInt32 	nSegs;
+    
+    if( fDataDesc && fDataCursor )
+	{
+        nSegs = fDataCursor->genPhysicalSegments( fDataDesc, (IOByteCount)addr - fDataBase, segs, maxSegs, len );
     }
-    else {
-	UInt32 i;
-        vm_address_t pos;
-        pos = (vm_address_t)addr;
-        nSegs = (round_page(pos+len) - trunc_page(pos))/(PAGE_SIZE);
-	if (nSegs > maxSegs) {
-            IOLog("IODCLProgram::getPhysicalSegs(): Data descriptor too complex for compiler!\n");
-            nSegs = 0;
-        }
-        for(i = 0; i<nSegs; i++) {
-            IOByteCount segLen;
-            segs[i].location = pmap_extract(kernel_pmap, pos);
-            segLen = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-            if(segLen > len)
-                segLen = len;
-            segs[i].length = segLen;
-            pos += segLen;
-            len -= segLen;
-	}
+    else 
+	{
+		vm_address_t 		pos = (vm_address_t)addr ;
+        
+        
+		nSegs = (round_page(pos+len) - trunc_page(pos))/(PAGE_SIZE);
+		if (nSegs > maxSegs) 
+		{
+			IOLog("IODCLProgram::getPhysicalSegs(): Data descriptor too complex for compiler!\n");
+			nSegs = 0;
+		}
+		
+		for( UInt32 i = 0; i < nSegs; i++)
+		{
+			IOByteCount 	segLen ;
+			
+			segs[i].location = pmap_extract( kernel_pmap, pos );
+			segLen = PAGE_SIZE - ( pos & PAGE_MASK );
+			if(segLen > len)
+				segLen = len;
+			segs[i].length = segLen;
+			pos += segLen;
+			len -= segLen;
+		}
     }
+	
     return nSegs;
 }
 

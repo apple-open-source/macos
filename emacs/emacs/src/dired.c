@@ -1,5 +1,6 @@
 /* Lisp functions for making directory listings.
-   Copyright (C) 1985, 1986, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 1994, 1999, 2000, 2001
+     Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -24,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include "systime.h"
+#include <errno.h>
 
 #ifdef VMS
 #include <string.h>
@@ -64,6 +68,8 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif /* not NONSYSTEM_DIR_LIBRARY */
 
+#include <sys/stat.h>
+
 #ifndef MSDOS
 #define DIRENTRY struct direct
 
@@ -89,6 +95,9 @@ extern struct direct *readdir ();
 /* Returns a search buffer, with a fastmap allocated and ready to go.  */
 extern struct re_pattern_buffer *compile_pattern ();
 
+/* From filemode.c.  Can't go in Lisp.h because of `stat'.  */
+extern void filemodestring P_ ((struct stat *, char *));
+
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 /* if system does not have symbolic links, it does not have lstat.
@@ -105,54 +114,47 @@ extern Lisp_Object Vfile_name_coding_system, Vdefault_file_name_coding_system;
 Lisp_Object Vcompletion_ignored_extensions;
 Lisp_Object Qcompletion_ignore_case;
 Lisp_Object Qdirectory_files;
+Lisp_Object Qdirectory_files_and_attributes;
 Lisp_Object Qfile_name_completion;
 Lisp_Object Qfile_name_all_completions;
 Lisp_Object Qfile_attributes;
+Lisp_Object Qfile_attributes_lessp;
 
-DEFUN ("directory-files", Fdirectory_files, Sdirectory_files, 1, 4, 0,
-  "Return a list of names of files in DIRECTORY.\n\
-There are three optional arguments:\n\
-If FULL is non-nil, return absolute file names.  Otherwise return names\n\
- that are relative to the specified directory.\n\
-If MATCH is non-nil, mention only file names that match the regexp MATCH.\n\
-If NOSORT is non-nil, the list is not sorted--its order is unpredictable.\n\
- NOSORT is useful if you plan to sort the result yourself.")
-  (directory, full, match, nosort)
+
+Lisp_Object
+directory_files_internal_unwind (dh)
+     Lisp_Object dh;
+{
+  DIR *d = (DIR *) ((XINT (XCAR (dh)) << 16) + XINT (XCDR (dh)));
+  closedir (d);
+  return Qnil;
+}
+
+/* Function shared by Fdirectory_files and Fdirectory_files_and_attributes.  
+   When ATTRS is zero, return a list of directory filenames; when
+   non-zero, return a list of directory filenames and their attributes.  */
+
+Lisp_Object
+directory_files_internal (directory, full, match, nosort, attrs)
      Lisp_Object directory, full, match, nosort;
+     int attrs;
 {
   DIR *d;
-  int dirnamelen;
-  Lisp_Object list, name, dirfilename;
-  Lisp_Object encoded_directory;
-  Lisp_Object handler;
-  struct re_pattern_buffer *bufp;
+  int directory_nbytes;
+  Lisp_Object list, dirfilename, encoded_directory;
+  struct re_pattern_buffer *bufp = NULL;
   int needsep = 0;
-  struct gcpro gcpro1, gcpro2;
-
-  /* If the file name has special constructs in it,
-     call the corresponding file handler.  */
-  handler = Ffind_file_name_handler (directory, Qdirectory_files);
-  if (!NILP (handler))
-    {
-      Lisp_Object args[6];
-
-      args[0] = handler;
-      args[1] = Qdirectory_files;
-      args[2] = directory;
-      args[3] = full;
-      args[4] = match;
-      args[5] = nosort;
-      return Ffuncall (6, args);
-    }
+  int count = specpdl_ptr - specpdl;
+  struct gcpro gcpro1, gcpro2, gcpro3, gcpro4, gcpro5;
+  DIRENTRY *dp;
+  int retry_p;
 
   /* Because of file name handlers, these functions might call
      Ffuncall, and cause a GC.  */
-  GCPRO1 (match);
+  list = encoded_directory = dirfilename = Qnil;
+  GCPRO5 (match, directory, list, dirfilename, encoded_directory);
   directory = Fexpand_file_name (directory, Qnil);
-  UNGCPRO;
-  GCPRO2 (match, directory);
   dirfilename = Fdirectory_file_name (directory);
-  UNGCPRO;
 
   if (!NILP (match))
     {
@@ -171,8 +173,10 @@ If NOSORT is non-nil, the list is not sorted--its order is unpredictable.\n\
 #endif
     }
 
+  /* Note: ENCODE_FILE and DECODE_FILE can GC because they can run
+     run_pre_post_conversion_on_str which calls Lisp directly and
+     indirectly.  */
   dirfilename = ENCODE_FILE (dirfilename);
-
   encoded_directory = ENCODE_FILE (directory);
 
   /* Now *bufp is the compiled form of MATCH; don't call anything
@@ -182,72 +186,217 @@ If NOSORT is non-nil, the list is not sorted--its order is unpredictable.\n\
      an error is signaled while the directory stream is open, we
      have to make sure it gets closed, and setting up an
      unwind_protect to do so would be a pain.  */
+ retry:
+  
   d = opendir (XSTRING (dirfilename)->data);
-  if (! d)
+  if (d == NULL)
     report_file_error ("Opening directory", Fcons (directory, Qnil));
 
-  list = Qnil;
-  dirnamelen = STRING_BYTES (XSTRING (directory));
+  /* Unfortunately, we can now invoke expand-file-name and
+     file-attributes on filenames, both of which can throw, so we must
+     do a proper unwind-protect.  */
+  record_unwind_protect (directory_files_internal_unwind,
+			 Fcons (make_number (((unsigned long) d) >> 16),
+				make_number (((unsigned long) d) & 0xffff)));
+
+  directory_nbytes = STRING_BYTES (XSTRING (directory));
   re_match_object = Qt;
 
   /* Decide whether we need to add a directory separator.  */
 #ifndef VMS
-  if (dirnamelen == 0
-      || !IS_ANY_SEP (XSTRING (directory)->data[dirnamelen - 1]))
+  if (directory_nbytes == 0
+      || !IS_ANY_SEP (XSTRING (directory)->data[directory_nbytes - 1]))
     needsep = 1;
 #endif /* not VMS */
 
-  GCPRO2 (encoded_directory, list);
-
-  /* Loop reading blocks */
-  while (1)
+  /* Loop reading blocks until EOF or error.  */
+  for (;;)
     {
-      DIRENTRY *dp = readdir (d);
+      errno = 0;
+      dp = readdir (d);
 
-      if (!dp) break;
+#ifdef EAGAIN
+      if (dp == NULL && errno == EAGAIN)
+	continue;
+#endif
+      
+      if (dp == NULL)
+	break;
+
       if (DIRENTRY_NONEMPTY (dp))
 	{
 	  int len;
+	  int wanted = 0;
+	  Lisp_Object name, finalname;
+	  struct gcpro gcpro1, gcpro2;
 
 	  len = NAMLEN (dp);
-	  name = DECODE_FILE (make_string (dp->d_name, len));
+	  name = finalname = make_unibyte_string (dp->d_name, len);
+	  GCPRO2 (finalname, name);
+	  
+	  /* Note: ENCODE_FILE can GC; it should protect its argument,
+	     though.  */
+	  name = DECODE_FILE (name);
 	  len = STRING_BYTES (XSTRING (name));
+
+	  /* Now that we have unwind_protect in place, we might as well
+             allow matching to be interrupted.  */
+	  immediate_quit = 1;
+	  QUIT;
 
 	  if (NILP (match)
 	      || (0 <= re_search (bufp, XSTRING (name)->data, len, 0, len, 0)))
+	    wanted = 1;
+
+	  immediate_quit = 0;
+
+	  if (wanted)
 	    {
 	      if (!NILP (full))
 		{
-		  int afterdirindex = dirnamelen;
-		  int total = len + dirnamelen;
-		  int nchars;
 		  Lisp_Object fullname;
+		  int nbytes = len + directory_nbytes + needsep;
+		  int nchars;
 
-		  fullname = make_uninit_multibyte_string (total + needsep,
-							   total + needsep);
+		  fullname = make_uninit_multibyte_string (nbytes, nbytes);
 		  bcopy (XSTRING (directory)->data, XSTRING (fullname)->data,
-			 dirnamelen);
+			 directory_nbytes);
+		  
 		  if (needsep)
-		    XSTRING (fullname)->data[afterdirindex++] = DIRECTORY_SEP;
+		    XSTRING (fullname)->data[directory_nbytes] = DIRECTORY_SEP;
+		  
 		  bcopy (XSTRING (name)->data,
-			 XSTRING (fullname)->data + afterdirindex, len);
-		  nchars = chars_in_text (XSTRING (fullname)->data,
-					  afterdirindex + len);
+			 XSTRING (fullname)->data + directory_nbytes + needsep,
+			 len);
+		  
+		  nchars = chars_in_text (XSTRING (fullname)->data, nbytes);
+
+		  /* Some bug somewhere.  */
+		  if (nchars > nbytes)
+		    abort ();
+		      
 		  XSTRING (fullname)->size = nchars;
-		  if (nchars == STRING_BYTES (XSTRING (fullname)))
+		  if (nchars == nbytes)
 		    SET_STRING_BYTES (XSTRING (fullname), -1);
-		  name = fullname;
+		  
+		  finalname = fullname;
 		}
-	      list = Fcons (name, list);
+	      else
+		finalname = name;
+
+	      if (attrs)
+		{
+		  /* Construct an expanded filename for the directory entry.
+		     Use the decoded names for input to Ffile_attributes.  */
+		  Lisp_Object decoded_fullname, fileattrs;
+		  struct gcpro gcpro1, gcpro2;
+
+		  decoded_fullname = fileattrs = Qnil;
+		  GCPRO2 (decoded_fullname, fileattrs);
+
+		  /* Both Fexpand_file_name and Ffile_attributes can GC.  */
+		  decoded_fullname = Fexpand_file_name (name, directory);
+		  fileattrs = Ffile_attributes (decoded_fullname);
+
+		  list = Fcons (Fcons (finalname, fileattrs), list);
+		  UNGCPRO;
+		}
+	      else
+		list = Fcons (finalname, list);
 	    }
+
+	  UNGCPRO;
 	}
     }
+
+  retry_p = 0;
+#ifdef EINTR
+  retry_p |= errno == EINTR;
+#endif
+
   closedir (d);
-  UNGCPRO;
-  if (!NILP (nosort))
-    return list;
-  return Fsort (Fnreverse (list), Qstring_lessp);
+
+  /* Discard the unwind protect.  */
+  specpdl_ptr = specpdl + count;
+
+  if (retry_p)
+    {
+      list = Qnil;
+      goto retry;
+    }
+
+  if (NILP (nosort))
+    list = Fsort (Fnreverse (list),
+		  attrs ? Qfile_attributes_lessp : Qstring_lessp);
+  
+  RETURN_UNGCPRO (list);
 }
+
+
+DEFUN ("directory-files", Fdirectory_files, Sdirectory_files, 1, 4, 0,
+  "Return a list of names of files in DIRECTORY.\n\
+There are three optional arguments:\n\
+If FULL is non-nil, return absolute file names.  Otherwise return names\n\
+ that are relative to the specified directory.\n\
+If MATCH is non-nil, mention only file names that match the regexp MATCH.\n\
+If NOSORT is non-nil, the list is not sorted--its order is unpredictable.\n\
+ NOSORT is useful if you plan to sort the result yourself.")
+  (directory, full, match, nosort)
+     Lisp_Object directory, full, match, nosort;
+{
+  Lisp_Object handler;
+
+  /* If the file name has special constructs in it,
+     call the corresponding file handler.  */
+  handler = Ffind_file_name_handler (directory, Qdirectory_files);
+  if (!NILP (handler))
+    {
+      Lisp_Object args[6];
+
+      args[0] = handler;
+      args[1] = Qdirectory_files;
+      args[2] = directory;
+      args[3] = full;
+      args[4] = match;
+      args[5] = nosort;
+      return Ffuncall (6, args);
+    }
+
+  return directory_files_internal (directory, full, match, nosort, 0);
+}
+
+DEFUN ("directory-files-and-attributes", Fdirectory_files_and_attributes, Sdirectory_files_and_attributes, 1, 4, 0,
+  "Return a list of names of files and their attributes in DIRECTORY.\n\
+There are three optional arguments:\n\
+If FULL is non-nil, return absolute file names.  Otherwise return names\n\
+ that are relative to the specified directory.\n\
+If MATCH is non-nil, mention only file names that match the regexp MATCH.\n\
+If NOSORT is non-nil, the list is not sorted--its order is unpredictable.\n\
+ NOSORT is useful if you plan to sort the result yourself.")
+  (directory, full, match, nosort)
+     Lisp_Object directory, full, match, nosort;
+{
+  Lisp_Object handler;
+
+  /* If the file name has special constructs in it,
+     call the corresponding file handler.  */
+  handler = Ffind_file_name_handler (directory, Qdirectory_files_and_attributes);
+  if (!NILP (handler))
+    {
+      Lisp_Object args[6];
+
+      args[0] = handler;
+      args[1] = Qdirectory_files_and_attributes;
+      args[2] = directory;
+      args[3] = full;
+      args[4] = match;
+      args[5] = nosort;
+      return Ffuncall (6, args);
+    }
+
+  return directory_files_internal (directory, full, match, nosort, 1);
+}
+
 
 Lisp_Object file_name_completion ();
 
@@ -310,8 +459,7 @@ file_name_completion (file, dirname, all_flag, ver_flag)
      int all_flag, ver_flag;
 {
   DIR *d;
-  DIRENTRY *dp;
-  int bestmatchsize, skip;
+  int bestmatchsize = 0, skip;
   register int compare, matchsize;
   unsigned char *p1, *p2;
   int matchcount = 0;
@@ -323,6 +471,8 @@ file_name_completion (file, dirname, all_flag, ver_flag)
   int passcount;
   int count = specpdl_ptr - specpdl;
   struct gcpro gcpro1, gcpro2, gcpro3, gcpro4, gcpro5;
+
+  elt = Qnil;
 
 #ifdef VMS
   extern DIRENTRY * readdirver ();
@@ -415,9 +565,9 @@ file_name_completion (file, dirname, all_flag, ver_flag)
 	      if (!passcount && len > XSTRING (encoded_file)->size)
 		/* and exit this for loop if a match is found */
 		for (tem = Vcompletion_ignored_extensions;
-		     CONSP (tem); tem = XCONS (tem)->cdr)
+		     CONSP (tem); tem = XCDR (tem))
 		  {
-		    elt = XCONS (tem)->car;
+		    elt = XCAR (tem);
 		    if (!STRINGP (elt)) continue;
 		    skip = len - XSTRING (elt)->size;
 		    if (skip < 0) continue;
@@ -443,9 +593,10 @@ file_name_completion (file, dirname, all_flag, ver_flag)
 
 	      /* Ignore this element if it fails to match all the regexps.  */
 	      for (regexps = Vcompletion_regexp_list; CONSP (regexps);
-		   regexps = XCONS (regexps)->cdr)
+		   regexps = XCDR (regexps))
 		{
-		  tem = Fstring_match (XCONS (regexps)->car, elt, zero);
+		  tem = Fstring_match (XCAR (regexps),
+				       make_string (dp->d_name, len), zero);
 		  if (NILP (tem))
 		    break;
 		}
@@ -675,17 +826,20 @@ Otherwise, list elements are:\n\
 10. inode number.  If inode number is larger than the Emacs integer,\n\
   this is a cons cell containing two integers: first the high part,\n\
   then the low 16 bits.\n\
-11. Device number.\n\
+11. Device number.  If it is larger than the Emacs integer, this is\n\
+  a cons cell, similar to the inode number.\n\
 \n\
 If file does not exist, returns nil.")
   (filename)
      Lisp_Object filename;
 {
   Lisp_Object values[12];
-  Lisp_Object dirname;
   Lisp_Object encoded;
   struct stat s;
+#if defined (BSD4_2) || defined (BSD4_3)
+  Lisp_Object dirname;
   struct stat sdir;
+#endif
   char modes[10];
   Lisp_Object handler;
 
@@ -719,16 +873,13 @@ If file does not exist, returns nil.")
   values[4] = make_time (s.st_atime);
   values[5] = make_time (s.st_mtime);
   values[6] = make_time (s.st_ctime);
-  values[7] = make_number ((int) s.st_size);
+  values[7] = make_number (s.st_size);
   /* If the size is out of range for an integer, return a float.  */
   if (XINT (values[7]) != s.st_size)
     values[7] = make_float ((double)s.st_size);
   filemodestring (&s, modes);
   values[8] = make_string (modes, 10);
-#ifdef BSD4_3 /* Gross kludge to avoid lack of "#if defined(...)" in VMS */
-#define BSD4_2 /* A new meaning to the term `backwards compatibility' */
-#endif
-#ifdef BSD4_2			/* file gid will be dir gid */
+#if defined (BSD4_2) || defined (BSD4_3) /* file gid will be dir gid */
   dirname = Ffile_name_directory (filename);
   if (! NILP (dirname))
     encoded = ENCODE_FILE (dirname);
@@ -739,9 +890,6 @@ If file does not exist, returns nil.")
 #else					/* file gid will be egid */
   values[9] = (s.st_gid != getegid ()) ? Qt : Qnil;
 #endif	/* BSD4_2 (or BSD4_3) */
-#ifdef BSD4_3
-#undef BSD4_2 /* ok, you can look again without throwing up */
-#endif
   /* Cast -1 to avoid warning if int is not as wide as VALBITS.  */
   if (s.st_ino & (((EMACS_INT) (-1)) << VALBITS))
     /* To allow inode numbers larger than VALBITS, separate the bottom
@@ -751,24 +899,45 @@ If file does not exist, returns nil.")
   else
     /* But keep the most common cases as integers.  */
     values[10] = make_number (s.st_ino);
-  values[11] = make_number (s.st_dev);
+
+  /* Likewise for device.  */
+  if (s.st_dev & (((EMACS_INT) (-1)) << VALBITS))
+    values[11] = Fcons (make_number (s.st_dev >> 16),
+			make_number (s.st_dev & 0xffff));
+  else
+    values[11] = make_number (s.st_dev);
+
   return Flist (sizeof(values) / sizeof(values[0]), values);
+}
+
+DEFUN ("file-attributes-lessp", Ffile_attributes_lessp, Sfile_attributes_lessp, 2, 2, 0,
+  "Return t if first arg file attributes list is less than second.\n\
+Comparison is in lexicographic order and case is significant.")
+  (f1, f2)
+     Lisp_Object f1, f2;
+{
+  return Fstring_lessp (Fcar (f1), Fcar (f2));
 }
 
 void
 syms_of_dired ()
 {
   Qdirectory_files = intern ("directory-files");
+  Qdirectory_files_and_attributes = intern ("directory-files-and-attributes");
   Qfile_name_completion = intern ("file-name-completion");
   Qfile_name_all_completions = intern ("file-name-all-completions");
   Qfile_attributes = intern ("file-attributes");
+  Qfile_attributes_lessp = intern ("file-attributes-lessp");
 
   staticpro (&Qdirectory_files);
+  staticpro (&Qdirectory_files_and_attributes);
   staticpro (&Qfile_name_completion);
   staticpro (&Qfile_name_all_completions);
   staticpro (&Qfile_attributes);
+  staticpro (&Qfile_attributes_lessp);
 
   defsubr (&Sdirectory_files);
+  defsubr (&Sdirectory_files_and_attributes);
   defsubr (&Sfile_name_completion);
 #ifdef VMS
   defsubr (&Sfile_name_all_versions);
@@ -776,6 +945,7 @@ syms_of_dired ()
 #endif /* VMS */
   defsubr (&Sfile_name_all_completions);
   defsubr (&Sfile_attributes);
+  defsubr (&Sfile_attributes_lessp);
 
 #ifdef VMS
   Qcompletion_ignore_case = intern ("completion-ignore-case");

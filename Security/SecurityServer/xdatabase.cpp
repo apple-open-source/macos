@@ -23,7 +23,8 @@
 #include "agentquery.h"
 #include "key.h"
 #include "server.h"
-#include "cfnotifier.h"
+#include "cfnotifier.h"	// legacy
+#include "notifications.h"
 #include "SecurityAgentClient.h"
 #include <Security/acl_any.h>	// for default owner ACLs
 
@@ -218,13 +219,16 @@ void Database::changePassphrase(const AccessCredentials *cred)
 
     // get the new passphrase
 	// @@@ unstaged version -- revise to filter passphrases
-	QueryNewPassphrase query(*common, SecurityAgent::changePassphrase);
-	query(cred, common->passphrase);
+	Process &cltProc = Server::active().connection().process;
+        IFDEBUG(debug("SSdb", "New passphrase query from PID %d (UID %d)", cltProc.pid(), cltProc.uid()));
+	QueryNewPassphrase query(cltProc.uid(), cltProc.session, *common, SecurityAgent::changePassphrase);
+        query(cred, common->passphrase);
 	common->version++;	// blob state changed
 	IFDEBUG(debug("SSdb", "Database %s(%p) passphrase changed", common->dbName(), this));
 	
 	// send out a notification
 	KeychainNotifier::passphraseChanged(identifier());
+    notify(passphraseChangedEvent);
 
     // I guess this counts as an activity
     activity();
@@ -247,8 +251,10 @@ void Database::makeUnlocked()
     IFDUMPING("SSdb", debugDump("default procedures unlock"));
     if (isLocked()) {
         assert(mBlob || (mValidData && common->passphrase));
-		
-		QueryUnlock query(*this);
+
+	Process &cltProc = Server::active().connection().process;
+        IFDEBUG(debug("SSdb", "Unlock query from process %d (UID %d)", cltProc.pid(), cltProc.uid()));
+	QueryUnlock query(cltProc.uid(), cltProc.session, *this);
 		query(mCred);
 		if (isLocked())		// still locked, unlock failed
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
@@ -302,6 +308,19 @@ bool Database::decode(const CssmData &passphrase)
 		}
 	}
 	return false;
+}
+
+
+//
+// Verify a putative database passphrase.
+// This requires that the database be already unlocked;
+// it will not unlock the database (and will not lock it
+// if the proffered phrase is wrong).
+//
+bool Database::validatePassphrase(const CssmData &passphrase) const
+{
+	assert(!isLocked());
+	return passphrase == common->passphrase;
 }
 
 
@@ -481,6 +500,7 @@ bool Database::Common::unlock(DbBlob *blob, const CssmData &passphrase,
 	
 	// broadcast unlock notification
 	KeychainNotifier::unlock(identifier());
+    notify(unlockedEvent);
     return true;
 }
 
@@ -495,6 +515,7 @@ bool Database::Common::unlock(const CssmData &passphrase)
         if (passphrase == this->passphrase) {
             mIsLocked = false;
 			KeychainNotifier::unlock(identifier());
+            notify(unlockedEvent);
             return true;	// okay
         } else
             return false;	// failed
@@ -512,6 +533,7 @@ void Database::Common::lock(bool holdingCommonLock, bool forSleep)
         //@@@ discard secrets here? That would make fast-path impossible.
         mIsLocked = true;
         KeychainNotifier::lock(identifier());
+        notify(lockedEvent);
 		
 		// if no database refers to us now, we're history
         StLock<Mutex> _(commonLock, false);
@@ -547,6 +569,19 @@ DbBlob *Database::Common::encode(Database &db)
 
 
 //
+// Send out database-related notifications
+//
+void Database::Common::notify(Listener::Event event)
+{
+    IFDEBUG(debug("SSdb", "common %s(%p) sending event %ld", dbName(), this, event));
+    DLDbFlatIdentifier flatId(mIdentifier);	// walkable form of DLDbIdentifier
+    CssmAutoData data(CssmAllocator::standard());
+    copy(&flatId, CssmAllocator::standard(), data.get());
+    Listener::notify(Listener::databaseNotifications, event, data);
+}
+
+
+//
 // Initialize a (new) database's key information.
 // This acquires the passphrase in the appropriate way.
 // When (successfully) done, the database is in the unlocked state.
@@ -555,7 +590,9 @@ void Database::Common::setupKeys(const AccessCredentials *cred)
 {
 	// get the new passphrase
 	// @@@ Un-staged version of the API - revise with acceptability tests
-	QueryNewPassphrase query(*this, SecurityAgent::newDatabase);
+    Process &cltProc = Server::active().connection().process;
+    IFDEBUG(debug("SSdb", "New passphrase request from process %d (UID %d)", cltProc.pid(), cltProc.uid()));
+    QueryNewPassphrase query(cltProc.uid(), cltProc.session, *this, SecurityAgent::newDatabase);
 	query(cred, passphrase);
 		
 	// we have the passphrase now

@@ -36,7 +36,8 @@
 #include <strings.h>
 #include <pwd.h>
 
-enum ni_parse_status {
+enum ni_parse_status
+{
 	NI_PARSE_OK = 0,
 	NI_PARSE_BADFORMAT = 1,
 	NI_PARSE_NOHOST = 2,

@@ -46,13 +46,14 @@
 /*
  * Trivial exception class associated with a feeReturn.
  */
+// @@@ This should really be a subclass of exception
 class feeException
 {
 protected:
 	feeException(feeReturn frtn, const char *op); 	
 public:
-	~feeException() 				{ }
-	feeReturn frtn() 				{ return mFrtn; }
+	~feeException() throw() {}
+	feeReturn frtn() const throw() { return mFrtn; }
     static void throwMe(feeReturn frtn, const char *op = NULL) __attribute__((noreturn));
 private:
 	feeReturn mFrtn;
@@ -389,7 +390,7 @@ static FEECurveParameters *feeCurveParamsToSnacc(
 			giantToBigIntStr(cp->basePrime, *snaccCp->basePrime);
 		}
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		delete snaccCp;
 		throw;
 	}
@@ -481,7 +482,7 @@ feeReturn feeDEREncodeElGamalSignature(
 		giantToBigIntStr(u, snaccSig.u);
 		giantToBigIntStr(PmX, snaccSig.pmX);
 	} 
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	try {
@@ -517,7 +518,7 @@ feeReturn feeDEREncodeECDSASignature(
 		giantToBigIntStr(c, snaccSig.c);
 		giantToBigIntStr(d, snaccSig.d);
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	try {
@@ -558,7 +559,7 @@ feeReturn feeDERDecodeElGamalSignature(
 		*u   = bigIntStrToGiant(snaccSig.u);
 		*PmX = bigIntStrToGiant(snaccSig.pmX);
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	catch(...) {
@@ -593,7 +594,7 @@ feeReturn feeDERDecodeECDSASignature(
 		*c = bigIntStrToGiant(snaccSig.c);
 		*d = bigIntStrToGiant(snaccSig.d);
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	catch(...) {
@@ -636,7 +637,7 @@ feeReturn feeDEREncodePublicKey(
 			giantToBigIntStr(plusY, *snaccKey.plusY);
 		}
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	
@@ -671,7 +672,7 @@ feeReturn feeDEREncodePrivateKey(
 		snaccKey.curveParams = feeCurveParamsToSnacc(cp);
 		giantToBigIntStr(privData, snaccKey.privData);
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	
@@ -722,7 +723,7 @@ feeReturn feeDERDecodePublicKey(
 			int_to_giant(0, *plusY);
 		}
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	catch(...) {
@@ -752,7 +753,7 @@ feeReturn feeDERDecodePrivateKey(
 		*cp       = feeCurveParamsFromSnacc(*snaccKey.curveParams);
 		*privData = bigIntStrToGiant(snaccKey.privData);
 	}
-	catch(feeException ferr) {
+	catch(const feeException &ferr) {
 		return ferr.frtn();
 	}
 	catch(...) {

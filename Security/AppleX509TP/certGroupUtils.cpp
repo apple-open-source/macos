@@ -215,7 +215,7 @@ CSSM_RETURN tp_VerifyCert(
 	TPCertInfo				*subjectCert,
 	TPCertInfo				*issuerCert,
 	CSSM_BOOL				checkIssuerCurrent,
-	CSSM_BOOL				allowExpired)
+	CSSM_BOOL				allowExpired)			// to be deleted
 {
 	CSSM_RETURN			crtn;
 
@@ -226,10 +226,12 @@ CSSM_RETURN tp_VerifyCert(
     	NULL,				// VerifyScope
     	0);					// ScopeSize
 	if(crtn == CSSM_OK) {
+		#if TP_CERT_CURRENT_CHECK_INLINE
 		if(checkIssuerCurrent) {
 			/* also verify validity of issuer */
 			crtn = issuerCert->isCurrent(allowExpired);
 		}
+		#endif
 	}
 	else {
 		/* general cert verify failure */
@@ -254,56 +256,60 @@ CSSM_BOOL tp_CompareCerts(
  * certs can be found using the returned result handle. 
  */
 static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
-	CSSM_TP_HANDLE		tpHand,
 	CSSM_DL_DB_HANDLE	dlDb,
-	const CSSM_DATA_PTR	subjectName,	// DER-encoded
+	const CSSM_DATA		*subjectName,	// DER-encoded
 	CSSM_HANDLE_PTR		resultHand,
 	CSSM_DATA_PTR		cert)			// RETURNED
 {
 	CSSM_QUERY						query;
 	CSSM_SELECTION_PREDICATE		predicate;	
-	CSSM_BOOL  						EndOfDataStore;
-	CSSM_DB_UNIQUE_RECORD_PTR		record;
+	CSSM_DB_UNIQUE_RECORD_PTR		record = NULL;
 	
 	cert->Data = NULL;
 	cert->Length = 0;
 	
+	/* SWAG until cert schema nailed down */
 	predicate.DbOperator = CSSM_DB_EQUAL;
 	predicate.Attribute.Info.AttributeNameFormat = 
-		CSSM_DB_ATTRIBUTE_NAME_AS_NUMBER;		// may not be needed
-	predicate.Attribute.Info.Attr.AttributeNumber = kSubjectKCItemAttr;
-	predicate.Attribute.Value = *subjectName;
+		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
+	predicate.Attribute.Info.Label.AttributeName = "Subject";
+	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
+	predicate.Attribute.Value = const_cast<CSSM_DATA_PTR>(subjectName);
+	predicate.Attribute.NumberOfValues = 1;
 	
-	query.RecordType = CSSM_DL_DB_RECORD_CERT;
-	query.NumSelectionPredicates = 1;
+	query.RecordType = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
 	query.Conjunctive = CSSM_DB_NONE;
-	
+	query.NumSelectionPredicates = 1;
 	query.SelectionPredicate = &predicate;
+	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
+	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
+	query.QueryFlags = 0;				// FIXME - used?
 	
-	record = CSSM_DL_DataGetFirst(dlDb,
+	CSSM_DL_DataGetFirst(dlDb,
 		&query,
 		resultHand,
-		&EndOfDataStore,
 		NULL,				// don't fetch attributes
-		cert);
+		cert,
+		&record);
 	return record;
 }
 
 /*
  * Search a list of DBs for a cert which verifies specified subject cert. 
  * Just a boolean return - we found it, or not. If we did, we return
- * a pointer to the raw cert. 
+ * TPCertInfo associated with the raw cert. 
  *
  * Special case of subject cert expired indicated by *subjectExpired 
  * returned as something other than CSSM_OK.
  */
-CSSM_DATA_PTR tpFindIssuer(
-	CSSM_TP_HANDLE			tpHand,
+TPCertInfo *tpFindIssuer(
+	CssmAllocator 			&alloc,
 	CSSM_CL_HANDLE			clHand,
 	CSSM_CSP_HANDLE			cspHand,
-	const CSSM_DATA_PTR		subjectCert,
-	const CSSM_DATA_PTR		issuerName,			// passed for convenience
-	const CSSM_DB_LIST_PTR	dbList,
+	TPCertInfo				*subjectCert,
+	const CSSM_DATA			*issuerName,		// TBD - passed for convenience
+	const CSSM_DL_DB_LIST	*dbList,
+	const char 				*cssmTimeStr,		// may be NULL
 	CSSM_RETURN				*issuerExpired)		// RETURNED
 {
 	uint32						dbDex;
@@ -311,35 +317,39 @@ CSSM_DATA_PTR tpFindIssuer(
 	CSSM_DATA_PTR				cert;					// we malloc
 	CSSM_DL_DB_HANDLE			dlDb;
 	CSSM_DB_UNIQUE_RECORD_PTR	record;
+	TPCertInfo 					*issuerCert = NULL;
 	
-	*subjectExpired = CSSM_OK;
+	*issuerExpired = CSSM_OK;
 	if(dbList == NULL) {
 		return NULL;
 	}
-	cert = (CSSM_DATA_PTR)tpMalloc(tpHand, sizeof(CSSM_DATA));
+	cert = (CSSM_DATA_PTR)alloc.malloc(sizeof(CSSM_DATA));
 	cert->Data = NULL;
 	cert->Length = 0;
 	
 	for(dbDex=0; dbDex<dbList->NumHandles; dbDex++) {
 		dlDb = dbList->DLDBHandle[dbDex];
-		record = tpCertLookup(tpHand,
-			dlDb,
+		record = tpCertLookup(dlDb,
 			issuerName,
 			&resultHand,
 			cert);
 		/* remember we have to abort this query regardless...*/
 		if(record != NULL) {
 			/* Found one. Does it verify the subject cert? */
-			if(!tp_VerifyCert(tpHand,
-					clHand,
+			issuerCert = new TPCertInfo(cert, clHand, cssmTimeStr, CSSM_TRUE);
+			if(tp_VerifyCert(clHand,
 					cspHand,
 					subjectCert,
-					cert,
-					issuerExpired)) {
+					issuerCert,
+					CSSM_FALSE,				// check current, ignored 
+					CSSM_FALSE)) {			// allowExpired, ignored
 					
+				delete issuerCert;
+				issuerCert = NULL;
+				
 				/* special case - abort immediately if issuerExpired has expired */
 				if((*issuerExpired) != CSSM_OK) {
-					CSSM_DL_AbortQuery(dlDb, resultHand);
+					CSSM_DL_DataAbortQuery(dlDb, resultHand);
 					goto abort;
 				}
 				
@@ -348,53 +358,52 @@ CSSM_DATA_PTR tpFindIssuer(
 				 * finding the holy grail or no more records found. 
 				 */
 				for(;;) {
-					CSSM_BOOL eod;
-					
-					tpFreeCssmData(tpHand, cert, CSSM_FALSE);
-					record = CSSM_DL_DataGetNext(dlDb, 
+					tpFreeCssmData(alloc, cert, CSSM_FALSE);
+					CSSM_RETURN crtn = CSSM_DL_DataGetNext(dlDb, 
 						resultHand,
-						&eod,
 						NULL,		// no attrs 
-						cert);
-					if(record == NULL) {
+						cert,
+						&record);
+					if(crtn) {
 						/* no more, done with this DB */
 						break;
 					}
 					
 					/* found one - does it verify subject? */
-					if(tp_VerifyCert(tpHand,
-							clHand,
+					issuerCert = new TPCertInfo(cert, clHand, cssmTimeStr, 
+							CSSM_TRUE);
+					if(tp_VerifyCert(clHand,
 							cspHand,
 							subjectCert,
-							cert,
-							issuerExpired)) {
+							issuerCert,
+							CSSM_FALSE,
+							CSSM_FALSE)) {
 						/* yes! */
 						break;
 					}
-					else if((*issuerExpired) != CSSM_OK) {
-						/* abort immediately */
-						CSSM_DL_AbortQuery(dlDb, resultHand);
-						goto abort;
-					}
+					delete issuerCert;
+					issuerCert = NULL;
 				} /* searching subsequent records */
 			}	/* verify fail */
 			/* else success! */
 
-			if(record != NULL) {
+			if(issuerCert != NULL) {
 				/* successful return */
-				CSSM_DL_AbortQuery(dlDb, resultHand);
-				return cert;
+				CSSM_DL_DataAbortQuery(dlDb, resultHand);
+				issuerCert->dlDbHandle(dlDb);
+				issuerCert->uniqueRecord(record);
+				return issuerCert;
 			}
 		}	/* tpCertLookup, i.e., CSSM_DL_DataGetFirst, succeeded */
 		
 		/* in any case, abort the query for this db */
-		CSSM_DL_AbortQuery(dlDb, resultHand);
+		CSSM_DL_DataAbortQuery(dlDb, resultHand);
 		
 	}	/* main loop searching dbList */
 
 abort:
 	/* issuer not found */
-	tpFreeCssmData(tpHand, cert, CSSM_TRUE);
+	tpFreeCssmData(alloc, cert, CSSM_TRUE);
 	return NULL;
 }
 

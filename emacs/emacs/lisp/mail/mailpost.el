@@ -3,6 +3,8 @@
 ;; This is in the public domain
 ;; since Delp distributed it without a copyright notice in 1986.
 
+;; This file is part of GNU Emacs.
+
 ;; Author: Gary Delp <delp@huey.Udel.Edu>
 ;; Maintainer: FSF
 ;; Created: 13 Jan 1986
@@ -28,7 +30,7 @@ site-init."
   (let ((errbuf (if mail-interactive
 		    (generate-new-buffer " post-mail errors")
 		  0))
-	(temfile "/tmp/,rpost")
+	temfile
 	(tembuf (generate-new-buffer " post-mail temp"))
 	(case-fold-search nil)
 	delimline
@@ -74,8 +76,12 @@ site-init."
 		(save-excursion
 		  (set-buffer errbuf)
 		  (erase-buffer))))
-	  (write-file (setq temfile (make-temp-name temfile)))
-	  (set-file-modes temfile 384)
+	  (let ((m (default-file-modes)))
+	    (unwind-protect
+		(progn
+		  (set-default-file-modes 384)
+		  (setq temfile  (make-temp-file ",rpost")))
+	      (set-default-file-modes m)))
 	  (apply 'call-process
 		 (append (list (if (boundp 'post-mail-program)
 				   post-mail-program

@@ -613,7 +613,7 @@ cl_suspend(sp, allowedp)
 #endif
 
 	/* Restore the cursor keys to normal mode. */
-	(void)keypad(stdscr, FALSE);
+	(void)nvi_keypad(stdscr, FALSE);
 
 	/* Restore the window name. */
 	(void)cl_rename(sp, NULL, 0);
@@ -659,7 +659,7 @@ cl_suspend(sp, allowedp)
 	(void)cl_rename(sp, sp->frp->name, 1);
 
 	/* Put the cursor keys into application mode. */
-	(void)keypad(stdscr, TRUE);
+	(void)nvi_keypad(stdscr, TRUE);
 
 	/* Refresh and repaint the screen. */
 	(void)move(oldy, oldx);

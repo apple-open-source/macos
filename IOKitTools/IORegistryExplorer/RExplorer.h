@@ -21,6 +21,10 @@
     id			typeColumn;
     id   		valueColumn;
 
+    id			updatePrefsMatrix;
+
+    id			objectDescription;
+
 
     NSDictionary 	*currentSelectedItemDict;
     NSDictionary 	*aboutBoxOptions;
@@ -40,6 +44,7 @@
     int			autoUpdate;
     NSTimer		*updateTimer;
     mach_port_t		port;
+    Boolean		registryHasChanged;
 
 }
 
@@ -71,5 +76,6 @@
 
 - (NSArray *)searchKeysResultsInDictionary:(NSDictionary *)dict forText:(NSString *)text passedPath:(NSString *)path;
 
+- (void)updatePrefs:(id)sender;
 
 @end

@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Regression test for recursion handling in substitution references to
+# conditional variables.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(hello,0.23)
+AC_PROG_CC
+AM_CONDITIONAL(COND1, true)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+
+var1 = $(var2)
+
+if COND1
+var2 = $(var1:=.c) foo.cc
+else
+var2 = $(var1:=.c)
+endif
+
+helldl_SOURCES = $(var2)
+
+bin_PROGRAMS = helldl
+END
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a && exit 1
+$AUTOMAKE -a 2>&1| grep "recursively defined"

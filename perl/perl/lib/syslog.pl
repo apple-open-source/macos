@@ -2,6 +2,9 @@
 # syslog.pl
 #
 # $Log: syslog.pl,v $
+# Revision 1.2  2002/03/14 08:57:54  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.2  2000/03/31 05:11:49  wsanchez
 # Import of perl 5.6.0
 #

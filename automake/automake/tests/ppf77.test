@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Test to make sure preprocessed F77 works.
+# Report from Jochen Kuepper.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_F77
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = ppf
+ppf_SOURCES = foo.F q.r
+END
+
+: > foo.F
+: > q.r
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -27,6 +27,7 @@
 
 #include <Security/cssmtype.h>
 #include <Security/cssmalloc.h>
+#include <Security/cssmapple.h>
 #include "TPCertInfo.h"
 
 #ifdef __cplusplus
@@ -53,12 +54,15 @@ typedef enum {
  * Returns CSSM_TRUE on success.
  */
 CSSM_RETURN tp_policyVerify(
-	TPPolicy					policy,
-	CssmAllocator				&alloc,
-	CSSM_CL_HANDLE				clHand,
-	CSSM_CSP_HANDLE				cspHand,
-	TPCertGroup 				*certGroup,
-	CSSM_BOOL					verifiedToRoot);	// last cert is good root
+	TPPolicy						policy,
+	CssmAllocator					&alloc,
+	CSSM_CL_HANDLE					clHand,
+	CSSM_CSP_HANDLE					cspHand,
+	TPCertGroup 					*certGroup,
+	CSSM_BOOL						verifiedToRoot,		// last cert is good root
+	const CSSM_APPLE_TP_ACTION_DATA	*actionData,
+	const CSSM_APPLE_TP_SSL_OPTIONS	*sslOpts,
+	void							*policyOpts);	// future options
 
 #ifdef __cplusplus
 }

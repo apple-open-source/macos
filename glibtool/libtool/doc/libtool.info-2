@@ -1,0 +1,1145 @@
+This is libtool.info, produced by makeinfo version 4.0 from
+libtool.texi.
+
+INFO-DIR-SECTION GNU programming tools
+START-INFO-DIR-ENTRY
+* Libtool: (libtool).           Generic shared library support script.
+END-INFO-DIR-ENTRY
+
+INFO-DIR-SECTION Individual utilities
+START-INFO-DIR-ENTRY
+* libtoolize: (libtool)Invoking libtoolize.     Adding libtool support.
+END-INFO-DIR-ENTRY
+
+   This file documents GNU Libtool 1.4.2
+
+   Copyright (C) 1996-2000 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+no Invariant Sections, with no Front-Cover Texts, and with no
+Back-Cover Texts.  A copy of the license is included in the section
+entitled "GNU Free Documentation License".
+
+
+File: libtool.info,  Node: Makefile rules,  Next: Using Automake,  Up: Integrating libtool
+
+Writing `Makefile' rules for libtool
+====================================
+
+   Libtool is fully integrated with Automake (*note Introduction:
+(automake)Top.), starting with Automake version 1.2.
+
+   If you want to use libtool in a regular `Makefile' (or
+`Makefile.in'), you are on your own.  If you're not using Automake 1.2,
+and you don't know how to incorporate libtool into your package you
+need to do one of the following:
+
+  1. Download Automake (version 1.2 or later) from your nearest GNU
+     mirror, install it, and start using it.
+
+  2. Learn how to write `Makefile' rules by hand.  They're sometimes
+     complex, but if you're clever enough to write rules for compiling
+     your old libraries, then you should be able to figure out new
+     rules for libtool libraries (hint: examine the `Makefile.in' in
+     the `demo' subdirectory of the libtool distribution... note
+     especially that it was automatically generated from the
+     `Makefile.am' by Automake).
+
+
+File: libtool.info,  Node: Using Automake,  Next: Configuring,  Prev: Makefile rules,  Up: Integrating libtool
+
+Using Automake with libtool
+===========================
+
+   Libtool library support is implemented under the `LTLIBRARIES'
+primary.
+
+   Here are some samples from the Automake `Makefile.am' in the libtool
+distribution's `demo' subdirectory.
+
+   First, to link a program against a libtool library, just use the
+`program_LDADD' variable:
+
+     bin_PROGRAMS = hell hell.debug
+     
+     # Build hell from main.c and libhello.la
+     hell_SOURCES = main.c
+     hell_LDADD = libhello.la
+     
+     # Create an easier-to-debug version of hell.
+     hell_debug_SOURCES = main.c
+     hell_debug_LDADD = libhello.la
+     hell_debug_LDFLAGS = -static
+
+   The flags `-dlopen' or `-dlpreopen' (*note Link mode::) would fit
+better in the PROGRAM_LDADD variable.  Unfortunately, GNU automake, up
+to release 1.4, doesn't accept these flags in a PROGRAM_LDADD variable,
+so you have the following alternatives:
+
+   * add them to PROGRAM_LDFLAGS, and list the libraries in
+     PROGRAM_DEPENDENCIES, then wait for a release of GNU automake that
+     accepts these flags where they belong;
+
+   * surround the flags between quotes, but then you must set
+     PROGRAM_DEPENDENCIES too:
+
+          program_LDADD = "-dlopen" libfoo.la
+          program_DEPENDENCIES = libfoo.la
+
+   * set and `AC_SUBST' variables DLOPEN and DLPREOPEN in
+     `configure.in' and use `@DLOPEN@' and `@DLPREOPEN@' as
+     replacements for the explicit flags `-dlopen' and `-dlpreopen' in
+     `program_LDADD'.  Automake will discard `AC_SUBST'ed variables
+     from dependencies, so it will behave exactly as we expect it to
+     behave when it accepts these flags in `program_LDADD'.  But hey!,
+     this is ugly!
+
+   You may use the `program_LDFLAGS' variable to stuff in any flags you
+want to pass to libtool while linking `program' (such as `-static' to
+avoid linking uninstalled shared libtool libraries).
+
+   Building a libtool library is almost as trivial... note the use of
+`libhello_la_LDFLAGS' to pass the `-version-info' (*note Versioning::)
+option to libtool:
+
+     # Build a libtool library, libhello.la for installation in libdir.
+     lib_LTLIBRARIES = libhello.la
+     libhello_la_SOURCES = hello.c foo.c
+     libhello_la_LDFLAGS = -version-info 3:12:1
+
+   The `-rpath' option is passed automatically by Automake (except for
+libraries listed as `noinst_LTLIBRARIES'), so you should not specify it.
+
+   *Note Building a Shared Library: (automake)A Shared Library, for
+more information.
+
+
+File: libtool.info,  Node: Configuring,  Next: Distributing,  Prev: Using Automake,  Up: Integrating libtool
+
+Configuring libtool
+===================
+
+   Libtool requires intimate knowledge of your compiler suite and
+operating system in order to be able to create shared libraries and
+link against them properly.  When you install the libtool distribution,
+a system-specific libtool script is installed into your binary
+directory.
+
+   However, when you distribute libtool with your own packages (*note
+Distributing::), you do not always know which compiler suite and
+operating system are used to compile your package.
+
+   For this reason, libtool must be "configured" before it can be used.
+This idea should be familiar to anybody who has used a GNU `configure'
+script.  `configure' runs a number of tests for system features, then
+generates the `Makefiles' (and possibly a `config.h' header file),
+after which you can run `make' and build the package.
+
+   Libtool adds its own tests to your `configure' script in order to
+generate a libtool script for the installer's host machine.
+
+* Menu:
+
+* AC_PROG_LIBTOOL::             Configuring `libtool' in `configure.in'.
+
+
+File: libtool.info,  Node: AC_PROG_LIBTOOL,  Up: Configuring
+
+The `AC_PROG_LIBTOOL' macro
+---------------------------
+
+   If you are using GNU Autoconf (or Automake), you should add a call to
+`AC_PROG_LIBTOOL' to your `configure.in' file.  This macro adds many
+new tests to the `configure' script so that the generated libtool
+script will understand the characteristics of the host:
+
+ - Macro: AC_PROG_LIBTOOL
+ - Macro: AM_PROG_LIBTOOL
+     Add support for the `--enable-shared' and `--disable-shared'
+     `configure' flags.(1)  `AM_PROG_LIBTOOL' was the old name for this
+     macro, and although supported at the moment is deprecated.
+
+     By default, this macro turns on shared libraries if they are
+     available, and also enables static libraries if they don't
+     conflict with the shared libraries.  You can modify these defaults
+     by calling either the `AC_DISABLE_SHARED' or `AC_DISABLE_STATIC'
+     macros:
+
+          # Turn off shared libraries during beta-testing, since they
+          # make the build process take too long.
+          AC_DISABLE_SHARED
+          AC_PROG_LIBTOOL
+
+     The user may specify modified forms of the configure flags
+     `--enable-shared' and `--enable-static' to choose whether shared
+     or static libraries are built based on the name of the package.
+     For example, to have shared `bfd' and `gdb' libraries built, but
+     not shared `libg++', you can run all three `configure' scripts as
+     follows:
+
+          trick$ ./configure --enable-shared=bfd,gdb
+
+     In general, specifying `--enable-shared=PKGS' is the same as
+     configuring with `--enable-shared' every package named in the
+     comma-separated PKGS list, and every other package with
+     `--disable-shared'.  The `--enable-static=PKGS' flag behaves
+     similarly, but it uses `--enable-static' and `--disable-static'.
+     The same applies to the `--enable-fast-install=PKGS' flag, which
+     uses `--enable-fast-install' and `--disable-fast-install'.
+
+     The package name `default' matches any packages which have not set
+     their name in the `PACKAGE' environment variable.
+
+     This macro also sets the shell variable LIBTOOL_DEPS, that you can
+     use to automatically update the libtool script if it becomes
+     out-of-date.  In order to do that, add to your `configure.in':
+
+          AC_PROG_LIBTOOL
+          AC_SUBST(LIBTOOL_DEPS)
+
+     and, to `Makefile.in' or `Makefile.am':
+
+          LIBTOOL_DEPS = @LIBTOOL_DEPS@
+          libtool: $(LIBTOOL_DEPS)
+                  $(SHELL) ./config.status --recheck
+
+     If you are using GNU automake, you can omit the assignment, as
+     automake will take care of it.  You'll obviously have to create
+     some dependency on `libtool'.
+
+
+ - Macro: AC_LIBTOOL_DLOPEN
+     Enable checking for dlopen support. This macro should be used if
+     the package makes use of the `-dlopen' and `-dlpreopen' flags,
+     otherwise libtool will assume that the system does not support
+     dlopening.  The macro must be called *before* `AC_PROG_LIBTOOL'.
+
+ - Macro: AC_LIBTOOL_WIN32_DLL
+     This macro should be used if the package has been ported to build
+     clean dlls on win32 platforms.  Usually this means that any
+     library data items are exported with `__declspec(dllexport)' and
+     imported with `__declspec(dllimport)'.  If this macro is not used,
+     libtool will assume that the package libraries are not dll clean
+     and will build only static libraries on win32 hosts.
+
+     This macro must be called *before* `AC_PROG_LIBTOOL', and
+     provision must be made to pass `-no-undefined' to `libtool' in
+     link mode from the package `Makefile'.  Naturally, if you pass
+     `-no-undefined', you must ensure that all the library symbols
+     *really are* defined at link time!
+
+ - Macro: AC_DISABLE_FAST_INSTALL
+     Change the default behaviour for `AC_PROG_LIBTOOL' to disable
+     optimization for fast installation.  The user may still override
+     this default, depending on platform support, by specifying
+     `--enable-fast-install'.
+
+ - Macro: AC_DISABLE_SHARED
+ - Macro: AM_DISABLE_SHARED
+     Change the default behaviour for `AC_PROG_LIBTOOL' to disable
+     shared libraries.  The user may still override this default by
+     specifying `--enable-shared'.
+
+ - Macro: AC_DISABLE_STATIC
+ - Macro: AM_DISABLE_STATIC
+     Change the default behaviour for `AC_PROG_LIBTOOL' to disable
+     static libraries.  The user may still override this default by
+     specifying `--enable-static'.
+
+   The tests in `AC_PROG_LIBTOOL' also recognize the following
+environment variables:
+
+ - Variable: CC
+     The C compiler that will be used by the generated `libtool'.  If
+     this is not set, `AC_PROG_LIBTOOL' will look for `gcc' or `cc'.
+
+ - Variable: CFLAGS
+     Compiler flags used to generate standard object files.  If this is
+     not set, `AC_PROG_LIBTOOL' will not use any such flags.  It affects
+     only the way `AC_PROG_LIBTOOL' runs tests, not the produced
+     `libtool'.
+
+ - Variable: CPPFLAGS
+     C preprocessor flags.  If this is not set, `AC_PROG_LIBTOOL' will
+     not use any such flags.  It affects only the way `AC_PROG_LIBTOOL'
+     runs tests, not the produced `libtool'.
+
+ - Variable: LD
+     The system linker to use (if the generated `libtool' requires one).
+     If this is not set, `AC_PROG_LIBTOOL' will try to find out what is
+     the linker used by CC.
+
+ - Variable: LDFLAGS
+     The flags to be used by `libtool' when it links a program.  If
+     this is not set, `AC_PROG_LIBTOOL' will not use any such flags.  It
+     affects only the way `AC_PROG_LIBTOOL' runs tests, not the produced
+     `libtool'.
+
+ - Variable: LIBS
+     The libraries to be used by `AC_PROG_LIBTOOL' when it links a
+     program.  If this is not set, `AC_PROG_LIBTOOL' will not use any
+     such flags.  It affects only the way `AC_PROG_LIBTOOL' runs tests,
+     not the produced `libtool'.
+
+ - Variable: NM
+     Program to use rather than checking for `nm'.
+
+ - Variable: RANLIB
+     Program to use rather than checking for `ranlib'.
+
+ - Variable: LN_S
+     A command that creates a link of a program, a soft-link if
+     possible, a hard-link otherwise.  `AC_PROG_LIBTOOL' will check for
+     a suitable program if this variable is not set.
+
+ - Variable: DLLTOOL
+     Program to use rather than checking for `dlltool'.  Only meaningful
+     for Cygwin/MS-Windows.
+
+ - Variable: OBJDUMP
+     Program to use rather than checking for `objdump'.  Only meaningful
+     for Cygwin/MS-Windows.
+
+ - Variable: AS
+     Program to use rather than checking for `as'.  Only used on
+     Cygwin/MS-Windows at the moment.
+
+   When you invoke the `libtoolize' program (*note Invoking
+libtoolize::), it will tell you where to find a definition of
+`AC_PROG_LIBTOOL'.  If you use Automake, the `aclocal' program will
+automatically add `AC_PROG_LIBTOOL' support to your `configure' script.
+
+   Nevertheless, it is advisable to include a copy of `libtool.m4' in
+`acinclude.m4', so that, even if `aclocal.m4' and `configure' are
+rebuilt for any reason, the appropriate libtool macros will be used.
+The alternative is to hope the user will have a compatible version of
+`libtool.m4' installed and accessible for `aclocal'.  This may lead to
+weird errors when versions don't match.
+
+   ---------- Footnotes ----------
+
+   (1) `AC_PROG_LIBTOOL' requires that you define the `Makefile'
+variable `top_builddir' in your `Makefile.in'.  Automake does this
+automatically, but Autoconf users should set it to the relative path to
+the top of your build directory (`../..', for example).
+
+
+File: libtool.info,  Node: Distributing,  Next: Static-only libraries,  Prev: Configuring,  Up: Integrating libtool
+
+Including libtool in your package
+=================================
+
+   In order to use libtool, you need to include the following files with
+your package:
+
+`config.guess'
+     Attempt to guess a canonical system name.
+
+`config.sub'
+     Canonical system name validation subroutine script.
+
+`ltmain.sh'
+     A generic script implementing basic libtool functionality.
+
+   Note that the libtool script itself should _not_ be included with
+your package.  *Note Configuring::.
+
+   You should use the `libtoolize' program, rather than manually
+copying these files into your package.
+
+* Menu:
+
+* Invoking libtoolize::         `libtoolize' command line options.
+* Autoconf .o macros::          Autoconf macros that set object file names.
+
+
+File: libtool.info,  Node: Invoking libtoolize,  Next: Autoconf .o macros,  Up: Distributing
+
+Invoking `libtoolize'
+---------------------
+
+   The `libtoolize' program provides a standard way to add libtool
+support to your package.  In the future, it may implement better usage
+checking, or other features to make libtool even easier to use.
+
+   The `libtoolize' program has the following synopsis:
+
+     libtoolize [OPTION]...
+
+and accepts the following options:
+
+`--automake'
+     Work silently, and assume that Automake libtool support is used.
+
+     `libtoolize --automake' is used by Automake to add libtool files to
+     your package, when `AC_PROG_LIBTOOL' appears in your
+     `configure.in'.
+
+`--copy'
+`-c'
+     Copy files from the libtool data directory rather than creating
+     symlinks.
+
+`--debug'
+     Dump a trace of shell script execution to standard output.  This
+     produces a lot of output, so you may wish to pipe it to `less' (or
+     `more') or redirect to a file.
+
+`--dry-run'
+`-n'
+     Don't run any commands that modify the file system, just print them
+     out.
+
+`--force'
+`-f'
+     Replace existing libtool files.  By default, `libtoolize' won't
+     overwrite existing files.
+
+`--help'
+     Display a help message and exit.
+
+`--ltdl'
+     Install libltdl in a subdirectory of your package.
+
+`--ltdl-tar'
+     Add the file libltdl.tar.gz to your package.
+
+`--version'
+     Print `libtoolize' version information and exit.
+
+   If `libtoolize' detects an explicit call to `AC_CONFIG_AUX_DIR'
+(*note The Autoconf Manual: (autoconf)Input.) in your `configure.in', it
+will put the files in the specified directory.
+
+   `libtoolize' displays hints for adding libtool support to your
+package, as well.
+
+
+File: libtool.info,  Node: Autoconf .o macros,  Prev: Invoking libtoolize,  Up: Distributing
+
+Autoconf `.o' macros
+--------------------
+
+   The Autoconf package comes with a few macros that run tests, then
+set a variable corresponding to the name of an object file.  Sometimes
+it is necessary to use corresponding names for libtool objects.
+
+   Here are the names of variables that list libtool objects:
+
+ - Variable: LTALLOCA
+     Substituted by `AC_FUNC_ALLOCA' (*note Particular Function Checks:
+     (autoconf)Particular Functions.).  Is either empty, or contains
+     `alloca.lo'.
+
+ - Variable: LTLIBOBJS
+     Substituted by `AC_REPLACE_FUNCS' (*note Generic Function Checks:
+     (autoconf)Generic Functions.), and a few other functions.
+
+   Unfortunately, the stable release of Autoconf (2.13, at the time of
+this writing) does not have any way for libtool to provide support for
+these variables.  So, if you depend on them, use the following code
+immediately before the call to `AC_OUTPUT' in your `configure.in':
+
+     LTLIBOBJS=`echo "$LIBOBJS" | sed 's/\.[^.]* /.lo /g;s/\.[^.]*$/.lo/'`
+     AC_SUBST(LTLIBOBJS)
+     LTALLOCA=`echo "$ALLOCA" | sed 's/\.[^.]* /.lo /g;s/\.[^.]*$/.lo/'`
+     AC_SUBST(LTALLOCA)
+     AC_OUTPUT(...)
+
+
+File: libtool.info,  Node: Static-only libraries,  Prev: Distributing,  Up: Integrating libtool
+
+Static-only libraries
+=====================
+
+   When you are developing a package, it is often worthwhile to
+configure your package with the `--disable-shared' flag, or to override
+the defaults for `AC_PROG_LIBTOOL' by using the `AC_DISABLE_SHARED'
+Autoconf macro (*note The `AC_PROG_LIBTOOL' macro: AC_PROG_LIBTOOL.).
+This prevents libtool from building shared libraries, which has several
+advantages:
+
+   * compilation is twice as fast, which can speed up your development
+     cycle,
+
+   * debugging is easier because you don't need to deal with any
+     complexities added by shared libraries, and
+
+   * you can see how libtool behaves on static-only platforms.
+
+   You may want to put a small note in your package `README' to let
+other developers know that `--disable-shared' can save them time.  The
+following example note is taken from the GIMP(1) distribution `README':
+
+     The GIMP uses GNU Libtool in order to build shared libraries on a
+     variety of systems. While this is very nice for making usable
+     binaries, it can be a pain when trying to debug a program. For that
+     reason, compilation of shared libraries can be turned off by
+     specifying the `--disable-shared' option to `configure'.
+
+   ---------- Footnotes ----------
+
+   (1) GNU Image Manipulation Program, for those who haven't taken the
+plunge.  See <http://www.gimp.org/>.
+
+
+File: libtool.info,  Node: Versioning,  Next: Library tips,  Prev: Integrating libtool,  Up: Top
+
+Library interface versions
+**************************
+
+   The most difficult issue introduced by shared libraries is that of
+creating and resolving runtime dependencies.  Dependencies on programs
+and libraries are often described in terms of a single name, such as
+`sed'.  So, one may say "libtool depends on sed," and that is good
+enough for most purposes.
+
+   However, when an interface changes regularly, we need to be more
+specific: "Gnus 5.1 requires Emacs 19.28 or above."  Here, the
+description of an interface consists of a name, and a "version number."
+
+   Even that sort of description is not accurate enough for some
+purposes.  What if Emacs 20 changes enough to break Gnus 5.1?
+
+   The same problem exists in shared libraries: we require a formal
+version system to describe the sorts of dependencies that programs have
+on shared libraries, so that the dynamic linker can guarantee that
+programs are linked only against libraries that provide the interface
+they require.
+
+* Menu:
+
+* Interfaces::                  What are library interfaces?
+* Libtool versioning::          Libtool's versioning system.
+* Updating version info::       Changing version information before releases.
+* Release numbers::             Breaking binary compatibility for aesthetics.
+
+
+File: libtool.info,  Node: Interfaces,  Next: Libtool versioning,  Up: Versioning
+
+What are library interfaces?
+============================
+
+   Interfaces for libraries may be any of the following (and more):
+
+   * global variables: both names and types
+
+   * global functions: argument types and number, return types, and
+     function names
+
+   * standard input, standard output, standard error, and file formats
+
+   * sockets, pipes, and other inter-process communication protocol
+     formats
+
+   Note that static functions do not count as interfaces, because they
+are not directly available to the user of the library.
+
+
+File: libtool.info,  Node: Libtool versioning,  Next: Updating version info,  Prev: Interfaces,  Up: Versioning
+
+Libtool's versioning system
+===========================
+
+   Libtool has its own formal versioning system.  It is not as flexible
+as some, but it is definitely the simplest of the more powerful
+versioning systems.
+
+   Think of a library as exporting several sets of interfaces,
+arbitrarily represented by integers.  When a program is linked against
+a library, it may use any subset of those interfaces.
+
+   Libtool's description of the interfaces that a program uses is
+simple: it encodes the least and the greatest interface numbers in the
+resulting binary (FIRST-INTERFACE, LAST-INTERFACE).
+
+   The dynamic linker is guaranteed that if a library supports _every_
+interface number between FIRST-INTERFACE and LAST-INTERFACE, then the
+program can be relinked against that library.
+
+   Note that this can cause problems because libtool's compatibility
+requirements are actually stricter than is necessary.
+
+   Say `libhello' supports interfaces 5, 16, 17, 18, and 19, and that
+libtool is used to link `test' against `libhello'.
+
+   Libtool encodes the numbers 5 and 19 in `test', and the dynamic
+linker will only link `test' against libraries that support _every_
+interface between 5 and 19.  So, the dynamic linker refuses to link
+`test' against `libhello'!
+
+   In order to eliminate this problem, libtool only allows libraries to
+declare consecutive interface numbers.  So, `libhello' can declare at
+most that it supports interfaces 16 through 19.  Then, the dynamic
+linker will link `test' against `libhello'.
+
+   So, libtool library versions are described by three integers:
+
+CURRENT
+     The most recent interface number that this library implements.
+
+REVISION
+     The implementation number of the CURRENT interface.
+
+AGE
+     The difference between the newest and oldest interfaces that this
+     library implements.  In other words, the library implements all the
+     interface numbers in the range from number `CURRENT - AGE' to
+     `CURRENT'.
+
+   If two libraries have identical CURRENT and AGE numbers, then the
+dynamic linker chooses the library with the greater REVISION number.
+
+
+File: libtool.info,  Node: Updating version info,  Next: Release numbers,  Prev: Libtool versioning,  Up: Versioning
+
+Updating library version information
+====================================
+
+   If you want to use libtool's versioning system, then you must specify
+the version information to libtool using the `-version-info' flag
+during link mode (*note Link mode::).
+
+   This flag accepts an argument of the form
+`CURRENT[:REVISION[:AGE]]'.  So, passing `-version-info 3:12:1' sets
+CURRENT to 3, REVISION to 12, and AGE to 1.
+
+   If either REVISION or AGE are omitted, they default to 0.  Also note
+that AGE must be less than or equal to the CURRENT interface number.
+
+   Here are a set of rules to help you update your library version
+information:
+
+  1. Start with version information of `0:0:0' for each libtool library.
+
+  2. Update the version information only immediately before a public
+     release of your software.  More frequent updates are unnecessary,
+     and only guarantee that the current interface number gets larger
+     faster.
+
+  3. If the library source code has changed at all since the last
+     update, then increment REVISION (`C:R:A' becomes `C:r+1:A').
+
+  4. If any interfaces have been added, removed, or changed since the
+     last update, increment CURRENT, and set REVISION to 0.
+
+  5. If any interfaces have been added since the last public release,
+     then increment AGE.
+
+  6. If any interfaces have been removed since the last public release,
+     then set AGE to 0.
+
+   *_Never_* try to set the interface numbers so that they correspond
+to the release number of your package.  This is an abuse that only
+fosters misunderstanding of the purpose of library versions.  Instead,
+use the `-release' flag (*note Release numbers::), but be warned that
+every release of your package will not be binary compatible with any
+other release.
+
+
+File: libtool.info,  Node: Release numbers,  Prev: Updating version info,  Up: Versioning
+
+Managing release information
+============================
+
+   Often, people want to encode the name of the package release into the
+shared library so that it is obvious to the user which package their
+programs are linked against.  This convention is used especially on
+GNU/Linux:
+
+     trick$ ls /usr/lib/libbfd*
+     /usr/lib/libbfd.a	    /usr/lib/libbfd.so.2.7.0.2
+     /usr/lib/libbfd.so
+     trick$
+
+   On `trick', `/usr/lib/libbfd.so' is a symbolic link to
+`libbfd.so.2.7.0.2', which was distributed as a part of
+`binutils-2.7.0.2'.
+
+   Unfortunately, this convention conflicts directly with libtool's
+idea of library interface versions, because the library interface
+rarely changes at the same time that the release number does, and the
+library suffix is never the same across all platforms.
+
+   So, in order to accommodate both views, you can use the `-release'
+flag in order to set release information for libraries which you do not
+want to use `-version-info'.  For the `libbfd' example, the next
+release which uses libtool should be built with `-release 2.9.0', which
+will produce the following files on GNU/Linux:
+
+     trick$ ls /usr/lib/libbfd*
+     /usr/lib/libbfd-2.9.0.so     /usr/lib/libbfd.a
+     /usr/lib/libbfd.so
+     trick$
+
+   In this case, `/usr/lib/libbfd.so' is a symbolic link to
+`libbfd-2.9.0.so'.  This makes it obvious that the user is dealing with
+`binutils-2.9.0', without compromising libtool's idea of interface
+versions.
+
+   Note that this option causes a modification of the library name, so
+do not use it unless you want to break binary compatibility with any
+past library releases.  In general, you should only use `-release' for
+package-internal libraries or for ones whose interfaces change very
+frequently.
+
+
+File: libtool.info,  Node: Library tips,  Next: Inter-library dependencies,  Prev: Versioning,  Up: Top
+
+Tips for interface design
+*************************
+
+   Writing a good library interface takes a lot of practice and thorough
+understanding of the problem that the library is intended to solve.
+
+   If you design a good interface, it won't have to change often, you
+won't have to keep updating documentation, and users won't have to keep
+relearning how to use the library.
+
+   Here is a brief list of tips for library interface design, which may
+help you in your exploits:
+
+Plan ahead
+     Try to make every interface truly minimal, so that you won't need
+     to delete entry points very often.
+
+Avoid interface changes
+     Some people love redesigning and changing entry points just for
+     the heck of it (note: _renaming_ a function is considered changing
+     an entry point).  Don't be one of those people.  If you must
+     redesign an interface, then try to leave compatibility functions
+     behind so that users don't need to rewrite their existing code.
+
+Use opaque data types
+     The fewer data type definitions a library user has access to, the
+     better.  If possible, design your functions to accept a generic
+     pointer (which you can cast to an internal data type), and provide
+     access functions rather than allowing the library user to directly
+     manipulate the data.  That way, you have the freedom to change the
+     data structures without changing the interface.
+
+     This is essentially the same thing as using abstract data types and
+     inheritance in an object-oriented system.
+
+Use header files
+     If you are careful to document each of your library's global
+     functions and variables in header files, and include them in your
+     library source files, then the compiler will let you know if you
+     make any interface changes by accident (*note C header files::).
+
+Use the `static' keyword (or equivalent) whenever possible
+     The fewer global functions your library has, the more flexibility
+     you'll have in changing them.  Static functions and variables may
+     change forms as often as you like... your users cannot access
+     them, so they aren't interface changes.
+
+* Menu:
+
+* C header files::              How to write portable include files.
+
+
+File: libtool.info,  Node: C header files,  Up: Library tips
+
+Writing C header files
+======================
+
+   Writing portable C header files can be difficult, since they may be
+read by different types of compilers:
+
+C++ compilers
+     C++ compilers require that functions be declared with full
+     prototypes, since C++ is more strongly typed than C.  C functions
+     and variables also need to be declared with the `extern "C"'
+     directive, so that the names aren't mangled.  *Note C++
+     libraries::, for other issues relevant to using C++ with libtool.
+
+ANSI C compilers
+     ANSI C compilers are not as strict as C++ compilers, but functions
+     should be prototyped to avoid unnecessary warnings when the header
+     file is `#include'd.
+
+non-ANSI C compilers
+     Non-ANSI compilers will report errors if functions are prototyped.
+
+   These complications mean that your library interface headers must use
+some C preprocessor magic in order to be usable by each of the above
+compilers.
+
+   `foo.h' in the `demo' subdirectory of the libtool distribution
+serves as an example for how to write a header file that can be safely
+installed in a system directory.
+
+   Here are the relevant portions of that file:
+
+     /* BEGIN_C_DECLS should be used at the beginning of your declarations,
+        so that C++ compilers don't mangle their names.  Use END_C_DECLS at
+        the end of C declarations. */
+     #undef BEGIN_C_DECLS
+     #undef END_C_DECLS
+     #ifdef __cplusplus
+     # define BEGIN_C_DECLS extern "C" {
+     # define END_C_DECLS }
+     #else
+     # define BEGIN_C_DECLS /* empty */
+     # define END_C_DECLS /* empty */
+     #endif
+     
+     /* PARAMS is a macro used to wrap function prototypes, so that
+        compilers that don't understand ANSI C prototypes still work,
+        and ANSI C compilers can issue warnings about type mismatches. */
+     #undef PARAMS
+     #if defined (__STDC__) || defined (_AIX) \
+             || (defined (__mips) && defined (_SYSTYPE_SVR4)) \
+             || defined(WIN32) || defined(__cplusplus)
+     # define PARAMS(protos) protos
+     #else
+     # define PARAMS(protos) ()
+     #endif
+
+   These macros are used in `foo.h' as follows:
+
+     #ifndef FOO_H
+     #define FOO_H 1
+     
+     /* The above macro definitions. */
+     #include "..."
+     
+     BEGIN_C_DECLS
+     
+     int foo PARAMS((void));
+     int hello PARAMS((void));
+     
+     END_C_DECLS
+     
+     #endif /* !FOO_H */
+
+   Note that the `#ifndef FOO_H' prevents the body of `foo.h' from
+being read more than once in a given compilation.
+
+   Also the only thing that must go outside the
+`BEGIN_C_DECLS'/`END_C_DECLS' pair are `#include' lines.  Strictly
+speaking it is only C symbol names that need to be protected, but your
+header files will be more maintainable if you have a single pair of of
+these macros around the majority of the header contents.
+
+   You should use these definitions of `PARAMS', `BEGIN_C_DECLS', and
+`END_C_DECLS' into your own headers.  Then, you may use them to create
+header files that are valid for C++, ANSI, and non-ANSI compilers(1).
+
+   Do not be naive about writing portable code.  Following the tips
+given above will help you miss the most obvious problems, but there are
+definitely other subtle portability issues.  You may need to cope with
+some of the following issues:
+
+   * Pre-ANSI compilers do not always support the `void *' generic
+     pointer type, and so need to use `char *' in its place.
+
+   * The `const', `inline' and `signed' keywords are not supported by
+     some compilers, especially pre-ANSI compilers.
+
+   * The `long double' type is not supported by many compilers.
+
+   ---------- Footnotes ----------
+
+   (1) We used to recommend `__P', `__BEGIN_DECLS' and `__END_DECLS'.
+This was bad advice since symbols (even preprocessor macro names) that
+begin with an underscore are reserved for the use of the compiler.
+
+
+File: libtool.info,  Node: Inter-library dependencies,  Next: Dlopened modules,  Prev: Library tips,  Up: Top
+
+Inter-library dependencies
+**************************
+
+   By definition, every shared library system provides a way for
+executables to depend on libraries, so that symbol resolution is
+deferred until runtime.
+
+   An "inter-library dependency" is one in which a library depends on
+other libraries.  For example, if the libtool library `libhello' uses
+the `cos' function, then it has an inter-library dependency on `libm',
+the math library that implements `cos'.
+
+   Some shared library systems provide this feature in an
+internally-consistent way: these systems allow chains of dependencies of
+potentially infinite length.
+
+   However, most shared library systems are restricted in that they only
+allow a single level of dependencies.  In these systems, programs may
+depend on shared libraries, but shared libraries may not depend on other
+shared libraries.
+
+   In any event, libtool provides a simple mechanism for you to declare
+inter-library dependencies: for every library `libNAME' that your own
+library depends on, simply add a corresponding `-lNAME' option to the
+link line when you create your library.  To make an example of our
+`libhello' that depends on `libm':
+
+     burger$ libtool gcc -g -O -o libhello.la foo.lo hello.lo \
+                     -rpath /usr/local/lib -lm
+     burger$
+
+   When you link a program against `libhello', you don't need to
+specify the same `-l' options again: libtool will do that for you, in
+order to guarantee that all the required libraries are found.  This
+restriction is only necessary to preserve compatibility with static
+library systems and simple dynamic library systems.
+
+   Some platforms, such as AIX, do not even allow you this flexibility.
+In order to build a shared library, it must be entirely self-contained
+(that is, have references only to symbols that are found in the `.lo'
+files or the specified `-l' libraries), and you need to specify the
+-NO-UNDEFINED flag.  By default, libtool builds only static libraries
+on these kinds of platforms.
+
+   The simple-minded inter-library dependency tracking code of libtool
+releases prior to 1.2 was disabled because it was not clear when it was
+possible to link one library with another, and complex failures would
+occur.  A more complex implementation of this concept was re-introduced
+before release 1.3, but it has not been ported to all platforms that
+libtool supports.  The default, conservative behavior is to avoid
+linking one library with another, introducing their inter-dependencies
+only when a program is linked with them.
+
+
+File: libtool.info,  Node: Dlopened modules,  Next: Using libltdl,  Prev: Inter-library dependencies,  Up: Top
+
+Dlopened modules
+****************
+
+   It can sometimes be confusing to discuss "dynamic linking", because
+the term is used to refer to two different concepts:
+
+  1. Compiling and linking a program against a shared library, which is
+     resolved automatically at run time by the dynamic linker.  In this
+     process, dynamic linking is transparent to the application.
+
+  2. The application calling functions such as `dlopen',(1) which load
+     arbitrary, user-specified modules at runtime.  This type of dynamic
+     linking is explicitly controlled by the application.
+
+   To mitigate confusion, this manual refers to the second type of
+dynamic linking as "dlopening" a module.
+
+   The main benefit to dlopening object modules is the ability to access
+compiled object code to extend your program, rather than using an
+interpreted language.  In fact, dlopen calls are frequently used in
+language interpreters to provide an efficient way to extend the
+language.
+
+   As of version 1.4.2, libtool provides support for dlopened modules.
+However, you should indicate that your package is willing to use such
+support, by using the macro `AC_LIBTOOL_DLOPEN' in `configure.in'.  If
+this macro is not used (or it is used _after_ `AC_PROG_LIBTOOL'),
+libtool will assume no dlopening mechanism is available, and will try
+to simulate it.
+
+   This chapter discusses how you as a dlopen application developer
+might use libtool to generate dlopen-accessible modules.
+
+* Menu:
+
+* Building modules::            Creating dlopenable objects and libraries.
+* Dlpreopening::                Dlopening that works on static platforms.
+* Finding the dlname::          Choosing the right file to `dlopen'.
+* Dlopen issues::               Unresolved problems that need your attention.
+
+   ---------- Footnotes ----------
+
+   (1) HP-UX, to be different, uses a function named `shl_load'.
+
+
+File: libtool.info,  Node: Building modules,  Next: Dlpreopening,  Up: Dlopened modules
+
+Building modules to dlopen
+==========================
+
+   On some operating systems, a program symbol must be specially
+declared in order to be dynamically resolved with the `dlsym' (or
+equivalent) function.
+
+   Libtool provides the `-export-dynamic' and `-module' link flags
+(*note Link mode::), which do this declaration.  You need to use these
+flags if you are linking an application program that dlopens other
+modules or a libtool library that will also be dlopened.
+
+   For example, if we wanted to build a shared library, `libhello',
+that would later be dlopened by an application, we would add `-module'
+to the other link flags:
+
+     burger$ libtool gcc -module -o libhello.la foo.lo \
+                     hello.lo -rpath /usr/local/lib -lm
+     burger$
+
+   If symbols from your _executable_ are needed to satisfy unresolved
+references in a library you want to dlopen you will have to use the flag
+`-export-dynamic'.  You should use `-export-dynamic' while linking the
+executable that calls dlopen:
+
+     burger$ libtool gcc -export-dynamic -o hell-dlopener main.o
+     burger$
+
+
+File: libtool.info,  Node: Dlpreopening,  Next: Finding the dlname,  Prev: Building modules,  Up: Dlopened modules
+
+Dlpreopening
+============
+
+   Libtool provides special support for dlopening libtool object and
+libtool library files, so that their symbols can be resolved _even on
+platforms without any `dlopen' and `dlsym' functions_.
+
+   Consider the following alternative ways of loading code into your
+program, in order of increasing "laziness":
+
+  1. Linking against object files that become part of the program
+     executable, whether or not they are referenced.  If an object file
+     cannot be found, then the linker refuses to create the executable.
+
+  2. Declaring a static library to the linker, so that it is searched
+     at link time in order to satisfy any undefined references in the
+     above object files.  If the static library cannot be found, then
+     the linker refuses to link the executable.
+
+  3. Declaring a shared library to the runtime linker, so that it is
+     searched at runtime in order to satisfy any undefined references
+     in the above files.  If the shared library cannot be found, then
+     the dynamic linker aborts the program before it runs.
+
+  4. Dlopening a module, so that the application can resolve its own,
+     dynamically-computed references.  If there is an error opening the
+     module, or the module is not found, then the application can
+     recover without crashing.
+
+   Libtool emulates `-dlopen' on static platforms by linking objects
+into the program at compile time, and creating data structures that
+represent the program's symbol table.
+
+   In order to use this feature, you must declare the objects you want
+your application to dlopen by using the `-dlopen' or `-dlpreopen' flags
+when you link your program (*note Link mode::).
+
+ - Structure: struct lt_dlsymlist { const char *NAME; lt_ptr ADDRESS; }
+     The NAME attribute is a null-terminated character string of the
+     symbol name, such as `"fprintf"'.  The ADDRESS attribute is a
+     generic pointer to the appropriate object, such as `&fprintf'.
+
+ - Variable: const lt_dlsymlist * lt_preloaded_symbols
+     An array of LT_SYMBOL structures, representing all the preloaded
+     symbols linked into the program. For each `-dlpreloaded' file
+     there is an element with the NAME of the file and a ADDRESS of
+     `0', followed by all symbols exported from this file.  For the
+     executable itself the special name @PROGRAM@ is used.  The last
+     element has a NAME and ADDRESS of `0'.
+
+   Some compilers may allow identifiers which are not valid in ANSI C,
+such as dollar signs.  Libtool only recognizes valid ANSI C symbols (an
+initial ASCII letter or underscore, followed by zero or more ASCII
+letters, digits, and underscores), so non-ANSI symbols will not appear
+in LT_PRELOADED_SYMBOLS.
+
+
+File: libtool.info,  Node: Finding the dlname,  Next: Dlopen issues,  Prev: Dlpreopening,  Up: Dlopened modules
+
+Finding the correct name to dlopen
+==================================
+
+   After a library has been linked with `-module', it can be dlopened.
+Unfortunately, because of the variation in library names, your package
+needs to determine the correct file to dlopen.
+
+   The most straightforward and flexible implementation is to determine
+the name at runtime, by finding the installed `.la' file, and searching
+it for the following lines:
+
+     # The name that we can `dlopen'.
+     dlname='DLNAME'
+
+   If DLNAME is empty, then the library cannot be dlopened.  Otherwise,
+it gives the dlname of the library.  So, if the library was installed
+as `/usr/local/lib/libhello.la', and the DLNAME was `libhello.so.3',
+then `/usr/local/lib/libhello.so.3' should be dlopened.
+
+   If your program uses this approach, then it should search the
+directories listed in the `LD_LIBRARY_PATH'(1) environment variable, as
+well as the directory where libraries will eventually be installed.
+Searching this variable (or equivalent) will guarantee that your
+program can find its dlopened modules, even before installation,
+provided you have linked them using libtool.
+
+   ---------- Footnotes ----------
+
+   (1) `LIBPATH' on AIX, and `SHLIB_PATH' on HP-UX.
+
+
+File: libtool.info,  Node: Dlopen issues,  Prev: Finding the dlname,  Up: Dlopened modules
+
+Unresolved dlopen issues
+========================
+
+   The following problems are not solved by using libtool's dlopen
+support:
+
+   * Dlopen functions are generally only available on shared library
+     platforms.  If you want your package to be portable to static
+     platforms, you have to use either libltdl (*note Using libltdl::)
+     or develop your own alternatives to dlopening dynamic code.  Most
+     reasonable solutions involve writing wrapper functions for the
+     `dlopen' family, which do package-specific tricks when dlopening
+     is unsupported or not available on a given platform.
+
+   * There are major differences in implementations of the `dlopen'
+     family of functions.  Some platforms do not even use the same
+     function names (notably HP-UX, with its `shl_load' family).
+
+   * The application developer must write a custom search function in
+     order to discover the correct module filename to supply to
+     `dlopen'.
+
+
+File: libtool.info,  Node: Using libltdl,  Next: Other languages,  Prev: Dlopened modules,  Up: Top
+
+Using libltdl
+*************
+
+   Libtool provides a small library, called `libltdl', that aims at
+hiding the various difficulties of dlopening libraries from programmers.
+It consists of a header-file and a small C source file that can be
+distributed with applications that need dlopening functionality.  On
+some platforms, whose dynamic linkers are too limited for a simple
+implementation of `libltdl' services, it requires GNU DLD, or it will
+only emulate dynamic linking with libtool's dlpreopening mechanism.
+
+libltdl supports currently the following dynamic linking mechanisms:
+
+   * `dlopen' (Solaris, Linux and various BSD flavors)
+
+   * `shl_load' (HP-UX)
+
+   * `LoadLibrary' (Win16 and Win32)
+
+   * `load_add_on' (BeOS)
+
+   * GNU DLD (emulates dynamic linking for static libraries)
+
+   * libtool's dlpreopen (see *note Dlpreopening::)
+
+libltdl is licensed under the terms of the GNU Library General Public
+License, with the following exception:
+
+     As a special exception to the GNU Lesser General Public License,
+     if you distribute this file as part of a program or library that
+     is built using GNU libtool, you may include it under the same
+     distribution terms that you use for the rest of that program.
+
+* Menu:
+
+* Libltdl interface::           How to use libltdl in your programs.
+* Modules for libltdl::         Creating modules that can be `dlopen'ed.
+* Thread Saftey in libltdl::	Registering callbacks for multi-thread safety.
+* User defined module data::    Associating data with loaded modules.
+* Module loaders for libltdl::  Creating user defined module loaders.
+* Distributing libltdl::        How to distribute libltdl with your package.
+

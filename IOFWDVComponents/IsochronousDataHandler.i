@@ -6,6 +6,9 @@
 	Copyright:	© 1997-2001 by Apple Computer, Inc., all rights reserved.
 
 		$Log: IsochronousDataHandler.i,v $
+		Revision 1.6  2002/03/21 01:55:44  wgulland
+		Use IOFireWireFamily isoc user client instead of DV kext
+		
 		Revision 1.5  2001/10/05 16:46:32  wgulland
 		Add inputFormat to IDHDeviceStatus structure
 		
@@ -81,7 +84,11 @@
 %RezPassThru "#ifndef __ISOCHRONOUSDATAHANDLER__";
 
 
-#include <MacTypes.i>
+%if FRAMEWORKS	
+	#include <CoreServices.i>
+%else
+    #include <MacTypes.i>
+%endif
 #include <MoviesFormat.i>
 #include <QuickTimeComponents.i>
 
@@ -262,7 +269,7 @@ enum unsigned long IDHEvent
 	kIDHEventDeviceRemoved		= 1L << 1,		// A device has been removed from the bus
 	kIDHEventDeviceChanged		= 1L << 2,		// Some device has changed state on the bus
 	kIDHEventReadEnabled		= 1L << 3,		// A client has enabled a device for read
-	kIDHEventReserved1			= 1L << 4,		// Reserved for future use
+	kIDHEventFrameDropped       = 1L << 4, 		// software failed to keep up with isoc data flow
 	kIDHEventReadDisabled	 	= 1L << 5,		// A client has disabled a device from read
 	kIDHEventWriteEnabled		= 1L << 6,		// A client has enabled a device for write
 	kIDHEventReserved2			= 1L << 7,		// Reserved for future use
@@ -322,8 +329,19 @@ struct IDHDeviceIOEnableEvent
 	IDHEventHeader	eventHeader;
 };
 
+//
+// IDHDeviceFrameDroppedEvent
+//	For kIDHEventFrameDropped
+//
+struct IDHDeviceFrameDroppedEvent
+{
+	IDHEventHeader	eventHeader;
+	UInt32			totalDropped;
+	UInt32			newlyDropped;
+};
 
-typedef extern <nativeUPP, exportset=CarbonMultimedia_14>
+
+typedef extern <nativeUPP, exportset=CarbonMultimedia_14, exportset=fw_DVComponentGlue_X>
 OSStatus (*IDHNotificationProcPtr)(IDHGenericEvent* event, void* userData);
 typedef IDHNotificationProcPtr IDHNotificationProc;	// old name
 #pragma UPPSuite emitUPPTypes
@@ -353,63 +371,63 @@ struct IDHDimension {
 %TellEmitter "components" "prefix IDH";
 
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceList(ComponentInstance idh, QTAtomContainer* deviceList) = ComponentCall(1);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceConfiguration(ComponentInstance idh, QTAtomSpec* configurationID) = ComponentCall(2);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHSetDeviceConfiguration(ComponentInstance idh, const QTAtomSpec* configurationID) = ComponentCall(3);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceStatus(ComponentInstance idh, const QTAtomSpec* configurationID, IDHDeviceStatus* status) = ComponentCall(4);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceClock(ComponentInstance idh, Component* clock) = ComponentCall(5);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHOpenDevice(ComponentInstance idh, UInt32 permissions) = ComponentCall(6);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHCloseDevice(ComponentInstance idh) = ComponentCall(7);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHRead(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(8);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHWrite(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(9);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationUPP notificationProc, void* userData, IDHNotificationID* notificationID) = ComponentCall(10);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHNotifyMeWhen(ComponentInstance idh, IDHNotificationID	notificationID, IDHEvent events) = ComponentCall(11);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHCancelNotification(ComponentInstance idh, IDHNotificationID notificationID)  = ComponentCall(12);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHDisposeNotification(ComponentInstance idh, IDHNotificationID notificationID) = ComponentCall(13);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHReleaseBuffer(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(14);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHCancelPendingIO(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(15);
 
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceControl(ComponentInstance idh, ComponentInstance *deviceControl) = ComponentCall(16);										
-pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHUpdateDeviceList(ComponentInstance idh, QTAtomContainer* deviceList) = ComponentCall(17);
 
-pascal <exportset=CarbonMultimedia_14>
+pascal <exportset=CarbonMultimedia_14, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetDeviceTime(ComponentInstance idh, TimeRecord* deviceTime) = ComponentCall(18);
 
-pascal <exportset=CarbonMultimedia_15>
+pascal <exportset=CarbonMultimedia_15, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHSetFormat(ComponentInstance idh, UInt32 format) = ComponentCall(19);
 
-pascal <exportset=CarbonMultimedia_15>
+pascal <exportset=CarbonMultimedia_15, exportset=fw_DVComponentGlue_X>
 ComponentResult IDHGetFormat(ComponentInstance idh, UInt32 *format) = ComponentCall(20);
 
 

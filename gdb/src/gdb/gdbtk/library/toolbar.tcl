@@ -1,3 +1,5 @@
+# OBSOLETE: Please see gdbmenubar, gdbtoolbar, srcmenubar and srctoolbar
+#
 # Menu, toolbar, and status window for GDBtk.
 # Copyright 1997, 1998, 1999 Cygnus Solutions
 #
@@ -18,7 +20,7 @@
 # and button sets.  It does not actually add any buttons or
 # menus on its own, however.
 
-class GDBToolBar {
+class oldGDBToolBar {
   inherit itk::Widget
 
   # ------------------------------------------------------------------
@@ -736,8 +738,6 @@ class GDBToolBar {
     new_menu help "Help" 0
     add_menu_command Other "Help Topics" {HtmlViewer::open_help index.html} \
       -underline 0
-    add_menu_command Other "Cygnus on the Web" \
-      {open_url http://www.cygnus.com/gnupro/} -underline 14 
     add_menu_separator
     add_menu_command Other "About GDB..." {ManagedWin::open About -transient} \
       -underline 0

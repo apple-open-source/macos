@@ -1,11 +1,14 @@
-#ifndef _VERS_RSRC_H_
-#define _VERS_RSRC_H_
+#ifndef _LIBSA_VERS_H_
+#define _LIBSA_VERS_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <sys/types.h>
+#include <libc.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#if 0
-typedef unsigned long UInt32;
-typedef unsigned char UInt8;
-#endif 0
 
 typedef union {
     UInt32 vnum;
@@ -30,4 +33,8 @@ typedef enum {
 int VERS_parse_string(char * vers_string, UInt32 * version_num);
 int VERS_string(char * buffer, UInt32 length, UInt32 vers);
 
-#endif _VERS_RSRC_H_
+#ifdef __cplusplus
+}
+#endif
+
+#endif _LIBSA_VERS_H_

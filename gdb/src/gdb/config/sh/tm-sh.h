@@ -1,5 +1,6 @@
 /* Target-specific definition for a Hitachi Super-H.
-   Copyright (C) 1993, 2000 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,12 +24,15 @@
 #define GDB_MULTI_ARCH 1
 
 /* Information that is dependent on the processor variant. */
+
 struct gdbarch_tdep
   {
+    int PR_REGNUM;
     int FPUL_REGNUM;  /*                       sh3e, sh4 */
     int FPSCR_REGNUM; /*                       sh3e, sh4 */
+    int SR_REGNUM;    /* sh-dsp, sh3, sh3-dsp, sh3e, sh4 */
     int DSR_REGNUM;   /* sh-dsp,      sh3-dsp            */
-    int FP15_REGNUM;  /*                       sh3e, sh4 */
+    int FP_LAST_REGNUM; /*                     sh3e, sh4 */
     int A0G_REGNUM;   /* sh-dsp,      sh3-dsp            */
     int A0_REGNUM;    /* sh-dsp,      sh3-dsp            */
     int A1G_REGNUM;   /* sh-dsp,      sh3-dsp            */
@@ -45,17 +49,13 @@ struct gdbarch_tdep
     int RS_REGNUM;    /* sh-dsp,      sh3-dsp            */
     int RE_REGNUM;    /* sh-dsp,      sh3-dsp            */
     int DR0_REGNUM;   /*                             sh4 */
-    int DR2_REGNUM;   /*                             sh4 */
-    int DR4_REGNUM;   /*                             sh4 */
-    int DR6_REGNUM;   /*                             sh4 */
-    int DR8_REGNUM;   /*                             sh4 */
-    int DR10_REGNUM;  /*                             sh4 */
-    int DR12_REGNUM;  /*                             sh4 */
-    int DR14_REGNUM;  /*                             sh4 */
+    int DR_LAST_REGNUM; /*                           sh4 */
     int FV0_REGNUM;   /*                             sh4 */
-    int FV4_REGNUM;   /*                             sh4 */
-    int FV8_REGNUM;   /*                             sh4 */
-    int FV12_REGNUM;  /*                             sh4 */
+    int FV_LAST_REGNUM; /*                           sh4 */
+    int ARG0_REGNUM;
+    int ARGLAST_REGNUM;
+    int FLOAT_ARGLAST_REGNUM;
+    int RETURN_REGNUM;
   };
 
 /* Registers common to all the SH variants. */
@@ -63,21 +63,15 @@ enum
   {
     R0_REGNUM = 0,
     STRUCT_RETURN_REGNUM = 2,
-    ARG0_REGNUM = 4,
-    ARGLAST_REGNUM = 7,
-    PR_REGNUM = 17,
+    ARG0_REGNUM = 4, /* Used in h8300-tdep.c */
+    ARGLAST_REGNUM = 7, /* Used in h8300-tdep.c */
+    PR_REGNUM = 17, /* used in sh3-rom.c */
     GBR_REGNUM = 18,
     VBR_REGNUM = 19,
     MACH_REGNUM = 20,
     MACL_REGNUM = 21,
     SR_REGNUM = 22
   };
-
-/* Define DO_REGISTERS_INFO() to do machine-specific formatting
-   of register dumps. */
-extern void sh_do_registers_info (int regnum, int fpregs);
-#undef  DO_REGISTERS_INFO
-#define DO_REGISTERS_INFO(REGNUM, FP) sh_do_registers_info(REGNUM, FP)
 
 #define NUM_REALREGS 59 /* used in remote-e7000.c which is not multiarched. */
 

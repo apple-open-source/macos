@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $RCSfile: ged,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:11:02 $
+# $RCSfile: ged,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:24 $
 
 # Does inplace edits on a set of files on a set of machines.
 #

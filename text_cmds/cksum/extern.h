@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.6 1997/01/30 01:10:35 thorpej Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -44,10 +42,5 @@ void	psum1 __P((char *, u_int32_t, u_int32_t));
 void	psum2 __P((char *, u_int32_t, u_int32_t));
 int	csum1 __P((int, u_int32_t *, u_int32_t *));
 int	csum2 __P((int, u_int32_t *, u_int32_t *));
-int	md5 __P((int, u_int32_t *, u_int32_t *));
-
-void	MDString __P((const char *));
-void	MDTimeTrial __P((void));
-void	MDTestSuite __P((void));
-void	MDFilter __P((int));
+int	crc32 __P((int, u_int32_t *, u_int32_t *));
 __END_DECLS

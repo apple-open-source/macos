@@ -15,7 +15,7 @@ LANGUAGE = English
 
 LIBRARIES = common 
 
-AGGREGATES = servers tools
+AGGREGATES = agents servers tools
 
 # LEGACIES = nidb
 

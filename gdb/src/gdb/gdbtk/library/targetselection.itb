@@ -1,5 +1,5 @@
-# Target selection dialog for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Target selection dialog for Insight.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -198,6 +198,34 @@ body TargetSelection::init_target_db {} {
   set gdb_target(mipstcp,runlist) {1 1 0 1}
   set gdb_target(mipstcp,after_attaching) {}
 
+  # PMON
+  set gdb_target(pmon,pretty-name) "PMON/Serial"
+  set gdb_target(pmon,defbaud) "9600"
+  set gdb_target(pmon,baud-rates) {9600 19200 38400}
+  set gdb_target(pmon,cmd) "pmon com1"
+  set gdb_target(pmon,runlist) {1 1 0 1}
+  set gdb_target(pmon,after_attaching) {}
+  set gdb_target(pmontcp,pretty-name) "PMON/TCP"
+  set gdb_target(pmontcp,defbaud) "TCP"
+  set gdb_target(pmontcp,baud-rates) {}
+  set gdb_target(pmontcp,cmd) "pmon tcpX"
+  set gdb_target(pmontcp,runlist) {1 1 0 1}
+  set gdb_target(pmontcp,after_attaching) {}
+
+  # DDB
+  set gdb_target(ddb,pretty-name) "DDB/Serial"
+  set gdb_target(ddb,defbaud) "19200"
+  set gdb_target(ddb,baud-rates) {9600 19200 38400}
+  set gdb_target(ddb,cmd) "ddb com1"
+  set gdb_target(ddb,runlist) {1 1 0 1}
+  set gdb_target(ddb,after_attaching) {}
+  set gdb_target(ddbtcp,pretty-name) "DDB/TCP"
+  set gdb_target(ddbtcp,defbaud) "TCP"
+  set gdb_target(ddbtcp,baud-rates) {}
+  set gdb_target(ddbtcp,cmd) "ddb tcpX"
+  set gdb_target(ddbtcp,runlist) {1 1 0 1}
+  set gdb_target(ddbtcp,after_attaching) {}
+
   # Picobug
   set gdb_target(picobug,pretty-name) "Picobug/Serial"
   set gdb_target(picobug,defbaud) "19200"
@@ -225,6 +253,14 @@ body TargetSelection::init_target_db {} {
   set gdb_target(ciscotcp,cmd) "cisco tcpX"
   set gdb_target(ciscotcp,runlist) {1 0 0 0}
   set gdb_target(ciscotcp,after_attaching) "set os cisco"
+
+  # VxWorks
+  set gdb_target(vxworks,pretty-name) "VxWorks RDB"
+  set gdb_target(vxworks,defbaud) "ETH"
+  set gdb_target(vxworks,baud-rates) {}
+  set gdb_target(vxworks,cmd) "vxworks ethX"
+  set gdb_target(vxworks,runlist) { 1 0 1 1}
+  set gdb_target(vxworks,after_attaching) { sym vxWorks.st }
 }
 
 body TargetSelection::default_port {} {
@@ -242,7 +278,8 @@ body TargetSelection::default_port {} {
       # Special case...
       switch -regexp $tcl_platform(osVersion) {
 	A.09 { set port /dev/tty00 }
-	B.10 { set port /dev/tty0p0 }
+	B.10 -
+	B.11 { set port /dev/tty0p0 }
       }
     }
     default { set port /dev/ttya }
@@ -408,7 +445,8 @@ body TargetSelection::build_win {} {
 	# Special case...
 	switch -regexp $tcl_platform(osVersion) {
 	  A.09 { set ports [list /dev/tty00 /dev/tty01] }
-	  B.10 { set ports [list /dev/tty0p0 /dev/tty1p0] }
+	  B.10 -
+	  B.11 { set ports [list /dev/tty0p0 /dev/tty1p0] }
 	}
       }
       default { set ports [list UNKNOWN UNKNOWN] }
@@ -432,6 +470,9 @@ body TargetSelection::build_win {} {
   entry $f.fr.bp.func -textvariable [pref varname gdb/load/bp_func] -width 20
   checkbutton $f.fr.verb -text [gettext "Display Download Dialog"] \
     -variable [pref varname gdb/load/$target-verbose]
+  checkbutton $f.fr.xterm -text [gettext "Use xterm as inferior's tty"] \
+    -variable [pref varname gdb/process/xtermtty] \
+    -onvalue yes -offvalue no
 
   if {![pref get gdb/control_target]} {
     $f.fr.main configure -state disabled
@@ -457,6 +498,7 @@ body TargetSelection::build_win {} {
   pack $f.fr.bp.at_func $f.fr.bp.func -side left
   grid $f.fr.bp -sticky w -padx 5 -pady 5
   grid $f.fr.verb -sticky w -padx 5 -pady 5
+  grid $f.fr.xterm -sticky w -padx 5 -pady 5
   if {![pref get gdb/control_target]} {
     grid $f.fr.check -sticky w -padx 5 -pady 5
   }

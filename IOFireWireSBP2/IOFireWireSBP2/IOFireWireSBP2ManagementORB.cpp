@@ -28,6 +28,9 @@
 
 #include "FWDebugging.h"
 
+extern const OSSymbol *gUnit_Characteristics_Symbol;
+extern const OSSymbol *gManagement_Agent_Offset_Symbol;
+
 OSDefineMetaClassAndStructors( IOFireWireSBP2ManagementORB, IOFWCommand );
 
 OSMetaClassDefineReservedUnused(IOFireWireSBP2ManagementORB, 0);
@@ -106,42 +109,39 @@ bool IOFireWireSBP2ManagementORB::initWithLUN( IOFireWireSBP2LUN * lun, void * r
 IOReturn IOFireWireSBP2ManagementORB::getUnitInformation( void )
 {
     IOReturn			status = kIOReturnSuccess;
-
-	//
-	// get unit directory
-    //
-
-    IOConfigDirectory *		directory;
-    
-    status = fUnit->getConfigDirectory( directory );
-
-	//
-	// find managementOffset
-	//
-
-    if( status == kIOReturnSuccess )
-    {
-        // this is gross isn't it?
-        FWAddress tempAddress;
-        directory->getKeyOffset( kManagementAgentOffsetKey, tempAddress );
-        fManagementOffset = (tempAddress.addressLo & 0x0fffffff) >> 2;            
-    }
+    UInt32				unitCharacteristics = 0;
+	OSObject *			prop = NULL;
+	
+	prop = fLUN->getProperty( gManagement_Agent_Offset_Symbol );
+	if( prop == NULL )
+		status = kIOReturnError;
+		
+	if( status == kIOReturnSuccess )
+	{
+		fManagementOffset = ((OSNumber*)prop)->unsigned32BitValue();
+	}
+	
+    FWKLOG( ("IOFireWireSBP2Login : status = %d, fManagementOffset = %d\n", status, fManagementOffset) );
 
     //
     // find unit characteristics
     //
-
-    UInt32	unitCharacteristics;
-
-    if( status == kIOReturnSuccess )
-        status = directory->getKeyValue( kUnitCharacteristicsKey, unitCharacteristics );
-
-    if( status == kIOReturnSuccess )
-    {
-        // extract management timeout
+	
+	if( status == kIOReturnSuccess )
+	{
+		prop = fLUN->getProperty( gUnit_Characteristics_Symbol );
+		if( prop == NULL )
+			status = kIOReturnError;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		unitCharacteristics = ((OSNumber*)prop)->unsigned32BitValue();
+	
+        // extract management timeout, max ORB size, max command block size
         
         fManagementTimeout = ((unitCharacteristics >> 8) & 0xff) * 500;   // in milliseconds
-    }
+   }
  
     return status;
 }
@@ -511,7 +511,7 @@ IOReturn IOFireWireSBP2ManagementORB::execute( void )
         queryLoginsORB->queryResponseAddressLo = fResponseAddress.addressLo;
         queryLoginsORB->queryResponseLength = fResponseLen;
     }
-
+			
     if( status == kIOReturnSuccess )
     {
         fWriteCommand->reinit( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>Drivers</key>
+	<dict>
+		<key>Apple_Driver_OpenFirmware.0x00000000</key>
+		<dict>
+			<key>Chain Compatible</key>
+			<false/>
+			<key>Chain Driver</key>
+			<false/>
+			<key>Cpu</key>
+			<string>Open Firmware</string>
+			<key>Driver Present</key>
+			<true/>
+			<key>Driver Signature</key>
+			<data>
+			AAAAAA==
+			</data>
+			<key>Partition Name</key>
+			<string>Macintosh</string>
+			<key>Partition Size</key>
+			<integer>524288</integer>
+			<key>Partition Type</key>
+			<string>Apple_Driver_OpenFirmware</string>
+		</dict>
+	</dict>
+	<key>Version</key>
+	<integer>1</integer>
+</dict>
+</plist>

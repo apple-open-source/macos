@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacPort.h,v 1.1.1.3 2000/04/12 02:02:40 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacPort.h,v 1.1.1.4 2002/04/05 16:13:46 jevans Exp $
  */
 
 
@@ -55,7 +55,7 @@
  * However, MetroWerks has screwed that file up a couple of times
  * and all we need are the defines.
  */
-
+#ifndef	_FCNTL
 #   define O_RDWR	  	0x0	/* open the file in read/write mode */
 #   define O_RDONLY  		0x1	/* open the file in read only mode */
 #   define O_WRONLY  		0x2	/* open the file in write only mode */
@@ -63,7 +63,7 @@
 #   define O_CREAT	  	0x0200	/* create the file if it doesn't exist */
 #   define O_EXCL	  	0x0400	/* if the file exists don't create it again */
 #   define O_TRUNC	  	0x0800	/* truncate the file after opening it */
-
+#endif
 /*
  * MetroWerks stat.h file is rather weak.  The defines
  * after the include are needed to fill in the missing
@@ -98,6 +98,7 @@
 #   	define S_IXOTH		00001	/* execute permission: other */
 #   endif
 
+#if __MSL__ < 0x6000
 #   define isatty(arg) 		1
 
 /* 
@@ -109,6 +110,7 @@
 #   define X_OK			0x01	/* test for execute or search permission */
 #   define W_OK			0x02	/* test for write permission */
 #   define R_OK			0x04	/* test for read permission */
+#endif
 
 #endif	/* __MWERKS__ */
 
@@ -147,6 +149,11 @@
 #define WEXITSTATUS(stat) 	(1)
 #define WTERMSIG(status) 	(1)
 #define WSTOPSIG(status) 	(1)
+
+#ifdef BUILD_tcl
+# undef TCL_STORAGE_CLASS
+# define TCL_STORAGE_CLASS DLLEXPORT
+#endif
 
 /*
  * Make sure that MAXPATHLEN is defined.
@@ -205,26 +212,44 @@ extern char **environ;
 #define TCL_SHLIB_EXT ".shlb"
 
 /*
- * The following define is bogus and needs to be fixed.  It claims that
+ * The following define is defined as a workaround on the mac.  It claims that
  * struct tm has the timezone string in it, which is not true.  However,
  * the code that works around this fact does not compile on the Mac, since
  * it relies on the fact that time.h has a "timezone" variable, which the
  * Metrowerks time.h does not have...
  * 
- * The Mac timezone stuff never worked (clock format 0 -format %Z returns "Z")
- * so this just keeps the status quo.  The real answer is to not use the
- * MSL strftime, and provide the needed compat functions...
+ * The Mac timezone stuff is implemented via the TclpGetTZName() routine in
+ * tclMacTime.c
  * 
  */
  
 #define HAVE_TM_ZONE 
+ 
+ 
+/*
+ * If we're using the Metrowerks MSL, we need to convert time_t values from
+ * the mac epoch to the msl epoch (== unix epoch) by adding the offset from
+ * <time.mac.h> to mac time_t values, as MSL is using its epoch for file
+ * access routines such as stat or utime
+ */
+
+#ifdef __MSL__
+#include <time.mac.h>
+#ifdef _mac_msl_epoch_offset_
+#define tcl_mac_epoch_offset  _mac_msl_epoch_offset_
+#define TCL_MAC_USE_MSL_EPOCH  /* flag for TclDate.c */
+#else
+#define tcl_mac_epoch_offset 0L
+#endif
+#else
+#define tcl_mac_epoch_offset 0L
+#endif
  
 /*
  * The following macros have trivial definitions, allowing generic code to 
  * address platform-specific issues.
  */
  
-#define TclpAsyncMark(async)
 #define TclpGetPid(pid)	    	((unsigned long) (pid))
 #define TclSetSystemEnv(a,b)
 #define tzset()
@@ -285,9 +310,11 @@ typedef int TclpMutex;
 #endif /* TCL_THREADS */
 
 typedef pascal void (*ExitToShellProcPtr)(void);
-#include "tclMac.h"
-#include "tclMacInt.h"
-/* #include "tclPlatDecls.h"
-   #include "tclIntPlatDecls.h" */
+
+#include "tclMac.h" // contains #include "tclPlatDecls.h"
+#include "tclIntPlatDecls.h"
+
+# undef TCL_STORAGE_CLASS
+# define TCL_STORAGE_CLASS DLLIMPORT
 
 #endif /* _MACPORT */

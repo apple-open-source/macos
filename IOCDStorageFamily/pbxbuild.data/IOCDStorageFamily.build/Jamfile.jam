@@ -1,17 +1,29 @@
-# Jamfile for target IOCDStorageFamily of project IOCDStorageFamily
+# Jamfile for target "IOCDStorageFamily" of project "IOCDStorageFamily"
 
 
-PROJECT = IOCDStorageFamily ;
-# IOCDStorageFamily target
-export deferred TARGET_NAME = IOCDStorageFamily ;
-export deferred PRODUCT_NAME = IOCDStorageFamily ;
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-export deferred PKGINFO_FILE_CONTENTS = "KEXT????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOCDStorageFamily.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOCDStorageFamily.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOCDStorageFamily.build/pbdevelopment.plist" ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOCDStorageFamily ;
+export deferred SRCROOT = /Volumes/Users/markaria/Active/IOCDStorageFamily-17-HEAD ;
 
+# User-defined project-wide settings for project
+
+# Target "IOCDStorageFamily"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOCDStorageFamily"
 export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOCDStorageFamily ;
+
+# User-defined build settings for target "IOCDStorageFamily"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
@@ -19,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOCDStorageFamily ;
-export deferred MODULE_VERSION = 1.1.3 ;
+export deferred MODULE_VERSION = 1.2 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -31,19 +43,22 @@ export deferred WRAPPER_EXTENSION = kext ;
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
 	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+	export deferred USE_GCC3 = YES ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
 BeginBundle "<IOCDStorageFamily>IOCDStorageFamily.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOCDStorageFamily.build/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOCDStorageFamily>IOCDStorageFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -61,7 +76,11 @@ ProcessHeaders "<IOCDStorageFamily>IOCDStorageFamily.kext" : "$(HEADERS)" : BPTa
 
 # Resources
 English.lproj/InfoPlist.strings_REGION = English ;
-RESOURCES = English.lproj/InfoPlist.strings ;
+RESOURCES =
+	English.lproj/InfoPlist.strings
+	CD.icns
+	"CD-R.icns"
+	"CD-RW.icns" ;
 ProcessResources "<IOCDStorageFamily>IOCDStorageFamily.kext" : "$(RESOURCES)" : BPTag001 : BPTag002 ;
 
 # Sources
@@ -84,7 +103,7 @@ REZ_FILES = ;
 ProcessRezFiles "<IOCDStorageFamily>IOCDStorageFamily.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOCDStorageFamily.build/BPTag006-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<IOCDStorageFamily>IOCDStorageFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
 
 EndBundle "<IOCDStorageFamily>IOCDStorageFamily.kext" ;

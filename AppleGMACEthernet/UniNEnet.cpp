@@ -84,6 +84,7 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 {
 	IOPhysicalAddress	phys;
 	mach_timespec_t		time;
+	IOReturn			rc;
 
 
 	fpELG = (elg*)IOMallocContiguous( size, 0x1000, &phys );
@@ -92,13 +93,17 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
+	rc = IOSetProcessorCacheMode(	kernel_task,
+									(IOVirtualAddress)fpELG,
+									size,
+									kIOMapWriteThruCache );
 	bzero( fpELG, size );
 
 	fpELG->evLogBuf		= (UInt8*)fpELG + sizeof( struct elg );
 	fpELG->evLogBufe	= (UInt8*)fpELG + kEvLogSize - 0x20; // ??? overran buffer?
 	fpELG->evLogBufp	= fpELG->evLogBuf;
-//	fpELG->evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
-	fpELG->evLogFlag	 = 0x03330333;	// > kEvLogSize - don't wrap - stop logging at buffer end
+	fpELG->evLogFlag	 = 0xFEEDBEEF;	// continuous wraparound
+//	fpELG->evLogFlag	 = 0x03330333;	// > kEvLogSize - don't wrap - stop logging at buffer end
 //	fpELG->evLogFlag	 = 0x0099;		// < #elements - count down and stop logging at 0
 //	fpELG->evLogFlag	 = 'step';		// stop at each ELG
 
@@ -234,7 +239,8 @@ UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	OSSynchronizeIO();
 	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)fpELG, kEvLogSize );
 
-///	fpELG->evLogFlag = 1000;	// cruise to see what happens next.
+if ( fpELG->evLogFlag == 0xfeedbeef )
+	 fpELG->evLogFlag = 100;	// cruise to see what happens next.
 
 //	kprintf( work );
 ///	panic( work );
@@ -274,7 +280,6 @@ bool UniNEnet::init( OSDictionary *properties )
 bool UniNEnet::start( IOService *provider )
 {    
     OSString	*matchEntry;
-    OSData		*cacheProperty;
     OSNumber	*numObj;
     IOWorkLoop	*myWorkLoop	= getWorkLoop();
 	UInt32		x, xFactor;
@@ -298,20 +303,6 @@ bool UniNEnet::start( IOService *provider )
 
     if ( !nub || !super::start( provider ) )
         return false;
-
-	fCacheLineSize	= CACHE_LINE_SIZE;
-	fConfiguration	= kConfiguration_TX_DMA_Limit
-					| kConfiguration_RX_DMA_Limit
-					| kConfiguration_Infinite_Burst;
-	cacheProperty = OSDynamicCast( OSData, getProperty( kCacheLine128 ) );
-    if ( cacheProperty )
-    {
-        ELG( 0, 0, '128+', "UniNEnet::start: Found CacheLine128 property." );
-		fCacheLineSize	= 128;
-		fConfiguration	= (0x02 << 1)					// TX_DMA_Limit
-						| (0x08 << 6)					// RX_DMA_Limit
-						| kConfiguration_Infinite_Burst;
-    }
 
 	if ( fBuiltin )
 	{
@@ -640,13 +631,15 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
 
 #ifdef LOG_RX_BACKUP
-{	UInt32 rxMACStatus	= READ_REGISTER( RxMACStatus );
-	UInt32 fifoCtr		= READ_REGISTER( RxFIFOPacketCounter );
+{
+	UInt32	fifoCtr		= READ_REGISTER( RxFIFOPacketCounter );
+	UInt32	rxMACStatus	= READ_REGISTER( RxMACStatus );	// Auto-clear register
 	if ( interruptStatus & kStatus_Rx_Buffer_Not_Available
-	  || rxMACStatus & 0x02
+	  || rxMACStatus & kRX_MAC_Status_Rx_Overflow		// see if FIFO overflowed
 	  || fifoCtr > 5 )
 	{
-		ELG( fifoCtr, rxMACStatus, 'Rx--', "interruptOccurred - Rx trouble" );
+		ELG( fifoCtr, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
+		fRxMACStatus |= rxMACStatus;					// save for timeout routine
 	}
 }
 #endif // LOG_RX_BACKUP
@@ -753,7 +746,7 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 			/* is off so we must enable it before continuing				*/
 		ELG( 0, 0, '+Clk', "UniNEnet::putToSleep - turning on cell clock!!!" );
 	///	OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
 		OSSynchronizeIO();
 		IODelay( 3 );			// Allow the cell some cycles before using it.
 		fCellClockEnabled = true;
@@ -796,7 +789,7 @@ setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and ina
         fCellClockEnabled = false;
 		ELG( 0, 0, '-Clk', "UniNEnet::putToSleep - disabling cell clock!!!" );
 		OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, (void*)nub, 0, 0 );
 		OSSynchronizeIO();
 		ALRT( 0, 0, '-clk', "UniNEnet::putToSleep - disabled cell clock!!!" );
 	}
@@ -845,7 +838,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 			// Set PHY and/or Cell to full power:
 
 		ELG( 0, 0, '+Clk', "UniNEnet::wakeUp - turning on cell clock!!!" );
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
 		IODelay( 3 );
 
 		if ( ioMapEnet )			// Probe register access if able:
@@ -858,7 +851,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 			if ( !regAvail )		// try again if cell clock disabled: 
 			{
 				ALRT( 0, 0, 'wk1-', "UniNEnet::wakeUp - ethernet cell's clock is disabled." );
-				callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
+				callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
 				IOSleep( 10 );
 				regAvail = ml_probe_read(	(vm_offset_t)&fpRegsPhys->Status,
 											&(unsigned int)gemReg );
@@ -877,10 +870,6 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 			/* BUS MASTER, MEM I/O Space, MEM WR & INV	*/
 
 		nub->configWrite32( 0x04, 0x16 );		// write to the Config space
-
-			/* set Latency to Max , cache 32	*/
-
-		nub->configWrite32( 0x0C, ((2 + (kGEMBurstSize * (0+1)))<< 8) | (fCacheLineSize >> 2) );
 
 		if ( ioMapEnet == NULL )
 		{
@@ -1003,7 +992,10 @@ IOReturn UniNEnet::enable(IONetworkInterface * netif)
  
 IOReturn UniNEnet::disable( IONetworkInterface* /*netif*/ )
 {
-//	if ( fpELG->evLogFlag == 0xFEEDBEEF )	fpELG->evLogFlag = 0xDEBEEFED;
+#if USE_ELG
+///	if ( (fpELG->evLogFlag == 0) || (fpELG->evLogFlag == 0xFEEDBEEF) )
+///	fpELG->evLogFlag = 0xDEBEEFED;
+#endif // USE_ELG
 
 	ELG( this, debugEnabled, 'NetD', "disable( IONetworkInterface* )" );
 
@@ -1117,7 +1109,6 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	bool  				doService = false;
 	UInt32				txRingIndex;
 	UInt32				x;
-	UInt32				rxMACStatus;	// Auto-clear register
 
 
 		/*** Caution - this method runs on the workloop thread while	***/
@@ -1134,15 +1125,16 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         return; 
     }    
 
-///	txMACStatus = READ_REGISTER( TxMACStatus );
-	rxMACStatus = READ_REGISTER( RxMACStatus );
-///	ELG( txMACStatus, rxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
+	x			  = READ_REGISTER( TxMACStatus );
+	fRxMACStatus |= READ_REGISTER( RxMACStatus );
+	ELG( x, fRxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
 #ifdef JUST_FOR_TESTING
 {
-	UInt32	interruptStatus, rxKick;
+	UInt32	interruptStatus, rxKick, rxCompletion;
 	interruptStatus	= READ_REGISTER( StatusAlias );
 	rxKick			= READ_REGISTER( RxKick );
-	ELG( rxKick, interruptStatus, 'rxIS', "timeoutOccurred" );
+	rxCompletion	= READ_REGISTER( RxCompletion );
+	ELG( rxKick<<16 | rxCompletion, interruptStatus, 'rxIS', "timeoutOccurred" );
 }
 #endif // JUST_FOR_TESTING
 
@@ -1253,45 +1245,35 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         txWDCount = 0;
     }
     
-		// Monitor receiver's health.
-    
-    if ( rxWDInterrupts == 0 )
-    {
-		if ( rxWDCount++ >= 2 )
-		{
-				// We could be less conservative here and restart the
-				// receiver unconditionally.
+		/* Check for Rx deafness.										*/
+		/* IF no Rx interrupts have occurred in the past few timeouts	*/
+		/* AND the FIFO overflowed,										*/
+		/* THEN restart the receiver.									*/
 
-			if ( rxMACStatus & kRX_MAC_Status_Rx_Overflow )	///// ???? 
-			{
-#ifdef JUST_FOR_TESTING
-ELG( 0, rxMACStatus, '?ovf', "timeoutOccurred" );
-for ( UInt32 i = 0; i < fRxRingElements; i += 4 )
-{
-	ELG(	OSReadLittleInt16( &fRxDescriptorRing[ i   ].frameDataSize, 0 ) << 16
-		  | OSReadLittleInt16( &fRxDescriptorRing[ i+1 ].frameDataSize, 0 ),
-			OSReadLittleInt16( &fRxDescriptorRing[ i+2 ].frameDataSize, 0 ) << 16
-		  | OSReadLittleInt16( &fRxDescriptorRing[ i+3 ].frameDataSize, 0 ),
-		  '=RxE', "timeoutOccurred" );
-}
-#endif // JUST_FOR_TESTING
-					// Bad news, the receiver may be deaf as a result of this
-					// overflow, and if so, a RX MAC reset is needed.
-
-				restartReceiver();
-
-				NETWORK_STAT_ADD( inputErrors );
-				ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
-///	fpELG->evLogFlag = 100;		// log next 100 events to see what happens
-			}
-			rxWDCount = 0;
-		}/* end IF rxWDCount expired */
-    }
-	else
-	{		// Reset watchdog
-		rxWDCount      = 0;
-		rxWDInterrupts = 0;
+    if ( rxWDInterrupts )
+	{
+		rxWDCount      = 0;			// Reset watchdog timer count
+		rxWDInterrupts = 0;			// Reset watchdog interrupt count
 	}
+	else if ( rxWDCount++ >= 2 )	// skip 1st timer period
+    {
+		if ( (fRxMACStatus & kRX_MAC_Status_Rx_Overflow)	// If FIFO overflow
+		  || (rxWDCount > (30000 / WATCHDOG_TIMER_MS)) )	// or 30 seconds max idle
+		{
+				// Bad news, the receiver may be deaf as a result of this
+				// overflow, and if so, a RX MAC reset is needed.
+
+			restartReceiver();
+
+			NETWORK_STAT_ADD( inputErrors );
+			ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
+			fRxMACStatus	= 0;		// reset FIFO overflow indicator
+			rxWDCount		= 0;		// reset the watchdog count.
+#if USE_ELG
+			fpELG->evLogFlag = 0;		// freeze the event logger.
+#endif // USE_ELG
+		}
+    }
 
 		/* Clean-up after the debugger if the debugger was active:	*/
 
@@ -1981,10 +1963,10 @@ IOReturn UniNEnetUserClient::getGMACLog(
 
 	ior = md->complete( kIODirectionNone );
 	if ( ior )	{ UC_ELG( 0, ior, 'gLg-', "UniNEnetUserClient::getGMACLog - complete failed" ); }
-	else   		{ UC_ELG( 0, 0,  'gLg+', "UniNEnetUserClient::getGMACLog - complete worked" ); }
+	else   		{ UC_ELG( 0,   0, 'gLg+', "UniNEnetUserClient::getGMACLog - complete worked" ); }
 
 	md->release();			// free it
-///	fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	/// Let 'er rip again.
+fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	/// Let 'er rip again.
 
     return kIOReturnSuccess;
 

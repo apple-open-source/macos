@@ -62,20 +62,20 @@
 #include <stdio.h>
 #include "statement.h"
 
-extern void WriteUserHeader(/* FILE *file, statement_t *stats */);
-extern void WriteServerHeader(/* FILE *file, statement_t *stats */);
-extern void WriteServerRoutine(/* FILE *file; routine_t *rt; */);
-extern void WriteInternalHeader(/* FILE *file, statement_t *stats */);
-extern void WriteDefinesHeader(/* FILE *file, statement_t *stats */);
-extern void WriteUser(/* FILE *file, statement_t *stats */);
-extern void WriteUserIndividual(/* statement_t *stats */);
-extern void WriteServer(/* FILE *file, statement_t *stats */);
-extern void WriteIncludes(/* FILE *file, boolean_t isuser, 
-			     boolean_t is_def */);
-extern void WriteImplImports(/* FILE *file, statement_t *stats, 
-				boolean_t isuser */);
-extern void WriteApplDefaults(/* FILE *file, char *dir */);
-extern void WriteApplMacro(/* FILE *file, char *dir, char *when, 
-			      routine_t *rt */);
+extern void WriteUserHeader( FILE *file, statement_t *stats );
+extern void WriteServerHeader( FILE *file, statement_t *stats );
+extern void WriteServerRoutine( FILE *file, routine_t *rt );
+extern void WriteInternalHeader( FILE *file, statement_t *stats );
+extern void WriteDefinesHeader( FILE *file, statement_t *stats );
+extern void WriteUser( FILE *file, statement_t *stats );
+extern void WriteUserIndividual( statement_t *stats );
+extern void WriteServer( FILE *file, statement_t *stats );
+extern void WriteIncludes( FILE *file, boolean_t isuser, 
+			     boolean_t is_def );
+extern void WriteImplImports( FILE *file, statement_t *stats, 
+				boolean_t isuser );
+extern void WriteApplDefaults( FILE *file, char *dir );
+extern void WriteApplMacro( FILE *file, char *dir, char *when, 
+			      routine_t *rt );
 
 #endif	/* _WRITE_H */

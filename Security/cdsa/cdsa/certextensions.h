@@ -295,4 +295,10 @@ typedef union {
 	CSSM_DATA				rawData;			// unknown, not decoded
 } CE_Data;
 
+typedef struct {
+	CE_DataType				type;
+	CE_Data					extension;
+	CSSM_BOOL				critical;
+} CE_DataAndType;
+
 #endif	/* _CERT_EXTENSIONS_H_ */

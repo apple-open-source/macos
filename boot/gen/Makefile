@@ -3,7 +3,7 @@
 #  Machine-independent code
 #
 
-#CFLAGS	= -O $(MORECPP) -arch i386 -g -munaligned-text
+#CFLAGS	= -O $(MORECPP) -arch i386 -g
 DEFINES=
 CONFIG = hd
 LIBDIR = libsa

@@ -1,5 +1,5 @@
 /* MI Command Set.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -74,6 +74,7 @@ extern mi_cmd_args_ftype mi_cmd_exec_return;
 extern mi_cmd_args_ftype mi_cmd_exec_run;
 extern mi_cmd_args_ftype mi_cmd_exec_step;
 extern mi_cmd_args_ftype mi_cmd_exec_step_instruction;
+extern mi_cmd_args_ftype mi_cmd_exec_metrowerks_step;
 extern mi_cmd_args_ftype mi_cmd_exec_until;
 extern mi_cmd_args_ftype mi_cmd_exec_interrupt;
 extern mi_cmd_argv_ftype mi_cmd_gdb_exit;
@@ -98,6 +99,7 @@ extern mi_cmd_argv_ftype mi_cmd_var_info_expression;
 extern mi_cmd_argv_ftype mi_cmd_var_info_num_children;
 extern mi_cmd_argv_ftype mi_cmd_var_info_type;
 extern mi_cmd_argv_ftype mi_cmd_var_info_block;
+extern mi_cmd_argv_ftype mi_cmd_var_info_path_expression;
 extern mi_cmd_argv_ftype mi_cmd_var_list_children;
 extern mi_cmd_argv_ftype mi_cmd_var_set_format;
 extern mi_cmd_argv_ftype mi_cmd_var_show_attributes;

@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,13 +27,144 @@
  *
  */
 
-#include "zsh.h"
+#include "zsh.mdh"
+#include "lex.pro"
+
+/* tokens */
+
+/**/
+mod_export char ztokens[] = "#$^*()$=|{}[]`<>?~`,'\"\\";
+
+/* parts of the current token */
+
+/**/
+char *yytext;
+/**/
+mod_export char *tokstr;
+/**/
+mod_export int tok;
+/**/
+int tokfd;
+
+/* lexical analyzer error flag */
+ 
+/**/
+mod_export int lexstop;
+
+/* if != 0, this is the first line of the command */
+ 
+/**/
+mod_export int isfirstln;
+ 
+/* if != 0, this is the first char of the command (not including white space) */
+ 
+/**/
+int isfirstch;
+
+/* flag that an alias should be expanded after expansion ending in space */
+
+/**/
+int inalmore;
+
+/* don't do spelling correction */
+ 
+/**/
+int nocorrect;
+
+/* the line buffer */
+
+/**/
+mod_export unsigned char *line;
+
+/* cursor position and line length */
+/* N.B.: must use the real names here, for the .export file */
+
+/**/
+mod_export int zshcs, zshll;
+
+/* inwhat says what exactly we are in     *
+ * (its value is one of the IN_* things). */
+
+/**/
+mod_export int inwhat;
+
+/* 1 if x added to complete in a blank between words */
+
+/**/
+mod_export int addedx;
+
+/* wb and we hold the beginning/end position of the word we are completing. */
+
+/**/
+mod_export int wb, we;
+
+/* 1 if aliases should not be expanded */
+ 
+/**/
+mod_export int noaliases;
+
+/* we are parsing a line sent to use by the editor */
+ 
+/**/
+mod_export int zleparse;
+ 
+/**/
+mod_export int wordbeg;
+ 
+/**/
+mod_export int parbegin;
+
+/**/
+mod_export int parend;
+
+/* don't recognize comments */
+ 
+/**/
+mod_export int nocomments;
+
+/* text of puctuation tokens */
+
+/**/
+mod_export char *tokstrings[WHILE + 1] = {
+    NULL,	/* NULLTOK	  0  */
+    ";",	/* SEPER	     */
+    "\\n",	/* NEWLIN	     */
+    ";",	/* SEMI		     */
+    ";;",	/* DSEMI	     */
+    "&",	/* AMPER	  5  */
+    "(",	/* INPAR	     */
+    ")",	/* OUTPAR	     */
+    "||",	/* DBAR		     */
+    "&&",	/* DAMPER	     */
+    ">",	/* OUTANG	  10 */
+    ">|",	/* OUTANGBANG	     */
+    ">>",	/* DOUTANG	     */
+    ">>|",	/* DOUTANGBANG	     */
+    "<",	/* INANG	     */
+    "<>",	/* INOUTANG	  15 */
+    "<<",	/* DINANG	     */
+    "<<-",	/* DINANGDASH	     */
+    "<&",	/* INANGAMP	     */
+    ">&",	/* OUTANGAMP	     */
+    "&>",	/* AMPOUTANG	  20 */
+    "&>|",	/* OUTANGAMPBANG     */
+    ">>&",	/* DOUTANGAMP	     */
+    ">>&|",	/* DOUTANGAMPBANG    */
+    "<<<",	/* TRINANG	     */
+    "|",	/* BAR		  25 */
+    "|&",	/* BARAMP	     */
+    "()",	/* INOUTPAR	     */
+    "((",	/* DINPAR	     */
+    "))",	/* DOUTPAR	     */
+    "&|",	/* AMPERBANG	  30 */
+    ";&",	/* SEMIAMP	     */
+};
 
 /* lexical state */
 
-int len = 0, bsiz = 256;
-char *bptr;
-extern int hwgetword;
+static int dbparens;
+static int len = 0, bsiz = 256;
+static char *bptr;
 
 struct lexstack {
     struct lexstack *next;
@@ -41,11 +172,11 @@ struct lexstack {
     int incmdpos;
     int incond;
     int incasepat;
+    int dbparens;
     int isfirstln;
     int isfirstch;
     int histactive;
     int histdone;
-    int spaceflag;
     int stophist;
     int hlinesz;
     char *hline;
@@ -56,12 +187,24 @@ struct lexstack {
     char *yytext;
     char *bptr;
     int bsiz;
+    int len;
     short *chwords;
     int chwordlen;
     int chwordpos;
     int hwgetword;
     int lexstop;
     struct heredocs *hdocs;
+    int (*hgetc) _((void));
+    void (*hungetc) _((int));
+    void (*hwaddc) _((int));
+    void (*hwbegin) _((int));
+    void (*hwend) _((void));
+    void (*addtoline) _((int));
+
+    int eclen, ecused, ecnpats;
+    Wordcode ecbuf;
+    Eccstr ecstrs;
+    int ecsoffs, ecssub, ecnfunc;
 
     unsigned char *cstack;
     int csp;
@@ -69,16 +212,12 @@ struct lexstack {
 
 static struct lexstack *lstack = NULL;
 
-/* History word status variables from hist.c */
-extern short *chwords;
-extern int chwordlen, chwordpos;
-
 /* save the lexical state */
 
 /* is this a hack or what? */
 
 /**/
-void
+mod_export void
 lexsave(void)
 {
     struct lexstack *ls;
@@ -88,33 +227,50 @@ lexsave(void)
     ls->incmdpos = incmdpos;
     ls->incond = incond;
     ls->incasepat = incasepat;
+    ls->dbparens = dbparens;
     ls->isfirstln = isfirstln;
     ls->isfirstch = isfirstch;
     ls->histactive = histactive;
     ls->histdone = histdone;
-    ls->spaceflag = spaceflag;
     ls->stophist = stophist;
     ls->hline = chline;
     ls->hptr = hptr;
     ls->hlinesz = hlinesz;
     ls->cstack = cmdstack;
     ls->csp = cmdsp;
-    cmdstack = (unsigned char *)zalloc(256);
+    cmdstack = (unsigned char *)zalloc(CMDSTACKSZ);
     ls->tok = tok;
     ls->isnewlin = isnewlin;
     ls->tokstr = tokstr;
     ls->yytext = yytext;
     ls->bptr = bptr;
     ls->bsiz = bsiz;
+    ls->len = len;
     ls->chwords = chwords;
     ls->chwordlen = chwordlen;
     ls->chwordpos = chwordpos;
     ls->hwgetword = hwgetword;
     ls->lexstop = lexstop;
     ls->hdocs = hdocs;
+    ls->hgetc = hgetc;
+    ls->hungetc = hungetc;
+    ls->hwaddc = hwaddc;
+    ls->hwbegin = hwbegin;
+    ls->hwend = hwend;
+    ls->addtoline = addtoline;
+    ls->eclen = eclen;
+    ls->ecused = ecused;
+    ls->ecnpats = ecnpats;
+    ls->ecbuf = ecbuf;
+    ls->ecstrs = ecstrs;
+    ls->ecsoffs = ecsoffs;
+    ls->ecssub = ecssub;
+    ls->ecnfunc = ecnfunc;
     cmdsp = 0;
     inredir = 0;
     hdocs = NULL;
+    histactive = 0;
+    ecbuf = NULL;
 
     ls->next = lstack;
     lstack = ls;
@@ -123,7 +279,7 @@ lexsave(void)
 /* restore lexical state */
 
 /**/
-void
+mod_export void
 lexrestore(void)
 {
     struct lexstack *ln;
@@ -132,11 +288,11 @@ lexrestore(void)
     incmdpos = lstack->incmdpos;
     incond = lstack->incond;
     incasepat = lstack->incasepat;
+    dbparens = lstack->dbparens;
     isfirstln = lstack->isfirstln;
     isfirstch = lstack->isfirstch;
     histactive = lstack->histactive;
     histdone = lstack->histdone;
-    spaceflag = lstack->spaceflag;
     stophist = lstack->stophist;
     chline = lstack->hline;
     hptr = lstack->hptr;
@@ -150,12 +306,29 @@ lexrestore(void)
     yytext = lstack->yytext;
     bptr = lstack->bptr;
     bsiz = lstack->bsiz;
+    len = lstack->len;
     chwords = lstack->chwords;
     chwordlen = lstack->chwordlen;
     chwordpos = lstack->chwordpos;
     hwgetword = lstack->hwgetword;
     lexstop = lstack->lexstop;
     hdocs = lstack->hdocs;
+    hgetc = lstack->hgetc;
+    hungetc = lstack->hungetc;
+    hwaddc = lstack->hwaddc;
+    hwbegin = lstack->hwbegin;
+    hwend = lstack->hwend;
+    addtoline = lstack->addtoline;
+    if (ecbuf)
+	zfree(ecbuf, eclen);
+    eclen = lstack->eclen;
+    ecused = lstack->ecused;
+    ecnpats = lstack->ecnpats;
+    ecbuf = lstack->ecbuf;
+    ecstrs = lstack->ecstrs;
+    ecsoffs = lstack->ecsoffs;
+    ecssub = lstack->ecssub;
+    ecnfunc = lstack->ecnfunc;
     hlinesz = lstack->hlinesz;
     errflag = 0;
 
@@ -176,15 +349,16 @@ yylex(void)
     if (tok == NEWLIN || tok == ENDINPUT) {
 	while (hdocs) {
 	    struct heredocs *next = hdocs->next;
+	    char *name;
 
 	    hwbegin(0);
-	    cmdpush(hdocs->rd->type == HEREDOC ? CS_HEREDOC : CS_HEREDOCD);
+	    cmdpush(hdocs->type == REDIR_HEREDOC ? CS_HEREDOC : CS_HEREDOCD);
 	    STOPHIST
-	    hdocs->rd->name = gethere(hdocs->rd->name, hdocs->rd->type);
+	    name = gethere(hdocs->str, hdocs->type);
 	    ALLOWHIST
 	    cmdpop();
 	    hwend();
-	    hdocs->rd->type = HERESTR;
+	    setheredoc(hdocs->pc, REDIR_HERESTR, name);
 	    zfree(hdocs, sizeof(struct heredocs));
 	    hdocs = next;
 	}
@@ -198,7 +372,7 @@ yylex(void)
 }
 
 /**/
-void
+mod_export void
 ctxtlex(void)
 {
     static int oldpos;
@@ -209,6 +383,7 @@ ctxtlex(void)
     case NEWLIN:
     case SEMI:
     case DSEMI:
+    case SEMIAMP:
     case AMPER:
     case AMPERBANG:
     case INPAR:
@@ -234,6 +409,8 @@ ctxtlex(void)
 	incmdpos = 0;
 	break;
     }
+    if (tok != DINPAR)
+	infor = tok == FOR ? 2 : 0;
     if (IS_REDIROP(tok) || tok == FOR || tok == FOREACH || tok == SELECT) {
 	inredir = 1;
 	oldpos = incmdpos;
@@ -277,7 +454,7 @@ ctxtlex(void)
 #define LX2_OTHER 18
 #define LX2_META 19
 
-unsigned char lexact1[256], lexact2[256], lextok2[256];
+static unsigned char lexact1[256], lexact2[256], lextok2[256];
 
 /**/
 void
@@ -315,7 +492,7 @@ void
 lexinit(void)
 {
     incond = incasepat = nocorrect =
-    lexstop = 0;
+    infor = dbparens = lexstop = 0;
     incmdpos = 1;
     tok = ENDINPUT;
 }
@@ -328,11 +505,21 @@ add(int c)
 {
     *bptr++ = c;
     if (bsiz == ++len) {
+#if 0
 	int newbsiz;
 
 	newbsiz = bsiz * 8;
 	while (newbsiz < inbufct)
 	    newbsiz *= 2;
+	bptr = len + (tokstr = (char *)hrealloc(tokstr, bsiz, newbsiz));
+	bsiz = newbsiz;
+#endif
+
+	int newbsiz = bsiz * 2;
+
+	if (newbsiz > inbufct && inbufct > bsiz)
+	    newbsiz = inbufct;
+
 	bptr = len + (tokstr = (char *)hrealloc(tokstr, bsiz, newbsiz));
 	bsiz = newbsiz;
     }
@@ -344,8 +531,7 @@ add(int c)
 		if (cs >= ll + 1 - inbufct)\
 		    parbegin = -1;\
 		else\
-		    parend = inbufct;\
-	    } }
+		    parend = inbufct;} }
 
 static int
 cmd_or_math(int cs_type)
@@ -396,6 +582,43 @@ cmd_or_math_sub(void)
     return skipcomm();
 }
 
+/* Check whether we're looking at valid numeric globbing syntax      *
+ * (/\<[0-9]*-[0-9]*\>/).  Call pointing just after the opening "<". *
+ * Leaves the input in the same place, returning 0 or 1.             */
+
+/**/
+static int
+isnumglob(void)
+{
+    int c, ec = '-', ret = 0;
+    int tbs = 256, n = 0;
+    char *tbuf = (char *)zalloc(tbs);
+
+    while(1) {
+	c = hgetc();
+	if(lexstop) {
+	    lexstop = 0;
+	    break;
+	}
+	tbuf[n++] = c;
+	if(!idigit(c)) {
+	    if(c != ec)
+		break;
+	    if(ec == '>') {
+		ret = 1;
+		break;
+	    }
+	    ec = '>';
+	}
+	if(n == tbs)
+	    tbuf = (char *)realloc(tbuf, tbs *= 2);
+    }
+    while(n--)
+	hungetc(tbuf[n]);
+    zfree(tbuf, tbs);
+    return ret;
+}
+
 /**/
 int
 gettok(void)
@@ -403,7 +626,6 @@ gettok(void)
     int c, d;
     int peekfd = -1, peek;
 
-    MUSTUSEHEAP("gettok");
   beginning:
     tokstr = NULL;
     while (iblank(c = hgetc()) && !lexstop);
@@ -413,9 +635,38 @@ gettok(void)
     wordbeg = inbufct - (qbang && c == bangchar);
     hwbegin(-1-(qbang && c == bangchar));
     /* word includes the last character read and possibly \ before ! */
-    if (idigit(c)) {	/* handle 1< foo */
+    if (dbparens) {
+	len = 0;
+	bptr = tokstr = (char *) hcalloc(bsiz = 32);
+	hungetc(c);
+	cmdpush(CS_MATH);
+	c = dquote_parse(infor ? ';' : ')', 0);
+	cmdpop();
+	*bptr = '\0';
+	if (!c && infor) {
+	    infor--;
+	    return DINPAR;
+	}
+	if (c || (c = hgetc()) != ')') {
+	    hungetc(c);
+	    return LEXERR;
+	}
+	dbparens = 0;
+	return DOUTPAR;
+    } else if (idigit(c)) {	/* handle 1< foo */
 	d = hgetc();
-	if (d == '>' || d == '<') {
+	if(d == '&') {
+	    d = hgetc();
+	    if(d == '>') {
+		peekfd = c - '0';
+		hungetc('>');
+		c = '&';
+	    } else {
+		hungetc(d);
+		lexstop = 0;
+		hungetc('&');
+	    }
+	} else if (d == '>' || d == '<') {
 	    peekfd = c - '0';
 	    c = d;
 	} else {
@@ -426,7 +677,7 @@ gettok(void)
 
     /* chars in initial position in word */
 
-    if (c == hashchar &&
+    if (c == hashchar && !nocomments &&
 	(isset(INTERACTIVECOMMENTS) ||
 	 (!zleparse && !expanding &&
 	  (!interact || unset(SHINSTDIN) || strin)))) {
@@ -461,12 +712,13 @@ gettok(void)
 	return NEWLIN;
     case LX1_SEMI:
 	d = hgetc();
-	if (d != ';') {
-	    hungetc(d);
-	    lexstop = 0;
-	    return SEMI;
-	}
-	return DSEMI;
+	if(d == ';')
+	    return DSEMI;
+	else if(d == '&')
+	    return SEMIAMP;
+	hungetc(d);
+	lexstop = 0;
+	return SEMI;
     case LX1_AMPER:
 	d = hgetc();
 	if (d == '&')
@@ -474,6 +726,7 @@ gettok(void)
 	else if (d == '!' || d == '|')
 	    return AMPERBANG;
 	else if (d == '>') {
+	    tokfd = peekfd;
 	    d = hgetc();
 	    if (d == '!' || d == '|')
 		return OUTANGAMPBANG;
@@ -487,7 +740,6 @@ gettok(void)
 	    }
 	    hungetc(d);
 	    lexstop = 0;
-	    tokfd = -1;
 	    return AMPOUTANG;
 	}
 	hungetc(d);
@@ -504,10 +756,16 @@ gettok(void)
 	return BAR;
     case LX1_INPAR:
 	d = hgetc();
-	if (d == '(' && incmdpos) {
-	    len = 0;
-	    bptr = tokstr = (char *)ncalloc(bsiz = 256);
-	    return cmd_or_math(CS_MATH) ? DINPAR : INPAR;
+	if (d == '(') {
+	    if (infor) {
+		dbparens = 1;
+		return DINPAR;
+	    }
+	    if (incmdpos) {
+		len = 0;
+		bptr = tokstr = (char *) hcalloc(bsiz = 32);
+		return cmd_or_math(CS_MATH) ? DINPAR : INPAR;
+	    }
 	} else if (d == ')')
 	    return INOUTPAR;
 	hungetc(d);
@@ -522,41 +780,15 @@ gettok(void)
 	if (!incmdpos && d == '(') {
 	    hungetc(d);
 	    lexstop = 0;
+	    unpeekfd:
+	    if(peekfd != -1) {
+		hungetc(c);
+		c = '0' + peekfd;
+	    }
 	    break;
 	}
-	if (d == '>')
+	if (d == '>') {
 	    peek = INOUTANG;
-	else if (idigit(d) || d == '-') {
-	    int tbs = 256, n = 0, nc;
-	    char *tbuf, *tbp, *ntb;
-
-	    tbuf = tbp = (char *)zalloc(tbs);
-	    hungetc(d);
-
-	    while ((nc = hgetc()) && !lexstop) {
-		if (!idigit(nc) && nc != '-')
-		    break;
-		*tbp++ = (char)nc;
-		if (++n == tbs) {
-		    ntb = (char *)realloc(tbuf, tbs *= 2);
-		    tbp += ntb - tbuf;
-		    tbuf = ntb;
-		}
-	    }
-	    if (nc == '>' && !lexstop) {
-		hungetc(nc);
-		while (n--)
-		    hungetc(*--tbp);
-		zfree(tbuf, tbs);
-		break;
-	    }
-	    if (nc && !lexstop)
-		hungetc(nc);
-	    lexstop = 0;
-	    while (n--)
-		hungetc(*--tbp);
-	    zfree(tbuf, tbs);
-	    peek = INANG;
 	} else if (d == '<') {
 	    int e = hgetc();
 
@@ -573,12 +805,13 @@ gettok(void)
 		lexstop = 0;
 		peek = DINANG;
 	    }
-	} else if (d == '&')
+	} else if (d == '&') {
 	    peek = INANGAMP;
-	else {
-	    peek = INANG;
+	} else {
 	    hungetc(d);
-	    lexstop = 0;
+	    if(isnumglob())
+		goto unpeekfd;
+	    peek = INANG;
 	}
 	tokfd = peekfd;
 	return peek;
@@ -586,7 +819,7 @@ gettok(void)
 	d = hgetc();
 	if (d == '(') {
 	    hungetc(d);
-	    break;
+	    goto unpeekfd;
 	} else if (d == '&') {
 	    d = hgetc();
 	    if (d == '!' || d == '|')
@@ -639,7 +872,7 @@ gettok(void)
 }
 
 /**/
-int
+static int
 gettokstr(int c, int sub)
 {
     int bct = 0, pct = 0, brct = 0, fdpar = 0;
@@ -652,7 +885,7 @@ gettokstr(int c, int sub)
     peek = STRING;
     if (!sub) {
 	len = 0;
-	bptr = tokstr = (char *)ncalloc(bsiz = 256);
+	bptr = tokstr = (char *) hcalloc(bsiz = 32);
     }
     for (;;) {
 	int act;
@@ -748,27 +981,15 @@ gettokstr(int c, int sub)
 	    }
 	    break;
 	case LX2_INBRACK:
-	    add(c);
 	    if (!in_brace_param)
 		brct++;
-	    c = hgetc();
-	    if (c == '!' || c == '^') {
-		add(c);
-		c = hgetc();
-	    }
-	    if (c == ']')
-		break;
-	    if (lexstop)
-		goto brk;
-	    intpos = 0;
-	    continue;
+	    c = Inbrack;
+	    break;
 	case LX2_OUTBRACK:
 	    if (!in_brace_param)
 		brct--;
-	    if (brct < 0) {
+	    if (brct < 0)
 		brct = 0;
-		break;
-	    }
 	    c = Outbrack;
 	    break;
 	case LX2_INPAR:
@@ -871,29 +1092,27 @@ gettokstr(int c, int sub)
 	    if (isset(SHGLOB) && sub)
 		break;
 	    e = hgetc();
-	    if (!(idigit(e) || e == '-' || (e == '(' && intpos))) {
-		hungetc(e);
-		lexstop = 0;
-		if (in_brace_param || sub)
-		    break;
-		goto brk;
-	    }
-	    c = Inang;
-	    if (e == '(') {
-		add(c);
+	    if(e == '(' && intpos) {
+		add(Inang);
 		if (skipcomm()) {
 		    peek = LEXERR;
 		    goto brk;
 		}
 		c = Outpar;
-	    } else {
-		add(c);
-		c = e;
-		while (c != '>' && !lexstop)
-		    add(c), c = hgetc();
-		c = Outang;
+		break;
 	    }
-	    break;
+	    hungetc(e);
+	    if(isnumglob()) {
+		add(Inang);
+		while ((c = hgetc()) != '>')
+		    add(c);
+		c = Outang;
+		break;
+	    }
+	    lexstop = 0;
+	    if (in_brace_param || sub)
+		break;
+	    goto brk;
 	case LX2_EQUALS:
 	    if (intpos) {
 		e = hgetc();
@@ -947,13 +1166,20 @@ gettokstr(int c, int sub)
 	    if (lexstop)
 		goto brk;
 	    break;
-	case LX2_QUOTE:
+	case LX2_QUOTE: {
+	    int strquote = (len && bptr[-1] == String);
+
 	    add(Snull);
 	    cmdpush(CS_QUOTE);
 	    for (;;) {
 		STOPHIST
 		while ((c = hgetc()) != '\'' && !lexstop) {
-		    if (!sub && isset(CSHJUNKIEQUOTES) && c == '\n') {
+		    if (strquote && c == '\\') {
+			add(c);
+			c = hgetc();
+			if (lexstop)
+			    break;
+		    } else if (!sub && isset(CSHJUNKIEQUOTES) && c == '\n') {
 			if (bptr[-1] == '\\')
 			    bptr--, len--;
 			else
@@ -969,7 +1195,7 @@ gettokstr(int c, int sub)
 		    goto brk;
 		}
 		e = hgetc();
-		if (e != '\'' || unset(RCQUOTES))
+		if (e != '\'' || unset(RCQUOTES) || strquote)
 		    break;
 		add(c);
 	    }
@@ -978,6 +1204,7 @@ gettokstr(int c, int sub)
 	    lexstop = 0;
 	    c = Snull;
 	    break;
+	}
 	case LX2_DQUOTE:
 	    add(Dnull);
 	    cmdpush(CS_DQUOTE);
@@ -1057,10 +1284,8 @@ gettokstr(int c, int sub)
     return peek;
 }
 
-extern int addedx;
-
 /**/
-int
+static int
 dquote_parse(char endchar, int sub)
 {
     int pct = 0, brct = 0, bct = 0, intick = 0, err = 0;
@@ -1077,10 +1302,14 @@ dquote_parse(char endchar, int sub)
 	    c = hgetc();
 	    if (c != '\n') {
 		if (c == '$' || c == '\\' || (c == '}' && !intick && bct) ||
-		    c == endchar || c == '`')
+		    c == endchar || c == '`' ||
+		    (endchar == ']' && (c == '[' || c == ']' ||
+					c == '(' || c == ')' ||
+					c == '{' || c == '}' ||
+					(c == '"' && sub))))
 		    add(Bnull);
 		else {
-		    /* lexstop is implicitely handled here */
+		    /* lexstop is implicitly handled here */
 		    add('\\');
 		    goto cont;
 		}
@@ -1146,19 +1375,23 @@ dquote_parse(char endchar, int sub)
 		intick = 1, ALLOWHIST
 	    break;
 	case '(':
-	    pct++;
+	    if (!math || !bct)
+		pct++;
 	    break;
 	case ')':
-	    err = (!pct-- && math);
+	    if (!math || !bct)
+		err = (!pct-- && math);
 	    break;
 	case '[':
-	    brct++;
+	    if (!math || !bct)
+		brct++;
 	    break;
 	case ']':
-	    err = (!brct-- && math);
+	    if (!math || !bct)
+		err = (!brct-- && math);
 	    break;
 	case '"':
-	    if (intick || (!endchar && !bct))
+	    if (intick || ((endchar == ']' || !endchar) && !bct))
 		break;
 	    if (bct) {
 		add(Dnull);
@@ -1192,35 +1425,73 @@ dquote_parse(char endchar, int sub)
  * quotes.  This is usually called before singsub().          */
 
 /**/
-int
+mod_export int
 parsestr(char *s)
+{
+    int err;
+
+    if ((err = parsestrnoerr(s))) {
+	untokenize(s);
+	if (err > 32 && err < 127)
+	    zerr("parse error near `%c'", NULL, err);
+	else
+	    zerr("parse error", NULL, 0);
+    }
+    return err;
+}
+
+/**/
+mod_export int
+parsestrnoerr(char *s)
 {
     int l = strlen(s), err;
 
-    HEAPALLOC {
-	lexsave();
-	untokenize(s);
-	inpush(dupstring(s), 0, NULL);
-	strinbeg();
-	stophist = 2;
-	len = 0;
-	bptr = tokstr = s;
-	bsiz = l + 1;
-	err = dquote_parse('\0', 1);
-	*bptr = '\0';
-	strinend();
-	inpop();
-	DPUTS(cmdsp, "BUG: parsestr: cmdstack not empty.");
-	lexrestore();
-	if (err) {
-	    untokenize(s);
-	    if (err > 32 && err < 127)
-		zerr("parse error near `%c'", NULL, err);
-	    else
-		zerr("parse error", NULL, 0);
-	}
-    } LASTALLOC;
+    lexsave();
+    untokenize(s);
+    inpush(dupstring(s), 0, NULL);
+    strinbeg(0);
+    len = 0;
+    bptr = tokstr = s;
+    bsiz = l + 1;
+    err = dquote_parse('\0', 1);
+    *bptr = '\0';
+    strinend();
+    inpop();
+    DPUTS(cmdsp, "BUG: parsestr: cmdstack not empty.");
+    lexrestore();
     return err;
+}
+
+/**/
+mod_export char *
+parse_subscript(char *s, int sub)
+{
+    int l = strlen(s), err;
+    char *t;
+
+    if (!*s || *s == ']')
+	return 0;
+    lexsave();
+    untokenize(t = dupstring(s));
+    inpush(t, 0, NULL);
+    strinbeg(0);
+    len = 0;
+    bptr = tokstr = s;
+    bsiz = l + 1;
+    err = dquote_parse(']', sub);
+    if (err) {
+	err = *bptr;
+	*bptr = 0;
+	untokenize(s);
+	*bptr = err;
+	s = 0;
+    } else
+	s = bptr;
+    strinend();
+    inpop();
+    DPUTS(cmdsp, "BUG: parse_subscript: cmdstack not empty.");
+    lexrestore();
+    return s;
 }
 
 /* Tokenize a string given in s. Parsing is done as if s were a normal *
@@ -1228,18 +1499,17 @@ parsestr(char *s)
  * to parse the right-hand side of ${...%...} substitutions.           */
 
 /**/
-int
+mod_export int
 parse_subst_string(char *s)
 {
-    int c, l = strlen(s), err;
+    int c, l = strlen(s), err, olen;
 
     if (! *s)
 	return 0;
     lexsave();
     untokenize(s);
     inpush(dupstring(s), 0, NULL);
-    strinbeg();
-    stophist = 2;
+    strinbeg(0);
     len = 0;
     bptr = tokstr = s;
     bsiz = l + 1;
@@ -1249,6 +1519,7 @@ parse_subst_string(char *s)
     strinend();
     inpop();
     DPUTS(cmdsp, "BUG: parse_subst_string: cmdstack not empty.");
+    olen = len;
     lexrestore();
     errflag = err;
     if (c == LEXERR) {
@@ -1256,15 +1527,28 @@ parse_subst_string(char *s)
 	return 1;
     }
 #ifdef DEBUG
-    if (c != STRING || len != l || errflag) {
+    if (c != STRING || olen != l || errflag) {
 	fprintf(stderr, "Oops. Bug in parse_subst_string: %s\n",
-		len < l ? "len < l" : errflag ? "errflag" : "c != STRING");
+		olen < l ? "len < l" : errflag ? "errflag" : "c != STRING");
 	fflush(stderr);
 	untokenize(s);
 	return 1;
     }
 #endif
     return 0;
+}
+
+/* Called below to report word positions. */
+
+/**/
+mod_export void
+gotword(void)
+{
+    we = ll + 1 - inbufct + (addedx == 2 ? 1 : 0);
+    if (cs <= we) {
+	wb = ll - wordbeg + addedx;
+	zleparse = 0;
+    }
 }
 
 /* expand aliases and reserved words */
@@ -1284,62 +1568,70 @@ exalias(void)
 
     if (!tokstr) {
 	yytext = tokstrings[tok];
-	if (yytext)
-	    yytext = dupstring(yytext);
+
 	return 0;
-    }
+    } else {
+	VARARR(char, copy, (strlen(tokstr) + 1));
 
-    if (has_token(tokstr)) {
-	char *p, *t;
+	if (has_token(tokstr)) {
+	    char *p, *t;
 
-	yytext = p = ncalloc(strlen(tokstr) + 1);
-	for (t = tokstr; (*p++ = itok(*t) ? ztokens[*t++ - Pound] : *t++););
-    } else
-	yytext = tokstr;
+	    yytext = p = copy;
+	    for (t = tokstr;
+		 (*p++ = itok(*t) ? ztokens[*t++ - Pound] : *t++););
+	} else
+	    yytext = tokstr;
 
-    if (zleparse && !(inbufflags & INP_ALIAS)) {
-	int zp = zleparse;
+	if (zleparse && !(inbufflags & INP_ALIAS)) {
+	    int zp = zleparse;
 
-	gotword();
-	if (zp == 1 && !zleparse) {
-	    return 0;
-	}
-    }
-
-    if (tok == STRING) {
-	/* Check for an alias */
-	an = noaliases ? NULL : (Alias) aliastab->getnode(aliastab, yytext);
-	if (an && !an->inuse && ((an->flags & ALIAS_GLOBAL) || incmdpos ||
-	     inalmore)) {
-	    inpush(an->text, INP_ALIAS, an);
-	    /* remove from history if it begins with space */
-	    if (isset(HISTIGNORESPACE) && an->text[0] == ' ')
-		remhist();
-	    lexstop = 0;
-	    return 1;
+	    gotword();
+	    if (zp == 1 && !zleparse) {
+		if (yytext == copy)
+		    yytext = tokstr;
+		return 0;
+	    }
 	}
 
-	/* Then check for a reserved word */
-	if ((incmdpos ||
-	     (unset(IGNOREBRACES) && yytext[0] == '}' && !yytext[1])) &&
-	    (rw = (Reswd) reswdtab->getnode(reswdtab, yytext))) {
-	    tok = rw->token;
-	    if (tok == DINBRACK)
-		incond = 1;
-	} else if (incond && !strcmp(yytext, "]]")) {
-	    tok = DOUTBRACK;
-	    incond = 0;
-	} else if (incond && yytext[0] == '!' && !yytext[1])
-	    tok = BANG;
+	if (tok == STRING) {
+	    /* Check for an alias */
+	    an = (noaliases || unset(ALIASESOPT)) ? NULL :
+		(Alias) aliastab->getnode(aliastab, yytext);
+	    if (an && !an->inuse && ((an->flags & ALIAS_GLOBAL) || incmdpos ||
+				     inalmore)) {
+		inpush(an->text, INP_ALIAS, an);
+		if (an->text[0] == ' ')
+		    aliasspaceflag = 1;
+		lexstop = 0;
+		if (yytext == copy)
+		    yytext = tokstr;
+		return 1;
+	    }
+
+	    /* Then check for a reserved word */
+	    if ((incmdpos ||
+		 (unset(IGNOREBRACES) && yytext[0] == '}' && !yytext[1])) &&
+		(rw = (Reswd) reswdtab->getnode(reswdtab, yytext))) {
+		tok = rw->token;
+		if (tok == DINBRACK)
+		    incond = 1;
+	    } else if (incond && !strcmp(yytext, "]]")) {
+		tok = DOUTBRACK;
+		incond = 0;
+	    } else if (incond == 1 && yytext[0] == '!' && !yytext[1])
+		tok = BANG;
+	}
+	inalmore = 0;
+	if (yytext == copy)
+	    yytext = tokstr;
     }
-    inalmore = 0;
     return 0;
 }
 
 /* skip (...) */
 
 /**/
-int
+static int
 skipcomm(void)
 {
     int pct = 1, c;
@@ -1363,13 +1655,20 @@ skipcomm(void)
 	    add(c);
 	    c = hgetc();
 	    break;
-	case '\'':
+	case '\'': {
+	    int strquote = bptr[-1] == '$';
 	    add(c);
 	    STOPHIST
-	    while ((c = hgetc()) != '\'' && !lexstop)
+	    while ((c = hgetc()) != '\'' && !lexstop) {
+		if (c == '\\' && strquote) {
+		    add(c);
+		    c = hgetc();
+		}
 		add(c);
+	    }
 	    ALLOWHIST
 	    break;
+	}
 	case '\"':
 	    add(c);
 	    while ((c = hgetc()) != '\"' && !lexstop)

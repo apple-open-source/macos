@@ -1,0 +1,197 @@
+.\" $Id: mount_smbfs.8,v 1.3 2002/03/20 22:20:38 lindak Exp $
+.Dd Mar 10, 2000
+.Dt MOUNT_SMBFS 8
+.Os FreeBSD
+.Sh NAME
+.Nm mount_smbfs
+.Nd mounts a shared resource from an SMB file server
+.Sh SYNOPSIS
+.Nm mount_smbfs
+.\" ndef APPLE .Op Fl E Ar cs1:cs2
+.Op Fl I Ar host
+.\" ndef APPLE .Op Fl L Ar locale
+.Op Fl M Ar cmode[/smode]
+.Op Fl N
+.Op Fl O Ar cowner[:cgroup]/sowner[:sgroup]
+.Op Fl R Ar retrycount
+.Op Fl T Ar timeout
+.Op Fl U Ar user
+.Op Fl W Ar workgroup
+.\" ndef APPLE .Op Fl c Ar case
+.Op Fl d Ar mode
+.Op Fl f Ar mode
+.Op Fl g Ar gid
+.Op Fl h
+.Op Fl n Ar opt
+.Op Fl u Ar uid
+.\" //[workgroup;][user[:password]@]server[/share]
+.Pf // Oo Ar workgroup ;
+.Oc Ns Oo Ar user Ns Oo
+.Pf \: Ar password
+.Oc Ns @ Ns Oc Ar server Ns Oo
+.Pf / Ar share
+.Oc
+.Ar path
+.Sh DESCRIPTION
+The
+.Nm
+command mounts a share from a remote server using SMB/CIFS protocol.
+.Pp
+The options are:
+.Bl -tag -width indent
+.\" ndef APPLE .It Fl E Ar cs1:cs2
+.\" ndef APPLE Specifies local
+.\" ndef APPLE .Ar (cs1)
+.\" ndef APPLE and server's
+.\" ndef APPLE .Ar (cs2)
+.\" ndef APPLE character sets.
+.It Fl I Ar host
+Do not use NetBIOS name resolver and connect directly to
+.Ar host ,
+which can be either a valid DNS name or an IP address.
+.\" ndef APPLE .It Fl L Ar locale
+.\" ndef APPLE Use
+.\" ndef APPLE .Ar locale
+.\" ndef APPLE for lower/upper case conversion routines.
+.\" ndef APPLE Set the locale for case conversion.
+.\" ndef APPLE By default
+.\" ndef APPLE .Nm
+.\" ndef APPLE tries to use an environment variable
+.\" ndef APPLE .Ev LC_* 
+.\" ndef APPLE to determine it.
+.It Fl M Ar cmode[/smode]
+Assign access rights to the newly created connection.
+.It Fl N
+Do not ask for a password.
+At run time,
+.Nm
+reads the
+.Pa ~/.nsmbrc
+file for additional configuration parameters and a password.
+If no password is found the
+.Nm
+prompts for it.
+.It Fl O Ar cowner[:cgroup]/sowner[:sgroup]
+Assign owner/group attributes to the newly created connection.
+.\" ndef APPLE See
+.\" ndef APPLE .Xr nsmb 8
+.\" ndef APPLE for theory.
+.It Fl R Ar retrycount
+How many retries should be done before the SMB requester decides to drop
+the connection.
+.It Fl T Ar timeout
+Timeout in seconds for each request.
+.It Fl U Ar user
+Specifies the user name to be used in the authentication request.
+.It Fl W Ar workgroup
+Specifies the workgroup to be used in the authentication request.
+.\" ndef APPLE .It Fl c Ar case
+.\" ndef APPLE Set a
+.\" ndef APPLE .Ar case 
+.\" ndef APPLE option which affects name representation.
+.\" ndef APPLE .Ar case 
+.\" ndef APPLE can be one of the following:
+.\" ndef APPLE .Bl -tag -width "ValueXX"
+.\" ndef APPLE .It Em Value
+.\" ndef APPLE .Em Meaning
+.\" ndef APPLE .It l
+.\" ndef APPLE All existing file names converted to lower case. 
+.\" ndef APPLE Newly created file names are lower case.
+.\" ndef APPLE .It u
+.\" ndef APPLE All existing file names converted to upper case.
+.\" ndef APPLE Newly created file names are upper case.
+.\" ndef APPLE .El
+.It Fl f Ar mode , Fl d Ar mode
+Specify permissions that should be assigned to files and directories.
+The values must be specified as octal numbers.
+Default value for the file mode
+is taken from mount point, default value for the dir mode adds execute
+permission where the file mode gives read permission.
+
+Note that these permissions can differ from the rights granted by SMB
+server. 
+.It Fl h
+Prints a help message, much like the SYNOPSIS above.
+.It Fl n Ar opt
+Set
+.Ar opt 
+option to affect file name lookups.
+.Ar opt 
+can be one of the following:
+.Bl -tag -width "ValueXX"
+.It Em Value
+.Em Meaning
+.It long
+No long names.  Server supports only "8.3" format.
+.El
+.It Fl u Ar uid , Fl g Ar gid
+User id and group id assigned to files.
+The default is owner and group id from
+directory where the volume is mounted.
+.\" //[workgroup;][user[:password]@]server[/share]
+.It Xo
+.Pf // Oo Ar workgroup ;
+.Oc Ns Oo Ar user Ns Oo
+.Pf \: Ar password
+.Oc Ns @ Ns Oc Ar server Ns Oo
+.Pf / Ar share
+.Oc
+.Xc
+The
+.Nm
+command will use
+.Ar server
+as the NetBIOS name of remote computer,
+.Ar user
+as the remote user name and
+.Ar share
+as the resource name on a remote server.
+.Ar Workgroup
+and/or
+.Ar password
+may be specified here.  If
+.Ar user
+is omitted the logged in user id will be used.  Omitting
+.Ar share
+is an error when
+.Nm
+is run from the command line, otherwise a browsing dialogue is presented.
+.It Ar path
+Path to mount point.
+.El
+.Sh FILES
+.Bl -tag -width /var/log/wtmp -compact
+.It Pa ~/.nsmbrc
+Keeps static parameters for connections and other information.
+See
+.Pa ./examples/dot.nsmbrc
+for details.
+.El
+
+.Sh EXAMPLES
+The following illustrate how to connect to an SMB server
+.Em SAMBA
+as user
+.Em GUEST
+to mount
+.Em PUBLIC:
+.\" ndef APPLE and
+.\" ndef APPLE .Em TMP :
+.Bd -literal -offset indent
+mount_smbfs -I samba.mydomain.com //guest@samba/public /smb/public
+.\" ndef APPLE mount_smbfs -I 192.168.20.3 -E koi8-r:cp866 //guest@samba/tmp /smb/tmp
+.Ed
+.\" ndef APPLE .Pp
+.\" ndef APPLE It is possible to use
+.\" ndef APPLE .Xr fstab 5
+.\" ndef APPLE for smbfs mounts:
+.\" ndef APPLE .Bd -literal -offset indent
+.\" ndef APPLE //guest@samba/public    /smb/public     smbfs  rw,noauto 0   0
+.\" ndef APPLE .Ed
+
+.Sh BUGS
+Please report bugs to Apple.
+
+.Sh AUTHORS
+.An Boris Popov Aq bp@butya.kz ,
+.Aq bp@freebsd.org

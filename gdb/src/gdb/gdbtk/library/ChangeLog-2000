@@ -1,0 +1,409 @@
+2000-12-13  Fernando Nasser  <fnasser@redhat.com>
+
+	* variables.tcl (constructor): Use the  file_changed_hook to remove
+	all variables if the exec file changes.  This prevents the Watch
+	Window to dump core because the "types" are not valid anymore.
+
+2000-12-13  Fernando Nasser  <fnasser@redhat.com>
+
+	* session.tcl (session_save): Save target name.
+	(session_load): Restore target name.
+
+2000-12-08  Tom Tromey  <tromey@redhat.com>
+
+	* managedwin.itb (ManagedWin::startup): Only open source window
+	if it doesn't already exist.
+
+	* toolbar.tcl (create_help_menu): Remove `Cygnus' item.
+
+	* console.itb (Console::invoke): Trim trailing newlines from
+	text.
+
+2000-12-07  Tom Tromey  <tromey@redhat.com>
+
+	* managedwin.itb (ManagedWin::reveal): Don't set focus.
+
+	* tclIndex: Rebuilt.
+	* interface.tcl (set_exe_name): Save session.
+	(gdbtk_quit_check): Save session.
+	* session.tcl: New file.
+	* srcbar.tcl (create_menu_items): Add menu items to recall old
+	sessions.
+
+	* bpwin.itb (BpWin::goto_bp): Handle multiple source windows.
+	* srctextwin.itb (SrcTextWin::get_file): New method.
+	(SrcTextWin::set_tag_to_stack): New method.
+	* srctextwin.ith (get_file): Declare.
+	* srcwin.ith (update_hook_init, window_list, pc_window): New
+	common variables.
+	(_choose_window, choose_and_update, is_fixed, get_file): Declare.
+	* srcwin.itb (SrcWin::_choose_window): New method.
+	(SrcWin::choose_and_update): Likewise.
+	(SrcWin::_update): Renamed from update.  Now private.  Added `loc'
+	argument.
+	(SrcWin::get_file): New method.
+	(SrcWin::is_fixed): Likewise.
+	(SrcWin::constructor): Only add update hook once.  Append this
+	object to window list.
+	(SrcWin::destructor): Don't add update hook.  Remove this object
+	from window list.  Clear pc_window if necessary.
+	(SrcWin::get_top): New method.
+	(SrcWin::_set_tag_to_stack): New method.
+	(SrcWin::choose_and_display): New method.
+
+	* srctextwin.itb (SrcTextWin::do_source_popup): Added "Set
+	Breakpoint" to popup menu.
+
+	* srcwin.itb (SrcWin::edit): Use uplevel, not eval, to evaluate
+	external editor expression.
+
+2000-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* targetselection.itb (TargetSelection::build_win): Add option to
+	start xterm.
+	* interface.tcl (run_executable): Call tty::create if requested.
+	* tty.tcl: New file.
+
+2000-12-02  Tom Tromey  <tromey@redhat.com>
+
+	* console.ith (_set_wrap): Declare.
+	(_update_option): Likewise.
+	* console.itb (Console::constructor): Install preference hooks
+	(commented out pending a bug fix).
+	(Console::destructor): Remove preference hooks.
+	(Console::_set_wrap): New method.
+	(Console::_update_option): New method.
+	(Console::_build_win): Use _set_wrap.
+
+2000-12-01  Larry Smith <lsmith@redhat.com>
+
+        * console.itb (invoke): Added logic to allow user to build
+        up multiline "tk" commands based on results from checking
+        command with [info complete $cmd]s.
+
+2000-11-30  Tom Tromey  <tromey@cygnus.com>
+
+	* srctextwin.ith (enable_disable_at_line): Declare.
+	* srctextwin.itb (SrcTextWin::build_popups): Create popup for
+	disabled breakpoint.  Add "disable" to breakpoint menu.
+	(enable_disable_at_line): New method.
+	(SrcTextWin::do_bp): Don't remove the tag we are adding -- remove
+	the "opposite" tag.
+
+2000-11-30  Tom Tromey  <tromey@cygnus.com>
+
+	* prefs.tcl (pref_save): Put version number into file.  Added
+	`session' to list of top-level keys.  Allow keys with many `/'s.
+	(pref_read): Recognize version number.
+	(escape_value): Generate URL-style encoding.
+	(unescape_value): Added `version' argument.  Handle URL decoding.
+
+2000-11-29  Larry Smith <lsmith@redhat.com>
+
+        * regwin.itb (build_win,but3): Added "Double" menu entry to
+        permit selection of "f" format for register display.
+
+2000-11-06  Fernando Nasser  <fnasser@cygnus.com>
+
+	* interface.tcl (show_warning): Add missing argument to ide_messageBox
+	and add comments explaining why we use it for windows.
+
+2000-11-01  Larry Smith  <lsmith@redhat.com>
+
+        * console.itb (_build_win): Added code to remove horizontal
+        scrollbar by setting -hscrollmode none, which enables the
+        console widget to wrap text properly.
+        * globalpref.itb (build_win): added checkbutton to enable
+        wrapping text in the console window.
+
+2000-10-31  Larry Smith  <lsmith@redhat.com>
+
+        * targetselection.ith (run_method): Add variable for
+        "Run Program" and "Continue..." buttons
+        * targetselection.itb (build_win): put "Run Program" and
+        "Continue From..." buttons into a frame and save them in new
+        run_method variable.
+        * change targetselection.itb (change_target) disables "Run
+        Program" and "Continue..." buttons when the target is "exec",
+        enables them for all others.
+
+2000-10-26  Larry Smith  <lsmith@redhat.com>
+
+        * targetselection.itb: Run Program and Continue From Last Stop
+        are now radio buttons rather than checkbuttons
+
+2000-10-26  Mo DeJong  <mdejong@redhat.com>
+
+	* attachdlg.itb (list_pids): Use "ps axw" to get pid list
+	when running under Linux. Use string match instead of
+	regexp match is ps filter entry.
+	* attachdlg.ith (list_pids): Change default argument to "*".
+
+2000-10-23  Fernando Nasser  <fnasser@cygnus.com>
+
+	* util.tcl (find_iwidgets_library): Use the directories that were
+	actually searched in the error message.
+
+2000-10-13  Fernando Nasser  <fnasser@cygnus.com>
+
+	With Steven Johnson <sbjohnson@ozemail.com.au>
+	This change fixes part of the possible scenarios where a race condition
+	would cause core dumps if there were commands changing registers or
+	other target resources in a startup script.
+	The remaining scenarios are fixed by a patch to generic/gdbtk-hooks.c
+	* interface.tcl (gdbtk_update_safe): New function. Like gdbtk_update
+	but does nothing if target is running.
+	(gdbtk_register_changed): Call the above safe version.
+	(gdbtk_memory_changed): Likewise.
+
+2000-10-11  Fernando Nasser  <fnasser@cygnus.com>
+
+	* srctextwin.itb (build_popups): Fix typos that caused duplicate
+	"Jump to Here" menu entries in the breakpoint-set right-click pop-up
+	menu.
+
+2000-10-04  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* download.itb (download_it): Fix previous changes for non-windows
+	hosts.
+	* srctextwin.itb (LoadFromCache): Ditto.
+
+2000-10-04  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* download.itb (download_it): Convert filename to native before
+	passing it to a Tcl command.
+	* srctextwin.itb (_mtime_changed): Ditto.
+	(LoadFromCache): Ditto.
+
+2000-09-18  Fernando Nasser  <fnasser@cygnus.com>
+
+	* watch.tcl (build_win): Use code when setting callback.
+
+2000-08-10  Fernando Nasser  <fnasser@cygnus.com>
+
+	* targetselection.itb (change_baud): Fix typo (ETH, not ETX).
+
+2000-08-10  Fernando Nasser  <fnasser@cygnus.com>
+
+	* targetselection.itb (init_target_db): Add 115200 baud option to
+	target remote.
+
+2000-08-10  Fernando Nasser  <fnasser@cygnus.com>
+
+	* targetselection.itb (change_baud): Don't set baud for ETX.
+
+2000-08-10  Fernando Nasser  <fnasser@cygnus.com>
+
+	* srctextwin.itb (jump_to_here): New method. Implements the
+	"Jump to Here" popup menu option.
+	(build_popups): Add the "Jump to Here" option to the popup menu.
+	* srctextwin.ith: Add declaration of jump_to_here().
+
+2000-08-09  Fernando Nasser  <fnasser@cygnus.com>
+
+	* srctextwin.itb (FillSource): Add comments.
+	* srcwin.itb (set_execution_status): Fix typo in SRC+ASM message.
+	It is gdb_cmd, not gb_cmd.
+
+2000-08-08  Fernando Nasser  <fnasser@cygnus.com>
+
+	* srctextwin.itb (LoadFromCache): Do not cache if cannot stat the file.
+	This lead to problems trying to access a incomplete cache entry later.
+
+2000-06-06  Fernando Nasser  <fnasser@cygnus.com>
+
+        * util.tcl (find_iwidgets_library): Add missing global declaration
+        which caused a stack trace instead of the proper error message.
+
+2000-05-04  Fernando Nasser  <fnasser@cygnus.com>
+
+	* regwin.itb (build_win, update): Safer test for editable.
+
+2000-05-01  Fernando Nasser  <fnasser@cygnus.com>
+
+        * variables.tcl (edit): Make changes to a variable which is a register
+        to be reflected on the register window by running the update hook.
+
+2000-05-01  Fernando Nasser  <fnasser@cygnus.com>
+
+	* regwin.itb (build_win): Adjust size of columns independently, force
+	typed registers to raw mode and check if values can be edited.
+	Also, add "Add to Watch" option to the menu.
+	(update): Similar changes to similar code.
+	(init_reg_display_vars): Initialize new variables used above.
+	(reg_select): Deactivate menu options when action is not possible.
+	(but3): Ditto.
+	(edit): Do not edit if it is not editable.
+	(acceptEdit): Fix bug is error message box display.
+	(addToWatch): New mwthod.  Add a register to the Watch window.
+	* regwin.ith: Add addToWatch to the class.
+	* tclIndex: Regenerate.
+
+2000-04-27  James Ingham  <jingham@leda.cygnus.com>
+
+	These changes allow Insight to handle the case where there are
+	symbols for the source files, but the source files are not in the
+	location pointed to by the symbol.
+	
+	* srctextwin.itb (SrcTextWin::setTabs): Make the "asm" type for
+	the source display "S" not "", which is not very clear.
+        (SrcTextWin::configWin): ditto.
+	(SrcTextWin::FillAssembly): Handle all return values from
+	LoadFromCache.
+	* (SrcTextWin::LoadFile): Handle "couldn't find file" return from
+	LoadFromCache.
+	* (SrcTextWin::LoadFromCache): If the source file could not be
+	found, return -1 rather than choking.
+	Also change "asm" type for source from "" to "S".
+	* srctextwin.ith: Change the defaults for the "asm" type from ""
+	to "S" for Source display.  This is just cosmetic, but clearer.
+	
+2000-04-13  Tom Tromey  <tromey@cygnus.com>
+
+	* console.itb (Console::_complete): Dequoted first argument to
+	switch.  Window name is `$_twin', not `_twin'.
+
+2000-04-10  Tom Tromey  <tromey@cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::build_popups): Don't set actibe
+	background on popup menu item.
+
+2000-04-08  Tom Tromey  <tromey@cygnus.com>
+
+	* console.itb (Console::_build_win): Make Control-a, Control-u,
+	and Control-w bindings show the insertion point.
+
+2000-04-05  James Ingham  <jingham@leda.cygnus.com>
+
+	* regwin.itb (RegWin::build_win): Enable the "Display all
+	registers" menu at startup if any registers have been removed. 
+	(RegWin::save_reg_display_vars): Handle cases where the register
+	set is not contiguous.
+	(RegWin::destructor): Actually save away the removed registers.
+	The latter two are Steve Johnson's change.
+
+	* regwin.ith (RegWin): Added "all_regs_shown" and
+	"disp_all_menu_item" to handle tracking whether any registers have 
+	been removed from the display.
+	
+
+2000-04-03  Steve Johnson  <sbjohnson@ozemail.com.au>
+
+	* regwin.itb (dimensions): Use rows from preference file rather
+	than hard-coding a preference.
+	* prefs.tcl (pref_set_defaults): Add gdb/reg/rows preference.
+
+2000-04-03  James Ingham  <jingham@leda.cygnus.com>
+
+	* util.tcl (find_iwidgets_library): Follow links in determining
+	the location of the executable.
+
+2000-03-30  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* variables.tcl (edit): Remove call to close, which caused editing
+	of variables to fail.
+	Note: I don't know why we would need to do this here as it seems
+	that the "delete entry" operation will do that.
+	Perhaps this was to account to some old widget bug.
+	But we cannot call close here because it calls UnEdit,
+	which unsets some of the edit state.
+        (open): Make sure to abort any ongoing edit.  This was causing problems
+	when someone tried to expand an structure while editing its pointer.
+
+2000-03-28  James Ingham  <jingham@leda.cygnus.com>
+
+	* managedwin.itb (ManagedWin::startup): Open the SrcWin, this does 
+	two things, 1) Makes sure that there IS a SrcWin, and 2) brings
+	the first such window to the foreground...
+
+2000-03-28  Jim Blandy  <jimb@redhat.com>
+
+	Handle the fact that there are holes in the register numbering.
+	* regwin.itb (RegWin::init_reg_display_vars): Ask gdb_regnames to
+ 	provide the register numbers, too; don't just assume that the Nth
+ 	element is register N.
+
+2000-03-27  James Ingham  <jingham@leda.cygnus.com>
+
+	* interface.tcl (gdbtk_quit): Let the window manager store away
+	the list of active windows before quitting.
+	(gdbtk_tcl_preloop): Open all the windows that were active in the
+	former session.
+	* prefs.tcl (pref_set_defaults): Set the default value of the
+	"gdb/window/active" pref.  Stores the list of active windows.
+	* managedwin.itb (ManagedWin::pickle): New method - store away
+	instructions to recreate this window.
+	(ManagedWin::shutdown): New Method - run through the active windows
+	pickling them all.
+	(ManagedWin::startup): Restore all the saved active windows.
+	* managedwin.ith: Declare pickle, shutdown & startup.
+	* tclIndex: regenerate.
+
+2000-03-10  James Ingham  <jingham@leda.cygnus.com>
+
+	* targetselection.ith (get_target_list): Should be a proc, since
+	it does nothing instance-specific.
+
+	* util.tcl (keep_raised): For some reason raising a window, then
+	deiconifying it is MUCH faster on "e" & WindowMaker under XFree.  
+	Go figure.  Other WM's don't seem to care, so do it this way...
+	* managedwin.itb (ManagedWin::reveal): Ditto...
+
+2000-03-10  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* srcbar.tcl (do_attach): Just call gdbtk_attach_native.
+        (do_connect): Replace gdbtk_attach_target call with
+        gdbtk_attach_remote call.
+
+	* interface.tcl (gdbtk_attach_native): Renamed from do_attach method
+        and moved from srcbar.tcl.
+        (gdbtk_attach_remote): New proc. Renamed from gdb_attach_target, 
+	to better distinguish from the native version.
+        (run_executable): Change gdbtk_attach_target call into
+        gdbtk_attach_remote.
+
+        * srctextwin.itb: Add keyboard accelerator for Attach command.
+
+        * tclIndex: Rebuild.
+
+2000-03-09  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	From: James Ingham <jingham@leda.cygnus.com>: 
+	* attachdlg.itb (build_win): Pack the dialog better, so that when
+ 	window is resized components are not hidden.
+
+2000-03-02  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+        * attachdlg.itb: Give a name to the window.
+
+2000-03-01  James Ingham  <jingham@leda.cygnus.com>
+
+	* interface.tcl (_open_file): The window which had the focus could 
+	get deleted by the vwait implicit in the tk_getOpenFile call.  So
+	check and make sure it is still around before raising it...
+
+2000-02-23  Keith R Seitz  <kseitz@nwlink.com>
+
+        * srctextwin.ith (_highlightAsmLine): Define new method.
+        * srctextwin.itb (_highlightAsmLine): New method.
+        (FillAssembly, FillMixed): Use _highlightAsmLine to highlight
+        the current assembly line.	
+
+Fri Feb  4 23:19:03 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb/gdbtcl2: Directory renamed to gdb/gdbtk/library.
+	
+2000-01-12  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* targetselection.itb (init_target_db): Add the word "serial" to
+	the Angel target to make the distinction clear from the UDP connection.
+
+2000-01-05  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	From Dave Vogel (dave@lightsurf.com):
+	* targetselection.itb (init_target_db, config_dialog): Add support
+	for selecting a target running the Angel monitor (RDI protocol)
+	over an UDP connection.
+	* interface.tcl (set_target_name): Set hostname when target is RDI
+	over UDP (see previous entry).
+

@@ -60,18 +60,27 @@ KeyImpl::deleteKey(const CSSM_ACCESS_CREDENTIALS *cred)
 	}
 }
 
+CssmKeySize
+KeyImpl::sizeInBits() const
+{
+    CssmKeySize size;
+    check(CSSM_QueryKeySizeInBits(csp()->handle(), NULL, this, &size));
+    return size;
+}
+
 void
-KeyImpl::getAcl(const char *selectionTag, AutoAclEntryInfoList &aclInfos) const
+KeyImpl::getAcl(AutoAclEntryInfoList &aclInfos, const char *selectionTag) const
 {
 	aclInfos.allocator(allocator());
 	check(CSSM_GetKeyAcl(csp()->handle(), this, reinterpret_cast<const CSSM_STRING *>(selectionTag), aclInfos, aclInfos));
 }
 
 void
-KeyImpl::changeAcl(const CSSM_ACCESS_CREDENTIALS *accessCred,
-				   const CSSM_ACL_EDIT &aclEdit)
+KeyImpl::changeAcl(const CSSM_ACL_EDIT &aclEdit,
+	const CSSM_ACCESS_CREDENTIALS *accessCred)
 {
-	check(CSSM_ChangeKeyAcl(csp()->handle(), accessCred, &aclEdit, this));
+	check(CSSM_ChangeKeyAcl(csp()->handle(),
+		AccessCredentials::needed(accessCred), &aclEdit, this));
 }
 
 void
@@ -82,10 +91,11 @@ KeyImpl::getOwner(AutoAclOwnerPrototype &owner) const
 }
 
 void
-KeyImpl::changeOwner(const CSSM_ACCESS_CREDENTIALS *accessCred,
-					 const CSSM_ACL_OWNER_PROTOTYPE &newOwner)
+KeyImpl::changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
+	const CSSM_ACCESS_CREDENTIALS *accessCred)
 {
-	check(CSSM_ChangeKeyOwner(csp()->handle(), accessCred, this, &newOwner));
+	check(CSSM_ChangeKeyOwner(csp()->handle(),
+		AccessCredentials::needed(accessCred), this, &newOwner));
 }
 
 void KeyImpl::activate()

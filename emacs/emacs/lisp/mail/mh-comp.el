@@ -1,9 +1,13 @@
-;;; mh-comp --- mh-e functions for composing messages
-;; Time-stamp: <95/08/19 17:48:59 gildea>
+;;; mh-comp.el --- mh-e functions for composing messages
+;; Time-stamp: <2001-07-15 09:36:30 pavel>
 
-;; Copyright (C) 1993, 1995, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1993,1995,1997,2000  Free Software Foundation, Inc.
 
-;; This file is part of mh-e, part of GNU Emacs.
+;; Maintainer: Bill Wohler <wohler@newt.com>
+;; Keywords: mail
+;; Bug-reports: include `M-x mh-version' output in any correspondence
+
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,7 +30,7 @@
 
 ;;; Change Log:
 
-;; $Id: mh-comp.el,v 1.1.1.3 2000/06/30 17:52:39 wsanchez Exp $
+;; $Id: mh-comp.el,v 1.1.1.4 2001/10/31 17:57:15 jevans Exp $
 
 ;;; Code:
 
@@ -164,7 +168,7 @@ MH lib directory.")
 (defcustom mh-compose-letter-function nil
   "Invoked when setting up a letter draft.
 It is passed three arguments: TO recipients, SUBJECT, and CC recipients."
-  :type 'function
+  :type '(choice (const nil) function)
   :group 'mh-compose)
 
 (defcustom mh-before-send-letter-hook nil
@@ -233,7 +237,7 @@ that want to create a mail buffer.
 Users should use `\\[mh-smail]' to compose mail."
   (mh-find-path)
   (let ((mh-error-if-no-draft t))
-    (mh-send (or to "") "" subject)))
+    (mh-send (or to "") "" (or subject ""))))
 
 
 (defun mh-edit-again (msg)
@@ -307,23 +311,27 @@ See also documentation for `\\[mh-send]' function."
 			 (mh-insert-fields "To:" to "Cc:" cc)
 			 (save-buffer)))
 		      (t
-		       (mh-read-draft "" draft-name nil)))))
+		       (mh-read-draft "" draft-name nil))))
+	 (fwd-msg-file (mh-msg-filename (if (numberp msg-or-seq)
+					    msg-or-seq
+					  (car (mh-seq-to-msgs msg-or-seq)))
+					folder)))
     (let (orig-from
 	  orig-subject)
-      (goto-char (point-min))
-      (re-search-forward "^------- Forwarded Message")
-      (forward-line 1)
-      (skip-chars-forward " \t\n")
-      (save-restriction
-	(narrow-to-region (point) (point-max))
+      (save-excursion
+	(set-buffer (get-buffer-create mh-temp-buffer))
+	(erase-buffer)
+	(insert-file-contents fwd-msg-file)
 	(setq orig-from (mh-get-header-field "From:"))
 	(setq orig-subject (mh-get-header-field "Subject:")))
       (let ((forw-subject
 	     (mh-forwarded-letter-subject orig-from orig-subject)))
 	(mh-insert-fields "Subject:" forw-subject)
 	(goto-char (point-min))
-	(re-search-forward "^------- Forwarded Message")
-	(forward-line -1)
+	(if (re-search-forward "^------- Forwarded Message" nil t)
+	    (forward-line -1)
+	  (re-search-forward "^--------")
+	  (forward-line 1))
 	(delete-other-windows)
 	(if (numberp msg-or-seq)
 	    (mh-add-msgs-to-seq msg-or-seq 'forwarded t)
@@ -511,6 +519,12 @@ See also documentation for `\\[mh-send]' function."
 		       (setq components
 			     (expand-file-name mh-comp-formfile mh-lib)))
 		      components)
+		     ((file-exists-p
+		       (setq components
+			     (expand-file-name mh-comp-formfile
+					       ;; What is this mh-etc ??  -sm
+					       (and (boundp 'mh-etc) mh-etc))))
+		      components)
 		     (t
 		      (error (format "Can't find components file \"%s\""
 				     components)))))
@@ -562,7 +576,7 @@ See also documentation for `\\[mh-send]' function."
 		  (if (y-or-n-p
 			(format "A draft exists.  Use for %s? " use))
 		      (if mh-error-if-no-draft
-			  (error "A prior draft exists."))
+			  (error "A prior draft exists"))
 		    t)))
 	 (erase-buffer)
 	 (insert-file-contents initial-contents)
@@ -683,7 +697,7 @@ See also documentation for `\\[mh-send]' function."
 (put 'mh-letter-mode 'mode-class 'special)
 
 ;;;###autoload
-(defun mh-letter-mode ()
+(define-derived-mode mh-letter-mode text-mode "MH-Letter"
   "Mode for composing letters in mh-e.\\<mh-letter-mode-map>
 When you have finished composing, type \\[mh-send-letter] to send the message
 using the MH mail handling system.
@@ -712,8 +726,6 @@ Variables controlling this mode (defaults in parentheses):
     File to be inserted into message by \\[mh-insert-signature].
 
 This command runs the normal hooks `text-mode-hook' and `mh-letter-mode-hook'."
-
-  (interactive)
   (or mh-user-path (mh-find-path))
   (make-local-variable 'paragraph-start)
   (setq paragraph-start (concat "^[ \t]*[-_][-_][-_]+$\\|" paragraph-start))
@@ -728,19 +740,10 @@ This command runs the normal hooks `text-mode-hook' and `mh-letter-mode-hook'."
   (make-local-variable 'mh-sent-from-msg)
   (make-local-variable 'mail-header-separator)
   (setq mail-header-separator "--------") ;for Hyperbole
-  (use-local-map mh-letter-mode-map)
-  (setq major-mode 'mh-letter-mode)
-  (mh-set-mode-name "MH-Letter")
-  (set-syntax-table mh-letter-mode-syntax-table)
-  (run-hooks 'text-mode-hook)
   ;; if text-mode-hook turned on auto-fill, tune it for messages
-  (cond ((and (boundp 'auto-fill-hook) auto-fill-hook) ;emacs 18
-	 (make-local-variable 'auto-fill-hook)
-	 (setq auto-fill-hook 'mh-auto-fill-for-letter)))
-  (cond ((and (boundp 'auto-fill-function) auto-fill-function) ;emacs 19
-	 (make-local-variable 'auto-fill-function)
-	 (setq auto-fill-function 'mh-auto-fill-for-letter)))
-  (run-hooks 'mh-letter-mode-hook))
+  (when auto-fill-function
+    (make-local-variable 'auto-fill-function)
+    (setq auto-fill-function 'mh-auto-fill-for-letter)))
 
 
 (defun mh-auto-fill-for-letter ()
@@ -1003,10 +1006,9 @@ yanked message will be deleted."
 	 (run-hooks 'mh-yank-hooks))
 	(t
 	 (or (bolp) (forward-line 1))
-	 (let ((zmacs-regions nil))	;so "(mark)" works in XEmacs
-	   (while (< (point) (mark))
-	     (insert mh-ins-string)
-	     (forward-line 1))))))
+	 (while (< (point) (mark))
+	   (insert mh-ins-string)
+	   (forward-line 1)))))
 
 
 (defun mh-fully-kill-draft ()
@@ -1101,3 +1103,5 @@ various types of components in a message, see
 (autoload 'mh-revert-mhn-edit "mh-mime"
   "Undoes the effect of \\[mh-edit-mhn] by reverting to the backup file.
 Optional non-nil argument means don't ask for confirmation." t)
+
+;;; mh-comp.el ends here

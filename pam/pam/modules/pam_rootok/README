@@ -1,0 +1,18 @@
+# $Id: README,v 1.4 2002/03/27 02:36:36 bbraun Exp $
+#
+
+this module is an authentication module that performs one task: if the
+id of the user is '0' then it returns 'PAM_SUCCESS' with the
+'sufficient' /etc/pam.conf control flag it can be used to allow
+password free access to some service for 'root'
+
+Recognized arguments:
+
+	debug		write a message to syslog indicating success or
+			failure.
+
+module services provided:
+
+	auth		_authentication and _setcred (blank)
+
+Andrew Morgan

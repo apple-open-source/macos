@@ -77,6 +77,7 @@
 #define	AR_U	0x0800
 #define	AR_V	0x1000
 #define	AR_X	0x2000
+#define	AR_S	0x4000
 extern u_int options;
 
 /* Set up file copy. */

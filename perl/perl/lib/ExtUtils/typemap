@@ -1,4 +1,4 @@
-# $Header: /cvs/Darwin/Scripting/perl/perl/lib/ExtUtils/typemap,v 1.1.1.4 2000/03/31 05:11:54 wsanchez Exp $ 
+# $Header: /cvs/Darwin/src/live/perl/perl/lib/ExtUtils/typemap,v 1.2 2002/03/14 08:58:22 zarzycki Exp $ 
 # basic C types
 int			T_IV
 unsigned		T_UV

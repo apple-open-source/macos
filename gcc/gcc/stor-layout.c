@@ -311,13 +311,14 @@ layout_decl (decl, known_align)
 	  DECL_MODE (decl) = xmode;
 	  DECL_SIZE (decl) = size_int (GET_MODE_BITSIZE (xmode));
 	  /* This no longer needs to be accessed as a bit field.  */
-	  DECL_BIT_FIELD (decl) = 0;
+	  if (c_language < clk_objective_c)
+	    DECL_BIT_FIELD (decl) = 0;
 	}
     }
 
   /* Turn off DECL_BIT_FIELD if we won't need it set.  */
   if (DECL_BIT_FIELD (decl) && TYPE_MODE (type) == BLKmode
-      && known_align % TYPE_ALIGN (type) == 0
+      && (c_language < clk_objective_c) && known_align % TYPE_ALIGN (type) == 0
       && DECL_SIZE (decl) != 0
       && (TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
 	  || (TREE_INT_CST_LOW (DECL_SIZE (decl)) % BITS_PER_UNIT) == 0)

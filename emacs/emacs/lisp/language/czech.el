@@ -1,8 +1,9 @@
-;;; czech.el -- support for Czech -*- coding: iso-2022-7bit; -*-
+;;; czech.el --- support for Czech -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1998 Free Software Foundation.
+;; Copyright (C) 1998, 2001 Free Software Foundation.
 
-;; Maintainer: Milan Zamazal <pdm@fi.muni.cz>
+;; Author: Milan Zamazal <pdm@zamazal.org>
+;; Maintainer: Pavel Jan,Am(Bk <Pavel@Janik.cz>
 ;; Keywords: multilingual, Czech
 
 ;; This file is part of GNU Emacs.
@@ -28,11 +29,6 @@
 
 ;;; Code:
 
-(defun setup-czech-environment ()
-  "Setup multilingual environment (MULE) for Czech."
-  (interactive)
-  (set-language-environment "Latin-2"))
-
 (set-language-info-alist
  "Czech" '((charset . (ascii latin-iso8859-2))
 	   (coding-system . (iso-8859-2))
@@ -43,9 +39,12 @@
 	   (unibyte-display . iso-8859-2)
 	   (tutorial . "TUTORIAL.cs")
 	   (sample-text . "P,Bx(Bejeme v,Ba(Bm hezk,B}(B den!")
-	   (documentation . t))
+	   (documentation . "\
+This language environment is almost the same as Latin-2,
+but default input method is set to \"czech\",
+and select's the Czech tutorial."))
  '("European"))
 
 (provide 'czech)
 
-;; czech.el ends here
+;;; czech.el ends here

@@ -1,5 +1,6 @@
 /* Internal type definitions for GDB.
-   Copyright (C) 1992-1994, 1996, 1998-2000 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
    This file is part of GDB.
@@ -21,6 +22,9 @@
 
 #if !defined (GDBTYPES_H)
 #define GDBTYPES_H 1
+
+/* Forward declarations for prototypes.  */
+struct block;
 
 /* Codes for `fundamental types'.  This is a monstrosity based on the
    bogus notion that there are certain compiler-independent
@@ -138,24 +142,27 @@ enum type_code
 
 #define TYPE_CODE_CLASS TYPE_CODE_STRUCT
 
-/* Some bits for the type's flags word. */
+/* Some bits for the type's flags word, and macros to test them. */
 
 /* Unsigned integer type.  If this is not set for a TYPE_CODE_INT, the
    type is signed (unless TYPE_FLAG_NOSIGN (below) is set). */
 
 #define TYPE_FLAG_UNSIGNED	(1 << 0)
+#define TYPE_UNSIGNED(t)	((t)->flags & TYPE_FLAG_UNSIGNED)
 
 /* No sign for this type.  In C++, "char", "signed char", and "unsigned
    char" are distinct types; so we need an extra flag to indicate the
    absence of a sign! */
 
 #define TYPE_FLAG_NOSIGN	(1 << 1)
+#define TYPE_NOSIGN(t)		((t)->flags & TYPE_FLAG_NOSIGN)
 
 /* This appears in a type's flags word if it is a stub type (e.g., if
    someone referenced a type that wasn't defined in a source file
    via (struct sir_not_appearing_in_this_film *)).  */
 
 #define TYPE_FLAG_STUB		(1 << 2)
+#define TYPE_STUB(t)		((t)->flags & TYPE_FLAG_STUB)
 
 /* The target type of this type is a stub type, and this type needs to
    be updated if it gets un-stubbed in check_typedef.
@@ -163,7 +170,8 @@ enum type_code
    gets set based on the TYPE_LENGTH of the target type.
    Also, set for TYPE_CODE_TYPEDEF. */
 
-#define TYPE_FLAG_TARGET_STUB (1 << 3)
+#define TYPE_FLAG_TARGET_STUB	(1 << 3)
+#define TYPE_TARGET_STUB(t)	((t)->flags & TYPE_FLAG_TARGET_STUB)
 
 /* Static type.  If this is set, the corresponding type had 
  * a static modifier.
@@ -171,26 +179,30 @@ enum type_code
  * are indicated by other means (bitpos == -1)
  */
 
-#define TYPE_FLAG_STATIC (1 << 4)
+#define TYPE_FLAG_STATIC	(1 << 4)
+#define TYPE_STATIC(t)		((t)->flags & TYPE_FLAG_STATIC)
 
 /* Constant type.  If this is set, the corresponding type has a
  * const modifier.
  */
 
-#define TYPE_FLAG_CONST (1 << 5)
+#define TYPE_FLAG_CONST		(1 << 5)
+#define TYPE_CONST(t)		((t)->flags & TYPE_FLAG_CONST)
 
 /* Volatile type.  If this is set, the corresponding type has a
  * volatile modifier.
  */
 
-#define TYPE_FLAG_VOLATILE (1 << 6)
+#define TYPE_FLAG_VOLATILE	(1 << 6)
+#define TYPE_VOLATILE(t)	((t)->flags & TYPE_FLAG_VOLATILE)
 
 
 /* This is a function type which appears to have a prototype.  We need this
    for function calls in order to tell us if it's necessary to coerce the args,
    or to just do the standard conversions.  This is used with a short field. */
 
-#define TYPE_FLAG_PROTOTYPED (1 << 7)
+#define TYPE_FLAG_PROTOTYPED	(1 << 7)
+#define TYPE_PROTOTYPED(t)	((t)->flags & TYPE_FLAG_PROTOTYPED)
 
 /* This flag is used to indicate that processing for this type
    is incomplete.
@@ -200,8 +212,41 @@ enum type_code
    info; the incomplete type has to be marked so that the class and
    the method can be assigned correct types.) */
 
-#define TYPE_FLAG_INCOMPLETE (1 << 8)
+#define TYPE_FLAG_INCOMPLETE	(1 << 8)
+#define TYPE_INCOMPLETE(t)	((t)->flags & TYPE_FLAG_INCOMPLETE)
 
+/* Instruction-space delimited type.  This is for Harvard architectures
+   which have separate instruction and data address spaces (and perhaps
+   others).
+
+   GDB usually defines a flat address space that is a superset of the
+   architecture's two (or more) address spaces, but this is an extension
+   of the architecture's model.
+
+   If TYPE_FLAG_INST is set, an object of the corresponding type
+   resides in instruction memory, even if its address (in the extended
+   flat address space) does not reflect this.
+
+   Similarly, if TYPE_FLAG_DATA is set, then an object of the 
+   corresponding type resides in the data memory space, even if
+   this is not indicated by its (flat address space) address.
+
+   If neither flag is set, the default space for functions / methods
+   is instruction space, and for data objects is data memory.  */
+
+#define TYPE_FLAG_CODE_SPACE	(1 << 9)
+#define TYPE_CODE_SPACE(t)	((t)->flags & TYPE_FLAG_CODE_SPACE)
+
+#define TYPE_FLAG_DATA_SPACE	(1 << 10)
+#define TYPE_DATA_SPACE(t)	((t)->flags & TYPE_FLAG_DATA_SPACE)
+
+/* FIXME: Kludge to mark a varargs function type for C++ member
+   function argument processing.  Currently only used in dwarf2read.c,
+   but put it here so we won't accidentally overload the bit with
+   another flag.  */
+
+#define TYPE_FLAG_VARARGS	(1 << 11)
+#define TYPE_VARARGS(t)		((t)->flags & TYPE_FLAG_VARARGS)
 
 struct type
   {
@@ -230,17 +275,29 @@ struct type
 
     char *tag_name;
 
-    /* Length of storage for a value of this type.  Various places pass
-       this to memcpy and such, meaning it must be in units of
-       HOST_CHAR_BIT.  Various other places expect they can calculate
-       addresses by adding it and such, meaning it must be in units of
-       TARGET_CHAR_BIT.  For some DSP targets, in which HOST_CHAR_BIT
-       will (presumably) be 8 and TARGET_CHAR_BIT will be (say) 32, this
-       is a problem.  One fix would be to make this field in bits
-       (requiring that it always be a multiple of HOST_CHAR_BIT and
-       TARGET_CHAR_BIT)--the other choice would be to make it
-       consistently in units of HOST_CHAR_BIT.  */
+    /* Length of storage for a value of this type.  This is what
+       sizeof(type) would return; use it for address arithmetic,
+       memory reads and writes, etc.  This size includes padding.  For
+       example, an i386 extended-precision floating point value really
+       only occupies ten bytes, but most ABI's declare its size to be
+       12 bytes, to preserve alignment.  A `struct type' representing
+       such a floating-point type would have a `length' value of 12,
+       even though the last two bytes are unused.
 
+       There's a bit of a host/target mess here, if you're concerned
+       about machines whose bytes aren't eight bits long, or who don't
+       have byte-addressed memory.  Various places pass this to memcpy
+       and such, meaning it must be in units of host bytes.  Various
+       other places expect they can calculate addresses by adding it
+       and such, meaning it must be in units of target bytes.  For
+       some DSP targets, in which HOST_CHAR_BIT will (presumably) be 8
+       and TARGET_CHAR_BIT will be (say) 32, this is a problem.
+
+       One fix would be to make this field in bits (requiring that it
+       always be a multiple of HOST_CHAR_BIT and TARGET_CHAR_BIT) ---
+       the other choice would be to make it consistently in units of
+       HOST_CHAR_BIT.  However, this would still fail to address
+       machines based on a ternary or decimal representation.  */
     unsigned length;
 
     /* FIXME, these should probably be restricted to a Fortran-specific
@@ -294,6 +351,12 @@ struct type
        are chained together in a ring. */
     struct type *cv_type;
 
+    /* Address-space delimited variant chain.  This points to a type
+       that differs from this one only in an address-space qualifier
+       attribute.  The otherwise-identical address-space delimited 
+       types are chained together in a ring. */
+    struct type *as_type;
+
     /* Flags about this type.  */
 
     int flags;
@@ -320,17 +383,12 @@ struct type
 
     struct field
       {
-
-
-
 	union field_location
 	  {
 	    /* Position of this field, counting in bits from start of
 	       containing structure.
 	       For BITS_BIG_ENDIAN=1 targets, it is the bit offset to the MSB.
 	       For BITS_BIG_ENDIAN=0 targets, it is the bit offset to the LSB.
-	       For a function type, this is the position in the argument list
-	       of this argument.
 	       For a range bound or enum value, this is the value itself. */
 
 	    int bitpos;
@@ -341,6 +399,11 @@ struct type
 
 	    CORE_ADDR physaddr;
 	    char *physname;
+
+	    /* For a function type, this is 1 if the argument is marked
+	       artificial.  Artificial arguments should not be shown to the
+	       user.  */
+	    int artificial;
 	  }
 	loc;
 
@@ -408,6 +471,11 @@ struct type
 
 	struct cplus_struct_type *cplus_stuff;
 
+	/* FLOATFORMAT is for TYPE_CODE_FLT.  It is a pointer to the
+           floatformat object that describes the floating-point value
+           that resides within the type.  */
+
+	const struct floatformat *floatformat;
       }
     type_specific;
   };
@@ -551,6 +619,7 @@ struct cplus_struct_type
 	    unsigned int is_final:1;
 	    unsigned int is_synchronized:1;
 	    unsigned int is_native:1;
+	    unsigned int is_artificial:1;
 
 	    /* A stub method only has some fields valid (but they are enough
 	       to reconstruct the rest of the fields).  */
@@ -560,7 +629,7 @@ struct cplus_struct_type
 	    unsigned int is_inlined:1;
 
 	    /* Unused.  */
-	    unsigned int dummy:4;
+	    unsigned int dummy:3;
 
 	    /* Index into that baseclass's virtual function table,
 	       minus 2; else if static: VOFFSET_STATIC; else: 0.  */
@@ -668,6 +737,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_POINTER_TYPE(thistype) (thistype)->pointer_type
 #define TYPE_REFERENCE_TYPE(thistype) (thistype)->reference_type
 #define TYPE_CV_TYPE(thistype) (thistype)->cv_type
+#define TYPE_AS_TYPE(thistype) (thistype)->as_type
 /* Note that if thistype is a TYPEDEF type, you have to call check_typedef.
    But check_typedef does set the TYPE_LENGTH of the TYPEDEF type,
    so you only have to call check_typedef once.  Since allocate_value
@@ -675,12 +745,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_LENGTH(thistype) (thistype)->length
 #define TYPE_OBJFILE(thistype) (thistype)->objfile
 #define TYPE_FLAGS(thistype) (thistype)->flags
-#define TYPE_UNSIGNED(thistype) ((thistype)->flags & TYPE_FLAG_UNSIGNED)
-#define TYPE_NOSIGN(thistype) ((thistype)->flags & TYPE_FLAG_NOSIGN)
-#define TYPE_CONST(thistype) ((thistype)->flags & TYPE_FLAG_CONST)
-#define TYPE_VOLATILE(thistype) ((thistype)->flags & TYPE_FLAG_VOLATILE)
-#define TYPE_INCOMPLETE(thistype) ((thistype)->flags & TYPE_FLAG_INCOMPLETE)
-/* Note that TYPE_CODE can be TYPE_CODE_TYPEDEF, so if you wan the real
+/* Note that TYPE_CODE can be TYPE_CODE_TYPEDEF, so if you want the real
    type, you need to do TYPE_CODE (check_type (this_type)). */
 #define TYPE_CODE(thistype) (thistype)->code
 #define TYPE_NFIELDS(thistype) (thistype)->nfields
@@ -717,6 +782,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define	TYPE_TYPE_SPECIFIC(thistype) (thistype)->type_specific
 #define TYPE_ARG_TYPES(thistype) (thistype)->type_specific.arg_types
 #define TYPE_CPLUS_SPECIFIC(thistype) (thistype)->type_specific.cplus_stuff
+#define TYPE_FLOATFORMAT(thistype) (thistype)->type_specific.floatformat
 #define TYPE_BASECLASS(thistype,index) (thistype)->fields[index].type
 #define TYPE_N_BASECLASSES(thistype) TYPE_CPLUS_SPECIFIC(thistype)->n_baseclasses
 #define TYPE_BASECLASS_NAME(thistype,index) (thistype)->fields[index].name
@@ -731,6 +797,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define FIELD_TYPE(thisfld) ((thisfld).type)
 #define FIELD_NAME(thisfld) ((thisfld).name)
 #define FIELD_BITPOS(thisfld) ((thisfld).loc.bitpos)
+#define FIELD_ARTIFICIAL(thisfld) ((thisfld).loc.artificial)
 #define FIELD_BITSIZE(thisfld) ((thisfld).bitsize)
 #define FIELD_PHYSNAME(thisfld) ((thisfld).loc.physname)
 #define FIELD_PHYSADDR(thisfld) ((thisfld).loc.physaddr)
@@ -742,6 +809,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_FIELD_TYPE(thistype, n) FIELD_TYPE(TYPE_FIELD(thistype, n))
 #define TYPE_FIELD_NAME(thistype, n) FIELD_NAME(TYPE_FIELD(thistype, n))
 #define TYPE_FIELD_BITPOS(thistype, n) FIELD_BITPOS(TYPE_FIELD(thistype,n))
+#define TYPE_FIELD_ARTIFICIAL(thistype, n) FIELD_ARTIFICIAL(TYPE_FIELD(thistype,n))
 #define TYPE_FIELD_BITSIZE(thistype, n) FIELD_BITSIZE(TYPE_FIELD(thistype,n))
 #define TYPE_FIELD_PACKED(thistype, n) (FIELD_BITSIZE(TYPE_FIELD(thistype,n))!=0)
 #define TYPE_TEMPLATE_ARG(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->template_args[n]
@@ -800,6 +868,7 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_FN_FIELD_FINAL(thisfn, n) ((thisfn)[n].is_final)
 #define TYPE_FN_FIELD_SYNCHRONIZED(thisfn, n) ((thisfn)[n].is_synchronized)
 #define TYPE_FN_FIELD_NATIVE(thisfn, n) ((thisfn)[n].is_native)
+#define TYPE_FN_FIELD_ARTIFICIAL(thisfn, n) ((thisfn)[n].is_artificial)
 #define TYPE_FN_FIELD_ABSTRACT(thisfn, n) ((thisfn)[n].is_abstract)
 #define TYPE_FN_FIELD_STUB(thisfn, n) ((thisfn)[n].is_stub)
 #define TYPE_FN_FIELD_INLINED(thisfn, n) ((thisfn)[n].is_inlined)
@@ -845,9 +914,20 @@ extern struct type *builtin_type_string;
 extern struct type *builtin_type_bool;
 
 /* Address/pointer types: */
-/* (C) Language pointer type. Some target platforms use an implicitly
-   {sign,zero} -extended 32 bit C language pointer on a 64 bit ISA. */
-extern struct type *builtin_type_ptr;
+/* (C) Language `pointer to data' type.  Some target platforms use an
+   implicitly {sign,zero} -extended 32 bit C language pointer on a 64
+   bit ISA.  */
+extern struct type *builtin_type_void_data_ptr;
+
+/* (C) Language `pointer to function returning void' type.  Since
+   ANSI, C standards have explicitly said that pointers to functions
+   and pointers to data are not interconvertible --- that is, you
+   can't cast a function pointer to void * and back, and expect to get
+   the same value.  However, all function pointer types are
+   interconvertible, so void (*) () can server as a generic function
+   pointer.  */
+extern struct type *builtin_type_void_func_ptr;
+
 /* The target CPU's address type.  This is the ISA address size. */
 extern struct type *builtin_type_CORE_ADDR;
 /* The symbol table address type.  Some object file formats have a 32
@@ -865,13 +945,38 @@ extern struct type *builtin_type_int32;
 extern struct type *builtin_type_uint32;
 extern struct type *builtin_type_int64;
 extern struct type *builtin_type_uint64;
+extern struct type *builtin_type_int128;
+extern struct type *builtin_type_uint128;
 
 /* SIMD types.  We inherit these names from GCC.  */
 extern struct type *builtin_type_v4sf;
 extern struct type *builtin_type_v4si;
+extern struct type *builtin_type_v16qi;
 extern struct type *builtin_type_v8qi;
+extern struct type *builtin_type_v8hi;
 extern struct type *builtin_type_v4hi;
 extern struct type *builtin_type_v2si;
+
+/* Type for 128 bit vectors. */
+extern struct type *builtin_type_vec128;
+
+/* Explicit floating-point formats.  See "floatformat.h".  */
+extern struct type *builtin_type_ieee_single_big;
+extern struct type *builtin_type_ieee_single_little;
+extern struct type *builtin_type_ieee_double_big;
+extern struct type *builtin_type_ieee_double_little;
+extern struct type *builtin_type_ieee_double_littlebyte_bigword;
+extern struct type *builtin_type_i387_ext;
+extern struct type *builtin_type_m68881_ext;
+extern struct type *builtin_type_i960_ext;
+extern struct type *builtin_type_m88110_ext;
+extern struct type *builtin_type_m88110_harris_ext;
+extern struct type *builtin_type_arm_ext_big;
+extern struct type *builtin_type_arm_ext_littlebyte_bigword;
+extern struct type *builtin_type_ia64_spill_big;
+extern struct type *builtin_type_ia64_spill_little;
+extern struct type *builtin_type_ia64_quad_big;
+extern struct type *builtin_type_ia64_quad_little;
 
 /* We use this for the '/c' print format, because builtin_type_char is
    just a one-byte integral type, which languages less laid back than
@@ -906,11 +1011,10 @@ extern struct type *builtin_type_chill_real;
 
 extern struct type *builtin_type_f_character;
 extern struct type *builtin_type_f_integer;
+extern struct type *builtin_type_f_integer_s2;
 extern struct type *builtin_type_f_logical;
 extern struct type *builtin_type_f_logical_s1;
 extern struct type *builtin_type_f_logical_s2;
-extern struct type *builtin_type_f_integer;
-extern struct type *builtin_type_f_integer_s2;
 extern struct type *builtin_type_f_real;
 extern struct type *builtin_type_f_real_s8;
 extern struct type *builtin_type_f_real_s16;
@@ -925,12 +1029,12 @@ extern struct type *builtin_type_f_void;
 /* Maximum and minimum values of built-in types */
 
 #define	MAX_OF_TYPE(t)	\
-   TYPE_UNSIGNED(t) ? UMAX_OF_SIZE(TYPE_LENGTH(t)) \
-    : MAX_OF_SIZE(TYPE_LENGTH(t))
+   (TYPE_UNSIGNED(t) ? UMAX_OF_SIZE(TYPE_LENGTH(t)) \
+    : MAX_OF_SIZE(TYPE_LENGTH(t)))
 
 #define MIN_OF_TYPE(t)	\
-   TYPE_UNSIGNED(t) ? UMIN_OF_SIZE(TYPE_LENGTH(t)) \
-    : MIN_OF_SIZE(TYPE_LENGTH(t))
+   (TYPE_UNSIGNED(t) ? UMIN_OF_SIZE(TYPE_LENGTH(t)) \
+    : MIN_OF_SIZE(TYPE_LENGTH(t)))
 
 /* Allocate space for storing data associated with a particular type.
    We ensure that the space is allocated using the same mechanism that
@@ -951,11 +1055,32 @@ extern struct type *alloc_type (struct objfile *);
 extern struct type *init_type (enum type_code, int, int, char *,
 			       struct objfile *);
 
+/* Helper functions to construct a struct or record type.  An
+   initially empty type is created using init_composite_type().
+   Fields are then added using append_struct_type_field().  A union
+   type has its size set to the largest field.  A struct type has each
+   field packed against the previous.  */
+
+extern struct type *init_composite_type (char *name, enum type_code code);
+extern void append_composite_type_field (struct type *t, char *name,
+					 struct type *field);
+
 extern struct type *lookup_reference_type (struct type *);
 
 extern struct type *make_reference_type (struct type *, struct type **);
 
 extern struct type *make_cv_type (int, int, struct type *, struct type **);
+
+extern void finish_cv_type (struct type *);
+
+extern void replace_type (struct type *, struct type *);
+
+extern int address_space_name_to_int (char *);
+
+extern char *address_space_int_to_name (int);
+
+extern struct type *make_type_with_address_space (struct type *type, 
+						  int space_identifier);
 
 extern struct type *lookup_member_type (struct type *, struct type *);
 
@@ -1125,9 +1250,5 @@ extern int can_dereference (struct type *);
 extern int is_integral_type (struct type *);
 
 extern void maintenance_print_type (char *, int);
-
-/* typeprint.c */
-
-extern void print_type_scalar (struct type *, LONGEST, struct ui_file *);
 
 #endif /* GDBTYPES_H */

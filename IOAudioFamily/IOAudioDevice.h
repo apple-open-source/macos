@@ -174,14 +174,39 @@ public:
     static const IORegistryPlane *gIOAudioPlane;
 
 protected:
-    struct ExpansionData { };
+    struct ExpansionData {
+		unsigned long long			idleSleepDelayTime;
+		IOTimerEventSource *		idleTimer;
+	};
     
     ExpansionData *reserved;
     
+public:
+	static void idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSource *sender);
+	virtual IOReturn setAggressiveness(unsigned long type, unsigned long newLevel);
+
+	virtual void setDeviceTransportType(const UInt32 transportType);
+
+    /*
+     * @function start
+     * @abstract This function is to be called by a driver that doesn't want to be told about the audio
+	 * going idle immediately, but at some point in the future.
+	 * @discussion This is useful if the device will want to power down its hardware into an idle sleep
+	 * state, but doesn't want to do that unless audio hasn't been used for a while.  Calling this function
+	 * immediately changes the idle sleep timer and queues it up if the idle is different from the previous
+	 * idle time.  The idle time defaults to 0, which means be called immediately (backwards compatible with
+	 * previous versions of IOAudioFamily).  A value of 0xffffffffffffffffULL means don't ever tell the
+	 * driver about going idle.
+     * @param sleepDelay The amount of time, in nanoseconds, before the hardware should be told to go idle.
+     */
+	virtual void setIdleAudioSleepTime(unsigned long long sleepDelay);
+	virtual void scheduleIdleAudioSleep(void);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 0);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 1);
-    OSMetaClassDeclareReservedUnused(IOAudioDevice, 2);
+    OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
+
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 3);
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 4);
     OSMetaClassDeclareReservedUnused(IOAudioDevice, 5);

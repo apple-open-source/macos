@@ -179,9 +179,9 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			debug("authexec", "child exec(%s:%s)",
 				trampoline, pathToTool);
 			if (const char **argv = argVector(trampoline, pathToTool, mboxFdText, arguments))
-				execv(trampoline, (char *const[])argv);
+				execv(trampoline, (char *const*)argv);
 			debug("authexec", "trampoline exec failed (errno=%d)", errno);
-			
+
 			// execute failed - tell the parent
 			{
 				OSStatus error = errAuthorizationToolExecuteFailure;

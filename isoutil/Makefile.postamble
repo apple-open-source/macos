@@ -98,7 +98,9 @@ INSTALL_PERMISSIONS = 4555
 # derived files should go.
 #
 
-after_install::
+after_install:
+	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man8
+	install -m 644 -o root -g wheel -c cd9660.util.8 $(DSTROOT)/usr/share/man/man8
 
 buildContentsDir:
 	mkdir -p $(DSTROOT)$(INSTALLDIR)/Contents/Resources/English.lproj
@@ -109,3 +111,4 @@ buildContentsDir:
 	chown -Rf root:wheel $(DSTROOT)$(INSTALLDIR)/Contents
 	find $(DSTROOT)$(INSTALLDIR)/Contents -type d -exec chmod 755 {} \;
 	find $(DSTROOT)$(INSTALLDIR)/Contents -type f -exec chmod 644 {} \;
+

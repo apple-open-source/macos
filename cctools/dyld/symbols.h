@@ -79,6 +79,7 @@ extern void lookup_symbol(
     char *symbol_name,
     struct image *primary_image,
     struct twolevel_hint *hint,
+    enum bool weak_symbol,
     struct nlist **defined_symbol,
     module_state **defined_module,
     struct image **defined_image,
@@ -156,6 +157,10 @@ extern void discard_symbol(
 extern struct image * get_primary_image(
     struct image *image,
     struct nlist *symbol);
+/* TODO: make this a static inline */
 extern struct twolevel_hint * get_hint(
     struct image *image,
+    struct nlist *symbol);
+/* TODO: make this a static inline */
+extern enum bool get_weak(
     struct nlist *symbol);

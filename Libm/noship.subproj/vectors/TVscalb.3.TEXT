@@ -1,0 +1,155 @@
+! <scp> 01/08/02 reworked cases depending on Extended80 format.
+! Scalb test vectors.
+!
+! Warm ups.
+3S	    ALL	    1	    1	    OK	    2
+3S	    ALL	    -1	    1	    OK	    -2
+3S	    ALL	    1	    -1	    OK	    1m1
+3S	    ALL	    -1	    -1	    OK	    -1m1
+3S	    ALL	    1	    3	    OK	    8
+3S	    ALL	    1	    -3	    OK	    1m3
+3S	    ALL	    9	    9	    OK	    9p9
+3S	    ALL	    9	    -9	    OK	    9m9
+3S	    ALL	    7	    8	    OK	    7p8
+3S	    ALL	    -7	    -8	    OK	    -7m8
+3S	    ALL	    5	    0	    OK	    5
+3S	    ALL	    5	    -0	    OK	    5
+3S	    ALL	    -5	    -0	    OK	    -5
+! Big numbers scaled downward (exact).
+3S	    ALL	    Hm1	    -8	    OK	    Hm9
+3S	    ALL	    Hm9	    8	    OK	    Hm1
+3S	    ALL	    Hd1	    -9	    OK	    Hd1m9
+3S	    ALL	    Hd1m9   9	    OK	    Hd1
+3S	    ALL	   -Hd1	    -9	    OK	   -Hd1m9
+3S	    ALL	   -Hd1m9   9	    OK	   -Hd1
+3S	    ALL	    Hd1	    0	    OK	    Hd1
+3S	    ALL	    Hd1	    -0	    OK	    Hd1
+3S		d		Hm1		-1024	OK		1m1
+3S		d		-Hm1		-1024	OK		-1m1
+3S		d		Hm1		-2047	OK		Em2
+3S		d		-Hm1		-2047	OK		-Em2
+3S		d		Hm1		-2097	OK		0i1
+3S		d		-Hm1		-2097	OK		-0i1
+! Overflows.
+3S	    >=	    Hm1	    1	    xo		 H
+3S	    <=	    -Hm1    1	    xo		 -H
+3S	    s>=	    1	    1p7	    xo		 H
+3S	    s<=	   -1	    1p7	    xo	    -H
+3S	    ds>=    1	    1p9p5   xo		 H
+3S	    ds<=   -1	    1p9p5   xo	    -H
+3S	    >=	    Hd1	    1	    xo		 H
+3S	    >=	    Hm9	    9	    xo		 H
+3S	    ds>=    E	    1p9p5	  xo	   H
+3S	    ds>=    Ed1	    1p9p5	  xo	   H
+3S	    ds>=    0i1	    1p9p5	  xo	   H
+3S	    ds<=   -0i1	    1p9p5	  xo	  -H
+3S	    <0	    Hm1	    1	    xo		 Hd1
+3S	    >0	    -Hm1    1	    xo		 -Hd1
+3S	    s<0	    1	    1p7	    xo		 Hd1
+3S	    s>0	   -1	    1p7	    xo	    -Hd1
+3S	    ds<0    1	    1p9p5   xo		 Hd1
+3S	    ds>0   -1	    1p9p5   xo	    -Hd1
+3S	    <0	    Hd1	    1	    xo		 Hd1
+3S	    <0	    Hm9	    9	    xo		 Hd1
+3S	    ds<0    E	    1p9p5	  xo	   Hd1
+3S	    ds<0    Ed1	    1p9p5	  xo	   Hd1
+3S	    ds<0    0i1	    1p9p5	  xo	   Hd1
+3S	    ds>0   -0i1	    1p9p5	  xo	  -Hd1
+3S		<0		0i1		2147483647	xo	Hd1
+3S		>=		0i1		2147483647	xo	H
+3S		>0		-0i1	2147483647	xo	-Hd1
+3S		<=		-0i1	2147483647	xo	-H
+! Tiny operands with exact scaling.
+3S	    s	    E	    1p7	    OK	    4
+3S	    s	    Ed1	    1p7	    OK	    1d2p2
+3S	    s	   -Ed1	    1p7	    OK	   -1d2p2
+3S	    d	    E	    1p7p3   OK	    4
+3S	    d	    Ed1	    1p7p3   OK	    1d2p2
+3S	    d	   -Ed1	    1p7p3   OK	   -1d2p2
+3S	    ALL	    0i1	    1	    OK	    0i2
+3S	    ALL	   -0i1	    1	    OK	   -0i2
+3S	    ALL	    0i2	    -1	    OK	    0i1
+3S	    ALL	    0i1	    3	    OK	    0i8
+3S	    ALL	    0i8	    -3	    OK	    0i1
+3S	    ALL	    Ed1	    1	    OK	    Ep1d2
+3S	    ALL	    Ep1d2   -1	    OK	    Ed1
+3S	    ALL	    Ed1	    0	    OK	    Ed1
+3S	    ALL	    Ed1	    -0	    OK	    Ed1
+3S		d		0i1		2097	OK		Hm1
+3S		d		-0i1		2097	OK		-Hm1
+! Underflows.
+3S	    <=0	    0i1	    -1	    xu	    0
+3S	    >	    0i1	    -1	    xu	    0i1
+3S	    >=0	   -0i1	    -1	    xu	   -0
+3S	    <	   -0i1	    -1	    xu	   -0i1
+3S	    <0	    0i3	    -2	    xu	    0
+3S	    =>	    0i3	    -2	    xu	    0i1
+3S	    <=0	    0i9	    -3	    xu	    0i1
+3S	    >	    0i9	    -3	    xu	    0i2
+3S	    =>	    0i3	    -1	    xu	    0i2
+3S	    0<	    0i3	    -1	    xu	    0i1
+3S	    >=	    Ep1d1   -1	    xu	    E
+3S	    0<	    Ep1d1   -1	    xu	    Ed1
+3S	    >=	    Ep9d1   -9	    xu	    E
+3S	    0<	    Ep9d1   -9	    xu	    Ed1
+3S	    <=0ds   1	    -1p9p5  xu	    0
+3S	    >ds	    1	    -1p9p5  xu	    0i1
+3S	    <=	   -Ep9d1   -9	    xu	   -E
+3S	    0>	   -Ep9d1   -9	    xu	   -Ed1
+3S	    >=0ds  -1	    -1p9p5  xu	   -0
+3S	    <ds	   -1	    -1p9p5  xu	   -0i1
+3S	    <=0ds   E	    -1p9p5  xu	    0
+3S	    >ds	    E	    -1p9p5  xu	    0i1
+3S	    <=0ds   0i1	    -1p9p5  xu	    0
+3S	    >ds	    0i1	    -1p9p5  xu	    0i1
+3S	    >=0ds  -0i1	    -1p9p5  xu	   -0
+3S	    <ds	   -0i1	    -1p9p5  xu	   -0i1
+3S		<=0		Hm1		-32830	xu		0
+3S		>		Hm1		-32830	xu		0i1
+3S		>=0		-Hm1	-32830	xu		-0
+3S		<		-Hm1	-32830	xu		-0i1
+!3S		<0e		3p16382	-32829	xu		0i1		Makes no sense for powerpc <klh 9/30/93>
+!3S		>=e		3p16382	-32829	xu		0i2		Makes no sense for powerpc <klh 9/30/93>
+!3S		>0e		-3p16382	-32829	xu	-0i1	Makes no sense for powerpc <klh 9/30/93>
+!3S		<=e		-3p16382	-32829	xu	-0i2	Makes no sense for powerpc <klh 9/30/93>
+3S		<=0		Hd1		-1p31	xu		0
+3S		>		Hd1		-1p31	xu		0i1
+3S		>=0		-Hd1		-1p31	xu	-0
+3S		<		-Hd1		-1p31	xu	-0i1
+
+! Infinity operands.
+3S	    ALL	    H	    0	    OK	    H
+3S	    ALL	   -H	    0	    OK	   -H
+3S	    ALL	    H	    1	    OK	    H
+3S	    ALL	    H	    -1	    OK	    H
+3S	    ALL	    H	    1p9p5	  OK	  H
+3S	    ALL	    H	    -1p9p5	  OK	  H
+3S	    ALL	   -H	    1p9p5	  OK	 -H
+3S	    ALL	   -H	    -1p9p5	  OK	 -H
+3S		ALL		H		2147483647	OK	H
+3S		ALL	   -H		2147483647	OK	-H
+3S		ALL		H		-1p31		OK	H
+3S		ALL	   -H		-1p31		OK	-H
+! Zeros.
+3S	    ALL	    0	    1	    OK	    0
+3S	    ALL	    -0	    1	    OK	    -0
+3S	    ALL	    0	    -1	    OK	    0
+3S	    ALL	    -0	    -1	    OK	    -0
+3S	    ALL	    0	    1p9p5	OK	  	0
+3S	    ALL	    0	    -1p9p5	OK	  	0
+3S	    ALL	    -0	    1p9p5	OK	  	-0
+3S	    ALL	    -0	    -1p9p5	OK	  	-0
+3S	    ALL	    0	    0	    OK	    0
+3S	    ALL	    -0		0	  	OK	  	-0
+3S		ALL		0		2147483647	OK	0
+3S		ALL	   -0		2147483647	OK	-0
+3S		ALL		0		-1p31		OK	0
+3S		ALL	   -0		-1p31		OK	-0
+! NaNs.
+3S	    ALL	    Q	    1	    OK	    Q
+3S	    ALL	    Q	    -1	    OK	    Q
+3S	    ALL	    Q	    1p9p5   OK	    Q
+3S	    ALL	    Q	    -1p9p5  OK	    Q
+3S	    ALL	    Q	    0	    OK	    Q
+3S		ALL	    Q		2147483647	OK	Q
+3S		ALL		Q		-1p31		OK	Q

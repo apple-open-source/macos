@@ -7,7 +7,7 @@ require Exporter;
 
 $VERSION = '1.0';
 
-# $Id: Soundex.pm,v 1.1.1.2 2000/03/31 05:12:00 wsanchez Exp $
+# $Id: Soundex.pm,v 1.2 2002/03/14 08:59:24 zarzycki Exp $
 #
 # Implementation of soundex algorithm as described by Knuth in volume
 # 3 of The Art of Computer Programming, with ideas stolen from Ian
@@ -25,6 +25,9 @@ $VERSION = '1.0';
 # Lukasiewicz, Lissajous -> L222
 #
 # $Log: Soundex.pm,v $
+# Revision 1.2  2002/03/14 08:59:24  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.2  2000/03/31 05:12:00  wsanchez
 # Import of perl 5.6.0
 #

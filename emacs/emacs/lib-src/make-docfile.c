@@ -1,5 +1,6 @@
 /* Generate doc-string file for GNU Emacs from source files.
-   Copyright (C) 1985, 1986, 92, 93, 94, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86, 92, 93, 94, 97, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -33,7 +34,12 @@ Boston, MA 02111-1307, USA.  */
  */
 
 #define NO_SHORTNAMES   /* Tell config not to load remap.h */
-#include <../src/config.h>
+#include <config.h>
+
+/* defined to be emacs_main, sys_fopen, etc. in config.h */
+#undef main
+#undef fopen
+#undef chdir
 
 #include <stdio.h>
 #ifdef MSDOS
@@ -215,7 +221,7 @@ read_c_string (infile, printflag)
 	  if (c == '\\')
 	    {
 	      c = getc (infile);
-	      if (c == '\n')
+	      if (c == '\n' || c == '\r')
 		{
 		  c = getc (infile);
 		  continue;
@@ -295,10 +301,12 @@ write_c_args (out, func, buf, minargs, maxargs)
 	}
 
       /* Print the C argument list as it would appear in lisp:
-	 print underscores as hyphens, and print commas as spaces.
-	 Collapse adjacent spaces into one.  */
-      if (c == '_') c = '-';
-      if (c == ',') c = ' ';
+	 print underscores as hyphens, and print commas and newlines
+	 as spaces.  Collapse adjacent spaces into one.  */
+      if (c == '_')
+	c = '-';
+      else if (c == ',' || c == '\n')
+	c = ' ';
 
       /* In C code, `default' is a reserved word, so we spell it
 	 `defalt'; unmangle that here.  */
@@ -314,7 +322,7 @@ write_c_args (out, func, buf, minargs, maxargs)
 	  in_ident = 0;
 	  just_spaced = 0;
 	}
-      else if (c != ' ' || ! just_spaced)
+      else if (c != ' ' || !just_spaced)
 	{
 	  if (c >= 'a' && c <= 'z')
 	    /* Upcase the letter.  */
@@ -322,7 +330,7 @@ write_c_args (out, func, buf, minargs, maxargs)
 	  putc (c, out);
 	}
 
-      just_spaced = (c == ' ');
+      just_spaced = c == ' ';
       need_space = 0;
     }
 }
@@ -363,7 +371,7 @@ scan_c_file (filename, mode)
   c = '\n';
   while (!feof (infile))
     {
-      if (c != '\n')
+      if (c != '\n' && c != '\r')
 	{
 	  c = getc (infile);
 	  continue;
@@ -446,7 +454,7 @@ scan_c_file (filename, mode)
 		{
 		  do
 		    c = getc (infile);
-		  while (c == ' ' || c == '\n' || c == '\t');
+		  while (c == ' ' || c == '\n' || c == '\r' || c == '\t');
 		  if (c < 0)
 		    goto eof;
 		  ungetc (c, infile);
@@ -463,14 +471,14 @@ scan_c_file (filename, mode)
 	    goto eof;
 	  c = getc (infile);
 	}
-      while (c == ' ' || c == '\n' || c == '\t')
+      while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
 	c = getc (infile);
       if (c == '"')
 	c = read_c_string (infile, 0);
       while (c != ',')
 	c = getc (infile);
       c = getc (infile);
-      while (c == ' ' || c == '\n' || c == '\t')
+      while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
 	c = getc (infile);
 
       if (c == '"')
@@ -521,6 +529,7 @@ scan_c_file (filename, mode)
  Looks for
   (defun NAME ARGS DOCSTRING ...)
   (defmacro NAME ARGS DOCSTRING ...)
+  (defsubst NAME ARGS DOCSTRING ...)
   (autoload (quote NAME) FILE DOCSTRING ...)
   (defvar NAME VALUE DOCSTRING)
   (defconst NAME VALUE DOCSTRING)
@@ -535,13 +544,16 @@ scan_c_file (filename, mode)
  When we find that, we save it for the following defining-form,
  and we use that instead of reading a doc string within that defining-form.
 
- For defun, defmacro, and autoload, we know how to skip over the arglist.
  For defvar, defconst, and fset we skip to the docstring with a kludgy 
  formatting convention: all docstrings must appear on the same line as the
  initial open-paren (the one in column zero) and must contain a backslash 
- and a double-quote immediately after the initial double-quote.  No newlines
+ and a newline immediately after the initial double-quote.  No newlines
  must appear between the beginning of the form and the first double-quote.
- The only source file that must follow this convention is loaddefs.el; aside
+ For defun, defmacro, and autoload, we know how to skip over the
+ arglist, but the doc string must still have a backslash and newline
+ immediately after the double quote. 
+ The only source files that must follow this convention are preloaded
+ uncompiled ones like loaddefs.el and bindings.el; aside
  from that, it is always the .elc file that we look at, and they are no
  problem because byte-compiler output follows this convention.
  The NAME and DOCSTRING are output.
@@ -554,7 +566,7 @@ skip_white (infile)
      FILE *infile;
 {
   char c = ' ';
-  while (c == ' ' || c == '\t' || c == '\n')
+  while (c == ' ' || c == '\t' || c == '\n' || c == '\r')
     c = getc (infile);
   ungetc (c, infile);
 }
@@ -573,7 +585,7 @@ read_lisp_symbol (infile, buffer)
       c = getc (infile);
       if (c == '\\')
 	*(++fillp) = getc (infile);
-      else if (c == ' ' || c == '\t' || c == '\n' || c == '(' || c == ')')
+      else if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '(' || c == ')')
 	{
 	  ungetc (c, infile);
 	  *fillp = 0;
@@ -610,12 +622,15 @@ scan_lisp_file (filename, mode)
       char buffer[BUFSIZ];
       char type;
 
-      if (c != '\n')
+      /* If not at end of line, skip till we get to one.  */
+      if (c != '\n' && c != '\r')
 	{
 	  c = getc (infile);
 	  continue;
 	}
-      c = getc (infile);
+      /* Skip the line break.  */
+      while (c == '\n' || c == '\r')
+	c = getc (infile);
       /* Detect a dynamic doc string and save it for the next expression.  */
       if (c == '#')
 	{
@@ -648,9 +663,11 @@ scan_lisp_file (filename, mode)
 		 That is needed in the .elc file
 		 but it is redundant in DOC.  So get rid of it here.  */
 	      saved_string[length - 1] = 0;
-	      /* Skip the newline.  */
-	      c = getc (infile);
-	      while (c != '\n')
+	      /* Skip the line break.  */
+	      while (c == '\n' && c == '\r')
+		c = getc (infile);
+	      /* Skip the following line.  */
+	      while (c != '\n' && c != '\r')
 		c = getc (infile);
 	    }
 	  continue;
@@ -661,8 +678,9 @@ scan_lisp_file (filename, mode)
 
       read_lisp_symbol (infile, buffer);
 
-      if (! strcmp (buffer, "defun") ||
-	  ! strcmp (buffer, "defmacro"))
+      if (! strcmp (buffer, "defun")
+	  || ! strcmp (buffer, "defmacro")
+	  || ! strcmp (buffer, "defsubst"))
 	{
 	  type = 'F';
 	  read_lisp_symbol (infile, buffer);
@@ -672,8 +690,8 @@ scan_lisp_file (filename, mode)
 	  c = getc (infile);
 	  if (c == 'n') /* nil */
 	    {
-	      if ((c = getc (infile)) != 'i' ||
-		  (c = getc (infile)) != 'l')
+	      if ((c = getc (infile)) != 'i'
+		  || (c = getc (infile)) != 'l')
 		{
 		  fprintf (stderr, "## unparsable arglist in %s (%s)\n",
 			   buffer, filename);
@@ -694,9 +712,9 @@ scan_lisp_file (filename, mode)
 	  /* If the next three characters aren't `dquote bslash newline'
 	     then we're not reading a docstring.
 	   */
-	  if ((c = getc (infile)) != '"' ||
-	      (c = getc (infile)) != '\\' ||
-	      (c = getc (infile)) != '\n')
+	  if ((c = getc (infile)) != '"'
+	      || (c = getc (infile)) != '\\'
+	      || ((c = getc (infile)) != '\n' && c != '\r'))
 	    {
 #ifdef DEBUG
 	      fprintf (stderr, "## non-docstring in %s (%s)\n",
@@ -706,8 +724,8 @@ scan_lisp_file (filename, mode)
 	    }
 	}
 
-      else if (! strcmp (buffer, "defvar") ||
-	       ! strcmp (buffer, "defconst"))
+      else if (! strcmp (buffer, "defvar")
+	       || ! strcmp (buffer, "defconst"))
 	{
 	  char c1 = 0, c2 = 0;
 	  type = 'V';
@@ -716,8 +734,8 @@ scan_lisp_file (filename, mode)
 	  if (saved_string == 0)
 	    {
 
-	      /* Skip until the first newline; remember the two previous chars. */
-	      while (c != '\n' && c >= 0)
+	      /* Skip until the end of line; remember two previous chars.  */
+	      while (c != '\n' && c != '\r' && c >= 0)
 		{
 		  c2 = c1;
 		  c1 = c;
@@ -775,9 +793,8 @@ scan_lisp_file (filename, mode)
 
 	  if (saved_string == 0)
 	    {
-	      /* Skip until the first newline; remember the two previous
-		 chars. */
-	      while (c != '\n' && c >= 0)
+	      /* Skip to end of line; remember the two previous chars.  */
+	      while (c != '\n' && c != '\r' && c >= 0)
 		{
 		  c2 = c1;
 		  c1 = c;
@@ -833,8 +850,8 @@ scan_lisp_file (filename, mode)
 
 	  if (saved_string == 0)
 	    {
-	      /* Skip until the first newline; remember the two previous chars. */
-	      while (c != '\n' && c >= 0)
+	      /* Skip to end of line; remember the two previous chars.  */
+	      while (c != '\n' && c != '\r' && c >= 0)
 		{
 		  c2 = c1;
 		  c1 = c;
@@ -899,9 +916,9 @@ scan_lisp_file (filename, mode)
 	    {
 	      /* If the next three characters aren't `dquote bslash newline'
 		 then we're not reading a docstring.  */
-	      if ((c = getc (infile)) != '"' ||
-		  (c = getc (infile)) != '\\' ||
-		  (c = getc (infile)) != '\n')
+	      if ((c = getc (infile)) != '"'
+		  || (c = getc (infile)) != '\\'
+		  || ((c = getc (infile)) != '\n' && c != '\r'))
 		{
 #ifdef DEBUG
 		  fprintf (stderr, "## non-docstring in %s (%s)\n",
@@ -913,8 +930,8 @@ scan_lisp_file (filename, mode)
 	}
 
 #ifdef DEBUG
-      else if (! strcmp (buffer, "if") ||
-	       ! strcmp (buffer, "byte-code"))
+      else if (! strcmp (buffer, "if")
+	       || ! strcmp (buffer, "byte-code"))
 	;
 #endif
 

@@ -41,7 +41,14 @@ Boston, MA 02111-1307, USA.  */
 /* Define REL_ALLOC if you want to use the relocating allocator for
    buffer space. */
 #define REL_ALLOC
-  
+
+/* Enable conservative stack marking for GC.  */
+#define GC_MARK_STACK 1
+
+/* MSVC ignores the "register" keyword, so test fails even though
+   setjmp does work.  */
+#define GC_SETJMP_WORKS 1
+
 /* Define HAVE_X_WINDOWS if you want to use the X window system.  */
 #undef HAVE_X_WINDOWS
 
@@ -354,7 +361,7 @@ Boston, MA 02111-1307, USA.  */
 #ifdef emacs /* Don't do this for lib-src.  */
 /* Tell regex.c to use a type compatible with Emacs.  */
 #define RE_TRANSLATE_TYPE Lisp_Object
-#define RE_TRANSLATE(TBL, C) char_table_translate (TBL, C)
+#define RE_TRANSLATE(TBL, C) CHAR_TABLE_TRANSLATE (TBL, C)
 #define RE_TRANSLATE_P(TBL) (XFASTINT (TBL) != 0)
 #endif
 
@@ -378,6 +385,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
+#ifndef WINDOWSNT
 /* Some of the files of Emacs which are intended for use with other
    programs assume that if you have a config.h file, you must declare
    the type of getenv.
@@ -386,6 +394,7 @@ Boston, MA 02111-1307, USA.  */
    includes config.h.  */
 #ifndef NOT_C_CODE
 extern char *getenv ();
+#endif
 #endif
 
 #endif /* EMACS_CONFIG_H */
@@ -412,9 +421,37 @@ extern char *getenv ();
 #define BITS_PER_LONG 32
 #endif
 
+#ifndef POINTER_TYPE
+#define POINTER_TYPE void
+#endif
+
+#ifndef PTR
+#define PTR POINTER_TYPE *
+#endif
+
+#ifndef PROTOTYPES
+#define PROTOTYPES 1
+#endif
+
+#ifndef __P
+#if defined PROTOTYPES
+#define __P(args) args
+#else
+#define __P(args) ()
+#endif
+#endif
+
 /* Don't include <string.h> during configure.  */
 #ifndef NOT_C_CODE
 #ifdef HAVE_STRING_H
 #include "string.h"
+#endif
+#endif
+
+#ifndef NO_RETURN
+#if defined __GNUC__ && (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR >= 5))
+#define NO_RETURN	__attribute__ ((__noreturn__))
+#else
+#define NO_RETURN	/* nothing */
 #endif
 #endif

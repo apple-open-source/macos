@@ -1,8 +1,9 @@
 ;;; locate.el --- interface to the locate command
 
-;; Copyright (C) 1996, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1998, 2001 Free Software Foundation, Inc.
 
 ;; Author: Peter Breton <pbreton@cs.umb.edu>
+;; Keywords: unix files
 
 ;; This file is part of GNU Emacs.
 
@@ -24,11 +25,11 @@
 ;;; Commentary:
 
 ;; Search a database of files and use dired commands on
-;; the result. 
+;; the result.
 ;;
 
 ;;;;; Building a database of files ;;;;;;;;;
-;; 
+;;
 ;; You can create a simple files database with a port of the Unix find command
 ;; and one of the various Windows NT various scheduling utilities,
 ;; for example the AT command from the NT Resource Kit, WinCron which is
@@ -36,18 +37,18 @@
 ;;
 ;; To set up a function which searches the files database, do something
 ;; like this:
-;; 
+;;
 ;; (defvar locate-fcodes-file       "c:/users/peter/fcodes")
 ;; (defvar locate-make-command-line 'nt-locate-make-command-line)
-;; 
+;;
 ;; (defun nt-locate-make-command-line (arg)
 ;;  (list "grep" "-i" arg locate-fcodes-file))
 ;;
 ;;;;;;;; ADVICE For dired-make-relative: ;;;;;;;;;
-;; 
+;;
 ;; For certain dired commands to work right, you should also include the
 ;; following in your _emacs/.emacs:
-;; 
+;;
 ;; (defadvice dired-make-relative (before set-no-error activate)
 ;;   "For locate mode and Windows, don't return errors"
 ;;   (if (and (eq   major-mode  'locate-mode)
@@ -66,18 +67,18 @@
 ;; user specified command.
 ;;
 ;; To use the BSD-style "fast find", or any other shell command of the
-;; form 
+;; form
 ;;
 ;;   SHELLPROGRAM  Name-to-find
 ;;
 ;; set the variable `locate-command' in your .emacs file.
 ;;
-;;   To use a more complicated expression, create a function which 
+;;   To use a more complicated expression, create a function which
 ;; takes a string (the name to find) as input and returns a list.
 ;; The first element should be the command to be executed, the remaining
 ;; elements should be the arguments (including the name to find). Then put
 ;;
-;; (setq locate-make-command-line 'my-locate-command-line) 
+;; (setq locate-make-command-line 'my-locate-command-line)
 ;;
 ;; in your .emacs, using the name of your function in place of
 ;; my-locate-command-line.
@@ -91,7 +92,7 @@
 ;; Locate-mode assumes that each line output from the locate-command
 ;; consists exactly of a file name, possibly preceded or trailed by
 ;; whitespace. If your file database has other information on the line (for
-;; example, the file size), you will need to redefine the function 
+;; example, the file size), you will need to redefine the function
 ;; `locate-get-file-positions' to return a list consisting of the first
 ;; character in the file name and the last character in the file name.
 ;;
@@ -130,6 +131,9 @@
 (defvar locate-history-list nil
   "The history list used by the \\[locate] command.")
 
+(defvar locate-grep-history-list nil
+  "The history list used by the \\[locate-with-filter] command.")
+
 (defcustom locate-make-command-line 'locate-default-make-command-line
   "*Function used to create the locate command line."
   :type 'function
@@ -145,12 +149,7 @@
   :type '(choice file (const nil))
   :group 'locate)
 
-(defcustom locate-mouse-face 'highlight
-  "*Face used to highlight locate entries."
-  :type 'face
-  :group 'locate)
-
-(defcustom locate-header-face 'underline
+(defcustom locate-header-face nil
   "*Face used to highlight the locate header."
   :type 'face
   :group 'locate)
@@ -160,38 +159,81 @@
   :type 'string
   :group 'locate)
 
+(defcustom locate-prompt-for-command nil
+  "If non-nil, the default behavior of the locate command is to prompt for a command to run.
+Otherwise, that behavior is invoked via a prefix argument."
+  :group 'locate
+  :type 'boolean
+  )
+
 ;; Functions
 
 (defun locate-default-make-command-line (search-string)
   (list locate-command search-string))
 
+(defun locate-word-at-point ()
+  (let ((pt (point)))
+    (buffer-substring-no-properties
+     (save-excursion
+       (skip-chars-backward "-a-zA-Z0-9.")
+       (point))
+     (save-excursion
+       (skip-chars-forward "-a-zA-Z0-9.")
+       (skip-chars-backward "." pt)
+       (point)))))
+
 ;;;###autoload
 (defun locate (search-string &optional filter)
-  "Run the program `locate', putting results in `*Locate*' buffer."
+  "Run the program `locate', putting results in `*Locate*' buffer.
+With prefix arg, prompt for the locate command to run."
   (interactive
-      (list (read-from-minibuffer "Locate: " nil nil
-		  nil 'locate-history-list)))
+      (list
+       (if (or (and current-prefix-arg
+		    (not locate-prompt-for-command))
+	       (and (not current-prefix-arg) locate-prompt-for-command))
+	   (let ((locate-cmd (funcall locate-make-command-line "")))
+	     (read-from-minibuffer
+	      "Run locate (like this): "
+	      (cons
+	       (concat (car locate-cmd) "  "
+		       (mapconcat 'identity (cdr locate-cmd) " "))
+		       (+ 2 (length (car locate-cmd))))
+	      nil nil 'locate-history-list))
+	 (read-from-minibuffer
+	  "Locate: "
+	  (locate-word-at-point)
+	  nil nil 'locate-history-list)
+	 )))
   (let* ((locate-cmd-list (funcall locate-make-command-line search-string))
 	 (locate-cmd (car locate-cmd-list))
 	 (locate-cmd-args (cdr locate-cmd-list))
+	 (run-locate-command
+	  (or (and current-prefix-arg (not locate-prompt-for-command))
+	      (and (not current-prefix-arg) locate-prompt-for-command)))
 	 )
-    
+
     ;; Find the Locate buffer
     (save-window-excursion
       (set-buffer (get-buffer-create locate-buffer-name))
       (locate-mode)
       (erase-buffer)
-      
+
       (setq locate-current-filter filter)
-      
-      (apply 'call-process locate-cmd nil t nil locate-cmd-args)
+
+      (if run-locate-command
+	  (shell-command search-string locate-buffer-name)
+	(apply 'call-process locate-cmd nil t nil locate-cmd-args))
+
       (and filter
 	  (locate-filter-output filter))
 
-      (locate-do-setup)
+      (locate-do-setup search-string)
       )
     (and (not (string-equal (buffer-name) locate-buffer-name))
 	(switch-to-buffer-other-window locate-buffer-name))
+
+    (run-hooks 'dired-mode-hook)
+    (run-hooks 'locate-post-command-hook)
     )
   )
 
@@ -205,13 +247,13 @@ shown; this is often useful to constrain a big search."
    (list (read-from-minibuffer "Locate: " nil nil
 			       nil 'locate-history-list)
 	 (read-from-minibuffer "Filter: " nil nil
-			       nil 'grep-history)))
+			       nil 'locate-grep-history-list)))
   (locate search-string filter))
 
 (defun locate-filter-output (filter)
   "Filter output from the locate command."
   (goto-char (point-min))
-  (delete-non-matching-lines (regexp-quote filter)))
+  (delete-non-matching-lines filter))
 
 (defvar locate-mode-map nil
   "Local keymap for Locate mode buffers.")
@@ -231,10 +273,11 @@ shown; this is often useful to constrain a big search."
    (define-key locate-mode-map [menu-bar mark directories] 'undefined)
    (define-key locate-mode-map [menu-bar mark symlinks]    'undefined)
 
-   (define-key locate-mode-map [mouse-2] 'mouse-locate-view-file)
-   (define-key locate-mode-map "\C-ct"   'locate-tags)
+   (define-key locate-mode-map [mouse-2]   'locate-mouse-view-file)
+   (define-key locate-mode-map "\C-c\C-t"  'locate-tags)
 
-   (define-key locate-mode-map "U"       'dired-unmark-all-files-no-query)
+   (define-key locate-mode-map "U"       'dired-unmark-all-files)
+   (define-key locate-mode-map "V"       'locate-find-directory)
 )
 
 ;; This variable is used to indent the lines and then to search for
@@ -247,7 +290,7 @@ shown; this is often useful to constrain a big search."
     (end-of-line)
     (let ((eol (point)))
       (beginning-of-line)
-      
+
       ;; Assumes names end at the end of the line
       (forward-char locate-filename-indentation)
       (list (point) eol))))
@@ -263,13 +306,13 @@ shown; this is often useful to constrain a big search."
 (defun locate-get-filename ()
   (let ((pos    (locate-get-file-positions))
 	(lineno (locate-current-line-number)))
-    (and (not (eq lineno 1)) 
-	 (not (eq lineno 2)) 
+    (and (not (eq lineno 1))
+	 (not (eq lineno 2))
 	 (buffer-substring (elt pos 0) (elt pos 1)))))
 
-(defun mouse-locate-view-file (event)
+(defun locate-mouse-view-file (event)
   "In Locate mode, view a file, using the mouse."
-  (interactive "@e") 
+  (interactive "@e")
   (save-excursion
     (goto-char (posn-point (event-start event)))
     (view-file (locate-get-filename))))
@@ -280,48 +323,55 @@ shown; this is often useful to constrain a big search."
 (defun locate-mode ()
   "Major mode for the `*Locate*' buffer made by \\[locate]."
   (kill-all-local-variables)
+  ;; Avoid clobbering this variables
+  (make-local-variable 'dired-subdir-alist)
   (use-local-map             locate-mode-map)
   (setq major-mode          'locate-mode
         mode-name           "Locate"
-        default-directory   "/"
-	dired-subdir-alist  (list (cons "/" (point-min-marker))))
+        default-directory   "/")
+  (dired-alist-add-1 default-directory (point-min-marker))
   (make-local-variable 'dired-move-to-filename-regexp)
+  ;; This should support both Unix and Windoze style names
   (setq dired-move-to-filename-regexp
-	(make-string locate-filename-indentation ?\ ))
+	(concat "."
+		(make-string (1- locate-filename-indentation) ?\ )
+		"\\(/\\|[A-Za-z]:\\)"))
   (make-local-variable 'dired-actual-switches)
   (setq dired-actual-switches "")
   (make-local-variable 'dired-permission-flags-regexp)
-  (setq dired-permission-flags-regexp "^\\(    \\)")
+  (setq dired-permission-flags-regexp
+	(concat "^.\\("
+		(make-string (1- locate-filename-indentation) ?\ )
+		"\\)"))
   (make-local-variable 'revert-buffer-function)
-  (setq revert-buffer-function 'locate-update) 
+  (setq revert-buffer-function 'locate-update)
   (run-hooks 'locate-mode-hook))
 
-(defun locate-do-setup ()
-  (let ((search-string (car locate-history-list)))
-    (goto-char (point-min))
-    (save-excursion
-      
-      ;; Nothing returned from locate command?
-      (and (eobp)
-	   (progn
-	     (kill-buffer locate-buffer-name)
-	     (if locate-current-filter
-		 (error "Locate: no match for %s in database using filter %s"
-			search-string locate-current-filter)
-	       (error "Locate: no match for %s in database" search-string))))
-      
-      (locate-insert-header search-string)
-      
-      (while (not (eobp))
-	(insert-char ?\  locate-filename-indentation t)
-	(locate-set-properties)
-	(forward-line 1)))))
+(defun locate-do-setup (search-string)
+  (goto-char (point-min))
+  (save-excursion
+
+    ;; Nothing returned from locate command?
+    (and (eobp)
+	 (progn
+	   (kill-buffer locate-buffer-name)
+	   (if locate-current-filter
+	       (error "Locate: no match for %s in database using filter %s"
+		      search-string locate-current-filter)
+	     (error "Locate: no match for %s in database" search-string))))
+
+    (locate-insert-header search-string)
+
+    (while (not (eobp))
+      (insert-char ?\  locate-filename-indentation t)
+      (locate-set-properties)
+      (forward-line 1)))
+  (goto-char (point-min)))
 
 (defun locate-set-properties ()
   (save-excursion
     (let ((pos (locate-get-file-positions)))
-      (add-text-properties (elt pos 0) (elt pos 1)
-			   (list 'mouse-face locate-mouse-face)))))
+      (dired-insert-set-properties (elt pos 0) (elt pos 1)))))
 
 (defun locate-insert-header (search-string)
   (let ((locate-format-string "Matches for %s")
@@ -329,7 +379,7 @@ shown; this is often useful to constrain a big search."
 	 (concat " *Matches for \\(" (regexp-quote search-string) "\\)"))
 	(locate-format-args (list search-string))
 	)
-  
+
     (and locate-fcodes-file
 	(setq locate-format-string
 	      (concat locate-format-string " in %s")
@@ -352,14 +402,14 @@ shown; this is often useful to constrain a big search."
 		      "\\)")
 	      locate-format-args
 	      (append (list locate-current-filter) locate-format-args)))
-	
+
     (setq locate-format-string
-	  (concat locate-format-string ": \n\n")
+	  (concat locate-format-string ":\n\n")
 	  locate-regexp-match
-	  (concat locate-regexp-match ": \n"))
-    
+	  (concat locate-regexp-match ":\n"))
+
     (insert (apply 'format locate-format-string (reverse locate-format-args)))
-    
+
     (save-excursion
       (goto-char (point-min))
       (if (not (looking-at locate-regexp-match))
@@ -378,7 +428,7 @@ shown; this is often useful to constrain a big search."
   "Visit a tags table in `*Locate*' mode."
   (interactive)
   (let ((tags-table (locate-get-filename)))
-    (and (y-or-n-p (format "Visit tags table %s? " tags-table)) 
+    (and (y-or-n-p (format "Visit tags table %s? " tags-table))
 	 (visit-tags-table tags-table))))
 
 ;; From Stephen Eglen <stephen@cns.ed.ac.uk>
@@ -389,6 +439,72 @@ Database is updated using the shell command in `locate-update-command'."
     (cond ((yes-or-no-p "Update locate database (may take a few seconds)? ")
 	   (shell-command locate-update-command)
 	   (locate str)))))
+
+;;; Modified three functions from `dired.el':
+;;;   dired-find-directory,
+;;;   dired-find-directory-other-window
+;;;   dired-get-filename
+
+(defun locate-find-directory ()
+  "Visit the directory of the file mentioned on this line."
+  (interactive)
+  (let ((directory-name (locate-get-dirname)))
+    (if (file-directory-p directory-name)
+	(find-file directory-name)
+      (if (file-symlink-p directory-name)
+	  (error "Directory is a symlink to a nonexistent target")
+	(error "Directory no longer exists; run `updatedb' to update database")))))
+
+(defun locate-find-directory-other-window ()
+  "Visit the directory of the file named on this line in other window."
+  (interactive)
+  (find-file-other-window (locate-get-dirname)))
+
+(defun locate-get-dirname ()
+  "Return the directory name of the file mentioned on this line."
+  (let (file (filepos (locate-get-file-positions)))
+    (if (setq file (buffer-substring (nth 0 filepos) (nth 1 filepos)))
+	(progn
+	  ;; Get rid of the mouse-face property that file names have.
+	  (set-text-properties 0 (length file) nil file)
+	  (setq file (file-name-directory file))
+	  ;; Unquote names quoted by ls or by dired-insert-directory.
+	  ;; Using read to unquote is much faster than substituting
+	  ;; \007 (4 chars) -> ^G  (1 char) etc. in a lisp loop.
+	  (setq file
+		(read
+		 (concat "\""
+			 ;; some ls -b don't escape quotes, argh!
+			 ;; This is not needed for GNU ls, though.
+			 (or (dired-string-replace-match
+			      "\\([^\\]\\|\\`\\)\"" file "\\1\\\\\"" nil t)
+			     file)
+			 "\"")))))
+    (and file buffer-file-coding-system
+	 (not file-name-coding-system)
+	 (setq file (encode-coding-string file buffer-file-coding-system)))
+    file))
+
+;; Only for GNU locate
+(defun locate-in-alternate-database  (search-string database)
+  "Run the GNU locate command, using an alternate database."
+  (interactive
+      (list
+       (progn
+	 ;; (require 'locate)
+	 (read-from-minibuffer "Locate: " nil nil
+			       nil 'locate-history-list))
+       (read-file-name "Locate using Database: " )
+       ))
+  (or (file-exists-p database)
+      (error "Database file %s does not exist" database))
+  (let ((locate-make-command-line
+	 (function (lambda (string)
+		     (cons locate-command
+			   (list (concat "--database="
+					 (expand-file-name database))
+				 string))))))
+    (locate search-string)))
 
 (provide 'locate)
 

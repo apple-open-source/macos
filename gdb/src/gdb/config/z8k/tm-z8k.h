@@ -1,5 +1,6 @@
 /* Parameters for execution on a z8000 series machine.
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,8 +19,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#define IEEE_FLOAT (1)
-
 #undef TARGET_INT_BIT
 #undef TARGET_LONG_BIT
 #undef TARGET_SHORT_BIT
@@ -29,9 +28,6 @@
 #define TARGET_INT_BIT 16
 #define TARGET_LONG_BIT 32
 #define TARGET_PTR_BIT (BIG ? 32: 16)
-
-/* Define the bit, byte, and word ordering of the machine.  */
-#define TARGET_BYTE_ORDER BIG_ENDIAN
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -138,7 +134,7 @@ extern int z8k_saved_pc_after_call (struct frame_info *frame);
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. */
 
-#define STORE_STRUCT_RETURN(ADDR, SP) abort();
+#define STORE_STRUCT_RETURN(ADDR, SP) internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
@@ -152,7 +148,7 @@ extern int z8k_saved_pc_after_call (struct frame_info *frame);
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format. */
 
-#define STORE_RETURN_VALUE(TYPE,VALBUF) abort();
+#define STORE_RETURN_VALUE(TYPE,VALBUF) internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,

@@ -449,7 +449,8 @@ protected:
     bool					fFetchAgentWriteCommandInUse;
 	FWSBP2FetchAgentWriteCallback 	fFetchAgentWriteCompletion;
 	void * 							fFetchAgentWriteRefCon;
-
+	IOFireWireSBP2ORB *		fORBToWrite;
+	
     OSSet *					fORBSet;
     OSIterator *			fORBSetIterator;
  
@@ -460,6 +461,18 @@ protected:
 	IOMemoryDescriptor *	fPasswordDescriptor;
 
 	bool fSuspended;
+	
+	UInt32					fLoginRetryDelay;
+	UInt32					fLoginRetryCount;
+	UInt32					fLoginRetryMax;
+	IOFWDelayCommand *		fLoginRetryTimeoutCommand;
+    bool					fLoginRetryTimeoutTimerSet;
+	IOFireWireSBP2Target * 	fTarget;
+	
+	bool					fUnsolicitedStatusEnableRequested;
+	
+	IOFWDelayCommand *		fReconnectRetryTimeoutCommand;
+    bool					fReconnectRetryTimeoutTimerSet;
 	
 	// init / destroy
     virtual IOReturn getUnitInformation( void );
@@ -595,7 +608,9 @@ protected:
 	UInt32 							fSetBusyTimeoutBuffer;
 	FWAddress 						fSetBusyTimeoutAddress;
 	IOFWWriteQuadCommand *			fSetBusyTimeoutCommand;
-
+	
+	bool							fInCriticalSection;
+	
 	virtual IOReturn executeSetBusyTimeout( void );
 	static void setBusyTimeoutCompleteStatic( void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd );
 	virtual void setBusyTimeoutComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd );
@@ -977,12 +992,37 @@ public:
     /*! 
         @function release
         @abstract Primary implementation of the release mechanism.
-        @discussion See OSObject.h for more information. 
-        @param when When retainCount == when then call free(). 
+        @discussion See OSObject.h for more information.  When retainCount == when then call free(). 
     */
     
     virtual void release() const;
+	
+	/*! 
+        @function setLoginRetryCountAndDelayTime
+        @abstract Sets login retry behavior.
+        @discussion Sets login retry behavior.
+        @param retryCount number of times to retry logins
+		@param uSecs delay time in microseconds between login retries
+    */
+	
+	virtual void setLoginRetryCountAndDelayTime( UInt32 retryCount, UInt32 uSecs );
+	
+protected:
+	virtual IOReturn initialExecuteLogin( void );
+	virtual void startLoginRetryTimer( void );
+	virtual void stopLoginRetryTimer( void );
+	static void loginRetryTimeoutStatic( void *refcon, IOReturn status,
+										 IOFireWireBus *bus, IOFWBusCommand *fwCmd );
+	virtual void loginRetryTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd);
 
+	virtual void startReconnectRetryTimer( void );
+	virtual void stopReconnectRetryTimer( void );
+	static void reconnectRetryTimeoutStatic( void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd );
+	virtual void reconnectRetryTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd );
+
+	virtual bool isORBAppended( IOFireWireSBP2ORB * orb );
+	virtual void setORBIsAppended( IOFireWireSBP2ORB * orb, bool state );
+	
 private:
     
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2Login, 6);

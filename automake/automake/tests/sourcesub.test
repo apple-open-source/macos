@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure config sub in _SOURCES fails.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = x
+x_SOURCES = x.c @FOO@
+EXTRA_x_SOURCES = y.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

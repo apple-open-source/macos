@@ -1,4 +1,4 @@
-#   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+#   Copyright 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -69,6 +69,8 @@ if {$gcc_compiled == 0} {
 	# don't know what the compiler is...
 	set additional_flags ""
     }
+} elseif {[istarget "*-apple-darwin*"]} {
+    set additional_flags "additional_flags=-dynamiclib"
 } else {
     set additional_flags "additional_flags=-fpic"
 }
@@ -85,7 +87,11 @@ if [istarget "hppa*-*-hpux*"] {
     remote_exec build "ld -b ${objdir}/${subdir}/${libfile}1.o -o ${objdir}/${subdir}/${libfile}1.sl"
     remote_exec build "ld -b ${objdir}/${subdir}/${libfile}2.o -o ${objdir}/${subdir}/${libfile}2.sl"
 } else {
-    set additional_flags "additional_flags=-shared"
+    if {[istarget "*darwin*"]} {
+	set additional_flags "additional_flags=-dynamiclib"
+    } else {
+	set additional_flags "additional_flags=-shared"
+    }
     if {[gdb_compile "${objdir}/${subdir}/${libfile}1.o" "${objdir}/${subdir}/${libfile}1.sl" executable [list debug $additional_flags]] != ""} {
 	gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
     }
@@ -268,14 +274,16 @@ gdb_test "break shr1" "Breakpoint 1.*" "set bp in shared library"
 
 # FIXME: should not send "run" explicitly.  Non-portable.
 
-gdb_test "run" "Starting program:.*Breakpoint 1,.*" \
+if ![is_remote target] {
+  gdb_test "run" "Starting program:.*Breakpoint 1,.*" \
 	"run to bp in shared library"
 
-gdb_test "cont" ".*Program exited normally..*"
+  gdb_test "cont" ".*Program exited normally..*"
 
-gdb_test "run" "Starting program:.*Breakpoint 1,.*" \
+  gdb_test "run" "Starting program:.*Breakpoint 1,.*" \
 	"re-run to bp in shared library (PR's 16495, 18213)"
 
-gdb_test "cont" ".*Program exited normally..*"
+  gdb_test "cont" ".*Program exited normally..*"
+}
 
 return 0

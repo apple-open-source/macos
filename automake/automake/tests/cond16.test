@@ -1,0 +1,51 @@
+#! /bin/sh
+
+# Test for bug in conditionals in SOURCES with variable substitution references.
+# Report from Richard Boulton
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(hello.c)
+AM_INIT_AUTOMAKE(hello,0.23)
+AC_PROG_CC
+AM_CONDITIONAL(COND1, true)
+AC_OUTPUT(Makefile)
+END
+
+cat > hello.c << 'END'
+END
+
+cat > Makefile.am << 'END'
+
+if COND1
+var = foo.c
+else
+var = foo.c
+endif
+
+bin_PROGRAMS = hell
+hell_SOURCES = $(var:=)
+
+echorule:
+	@echo $(hell_SOURCES) $(hell_OBJECTS)
+
+END
+
+(gcc -v) > /dev/null 2>&1 || exit 77
+
+# Ignore user CFLAGS.
+CFLAGS=
+export CFLAGS
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+CC='gcc' ./configure
+
+val=`$MAKE -s echorule`;
+echo $val
+test "x$val" = "xfoo.c foo.o"

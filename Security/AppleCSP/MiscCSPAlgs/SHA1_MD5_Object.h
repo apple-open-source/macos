@@ -26,9 +26,9 @@
 #define _SHA1_MD5_OBJECT_H_
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <AppleCSP/DigestObject.h>
+#include <Security/digestobject.h>
 #include <MiscCSPAlgs/MD5.h>
-#include <CryptKit/SHA1_priv.h>
+#include <MiscCSPAlgs/SHA1_priv.h>
 
 class SHA1Object : public DigestObject
 {
@@ -41,6 +41,7 @@ public:
 		size_t 		len);
 	virtual void digestFinal(
 		void 		*digest);
+	virtual DigestObject *digestClone() const;
 	virtual size_t digestSizeInBytes() const;
 private:
 	SHS_INFO 		mCtx;
@@ -60,6 +61,7 @@ public:
 		size_t 		len);
 	virtual void digestFinal(
 		void 		*digest);
+	virtual DigestObject *digestClone() const;
 	virtual size_t digestSizeInBytes() const;
 private:
 	MD5Context mCtx;

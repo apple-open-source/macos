@@ -54,6 +54,7 @@ tree build_message_expr				PROTO((tree));
 #else
 tree build_message_expr				PROTO((tree, int));
 #endif
+tree finish_message_expr			PROTO((tree, tree, tree));
 #ifdef MODERN_OBJC_SYNTAX
 tree build_modern_message_expression	PROTO((tree, tree));
 #endif
@@ -128,6 +129,8 @@ tree build_encode_expr				PROTO((tree));
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
+/* APPLE LOCAL bitfield alignment */
+#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
@@ -136,15 +139,15 @@ tree build_encode_expr				PROTO((tree));
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 #define TYPE_PROTOCOL_LIST(TYPE) ((TYPE)->type.context)
 
-#ifdef OBJCPLUS
 /* Type checking macros.  */
+
+extern tree super_type, selector_type, id_type, objc_class_type;
 #define IS_ID(TYPE) \
   (id_type && TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
 #define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
   (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
 #define IS_SUPER(TYPE) \
   (super_type && TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (super_type))
-#endif
 
 /* Set by `continue_class' and checked by `is_public'.  */
 

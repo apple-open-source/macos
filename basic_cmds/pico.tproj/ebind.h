@@ -1,5 +1,5 @@
 /*
- * $Id: ebind.h,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
+ * $Id: ebind.h,v 1.2 2002/01/03 22:16:39 jevans Exp $
  *
  * Program:	Default key bindings
  *
@@ -14,7 +14,7 @@
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -112,9 +112,7 @@ KEYTAB  keytab[NBINDS] = {
 #endif
 	{CTRL|'@',		forwword},
 	{CTRL|'^',		setmark},
-#ifdef	JOB_CONTROL
 	{CTRL|'_',		alt_editor},
-#endif
 	{0x7F,			backdel},
 	{0,			NULL}
 };

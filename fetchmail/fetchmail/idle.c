@@ -54,7 +54,7 @@ void itimerthread(void* dummy)
 {
     if (outlevel >= O_VERBOSE)
 	report(stderr, 
-	       _("fetchmail: thread sleeping for %d sec.\n"), poll_interval);
+	       GT_("fetchmail: thread sleeping for %d sec.\n"), poll_interval);
     while(1)
     {
 	_sleep2(poll_interval*1000);

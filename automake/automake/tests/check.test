@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# Test Automake style tests.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+TESTS = frob.test
+END
+
+: > frob.test
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^check-TESTS:' Makefile.in || exit 1
+grep '^check-DEJAGNU' Makefile.in && exit 1
+
+# check-TESTS is phony.
+sed -n '/^\.PHONY:/,/^$/p' Makefile.in | grep check-TESTS || exit 1
+
+exit 0

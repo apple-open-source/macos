@@ -220,7 +220,7 @@ struct hostdata		/* shared among all user connections to given server */
 #endif /* SDPS_ENABLE */
     flag checkalias;                  	/* resolve aliases by comparing IPs? */
     char *principal;			/* Kerberos principal for mail service */
-
+    char *esmtp_name, *esmtp_password;	/* ESMTP AUTH information */
 
 #if defined(linux) || defined(__FreeBSD__)
     char *interface;
@@ -308,6 +308,7 @@ struct query
     struct idlist *skipped;	/* messages skipped on the mail server */
     struct idlist *oldsaved, *newsaved;
     char *lastid;		/* last Message-ID seen on this connection */
+    char *thisid;		/* Message-ID of current message */
 
     /* internal use -- per-message state */
     int mimemsg;		/* bitmask indicating MIME body-type */
@@ -390,13 +391,26 @@ extern char *sdps_envto;
 
 /* prototypes for globally callable functions */
 
+/* from /usr/include/sys/cdefs.h */
+#if !defined __GNUC__ || __GNUC__ < 2
+# define __attribute__(xyz)»    /* Ignore. */
+#endif
+
 /* error.c: Error reporting */
 #if defined(HAVE_STDARG_H)
 void report_init(int foreground);
-void report (FILE *fp, const char *format, ...);
-void report_build (FILE *fp, const char *format, ...);
-void report_complete (FILE *fp, const char *format, ...);
-void report_at_line (FILE *fp, int, const char *, unsigned int, const char *, ...);
+void report (FILE *fp, const char *format, ...)
+    __attribute__ ((format (printf, 2, 3)))
+    ;
+void report_build (FILE *fp, const char *format, ...)
+    __attribute__ ((format (printf, 2, 3)))
+    ;
+void report_complete (FILE *fp, const char *format, ...)
+    __attribute__ ((format (printf, 2, 3)))
+    ;
+void report_at_line (FILE *fp, int, const char *, unsigned int, const char *, ...)
+    __attribute__ ((format (printf, 5, 6)))
+    ;
 #else
 void report ();
 void report_build ();
@@ -417,9 +431,13 @@ int readheaders(int sock,
 		int num);
 int readbody(int sock, struct query *ctl, flag forward, int len);
 #if defined(HAVE_STDARG_H)
-void gen_send(int sock, const char *, ... );
+void gen_send(int sock, const char *, ... )
+    __attribute__ ((format (printf, 2, 3)))
+    ;
 int gen_recv(int sock, char *buf, int size);
-int gen_transact(int sock, const char *, ... );
+int gen_transact(int sock, const char *, ... )
+    __attribute__ ((format (printf, 2, 3)))
+    ;
 #else
 void gen_send();
 int gen_recv();
@@ -461,6 +479,7 @@ extern int mytimeout;
 int interruptible_idle(int interval);
 
 /* sink.c: forwarding */
+void smtp_close(struct query *, int);
 int smtp_open(struct query *);
 int stuffline(struct query *, char *);
 int open_sink(struct query*, struct msgblk *, int*, int*);
@@ -468,7 +487,9 @@ void release_sink(struct query *);
 int close_sink(struct query *, struct msgblk *, flag);
 int open_warning_by_mail(struct query *, struct msgblk *);
 #if defined(HAVE_STDARG_H)
-void stuff_warning(struct query *, const char *, ... );
+void stuff_warning(struct query *, const char *, ... )
+    __attribute__ ((format (printf, 2, 3)))
+    ;
 #else
 void stuff_warning();
 #endif
@@ -505,7 +526,7 @@ int prc_filecheck(const char *, const flag);
 
 /* base64.c */
 void to64frombits(unsigned char *, const unsigned char *, int);
-int from64tobits(char *, const char *);
+int from64tobits(char *, const char *, int maxlen);
 
 /* unmime.c */
 /* Bit-mask returned by MimeBodyType */
@@ -539,8 +560,8 @@ char *xstrdup(const char *);
 #endif
 #endif
 #define	xalloca(ptr, t, n)	if (!(ptr = (t) alloca(n)))\
-       {report(stderr, _("alloca failed")); exit(PS_UNDEFINED);}
-#if FALSE
+       {report(stderr, GT_("alloca failed")); exit(PS_UNDEFINED);}
+#if 0
 /*
  * This is a hack to help xgettext which cannot find strings in
  * macro definitions like the one for xalloca above.
@@ -565,6 +586,7 @@ int do_otp(int sock, char *command, struct query *ctl);
 struct query *hostalloc(struct query *); 
 int parsecmdline (int, char **, struct runctl *, struct query *);
 char *MD5Digest (unsigned char *);
+void hmac_md5 (unsigned char *, size_t, unsigned char *, size_t, unsigned char *, size_t);
 int POP3_auth_rpa(unsigned char *, unsigned char *, int socket);
 void deal_with_sigchld(void);
 int daemonize(const char *, void (*)(int));

@@ -10,4 +10,7 @@ nobody:*:-2:-2::0:0:Unprivileged User:/dev/null:/dev/null
 root:*:0:0::0:0:System Administrator:/var/root:/bin/tcsh
 daemon:*:1:1::0:0:System Services:/var/root:/dev/null
 unknown:*:99:99::0:0:Unknown User:/dev/null:/dev/null
+smmsp:*:25:25::0:0:Sendmail User:/private/etc/mail:/dev/null
 www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/dev/null
+mysql:*:74:74::0:0:MySQL Server:/dev/null:/dev/null
+sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/dev/null

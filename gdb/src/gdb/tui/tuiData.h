@@ -1,5 +1,49 @@
+/* TUI data manipulation routines.
+   Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
 #ifndef TUI_DATA_H
 #define TUI_DATA_H
+
+#if defined (HAVE_NCURSES_H)
+#include <ncurses.h>
+#elif defined (HAVE_CURSES_H)
+#include <curses.h>
+#endif
+
+/* Generic window information */
+     typedef struct _TuiGenWinInfo
+       {
+	 WINDOW *handle;	/* window handle */
+	 TuiWinType type;	/* type of window */
+	 int width;		/* window width */
+	 int height;		/* window height */
+	 TuiPoint origin;	/* origin of window */
+	 OpaquePtr content;	/* content of window */
+	 int contentSize;	/* Size of content (# of elements) */
+	 int contentInUse;	/* Can it be used, or is it already used? */
+	 int viewportHeight;	/* viewport height */
+	 int lastVisibleLine;	/* index of last visible line */
+	 int isVisible;		/* whether the window is visible or not */
+       }
+TuiGenWinInfo, *TuiGenWinInfoPtr;
 
 /* Constant definitions */
 #define DEFAULT_TAB_LEN                8
@@ -98,7 +142,7 @@ TuiRegisterDisplayType, *TuiRegisterDisplayTypePtr;
 typedef union _TuiLineOrAddress
   {
     int lineNo;
-    Opaque addr;
+    CORE_ADDR addr;
   }
 TuiLineOrAddress, *TuiLineOrAddressPtr;
 
@@ -151,7 +195,7 @@ typedef struct _TuiLocatorElement
     char fileName[MAX_LOCATOR_ELEMENT_LEN];
     char procName[MAX_LOCATOR_ELEMENT_LEN];
     int lineNo;
-    Opaque addr;
+    CORE_ADDR addr;
   }
 TuiLocatorElement, *TuiLocatorElementPtr;
 
@@ -208,6 +252,7 @@ typedef struct _TuiCommandInfo
   {
     int curLine;		/* The current line position */
     int curch;			/* The current cursor position */
+    int start_line;
   }
 TuiCommandInfo, *TuiCommandInfoPtr;
 
@@ -293,9 +338,9 @@ extern int winElementHeight (TuiGenWinInfoPtr, TuiWinElementPtr);
 extern TuiLayoutType currentLayout (void);
 extern void setCurrentLayoutTo (TuiLayoutType);
 extern int termHeight (void);
-extern void setTermHeight (int);
+extern void setTermHeightTo (int);
 extern int termWidth (void);
-extern void setTermWidth (int);
+extern void setTermWidthTo (int);
 extern int historyLimit (void);
 extern void setHistoryLimit (int);
 extern void setGenWinOrigin (TuiGenWinInfoPtr, int, int);
@@ -323,5 +368,6 @@ extern void tuiSetWinResizedTo (int);
 extern TuiWinInfoPtr tuiNextWin (TuiWinInfoPtr);
 extern TuiWinInfoPtr tuiPrevWin (TuiWinInfoPtr);
 
+extern void addToSourceWindows (TuiWinInfoPtr winInfo);
 
 #endif /* TUI_DATA_H */

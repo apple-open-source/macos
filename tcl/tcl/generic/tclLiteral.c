@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclLiteral.c,v 1.1.1.2 2000/04/12 02:01:31 wsanchez Exp $
+ * RCS: @(#) $Id: tclLiteral.c,v 1.1.1.3 2002/04/05 16:13:23 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -696,31 +696,10 @@ TclReleaseLiteral(interp, objPtr)
 	    entryPtr->refCount--;
 
 	    /*
-	     * We found the matching LiteralEntry. Check if it's only being
-	     * kept alive only by a circular reference from a ByteCode
-	     * stored as its internal rep.
-	     */
-	    
-	    if ((entryPtr->refCount == 1)
-		    && (objPtr->typePtr == &tclByteCodeType)) {
-		codePtr = (ByteCode *) objPtr->internalRep.otherValuePtr;
-		if ((codePtr->numLitObjects == 1)
-		        && (codePtr->objArrayPtr[0] == objPtr)) {
-		    entryPtr->refCount = 0;
-
-		    /*
-		     * Set the ByteCode object array entry NULL to signal
-		     * to TclCleanupByteCode to not try to release this
-		     * about to be freed literal again.
-		     */
-
-		    codePtr->objArrayPtr[0] = NULL;
-		}
-	    }
-
-	    /*
 	     * If the literal is no longer being used by any ByteCode,
-	     * delete the entry then decrement the ref count of its object.
+	     * delete the entry then remove the reference corresponding 
+	     * to the global literal table entry (decrement the ref count 
+	     * of the object).
 	     */
 		
 	    if (entryPtr->refCount == 0) {
@@ -729,27 +708,40 @@ TclReleaseLiteral(interp, objPtr)
 		} else {
 		    prevPtr->nextPtr = entryPtr->nextPtr;
 		}
-#ifdef TCL_COMPILE_STATS
-		iPtr->stats.currentLitStringBytes -= (double) (length + 1);
-#endif /*TCL_COMPILE_STATS*/
 		ckfree((char *) entryPtr);
 		globalTablePtr->numEntries--;
 
-		/*
-		 * Remove the reference corresponding to the global 
-		 * literal table entry.
-		 */
-
 		TclDecrRefCount(objPtr);
+
+		/*
+		 * Check if the LiteralEntry is only being kept alive by 
+		 * a circular reference from a ByteCode stored as its 
+		 * internal rep. In that case, set the ByteCode object array 
+		 * entry NULL to signal to TclCleanupByteCode to not try to 
+		 * release this about to be freed literal again.
+		 */
+	    
+		if (objPtr->typePtr == &tclByteCodeType) {
+		    codePtr = (ByteCode *) objPtr->internalRep.otherValuePtr;
+		    if ((codePtr->numLitObjects == 1)
+		            && (codePtr->objArrayPtr[0] == objPtr)) {			
+			codePtr->objArrayPtr[0] = NULL;
+		    }
+		}
+
+#ifdef TCL_COMPILE_STATS
+		iPtr->stats.currentLitStringBytes -= (double) (length + 1);
+#endif /*TCL_COMPILE_STATS*/
 	    }
 	    break;
 	}
     }
-
+    
     /*
      * Remove the reference corresponding to the local literal table
      * entry.
      */
+
     Tcl_DecrRefCount(objPtr);
 }
 

@@ -1,25 +1,345 @@
-2000-06-13  Gerd Moellmann  <gerd@gnu.org>
+2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
-	* Version 20.7 released.
-	
-2000-05-12  Jason Rumney  <jasonr@gnu.org>
-	
-	* INSTALL: Remove point 5 and other references to emacs.bat.
-	Renumber following points. Add note in point 1 about emacs.bat
-	and debug.bat being removed.
+	* Version 21.1 released.
 
-2000-02-20  Andrew Innes  <andrewi@gnu.org>
+2001-09-08  Eli Zaretskii  <eliz@is.elta.co.il>
 
-	* makefile.nt: Remove all references to emacs.bat and debug.bat.
+	* README: Update the address of the mailing list and subscription
+	instructions.  From Geoff Voelker <voelker@cs.ucsd.edu>.
+
+2001-09-06  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Suggest to avoid using WinZip.
+
+	* configure.bat: Make sure ../site-lisp exists; create if necessary.
+
+2001-09-05  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Mention that "make install" can be "nmake install".
+
+2001-09-04  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* makefile.w32-in ($(INSTALL_DIR)/bin): Depend on $(INSTALL_DIR),
+	since some versions of `mkdir' don't automatically create parent
+	directories.  From Bruno Grossniklaus <bruno.grossniklaus@ubs.com>.
+
+2001-08-31  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* subdirs.el: New file.
+
+	* configure.bat: Copy subdirs.el to the site-lisp directory.
+
+	* makefile.w32-in (install): Copy subdirs.el to the installation
+	directory.
+
+2001-06-20  Jason Rumney  <jasonr@gnu.org>
+
+	* runemacs.c (WinMain): Add quotes around command in case of spaces.
+
+2001-06-01  Andrew Innes  <andrewi@gnu.org>
+
+	* gmake.defs (sh_output): Don't use $(warning ...) to output
+	messages, since that is not supported by GNU make 3.77.
+
+2001-05-24  Jason Rumney  <jasonr@gnu.org>
+
+	* INSTALL: Clarify that building with MSVC requires nmake.
+
+2001-05-17  Andrew Innes  <andrewi@gnu.org>
+
+	* gmake.defs (NEW_CYGWIN): Output message about spurious error
+	message that is to be ignored.
+
+2001-05-13  Andrew Innes  <andrewi@gnu.org>
+
+	* TODO: Remove file, since it is completely out of date.
+
+	* README: Add copyright notice.
+
+	* INSTALL: Add copyright notice.
+
+2001-04-18  Andrew Innes  <andrewi@gnu.org>
+
+	* nmake.defs (EMACSLOADPATH): Ensure EMACSLOADPATH is defined in
+	the environment.
+
+	* gmake.defs (SETLOADPATH): Remove definition.
+	(EMACSLOADPATH): Ensure EMACSLOADPATH is defined in the
+	environment.
+
+2001-03-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.bat: Make the checkw32api* labels be distinct in the
+        first 8 characters.
+
+2001-03-17  Andrew Innes  <andrewi@gnu.org>
+
+	* cmdproxy.c (get_next_token): Fix indefinite loop bug scanning
+	escaped quotes.
+
+	* gmake.defs (DEBUG_LINK): New macro.
+	(LINK_FLAGS): Use it.
+
+	* nmake.defs (DEBUG_LINK): New macro.
+	(LINK_FLAGS): Use it.
+
+2001-03-06  Andrew Innes  <andrewi@gnu.org>
+
+	* INSTALL: Add --ldflags to configure line for building with
+	recent versions of Cygwin GCC.
+
+2001-03-05  Eli Zaretskii <eliz@is.elta.co.il>
+
+	* configure.bat: Use correct options when compiling a test program
+	with Cygwin.  From David Ponce <dponce@voila.fr>.
+
+2001-02-24  Andrew Innes  <andrewi@gnu.org>
+
+	* _emacs: Remove obsolete file.
 
 	* emacs.bat.in: Remove obsolete file.
 
 	* debug.bat.in: Remove obsolete file.
 
+	* inc/sys/socket.h: Add copyright notice.
+
+	* paths.h: Add copyright notice.
+
+	* makefile.nt: Update copyright notice.
+
+	* makefile.def: Update copyright notice.
+
+	* configure.bat: Update copyright notice.
+
+	* nmake.defs: Add copyright notice.
+
+	* gmake.defs: Add copyright notice.
+
+	* makefile.w32-in: Add copyright notice.
+
+2001-02-05  Andrew Innes  <andrewi@gnu.org>
+
+	* nmake.defs (THISDIR): New definition.
+
+	* gmake.defs (THISDIR): New definition.
+
+2001-02-03  Andrew Innes  <andrewi@gnu.org>
+
+	* configure.bat: Leave a space before >> only when there is a
+	preceding digit.  Add a comment about the importance of this.
+
+	* README: Replace outdated information.
+
+	* INSTALL (Trouble-shooting): Add note about need to specify extra
+	compiler flags with recent Cygwin ports of gcc.
+
+2001-02-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.bat: Use "rm -f" instead of "del /f", as the latter
+	is not supported by Windows 9X's COMMAND.COM.
+
+2001-01-31  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.bat: Make sure redirection is preceeded by a blank, to
+	avoid problems with "1>>foo" when CMD.EXE is the shell, which eats
+	up the "1" part.  From Rob Giardina <rob@criticalpointsoftware.com>.
+
+2001-01-30  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Copy the table of tested combinations of development
+	tools from confuigure.bat.  Add suggestion to install Bash on
+	Windows 9X.
+
+	* configure.bat: Don't copy lisp/Makefile, it doesn't exist; copy
+	lisp/Makefile.in instead.  Use "rm -f" where more than one file
+	needs to be deleted, since command.com in Windows 9X doesn't grok
+	more than one argument.
+
+2001-01-24  Andrew Innes  <andrewi@gnu.org>
+
+	* makefile.w32-in (cleanall-other-dirs-nmake): 
+	(cleanall-other-dirs-gmake): New targets.
+	(cleanall): Invoke them.
+
+2001-01-19  Andrew Innes  <andrewi@gnu.org>
+
+	* addpm.c (env_vars): Add a version-independent site-lisp
+	directory to EMACSLOADPATH, after the version dependent one.
+
+2001-01-06  Andrew Innes  <andrewi@gnu.org>
+
+	* README: Update info about compilers.
+
+	* makefile.w32-in: Use $(MAKETYPE) instead of $(SHELLTYPE) to
+	select correct rule for invoking make in another directory.  Amend
+	rules accordingly.
+	(clean): Delete $(COMPILER_TEMP_FILES) instead of *.pdb.
+
+	* nmake.defs (EMACS_ICON_PATH): Delete definition.
+	(COMPILER_TEMP_FILES): New definition.
+	(MAKETYPE): New definition.
+
+	* gmake.defs (EMACS_ICON_PATH): Delete definition.
+	(COMPILER_TEMP_FILES): New definition.
+	(MAKETYPE): New definition.
+
+	* makefile.def (EMACS_ICON_PATH): Delete definition.
+
+	* configure.bat: Be careful not to add trailing spaces when
+	outputting to config.settings.
+
+2001-01-02  Andrew Innes  <andrewi@gnu.org>
+
+	* config.nt (RE_TRANSLATE): Use CHAR_TABLE_TRANSLATE macro rather
+	than the function.
+
+2000-12-17  Andrew Innes  <andrewi@gnu.org>
+
+	* makefile.w32-in (install): Copy directories to the correct
+	places.
+	(real_install): Remove obsolete target.
+
+2000-12-06  Andrew Innes  <andrewi@gnu.org>
+
+	* nmake.defs (CURDIR): New define.
+	(INSTALL_DIR): Use it.
+
+	* gmake.defs (NEW_CYGWIN): New define.
+	(DQUOTE) [NEW_CYGWIN]: Cygnus changed the quoting rules since b20,
+	so we need to adjust how we escape embedded quotes.
+	(SETLOADPATH): Set EMACSLOADPATH to an absolute directory,
+	relative to $(CURDIR).
+
+2000-11-25  Jason Rumney  <jasonr@gnu.org>
+
+	* config.nt (GC_MARK_STACK, GC_SETJMP_WORKS): Define.
+
+2000-10-17  Andrew Innes  <andrewi@gnu.org>
+
+	* makefile.w32-in (recompile): New target to recompile lisp
+	directory.
+	(recompile-CMD, recompile-SH): New support targets.
+
+2000-09-24  Jason Rumney  <jasonr@gnu.org>
+
+	* config.nt (NO_RETURN): Define it.
+
+2000-09-17  Andrew Innes  <andrewi@gnu.org>
+
+	* gmake.defs: Revert to Unix line endings.
+
+	* nmake.defs: Revert to Unix line endings.
+
+2000-09-16  Andrew Innes  <andrewi@gnu.org>
+
+	* gmake.defs (SETLOADPATH): Change definition to work from any
+	subdirectory.
+
+2000-09-14  Andrew Innes  <andrewi@gnu.org>
+
+	* makefile.w32-in: Revert to Unix line endings.
+
+2000-09-14  Andrew Innes  <andrewi@gnu.org>
+
+	* INSTALL: Add note about expected error messages when configure
+	is run.
+
+	* configure.bat: Simplify the generation of makefiles (don't need
+	to generate various top-level targets that invoke make in other
+	directories).
+
+	* gmake.defs (SHELLTYPE): New define.
+	(SETLOADPATH): New define.
+
+	* nmake.defs (SHELLTYPE): New define.
+
+	* makefile.w32-in: Standardize indentation somewhat.
+	Add bootstrap support.
+	Pass $(MFLAGS) when invoking make recursively.
+	Add shell-specific variants of top-level targets that invoke make
+	recursively in other directories, and add necessary computed
+	dependencies.
+
+2000-09-03  Andrew Innes  <andrewi@gnu.org>
+
+	* makefile.w32-in: Change to DOS line endings.
+
+	* configure.bat: Change to DOS line endings.
+
+	* addsection.c (_ANONYMOUS_UNION) [__GNUC__]: New define.
+	(_ANONYMOUS_STRUCT) [__GNUC__]: New define.
+
+	* preprep.c (_ANONYMOUS_UNION) [__GNUC__]: New define.
+	(_ANONYMOUS_STRUCT) [__GNUC__]: New define.
+
+	* gmake.defs (CFLAGS): No need for -D_ANONYMOUS_UNION
+	-D_ANONYMOUS_STRUCT on compile line.
+	(EMACS_EXTRA_C_FLAGS): No need for -DORDINARY_LINK.
+	(ARCH_CFLAGS): Change optimization flags to -O2.
+	(FOREACH, FORVAR, FORDO, ENDFOR): New definitions.
+	(ARGQUOTE, DQUOTE): New defines.
+
+	* nmake.defs (CFLAGS): No need for -D_ANONYMOUS_UNION
+	-D_ANONYMOUS_STRUCT on compile line.
+	(FOREACH, FORVAR, FORDO, ENDFOR): New definitions.
+	(ARGQUOTE, DQUOTE): New defines.
+
+2000-08-22  Andrew Innes  <andrewi@gnu.org>
+
+	* configure.bat: New file.
+
+	* gmake.defs: New file.
+
+	* nmake.defs: New file.
+
+	* makefile.w32-in: New file.
+
+	* INSTALL: Rewrite to match new configure process.
+
+	* config.nt [WINDOWSNT]: Don't declare getenv.
+	(EMACS_CONFIG_OPTIONS): Define according to compiler being used.
+
+	* addpm.c (main): Accept /q to mean install based on addpm's
+	location without asking.  Remove reference to emacs.bat which is
+	now obsolete.
+
+	* addsection.c (PTR_TO_OFFSET): Cast ptr to unsigned char*.
+
+	* paths.h: Use forward slash as directory separator in all path
+	definitions.
+	(PATH_DUMPLOADSEARCH): Revert to definition used on Unix.
+
+	* preprep.c (PTR_TO_OFFSET): Cast ptr to unsigned char *.
+
+	* runemacs.c: Remove WIN32 define.
+
+	* inc/sys/file.h (F_OK, X_OK, W_OK, R_OK, D_OK): Define if D_OK is
+	not defined.
+
+	* inc/sys/socket.h (_WINSOCK_H): Undefine if defined.
+	(fd_set): Define to new name, after including winsock.h, so we can
+	provide our own implementation.
+
+2000-07-05  Andrew Innes  <andrewi@gnu.org>
+
+	* ebuild.bat: Add support for specifying make arguments.
+
+	* makefile.nt: Add support for `bootstrap' and related targets.
+
+2000-06-11  Jason Rumney  <jasonr@gnu.org>
+
+	* config.nt: Define POINTER_TYPE, PTR, PROTOTYPES and __P.
+
+2000-02-06  Andrew Innes  <andrewi@gnu.org>
+
+	* inc/sys/time.h: Add inclusion protection.
+
+	* makefile.def (SYS_LDFLAGS): Add -nologo.
+
 1999-11-22  Andrew Innes  <andrewi@gnu.org>
 
 	* install.bat: Pass on command line arguments to make.
-	
+
 	* makefile.nt (fast_install): Bring commands up-to-date, and fix
 	typo.
 
@@ -33,12 +353,6 @@
 	definition.
 
 	* emacs.bat.in (EMACSLOADPATH): Include leim.
-
-1999-11-04  Andrew Innes  <andrewi@gnu.org>
-
-	* makefile.def (ARCH_CFLAGS): Disable the frame pointer omission
-	optimization, to ensure accurate stack traces.  The performance
-	loss is negligible.
 
 1999-07-12  Richard Stallman  <rms@gnu.org>
 
@@ -552,3 +866,12 @@
 	* ebuild.cmd: New file.
 
 	* _emacs: New file.
+
+;; Local Variables:
+;; coding: iso-2022-7bit
+;; End:
+
+    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2001
+	Free Software Foundation, Inc.
+  Copying and distribution of this file, with or without modification,
+  are permitted provided the copyright notice and this notice are preserved.

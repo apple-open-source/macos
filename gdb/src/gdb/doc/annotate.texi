@@ -8,32 +8,22 @@
 @c  @set EDITION 0.5
 @c  @set DATE May 1994
 
-@c  @ifinfo
-@c  This file documents GDB annotations.
+@c @ifinfo
+@c This file documents GDB annotations.
 
-@c  This is Edition @value{EDITION}, @value{DATE}, of @cite{GDB
-@c  Annotations}.  Copyright 1994 Free Software Foundation
+@c This is Edition @value{EDITION}, @value{DATE}, of @cite{GDB
+@c Annotations}.  Copyright 1994,1995,2000,2001 Free Software Foundation, Inc.
 
-@c  Permission is granted to make and distribute verbatim copies of
-@c  this manual provided the copyright notice and this permission notice
-@c  are preserved on all copies.
-@c  @end ignore
+@c Permission is granted to copy, distribute and/or modify this document
+@c under the terms of the GNU Free Documentation License, Version 1.1 or
+@c any later version published by the Free Software Foundation; with no
+@c Invariant Sections, with the Front-Cover Texts being ``A GNU Manual,''
+@c and with the Back-Cover Texts as in (a) below.
 
-@c  @ignore
-@c  Permission is granted to process this file through TeX and print the
-@c  results, provided the printed document carries copying permission
-@c  notice identical to this one except for the removal of this paragraph
-@c  (this paragraph not being relevant to the printed manual).
-
-@c  @end ignore
-@c  Permission is granted to copy and distribute modified versions of this
-@c  manual under the conditions for verbatim copying, provided also that the
-@c  entire resulting derived work is distributed under the terms of a
-@c  permission notice identical to this one.
-
-@c  Permission is granted to copy and distribute translations of this manual
-@c  into another language, under the above conditions for modified versions.
-@c  @end ifinfo
+@c (a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
+@c this GNU Manual, like GNU software.  Copies published by the Free
+@c Software Foundation raise funds for GNU development.''
+@c @end ifinfo
 
 @c  @titlepage
 @c  @title GDB Annotations
@@ -46,7 +36,7 @@
 @c  this manual provided the copyright notice and this permission notice
 @c  are preserved on all copies.
 
-@c  Copyright @copyright{} 1994 Free Software Foundation
+@c  Copyright @copyright{} 1994,1995,2000,2001 Free Software Foundation
 @c  @end titlepage
 
 @c  @ifinfo
@@ -59,8 +49,8 @@
 @chapter @value{GDBN} Annotations
 
 This chapter describes annotations in @value{GDBN}.  Annotations are
-designed to interface @value{GDBN} to graphical user interfaces or other
-similar programs which want to interact with @value{GDBN} at a
+designed to interface @value{GDBN} to graphical user interfaces or
+other similar programs which want to interact with @value{GDBN} at a
 relatively high level.
 
 @ignore
@@ -167,6 +157,7 @@ the annotation looks like
 ^Z^Zvalue-history-end
 @end smallexample
 
+@noindent
 where @var{history-number} is the number it is getting in the value
 history, @var{history-string} is a string, such as @samp{$5 = }, which
 introduces the value to the user, @var{the-value} is the output
@@ -201,6 +192,7 @@ from the @code{backtrace} command), it annotates it as follows:
 ^Z^Zarg-end
 @end smallexample
 
+@noindent
 where @var{argument-name} is the name of the argument,
 @var{separator-string} is text which separates the name from the value
 for the user's benefit (such as @samp{=}), and @var{value-flags} and
@@ -223,6 +215,7 @@ When printing a structure, @value{GDBN} annotates it as follows:
 ^Z^Zfield-end
 @end smallexample
 
+@noindent
 where @var{field-name} is the name of the field, @var{separator-string}
 is text which separates the name from the value for the user's benefit
 (such as @samp{=}), and @var{value-flags} and @var{the-value} have the
@@ -234,6 +227,7 @@ When printing an array, @value{GDBN} annotates it as follows:
 ^Z^Zarray-section-begin @var{array-index} @var{value-flags}
 @end smallexample
 
+@noindent
 where @var{array-index} is the index of the first element being
 annotated and @var{value-flags} has the same meaning as in a
 @code{value-history-begin} annotation.  This is followed by any number
@@ -289,6 +283,7 @@ The frame annotation begins with
 @var{level-string}
 @end smallexample
 
+@noindent
 where @var{level} is the number of the frame (0 is the innermost frame,
 and other frames have positive numbers), @var{address} is the address of
 the code executing in that frame, and @var{level-string} is a string
@@ -437,6 +432,7 @@ the results of the display are annotated:
 ^Z^Zdisplay-end
 @end smallexample
 
+@noindent
 where @var{number} is the number of the display, @var{number-separator}
 is intended to separate the number from what follows for the user,
 @var{format} includes information such as the size, format, or other
@@ -559,6 +555,7 @@ The output from the @code{info breakpoints} command is annotated as follows:
 ^Z^Zbreakpoints-table
 @end smallexample
 
+@noindent
 where @var{header-entry} has the same syntax as an entry (see below) but
 instead of containing data, it contains strings which are intended to
 convey the meaning of each field to the user.  This is followed by any
@@ -672,6 +669,7 @@ annotation continues:
 @var{end-text}
 @end smallexample
 
+@noindent
 where @var{name} is the name of the signal, such as @code{SIGILL} or
 @code{SIGSEGV}, and @var{string} is the explanation of the signal, such
 as @code{Illegal Instruction} or @code{Segmentation fault}.

@@ -76,6 +76,7 @@ public:
     virtual IOMedia *	instantiateDesiredMediaObject(void);
     virtual IOMedia *	instantiateMediaObject(UInt64 base,UInt64 byteSize,
                                             UInt32 blockSize,char *mediaName);
+    virtual IOReturn	recordMediaParameters(void);
     
     /* End of IOBlockStorageDriver overrides. */
 
@@ -98,11 +99,11 @@ public:
 
     virtual CDTOC *	getTOC(void);
     virtual void	readCD(IOService *client,
-                           UInt64 byteStart,
-                           IOMemoryDescriptor *buffer,
-                           CDSectorArea sectorArea,
-                           CDSectorType sectorType,
-                           IOStorageCompletion completion);
+                	       UInt64 byteStart,
+                	       IOMemoryDescriptor *buffer,
+                	       CDSectorArea sectorArea,
+                	       CDSectorType sectorType,
+                	       IOStorageCompletion completion);
     virtual IOReturn	readISRC(UInt8 track,CDISRC isrc);
     virtual IOReturn	readMCN(CDMCN mcn);
 
@@ -145,6 +146,8 @@ protected:
 
     /* Internally used methods: */
 
+    using	IOBlockStorageDriver::getMediaBlockSize;
+
     virtual IOReturn	cacheTocInfo(void);
     virtual UInt64	getMediaBlockSize(CDSectorArea area,CDSectorType type);
     virtual void	prepareRequest(UInt64 byteStart,
@@ -162,8 +165,10 @@ protected:
     };
     ExpansionData * _expansionData;
 
-    #define _minBlockNumberAudio _expansionData->minBlockNumberAudio
-    #define _maxBlockNumberAudio _expansionData->maxBlockNumberAudio
+    #define _minBlockNumberAudio \
+                IOCDBlockStorageDriver::_expansionData->minBlockNumberAudio
+    #define _maxBlockNumberAudio \
+                IOCDBlockStorageDriver::_expansionData->maxBlockNumberAudio
 
     IOCDAudioControl *	_acNub;
 
@@ -176,6 +181,11 @@ protected:
 
     CDTOC *				_toc;
     UInt32				_tocSize;
+
+    /* ------- */
+
+    IOReturn	reportDiscInfo(CDDiscInfo *discInfo);
+    IOReturn	reportTrackInfo(UInt16 track,CDTrackInfo *trackInfo);
 
 public:
 
@@ -204,7 +214,15 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 4); /* 10.1.3 */
 
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  5);
+    virtual void	writeCD(IOService *client,
+                	        UInt64 byteStart,
+                	        IOMemoryDescriptor *buffer,
+                	        CDSectorArea sectorArea,
+                	        CDSectorType sectorType,
+                	        IOStorageCompletion completion);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 5); /* 10.2.0 */
+
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  6);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  7);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  8);

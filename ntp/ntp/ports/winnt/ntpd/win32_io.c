@@ -1,3 +1,4 @@
+/* This file implementes system calls that are not compatible with UNIX */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -13,6 +14,39 @@
 #include "ntp_refclock.h"
 #include "win32_io.h"
 
+
+int NT_set_process_priority(void)
+{
+	DWORD  SingleCPUMask = 0;
+	DWORD ProcessAffinityMask, SystemAffinityMask;
+	if (!GetProcessAffinityMask(GetCurrentProcess(), &ProcessAffinityMask, &
+		 SystemAffinityMask))
+		msyslog(LOG_ERR, "GetProcessAffinityMask: %m");
+	else {
+		SingleCPUMask = 1; 
+# ifdef DEBUG 
+	msyslog(LOG_INFO, "System AffinityMask = %x", SystemAffinityMask); 
+# endif 
+		}
+
+	while (SingleCPUMask && !(SingleCPUMask & SystemAffinityMask)) 
+		SingleCPUMask = SingleCPUMask << 1; 
+		
+	if (!SingleCPUMask) 
+		msyslog(LOG_ERR, "Can't set Processor Affinity Mask"); 
+	else if (!SetProcessAffinityMask(GetCurrentProcess(), SingleCPUMask)) 
+		msyslog(LOG_ERR, "SetProcessAffinityMask: %m"); 
+# ifdef DEBUG 
+	else msyslog(LOG_INFO,"ProcessorAffinity Mask: %x", SingleCPUMask ); 
+# endif 
+	if (!SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS)) 
+		{
+		msyslog(LOG_ERR, "SetPriorityClass: %m"); 
+		return 0;
+		}
+	else 
+		return 1;
+}
 
 /*
  * refclock_open - open serial port for reference clock
@@ -49,7 +83,7 @@ refclock_open(
 
 	/*  Change the input/output buffers to be large.
 	*/
-	if (!SetupComm( Handle, 8192, 4096)) {
+	if (!SetupComm( Handle, 1024, 1024)) {
 		msyslog(LOG_ERR, "NT_COM: Device %s: SetupComm ", dev);
 		return -1;
 	}
@@ -103,16 +137,15 @@ refclock_open(
 
 	timeouts.ReadIntervalTimeout = 20; 
 	timeouts.ReadTotalTimeoutMultiplier = 0;
-	timeouts.ReadTotalTimeoutConstant = 60000;
+	timeouts.ReadTotalTimeoutConstant = 5000;
 	timeouts.WriteTotalTimeoutMultiplier = 0;
-	timeouts.WriteTotalTimeoutConstant = 60000;
+	timeouts.WriteTotalTimeoutConstant = 5000;
 
 	   // Error setting time-outs.
 	if (!SetCommTimeouts(Handle, &timeouts)) {
 		msyslog(LOG_ERR, "NT_COM: Device %s: SetCommTimeouts ", dev);
 		return -1;
 	}
-
 
 	return (int) Handle;
 }
@@ -262,4 +295,25 @@ tcgetattr(
 
 	return TRUE; /* ok */
 }
+
+
+extern int tcflush(int fd, int mode) {
+
+
+
+
+return 0;
+
+}
+
+extern int cfsetispeed(struct termios *tio, int speed) {
+		
+		
+};	
+
+
+extern int cfsetospeed(struct termios *tio, int speed) {
+		
+		
+};	
 

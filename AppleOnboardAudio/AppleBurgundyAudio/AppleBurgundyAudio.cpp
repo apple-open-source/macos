@@ -205,7 +205,6 @@ OSDefineMetaClassAndStructors( AppleBurgundyAudio, AppleOnboardAudio )
 /* ==============
  * Public Methods
  * ============== */
-//#define DEBUGMODE 
 bool AppleBurgundyAudio::init(OSDictionary * properties)
 {
     DEBUG_IOLOG("+ AppleBurgundyAudio::init\n");
@@ -239,11 +238,11 @@ IOService* AppleBurgundyAudio::probe(IOService* provider, SInt32* score) {
     // We CAN fail the type check:
     super::probe(provider, score);
     *score = kIODefaultProbeScore;
-        //we may be on a Beige G3
+	// we may be on a Beige G3
     perch = IORegistryEntry::fromPath("/perch", gIODTPlane);
     
     if(perch) {
-        //there is a perch we are on a beige G3
+        // there is a perch we are on a beige G3
         OSData *s = NULL;
 
         s = OSDynamicCast(OSData, perch->getProperty("compatible"));
@@ -261,7 +260,7 @@ IOService* AppleBurgundyAudio::probe(IOService* provider, SInt32* score) {
         }
     }
     
-        //we are on a new world : the registry is assumed to be fixed
+	// we are on a new world : the registry is assumed to be fixed
     sound = provider->childFromPath("sound", gIODTPlane);
          
     if(sound) {
@@ -298,6 +297,9 @@ bool AppleBurgundyAudio::initHardware(IOService* provider)
         
     nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
     addTimerEvent(this, &AppleBurgundyAudio::timerCallback, timerInterval);
+
+	// aml 6.17.02, burgundy internal mic is mono
+	mInternalMicDualMonoMode = e_Mode_CopyRightToLeft;		
     
     duringInitialization = false;
     
@@ -360,7 +362,7 @@ void AppleBurgundyAudio::checkStatus(bool force)
 
 #pragma mark -- sndHW METHODS --
 
-        //sndHWXXXXX functions
+// sndHWXXXXX functions
 void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     IOMemoryMap *map;
     UInt32 idx, tmpReg;
@@ -372,47 +374,45 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     if(!ioBaseBurgundy) debugIOLog("We have no mermory map !!!\n");
     curInsense = 0xFFFF;
         
-		//update local variables for the settling time 
+	// update local variables for the settling time 
     for( idx = kBurgundyPhysOutputPort13-kBurgundyPhysOutputPort13; idx <= kBurgundyPhysOutputPort17-kBurgundyPhysOutputPort13; idx++ ){
 		localSettlingTime[idx] = 0;  //this is an array of 5 stuff
     }	
 		
-		//set the IO part sub frame 0
+	// set the IO part sub frame 0
     soundControlRegister = ( kSoundCtlReg_InSubFrame0      | \
                              kSoundCtlReg_OutSubFrame0     | \
                              kSoundCtlReg_Rate_44100        );
     Burgundy_writeSoundControlReg(ioBaseBurgundy, soundControlRegister);
 
     	
-    	//Verify we are on a Burgundy hardware by getting the type
-    	
-    	
-    	//Enable the programmable output
-    //tmpReg = kOutputCtl0Reg_OutCtl0_High | kOutputCtl0Reg_OutCtl1_High;
+	//Verify we are on a Burgundy hardware by getting the type
+	// Enable the programmable output
+    // tmpReg = kOutputCtl0Reg_OutCtl0_High | kOutputCtl0Reg_OutCtl1_High;
     tmpReg = kOutputCtl0Reg_OutCtl1_High;
     Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl0Reg,tmpReg);
 	
-   // tmpReg = kOutputCtl2Reg_OutCtl2_High | kOutputCtl2Reg_OutCtl3_High| kOutputCtl2Reg_OutCtl4_High;
-  //  Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl2Reg,tmpReg);
+	// tmpReg = kOutputCtl2Reg_OutCtl2_High | kOutputCtl2Reg_OutCtl3_High| kOutputCtl2Reg_OutCtl4_High;
+	// Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl2Reg,tmpReg);
 	
-		//Muxes configuration : Mux 0 has port 1, Mux 1 has port 3, Mux 2 has port 5
+	// Muxes configuration : Mux 0 has port 1, Mux 1 has port 3, Mux 2 has port 5
     tmpReg =kBurgundyAMux_0SelPort_1;
     Burgundy_writeCodecReg( ioBaseBurgundy, kMux01Reg , tmpReg);
             
-            //select input 6 for test on Yosemite
+	// select input 6 for test on Yosemite
     tmpReg  = kBurgundyAMux_2SelPort_5;
     Burgundy_writeCodecReg( ioBaseBurgundy, kMux2Reg , kMux2Reg_Mux2L_SelectPort6L|kMux2Reg_Mux2R_SelectPort6R);
 	
-    	// configure the mixers : mixer0 has nothing, 
-    	// mixer 1 has the input builtin signal, 
-		// mixer2 connect digital stream A        
+	// configure the mixers : mixer0 has nothing, 
+	// mixer 1 has the input builtin signal, 
+	// mixer2 connect digital stream A        
     Burgundy_writeCodecReg( ioBaseBurgundy, kMX0Reg, 0);
     mMuxMix = kBurgundyW_2_n;
-    Burgundy_writeCodecReg( ioBaseBurgundy, kMX1Reg,kBurgundyW_2_n); //this for input selection
+    Burgundy_writeCodecReg( ioBaseBurgundy, kMX1Reg,kBurgundyW_2_n); 	// this for input selection
     Burgundy_writeCodecReg( ioBaseBurgundy, kMX2Reg, kBurgundyW_A_n);
     Burgundy_writeCodecReg( ioBaseBurgundy, kMX3Reg, 0);
  
-    	//apply the default gain 0xDF to mixer normalization
+	// apply the default gain 0xDF to mixer normalization
     Burgundy_writeCodecReg( ioBaseBurgundy, kMXEQ0LReg, kMXEQ_Default_Gain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kMXEQ0RReg, kMXEQ_Default_Gain );    
     Burgundy_writeCodecReg( ioBaseBurgundy, kMXEQ1LReg, kMXEQ_Default_Gain );
@@ -422,12 +422,12 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kMXEQ3LReg, kMXEQ_Default_Gain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kMXEQ3RReg, kMXEQ_Default_Gain );
 
-    	// configure the ouput stream selection 
-        // OS_O listens to mixer 2, OS_1 listens to Mixer 2 ==> this goes to output
-        // OS_E listen to mixer 1 this is the input
+	// configure the ouput stream selection 
+	// OS_O listens to mixer 2, OS_1 listens to Mixer 2 ==> this goes to output
+	// OS_E listen to mixer 1 this is the input
     Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
         
-        //set the amplification OS/AP
+	// set the amplification OS/AP
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0LReg , 0xFF);  
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP0RReg , 0xFF);
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP1RReg , 0xFF);
@@ -437,17 +437,17 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP3LReg , 0xFF);
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAP3RReg , 0xFF);
 
-            //Mute everything
+	// Mute everything
     Burgundy_writeCodecReg(ioBaseBurgundy, kOutputMuteReg, 0x00);
     
-        //prepare the output amplification
+	// prepare the output amplification
     Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort14Reg, 0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort15Reg, 0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort16Reg, 0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kOutputLvlPort17Reg, 0);
     
-        //set up the gains :
-    	//Unity to gain and Pain 0 
+	// set up the gains :
+	// Unity to gain and Pain 0 
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAS0LReg,0xDF);
     Burgundy_writeCodecReg( ioBaseBurgundy, kPAS0LReg,0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAS0RReg,0xDF);
@@ -471,7 +471,7 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAS4LReg,0xDF);
     Burgundy_writeCodecReg( ioBaseBurgundy, kGAS4RReg,0xDF);
 
-    	//Default gain for all digital input
+	// Default gain for all digital input
     Burgundy_writeCodecReg( ioBaseBurgundy, kGASALReg, kGAS_Default_Gain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kGASARReg, kGAS_Default_Gain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kGASBLReg, kGAS_Default_Gain );
@@ -489,14 +489,13 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     Burgundy_writeCodecReg( ioBaseBurgundy, kGASHLReg, kGAS_Default_Gain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kGASHRReg, kGAS_Default_Gain );
     
-    	
-		//set analog gain on input to 0
+	// set analog gain on input to 0
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA0Reg, 0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA1Reg, 0); 
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA2Reg, 0);
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA3Reg, 0); 
 
-		//enable digital output driver OS_E on subframe 0 
+	// enable digital output driver OS_E on subframe 0 
     Burgundy_writeCodecReg( ioBaseBurgundy, kSDInReg, 0 );             
     Burgundy_writeCodecReg( ioBaseBurgundy, kSDInReg2, kBurgundyOS_EOutputEnable );
 	
@@ -512,7 +511,7 @@ UInt32 	AppleBurgundyAudio::sndHWGetInSenseBits(){
     UInt32 status, inSense;
     
     inSense = 0;
-        //we need to add the parrallel input part
+	// we need to add the parrallel input part
     status = Burgundy_readCodecSenseLines(ioBaseBurgundy) & kBurgundyInSenseMask;
 
     if(status & kBurgundyInSense0) 
@@ -625,11 +624,11 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
         curMux = GetInputMux(curPhysicalInput);
         muxToBe = GetInputMux(physicalInput);
           
-                //first we disconnect the first input from the mixer 1;
-                // - get the mux of the input
-                // - putting the input analog gain to 0
-                // - putting the digital gain to 0dB
-                // - disconnecting the input from the mixer one
+		// first we disconnect the first input from the mixer 1;
+		// - get the mux of the input
+		// - putting the input analog gain to 0
+		// - putting the digital gain to 0dB
+		// - disconnecting the input from the mixer one
         if( 0!= curPhysicalInput) {
             switch( curMux ) {
                 case kBurgundyMux0:		
@@ -661,9 +660,9 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
             }
         }
     
-            // select the mux 
-            // reactivate the digital gain : 
-            // put the input to mixer 1
+		// select the mux 
+		// reactivate the digital gain : 
+		// put the input to mixer 1
         if( physicalInput != kBurgundyPhysInputPortNone ) {
             switch( muxToBe ) {
                 case kBurgundyMux0:		
@@ -671,7 +670,7 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
                     Burgundy_writeCodecReg( ioBaseBurgundy, kPAS0LReg,0);
                     Burgundy_writeCodecReg( ioBaseBurgundy, kGAS0RReg,0xDF);
                     Burgundy_writeCodecReg( ioBaseBurgundy, kPAS0RReg,0);
-                    //select the mux
+                    // select the mux
                     switch(physicalInput) {
                         case kBurgundyPhysInputPort1:
                             tmpReg =kBurgundyAMux_0SelPort_1;
@@ -685,7 +684,7 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveInputExclusive(UInt32 input ){
                     }
                     
                     Burgundy_writeCodecReg( ioBaseBurgundy, kMux01Reg , tmpReg);
-                        //connect the mux tp the mixer
+					// connect the mux tp the mixer
                     mMuxMix = kBurgundyW_0_n;
                     Burgundy_writeCodecReg( ioBaseBurgundy, kMX1Reg,mMuxMix);
                     break;
@@ -738,11 +737,11 @@ UInt32 	AppleBurgundyAudio::sndHWGetProgOutput(){
     UInt32 result = 0, outputConfigPins;
 
 	outputConfigPins = 0;		// just to quiet the warning in the compiler
-  //  outputConfigPins = Burgundy_readCodecReg( ioBaseBurgundy, kOutputCtl0Reg);
+	// outputConfigPins = Burgundy_readCodecReg( ioBaseBurgundy, kOutputCtl0Reg);
     result |= ( outputConfigPins & kBurgundyOut_Ctrl_0State ) ? kSndHWProgOutput0 : 0;
     result |= ( outputConfigPins & kBurgundyOut_Ctrl_1State ) ? kSndHWProgOutput1 : 0;
 	
-   // outputConfigPins = Burgundy_readCodecReg( ioBaseBurgundy, kOutputCtl2Reg);
+	// outputConfigPins = Burgundy_readCodecReg( ioBaseBurgundy, kOutputCtl2Reg);
     result |= ( outputConfigPins & kBurgundyOut_Ctrl_2State ) ? kSndHWProgOutput2 : 0;
     result |= ( outputConfigPins & kBurgundyOut_Ctrl_3State ) ? kSndHWProgOutput3 : 0;
     result |= ( outputConfigPins & kBurgundyOut_Ctrl_4State ) ? kSndHWProgOutput4 : 0;	
@@ -759,7 +758,7 @@ IOReturn   AppleBurgundyAudio::sndHWSetProgOutput(UInt32 outputBits){
             outputConfigPins |= kBurgundyOut_Ctrl_0State;
     if( outputBits & ( kSndHWProgOutput1 ) )
             outputConfigPins |= kBurgundyOut_Ctrl_1State;
-//    Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl0Reg, outputConfigPins);
+//	Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl0Reg, outputConfigPins);
 	
     outputConfigPins = 0;
     if( outputBits & ( kSndHWProgOutput2 ) )
@@ -768,12 +767,12 @@ IOReturn   AppleBurgundyAudio::sndHWSetProgOutput(UInt32 outputBits){
         outputConfigPins |= kBurgundyOut_Ctrl_3State;
     if( outputBits & ( kSndHWProgOutput4 ) )
         outputConfigPins |= kBurgundyOut_Ctrl_4State;
-  //  Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl2Reg,outputConfigPins);
+	// Burgundy_writeCodecReg( ioBaseBurgundy, kOutputCtl2Reg,outputConfigPins);
     
     return(result);
 }
     
-            // control function
+// control function
 bool AppleBurgundyAudio::sndHWGetSystemMute(void){
      return (mIsMute);
 }
@@ -786,17 +785,19 @@ IOReturn  AppleBurgundyAudio::sndHWSetSystemMute (bool mutestate){
 	if (mutestate != mIsMute) {
 		mIsMute = mutestate;
 		if (mutestate) {
-                //we are muting. We do it by disconnecting the output from the mixer
-                //we let only the OS_E stream for the sound input. Ther may be other
-                //possibilities
-//            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_E_MXO_1);
+			// we are muting. We do it by disconnecting the output from the mixer
+			// we let only the OS_E stream for the sound input. Ther may be other
+			// possibilities
+			// Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_E_MXO_1);
 
 			// Mute all the amps
 			mutestate = kBurgundyMuteAll;
         } else {
-                //we reconnect everything
-//            Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
+			// we reconnect everything
+			// Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
 
+			// Set the volume to the correct volume as it might have been changed while we were muted
+			sndHWSetSystemVolume (gVolLeft, gVolRight);
 			// Unmute the amp currently in use
 			if (TRUE == mModemActive) {
 				mutes =  kBurgundyMuteOffState << kBurgundyPort13MonoMute;
@@ -943,7 +944,7 @@ IOReturn AppleBurgundyAudio::sndHWSetPlayThrough(bool playthroughstate){
     return(result);
 }
     
-            //Power Management
+// Power Management
 IOReturn AppleBurgundyAudio::sndHWSetPowerState(IOAudioDevicePowerState theState){
     IOReturn result= kIOReturnSuccess;
     DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWSetPowerState\n");
@@ -951,7 +952,7 @@ IOReturn AppleBurgundyAudio::sndHWSetPowerState(IOAudioDevicePowerState theState
     return(result);
 }
 
-            //Identification
+// Identification
 UInt32 	AppleBurgundyAudio::sndHWGetType( void ){
     UInt32 result;
     DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWGetType\n");
@@ -1000,10 +1001,10 @@ void AppleBurgundyAudio::DisconnectMixer(UInt32 mixer) {
     temp = Burgundy_readCodecReg( ioBaseBurgundy, kMX0Reg);
     temp &= ~mixer;
     temp |= kBurgundyW_A_n;	
-    Burgundy_writeCodecReg( ioBaseBurgundy, kMX0Reg, temp); //playthrough path always gets digital stream
-    Burgundy_writeCodecReg( ioBaseBurgundy, kMX2Reg, temp); //ext. speaker/line out is a mirror image of play path
+    Burgundy_writeCodecReg( ioBaseBurgundy, kMX0Reg, temp); // playthrough path always gets digital stream
+    Burgundy_writeCodecReg( ioBaseBurgundy, kMX2Reg, temp); // ext. speaker/line out is a mirror image of play path
 			
-    temp = Burgundy_readCodecReg( ioBaseBurgundy, kMX1Reg); //disconnect input from recording input stream
+    temp = Burgundy_readCodecReg( ioBaseBurgundy, kMX1Reg); // disconnect input from recording input stream
     temp &= ~mixer;
     Burgundy_writeCodecReg( ioBaseBurgundy, kMX1Reg, temp);
 }
@@ -1130,7 +1131,7 @@ Exit:
 }
 
 void	AppleBurgundyAudio::ReleaseMux(UInt8 mux){
-    	//__SndHWSetPan( system, kMinSoftwareGain, kMinSoftwareGain );
+	// __SndHWSetPan( system, kMinSoftwareGain, kMinSoftwareGain );
     UInt32 temp;
 
 	temp = 0;
@@ -1149,9 +1150,9 @@ void	AppleBurgundyAudio::ReleaseMux(UInt8 mux){
             break;			//	prepare to disconnect the mux 4 from mixer 'n' connection
         }
         
-            //	disconnect the mux to mixer connection
+	// disconnect the mux to mixer connection
     DisconnectMixer( temp );										//
-//	gGlobals->muxReservation[mux] = kSndHWInputNone;
+	// gGlobals->muxReservation[mux] = kSndHWInputNone;
 
 }
 

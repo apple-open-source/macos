@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -187,6 +187,16 @@ const UInt32 *IOLocalConfigDirectory::getBase()
         return &fHeader;
 }
 
+const UInt32 * IOLocalConfigDirectory::lockData( void )
+{
+	return getBase();
+}
+
+void IOLocalConfigDirectory::unlockData( void )
+{
+	// nothing to do
+}
+
 IOConfigDirectory *IOLocalConfigDirectory::getSubDir(int start, int type)
 {
     IOConfigDirectory *subDir;
@@ -228,6 +238,24 @@ IOReturn IOLocalConfigDirectory::update(UInt32 offset, const UInt32 *&romBase)
     return res;
 }
 
+// updateROMCache
+//
+//
+
+IOReturn IOLocalConfigDirectory::updateROMCache( UInt32 offset, UInt32 length )
+{
+	return kIOReturnSuccess;
+}
+
+// checkROMState
+//
+//
+
+IOReturn IOLocalConfigDirectory::checkROMState( void )
+{
+	return kIOReturnSuccess;
+}
+	
 IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 {
     UInt32 header;
@@ -409,4 +437,13 @@ IOReturn IOLocalConfigDirectory::removeSubDir(IOLocalConfigDirectory *value)
         }
     }
     return kIOConfigNoEntry;
+}
+
+// getEntries
+//
+//
+
+const OSArray * IOLocalConfigDirectory::getEntries() const
+{ 
+	return fEntries; 
 }

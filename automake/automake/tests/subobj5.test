@@ -1,0 +1,31 @@
+#! /bin/sh
+
+# Test of subdir make dist rules.
+# From Robert Collins
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(generic/a.c)
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile generic/Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = wish
+wish_SOURCES = generic/a.c
+END
+
+mkdir generic
+: > generic/a.c
+: > generic/Makefile.am
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --include-deps --copy --add-missing
+./configure
+$MAKE dist

@@ -436,7 +436,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	/* Collect indirect link info for later */
 	if (file->userInfo.fdType == kHardLinkFileType  &&
             file->userInfo.fdCreator == kHFSPlusCreator)
-		CaptureHardLink(gCIS.hardLinkRef, file->bsdInfo.special.iNodeNum,  file->fileID);
+		CaptureHardLink(gCIS.hardLinkRef, file->bsdInfo.special.iNodeNum);
 
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
 
@@ -572,7 +572,7 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
                                 file->dataExtents, &blocks);
 	if (result != noErr)
 		return (result);
-	if (file->dataPhysicalSize > (blocks * gScavGlobals->calculatedVCB->vcbBlockSize)) {
+	if (file->dataPhysicalSize > ((UInt64)blocks * (UInt64)gScavGlobals->calculatedVCB->vcbBlockSize)) {
 		PrintError(gScavGlobals, E_PEOF, 1, "");
 		return (noErr);		/* we don't fix this, ignore the error */
 	}
@@ -586,7 +586,7 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
 				file->rsrcExtents, &blocks);
 	if (result != noErr)
 		return (result);
-	if (file->rsrcPhysicalSize > (blocks * gScavGlobals->calculatedVCB->vcbBlockSize)) {
+	if (file->rsrcPhysicalSize > ((UInt64)blocks * (UInt64)gScavGlobals->calculatedVCB->vcbBlockSize)) {
 		PrintError(gScavGlobals, E_PEOF, 1, "");
                 return (noErr);		/* we don't fix this, ignore the error */
 	}
@@ -705,13 +705,13 @@ CheckBSDInfo(const HFSPlusCatalogKey * key, const HFSPlusBSDInfo * bsdInfo, int 
 			RcdError(gScavGlobals, E_InvalidPermissions);
 		}
 
-                n = CatalogNameSize(&key->nodeName, true);
+		n = CatalogNameSize( (CatalogName *) &key->nodeName, true );
 		
 		p = AllocMinorRepairOrder(gScavGlobals, n);
 		if (p == NULL) return;
 
-                CopyCatalogName((const CatalogName *)&key->nodeName,
-			(CatalogName*)&p->name, true);
+ 		CopyCatalogName((const CatalogName *)&key->nodeName,
+		(CatalogName*)&p->name, true);
 		
 		if (reset) {
 			p->type      = E_InvalidPermissions;

@@ -1,0 +1,37 @@
+# $OpenLDAP: pkg/ldap/libraries/liblber/Makefile.in,v 1.25 2002/02/10 21:42:53 kurt Exp $
+## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+##
+## LIBLBER
+##
+
+LIBRARY = liblber.la
+
+NT_SRCS = nt_err.c
+NT_OBJS = nt_err.lo
+
+LIB_DEFS = -DLBER_LIBRARY
+
+SRCS= assert.c decode.c encode.c io.c bprint.c \
+	memory.c options.c sockbuf.c $(@PLAT@_SRCS)
+OBJS= assert.lo decode.lo encode.lo io.lo bprint.lo \
+	memory.lo options.lo sockbuf.lo $(@PLAT@_OBJS)
+XSRCS= version.c
+
+PROGRAMS= dtest etest idtest
+
+LDAP_INCDIR= ../../include       
+LDAP_LIBDIR= ../../libraries       
+
+XLIBS = $(LIBRARY)
+XXLIBS = 
+NT_LINK_LIBS = $(AC_LIBS)
+
+dtest:    $(XLIBS) dtest.o
+	$(LTLINK) -o $@ dtest.o $(LIBS)
+etest:  $(XLIBS) etest.o
+	$(LTLINK) -o $@ etest.o $(LIBS)
+idtest:  $(XLIBS) idtest.o
+	$(LTLINK) -o $@ idtest.o $(LIBS)
+
+install-local: FORCE

@@ -35,30 +35,26 @@
 #ifndef __LIBSAIO_VBE_H
 #define __LIBSAIO_VBE_H
 
-/*
- * Graphics mode settings.
- */
-extern BOOL            in_linear_mode;
-extern unsigned char * frame_buffer;
-extern unsigned short  screen_width;
-extern unsigned short  screen_height;
-extern unsigned char   bits_per_pixel;
-extern unsigned short  screen_rowbytes;
-
 #define MIN_VESA_VERSION    0x200
 
 #define SEG(address) \
         ((unsigned short)(((unsigned long)address & 0xffff0000) >> 4))
-#define OFF(address) ((unsigned short)((unsigned long)address & 0x0000ffff))
-#define RTOV(low, one, two, high) \
-        (((unsigned long)high << 12) | ((unsigned long)one << 8) | \
-         (unsigned long)low)
-#define ADDRESS(low, one, two, high) \
-        (((unsigned long)high << 24) | ((unsigned long)two << 16) | \
-         ((unsigned long)one << 8) | (unsigned long)low)
+
+#define OFF(address) \
+        ((unsigned short)((unsigned long)address & 0x0000ffff))
+
+#define VBEMakeUInt32(x)                   \
+        (((unsigned long)x##_high << 24) | \
+         ((unsigned long)x##_2    << 16) | \
+         ((unsigned long)x##_1    <<  8) | \
+          (unsigned long)x##_low)
+
+#define VBEDecodeFP(t, fp) \
+        ((t)(((fp ## _low) | ((fp ## _1 ) << 8)) + \
+             (((fp ## _2) << 4) | ((fp ## _high ) << 12))))
 
 /*
- *  Functions
+ * Functions
  */
 enum {
     funcGetControllerInfo    = 0x4F00,
@@ -120,9 +116,9 @@ typedef struct {
  * Capabilites
  */
 enum {
-    capDACWidthIsSwitchableBit          = (1 << 0), /* 1 = yes; 0 = no */
-    capControllerIsNotVGACompatableBit  = (1 << 1), /* 1 = no; 0 = yes */
-    capOldRAMDAC                        = (1 << 2)  /* 1 = yes; 0 = no */
+    capDACWidthIsSwitchableBit          = (1 << 0), /* 1 = yes; 0 = no  */
+    capControllerIsNotVGACompatableBit  = (1 << 1), /* 1 = no;  0 = yes */
+    capOldRAMDAC                        = (1 << 2)  /* 1 = yes; 0 = no  */
 };
 
 /*
@@ -182,7 +178,7 @@ enum {
 };
 
 /*
- *  Modes
+ * Modes
  */
 enum {
     mode640x400x256   = 0x100,
@@ -213,11 +209,12 @@ enum {
     mode1280x1024x555 = 0x119,
     mode1280x1024x565 = 0x11A,
     mode1280x1024x888 = 0x11B,
-    modeSpecial       = 0x81FF
+    modeSpecial       = 0x81FF,
+    modeEndOfList     = 0xFFFF
 };
 
 /*
- *  Get/Set VBE Mode parameters
+ * Get/Set VBE Mode parameters
  */
 enum {
     kLinearFrameBufferBit  =  (1 << 14),

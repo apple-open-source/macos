@@ -4,6 +4,7 @@
 
 ;; Author: Robert J. Chassell      
 ;; Maintainer: FSF
+;; Keywords: docs convenience
 
 ;; This file is part of GNU Emacs.
 
@@ -97,7 +98,7 @@ command to gain use of `next-error'."
 
     (setq makeinfo-temp-file
           (concat
-           (make-temp-name
+           (make-temp-file
             (substring (buffer-file-name)
                        0 
                        (or (string-match "\\.tex" (buffer-file-name)) 
@@ -178,8 +179,8 @@ command to gain use of `next-error'."
 				;; If we do want to parse errors, pass nil.
 				;; Otherwise, use this function, which won't
 				;; ever find any errors.
-				'(lambda (&rest ignore)
-				   (setq compilation-error-list nil))))))
+				(lambda (&rest ignore)
+				  (setq compilation-error-list nil))))))
     (set-process-sentinel (get-buffer-process buffer)
 			  'makeinfo-compilation-sentinel)))
 
@@ -253,4 +254,3 @@ line LINE of the window, or centered if LINE is nil."
 (provide 'makeinfo)
 
 ;;; makeinfo.el ends here
-

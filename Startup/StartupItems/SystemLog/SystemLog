@@ -1,20 +1,43 @@
 #!/bin/sh
 
 ##
-# Start the system log server.
+# System Log
 ##
 
 . /etc/rc.common
 
-ConsoleMessage "Starting system log"
+StartService ()
+{
+    ConsoleMessage "Starting system log"
 
-if [ -f /etc/syslog.conf ]; then
-    rm -f /dev/log
+    if [ -f /etc/syslog.conf ]; then
+        if ! pid=$(GetPID syslog); then
+            rm -f /dev/log
+            syslogd
+        fi
+    else
+        echo "Warning: syslogd was not started"
+    fi
+}
 
-    # If you want a timestamp to be logged periodically,
-    # modify the invocation of syslogd below.  For example, 
-    # for a half-hourly timestamp, add the argument "-m30".
-    syslogd
-else
-    echo "Warning: syslogd was not started"
-fi
+StopService ()
+{
+    if pid=$(GetPID syslog); then
+        ConsoleMessage "Stopping system log"
+        kill -TERM "${pid}"
+    else
+        echo "syslogd is not running."
+    fi
+}
+
+RestartService ()
+{
+    if pid=$(GetPID syslog); then
+        ConsoleMessage "Restarting system log"
+        kill -HUP "${pid}"
+    else
+        StartService
+    fi
+}
+
+RunService "$1"

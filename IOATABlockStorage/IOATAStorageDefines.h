@@ -72,7 +72,8 @@ enum
 	kATAIdentifyCommandExtension2			= 85,
 	kATAIdentifyCommandsEnabled				= 86,
 	kATAIdentifyCommandsDefault				= 87,
-	kATAIdentifyUltraDMASupported			= 88
+	kATAIdentifyUltraDMASupported			= 88,
+	kATAIdentifyIntegrity					= 255
 };
 	
 
@@ -113,7 +114,11 @@ enum
 
 	// Advanced PIO Transfer Modes field (word 64)
 	kMode3Bit				= 0,							// Bit to indicate mode 3 is supported
-	kMode3Mask				= (1 << kMode3Bit)				// Mask for mode 3 support
+	kMode3Mask				= (1 << kMode3Bit),				// Mask for mode 3 support
+	
+	// Integrity of Identify data (word 255)
+	kChecksumValidCookie	= 0xA5							// Bits 7:0 if device supports feature
+	
 };
 
 
@@ -145,8 +150,20 @@ enum
 /* max number of blocks supported in ATA transaction */
 enum
 {
-	kIOATAMaxBlocksPerXfer	= 256
+	kIOATASectorCount8Bit	= 8,
+	kIOATASectorCount16Bit	= 16
 };
+
+enum
+{
+	kIOATAMaximumBlockCount8Bit		= (1 << kIOATASectorCount8Bit),
+	kIOATAMaximumBlockCount16Bit	= (1 << kIOATASectorCount16Bit),
+	
+	// For backwards compatibility
+	kIOATAMaxBlocksPerXfer			= kIOATAMaximumBlockCount8Bit
+};
+
+
 
 /* Power Management time constants (in seconds) */
 enum
@@ -158,6 +175,7 @@ enum
 /* Bits for features published in Word 82 of device identify data */
 enum
 {
+	kATASupportsSMARTBit					= 0,
 	kATASupportsPowerManagementBit  		= 3,
 	kATASupportsWriteCacheBit				= 5
 };
@@ -165,6 +183,7 @@ enum
 /* Masks for features published in Word 82 of device identify data */
 enum
 {
+	kATASupportsSMARTMask					= (1 << kATASupportsSMARTBit),
 	kATASupportsPowerManagementMask 		= (1 << kATASupportsPowerManagementBit),
 	kATASupportsWriteCacheMask				= (1 << kATASupportsWriteCacheBit)
 };
@@ -197,6 +216,7 @@ enum
 	kATADataIsValidMask						= 0xC000
 };
 
+
 /* ATA supported features */
 enum
 {
@@ -204,7 +224,8 @@ enum
 	kIOATAFeatureWriteCache					= 0x02,
 	kIOATAFeatureAdvancedPowerManagement 	= 0x04,
 	kIOATAFeatureCompactFlash				= 0x08,
-	kIOATAFeature48BitLBA					= 0x10
+	kIOATAFeature48BitLBA					= 0x10,
+	kIOATAFeatureSMART						= 0x20,
 };
 
 /* ATA Advanced Power Management settings (valid settings range from 1-254),

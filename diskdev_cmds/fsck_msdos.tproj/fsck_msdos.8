@@ -39,6 +39,9 @@
 .Nd DOS/Windows (FAT) filesystem consistency checker
 .Sh SYNOPSIS
 .Nm ""
+.Fl q
+.Ar filesystem ...
+.Nm ""
 .Fl p
 .Op Fl f
 .Ar filesystem ...
@@ -58,6 +61,14 @@ filesystems).
 .Pp
 The first form of
 .Nm
+quickly checks the specified filesystems to determine whether
+they were cleanly unmounted.  This option is used by
+.Xr autodiskmount 8
+to determine whether to perform a full check before mounting
+a volume.
+.Pp
+The second form of
+.Nm
 preens the specified filesystems.
 It is normally started by
 .Xr fsck 8
@@ -72,17 +83,27 @@ more serious problems are found,
 does not try to fix them, indicates that it was not
 successful, and exits.
 .Pp
-The second form of
+The third form of
 .Nm
 checks the specified file systems and tries to repair all
 detected inconsistencies, requesting confirmation before
-making any changes.
+making any changes.  The default behavior is to always ask
+for confirmation of each change.  Use the -n or -y options
+to override this default behavior.
 .Pp
 The options are as follows:
 .Bl -hang -offset indent
+.It Fl q
+Causes
+.Nm
+to quickly check whether the volume was unmounted cleanly.
+If the volume was unmounted cleanly, then the exit status is 0.
+If the volume was not unmounted cleanly, then the exit status
+will be non-zero.  In either case, a message is printed to
+standard output describing whether the volume was clean or dirty.
 .It Fl f
 This option is ignored by
-.Nm "" ,
+.Nm
 and is present only for compatibility with programs that
 check other file system types for consistency, such as
 .Xr fsck_ffs 8 .

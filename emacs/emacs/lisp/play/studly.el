@@ -3,6 +3,9 @@
 ;;; This is in the public domain, since it was distributed
 ;;; by its author without a copyright notice in 1986.
 
+;; This file is part of GNU Emacs.
+
+;; Maintainer: FSF
 ;; Keywords: games
 
 ;;; Commentary:
@@ -13,6 +16,7 @@
 
 ;;; Code:
 
+;;;###autoload
 (defun studlify-region (begin end)
   "Studlify-case the region"
   (interactive "*r")
@@ -46,6 +50,7 @@
 	  (forward-char 1))
 	(setq begin (point))))))
 
+;;;###autoload
 (defun studlify-word (count)
   "Studlify-case the current word, or COUNT words if given an argument"
   (interactive "*p")

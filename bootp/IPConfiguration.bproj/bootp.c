@@ -39,39 +39,37 @@
  *   down and stays down for more than 4 seconds
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/sockio.h>
-#import <ctype.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/bootp.h>
-#import <arpa/inet.h>
-#import <net/if_types.h>
-#import <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/sockio.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
+#include <arpa/inet.h>
+#include <net/if_types.h>
+#include <syslog.h>
 
-#import "rfc_options.h"
-#import "dhcp_options.h"
-#import "dhcp.h"
-#import "interfaces.h"
-#import "util.h"
-#import "host_identifier.h"
-#import "dhcplib.h"
-
-#import "dprintf.h"
-
-#import "ipconfigd_threads.h"
+#include "rfc_options.h"
+#include "dhcp_options.h"
+#include "dhcp.h"
+#include "interfaces.h"
+#include "util.h"
+#include "host_identifier.h"
+#include "dhcplib.h"
+#include "dprintf.h"
+#include "ipconfigd_threads.h"
 
 extern char *  			ether_ntoa(struct ether_addr *e);
 
@@ -163,6 +161,7 @@ bootp_success(Service_t * service_p)
 	&& reply->bp_yiaddr.s_addr != bootp->saved.our_ip.s_addr) {
 	(void)service_remove_address(service_p);
     }
+    bootp->try = 0;
     bootp->saved.our_ip = reply->bp_yiaddr;
     (void)service_set_address(service_p, bootp->saved.our_ip, 
 			      mask, G_ip_zeroes);
@@ -181,6 +180,7 @@ bootp_failed(Service_t * service_p, ipconfig_status_t status, char * msg)
     service_remove_address(service_p);
     (void)service_disable_autoaddr(service_p);
     bootp->saved.our_ip.s_addr = 0;
+    bootp->try = 0;
     service_publish_failure(service_p, status, msg);
 
     if (status != ipconfig_status_media_inactive_e) {
@@ -226,7 +226,8 @@ bootp_arp_probe(Service_t * service_p,  IFEventID_t evid, void * event_data)
 	      my_log(LOG_ERR, "BOOTP %s: arp probe failed, %s", 
 		     if_name(if_p),
 		     arp_client_errmsg(bootp->arp));
-	      /* continue without it anyways */
+	      bootp_failed(service_p, ipconfig_status_internal_error_e, NULL);
+	      return;
 	  }
 	  else {
 	      struct bootp *	reply = (struct bootp *)bootp->saved.pkt;
@@ -240,7 +241,10 @@ bootp_arp_probe(Service_t * service_p,  IFEventID_t evid, void * event_data)
 			   EA_LIST(result->hwaddr),
 			   IP_LIST(&reply->bp_siaddr));
 		  if (bootp->user_warned == FALSE) {
-		      service_tell_user(service_p, msg);
+		      service_report_conflict(service_p,
+					      &reply->bp_yiaddr,
+					      result->hwaddr,
+					      &reply->bp_siaddr);
 		      bootp->user_warned = TRUE;
 		  }
 		  syslog(LOG_ERR, "BOOTP %s: %s", if_name(if_p), msg);
@@ -303,8 +307,7 @@ bootp_request(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      break;
 	  }
 	  bootp->request.bp_secs 
-	    = htons((u_short) timer_current_secs() -
-					  bootp->start_secs);
+	    = htons((u_short)(timer_current_secs() - bootp->start_secs));
 	  bootp->request.bp_xid = htonl(++bootp->xid);
 	  /* send the packet */
 	  if (bootp_client_transmit(bootp->client, if_name(if_p),
@@ -488,10 +491,15 @@ bootp_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      if (service_link_status(service_p)->active == TRUE) {
 		  /* confirm an address, get a new one, or timeout */
 		  bootp->user_warned = FALSE;
-		  bootp_request(service_p, IFEventID_start_e, NULL);
+		  if (bootp->try != 1) {
+		      bootp_request(service_p, IFEventID_start_e, NULL);
+		  }
 	      }
 	      else {
 		  struct timeval tv;
+
+		  /* ensure that we'll retry if the link goes back up */
+		  bootp->try = 0;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  S_cancel_pending_events(service_p);

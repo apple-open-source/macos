@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,15 +20,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
 #include "SCSIReducedBlockCommands.h"
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"RBC Command Set"
+
+#if DEBUG
+#define SCSI_RBC_COMMANDS_DEBUGGING_LEVEL		0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
 #if ( SCSI_RBC_COMMANDS_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)		IOPanic x
-#define DEBUG_ASSERT(x)		assert x
 #else
 #define PANIC_NOW(x)
-#define DEBUG_ASSERT(x)
 #endif
 
 #if ( SCSI_RBC_COMMANDS_DEBUGGING_LEVEL >= 2 )
@@ -43,44 +63,33 @@
 #define STATUS_LOG(x)
 #endif
 
-#define		READ_CAPACITY_DATA_SIZE		8
+
+#define	READ_CAPACITY_DATA_SIZE		8
+
 
 #define super SCSIPrimaryCommands
 OSDefineMetaClassAndStructors ( SCSIReducedBlockCommands, SCSIPrimaryCommands );
 
-//----------------------------------------------------------------------
-//
-//		SCSIReducedBlockCommands::CreateSCSIReducedBlockCommandObject
-//
-//----------------------------------------------------------------------
-//		
-//		get and instance of the command builder
-//
-//----------------------------------------------------------------------
 
-SCSIReducedBlockCommands *
-SCSIReducedBlockCommands::CreateSCSIReducedBlockCommandObject ( void )
-{
-
-	return new SCSIReducedBlockCommands;
-
-}
-
+#if 0
 #pragma mark -
-#pragam mark RBC Command Methods
+#pragma mark RBC Command Methods
+#pragma mark -
+#endif
+
+
 // SCSI Block Commands as defined in T10:990-D SBC
 // Revision 8c, November 13, 1997
 
-
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::FORMAT_UNIT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The FORMAT_UNIT command as defined in section 5.1.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::FORMAT_UNIT (
@@ -91,39 +100,14 @@ SCSIReducedBlockCommands::FORMAT_UNIT (
    						SCSICmdField1Bit		INCREMENT )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::FORMAT_UNIT called\n" ) );
 	
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "IMMED = %x not valid\n", IMMED ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PROGRESS, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PROGRESS = %x not valid\n", PROGRESS ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PERCENT_TIME, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PERCENT_TIME = %x not valid\n", PERCENT_TIME ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( INCREMENT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "INCREMENT = %x not valid\n", INCREMENT ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PROGRESS, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PERCENT_TIME, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( INCREMENT, kSCSICmdFieldMask1Bit ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -138,21 +122,27 @@ SCSIReducedBlockCommands::FORMAT_UNIT (
 	SetDataTransferControl ( 	request,
 			      				0,
 								kSCSIDataTransfer_NoDataTransfer );
-									
-	return true;
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::READ_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The READ_10 command as defined in section 5.2.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::READ_10 (
@@ -163,47 +153,21 @@ SCSIReducedBlockCommands::READ_10 (
 					SCSICmdField2Byte 		TRANSFER_LENGTH )
 {
 	
-	UInt32 		requestedByteCount;
+	UInt32 		requestedByteCount	= 0;
+	bool		result 				= false;
 	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::READ_10 called\n" ) );
 	
-	// Check the validity of the media
-	if ( blockSize == 0 )
-	{
-		
-		// There is no media in the device, or it has an undetermined
-		// blocksize (could be unformatted).
-		STATUS_LOG ( ( "blockSize = %x not valid\n" ) );
-		return false;
-		
-	}
-		
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid\n", LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "TRANSFER_LENGTH = %x not valid\n", TRANSFER_LENGTH ) );
-		return false;
-		
-	}
+	// Check the validity of the media (make sure there is media in the
+	// device, and the blocksize has been determined i.e. it's formatted )
+	require_nonzero ( blockSize, ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
 	
 	requestedByteCount = TRANSFER_LENGTH * blockSize;
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %x\n", dataBuffer, requestedByteCount ) );
-		return false;
-		
-	}
-
+	require ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ), ErrorExit );
+	
 	// This is a 10-Byte command, fill out the cdb appropriately
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_READ_10,
@@ -222,21 +186,27 @@ SCSIReducedBlockCommands::READ_10 (
 								kSCSIDataTransfer_FromTargetToInitiator,
 								dataBuffer,
 								requestedByteCount );
-									
-	return true;
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::READ_CAPACITY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The READ_CAPACITY command as defined in section 5.3.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::READ_CAPACITY (
@@ -244,15 +214,11 @@ SCSIReducedBlockCommands::READ_CAPACITY (
 						IOMemoryDescriptor *	dataBuffer )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::READ_CAPACITY called\n" ) );
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer, READ_CAPACITY_DATA_SIZE ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, READ_CAPACITY_DATA_SIZE = %x\n", dataBuffer, READ_CAPACITY_DATA_SIZE ) );
-		return false;
-		
-	}
+	require ( IsBufferAndCapacityValid ( dataBuffer, READ_CAPACITY_DATA_SIZE ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately
 	SetCommandDescriptorBlock (	request,
@@ -273,20 +239,26 @@ SCSIReducedBlockCommands::READ_CAPACITY (
 								dataBuffer,
 								READ_CAPACITY_DATA_SIZE );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::START_STOP_UNIT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The START_STOP_UNIT command as defined in section 5.4.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::START_STOP_UNIT (
@@ -297,39 +269,14 @@ SCSIReducedBlockCommands::START_STOP_UNIT (
 				SCSICmdField1Bit 			START )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::START_STOP_UNIT called\n" ) );
 	
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "IMMED = %x not valid\n", IMMED ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( POWER_CONDITIONS, kSCSICmdFieldMask4Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "POWER_CONDITIONS = %x not valid\n", POWER_CONDITIONS ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( LOEJ, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "LOEJ = %x not valid\n", LOEJ ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( START, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "START = %x not valid\n", START ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );	
+	require ( IsParameterValid ( POWER_CONDITIONS, kSCSICmdFieldMask4Bit ), ErrorExit );
+	require ( IsParameterValid ( LOEJ, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( START, kSCSICmdFieldMask1Bit ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -344,20 +291,26 @@ SCSIReducedBlockCommands::START_STOP_UNIT (
 			      				0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::SYNCHRONIZE_CACHE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The SYNCHRONIZE_CACHE command as defined in section 5.5.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::SYNCHRONIZE_CACHE (
@@ -388,15 +341,15 @@ SCSIReducedBlockCommands::SYNCHRONIZE_CACHE (
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::WRITE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The WRITE_10 command as defined in section 5.6.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::WRITE_10 (
@@ -408,55 +361,22 @@ SCSIReducedBlockCommands::WRITE_10 (
 						SCSICmdField2Byte 		TRANSFER_LENGTH )
 {
 	
-	UInt32		requestedByteCount;
-
+	bool		result				= false;
+	UInt32		requestedByteCount	= 0;
+	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::WRITE_10 called\n" ) );
 	
-	// Check the validity of the media
-	if ( blockSize == 0 )
-	{
-		
-		// There is no media in the device, or it has an undetermined
-		// blocksize (could be unformatted).
-		STATUS_LOG ( ( "blockSize = %x not valid\n", blockSize ) );
-		return false;
-		
-	}
-		
-    if ( IsParameterValid ( FUA, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "FUA = %x not valid\n", FUA ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid\n", LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "TRANSFER_LENGTH = %x not valid\n", TRANSFER_LENGTH ) );
-		return false;
-		
-	}
+	// Check the validity of the media (make sure there is media in the
+	// device, and the blocksize has been determined i.e. it's formatted )
+	require_nonzero ( blockSize, ErrorExit );
+	require ( IsParameterValid ( FUA, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
 	
 	requestedByteCount = TRANSFER_LENGTH * blockSize;
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %x\n", dataBuffer, requestedByteCount ) );
-		return false;
+	require ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ), ErrorExit );
 	
-	}
-
 	// This is a 10-Byte command, fill out the cdb appropriately
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_WRITE_10,
@@ -476,20 +396,26 @@ SCSIReducedBlockCommands::WRITE_10 (
 								dataBuffer,
 								requestedByteCount );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIReducedBlockCommands::VERIFY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //		The VERIFY command as defined in section 5.7.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIReducedBlockCommands::VERIFY (
@@ -498,23 +424,12 @@ SCSIReducedBlockCommands::VERIFY (
 					SCSICmdField2Byte 		VERIFICATION_LENGTH )
 {
 	
+	bool	result	= false;
+	
 	STATUS_LOG ( ( "SCSIReducedBlockCommands::VERIFY called\n" ) );
 	
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid\n", LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( VERIFICATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "VERIFICATION_LENGTH = %x not valid\n", VERIFICATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( VERIFICATION_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -533,5 +448,38 @@ SCSIReducedBlockCommands::VERIFY (
 			      				0,
 								kSCSIDataTransfer_NoDataTransfer );	
 	
-	return true;
+	result = true;
 	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIReducedBlockCommands::CreateSCSIReducedBlockCommandObject
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//		
+//		Get an instance of the command builder
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIReducedBlockCommands *
+SCSIReducedBlockCommands::CreateSCSIReducedBlockCommandObject ( void )
+{
+	
+	return new SCSIReducedBlockCommands;
+	
+}

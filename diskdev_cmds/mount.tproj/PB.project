@@ -7,7 +7,15 @@
         M_FILES = (); 
         OTHER_LIBS = (disk); 
         OTHER_LINKED = (mount.c, mount_ufs.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Makefile.dist, getmntopts.3, mount.8); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            Makefile.dist, 
+            getmntopts.3, 
+            mount.8, 
+            fstab.5
+        ); 
         PROJECT_HEADERS = (); 
         SUBPROJECTS = (); 
     }; 

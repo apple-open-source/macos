@@ -78,12 +78,29 @@ int dkdisklabel __P((int fd, struct disklabel * lp));
 #define DEFBLK16  2048		/* default block size FAT16 */
 #define DEFRDE	  512		/* default root directory entries */
 #define RESFTE	  2		/* reserved FAT entries */
+
+/*
+ * [2873845]  FAT12 volumes can have 1..4084 clusters.  FAT16 can have
+ * 4085..65524 clusters.  FAT32 is 65525 clusters or more.
+ * Since many other implementations are off by 1, 2, 4, 8, 10, or 16,
+ * Microsoft recommends staying at least 16 clusters away from these
+ * boundary points.  They also recommend that FAT32 volumes avoid
+ * making the bad cluster mark an allocatable cluster number.
+ *
+ * So, the minimum and maximum values listed below aren't the strict
+ * limits (smaller or larger values may work on more robust implementations).
+ * The limits below are safe limits that should be compatible with a
+ * wide variety of implementations.
+ */
 #define MINCLS12  1		/* minimum FAT12 clusters */
-#define MINCLS16  0x1000	/* minimum FAT16 clusters */
-#define MINCLS32  2		/* minimum FAT32 clusters */
-#define MAXCLS12  0xfed 	/* maximum FAT12 clusters */
-#define MAXCLS16  0xfff5	/* maximum FAT16 clusters */
-#define MAXCLS32  0xffffff5	/* maximum FAT32 clusters */
+#define MINCLS16  4085		/* minimum FAT16 clusters */
+#define MINCLS32  65525		/* minimum FAT32 clusters */
+#define MAXCLS12  4084 		/* maximum FAT12 clusters */
+#define MAXCLS16  65524		/* maximum FAT16 clusters */
+#define MAXCLS32  0x0FFFFFF5	/* maximum FAT32 clusters */
+
+#define BACKUP_BOOT_SECTOR 6	/* Default location for backup boot sector on FAT32 */
+#define FAT32_RESERVED_SECTORS 32
 
 #define mincls(fat)  ((fat) == 12 ? MINCLS12 :	\
 		      (fat) == 16 ? MINCLS16 :	\
@@ -225,6 +242,38 @@ static u_int8_t bootcode[] = {
     ' ', 'r', 'e', 'b', 'o', 'o', 't',
     0x0d, 0x0a,
     0
+};
+
+/*
+ * [2873851] Tables of default cluster sizes for FAT16 and FAT32.
+ * These constants come from Microsoft's documentation.
+ */
+
+#define MAX_SEC_FAT12 8400	/* (4 MB) Maximum number of sectors to default to FAT12 */
+#define MAX_SEC_FAT16 1048576	/* (512 MB) Maximum number of sectors t odefault to FAT16 */
+
+struct DiskSizeToClusterSize {
+    u_int diskSectors;		/* input: maximum bpb.bsec */
+    u_int sectorsPerCluster;	/* output: desired bpb.spc */
+};
+
+struct DiskSizeToClusterSize fat16Sizes[] = {
+    {   8400,  0},	/* Disks up to 4.1 MB; the 0 triggers an error */
+    {  32680,  2},	/* Disks up to  16 MB => 1 KB cluster */
+    { 262144,  4},	/* Disks up to 128 MB => 2 KB cluster */
+    { 524288,  8},	/* Disks up to 256 MB => 4 KB cluster */
+    {1048576, 16},	/* Disks up to 512 MB => 8 KB cluster */
+    /* The following entries are used only if FAT16 is forced */
+    {2097152, 32},	/* Disks up to 1 GB => 16 KB cluster */
+    {0xFFFFFFFF, 64}	/* Disks over 2 GB => 32KB cluster (total size may be limited) */
+};
+struct DiskSizeToClusterSize fat32Sizes[] = {
+    {   66600,  0},	/* Disks up to 32.5 MB; the 0 triggers an error */
+    {  532480,  1},	/* Disks up to 260 MB => 512 byte cluster; not used unles FAT32 forced */
+    {16777216,  8},	/* Disks up to   8 GB =>  4 KB cluster */
+    {33554432, 16},	/* Disks up to  16 GB =>  8 KB cluster */
+    {67108864, 32},	/* Disks up to  32 GB => 16 KB cluster */
+    {0xFFFFFFFF, 64}	/* Disks over 32 GB => 32 KB cluster */
 };
 
 static void check_mounted(const char *, mode_t);
@@ -463,26 +512,104 @@ main(int argc, char *argv[])
     }
     if (!bpb.nft)
 	bpb.nft = 2;
-    if (!fat) {
-	if (bpb.bsec < (bpb.res ? bpb.res : bss) +
-	    howmany((RESFTE + (bpb.spc ? MINCLS16 : MAXCLS12 + 1)) *
-		    ((bpb.spc ? 16 : 12) / BPN), bpb.bps * NPB) *
-	    bpb.nft +
-	    howmany(bpb.rde ? bpb.rde : DEFRDE,
-		    bpb.bps / sizeof(struct de)) +
-	    (bpb.spc ? MINCLS16 : MAXCLS12 + 1) *
-	    (bpb.spc ? bpb.spc : howmany(DEFBLK, bpb.bps)))
-	    fat = 12;
-	else if (bpb.rde || bpb.bsec <
-		 (bpb.res ? bpb.res : bss) +
-		 howmany((RESFTE + MAXCLS16) * 2, bpb.bps) * bpb.nft +
-		 howmany(DEFRDE, bpb.bps / sizeof(struct de)) +
-		 (MAXCLS16 + 1) *
-		 (bpb.spc ? bpb.spc : howmany(8192, bpb.bps)))
-	    fat = 16;
-	else
-	    fat = 32;
+
+    /*
+     * [2873851] If the FAT type or sectors per cluster were not explicitly specified,
+     * set them to default values.
+     */
+    if (!bpb.spc)
+    {
+	/*
+	 * If the user didn't specify the FAT type, then pick a default based on the
+	 * number of sectors on the volume.
+	 */
+	if (!fat)
+	{
+	    if (bpb.bsec <= MAX_SEC_FAT12)
+		fat = 12;
+	    else if (bpb.bsec <= MAX_SEC_FAT16)
+		fat = 16;
+	    else
+		fat = 32;
+	}
+
+	switch (fat)
+	{
+	case 12:
+	    /*
+	     * There is no general table for FAT12, so try all possible
+	     * sector-per-cluster values until it all fits, or we try the
+	     * maximum cluster size.
+	     */
+	    for (bpb.spc=1; bpb.spc<64; bpb.spc*=2)
+	    {
+		/* Start with number of reserved sectors */
+		x = bpb.res ? bpb.res : bss;
+		/* Plus number of sectors used by FAT */
+		x = howmany((RESFTE+MAXCLS12+1)*(12/BPN), bpb.bps*NPB) * bpb.nft;
+		/* Plus root directory */
+		x += howmany(bpb.rde ? bpb.rde : DEFRDE, bpb.bps / sizeof(struct de));
+		/* Plus data clusters */
+		x += (MAXCLS12+1) * bpb.spc;
+		
+		/*
+		 * We now know how many sectors the volume would occupy with the given
+		 * sectors per cluster, and the maximum number of FAT12 clusters.  If
+		 * this is as big as or bigger than the actual volume, we've found the
+		 * minimum sectors per cluster.
+		 */
+		if (x >= bpb.bsec)
+		    break;
+	    }
+	    break;
+	case 16:
+	    for (x=0; bpb.bsec > fat16Sizes[x].diskSectors; ++x)
+		;
+	    bpb.spc = fat16Sizes[x].sectorsPerCluster;
+	    break;
+	case 32:
+	    for (x=0; bpb.bsec > fat32Sizes[x].diskSectors; ++x)
+		;
+	    bpb.spc = fat32Sizes[x].sectorsPerCluster;
+	    break;
+	default:
+	    errx(1, "Invalid FAT type: %d", fat);
+	    break;
+	}
+	
+	if (bpb.spc == 0)
+	    errx(1, "FAT%d is impossible with %lu sectors", fat, bpb.bsec);
     }
+    else
+    {
+	/*
+	 * User explicitly specified sectors per cluster.  If they didn't
+	 * specify the FAT type, pick one that uses up the available sectors.
+	 */
+	if (!fat)
+	{
+	    /* See if a maximum number of FAT clusters would fill it up. */
+	    if (bpb.bsec < (bpb.res ? bpb.res : bss) +
+		howmany((RESFTE+MAXCLS12+1) * (12/BPN), bpb.bps * BPN) * bpb.nft +
+		howmany(bpb.rde ? bpb.rde : DEFRDE, bpb.bps / sizeof(struct de)) +
+		(MAXCLS12+1) * bpb.spc)
+	    {
+		fat = 12;
+	    }
+	    else if (bpb.bsec < (bpb.res ? bpb.res : bss) +
+		howmany((RESFTE+MAXCLS16) * 2, bpb.bps) * bpb.nft +
+		howmany(bpb.rde ? bpb.rde : DEFRDE, bpb.bps / sizeof(struct de)) +
+		(MAXCLS16+1) * bpb.spc)
+	    {
+		fat = 16;
+	    }
+	    else
+	    {
+		fat = 32;
+	    }
+	}
+    }
+    
     x = bss;
     if (fat == 32) {
 	if (!bpb.infs) {
@@ -495,28 +622,22 @@ main(int argc, char *argv[])
 	if (!bpb.bkbs) {
 	    if (x == MAXU16)
 		errx(1, "no room for backup sector");
-	    bpb.bkbs = x;
+	    if (x <= BACKUP_BOOT_SECTOR)
+		bpb.bkbs = BACKUP_BOOT_SECTOR;
+	    else
+		bpb.bkbs = x;
 	} else if (bpb.bkbs != MAXU16 && bpb.bkbs == bpb.infs)
 	    errx(1, "backup sector would overwrite info sector");
 	if (bpb.bkbs != MAXU16 && x <= bpb.bkbs)
 	    x = bpb.bkbs + 1;
     }
     if (!bpb.res)
-	bpb.res = fat == 32 ? MAX(x, MAX(16384 / bpb.bps, 4)) : x;
+	bpb.res = fat == 32 ? MAX(x, FAT32_RESERVED_SECTORS) : x;
     else if (bpb.res < x)
 	errx(1, "too few reserved sectors");
     if (fat != 32 && !bpb.rde)
 	bpb.rde = DEFRDE;
     rds = howmany(bpb.rde, bpb.bps / sizeof(struct de));
-    if (!bpb.spc)
-	for (bpb.spc = howmany(fat == 16 ? DEFBLK16 : DEFBLK, bpb.bps);
-	     bpb.spc < MAXSPC &&
-	     bpb.res +
-	     howmany((RESFTE + maxcls(fat)) * (fat / BPN),
-		     bpb.bps * NPB) * bpb.nft +
-	     rds +
-	     (u_int64_t)(maxcls(fat) + 1) * bpb.spc <= bpb.bsec;
-	     bpb.spc <<= 1);
     if (fat != 32 && bpb.bspf > MAXU16)
 	errx(1, "too many sectors/FAT for FAT12/16");
     x1 = bpb.res + rds;

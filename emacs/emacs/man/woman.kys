@@ -1,0 +1,38 @@
+\initial {-}
+\entry {\code {-}}{10}
+\initial {.}
+\entry {\code {.}}{10}
+\initial {?}
+\entry {\code {?}}{10}
+\initial {{\tt\gtr}}
+\entry {\code {>}}{10}
+\initial {{\tt\less}}
+\entry {\code {<}}{10}
+\initial {0}
+\entry {\code {0 .. 9}}{10}
+\initial {D}
+\entry {\code {DEL}}{9}
+\initial {G}
+\entry {\code {g}}{9}
+\initial {K}
+\entry {\code {k}}{10}
+\initial {M}
+\entry {\code {m}}{10}
+\entry {\code {M-n}}{10}
+\entry {\code {M-p}}{10}
+\entry {\code {Mouse-2}}{9}
+\initial {N}
+\entry {\code {n}}{9}
+\initial {P}
+\entry {\code {p}}{9}
+\initial {Q}
+\entry {\code {q}}{10}
+\initial {R}
+\entry {\code {r}}{9}
+\entry {\code {R}}{10}
+\entry {\code {RET}}{9}
+\initial {S}
+\entry {\code {s}}{9}
+\entry {\code {SPC}}{9}
+\initial {W}
+\entry {\code {w}}{10}

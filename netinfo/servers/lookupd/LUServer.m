@@ -39,10 +39,16 @@
 #import "LUPrivate.h"
 #import "Controller.h"
 #import "Config.h"
+#import "Dyna.h"
 #import <NetInfo/dsutil.h>
+#import <netinfo/ni.h>
 #import <string.h>
 #import <stdlib.h>
 #import <stdio.h>
+#import <sys/types.h>
+#import <sys/socket.h>
+#import <netinet/in.h>
+#import <arpa/inet.h>
 
 #define MaxNetgroupRecursion 5
 #define XDRSIZE 8192
@@ -79,9 +85,7 @@ milliseconds_since(struct timeval t)
 	id s;
 
 	s = [super alloc];
-
 	system_log(LOG_DEBUG, "Allocated LUServer 0x%08x\n", (int)s);
-
 	return s;
 }
 
@@ -110,10 +114,6 @@ milliseconds_since(struct timeval t)
 
 	agentList = [[LUArray alloc] init];
 	[agentList setBanner:"LUServer agent list"];
-
-	ooBufferSize = 0;
-	ooBufferOffset = 0;
-	ooBuffer = NULL;
 
 	idle = YES;
 	state = ServerStateIdle;
@@ -148,14 +148,6 @@ milliseconds_since(struct timeval t)
 		idle = YES;
 		state = ServerStateIdle;
 		myThread = nil;
-
-		if (ooBufferSize > 0)
-		{
-			free(ooBuffer);
-			ooBuffer = NULL;
-			ooBufferSize = 0;
-			ooBufferOffset = 0;
-		}
 	}
 	else
 	{
@@ -174,47 +166,23 @@ milliseconds_since(struct timeval t)
 - (LUAgent *)agentNamed:(char *)name
 {
 	id agentClass;
-	char *arg, *colon, *cname, *cserv;
+	char *arg, *cname, *cserv;
 	int i, len;
 	id agent;
 
 	if (name == NULL) return nil;
 
-	arg = NULL;
-	colon = strchr(name, ':');
-	if (colon != NULL)
-	{
-		*colon = '\0';
-		arg = colon + 1;
-	}
+	arg = strchr(name, ':');
+	if (arg != NULL) arg += 1;
 
-	cname = NULL;
-	len = strlen(name);
-	if (len > 5)
-	{
-		if (streq(name + (len - 5), "Agent"))
-		{
-			cname = copyString(name);
-		}
-	}
+	cname = [LUAgent canonicalAgentName:name];
+	if (cname == NULL) return nil;
 
-	if (cname == NULL)
+	cserv = [LUAgent canonicalServiceName:name];
+	if (cserv == NULL)
 	{
-		cname = malloc(len + 6);
-		sprintf(cname, "%sAgent", name);
-	}
-
-	if (colon != NULL) *colon = ':';
-
-	cserv = NULL;
-	if (arg == NULL)
-	{
-		cserv = copyString(cname);
-	}
-	else 
-	{
-		cserv = malloc(strlen(cname) + strlen(arg) + 2);
-		sprintf(cserv, "%s:%s", cname, arg);
+		free(cname);
+		return nil;
 	}
 
 	len = [agentList count];
@@ -229,14 +197,19 @@ milliseconds_since(struct timeval t)
 		}
 	}
 
+	agent = nil;
 	agentClass = [controller agentClassNamed:cname];
 	free(cname);
 	free(cserv);
-	if (agentClass == NULL) return nil;
+	if (agentClass == nil)
+	{
+		agent = [[Dyna alloc] initWithArg:name];
+	}
+	else
+	{
+		agent = [[agentClass alloc] initWithArg:arg];
+	}
 
-	agent = nil;
-	if (arg == NULL) agent = [[agentClass alloc] init];
-	else agent = [[agentClass alloc] initWithArg:arg];
 	if (agent == nil) return nil;
 
 	[agentList addObject:agent];
@@ -246,42 +219,6 @@ milliseconds_since(struct timeval t)
 		(int)self, (int)agent, [agent serviceName]);
 
 	return agent;
-}
-
-- (void)copyToOOBuffer:(char *)src size:(unsigned long)len
-{
-	long avail, delta;
-
-	if (ooBufferSize == 0)
-	{
-		ooBufferSize = XDRSIZE * ((len / XDRSIZE) + 1);
-		ooBuffer = malloc(ooBufferSize);
-		ooBufferOffset = 0;
-	}
-	else
-	{
-		avail = ooBufferSize - ooBufferOffset;
-
-		if (len > avail) 
-		{
-			delta = XDRSIZE * (((len - avail) / XDRSIZE) + 1);
-			ooBufferSize += delta;
-			ooBuffer = realloc(ooBuffer, ooBufferSize);
-		}
-	}
-
-	memmove(ooBuffer + ooBufferOffset, src, len);
-	ooBufferOffset += len;
-}
-
-- (char *)ooBuffer
-{
-	return ooBuffer;
-}
-
-- (int)ooBufferLength
-{
-	return (int)ooBufferOffset;
 }
 
 - (void)dealloc
@@ -301,8 +238,6 @@ milliseconds_since(struct timeval t)
 
 		[agentList release];
 	}
-
-	free(ooBuffer);
 
 	system_log(LOG_DEBUG, "Deallocated LUServer 0x%08x\n", (int)self);
 
@@ -351,6 +286,8 @@ milliseconds_since(struct timeval t)
 {
 	char key[256];
 
+	if (info == NULL) return;
+
 	/* total for this info system */
 	[self addTime:t hit:found forKey:info];
 
@@ -360,23 +297,28 @@ milliseconds_since(struct timeval t)
 }
 
 - (LUDictionary *)stamp:(LUDictionary *)item
+	key:(char *)key
 	agent:(LUAgent *)agent
  	category:(LUCategory)cat
 {
 	BOOL cacheEnabled;
 	char scratch[256];
+	const char *sname;
 
 	if (item == nil) return nil;
 
 	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:cat];
 	[item setCategory:cat];
 
-	if (strcmp([agent shortName], "Cache"))
+	sname = [agent shortName];
+	if (sname == NULL) return item;
+
+	if (strcmp(sname, "Cache"))
 	{
 		if (cat == LUCategoryBootp)
 		{
 			sprintf(scratch, "%s: %s %s (%s / %s)",
-				[agent shortName],
+				sname,
 				[LUAgent categoryName:cat],
 				[item valueForKey:"name"],
 				[item valueForKey:"en_address"],
@@ -385,16 +327,16 @@ milliseconds_since(struct timeval t)
 		else
 		{
 			sprintf(scratch, "%s: %s %s",
-				[agent shortName],
+				sname,
 				[LUAgent categoryName:cat],
 				[item valueForKey:"name"]);
 		}
 		[item setBanner:scratch];
 	}
 
-	if (cacheEnabled && (strcmp([agent shortName], "Cache")))
+	if (cacheEnabled && (strcmp(sname, "Cache")))
 	{
-		[cacheAgent addObject:item];
+		[cacheAgent addObject:item key:key category:cat];
 	}
 
 	if ([item isNegative])
@@ -501,6 +443,7 @@ appendDomainName(char *h, char *d)
 - (LUArray *)allItemsWithCategory:(LUCategory)cat
 {
 	char **lookupOrder;
+	const char *sname;
 	LUArray *all;
 	LUArray *sub;
 	LUAgent *agent;
@@ -508,7 +451,7 @@ appendDomainName(char *h, char *d)
 	LUDictionary *item;
 	int i, len;
 	int j, sublen;
-	BOOL cacheEnabled, found;
+	BOOL cacheEnabled;
 	char scratch[256], caller[256];
 	struct timeval allStart;
 	struct timeval sysStart;
@@ -516,29 +459,43 @@ appendDomainName(char *h, char *d)
 	unsigned int allTime;
 
 	if (cat >= NCATEGORIES) return nil;
-	gettimeofday(&allStart, (struct timezone *)NULL);
 
-	sprintf(caller, "all %s", [LUAgent categoryName:cat]);
-	currentCall = caller;
-	
+	if (statistics_enabled)
+	{
+		gettimeofday(&allStart, (struct timezone *)NULL);
+
+		sprintf(caller, "all %s", [LUAgent categoryName:cat]);
+		currentCall = caller;
+	}
+
 	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:cat];
 	if (cacheEnabled)
 	{
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = cacheAgent;
-		state = ServerStateQuerying;
-		all = [cacheAgent allItemsWithCategory:cat];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (all != nil);
-		[self recordSearch:caller infoSystem:"Cache" time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:caller time:allTime hit:found];
-			currentCall = NULL;
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = cacheAgent;
+			state = ServerStateQuerying;
+		}
+
+		all = [cacheAgent allItemsWithCategory:cat];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:caller infoSystem:"Cache" time:sysTime hit:(all != nil)];
+		}
+
+		if (all != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:caller time:allTime hit:YES];
+				currentCall = NULL;
+			}
 			return all;
 		}
 	}
@@ -552,27 +509,38 @@ appendDomainName(char *h, char *d)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
-		if (streq([agent shortName], "Cache")) continue;
+		sname = [agent shortName];
+		if ((sname != NULL) && (streq(sname, "Cache"))) continue;
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
+		if (statistics_enabled)
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
 
-		currentAgent = agent;
-		state = ServerStateQuerying;
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
 		sub = [agent allItemsWithCategory:cat];
-		state = ServerStateActive;
-		currentAgent = nil;
 
-		sysTime = milliseconds_since(sysStart);
-		found = (sub != nil);
-		[self recordSearch:caller infoSystem:[agent shortName] time:sysTime hit:found];
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
 
-		if (found)
+			sysTime = milliseconds_since(sysStart);
+	
+			[self recordSearch:caller infoSystem:sname time:sysTime hit:(sub != nil)];
+		}
+	
+		if (sub != nil)
 		{
 			/* Merge validation info from this agent into "all" array */
 			sublen = [sub validationStampCount];
 			for (j = 0; j < sublen; j++)
 			{
 				stamp = [sub validationStampAtIndex:j];
+				if ([stamp isNegative]) continue;
+
 				[stamp setCategory:cat];
 				[all addValidationStamp:stamp];
 			}
@@ -589,14 +557,16 @@ appendDomainName(char *h, char *d)
 		}
 	}
 
-	allTime = milliseconds_since(allStart);
-	found = ([all count] != 0);
-	[self recordCall:caller time:allTime hit:found];
+	if (statistics_enabled)
+	{
+		allTime = milliseconds_since(allStart);
+		[self recordCall:caller time:allTime hit:([all count] != 0)];
+		currentCall = NULL;
+	}
 
-	if (!found)
+	if ([all count] == 0)
 	{
 		[all release];
-		currentCall = NULL;
 		return nil;
 	}
 
@@ -604,13 +574,14 @@ appendDomainName(char *h, char *d)
 	[all setBanner:scratch];
 
 	if (cacheEnabled) [cacheAgent addArray:all];
-	currentCall = NULL;
 	return all;
 }
 
 - (LUArray *)query:(LUDictionary *)pattern
 {
 	char **lookupOrder;
+	char *catname;
+	const char *sname;
 	LUArray *all, *list;
 	LUArray *sub;
 	LUAgent *agent;
@@ -618,7 +589,7 @@ appendDomainName(char *h, char *d)
 	LUCategory cat;
 	int i, len;
 	int j, sublen;
-	BOOL found;
+	BOOL isnumber;
 	char caller[256], *pagent;
 	struct timeval listStart;
 	struct timeval sysStart;
@@ -631,23 +602,43 @@ appendDomainName(char *h, char *d)
 	where = [pattern indexForKey:"_lookup_category"];
 	if (where == IndexNull) return nil;
 
-	cat = [LUAgent categoryWithName:[pattern valueAtIndex:where]];
+	catname = [pattern valueAtIndex:where];
+	if (catname == NULL) return nil;
+
+	/* Backward compatibility for clients that do direct "query" calls */
+	cat = -1;
+	isnumber = YES;
+	len = strlen(catname);
+	for (i = 0; (i < len) && isnumber; i++)
+	{
+		if ((catname[i] < '0') || (catname[i] > '9')) isnumber = NO;
+	}
+
+	if (isnumber) cat = atoi(catname);
+	else cat = [LUAgent categoryWithName:catname];
+
 	if (cat > NCATEGORIES) return nil;
+
+	if (statistics_enabled)
+	{
+		gettimeofday(&listStart, (struct timezone *)NULL);
+
+		sprintf(caller, "query");
+		currentCall = caller;
+	}
 
 	pagent = NULL;
 	where = [pattern indexForKey:"_lookup_agent"];
 	if (where != IndexNull) pagent = [pattern valueAtIndex:where];
 
-	gettimeofday(&listStart, (struct timezone *)NULL);
-
-	sprintf(caller, "query");
-	currentCall = caller;
-	
 	if ((pagent != NULL) && (!strcmp(pagent, "Cache")))
 	{
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = cacheAgent;
-		state = ServerStateQuerying;
+		if (statistics_enabled)
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = cacheAgent;
+			state = ServerStateQuerying;
+		}
 
 		list = nil;
 
@@ -658,15 +649,18 @@ appendDomainName(char *h, char *d)
 			[all release];
 		}
 
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (list != nil);
-		[self recordSearch:caller infoSystem:"Cache" time:sysTime hit:found];
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:caller infoSystem:"Cache" time:sysTime hit:(list != nil)];
 
-		listTime = milliseconds_since(listStart);
-		[self recordCall:caller time:listTime hit:found];
-		currentCall = NULL;
+			listTime = milliseconds_since(listStart);
+			[self recordCall:caller time:listTime hit:(list != nil)];
+			currentCall = NULL;
+		}
+
 		return list;
 	}
 
@@ -679,22 +673,29 @@ appendDomainName(char *h, char *d)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
-		if (streq([agent shortName], "Cache")) continue;
-		if ((pagent != NULL) && strcmp([agent shortName], pagent)) continue;
+		sname = [agent shortName];
+		if ((sname != NULL) && (streq(sname, "Cache"))) continue;
+		if ((pagent != NULL) && strcmp(sname, pagent)) continue;
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
+		if (statistics_enabled)
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
 
-		currentAgent = agent;
-		state = ServerStateQuerying;
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
 		sub = [agent query:pattern category:cat];
-		state = ServerStateActive;
-		currentAgent = nil;
 
-		sysTime = milliseconds_since(sysStart);
-		found = (sub != nil);
-		[self recordSearch:caller infoSystem:[agent shortName] time:sysTime hit:found];
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:caller infoSystem:sname time:sysTime hit:(sub != nil)];
+		}
 
-		if (found)
+		if (sub != nil)
 		{
 			sublen = [sub count];
 			for (j = 0; j < sublen; j++)
@@ -708,73 +709,87 @@ appendDomainName(char *h, char *d)
 		}
 	}
 
-	listTime = milliseconds_since(listStart);
-	found = ([all count] != 0);
-	[self recordCall:caller time:listTime hit:found];
+	if (statistics_enabled)
+	{
+		listTime = milliseconds_since(listStart);
+		[self recordCall:caller time:listTime hit:([all count] != 0)];
+		currentCall = NULL;
+	}
 
-	if (!found)
+	if ([all count] == 0)
 	{
 		[all release];
-		currentCall = NULL;
 		return nil;
 	}
 
-	currentCall = NULL;
 	return all;
 }
 
-- (LUArray *)allGroupsWithUser:(char *)name
+- (LUDictionary *)allGroupsWithUser:(char *)name
 {
 	char **lookupOrder;
-	LUArray *all;
-	LUArray *sub;
+	LUDictionary *all;
+	LUDictionary *sub;
 	LUAgent *agent;
-	LUDictionary *stamp;
 	int i, len;
-	int j, sublen;
-	BOOL cacheEnabled, found;
+	BOOL cacheEnabled;
 	char scratch[256];
 	struct timeval allStart;
 	struct timeval sysStart;
 	unsigned int sysTime;
 	unsigned int allTime;
 
-	currentCall = "initgroups";
+	if (statistics_enabled)
+	{
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		currentCall = "initgroups";
+	}
 
 	if (name == NULL)
 	{
-		[self recordSearch:currentCall infoSystem:"Failed" time:0 hit:YES];
-		[self recordCall:currentCall time:0 hit:NO];
-		currentCall = NULL;
+		if (statistics_enabled)
+		{
+			[self recordSearch:currentCall infoSystem:"Failed" time:0 hit:YES];
+			[self recordCall:currentCall time:0 hit:NO];
+			currentCall = NULL;
+		}
 		return nil;
 	}
-
-	gettimeofday(&allStart, (struct timezone *)NULL);
 
 	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:LUCategoryInitgroups];
 	if (cacheEnabled)
 	{
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = cacheAgent;
-		state = ServerStateQuerying;
-		all = [cacheAgent initgroupsForUser:name];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (all != nil);
-		[self recordSearch:currentCall infoSystem:"Cache"
-			time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:currentCall time:allTime hit:found];
-			currentCall = NULL;
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = cacheAgent;
+			state = ServerStateQuerying;
+		}
+
+		all = [cacheAgent allGroupsWithUser:name];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:"Cache" time:sysTime hit:(all != nil)];
+		}
+
+		if (all != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:YES];
+				currentCall = NULL;
+			}
 			return all;
 		}
 	}
 
-	all = [[LUArray alloc] init];
+	all = [[LUDictionary alloc] init];
+	[all setValue:name forKey:"name"];
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryUser];
 	len = listLength(lookupOrder);
@@ -785,60 +800,47 @@ appendDomainName(char *h, char *d)
 		if (agent == nil) continue;
 		if (streq([agent shortName], "Cache")) continue;
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = agent;
-		state = ServerStateQuerying;
-		sub = [agent allGroupsWithUser:name];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (sub != nil);
-		[self recordSearch:currentCall infoSystem:[agent shortName]
-			time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			/* Merge validation info from this agent into "all" array */
-			sublen = [sub validationStampCount];
-			for (j = 0; j < sublen; j++)
-			{
-				stamp = [sub validationStampAtIndex:j];
-				[stamp setCategory:LUCategoryInitgroups];
-				[all addValidationStamp:stamp];
-			}
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
 
-			sublen = [sub count];
-			for (j = 0; j < sublen; j++)
-			{
-				[all addObject:[sub objectAtIndex:j]];
-			}
+		sub = [agent allGroupsWithUser:name];
 
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+				currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:[agent shortName] time:sysTime hit:(sub != nil)];
+		}
+
+		if (sub != nil)
+		{
+			[all mergeKey:"gid" from:sub];
 			[sub release];
 		}
 	}
 
-	allTime = milliseconds_since(allStart);
-	found = ([all count] != 0);
-	[self recordCall:currentCall time:allTime hit:found];
-
-	if (!found)
+	if (statistics_enabled)
 	{
-		[all release];
+		allTime = milliseconds_since(allStart);
+		[self recordCall:currentCall time:allTime hit:([all count] != 0)];
 		currentCall = NULL;
-		return nil;
 	}
 
 	sprintf(scratch, "LUServer: all groups with user %s", name);
 	[all setBanner:scratch];
 
 	if (cacheEnabled) [cacheAgent setInitgroups:all forUser:name];
-	currentCall = NULL;
-	return all;
+	return [self stamp:all key:"name" agent:self category:LUCategoryInitgroups];
 }
 
-- (LUArray *)allNetgroupsWithName:(char *)name
+- (LUDictionary *)allNetgroupsWithName:(char *)name
 {
-	LUArray *all;
+	LUDictionary *group;
 	char **lookupOrder;
 	LUDictionary *item;
 	LUAgent *agent;
@@ -848,15 +850,14 @@ appendDomainName(char *h, char *d)
 	struct timeval sysStart;
 	unsigned int sysTime;
 	unsigned int allTime;
-	BOOL found;
+	BOOL allFound, found;
 
-	currentCall = "netgroup name";
-	if (name == NULL)
+	if (name == NULL) return nil;
+
+	if (statistics_enabled)
 	{
-		[self recordSearch:currentCall infoSystem:"Failed" time:0 hit:YES];
-		[self recordCall:currentCall time:0 hit:NO];
-		currentCall = NULL;
-		return nil;
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		currentCall = "netgroup name";
 	}
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryNetgroup];
@@ -867,49 +868,61 @@ appendDomainName(char *h, char *d)
 		return nil;
 	}
 	
-	all = [[LUArray alloc] init];
+	group = [[LUDictionary alloc] init];
+	[group setValue:name forKey:"name"];
+	sprintf(scratch, "LUServer: netgroup %s", name);
+	[group setBanner:scratch];
 
-	gettimeofday(&allStart, (struct timezone *)NULL);
+	allFound = NO;
 
 	for (i = 0; i < len; i++)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
+		if (streq([agent shortName], "Cache")) continue;
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = agent;
-		state = ServerStateQuerying;
-		item = [agent itemWithKey:"name" value:name category:LUCategoryNetgroup];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (item != nil);
-		[self recordSearch:currentCall infoSystem:[agent shortName]
-			time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			[all addObject:item];
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
+		found = NO;
+		item = [agent netgroupWithName:name];
+		if (item != nil)
+		{
+			found = YES;
+			allFound = YES;
+			[group mergeKey:"hosts" from:item];
+			[group mergeKey:"users" from:item];
+			[group mergeKey:"domains" from:item];
 			[item release];
+		}
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:[agent shortName] time:sysTime hit:found];
 		}
 	}
 
-	allTime = milliseconds_since(allStart);
-	found = ([all count] != 0);
-	[self recordCall:currentCall time:allTime hit:found];
-
-	if (!found)
+	if (statistics_enabled)
 	{
-		[all release];
+		allTime = milliseconds_since(allStart);
+		[self recordCall:currentCall time:allTime hit:allFound];
 		currentCall = NULL;
+	}
+
+	if (!allFound)
+	{
+		[group release];
 		return nil;
 	}
 
-	sprintf(scratch, "LUServer: all netgroup %s", name);
-	[all setBanner:scratch];
-
-	currentCall = NULL;
-	return all;
+	return group;
 }
 
 - (LUDictionary *)groupWithKey:(char *)key value:(char *)val
@@ -924,46 +937,61 @@ appendDomainName(char *h, char *d)
 	struct timeval sysStart;
 	unsigned int sysTime;
 	unsigned int allTime;
-	BOOL found, cacheEnabled;
+	BOOL cacheEnabled;
 	LUDictionary *q;
 
 	if (key == NULL) return nil;
 	if (val == NULL) return nil;
 
-	sprintf(str, "%s %s", [LUAgent categoryName:LUCategoryGroup], key);
-	currentCall = str;
+	if (statistics_enabled)
+	{
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		sprintf(str, "%s %s", [LUAgent categoryName:LUCategoryGroup], key);
+		currentCall = str;
+	}
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryGroup];
 	item = nil;
 	len = listLength(lookupOrder);
 
-	gettimeofday(&allStart, (struct timezone *)NULL);
-
 	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:LUCategoryGroup];
 	if (cacheEnabled)
 	{
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = cacheAgent;
-		state = ServerStateQuerying;
-		item = [cacheAgent itemWithKey:key value:val category:LUCategoryGroup];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (item != nil);
-		[self recordSearch:currentCall infoSystem:"Cache" time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:currentCall time:allTime hit:found];
-			currentCall = NULL;
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = cacheAgent;
+			state = ServerStateQuerying;
+		}
+
+		item = [cacheAgent itemWithKey:key value:val category:LUCategoryGroup];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:"Cache" time:sysTime hit:(item != nil)];
+		}
+
+		if (item != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:YES];
+				currentCall = NULL;
+			}
 			return item;
 		}
 	}
 
+	if (statistics_enabled) currentCall = NULL;
+
 	q = [[LUDictionary alloc] init];
 	[q setValue:val forKey:key];
-	[q setValue:"group" forKey:"_lookup_category"];
+	sprintf(scratch, "%u", LUCategoryGroup);
+	[q setValue:scratch forKey:"_lookup_category"];
 
 	all = [self query:q];
 	[q release];
@@ -985,35 +1013,59 @@ appendDomainName(char *h, char *d)
 
 	[all release];
 
-	if (cacheEnabled) [cacheAgent addObject:item];
+	if (cacheEnabled) [cacheAgent addObject:item key:key category:LUCategoryGroup];
+
 	return item;
 }
 
 - (LUDictionary *)netgroupWithName:(char *)name
 {
-	LUArray *all;
-	LUDictionary *group;
-	int i, len;
-	char scratch[256];
+	LUDictionary *item;
+	BOOL cacheEnabled;
+	struct timeval sysStart;
+	unsigned int sysTime;
 
 	if (name == NULL) return nil;
 
-	all = [self allNetgroupsWithName:name];
-	if (all == nil) return nil;
+	cacheEnabled = [cacheAgent cacheIsEnabledForCategory:LUCategoryNetgroup];
+	if (cacheEnabled)
+	{
+		if (statistics_enabled)
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = cacheAgent;
+			state = ServerStateQuerying;
+		}
 
-	group = [[LUDictionary alloc] init];
-	sprintf(scratch, "LUServer: netgroup %s", name);
-	[group setBanner:scratch];
+		item = [cacheAgent itemWithKey:"name" value:name category:LUCategoryNetgroup];
 
-	[group setValue:name forKey:"name"];
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:"Cache" time:sysTime hit:(item != nil)];
+		}
 
-	len = [all count];
-	for (i = 0; i < len; i++)
-		[self mergeNetgroup:[all objectAtIndex:i] into:group];
+		if (item != nil)
+		{
+			if (statistics_enabled)
+			{
+				[self recordCall:currentCall time:sysTime hit:YES];
+				currentCall = NULL;
+			}
 
-	[all release];
+			return item;
+		}
+	}
 
-	return group;
+	if (statistics_enabled) currentCall = NULL;
+
+	item = [self allNetgroupsWithName:name];
+	if (item == nil) return nil;
+
+	if (cacheEnabled) [cacheAgent addObject:item key:name category:LUCategoryNetgroup];
+	return item;
 }
 
 /* 
@@ -1024,6 +1076,7 @@ appendDomainName(char *h, char *d)
 	category:(LUCategory)cat
 {
 	char **lookupOrder;
+	const char *sname;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, j, len, nether;
@@ -1033,7 +1086,10 @@ appendDomainName(char *h, char *d)
 	unsigned int sysTime;
 	unsigned int allTime;
 	char str[1024];
-	BOOL tryRealName, isEtherAddr, found;
+	BOOL tryRealName, isEtherAddr;
+	struct in_addr a4;
+	struct in6_addr a6;
+	char paddr[64];
 
 	sprintf(str, "%s %s", [LUAgent categoryName:cat], key);
 	currentCall = str;
@@ -1047,17 +1103,45 @@ appendDomainName(char *h, char *d)
 	isEtherAddr = NO;
 	if (streq(key, "en_address")) isEtherAddr = YES;
 
-	gettimeofday(&allStart, (struct timezone *)NULL);
+	/*
+	 * Convert addresses to canonical form.
+	 * if inet_aton, inet_pton, or inet_ntop can't deal with them
+	 * we leave the address alone - user may have some private idea
+	 * of addresses.
+	 */
+	if (cat == LUCategoryHost)
+	{
+		if (streq(key, "ip_address"))
+		{
+			if (inet_aton(val, &a4) == 1)
+			{
+				if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL) val = paddr;
+			}
+		}
+		else if (streq(key, "ipv6_address"))
+		{
+			if (inet_pton(AF_INET6, val, &a6) == 1)
+			{
+				if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL) val = paddr;
+			}
+		}
+	}
+
+	if (statistics_enabled) gettimeofday(&allStart, (struct timezone *)NULL);
 
 	for (i = 0; i < len; i++)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
+		if (statistics_enabled) 
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
 
-		currentAgent = agent;
-		state = ServerStateQuerying;
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
 		if (isEtherAddr)
 		{
 			/* Try all possible variations on leading zeros in the address */
@@ -1074,32 +1158,48 @@ appendDomainName(char *h, char *d)
 		else
 		{
 			item = [agent itemWithKey:key value:val category:cat];
+			/*
+			 * N.B. we omit NI from this search since it handles the
+			 * name / realname case itself.  
+			 */
 			if (tryRealName && (item == nil) && strcmp([agent shortName], "NI"))
 			{
 				item = [agent itemWithKey:"realname" value:val category:cat];
 			}
 		}
-		state = ServerStateActive;
-		currentAgent = nil;
-	
-		sysTime = milliseconds_since(sysStart);
-		found = (item != nil);
-		[self recordSearch:currentCall infoSystem:[agent shortName] time:sysTime hit:found];
 
-		if (found)
+		if (statistics_enabled) 
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:currentCall time:allTime hit:found];
-			currentCall = NULL;
-			return [self stamp:item agent:agent category:cat];
+			state = ServerStateActive;
+			currentAgent = nil;
+	
+			sysTime = milliseconds_since(sysStart);
+			sname = [agent shortName];
+			[self recordSearch:currentCall infoSystem:sname time:sysTime hit:(item != nil)];
+		}
+
+		if (item != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:YES];
+				currentCall = NULL;
+			}
+
+			return [self stamp:item key:key agent:agent category:cat];
 		}
 	}
 
-	allTime = milliseconds_since(allStart);
-	[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
-	[self recordCall:currentCall time:allTime hit:NO];
+	if (statistics_enabled)
+	{
+		allTime = milliseconds_since(allStart);
+		[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
+		[self recordCall:currentCall time:allTime hit:NO];
 
-	currentCall = NULL;
+		currentCall = NULL;
+	}
+
 	return nil;
 }
 
@@ -1286,10 +1386,14 @@ appendDomainName(char *h, char *d)
 	return NO;
 }
 
-- (LUDictionary *)serviceWithName:(char *)name
-	protocol:(char *)prot
+/*
+ * Essentially the same as gethostbyname, but we continue
+ * searching until we find a record with an ipv6_address attribute.
+ */
+- (LUDictionary *)ipv6NodeWithName:(char *)name
 {
 	char **lookupOrder;
+	const char *sname;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -1299,16 +1403,99 @@ appendDomainName(char *h, char *d)
 	unsigned int allTime;
 	BOOL found;
 
-	currentCall = "service name";
-	if (name == NULL)
+	if (name == NULL) return nil;
+
+	if (statistics_enabled)
 	{
-		[self recordSearch:currentCall infoSystem:"Failed" time:0 hit:YES];
-		[self recordCall:currentCall time:0 hit:NO];
-		currentCall = NULL;
-		return nil;
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		currentCall = "ipv6 node name";
 	}
 
-	gettimeofday(&allStart, (struct timezone *)NULL);
+	lookupOrder = [self lookupOrderForCategory:LUCategoryHost];
+	item = nil;
+	len = listLength(lookupOrder);
+	for (i = 0; i < len; i++)
+	{
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
+		sname = [agent shortName];
+
+		if (statistics_enabled)
+		{
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
+		item = nil;
+		if (streq(sname, "Cache")) item = [agent itemWithKey:"namev6" value:name category:LUCategoryHost];
+		else if (streq(sname, "DNS")) item = [agent itemWithKey:"namev6" value:name category:LUCategoryHost];
+		else item = [agent itemWithKey:"name" value:name category:LUCategoryHost];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+		}
+
+		found = NO;
+		if (item != nil)
+		{
+			/* Check for ipv6_address attribute */
+			if ([item valueForKey:"ipv6_address"] == NULL)
+			{
+				[item release];
+				item = nil;
+			}
+			else found = YES;
+		}
+
+		if (statistics_enabled) [self recordSearch:currentCall infoSystem:sname time:sysTime hit:found];
+
+		if (found)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:found];
+				currentCall = NULL;
+			}
+			return [self stamp:item key:"name" agent:agent category:LUCategoryHost];
+		}
+	}
+
+	if (statistics_enabled)
+	{
+		allTime = milliseconds_since(allStart);
+		[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
+		[self recordCall:currentCall time:allTime hit:NO];
+		currentCall = NULL;
+	}
+
+	return nil;
+}
+
+- (LUDictionary *)serviceWithName:(char *)name
+	protocol:(char *)prot
+{
+	char **lookupOrder;
+	const char *sname;
+	LUDictionary *item;
+	LUAgent *agent;
+	int i, len;
+	struct timeval allStart;
+	struct timeval sysStart;
+	unsigned int sysTime;
+	unsigned int allTime;
+
+	if (name == NULL) return nil;
+
+	if (statistics_enabled)
+	{
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		currentCall = "service name";
+	}
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryService];
 	item = nil;
@@ -1317,30 +1504,45 @@ appendDomainName(char *h, char *d)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
+		sname = [agent shortName];
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = agent;
-		state = ServerStateQuerying;
-		item = [agent serviceWithName:name protocol:prot];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (item != nil);
-		[self recordSearch:currentCall infoSystem:[agent shortName]
-			time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:currentCall time:allTime hit:found];
-			currentCall = NULL;
-			return [self stamp:item agent:agent category:LUCategoryService];
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
+		item = [agent serviceWithName:name protocol:prot];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:sname time:sysTime hit:(item != nil)];
+		}
+
+		if (item != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:YES];
+				currentCall = NULL;
+			}
+			return [self stamp:item key:"name" agent:agent category:LUCategoryService];
 		}
 	}
-	allTime = milliseconds_since(allStart);
-	[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
-	[self recordCall:currentCall time:allTime hit:NO];
-	currentCall = NULL;
+
+	if (statistics_enabled)
+	{
+		allTime = milliseconds_since(allStart);
+		[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
+		[self recordCall:currentCall time:allTime hit:NO];
+		currentCall = NULL;
+	}
+
 	return nil;
 }
 
@@ -1348,6 +1550,7 @@ appendDomainName(char *h, char *d)
 	protocol:(char *)prot
 {
 	char **lookupOrder;
+	const char *sname;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -1355,18 +1558,14 @@ appendDomainName(char *h, char *d)
 	struct timeval sysStart;
 	unsigned int sysTime;
 	unsigned int allTime;
-	BOOL found;
 
-	currentCall = "service number";
-	if (number == NULL)
+	if (number == NULL) return nil;
+
+	if (statistics_enabled)
 	{
-		[self recordSearch:currentCall infoSystem:"Failed" time:0 hit:YES];
-		[self recordCall:currentCall time:0 hit:NO];
-		currentCall = NULL;
-		return nil;
+		gettimeofday(&allStart, (struct timezone *)NULL);
+		currentCall = "service number";
 	}
-
-	gettimeofday(&allStart, (struct timezone *)NULL);
 
 	lookupOrder = [self lookupOrderForCategory:LUCategoryService];
 	item = nil;
@@ -1375,42 +1574,104 @@ appendDomainName(char *h, char *d)
 	{
 		agent = [self agentNamed:lookupOrder[i]];
 		if (agent == nil) continue;
+		sname = [agent shortName];
 
-		gettimeofday(&sysStart, (struct timezone *)NULL);
-		currentAgent = agent;
-		state = ServerStateQuerying;
-		item = [agent serviceWithNumber:number protocol:prot];
-		state = ServerStateActive;
-		currentAgent = nil;
-		sysTime = milliseconds_since(sysStart);
-		found = (item != nil);
-		[self recordSearch:currentCall infoSystem:[agent shortName]
-			time:sysTime hit:found];
-
-		if (found)
+		if (statistics_enabled)
 		{
-			allTime = milliseconds_since(allStart);
-			[self recordCall:currentCall time:allTime hit:found];
-			currentCall = NULL;
-			return [self stamp:item agent:agent category:LUCategoryService];
+			gettimeofday(&sysStart, (struct timezone *)NULL);
+			currentAgent = agent;
+			state = ServerStateQuerying;
+		}
+
+		item = [agent serviceWithNumber:number protocol:prot];
+
+		if (statistics_enabled)
+		{
+			state = ServerStateActive;
+			currentAgent = nil;
+			sysTime = milliseconds_since(sysStart);
+			[self recordSearch:currentCall infoSystem:sname time:sysTime hit:(item != nil)];
+		}
+
+		if (item != nil)
+		{
+			if (statistics_enabled)
+			{
+				allTime = milliseconds_since(allStart);
+				[self recordCall:currentCall time:allTime hit:YES];
+				currentCall = NULL;
+			}
+
+			return [self stamp:item key:"number" agent:agent category:LUCategoryService];
 		}
 	}
-	allTime = milliseconds_since(allStart);
-	[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
-	[self recordCall:currentCall time:allTime hit:NO];
-	currentCall = NULL;
+
+	if (statistics_enabled)
+	{
+		allTime = milliseconds_since(allStart);
+		[self recordSearch:currentCall infoSystem:"Failed" time:allTime hit:YES];
+		[self recordCall:currentCall time:allTime hit:NO];
+		currentCall = NULL;
+	}
+
 	return nil;
 }
 
 - (BOOL)isSecurityEnabledForOption:(char *)option
 {
-	NIAgent *ni;
+	ni_id dir;
+	void *d, *p;
+	ni_status status;
+	unsigned long i;
+	ni_namelist nl;
 
-	ni = (NIAgent *)[self agentNamed:"NIAgent"];
-	if (ni == nil) return NO;
+	if (option == NULL) return NO;
 
-	/* XXX */
-	return [ni isSecurityEnabledForOption:option];
+	dir.nii_object = 0;
+	d = NULL;
+
+	syslock_lock(rpcLock);
+	status = ni_open(NULL, ".", &d);
+	syslock_unlock(rpcLock);
+	if (status != NI_OK) return NO;
+
+	while (d != NULL)
+	{
+		NI_INIT(&nl);
+
+		syslock_lock(rpcLock);
+		ni_setreadtimeout(d, 10);
+		ni_setabort(d, 1);
+		status = ni_lookupprop(d, &dir, "security_options", &nl);
+		syslock_unlock(rpcLock);
+
+		if (status == NI_OK)
+		{
+			for (i = 0; i < nl.ni_namelist_len; i++)
+			{
+				if (streq(nl.ni_namelist_val[i], option) || streq(nl.ni_namelist_val[i], "all"))
+				{
+					ni_namelist_free(&nl);
+					syslock_lock(rpcLock);
+					ni_free(d);
+					syslock_unlock(rpcLock);
+					return YES;
+				}
+			}
+
+			ni_namelist_free(&nl);
+		}
+
+		syslock_lock(rpcLock);
+		status = ni_open(d, "..", &p);
+		ni_free(d);
+		syslock_unlock(rpcLock);
+
+		d = NULL;
+		if (status == NI_OK) d = p;
+	}
+
+	return NO;
 }
 
 - (BOOL)isNetwareEnabled

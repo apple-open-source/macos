@@ -1,5 +1,6 @@
 /* UI_FILE - a generic STDIO like output stream.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,9 +24,6 @@
 #include "defs.h"
 #include "ui-file.h"
 #include "gdb_string.h"
-
-#undef XMALLOC
-#define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
 static ui_file_isatty_ftype null_file_isatty;
 static ui_file_write_ftype null_file_write;
@@ -68,7 +66,7 @@ void
 ui_file_delete (struct ui_file *file)
 {
   file->to_delete (file);
-  free (file);
+  xfree (file);
 }
 
 static int
@@ -149,7 +147,8 @@ void *
 ui_file_data (struct ui_file *file)
 {
   if (file->magic != &ui_file_magic)
-    internal_error ("ui_file_data: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "ui_file_data: bad magic number");
   return file->to_data;
 }
 
@@ -184,13 +183,19 @@ ui_file_write (struct ui_file *file,
 		const char *buf,
 		long length_buf)
 {
-  file->to_write (file, buf, length_buf);
+  if (buf)
+    file->to_write (file, buf, length_buf);
 }
 
 void
 fputs_unfiltered (const char *buf, struct ui_file *file)
 {
-  file->to_fputs (buf, file);
+  /* Not all the ui_file's handle null buffers correctly (e.g.
+     stdio_file_fputs just passes it to fputs, which crashes...
+     Better to handle it here at the throttle point. */
+
+  if (buf)
+    file->to_fputs (buf, file);
 }
 
 void
@@ -314,10 +319,11 @@ mem_file_delete (struct ui_file *file)
 {
   struct mem_file *stream = ui_file_data (file);
   if (stream->magic != &mem_file_magic)
-    internal_error ("mem_file_delete: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mem_file_delete: bad magic number");
   if (stream->buffer != NULL)
-    free (stream->buffer);
-  free (stream);
+    xfree (stream->buffer);
+  xfree (stream);
 }
 
 struct ui_file *
@@ -331,7 +337,8 @@ mem_file_rewind (struct ui_file *file)
 {
   struct mem_file *stream = ui_file_data (file);
   if (stream->magic != &mem_file_magic)
-    internal_error ("mem_file_rewind: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mem_file_rewind: bad magic number");
   stream->length_buffer = 0;
 }
 
@@ -342,7 +349,8 @@ mem_file_put (struct ui_file *file,
 {
   struct mem_file *stream = ui_file_data (file);
   if (stream->magic != &mem_file_magic)
-    internal_error ("mem_file_put: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mem_file_put: bad magic number");
   if (stream->length_buffer > 0)
     write (dest, stream->buffer, stream->length_buffer);
 }
@@ -354,7 +362,8 @@ mem_file_write (struct ui_file *file,
 {
   struct mem_file *stream = ui_file_data (file);
   if (stream->magic != &mem_file_magic)
-    internal_error ("mem_file_write: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mem_file_write: bad magic number");
   if (stream->buffer == NULL)
     {
       stream->length_buffer = length_buffer;
@@ -415,12 +424,13 @@ stdio_file_delete (struct ui_file *file)
 {
   struct stdio_file *stdio = ui_file_data (file);
   if (stdio->magic != &stdio_file_magic)
-    internal_error ("stdio_file_delete: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "stdio_file_delete: bad magic number");
   if (stdio->close_p)
     {
       fclose (stdio->file);
     }
-  free (stdio);
+  xfree (stdio);
 }
 
 static void
@@ -428,7 +438,8 @@ stdio_file_flush (struct ui_file *file)
 {
   struct stdio_file *stdio = ui_file_data (file);
   if (stdio->magic != &stdio_file_magic)
-    internal_error ("stdio_file_flush: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "stdio_file_flush: bad magic number");
   fflush (stdio->file);
 }
 
@@ -437,7 +448,8 @@ stdio_file_write (struct ui_file *file, const char *buf, long length_buf)
 {
   struct stdio_file *stdio = ui_file_data (file);
   if (stdio->magic != &stdio_file_magic)
-    internal_error ("stdio_file_write: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "stdio_file_write: bad magic number");
   fwrite (buf, length_buf, 1, stdio->file);
 }
 
@@ -446,7 +458,8 @@ stdio_file_fputs (const char *linebuffer, struct ui_file *file)
 {
   struct stdio_file *stdio = ui_file_data (file);
   if (stdio->magic != &stdio_file_magic)
-    internal_error ("stdio_file_fputs: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "stdio_file_fputs: bad magic number");
   fputs (linebuffer, stdio->file);
 }
 
@@ -455,7 +468,8 @@ stdio_file_isatty (struct ui_file *file)
 {
   struct stdio_file *stdio = ui_file_data (file);
   if (stdio->magic != &stdio_file_magic)
-    internal_error ("stdio_file_isatty: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "stdio_file_isatty: bad magic number");
   return (isatty (fileno (stdio->file)));
 }
 

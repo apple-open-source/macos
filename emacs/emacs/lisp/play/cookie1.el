@@ -4,7 +4,7 @@
 
 ;; Author: Eric S. Raymond <esr@snark.thyrsus.com>
 ;; Maintainer: FSF
-;; Keywords: games
+;; Keywords: games, extensions
 ;; Created: Mon Mar 22 17:06:26 1993
 
 ;; This file is part of GNU Emacs.
@@ -43,6 +43,10 @@
 ;; Everything up to the first delimiter is treated as a comment.  Other
 ;; formats could be supported by adding alternates to the regexp
 ;; `cookie-delimiter'.
+;;
+;; strfile(1) is the program used to compile the files for fortune(6).
+;; In order to achieve total compatibility with strfile(1), cookie files
+;; should start with two consecutive delimiters (and no comment).
 ;;
 ;; This code derives from Steve Strassman's 1987 spook.el package, but
 ;; has been generalized so that it supports multiple simultaneous

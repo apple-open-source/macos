@@ -48,17 +48,20 @@ public:
     void version(SSLProtocol v);
     
 	UInt32 numSupportedCiphers() const;
-	void supportedCiphers(SSLCipherSuite *ciphers, UInt32 &numCiphers) const;
+	void supportedCiphers(SSLCipherSuite *ciphers, size_t &numCiphers) const;
 	
 	UInt32 numEnabledCiphers() const;
-	void enabledCiphers(SSLCipherSuite *ciphers, UInt32 &numCiphers) const;	// get
-	void enabledCiphers(SSLCipherSuite *ciphers, UInt32 numCiphers);		// set
+	void enabledCiphers(SSLCipherSuite *ciphers, size_t &numCiphers) const;	// get
+	void enabledCiphers(SSLCipherSuite *ciphers, size_t numCiphers);		// set
 	
-    bool allowExpiredCerts() const;
-    void allowExpiredCerts(bool allow);
+    bool allowsExpiredCerts() const;
+    void allowsExpiredCerts(bool allow);
     
-    bool allowUnknownRoots() const;
-    void allowUnknownRoots(bool allow);
+    bool allowsUnknownRoots() const;
+    void allowsUnknownRoots(bool allow);
+    
+    void peerId(const void *data, size_t length);
+    template <class T> void peerId(const T &obj)	{ peerId(&obj, sizeof(obj)); }
     
     size_t read(void *data, size_t length);
     size_t write(const void *data, size_t length);
@@ -70,8 +73,8 @@ protected:
     virtual bool ioAtEnd() const = 0;
     
 private:
-	static OSStatus sslReadFunc(SSLConnectionRef, void *, UInt32 *);
-	static OSStatus sslWriteFunc(SSLConnectionRef, const void *, UInt32 *);
+	static OSStatus sslReadFunc(SSLConnectionRef, void *, size_t *);
+	static OSStatus sslWriteFunc(SSLConnectionRef, const void *, size_t *);
     
     bool continueHandshake();
     

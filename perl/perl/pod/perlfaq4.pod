@@ -1,6 +1,6 @@
 =head1 NAME
 
-perlfaq4 - Data Manipulation ($Revision: 1.1.1.4 $, $Date: 2000/03/31 05:12:16 $)
+perlfaq4 - Data Manipulation ($Revision: 1.2 $, $Date: 2002/03/14 09:01:41 $)
 
 =head1 DESCRIPTION
 

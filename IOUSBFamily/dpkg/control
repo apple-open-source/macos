@@ -1,0 +1,5 @@
+Package: iousbfamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Build-Depends: files, file-cmds, shell-cmds, text-cmds, system-cmds, zsh, grep, cctools, gcc, libsystem, jam, xnu, iokituser, architecture, corefoundation, carbonheaders, libc-hdrs, csu, ioserialfamily, iohidsystem, iographics, iohidfamily, iopccardfamily
+Description: IOUSBFamily

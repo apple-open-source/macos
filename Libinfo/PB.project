@@ -13,16 +13,17 @@
             netinfo.subproj, 
             nis.subproj, 
             rpc.subproj, 
-            util.subproj
+            util.subproj, 
+            mdns.subproj
         ); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
     NEXTSTEP_INSTALLDIR = /usr/local/lib/system; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
-    NEXTSTEP_PUBLICHEADERSDIR = /usr/include;
+    NEXTSTEP_PUBLICHEADERSDIR = /usr/include; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
     PDO_UNIX_INSTALLDIR = /lib; 
     PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 

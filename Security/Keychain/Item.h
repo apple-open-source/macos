@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,12 +19,13 @@
 //
 // Item.h
 //
-#ifndef _H_DBITEM
-#define _H_DBITEM
+#ifndef _SECURITY_ITEM_H_
+#define _SECURITY_ITEM_H_
 
 #include <Security/Keychains.h>
 #include <Security/PrimaryKey.h>
 #include <Security/securestorage.h>
+#include <Security/Access.h>
 
 namespace Security
 {
@@ -33,13 +34,13 @@ using namespace CssmClient;
 
 namespace KeychainCore
 {
-class Item;
 class Keychain;
 
-class ItemImpl : public ReferencedObject
+class ItemImpl : public SecCFObject
 {
+public:
     friend class Item;
-
+	friend class KeychainImpl;
 protected:
 	// new item constructors
     ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data);
@@ -59,23 +60,22 @@ protected:
 
 protected:
 	// Methods called by KeychainImpl;
-	friend class KeychainImpl;
 
 	// Add the receiver to keychain
-	PrimaryKey add(const Keychain &keychain);
+	virtual PrimaryKey add(Keychain &keychain);
 		
 	// Get the default value for an attribute
 	static const CSSM_DATA &defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info);
 
 public:
-    ~ItemImpl();
+    virtual ~ItemImpl();
     bool isPersistant() const;
     bool isModified() const;
 
-	void update();
+	virtual void update();
 
 	// put a copy of the item into a given keychain
-	Item copyTo(const Keychain &keychain);
+	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
 
     CSSM_DB_RECORDTYPE recordType() const;
 
@@ -83,7 +83,7 @@ public:
     CssmClient::DbUniqueRecord dbUniqueRecord();
 	const CssmClient::DbAttributes *modifiedAttributes() const;
 	const CssmData *modifiedData() const;
-	void didModify(); // Forget any attributes and data we just wrote to the db
+	virtual void didModify(); // Forget any attributes and data we just wrote to the db
 
 	Keychain keychain() const;
 	PrimaryKey primaryKey() const;
@@ -103,60 +103,43 @@ public:
 	void setAttribute(SecKeychainAttribute& attr);
 	void setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data);
 	void setData(UInt32 length,const void *data);
-	
-	
-	
-	SSGroup group();
+	void setAccess(Access *newAccess);
 
+	SSGroup group();
 
 protected:
     void getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData);
+    void getLocalContent(SecKeychainAttributeList &attributeList);
+
+    bool useSecureStorage(const CssmClient::Db &db);
 
 	// new item members
     auto_ptr<CssmDataContainer> mData;
     auto_ptr<CssmClient::DbAttributes> mDbAttributes;
+	RefPointer<Access> mAccess;
 
 	// db item members
     CssmClient::DbUniqueRecord mUniqueId;
 	Keychain mKeychain;
     PrimaryKey mPrimaryKey;
-	
 };
+
 
 class Item : public RefPointer<ItemImpl>
 {
 public:
-    Item() {}
-    Item(ItemImpl *impl) : RefPointer<ItemImpl>(impl) {}
-
-    Item(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data)
-	: RefPointer<ItemImpl>(new ItemImpl(itemClass, itemCreator, length, data)) {}
-	
-    Item(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data)
-	: RefPointer<ItemImpl>(new ItemImpl(itemClass, attrList, length, data)) {}
-
-    Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
-    : RefPointer<ItemImpl>(new ItemImpl(keychain, primaryKey, uniqueId)) {}
-
-    Item(const Keychain &keychain, const PrimaryKey &primaryKey)
-    : RefPointer<ItemImpl>(new ItemImpl(keychain, primaryKey)) {}
-	
-	Item(ItemImpl &item)
-	: RefPointer<ItemImpl>(new ItemImpl(item)) {}
-
-    bool operator <(const Item &other) const { return **this < *other; }
-    bool operator !=(const Item &other) const { return **this < *other || *other < **this; }
-    bool operator ==(const Item &other) const { return !(*this != other); }
-
-	typedef ItemImpl Impl;
+    Item();
+    Item(ItemImpl *impl);
+    Item(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data);
+	Item(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data);
+    Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
+    Item(const Keychain &keychain, const PrimaryKey &primaryKey);
+	Item(ItemImpl &item);
 };
 
 
-typedef Ref<Item, ItemImpl, SecKeychainItemRef, errSecInvalidItemRef> ItemRef;
-
-
-}; // end namespace KeychainCore
+} // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif // _H_DBITEM
+#endif // !_SECURITY_ITEM_H_

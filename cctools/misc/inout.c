@@ -38,7 +38,10 @@ static void process(
     struct arch *archs,
     unsigned long narchs);
 
-void
+static void setup_object_symbolic_info(
+    struct object *object);
+
+int
 main(
 int argc,
 char **argv,
@@ -79,18 +82,20 @@ char **envp)
 	if(input == NULL || output == NULL)
 	    usage();
 
-	breakout(input, &archs, &narchs);
+	breakout(input, &archs, &narchs, FALSE);
 	if(errors)
 	    exit(EXIT_FAILURE);
+
+	checkout(archs, narchs);
 
 	process(archs, narchs);
 
 	writeout(archs, narchs, output, 0777, TRUE, FALSE, FALSE);
 
 	if(errors)
-	    exit(EXIT_FAILURE);
+	    return(EXIT_FAILURE);
 	else
-	    exit(EXIT_SUCCESS);
+	    return(EXIT_SUCCESS);
 }
 
 /*
@@ -111,42 +116,15 @@ process(
 struct arch *archs,
 unsigned long narchs)
 {
-    unsigned long i, j, k, offset, size;
+    unsigned long i, j, offset, size;
     struct object *object;
-    struct load_command *lc;
 
 	for(i = 0; i < narchs; i++){
 	    if(archs[i].type == OFILE_ARCHIVE){
 		for(j = 0; j < archs[i].nmembers; j++){
 		    if(archs[i].members[j].type == OFILE_Mach_O){
 			object = archs[i].members[j].object;
-			lc = object->load_commands;
-			for(k = 0; k < object->mh->ncmds; k++){
-			    if(lc->cmd == LC_SYMTAB){
-				object->st = (struct symtab_command *)lc;
-				break;
-			    }
-			    lc = (struct load_command *)((char *)lc +
-							 lc->cmdsize);
-			}
-			if(object->st != NULL && object->st->nsyms != 0){
-			    object->output_symbols
-				    = (struct nlist *)(object->object_addr +
-						       object->st->symoff);
-			    if(object->object_byte_sex != get_host_byte_sex())
-				swap_nlist(object->output_symbols,
-					   object->st->nsyms,
-					   get_host_byte_sex());
-			    object->output_nsymbols = object->st->nsyms;
-			    object->output_strings =
-				object->object_addr + object->st->stroff;
-			    object->output_strings_size = object->st->strsize;
-			    object->input_sym_info_size =
-				object->st->nsyms * sizeof(struct nlist) +
-				object->st->strsize;
-			    object->output_sym_info_size =
-				object->input_sym_info_size;
-			}
+			setup_object_symbolic_info(object);
 		    }
 		}
 		/*
@@ -184,32 +162,93 @@ unsigned long narchs)
 	    }
 	    else if(archs[i].type == OFILE_Mach_O){
 		object = archs[i].object;
-		lc = object->load_commands;
-		for(j = 0; j < object->mh->ncmds; j++){
-		    if(lc->cmd == LC_SYMTAB){
-			object->st = (struct symtab_command *)lc;
-			break;
-		    }
-		    lc = (struct load_command *)((char *)lc +
-						 lc->cmdsize);
-		}
-		if(object->st != NULL && object->st->nsyms != 0){
-		    object->output_symbols
-			    = (struct nlist *)(object->object_addr +
-					       object->st->symoff);
-		    if(object->object_byte_sex != get_host_byte_sex())
-			swap_nlist(object->output_symbols, object->st->nsyms,
-				   get_host_byte_sex());
-		    object->output_nsymbols = object->st->nsyms;
-		    object->output_strings =
-			object->object_addr + object->st->stroff;
-		    object->output_strings_size = object->st->strsize;
-		    object->input_sym_info_size =
-			object->st->nsyms * sizeof(struct nlist) +
-			object->st->strsize;
-		    object->output_sym_info_size =
-			object->input_sym_info_size;
-		}
+		setup_object_symbolic_info(object);
+	    }
+	}
+}
+
+static
+void
+setup_object_symbolic_info(
+struct object *object)
+{
+	if(object->st != NULL && object->st->nsyms != 0){
+	    object->output_symbols = (struct nlist *)
+		(object->object_addr + object->st->symoff);
+	    if(object->object_byte_sex != get_host_byte_sex())
+		swap_nlist(object->output_symbols,
+			   object->st->nsyms,
+			   get_host_byte_sex());
+	    object->output_nsymbols = object->st->nsyms;
+	    object->output_strings =
+		object->object_addr + object->st->stroff;
+	    object->output_strings_size = object->st->strsize;
+	    object->input_sym_info_size =
+		object->st->nsyms * sizeof(struct nlist) +
+		object->st->strsize;
+	    object->output_sym_info_size =
+		object->input_sym_info_size;
+	}
+	if(object->dyst != NULL){
+	    object->output_ilocalsym = object->dyst->ilocalsym;
+	    object->output_nlocalsym = object->dyst->nlocalsym;
+	    object->output_iextdefsym = object->dyst->iextdefsym;
+	    object->output_nextdefsym = object->dyst->nextdefsym;
+	    object->output_iundefsym = object->dyst->iundefsym;
+	    object->output_nundefsym = object->dyst->nundefsym;
+
+	    object->output_loc_relocs = (struct relocation_info *)
+		(object->object_addr + object->dyst->locreloff);
+	    object->output_ext_relocs = (struct relocation_info *)
+		(object->object_addr + object->dyst->extreloff);
+	    object->output_indirect_symtab = (unsigned long *)
+		(object->object_addr + object->dyst->indirectsymoff);
+	    object->output_tocs =
+		(struct dylib_table_of_contents *)
+		(object->object_addr + object->dyst->tocoff);
+	    object->output_ntoc = object->dyst->ntoc;
+	    object->output_mods = (struct dylib_module *)
+		(object->object_addr + object->dyst->modtaboff);
+	    object->output_nmodtab = object->dyst->nmodtab;
+	    object->output_refs = (struct dylib_reference *)
+		(object->object_addr + object->dyst->extrefsymoff);
+	    object->output_nextrefsyms = object->dyst->nextrefsyms;
+	    object->input_sym_info_size +=
+		object->dyst->nlocrel *
+		    sizeof(struct relocation_info) +
+		object->dyst->nextrel *
+		    sizeof(struct relocation_info) +
+		object->dyst->nindirectsyms *
+		    sizeof(unsigned long) +
+		object->dyst->ntoc *
+		    sizeof(struct dylib_table_of_contents)+
+		object->dyst->nmodtab *
+		    sizeof(struct dylib_module) +
+		object->dyst->nextrefsyms *
+		    sizeof(struct dylib_reference);
+	    object->output_sym_info_size +=
+		object->dyst->nlocrel *
+		    sizeof(struct relocation_info) +
+		object->dyst->nextrel *
+		    sizeof(struct relocation_info) +
+		object->dyst->nindirectsyms *
+		    sizeof(unsigned long) +
+		object->dyst->ntoc *
+		    sizeof(struct dylib_table_of_contents)+
+		object->dyst->nmodtab *
+		    sizeof(struct dylib_module) +
+		object->dyst->nextrefsyms *
+		    sizeof(struct dylib_reference);
+	    if(object->hints_cmd != NULL){
+		object->output_hints = (struct twolevel_hint *)
+		    (object->object_addr +
+		     object->hints_cmd->offset);
+		object->input_sym_info_size +=
+		    object->hints_cmd->nhints *
+		    sizeof(struct twolevel_hint);
+		object->output_sym_info_size +=
+		    object->hints_cmd->nhints *
+		    sizeof(struct twolevel_hint);
 	    }
 	}
 }

@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test to make sure variable interpolation works.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = qqq
+s1 = z.c
+qqq_SOURCES = $(s1)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep 'z.$(OBJEXT)' Makefile.in

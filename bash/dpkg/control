@@ -1,0 +1,7 @@
+Package: bash
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: GNU Project
+Version: 2.05a
+URL: ftp://ftp.gnu.org/pub/gnu/bash/
+Description: Bourne-again shell
+Build-Depends: build-base, gnudiff

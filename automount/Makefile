@@ -13,12 +13,13 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 CLASSES = AMMap.m AMString.m AMVnode.m Array.m Controller.m FileMap.m\
-          FstabMap.m NIMap.m RRObject.m Server.m StaticMap.m
+          FstabMap.m HostMap.m HostVnode.m NIMap.m RRObject.m Server.m\
+		  StaticMap.m UserMap.m
 
 HFILES = AMMap.h AMString.h AMVersion.h AMVnode.h Array.h\
-         Controller.h FileMap.h FstabMap.h NFSHeaders.h NIMap.h\
-         RRObject.h Server.h StaticMap.h\
-		 automount.h config.h log.h syslock.h systhread.h
+         Controller.h FileMap.h FstabMap.h HostMap.h HostVnode.h\
+		 NFSHeaders.h NIMap.h RRObject.h Server.h StaticMap.h\
+		 Usermap.h automount.h config.h log.h syslock.h systhread.h
 
 MFILES = automount.m proc.m
 
@@ -41,8 +42,10 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I.
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
-FRAMEWORKS = -framework AppleShareClientCore -framework System
 
+ifneq "$(RC_RELEASE)" "Darwin"
+    FRAMEWORKS = -framework AppleShareClientCore -framework URLMount
+endif
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

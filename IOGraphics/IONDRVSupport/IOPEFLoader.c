@@ -19,18 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- *	From pieces of ProtoCFM, Alan Lillich.
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 July 98 - start IOKit
- */
 
+#if __ppc__
 
 #include <IOKit/IOLib.h>
 #include <IOKit/ndrvsupport/IONDRVSupport.h>
@@ -38,8 +28,6 @@
 #include "IOPEFLibraries.h"
 #include "IOPEFLoader.h"
 #include "IOPEFInternals.h"
-
-
 
 #define LOG	if(0)	IOLog
 #define INFO	if(0)	IOLog
@@ -595,6 +583,8 @@ SatisfyImports( InstanceVars * inst )
     return( err);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#endif /* __ppc__ */
 
 

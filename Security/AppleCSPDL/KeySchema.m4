@@ -1,7 +1,7 @@
 divert(-1)
 changecom(/*, */)
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -26,11 +26,11 @@ enum
 {'
 divert(2)dnl
 // $1 attributes
-static const CSSM_DB_SCHEMA_ATTRIBUTE_INFO $1SchemaAttributeList[] =
+const CSSM_DB_SCHEMA_ATTRIBUTE_INFO $1SchemaAttributeList[] =
 {
 divert(3)dnl
 // $1 indices
-static const CSSM_DB_SCHEMA_INDEX_INFO $1SchemaIndexList[] =
+const CSSM_DB_SCHEMA_INDEX_INFO $1SchemaIndexList[] =
 {')
 
 define(`endClass',

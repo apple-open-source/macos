@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,9 +20,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IO_SCSI_PERIPHERAL_DEVICE_NUB_H_
 #define _IOKIT_IO_SCSI_PERIPHERAL_DEVICE_NUB_H_
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Probe score values
 enum
@@ -37,142 +42,182 @@ enum
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
 
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
 #include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declarations
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOSCSIPeripheralDeviceNub : public IOSCSIProtocolServices
 {
 	
 	OSDeclareDefaultStructors ( IOSCSIPeripheralDeviceNub )
-
+	
 private:
 	
-	static bool		sCompareIOProperty(	IOService * object,
-										OSDictionary * table,
-										char * propertyKeyName,
-										bool * matches );
+	static bool		sCompareIOProperty (
+										IOService *		object,
+										OSDictionary *	table,
+										char *			propertyKeyName,
+										bool *			matches );
 	
-	static void		TaskCallback( SCSITaskIdentifier	completedTask );
-	SCSIServiceResponse SendTask( SCSITask *request );
-
+	static void		TaskCallback ( SCSITaskIdentifier completedTask );
+	SCSIServiceResponse SendTask ( SCSITask * request );
+	
 public:
-	bool			InterrogateDevice( void );										
-
+	
+	bool			InterrogateDevice ( void );										
+	
 protected:
-    // Reserve space for future expansion.
-    struct IOSCSIPeripheralDeviceNubExpansionData { };
-    IOSCSIPeripheralDeviceNubExpansionData *fIOSCSIPeripheralDeviceNubReserved;
-
+	
+	// Reserve space for future expansion.
+	struct IOSCSIPeripheralDeviceNubExpansionData { };
+	IOSCSIPeripheralDeviceNubExpansionData * fIOSCSIPeripheralDeviceNubReserved;
+	
 	IOSCSIProtocolServices *		fProvider;
 	SCSIPrimaryCommands *			fSCSIPrimaryCommandObject;
 	UInt8							fDefaultInquiryCount;
-
-    virtual bool		SendSCSICommand( 	SCSITaskIdentifier 		request, 
-    										SCSIServiceResponse * 	serviceResponse,
-    										SCSITaskStatus		* 	taskStatus );
-
-    virtual SCSIServiceResponse	AbortSCSICommand( SCSITaskIdentifier request );
-
+	
+	virtual bool		SendSCSICommand ( 	SCSITaskIdentifier 		request, 
+											SCSIServiceResponse * 	serviceResponse,
+											SCSITaskStatus * 		taskStatus );
+	
+	virtual SCSIServiceResponse	AbortSCSICommand ( SCSITaskIdentifier request );
+	
 	// The IsProtocolServiceSupported will return true if the specified
 	// feature is supported by the protocol layer.  If the service has a value that must be
 	// returned, it will be returned in the serviceValue output parameter.
-	virtual bool	IsProtocolServiceSupported( SCSIProtocolFeature feature, void * serviceValue );
-
-	virtual bool	HandleProtocolServiceFeature( SCSIProtocolFeature feature, void * serviceValue );
-
+	virtual bool	IsProtocolServiceSupported ( SCSIProtocolFeature feature, void * serviceValue );
+	
+	virtual bool	HandleProtocolServiceFeature ( SCSIProtocolFeature feature, void * serviceValue );
+	
 	// We override this method in order to NOT do power management
 	virtual void	InitializePowerManagement ( IOService * provider );
-
+	
 public:
-    
-    bool				init	( OSDictionary * propTable );
-    virtual bool		start	( IOService * provider );
-    virtual void 		stop	( IOService *  provider );
-
+	
+	bool				init	( OSDictionary * propTable );
+	virtual bool		start	( IOService * provider );
+	virtual void 		stop	( IOService *  provider );
+	
 	virtual IOReturn	message ( UInt32 type, IOService * nub, void * arg );
 										
 	virtual void		joinPMtree ( IOService * driver );
+	
+	virtual bool		matchPropertyTable ( OSDictionary * table,
+											 SInt32 * score );
+	
+	// The ExecuteCommand method will take a SCSITask object and transport
+	// it across the physical wires to the device
+	virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
+	
+	// The Task Management function to allow the SCSI Application Layer client to request
+	// that a specific task be aborted.
+	virtual SCSIServiceResponse		AbortTask( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag );
 
-    virtual bool		matchPropertyTable ( OSDictionary * table,
-    										 SInt32 * score );
+	// The Task Management function to allow the SCSI Application Layer client to request
+	// that a all tasks curerntly in the task set be aborted.
+	virtual SCSIServiceResponse		AbortTaskSet( UInt8 theLogicalUnit );
 
-    // The ExecuteCommand method will take a SCSITask object and transport
-    // it across the physical wires to the device
-    virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
+	virtual SCSIServiceResponse		ClearACA( UInt8 theLogicalUnit );
+
+	virtual SCSIServiceResponse		ClearTaskSet( UInt8 theLogicalUnit );
     
-    // The AbortCommand method will abort the indicated SCSI Task object,
-    // if it is possible and the SCSI Task has not already completed.
-    virtual SCSIServiceResponse    	AbortCommand ( SCSITaskIdentifier	abortTask );
+	virtual SCSIServiceResponse		LogicalUnitReset( UInt8 theLogicalUnit );
 
+	virtual SCSIServiceResponse		TargetReset( void );
+
+    // ************* Obsoleted Member Routine ****************
+    // The AbortCommand method is replaced by the AbortTask Management function and
+    // should no longer be called.
+	virtual SCSIServiceResponse		AbortCommand ( SCSITaskIdentifier abortTask );
+	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 1 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 8 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 9 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 10 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 11 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 12 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 13 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 14 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 15 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceNub, 16 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  1 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  2 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  3 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  4 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  5 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  6 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  7 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  8 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub,  9 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 10 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 11 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 12 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 13 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 14 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 15 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceNub, 16 );
+	
 };
+
+
 
 class IOSCSILogicalUnitNub : public IOSCSIPeripheralDeviceNub
 {
 	
 	OSDeclareDefaultStructors ( IOSCSILogicalUnitNub )
-
+	
 private:
+	
 	UInt8				fLogicalUnitNumber;
-
+	
 protected:
-    // Reserve space for future expansion.
-    struct IOSCSILogicalUnitNubExpansionData { };
-    IOSCSILogicalUnitNubExpansionData *fIOSCSILogicalUnitNubReserved;
-
+	
+	// Reserve space for future expansion.
+	struct IOSCSILogicalUnitNubExpansionData { };
+	IOSCSILogicalUnitNubExpansionData * fIOSCSILogicalUnitNubReserved;
+	
 public:
-    virtual bool		start	( IOService * provider );
-
-	virtual void		SetLogicalUnitNumber( UInt8 newLUN );
-
-    // The ExecuteCommand method will take a SCSITask object and transport
-    // it across the physical wires to the device
-    virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
-    
-    // The AbortCommand method will abort the indicated SCSI Task object,
-    // if it is possible and the SCSI Task has not already completed.
-    virtual SCSIServiceResponse    	AbortCommand ( SCSITaskIdentifier	abortTask );
-
+	
+	virtual bool		start	( IOService * provider );
+	
+	virtual void		SetLogicalUnitNumber ( UInt8 newLUN );
+	
+	// The ExecuteCommand method will take a SCSITask object and transport
+	// it across the physical wires to the device
+	virtual	void		ExecuteCommand ( SCSITaskIdentifier	request );
+	
+	// The AbortCommand method will abort the indicated SCSI Task object,
+	// if it is possible and the SCSI Task has not already completed.
+	virtual SCSIServiceResponse		AbortCommand ( SCSITaskIdentifier	abortTask );
+	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 1 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 8 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 9 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 10 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 11 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 12 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 13 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 14 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 15 );
-    OSMetaClassDeclareReservedUnused( IOSCSILogicalUnitNub, 16 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  1 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  2 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  3 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  4 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  5 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  6 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  7 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  8 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub,  9 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 10 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 11 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 12 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 13 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 14 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 15 );
+	OSMetaClassDeclareReservedUnused ( IOSCSILogicalUnitNub, 16 );
+	
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

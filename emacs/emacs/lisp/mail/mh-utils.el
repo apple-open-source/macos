@@ -1,9 +1,8 @@
 ;;; mh-utils.el --- mh-e code needed for both sending and reading
-;; Time-stamp: <95/10/22 17:58:16 gildea>
 
-;; Copyright (C) 1993, 1995, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1995, 1997, 2000, 2001 Free Software Foundation, Inc.
 
-;; This file is part of mh-e, part of GNU Emacs.
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -217,16 +216,16 @@ also show it in a separate Show window."
   ;; If SAVE-MODIFICATION-FLAG-P is non-nil, the buffer's modification
   ;; flag is unchanged, otherwise it is cleared.
   (setq save-modification-flag-p (car save-modification-flag-p)) ; CL style
-  (` (prog1
-	 (let ((mh-folder-updating-mod-flag (buffer-modified-p))
-	       (buffer-read-only nil)
-	       (buffer-file-name nil))	;don't let the buffer get locked
-	   (prog1
-	       (progn
-		 (,@ body))
-	     (mh-set-folder-modified-p mh-folder-updating-mod-flag)))
-       (,@ (if (not save-modification-flag-p)
-	       '((mh-set-folder-modified-p nil)))))))
+  `(prog1
+       (let ((mh-folder-updating-mod-flag (buffer-modified-p))
+	     (buffer-read-only nil)
+	     (buffer-file-name nil))	;don't let the buffer get locked
+	 (prog1
+	     (progn
+	       ,@body)
+	   (mh-set-folder-modified-p mh-folder-updating-mod-flag)))
+     ,@(if (not save-modification-flag-p)
+	   '((mh-set-folder-modified-p nil)))))
 
 (put 'with-mh-folder-updating 'lisp-indent-hook 1)
 
@@ -235,13 +234,13 @@ also show it in a separate Show window."
   ;; Display buffer SHOW-BUFFER in other window and execute BODY in it.
   ;; Stronger than save-excursion, weaker than save-window-excursion.
   (setq show-buffer (car show-buffer))	; CL style
-  (` (let ((mh-in-show-buffer-saved-window (selected-window)))
-       (switch-to-buffer-other-window (, show-buffer))
-       (if mh-bury-show-buffer (bury-buffer (current-buffer)))
-       (unwind-protect
-	   (progn
-	     (,@ body))
-	 (select-window mh-in-show-buffer-saved-window)))))
+  `(let ((mh-in-show-buffer-saved-window (selected-window)))
+     (switch-to-buffer-other-window ,show-buffer)
+     (if mh-bury-show-buffer (bury-buffer (current-buffer)))
+     (unwind-protect
+	 (progn
+           ,@body)
+       (select-window mh-in-show-buffer-saved-window))))
 
 (put 'mh-in-show-buffer 'lisp-indent-hook 1)
 
@@ -541,7 +540,11 @@ Non-nil third argument means not to show the message."
 	     (end-of-line)
 	     (buffer-substring start (point)))))))
 
-(defvar mail-user-agent 'mh-e-user-agent) ;from reporter.el 3.2
+(defvar mail-user-agent)
+(defvar read-mail-command)
+
+(defvar mh-find-path-run nil
+  "Non-nil if `mh-find-path' has been run already.")
 
 (defun mh-find-path ()
   ;; Set mh-progs, mh-lib, and mh-libs-progs
@@ -549,6 +552,10 @@ Non-nil third argument means not to show the message."
   ;; From profile file, set mh-user-path, mh-draft-folder,
   ;; mh-unseen-seq, mh-previous-seq, mh-inbox.
   (mh-find-progs)
+  (unless mh-find-path-run
+    (setq mh-find-path-run t)
+    (setq read-mail-command 'mh-rmail)
+    (setq mail-user-agent 'mh-e-user-agent))
   (save-excursion
     ;; Be sure profile is fully expanded before switching buffers
     (let ((profile (expand-file-name (or (getenv "MH") "~/.mh_profile"))))
@@ -571,7 +578,7 @@ Non-nil third argument means not to show the message."
 	    (if (not (mh-folder-name-p mh-draft-folder))
 		(setq mh-draft-folder (format "+%s" mh-draft-folder)))
 	    (if (not (file-exists-p (mh-expand-file-name mh-draft-folder)))
-		(error "Draft folder \"%s\" not found.  Create it and try again."
+		(error "Draft folder \"%s\" not found.  Create it and try again"
 		       (mh-expand-file-name mh-draft-folder)))))
       (setq mh-inbox (mh-get-profile-field "Inbox:"))
       (cond ((not mh-inbox)
@@ -585,7 +592,6 @@ Non-nil third argument means not to show the message."
       (setq mh-previous-seq (mh-get-profile-field "Previous-Sequence:"))
       (if mh-previous-seq
 	  (setq mh-previous-seq (intern mh-previous-seq)))
-      (setq mail-user-agent 'mh-e-user-agent)
       (run-hooks 'mh-find-path-hook)))
   (and mh-auto-folder-collect
        (let ((mh-no-install t))		;only get folders if MH installed
@@ -629,7 +635,7 @@ directory names."
 		  ;; components, then look for lib/mh or mh/lib.
 		  (or (mh-path-search
 		       (mapcar (lambda (p) (expand-file-name p mh-base))
-			       '("lib/mh" "etc/nmh" "/etc/nmh" "mh/lib"))
+			       '("lib/mh" "etc/nmh" "/etc/nmh" "mh/lib" "etc" "lib"))
 		       "components"
 		       'file-exists-p))))
 	(or (and mh-lib-progs
@@ -637,7 +643,7 @@ directory names."
 	    (setq mh-lib-progs
 		  (or (mh-path-search
 		       (mapcar (lambda (p) (expand-file-name p mh-base))
-			       '("lib/mh" "libexec/nmh" "lib/nmh" "mh/lib"))
+			       '("lib/mh" "libexec/nmh" "lib/nmh" "mh/lib" "lib"))
 		       "mhl")
 		      (mh-path-search '("/usr/local/bin/mh/") "mhl")
 		      (mh-path-search exec-path "mhl") ;unlikely
@@ -718,6 +724,7 @@ directory names."
   (setq mode-name mode-name-string)
   (force-mode-line-update t))
 
+(defvar mh-folder-hist nil)
 
 (defun mh-prompt-for-folder (prompt default can-create)
   ;; Prompt for a folder name with PROMPT.  Returns the folder's name as a
@@ -732,8 +739,8 @@ directory names."
 	 read-name folder-name)
     (if (null mh-folder-list)
 	(mh-set-folder-list))
-    (while (and (setq read-name (completing-read prompt mh-folder-list
-					    nil nil "+"))
+    (while (and (setq read-name (completing-read prompt mh-folder-list nil nil
+						 "+" 'mh-folder-hist default))
 		(equal read-name "")
 		(equal default "")))
     (cond ((or (equal read-name "") (equal read-name "+"))
@@ -970,7 +977,7 @@ directory names."
 						 (end-of-line)
 						 (point))))
 	     (display-buffer (current-buffer))
-	     (error "%s failed with status %d.  See error message in other window."
+	     (error "%s failed with status %d.  See error message in other window"
 		    command status)))))))
 
 

@@ -31,51 +31,6 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-tag.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
-// $Log: asn-tag.cpp,v $
-// Revision 1.1.1.1  2001/05/18 23:14:06  mb
-// Move from private repository to open source repository
-//
-// Revision 1.2  2001/05/05 00:59:17  rmurphy
-// Adding darwin license headers
-//
-// Revision 1.1  2000/06/15 18:44:58  dmitch
-// These snacc-generated source files are now checked in to allow cross-platform build.
-//
-// Revision 1.2  2000/06/08 20:05:36  dmitch
-// Mods for X port. These files are actually machine generated and probably don't need to be in CVS....
-//
-// Revision 1.1.1.1  2000/03/09 01:00:06  rmurphy
-// Base Fortissimo Tree
-//
-// Revision 1.1  1999/02/25 05:21:54  mb
-// Added snacc c++ library
-//
-// Revision 1.6  1997/09/03 12:10:30  wan
-// Patch to tag decoding for tags > 2^14 (thanks to Enrico Badella)
-//
-// Revision 1.5  1997/02/16 20:26:06  rj
-// check-in of a few cosmetic changes
-//
-// Revision 1.4  1995/07/24  20:33:17  rj
-// changed `_' to `-' in file names.
-//
-// Revision 1.3  1994/10/08  04:18:30  rj
-// code for meta structures added (provides information about the generated code itself).
-//
-// code for Tcl interface added (makes use of the above mentioned meta code).
-//
-// virtual inline functions (the destructor, the Clone() function, BEnc(), BDec() and Print()) moved from inc/*.h to src/*.C because g++ turns every one of them into a static non-inline function in every file where the .h file gets included.
-//
-// made Print() const (and some other, mainly comparison functions).
-//
-// several `unsigned long int' turned into `size_t'.
-//
-// Revision 1.2  1994/08/28  10:01:20  rj
-// comment leader fixed.
-//
-// Revision 1.1  1994/08/28  09:21:09  rj
-// first check-in. for a list of changes to the snacc-1.1 distribution please refer to the ChangeLog.
 
 #include "asn-config.h"
 #include "asn-len.h"
@@ -90,7 +45,7 @@ BDecTag (BUF_TYPE  b, AsnLen &bytesDecoded, ENV_TYPE env)
 {
     AsnTag tagId;
     AsnTag tmpTagId;
-    int i;
+    unsigned i;
 
     tagId = ((AsnTag) b.GetByte()) << ((sizeof (AsnTag)-1) *8);
     bytesDecoded++;
@@ -114,14 +69,22 @@ BDecTag (BUF_TYPE  b, AsnLen &bytesDecoded, ENV_TYPE env)
         if (i > (sizeof (AsnTag)+1))
         {
             Asn1Error << "BDecTag: ERROR - tag value overflow" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-21);
+			#else
             longjmp (env, -21);
+			#endif
         }
     }
 
     if (b.ReadError())
     {
         Asn1Error << "BDecTag: ERROR - decoded past the end of data" << endl;
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-22);
+		#else
         longjmp (env, -22);
+		#endif
     }
 
     return tagId;

@@ -1,11 +1,7 @@
 {
-  Description     = "Sun network file system";
+  Description     = "network file system";
   Provides        = ("NFS");
-  Requires        = ("Portmap", "Resolver");
+  Requires        = ("Portmap", "DirectoryServices");
+  Uses            = ("Disks");
   OrderPreference = "None";
-  Messages =
-  {
-    start = "Starting network file system";
-    stop  = "Stopping network file system";
-  };
 }

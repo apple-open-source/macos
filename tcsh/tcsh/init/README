@@ -2,9 +2,9 @@ This directory contains some useful tcsh files.
 
 In order to use this configuration:
 
-	echo "source /usr/share/init/tcsh/rc"     > ~/.tcshrc
-	echo "source /usr/share/init/tcsh/login"  > ~/.login
-	echo "source /usr/share/init/tcsh/logout" > ~/.logout
+	echo "source /usr/share/tcsh/examples/rc"     > ~/.tcshrc
+	echo "source /usr/share/tcsh/examples/login"  > ~/.login
+	echo "source /usr/share/tcsh/examples/logout" > ~/.logout
 
 To do this system-wide, do the same instead to /etc/csh.cshrc, /etc/csh.login, and /etc/csh.logout.
 

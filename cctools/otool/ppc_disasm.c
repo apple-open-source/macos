@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdio.h>
+#include <string.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
@@ -67,11 +68,14 @@
 #define LK(x)		(lk[(x) & 0x1])
 #define AA(x)		(aa[(x >> 1) & 0x1])
 
+#define	BH(x)		(((x) >> 11) & 0x3)
 #define	BC(x)		(((x) >> 16) & 0x3)
 #define	CR_FIELD(x)	(((x) >> 18) & 0x7)
 #define	Y_BIT(x)	(((x) >> 21) & 0x1)
 #define	BC_TRUE(x)	(bc_true[BC(x)])
 #define	BC_FALSE(x)	(bc_false[BC(x)])
+
+#define	TH(x)		(((x) >> 21) & 0xf)
 
 static const char *oe_rc[] = { "", ".", "o", "o." };
 static const char *rc[] = { "", "." };
@@ -187,6 +191,13 @@ enum bool verbose)
 	    opcode = SWAP_LONG(opcode);
 
 	switch(opcode & 0xfc000000){
+	case 0x00000000:
+	    if((opcode & 0xfc0007ff) == 0x00000200){
+		printf("attn\t0x%x\n", (unsigned int)((opcode >> 11) & 0x7fff));
+		break;
+	    }
+	    printf(".long 0x%08x\n", (unsigned int)opcode);
+	    break;
 	case 0x38000000:
 	    if(RA(opcode) == 0)
 		printf("li\tr%lu,", RT(opcode));
@@ -997,7 +1008,20 @@ enum bool verbose)
 			   NB(opcode));
 		break;
 	    case 0x000004ac:
-		printf("sync\n");
+		switch((opcode >> 21) & 0x3){
+		case 0:
+		    printf("sync\n");
+		    break;
+		case 1:
+		    printf("lwsync\n");
+		    break;
+		case 2:
+		    printf("ptesync\n");
+		    break;
+		case 3:
+		    printf("sync\t3\n");
+		    break;
+		}
 		break;
 	    case 0x00000000:
 		if(Zflag == TRUE)
@@ -1126,10 +1150,20 @@ enum bool verbose)
 		    printf("icbi\tr%lu,r%lu\n", RA(opcode), RB(opcode));
 		break;
 	    case 0x0000022c:
-		if(RA(opcode) == 0)
-		    printf("dcbt\t0,r%lu\n", RB(opcode));
-		else
-		    printf("dcbt\tr%lu,r%lu\n", RA(opcode), RB(opcode));
+		if(RT(opcode) != 0){
+		    if(RA(opcode) == 0)
+			printf("dcbt128\t0,r%lu,0x%x\n", RB(opcode),
+			       (unsigned int)TH(opcode));
+		    else
+			printf("dcbt128\tr%lu,r%lu,0x%x\n", RA(opcode),
+			       RB(opcode), (unsigned int)TH(opcode));
+		}
+		else{
+		    if(RA(opcode) == 0)
+			printf("dcbt\t0,r%lu\n", RB(opcode));
+		    else
+			printf("dcbt\tr%lu,r%lu\n", RA(opcode), RB(opcode));
+		}
 		break;
 	    case 0x000001ec:
 		if(RA(opcode) == 0)
@@ -1138,10 +1172,18 @@ enum bool verbose)
 		    printf("dcbtst\tr%lu,r%lu\n", RA(opcode), RB(opcode));
 		break;
 	    case 0x000007ec:
-		if(RA(opcode) == 0)
-		    printf("dcbz\t0,r%lu\n", RB(opcode));
-		else
-		    printf("dcbz\tr%lu,r%lu\n", RA(opcode), RB(opcode));
+		if((opcode & 0x00200000) == 0x00200000){
+		    if(RA(opcode) == 0)
+			printf("dcbz128\t0,r%lu\n", RB(opcode));
+		    else
+			printf("dcbz128\tr%lu,r%lu\n", RA(opcode), RB(opcode));
+		}
+		else{
+		    if(RA(opcode) == 0)
+			printf("dcbz\t0,r%lu\n", RB(opcode));
+		    else
+			printf("dcbz\tr%lu,r%lu\n", RA(opcode), RB(opcode));
+		}
 		break;
 	    case 0x0000006c:
 		if(RA(opcode) == 0)
@@ -1175,6 +1217,12 @@ enum bool verbose)
 	    case 0x00000124:
 		printf("mtmsr\tr%lu\n", RS(opcode));
 		break;
+	    case 0x00000164:
+		if((opcode & 0x00010000) == 0)
+		    printf("mtmsrd\tr%lu\n", RS(opcode));
+		else
+		    printf("mtmsrd\tr%lu,1\n", RS(opcode));
+		break;
 	    case 0x000000a6:
 		printf("mfmsr\tr%lu\n", RS(opcode));
 		break;
@@ -1203,7 +1251,13 @@ enum bool verbose)
 		printf("mfsrin\tr%lu,r%lu\n", RT(opcode), RB(opcode));
 		break;
 	    case 0x00000264:
-		printf("tlbie\tr%lu\n", RB(opcode));
+		if((opcode & 0x00200000) == 0)
+		    printf("tlbie\tr%lu\n", RB(opcode));
+		else
+		    printf("tlbie\tr%lu,1\n", RB(opcode));
+		break;
+	    case 0x00000224:
+		printf("tlbiel\tr%lu\n", RB(opcode));
 		break;
 	    case 0x0000046c:
 		printf("tlbsync\n");
@@ -1321,6 +1375,15 @@ enum bool verbose)
 		break;
 	    case 0x000003e4:
 		printf("slbia\n");
+		break;
+	    case 0x00000324:
+		printf("slbmte\tr%lu,r%lu\n", RS(opcode), RB(opcode));
+		break;
+	    case 0x000006a6:
+		printf("slbmfev\tr%lu,r%lu\n", RS(opcode), RB(opcode));
+		break;
+	    case 0x00000726:
+		printf("slbmfee\tr%lu,r%lu\n", RS(opcode), RB(opcode));
 		break;
 	    case 0x0000000e:
 		if(RA(opcode) == 0)
@@ -1443,6 +1506,9 @@ enum bool verbose)
 	    case 0x00000020:
 		(void)bc("lr", opcode);
 		printf("\n");
+		break;
+	    case 0x00000024:
+		printf("rfid\n");
 		break;
 	    case 0x00000420:
 		(void)bc("ctr", opcode);
@@ -2450,15 +2516,17 @@ unsigned long opcode)
     char *prediction;
     const char *a;
     unsigned long operands;
+    enum bool branch_to_register;
 
 	operands = 0;
+	prediction = "";
+	/* branch conditional (to displacment) */
 	if((opcode & 0xfc000000) == 0x40000000){
+	    branch_to_register = FALSE;
 	    a = aa[(opcode >> 1) & 0x1];
 	    if(Y_BIT(opcode) == 0){
-		if((opcode & 0x00008000) != 0)
-		    prediction = "+";
-		else
-		    prediction = "-";
+		/* the Y-bit is zero so don't print prediction */
+		prediction = "";
 	    }
 	    else{
 		if((opcode & 0x00008000) != 0)
@@ -2468,46 +2536,92 @@ unsigned long opcode)
 	    }
 	}
 	else{
+	    /* branch conditional (to link or count register) */
+	    branch_to_register = TRUE;
 	    a = "";
 	    if(Y_BIT(opcode) == 0)
-		prediction = "-";
+		/* the Y-bit is zero so don't print prediction */
+		prediction = "";
 	    else
 		prediction = "+";
 	}
 	if(Zflag == TRUE){
-	    printf("bc%s%s%s\t%lu,%lu", name, LK(opcode), a, RT(opcode),
-		   RA(opcode));
-	    operands = 2;
+	    if(branch_to_register == TRUE){
+		printf("bc%s%s%s\t%lu,%lu,%lu", name, LK(opcode), a, RT(opcode),
+		       RA(opcode), BH(opcode));
+		operands = 3;
+	    }
+	    else{
+		printf("bc%s%s%s\t%lu,%lu", name, LK(opcode), a, RT(opcode),
+		       RA(opcode));
+		operands = 2;
+	    }
 	    return(operands);
 	}
 	
-	switch(opcode & 0x03c00000){
+	switch(opcode & 0x03e00000){
+	case 0x01c00000:
+	    prediction = "--";
+	    goto bt;
+	case 0x01e00000:
+	    prediction = "++";
+	    goto bt;
 	case 0x01800000:
-	    /* branch if condition true */
+	case 0x01a00000:
+bt:	    /* branch if condition true */
 	    printf("b%s%s%s%s%s", BC_TRUE(opcode), name, LK(opcode), a,
 		   prediction);
-	    if(CR_FIELD(opcode) != 0){
+	    if(CR_FIELD(opcode) != 0 ||
+	      (branch_to_register == TRUE && BH(opcode) != 0)){
 		printf("\tcr%lu", CR_FIELD(opcode));
 		operands = 1;
+		if(branch_to_register == TRUE && BH(opcode) != 0){
+		    printf(",%lu", BH(opcode));
+		    operands = 2;
+		}
 	    }
 	    break;
+	case 0x00c00000:
+	    prediction = "--";
+	    goto bf;
+	case 0x00e00000:
+	    prediction = "++";
+	    goto bf;
 	case 0x00800000:
-	    /* branch if condition false */
+	case 0x00a00000:
+bf:	    /* branch if condition false */
 	    printf("b%s%s%s%s%s", BC_FALSE(opcode), name, LK(opcode), a,
 		   prediction);
-	    if(CR_FIELD(opcode) != 0){
+	    if(CR_FIELD(opcode) != 0 ||
+	      (branch_to_register == TRUE && BH(opcode) != 0)){
 		printf("\tcr%lu", CR_FIELD(opcode));
 		operands = 1;
+		if(branch_to_register == TRUE && BH(opcode) != 0){
+		    printf(",%lu", BH(opcode));
+		    operands = 2;
+		}
 	    }
 	    break;
+	case 0x03000000:
+	    prediction = "--";
+	    goto bdnz;
+	case 0x03200000:
+	    prediction = "++";
+	    goto bdnz;
 	case 0x02000000:
-	    /* decrement ctr branch if ctr non-zero */
+	case 0x02200000:
+bdnz:	    /* decrement ctr branch if ctr non-zero */
 	    if((opcode & 0xfc0007fe) == 0x4c000420 ||
 	       (opcode & 0x001f0000) != 0x00000000)
 		goto bc_general_default_form;
 	    printf("bdnz%s%s%s%s", name, LK(opcode), a, prediction);
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf("\t%lu", BH(opcode));
+		operands = 1;
+	    }
 	    break;
 	case 0x01000000:
+	case 0x01200000:
 	    /* decrement ctr branch if ctr non-zero and condition true */
 	    if((opcode & 0xfc0007fe) == 0x4c000420)
 		goto bc_general_default_form;
@@ -2516,8 +2630,13 @@ unsigned long opcode)
 		printf("cr%lu+", CR_FIELD(opcode));
 	    printf("%s", BC_TRUE(opcode));
 	    operands = 1;
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf(",%lu", BH(opcode));
+		operands = 2;
+	    }
 	    break;
 	case 0x00000000:
+	case 0x00200000:
 	    /* decrement ctr branch if ctr non-zero and condition false */
 	    if((opcode & 0xfc0007fe) == 0x4c000420)
 		goto bc_general_default_form;
@@ -2526,15 +2645,31 @@ unsigned long opcode)
 		printf("cr%lu+", CR_FIELD(opcode));
 	    printf("%s", BC_TRUE(opcode));
 	    operands = 1;
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf(",%lu", BH(opcode));
+		operands = 2;
+	    }
 	    break;
+	case 0x03400000:
+	    prediction = "--";
+	    goto bdz;
+	case 0x03600000:
+	    prediction = "++";
+	    goto bdz;
 	case 0x02400000:
-	    /* decrement ctr branch if ctr zero */
+	case 0x02600000:
+bdz:	    /* decrement ctr branch if ctr zero */
 	    if((opcode & 0xfc0007fe) == 0x4c000420 ||
 	       (opcode & 0x001f0000) != 0x00000000)
 		goto bc_general_default_form;
 	    printf("bdz%s%s%s%s", name, LK(opcode), a, prediction);
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf("\t%lu", BH(opcode));
+		operands = 1;
+	    }
 	    break;
 	case 0x01400000:
+	case 0x01600000:
 	    /* decrement ctr branch if ctr zero and condition true */
 	    if((opcode & 0xfc0007fe) == 0x4c000420)
 		goto bc_general_default_form;
@@ -2543,8 +2678,13 @@ unsigned long opcode)
 		printf("cr%lu+", CR_FIELD(opcode));
 	    printf("%s", BC_TRUE(opcode));
 	    operands = 1;
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf(",%lu", BH(opcode));
+		operands = 2;
+	    }
 	    break;
 	case 0x00400000:
+	case 0x00600000:
 	    /* decrement ctr branch if ctr zero and condition false */
 	    if((opcode & 0xfc0007fe) == 0x4c000420)
 		goto bc_general_default_form;
@@ -2553,22 +2693,46 @@ unsigned long opcode)
 		printf("cr%lu+", CR_FIELD(opcode));
 	    printf("%s", BC_TRUE(opcode));
 	    operands = 1;
+	    if(branch_to_register == TRUE && BH(opcode) != 0){
+		printf(",%lu", BH(opcode));
+		operands = 2;
+	    }
 	    break;
 	case 0x02800000:
 	    /* branch unconditionally */
 	    if(Y_BIT(opcode) != 0 || RA(opcode) != 0)
 		goto bc_general_default_form;
-	    printf("b%s%s%s", name, LK(opcode), a);
+	    if(BH(opcode) != 0)
+		printf("b%s%s%s\t%lu", name, LK(opcode), a, BH(opcode));
+	    else
+		printf("b%s%s%s", name, LK(opcode), a);
 	    break;
 	default:
 bc_general_default_form:
-	    if(RT(opcode) == 20) /* branch always */
-		printf("bc%s%s%s\t%lu,%lu", name, LK(opcode), a,
-		       RT(opcode), RA(opcode));
-	    else
-		printf("bc%s%s%s%s\t%lu,%lu", name, LK(opcode), a, prediction,
-		       RT(opcode), RA(opcode));
-	    operands = 2;
+	    if(RT(opcode) == 20){ /* branch always */
+		if(branch_to_register == TRUE && BH(opcode) != 0){
+		    printf("bc%s%s%s\t%lu,%lu,%lu", name, LK(opcode), a,
+			   RT(opcode), RA(opcode), BH(opcode));
+		    operands = 3;
+		}
+		else{
+		    printf("bc%s%s%s\t%lu,%lu", name, LK(opcode), a,
+			   RT(opcode), RA(opcode));
+		    operands = 2;
+		}
+	    }
+	    else{
+		if(branch_to_register == TRUE && BH(opcode) != 0){
+		    printf("bc%s%s%s%s\t%lu,%lu,%lu", name, LK(opcode), a,
+			   prediction, RT(opcode), RA(opcode), BH(opcode));
+		    operands = 3;
+		}
+		else{
+		    printf("bc%s%s%s%s\t%lu,%lu", name, LK(opcode), a,
+			   prediction, RT(opcode), RA(opcode));
+		    operands = 2;
+		}
+	    }
 	    break;
 	}
 	return(operands);

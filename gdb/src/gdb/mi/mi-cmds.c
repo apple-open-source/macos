@@ -1,5 +1,5 @@
 /* MI Command Set.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -22,7 +22,7 @@
 #include "defs.h"
 #include "top.h"
 #include "mi-cmds.h"
-#include <string.h>
+#include "gdb_string.h"
 
 extern void _initialize_mi_cmds (void);
 struct mi_cmd;
@@ -73,6 +73,7 @@ struct mi_cmd mi_cmds[] =
   {"exec-signal", 0, 0},
   {"exec-step", 0, mi_cmd_exec_step},
   {"exec-step-instruction", 0, mi_cmd_exec_step_instruction},
+  {"exec-metrowerks-step", 0, mi_cmd_exec_metrowerks_step},
   {"exec-until", 0, mi_cmd_exec_until},
   {"file-clear", 0, 0},
   {"file-exec-and-symbols", "file %s", 0},
@@ -114,6 +115,7 @@ struct mi_cmd mi_cmds[] =
   {"stack-list-arguments", 0, 0, mi_cmd_stack_list_args},
   {"stack-list-exception-handlers", 0, 0},
   {"stack-list-frames", 0, 0, mi_cmd_stack_list_frames},
+  {"stack-list-frames-lite", "ppc-fast-show-stack %s", 0, 0},
   {"stack-list-locals", 0, 0, mi_cmd_stack_list_locals},
   {"stack-select-frame", 0, 0, mi_cmd_stack_select_frame},
   {"symbol-info-address", 0, 0},
@@ -162,6 +164,7 @@ struct mi_cmd mi_cmds[] =
   {"var-info-num-children", 0, 0, mi_cmd_var_info_num_children},
   {"var-info-type", 0, 0, mi_cmd_var_info_type},
   {"var-info-block",0, 0, mi_cmd_var_info_block},
+  {"var-info-path-expression",0, 0, mi_cmd_var_info_path_expression},
   {"var-list-children", 0, 0, mi_cmd_var_list_children},
   {"var-set-format", 0, 0, mi_cmd_var_set_format},
   {"var-show-attributes", 0, 0, mi_cmd_var_show_attributes},
@@ -242,7 +245,8 @@ build_table (struct mi_cmd *commands)
     {
       struct mi_cmd **entry = lookup_table (command->name);
       if (*entry)
-	internal_error ("command `%s' appears to be duplicated",
+	internal_error (__FILE__, __LINE__,
+			"command `%s' appears to be duplicated",
 			command->name);
       *entry = command;
       if (0)

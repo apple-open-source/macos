@@ -1,13 +1,33 @@
 #!/bin/sh
 
 ##
-# Start Web Server
+# Apache HTTP Server
 ##
 
 . /etc/rc.common
 
-if [ "${WEBSERVER:=-NO-}" = "-YES-" ]; then
-    ConsoleMessage "Starting web server"
+StartService ()
+{
+    if [ "${WEBSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Starting Apache web server"
+	apachectl start
+    fi
+}
 
-    apachectl start
-fi
+StopService ()
+{
+    ConsoleMessage "Stopping Apache web server"
+    apachectl stop
+}
+
+RestartService ()
+{
+    if [ "${WEBSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Restarting Apache web server"
+	apachectl restart
+    else
+	StopService
+    fi
+}
+
+RunService "$1"

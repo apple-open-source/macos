@@ -16,35 +16,22 @@
 #include "nbsp.h"
 
 static void
-nbspEntry_print(nbspEntry_t * entry)
+NBSPEntry_print(NBSPEntryRef entry)
 {
     printf("%s: path %s\n", entry->name, entry->path);
     return;
 }
 
-static void
-nbspEntry_free(void * arg)
-{
-    nbspEntry_t * entry = (nbspEntry_t *)arg;
-    if (entry->name)
-	free(entry->name);
-    if (entry->path)
-	free(entry->path);
-    bzero(entry, sizeof(*entry));
-    free(entry);
-    return;
-}
-
 int
-nbspList_count(nbspList_t list)
+NBSPList_count(NBSPListRef list)
 {
     dynarray_t *	dlist = (dynarray_t *)list;
     
     return (dynarray_count(dlist));
 }
 
-nbspEntry_t *
-nbspList_element(nbspList_t list, int i)
+NBSPEntryRef
+NBSPList_element(NBSPListRef list, int i)
 {
     dynarray_t *	dlist = (dynarray_t *)list;
 
@@ -53,22 +40,20 @@ nbspList_element(nbspList_t list, int i)
 
 
 void
-nbspList_print(nbspList_t list)
+NBSPList_print(NBSPListRef list)
 {
     dynarray_t *	dlist = (dynarray_t *)list;
     int 		i;
 
-    printf("There are %d NetBoot sharepoints defined\n", 
-	   dynarray_count(dlist));
     for (i = 0; i < dynarray_count(dlist); i++) {
-	nbspEntry_t * entry = (nbspEntry_t *)dynarray_element(dlist, i);
-	nbspEntry_print(entry);
+	NBSPEntryRef entry = (NBSPEntryRef)dynarray_element(dlist, i);
+	NBSPEntry_print(entry);
     }
     return;
 }
 
 void
-nbspList_free(nbspList_t * l)
+NBSPList_free(NBSPListRef * l)
 {
     dynarray_t * list;
     if (l == NULL)
@@ -83,13 +68,12 @@ nbspList_free(nbspList_t * l)
 }
 
 
-nbspList_t
-nbspList_init()
+NBSPListRef
+NBSPList_init(const char * symlink_name)
 {
     hfsVolList_t		vols = NULL;	
     dynarray_t *		list = NULL;			
     int				i;
-
 
     vols = hfsVolList_init();
     if (vols == NULL) {
@@ -97,10 +81,11 @@ nbspList_init()
     }
 
     for (i = 0; i < hfsVolList_count(vols); i++) {
-	nbspEntry_t *	entry;
-	int		n = 0;
+	NBSPEntryRef	entry;
 	char		sharename[MAXNAMLEN];
+	int		sharename_len = 0;
 	char		sharedir[PATH_MAX];
+	int		sharedir_len = 0;
 	char		sharelink[PATH_MAX];
 	char *		root;
 	struct stat	sb;
@@ -110,7 +95,7 @@ nbspList_init()
 	if (strcmp(root, "/") == 0)
 	    root = "";
 	snprintf(sharelink, sizeof(sharelink), 
-		 "%s" NETBOOT_DIRECTORY "/" NETBOOT_SHAREPOINT_LINK, root);
+		 "%s" NETBOOT_DIRECTORY "/%s", root, symlink_name);
 	if (lstat(sharelink, &sb) < 0) {
 	    continue; /* doesn't exist */
 	}
@@ -120,28 +105,33 @@ nbspList_init()
 	if (stat(sharelink, &sb) < 0) {
 	    continue;
 	}
-	n = readlink(sharelink, sharename, sizeof(sharename));
-	if (n <= 0) {
+	sharename_len = readlink(sharelink, sharename, sizeof(sharename));
+	if (sharename_len <= 0) {
 	    continue;
 	}
-	sharename[n] = '\0';
+	sharename[sharename_len] = '\0';
 	if (list == NULL) {
 	    list = (dynarray_t *)malloc(sizeof(*list));
 	    if (list == NULL) {
 		goto done;
 	    }
 	    bzero(list, sizeof(*list));
-	    dynarray_init(list, nbspEntry_free, NULL);
-	}
-	entry = malloc(sizeof(*entry));
-	if (entry == NULL) {
-	    continue;
+	    dynarray_init(list, free, NULL);
 	}
 	snprintf(sharedir, sizeof(sharedir), 
 		 "%s" NETBOOT_DIRECTORY "/%s", root, sharename);
+	sharedir_len = strlen(sharedir);
+	entry = malloc(sizeof(*entry) + sharename_len + sharedir_len + 2);
+	if (entry == NULL) {
+	    continue;
+	}
 	bzero(entry, sizeof(*entry));
-	entry->name = strdup(sharename);
-	entry->path = strdup(sharedir);
+	entry->name = (char *)(entry + 1);
+	strncpy(entry->name, sharename, sharename_len);
+	entry->name[sharename_len] = '\0';
+	entry->path = entry->name + sharename_len + 1;
+	strncpy(entry->path, sharedir, sharedir_len);
+	entry->path[sharedir_len] = '\0';
 	dynarray_add((dynarray_t *)list, entry);
     }
  done:
@@ -153,7 +143,7 @@ nbspList_init()
     }
     if (vols)
 	hfsVolList_free(&vols);
-    return ((nbspList_t)list);
+    return ((NBSPListRef)list);
 }
 
 #ifdef TEST_NBSP
@@ -161,11 +151,11 @@ nbspList_init()
 int
 main()
 {
-    nbspList_t list = nbspList_init();
+    NBSPListRef list = NBSPList_init();
 
     if (list != NULL) {
-	nbspList_print(list);
-	nbspList_free(&list);
+	NBSPList_print(list);
+	NBSPList_free(&list);
     }
     
     exit(0);

@@ -74,17 +74,45 @@ OSDefineMetaClassAndStructors( Intel82557, IOEthernetController )
 
 bool Intel82557::pciConfigInit(IOPCIDevice * provider)
 {
-	UInt32	reg;
-	
-	reg = provider->configRead32( kIOPCIConfigCommand );
+	UInt16 reg16;
 
-    reg |= ( kIOPCICommandBusMaster       |
-             kIOPCICommandMemorySpace     |
-             kIOPCICommandMemWrInvalidate );
+	reg16 = provider->configRead16( kIOPCIConfigCommand );
 
-    reg &= ~kIOPCICommandIOSpace;  // disable I/O space
+    reg16 |= ( kIOPCICommandBusMaster       |
+               kIOPCICommandMemorySpace     |
+               kIOPCICommandMemWrInvalidate );
 
-	provider->configWrite32( kIOPCIConfigCommand, reg );
+    reg16 &= ~kIOPCICommandIOSpace;  // disable I/O space
+
+	provider->configWrite16( kIOPCIConfigCommand, reg16 );
+
+    // To allow the device to use the PCI Memory Write and Invalidate
+    // command, it must know the correct cache line size. The only
+    // supported cache line sizes are 8 and 16 Dwords.
+    
+    provider->configWrite8( kIOPCIConfigCacheLineSize, 8 );
+
+    // Locate the PM register block of this device in its PCI config space.
+
+    provider->findPCICapability( kIOPCIPowerManagementCapability,
+                                 &pmPCICapPtr );
+    if ( pmPCICapPtr  )
+    {
+        UInt16 pciPMCReg = provider->configRead32( pmPCICapPtr ) >> 16;
+
+        // Only devices that support PME# assertion from D3-cold are
+        // considered valid for supporting Magic Packet wakeup.
+
+        if ( pciPMCReg & kPCIPMCPMESupportFromD3Cold )
+        {
+            magicPacketSupported = true;
+        }
+        
+        // Clear PME# and set power state to d0.
+
+        provider->configWrite16( kPCIPMCSR, 0x8000 );
+        IOSleep( 10 );
+    }
 
 	return true;
 }
@@ -124,14 +152,22 @@ bool Intel82557::initDriver(IOService * provider)
 	// Create and register an interrupt event source. The provider will
 	// take care of the low-level interrupt registration stuff.
 	//
-	interruptSrc = 
-		IOInterruptEventSource::interruptEventSource(this,
-                    (IOInterruptEventAction) &Intel82557::interruptOccurred,
-                    provider);
+	interruptSrc = IOInterruptEventSource::interruptEventSource(
+                   this,
+                   (IOInterruptEventAction) &Intel82557::interruptOccurred,
+                   provider);
 
 	if (!interruptSrc ||
 		(myWorkLoop->addEventSource(interruptSrc) != kIOReturnSuccess))
 		return false;
+
+	// This is important. If the interrupt line is shared with other devices,
+    // then the interrupt vector will be enabled only if all corresponding
+    // interrupt event sources are enabled. To avoid masking interrupts for
+    // other devices that are sharing the interrupt line, the event source
+    // is enabled immediately.
+
+    interruptSrc->enable();
 
 	// Register a timer event source. This is used as a watchdog timer.
 	//
@@ -221,12 +257,28 @@ bool Intel82557::start( IOService * provider )
 
         if ( pciNub->open(this) == false ) break;
 
+        // Request domain power.
+        // Without this, the PCIDevice may be in state 0, and the
+        // PCI config space may be invalid if the machine has been
+        // sleeping.
+
+        if ( pciNub->requestPowerDomainState(
+        /* power flags */ kIOPMPowerOn,
+        /* connection  */ (IOPowerConnection *) getParentEntry(gIOPowerPlane),
+        /* spec        */ IOPMLowestState ) != IOPMNoErr )
+        {
+            break;
+        }
+
         // Initialize the driver's event sources and other support objects.
 
         if ( initDriver(provider) == false ) break;
 
         // Get the virtual address mapping of CSR registers located at
         // Base Address Range 0 (0x10). The size of this range is 4K.
+        // This was changed to 32 bytes in 82558 A-Step, though only
+        // the first 32 bytes should be accessed, and the other bytes
+        // are considered reserved.
 
         csrMap = pciNub->mapDeviceMemoryWithRegister( kIOPCIConfigBaseAddress0 );
         if ( csrMap == 0 ) break;
@@ -286,7 +338,7 @@ bool Intel82557::start( IOService * provider )
     while ( false );
 
     // Close our provider, it will be re-opened on demand when
-    // our enable() is called.
+    // our enable() method is called.
 
     if ( pciNub ) pciNub->close(this);
 
@@ -300,7 +352,7 @@ bool Intel82557::start( IOService * provider )
 
         if ( attachInterface((IONetworkInterface **) &netif, false) == false )
             break;
-        
+
         // Attach a kernel debugger client. This is not an essential service,
         // and the return is not checked.
 
@@ -330,7 +382,8 @@ void Intel82557::stop(IOService * provider)
 //---------------------------------------------------------------------------
 // Function: createWorkLoop <IONetworkController>
 //
-// Override IONetworkController::createWorkLoop() method to create a workloop.
+// Override IONetworkController::createWorkLoop() method to create and return
+// a new work loop object.
 
 bool Intel82557::createWorkLoop()
 {
@@ -342,7 +395,8 @@ bool Intel82557::createWorkLoop()
 //---------------------------------------------------------------------------
 // Function: getWorkLoop <IOService>
 //
-// Override IOService::getWorkLoop() method to return our workloop.
+// Override IOService::getWorkLoop() method and return a reference to our
+// work loop.
 
 IOWorkLoop * Intel82557::getWorkLoop() const
 {
@@ -385,21 +439,41 @@ bool Intel82557::configureInterface(IONetworkInterface * netif)
 
 void Intel82557::free()
 {
-	if (debugger)      { debugger->release();     debugger = 0;     }
-    if (netif)         { netif->release();        netif = 0;        }
-	if (interruptSrc)  { interruptSrc->release(); interruptSrc = 0; }
-	if (timerSrc)      { timerSrc->release();     timerSrc = 0;     }
-	if (rxMbufCursor)  { rxMbufCursor->release(); rxMbufCursor = 0; }
-	if (txMbufCursor)  { txMbufCursor->release(); txMbufCursor = 0; }
-	if (csrMap)        { csrMap->release();       csrMap = 0;       }
-	if (eeprom)        { eeprom->release();       eeprom = 0;       }
-	if (mediumDict)    { mediumDict->release();   mediumDict = 0;   }
-    if ( pciNub )      { pciNub->release();       pciNub = 0;       }
-    if ( workLoop )    { workLoop->release();     workLoop = 0;     }
+#define RELEASE(x) do { if(x) { (x)->release(); (x) = 0; } } while(0)
+
+	RELEASE( debugger     );
+    RELEASE( netif        );
+
+    if ( interruptSrc && workLoop )
+    {
+        workLoop->removeEventSource( interruptSrc );
+    }
+
+	RELEASE( interruptSrc );
+	RELEASE( timerSrc     );
+	RELEASE( rxMbufCursor );
+	RELEASE( txMbufCursor );
+	RELEASE( csrMap       );
+	RELEASE( eeprom       );
+	RELEASE( mediumDict   );
+    RELEASE( pciNub       );
+    RELEASE( workLoop     );
 
 	_freeMemPage( &shared );
 	_freeMemPage( &txRing );
 	_freeMemPage( &rxRing );
+
+    if ( powerOffThreadCall )
+    {
+        thread_call_free( powerOffThreadCall );
+        powerOffThreadCall = 0;
+    }
+    
+    if ( powerOnThreadCall )
+    {
+        thread_call_free( powerOnThreadCall );
+        powerOnThreadCall = 0;
+    }
 
 	super::free();	// pass it to our superclass
 }
@@ -425,6 +499,12 @@ bool Intel82557::enableAdapter(UInt32 level)
                 break;
             }
 
+            if ( hwInit() == false )
+            {
+                IOLog("%s: hwInit failed\n", getName());
+                break;
+            }
+
 			if (!_initRingBuffers())
 				break;
 		
@@ -442,10 +522,8 @@ bool Intel82557::enableAdapter(UInt32 level)
 			//
 			timerSrc->setTimeoutMS(LOAD_STATISTICS_INTERVAL);
 
-			// Enable interrupt event sources and hardware interrupts.
-			//
-			if (getWorkLoop())
-				getWorkLoop()->enableAllInterrupts();
+			// Enable hardware interrupt sources.
+
 			enableAdapterInterrupts();
 
             // Force PHY to report link status.
@@ -459,7 +537,7 @@ bool Intel82557::enableAdapter(UInt32 level)
 			// Issue a dump statistics command.
 			//
 			_dumpStatistics();
-		
+
 			// Start our IOOutputQueue object.
 			//
 			transmitQueue->setCapacity(TRANSMIT_QUEUE_SIZE);
@@ -488,11 +566,9 @@ bool Intel82557::disableAdapter(UInt32 level)
 		
 	switch (level) {
 		case kActivationLevel1:
-			// Disable interrupt handling and hardware interrupt sources.
+			// Disable hardware interrupt sources.
 			//
 			disableAdapterInterrupts();
-			if (getWorkLoop())
-				getWorkLoop()->disableAllInterrupts();
 
 			// Stop the timer event source, and initialize the watchdog state.
 			//
@@ -503,16 +579,16 @@ bool Intel82557::disableAdapter(UInt32 level)
 		
 			// Reset the hardware engine.
 			//
-			ret = hwInit();
-		
+			ret = hwInit( true );
+
 			// Clear the descriptor rings after the hardware is idle.
 			//
 			_clearRingBuffers();
 		
-			// Report link status: unknown.
+			// Report link status: valid and down.
 			//
-			setLinkStatus(0, 0);
-		
+			setLinkStatus( kIONetworkLinkValid );
+
 			// Flush all packets held in the queue and prevent it
 			// from accumulating any additional packets.
 			//
@@ -672,10 +748,10 @@ void Intel82557::timeoutOccurred(IOTimerEventSource * /*timer*/)
 //---------------------------------------------------------------------------
 // Function: setPromiscuousMode <IOEthernetController>
 
-IOReturn Intel82557::setPromiscuousMode(IOEnetPromiscuousMode mode)
+IOReturn Intel82557::setPromiscuousMode( bool active )
 {
     bool rv;
-	promiscuousEnabled = (mode == kIOEnetPromiscuousModeOff) ? false : true;
+	promiscuousEnabled = active;
 	reserveDebuggerLock();
 	rv = config();
 	releaseDebuggerLock();
@@ -685,9 +761,9 @@ IOReturn Intel82557::setPromiscuousMode(IOEnetPromiscuousMode mode)
 //---------------------------------------------------------------------------
 // Function: setMulticastMode <IOEthernetController>
 
-IOReturn Intel82557::setMulticastMode(IOEnetMulticastMode mode)
+IOReturn Intel82557::setMulticastMode( bool active )
 {
-	multicastEnabled = (mode == kIOEnetMulticastModeOff) ? false : true;
+	multicastEnabled = active;
 	return kIOReturnSuccess;
 }
 

@@ -11,18 +11,9 @@ $ERR_H="cssmerr.h";
 $APPLE_ERR_H="cssmapple.h";
 
 $SOURCEDIR=$ARGV[0];						# directory with inputs
-
-(${D}) = $SOURCEDIR =~ m@([/:])@;			# guess directory delimiter
-sub macintosh() { return ${D} eq ':'; }
-
-if( macintosh() ){
-$TARGETDIR=$ARGV[2];						# directory for outputs
-}
- else{
 $TARGETDIR=$ARGV[1];
-}
 
-$TABLES="$TARGETDIR${D}errorcodes.gen";		# error name tables
+$TABLES="$TARGETDIR/errorcodes.gen";		# error name tables
 
 $tabs = "\t\t\t";	# argument indentation (noncritical)
 $warning = "This file was automatically generated. Do not edit on penalty of futility!";
@@ -31,11 +22,10 @@ $warning = "This file was automatically generated. Do not edit on penalty of fut
 #
 # Parse CSSM error header and build table of all named codes
 #
-open(ERR, "$SOURCEDIR${D}$ERR_H") or die "Cannot open $ERR_H: $^E";
-open(APPLE_ERR, "$SOURCEDIR${D}$APPLE_ERR_H") or die "Cannot open $APPLE_ERR_H: $^E";
+open(ERR, "$SOURCEDIR/$ERR_H") or die "Cannot open $ERR_H: $^E";
+open(APPLE_ERR, "$SOURCEDIR/$APPLE_ERR_H") or die "Cannot open $APPLE_ERR_H: $^E";
 $/=undef;	# big gulp mode
 $errors = <ERR> . <APPLE_ERR>;
-$errors =~ tr/\012/\015/ if macintosh;
 close(ERR); close(APPLE_ERR);
 
 @fullErrors = $errors =~ /^\s+CSSMERR_([A-Z_]+)/gm;

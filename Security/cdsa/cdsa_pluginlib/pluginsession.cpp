@@ -58,14 +58,14 @@ void PluginSession::detach()
 //
 // Allocation management
 //
-void *PluginSession::malloc(size_t size)
+void *PluginSession::malloc(size_t size) throw(std::bad_alloc)
 {
     if (void *addr = upcalls.malloc_func(handle(), size))
         return addr;
     CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
 }
 
-void *PluginSession::realloc(void *oldAddr, size_t size)
+void *PluginSession::realloc(void *oldAddr, size_t size) throw(std::bad_alloc)
 {
     if (void *addr = upcalls.realloc_func(handle(), oldAddr, size))
         return addr;

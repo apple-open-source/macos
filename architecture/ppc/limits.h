@@ -76,15 +76,19 @@
 #define	LONG_MAX	2147483647	/* max value for a long */
 #define	LONG_MIN	(-2147483647-1)	/* min value for a long */
 
+#define	ULLONG_MAX	0xffffffffffffffffULL	/* max unsigned long long */
+#define	LLONG_MAX	0x7fffffffffffffffLL	/* max signed long long */
+#define	LLONG_MIN	(-0x7fffffffffffffffLL-1) /* min signed long long */
+
 #if !defined(_ANSI_SOURCE)
 #define	SSIZE_MAX	INT_MAX		/* max value for a ssize_t */
 
 #if !defined(_POSIX_SOURCE) && !defined(_XOPEN_SOURCE)
 #define	SIZE_T_MAX	UINT_MAX	/* max value for a size_t */
 
-#define	UQUAD_MAX	0xffffffffffffffffULL		/* max unsigned quad */
-#define	QUAD_MAX	0x7fffffffffffffffLL		/* max signed quad */
-#define	QUAD_MIN	(-0x7fffffffffffffffLL-1)	/* min signed quad */
+#define	UQUAD_MAX	ULLONG_MAX
+#define	QUAD_MAX	LLONG_MAX
+#define	QUAD_MIN	LLONG_MIN
 
 #endif /* !_POSIX_SOURCE && !_XOPEN_SOURCE */
 #endif /* !_ANSI_SOURCE */

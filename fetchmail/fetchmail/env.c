@@ -49,10 +49,39 @@ void envquery(int argc, char **argv)
 	}
     }
 
+    if ((program_name = strrchr(argv[0], '/')) != NULL)
+	++program_name;
+    else
+	program_name = argv[0];
+
+    if (getenv("QMAILINJECT") && strcmp(getenv("QMAILINJECT"), ""))
+    {
+	fprintf(stderr,
+		GT_("%s: The QMAILINJECT environment variable is set.\n"
+		    "This is dangerous as it can make qmail-inject or qmail's sendmail wrapper\n"  
+		    "tamper with your From: or Message-ID: headers.\n"
+		    "Try \"env QMAILINJECT= %s YOUR ARGUMENTS HERE\"\n"
+		    "%s: Abort.\n"), 
+		program_name, program_name, program_name);
+	exit(PS_UNDEFINED);
+    }
+
+    if (getenv("NULLMAILER_FLAGS") && strcmp(getenv("NULLMAILER_FLAGS"), ""))
+    {
+	fprintf(stderr,
+		GT_("%s: The NULLMAILER_FLAGS environment variable is set.\n"
+		    "This is dangerous as it can make nullmailer-inject or nullmailer's\n" 
+		    "sendmail wrapper tamper with your From:, Message-ID: or Return-Path: headers.\n"
+		    "Try \"env NULLMAILER_FLAGS= %s YOUR ARGUMENTS HERE\"\n"
+		    "%s: Abort.\n"), 
+		program_name, program_name, program_name);
+	exit(PS_UNDEFINED);
+    }
+
     if (!(pwp = getpwuid(getuid())))
     {
 	fprintf(stderr,
-		_("%s: You don't exist.  Go away.\n"),
+		GT_("%s: You don't exist.  Go away.\n"),
 		program_name);
 	exit(PS_UNDEFINED);
     }
@@ -85,11 +114,6 @@ void envquery(int argc, char **argv)
     if (!(fmhome = getenv("FETCHMAILHOME")))
 	fmhome = home;
 
-    if ((program_name = strrchr(argv[0], '/')) != NULL)
-	++program_name;
-    else
-	program_name = argv[0];
-
 #define RCFILE_NAME	"fetchmailrc"
     /*
      * The (fmhome==home) leaves an extra character for a . at the
@@ -118,7 +142,7 @@ char *host_fqdn(void)
 
     if (gethostname(tmpbuf, sizeof(tmpbuf)))
     {
-	fprintf(stderr, _("%s: can't determine your host!"),
+	fprintf(stderr, GT_("%s: can't determine your host!"),
 		program_name);
 	exit(PS_DNS);
     }
@@ -134,7 +158,7 @@ char *host_fqdn(void)
 	{
 	    /* exit with error message */
 	    fprintf(stderr,
-		    _("gethostbyname failed for %s\n"), tmpbuf);
+		    GT_("gethostbyname failed for %s\n"), tmpbuf);
 	    exit(PS_DNS);
 	}
 	return(xstrdup(hp->h_name));
@@ -186,15 +210,15 @@ char *rfc822timestamp(void)
      * Y2K hassles.  Max length of this timestamp in an English locale
      * should be 29 chars.  The only things that should vary by locale
      * are the day and month abbreviations.  The set_locale calls prevent
-     * weird multibyte i18n characters (such as kanji) for showing up
+     * weird multibyte i18n characters (such as kanji) from showing up
      * in your Received headers.
      */
-#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
+#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS)
     setlocale (LC_TIME, "C");
 #endif
     strftime(buf, sizeof(buf)-1, 
 	     "%a, %d %b %Y %H:%M:%S XXXXX (%Z)", localtime(&now));
-#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
+#if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS)
     setlocale (LC_TIME, "");
 #endif
     strncpy(strstr(buf, "XXXXX"), tzoffset(&now), 5);

@@ -65,6 +65,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "basic-block.h"
 #include "intl.h"
+#include "genindex.h"
 
 #ifdef DWARF_DEBUGGING_INFO
 #include "dwarfout.h"
@@ -255,6 +256,7 @@ static void print_switch_values PROTO((FILE *, int, int, const char *,
 void print_rtl_graph_with_bb PROTO ((const char *, const char *, rtx));
 void clean_graph_dump_file PROTO ((const char *, const char *));
 void finish_graph_dump_file PROTO ((const char *, const char *));
+
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -641,23 +643,6 @@ int flag_volatile_static;
 
 int flag_syntax_only = 0;
 
-/* Nonzero means dump symbol records from the parser to stdout.  */
-
-/* Flag to indicate, if indexing information needs to be generated */
-int flag_dump_symbols = 0;
-int flag_gen_index = 0;
-/* Socket is used to put indexing information.  */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-int index_socket_fd = -1;
-static char *index_host_name = 0;       /* Hostname, used for indexing */
-static char *index_port_string = 0;     /* Port, used for indexing */
-static unsigned index_port_number = 0;  /* Port, used for indexing */
-void dump_symbol_info PROTO((char *, char *, int));
-int connect_to_socket PROTO((char *, unsigned));
-
-
 /* Nonzero means perform global cse.  */
 
 static int flag_gcse;
@@ -723,13 +708,17 @@ static int old_write_symbols = NO_DEBUG;
 
 int flag_coalescing_enabled = 1;
 
+/* Nonzero if we coalesce (and name-mangle!) static data in inlines.  */
+
+int flag_coalesce_static_inline_data = 1;
+
 /* We coalesce template functions/methods by default.  */
 
 int flag_coalesce_templates = 1;
 
-/* We coalesce static vtables by default.  */
+/* We don't coalesce static vtables by default.  */
 
-int flag_coalesce_static_vtables = 1;
+int flag_coalesce_static_vtables = 0;
 
 /* Nonzero if we want to coalesce out-of-line non-external copies of
    inline functions declared in header files.  */
@@ -1051,7 +1040,9 @@ lang_independent_options f_options[] =
   {"PIC", &flag_pic, 2, ""},
 #ifdef HAVE_COALESCED_SYMBOLS
   {"coalesce", &flag_coalescing_enabled, 1,
-   "Enavble coalescing of certain functions and data"},
+   "Enable coalescing of certain functions and data"},
+  {"coalesce-static-data-in-inlines", &flag_coalesce_static_inline_data, 1,
+   "Coalesce static data in inline functions"},
   {"coalesce-templates", &flag_coalesce_templates, 1,
    "Coalesce C++ template functions"},
   {"privatize-coalesced", &flag_privatize_coalesced, 1,
@@ -1059,7 +1050,7 @@ lang_independent_options f_options[] =
   {"coalesce-rtti", &flag_coalesce_rtti, 1,
    "[EXPERIMENTAL] (defaults on)"},
   {"coalesce-static-vtables", &flag_coalesce_static_vtables, 1,
-   "[EXPERIMENTAL] (defaults on)"},
+   "[EXPERIMENTAL] (can reduce duplicated static vtables)"},
   {"coalesce-out-of-line-inlines", &flag_coalesce_out_of_line_inlines, 1,
    "[EXPERIMENTAL] (defaults on)"},
   {"ignore-unused-static-aggregates", &flag_ignore_unused_static_aggregates, 1,
@@ -3257,68 +3248,6 @@ check_global_declarations (vec, len)
 	TIMEVAR (symout_time, dwarf2out_decl (decl));
 #endif
     }
-}
-
-/* Establish socket connection to put the indexing information.  */
-int 
-connect_to_socket (hostname, port_number)
-    char *hostname;
-    unsigned port_number;
-{
-    int socket_fd;
-    struct sockaddr_in addr;
-   
-    bzero ((char *)&addr, sizeof (addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = (hostname == NULL) ? 
-                           INADDR_LOOPBACK : 
-                           inet_addr (hostname);
-    addr.sin_port = htons (port_number);
-    
-    socket_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (socket_fd < 0)
-      {
-         warning("Can not create socket: %s", strerror (errno));
-         return -1;
-      }
-    if (connect (socket_fd, (struct sockaddr *)&addr, sizeof (addr)) < 0)
-      {
-         warning("Can not connect to socket: %s", strerror (errno));
-         return -1;
-      }
-    return socket_fd;
-}
-
-/* Dump the indexing information using already established socket connection.  */
-void 
-dump_symbol_info (info, name, number)
-    char *info; /* symbol information */
-    char *name; /* name of the symbol */
-    int  number; /* line number */
-{
-    char buf[25];
-
-    if (info)
-      {
-        write (index_socket_fd, (void *) info, strlen(info));
-        sprintf(&buf[0],"%d ",c_language); 
-        write (index_socket_fd, (void *) buf, strlen(buf));
-      }
-
-    if (!name && number == -1)
-      return;
-
-    if (name)
-      write (index_socket_fd, (void *) name, strlen(name));
-
-    if (!info && number == -1)
-      return;
-
-    if (number != -1)
-      sprintf(&buf[0]," %u\n",number); /* Max buf length is 25 */
-    else
-      sprintf(&buf[0],"\n"); 
-    write (index_socket_fd, (void *) buf, strlen (buf));
 }
 
 /* Compile an entire file of output from cpp, named NAME.
@@ -5941,6 +5870,7 @@ main (argc, argv)
        {
            index_port_number = atoi (index_port_string);
            flag_gen_index  = 1;
+           flag_gen_index_original  = 1;
    
            index_host_name = getenv ("PB_INDEX_SOCKET_HOSTNAME");
            if (index_host_name && *index_host_name)
@@ -5950,9 +5880,32 @@ main (argc, argv)
                 index_host_name = NULL;
              }
        } 
-       else
+     else
+       {
          flag_gen_index = 0; 
+         flag_gen_index_original = 0; 
+       } 
   }     
+
+  if (flag_dump_symbols)
+    {
+      flag_dump_symbols = 0;
+      flag_gen_index = 0;
+      flag_gen_index_original = 0;
+    }
+  if (flag_gen_index)
+    {
+        /* See if the list of indexed header file is to be checked
+           before generating index information for  the headers.  */
+        index_header_list_filename = getenv ("PB_INDEXED_HEADERS_FILE");
+        if (index_header_list_filename && *index_header_list_filename)
+          {
+            read_indexed_header_list ();
+	    /* Irrespective of indexed_header file being present or not,
+	       switch ON indexed_header list.  */
+            flag_check_indexed_header_list = 1;
+          }
+    }
 
   /* Checker uses the frame pointer.  */
   if (flag_check_memory_usage)
@@ -6044,6 +5997,10 @@ main (argc, argv)
   if (flag_gen_index)
   {   
     char buf[16] = "pbxindex-end ?\n";
+
+    if (index_buffer_count != 0)
+      flush_index_buffer ();
+
     /* Put the index end marker */
     write (index_socket_fd, &buf[0], strlen (&buf[0]));
 
@@ -6052,8 +6009,11 @@ main (argc, argv)
       {
         warning ("Can not close the socket used to put indexing information");
       }
-  }       
 
+  }       
+  /* Dump the list of indexed header file.  */
+  if (flag_check_indexed_header_list)
+    write_indexed_header_list ();
 
 #if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN__)) && !defined(__INTERIX)
   if (flag_print_mem)

@@ -3,13 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 31;
+	objectVersion = 36;
 	objects = {
 		00FA20B2FFD8762011CD2A97 = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -23,11 +24,31 @@
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
+//000
+//001
+//002
+//003
+//004
+//050
+//051
+//052
+//053
+//054
 		0509B1B6FF15460611CD283A = {
 			isa = PBXFrameworkReference;
 			path = SecuritySNACCRuntime.framework;
 			refType = 3;
 		};
+//050
+//051
+//052
+//053
+//054
+//150
+//151
+//152
+//153
+//154
 		15CACFCEFF6579E2D0A17CE7 = {
 			isa = PBXFileReference;
 			name = cdsaUtils.cpp;
@@ -39,12 +60,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -61,30 +76,18 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
-		15CACFD2FF657BF5D0A17CE7 = {
-			isa = PBXFrameworkReference;
-			name = cdsa_utilities.framework;
-			path = /System/Library/PrivateFrameworks/cdsa_utilities.framework;
-			refType = 0;
-		};
-		15CACFD3FF657BF5D0A17CE7 = {
-			fileRef = 15CACFD2FF657BF5D0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
-			};
-		};
+//150
+//151
+//152
+//153
+//154
+//3D0
+//3D1
+//3D2
+//3D3
+//3D4
 		3D3E9FE5FEF01C90D0A17CE7 = {
 			buildStyles = (
 				00FA20B2FFD8762011CD2A97,
@@ -93,7 +96,7 @@
 			isa = PBXProject;
 			mainGroup = 3D3E9FE6FEF01C90D0A17CE7;
 			productRefGroup = 5D41A7C1FEF026FFD0A17CE7;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				6B215E98FEF02818D0A17CE7,
 				5D41A7C3FEF026FFD0A17CE7,
@@ -107,7 +110,7 @@
 				6B215E9BFEF02ACDD0A17CE7,
 				6B215E9CFEF02ACDD0A17CE7,
 				15CACFCEFF6579E2D0A17CE7,
-				15CACFD2FF657BF5D0A17CE7,
+				9D176EDF02478EF100003D05,
 			);
 			isa = PBXGroup;
 			refType = 4;
@@ -175,7 +178,6 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -184,8 +186,6 @@
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			buildToolPath = /usr/bin/make;
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXLegacyTarget;
@@ -196,6 +196,16 @@
 			settingsToPassOnCommandLine = 280;
 			shouldUseHeadermap = 0;
 		};
+//3D0
+//3D1
+//3D2
+//3D3
+//3D4
+//5D0
+//5D1
+//5D2
+//5D3
+//5D4
 		5D41A792FEF026FFD0A17CE7 = {
 			isa = PBXFileReference;
 			name = "asn-any.cpp";
@@ -497,23 +507,20 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYMROOT)\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks\"";
 				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-DVDADER_RULES";
-				OTHER_LDFLAGS = "-lstdc++ -sectorder __TEXT __text $(APPLE_INTERNAL_DIR)/OrderFiles/SecuritySNACCRuntime.order";
+				OTHER_LDFLAGS = "\"-lstdc++\"";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = SecuritySNACCRuntime;
-				SECTORDER_FLAGS = "";
+				SECTORDER_FLAGS = "-sectorder __TEXT __text \"$(APPLE_INTERNAL_DIR)/OrderFiles/SecuritySNACCRuntime.order\"";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = framework;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -587,7 +594,6 @@
 				15CACFD1FF657A5BD0A17CE7,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		5D41A7C5FEF026FFD0A17CE7 = {
 			fileRef = 5D41A7A5FEF026FFD0A17CE7;
@@ -595,11 +601,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -610,11 +611,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7C7FEF026FFD0A17CE7 = {
@@ -623,11 +619,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -638,11 +629,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7C9FEF026FFD0A17CE7 = {
@@ -651,11 +637,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -666,11 +647,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7CBFEF026FFD0A17CE7 = {
@@ -679,11 +655,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -694,11 +665,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7CDFEF026FFD0A17CE7 = {
@@ -707,11 +673,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -722,11 +683,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7CFFEF026FFD0A17CE7 = {
@@ -735,11 +691,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -750,11 +701,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7D1FEF026FFD0A17CE7 = {
@@ -763,11 +709,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -778,11 +719,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7D3FEF026FFD0A17CE7 = {
@@ -791,11 +727,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -806,11 +737,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7D5FEF026FFD0A17CE7 = {
@@ -819,11 +745,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -834,11 +755,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7D7FEF026FFD0A17CE7 = {
@@ -847,11 +763,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -862,11 +773,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7D9FEF026FFD0A17CE7 = {
@@ -875,11 +781,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -890,11 +791,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7DBFEF026FFD0A17CE7 = {
@@ -903,11 +799,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -918,11 +809,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7DDFEF026FFD0A17CE7 = {
@@ -931,11 +817,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -946,11 +827,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7DFFEF026FFD0A17CE7 = {
@@ -959,11 +835,6 @@
 			settings = {
 				ATTRIBUTES = (
 					Public,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -974,11 +845,6 @@
 				ATTRIBUTES = (
 					Public,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
 			};
 		};
 		5D41A7E1FEF026FFD0A17CE7 = {
@@ -986,7 +852,6 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		5D41A7E2FEF026FFD0A17CE7 = {
 			buildActionMask = 2147483647;
@@ -1015,19 +880,12 @@
 				15CACFCFFF6579E2D0A17CE7,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		5D41A7E3FEF026FFD0A17CE7 = {
 			fileRef = 5D41A792FEF026FFD0A17CE7;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1036,12 +894,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1050,12 +902,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1064,12 +910,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1078,12 +918,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1092,12 +926,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1106,12 +934,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1120,12 +942,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1134,12 +950,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1148,12 +958,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1162,12 +966,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1176,12 +974,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1190,12 +982,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1204,12 +990,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1218,12 +998,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1232,12 +1006,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1246,12 +1014,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1260,12 +1022,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1274,30 +1030,32 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
 		5D41A7F6FEF026FFD0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
-				15CACFD3FF657BF5D0A17CE7,
+				9D176FDC02478EF100003D05,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		5D41A7F7FEF026FFD0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
+//5D0
+//5D1
+//5D2
+//5D3
+//5D4
+//6B0
+//6B1
+//6B2
+//6B3
+//6B4
 		6B215E98FEF02818D0A17CE7 = {
 			buildPhases = (
 			);
@@ -1305,15 +1063,12 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = World;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 				6B215E9AFEF02818D0A17CE7,
@@ -1344,12 +1099,6 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
-				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
 				);
 			};
 		};
@@ -1358,13 +1107,29 @@
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
-					Debug,
 				);
-				INCLUDED_OSS = (
-					MACOS,
-					WINDOWS,
-					PDOUNIX,
-				);
+			};
+		};
+//6B0
+//6B1
+//6B2
+//6B3
+//6B4
+//9D0
+//9D1
+//9D2
+//9D3
+//9D4
+		9D176EDF02478EF100003D05 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		9D176FDC02478EF100003D05 = {
+			fileRef = 9D176EDF02478EF100003D05;
+			isa = PBXBuildFile;
+			settings = {
 			};
 		};
 	};

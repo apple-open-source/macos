@@ -1,3 +1,7 @@
+
+#ifndef _S_MACNC_H
+#define _S_MACNC_H
+
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -31,17 +35,25 @@
  * - created
  */
 
-#import <mach/boolean.h>
+#include <mach/boolean.h>
 
 /**
  ** Defines:
  **/
 
 #include "afp.h"
+#include "nbimages.h"
 
-#define CFGPROP_SHADOW_SIZE_MEG		"shadow_size_meg"
-#define CFGPROP_AFP_USERS_MAX		"afp_users_max"
-#define CFGPROP_AGE_TIME_SECONDS	"age_time_seconds"
+#define SHARED_DIR_PERMS	0775
+#define SHARED_FILE_PERMS	0664
+
+#define CLIENT_DIR_PERMS	0770
+#define CLIENT_FILE_PERMS	0660
+
+/**
+ ** Types:
+ **/
+typedef int (*funcptr_t)(void * arg);
 
 /*
  * MACNC_SERVER_VERSION
@@ -49,29 +61,15 @@
  */
 #define MACNC_SERVER_VERSION		0
 
-/*
- * MACNC_SERVER_CREATOR
- * - the _creator value in the host entry
- */
-#define MACNC_SERVER_CREATOR		"bootpd"
+#define kNetBootShadowName	"Shadow"
 
-/*
- * MACNC_CLIENT_TYPE
- * - the value stored in the "client_types" property in a subnet description 
- *   for the NC (see subnetDescr.[hm]) in bootplib
- */
-#define MACNC_CLIENT_TYPE	"macNC"
-
-/**
- ** Types:
- **/
-typedef int (*funcptr_t)(void * arg);
 
 /**
  ** Prototypes:
  **/
 boolean_t	macNC_init();
-boolean_t	macNC_allocate(struct dhcp * reply, u_char * hostname, 
+boolean_t	macNC_allocate(NBImageEntryRef image_entry,
+			       struct dhcp * reply, u_char * hostname, 
 			       struct in_addr servip, 
 			       int host_number, dhcpoa_t * options,
 			       uid_t uid, u_char * afp_user, u_char * passwd);
@@ -82,9 +80,9 @@ boolean_t	macNC_get_client_info(struct dhcp * pkt, int pkt_size,
 void
 macNC_unlink_shadow(int host_number, u_char * hostname);
 
-/**
- ** Globals
- **/
-extern gid_t		netboot_gid;
-extern int		afp_users_max;
-extern u_int32_t	age_time_seconds;
+boolean_t
+set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+	  mode_t mode, boolean_t lock);
+
+
+#endif _S_MACNC_H

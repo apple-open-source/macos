@@ -1,5 +1,6 @@
 /* Work with executable files, for GDB. 
-   Copyright 1988, 1989, 1991, 1992, 1993, 1994, 1997, 1998
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -27,7 +28,8 @@
 #include "language.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "top.h"
+#include "completer.h"
+#include "value.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -95,8 +97,6 @@ void init_exec_ops (void);
 
 void _initialize_exec (void);
 
-extern int info_verbose;
-
 /* The target vector for executable files.  */
 
 struct target_ops exec_ops;
@@ -118,6 +118,13 @@ CORE_ADDR text_start = 0;
 CORE_ADDR text_end = 0;
 
 struct vmap *vmap;
+
+void
+exec_open (char *args, int from_tty)
+{
+  target_preopen (from_tty);
+  exec_file_attach (args, from_tty);
+}
 
 /* ARGSUSED */
 static void
@@ -151,7 +158,7 @@ exec_close (int quitting)
          FIXME-as-well: free_objfile already free'd vp->name, so it isn't
          valid here.  */
       free_named_symtabs (vp->name);
-      free (vp);
+      xfree (vp);
     }
 
   vmap = NULL;
@@ -163,16 +170,26 @@ exec_close (int quitting)
       if (!bfd_close (exec_bfd))
 	warning ("cannot close \"%s\": %s",
 		 name, bfd_errmsg (bfd_get_error ()));
-      free (name);
+      xfree (name);
       exec_bfd = NULL;
     }
 
   if (exec_ops.to_sections)
     {
-      free ((PTR) exec_ops.to_sections);
+      xfree (exec_ops.to_sections);
       exec_ops.to_sections = NULL;
       exec_ops.to_sections_end = NULL;
     }
+}
+
+void
+exec_file_clear (int from_tty)
+{
+  /* Remove exec file.  */
+  unpush_target (&exec_ops);
+
+  if (from_tty)
+    printf_unfiltered ("No executable file now.\n");
 }
 
 /*  Process the first arg in ARGS as the new exec file.
@@ -190,41 +207,27 @@ exec_close (int quitting)
    given a pid but not a exec pathname, and the attach command could
    figure out the pathname from the pid.  (In this case, we shouldn't
    ask the user whether the current target should be shut down --
-   we're supplying the exec pathname late for good reason.) */
+   we're supplying the exec pathname late for good reason.)
+   
+   ARGS is assumed to be the filename. */
 
 void
-exec_file_attach (char *args, int from_tty)
+exec_file_attach (char *filename, int from_tty)
 {
-  char **argv;
-  char *filename;
-
   /* Remove any previous exec file.  */
   unpush_target (&exec_ops);
 
   /* Now open and digest the file the user requested, if any.  */
 
-  if (args)
+  if (!filename)
+    {
+      if (from_tty)
+        printf_unfiltered ("No executable file now.\n");
+    }
+  else
     {
       char *scratch_pathname;
       int scratch_chan;
-
-      /* Scan through the args and pick up the first non option arg
-         as the filename.  */
-
-      argv = buildargv (args);
-      if (argv == NULL)
-	nomem (0);
-
-      make_cleanup_freeargv (argv);
-
-      for (; (*argv != NULL) && (**argv == '-'); argv++)
-	{;
-	}
-      if (*argv == NULL)
-	error ("No executable file name was specified");
-
-      filename = tilde_expand (*argv);
-      make_cleanup (free, filename);
 
       scratch_chan = openp (getenv ("PATH"), 1, filename,
 		   write_files ? O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0,
@@ -251,7 +254,7 @@ exec_file_attach (char *args, int from_tty)
          via the exec_bfd->name pointer, so we need to make another copy and
          leave exec_bfd as the new owner of the original copy. */
       scratch_pathname = xstrdup (scratch_pathname);
-      make_cleanup (free, scratch_pathname);
+      make_cleanup (xfree, scratch_pathname);
 
       if (bfd_check_format (exec_bfd, bfd_archive))
  	{
@@ -361,21 +364,47 @@ exec_file_attach (char *args, int from_tty)
       if (exec_file_display_hook)
 	(*exec_file_display_hook) (filename);
     }
-  else if (from_tty)
-    printf_unfiltered ("No executable file now.\n");
 }
 
 /*  Process the first arg in ARGS as the new exec file.
 
    Note that we have to explicitly ignore additional args, since we can
    be called from file_command(), which also calls symbol_file_command()
-   which can take multiple args. */
+   which can take multiple args.
+   
+   If ARGS is NULL, we just want to close the exec file. */
 
-void
+static void
 exec_file_command (char *args, int from_tty)
 {
+  char **argv;
+  char *filename;
+  
   target_preopen (from_tty);
-  exec_file_attach (args, from_tty);
+
+  if (args)
+    {
+      /* Scan through the args and pick up the first non option arg
+         as the filename.  */
+
+      argv = buildargv (args);
+      if (argv == NULL)
+        nomem (0);
+
+      make_cleanup_freeargv (argv);
+
+      for (; (*argv != NULL) && (**argv == '-'); argv++)
+        {;
+        }
+      if (*argv == NULL)
+        error ("No executable file name was specified");
+
+      filename = tilde_expand (*argv);
+      make_cleanup (xfree, filename);
+      exec_file_attach (filename, from_tty);
+    }
+  else
+    exec_file_attach (NULL, from_tty);
 }
 
 /* Set both the exec file and the symbol file, in one command.  
@@ -427,12 +456,12 @@ build_section_table (bfd *some_bfd, struct section_table **start,
 
   count = bfd_count_sections (some_bfd);
   if (*start)
-    free ((PTR) * start);
+    xfree (* start);
   *start = (struct section_table *) xmalloc (count * sizeof (**start));
   *end = *start;
   bfd_map_over_sections (some_bfd, add_to_section_table, (char *) end);
   if (*end > *start + count)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
   /* We could realloc the table, but it probably loses for most files.  */
   return 0;
 }
@@ -513,16 +542,17 @@ map_vmap (bfd *abfd, bfd *arch)
 
 int
 xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
+	     struct mem_attrib *attrib,
 	     struct target_ops *target)
 {
   boolean res;
   struct section_table *p;
   CORE_ADDR nextsectaddr, memend;
   boolean (*xfer_fn) (bfd *, sec_ptr, PTR, file_ptr, bfd_size_type);
-  asection *section;
+  asection *section = NULL;
 
   if (len <= 0)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   if (overlay_debugging)
     {
@@ -804,6 +834,20 @@ ignore (CORE_ADDR addr, char *contents)
   return 0;
 }
 
+/* Find mapped memory. */
+
+extern void
+exec_set_find_memory_regions (int (*func) (int (*) (CORE_ADDR, 
+						    unsigned long, 
+						    int, int, int, 
+						    void *),
+					   void *))
+{
+  exec_ops.to_find_memory_regions = func;
+}
+
+static char *exec_make_note_section (bfd *, int *);
+
 /* Fill in the exec file target vector.  Very few entries need to be
    defined.  */
 
@@ -814,7 +858,7 @@ init_exec_ops (void)
   exec_ops.to_longname = "Local exec file";
   exec_ops.to_doc = "Use an executable file as a target.\n\
 Specify the filename of the executable file.";
-  exec_ops.to_open = exec_file_command;
+  exec_ops.to_open = exec_open;
   exec_ops.to_close = exec_close;
   exec_ops.to_attach = find_default_attach;
   exec_ops.to_require_attach = find_default_require_attach;
@@ -827,6 +871,7 @@ Specify the filename of the executable file.";
   exec_ops.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   exec_ops.to_stratum = file_stratum;
   exec_ops.to_has_memory = 1;
+  exec_ops.to_make_corefile_notes = exec_make_note_section;
   exec_ops.to_magic = OPS_MAGIC;
 
   exec_ops.to_can_async_p = standard_can_async_p;
@@ -851,9 +896,8 @@ and it is the program executed when you use the `run' command.\n\
 If FILE cannot be found as specified, your execution directory path\n\
 ($PATH) is searched for a command of that name.\n\
 No arg means to have no executable file and no symbols.", &cmdlist);
-      c->completer = filename_completer;
-      c->completer_word_break_characters =
-	gdb_completer_filename_word_break_characters;
+      set_cmd_completer (c, filename_completer);
+      /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
     }
 
   c = add_cmd ("exec-file", class_files, exec_file_command,
@@ -861,9 +905,8 @@ No arg means to have no executable file and no symbols.", &cmdlist);
 If FILE cannot be found as specified, your execution directory path\n\
 is searched for a command of that name.\n\
 No arg means have no executable file.", &cmdlist);
-  c->completer = filename_completer;
-  c->completer_word_break_characters =
-    gdb_completer_filename_word_break_characters;
+  set_cmd_completer (c, filename_completer);
+  /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
 
   add_com ("section", class_files, set_section_command,
 	   "Change the base address of section SECTION of the exec file to ADDR.\n\
@@ -879,4 +922,10 @@ file itself are wrong.  Each section must be changed separately.  The\n\
      &showlist);
 
   add_target (&exec_ops);
+}
+
+static char *
+exec_make_note_section (bfd *obfd, int *note_size)
+{
+  error ("Can't create a corefile");
 }

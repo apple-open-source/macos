@@ -1,5 +1,5 @@
 /* Block-relocating memory allocator. 
-   Copyright (C) 1993, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -29,40 +29,26 @@ Boston, MA 02111-1307, USA.  */
 #include <config.h>
 #include "lisp.h"		/* Needed for VALBITS.  */
 
-#undef NULL
-
-/* The important properties of this type are that 1) it's a pointer, and
-   2) arithmetic on it should work as if the size of the object pointed
-   to has a size of 1.  */
-#if 0 /* Arithmetic on void* is a GCC extension.  */
-#ifdef __STDC__
-typedef void *POINTER;
-#else
-
-#ifdef	HAVE_CONFIG_H
-#include "config.h"
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
-typedef char *POINTER;
-
-#endif
-#endif /* 0 */
-
-/* Unconditionally use char * for this.  */
-typedef char *POINTER;
-
-typedef unsigned long SIZE;
+typedef POINTER_TYPE *POINTER;
+typedef size_t SIZE;
 
 /* Declared in dispnew.c, this version doesn't screw up if regions
    overlap.  */
+
 extern void safe_bcopy ();
 
 #ifdef DOUG_LEA_MALLOC
 #define M_TOP_PAD           -2 
 extern int mallopt ();
-#else
-extern int __malloc_extra_blocks;
-#endif
+#else /* not DOUG_LEA_MALLOC */
+#ifndef SYSTEM_MALLOC
+extern size_t __malloc_extra_blocks;
+#endif /* SYSTEM_MALLOC */
+#endif /* not DOUG_LEA_MALLOC */
 
 #else /* not emacs */
 
@@ -73,12 +59,12 @@ typedef void *POINTER;
 
 #include <unistd.h>
 #include <malloc.h>
-#include <string.h>
 
 #define safe_bcopy(x, y, z) memmove (y, x, z)
 #define bzero(x, len) memset (x, 0, len)
 
 #endif	/* not emacs */
+
 
 #include "getpagesize.h"
 
@@ -89,15 +75,18 @@ typedef void *POINTER;
    machines, the dumping procedure makes all static variables
    read-only.  On these machines, the word static is #defined to be
    the empty string, meaning that r_alloc_initialized becomes an
-   automatic variable, and loses its value each time Emacs is started up.  */
+   automatic variable, and loses its value each time Emacs is started
+   up.  */
+
 static int r_alloc_initialized = 0;
 
 static void r_alloc_init ();
+
 
 /* Declarations for working with the malloc, ralloc, and system breaks.  */
 
 /* Function to set the real break value.  */
-static POINTER (*real_morecore) ();
+POINTER (*real_morecore) ();
 
 /* The break value, as seen by malloc.  */
 static POINTER virtual_break_value;
@@ -124,7 +113,20 @@ static int extra_bytes;
 #define MEM_ALIGN sizeof(double)
 #define MEM_ROUNDUP(addr) (((unsigned long int)(addr) + MEM_ALIGN - 1) \
 				   & ~(MEM_ALIGN - 1))
+
+/* The hook `malloc' uses for the function which gets more space
+   from the system.  */
+
+#ifndef SYSTEM_MALLOC
+extern POINTER (*__morecore) ();
+#endif
+
+
 
+/***********************************************************************
+		      Implementation using sbrk
+ ***********************************************************************/
+
 /* Data structures of heaps and blocs.  */
 
 /* The relocatable objects, or blocs, and the malloc data
@@ -259,7 +261,7 @@ obtain (address, size)
 
   /* If we can't fit SIZE bytes in that heap,
      try successive later heaps.  */
-  while (heap && address + size > heap->end)
+  while (heap && (char *) address + size > (char *) heap->end)
     {
       heap = heap->next;
       if (heap == NIL_HEAP)
@@ -283,7 +285,7 @@ obtain (address, size)
 	  heap_ptr new_heap = (heap_ptr) MEM_ROUNDUP (new);
 	  POINTER bloc_start = (POINTER) MEM_ROUNDUP ((POINTER)(new_heap + 1));
 
-	  if ((*real_morecore) (bloc_start - new) != new)
+	  if ((*real_morecore) ((char *) bloc_start - (char *) new) != new)
 	    return 0;
 
 	  new_heap->start = new;
@@ -311,7 +313,7 @@ obtain (address, size)
       if ((*real_morecore) (get) != last_heap->end)
 	return 0;
 
-      last_heap->end += get;
+      last_heap->end = (char *) last_heap->end + get;
     }
 
   return address;
@@ -359,7 +361,7 @@ relinquish ()
 	{
 	  excess = (char *) last_heap->end
 			- (char *) ROUNDUP ((char *)last_heap->end - excess);
-	  last_heap->end -= excess;
+	  last_heap->end = (char *) last_heap->end - excess;
 	}
 
       if ((*real_morecore) (- excess) == 0)
@@ -367,7 +369,7 @@ relinquish ()
 	  /* If the system didn't want that much memory back, adjust
              the end of the last heap to reflect that.  This can occur
              if break_value is still within the original data segment.  */
-	  last_heap->end += excess;
+	  last_heap->end = (char *) last_heap->end + excess;
 	  /* Make sure that the result of the adjustment is accurate.
              It should be, for the else clause above; the other case,
              which returns the entire last heap to the system, seems
@@ -384,7 +386,7 @@ relinquish ()
 long
 r_alloc_size_in_use ()
 {
-  return break_value - virtual_break_value;
+  return (char *) break_value - (char *) virtual_break_value;
 }
 
 /* The meat - allocating, freeing, and relocating blocs.  */
@@ -429,7 +431,7 @@ get_bloc (size)
       return 0;
     }
 
-  break_value = new_bloc->data + size;
+  break_value = (char *) new_bloc->data + size;
 
   new_bloc->size = size;
   new_bloc->next = NIL_BLOC;
@@ -486,7 +488,7 @@ relocate_blocs (bloc, heap, address)
     {
       /* If bloc B won't fit within HEAP,
 	 move to the next heap and try again.  */
-      while (heap && address + b->size > heap->end)
+      while (heap && (char *) address + b->size > (char *) heap->end)
 	{
 	  heap = heap->next;
 	  if (heap == NIL_HEAP)
@@ -522,7 +524,7 @@ relocate_blocs (bloc, heap, address)
 	 and update where the next bloc can start.  */
       b->new_data = address;
       if (b->variable) 
-	address += b->size;
+	address = (char *) address + b->size;
       b = b->next;
     }
 
@@ -574,7 +576,7 @@ update_heap_bloc_correspondence (bloc, heap)
     {
       /* The previous bloc is in HEAP.  */
       heap->last_bloc = bloc->prev;
-      heap->free = bloc->prev->data + bloc->prev->size;
+      heap->free = (char *) bloc->prev->data + bloc->prev->size;
     }
   else
     {
@@ -602,7 +604,7 @@ update_heap_bloc_correspondence (bloc, heap)
 	}
 
       /* Update HEAP's status for bloc B.  */
-      heap->free = b->data + b->size;
+      heap->free = (char *) b->data + b->size;
       heap->last_bloc = b;
       if (heap->first_bloc == NIL_BLOC)
 	heap->first_bloc = b;
@@ -656,8 +658,8 @@ resize_bloc (bloc, size)
   bloc->size = size;
 
   /* Note that bloc could be moved into the previous heap.  */
-  address = (bloc->prev ? bloc->prev->data + bloc->prev->size
-	     : first_heap->bloc_start);
+  address = (bloc->prev ? (char *) bloc->prev->data + bloc->prev->size
+	     : (char *) first_heap->bloc_start);
   while (heap)
     {
       if (heap->bloc_start <= address && address <= heap->end)
@@ -694,7 +696,7 @@ resize_bloc (bloc, size)
       else
 	{
 	  safe_bcopy (bloc->data, bloc->new_data, old_size);
-	  bzero (bloc->new_data + old_size, size - old_size);
+	  bzero ((char *) bloc->new_data + old_size, size - old_size);
 	  *bloc->variable = bloc->data = bloc->new_data;
 	}
     }
@@ -717,8 +719,8 @@ resize_bloc (bloc, size)
 
   update_heap_bloc_correspondence (bloc, heap);
 
-  break_value = (last_bloc ? last_bloc->data + last_bloc->size
-		 : first_heap->bloc_start);
+  break_value = (last_bloc ? (char *) last_bloc->data + last_bloc->size
+		 : (char *) first_heap->bloc_start);
   return 1;
 }
 
@@ -924,13 +926,14 @@ r_alloc_sbrk (size)
 
   virtual_break_value = (POINTER) ((char *)address + size);
   break_value = (last_bloc
-		 ? last_bloc->data + last_bloc->size
-		 : first_heap->bloc_start);
+		 ? (char *) last_bloc->data + last_bloc->size
+		 : (char *) first_heap->bloc_start);
   if (size < 0)
     relinquish ();
 
   return address;
 }
+
 
 /* Allocate a relocatable bloc of storage of size SIZE.  A pointer to
    the data is returned in *PTR.  PTR is thus the address of some variable
@@ -1108,59 +1111,6 @@ r_alloc_thaw ()
     }
 }
 
-
-/* The hook `malloc' uses for the function which gets more space
-   from the system.  */
-extern POINTER (*__morecore) ();
-
-/* Initialize various things for memory allocation.  */
-
-static void
-r_alloc_init ()
-{
-  if (r_alloc_initialized)
-    return;
-
-  r_alloc_initialized = 1;
-  real_morecore = __morecore;
-  __morecore = r_alloc_sbrk;
-
-  first_heap = last_heap = &heap_base;
-  first_heap->next = first_heap->prev = NIL_HEAP;
-  first_heap->start = first_heap->bloc_start
-    = virtual_break_value = break_value = (*real_morecore) (0);
-  if (break_value == NIL)
-    abort ();
-
-  page_size = PAGE;
-  extra_bytes = ROUNDUP (50000);
-
-#ifdef DOUG_LEA_MALLOC
-    mallopt (M_TOP_PAD, 64 * 4096);
-#else
-  /* Give GNU malloc's morecore some hysteresis
-     so that we move all the relocatable blocks much less often.  */
-  __malloc_extra_blocks = 64;
-#endif
-
-  first_heap->end = (POINTER) ROUNDUP (first_heap->start);
-
-  /* The extra call to real_morecore guarantees that the end of the
-     address space is a multiple of page_size, even if page_size is
-     not really the page size of the system running the binary in
-     which page_size is stored.  This allows a binary to be built on a
-     system with one page size and run on a system with a smaller page
-     size.  */
-  (*real_morecore) (first_heap->end - first_heap->start);
-
-  /* Clear the rest of the last page; this memory is in our address space
-     even though it is after the sbrk value.  */
-  /* Doubly true, with the additional call that explicitly adds the
-     rest of that page to the address space.  */
-  bzero (first_heap->start, first_heap->end - first_heap->start);
-  virtual_break_value = break_value = first_heap->bloc_start = first_heap->end;
-  use_relocatable_buffers = 1;
-}
 
 #if defined (emacs) && defined (DOUG_LEA_MALLOC)
 
@@ -1177,9 +1127,11 @@ r_alloc_reinit ()
       __morecore = r_alloc_sbrk;
     }
 }
-#endif
+
+#endif /* emacs && DOUG_LEA_MALLOC */
 
 #ifdef DEBUG
+
 #include <assert.h>
 
 void
@@ -1269,4 +1221,68 @@ r_alloc_check ()
   else
     assert (first_heap->bloc_start == break_value);
 }
+
 #endif /* DEBUG */
+
+
+
+/***********************************************************************
+			    Initialization
+ ***********************************************************************/
+
+/* Initialize various things for memory allocation.  */
+
+static void
+r_alloc_init ()
+{
+  if (r_alloc_initialized)
+    return;
+  r_alloc_initialized = 1;
+  
+  page_size = PAGE;
+#ifndef SYSTEM_MALLOC
+  real_morecore = __morecore;
+  __morecore = r_alloc_sbrk;
+
+  first_heap = last_heap = &heap_base;
+  first_heap->next = first_heap->prev = NIL_HEAP;
+  first_heap->start = first_heap->bloc_start
+    = virtual_break_value = break_value = (*real_morecore) (0);
+  if (break_value == NIL)
+    abort ();
+
+  extra_bytes = ROUNDUP (50000);
+#endif
+
+#ifdef DOUG_LEA_MALLOC
+    mallopt (M_TOP_PAD, 64 * 4096);
+#else
+#ifndef SYSTEM_MALLOC
+  /* Give GNU malloc's morecore some hysteresis
+     so that we move all the relocatable blocks much less often.  */
+  __malloc_extra_blocks = 64;
+#endif
+#endif
+
+#ifndef SYSTEM_MALLOC
+  first_heap->end = (POINTER) ROUNDUP (first_heap->start);
+
+  /* The extra call to real_morecore guarantees that the end of the
+     address space is a multiple of page_size, even if page_size is
+     not really the page size of the system running the binary in
+     which page_size is stored.  This allows a binary to be built on a
+     system with one page size and run on a system with a smaller page
+     size.  */
+  (*real_morecore) ((char *) first_heap->end - (char *) first_heap->start);
+
+  /* Clear the rest of the last page; this memory is in our address space
+     even though it is after the sbrk value.  */
+  /* Doubly true, with the additional call that explicitly adds the
+     rest of that page to the address space.  */
+  bzero (first_heap->start,
+	 (char *) first_heap->end - (char *) first_heap->start);
+  virtual_break_value = break_value = first_heap->bloc_start = first_heap->end;
+#endif
+  
+  use_relocatable_buffers = 1;
+}

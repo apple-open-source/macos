@@ -17,7 +17,7 @@ HFILES = af.h defs.h interface.h pathnames.h table.h trace.h
 CFILES = af.c defs.c if.c inet.c input.c main.c output.c startup.c\
          tables.c timer.c trace.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist routed.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist routed.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,5 +1,5 @@
 /* Definitions to target GDB to GNU/Linux on an ia64 architecture.
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,10 +26,6 @@
 #define GDB_MULTI_ARCH 1
 
 #else /* defines needed for GDBSERVER */
-
-/* ia64 is little endian by default */
-
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the

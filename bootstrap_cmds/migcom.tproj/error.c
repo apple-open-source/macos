@@ -49,6 +49,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+
 #include "global.h"
 #include "error.h"
 
@@ -57,7 +59,7 @@ extern char *yyinname;
 
 static char *program;
 __private_extern__
-int errors = 0;
+int mig_errors = 0;
 
 /*ARGSUSED*/
 /*VARARGS1*/
@@ -81,7 +83,7 @@ warn(char *format, ...)
 {
     va_list pvar;
     va_start(pvar, format);
-    if (!BeQuiet && (errors == 0))
+    if (!BeQuiet && (mig_errors == 0))
     {
 	fprintf(stderr, "\"%s\", line %d: warning: ", yyinname, lineno-1);
 	(void) vfprintf(stderr, format, pvar);
@@ -101,7 +103,7 @@ error(char *format, ...)
     (void) vfprintf(stderr, format, pvar);
     fprintf(stderr, "\n");
     va_end(pvar);
-    errors++;
+    mig_errors++;
 }
 
 void

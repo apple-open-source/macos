@@ -17,7 +17,7 @@
 #  WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
 #  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 #
-# @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/Makefile.in,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+# @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/Makefile.in,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
 
 #
 # Various configurable paths (remember to edit Makefile.in, not Makefile)

@@ -164,17 +164,23 @@ int  ppp_fam_add_proto(struct ddesc_head_str *desc_head, struct if_proto *proto,
 {
     struct ifnet		*ifp = proto->ifp;
     struct ppp_fam		*pppfam = (struct ppp_fam *)ifp->family_cookie;
-    u_short			protocol = *((u_short *)TAILQ_FIRST(desc_head)->native_type);
-
+    struct dlil_demux_desc	*desc = TAILQ_FIRST(desc_head);
+    u_short			protocol = 0;
+    
+    if (desc)
+        protocol = *((u_short *)desc->native_type);
+    
     LOGDBG(ifp, (LOGVAL, "ppp_fam_add_proto = %d, ifp = 0x%x\n", protocol, ifp));
     
     switch (protocol) {
         case PPP_IP:
+            if (pppfam->ip_tag)	// protocol already registered
+                return EEXIST;
             pppfam->ip_tag = dl_tag;
             pppfam->ip_proto = proto;
             break;
         default:
-            return EINVAL;	// should not happen
+            return EINVAL;	// happen for unknown protocol, or for empty descriptor
     }
 
     return 0;

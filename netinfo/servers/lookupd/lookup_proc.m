@@ -31,8 +31,9 @@
 #import <rpc/xdr.h>
 #import <netinfo/lookup_types.h>
 #import <NetInfo/system_log.h>
-#include "MachRPC.h"
-#include "LUPrivate.h"
+#import "MachRPC.h"
+#import "LUPrivate.h"
+#import "Thread.h"
 
 typedef struct lookup_node
 {
@@ -62,6 +63,9 @@ static lookup_node _lookup_links[] =
 	{ "gethostbyname", 0 },
 	{ "gethostbyaddr", 0 },
 
+	{ "getipv6nodebyname", 0 },
+	{ "getipv6nodebyaddr", 0 },
+
 	{ "getnetent", 1 },
 	{ "getnetbyname", 0 },
 	{ "getnetbyaddr", 0 },
@@ -80,9 +84,6 @@ static lookup_node _lookup_links[] =
 
 	{ "getfsent", 1 },
 	{ "getfsbyname", 0 },
-
-	{ "getmntent", 1 },
-	{ "getmntbyname", 0 },
 
 	{ "prdb_get", 1 },
 	{ "prdb_getbyname", 0 },
@@ -144,7 +145,9 @@ kern_return_t __lookup_link
 		}
 	}
 
+#ifdef DEBUG
 	system_log(LOG_NOTICE, "_lookup_link(%s) failed", name);
+#endif
 	return KERN_FAILURE;
 }
 
@@ -159,6 +162,11 @@ kern_return_t __lookup_all
 )
 {
 	BOOL status;
+	kern_return_t kstatus;
+	char *replybuf;
+	char *vmbuffer;
+	unsigned int replylen;
+	Thread *t;
 	
 #ifdef DEBUG
 	system_log(LOG_DEBUG, "_lookup_all[%d]", procno);
@@ -170,29 +178,42 @@ kern_return_t __lookup_all
 		return KERN_FAILURE;
 	}
 
-	if (!_lookup_links[procno].returns_list)
-	{
-		system_log(LOG_NOTICE, "_lookup_all(%s) bad procedure type", proc_name(procno));
-		return KERN_FAILURE;
-	}
+	t = [Thread currentThread];
+	[t setData:NULL];
+	[t setDataLen:0];
 
 	inlen *= BYTES_PER_XDR_UNIT;
+
+	replybuf = NULL;
+	replylen = 0;
+
+	*outlen = 0;
 
 	status = [machRPC process:procno
 		inData:(char *)indata
 		inLength:inlen
-		outData:(char **)outdata
-		outLength:outlen];
+		outData:&replybuf
+		outLength:&replylen];
 
 	if (!status)
 	{
+#ifdef DEBUG
 		system_log(LOG_NOTICE, "_lookup_all(%s) failed", proc_name(procno));
+#endif
 		return KERN_FAILURE;
 	}
 
-#ifdef _IPC_TYPED_
-	*outlen /= BYTES_PER_XDR_UNIT;
-#endif
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, replylen, TRUE);
+	if (kstatus != KERN_SUCCESS) return kstatus;
+
+	[t setData:vmbuffer];
+	[t setDataLen:replylen];
+
+	memmove(vmbuffer, replybuf, replylen);
+	free(replybuf);
+
+	*outdata = vmbuffer;
+	*outlen = replylen / BYTES_PER_XDR_UNIT;
 
 	return KERN_SUCCESS;
 }
@@ -208,6 +229,8 @@ kern_return_t __lookup_one
 )
 {
 	BOOL status;
+	char *replybuf;
+	unsigned int replylen;
 
 #ifdef DEBUG
 	system_log(LOG_DEBUG, "_lookup_one[%d]", procno);
@@ -227,30 +250,35 @@ kern_return_t __lookup_one
 
 	inlen *= BYTES_PER_XDR_UNIT;
 
+	replybuf = NULL;
+	replylen = 0;
+
 	status = [machRPC process:procno
 		inData:(char *)indata
 		inLength:inlen
-		outData:(char **)&outdata
-		outLength:outlen];
+		outData:&replybuf
+		outLength:&replylen];
 
 	if (!status)
 	{
+#ifdef DEBUG
 		system_log(LOG_NOTICE, "_lookup_one(%s) failed", proc_name(procno));
+#endif
 		return KERN_FAILURE;
 	}
 
-	*outlen /= BYTES_PER_XDR_UNIT;
+	if ((replylen / BYTES_PER_XDR_UNIT) > (*outlen))
+	{
+		system_log(LOG_ERR, "_lookup_one(%s) reply buffer size %u, %u required", proc_name(procno), (*outlen), replylen / BYTES_PER_XDR_UNIT);
+		free(replybuf);
+		return KERN_FAILURE;
+	}
+
+	memmove(outdata, replybuf, replylen);
+	free(replybuf);
+	*outlen = replylen / BYTES_PER_XDR_UNIT;
 
 	return KERN_SUCCESS;
-}
-
-void dealloc
-(
-	ooline_data data,
-	unsigned len
-)
-{
-	(void)vm_deallocate(sys_task_self(), (vm_address_t)data, len * UNIT_SIZE);
 }
 
 kern_return_t __lookup_ooall
@@ -264,6 +292,10 @@ kern_return_t __lookup_ooall
 )
 {
 	BOOL status;
+	kern_return_t kstatus;
+	char *replybuf;
+	char *vmbuffer;
+	unsigned int replylen;
 
 #ifdef DEBUG
 	system_log(LOG_DEBUG, "_lookup_ooall[%d]", procno);
@@ -272,34 +304,88 @@ kern_return_t __lookup_ooall
 	if (procno < 0 || procno >= LOOKUP_NPROCS)
 	{
 		system_log(LOG_NOTICE, "_lookup_ooall[%d] unknown procedure", procno);
-		dealloc(indata, inlen);
-		return KERN_FAILURE;
-	}
-
-	if (!_lookup_links[procno].returns_list)
-	{
-		system_log(LOG_NOTICE, "_lookup_ooall(%s) bad procedure type", proc_name(procno));
-		dealloc(indata, inlen);
+		vm_deallocate(sys_task_self(), (vm_address_t)indata, inlen * UNIT_SIZE);
 		return KERN_FAILURE;
 	}
 
 	inlen *= BYTES_PER_XDR_UNIT;
 
+	replybuf = NULL;
+	replylen = 0;
+
+	*outlen = 0;
+
 	status = [machRPC process:procno
 		inData:(char *)indata
 		inLength:inlen
-		outData:(char **)&outdata
-		outLength:outlen];
+		outData:&replybuf
+		outLength:&replylen];
 
 	if (!status)
 	{
-		system_log(LOG_NOTICE, "_lookup_ooall(%s) failed", proc_name(procno));
+#ifdef DEBUG
+		system_log(LOG_NOTICE, "_lookup_all(%s) failed", proc_name(procno));
+#endif
 		return KERN_FAILURE;
 	}
 
-#ifdef _IPC_TYPED_
-	*outlen /= BYTES_PER_XDR_UNIT;
-#endif
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, replylen, TRUE);
+	if (kstatus != KERN_SUCCESS) return kstatus;
+
+	memmove(vmbuffer, replybuf, replylen);
+	free(replybuf);
+
+	*outdata = vmbuffer;
+	*outlen = replylen / BYTES_PER_XDR_UNIT;
 
 	return KERN_SUCCESS;
+}
+
+kern_return_t __lookup_link_secure
+(
+	sys_port_type server,
+	lookup_name name,
+	int *procno
+)
+{
+	return __lookup_link(server, name, procno);
+}
+
+kern_return_t __lookup_all_secure
+(
+	sys_port_type server,
+	int procno,
+	inline_data indata,
+	unsigned inlen,
+	ooline_data *outdata,
+	unsigned *outlen
+)
+{
+	return __lookup_all(server, procno, indata, inlen, outdata, outlen);
+}
+
+kern_return_t __lookup_one_secure
+(
+	sys_port_type server,
+	int procno,
+	inline_data indata,
+	unsigned inlen,
+	inline_data outdata,
+	unsigned *outlen
+)
+{
+	return __lookup_one(server, procno, indata, inlen, outdata, outlen);
+}
+
+kern_return_t __lookup_ooall_secure
+(
+	sys_port_type server,
+	int procno,
+	ooline_data indata,
+	unsigned inlen,
+	ooline_data *outdata,
+	unsigned *outlen
+)
+{
+	return __lookup_ooall(server, procno, indata, inlen, outdata, outlen);
 }

@@ -87,32 +87,54 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
 	2,
 	1
     },
-    { //    kIOHIDLibUserClientDisposeQueue
+    { //    kIOHIDLibUserClientStartQueue
 	0,
 	(IOMethod) &IOHIDLibUserClient::startQueue,
 	kIOUCScalarIScalarO,
 	1,
 	0
     },
-    { //    kIOHIDLibUserClientDisposeQueue
+    { //    kIOHIDLibUserClientStopQueue
 	0,
 	(IOMethod) &IOHIDLibUserClient::stopQueue,
 	kIOUCScalarIScalarO,
 	1,
 	0
     },
+    { //    kIOHIDLibUserClientUpdateElementValue
+	0,
+	(IOMethod) &IOHIDLibUserClient::updateElementValue,
+	kIOUCScalarIScalarO,
+	1,
+	0
+    },
+    { //    kIOHIDLibUserClientPostElementValue
+	0,
+	(IOMethod) &IOHIDLibUserClient::postElementValue,
+	kIOUCStructIStructO,
+	0xffffffff,
+	0
+    },
+
 
 
 };
 
 const IOExternalAsyncMethod IOHIDLibUserClient::
 sAsyncMethods[kIOHIDLibUserClientNumAsyncCommands] = {
-    { //    kIOHIDLibUserClientSetAsyncPort
+    { //	kIOHIDLibUserClientSetAsyncPort
 	0,
 	(IOAsyncMethod) &IOHIDLibUserClient::setAsyncPort,
 	kIOUCScalarIScalarO,
 	0,
 	0
+    },
+    { // 	kIOHIDLibUserClientSetQueueAsyncPort
+	0,
+	(IOAsyncMethod) &IOHIDLibUserClient::setQueueAsyncPort,
+	kIOUCScalarIScalarO,
+	1,
+	0    
     }
 };
 
@@ -197,6 +219,22 @@ setAsyncPort(OSAsyncReference asyncRef, void *, void *, void *,
 }
 
 IOReturn IOHIDLibUserClient::
+setQueueAsyncPort(OSAsyncReference asyncRef, void * vInQueue, void *, void *,
+                                        void *, void *, void *)
+{
+    IOHIDEventQueue * eventQueue = (IOHIDEventQueue *) vInQueue;
+    
+    fQueuePort = (mach_port_t) asyncRef[0];
+    
+    if ( !eventQueue ) 
+        return kIOReturnBadArgument;
+
+    eventQueue->setNotificationPort(fQueuePort);
+
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDLibUserClient::
 open(void *, void *, void *, void *, void *, void *)
 {
     IOReturn res = kIOReturnSuccess;
@@ -245,6 +283,7 @@ close(void *, void *, void *, void *, void *, void *gated)
         wl = fGate->getWorkLoop();
         wl->removeEventSource(fGate);
         wl->release();
+        wl = 0;
 
         fGate->release();
         fGate = 0;
@@ -262,6 +301,29 @@ close(void *, void *, void *, void *, void *, void *gated)
     return kIOReturnSuccess;
 }
 
+bool
+IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+    fNub->close(this);
+    
+    return super::didTerminate(provider, options, defer);
+}
+
+void IOHIDLibUserClient::free()
+{
+    IOWorkLoop *wl;
+
+    if (fGate) 
+    {
+        wl = fGate->getWorkLoop();
+        if (wl) 
+            wl->release();
+        
+        fGate->release();
+    }
+    
+    super::free();
+}
 
 
 IOReturn IOHIDLibUserClient::closeAction
@@ -316,7 +378,7 @@ clientMemoryForType (	UInt32			type,
 IOReturn IOHIDLibUserClient::
 createQueue(void * vInFlags, void * vInDepth, void * vOutQueue, void *, void *, void * gated)
 {
-    UInt32	flags = (UInt32) vInFlags;
+    // UInt32	flags = (UInt32) vInFlags;
     UInt32	depth = (UInt32) vInDepth;
     void **	outQueue = (void **) vOutQueue;
 
@@ -357,7 +419,7 @@ addElementToQueue(void * vInQueue, void * vInElementCookie,
     // parameter typing
     IOHIDEventQueue * queue = (IOHIDEventQueue *) vInQueue;
     IOHIDElementCookie elementCookie = (IOHIDElementCookie) vInElementCookie;
-    UInt32 flags = (UInt32) vInFlags;
+    // UInt32 flags = (UInt32) vInFlags;
     
     // add the queue to the element's queues
     ret = fNub->startEventDelivery (queue, elementCookie);
@@ -426,3 +488,27 @@ stopQueue (void * vInQueue, void *, void *,
     return kIOReturnSuccess;
 }
 
+    // update the feature element value
+IOReturn IOHIDLibUserClient::
+updateElementValue (void * cookie, void *, void *, 
+                            void *, void *, void * )
+{
+    IOReturn			ret = kIOReturnError;
+    
+    ret = fNub->updateElementValues(&cookie);
+    
+    return ret;
+}
+
+    // Set the element values
+IOReturn IOHIDLibUserClient::
+postElementValue (void * cookies, void * cookiesBytes, void *, 
+                            void *, void *, void * )
+{
+    IOReturn	ret = kIOReturnError;
+    UInt32	numCookies = ((UInt32)cookiesBytes) / sizeof(UInt32);
+        
+    ret = fNub->postElementValues((IOHIDElementCookie *)cookies, numCookies);
+            
+    return ret;
+}

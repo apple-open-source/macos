@@ -1,12 +1,14 @@
-# Copyright (c) 1999,2000 Apple Computer, Inc.
+# Copyright (c) 1999-2002 Apple Computer, Inc.
 # All rights reserved.
 
-# Maps legacy Makefile variables to modern Jambase variables
+# old skool...
 # Source root is SRCROOT, or ., or working directory
 # Root values are overridden by default
-SRCROOT default = $(PWD) ;
-SRCROOT default = . ;
-SOURCE_ROOT default = $(SRCROOT) ;
+#SRCROOT default = $(PWD) ;
+#SRCROOT default = . ;
+#SOURCE_ROOT default = $(SRCROOT) ;
+
+# Maps legacy Makefile variables to modern Jambase variables
 # Set global C flags, architectures, and architecture flags for linking
 GLOBAL_CFLAGS default = $(RC_NONARCH_CFLAGS) ;
 ARCHITECTURES default = $(RC_ARCHS) ;
@@ -17,3 +19,21 @@ for ARCH in $(SUPPORTED_ARCHITECTURES) {
         $(ARCH) = YES ;
     }
 }
+
+# More compatibility definitions for things that we have
+# renamed that we had already told external users about
+export deferred TEMP_FILES_DIR = $(TEMP_DIR) ;
+export deferred DERIVED_SOURCES_DIR = $(DERIVED_FILE_DIR) ;
+export deferred BUILD_PATH = $(TEMP_ROOT) ;
+
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+
+# (the following four are build settings to the generated package files
+#  written by PBXCore -- the new names have underscores to indicate that
+#  they are private, and they have more consistent names -- we should
+#  be able to remove the old compatibility settings soon)
+export deferred PRODUCT_SETTINGS_PATH = $(_INFO_PLIST_FILE_PATH) ;
+export deferred PKGINFO_FILE_PATH = $(_PKGINFO_FILE_PATH) ;
+export deferred VERSION_SETTINGS_PATH = $(_VERSION_PLIST_FILE_PATH) ;
+export deferred DEVELOPMENT_SETTINGS_PATH = $(_PBDEVELOPMENT_PLIST_FILE_PATH) ;

@@ -1,5 +1,5 @@
 Copyright (c) 1985 Free Software Foundation, Inc;  podmínky viz na konci.
-Do èe¹tiny pøelo¾il Milan Zamazal <pdm@freesoft.cz>.
+Do èe¹tiny pøelo¾il Milan Zamazal <pdm@zamazal.org>.
 
 Máte pøed sebou tutoriál k Emacsu.
 
@@ -19,7 +19,7 @@ Znaky ">>" na levém okraji znaèí místa, kde si máte vyzkou¹et pøíkaz.
 Napøíklad:
 <<Blank lines inserted here by startup of help-with-tutorial>>
 >>  Nyní stisknìte C-v (view next screen) pro posun na dal¹í obrazovku.
-        (Smìle do toho, proveïte to pøidr¾ením klávesy control a stiskem v.)
+        (Smìle do toho, proveïte to pøidr¾ením klávesy CONTROL a stiskem v.)
 	Od této chvíle byste toto mìli provádìt kdykoliv doètete zobrazenou
         obrazovku.
 
@@ -45,7 +45,7 @@ K prohlí¾ení obrazovkových stránek jsou u¾iteèné následující pøíkazy:
 	M-v	Posun o obrazovku zpìt
 	C-l	Smazání obrazovky a znovuzobrazení celého textu,
 		 pøitom se text pod kurzorem pøesune ke støedu obrazovky.
-		 (Jedná se o control-L a ne control-1.)
+		 (Jedná se o CONTROL-L a ne CONTROL-1.)
 
 >> Najdìte kurzor a zapamatujte si, jaký text je kolem nìj.
    Pak stisknìte C-l.
@@ -111,7 +111,7 @@ ani¾ by kurzor opustil obrazovku.
    co se stane.
 
 Jestli¾e je posun po znacích pøíli¹ pomalý, mù¾ete se pohybovat po
-slovech.  M-f (Meta-f) provádí posun o slovo vpøed a M-b provádí posun
+slovech.  M-f (META-f) provádí posun o slovo vpøed a M-b provádí posun
 o slovo zpìt.
 
 >> Stisknìte nìkolikrát M-f a M-b.
@@ -126,10 +126,10 @@ smìru.
    mezi nimi.
 
 V¹imnìte si analogie mezi C-f a C-b na jedné stranì a M-f a M-b na
-stranì druhé.  Meta znaky jsou velmi èasto vyu¾ívány pro operace
+stranì druhé.  Znaky s klávesou META jsou velmi èasto vyu¾ívány pro operace
 vztahující se k entitám definovaným jazykem (slova, vìty, odstavce),
-zatímco Control znaky pracují na základních prvcích nezávislých na tom,
-co zrovna editujete (znaky, øádky, apod.).
+zatímco znaky s klávesou CONTROL pracují na základních prvcích
+nezávislých na tom, co zrovna editujete (znaky, øádky, apod.).
 
 Tato analogie platí také pro øádky a vìty: C-a a C-e provádí pøesun
 na zaèátek a konec øádku, M-a a M-e provádí pøesun na zaèátek a konec
@@ -167,8 +167,8 @@ pohyb mezi slovy a vìtami:
 >> Vyzkou¹ejte si teï nìkolikrát v¹echny tyto pøíkazy pro procvièení.
    Jsou to nejpou¾ívanìj¹í pøíkazy.
 
-Dal¹í dva dùle¾ité pøíkazy pro pohyb kurzoru jsou M-< (Meta men¹í-ne¾),
-který provede pøesun na zaèátek celého textu, a M-> (Meta vìt¹í-ne¾),
+Dal¹í dva dùle¾ité pøíkazy pro pohyb kurzoru jsou M-< (META men¹í-ne¾),
+který provede pøesun na zaèátek celého textu, a M-> (META vìt¹í-ne¾),
 který provede pøesun na konec celého textu.
 
 Na vìt¹inì terminálù je "<" nad èárkou, tak¾e pro vyvolání tohoto znaku
@@ -213,7 +213,7 @@ C-u 4 C-v posune obrazovku o 4 øádky.
 To by mìlo posunout obrazovku o 8 øádkù nahoru.  Pokud byste ji chtìli
 posunout zpìt dolù, mù¾ete dát argument pøíkazu M-v.
 
-Pou¾íváte-li X Windows, mìli byste mít na levé stranì emacsovského okna
+Pou¾íváte-li X Window, mìli byste mít na levé stranì emacsového okna
 vysokou obdélníkovou oblast, nazývanou scrollbar.  Mù¾ete pak text
 posouvat klikáním my¹í na scrollbar.
 
@@ -272,12 +272,12 @@ jednookenní editace.  Je to jednoduché:
 
 	C-x 1	Jedno okno (tj. zru¹ení v¹ech ostatních oken)
 
-Tedy vlo¾ení Control-x následované èíslicí 1.  C-x 1 roz¹íøí okno
+Tedy vlo¾ení CONTROL-x následované èíslicí 1.  C-x 1 roz¹íøí okno
 obsahující kurzor pøes celou obrazovku.  Zru¹í to v¹echna ostatní okna.
 
->> Stisknìte Control-h k Control-f.
+>> Stisknìte C-h k C-f.
    Pozorujte, jak se aktuální okno zmen¹í a objeví se nové okno za
-   úèelem zobrazení dokumentace k pøíkazu Control-f.
+   úèelem zobrazení dokumentace k pøíkazu C-f.
 
 >> Stisknìte C-x 1 a pozorujte, jak okno s dokumentací zmizí.
 
@@ -341,17 +341,23 @@ Zde je shrnutí operací pro mazání textu:
 	M-k	     Zru¹ení textu do konce aktuální vìty
 
 V¹imnìte si, ¾e <Delete> a C-d, resp. M-<Delete> a M-d, roz¹iøují
-paralelu zapoèatou C-f a M-f (pravda, <Delete> opravdu není control
+paralelu zapoèatou C-f a M-f (pravda, <Delete> opravdu není CONTROL
 znak, ale netrapme se tím).  C-k a M-k jsou jako C-e a M-e ve smyslu
 vztahu øádkù k vìtám.
 
-Kdy¾ sma¾ete více znakù najednou, Emacs smazaný text ulo¾í, abyste jej
-mohli opìt vrátit.  Vracení zru¹eného ("killed") textu se nazývá
-vhazování ("yanking").
+Libovolnou èást bufferu mù¾ete té¾ zru¹it následující metodou.
+Pøesuòte se na jeden konec této èásti a stisknìte C-@ nebo C-SPC
+(libovolnou z tìchto kombinací). (SPC oznaèuje mezerník.)  Pøesuòte
+se na druhý konec této èásti a stisknìte C-w.  Text mezi tìmito
+pozicemi bude zru¹en.
 
-Zru¹ený text mù¾ete vhodit na toté¾ místo, kde byl zru¹en, nebo na
-jiné místo v textu.  Text mù¾ete vhodit nìkolikrát za sebou,
-potøebujete-li vyrobit nìkolik jeho kopií.  Vhazovací pøíkaz je C-y.
+>> Pøesuòte kurzor na písmeno L na zaèátku pøedchozího odstavce.
+>> Stisknìte C-SPC.  Emacs by mìl ve spodním øádku obrazovky
+   zobrazit zprávu "Mark set".
+>> Pøesuòte kurzor na písmeno c ve slovì "konec" na druhém øádku
+   odstavce.
+>> Stisknìte C-w.  Text zaèínající písmenem L a konèící pøed písmenem
+   c bude zru¹en.
 
 Uvìdomte si, ¾e rozdíl mezi "ru¹ením" ("killing") a "mazáním"
 ("deleting") je ten, ¾e "zru¹ené" vìci mohou být zpìt vhozeny, zatímco
@@ -370,14 +376,19 @@ argument speciálnì: zru¹í odpovídající poèet øádkù VÈETNÌ jejich
 obsahu.  To u¾ není opakování.  C-u 2 C-k zru¹í dva øádky a jejich
 obsah; dvojitý stisk C-k by toto obvykle neudìlal.
 
-Vyta¾ení posledního zru¹eného textu a jeho vlo¾ení na pozici, kde se
-momentálnì nachází kurzor, dosáhnete stiskem C-y.
+Vracení textu zpìt se nazývá "vhazování" ("yanking").  (Pøedstavte
+si opìtovné vhazování, vracení døíve odstranìného textu zpátky.)
+Zru¹ený text mù¾ete vhodit buï na stejné místo, kde byl zru¹en,
+nebo na jiné místo v bufferu, nebo dokonce i do jiného souboru.
+Text mù¾ete vhodit i vícekrát, vytváøíte tak jeho dal¹í kopie.
+
+Pøíkazem pro vhazování je C-y.  Tento pøíkaz vlo¾í poslední smazaný
+text na pozici, na které se nachází kurzor.
 
 >> Zkuste to; stisknìte C-y pro vhození textu zpìt.
 
-Chápejte C-y, jako kdybyste si zpátky vzali nìco, co vám nìkdo sebral.
-V¹imnìte si, ¾e pokud provedete nìkolik C-k za sebou, ve¹kerý zru¹ený
-text je ulo¾en pohromadì, aby jediné C-y vlo¾ilo v¹echny tyto øádky.
+Stisknete-li nìkolikrát C-k po sobì, v¹echen smazaný text je ulo¾en
+spoleènì tak, aby bylo mo¾né vhodit zpìt v¹echny øádky najednou.
 
 >> Stisknìte nìkolikrát C-k.
 
@@ -411,7 +422,7 @@ bodu (poslednì zru¹enému textu).
 ------
 
 Jestli¾e provedete v textu zmìnu a pak zjistíte, ¾e to byl omyl, mù¾ete
-zmìnu vrátit pøíkazem undo C-x u.
+zmìnu vrátit pøíkazem undo, C-x u.
 
 C-x u obvykle vrátí zmìny provedené jedním pøíkazem; pokud C-x u
 zopakujete nìkolikrát za sebou, ka¾dé opakování vrátí jeden dal¹í
@@ -433,6 +444,10 @@ proè nabízíme i C-x u.  Na nìkterých terminálech mù¾ete C-_ vyvolat
 stiskem / pøi stisknutém CTRL.
 
 Numerický argument pro C-_ a C-x u funguje jako poèet opakování.
+
+Pomocí pøíkazu undo mù¾ete vrátit zru¹ený stejnì jako smazaný text.
+Rozdíl mezi mazáním a ru¹ením textu ovlivòuje mo¾nost vhození tohoto
+textu pomocí C-y, neovlivòuje mo¾nosti pøíkazu undo.
 
 
 * SOUBORY
@@ -460,8 +475,8 @@ vyhledáte soubor, jeho jméno se objeví pøesnì na tom místì.
 
 Pøíkazy pro vyhledávání a ukládání souborù se na rozdíl od ostatních
 pøíkazù, které jste se zatím nauèili, skládají ze dvou znakù.  Oba
-zaèínají znakem Control-x.  Existuje celá øada pøíkazù zaèínajících na
-Control-x; mnoho z nich pracuje se soubory, buffery a podobnými vìcmi.
+zaèínají znakem CONTROL-x.  Existuje celá øada pøíkazù zaèínajících na
+CONTROL-x; mnoho z nich pracuje se soubory, buffery a podobnými vìcmi.
 Tyto pøíkazy jsou dlouhé dva, tøi nebo ètyøi znaky.
 
 Dal¹í vìcí ohlednì pøíkazu pro vyhledání souboru je to, ¾e musíte øíct,
@@ -544,7 +559,7 @@ Podívejte se, ¾e ka¾dý buffer má v seznamu jméno a mù¾e tam mít také jméno
 souboru, jeho¾ text obsahuje.  Nìkteré buffery neodpovídají souborùm.
 Napøíklad buffer pojmenovaný "*Buffer List*" nemá ¾ádný soubor.  Je to
 buffer, který obsahuje seznam bufferù vytvoøený pomocí C-x C-b.
-JAKÝKOLIV text, který vidíte v emacsovském oknì, je v¾dy souèástí
+JAKÝKOLIV text, který vidíte v emacsovém oknì, je v¾dy souèástí
 nìjakého bufferu.
 
 >> Stisknìte C-x 1, abyste se zbavili seznamu bufferù.
@@ -572,7 +587,7 @@ neulo¾ili.  Pro ka¾dý takový buffer se vás zeptá, zda jej má ulo¾it.
 --------------------------
 
 Existuje mnohem, mnohem více pøíkazù Emacsu, ne¾ které by vùbec mohly
-být rozmístìny na v¹echny control a meta znaky.  Emacs tento problém
+být rozmístìny na v¹echny CONTROL a META znaky.  Emacs tento problém
 obchází prostøednictvím X (eXtend) pøíkazu.  Ten vzniká dvìma zpùsoby:
 
 	C-x	Znakový eXtend.  Následován jedním znakem.
@@ -754,7 +769,7 @@ numerický argument.
 
 Jestli¾e provedete zmìny uprostøed odstavce, Auto Fill mód jej
 nepøeformátuje. 
-Pro pøeformátování odstavce stisknìte M-q (Meta-q) s kurzorem uvnitø
+Pro pøeformátování odstavce stisknìte M-q (META-q) s kurzorem uvnitø
 odstavce.
 
 >> Pøesuòte kurzor do pøedchozího odstavce a stisknìte M-q.
@@ -806,7 +821,7 @@ na¹li první výskyt "k".  Jestli¾e nyní stisknete "u", kurzor se pøesune na
 první výskyt "ku".  Teï stisknìte <Delete>.  To vyma¾e "u" z hledaného
 øetìzce a kurzor se pøesune zpìt na první výskyt "k".
 
-Jestli¾e uprostøed hledání stisknete control nebo meta znak (s nìkolika
+Jestli¾e uprostøed hledání stisknete CONTROL nebo META znak (s nìkolika
 výjimkami -- znaky, které jsou speciální v hledání, jako C-s a C-r),
 hledání se ukonèí.
 
@@ -828,7 +843,7 @@ více oken souèasnì.
    Obì okna zobrazují tento tutoriál.  Kurzor zùstává navrchu okna.
 
 >> Tisknìte C-M-v pro scrollování spodního okna.
-   (Nemáte-li skuteènou klávesu Meta, stisknìte ESC C-v.)
+   (Nemáte-li skuteènou klávesu META, stisknìte ESC C-v.)
 
 >> Stisknìte C-x o ("o" jako "other") pro pøesun kurzoru do dolního okna.
 
@@ -904,7 +919,7 @@ abyste mohli zaèít Emacs pou¾ívat.  V Emacsu je toho tolik, ¾e by bylo
 nemo¾né to zde v¹echno objasnit.  Nicménì se o Emacsu mù¾ete nauèit
 více, proto¾e má mnoho u¾iteèných vlastností.  Emacs nabízí pøíkazy pro
 ètení dokumentace svých pøíkazù.  V¹echny tyto "help" pøíkazy
-zaèínají znakem Control-h, který se nazývá "help znak".
+zaèínají znakem CONTROL-h, který se nazývá "help znak".
 
 Pro pou¾ití vlastností nápovìdy stisknìte znak C-h a pak znak øíkající,
 jaký druh nápovìdy ¾ádáte.  Jste-li OPRAVDU ztraceni, stisknìte C-h ? a
@@ -921,7 +936,7 @@ toho pou¾ívat klávesu F1 nebo M-x help RET.)
 Nejzákladnìj¹í help pøíkaz je C-h c.  Stisknìte C-h, znak c a klávesový
 pøíkaz; Emacs pak zobrazí velmi struèný popis pøíkazu.
 
->> Stisknìte C-h c Control-p.
+>> Stisknìte C-h c C-p.
    Hlá¹ení by mìlo vypadat asi takto
 
 	C-p runs the command previous-line
@@ -937,9 +952,9 @@ klávesu) <ESC>v jsou po C-h c povoleny také.
 
 K získání více informací o pøíkazu místo C-h c pou¾ijte C-h k.
 
->> Stisknìte C-h k Control-p.
+>> Stisknìte C-h k C-p.
 
-To zobrazí dokumentaci k funkci a její jméno v emacsovském oknì.  A¾
+To zobrazí dokumentaci k funkci a její jméno v emacsovém oknì.  A¾
 výstup pøeètete, stisknìte C-x 1, abyste se textu nápovìdy zbavili.
 Nemusíte to dìlat hned.  Mù¾ete chvíli editovat a nahlí¾et do textu
 nápovìdy a teprve pak stisknout C-x 1.
@@ -952,10 +967,14 @@ Zde jsou dal¹í u¾iteèné C-h volby:
    To vypí¹e ve¹keré informace, které Emacs má o funkci implementující
    pøíkaz C-p.
 
+Podobný pøíkaz C-h v zobrazí dokumentaci promìnné, její¾ hodnotu
+mù¾ete nastavit a zmìnit tím chování Emacsu.  Jméno promìnné zadáte, a¾
+se na nì Emacs zeptá.
+
    C-h a	Pøíkazové apropos.  Zadejte klíèové slovo a Emacs vypí¹e
 		v¹echny pøíkazy, jejich¾ jména obsahují toto klíèové
 		slovo.  V¹echny tyto pøíkazy mohou být vyvolány pomocí
-		Meta-x.  Pro nìkteré pøíkazy pøíkazové apropos vypí¹e
+		META-x.  Pro nìkteré pøíkazy pøíkazové apropos vypí¹e
 		také jedno nebo dvouznakové sekvence, které provádìjí
 		tentý¾ pøíkaz.
 
@@ -968,6 +987,17 @@ odpovídajících jmen pøíkazù jako find-file.
 >> Stisknìte C-M-v pro posun okna s nápovìdou.  Proveïte to nìkolikrát.
 
 >> Stisknìte C-x 1 pro smazání okna s nápovìdou.
+
+   C-h i	Ètení on-line manuálù (té¾ Info).  Tento pøíkaz
+		vás pøepne do speciálního bufferu s názvem `*info*',
+		ve kterém mù¾ete èíst on-line manuály pro balíky
+		nainstalované na va¹em systému.  Pokud stisknete
+		m emacs <Return> mù¾ete si napøíklad pøeèíst manuál
+		k Emacsu.  Pokud jste dosud nikdy nepou¾ívali Info,
+		stisknìte ? a Emacs vám pøedstaví hlavní mo¾nosti
+		módu pro Info.  A¾ si tyto mo¾nosti prostudujete,
+		mìli byste pou¾ívat Info manuál Emacsu jako svoji
+		primární dokumentaci.
 
 
 * ZÁVÌR
@@ -985,7 +1015,7 @@ narazíte-li na nìco nejasného, tak neusedejte a neklaïte to za vinu sobì
 KOPÍROVÁNÍ
 ----------
 
-Tento tutoriál vychází z dlouhé øady emacsovských tutoriálù zahájené
+Tento tutoriál vychází z dlouhé øady emacsových tutoriálù zahájené
 tutoriálem napsaným Stuartem Cracraftem pro pùvodní Emacs.
 
 Tato verze tutoriálu je, podobnì jako GNU Emacs, chránìna copyrightem a

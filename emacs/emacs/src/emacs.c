@@ -1,5 +1,6 @@
 /* Fully extensible Emacs, running on Unix, intended for GNU.
-   Copyright (C) 1985,86,87,93,94,95,97,1998 Free Software Foundation, Inc.
+   Copyright (C) 1985,86,87,93,94,95,97,98,1999,2001
+      Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,10 +20,9 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+#include <config.h>
 #include <signal.h>
 #include <errno.h>
-
-#include <config.h>
 #include <stdio.h>
 
 #include <sys/types.h>
@@ -30,6 +30,10 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef VMS
 #include <ssdef.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 #ifdef BSD_SYSTEM
@@ -48,25 +52,43 @@ Boston, MA 02111-1307, USA.  */
 #include "termhooks.h"
 #include "keyboard.h"
 
+#ifdef HAVE_SETLOCALE
+#include <locale.h>
+#endif
+
 #ifdef HAVE_SETRLIMIT
 #include <sys/time.h>
 #include <sys/resource.h>
-#endif
-
-#ifdef HAVE_SETPGID
-#if !defined (USG) || defined (BSD_PGRPS)
-#define setpgrp setpgid
-#endif
 #endif
 
 #ifndef O_RDWR
 #define O_RDWR 2
 #endif
 
-extern void malloc_warning ();
-extern void set_time_zone_rule ();
-extern char *index ();
-extern char *strerror ();
+#ifdef HAVE_SETPGID
+#if !defined (USG) || defined (BSD_PGRPS)
+#undef setpgrp
+#define setpgrp setpgid
+#endif
+#endif
+
+extern void malloc_warning P_ ((char *));
+extern void set_time_zone_rule P_ ((char *));
+#ifdef HAVE_INDEX
+extern char *index P_ ((const char *, int));
+#endif
+
+/* Make these values available in GDB, which doesn't see macros.  */
+
+EMACS_INT gdb_valbits = VALBITS;
+EMACS_INT gdb_gctypebits = GCTYPEBITS;
+EMACS_INT gdb_emacs_intbits = sizeof (EMACS_INT) * BITS_PER_CHAR;
+#ifdef DATA_SEG_BITS
+EMACS_INT gdb_data_seg_bits = DATA_SEG_BITS;
+#else
+EMACS_INT  gdb_data_seg_bits = 0;
+#endif
+EMACS_INT PVEC_FLAG = PSEUDOVECTOR_FLAG;
 
 /* Command line args from shell, as list of strings */
 Lisp_Object Vcommand_line_args;
@@ -126,6 +148,12 @@ Lisp_Object Vsystem_configuration_options;
 
 Lisp_Object Qfile_name_handler_alist;
 
+/* Current and previous system locales for messages and time.  */
+Lisp_Object Vsystem_messages_locale;
+Lisp_Object Vprevious_system_messages_locale;
+Lisp_Object Vsystem_time_locale;
+Lisp_Object Vprevious_system_time_locale;
+
 /* If non-zero, emacs should not attempt to use an window-specific code,
    but instead should use the virtual terminal under which it was started */
 int inhibit_window_system;
@@ -182,6 +210,81 @@ int initial_argc;
 
 static void sort_args ();
 void syms_of_emacs ();
+
+#define USAGE1 "\
+Usage: %s [OPTION-OR-FILENAME]...\n\
+\n\
+Run Emacs, the extensible, customizable, self-documenting real-time\n\
+display editor.  The recommended way to start Emacs for normal editing\n\
+is with no options at all.\n\
+\n\
+Run M-x info RET m emacs RET m command arguments RET inside Emacs to\n\
+read the main documentation for these command-line arguments.\n\
+\n\
+Initialization options:\n\
+\n\
+--batch			do not do interactive display; implies -q\n\
+--debug-init		enable Emacs Lisp debugger during init file\n\
+--help			display this help message and exit\n\
+--multibyte, --no-unibyte   run Emacs in multibyte mode\n\
+--no-init-file, -q	    load neither ~/.emacs nor default.el\n\
+--no-shared-memory, -nl	    do not use shared memory\n\
+--no-site-file		    do not load site-start.el\n\
+--no-windows, -nw	    don't communicate with X, ignoring $DISPLAY\n\
+--terminal, -t DEVICE	    use DEVICE for terminal I/O\n\
+--unibyte, --no-multibyte   run Emacs in unibyte mode\n\
+--user, -u USER		load ~USER/.emacs instead of your own\n\
+--version		display version information and exit\n\
+\n\
+Action options:\n\
+\n\
+FILE			visit FILE using find-file\n\
++LINE FILE		visit FILE using find-file, then go to line LINE\n\
++LINE:COLUMN FILE	visit FILE using find-file, then go to line LINE,\n\
+			    column COLUMN\n\
+--directory, -L DIR	add DIR to variable load-path\n\
+--eval EXPR		evaluate Emacs Lisp expression EXPR\n\
+--execute EXPR		evaluate Emacs Lisp expression EXPR\n\
+--find-file FILE	visit FILE\n\
+--funcall, -f FUNC	call Emacs function FUNC with no arguments\n\
+--insert FILE		insert contents of FILE into current buffer\n\
+--kill			exit without asking for confirmation\n\
+--load, -l FILE		load FILE of Emacs Lisp code using the load function\n\
+--visit FILE		visit FILE\n\
+\n"
+
+#define USAGE2 "\
+Display options:\n\
+\n\
+--background-color, -bg COLOR	window background color\n\
+--border-color, -bd COLOR	main border color\n\
+--border-width, -bw WIDTH	width of main border\n\
+--cursor-color, -cr COLOR	color of the Emacs cursor indicating point\n\
+--display, -d DISPLAY		use X server DISPLAY\n\
+--font, -fn FONT		default font; must be fixed-widthp\n\
+--foreground-color, -fg COLOR	window foreground color\n\
+--geometry, -g GEOMETRY		window geometry\n\
+--iconic			start Emacs in iconified state\n\
+--icon-type, -i			use picture of gnu for Emacs icon\n\
+--internal-border, -ib WIDTH	width between text and main border\n\
+--line-spacing, -lsp PIXELS	additional space to put between lines\n\
+--mouse-color, -ms COLOR 	mouse cursor color in Emacs window\n\
+--name NAME			title of main Emacs window\n\
+--reverse-video, -r, -rv	switch foreground and background\n\
+--title, -T, -wn, TITLE		title for Emacs windows\n\
+--vertical-scroll-bars, -vb	enable vertical scroll bars\n\
+--xrm XRESOURCES		set additional X resources\n\
+\n\
+You can generally also specify long option names with a single -; for\n\
+example, -batch as well as --batch.  You can use any unambiguous\n\
+abbreviation for a --option.\n\
+\n\
+Various environment variables and window system resources also affect\n\
+Emacs' operation.  See the main documentation.\n\
+\n\
+Report bugs to bug-gnu-emacs@gnu.org.  First, please see the Bugs\n\
+section of the Emacs manual or the file BUGS.\n"
+
 
 /* Signal code for the fatal signal that was received */
 int fatal_error_code;
@@ -196,11 +299,9 @@ handle_USR1_signal (sig)
 {
   struct input_event buf;
 
-  buf.kind = user_signal;
-  buf.code = 0;
-  buf.frame_or_window = Fselected_frame ();
-  buf.modifiers = 0;
-  buf.timestamp = 0;
+  bzero (&buf, sizeof buf);
+  buf.kind = USER_SIGNAL_EVENT;
+  buf.frame_or_window = selected_frame;
 
   kbd_buffer_store_event (&buf);
 }
@@ -213,17 +314,16 @@ handle_USR2_signal (sig)
 {
   struct input_event buf;
 
-  buf.kind = user_signal;
+  bzero (&buf, sizeof buf);
+  buf.kind = USER_SIGNAL_EVENT;
   buf.code = 1;
-  buf.frame_or_window = Fselected_frame ();
-  buf.modifiers = 0;
-  buf.timestamp = 0;
+  buf.frame_or_window = selected_frame;
 
   kbd_buffer_store_event (&buf);
 }
 #endif /* SIGUSR2 */
 
-/* Handle bus errors, illegal instruction, etc. */
+/* Handle bus errors, invalid instruction, etc. */
 SIGTYPE
 fatal_error_signal (sig)
      int sig;
@@ -275,11 +375,13 @@ memory_warning_signal (sig)
    so that GDB can return from a breakpoint here.
    MSDOS has its own definition on msdos.c  */
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
 #if ! defined (DOS_NT) && ! defined (NO_ABORT)
-void
+
+#ifndef ABORT_RETURN_TYPE
+#define ABORT_RETURN_TYPE void
+#endif
+
+ABORT_RETURN_TYPE
 abort ()
 {
   kill (getpid (), SIGABRT);
@@ -505,7 +607,7 @@ argmatch (argv, argc, sstr, lstr, minlen, valptr, skipptr)
      char **valptr;
      int *skipptr;
 {
-  char *p;
+  char *p = NULL;
   int arglen;
   char *arg;
 
@@ -563,7 +665,9 @@ argmatch (argv, argc, sstr, lstr, minlen, valptr, skipptr)
 static void
 malloc_initialize_hook ()
 {
+#ifndef USE_CRT_DLL
   extern char **environ;
+#endif
 
   if (initialized)
     {
@@ -574,7 +678,7 @@ malloc_initialize_hook ()
 	{
 	  char **p;
 
-	  for (p = environ; *p; p++)
+	  for (p = environ; p && *p; p++)
 	    if (strncmp (*p, "MALLOC_CHECK_=", 14) == 0)
 	      {
 		do
@@ -602,14 +706,24 @@ main (argc, argv, envp)
      char **argv;
      char **envp;
 {
+#if GC_MARK_STACK
+  Lisp_Object dummy;
+#endif
   char stack_bottom_variable;
+  int do_initial_setlocale;
   int skip_args = 0;
+#ifndef USE_CRT_DLL
   extern int errno;
-  extern int sys_nerr;
+#endif
 #ifdef HAVE_SETRLIMIT
   struct rlimit rlim;
 #endif
   int no_loadup = 0;
+
+#if GC_MARK_STACK
+  extern Lisp_Object *stack_base;
+  stack_base = &dummy;
+#endif
 
 #ifdef LINUX_SBRK_BUG
   __sbrk (1);
@@ -639,7 +753,7 @@ main (argc, argv, envp)
       else
 	{
 	  printf ("GNU Emacs %s\n", XSTRING (tem)->data);
-	  printf ("Copyright (C) 1999 Free Software Foundation, Inc.\n");
+	  printf ("Copyright (C) 2001 Free Software Foundation, Inc.\n");
 	  printf ("GNU Emacs comes with ABSOLUTELY NO WARRANTY.\n");
 	  printf ("You may redistribute copies of Emacs\n");
 	  printf ("under the terms of the GNU General Public License.\n");
@@ -670,8 +784,13 @@ main (argc, argv, envp)
     extern int malloc_cookie;
     /* This helps out unexnext.c/unexdyld.c. */
     if (initialized)
-      if (malloc_jumpstart (malloc_cookie) != 0)
-	printf ("malloc jumpstart failed!\n");
+      {
+	if (malloc_jumpstart (malloc_cookie) != 0)
+	  {
+	    fprintf (stderr, "Fatal malloc_jumpstart() error\n");
+	    exit (1);
+	  }
+      }
   }
 #endif /* NeXT || RHAPSODY || DARWIN */
 
@@ -786,6 +905,20 @@ main (argc, argv, envp)
   setuid (getuid ());
 #endif /* SET_EMACS_PRIORITY */
 
+  /* Skip initial setlocale if LC_ALL is "C", as it's not needed in that case.
+     The build procedure uses this while dumping, to ensure that the
+     dumped Emacs does not have its system locale tables initialized,
+     as that might cause screwups when the dumped Emacs starts up.  */
+  {
+    char *lc_all = getenv ("LC_ALL");
+    do_initial_setlocale = ! lc_all || strcmp (lc_all, "C");
+  }
+
+  /* Set locale now, so that initial error messages are localized properly.
+     fixup_locale must wait until later, since it builds strings.  */
+  if (do_initial_setlocale)
+    setlocale (LC_ALL, "");
+
 #ifdef EXTRA_INITIALIZE
   EXTRA_INITIALIZE;
 #endif
@@ -799,9 +932,9 @@ main (argc, argv, envp)
       if (argmatch (argv, argc, "-t", "--terminal", 4, &term, &skip_args))
 	{
 	  int result;
-	  close (0);
-	  close (1);
-	  result = open (term, O_RDWR, 2 );
+	  emacs_close (0);
+	  emacs_close (1);
+	  result = emacs_open (term, O_RDWR, 0);
 	  if (result < 0)
 	    {
 	      char *errstring = strerror (errno);
@@ -834,15 +967,8 @@ main (argc, argv, envp)
   /* Handle the --help option, which gives a usage message..  */
   if (argmatch (argv, argc, "-help", "--help", 3, NULL, &skip_args))
     {
-      printf ("\
-Usage: %s [--batch]  [-t term] [--terminal term]\n\
-      [-d display] [--display display]  [-nw] [--no-windows]\n\
-      [-q] [--no-init-file]  [-u user] [--user user]  [--debug-init]\n\
-      [--unibyte] [--multibyte] [--version] [--no-site-file]\n\
-      [-f func] [--funcall func]  [-l file] [--load file]  [--eval expr]\n\
-      [--insert file] [+linenum] file-to-visit  [--kill]\n\
-Report bugs to bug-gnu-emacs@gnu.org.  First, please see\n\
-the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
+      printf (USAGE1, argv[0]);
+      printf (USAGE2);
       exit (0);
     }
 
@@ -861,9 +987,7 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 #endif
     }
 
-#ifdef POSIX_SIGNALS
   init_signals ();
-#endif
 
   /* Don't catch SIGHUP if dumping.  */
   if (1
@@ -980,18 +1104,59 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
       init_casetab_once ();
       init_buffer_once ();	/* Create buffer table and some buffers */
       init_minibuf_once ();	/* Create list of minibuffers */
-			      /* Must precede init_window_once */
+				/* Must precede init_window_once */
+      
+      /* Call syms_of_xfaces before init_window_once because that
+	 function creates Vterminal_frame.  Termcap frames now use
+	 faces, and the face implementation uses some symbols as
+	 face names.  */
+      syms_of_xfaces ();
+      /* Call syms_of_keyboard before init_window_once because
+	 keyboard sets up symbols that include some face names that
+	 the X support will want to use.  This can happen when
+	 CANNOT_DUMP is defined.  */
+      syms_of_keyboard ();
+
+#ifdef macintosh
+      /* init_window_once calls make_terminal_frame which on Mac OS
+         creates a full-fledge output_mac type frame.  This does not
+         work correctly before syms_of_textprop, syms_of_macfns,
+         syms_of_ccl, syms_of_fontset, syms_of_xterm, syms_of_search,
+         syms_of_frame, x_term_init, and init_keyboard have already
+         been called.  */
+      syms_of_textprop ();
+      syms_of_macfns ();
+      syms_of_ccl ();
+      syms_of_fontset ();
+      syms_of_macterm ();
+      syms_of_macmenu ();
+      syms_of_data ();
+      syms_of_search ();
+      syms_of_frame ();
+      
+      x_term_init ();
+      init_keyboard ();
+#endif
+
       init_window_once ();	/* Init the window system */
       init_fileio_once ();	/* Must precede any path manipulation.  */
     }
 
   init_alloc ();
+
+  if (do_initial_setlocale)
+    {
+      fixup_locale ();
+      Vsystem_messages_locale = Vprevious_system_messages_locale;
+      Vsystem_time_locale = Vprevious_system_time_locale;
+    }
+
   init_eval ();
-  init_coding ();
   init_data ();
 #ifdef CLASH_DETECTION
   init_filelock ();;
 #endif
+  init_atimer ();
   running_asynch_code = 0;
 
   /* Handle --unibyte and the EMACS_UNIBYTE envvar,
@@ -1041,11 +1206,11 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 	    }
 
 	  for (tail = Vbuffer_alist; CONSP (tail);
-	       tail = XCONS (tail)->cdr)
+	       tail = XCDR (tail))
 	    {
 	      Lisp_Object buffer;
 
-	      buffer = Fcdr (XCONS (tail)->car);
+	      buffer = Fcdr (XCAR (tail));
 	      /* Verify that all buffers are empty now, as they
 		 ought to be.  */
 	      if (BUF_Z (XBUFFER (buffer)) > BUF_BEG (XBUFFER (buffer)))
@@ -1057,7 +1222,7 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
     }
 
   no_loadup
-    = !argmatch (argv, argc, "-nl", "--no-loadup", 6, NULL, &skip_args);
+    = argmatch (argv, argc, "-nl", "--no-loadup", 6, NULL, &skip_args);
 
 
 #ifdef HAVE_X_WINDOWS
@@ -1067,7 +1232,6 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
      to run until we've recognized this argument.  */
   {
     char *displayname = 0;
-    int i;
     int count_before = skip_args;
 
     /* Skip any number of -d options, but only use the last one.  */
@@ -1170,7 +1334,10 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
       /* The basic levels of Lisp must come first */
       /* And data must come first of all
 	 for the sake of symbols like error-message */
+#ifndef macintosh
+      /* Called before init_window_once for Mac OS.  */
       syms_of_data ();
+#endif
       syms_of_alloc ();
       syms_of_lread ();
       syms_of_print ();
@@ -1186,7 +1353,10 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
       syms_of_casetab ();
       syms_of_callproc ();
       syms_of_category ();
+#ifndef macintosh
+      /* Called before init_window_once for Mac OS.  */
       syms_of_ccl ();
+#endif
       syms_of_charset ();
       syms_of_cmds ();
 #ifndef NO_DIR_LIBRARY
@@ -1203,21 +1373,28 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 #endif /* CLASH_DETECTION */
       syms_of_indent ();
       syms_of_insdel ();
-      syms_of_keyboard ();
       syms_of_keymap ();
       syms_of_macros ();
       syms_of_marker ();
       syms_of_minibuf ();
       syms_of_mocklisp ();
       syms_of_process ();
+#ifndef macintosh
+      /* Called before init_window_once for Mac OS.  */
       syms_of_search ();
       syms_of_frame ();
+#endif
       syms_of_syntax ();
       syms_of_term ();
       syms_of_undo ();
-
-      /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES */
+#ifdef HAVE_SOUND
+      syms_of_sound ();
+#endif
+#ifndef macintosh
+      /* Called before init_window_once for Mac OS.  */
       syms_of_textprop ();
+#endif
+      syms_of_composite ();
 #ifdef VMS
       syms_of_vmsproc ();
 #endif /* VMS */
@@ -1236,14 +1413,14 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 #endif /* HAVE_X_WINDOWS */
 
 #ifndef HAVE_NTGUI
-      syms_of_xfaces ();
+#ifndef macintosh
       syms_of_xmenu ();
+#endif
 #endif
 
 #ifdef HAVE_NTGUI
       syms_of_w32term ();
       syms_of_w32fns ();
-      syms_of_w32faces ();
       syms_of_w32select ();
       syms_of_w32menu ();
       syms_of_fontset ();
@@ -1275,21 +1452,30 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 #endif /* VMS */
       init_display ();	/* Determine terminal type.  init_sys_modes uses results */
     }
+#ifndef macintosh
+  /* Called before init_window_once for Mac OS.  */
   init_keyboard ();	/* This too must precede init_sys_modes */
+#endif
 #ifdef VMS
   init_vmsproc ();	/* And this too. */
 #endif /* VMS */
   init_sys_modes ();	/* Init system terminal modes (RAW or CBREAK, etc.) */
+#ifdef HAVE_X_WINDOWS
+  init_xfns ();
+#endif /* HAVE_X_WINDOWS */
+  init_fns ();
   init_xdisp ();
   init_macros ();
   init_editfns ();
-#ifdef LISP_FLOAT_TYPE
   init_floatfns ();
-#endif
 #ifdef VMS
   init_vmsfns ();
 #endif /* VMS */
   init_emacs_process ();
+#ifdef HAVE_SOUND
+  init_sound ();
+#endif
+  init_window ();
 
   if (!initialized)
     {
@@ -1326,23 +1512,25 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
 #endif
     }
 
-  /* Gerd Moellmann <gerd@acm.org> says this makes profiling work on
-     FreeBSD.  It might work on some other systems too.
-     Give it a try and tell me if it works on your system.  */
-#ifdef __FreeBSD__
+  /* Set up for profiling.  This is known to work on FreeBSD and
+     GNU/Linux.  It might work on some other systems too.  Give it a
+     try and tell us if it works on your system.  To compile for
+     profiling use something like `make CFLAGS="-pg -g -O -DPROFILING=1'. */
+#if defined (__FreeBSD__) || defined (__linux)
 #ifdef PROFILING
   if (initialized)
     {
       extern void _mcleanup ();       
       extern char etext;
-      extern Lisp_Object Fredraw_frame ();
+      extern void safe_bcopy ();
+      extern void dump_opcode_frequencies ();
+
       atexit (_mcleanup);
-      /* This uses Fredraw_frame because that function
-	 comes first in the Emacs executable.
-	 It might be better to use something that gives
-	 the start of the text segment, but start_of_text
-	 is not defined on all systems now.  */
-      monstartup (Fredraw_frame, &etext);
+      /* This uses safe_bcopy because that function comes first in the
+	 Emacs executable.  It might be better to use something that
+	 gives the start of the text segment, but start_of_text is not
+	 defined on all systems now.  */
+      monstartup (safe_bcopy, &etext);
     }
   else
     moncontrol (0);
@@ -1363,6 +1551,7 @@ the Bugs section of the Emacs manual or the file BUGS.\n", argv[0]);
   /* Enter editor command loop.  This never returns.  */
   Frecursive_edit ();
   /* NOTREACHED */
+  return 0;
 }
 
 /* Sort the args so we can find the most important ones
@@ -1442,8 +1631,10 @@ struct standard_args standard_args[] =
   { "-f", "--funcall", 0, 1 },
   { "-funcall", 0, 0, 1 },
   { "-eval", "--eval", 0, 1 },
+  { "-execute", "--execute", 0, 1 },
   { "-find-file", "--find-file", 0, 1 },
   { "-visit", "--visit", 0, 1 },
+  { "-file", "--file", 0, 1 },
   { "-insert", "--insert", 0, 1 },
   /* This should be processed after ordinary file name args and the like.  */
   { "-kill", "--kill", -10, 0 },
@@ -1474,7 +1665,6 @@ sort_args (argc, argv)
   int incoming_used = 1;
   int from;
   int i;
-  int end_of_options = argc;
 
   /* Categorize all the options,
      and figure out which argv elts are option arguments.  */
@@ -1616,8 +1806,6 @@ all of which are called before Emacs is actually killed.")
   (arg)
      Lisp_Object arg;
 {
-  Lisp_Object hook, hook1;
-  int i;
   struct gcpro gcpro1;
 
   GCPRO1 (arg);
@@ -1729,6 +1917,14 @@ shut_down_emacs (sig, no_x, stuff)
   term_ntproc ();
 #endif
 
+  /* Do this only if terminating normally, we want glyph matrices
+     etc. in a core dump.  */
+  if (sig == 0 || sig == SIGTERM)
+    {
+      check_glyph_memory ();
+      check_message_stack ();
+    }
+
 #ifdef MSDOS
   dos_cleanup ();
 #endif
@@ -1829,8 +2025,15 @@ You must run Emacs in batch mode in order to dump it.")
 #ifdef DOUG_LEA_MALLOC
   malloc_state_ptr = malloc_get_state ();
 #endif
+
+#ifdef USE_MMAP_FOR_BUFFERS
+  mmap_set_vars (0);
+#endif
   unexec (XSTRING (filename)->data,
 	  !NILP (symfile) ? XSTRING (symfile)->data : 0, my_edata, 0, 0);
+#ifdef USE_MMAP_FOR_BUFFERS
+  mmap_set_vars (1);
+#endif
 #ifdef DOUG_LEA_MALLOC
   free (malloc_state_ptr);
 #endif
@@ -1844,6 +2047,53 @@ You must run Emacs in batch mode in order to dump it.")
 #endif /* not HAVE_SHM */
 
 #endif /* not CANNOT_DUMP */
+
+#if HAVE_SETLOCALE
+/* Recover from setlocale (LC_ALL, "").  */
+void
+fixup_locale ()
+{
+  /* The Emacs Lisp reader needs LC_NUMERIC to be "C",
+     so that numbers are read and printed properly for Emacs Lisp.  */
+  setlocale (LC_NUMERIC, "C");
+}
+
+/* Set system locale CATEGORY, with previous locale *PLOCALE, to
+   DESIRED_LOCALE.  */
+static void
+synchronize_locale (category, plocale, desired_locale)
+     int category;
+     Lisp_Object *plocale;
+     Lisp_Object desired_locale;
+{
+  if (! EQ (*plocale, desired_locale))
+    {
+      *plocale = desired_locale;
+      setlocale (category, (STRINGP (desired_locale)
+			    ? (char *)(XSTRING (desired_locale)->data)
+			    : ""));
+    }
+}
+
+/* Set system time locale to match Vsystem_time_locale, if possible.  */
+void
+synchronize_system_time_locale ()
+{
+  synchronize_locale (LC_TIME, &Vprevious_system_time_locale,
+		      Vsystem_time_locale);
+}
+
+/* Set system messages locale to match Vsystem_messages_locale, if
+   possible.  */
+void
+synchronize_system_messages_locale ()
+{
+#ifdef LC_MESSAGES
+  synchronize_locale (LC_MESSAGES, &Vprevious_system_messages_locale,
+		      Vsystem_messages_locale);
+#endif
+}
+#endif /* HAVE_SETLOCALE */
 
 #ifndef SEPCHAR
 #define SEPCHAR ':'
@@ -1929,7 +2179,9 @@ syms_of_emacs ()
   Vsystem_type = intern (SYSTEM_TYPE);
 
   DEFVAR_LISP ("system-configuration", &Vsystem_configuration,
-    "Value is string indicating configuration Emacs was built for.");
+    "Value is string indicating configuration Emacs was built for.\n\
+On MS-Windows, the value reflects the OS flavor and version on which\n\
+Emacs is running.");
   Vsystem_configuration = build_string (EMACS_CONFIGURATION);
 
   DEFVAR_LISP ("system-configuration-options", &Vsystem_configuration_options,
@@ -1989,4 +2241,21 @@ This is non-nil when we can't find those directories in their standard\n\
 installed locations, but we can find them\n\
 near where the Emacs executable was found.");
   Vinstallation_directory = Qnil;
+
+  DEFVAR_LISP ("system-messages-locale", &Vsystem_messages_locale,
+    "System locale for messages.");
+  Vsystem_messages_locale = Qnil;
+
+  DEFVAR_LISP ("previous-system-messages-locale",
+    &Vprevious_system_messages_locale,
+    "Most recently used system locale for messages.");
+  Vprevious_system_messages_locale = Qnil;
+
+  DEFVAR_LISP ("system-time-locale", &Vsystem_time_locale,
+    "System locale for time.");
+  Vsystem_time_locale = Qnil;
+
+  DEFVAR_LISP ("previous-system-time-locale", &Vprevious_system_time_locale,
+    "Most recently used system locale for time.");
+  Vprevious_system_time_locale = Qnil;
 }

@@ -31,8 +31,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-int.cpp,v 1.2 2001/06/27 23:09:14 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-int.cpp,v 1.3 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-int.cpp,v $
+// Revision 1.3  2002/03/21 05:38:44  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.2.44.1  2002/03/20 00:36:49  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.2  2001/06/27 23:09:14  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -112,7 +118,7 @@ AsnType *AsnInt::Copy() const
 AsnLen AsnInt::BEncContent (BUF_TYPE b)
 {
     AsnLen		len;
-    int			i;
+    unsigned	i;
     AsnUIntType	mask;
     AsnUIntType	dataCpy;
 
@@ -159,13 +165,17 @@ AsnLen AsnInt::BEncContent (BUF_TYPE b)
 // integer value.
 void AsnInt::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &bytesDecoded, ENV_TYPE env)
 {
-    int   i;
+    unsigned   i;
     AsnUIntType byte;
 
     if (elmtLen > sizeof (AsnIntType))
     {
         Asn1Error << "AsnInt::BDecContent: ERROR - integer is too big to decode." << endl;
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-7);
+		#else
         longjmp (env, -7);
+		#endif
     }
 
     /*
@@ -189,7 +199,11 @@ void AsnInt::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byte
     if (b.ReadError())
     {
         Asn1Error << "AsnInt::BDecContent: ERROR - decoded past end of data." << endl;
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-8);
+		#else
         longjmp (env, -8);
+		#endif
     }
 
 
@@ -211,7 +225,11 @@ void AsnInt::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
     if (BDecTag (b, bytesDecoded, env) != MAKE_TAG_ID (UNIV, PRIM, INTEGER_TAG_CODE))
     {
 	Asn1Error << "AsnInt::BDec: ERROR tag on INTEGER is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-53);
+	#else
 	longjmp (env,-53);
+	#endif
     }
 
     elmtLen = BDecLen (b, bytesDecoded, env);

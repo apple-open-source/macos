@@ -7,22 +7,12 @@
  * Copyright (c) 1998-1999 by Scriptics Corporation.
  * All rights reserved.
  *
- * RCS: @(#) $Id: tclWinInit.c,v 1.1.1.4 2000/12/06 23:04:27 wsanchez Exp $
+ * RCS: @(#) $Id: tclWinInit.c,v 1.1.1.5 2002/04/05 16:14:15 jevans Exp $
  */
 
 #include "tclWinInt.h"
-#include <winreg.h>
 #include <winnt.h>
 #include <winbase.h>
-
-/*
- * The following macro can be defined at compile time to specify
- * the root of the Tcl registry keys.
- */
- 
-#ifndef TCL_REGISTRY_KEY
-#define TCL_REGISTRY_KEY "Software\\Scriptics\\Tcl\\" TCL_VERSION
-#endif
 
 /*
  * The following declaration is a workaround for some Microsoft brain damage.
@@ -52,6 +42,21 @@ typedef struct {
 #ifndef PROCESSOR_ARCHITECTURE_PPC
 #define PROCESSOR_ARCHITECTURE_PPC   3
 #endif
+#ifndef PROCESSOR_ARCHITECTURE_SHX  
+#define PROCESSOR_ARCHITECTURE_SHX   4
+#endif
+#ifndef PROCESSOR_ARCHITECTURE_ARM
+#define PROCESSOR_ARCHITECTURE_ARM   5
+#endif
+#ifndef PROCESSOR_ARCHITECTURE_IA64
+#define PROCESSOR_ARCHITECTURE_IA64  6
+#endif
+#ifndef PROCESSOR_ARCHITECTURE_ALPHA64
+#define PROCESSOR_ARCHITECTURE_ALPHA64 7
+#endif
+#ifndef PROCESSOR_ARCHITECTURE_MSIL
+#define PROCESSOR_ARCHITECTURE_MSIL  8
+#endif
 #ifndef PROCESSOR_ARCHITECTURE_UNKNOWN
 #define PROCESSOR_ARCHITECTURE_UNKNOWN 0xFFFF
 #endif
@@ -67,16 +72,15 @@ static char* platforms[NUMPLATFORMS] = {
     "Win32s", "Windows 95", "Windows NT"
 };
 
-#define NUMPROCESSORS 4
+#define NUMPROCESSORS 9
 static char* processors[NUMPROCESSORS] = {
-    "intel", "mips", "alpha", "ppc"
+    "intel", "mips", "alpha", "ppc", "shx", "arm", "ia64", "alpha64", "msil"
 };
 
-/*
- * Thread id used for asynchronous notification from signal handlers.
- */
-
-static DWORD mainThreadId;
+/* Used to store the encoding used for binary files */
+static Tcl_Encoding binaryEncoding = NULL;
+/* Has the basic library path encoding issue been fixed */
+static int libraryPathEncodingFixed = 0;
 
 /*
  * The Init script (common to Windows and Unix platforms) is
@@ -88,7 +92,6 @@ static DWORD mainThreadId;
 static void		AppendEnvironment(Tcl_Obj *listPtr, CONST char *lib);
 static void		AppendDllPath(Tcl_Obj *listPtr, HMODULE hModule,
 			    CONST char *lib);
-static void		AppendRegistry(Tcl_Obj *listPtr, CONST char *lib);
 static int		ToUtf(CONST WCHAR *wSrc, char *dst);
 
 /*
@@ -128,16 +131,6 @@ TclpInitPlatform()
      */
 
     SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS);
-
-    /*
-     * Save the id of the first thread to intialize the Tcl library.  This
-     * thread will be used to handle notifications from async event
-     * procedures.  This is not strictly correct.  A better solution involves
-     * using a designated "main" notifier that is kept up to date as threads
-     * come and go.
-     */
-
-    mainThreadId = GetCurrentThreadId();
 
 #ifdef STATIC_BUILD
     /*
@@ -246,46 +239,63 @@ TclpInitLibraryPath(path)
      *		(e.g. /usr/src/tcl8.2/unix/solaris-sparc/../../../tcl8.2/library)
      */
      
+    /*
+     * The variable path holds an absolute path.  Take care not to
+     * overwrite pathv[0] since that might produce a relative path.
+     */
+
     if (path != NULL) {
 	Tcl_SplitPath(path, &pathc, &pathv);
-	if (pathc > 1) {
+	if (pathc > 2) {
+	    str = pathv[pathc - 2];
 	    pathv[pathc - 2] = installLib;
 	    path = Tcl_JoinPath(pathc - 1, pathv, &ds);
-	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
-	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
-	    Tcl_DStringFree(&ds);
-	}
-	if (pathc > 2) {
-	    pathv[pathc - 3] = installLib;
-	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
-	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
-	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
-	    Tcl_DStringFree(&ds);
-	}
-	if (pathc > 1) {
-	    pathv[pathc - 2] = "library";
-	    path = Tcl_JoinPath(pathc - 1, pathv, &ds);
-	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
-	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
-	    Tcl_DStringFree(&ds);
-	}
-	if (pathc > 2) {
-	    pathv[pathc - 3] = "library";
-	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
-	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
-	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
-	    Tcl_DStringFree(&ds);
-	}
-	if (pathc > 1) {
-	    pathv[pathc - 3] = developLib;
-	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
+	    pathv[pathc - 2] = str;
 	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
 	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
 	    Tcl_DStringFree(&ds);
 	}
 	if (pathc > 3) {
+	    str = pathv[pathc - 3];
+	    pathv[pathc - 3] = installLib;
+	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
+	    pathv[pathc - 3] = str;
+	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
+	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
+	    Tcl_DStringFree(&ds);
+	}
+	if (pathc > 2) {
+	    str = pathv[pathc - 2];
+	    pathv[pathc - 2] = "library";
+	    path = Tcl_JoinPath(pathc - 1, pathv, &ds);
+	    pathv[pathc - 2] = str;
+	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
+	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
+	    Tcl_DStringFree(&ds);
+	}
+	if (pathc > 3) {
+	    str = pathv[pathc - 3];
+	    pathv[pathc - 3] = "library";
+	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
+	    pathv[pathc - 3] = str;
+	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
+	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
+	    Tcl_DStringFree(&ds);
+	}
+	if (pathc > 3) {
+	    str = pathv[pathc - 3];
+	    pathv[pathc - 3] = developLib;
+	    path = Tcl_JoinPath(pathc - 2, pathv, &ds);
+	    pathv[pathc - 3] = str;
+	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
+	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
+	    Tcl_DStringFree(&ds);
+	}
+	if (pathc > 4) {
+	    str = pathv[pathc - 4];
 	    pathv[pathc - 4] = developLib;
 	    path = Tcl_JoinPath(pathc - 3, pathv, &ds);
+	    pathv[pathc - 4] = str;
 	    objPtr = Tcl_NewStringObj(path, Tcl_DStringLength(&ds));
 	    Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
 	    Tcl_DStringFree(&ds);
@@ -450,7 +460,7 @@ ToUtf(
 	wSrc++;
     }
     *dst = '\0';
-    return dst - start;
+    return (int) (dst - start);
 }
 
 
@@ -462,13 +472,18 @@ ToUtf(
  *	Based on the locale, determine the encoding of the operating
  *	system and the default encoding for newly opened files.
  *
- *	Called at process initialization time.
+ *	Called at process initialization time, and part way through
+ *	startup, we verify that the initial encodings were correctly
+ *	setup.  Depending on Tcl's environment, there may not have been
+ *	enough information first time through (above).
  *
  * Results:
  *	None.
  *
  * Side effects:
- *	The Tcl library path is converted from native encoding to UTF-8.
+ *	The Tcl library path is converted from native encoding to UTF-8,
+ *	on the first call, and the encodings may be changed on first or
+ *	second call.
  *
  *---------------------------------------------------------------------------
  */
@@ -478,45 +493,52 @@ TclpSetInitialEncodings()
 {
     CONST char *encoding;
     char buf[4 + TCL_INTEGER_SPACE];
-    int platformId;
-    Tcl_Obj *pathPtr;
 
-    platformId = TclWinGetPlatformId();
+    if (libraryPathEncodingFixed == 0) {
+	int platformId;
+	platformId = TclWinGetPlatformId();
+	TclWinSetInterfaces(platformId == VER_PLATFORM_WIN32_NT);
+	
+	wsprintfA(buf, "cp%d", GetACP());
+	Tcl_SetSystemEncoding(NULL, buf);
 
-    TclWinSetInterfaces(platformId == VER_PLATFORM_WIN32_NT);
+	if (platformId != VER_PLATFORM_WIN32_NT) {
+	    Tcl_Obj *pathPtr = TclGetLibraryPath();
+	    if (pathPtr != NULL) {
+		int i, objc;
+		Tcl_Obj **objv;
+		
+		objc = 0;
+		Tcl_ListObjGetElements(NULL, pathPtr, &objc, &objv);
+		for (i = 0; i < objc; i++) {
+		    int length;
+		    char *string;
+		    Tcl_DString ds;
 
-    wsprintfA(buf, "cp%d", GetACP());
-    Tcl_SetSystemEncoding(NULL, buf);
-
-    if (platformId != VER_PLATFORM_WIN32_NT) {
-	pathPtr = TclGetLibraryPath();
-	if (pathPtr != NULL) {
-	    int i, objc;
-	    Tcl_Obj **objv;
-	    
-	    objc = 0;
-	    Tcl_ListObjGetElements(NULL, pathPtr, &objc, &objv);
-	    for (i = 0; i < objc; i++) {
-		int length;
-		char *string;
-		Tcl_DString ds;
-
-		string = Tcl_GetStringFromObj(objv[i], &length);
-		Tcl_ExternalToUtfDString(NULL, string, length, &ds);
-		Tcl_SetStringObj(objv[i], Tcl_DStringValue(&ds), 
-			Tcl_DStringLength(&ds));
-		Tcl_DStringFree(&ds);
+		    string = Tcl_GetStringFromObj(objv[i], &length);
+		    Tcl_ExternalToUtfDString(NULL, string, length, &ds);
+		    Tcl_SetStringObj(objv[i], Tcl_DStringValue(&ds), 
+			    Tcl_DStringLength(&ds));
+		    Tcl_DStringFree(&ds);
+		}
 	    }
 	}
+	
+	libraryPathEncodingFixed = 1;
+    } else {
+	wsprintfA(buf, "cp%d", GetACP());
+	Tcl_SetSystemEncoding(NULL, buf);
     }
 
-    /*
-     * Keep this encoding preloaded.  The IO package uses it for gets on a
-     * binary channel.  
-     */
-
-    encoding = "iso8859-1";
-    Tcl_GetEncoding(NULL, encoding);
+    /* This is only ever called from the startup thread */
+    if (binaryEncoding == NULL) {
+	/*
+	 * Keep this encoding preloaded.  The IO package uses it for
+	 * gets on a binary channel.
+	 */
+	encoding = "iso8859-1";
+	binaryEncoding = Tcl_GetEncoding(NULL, encoding);
+    }
 }
 
 /*
@@ -532,8 +554,7 @@ TclpSetInitialEncodings()
  *	None.
  *
  * Side effects:
- *	Sets "tclDefaultLibrary", "tcl_platform", and "env(HOME)" Tcl
- *	variables.
+ *	Sets "tcl_platform", and "env(HOME)" Tcl variables.
  *
  *----------------------------------------------------------------------
  */
@@ -554,12 +575,6 @@ TclpSetVariables(interp)
 
     oemId = (OemId *) &sysInfo;
     GetSystemInfo(&sysInfo);
-
-    /*
-     * Initialize the tclDefaultLibrary variable from the registry.
-     */
-
-    Tcl_SetVar(interp, "tclDefaultLibrary", "", TCL_GLOBAL_ONLY);
 
     /*
      * Define the tcl_platform array.
@@ -622,7 +637,7 @@ TclpSetVariables(interp)
 
     Tcl_DStringSetLength(&ds, 100);
     if (TclGetEnv("USERNAME", &ds) == NULL) {
-	if (GetUserName(Tcl_DStringValue(&ds), &Tcl_DStringLength(&ds)) == 0) {
+	if (GetUserName(Tcl_DStringValue(&ds), (LPDWORD) &Tcl_DStringLength(&ds)) == 0) {
 	    Tcl_DStringSetLength(&ds, 0);
 	}
     }
@@ -689,7 +704,7 @@ TclpFindVariable(name, lengthPtr)
 	if (p1 == NULL) {
 	    continue;
 	}
-	length = p1 - envUpper;
+	length = (int) (p1 - envUpper);
 	Tcl_DStringSetLength(&envString, length+1);
 	Tcl_UtfToUpper(envUpper);
 
@@ -814,32 +829,4 @@ Tcl_SourceRCFile(interp)
 	}
         Tcl_DStringFree(&temp);
     }
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * TclpAsyncMark --
- *
- *	Wake up the main thread from a signal handler.
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	Sends a message to the main thread.
- *
- *----------------------------------------------------------------------
- */
-
-void
-TclpAsyncMark(async)
-    Tcl_AsyncHandler async;		/* Token for handler. */
-{
-    /*
-     * Need a way to kick the Windows event loop and tell it to go look at
-     * asynchronous events.
-     */
-
-    PostThreadMessage(mainThreadId, WM_USER, 0, 0);
 }

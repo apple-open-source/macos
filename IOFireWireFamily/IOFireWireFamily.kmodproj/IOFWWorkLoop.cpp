@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  * 13 February 2001 wgulland created.

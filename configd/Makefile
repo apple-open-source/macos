@@ -16,7 +16,8 @@ TOOLS = configd.tproj scselect.tproj scutil.tproj
 
 FRAMEWORK_SUBPROJECTS = SystemConfiguration.fproj
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
+            preferences.xml
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

@@ -358,10 +358,10 @@ char **envp)
 
 	for(i = 0; i < cmd_flags.nfiles; i++)
 	    ofile_process(files[i], arch_flags, narch_flags, all_archs, FALSE,
-			  cmd_flags.f, nm, &cmd_flags);
+			  cmd_flags.f, TRUE, nm, &cmd_flags);
 	if(cmd_flags.nfiles == 0)
 	    ofile_process("a.out",  arch_flags, narch_flags, all_archs, FALSE,
-			  cmd_flags.f, nm, &cmd_flags);
+			  cmd_flags.f, TRUE, nm, &cmd_flags);
 
 	if(errors == 0)
 	    return(EXIT_SUCCESS);
@@ -439,7 +439,8 @@ void *cookie)
 		process_flags.nsects += sg->nsects;
 	    }
 	    else if((ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
-		    lc->cmd == LC_LOAD_DYLIB){
+		    (lc->cmd == LC_LOAD_DYLIB ||
+		     lc->cmd == LC_LOAD_WEAK_DYLIB)){
 		process_flags.nlibs++;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -492,7 +493,7 @@ void *cookie)
 	    j = 0;
 	    lc = ofile->load_commands;
 	    for (i = 0; i < ofile->mh->ncmds; i++){
-		if(lc->cmd == LC_LOAD_DYLIB){
+		if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
 			(char *)dl + dl->dylib.name.offset;
@@ -893,10 +894,11 @@ char *arch_name)
 		break;
 	    case N_SECT:
 		if(symbols[i].n_sect >= 1 &&
-		   symbols[i].n_sect <= process_flags->nsects)
+		   symbols[i].n_sect <= process_flags->nsects){
 		    printf(" (%.16s,%.16s) ",
 		       process_flags->sections[symbols[i].n_sect-1]->segname,
 		       process_flags->sections[symbols[i].n_sect-1]->sectname);
+		}
 		else
 		    printf(" (?,?) ");
 		break;
@@ -908,10 +910,19 @@ char *arch_name)
 	    if(symbols[i].n_type & N_EXT){
 		if(symbols[i].n_desc & REFERENCED_DYNAMICALLY)
 		    printf("[referenced dynamically] ");
-		if(symbols[i].n_type & N_PEXT)
-		    printf("private external ");
-		else
-		    printf("external ");
+		if(symbols[i].n_type & N_PEXT){
+		    if((symbols[i].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+			printf("weak private external ");
+		    else
+			printf("private external ");
+		}
+		else{
+		    if((symbols[i].n_desc & N_WEAK_REF) == N_WEAK_REF ||
+		       (symbols[i].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+			printf("weak external ");
+		    else
+			printf("external ");
+		}
 	    }
 	    else{
 		if(symbols[i].n_type & N_PEXT)

@@ -19,12 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
-	Currently UFI devices are treated as SCSI Primary Command devices.  Since UFI
-	is a unique non-SCSI defined command set, in a future release, UFI device 
-	support will be migrated to using a driver stack better suited to the 
-	specification.
-*/
 
 #ifndef _IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H
 #define _IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H
@@ -42,12 +36,21 @@ class IOUSBMassStorageUFISubclass : public IOUSBMassStorageClass
 
 private:
 	static void			AsyncReadWriteComplete( SCSITaskIdentifier	completedTask );
-
+	
+	static bool			ServerKeyswitchCallback (	void *		target,
+													void *		refCon,
+													IOService *	newService );
+	
 protected:
     // Reserve space for future expansion.
-    struct IOUSBMassStorageUFISubclassExpansionData { };
+    struct IOUSBMassStorageUFISubclassExpansionData
+	{
+		IONotifier *	fKeySwitchNotifier;
+	};
     IOUSBMassStorageUFISubclassExpansionData *fIOUSBMassStorageUFISubclassReserved;
-
+	
+	#define fKeySwitchNotifier fIOUSBMassStorageUFISubclassReserved->fKeySwitchNotifier	
+	
 	// ---- Medium Characteristics ----
 	bool				fMediumPresent;
 
@@ -81,7 +84,7 @@ protected:
 	virtual void		ResumeDeviceSupport( void );
 	virtual void		TerminateDeviceSupport( void );
 
-	// ---- Methods used for   ----
+	// ---- Methods used for misc  ----
 	virtual bool		ClearNotReadyStatus( void );
 	virtual void 		CreateStorageServiceNub( void );
 	virtual bool		DetermineDeviceCharacteristics( void );
@@ -219,6 +222,13 @@ protected:
 	void *							GetApplicationLayerReference( 
 										SCSITaskIdentifier 		request );
 public:
+	virtual void		free ( void );
+	
+	virtual IOReturn	message(
+							UInt32					type,
+							IOService *				provider,
+							void *					argument = 0 );
+	
 	static 	void		sProcessPoll( void * pdtDriver, void * refCon );
 
 	// Interface to the UFI Storage Services Driver
@@ -269,25 +279,25 @@ public:
 protected:
 	// Utility methods used by all SCSI Command Set objects
 	
-	// isParameterValid are used to validate that the parameter passed into
+	// isParameterValid methods are used to validate that the parameter passed into
 	// the command methods are of the correct value.
 	
 	// Validate Parameter used for 1 bit to 1 byte paramaters
-    inline bool 	IsParameterValid( 
+    bool		 	IsParameterValid( 
 							SCSICmdField1Byte 			param,
 							SCSICmdField1Byte 			mask );
 	
 	// Validate Parameter used for 9 bit to 2 byte paramaters
-	inline bool 	IsParameterValid( 
+	bool		 	IsParameterValid( 
 							SCSICmdField2Byte 			param,
 							SCSICmdField2Byte 			mask );
 	
 	// Validate Parameter used for 17 bit to 4 byte paramaters
-	inline bool 	IsParameterValid( 
+	bool		 	IsParameterValid( 
 							SCSICmdField4Byte 			param,
 							SCSICmdField4Byte 			mask );
 	
-	inline bool 	IsBufferAndCapacityValid(
+	bool		 	IsBufferAndCapacityValid(
 							IOMemoryDescriptor *		dataBuffer,
 							UInt32 						requiredSize );
 	
@@ -310,8 +320,6 @@ protected:
 
 	// Set up the control information for the transfer, including
 	// the transfer direction and the number of bytes to transfer.
-	// Need to add new version of method and remove the default values
-	// from this one.
 	bool	SetDataTransferControl(
 							SCSITask *					request,
 							UInt8						dataTransferDirection,

@@ -2,8 +2,8 @@
 
 	<head>
 		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
-		<title>Tags for C Headers</title>
-		<meta name="generator" content="GoLive CyberStudio 3">
+		<title>Tags for C++ Headers</title>
+		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
 	</head>
 
 	<body bgcolor="white">
@@ -118,8 +118,10 @@ class IOCommandGate : public IOEventSource
 		<p>In general, it is better to use the type-specific tag if possible (however, not all types have tags), since the tag name gives HeaderDoc a hint about how to process the declaration that follows a comment. For example, the @struct tags lets HeaderDoc know that the declaration to follow may contain a set of curly braces containing lines ending in semicolons. If the same data member were tagged @var, HeaderDoc might be tempted to stop scanning for the declaration after the first semicolon (which would be appropriate in the <tt>we_are_root</tt> declaration above).</p>
 		<p>The @var tag is most appropriate for simple types like <tt>int</tt>, <tt>float</tt>, <tt>double</tt>, etc.</p>
 		<p>&nbsp;</p>
-		<h3>&nbsp;</h3>
-		<h2>&nbsp;</h2>
+<hr>
+<center>
+For more usage examples, see the <b>ExampleHeaders</b> folder that accompanies the HeaderDoc distribution.
+</center>
 	</body>
 
 </html>

@@ -419,7 +419,7 @@ void ssl_init_TmpKeysHandle(int action, server_rec *s, pool *p)
         asn1->nData  = i2d_DHparams(dh, NULL);
         asn1->cpData = ap_palloc(mc->pPool, asn1->nData);
         ucp = asn1->cpData; i2d_DHparams(dh, &ucp); /* 2nd arg increments */
-        /* no need to free dh, it's static */
+        DH_free(dh);
 
         /* import 1024 bit DH param */
         if ((dh = ssl_dh_GetTmpParam(1024)) == NULL) {
@@ -430,7 +430,7 @@ void ssl_init_TmpKeysHandle(int action, server_rec *s, pool *p)
         asn1->nData  = i2d_DHparams(dh, NULL);
         asn1->cpData = ap_palloc(mc->pPool, asn1->nData);
         ucp = asn1->cpData; i2d_DHparams(dh, &ucp); /* 2nd arg increments */
-        /* no need to free dh, it's static */
+        DH_free(dh);
     }
 
     /* Allocate Keys and Params */
@@ -912,7 +912,7 @@ void ssl_init_CheckServers(server_rec *sm, pool *p)
     }
 
     /*
-     * Give out warnings when more than one SSL-aware virtual server uses the
+     * Give out warnings if more than one SSL-aware virtual server uses the
      * same IP:port. This doesn't work because mod_ssl then will always use
      * just the certificate/keys of one virtual host (which one cannot be said
      * easily - but that doesn't matter here).
@@ -923,6 +923,8 @@ void ssl_init_CheckServers(server_rec *sm, pool *p)
     for (s = sm; s != NULL; s = s->next) {
         sc = mySrvConfig(s);
         if (!sc->bEnabled)
+            continue;
+        if (s->addrs == NULL)
             continue;
         key = ap_psprintf(sp, "%pA:%u", &s->addrs->host_addr, s->addrs->host_port);
         ps = ssl_ds_table_get(t, key);
@@ -964,6 +966,7 @@ STACK_OF(X509_NAME) *ssl_init_FindCAList(server_rec *s, pool *pp, char *cpCAfile
     char *cp;
     pool *p;
     int n;
+    char buf[256];
 
     /*
      * Use a subpool so we don't bloat up the server pool which
@@ -983,13 +986,17 @@ STACK_OF(X509_NAME) *ssl_init_FindCAList(server_rec *s, pool *pp, char *cpCAfile
      */
     if (cpCAfile != NULL) {
         sk = SSL_load_client_CA_file(cpCAfile);
-        for(n = 0; sk != NULL && n < sk_X509_NAME_num(sk); n++) {
+        for (n = 0; sk != NULL && n < sk_X509_NAME_num(sk); n++) {
+            X509_NAME *name = sk_X509_NAME_value(sk, n);
             ssl_log(s, SSL_LOG_TRACE,
                     "CA certificate: %s",
-                    X509_NAME_oneline(sk_X509_NAME_value(sk, n), NULL, 0));
-            if (sk_X509_NAME_find(skCAList, sk_X509_NAME_value(sk, n)) < 0)
-                sk_X509_NAME_push(skCAList, sk_X509_NAME_value(sk, n));
+                    X509_NAME_oneline(name, buf, sizeof(buf)));
+            if (sk_X509_NAME_find(skCAList, name) < 0)
+                sk_X509_NAME_push(skCAList, name); /* will be freed when skCAList is */
+            else
+                X509_NAME_free(name);
         }
+        sk_X509_NAME_free(sk);
     }
 
     /*
@@ -1000,13 +1007,17 @@ STACK_OF(X509_NAME) *ssl_init_FindCAList(server_rec *s, pool *pp, char *cpCAfile
         while ((direntry = readdir(dir)) != NULL) {
             cp = ap_pstrcat(p, cpCApath, "/", direntry->d_name, NULL);
             sk = SSL_load_client_CA_file(cp);
-            for(n = 0; sk != NULL && n < sk_X509_NAME_num(sk); n++) {
+            for (n = 0; sk != NULL && n < sk_X509_NAME_num(sk); n++) {
+                X509_NAME *name = sk_X509_NAME_value(sk, n);
                 ssl_log(s, SSL_LOG_TRACE,
                         "CA certificate: %s",
-                        X509_NAME_oneline(sk_X509_NAME_value(sk, n), NULL, 0));
-                if (sk_X509_NAME_find(skCAList, sk_X509_NAME_value(sk, n)) < 0)
-                    sk_X509_NAME_push(skCAList, sk_X509_NAME_value(sk, n));
+                        X509_NAME_oneline(name, buf, sizeof(buf)));
+                if (sk_X509_NAME_find(skCAList, name) < 0)
+                    sk_X509_NAME_push(skCAList, name);
+                else
+                    X509_NAME_free(name);
             }
+            sk_X509_NAME_free(sk);
         }
         ap_pclosedir(p, dir);
     }
@@ -1055,6 +1066,10 @@ void ssl_init_ModuleKill(void *data)
      */
     for (; s != NULL; s = s->next) {
         sc = mySrvConfig(s);
+        if (sc->pRevocationStore != NULL) {
+            X509_STORE_free(sc->pRevocationStore);
+            sc->pRevocationStore = NULL;
+        }
         if (sc->pPublicCert[SSL_AIDX_RSA] != NULL) {
             X509_free(sc->pPublicCert[SSL_AIDX_RSA]);
             sc->pPublicCert[SSL_AIDX_RSA] = NULL;

@@ -33,7 +33,7 @@
 
 #include "Scavenger.h"
 
-
+		
 /*
  * utf_encodestr
  *
@@ -240,7 +240,9 @@ int AllocBTN( SGlobPtr GPtr, SInt16 fileRefNum, UInt32 nodeNumber )
 	BTreeControlBlock	*calculatedBTCB	= GetBTreeControlBlock( fileRefNum );
 
 	//	Allocate the node 
-
+	if ( calculatedBTCB->refCon == NULL )
+		return( noErr );
+		
 	byteP = ( (BTreeExtensionsRec*)calculatedBTCB->refCon)->BTCBMPtr + (nodeNumber / 8 );	//	ptr to starting byte
 	bitPos = nodeNumber % 8;						//	bit offset
 	mask = ( 0x80 >> bitPos );
@@ -882,7 +884,8 @@ Ptr	GetFCBSPtr( void )
 //	Arguments:	SVCB		*vcb
 //	Output:		OSErr			err
 //
-//	Function: 	Flush volume information to either the HFSPlusVolumeHeader of the Master Directory Block
+//	Function: 	Flush volume information to either the HFSPlusVolumeHeader 
+//	of the Master Directory Block
 //_______________________________________________________________________
 
 OSErr	FlushVolumeControlBlock( SVCB *vcb )
@@ -890,8 +893,7 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 	OSErr				err;
 	HFSPlusVolumeHeader	*volumeHeader;
 	SFCB				*fcb;
-//	ExtendedFCB			*extendedFCB;
-	BlockDescriptor  block;
+	BlockDescriptor  	block;
 	
 	if ( ! IsVCBDirty( vcb ) )			//	if it's not dirty
 		return( noErr );
@@ -950,19 +952,16 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 		CopyMemory( vcb->vcbFinderInfo, volumeHeader->finderInfo, sizeof(volumeHeader->finderInfo) );
 	
 		fcb = vcb->vcbExtentsFile;
-	//	extendedFCB = GetExtendedFCB( fcb );
 		CopyMemory( fcb->fcbExtents32, volumeHeader->extentsFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->extentsFile.logicalSize = fcb->fcbLogicalSize;
 		volumeHeader->extentsFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
 	
 		fcb = vcb->vcbCatalogFile;
-	//	extendedFCB = GetExtendedFCB( fcb );
 		CopyMemory( fcb->fcbExtents32, volumeHeader->catalogFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->catalogFile.logicalSize = fcb->fcbLogicalSize;
 		volumeHeader->catalogFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
 
 		fcb = vcb->vcbAllocationFile;
-	//	extendedFCB = GetExtendedFCB( fcb );
 		CopyMemory( fcb->fcbExtents32, volumeHeader->allocationFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->allocationFile.logicalSize = fcb->fcbLogicalSize;
 		volumeHeader->allocationFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
@@ -970,7 +969,6 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 		if (vcb->vcbAttributesFile != NULL)	//	Only update fields if an attributes file existed and was open
 		{
 			fcb = vcb->vcbAttributesFile;
-		//	extendedFCB = GetExtendedFCB( fcb );
 			CopyMemory( fcb->fcbExtents32, volumeHeader->attributesFile.extents, sizeof(HFSPlusExtentRecord) );
 			volumeHeader->attributesFile.logicalSize = fcb->fcbLogicalSize;
 			volumeHeader->attributesFile.clumpSize = fcb->fcbClumpSize;
@@ -1004,6 +1002,12 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 		mdbP->drFilCnt    = vcb->vcbFileCount;
 		mdbP->drDirCnt    = vcb->vcbFolderCount;
 
+		fcb = vcb->vcbExtentsFile;
+		CopyMemory( fcb->fcbExtents16, mdbP->drXTExtRec, sizeof( mdbP->drXTExtRec ) );
+
+		fcb = vcb->vcbCatalogFile;
+		CopyMemory( fcb->fcbExtents16, mdbP->drCTExtRec, sizeof( mdbP->drCTExtRec ) );
+
 		err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);		
 		MarkVCBClean( vcb );
 	}
@@ -1019,7 +1023,7 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 //				Boolean			ifHFSPlus
 //	Output:		OSErr			err
 //
-//	Function: 	Flush volume information to either the Alternate HFSPlusVolumeHeader of the 
+//	Function: 	Flush volume information to either the Alternate HFSPlusVolumeHeader or the 
 //				Alternate Master Directory Block.  Called by the BTree when the catalog
 //				or extent files grow.  Simply BlockMoves the original to the alternate
 //				location.
@@ -1027,26 +1031,47 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 
 OSErr	FlushAlternateVolumeControlBlock( SVCB *vcb, Boolean isHFSPlus )
 {
-	OSErr  err;
+	BlockDescriptor  pri_block, alt_block;
+	UInt64 	sectors;
 	UInt64  primaryBlockLocation;
 	UInt64  alternateBlockLocation;
-	BlockDescriptor  pri_block, alt_block;
+	UInt32 	sectorSize;
+	OSErr  	err;
+	
+	err = GetDeviceSize( vcb->vcbDriveNumber, &sectors, &sectorSize );
+	ReturnIfError(err);
 
 	err = FlushVolumeControlBlock( vcb );
 	
+	alternateBlockLocation = sectors - 2; // use this for HFS and pure HFS+
 	if ( isHFSPlus ) {
+		HFSMasterDirectoryBlock 	*mdb;		
+		BlockDescriptor				block_MDB;
+
 		primaryBlockLocation = (vcb->vcbEmbeddedOffset / 512) + 2;
-		alternateBlockLocation = ((UInt64)vcb->vcbEmbeddedOffset / 512) +
-			(UInt64)vcb->vcbTotalBlocks * (UInt64)(vcb->vcbBlockSize / 512) - 2;
+		
+		//	Get the Alternate MDB, 2nd to last block on disk
+		//	On HFS+ disks this is still the HFS wrapper altMDB
+		//	On HFS+ wrapperless disks, it's the AltVH
+		block_MDB.buffer = NULL;
+		err = GetVolumeBlock(vcb, sectors - 2, kGetBlock, &block_MDB);
+		ReturnIfError( err );
+
+		mdb = (HFSMasterDirectoryBlock	*) block_MDB.buffer;
+		if ( mdb->drSigWord == kHFSSigWord )
+		{
+			UInt64 		totalHFSPlusSectors;
+			
+			// this is a wrapped HFS+ volume. get the location of the 
+			// alternate volume header
+			totalHFSPlusSectors = (mdb->drAlBlkSiz / 512) * mdb->drEmbedExtent.blockCount;
+			alternateBlockLocation = mdb->drAlBlSt + ((mdb->drAlBlkSiz / 512) * 
+				mdb->drEmbedExtent.startBlock) + totalHFSPlusSectors - 2;
+		}
+
+		(void) ReleaseVolumeBlock(vcb, &block_MDB, kReleaseBlock);
 	} else {
-		UInt64 sectors;
-		UInt32 sectorSize;
-
-		err = GetDeviceSize( vcb->vcbDriveNumber, &sectors, &sectorSize );
-		ReturnIfError(err);
-
 		primaryBlockLocation = 2;
-		alternateBlockLocation = sectors - 2;
 	}
 	
 	err = GetVolumeBlock(vcb, primaryBlockLocation, kGetBlock, &pri_block);
@@ -1055,7 +1080,7 @@ OSErr	FlushAlternateVolumeControlBlock( SVCB *vcb, Boolean isHFSPlus )
 	err = GetVolumeBlock(vcb, alternateBlockLocation, kGetBlock, &alt_block);
 	if (err == noErr) {
 		CopyMemory(pri_block.buffer, alt_block.buffer, 512);
-		(void) ReleaseVolumeBlock(vcb, &alt_block, rbWriteMask);
+		(void) ReleaseVolumeBlock(vcb, &alt_block, kForceWriteBlock);		
 	}
 
 	(void) ReleaseVolumeBlock(vcb, &pri_block, kReleaseBlock);
@@ -1086,7 +1111,7 @@ ConvertToHFSPlusExtent( const HFSExtentRecord oldExtents, HFSPlusExtentRecord ne
 
 
 
-OSErr	CacheWriteInPlace( SVCB *vcb, UInt32 fileRefNum,  HIOParam *iopb, UInt32 currentPosition, UInt32 maximumBytes, UInt32 *actualBytes )
+OSErr	CacheWriteInPlace( SVCB *vcb, UInt32 fileRefNum,  HIOParam *iopb, UInt64 currentPosition, UInt32 maximumBytes, UInt32 *actualBytes )
 {
 	OSErr err;
 	UInt64 diskBlock;
@@ -1105,4 +1130,3 @@ OSErr	CacheWriteInPlace( SVCB *vcb, UInt32 fileRefNum,  HIOParam *iopb, UInt32 c
 	
 	return( err );
 }
-

@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclDecls.h,v 1.1.1.3 2000/12/06 23:03:33 wsanchez Exp $
+ * RCS: @(#) $Id: tclDecls.h,v 1.1.1.4 2002/04/05 16:13:18 jevans Exp $
  */
 
 #ifndef _TCLDECLS
@@ -913,7 +913,8 @@ EXTERN int		Tcl_UnstackChannel _ANSI_ARGS_((Tcl_Interp * interp,
 				Tcl_Channel chan));
 /* 283 */
 EXTERN Tcl_Channel	Tcl_GetStackedChannel _ANSI_ARGS_((Tcl_Channel chan));
-/* Slot 284 is reserved */
+/* 284 */
+EXTERN void		Tcl_SetMainLoop _ANSI_ARGS_((Tcl_MainLoopProc * proc));
 /* Slot 285 is reserved */
 /* 286 */
 EXTERN void		Tcl_AppendObjToObj _ANSI_ARGS_((Tcl_Obj * objPtr, 
@@ -1631,7 +1632,7 @@ typedef struct TclStubs {
     Tcl_Channel (*tcl_StackChannel) _ANSI_ARGS_((Tcl_Interp * interp, Tcl_ChannelType * typePtr, ClientData instanceData, int mask, Tcl_Channel prevChan)); /* 281 */
     int (*tcl_UnstackChannel) _ANSI_ARGS_((Tcl_Interp * interp, Tcl_Channel chan)); /* 282 */
     Tcl_Channel (*tcl_GetStackedChannel) _ANSI_ARGS_((Tcl_Channel chan)); /* 283 */
-    void *reserved284;
+    void (*tcl_SetMainLoop) _ANSI_ARGS_((Tcl_MainLoopProc * proc)); /* 284 */
     void *reserved285;
     void (*tcl_AppendObjToObj) _ANSI_ARGS_((Tcl_Obj * objPtr, Tcl_Obj * appendObjPtr)); /* 286 */
     Tcl_Encoding (*tcl_CreateEncoding) _ANSI_ARGS_((Tcl_EncodingType * typePtr)); /* 287 */
@@ -2946,7 +2947,10 @@ extern TclStubs *tclStubsPtr;
 #define Tcl_GetStackedChannel \
 	(tclStubsPtr->tcl_GetStackedChannel) /* 283 */
 #endif
-/* Slot 284 is reserved */
+#ifndef Tcl_SetMainLoop
+#define Tcl_SetMainLoop \
+	(tclStubsPtr->tcl_SetMainLoop) /* 284 */
+#endif
 /* Slot 285 is reserved */
 #ifndef Tcl_AppendObjToObj
 #define Tcl_AppendObjToObj \

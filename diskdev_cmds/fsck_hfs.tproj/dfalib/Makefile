@@ -12,12 +12,15 @@ NAME = dfalib
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = BTree.h BTreePrivate.h CaseFolding.h CheckHFS.h Scavenger.h SRuntime.h
+HFILES = hfs_endian.h BTree.h BTreePrivate.h BTreeScanner.h CaseFolding.h\
+		 CheckHFS.h Scavenger.h SRuntime.h 
 
-CFILES = BlockCache.c\
-         BTree.c BTreeAllocate.c BTreeMiscOps.c BTreeNodeOps.c BTreeTreeOps.c\
+CFILES = hfs_endian.c BlockCache.c\
+         BTree.c BTreeAllocate.c BTreeMiscOps.c \
+         BTreeNodeOps.c BTreeScanner.c BTreeTreeOps.c\
          CatalogCheck.c HardLinkCheck.c\
-         SBTree.c SControl.c SVerify1.c SVerify2.c SRepair.c\
+         SBTree.c SControl.c SVerify1.c SVerify2.c\
+         SRepair.c SRebuildCatalogBTree.c\
          SUtils.c SKeyCompare.c SDevice.c SExtents.c SAllocate.c\
          SCatalog.c SStubs.c VolumeBitmapCheck.c
          

@@ -1,5 +1,6 @@
 /* Perform arithmetic and other operations on values, for GDB.
-   Copyright 1986, 89, 91, 92, 93, 94, 95, 96, 97, 1998
+   Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -26,8 +27,8 @@
 #include "expression.h"
 #include "target.h"
 #include "language.h"
-#include "demangle.h"
 #include "gdb_string.h"
+#include "doublest.h"
 #include <math.h>
 
 /* Define whether or not the C operator '/' truncates towards zero for
@@ -37,16 +38,55 @@
 #define TRUNCATION_TOWARDS_ZERO ((-5 / 2) == -2)
 #endif
 
-static value_ptr value_subscripted_rvalue (value_ptr, value_ptr, int);
+static struct value *value_subscripted_rvalue (struct value *, struct value *, int);
 
 void _initialize_valarith (void);
 
 
-value_ptr
-value_add (value_ptr arg1, value_ptr arg2)
+/* Given a pointer, return the size of its target.
+   If the pointer type is void *, then return 1.
+   If the target type is incomplete, then error out.
+   This isn't a general purpose function, but just a 
+   helper for value_sub & value_add.
+*/
+
+static LONGEST
+find_size_for_pointer_math (struct type *ptr_type)
 {
-  register value_ptr valint, valptr;
-  register int len;
+  LONGEST sz = -1;
+  struct type *ptr_target;
+
+  ptr_target = check_typedef (TYPE_TARGET_TYPE (ptr_type));
+
+  sz = TYPE_LENGTH (ptr_target);
+  if (sz == 0)
+    {
+      if (TYPE_CODE (ptr_type) == TYPE_CODE_VOID)
+	sz = 1;
+      else
+	{
+	  char *name;
+	  
+	  name = TYPE_NAME (ptr_target);
+	  if (name == NULL)
+	    name = TYPE_TAG_NAME (ptr_target);
+	  if (name == NULL)
+	    error ("Cannot perform pointer math on incomplete types, "
+		   "try casting to a known type, or void *.");
+	  else
+	    error ("Cannot perform pointer math on incomplete type \"%s\", "
+		   "try casting to a known type, or void *.", name);
+	}
+    }
+  return sz;
+}
+
+struct value *
+value_add (struct value *arg1, struct value *arg2)
+{
+  struct value *valint;
+  struct value *valptr;
+  LONGEST sz;
   struct type *type1, *type2, *valptrtype;
 
   COERCE_NUMBER (arg1);
@@ -61,7 +101,7 @@ value_add (value_ptr arg1, value_ptr arg2)
        || TYPE_CODE (type2) == TYPE_CODE_INT))
     /* Exactly one argument is a pointer, and one is an integer.  */
     {
-      value_ptr retval;
+      struct value *retval;
 
       if (TYPE_CODE (type1) == TYPE_CODE_PTR)
 	{
@@ -75,12 +115,12 @@ value_add (value_ptr arg1, value_ptr arg2)
 	  valint = arg1;
 	  valptrtype = type2;
 	}
-      len = TYPE_LENGTH (check_typedef (TYPE_TARGET_TYPE (valptrtype)));
-      if (len == 0)
-	len = 1;		/* For (void *) */
+
+      sz = find_size_for_pointer_math (valptrtype);
+
       retval = value_from_pointer (valptrtype,
-				   value_as_pointer (valptr)
-				   + (len * value_as_long (valint)));
+				   value_as_address (valptr)
+				   + (sz * value_as_long (valint)));
       VALUE_BFD_SECTION (retval) = VALUE_BFD_SECTION (valptr);
       return retval;
     }
@@ -88,8 +128,8 @@ value_add (value_ptr arg1, value_ptr arg2)
   return value_binop (arg1, arg2, BINOP_ADD);
 }
 
-value_ptr
-value_sub (value_ptr arg1, value_ptr arg2)
+struct value *
+value_sub (struct value *arg1, struct value *arg2)
 {
   struct type *type1, *type2;
   COERCE_NUMBER (arg1);
@@ -102,9 +142,10 @@ value_sub (value_ptr arg1, value_ptr arg2)
       if (TYPE_CODE (type2) == TYPE_CODE_INT)
 	{
 	  /* pointer - integer.  */
-	  LONGEST sz = TYPE_LENGTH (check_typedef (TYPE_TARGET_TYPE (type1)));
-	  return value_from_pointer (VALUE_TYPE (arg1),
-				     (value_as_pointer (arg1)
+	  LONGEST sz = find_size_for_pointer_math (type1);
+
+	  return value_from_pointer (type1,
+				     (value_as_address (arg1)
 				      - (sz * value_as_long (arg2))));
 	}
       else if (TYPE_CODE (type2) == TYPE_CODE_PTR
@@ -134,10 +175,10 @@ an integer nor a pointer of the same type.");
    FIXME:  Perhaps we should validate that the index is valid and if
    verbosity is set, warn about invalid indices (but still use them). */
 
-value_ptr
-value_subscript (value_ptr array, value_ptr idx)
+struct value *
+value_subscript (struct value *array, struct value *idx)
 {
-  value_ptr bound;
+  struct value *bound;
   int c_style = current_language->c_style_arrays;
   struct type *tarray;
 
@@ -178,7 +219,7 @@ value_subscript (value_ptr array, value_ptr idx)
     {
       struct type *range_type = TYPE_INDEX_TYPE (tarray);
       LONGEST index = value_as_long (idx);
-      value_ptr v;
+      struct value *v;
       int offset, byte, bit_index;
       LONGEST lowerbound, upperbound;
       get_discrete_bounds (range_type, &lowerbound, &upperbound);
@@ -210,15 +251,15 @@ value_subscript (value_ptr array, value_ptr idx)
    (eg, a vector register).  This routine used to promote floats
    to doubles, but no longer does.  */
 
-static value_ptr
-value_subscripted_rvalue (value_ptr array, value_ptr idx, int lowerbound)
+static struct value *
+value_subscripted_rvalue (struct value *array, struct value *idx, int lowerbound)
 {
   struct type *array_type = check_typedef (VALUE_TYPE (array));
   struct type *elt_type = check_typedef (TYPE_TARGET_TYPE (array_type));
   unsigned int elt_size = TYPE_LENGTH (elt_type);
   LONGEST index = value_as_long (idx);
   unsigned int elt_offs = elt_size * longest_to_int (index - lowerbound);
-  value_ptr v;
+  struct value *v;
 
   if (index < lowerbound || elt_offs >= TYPE_LENGTH (array_type))
     error ("no such vector element");
@@ -245,7 +286,7 @@ value_subscripted_rvalue (value_ptr array, value_ptr idx, int lowerbound)
    For now, we do not overload the `=' operator.  */
 
 int
-binop_user_defined_p (enum exp_opcode op, value_ptr arg1, value_ptr arg2)
+binop_user_defined_p (enum exp_opcode op, struct value *arg1, struct value *arg2)
 {
   struct type *type1, *type2;
   if (op == BINOP_ASSIGN || op == BINOP_CONCAT)
@@ -267,7 +308,7 @@ binop_user_defined_p (enum exp_opcode op, value_ptr arg1, value_ptr arg2)
    For now, we do not overload the `&' operator.  */
 
 int
-unop_user_defined_p (enum exp_opcode op, value_ptr arg1)
+unop_user_defined_p (enum exp_opcode op, struct value *arg1)
 {
   struct type *type1;
   if (op == UNOP_ADDR)
@@ -293,11 +334,11 @@ unop_user_defined_p (enum exp_opcode op, value_ptr arg1)
    is the opcode saying how to modify it.  Otherwise, OTHEROP is
    unused.  */
 
-value_ptr
-value_x_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op,
+struct value *
+value_x_binop (struct value *arg1, struct value *arg2, enum exp_opcode op,
 	       enum exp_opcode otherop, enum noside noside)
 {
-  value_ptr *argvec;
+  struct value **argvec;
   char *ptr;
   char tstr[13];
   int static_memfuncp;
@@ -313,7 +354,7 @@ value_x_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op,
   if (TYPE_CODE (check_typedef (VALUE_TYPE (arg1))) != TYPE_CODE_STRUCT)
     error ("Can't do that binary op on that type");	/* FIXME be explicit */
 
-  argvec = (value_ptr *) alloca (sizeof (value_ptr) * 4);
+  argvec = (struct value **) alloca (sizeof (struct value *) * 4);
   argvec[1] = value_addr (arg1);
   argvec[2] = arg2;
   argvec[3] = 0;
@@ -456,13 +497,13 @@ value_x_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op,
    and return that value (where '@' is (almost) any unary operator which
    is legal for GNU C++).  */
 
-value_ptr
-value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
+struct value *
+value_x_unop (struct value *arg1, enum exp_opcode op, enum noside noside)
 {
-  value_ptr *argvec;
+  struct value **argvec;
   char *ptr, *mangle_ptr;
   char tstr[13], mangle_tstr[13];
-  int static_memfuncp;
+  int static_memfuncp, nargs;
 
   COERCE_REF (arg1);
   COERCE_ENUM (arg1);
@@ -473,9 +514,11 @@ value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
   if (TYPE_CODE (check_typedef (VALUE_TYPE (arg1))) != TYPE_CODE_STRUCT)
     error ("Can't do that unary op on that type");	/* FIXME be explicit */
 
-  argvec = (value_ptr *) alloca (sizeof (value_ptr) * 3);
+  argvec = (struct value **) alloca (sizeof (struct value *) * 4);
   argvec[1] = value_addr (arg1);
   argvec[2] = 0;
+
+  nargs = 1;
 
   /* make the right function name up */
   strcpy (tstr, "operator__");
@@ -488,13 +531,19 @@ value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
       strcpy (ptr, "++");
       break;
     case UNOP_PREDECREMENT:
-      strcpy (ptr, "++");
+      strcpy (ptr, "--");
       break;
     case UNOP_POSTINCREMENT:
       strcpy (ptr, "++");
+      argvec[2] = value_from_longest (builtin_type_int, 0);
+      argvec[3] = 0;
+      nargs ++;
       break;
     case UNOP_POSTDECREMENT:
-      strcpy (ptr, "++");
+      strcpy (ptr, "--");
+      argvec[2] = value_from_longest (builtin_type_int, 0);
+      argvec[3] = 0;
+      nargs ++;
       break;
     case UNOP_LOGICAL_NOT:
       strcpy (ptr, "!");
@@ -519,6 +568,7 @@ value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
       if (static_memfuncp)
 	{
 	  argvec[1] = argvec[0];
+	  nargs --;
 	  argvec++;
 	}
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
@@ -528,7 +578,7 @@ value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
 	    = TYPE_TARGET_TYPE (check_typedef (VALUE_TYPE (argvec[0])));
 	  return value_zero (return_type, VALUE_LVAL (arg1));
 	}
-      return call_function_by_hand (argvec[0], 1 - static_memfuncp, argvec + 1);
+      return call_function_by_hand (argvec[0], nargs, argvec + 1);
     }
   error ("member function %s not found", tstr);
   return 0;			/* For lint -- never reached */
@@ -556,10 +606,12 @@ value_x_unop (value_ptr arg1, enum exp_opcode op, enum noside noside)
    string values of length 1.
  */
 
-value_ptr
-value_concat (value_ptr arg1, value_ptr arg2)
+struct value *
+value_concat (struct value *arg1, struct value *arg2)
 {
-  register value_ptr inval1, inval2, outval = NULL;
+  struct value *inval1;
+  struct value *inval2;
+  struct value *outval = NULL;
   int inval1len, inval2len;
   int count, idx;
   char *ptr;
@@ -689,10 +741,10 @@ value_concat (value_ptr arg1, value_ptr arg2)
    Does not support addition and subtraction on pointers;
    use value_add or value_sub if you want to handle those possibilities.  */
 
-value_ptr
-value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
+struct value *
+value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
 {
-  register value_ptr val;
+  struct value *val;
   struct type *type1, *type2;
 
   COERCE_REF (arg1);
@@ -746,7 +798,7 @@ value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
         case BINOP_EXP:
           v = pow (v1, v2);
           if (errno)
-            error ("Cannot perform exponentiation: %s", strerror (errno));
+            error ("Cannot perform exponentiation: %s", safe_strerror (errno));
           break;
 
 	default:
@@ -762,8 +814,7 @@ value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
       else
 	val = allocate_value (builtin_type_double);
 
-      store_floating (VALUE_CONTENTS_RAW (val), TYPE_LENGTH (VALUE_TYPE (val)),
-		      v);
+      store_typed_floating (VALUE_CONTENTS_RAW (val), VALUE_TYPE (val), v);
     }
   else if (TYPE_CODE (type1) == TYPE_CODE_BOOL
 	   &&
@@ -885,7 +936,7 @@ value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
             case BINOP_EXP:
               v = pow (v1, v2);
               if (errno)
-                error ("Cannot perform exponentiation: %s", strerror (errno));
+                error ("Cannot perform exponentiation: %s", safe_strerror (errno));
               break;
 
 	    case BINOP_REM:
@@ -1009,7 +1060,7 @@ value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
             case BINOP_EXP:
               v = pow (v1, v2);
               if (errno)
-                error ("Cannot perform exponentiation: %s", strerror (errno));
+                error ("Cannot perform exponentiation: %s", safe_strerror (errno));
 	      break;
 
 	    case BINOP_REM:
@@ -1114,7 +1165,7 @@ value_binop (value_ptr arg1, value_ptr arg2, enum exp_opcode op)
 /* Simulate the C operator ! -- return 1 if ARG1 contains zero.  */
 
 int
-value_logical_not (value_ptr arg1)
+value_logical_not (struct value *arg1)
 {
   register int len;
   register char *p;
@@ -1142,7 +1193,7 @@ value_logical_not (value_ptr arg1)
    necessarily null terminated) based on their length */
 
 static int
-value_strcmp (register value_ptr arg1, register value_ptr arg2)
+value_strcmp (struct value *arg1, struct value *arg2)
 {
   int len1 = TYPE_LENGTH (VALUE_TYPE (arg1));
   int len2 = TYPE_LENGTH (VALUE_TYPE (arg2));
@@ -1172,7 +1223,7 @@ value_strcmp (register value_ptr arg1, register value_ptr arg2)
    iff ARG1 and ARG2 have equal contents.  */
 
 int
-value_equal (register value_ptr arg1, register value_ptr arg2)
+value_equal (struct value *arg1, struct value *arg2)
 {
   register int len;
   register char *p1, *p2;
@@ -1199,9 +1250,9 @@ value_equal (register value_ptr arg1, register value_ptr arg2)
   /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
      is bigger.  */
   else if (code1 == TYPE_CODE_PTR && (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
-    return value_as_pointer (arg1) == (CORE_ADDR) value_as_long (arg2);
+    return value_as_address (arg1) == (CORE_ADDR) value_as_long (arg2);
   else if (code2 == TYPE_CODE_PTR && (code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL))
-    return (CORE_ADDR) value_as_long (arg1) == value_as_pointer (arg2);
+    return (CORE_ADDR) value_as_long (arg1) == value_as_address (arg2);
 
   else if (code1 == code2
 	   && ((len = (int) TYPE_LENGTH (type1))
@@ -1231,7 +1282,7 @@ value_equal (register value_ptr arg1, register value_ptr arg2)
    iff ARG1's contents are less than ARG2's.  */
 
 int
-value_less (register value_ptr arg1, register value_ptr arg2)
+value_less (struct value *arg1, struct value *arg2)
 {
   register enum type_code code1;
   register enum type_code code2;
@@ -1253,14 +1304,14 @@ value_less (register value_ptr arg1, register value_ptr arg2)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return value_as_double (arg1) < value_as_double (arg2);
   else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
-    return value_as_pointer (arg1) < value_as_pointer (arg2);
+    return value_as_address (arg1) < value_as_address (arg2);
 
   /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
      is bigger.  */
   else if (code1 == TYPE_CODE_PTR && (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
-    return value_as_pointer (arg1) < (CORE_ADDR) value_as_long (arg2);
+    return value_as_address (arg1) < (CORE_ADDR) value_as_long (arg2);
   else if (code2 == TYPE_CODE_PTR && (code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL))
-    return (CORE_ADDR) value_as_long (arg1) < value_as_pointer (arg2);
+    return (CORE_ADDR) value_as_long (arg1) < value_as_address (arg2);
   else if (code1 == TYPE_CODE_STRING && code2 == TYPE_CODE_STRING)
     return value_strcmp (arg1, arg2) < 0;
   else
@@ -1272,8 +1323,8 @@ value_less (register value_ptr arg1, register value_ptr arg2)
 
 /* The unary operators - and ~.  Both free the argument ARG1.  */
 
-value_ptr
-value_neg (register value_ptr arg1)
+struct value *
+value_neg (struct value *arg1)
 {
   register struct type *type;
   register struct type *result_type = VALUE_TYPE (arg1);
@@ -1301,8 +1352,8 @@ value_neg (register value_ptr arg1)
     }
 }
 
-value_ptr
-value_complement (register value_ptr arg1)
+struct value *
+value_complement (struct value *arg1)
 {
   register struct type *type;
   register struct type *result_type = VALUE_TYPE (arg1);
@@ -1349,8 +1400,8 @@ value_bit_index (struct type *type, char *valaddr, int index)
   return (word >> rel_index) & 1;
 }
 
-value_ptr
-value_in (value_ptr element, value_ptr set)
+struct value *
+value_in (struct value *element, struct value *set)
 {
   int member;
   struct type *settype = check_typedef (VALUE_TYPE (set));

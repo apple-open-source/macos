@@ -1,7 +1,10 @@
 VPATH = @srcdir@
 srcdir = @srcdir@
 
-EXECUTABLES = simple stack c_variable cpp_variable
+EXEEXT = @EXEEXT@
+
+EXECUTABLES = simple$(EXEEXT) stack$(EXEEXT) c_variable$(EXEEXT) \
+		cpp_variable$(EXEEXT)
 
 # uuencoded format to avoid SCCS/RCS problems with binary files.
 CROSS_EXECUTABLES =

@@ -40,10 +40,6 @@
 //	internal routine prototypes
 
 static	int	RcdValErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID parid );
-
-static	int	RcdFThdErr( SGlobPtr GPtr, UInt32 fid );
-
-static	int	RcdNoDirErr( SGlobPtr GPtr, UInt32 did );
 		
 static	int	RcdNameLockedErr( SGlobPtr GPtr, OSErr type, UInt32 incorrect );
 	
@@ -174,7 +170,7 @@ OSErr IVChk( SGlobPtr GPtr )
 	UInt32					i;
 	UInt32					hfsPlusIOPosOffset;
 	BTreeControlBlock		*btcb;
-	SVCB				*vcb	= GPtr->calculatedVCB;
+	SVCB					*vcb	= GPtr->calculatedVCB;
 	
 	//  Set up
 
@@ -349,7 +345,7 @@ again:
 	
 	vcb->vcbTotalBlocks	= realTotalBlocks;
 	vcb->vcbFreeBlocks	= 0;
-	//	Only do these tests on HFS volumes, since they are either irrellivent
+	//	Only do these tests on HFS volumes, since they are either 
 	//	or, getting the VolumeHeader would have already failed.
 
 	if ( GPtr->isHFSPlus == false )
@@ -643,8 +639,9 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		}
 		else
 		{
-			GPtr->calculatedExtentsFCB->fcbLogicalSize  = (UInt32) volumeHeader->extentsFile.logicalSize;					//	Set Extents tree's LEOF
-			GPtr->calculatedExtentsFCB->fcbPhysicalSize = volumeHeader->extentsFile.totalBlocks * volumeHeader->blockSize;	//	Set Extents tree's PEOF
+			GPtr->calculatedExtentsFCB->fcbLogicalSize  = volumeHeader->extentsFile.logicalSize;					//	Set Extents tree's LEOF
+			GPtr->calculatedExtentsFCB->fcbPhysicalSize = (UInt64)volumeHeader->extentsFile.totalBlocks * 
+														  (UInt64)volumeHeader->blockSize;	//	Set Extents tree's PEOF
 		}
 
 		//
@@ -695,7 +692,7 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		err = CheckFileExtents( GPtr, kHFSExtentsFileID, 0, (void *)GPtr->calculatedExtentsFCB->fcbExtents16, &numABlks );	/* check out extent info */	
 		if (err) goto exit;
 	
-		if (alternateMDB->drXTFlSize != (numABlks * GPtr->calculatedVCB->vcbBlockSize))//	check out the PEOF
+		if (alternateMDB->drXTFlSize != ((UInt64)numABlks * (UInt64)GPtr->calculatedVCB->vcbBlockSize))//	check out the PEOF
 		{
 			RcdError(GPtr,E_ExtPEOF);
 			err = E_ExtPEOF;
@@ -956,8 +953,9 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		}
 		else
 		{
-			GPtr->calculatedCatalogFCB->fcbLogicalSize  = (UInt32) volumeHeader->catalogFile.logicalSize;
-			GPtr->calculatedCatalogFCB->fcbPhysicalSize = volumeHeader->catalogFile.totalBlocks * volumeHeader->blockSize;
+			GPtr->calculatedCatalogFCB->fcbLogicalSize  = volumeHeader->catalogFile.logicalSize;
+			GPtr->calculatedCatalogFCB->fcbPhysicalSize = (UInt64)volumeHeader->catalogFile.totalBlocks * 
+														  (UInt64)volumeHeader->blockSize;  
 		}
 
 		//
@@ -1008,7 +1006,7 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		err = CheckFileExtents( GPtr, kHFSCatalogFileID, 0, (void *)GPtr->calculatedCatalogFCB->fcbExtents16, &numABlks );	/* check out extent info */	
 		if (err) goto exit;
 
-		if (alternateMDB->drCTFlSize != (numABlks * vcb->vcbBlockSize))	//	check out the PEOF
+		if (alternateMDB->drCTFlSize != ((UInt64)numABlks * (UInt64)vcb->vcbBlockSize))	//	check out the PEOF
 		{
 			RcdError( GPtr, E_CatPEOF );
 			err = E_CatPEOF;
@@ -1133,8 +1131,9 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 		}
 		else
 		{
-			fcb->fcbLogicalSize  = (UInt32) volumeHeader->allocationFile.logicalSize;
-			fcb->fcbPhysicalSize = volumeHeader->allocationFile.totalBlocks * volumeHeader->blockSize;
+			fcb->fcbLogicalSize  = volumeHeader->allocationFile.logicalSize;
+			fcb->fcbPhysicalSize = (UInt64) volumeHeader->allocationFile.totalBlocks * 
+								   (UInt64) volumeHeader->blockSize; 
 		}
 
 		/* while we're here, also get startup file extents... */
@@ -1144,8 +1143,9 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 		err = CheckFileExtents( GPtr, kHFSStartupFileID, 0, (void *)fcb->fcbExtents32, &numABlks );
 		if (err) goto exit;
 
-		fcb->fcbLogicalSize  = (UInt32) volumeHeader->startupFile.logicalSize;
-		fcb->fcbPhysicalSize = volumeHeader->startupFile.totalBlocks * volumeHeader->blockSize;
+		fcb->fcbLogicalSize  = volumeHeader->startupFile.logicalSize;
+		fcb->fcbPhysicalSize = (UInt64) volumeHeader->startupFile.totalBlocks * 
+								(UInt64) volumeHeader->blockSize; 
 	}
 
 exit:
@@ -1574,7 +1574,8 @@ OSErr	CreateAttributesBTreeControlBlock( SGlobPtr GPtr )
 		else
 		{
 			GPtr->calculatedAttributesFCB->fcbLogicalSize  = (UInt64) volumeHeader->attributesFile.logicalSize;						//	Set Attributes tree's LEOF
-			GPtr->calculatedAttributesFCB->fcbPhysicalSize = volumeHeader->attributesFile.totalBlocks * volumeHeader->blockSize;	//	Set Attributes tree's PEOF
+			GPtr->calculatedAttributesFCB->fcbPhysicalSize = (UInt64) volumeHeader->attributesFile.totalBlocks * 
+											(UInt64) volumeHeader->blockSize;	//	Set Attributes tree's PEOF
 		}
 
 		//
@@ -1746,7 +1747,7 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 }
 
 
-
+#if 0
 /*------------------------------------------------------------------------------
 
 Name:		RcdFThdErr - (record file thread error)
@@ -1814,6 +1815,7 @@ static int RcdNoDirErr( SGlobPtr GPtr, UInt32 did )			//	the directory ID in the
 	
 	return( noErr );										//	successful return
 }
+#endif
 
 
 /*------------------------------------------------------------------------------
@@ -2389,7 +2391,8 @@ Output:
 			blocksUsed	-	number of allocation blocks allocated to the file
 ------------------------------------------------------------------------------*/
 
-OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType, const void *extents, UInt32 *blocksUsed )
+OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType, 
+						  const void *extents, UInt32 *blocksUsed )
 {
 	UInt32				blockCount;
 	UInt32				extentBlockCount;

@@ -8,9 +8,9 @@ INSTALLDIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/Pr
 SYMROOT=
 
 OPTIM = -Os
-CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp \
-    -D__ARCHITECTURE__=\"i386\" -DSAIO_INTERNAL_USER -munaligned-text -static \
-	-traditional-cpp -DRCZ_COMPRESSED_FILE_SUPPORT
+CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
+    -D__ARCHITECTURE__=\"i386\" -DSAIO_INTERNAL_USER -fno-builtin -static \
+	 -DRCZ_COMPRESSED_FILE_SUPPORT
 DEFINES=
 CONFIG = hd
 INC = -I../rcz -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSADIR) -I/System/Library/Frameworks/System.framework/PrivateHeaders
@@ -26,11 +26,11 @@ LIBS=
 
 VPATH = $(OBJROOT):$(SYMROOT)
 
-SAIO_OBJS = table.o asm.o biosfn.o misc.o gets.o \
-	vga.o disk.o sys.o cache.o \
-	ufs_byteorder.o	bootstruct.o \
-	stringTable.o load.o \
-	bios.o pci.o vbe.o nbp.o
+SAIO_OBJS = table.o asm.o bios.o biosfn.o \
+	disk.o sys.o cache.o bootstruct.o \
+	ufs.o ufs_byteorder.o \
+	stringTable.o load.o misc.o \
+	vbe.o nbp.o hfs.o hfs_compare.o
 
 SAIO_EXTERN_OBJS = console.o
 

@@ -1,11 +1,10 @@
-TODO (post MacWorld):
-- Test coalesced symbols with -static code gen and with rld()?
-
 TODO:
-- If a two-level library is loaded the definition from the specified library
-  is not loaded when there is another definition.  This can lead to ld not
-  catching a multiply defined symbol in a flat library as dyld would cause.
-  Test case in ~/bug_tests/Puma5D13.Sampler .
+- Should add a -no_fix_prebinding flag to ld(1) so fix_prebinding can be
+  built with it.
+- MH_BUNDLEs should have a two-level namespace hint table by default or at
+  least with MACOSX_DEPLOYMENT_TARGET 10.2 (the -twolevel_namespace_hints flag).
+  Note this is only a problem with 10.0 which is NOT a deployment target.
+- Test coalesced symbols with -static code gen and with rld()?
 - Might be a bug in search_dynamic_libs() if it is searching an archive then
   it does not take into account -all_load or -Objc.
 - The sreloc->r_address field is only 24-bits (16 meg) and can overflow
@@ -23,6 +22,310 @@ Build problems:
   #52986)
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
+
+Changes for the 5.10 release (the cctools-432 release):
+- Fixed a bug in merge_dylib_module_symbols() and merge_bundle_loader_symbols()
+  in symbols.c in the change introduced in the change to cctools-425.  The loop
+  variable j was used in this code but should not have been as j was still live
+  from the outer loop.  Radar bug #2969353.
+- Fixed a bug where an undefined symbol was being put out with the "weak
+  definition bit set".  This is an error if seen again by ld(1) as an undefined
+  symbol is not a definition and can't have the "weak definition bit set".
+  This can happen when a weak definition is first seen then a non-weak
+  definition is seen from a dynamic library.  The fix was in
+  output_merged_symbols() in symbols.c to clear this bit for all undefined
+  symbols.  Radar bug #2969501.
+- Fixed a bug where the error message about "illegal reference to indirectly 
+  referenced symbol defined in a dynamic library" should not have been printed
+  in the case -r was used.  The fix was in both merge_dylib_module_symbols()
+  and process_undefineds() in symbols.c to add "save_reloc == FALSE" to the
+  if expression for this error message.  Radar bug #2969437.
+
+Changes for the 5.10 release (the cctools-431 release):
+- Fixed a bug in the reloc routines that resulted in the error:
+
+    ld:internal error: output_section() count of external relocation entries
+    does not match
+
+  This happened when the object had an undefined reference to a symbol defined
+  in another object file as a coalesed symbol (and -bundle was used and so
+  -prebind was not used).  The logic to forced to be an external relocation
+  entry needed to be moved down in the routine outside of the undefined
+  map lookup.  This change was made in all the *_reloc.c files.
+  Radar bug #2963045.
+
+Changes for the 5.10 release (the cctools-427 release):
+- Fixed a bug where a bad two-level namespace linked image was produced when
+  a symbol from an object was discared and became an illegal reference to an
+  indirectly referenced dylib.  Changes were in both symbols.h and symbols.c .
+  The new fields definition_library and non_dylib_referenced_obj were added to
+  the merged_symbol struct.  Then code to set these was added in merge_symbol*()
+  routines.  The code to produce the error message was added in
+  process_undefineds().  Radar bug #2956332.
+
+Changes for the 5.10 release (the cctools-426 release):
+- The fix below was still incomplete.  A final pass over the reference table
+  was needed in layout_dylib_tables() in symbols.c to set the reference type
+  correctly.  This was needed when multiple weak private externs were seen
+  then a non-weak global symbol was seen.  In this case the "private" reference
+  needs to be changed when the final merged symbol is not a private extern.
+
+Changes for the 5.10 release (the cctools-425 release):
+- The fix below was only done in merge_symbols() but it also needed to be done
+  in merge_dylib_module_symbols() and merge_bundle_loader_symbols().
+  Radar bug #2952209.
+
+Changes for the 5.10 release (the cctools-424 release):
+- Fixed a bug when creating a dynamic library where a merged symbol that was a
+  weak private extern that was later discarded for a non-weak symbol had the
+  wrong reference type.  The reference type was incorrectly based on the merged
+  symbol that was being discared not the object symbol that was to be used.
+  Radar bug #2952209.
+
+Changes for the 5.10 release (the cctools-421 release):
+- Ifdef'ed out reset_prebound_undefines() in symbols.c and the call to it in
+  layout.c with #ifndef RLD in hope to fix Radar bug #2931331.
+- Added the -nofixprebinding flag to mark the binary with MH_NOFIXPREBINDING
+  in the mach header flags.  Changes in ld.c, ld.h and layout.c.  Radar bug
+  #2941669.
+
+Changes for the 5.10 release (the cctools-420 release):
+- Changed the #ifdef's around get_output_section in symbols.c for the fix below
+  in cctools-419.  The libkld libraries were missing this symbol.  Radar bug
+  #2936244.
+
+Changes for the 5.10 release (the cctools-419 release):
+- Fixed a bug in the reloc routines when the object that contains a coalesed
+  that is a weak definition that was discared for a non-coalesed symbol.  In
+  this case relocation entry on output should not be forced to be an external
+  relocation entry.  The logic that sets force_extern_reloc had one more
+  expression added to it to check if the merged symbol to see if it was N_SECT
+  and if the output section was a coalesced section.  This change was made in
+  all the *_reloc.c files.  Radar bug #2931708.
+
+Changes for the 5.10 release (the cctools-417 release):
+- Fixed a bug legal_reference() in indirect_sections.c that did not correctly
+  allow references to coalesced symbols that were local.  Radar bug #2925564.
+
+Changes for the 5.10 release (the cctools-416 release):
+- Changed merge_dylib_module_symbols() in symbols.c to not generate any multiply
+  defined errors or warning about symbols coming from indirectly referenced
+  dynamic libraries.  Radar bug #2921080.
+- Changed one of the checks in legal_reference() in indirect_sections.c to not
+  use the S_ATTR_WEAK_DEFS attribute and assume any coalesced section could
+  contain blocks which are not used because they were for weak_definition
+  symbols. Radar bug #2919646.
+- Changed the checking for a weak definition in merge_symbols() in symbols.c 
+  (three places) to now test the N_WEAK_DEF bit rather than N_SECT type and
+  S_ATTR_WEAK_DEFS section attribute.  Made this same change in 
+  merge_dylib_module_symbols() in symbols.c in (4 places).  Made this same
+  change in merge_bundle_loader_symbols() in symbols.c (4 places).  And also
+  made this same change in trace_symbol() in symbols.c (1 place). Radar bug
+  #2919646.
+- Added checks in check_symbol() in symbols.c to check that weak definitions,
+  the N_WEAK_DEF bit, are only in global symbols in a coalesced sections.
+  Radar bug #2919646.
+- Removed the internal N_WEAK_DEF constant from symbols.c since this in now
+  part of <mach-o/nlist.h>.  Radar bug #2919646.
+- Removed the check in check_cur_obj() in pass1.c for the S_ATTR_WEAK_DEFS
+  attribute.  Radar bug #2919646.
+- Changed the last warnings in check_archive_arch() in pass1.c for archive's
+  cputype not matching should not be printed if -no_arch_warnings is specified.
+  Radar bug #2918296.
+
+Changes for the 5.10 release (the cctools-415 release):
+- Changed legal_reference() in indirect_sections.c to deal correctly with
+  coalesced sections with the S_ATTR_WEAK_DEFS attribute.  Radar bug #2911339.
+
+Changes for the 5.10 release (the cctools-414 release):
+- Changed trace_symbol() and process_undefineds() to print "weak reference" for
+  symbols with the N_WEAK_REF bit set.  And changed trace_symbol() to print
+  "weak definition" for symbols in a section with the S_ATTR_WEAK_DEFS
+  attribute.  Also added a internal N_WEAK_DEF constant used in the n_desc field
+  that trace_symbol() uses to print "weak definition".  This is used with the
+  new pbud_weak_def_symbol struct.  And the pbud_weak_def_symbol is used in
+  merge_dylib_module_symbols() for symbols in sections with the S_ATTR_WEAK_DEFS
+  attribute for tracing. Radar bug #2898558.
+- Added code in merge_symbol(), merge_dylib_module_symbols() and
+  merge_bundle_loader_symbols() to handle global weak coalesced symbols defined
+  in objects or dylibs. Radar bug #2898558.
+- Added code in merge_symbol() to keep the N_WEAK_REF bit of merged symbols for
+  undefined symbols that are getting resolved to S_ATTR_WEAK_DEFS symbols, so
+  that later if a non-weak definition from a dylib is used the weak reference is
+  retained.  Changes were also needed in two places in output_merged_symbols()
+  to make sure the N_WEAK_REF bit is cleared on symbol definitions. Radar bug
+  #2898558
+- Added weak_def_in_dylib bit in a merged_symbol struct in symbols.h .  Radar
+  bug #2898558
+- Added support for private_extern weak_definitions in coalesced sections.  The
+  only really supported form is private extern symbols from a coalesced section
+  with the weak_definitions attribute in the .o files being linked.  And
+  optionally one true definition (also a private extern) from any section also
+  from the .o files being linked.  The changes were a couple of added if cases
+  in merge_symbols.c in symbols.c just before it handles two coalesced symbols.
+  Radar bug #2898558.
+- Added a check in check_cur_obj() in pass1.c to make sure the weak_definitions
+  attribute, S_ATTR_WEAK_DEFS, is only used with a coalesced section type.
+  Radar bug #2898558.
+- Added a check in merge_dylibs() in merge_dylibs.c to make sure the libraries
+  being linked against don't have the same install_name as the output.  Radar
+  bug #2890446.
+
+Changes for the 5.10 release (the cctools-412 release):
+- Added a check in layout_segments() in layout.c that checks to make sure the
+  total number of sections in the output is less than MAX_SECT so to not produce
+  bad object files.  Radar bug #2882553.
+- Added the -sect_diff_relocs flag which takes the arguments suppress, warning,
+  and error.  As well as the LD_SECT_DIFF_RELOCS environment variable which can
+  be set to the same suppress, warning, and error values.  Note these are only
+  used when both -dynamic and -execute are in effect.  This causes the code in
+  reloc_output_for_dyld() in sections.c to flag objects being linked that have
+  section difference relocation entries in them.  The default is suppress.
+  Radar bug #2870529.
+
+Changes for the 5.10 release (the cctools-411 release):
+- Moved some of the macosx_deployment_target code into libstuff and changed
+  the code in here to use the libstuff code.  Radar bug #2848945.
+
+Changes for the 5.10 release (the cctools-407 release):
+- Made -run_init_lazily obsolete and removed all support execpt printing a
+  warning when the flag is used.  Changes in ld.c and layout.c .
+
+Changes for the 5.10 release (the cctools-403 release):
+- Changed the all target in the makefile to not depend on $(RC_OS)_lib_ofiles
+  but rather lib_ofiles and added the kld_build to the all target so that the
+  default make all builds everything.
+- Changed the macos_lib_ofiles_install target in the Makefile to work when
+  $SYMROOT is not set.  So the top level Makefile can do a make install and
+  work by default.
+
+Changes for the 5.10 release (the cctools-402 release):
+- Removed the hack in the Makefile to use cc when $(CC) is gcc3 when linking
+  prehack_libkld.a to work around Radar bug #2814731.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+- Changed the hack in the Makefile to use cc when $(CC) is gcc3 when linking
+  prehack_libkld.a to work around Radar bug #2814731.
+
+Changes for the 5.10 release (the cctools-397 release):
+- Added the -multiply_defined_unused flag with the default being suppress.
+  Changes in ld.c, ld.h, layout.c where
+  twolevel_namespace_check_for_unused_dylib_symbols() is called and in
+  pass1.c in twolevel_namespace_check_for_unused_dylib_symbols().  Radar bug
+  #2835152.
+- Changed ppc_reloc() in ppc_reloc.c to not change the Y-bit of PPC_RELOC_BR14
+  relocation types.
+- Added the support for the MACOSX_DEPLOYMENT_TARGET environment variable.
+  Changed the code to switch LC_PREBIND and weak references off this value and
+  removed the POST_MACOSX_10_1 macro from the Makefile.  Changes in symbols.c
+  layout.c and pass2.c.  Radar bug #2830042.
+- One more change in search_dynamic_libs() in pass1.c the "Logging for Build &
+  Integration] Used dynamic library" to print the realpath() name of the file
+  open(2)'ed and not the install name.  Radar bug #2826775.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Change in search_dynamic_libs() in pass1.c the "Logging for Build &
+  Integration] Used dynamic library" to print the name of the file open(2)'ed
+  and not the install name.  Radar bug #2826775.
+- Added support for the -weak_reference_mismatches flag in ld.c and ld.h.
+- Added the bit field
+    weak_reference_mismatch:1, /* seen both a weak and non-weak reference */
+  to the merged_symbol struct in symbols.h
+- Added code to merge_symbols() in symbols.c to set the weak_reference_mismatch
+  field in the merged_symbol struct based on the symbols being merged and the
+  setting of the -weak_reference_mismatches flag.
+- Added a loop in process_undefineds() in symbols.c to print the symbols that
+  had weak reference mismatches.
+- Changed the use of N_WEAK_SYM to N_WEAK_REF in symbols.c .
+- Added a hack in the Makefile to use cc when $(CC) is gcc when linking
+  prehack_libkld.a to work around Radar bug #2814731.
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+
+Changes for the 5.10 release (the cctools-394 release):
+- Added LD_FORCE_NO_PREBIND environment variable to override the command line
+  and the LD_PREBIND environment variable.  Radar bug #2814402.
+- Changed it so that the LC_PREBIND_CKSUM and the LC_LOAD_WEAK_DYLIB commands
+  are not used unless RC_RELEASE is Proton or Jaguar.  Changes were in Makefile,
+  layout.c and pass2.c using the POST_MACOSX_10_1 cpp macro.
+
+- To avoid creating LC_LOAD_WEAK_DYLIB for umbrella libraries that generally
+  have no symbols referenced from them, LC_LOAD_WEAK_DYLIB are only created
+  if some symbols are referenced and all of them are referenced weak.
+
+  Added the some_symbols_referenced field to the dynamic_library struct in
+  pass1.h.
+
+  Added setting the some_symbols_referenced field to TRUE in
+  merge_dylib_module_symbols() in symbols.c when a symbol is used from a dylib.
+
+  Changed the code output_headers() in pass2.c to check the both the
+  some_symbols_referenced field and the some_non_weak_refs of the corresponding
+  dynamic_library to if to put out a command for the dylib of either
+  LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB.
+
+Changes for the 5.10 release (the cctools-393 release):
+- Added code to support weak dynamic shared libraries.
+
+  Changed the merged_dylib struct in dylibs.h to have a pointer to the
+  corresponding dynamic_library library struct.  This is then filled in by
+  merged_dylibs() in dylibs.c.
+
+  Added the some_non_weak_refs field to the dynamic_library struct in pass1.h.
+
+  Added a test of the N_WEAK_SYM bit in merge_dylib_module_symbols() in
+  symbols.c and if not set then set the new some_non_weak_refs field in the
+  dynamic_library struct to TRUE.
+
+  Changed the code output_headers() in pass2.c to check the some_non_weak_refs
+  of the corresponding dynamic_library to see it is TRUE to put out a load
+  command for the dylib of either LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB.
+
+  Added the testing for LC_LOAD_WEAK_DYLIB where LC_LOAD_DYLIB in other places
+  in dylibs.c and pass1.c .
+
+- Fixed a bug in the code for the prebind_all_twolevel_modules option at the
+  end of search_dynamic_libs() in pass1.c that was setting mh too earily that
+  caused it to crash when p pointed to a dynamic_lib that was an archive.
+
+Changes for the 5.10 release (the cctools-390 release):
+- Fixed a bug in parsing the -headerpad_max_install_names in ld.c that caused
+  it to eat the next parameter in the second parsing loop.
+
+Changes for the 5.10 release (the cctools-389 release):
+- Added the -headerpad_max_install_names option.  Changes in ld.c and layout.c. 
+- Fixed a bug that occured when prebinding was disabled becaused of overlapps
+  that produced the output with a bad load command (zero size).  This was the
+  LC_PREBIND_CKSUM that the the code in layout.c accounted for but was not put
+  out in pass2.c becuse prebinding was disabled.  The code in pass2.c was
+  changed to put out the LC_PREBIND_CKSUM load command if it was set up in
+  layout.c and not if prebinding was still enabled.
+- Added the -prebind_all_twolevel_modules flag and the environment variable
+  LD_PREBIND_ALL_TWOLEVEL_MODULES which causes all modules in a two-level name
+  space prebound library to be marked as used in the linked_modules bit vector
+  in the LC_PREBOUND_DYLIB load command.  The changes were in ld.c, ld.h and
+  pass1.c at the end of search_dynamic_libs().  Radar bug #2784627.
+- Changed layout_segments() in layout.c to not set the bits in the mach header
+  for dyld outputs unless output_for_dyld is set.  Radar bug #2787764.
+
+Changes for the 5.10 release (the cctools-387 release):
+- Added the -seg_addr_table_filename option.
+- Fixed a bug in ppc_reloc.c where it was not picking up the sign of the
+  original displacement of a BR14 instruction and then incorrectly flipping the
+  Y-bit.  Radar bug #2765281.
+
+Changes for the 5.10 release (the cctools-386 release):
+- Added the code to copy the checksum load command into the output buffer in
+  output_headers() in pass2.c .
+- Added creating the prebind checksum load command in layout_segments() in
+  layout.c .
+- Added the output_cksum_info struct for the prebind checksum load command to
+  layout.h .
+- In check_cur_obj() in pass1.c added code to check a LC_PREBIND_CKSUM command.
+
+Changes for the 5.10 release (the cctools-385 release):
+- Changed libkld.a and libkld.dylib from object files to archives.
 
 Changes for the 5.9 release (the cctools-382 release):
 - Fixed the change below for cctools-381.  The ifndef RLD should only have been

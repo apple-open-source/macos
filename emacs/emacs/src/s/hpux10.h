@@ -43,5 +43,12 @@
 #undef LD_SWITCH_X_DEFAULT
 /* However, HPUX 10 puts Xaw and Xmu in a strange place
    (if you install them at all).  So search that place.  */
-#define C_SWITCH_X_SYSTEM -I/usr/include/X11R5 -I/usr/include/Motif1.2 -I/usr/contrib/X11R5/include
-#define LD_SWITCH_X_DEFAULT -L/usr/lib/X11R5 -L/usr/lib/Motif1.2 -L/usr/contrib/X11R5/lib
+#define C_SWITCH_X_SYSTEM  -I/usr/include/X11R6 -I/usr/include/X11R5 -I/usr/include/Motif1.2 -I/usr/contrib/X11R6/include -I/usr/contrib/X11R5/include
+#define LD_SWITCH_X_DEFAULT -L/usr/lib/X11R6 -L/usr/lib/X11R5 -L/usr/lib/Motif1.2 -L/usr/contrib/X11R5/lib
+
+/* 2000-11-21: Temporarily disable Unix 98 large file support found by
+   configure.  It fails on HPUX 11, at least, because it enables
+   header sections which lose when `static' is defined away, as it is
+   on HP-UX.  (You get duplicate symbol errors on linking). */
+
+#undef _FILE_OFFSET_BITS

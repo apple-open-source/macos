@@ -38,13 +38,8 @@ includes
 #include <net/if.h>
 #include <syslog.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
+#include <mach/mach_time.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
@@ -67,25 +62,25 @@ definitions
 Forward Declarations
 ----------------------------------------------------------------------------- */
 
+u_int32_t ppp_translate_error(u_int16_t subtype, u_int32_t native_ppp_error, u_int32_t native_dev_error);
 
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
 extern TAILQ_HEAD(, ppp) 	ppp_head;
-extern SCDSessionRef		gCfgCache;
+extern double	 		gTimeScaleSeconds;
 
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_long ppp_status (struct client *client, struct msg *msg)
 {
-    struct ppp_status 		*stat = (struct ppp_status *)&msg->data[0];
+    struct ppp_status 		*stat = (struct ppp_status *)&msg->data[MSG_DATAOFF(msg)];
     struct ifpppstatsreq 	rq;
-    struct ppp			*ppp = ppp_findbyref(msg->hdr.m_link);
-    struct timeval 		tval;
-    struct timezone 		tzone;
+    struct ppp			*ppp = ppp_find(msg);
     int		 		s;
+    u_int32_t			retrytime, curtime;
 
     PRINTF(("PPP_STATUS\n"));
 
@@ -98,54 +93,66 @@ u_long ppp_status (struct client *client, struct msg *msg)
     bzero (stat, sizeof (struct ppp_status));
     switch (ppp->phase) {
         case PPP_STATERESERVED:
-            stat->status = PPP_IDLE;		// Dial on demand waiting does not exist in the api
-            break;
-        case PPP_DISCONNECTLINK+1:
-            stat->status = PPP_DISCONNECTLINK;	//PPP_HOLDOFF; this state doesn't exit in the API
+        case PPP_HOLDOFF:
+            stat->status = PPP_IDLE;		// Dial on demand does not exist in the api
             break;
         default:
             stat->status = ppp->phase;
     }
 
-    if (stat->status == PPP_RUNNING) {
+    switch (stat->status) {
+        case PPP_RUNNING:
+        case PPP_ONHOLD:
 
-        s = socket(AF_INET, SOCK_DGRAM, 0);
-        if (s < 0) {
-            msg->hdr.m_result = errno;
-            msg->hdr.m_len = 0;
-            return 0;
-        }
-
-        bzero (&rq, sizeof (rq));
-
-        sprintf(rq.ifr_name, "%s%d", ppp->name, ppp->ifunit);
-        if (ioctl(s, SIOCGPPPSTATS, &rq) < 0) {
+            s = socket(AF_INET, SOCK_DGRAM, 0);
+            if (s < 0) {
+                msg->hdr.m_result = errno;
+                msg->hdr.m_len = 0;
+                return 0;
+            }
+    
+            bzero (&rq, sizeof (rq));
+    
+            sprintf(rq.ifr_name, "%s%d", ppp->name, ppp->ifunit);
+            if (ioctl(s, SIOCGPPPSTATS, &rq) < 0) {
+                close(s);
+                msg->hdr.m_result = errno;
+                msg->hdr.m_len = 0;
+                return 0;
+            }
+    
             close(s);
-            msg->hdr.m_result = errno;
-            msg->hdr.m_len = 0;
-            return 0;
-        }
 
-        close(s);
-
-        if (!gettimeofday(&tval, &tzone)) {
+            curtime = mach_absolute_time() * gTimeScaleSeconds;
             if (ppp->conntime)
-                stat->s.run.timeElapsed = tval.tv_sec - ppp->conntime;
-            if (!ppp->maxtime)	// no limit...
-                stat->s.run.timeRemaining = 0xFFFFFFFF;
+		stat->s.run.timeElapsed = curtime - ppp->conntime;
+            if (!ppp->disconntime)	// no limit...
+     	       stat->s.run.timeRemaining = 0xFFFFFFFF;
             else
-                stat->s.run.timeRemaining = ppp->maxtime - stat->s.run.timeElapsed;
-        }
+      	      stat->s.run.timeRemaining = (ppp->disconntime > curtime) ? ppp->disconntime - curtime : 0;
 
-        stat->s.run.outBytes = rq.stats.p.ppp_obytes;
-        stat->s.run.inBytes = rq.stats.p.ppp_ibytes;
-        stat->s.run.inPackets = rq.stats.p.ppp_ipackets;
-        stat->s.run.outPackets = rq.stats.p.ppp_opackets;
-        stat->s.run.inErrors = rq.stats.p.ppp_ierrors;
-        stat->s.run.outErrors = rq.stats.p.ppp_ierrors;
-    }
-    else {
-        stat->s.disc.lastDiscCause = ppp->laststatus;
+            stat->s.run.outBytes = rq.stats.p.ppp_obytes;
+            stat->s.run.inBytes = rq.stats.p.ppp_ibytes;
+            stat->s.run.inPackets = rq.stats.p.ppp_ipackets;
+            stat->s.run.outPackets = rq.stats.p.ppp_opackets;
+            stat->s.run.inErrors = rq.stats.p.ppp_ierrors;
+            stat->s.run.outErrors = rq.stats.p.ppp_ierrors;
+            break;
+            
+        case PPP_WAITONBUSY:
+        
+            stat->s.busy.timeRemaining = 0;
+            retrytime = 0;
+            getNumberFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, 
+                kSCEntNetPPP, CFSTR("RetryConnectTime"), &retrytime);
+            if (retrytime) {
+                curtime = mach_absolute_time() * gTimeScaleSeconds;
+                stat->s.busy.timeRemaining = (curtime < retrytime) ? retrytime - curtime : 0;
+            }
+            break;
+         
+        default:
+            stat->s.disc.lastDiscCause = ppp_translate_error(ppp->subtype, ppp->laststatus, ppp->lastdevstatus);
     }
 
     msg->hdr.m_result = 0;
@@ -158,7 +165,7 @@ u_long ppp_status (struct client *client, struct msg *msg)
 u_long ppp_connect (struct client *client, struct msg *msg)
 {
     struct options		*opts;
-    struct ppp			*ppp = ppp_findbyref(msg->hdr.m_link);
+    struct ppp			*ppp = ppp_find(msg);
 
     msg->hdr.m_len = 0;
 
@@ -170,7 +177,7 @@ u_long ppp_connect (struct client *client, struct msg *msg)
     PRINTF(("PPP_CONNECT\n"));
         
     // first find current the appropriate set of options
-    opts = client_findoptset(client, msg->hdr.m_link);
+    opts = client_findoptset(client, ppp_makeref(ppp));
 
     msg->hdr.m_result = ppp_doconnect(ppp, opts, 0);
     return 0;
@@ -180,7 +187,7 @@ u_long ppp_connect (struct client *client, struct msg *msg)
 ----------------------------------------------------------------------------- */
 u_long ppp_disconnect (struct client *client, struct msg *msg)
 {
-    struct ppp		*ppp = ppp_findbyref(msg->hdr.m_link);
+    struct ppp		*ppp = ppp_find(msg);
     
     PRINTF(("PPP_DISCONNECT\n"));
 
@@ -199,13 +206,67 @@ u_long ppp_disconnect (struct client *client, struct msg *msg)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
+u_long ppp_suspend (struct client *client, struct msg *msg)
+{
+    struct ppp		*ppp = ppp_find(msg);
+    
+    PRINTF(("PPP_SUSPEND\n"));
+
+    if (!ppp) {
+        msg->hdr.m_result = ENODEV;
+        msg->hdr.m_len = 0;
+        return 0;
+    }
+    
+    ppp_dosuspend(ppp); 
+
+    msg->hdr.m_result = 0;
+    msg->hdr.m_len = 0;
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+u_long ppp_resume (struct client *client, struct msg *msg)
+{
+    struct ppp		*ppp = ppp_find(msg);
+    
+    PRINTF(("PPP_RESUME\n"));
+
+    if (!ppp) {
+        msg->hdr.m_result = ENODEV;
+        msg->hdr.m_len = 0;
+        return 0;
+    }
+    
+    ppp_doresume(ppp);
+
+    msg->hdr.m_result = 0;
+    msg->hdr.m_len = 0;
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
 u_long ppp_enable_event (struct client *client, struct msg *msg)
 {
     PRINTF(("PPP_ENABLE_EVENT\n"));
 
-    client->notify = 1;
-    client->notify_link = msg->hdr.m_link;
     msg->hdr.m_result = 0;
+    client->notify = 1;
+    client->notify_link = 0;
+    client->notify_useservice = ((msg->hdr.m_flags & USE_SERVICEID) == USE_SERVICEID);
+    if (client->notify_useservice && msg->hdr.m_link) {        
+        if (client->notify_service = malloc(msg->hdr.m_link + 1)) {
+            strncpy(client->notify_service, msg->data, msg->hdr.m_link);
+            client->notify_service[msg->hdr.m_link] = 0;
+        }
+        else 
+            msg->hdr.m_result = ENOMEM;
+    }
+    else 
+        client->notify_link = msg->hdr.m_link;
+
     msg->hdr.m_len = 0;
     return 0;
 }
@@ -217,6 +278,12 @@ u_long ppp_disable_event (struct client *client, struct msg *msg)
     PRINTF(("PPP_DISABLE_EVENT\n"));
 
     client->notify = 0;    
+    client->notify_link = 0;    
+    client->notify_useservice = 0;    
+    if (client->notify_service) {
+    	free(client->notify_service);
+        client->notify_service = 0;
+    }
     msg->hdr.m_result = 0;
     msg->hdr.m_len = 0;
     return 0;
@@ -315,3 +382,162 @@ u_long ppp_getlinkbyserviceid (struct client *client, struct msg *msg)
     return 0;
 }
 
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+u_long ppp_getlinkbyifname (struct client *client, struct msg *msg)
+{
+    u_long		len = 0, err = ENODEV;
+    struct ppp		*ppp;
+    u_char      	ifname[IFNAMSIZ] = { 0 };
+    u_int16_t 		ifunit = 0, i = 0;
+
+    while ((i < msg->hdr.m_len) && (i < sizeof(ifname)) 
+        && ((msg->data[i] < '0') || (msg->data[i] > '9'))) {
+        ifname[i] = msg->data[i];
+        i++;
+    }
+    ifname[i] = 0;
+    while ((i < msg->hdr.m_len) 
+        && (msg->data[i] >= '0') && (msg->data[i] <= '9')) {
+        ifunit = (ifunit * 10) + (msg->data[i] - '0');
+        i++;
+    }
+
+    TAILQ_FOREACH(ppp, &ppp_head, next) {
+        if (!strcmp(ppp->name, ifname)
+            && (ppp->ifunit == ifunit)) {
+            
+            *(u_long *)&msg->data[0] = ppp_makeref(ppp);
+            err = 0;
+            len = 4;
+            break;
+        }
+    }
+
+    msg->hdr.m_result = err;
+    msg->hdr.m_len = len;
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void ppp_event(struct client *client, struct msg *msg)
+{
+    u_int32_t		event = *(u_int32_t *)&msg->data[0];
+    u_int32_t		error = *(u_int32_t *)&msg->data[4];
+    u_char 		*serviceid = &msg->data[8];
+    CFStringRef		ref;
+    struct ppp		*ppp;
+    CFDictionaryRef	service = NULL;
+
+    serviceid[msg->hdr.m_len - 8] = 0;	// need to zeroterminate the serviceid
+    msg->hdr.m_len = 0xFFFFFFFF; // no reply
+    //printf("ppp_event, event = 0x%x, cause = 0x%x, serviceid = '%s'\n", event, error, serviceid);
+
+    ref = CFStringCreateWithCString(NULL, serviceid, kCFStringEncodingUTF8);
+    if (ref) {
+        ppp = ppp_findbyserviceID(ref);
+        if (ppp) {
+        
+           // update status information first
+            service = copyEntity(kSCDynamicStoreDomainState, ref, kSCEntNetPPP);
+            if (service) {
+                ppp_updatestate(ppp, service);
+                CFRelease(service);
+            }
+        
+            if (event == PPP_EVT_DISCONNECTED) {
+                //if (error == EXIT_USER_REQUEST)
+                //    return;	// PPP API generates PPP_EVT_DISCONNECTED only for unrequested disconnections
+                error = ppp_translate_error(ppp->subtype, error, 0);
+            }
+            else 
+                error = 0;
+            client_notify(ppp->sid, ppp_makeref(ppp), event, error);
+        }
+        CFRelease(ref);
+    }
+}
+
+/* -----------------------------------------------------------------------------
+translate a pppd native cause into a PPP API cause
+----------------------------------------------------------------------------- */
+u_int32_t ppp_translate_error(u_int16_t subtype, u_int32_t native_ppp_error, u_int32_t native_dev_error)
+{
+    u_int32_t	error = PPP_ERR_GEN_ERROR; 
+    
+    switch (native_ppp_error) {
+        case EXIT_USER_REQUEST:
+            error = 0;
+            break;
+        case EXIT_CONNECT_FAILED:
+            error = PPP_ERR_GEN_ERROR;
+            break;
+        case EXIT_TERMINAL_FAILED:
+            error = PPP_ERR_TERMSCRIPTFAILED;
+            break;
+        case EXIT_NEGOTIATION_FAILED:
+            error = PPP_ERR_LCPFAILED;
+            break;
+        case EXIT_AUTH_TOPEER_FAILED:
+            error = PPP_ERR_AUTHFAILED;
+            break;
+        case EXIT_IDLE_TIMEOUT:
+            error = PPP_ERR_IDLETIMEOUT;
+            break;
+        case EXIT_CONNECT_TIME:
+            error = PPP_ERR_SESSIONTIMEOUT;
+            break;
+        case EXIT_LOOPBACK:
+            error = PPP_ERR_LOOPBACK;
+            break;
+        case EXIT_PEER_DEAD:
+            error = PPP_ERR_PEERDEAD;
+            break;
+        case EXIT_OK:
+            error = PPP_ERR_DISCBYPEER;
+            break;
+        case EXIT_HANGUP:
+            error = PPP_ERR_DISCBYDEVICE;
+            break;
+    }
+    
+    // override with a more specific error
+    if (native_dev_error) {
+        switch (subtype) {
+            case PPP_TYPE_SERIAL:
+                switch (native_dev_error) {
+                    case EXIT_PPPSERIAL_NOCARRIER:
+                        error = PPP_ERR_MOD_NOCARRIER;
+                        break;
+                    case EXIT_PPPSERIAL_NONUMBER:
+                        error = PPP_ERR_MOD_NONUMBER;
+                        break;
+                    case EXIT_PPPSERIAL_BUSY:
+                        error = PPP_ERR_MOD_BUSY;
+                        break;
+                    case EXIT_PPPSERIAL_NODIALTONE:
+                        error = PPP_ERR_MOD_NODIALTONE;
+                        break;
+                    case EXIT_PPPSERIAL_ERROR:
+                        error = PPP_ERR_MOD_ERROR;
+                        break;
+                    case EXIT_PPPSERIAL_NOANSWER:
+                        error = PPP_ERR_MOD_NOANSWER;
+                        break;
+                    case EXIT_PPPSERIAL_HANGUP:
+                        error = PPP_ERR_MOD_HANGUP;
+                        break;
+                    default :
+                        error = PPP_ERR_CONNSCRIPTFAILED;
+                }
+                break;
+    
+            case PPP_TYPE_PPPoE:
+                // need to handle PPPoE specific error codes
+                break;
+        }
+    }
+    
+    return error;
+}

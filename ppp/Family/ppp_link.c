@@ -120,14 +120,16 @@ find a free unit in the interface list
 ----------------------------------------------------------------------------- */
 u_short ppp_link_findfreeindex()
 {
-    struct ppp_link  	*link;
+    struct ppp_link  	*link = TAILQ_FIRST(&ppp_link_head);
     u_short 		index = 0;
 
-    TAILQ_FOREACH(link, &ppp_link_head, lk_next) {
-        if (link->lk_index == index) {
-            link = TAILQ_FIRST(&ppp_link_head); // reloop
+    while (link) {
+    	if (link->lk_index == index) {
             index++;
+            link = TAILQ_FIRST(&ppp_link_head); // restart
         }
+        else 
+            link = TAILQ_NEXT(link, lk_next); // continue
     }
     return index;
 }
@@ -179,9 +181,12 @@ int ppp_link_event(struct ppp_link *link, u_int32_t event, void *data)
 
     switch (event) {
         case PPP_LINK_EVT_XMIT_OK:
+            if (link->lk_ifnet)
+                ppp_if_xmit(link->lk_ifnet, 0);
             break;
         case PPP_LINK_EVT_INPUTERROR:
-            ppp_if_linkerror(link);
+            if (link->lk_ifnet)
+                ppp_if_error(link->lk_ifnet);
             break;
     }
     return 0;
@@ -318,7 +323,7 @@ void ppp_link_detachclient(struct ppp_link *link, void *host)
 {
     struct ppp_priv	*priv = (struct ppp_priv *)link->lk_ppp_private;
 
-    if (priv->host == host)
+    if (priv && (priv->host == host))
         priv->host = 0;
 }
 

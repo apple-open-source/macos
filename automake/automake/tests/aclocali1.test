@@ -1,0 +1,23 @@
+#! /bin/sh
+
+# Make sure that ACLOCAL_AMFLAGS doesn't cause circular dependencies.
+. $srcdir/defs || exit 1
+
+echo AM_QUUX >> configure.in
+
+cat > quux.m4 << 'END'
+AC_DEFUN([AM_QUUX], [
+])
+END
+
+cat > Makefile.am << 'END'
+ACLOCAL_AMFLAGS = -I .
+END
+
+# We have to run aclocal first to make sure that aclocal.m4 exists.
+# Otherwise automake won't guess that we want to auto-generate it.
+$ACLOCAL -I . || exit 1
+
+$AUTOMAKE || exit 1
+
+grep "\$(ACLOCAL_M4): *configure.in *quux.m4" Makefile.in || exit 1

@@ -1,0 +1,76 @@
+! <scp> 01/08/02 reworked cases depending on Extended80 format.
+!
+! Test vectors for *n after call to frexp(x, int *n)
+!
+! Mid-range arguments
+3e	d	1	0	OK	1
+3e	d	-1	0	OK	1
+3e	d	2	0	OK	2
+3e	d	3	0	OK	2
+3e	d	4	0	OK	3
+3e	d	5	0	OK	3
+3e	d	6	0	OK	3
+3e	d	7	0	OK	3
+3e	d	-7	0	OK	3
+3e	d	8	0	OK	4
+3e	d	9	0	OK	4
+3e	d	1i1	0	OK	1
+3e	d	2i1	0	OK	2
+3e	d	3i1	0	OK	2
+3e	d	4i1	0	OK	3
+3e	d	5i1	0	OK	3
+3e	d	6i1	0	OK	3
+3e	d	7i1	0	OK	3
+3e	d	8i1	0	OK	4
+3e	d	9i1	0	OK	4
+3e	d	-9i1	0	OK	4
+3e	d	1d1	0	OK	0
+3e	d	-1d1	0	OK	0
+3e	d	2d1	0	OK	1
+3e	d	3d1	0	OK	2
+3e	d	4d1	0	OK	2
+3e	d	5d1	0	OK	3
+3e	d	6d1	0	OK	3
+3e	d	7d1	0	OK	3
+3e	d	8d1	0	OK	3
+3e	d	-8d1	0	OK	3
+3e	d	9d1	0	OK	4
+3e	d	1m1	0	OK	0
+3e	d	3m1	0	OK	1
+3e	d	-1m1	0	OK	0
+3e	d	-3m1	0	OK	1
+! Small arguments
+3e	d	0i1	0	OK	-1073
+3e	d	0i2	0	OK	-1072
+3e	d	0i3	0	OK	-1072
+3e	d	0i4	0	OK	-1071
+3e	d	0i8	0	OK	-1070
+3e	d	0i9	0	OK	-1070
+3e	d	Ed1	0	OK	-1022
+3e	d	E	0	OK	-1021
+3e	d	-E	0	OK	-1021
+3e	d	Ei1	0	OK	-1021
+3e	d	Ei8	0	OK	-1021
+3e	d	Ep1d1	0	OK	-1021
+3e	d	Ep1d9	0	OK	-1021
+3e	d	Ep1i1	0	OK	-1020
+3e	d	-0i1	0	OK	-1073
+3e	d	-0i2	0	OK	-1072
+3e	d	-0i4	0	OK	-1071
+! Zero values
+3e	d	0	0	OK	0
+3e	d	-0	0	OK	0
+! NaN and infinite cases are implementation-dependent
+3e	e	Q	0	OK	0
+3e	e	H	0	OK	0
+3e	e	-H	0	OK	0
+! Commented out signaling NaN case <JPO, 5/12/93>
+!3e	e	S	0	i	Q
+3e	d	1p63	0	OK	64
+3e	d	1p63d1	0	OK	63
+3e	d	1p63d2	0	OK	63
+3e	d	Hd1	0	OK	1024
+3e	d	-1p63	0	OK	64
+3e	d	-1p63d1	0	OK	63
+3e	d	-1p63d2	0	OK	63
+3e	d	-Hd1	0	OK	1024

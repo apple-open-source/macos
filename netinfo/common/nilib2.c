@@ -128,7 +128,8 @@ do_open(char *tool, char *name, void **domain, bool bytag, int timeout, char *us
 	ni_id rootdir;
 	void *localni;
 
-	if (bytag) {
+	if (bytag)
+	{
 		/* connect by tag */
 		/* call a function to parse the input arg */
 		pstatus = ni_parse_server_tag(name, &server, &tag);
@@ -144,7 +145,8 @@ do_open(char *tool, char *name, void **domain, bool bytag, int timeout, char *us
 		/* connect to the specified server */
 		*domain = ni_connect(&server, tag);
 		free(tag);
-		if (*domain == NULL) {
+		if (*domain == NULL)
+		{
 			fprintf(stderr, "%s: can't connect to server %s\n", tool, name);
 			return NI_FAILED + 1;
 		}
@@ -186,14 +188,16 @@ do_open(char *tool, char *name, void **domain, bool bytag, int timeout, char *us
 	ni_setwritetimeout(*domain, timeout);
 
 	/* authentication */
-	if (user != NULL) {
+	if (user != NULL)
+	{
 		ni_setuser(*domain, user);
 		if (passwd != NULL) ni_setpassword(*domain, passwd);
 	}
 
 	/* get the root directory to see if the connection is alive */
 	status = ni_root(*domain, &rootdir);
-	if (status != NI_OK) {
+	if (status != NI_OK)
+	{
 		if (bytag)
 			fprintf(stderr, "%s: can't connect to server %s: %s\n",
 				tool, name, ni_error(status));
@@ -264,16 +268,15 @@ ni_status ni2_createdirprop(void *domain, ni_id *dir, const ni_name key, ni_name
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for existing property with this key */
 	where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, create it */
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		NI_INIT(&p);
 		p.nip_name = ni_name_dup(key);
 		p.nip_val = ni_namelist_dup(values);
@@ -321,7 +324,8 @@ ni_status ni2_appenddirprop(void *domain, ni_id *dir, const ni_name key, ni_name
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
+	if (ret != NI_OK)
+	{
 		return ret;
 	}
 
@@ -330,7 +334,8 @@ ni_status ni2_appenddirprop(void *domain, ni_id *dir, const ni_name key, ni_name
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, create it */
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		NI_INIT(&p);
 		p.nip_name = ni_name_dup(key);
 		p.nip_val = ni_namelist_dup(values);
@@ -344,12 +349,14 @@ ni_status ni2_appenddirprop(void *domain, ni_id *dir, const ni_name key, ni_name
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, where, &nl);
-	if (ret != NI_OK) {
+	if (ret != NI_OK)
+	{
 		return ret;
 	}
 
 	/* append new values */
-	for (i = 0; i < values.ni_namelist_len; i++) {
+	for (i = 0; i < values.ni_namelist_len; i++)
+	{
 		ni_namelist_insert(&nl, values.ni_namelist_val[i], NI_INDEX_NULL);
 	}
 
@@ -393,16 +400,15 @@ ni_status ni2_insertdirval(void *domain, ni_id *dir, const ni_name key, const ni
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for existing property with this key */
 	where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, create it */
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		NI_INIT(&nl);
 		ni_namelist_insert(&nl, value, NI_INDEX_NULL);
 		NI_INIT(&p);
@@ -418,9 +424,7 @@ ni_status ni2_insertdirval(void *domain, ni_id *dir, const ni_name key, const ni
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, where, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* insert new value */
 	ni_namelist_insert(&nl, value, whereval);
@@ -465,16 +469,15 @@ ni_status ni2_mergedirprop(void *domain, ni_id *dir, const ni_name key, ni_namel
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for existing property with this key */
 	where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, create it */
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		NI_INIT(&p);
 		p.nip_name = ni_name_dup(key);
 		p.nip_val = ni_namelist_dup(values);
@@ -488,14 +491,14 @@ ni_status ni2_mergedirprop(void *domain, ni_id *dir, const ni_name key, ni_namel
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, where, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* merge new values */
-	for (i = 0; i < values.ni_namelist_len; i++) {
+	for (i = 0; i < values.ni_namelist_len; i++)
+	{
 		whereval = ni_namelist_match(nl, values.ni_namelist_val[i]);
-		if (whereval == NI_INDEX_NULL) {
+		if (whereval == NI_INDEX_NULL)
+		{
 			ni_namelist_insert(&nl, values.ni_namelist_val[i], NI_INDEX_NULL);
 		}
 	}
@@ -553,7 +556,8 @@ ni_status ni2_destroydir(void *domain, ni_id *dir, ni_id *parent)
 	if (ret != NI_OK) return ret;
 
 	/* destroy each child */
-	for (i = 0; i < children.ni_idlist_len; i++) {
+	for (i = 0; i < children.ni_idlist_len; i++)
+	{
 		child.nii_object = children.ni_idlist_val[i];
 		ret = ni_self(domain, &child);
 		if (ret != NI_OK) return ret;
@@ -601,19 +605,19 @@ ni_status ni2_destroydirprop(void *domain, ni_id *dir, ni_namelist keys)
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* destroy all occurrences of each key */
-	for (i = 0; i < keys.ni_namelist_len; i++) {
-
+	for (i = 0; i < keys.ni_namelist_len; i++)
+	{
 		where = ni_namelist_match(nl, keys.ni_namelist_val[i]);
 
 		/* keep looking for all occurrences */
-		while (where != NI_INDEX_NULL) {
+		while (where != NI_INDEX_NULL)
+		{
 			ret = ni_destroyprop(domain, dir, where);
-			if (ret != NI_OK) {
+			if (ret != NI_OK)
+			{
 				ni_namelist_free(&nl);
 				return ret;
 			}
@@ -659,30 +663,26 @@ ni_status ni2_destroydirval(void *domain, ni_id *dir, const ni_name key, ni_name
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK)return ret;
 
 	/* check for existing property with this key */
 	where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, nothing to do */
-	if (where == NI_INDEX_NULL) {
-		return NI_OK;
-	}
+	if (where == NI_INDEX_NULL) return NI_OK;
 
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, where, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* delete values */
-	for (i = 0; i < values.ni_namelist_len; i++) {
+	for (i = 0; i < values.ni_namelist_len; i++)
+	{
 		whereval = ni_namelist_match(nl, values.ni_namelist_val[i]);
-		while (whereval != NI_INDEX_NULL) {
+		while (whereval != NI_INDEX_NULL)
+		{
 			ni_namelist_delete(&nl, whereval);
 			whereval = ni_namelist_match(nl, values.ni_namelist_val[i]);
 		}
@@ -726,18 +726,14 @@ ni_status ni2_renamedirprop(void *domain, ni_id *dir, const ni_name oldname, con
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* look up old name */
 	where = ni_namelist_match(nl, oldname);
 	ni_namelist_free(&nl);
 
 	/* if it's not there, return an error */
-	if (where == NI_INDEX_NULL) {
-		return NI_NOPROP;
-	}
+	if (where == NI_INDEX_NULL) return NI_NOPROP;
 
 	return ni_renameprop(domain, dir, where, newname);
 }
@@ -756,11 +752,13 @@ ni_status ni2_pathsearch(void *domain, ni_id *dir, char *pathname)
 	for (i = 0; i < len && is_id; i++)
 		if (!isdigit(pathname[i])) is_id = false;
 
-	if (is_id) {
+	if (is_id)
+	{
 		dir->nii_object = (unsigned long)atoi(pathname);
 		return ni_self(domain, dir);
 	}
-	else {
+	else
+	{
 		return ni_pathsearch(domain, dir, pathname);
 	}
 }
@@ -777,11 +775,13 @@ ni_status ni2_createpath(void *domain, ni_id *dir, char *pathname)
 
 	/* pull out every pathname component and create the directory */
 	i = 0;
-	while (pathname[i] != '\0') {
+	while (pathname[i] != '\0')
+	{
 
 		/* search forward for a path component (a directory) */
 		simple = true;
-		for (j = i; pathname[j] != '\0' && simple; j++) {
+		for (j = i; pathname[j] != '\0' && simple; j++)
+		{
 			if (pathname[j] == '\\' && pathname[j+1] == '/') j+=2;
 			if (pathname[j] == '/') simple = false;
 		}
@@ -800,7 +800,8 @@ ni_status ni2_createpath(void *domain, ni_id *dir, char *pathname)
 		ret = ni_pathsearch(domain, dir, dirname);
 
 		/* if it doesn't exist, create it */
-		if (ret == NI_NODIR) {
+		if (ret == NI_NODIR)
+		{
 			*dir = checkdir;
 			ret = ni2_createchild(domain, dir, dirname);
 			if (ret != NI_OK) return ret;
@@ -829,17 +830,20 @@ ni_status ni2_createchild(void *domain, ni_id *dir, const ni_name dirname)
 	for (i = 0; dirname[i] != '\0' && dirname[i] != '='; i++);
 	if (dirname[i] == '=') len = i;
 
-	if (len > 0) {
+	if (len > 0)
+	{
 		key = malloc(len + 1);
 		/* check for backslashes in property key */
-		for (i = 0, j = 0; i < len; i++, j++) {
+		for (i = 0, j = 0; i < len; i++, j++)
+		{
 			if (dirname[i] == '\\' && dirname[i+1] == '/') i++;
 			key[j] = dirname[i];
 		}
 		key[j] = '\0';
 		i = len + 1;
 	}
-	else {
+	else
+	{
 		key = malloc(5);
 		strcpy(key, "name");
 		i = 0;
@@ -849,7 +853,8 @@ ni_status ni2_createchild(void *domain, ni_id *dir, const ni_name dirname)
 	j = strlen(dirname);
 	len = j - i;
 	value = malloc(len + 1);
-	for (k = 0; i < j; k++, i++) {
+	for (k = 0; i < j; k++, i++)
+	{
 		if (dirname[i] == '\\' && dirname[i+1] == '/') i++;
 		value[k] = dirname[i];
 	}
@@ -862,7 +867,8 @@ ni_status ni2_createchild(void *domain, ni_id *dir, const ni_name dirname)
 
 	/* create it */
 	ret = ni_create(domain, dir, p, &child, NI_INDEX_NULL);
-	if (ret != NI_OK) {
+	if (ret != NI_OK)
+	{
 		ni_proplist_free(&p);
 		return ret;
 	}
@@ -897,7 +903,8 @@ void nipl_appendprop(ni_proplist *l, const ni_name n, const ni_name v)
 	ni_index where;
 
 	where = ni_proplist_match(*l, n, NULL);
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		nipl_createprop(l, n);
 		where = ni_proplist_match(*l, n, NULL);
 	}
@@ -912,12 +919,14 @@ void nipl_mergeprop(ni_proplist *l, const ni_name n, const ni_name v)
 	ni_index where;
 
 	where = ni_proplist_match(*l, n, NULL);
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		nipl_createprop(l, n);
 		where = ni_proplist_match(*l, n, NULL);
 	}
 	where = ni_namelist_match(l->nipl_val[where].nip_val, v);
-	if (where == NI_INDEX_NULL) {
+	if (where == NI_INDEX_NULL)
+	{
 		ni_namelist_insert(&(l->nipl_val[where].nip_val), v, NI_INDEX_NULL);
 	}
 }
@@ -952,18 +961,14 @@ ni_status ni2_statpropdir(void *domain, ni_id *dir, const ni_name key, ni_index 
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for property with this key */
 	*where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, no match */
-	if (*where == NI_INDEX_NULL) {
-		return NI_NOPROP;
-	}
+	if (*where == NI_INDEX_NULL) return NI_NOPROP;
 
 	return NI_OK;
 }
@@ -999,34 +1004,26 @@ ni_status ni2_statvaldir(void *domain, ni_id *dir, const ni_name key, const ni_n
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for property with this key */
 	wh = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, no match */
-	if (wh == NI_INDEX_NULL) {
-		return NI_NOPROP;
-	}
+	if (wh == NI_INDEX_NULL) return NI_NOPROP;
 
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, wh, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for this value */
 	wh = ni_namelist_match(nl, value);
 	ni_namelist_free(&nl);
 
 	/* if value doesn't exist, no match */
-	if (wh == NI_INDEX_NULL) {
-		return NI_NONAME;
-	}
+	if (wh == NI_INDEX_NULL) return NI_NONAME;
 
 	*where = wh;
 	return NI_OK;
@@ -1057,28 +1054,23 @@ ni_status ni2_reappropdir(void *domain, ni_id *dir, const ni_name key)
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* check for property with this key */
 	where = ni_namelist_match(nl, key);
 	ni_namelist_free(&nl);
 
 	/* if property doesn't exist, return */
-	if (where == NI_INDEX_NULL) {
-		return NI_OK;
-	}
+	if (where == NI_INDEX_NULL) return NI_OK;
 
 	/* fetch existing namelist for this property */
 	NI_INIT(&nl);
 	ret = ni_readprop(domain, dir, where, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* if the property contains any values, leave it alone */
-	if (nl.ni_namelist_len > 0) {
+	if (nl.ni_namelist_len > 0)
+	{
 		ni_namelist_free(&nl);
 		return NI_OK;
 	}
@@ -1103,12 +1095,11 @@ ni_status ni2_reapdir(void *domain, char *pathname)
 	/* fetch list of property keys from directory */
 	NI_INIT(&nl);
 	ret = ni_listprops(domain, &dir, &nl);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* if more than one property, leave it alone */
-	if (nl.ni_namelist_len > 1) {
+	if (nl.ni_namelist_len > 1)
+	{
 		ni_namelist_free(&nl);
 		return NI_OK;
 	}
@@ -1152,33 +1143,33 @@ ni_status ni2_copydir(void *srcdomain, ni_id *srcdir, void*dstdomain, ni_id *dst
 	
 	/* get proplist from src dir */
 	ret = ni_read(srcdomain, srcdir, &p);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* write the property list to the dst dir */
 	ret = ni_write(dstdomain, dstdir, p);
-	if (ret != NI_OK) {
+	if (ret != NI_OK)
+	{
 		ni_proplist_free(&p);
 		return ret;
 	}
 	
 	ni_proplist_free(&p);
 
-	if (recursive) {
+	if (recursive)
+	{
 		NI_INIT(&children);
 
 		/* get list of children */
 		ret = ni_children(srcdomain, srcdir, &children);
-		if (ret != NI_OK) {
-			return ret;
-		}
+		if (ret != NI_OK) return ret;
 
 		len = children.ni_idlist_len;
-		for (i = 0; i < len; i++) {
+		for (i = 0; i < len; i++)
+		{
 			dir.nii_object = children.ni_idlist_val[i];
 			ret = ni_self(srcdomain, &dir);
-			if (ret != NI_OK) {
+			if (ret != NI_OK)
+			{
 				ni_idlist_free(&children);
 				return ret;
 			}
@@ -1203,33 +1194,33 @@ ni_status ni2_copydirtoparentdir(void *srcdomain, ni_id *srcdir, void*dstdomain,
 	
 	/* get proplist from src dir */
 	ret = ni_read(srcdomain, srcdir, &p);
-	if (ret != NI_OK) {
-		return ret;
-	}
+	if (ret != NI_OK) return ret;
 
 	/* create the destination dir */
 	ret = ni_create(dstdomain, dstdir, p, &newdstdir, NI_INDEX_NULL);
-	if (ret != NI_OK) {
+	if (ret != NI_OK)
+	{
 		ni_proplist_free(&p);
 		return ret;
 	}
 	
 	ni_proplist_free(&p);
 
-	if (recursive) {
+	if (recursive)
+	{
 		NI_INIT(&children);
 
 		/* get list of children */
 		ret = ni_children(srcdomain, srcdir, &children);
-		if (ret != NI_OK) {
-			return ret;
-		}
+		if (ret != NI_OK) return ret;
 
 		len = children.ni_idlist_len;
-		for (i = 0; i < len; i++) {
+		for (i = 0; i < len; i++)
+		{
 			dir.nii_object = children.ni_idlist_val[i];
 			ret = ni_self(srcdomain, &dir);
-			if (ret != NI_OK) {
+			if (ret != NI_OK)
+			{
 				ni_idlist_free(&children);
 				return ret;
 			}
@@ -1261,8 +1252,10 @@ ni_index ni_namelist_insert_sorted(ni_namelist *values, const ni_name newvalue)
 	int i, len;
 
 	len = values->ni_namelist_len;
-	for (i = 0; i < len; i++) {
-		if (strcmp(newvalue, values->ni_namelist_val[i]) <= 0) {
+	for (i = 0; i < len; i++)
+	{
+		if (strcmp(newvalue, values->ni_namelist_val[i]) <= 0)
+		{
 			ni_namelist_insert(values, newvalue, (ni_index)i);
 			return (ni_index)i;
 		}

@@ -66,6 +66,8 @@
 #define NAME_PORT_TCP "tcp_port"
 #define NAME_PORT_UDP "udp_port"
 
+#define NAME_PROMOTE_ADMINS "promote_admins"
+
 static ni_status binding_status = NI_FAILED;
 
 /*
@@ -365,6 +367,7 @@ static int get_intForKey(void *ni, char *name, int def, int min, int max)
 
 	if (ni_root(ni, &root) != NI_OK) return(def);
 
+	NI_INIT(&nl);
 	if (ni_lookupprop(ni, &root, name, &nl) != NI_OK)
 		return(def);
 
@@ -592,6 +595,11 @@ static bool_t get_boolForKey(void *ni, ni_name name, bool_t def)
 	return(ret);
 }
 
+bool_t get_promote_admins(void *ni)
+{
+	return get_boolForKey(ni, NAME_PROMOTE_ADMINS, TRUE);
+}
+
 bool_t get_forced_root(void *ni)
 {
 	return get_boolForKey(ni, NAME_FORCED_ROOT, FALSE);
@@ -652,4 +660,3 @@ set_binding_status(ni_status stat)
 {
 	binding_status = stat;
 }
-	

@@ -1,5 +1,5 @@
 /* Print NS 32000 instructions for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1991, 1992, 1994, 1995
+   Copyright 1986, 1988, 1991, 1992, 1994, 1995, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -20,6 +20,10 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "frame.h"
+#include "gdbcore.h"
+
+static int sign_extend (int value, int bits);
 
 void
 _initialize_ns32k_tdep (void)
@@ -29,23 +33,6 @@ _initialize_ns32k_tdep (void)
 
 /* Advance PC across any function entry prologue instructions
    to reach some "real" code.  */
-
-CORE_ADDR
-merlin_skip_prologue (CORE_ADDR pc)
-{
-  register int op = read_memory_integer (pc, 1);
-  if (op == 0x82)
-    {
-      op = read_memory_integer (pc + 2, 1);
-      if ((op & 0x80) == 0)
-	pc += 3;
-      else if ((op & 0xc0) == 0x80)
-	pc += 4;
-      else
-	pc += 6;
-    }
-  return pc;
-}
 
 CORE_ADDR
 umax_skip_prologue (CORE_ADDR pc)
@@ -67,44 +54,12 @@ umax_skip_prologue (CORE_ADDR pc)
 /* Return number of args passed to a frame.
    Can return -1, meaning no way to tell.  */
 
-int
-merlin_frame_num_args (struct frame_info *fi)
-{
-  int numargs;
-  CORE_ADDR pc;
-  int insn;
-  int addr_mode;
-  int width;
-
-  pc = FRAME_SAVED_PC (fi);
-  insn = read_memory_integer (pc, 2);
-  addr_mode = (insn >> 11) & 0x1f;
-  insn = insn & 0x7ff;
-  if ((insn & 0x7fc) == 0x57c
-      && addr_mode == 0x14)	/* immediate */
-    {
-      if (insn == 0x57c)	/* adjspb */
-	width = 1;
-      else if (insn == 0x57d)	/* adjspw */
-	width = 2;
-      else if (insn == 0x57f)	/* adjspd */
-	width = 4;
-      numargs = read_memory_integer (pc + 2, width);
-      if (width > 1)
-	flip_bytes (&numargs, width);
-      numargs = -sign_extend (numargs, width * 8) / 4;
-    }
-  else
-    numargs = -1;
-  return numargs;
-}
-
-
 /* Return number of args passed to a frame.
    Can return -1, meaning no way to tell.
    Encore's C compiler often reuses same area on stack for args,
    so this will often not work properly.  If the arg names
    are known, it's likely most of them will be printed. */
+
 int
 umax_frame_num_args (struct frame_info *fi)
 {
@@ -134,6 +89,8 @@ umax_frame_num_args (struct frame_info *fi)
 	    width = 2;
 	  else if (insn == 0x57f)	/* adjspd */
 	    width = 4;
+	  else
+	    internal_error (__FILE__, __LINE__, "bad else");
 	  numargs = read_memory_integer (pc + 2, width);
 	  if (width > 1)
 	    flip_bytes (&numargs, width);
@@ -143,7 +100,7 @@ umax_frame_num_args (struct frame_info *fi)
   return numargs;
 }
 
-
+static int
 sign_extend (int value, int bits)
 {
   value = value & ((1 << bits) - 1);
@@ -153,9 +110,10 @@ sign_extend (int value, int bits)
 }
 
 void
-flip_bytes (char *ptr, int count)
+flip_bytes (void *p, int count)
 {
   char tmp;
+  char *ptr = 0;
 
   while (count > 0)
     {

@@ -1,5 +1,5 @@
 /* machine description file For the alpha chip.
-   Copyright (C) 1994, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1997, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -31,6 +31,10 @@ NOTE-END
 
 #define BITS_PER_LONG 64
 #define BITS_PER_EMACS_INT 64
+#ifndef _LP64
+#define _LP64			/* This doesn't appear to be necessary
+				   on OSF 4/5  -- fx.  */
+#endif
 
 /* Define WORDS_BIG_ENDIAN iff lowest-numbered byte in a word
    is the most significant byte.  */
@@ -41,11 +45,6 @@ NOTE-END
  * group of arguments and treat it as an array of the arguments.  */
 
 #define NO_ARG_ARRAY
-
-/* Define WORD_MACHINE if addresses and such have
- * to be corrected before they can be used as byte counts.  */
-
-/* #define WORD_MACHINE */
 
 /* Now define a symbol for the cpu type, if your compiler
    does not define it automatically:
@@ -81,21 +80,6 @@ NOTE-END
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
 
-/* Define CANNOT_DUMP on machines where unexec does not work.
-   Then the function dump-emacs will not be defined
-   and temacs will do (load "loadup") automatically unless told otherwise.  */
-
-/* #define CANNOT_DUMP */
-
-/* Define VIRT_ADDR_VARIES if the virtual addresses of
-   pure and impure space as loaded can vary, and even their
-   relative order cannot be relied on.
-
-   Otherwise Emacs assumes that text space precedes data space,
-   numerically.  */
-
-/* #define VIRT_ADDR_VARIES */
-
 /* Define C_ALLOCA if this machine does not support a true alloca
    and the one written in C should be used instead.
    Define HAVE_ALLOCA to say that the system provides a properly
@@ -118,28 +102,6 @@ NOTE-END
 
 /* #define SYSTEM_MALLOC */
 
-/* Define NO_REMAP if memory segmentation makes it not work well
-   to change the boundary between the text section and data section
-   when Emacs is dumped.  If you define this, the preloaded Lisp
-   code will not be sharable; but that's better than failing completely.  */
-
-#define NO_REMAP
-
-/* Some really obscure 4.2-based systems (like Sequent DYNIX)
- * do not support asynchronous I/O (using SIGIO) on sockets,
- * even though it works fine on tty's.  If you have one of
- * these systems, define the following, and then use it in
- * config.h (or elsewhere) to decide when (not) to use SIGIO.
- *
- * You'd think this would go in an operating-system description file,
- * but since it only occurs on some, but not all, BSD systems, the
- * reasonable place to select for it is in the machine description
- * file.
- */
-
-/* #define NO_SOCK_SIGIO */
-
-
 #ifdef __ELF__
 /* With ELF, make sure that all common symbols get allocated to in the
    data section.  Otherwise, the dump of temacs may miss variables in
@@ -153,7 +115,7 @@ NOTE-END
 # endif
 #endif
 
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__OpenBSD__)
 #define ORDINARY_LINK
 #endif
 
@@ -234,55 +196,11 @@ NOTE-END
 
 #define XPNTR(a) XUINT (a)
 
-/* Declare malloc and realloc in a way that is clean.
-   But not in makefiles!  */
-
 #ifndef NOT_C_CODE
 /* We need these because pointers are larger than the default ints.  */
 #if !defined(__NetBSD__) && !defined(__OpenBSD__)
 #include <alloca.h>
-#else
-#include <stdlib.h>
 #endif
-
-/* Hack alert!  For reasons unknown to mankind the string.h file insists
-   on defining bcopy etc. as taking char pointers as arguments.  With
-   Emacs this produces an endless amount of warning which are harmless,
-   but tends to flood the real errors.  This hack works around this problem
-   by not prototyping.  */
-#define bcopy string_h_bcopy
-#define bzero string_h_bzero
-#define bcmp  string_h_bcmp
-#include <string.h>
-#undef bcopy
-#undef bzero
-#undef bcmp
-
-/* We need to prototype these for the lib-src programs even if we don't
-   use the system malloc for the Emacs proper.  */
-#ifdef _MALLOC_INTERNAL
-/* These declarations are designed to match the ones in gmalloc.c.  */
-#if defined (__STDC__) && __STDC__
-extern void *malloc (), *realloc (), *calloc ();
-#else
-extern char *malloc (), *realloc (), *calloc ();
-#endif
-#else /* not _MALLOC_INTERNAL */
-extern void *malloc (), *realloc (), *calloc ();
-#endif /* not _MALLOC_INTERNAL */
-
-
-extern long *xmalloc (), *xrealloc ();
-
-#ifdef REL_ALLOC
-#ifndef _MALLOC_INTERNAL
-/* "char *" because ralloc.c defines it that way.  gmalloc.c thinks it
-   is allowed to prototype these as "void *" so we don't prototype in
-   that case.  You're right: it stinks!  */
-extern char *r_alloc (), *r_re_alloc ();
-extern void r_alloc_free ();
-#endif /* not _MALLOC_INTERNAL */
-#endif /* REL_ALLOC */
 
 #endif /* not NOT_C_CODE */
 
@@ -299,7 +217,7 @@ extern void r_alloc_free ();
       if (-1 == openpty (&fd, &dummy, pty_name, 0, 0))	\
 	fd = -1;					\
       sigsetmask (mask);				\
-      close (dummy);					\
+      emacs_close (dummy);				\
     }							\
   while (0)
 #endif

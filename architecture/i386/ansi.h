@@ -55,28 +55,44 @@
 #endif /* __GNUC__ */
 #define	_BSD_SSIZE_T_	int			/* byte count or error */
 #define	_BSD_TIME_T_	long			/* time() */
+#if (__GNUC__ > 2)
+#define	_BSD_VA_LIST_	__builtin_va_list	/* va_list */
+#else
 #define	_BSD_VA_LIST_	void *		/* va_list */
+#endif
+#define _BSD_RUNE_T_    _BSD_CT_RUNE_T_
+#define _BSD_WCHAR_T_   _BSD_CT_RUNE_T_
+#define _BSD_WINT_T_    _BSD_CT_RUNE_T_
+#define _BSD_MBSTATE_T_ __mbstate_t             /* mbstate_t */
 
 /*
- * Runes (wchar_t) is declared to be an ``int'' instead of the more natural
+ * The rune type above is declared to be an ``int'' instead of the more natural
  * ``unsigned long'' or ``long''.  Two things are happening here.  It is not
  * unsigned so that EOF (-1) can be naturally assigned to it and used.  Also,
  * it looks like 10646 will be a 31 bit standard.  This means that if your
  * ints cannot hold 32 bits, you will be in trouble.  The reason an int was
  * chosen over a long is that the is*() and to*() routines take ints (says
- * ANSI C), but they use _RUNE_T_ instead of int.  By changing it here, you
- * lose a bit of ANSI conformance, but your programs will still work.
+ * ANSI C), but they use _BSD_CT_RUNE_T_ instead of int.  By changing it
+ * here, you lose a bit of ANSI conformance, but your programs will still
+ * work.
  *
- * Note that _WCHAR_T_ and _RUNE_T_ must be of the same type.  When wchar_t
- * and rune_t are typedef'd, _WCHAR_T_ will be undef'd, but _RUNE_T remains
- * defined for ctype.h.
+ * NOTE: rune_t is not covered by ANSI nor other standards, and should not
+ * be instantiated outside of lib/libc/locale.  Use wchar_t.  wchar_t and
+ * rune_t must be the same type.  Also wint_t must be no narrower than
+ * wchar_t, and should also be able to hold all members of the largest
+ * character set plus one extra value (WEOF). wint_t must be at least 16 bits.
  */
-#if defined(__GNUC__) && defined(__WCHAR_TYPE__)
-#define _BSD_WCHAR_T_   __WCHAR_TYPE__          /* wchar_t */
-#define _BSD_RUNE_T_    __WCHAR_TYPE__          /* rune_t */
-#else
-#define	_BSD_WCHAR_T_	int			/* wchar_t */
-#define	_BSD_RUNE_T_	int			/* rune_t */
-#endif /* __GNUC__ */
+
+#define _BSD_CT_RUNE_T_ int                     /* arg type for ctype funcs */
+
+/*
+ * mbstate_t is an opaque object to keep conversion state, during multibyte
+ * stream conversions.  The content must not be referenced by user programs.
+ */
+typedef union {
+	char		__mbstate8[128];
+	long long	_mbstateL;              /* for alignment */
+} __mbstate_t;
+
 
 #endif	/* _ANSI_H_ */

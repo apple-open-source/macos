@@ -227,7 +227,6 @@ Returns the abbrev symbol, if expansion took place.")
   int uccount = 0, lccount = 0;
   register Lisp_Object sym;
   Lisp_Object expansion, hook, tem;
-  int oldmodiff = MODIFF;
   Lisp_Object value;
 
   value = Qnil;
@@ -365,7 +364,23 @@ Returns the abbrev symbol, if expansion took place.")
 
   hook = XSYMBOL (sym)->function;
   if (!NILP (hook))
-    call0 (hook);
+    {
+      Lisp_Object expanded, prop;
+
+      /* If the abbrev has a hook function, run it.  */
+      expanded = call0 (hook);
+
+      /* In addition, if the hook function is a symbol with a a
+	 non-nil `no-self-insert' property, let the value it returned
+	 specify whether we consider that an expansion took place.  If
+	 it returns nil, no expansion has been done.  */
+
+      if (SYMBOLP (hook)
+	  && NILP (expanded)
+	  && (prop = Fget (hook, intern ("no-self-insert")),
+	      !NILP (prop)))
+	value = Qnil;
+    }
 
   return value;
 }
@@ -540,6 +555,7 @@ for any particular abbrev defined in both.");
     "The abbrev table of mode-specific abbrevs for Fundamental Mode.");
   Vfundamental_mode_abbrev_table = Fmake_abbrev_table ();
   current_buffer->abbrev_table = Vfundamental_mode_abbrev_table;
+  buffer_defaults.abbrev_table = Vfundamental_mode_abbrev_table;
 
   DEFVAR_LISP ("last-abbrev", &Vlast_abbrev,
     "The abbrev-symbol of the last abbrev expanded.  See `abbrev-symbol'.");

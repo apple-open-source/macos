@@ -2,9 +2,9 @@
 
 ;;; Copyright (C) 1988, 1990, 1992, 1994, 1995 Free Software Foundation, Inc.
 
-;;; Author: Per Bothner <bothner@cygnus.com>
-;;; Based on comint mode written by: Olin Shivers <shivers@cs.cmu.edu>
-;;; Keyword: processes
+;; Author: Per Bothner <bothner@cygnus.com>
+;; Based on comint mode written by: Olin Shivers <shivers@cs.cmu.edu>
+;; Keywords: processes
 
 ;; This file is part of GNU Emacs.
 
@@ -23,10 +23,15 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Marck 13 2001
+;;; Fixes for CJK support by Yong Lu <lyongu@yahoo.com>.
+
 ;;; Dir/Hostname tracking and ANSI colorization by
 ;;; Marco Melgazzi <marco@techie.com>.
 
 ;;; To see what I've modified and where it came from search for '-mm'
+
+;;; Commentary:
 
 ;;; Speed considerations and a few caveats
 ;;; --------------------------------------
@@ -387,12 +392,14 @@
 ;; term-mode-hook is the term mode hook.  Basically for your keybindings.
 ;; term-load-hook is run after loading in this package.
 
-;; Code:
+;;; Code:
 
 ;; This is passed to the inferior in the EMACS environment variable,
 ;; so it is important to increase it if there are protocol-relevant changes.
 (defconst term-protocol-version "0.95")
 
+(eval-when-compile
+  (require 'ange-ftp))
 (require 'ring)
 (require 'ehelp)
 
@@ -719,6 +726,7 @@ Buffer local variable.")
 
 (when (fboundp 'make-face)
 ;;; --- Simple faces ---
+  (copy-face 'default 'term-default)
   (make-face 'term-default-fg)
   (make-face 'term-default-bg)
   (make-face 'term-default-fg-inv)
@@ -1202,20 +1210,22 @@ without any interpretation."
 
 (defun term-send-raw-meta ()
   (interactive)
-  (if (symbolp last-input-char)
+  (let ((char last-input-char))
+    (when (symbolp last-input-char)
       ;; Convert `return' to C-m, etc.
-      (let ((tmp (get last-input-char 'event-symbol-elements)))
-	(if tmp
-	    (setq last-input-char (car tmp)))
-	(if (symbolp last-input-char)
-	    (progn
-	      (setq tmp (get last-input-char 'ascii-character))
-	      (if tmp (setq last-input-char tmp))))))
-  (term-send-raw-string (if (and (numberp last-input-char)
-				 (> last-input-char 127)
-				 (< last-input-char 256))
-			    (make-string 1 last-input-char)
-			  (format "\e%c" last-input-char))))
+      (let ((tmp (get char 'event-symbol-elements)))
+	(when tmp
+	  (setq char (car tmp)))
+	(when (symbolp char)
+	  (setq tmp (get char 'ascii-character))
+	  (when tmp
+	    (setq char tmp)))))
+    (setq char (event-basic-type char))
+    (term-send-raw-string (if (and (numberp char)
+				   (> char 127)
+				   (< char 256))
+			      (make-string 1 char)
+			    (format "\e%c" char)))))
 
 (defun term-mouse-paste (click arg)
   "Insert the last stretch of killed text at the position clicked on."
@@ -1264,7 +1274,9 @@ without any interpretation."
   (define-key term-raw-escape-map "\C-q" 'term-pager-toggle)
   ;; The keybinding for term-char-mode is needed by the menubar code.
   (define-key term-raw-escape-map "\C-k" 'term-char-mode)
-  (define-key term-raw-escape-map "\C-j" 'term-line-mode))
+  (define-key term-raw-escape-map "\C-j" 'term-line-mode)
+  ;; It's convenient to have execute-extended-command here.
+  (define-key term-raw-escape-map [?\M-x] 'execute-extended-command))
 
 (defun term-char-mode ()
   "Switch to char (\"raw\") sub-mode of term mode.
@@ -1279,6 +1291,8 @@ intervention from Emacs, except for the escape character (usually C-c)."
 	  (define-key map (make-string 1 i) 'term-send-raw)
 	  (define-key esc-map (make-string 1 i) 'term-send-raw-meta)
 	  (setq i (1+ i)))
+	(dolist (elm (generic-character-list))
+	  (define-key map (vector elm) 'term-send-raw))
 	(define-key map "\e" esc-map)
 	(setq term-raw-map map)
 	(setq term-raw-escape-map
@@ -2599,10 +2613,10 @@ See `term-prompt-regexp'."
   (cond (term-current-column)
 	((setq term-current-column (current-column)))))
 
-;;; Move DELTA column right (or left if delta < 0).
+;;; Move DELTA column right (or left if delta < 0 limiting at column 0).
 
 (defun term-move-columns (delta)
-  (setq term-current-column (+ (term-current-column) delta))
+  (setq term-current-column (max 0 (+ (term-current-column) delta)))
   (move-to-column term-current-column t))
 
 ;; Insert COUNT copies of CHAR in the default face.
@@ -2779,19 +2793,21 @@ See `term-prompt-regexp'."
 				   (setq term-current-column nil)
 				   (setq term-start-line-column nil)))
 			    (setq old-point (point))
-			    ;; In the common case that we're at the end of
-			    ;; the buffer, we can save a little work.
-			    (cond ((/= (point) (point-max))
-				   (if term-insert-mode
-				       ;; Inserting spaces, then deleting them,
-				       ;; then inserting the actual text is
-				       ;; inefficient, but it is simple, and
-				       ;; the actual overhead is miniscule.
-				       (term-insert-spaces count))
-				   (term-move-columns count)
-				   (delete-region old-point (point)))
-	(t (setq term-current-column (+ (term-current-column) count))))
-			    (insert (substring str i funny))
+
+			    ;; Insert a string, check how many columns
+			    ;; we moved, then delete that many columns
+			    ;; following point if not eob nor insert-mode.
+			    (let ((old-column (current-column))
+				  columns pos)
+			      (insert (substring str i funny))
+			      (setq term-current-column (current-column)
+				    columns (- term-current-column old-column))
+			      (when (not (or (eobp) term-insert-mode))
+				(setq pos (point))
+				(term-move-columns columns)
+				(delete-region pos (point))))
+			    (setq term-current-column nil)
+							 
 			    (put-text-property old-point (point)
 					       'face term-current-face)
 			    ;; If the last char was written in last column,
@@ -3040,11 +3056,21 @@ See `term-prompt-regexp'."
    ((eq parameter 8)
     (setq term-ansi-current-invisible 1))
 
+;;; Foreground
    ((and (>= parameter 30) (<= parameter 37))
     (setq term-ansi-current-color (- parameter 29)))
 
+;;; Reset foreground
+   ((eq parameter 39)
+    (setq term-ansi-current-color 0))
+
+;;; Background
    ((and (>= parameter 40) (<= parameter 47))
     (setq term-ansi-current-bg-color (- parameter 39)))
+
+;;; Reset background
+   ((eq parameter 49)
+    (setq term-ansi-current-bg-color 0))
 
 ;;; 0 (Reset) or unknown (reset anyway)
    (t

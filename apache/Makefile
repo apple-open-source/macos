@@ -15,7 +15,7 @@ GnuAfterInstall = install-local
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Ignore RC_CFLAGS
-Extra_CC_Flags = -DHARD_SERVER_LIMIT=1024
+Extra_CC_Flags = -DHARD_SERVER_LIMIT=2048
 
 Environment =
 

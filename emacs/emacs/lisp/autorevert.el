@@ -1,6 +1,6 @@
-;;; autorevert --- revert buffers when files on disk change
+;;; autorevert.el --- revert buffers when files on disk change
 
-;; Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
 
 ;; Author: Anders Lindgren <andersl@andersl.com>
 ;; Keywords: convenience
@@ -89,12 +89,15 @@ Global Auto-Revert Mode applies to all buffers."
 
 ;; Variables:
 
+;; Autoload for the benefit of `make-mode-line-mouse-sensitive'.
+;;;###autoload
 (defvar auto-revert-mode nil
   "*Non-nil when Auto-Revert Mode is active.
 
 Never set this variable directly, use the command `auto-revert-mode'
 instead.")
 
+;;;###autoload
 (defcustom global-auto-revert-mode nil
   "When on, buffers are automatically reverted when files on disk change.
 
@@ -161,16 +164,6 @@ When non-nil, both file buffers and buffers with a custom
   :group 'auto-revert
   :type 'boolean)
 
-(defcustom global-auto-revert-non-file-buffers nil
-  "When nil only file buffers are reverted by Global Auto-Revert Mode.
-
-When non-nil, both file buffers and buffers with a custom
-`revert-buffer-function' are reverted by Global Auto-Revert Mode.
-
-Use this option with care since it could lead to excessive reverts."
-  :group 'auto-revert
-  :type 'boolean)
-
 (defcustom global-auto-revert-ignore-modes '()
   "List of major modes Global Auto-Revert Mode should not check."
   :group 'auto-revert
@@ -218,6 +211,7 @@ This is a minor mode that affects only the current buffer.
 Use `global-auto-revert-mode' to automatically revert all buffers."
   (interactive "P")
   (make-local-variable 'auto-revert-mode)
+  (put 'auto-revert-mode 'permanent-local t)
   (setq auto-revert-mode
 	(if (null arg)
 	    (not auto-revert-mode)
@@ -234,7 +228,8 @@ Use `global-auto-revert-mode' to automatically revert all buffers."
   (auto-revert-set-timer)
   (when auto-revert-mode
     (auto-revert-buffers)
-    (run-hooks 'auto-revert-mode-hook)))
+    (run-hooks 'auto-revert-mode-hook))
+  auto-revert-mode)
 
 
 ;;;###autoload
@@ -378,4 +373,4 @@ the timer when no buffers need to be checked."
 (if global-auto-revert-mode
     (global-auto-revert-mode 1))
 
-;; autorevert.el ends here.
+;;; autorevert.el ends here

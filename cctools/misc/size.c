@@ -177,11 +177,11 @@ char **envp)
 		}
 	    }
 	    ofile_process(argv[i], arch_flags, narch_flags, all_archs, FALSE,
-			  TRUE, size, &flag);
+			  TRUE, TRUE, size, &flag);
 	}
 	if(flag.nfiles == 0)
 	    ofile_process("a.out", arch_flags, narch_flags, all_archs, FALSE,
-			  TRUE, size, &flag);
+			  TRUE, TRUE, size, &flag);
 	if(errors == 0)
 	    return(EXIT_SUCCESS);
 	else

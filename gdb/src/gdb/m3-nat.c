@@ -1,7 +1,8 @@
 /* Interface GDB to Mach 3.0 operating systems.
    (Most) Mach 3.0 related routines live in this file.
 
-   Copyright (C) 1992, 1996, 1999-2000 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -56,6 +57,7 @@
 #include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #if 0
 #include <servers/machid_lib.h>
@@ -345,7 +347,7 @@ port_chain_insert (port_chain_t list, mach_port_t name, int type)
 	}
     }
   else
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   new = (port_chain_t) obstack_alloc (port_chain_obstack,
 				      sizeof (struct port_chain));
@@ -601,17 +603,17 @@ m3_trace_me (void)
   ret = task_get_bootstrap_port (mach_task_self (),
 				 &original_server_port_name);
   if (ret != KERN_SUCCESS)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
   ret = mach_port_deallocate (mach_task_self (),
 			      original_server_port_name);
   if (ret != KERN_SUCCESS)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   /* Suspend this task to let the parent change my ports.
      Resumed by the debugger */
   ret = task_suspend (mach_task_self ());
   if (ret != KERN_SUCCESS)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 /*
@@ -1230,10 +1232,10 @@ int mach_really_waiting;
 
    There is no other way to exit this loop.
 
-   Returns the inferior_pid for rest of gdb.
+   Returns the inferior_ptid for rest of gdb.
    Side effects: Set *OURSTATUS.  */
-int
-mach_really_wait (int pid, struct target_waitstatus *ourstatus)
+ptid_t
+mach_really_wait (ptid_t ptid, struct target_waitstatus *ourstatus)
 {
   kern_return_t ret;
   int w;
@@ -1309,7 +1311,7 @@ mach_really_wait (int pid, struct target_waitstatus *ourstatus)
 		    }
 		}
 	      store_waitstatus (ourstatus, w);
-	      return inferior_pid;
+	      return inferior_ptid;
 	    }
 	}
 
@@ -1344,7 +1346,7 @@ mach_really_wait (int pid, struct target_waitstatus *ourstatus)
 	  mach3_exception_actions (&w, FALSE, "Task");
 
 	  store_waitstatus (ourstatus, w);
-	  return inferior_pid;
+	  return inferior_ptid;
 	}
     }
 }
@@ -1571,6 +1573,11 @@ mach_thread_output_id (int mid)
  *  if SELECT_IT is nonzero, reselect the thread that was active when
  *  we stopped at a breakpoint.
  *
+ * Note that this implementation is potentially redundant now that
+ * default_prepare_to_proceed() has been added.  
+ *
+ * FIXME This may not support switching threads after Ctrl-C
+ * correctly. The default implementation does support this.
  */
 
 mach3_prepare_to_proceed (int select_it)
@@ -1637,7 +1644,8 @@ catch_exception_raise (mach_port_t port, thread_t thread, task_t task,
     }
 
   if (exception < 0 || exception > MAX_EXCEPTION)
-    internal_error ("catch_exception_raise: unknown exception code %d thread %d",
+    internal_error (__FILE__, __LINE__,
+		    "catch_exception_raise: unknown exception code %d thread %d",
 		    exception,
 		    mid);
 
@@ -1829,13 +1837,8 @@ mach3_read_inferior (CORE_ADDR addr, char *myaddr, int length)
   return length;
 }
 
-#ifdef __STDC__
 #define CHK_GOTO_OUT(str,ret) \
   do if (ret != KERN_SUCCESS) { errstr = #str; goto out; } while(0)
-#else
-#define CHK_GOTO_OUT(str,ret) \
-  do if (ret != KERN_SUCCESS) { errstr = str; goto out; } while(0)
-#endif
 
 struct vm_region_list
 {
@@ -2936,7 +2939,7 @@ suspend_all_threads (int from_tty)
     {
       warning ("Could not suspend inferior threads.");
       m3_kill_inferior ();
-      return_to_top_level (RETURN_ERROR);
+      throw_exception (RETURN_ERROR);
     }
 
   for (index = 0; index < thread_count; index++)
@@ -3105,7 +3108,7 @@ thread_resume_command (char *args, int from_tty)
     {
       if (current_thread)
 	current_thread = saved_thread;
-      return_to_top_level (RETURN_ERROR);
+      throw_exception (RETURN_ERROR);
     }
 
   ret = thread_info (current_thread,
@@ -3498,7 +3501,8 @@ mach3_exception_actions (WAITTYPE *w, boolean_t force_print_only, char *who)
 			   stop_code);
 	  break;
 	default:
-	  internal_error ("Unknown exception");
+	  internal_error (__FILE__, __LINE__,
+			  "Unknown exception");
 	}
     }
 }
@@ -3523,13 +3527,15 @@ setup_notify_port (int create_new)
 				MACH_PORT_RIGHT_RECEIVE,
 				&our_notify_port);
       if (ret != KERN_SUCCESS)
-	internal_error ("Creating notify port %s", mach_error_string (ret));
+	internal_error (__FILE__, __LINE__,
+			"Creating notify port %s", mach_error_string (ret));
 
       ret = mach_port_move_member (mach_task_self (),
 				   our_notify_port,
 				   inferior_wait_port_set);
       if (ret != KERN_SUCCESS)
-	internal_error ("initial move member %s", mach_error_string (ret));
+	internal_error (__FILE__, __LINE__,
+			"initial move member %s", mach_error_string (ret));
     }
 }
 
@@ -3812,14 +3818,14 @@ kill_inferior_fast (void)
 {
   WAITTYPE w;
 
-  if (inferior_pid == 0 || inferior_pid == 1)
+  if (PIDGET (inferior_ptid) == 0 || PIDGET (inferior_ptid) == 1)
     return;
 
   /* kill() it, since the Unix server does not otherwise notice when
    * killed with task_terminate().
    */
-  if (inferior_pid > 0)
-    kill (inferior_pid, SIGKILL);
+  if (PIDGET (inferior_ptid) > 0)
+    kill (PIDGET (inferior_ptid), SIGKILL);
 
   /* It's propably terminate already */
   (void) task_terminate (inferior_task);
@@ -3881,7 +3887,7 @@ ptrace (int a, int b, int c, int d)
    If SIGNAL is nonzero, give it that signal.  */
 
 void
-m3_resume (int pid, int step, enum target_signal signal)
+m3_resume (ptid_t ptid, int step, enum target_signal signal)
 {
   kern_return_t ret;
 
@@ -3910,8 +3916,8 @@ m3_resume (int pid, int step, enum target_signal signal)
 
   vm_read_cache_valid = FALSE;
 
-  if (signal && inferior_pid > 0)	/* Do not signal, if attached by MID */
-    kill (inferior_pid, target_signal_to_host (signal));
+  if (signal && PIDGET (inferior_ptid) > 0)	/* Do not signal, if attached by MID */
+    kill (PIDGET (inferior_ptid), target_signal_to_host (signal));
 
   if (step)
     {
@@ -4011,10 +4017,10 @@ m3_do_attach (int pid)
     {
       mid_attach (-(pid));
 
-      /* inferior_pid will be NEGATIVE! */
-      inferior_pid = pid;
+      /* inferior_ptid will be NEGATIVE! */
+      inferior_ptid = pid_to_ptid (pid);
 
-      return inferior_pid;
+      return PIDGET (inferior_ptid);
     }
 
   inferior_task = task_by_pid (pid);
@@ -4023,9 +4029,9 @@ m3_do_attach (int pid)
 
   task_attach (inferior_task);
 
-  inferior_pid = pid;
+  inferior_ptid = pid_to_ptid (pid);
 
-  return inferior_pid;
+  return PIDGET (inferior_ptid);
 }
 
 /* Attach to process PID, then initialize for debugging it
@@ -4050,15 +4056,17 @@ m3_attach (char *args, int from_tty)
       exec_file = (char *) get_exec_file (0);
 
       if (exec_file)
-	printf_unfiltered ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to program `%s', %s\n", exec_file,
+	                   target_pid_to_str (pid_to_ptid (pid)));
       else
-	printf_unfiltered ("Attaching to %s\n", target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to %s\n",
+	                   target_pid_to_str (pid_to_ptid (pid)));
 
       gdb_flush (gdb_stdout);
     }
 
-  m3_do_attach (pid);
-  inferior_pid = pid;
+  m3_do_attach (pid_to_ptid (pid));
+  inferior_ptid = pid_to_ptid (pid);
   push_target (&m3_ops);
 }
 
@@ -4146,8 +4154,8 @@ m3_do_detach (int signal)
   if (remove_breakpoints ())
     warning ("Could not remove breakpoints when detaching");
 
-  if (signal && inferior_pid > 0)
-    kill (inferior_pid, signal);
+  if (signal && PIDGET (inferior_ptid) > 0)
+    kill (PIDGET (inferior_ptid), signal);
 
   /* the task might be dead by now */
   (void) task_resume (inferior_task);
@@ -4176,14 +4184,14 @@ m3_detach (char *args, int from_tty)
       if (exec_file == 0)
 	exec_file = "";
       printf_unfiltered ("Detaching from program: %s %s\n",
-			 exec_file, target_pid_to_str (inferior_pid));
+			 exec_file, target_pid_to_str (inferior_ptid));
       gdb_flush (gdb_stdout);
     }
   if (args)
     siggnal = atoi (args);
 
   m3_do_detach (siggnal);
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   unpush_target (&m3_ops);	/* Pop out of handling an inferior */
 }
 #endif /* ATTACH_DETACH */
@@ -4209,7 +4217,7 @@ m3_files_info (struct target_ops *ignore)
 {
   /* FIXME: should print MID and all that crap.  */
   printf_unfiltered ("\tUsing the running image of %s %s.\n",
-      attach_flag ? "attached" : "child", target_pid_to_str (inferior_pid));
+      attach_flag ? "attached" : "child", target_pid_to_str (inferior_ptid));
 }
 
 static void
@@ -4219,11 +4227,7 @@ m3_open (char *arg, int from_tty)
 }
 
 #ifdef DUMP_SYSCALL
-#ifdef __STDC__
 #define STR(x) #x
-#else
-#define STR(x) "x"
-#endif
 
 char *bsd1_names[] =
 {
@@ -4459,7 +4463,7 @@ init_m3_ops (void)
   m3_ops.to_attach = m3_attach;
   m3_ops.to_detach = m3_detach;
   m3_ops.to_resume = m3_resume;
-  m3_ops.to_wait = mach_really__wait;
+  m3_ops.to_wait = mach_really_wait;
   m3_ops.to_fetch_registers = fetch_inferior_registers;
   m3_ops.to_store_registers = store_inferior_registers;
   m3_ops.to_prepare_to_store = m3_prepare_to_store;
@@ -4499,7 +4503,8 @@ _initialize_m3_nat (void)
 			    MACH_PORT_RIGHT_PORT_SET,
 			    &inferior_wait_port_set);
   if (ret != KERN_SUCCESS)
-    internal_error ("initial port set %s", mach_error_string (ret));
+    internal_error (__FILE__, __LINE__,
+		    "initial port set %s", mach_error_string (ret));
 
   /* mach_really_wait now waits for this */
   currently_waiting_for = inferior_wait_port_set;

@@ -70,6 +70,8 @@ public:
 // XXX Should be replaced by Atom::Vector
 class ReadSection
 {
+protected:
+    ReadSection(uint8 *inAddress, size_t inLength) : mAddress(inAddress), mLength(inLength) {}
 public:
 	ReadSection() : mAddress(NULL), mLength(0) {}
     ReadSection(const uint8 *inAddress, size_t inLength) :
@@ -137,7 +139,6 @@ public:
 	static uint32 align(uint32 offset) { return (offset + AtomSize - 1) & ~(AtomSize - 1); }
 
 protected:
-    ReadSection(uint8 *inAddress, size_t inLength) : mAddress(inAddress), mLength(inLength) {}
     uint8 *mAddress;
     size_t mLength;
 };
@@ -176,6 +177,16 @@ public:
 
     ~WriteSection() { mAllocator.free(mAddress); }
 
+private:
+    void grow(size_t inNewCapacity)
+    {
+        size_t aNewCapacity = max(mCapacity * 2, inNewCapacity);
+        mAddress = reinterpret_cast<uint8 *>(mAllocator.realloc(mAddress, aNewCapacity));
+		memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);
+        mCapacity = aNewCapacity;
+    }
+
+public:
 #if BUG_GCC
 	uint32 size() const { return ReadSection::size(); }
 #else
@@ -220,14 +231,6 @@ public:
     }
 
 private:
-    void grow(size_t inNewCapacity)
-    {
-        size_t aNewCapacity = max(mCapacity * 2, inNewCapacity);
-        mAddress = reinterpret_cast<uint8 *>(mAllocator.realloc(mAddress, aNewCapacity));
-		memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);
-        mCapacity = aNewCapacity;
-    }
-
     CssmAllocator &mAllocator;
     size_t mCapacity;
 };

@@ -1,5 +1,5 @@
 /* XMODEM support for GDB, the GNU debugger.
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -36,11 +36,11 @@ static int blknum;		/* XMODEM block number */
 static int crcflag;		/* Sez we are using CRC's instead of cksums */
 
 static int
-readchar (serial_t desc, int timeout)
+readchar (struct serial *desc, int timeout)
 {
   int c;
 
-  c = SERIAL_READCHAR (desc, timeout);
+  c = serial_readchar (desc, timeout);
 
   if (remote_debug > 0)
     fputc_unfiltered (c, gdb_stdlog);
@@ -109,7 +109,7 @@ docrc (unsigned char *p, int len)
    send NAK or CRC request.  */
 
 int
-xmodem_init_xfer (serial_t desc)
+xmodem_init_xfer (struct serial *desc)
 {
   int c;
   int i;
@@ -160,7 +160,7 @@ xmodem_init_xfer (serial_t desc)
  */
 
 void
-xmodem_send_packet (serial_t desc, unsigned char *packet, int len, int hashmark)
+xmodem_send_packet (struct serial *desc, unsigned char *packet, int len, int hashmark)
 {
   int i;
   int retries;
@@ -185,7 +185,7 @@ xmodem_send_packet (serial_t desc, unsigned char *packet, int len, int hashmark)
       datasize = XMODEM_1KDATASIZE;
     }
   else
-    abort ();			/* Packet way too large */
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");			/* Packet way too large */
 
   /* Add ^Z padding if packet < 128 (or 1024) bytes */
 
@@ -217,7 +217,7 @@ xmodem_send_packet (serial_t desc, unsigned char *packet, int len, int hashmark)
     {
       int c;
 
-      SERIAL_WRITE (desc, packet, pktlen);
+      serial_write (desc, packet, pktlen);
 
       c = readchar (desc, 3);
       switch (c)
@@ -238,7 +238,7 @@ xmodem_send_packet (serial_t desc, unsigned char *packet, int len, int hashmark)
 	}
     }
 
-  SERIAL_WRITE (desc, "\004", 1);	/* Send an EOT */
+  serial_write (desc, "\004", 1);	/* Send an EOT */
 
   error ("xmodem_send_packet:  Excessive retries.");
 }
@@ -246,7 +246,7 @@ xmodem_send_packet (serial_t desc, unsigned char *packet, int len, int hashmark)
 /* Finish off the transfer.  Send out the EOT, and wait for an ACK.  */
 
 void
-xmodem_finish_xfer (serial_t desc)
+xmodem_finish_xfer (struct serial *desc)
 {
   int retries;
 
@@ -254,7 +254,7 @@ xmodem_finish_xfer (serial_t desc)
     {
       int c;
 
-      SERIAL_WRITE (desc, "\004", 1);	/* Send an EOT */
+      serial_write (desc, "\004", 1);	/* Send an EOT */
 
       c = readchar (desc, 3);
       switch (c)

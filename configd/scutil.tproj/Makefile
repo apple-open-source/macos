@@ -33,7 +33,6 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

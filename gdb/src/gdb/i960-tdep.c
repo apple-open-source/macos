@@ -1,5 +1,6 @@
 /* Target-machine dependent code for the Intel 960
-   Copyright 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by Intel Corporation.
    examine_prologue and other parts contributed by Wind River Systems.
 
@@ -28,9 +29,20 @@
 #include "target.h"
 #include "gdbcore.h"
 #include "inferior.h"
+#include "regcache.h"
 
 static CORE_ADDR next_insn (CORE_ADDR memaddr,
 			    unsigned int *pword1, unsigned int *pword2);
+
+struct type *
+i960_register_type (int regnum)
+{
+  if (regnum < FP0_REGNUM)
+    return builtin_type_int32;
+  else
+    return builtin_type_i960_ext;
+}
+
 
 /* Does the specified function use the "struct returning" convention
    or the "value returning" convention?  The "value returning" convention
@@ -774,7 +786,7 @@ mem (unsigned long memaddr, unsigned long word1, unsigned long word2,
     {
       return len;
     }
-  abort ();
+  internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 /* Read the i960 instruction at 'memaddr' and return the address of 

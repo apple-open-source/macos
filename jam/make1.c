@@ -522,7 +522,7 @@ ACTIONS	*a0;
 		    printf( "%s: %d args per exec\n", rule->name, chunk );
 
 		for( start = 0;
-		     somes = list_sublist( ns, start, chunk );
+		     (somes = list_sublist( ns, start, chunk )) != NULL;
 		     start += chunk )
 		{
 		    cmds = cmd_new( cmds, rule, 

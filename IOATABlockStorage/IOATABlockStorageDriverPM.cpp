@@ -114,6 +114,23 @@ static const char * sPowerStateNames[] =
 
 
 //---------------------------------------------------------------------------
+// ¥ initialPowerStateForDomainState - 	Returns to the power manager what
+//										initial state the device should be in.
+//---------------------------------------------------------------------------
+
+UInt32
+IOATABlockStorageDriver::initialPowerStateForDomainState (
+											IOPMPowerFlags	flags )
+{
+	
+	// We ignore the flags since we are always active at startup time and we
+	// just report what our initial power state is.
+	return kIOATAPowerStateActive;
+	
+}
+
+
+//---------------------------------------------------------------------------
 // ¥ initForPM - 	Register the driver with our policy-maker
 //					(also in the same class).
 //---------------------------------------------------------------------------
@@ -246,7 +263,12 @@ IOATABlockStorageDriver::sHandleSetPowerState (
 								UInt32         				powerStateOrdinal )
 {
 	
-	self->handleSetPowerState ( powerStateOrdinal );
+	if ( self->isInactive ( ) == false )
+	{ 
+		
+		self->handleSetPowerState ( powerStateOrdinal );
+		
+	}
 	
 }
 
@@ -262,8 +284,9 @@ IOATABlockStorageDriver::handleSetPowerState ( UInt32 powerStateOrdinal )
 	AbsoluteTime	time;
 	
 	fProposedPowerState = powerStateOrdinal;
-	if ( fPowerTransitionInProgress == false )
+	if ( ( fPowerTransitionInProgress == false ) || fPowerAckInProgress )
 	{
+		
 		// mark us as being in progress, then call the thread which is
 		// the power management state machine
 		fPowerTransitionInProgress = true;
@@ -287,13 +310,27 @@ IOATABlockStorageDriver::sPowerManagement ( thread_call_param_t whichDevice )
 	IOATABlockStorageDriver *	self;
 	
 	self = ( IOATABlockStorageDriver * ) whichDevice;
-	if ( self != NULL )
+	if ( ( self != NULL ) && ( self->isInactive ( ) == false ) )
 	{
 		
+		self->retain ( );
 		self->handlePowerChange ( );
-		self->fPowerTransitionInProgress = false;
+		
+		self->fPowerAckInProgress = true;	
+		
 		self->acknowledgeSetPowerState ( );
 		
+		self->fPowerAckInProgress = false;
+		self->fPowerTransitionInProgress = false;
+		self->release ( );
+		
+	}
+	
+	else
+	{
+		
+		self->fPowerTransitionInProgress = false;
+	    
 	}
 	
 }

@@ -14,7 +14,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacNotify.c,v 1.1.1.3 2000/04/12 02:02:38 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacNotify.c,v 1.1.1.4 2002/04/05 16:13:45 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -266,7 +266,7 @@ HandleMacEvents(void)
      * system event queue unless we call WaitNextEvent.
      */
 
-    GetGlobalMouse(&currentMouse);
+    GetGlobalMouseTcl(&currentMouse);
     if ((notifier.eventProcPtr != NULL) &&
 	    !EqualPt(currentMouse, notifier.lastMousePosition)) {
 	notifier.lastMousePosition = currentMouse;
@@ -296,7 +296,7 @@ HandleMacEvents(void)
      */
 
     while (needsUpdate || (GetEvQHdr()->qHead != NULL)) {
-	GetGlobalMouse(&currentMouse);
+	GetGlobalMouseTcl(&currentMouse);
 	SetRect(&mouseRect, currentMouse.h, currentMouse.v,
 		currentMouse.h + 1, currentMouse.v + 1);
 	RectRgn(notifier.utilityRgn, &mouseRect);
@@ -481,7 +481,7 @@ Tcl_WaitForEvent(
 	     * the current mouse position.
 	     */
 
-	    GetGlobalMouse(&currentMouse);
+	    GetGlobalMouseTcl(&currentMouse);
 	    SetRect(&mouseRect, currentMouse.h, currentMouse.v,
 		    currentMouse.h + 1, currentMouse.v + 1);
 	    RectRgn(notifier.utilityRgn, &mouseRect);

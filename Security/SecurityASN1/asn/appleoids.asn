@@ -6,6 +6,8 @@ BEGIN
 IMPORTS
   BigIntegerStr
     FROM VdaEnhancedTypes
+  pkcs
+	FROM PKCS1-OIDS
 ;
 
 -- base OIDs for Apple, Apple Data Security
@@ -30,6 +32,10 @@ appleFeeSHA1 OBJECT IDENTIFIER ::= { appleSecurityAlgorithm 4 }
 appleFeed OBJECT IDENTIFIER ::= { appleSecurityAlgorithm 5 }
 appleFeedExp OBJECT IDENTIFIER ::= { appleSecurityAlgorithm 6 }
 appleECDSA OBJECT IDENTIFIER ::= { appleSecurityAlgorithm 7 }
+
+-- PKCS3 OIDs
+pkcs-3 OBJECT IDENTIFIER ::= { pkcs 3 }
+dhKeyAgreement OBJECT IDENTIFIER ::= { pkcs-3 1 }
 
 -- FEE ElGamal-style signature
 FEEElGamalSignature ::= SEQUENCE {
@@ -161,6 +167,28 @@ DSAAlgParams ::= SEQUENCE
 	p				BigIntegerStr,
 	q				BigIntegerStr,
 	g				BigIntegerStr
+}
+
+-- Diffie Hellman per PKCS3
+
+DHPrivateKey ::= SEQUENCE
+{
+	dHOid			OBJECT IDENTIFIER,			-- dhKeyAgreement
+	params			DHParameter,
+	secretPart		BigIntegerStr
+}
+
+DHParameterBlock ::= SEQUENCE
+{
+	oid				OBJECT IDENTIFIER,			-- pkcs-3
+	params			DHParameter
+}
+
+DHParameter ::= SEQUENCE
+{
+	prime				BigIntegerStr,			-- p
+	base				BigIntegerStr,			-- g
+	privateValueLength 	BigIntegerStr OPTIONAL
 }
 
 END -- APPLE-OIDS

@@ -63,6 +63,7 @@ struct client *client_new (CFSocketRef ref)
 
     bzero(client, sizeof(struct client));
 
+    CFRetain(ref);
     client->ref = ref;
     TAILQ_INIT(&client->opts_head);
 
@@ -85,6 +86,7 @@ void client_dispose (struct client *client)
         free(opts);
     }
 
+    CFRelease(client->ref);
     free(client);
 }
 
@@ -121,26 +123,47 @@ struct options *client_findoptset (struct client *client, u_long link)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long client_notify (u_long link, u_long state, u_long error)
+u_long client_notify (u_char *serviceid, u_long link, u_long state, u_long error)
 {
     struct ppp_msg_hdr	msg;
     struct client	*client;
-
+    int 		doit;
+    
     TAILQ_FOREACH(client, &client_head, next) {
-        if (client->notify
-            && ((client->notify_link == link)			// exact same link
-                || ((client->notify_link >> 16) == 0xFFFF)		// all kind of links
-                || (((client->notify_link >> 16) == (link >> 16))	// all links of that kind
-                    && ((client->notify_link >> 16) == 0xFFFF)))) {
-            
+        doit = 0;
+        
+        if (client->notify) {
+            if (client->notify_useservice) {
+                doit = (serviceid
+                        && ((client->notify_service == 0)
+                            || !strcmp(serviceid, client->notify_service)));
+            }
+            else { 
+                doit = ((client->notify_link == link)			// exact same link
+                        || ((client->notify_link >> 16) == 0xFFFF)	// all kind of links
+                        || (((client->notify_link >> 16) == (link >> 16))// all links of that kind
+                            && ((client->notify_link >> 16) == 0xFFFF)));
+            }
+        }
+
+        if (doit) {
             bzero(&msg, sizeof(msg));
             msg.m_type = PPP_EVENT;
             msg.m_link = link;
             msg.m_result = state;
             msg.m_cookie = error;
-
+            if (client->notify_useservice) {
+                msg.m_flags |= USE_SERVICEID;
+                msg.m_link = strlen(serviceid);
+            }
+            
             if (write(CFSocketGetNative(client->ref), &msg, sizeof(msg)) != sizeof(msg))
                 continue;
+
+            if (client->notify_useservice) {
+                if (write(CFSocketGetNative(client->ref), serviceid, msg.m_link) != msg.m_link)
+                    continue;
+            }
         }
     }
     return 0;

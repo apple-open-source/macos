@@ -1,0 +1,272 @@
+New in 1.6.1:
+* automake --output-dir is deprecated
+* Many bug fixes, including:
+  - Don't choke on AM_LDFLAGS definitions.
+  - Clean libtool objects from subdirectories.
+  - Allow configure variables with reserved suffix and unknown prefix
+    (e.g. AC_SUBST(mumble_LDFLAGS) when 'mumble' is not a target).
+  - Fix the definition of AUTOMAKE and ACLOCAL in configure.
+
+New in 1.6:
+* Autoconf 2.52 is required.
+* `dist' generates all the archive flavors, as did `dist-all'.
+* `dist-gzip' generates the Gzip tar file only.
+* Combining Automake Makefile conditionals no longer lead to a combinatorial
+  explosion.  Makefile.in's keep a reasonable size.
+* AM_FUNC_ERROR_AT_LINE, AM_FUNC_STRTOD, AM_FUNC_OBSTACK, AM_PTRDIFF_T
+  are no longer shipped, since Autoconf 2.52 provides them (both as AM_
+  and AC_).
+* `#line' of Lex and Yacc files are properly set.
+* EXTRA_DIST can contain generated directories.
+* Support for dot-less extensions in suffix rules.
+* The part of the distcheck target that checks whether distclean actually
+  cleans all built files has been moved in a separate target, distcleancheck,
+  so it can be overridden easily.
+* `make distcheck' will pass additional options defined in
+  $(DISTCHECK_CONFIGURE_FLAGS) to configure.
+* Fixed CDPATH portability problems, in particular for MacOS X.
+* Fixed handling of nobase_ targets.
+* Fixed support of implicit rules leading to .lo objects.
+* Fixed late inclusion of --add-missing files (e.g. depcomp) in DIST_COMMON
+* Added uninstall-hook target
+* `AC_INIT AM_INIT_AUTOMAKE(tarname,version)' is an obsolete construct.
+  You can now use `AC_INIT(pkgname,version) AM_INIT_AUTOMAKE' instead.
+  (Note that "pkgname" is not "tarname", see the manual for details.)
+  It is also possible to pass a list of global Automake options as
+  first argument to this new form of AM_INIT_AUTOMAKE.
+* Compiler-based assembler is now called `CCAS'; people expected `AS'
+  to be a real assembler.
+* AM_INIT_AUTOMAKE will set STRIP itself when it needs it.  Adding
+  AC_CHECK_TOOL([STRIP], [strip]) manually is no longer required.
+* aclocal and automake are also installed with the version number
+  appended, and some of the install directory names have changed.
+  This lets you have multiple versions installed simultaneously.
+* Support for parsers and lexers in subdirectories.
+
+New in 1.5:
+* Support for `configure.ac'.
+* Support for `else COND', `endif COND' and negated conditions `!COND'.
+* `make dist-all' is much faster.
+* Allows '@' AC_SUBSTs in macro names.
+* Faster AM_INIT_AUTOMAKE (requires update of `missing' script)
+* User-side dependency tracking.  Developers no longer need GNU make
+* Python support
+* Uses DIST_SUBDIRS in some situations when SUBDIRS is conditional
+* Most files are correctly handled if they appear in subdirs
+  For instance, a _DATA file can appear in a subdir
+* GNU tar is no longer required for `make dist'
+* Added support for `dist_' and `nodist_' prefixes
+* Added support for `nobase_' prefix
+* Compiled Java support
+* Support for per-executable and per-library compilation flags
+* Many bug fixes
+
+New in 1.4:
+* Added support for the Fortran 77 programming language.
+* Re-indexed the Automake Texinfo manual.
+* Added `AM_FOOFLAGS' variable for each compiler invocation;
+  e.g. AM_CFLAGS can be used in Makefile.am to set C compiler flags
+* Support for latest autoconf, including support for objext
+* Can now put `.' in SUBDIRS to control build order
+* `include' command and `+=' support for macro assignment
+* Dependency tracking no long susceptible to deleted header file problem
+* Maintainer mode now a conditional.  @MAINT@ is now an anachronism.
+* Bug fixes
+
+New in 1.3:
+* Bug fixes
+* Better Cygwin32 support
+* Support for suffix rules with _SOURCES variables
+* New options `readme-alpha' and `check-news'; Gnits mode sets these
+* @LEXLIB@ no longer required when lex source seen
+  Lex support in `missing', and new lex macro.  Update your missing script.
+* Built-in support for assembly
+* aclocal gives error if `AM_' macro not found
+* Passed YFLAGS, not YACCFLAGS, to yacc
+* AM_PROG_CC_STDC does not have to come before AC_PROG_CPP
+* Dependencies computed as a side effect of compilation
+* Preliminary support for Java
+* DESTDIR support at "make install" time
+* Improved ansi2knr support; you must use the latest ansi2knr.c (included)
+
+New in 1.2:
+* Bug fixes
+* Better DejaGNU support
+* Added no-installinfo option
+* Added Emacs Lisp support
+* Added --no-force option
+* Included `aclocal' program
+* Automake will now generate rules to regenerate aclocal.m4, if appropriate
+* Now uses `AM_' macro names everywhere
+* ansi2knr option can have directory prefix (eg `../lib/ansi2knr')
+  ansi2knr now works correctly on K&R sources
+* Better C++, yacc, lex support
+* Will compute _DEPENDENCIES variables automatically if not supplied
+* Will interpolate $(...) and ${...} when examining contents of a variable
+* .deps files now in build directory, not source directory; dependency
+  handling generally rewritten
+* DATA, MANS and BUILT_SOURCES no longer included in distribution
+* can now put config.h into a subdir
+* Added dist-all target
+* Support for install-info program (see texinfo 3.9)
+* Support for "yacc -d"
+* configure substitutions are automatically discovered and included
+  in generated Makefile.in
+* Special --cygnus mode
+* OMIT_DEPENDENCIES can now hold list of dependencies to be omitted
+  when making distribution.  Some dependencies are auto-ignored.
+* Changed how libraries are specified in _LIBRARIES variable
+* Full libtool support, from Gord Matzigkeit
+* No longer have to explicitly touch stamp-h when using AC_CONFIG_HEADER;
+  AM_CONFIG_HEADER handles it automatically
+* Texinfo output files no longer need .info extension
+* Added `missing' support
+* Cygwin32 support
+* Conditionals in Makefile.am, from Ian Taylor
+
+New in 1.0:
+* Bug fixes
+* distcheck target runs install and installcheck targets
+* Added preliminary support for DejaGNU.
+
+New in 0.33:
+* More bug fixes
+* More checking
+* More libtool fixes from Gord Matzigkeit; libtool support is still
+  preliminary however
+* Added support for jm_MAINTAINER_MODE
+* dist-zip support
+* New "distcheck" target
+
+New in 0.32:
+* Many bug fixes
+* mkinstalldirs and mdate-sh now appear in directory specified by
+  AC_CONFIG_AUX_DIR.
+* Removed DIST_SUBDIRS, DIST_OTHER
+* AC_ARG_PROGRAM only required when an actual program exists
+* dist-hook target now run before distribution packaged up; idea from
+  Dieter Baron.  Other hooks exist, too.
+* Preliminary (unfinished) support for libtool
+* Added short option names.
+* Better "dist" support when gluing together multiple packages
+
+New in 0.31:
+* Bug fixes
+* Documentation updates (many from François Pinard)
+* strictness `normal' now renamed to `foreign'
+* Renamed --install-missing to --add-missing
+* Now handles AC_CONFIG_AUX_DIR
+* Now handles TESTS macro
+* DIST_OTHER renamed to EXTRA_DIST
+* DIST_SUBDIRS is deprecated
+* @ALLOCA@ and @LIBOBJS@ now work in _LDADD variables
+* Better error messages in many cases
+* Program names are canonicalized
+* Added "check" prefix; from Gord Matzigkeit
+
+New in 0.30:
+* Bug fixes
+* configure.in scanner knows about AC_PATH_XTRA, AC_OUTPUT ":" syntax
+* Beginnings of a test suite
+* Automatically adds -I options for $(srcdir), ".", and path to config.h
+* Doesn't print anything when running
+* Beginnings of MAINT_CHARSET support
+* Can specify version in AUTOMAKE_OPTIONS
+* Most errors recognizable by Emacs' M-x next-error
+* Added --verbose option
+* All "primary" variables now obsolete; use EXTRA_PRIMARY to supply
+  configure-generated names
+* Required macros now distributed in aclocal.m4
+* New documentation
+* --strictness=gnu is default
+
+New in 0.29:
+* Many bug fixes
+* More sophisticated configure.in scanning; now understands ALLOCA and
+  LIBOBJS directly, handles AC_CONFIG_HEADER more precisely, etc.
+* TEXINFOS and MANS now obsolete; use info_TEXINFOS and man_MANS instead.
+* CONFIG_HEADER variable now obsolete
+* Can handle multiple Texinfo sources
+* Allow hierarchies deeper than 2.  From Gord Matzigkeit.
+* HEADERS variable no longer needed; now can put .h files directly into
+  foo_SOURCES variable.
+* Automake automatically rebuilds files listed in AC_OUTPUT.  The
+  corresponding ".in" files are included in the distribution.
+
+New in 0.28:
+* Added --gnu and --gnits options
+* More standards checking
+* Bug fixes
+* Cleaned up 'dist' targets
+* Added AUTOMAKE_OPTIONS variable and several options
+* Now scans configure.in to get some information (preliminary)
+
+New in 0.27:
+* Works with Perl 4 again
+
+New in 0.26:
+* Added --install-missing option.
+* Pretty-prints generated macros and rules
+* Comments in Makefile.am are placed more intelligently in Makefile.in
+* Generates .PHONY target
+* Rule or macro in Makefile.am now overrides contents of Automake file
+* Substantial cleanups from François Pinard
+
+New in 0.25:
+* Bug fixes.
+* Works with Perl 4 again.
+
+New in 0.24:
+* New uniform naming scheme.
+* --strictness option
+* Works with Perl 5
+* '.c' files corresponding to '.y' or '.l' files are automatically
+  distributed.
+* Many bug fixes and cleanups
+
+New in 0.23:
+* Allow objects to be conditionally included in libraries via lib_LIBADD.
+
+New in 0.22:
+* Bug fixes in 'clean' code.
+* Now generates 'installdirs' target.
+* man page installation reworked.
+* 'make dist' no longer re-creates all Makefile.in's.
+
+New in 0.21:
+* Reimplemented in Perl
+* Added --amdir option (for debugging)
+* Texinfo support cleaned up.
+* Automatic de-ANSI-fication cleaned up.
+* Cleaned up 'clean' targets.
+
+New in 0.20:
+* Automatic dependency tracking
+* More documentation
+* New variables DATA and PACKAGEDATA
+* SCRIPTS installed using $(INSTALL_SCRIPT)
+* No longer uses double-colon rules
+* Bug fixes
+* Changes in advance of internationalization
+
+-----
+
+Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+Foundation, Inc.
+
+This file is part of GNU Automake.
+
+GNU Automake is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Automake is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with autoconf; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.

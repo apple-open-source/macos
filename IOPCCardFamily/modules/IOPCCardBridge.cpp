@@ -786,6 +786,12 @@ IOPCCardBridge::constructPCCard16Properties(IOPCCard16Device *nub)
 	}
     } while (0);
 
+    // copy pmu socket location info into nub
+    OSData * socketData = OSDynamicCast(OSData, bridgeDevice->getProperty("AAPL,pmu-socket-number"));
+    if (socketData) {
+	propTable->setObject("AAPL,pmu-socket-number", socketData);
+    }
+
     // always return propTable even it is empty
     return propTable;
 }
@@ -801,6 +807,12 @@ IOPCCardBridge::constructCardBusProperties(IOPCIAddressSpace space)
     if (prop) {
 	dict->setObject("class-code", prop );
 	prop->release();
+    }
+    
+    // copy pmu socket location info into nub
+    OSData * socketData = OSDynamicCast(OSData, bridgeDevice->getProperty("AAPL,pmu-socket-number"));
+    if (socketData) {
+	dict->setObject("AAPL,pmu-socket-number", socketData);
     }
 
     return dict;
@@ -1374,7 +1386,12 @@ IOPCCardBridge::start(IOService * provider)
 	if (!cardBusRegisterMap) break;
 
 	// kick off probe inside workloop
-	return gIOPCCardCommandGate->runCommand((void *)kCSGateProbeBridge, (void *)this, NULL, NULL) == 0;
+	error = gIOPCCardCommandGate->runCommand((void *)kCSGateProbeBridge, (void *)this, NULL, NULL) == 0;
+	
+	// make us visible to user land
+	registerService();
+	
+	return error;
 
     } while (false);
 
@@ -1560,12 +1577,6 @@ IOWorkLoop *
 IOPCCardBridge::getWorkLoop() const
 { 
 	return gIOPCCardWorkLoop;
-}
-
-IODeviceMemory * 
-IOPCCardBridge::ioDeviceMemory(void)
-{
-    return getDynamicBridgeIOSpace();
 }
 
 int

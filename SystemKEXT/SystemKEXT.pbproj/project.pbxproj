@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 36;
 	objects = {
 		01A633B5000CE54D11CA2A87 = {
 			isa = PBXTargetDependency;
@@ -97,9 +97,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>ADB Family Pseudoextension, Apple Computer Inc, 1.1</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>ADB Family Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOADBFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -109,11 +107,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -130,35 +128,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01CA8CA3FFEFFEA711CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01CA8CA4FFEFFEA711CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01CA8CA5FFEFFEA711CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01CA8CA6FFEFFEA711CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01CA8CBDFFEFFF1D11CA2A87 = {
 			isa = PBXBundleReference;
@@ -206,9 +199,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 5.5</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.kernel.bsd</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -218,11 +209,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.1</string>
 	<key>OSBundleRequired</key>
@@ -239,35 +230,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01CA8CC9FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01CA8CCAFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01CA8CCBFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01CA8CCCFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01CA8CCDFFEFFF1D11CA2A87 = {
 			buildPhases = (
@@ -295,9 +281,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 5.5</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.kernel.mach</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -307,11 +291,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -328,35 +312,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01CA8CCFFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01CA8CD0FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01CA8CD1FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01CA8CD2FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01CA8CD3FFEFFF1D11CA2A87 = {
 			buildPhases = (
@@ -384,9 +363,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>I/O Kit Pseudoextension, Apple Computer Inc, 5.5</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>I/O Kit Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.kernel.iokit</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -396,11 +373,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -417,35 +394,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01CA8CD5FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01CA8CD6FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01CA8CD7FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01CA8CD8FFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01CA8CD9FFEFFF1D11CA2A87 = {
 			buildPhases = (
@@ -473,9 +445,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Libkern Pseudoextension, Apple Computer Inc, 5.5</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>Libkern Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.kernel.libkern</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -485,11 +455,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -506,35 +476,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01CA8CDBFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01CA8CDCFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01CA8CDDFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01CA8CDEFFEFFF1D11CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01E64399000CE08211CA2A87 = {
 			isa = PBXBundleReference;
@@ -567,9 +532,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>System Management Pseudoextension, Apple Computer Inc, 1.1</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>System Management Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOSystemManagementFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -579,11 +542,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -600,35 +563,30 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		01E6439C000CE08211CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		01E6439D000CE08211CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		01E6439E000CE08211CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		01E6439F000CE08211CA2A87 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		01FD1976FFF048077F000001 = {
 			isa = PBXTargetDependency;
@@ -669,11 +627,13 @@
 				01A633B7000CE60511CA2A87,
 				01A633B8000CE60511CA2A87,
 				01A633B9000CE60511CA2A87,
+				144283E10251477302CA28EB,
+				144283E20251477302CA28EB,
 				01A633BA000CE60511CA2A87,
+				144283E00251476102CA28EB,
 				01A633C3000CE60511CA2A87,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 //050
 //051
@@ -692,7 +652,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -723,7 +682,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -753,7 +711,10 @@
 				01CA8CD9FFEFFF1D11CA2A87,
 				01CA8CD3FFEFFF1D11CA2A87,
 				01CA8CC7FFEFFF1D11CA2A87,
+				144283D60251473102CA28EB,
+				144283C4025146F802CA28EB,
 				01CA8CA1FFEFFEA711CA2A87,
+				144283CD0251470902CA28EB,
 				01E6439A000CE08211CA2A87,
 			);
 		};
@@ -788,7 +749,10 @@
 				01FD1977FFF048077F000001,
 				01FD1978FFF048077F000001,
 				01FD1979FFF048077F000001,
+				144283D80251473F02CA28EB,
+				144283D90251474202CA28EB,
 				01FD197AFFF048077F000001,
+				144283DA0251474502CA28EB,
 				01A633B5000CE54D11CA2A87,
 			);
 			isa = PBXBundleTarget;
@@ -803,9 +767,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>System Resource Pseudoextension, Apple Computer Inc, 5.5</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>System Resource Pseudoextension, Apple Computer Inc, 6.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.kernel</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -815,13 +777,13 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0b1</string>
+	<string>6.0</string>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
 	<key>OSKernelResource</key>
@@ -836,7 +798,6 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -844,28 +805,24 @@
 				01A633CA000CE70B11CA2A87,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -895,6 +852,284 @@
 //0B2
 //0B3
 //0B4
+//140
+//141
+//142
+//143
+//144
+		144283BF025146F802CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		144283C0025146F802CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		144283C1025146F802CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		144283C2025146F802CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		144283C4025146F802CA28EB = {
+			buildPhases = (
+				144283BF025146F802CA28EB,
+				144283C0025146F802CA28EB,
+				144283C1025146F802CA28EB,
+				144283C2025146F802CA28EB,
+			);
+			buildSettings = {
+				PRODUCT_NAME = ApplePlatformFamily;
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = ApplePlatformFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ApplePlatformFamily;
+			productReference = 144283C5025146F802CA28EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Apple Platform Family Pseudoextension, Apple Computer Inc, 6.0</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.ApplePlatformFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Apple Platform Family Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>6.0</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		144283C5025146F802CA28EB = {
+			isa = PBXBundleReference;
+			path = ApplePlatformFamily.kext;
+			refType = 3;
+		};
+		144283C80251470902CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		144283C90251470902CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		144283CA0251470902CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		144283CB0251470902CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		144283CD0251470902CA28EB = {
+			buildPhases = (
+				144283C80251470902CA28EB,
+				144283C90251470902CA28EB,
+				144283CA0251470902CA28EB,
+				144283CB0251470902CA28EB,
+			);
+			buildSettings = {
+				PRODUCT_NAME = IONVRAMFamily;
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IONVRAMFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IONVRAMFamily;
+			productReference = 144283CE0251470902CA28EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>NVRAM Family Pseudoextension, Apple Computer Inc, 6.0</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IONVRAMFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>NVRAM Family Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>6.0</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		144283CE0251470902CA28EB = {
+			isa = PBXBundleReference;
+			path = IONVRAMFamily.kext;
+			refType = 3;
+		};
+		144283D10251473102CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		144283D20251473102CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		144283D30251473102CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		144283D40251473102CA28EB = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		144283D60251473102CA28EB = {
+			buildPhases = (
+				144283D10251473102CA28EB,
+				144283D20251473102CA28EB,
+				144283D30251473102CA28EB,
+				144283D40251473102CA28EB,
+			);
+			buildSettings = {
+				PRODUCT_NAME = AppleNMI;
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleNMI;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleNMI;
+			productReference = 144283D70251473102CA28EB;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleNMI Pseudoextension, Apple Computer Inc, 6.0</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleNMI</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleNMI Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>6.0</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		144283D70251473102CA28EB = {
+			isa = PBXBundleReference;
+			path = AppleNMI.kext;
+			refType = 3;
+		};
+		144283D80251473F02CA28EB = {
+			isa = PBXTargetDependency;
+			target = 144283D60251473102CA28EB;
+		};
+		144283D90251474202CA28EB = {
+			isa = PBXTargetDependency;
+			target = 144283C4025146F802CA28EB;
+		};
+		144283DA0251474502CA28EB = {
+			isa = PBXTargetDependency;
+			target = 144283CD0251470902CA28EB;
+		};
+		144283E00251476102CA28EB = {
+			fileRef = 144283CE0251470902CA28EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		144283E10251477302CA28EB = {
+			fileRef = 144283D70251473102CA28EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		144283E20251477302CA28EB = {
+			fileRef = 144283C5025146F802CA28EB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//140
+//141
+//142
+//143
+//144
 //190
 //191
 //192
@@ -907,7 +1142,10 @@
 				01CA8CC0FFEFFF1D11CA2A87,
 				01CA8CBFFFEFFF1D11CA2A87,
 				01CA8CBDFFEFFF1D11CA2A87,
+				144283D70251473102CA28EB,
+				144283C5025146F802CA28EB,
 				01CA8CA0FFEFFEA711CA2A87,
+				144283CE0251470902CA28EB,
 				01E64399000CE08211CA2A87,
 			);
 			isa = PBXGroup;

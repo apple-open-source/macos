@@ -1,0 +1,149 @@
+! File TLASINCOS.3.TEXT provides test vectors for asin and acos.
+!
+!
+! Tests of asin(x) = x + x^3/6 + 3*x^5/40 + ... for abs(x) <= 1.0
+!
+! NANs
+36	d	Q	0	OK	Q
+36	d	-Q	0	OK	-Q
+! Infinities are invalid.
+36	d	H	0	i	Q
+36	d	-H	0	i	Q
+! Arguments with magnitude greater than 1 are invalid.
+36	d	1i1	0	i	Q
+36	d	-1i1	0	i	Q
+36	d	2	0	i	Q
+36	d	-2	0	i	Q
+36	d	Hm1	0	i	Q
+36	d	-Hm1	0	i	Q
+36	d	Hd1	0	i	Q
+36	d	-Hd1	0	i	Q
+! asin of 0 is 0 with the same sign!
+36	d	0	0	OK	0
+36	d	-0	0	OK	-0
+!
+! asin(tiny) is tiny + noise.
+36	=<0d	E	0	x	E
+36	>d	E	0	x	Ei1-1
+36	=<0d	Ei1	0	x	Ei1
+36	>d	Ei1	0	x	Ei2-1
+36	=<0d	Ep1	0	x	Ep1
+36	>d	Ep1	0	x	Ep1i1-1
+36	=<0d	Ep1i3	0	x	Ep1i3
+36	>d	Ep1i3	0	x	Ep1i4-1
+36	=<0d	Ed2	0	ux	Ed2
+36	>d	Ed2	0	ux	Ed1-1
+36	=<0d	Ep1d5	0	x	Ep1d5
+36	>d	Ep1d5	0	x	Ep1d4-1
+36	=<0d	0i1	0	ux	0i1
+36	>d	0i1	0	ux	0i2-1
+36	=<0d	0i9	0	ux	0i9
+36	>d	0i9	0	ux	0i10-1
+!
+! asin(-tiny) is -tiny - noise.
+36	=>0d	-E	0	x	-E
+36	<d	-E	0	x	-Ei1-1
+36	=>0d	-Ei1	0	x	-Ei1
+36	<d	-Ei1	0	x	-Ei2-1
+36	=>0d	-Ep1	0	x	-Ep1
+36	<d	-Ep1	0	x	-Ep1i1-1
+36	=>0d	-Ep1i3	0	x	-Ep1i3
+36	<d	-Ep1i3	0	x	-Ep1i4-1
+36	=>0d	-Ed2	0	ux	-Ed2
+36	<d	-Ed2	0	ux	-Ed1-1
+36	=>0d	-Ep1d5	0	x	-Ep1d5
+36	<d	-Ep1d5	0	x	-Ep1d4-1
+36	=>0d	-0i1	0	ux	-0i1
+36	<d	-0i1	0	ux	-0i2-1
+36	=>0d	-0i9	0	ux	-0i9
+36	<d	-0i9	0	ux	-0i10-1
+!
+! This section consists of values related to pi.
+! For now, only the nearest case is provided.
+36	=d	1	0	x	$3FFFC90FDAA22168C235	;	pi/2
+36	=d	-1	0	x	$BFFFC90FDAA22168C235	;	-pi/2
+
+! <scp> harness appears to incorrectly convert the '$' constants below. 
+! <scp> Use long double derived values instead.
+!36	=e	$3FFEB504F333F9DE6485	0	x	$3FFEC90FDAA22168C235+1	; pi/4
+!36	=e	$BFFEB504F333F9DE6485	0	x	$BFFEC90FDAA22168C235+1	; -pi/4
+!36	=e	1m1	0	x	$3FFE860A91C16B9B2C23	; pi/6
+!36	=e	-1m1	0	x	$BFFE860A91C16B9B2C23	; -pi/6
+
+46	=d	0x3fe6a09e	0x667f3bcd	0x0	0x0	x	0x3fe921fb	0x54442d19	;	pi/4
+46	=d	0xbfe6a09e	0x667f3bcd	0x0	0x0	x	0xbfe921fb	0x54442d19	;	-pi/4
+46	=d	0x3fe00000	0x00000000	0x0	0x0	x	0x3fe0c152	0x382d7366	;	pi/6
+46	=d	0xbfe00000	0x00000000	0x0	0x0	x	0xbfe0c152	0x382d7366	;	-pi/6
+
+36	=d	$3FFEDDB3D742C265539D	0	x	$3FFF860A91C16B9B2C23-1	;	pi/3
+36	=d	$BFFEDDB3D742C265539D	0	x	$BFFF860A91C16B9B2C23-1	;	-pi/3
+!
+!
+!
+! Tests of acos(x) = pi/2 - (x + x^3/6 + 3*x^5/40 + ...) for abs(x) <= 1
+!
+! NANs
+37	d	Q	0	OK	Q
+37	d	-Q	0	OK	-Q
+! Infinities are invalid.
+37	d	H	0	i	Q
+37	d	-H	0	i	Q
+! Arguments with magnitude greater than 1 are invalid.
+37	d	1i1	0	i	Q
+37	d	-1i1	0	i	Q
+37	d	2	0	i	Q
+37	d	-2	0	i	Q
+37	d	Hm1	0	i	Q
+37	d	-Hm1	0	i	Q
+37	d	Hd1	0	i	Q
+37	d	-Hd1	0	i	Q
+! acos(1) is zero.
+37	d	1	0	OK	0
+! acos(0) is pi/2.
+
+! <scp> harness appears to incorrectly convert the '$' constants below. 
+! <scp> Use long double derived values instead.
+!37	e	0	0	x	$3FFFC90FDAA22168C235		! flags???
+!37	e	-0	0	x	$3FFFC90FDAA22168C235
+
+47	=d	0x0	0x0	0x0	0x0	x	0x3ff921fb	0x54442d18	;	pi/2
+47	=d	0x80000000	0x0	0x0	0x0	x	0x3ff921fb	0x54442d18	;	pi/2
+
+! acos(-1) is pi.
+! For now, only nearest case is provided.
+37	=d	-1	0	x	$4000C90FDAA22168C235
+! acos(tiny) is pi/2 - noise
+! For now, only nearest case is provided.
+37	=d	E	0	x	$3FFFC90FDAA22168C235
+37	=d	Ei1	0	x	$3FFFC90FDAA22168C235
+37	=d	Ep1	0	x	$3FFFC90FDAA22168C235
+37	=d	Ep1i3	0	x	$3FFFC90FDAA22168C235
+37	=d	Ed2	0	x	$3FFFC90FDAA22168C235
+37	=d	Ep1d5	0	x	$3FFFC90FDAA22168C235
+37	=d	0i1	0	x	$3FFFC90FDAA22168C235
+37	=d	0i9	0	x	$3FFFC90FDAA22168C235
+! acos(-tiny) is pi/2 + noise
+! For now, only nearest case is provided.
+37	=d	-E	0	x	$3FFFC90FDAA22168C235
+37	=d	-Ei1	0	x	$3FFFC90FDAA22168C235
+37	=d	-Ep1	0	x	$3FFFC90FDAA22168C235
+37	=d	-Ep1i3	0	x	$3FFFC90FDAA22168C235
+37	=d	-Ed2	0	x	$3FFFC90FDAA22168C235
+37	=d	-Ep1d5	0	x	$3FFFC90FDAA22168C235
+37	=d	-0i1	0	x	$3FFFC90FDAA22168C235
+37	=d	-0i9	0	x	$3FFFC90FDAA22168C235
+!
+! This section consists of more values related to pi.
+! For now, only the nearest case is provided.
+
+! <scp> harness appears to incorrectly convert the '$' constants below. 
+! <scp> Use long double derived values instead.
+!37	=e	$3FFEB504F333F9DE6484	0	x	$3FFEC90FDAA22168C235	; pi/4
+!37	=e	1m1	0	x	$3FFF860A91C16B9B2C23	; pi/3
+!37	=e	$3FFEDDB3D742C265539E	0	x	$3FFE860A91C16B9B2C23	; pi/6
+!37	=e	-1m1	0	x	$4000860A91C16B9B2C23+1	; 2*pi/3
+
+47	=d	0x3fe6a09e	0x667f3bcd	0x0	0x0	x	0x3fe921fb	0x54442d18	;	pi/4
+47	=d	0x3fe00000	0x00000000	0x0	0x0	x	0x3ff0c152	0x382d7366	;	pi/3
+47	=d	0x3febb67a	0xe8584caa	0x0	0x0	x	0x3fe0c152	0x382d7366	;	pi/6
+47	=d	0xbfe00000	0x00000000	0x0	0x0	x	0x4000c152	0x382d7366	;	2*pi/3

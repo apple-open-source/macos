@@ -1,20 +1,15 @@
 ;;; cc-mode.el --- major mode for editing C, C++, Objective-C, and Java code
 
-;; Copyright (C) 1985,87,92,93,94,95,96,97,98 Free Software Foundation, Inc.
+;; Copyright (C) 1985,1987,1992-2001 Free Software Foundation, Inc.
 
-;; Authors:    1998 Barry A. Warsaw and Martin Stjernholm
+;; Authors:    2000- Martin Stjernholm
+;;	       1998-1999 Barry A. Warsaw and Martin Stjernholm
 ;;             1992-1997 Barry A. Warsaw
 ;;             1987 Dave Detlefs and Stewart Clamen
 ;;             1985 Richard M. Stallman
 ;; Maintainer: bug-cc-mode@gnu.org
 ;; Created:    a long, long, time ago. adapted from the original c-mode.el
 ;; Keywords:   c languages oop
-
-(defconst c-version "5.25"
-  "CC Mode version number.")
-
-;; NOTE: Read the commentary below for the right way to submit bug reports!
-;; NOTE: See the accompanying texinfo manual for details on using this mode!
 
 ;; This file is part of GNU Emacs.
 
@@ -29,9 +24,15 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+(defconst c-version "5.28"
+  "CC Mode version number.")
+
+;; NOTE: Read the commentary below for the right way to submit bug reports!
+;; NOTE: See the accompanying texinfo manual for details on using this mode!
 
 ;;; Commentary:
 
@@ -63,11 +64,8 @@
 ;; gnu.emacs.bug) as well as bug-cc-mode@gnu.org, which directly
 ;; contacts the CC Mode maintainers.  Questions can sent to
 ;; help-gnu-emacs@gnu.org (mirrored as gnu.emacs.help) and/or
-;; bug-cc-mode@gnu.org.  The old CC Mode contact address,
-;; cc-mode-help@python.org is currently still active, but its use is
-;; discouraged.  Please use bug-cc-mode@gnu.org instead.  Please do
-;; not send bugs or questions to our personal accounts; we reserve the
-;; right to ignore such email!
+;; bug-cc-mode@gnu.org.  Please do not send bugs or questions to our
+;; personal accounts; we reserve the right to ignore such email!
 
 ;; Many, many thanks go out to all the folks on the beta test list.
 ;; Without their patience, testing, insight, code contributions, and
@@ -76,35 +74,40 @@
 ;; You can get the latest version of CC Mode, including PostScript
 ;; documentation and separate individual files from:
 ;;
-;;     http://www.python.org/emacs/cc-mode/
+;;     http://cc-mode.sourceforge.net/
 ;;
 ;; You can join a moderated CC Mode announcement-only mailing list by
 ;; visiting
 ;;
-;;    http://www.python.org/mailman/listinfo/cc-mode-announce
+;;    http://lists.sourceforge.net/mailman/listinfo/cc-mode-announce
 
 ;;; Code:
 
-
-(defvar c-buffer-is-cc-mode nil
-  "Non-nil for all buffers with a `major-mode' derived from CC Mode.
-Otherwise, this variable is nil. I.e. this variable is non-nil for
-`c-mode', `c++-mode', `objc-mode', `java-mode', `idl-mode',
-`pike-mode', and any other non-CC Mode mode that calls
-`c-initialize-cc-mode' (e.g. `awk-mode').")
-(make-variable-buffer-local 'c-buffer-is-cc-mode)
-(put 'c-buffer-is-cc-mode 'permanent-local t)
+(eval-when-compile
+  (let ((load-path
+	 (if (and (boundp 'byte-compile-dest-file)
+		  (stringp byte-compile-dest-file))
+	     (cons (file-name-directory byte-compile-dest-file) load-path)
+	   load-path)))
+    (require 'cc-bytecomp)))
 
-(eval-and-compile
-  (require 'cc-defs))
-(require 'cc-menus)
-(require 'cc-vars)
-(require 'cc-engine)
-(require 'cc-langs)
-(require 'cc-align)
-(require 'cc-styles)
-(require 'cc-cmds)
+(cc-require 'cc-defs)
+(cc-require 'cc-menus)
+(cc-require 'cc-vars)
+(cc-require 'cc-langs)
+(cc-require 'cc-styles)
+(cc-require 'cc-engine)
+(cc-require 'cc-cmds)
+(cc-require 'cc-align)
 
+;; Silence the compiler.
+(cc-bytecomp-defvar comment-line-break-function) ; (X)Emacs 20+
+(cc-bytecomp-defvar adaptive-fill-first-line-regexp) ; Emacs 20+
+(cc-bytecomp-defun set-keymap-parents)	; XEmacs
+
+;; Menu support for both XEmacs and Emacs.  If you don't have easymenu
+;; with your version of Emacs, you are incompatible!
+(require 'easymenu)
 
 
 ;; Other modes and packages which depend on CC Mode should do the
@@ -120,18 +123,299 @@ Otherwise, this variable is nil. I.e. this variable is non-nil for
   (let ((initprop 'cc-mode-is-initialized)
 	c-initialization-ok)
     (unless (get 'c-initialize-cc-mode initprop)
-      (put 'c-initialize-cc-mode initprop t)
-      (c-initialize-builtin-style)
       (unwind-protect
 	  (progn
+	    (put 'c-initialize-cc-mode initprop t)
+	    (c-initialize-builtin-style)
 	    (run-hooks 'c-initialization-hook)
+	    ;; Fix obsolete variables.
+	    (if (boundp 'c-comment-continuation-stars)
+		(setq c-block-comment-prefix c-comment-continuation-stars))
 	    (setq c-initialization-ok t))
 	;; Will try initialization hooks again if they failed.
-	(unless c-initialization-ok
-	  (put 'c-initialize-cc-mode initprop nil))))
+	(put 'c-initialize-cc-mode initprop c-initialization-ok)))
     ))
 
 
+;; Common routines
+(defvar c-mode-base-map ()
+  "Keymap shared by all CC Mode related modes.")
+
+(defun c-make-inherited-keymap ()
+  (let ((map (make-sparse-keymap)))
+    (cond
+     ;; XEmacs 19 & 20
+     ((fboundp 'set-keymap-parents)
+      (set-keymap-parents map c-mode-base-map))
+     ;; Emacs 19
+     ((fboundp 'set-keymap-parent)
+      (set-keymap-parent map c-mode-base-map))
+     ;; incompatible
+     (t (error "CC Mode is incompatible with this version of Emacs")))
+    map))
+
+(if c-mode-base-map
+    nil
+  ;; TBD: should we even worry about naming this keymap. My vote: no,
+  ;; because Emacs and XEmacs do it differently.
+  (setq c-mode-base-map (make-sparse-keymap))
+  ;; put standard keybindings into MAP
+  ;; the following mappings correspond more or less directly to BOCM
+  (define-key c-mode-base-map "{"         'c-electric-brace)
+  (define-key c-mode-base-map "}"         'c-electric-brace)
+  (define-key c-mode-base-map ";"         'c-electric-semi&comma)
+  (define-key c-mode-base-map "#"         'c-electric-pound)
+  (define-key c-mode-base-map ":"         'c-electric-colon)
+  (define-key c-mode-base-map "("         'c-electric-paren)
+  (define-key c-mode-base-map ")"         'c-electric-paren)
+  ;; Separate M-BS from C-M-h.  The former should remain
+  ;; backward-kill-word.
+  (define-key c-mode-base-map [(control meta h)] 'c-mark-function)
+  (define-key c-mode-base-map "\e\C-q"    'c-indent-exp)
+  (substitute-key-definition 'backward-sentence
+			     'c-beginning-of-statement
+			     c-mode-base-map global-map)
+  (substitute-key-definition 'forward-sentence
+			     'c-end-of-statement
+			     c-mode-base-map global-map)
+  (substitute-key-definition 'indent-new-comment-line
+			     'c-indent-new-comment-line
+			     c-mode-base-map global-map)
+  ;; RMS says don't make these the default.
+;;  (define-key c-mode-base-map "\e\C-a"    'c-beginning-of-defun)
+;;  (define-key c-mode-base-map "\e\C-e"    'c-end-of-defun)
+  (define-key c-mode-base-map "\C-c\C-n"  'c-forward-conditional)
+  (define-key c-mode-base-map "\C-c\C-p"  'c-backward-conditional)
+  (define-key c-mode-base-map "\C-c\C-u"  'c-up-conditional)
+  (substitute-key-definition 'indent-for-tab-command
+			     'c-indent-command
+			     c-mode-base-map global-map)
+  ;; It doesn't suffice to put c-fill-paragraph on
+  ;; fill-paragraph-function due to the way it works.
+  (substitute-key-definition 'fill-paragraph 'c-fill-paragraph
+			     c-mode-base-map global-map)
+  ;; In XEmacs the default fill function is called
+  ;; fill-paragraph-or-region.
+  (substitute-key-definition 'fill-paragraph-or-region 'c-fill-paragraph
+			     c-mode-base-map global-map)
+  ;; Bind the electric deletion functions to C-d and DEL.  Emacs 21
+  ;; automatically maps the [delete] and [backspace] keys to these two
+  ;; depending on window system and user preferences.  (In earlier
+  ;; versions it's possible to do the same by using `function-key-map'.)
+  (define-key c-mode-base-map "\C-d" 'c-electric-delete-forward)
+  (define-key c-mode-base-map "\177" 'c-electric-backspace)
+  (when (boundp 'delete-key-deletes-forward)
+    ;; In XEmacs 20 and later we fix the forward and backward deletion
+    ;; behavior by binding the keysyms for the [delete] and
+    ;; [backspace] keys directly, and use `delete-forward-p' or
+    ;; `delete-key-deletes-forward' to decide what [delete] should do.
+    (define-key c-mode-base-map [delete]    'c-electric-delete)
+    (define-key c-mode-base-map [backspace] 'c-electric-backspace))
+  ;; these are new keybindings, with no counterpart to BOCM
+  (define-key c-mode-base-map ","         'c-electric-semi&comma)
+  (define-key c-mode-base-map "*"         'c-electric-star)
+  (define-key c-mode-base-map "/"         'c-electric-slash)
+  (define-key c-mode-base-map "\C-c\C-q"  'c-indent-defun)
+  (define-key c-mode-base-map "\C-c\C-\\" 'c-backslash-region)
+  ;; TBD: where if anywhere, to put c-backward|forward-into-nomenclature
+  (define-key c-mode-base-map "\C-c\C-a"  'c-toggle-auto-state)
+  (define-key c-mode-base-map "\C-c\C-b"  'c-submit-bug-report)
+  (define-key c-mode-base-map "\C-c\C-c"  'comment-region)
+  (define-key c-mode-base-map "\C-c\C-d"  'c-toggle-hungry-state)
+  (define-key c-mode-base-map "\C-c\C-o"  'c-set-offset)
+  (define-key c-mode-base-map "\C-c\C-s"  'c-show-syntactic-information)
+  (define-key c-mode-base-map "\C-c\C-t"  'c-toggle-auto-hungry-state)
+  (define-key c-mode-base-map "\C-c."     'c-set-style)
+  ;; conflicts with OOBR
+  ;;(define-key c-mode-base-map "\C-c\C-v"  'c-version)
+  )
+
+(defvar c-c-menu nil)
+(defvar c-c++-menu nil)
+(defvar c-objc-menu nil)
+(defvar c-java-menu nil)
+(defvar c-pike-menu nil)
+
+(defun c-mode-menu (modestr)
+  (let ((m
+	 '(["Comment Out Region"     comment-region (c-fn-region-is-active-p)]
+	   ["Uncomment Region"
+	    (comment-region (region-beginning) (region-end) '(4))
+	    (c-fn-region-is-active-p)]
+	   ["Fill Comment Paragraph" c-fill-paragraph t]
+	   "---"
+	   ["Indent Expression"      c-indent-exp
+	    (memq (char-after) '(?\( ?\[ ?\{))]
+	   ["Indent Line or Region"  c-indent-line-or-region t]
+	   ["Up Conditional"         c-up-conditional t]
+	   ["Backward Conditional"   c-backward-conditional t]
+	   ["Forward Conditional"    c-forward-conditional t]
+	   ["Backward Statement"     c-beginning-of-statement t]
+	   ["Forward Statement"      c-end-of-statement t]
+	   "---"
+	   ["Macro Expand Region"    c-macro-expand (c-fn-region-is-active-p)]
+	   ["Backslashify"	     c-backslash-region
+	    (c-fn-region-is-active-p)]
+	   )))
+    (cons modestr m)))
+
+;; We don't require the outline package, but we configure it a bit anyway.
+(cc-bytecomp-defvar outline-level)
+
+(defun c-common-init ()
+  ;; Common initializations for all modes.
+  ;; these variables should always be buffer local; they do not affect
+  ;; indentation style.
+  (make-local-variable 'require-final-newline)
+  (make-local-variable 'parse-sexp-ignore-comments)
+  (make-local-variable 'indent-line-function)
+  (make-local-variable 'indent-region-function)
+  (make-local-variable 'outline-regexp)
+  (make-local-variable 'outline-level)
+  (make-local-variable 'normal-auto-fill-function)
+  (make-local-variable 'comment-start)
+  (make-local-variable 'comment-end)
+  (make-local-variable 'comment-column)
+  (make-local-variable 'comment-start-skip)
+  (make-local-variable 'comment-multi-line)
+  (make-local-variable 'paragraph-start)
+  (make-local-variable 'paragraph-separate)
+  (make-local-variable 'paragraph-ignore-fill-prefix)
+  (make-local-variable 'adaptive-fill-mode)
+  (make-local-variable 'adaptive-fill-regexp)
+  (make-local-variable 'imenu-generic-expression) ;set in the mode functions
+  ;; X/Emacs 20 only
+  (and (boundp 'comment-line-break-function)
+       (progn
+	 (make-local-variable 'comment-line-break-function)
+	 (setq comment-line-break-function
+	       'c-indent-new-comment-line)))
+  ;; now set their values
+  (setq require-final-newline t
+	parse-sexp-ignore-comments t
+	indent-line-function 'c-indent-line
+	indent-region-function 'c-indent-region
+	outline-regexp "[^#\n\^M]"
+	outline-level 'c-outline-level
+	normal-auto-fill-function 'c-do-auto-fill
+	comment-column 32
+	comment-start-skip "/\\*+ *\\|//+ *"
+	comment-multi-line t)
+  ;; now set the mode style based on c-default-style
+  (let ((style (if (stringp c-default-style)
+		   c-default-style
+		 (or (cdr (assq major-mode c-default-style))
+		     (cdr (assq 'other c-default-style))
+		     "gnu"))))
+    ;; Override style variables if `c-old-style-variable-behavior' is
+    ;; set.  Also override if we are using global style variables,
+    ;; have already initialized a style once, and are switching to a
+    ;; different style.  (It's doubtful whether this is desirable, but
+    ;; the whole situation with nonlocal style variables is a bit
+    ;; awkward.  It's at least the most compatible way with the old
+    ;; style init procedure.)
+    (c-set-style style (not (or c-old-style-variable-behavior
+				(and (not c-style-variables-are-local-p)
+				     c-indentation-style
+				     (not (string-equal c-indentation-style
+							style)))))))
+  ;; Fix things up for paragraph recognition and filling inside
+  ;; comments by using c-current-comment-prefix in the relevant
+  ;; places.  We use adaptive filling for this to make it possible to
+  ;; use filladapt or some other fancy package.
+  (setq c-current-comment-prefix
+	(if (listp c-comment-prefix-regexp)
+	    (cdr-safe (or (assoc major-mode c-comment-prefix-regexp)
+			  (assoc 'other c-comment-prefix-regexp)))
+	  c-comment-prefix-regexp))
+  (let ((comment-line-prefix
+	 (concat "[ \t]*\\(" c-current-comment-prefix "\\)[ \t]*")))
+    (setq paragraph-start (concat comment-line-prefix
+				  c-append-paragraph-start
+				  "\\|"
+				  page-delimiter)
+	  paragraph-separate (concat comment-line-prefix
+				     c-append-paragraph-separate
+				     "\\|"
+				     page-delimiter)
+	  paragraph-ignore-fill-prefix t
+	  adaptive-fill-mode t
+	  adaptive-fill-regexp
+	  (concat comment-line-prefix
+		  (if adaptive-fill-regexp
+		      (concat "\\(" adaptive-fill-regexp "\\)")
+		    "")))
+    (when (boundp 'adaptive-fill-first-line-regexp)
+      ;; XEmacs (20.x) adaptive fill mode doesn't have this.
+      (make-local-variable 'adaptive-fill-first-line-regexp)
+      (setq adaptive-fill-first-line-regexp
+	    (concat "\\`" comment-line-prefix
+		    ;; Maybe we should incorporate the old value here,
+		    ;; but then we have to do all sorts of kludges to
+		    ;; deal with the \` and \' it probably contains.
+		    "\\'"))))
+  ;; we have to do something special for c-offsets-alist so that the
+  ;; buffer local value has its own alist structure.
+  (setq c-offsets-alist (copy-alist c-offsets-alist))
+  ;; setup the comment indent variable in a Emacs version portable way
+  ;; ignore any byte compiler warnings you might get here
+  (make-local-variable 'comment-indent-function)
+  (setq comment-indent-function 'c-comment-indent)
+  ;; add menus to menubar
+  (easy-menu-add (c-mode-menu mode-name))
+  ;; put auto-hungry designators onto minor-mode-alist, but only once
+  (or (assq 'c-auto-hungry-string minor-mode-alist)
+      (setq minor-mode-alist
+	    (cons '(c-auto-hungry-string c-auto-hungry-string)
+		  minor-mode-alist)))
+  )
+
+(defun c-postprocess-file-styles ()
+  "Function that post processes relevant file local variables.
+Currently, this function simply applies any style and offset settings
+found in the file's Local Variable list.  It first applies any style
+setting found in `c-file-style', then it applies any offset settings
+it finds in `c-file-offsets'.
+
+Note that the style variables are always made local to the buffer."
+  ;; apply file styles and offsets
+  (if (or c-file-style c-file-offsets)
+      (c-make-styles-buffer-local t))
+  (and c-file-style
+       (c-set-style c-file-style))
+  (and c-file-offsets
+       (mapcar
+	(function
+	 (lambda (langentry)
+	   (let ((langelem (car langentry))
+		 (offset (cdr langentry)))
+	     (c-set-offset langelem offset)
+	     )))
+	c-file-offsets)))
+
+(add-hook 'hack-local-variables-hook 'c-postprocess-file-styles)
+
+
+;; Support for C
+
+(defvar c-mode-abbrev-table nil
+  "Abbreviation table used in c-mode buffers.")
+(define-abbrev-table 'c-mode-abbrev-table
+  '(("else" "else" c-electric-continued-statement 0)
+    ("while" "while" c-electric-continued-statement 0)))
+
+(defvar c-mode-map ()
+  "Keymap used in c-mode buffers.")
+(if c-mode-map
+    nil
+  (setq c-mode-map (c-make-inherited-keymap))
+  ;; add bindings which are only useful for C
+  (define-key c-mode-map "\C-c\C-e"  'c-macro-expand)
+  )
+
+(easy-menu-define c-c-menu c-mode-map "C Mode Commands"
+		  (c-mode-menu "C"))
+
 ;;;###autoload
 (defun c-mode ()
   "Major mode for editing K&R and ANSI C code.
@@ -154,23 +438,48 @@ Key bindings:
   (set-syntax-table c-mode-syntax-table)
   (setq major-mode 'c-mode
 	mode-name "C"
-	local-abbrev-table c-mode-abbrev-table)
+	local-abbrev-table c-mode-abbrev-table
+	abbrev-mode t)
   (use-local-map c-mode-map)
   (c-common-init)
   (setq comment-start "/* "
 	comment-end   " */"
+	c-keywords (c-identifier-re c-C-keywords)
 	c-conditional-key c-C-conditional-key
 	c-class-key c-C-class-key
 	c-baseclass-key nil
-	c-comment-start-regexp c-C++-comment-start-regexp
-	imenu-generic-expression cc-imenu-c-generic-expression
-	imenu-case-fold-search nil
+	c-comment-start-regexp c-C-comment-start-regexp
+	c-bitfield-key c-C-bitfield-key
 	)
+  (cc-imenu-init cc-imenu-c-generic-expression)
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'c-mode-hook)
   (c-update-modeline))
 
 
+;; Support for C++
+
+(defvar c++-mode-abbrev-table nil
+  "Abbreviation table used in c++-mode buffers.")
+(define-abbrev-table 'c++-mode-abbrev-table
+  '(("else" "else" c-electric-continued-statement 0)
+    ("while" "while" c-electric-continued-statement 0)
+    ("catch" "catch" c-electric-continued-statement 0)))
+
+(defvar c++-mode-map ()
+  "Keymap used in c++-mode buffers.")
+(if c++-mode-map
+    nil
+  (setq c++-mode-map (c-make-inherited-keymap))
+  ;; add bindings which are only useful for C++
+  (define-key c++-mode-map "\C-c\C-e" 'c-macro-expand)
+  (define-key c++-mode-map "\C-c:"    'c-scope-operator)
+  (define-key c++-mode-map "<"        'c-electric-lt-gt)
+  (define-key c++-mode-map ">"        'c-electric-lt-gt))
+
+(easy-menu-define c-c++-menu c++-mode-map "C++ Mode Commands"
+		  (c-mode-menu "C++"))
+
 ;;;###autoload
 (defun c++-mode ()
   "Major mode for editing C++ code.
@@ -194,25 +503,46 @@ Key bindings:
   (set-syntax-table c++-mode-syntax-table)
   (setq major-mode 'c++-mode
 	mode-name "C++"
-	local-abbrev-table c++-mode-abbrev-table)
+	local-abbrev-table c++-mode-abbrev-table
+	abbrev-mode t)
   (use-local-map c++-mode-map)
   (c-common-init)
   (setq comment-start "// "
 	comment-end ""
+	c-keywords (c-identifier-re c-C++-keywords)
 	c-conditional-key c-C++-conditional-key
 	c-comment-start-regexp c-C++-comment-start-regexp
 	c-class-key c-C++-class-key
 	c-extra-toplevel-key c-C++-extra-toplevel-key
 	c-access-key c-C++-access-key
 	c-recognize-knr-p nil
-	imenu-generic-expression cc-imenu-c++-generic-expression
-	imenu-case-fold-search nil
+	c-bitfield-key c-C-bitfield-key
 	)
+  (cc-imenu-init cc-imenu-c++-generic-expression)
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'c++-mode-hook)
   (c-update-modeline))
 
 
+;; Support for Objective-C
+
+(defvar objc-mode-abbrev-table nil
+  "Abbreviation table used in objc-mode buffers.")
+(define-abbrev-table 'objc-mode-abbrev-table
+  '(("else" "else" c-electric-continued-statement 0)
+    ("while" "while" c-electric-continued-statement 0)))
+
+(defvar objc-mode-map ()
+  "Keymap used in objc-mode buffers.")
+(if objc-mode-map
+    nil
+  (setq objc-mode-map (c-make-inherited-keymap))
+  ;; add bindings which are only useful for Objective-C
+  (define-key objc-mode-map "\C-c\C-e" 'c-macro-expand))
+
+(easy-menu-define c-objc-menu objc-mode-map "ObjC Mode Commands"
+		  (c-mode-menu "ObjC"))
+
 ;;;###autoload
 (defun objc-mode ()
   "Major mode for editing Objective C code.
@@ -236,25 +566,47 @@ Key bindings:
   (set-syntax-table objc-mode-syntax-table)
   (setq major-mode 'objc-mode
 	mode-name "ObjC"
-	local-abbrev-table objc-mode-abbrev-table)
+	local-abbrev-table objc-mode-abbrev-table
+	abbrev-mode t)
   (use-local-map objc-mode-map)
   (c-common-init)
   (setq comment-start "// "
 	comment-end   ""
-	c-conditional-key c-C-conditional-key
-	c-comment-start-regexp c-C++-comment-start-regexp
+	c-keywords (c-identifier-re c-ObjC-keywords)
+	c-conditional-key c-ObjC-conditional-key
+	c-comment-start-regexp c-ObjC-comment-start-regexp
  	c-class-key c-ObjC-class-key
 	c-baseclass-key nil
 	c-access-key c-ObjC-access-key
 	c-method-key c-ObjC-method-key
-	imenu-create-index-function 'cc-imenu-objc-function
-	imenu-case-fold-search nil
 	)
+  (cc-imenu-init cc-imenu-objc-generic-expression)
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'objc-mode-hook)
   (c-update-modeline))
 
 
+;; Support for Java
+
+(defvar java-mode-abbrev-table nil
+  "Abbreviation table used in java-mode buffers.")
+(define-abbrev-table 'java-mode-abbrev-table
+  '(("else" "else" c-electric-continued-statement 0)
+    ("while" "while" c-electric-continued-statement 0)
+    ("catch" "catch" c-electric-continued-statement 0)
+    ("finally" "finally" c-electric-continued-statement 0)))
+
+(defvar java-mode-map ()
+  "Keymap used in java-mode buffers.")
+(if java-mode-map
+    nil
+  (setq java-mode-map (c-make-inherited-keymap))
+  ;; add bindings which are only useful for Java
+  )
+
+(easy-menu-define c-java-menu java-mode-map "Java Mode Commands"
+		  (c-mode-menu "Java"))
+
 ;;;###autoload
 (defun java-mode ()
   "Major mode for editing Java code.
@@ -280,28 +632,46 @@ Key bindings:
   (set-syntax-table java-mode-syntax-table)
   (setq major-mode 'java-mode
  	mode-name "Java"
- 	local-abbrev-table java-mode-abbrev-table)
+ 	local-abbrev-table java-mode-abbrev-table
+	abbrev-mode t
+	c-append-paragraph-start c-Java-javadoc-paragraph-start)
   (use-local-map java-mode-map)
   (c-common-init)
   (setq comment-start "// "
  	comment-end   ""
+	c-keywords (c-identifier-re c-Java-keywords)
  	c-conditional-key c-Java-conditional-key
  	c-comment-start-regexp c-Java-comment-start-regexp
   	c-class-key c-Java-class-key
 	c-method-key nil
  	c-baseclass-key nil
 	c-recognize-knr-p nil
- 	c-access-key c-Java-access-key
 	c-inexpr-class-key c-Java-inexpr-class-key
 	;defun-prompt-regexp c-Java-defun-prompt-regexp
-	imenu-generic-expression cc-imenu-java-generic-expression
-	imenu-case-fold-search nil
 	)
+  (cc-imenu-init cc-imenu-java-generic-expression)
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'java-mode-hook)
   (c-update-modeline))
 
 
+;; Support for CORBA's IDL language
+
+(defvar idl-mode-abbrev-table nil
+  "Abbreviation table used in idl-mode buffers.")
+(define-abbrev-table 'idl-mode-abbrev-table ())
+
+(defvar idl-mode-map ()
+  "Keymap used in idl-mode buffers.")
+(if idl-mode-map
+    nil
+  (setq idl-mode-map (c-make-inherited-keymap))
+  ;; add bindings which are only useful for IDL
+  )
+
+(easy-menu-define c-idl-menu idl-mode-map "IDL Mode Commands"
+		  (c-mode-menu "IDL"))
+
 ;;;###autoload
 (defun idl-mode ()
   "Major mode for editing CORBA's IDL code.
@@ -330,20 +700,40 @@ Key bindings:
   (c-common-init)
   (setq comment-start "// "
 	comment-end ""
-	c-conditional-key c-C++-conditional-key
-	c-comment-start-regexp c-C++-comment-start-regexp
+	c-keywords (c-identifier-re c-IDL-keywords)
+	c-conditional-key c-IDL-conditional-key
+	c-comment-start-regexp c-IDL-comment-start-regexp
 	c-class-key c-IDL-class-key
+	c-method-key nil
+	c-baseclass-key nil
 	c-extra-toplevel-key c-IDL-extra-toplevel-key
-	c-access-key c-C++-access-key
 	c-recognize-knr-p nil
-;;	imenu-generic-expression cc-imenu-c++-generic-expression
-;;	imenu-case-fold-search nil
 	)
+  ;;(cc-imenu-init cc-imenu-idl-generic-expression) ;FIXME
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'idl-mode-hook)
   (c-update-modeline))
 
 
+;; Support for Pike
+
+(defvar pike-mode-abbrev-table nil
+  "Abbreviation table used in pike-mode buffers.")
+(define-abbrev-table 'pike-mode-abbrev-table
+  '(("else" "else" c-electric-continued-statement 0)
+    ("while" "while" c-electric-continued-statement 0)))
+
+(defvar pike-mode-map ()
+  "Keymap used in pike-mode buffers.")
+(if pike-mode-map
+    nil
+  (setq pike-mode-map (c-make-inherited-keymap))
+  ;; additional bindings
+  (define-key pike-mode-map "\C-c\C-e" 'c-macro-expand))
+
+(easy-menu-define c-pike-menu pike-mode-map "Pike Mode Commands"
+		  (c-mode-menu "Pike"))
+
 ;;;###autoload
 (defun pike-mode ()
   "Major mode for editing Pike code.
@@ -367,26 +757,68 @@ Key bindings:
   (set-syntax-table pike-mode-syntax-table)
   (setq major-mode 'pike-mode
  	mode-name "Pike"
- 	local-abbrev-table pike-mode-abbrev-table)
+ 	local-abbrev-table pike-mode-abbrev-table
+	abbrev-mode t
+	c-append-paragraph-start c-Pike-pikedoc-paragraph-start
+	c-append-paragraph-separate c-Pike-pikedoc-paragraph-separate)
   (use-local-map pike-mode-map)
   (c-common-init)
   (setq comment-start "// "
  	comment-end   ""
+	c-keywords (c-identifier-re c-Pike-keywords)
  	c-conditional-key c-Pike-conditional-key
+	c-comment-start-regexp c-Pike-comment-start-regexp
   	c-class-key c-Pike-class-key
 	c-method-key nil
  	c-baseclass-key nil
 	c-recognize-knr-p nil
- 	c-access-key c-Pike-access-key
 	c-lambda-key c-Pike-lambda-key
 	c-inexpr-block-key c-Pike-inexpr-block-key
+	c-inexpr-class-key c-Pike-inexpr-class-key
 	c-special-brace-lists c-Pike-special-brace-lists
-	;imenu-generic-expression cc-imenu-java-generic-expression ;FIXME
-	;imenu-case-fold-search nil ;FIXME
 	)
+  ;;(cc-imenu-init cc-imenu-pike-generic-expression) ;FIXME
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'pike-mode-hook)
   (c-update-modeline))
+
+
+;; Helper for setting up Filladapt mode.  It's not used by CC Mode itself.
+
+(cc-bytecomp-defvar filladapt-token-table)
+(cc-bytecomp-defvar filladapt-token-match-table)
+(cc-bytecomp-defvar filladapt-token-conversion-table)
+
+(defun c-setup-filladapt ()
+  "Convenience function to configure Kyle E. Jones' Filladapt mode for
+CC Mode by making sure the proper entries are present on
+`filladapt-token-table', `filladapt-token-match-table', and
+`filladapt-token-conversion-table'.  This is intended to be used on
+`c-mode-common-hook' or similar."
+  ;; This function is intended to be used explicitly by the end user
+  ;; only.
+  ;;
+  ;; The default configuration already handles C++ comments, but we
+  ;; need to add handling of C block comments.  A new filladapt token
+  ;; `c-comment' is added for that.
+  (let (p)
+    (setq p filladapt-token-table)
+    (while (and p (not (eq (car-safe (cdr-safe (car-safe p))) 'c-comment)))
+      (setq p (cdr-safe p)))
+    (if p
+	(setcar (car p) c-current-comment-prefix)
+      (setq filladapt-token-table
+	    (append (list (car filladapt-token-table)
+			  (list c-current-comment-prefix 'c-comment))
+		    (cdr filladapt-token-table)))))
+  (unless (assq 'c-comment filladapt-token-match-table)
+    (setq filladapt-token-match-table
+	  (append '((c-comment c-comment))
+		  filladapt-token-match-table)))
+  (unless (assq 'c-comment filladapt-token-conversion-table)
+    (setq filladapt-token-conversion-table
+	  (append '((c-comment . exact))
+		  filladapt-token-conversion-table))))
 
 
 ;; bug reporting
@@ -401,16 +833,20 @@ Key bindings:
   (message "Using CC Mode version %s" c-version)
   (c-keep-region-active))
 
+(defvar c-prepare-bug-report-hooks nil)
+
+;; Dynamic variables used by reporter.
+(defvar reporter-prompt-for-summary-p)
+(defvar reporter-dont-compact-list)
+
 (defun c-submit-bug-report ()
   "Submit via mail a bug report on CC Mode."
   (interactive)
   (require 'reporter)
-  (require 'cc-vars)
   ;; load in reporter
   (let ((reporter-prompt-for-summary-p t)
 	(reporter-dont-compact-list '(c-offsets-alist))
 	(style c-indentation-style)
-	(hook c-special-indent-hook)
 	(c-features c-emacs-features))
     (and
      (if (y-or-n-p "Do you want to submit a report on CC Mode? ")
@@ -423,56 +859,48 @@ Key bindings:
 		    ((eq major-mode 'c-mode)    "C")
 		    ((eq major-mode 'objc-mode) "ObjC")
 		    ((eq major-mode 'java-mode) "Java")
+		    ((eq major-mode 'idl-mode)  "IDL")
 		    ((eq major-mode 'pike-mode) "Pike")
 		    )
 	      ")")
-      (let ((vars (list
+      (let ((vars (append
 		   ;; report only the vars that affect indentation
-		   'c-basic-offset
-		   'c-offsets-alist
-		   'c-cleanup-list
-		   'c-comment-only-line-offset
-		   'c-backslash-column
-		   'c-delete-function
-		   'c-electric-pound-behavior
-		   'c-hanging-braces-alist
-		   'c-hanging-colons-alist
-		   'c-hanging-comment-starter-p
-		   'c-hanging-comment-ender-p
-		   'c-indent-comments-syntactically-p
-		   'c-tab-always-indent
-		   'c-comment-continuation-stars
-		   'c-label-minimum-indentation
-		   'defun-prompt-regexp
-		   'tab-width
-		   'comment-column
-		   ;; A brain-damaged XEmacs only variable that, if
-		   ;; set to nil can cause all kinds of chaos.
-		   'signal-error-on-buffer-boundary
-		   )))
-	(if (not (boundp 'defun-prompt-regexp))
-	    (delq 'defun-prompt-regexp vars)
-	  vars))
+		   c-style-variables
+		   '(c-delete-function
+		     c-electric-pound-behavior
+		     c-indent-comments-syntactically-p
+		     c-tab-always-indent
+		     defun-prompt-regexp
+		     tab-width
+		     comment-column
+		     parse-sexp-ignore-comments
+		     ;; A brain-damaged XEmacs only variable that, if
+		     ;; set to nil can cause all kinds of chaos.
+		     signal-error-on-buffer-boundary
+		     ;; Variables that affect line breaking and comments.
+		     auto-fill-function
+		     filladapt-mode
+		     comment-multi-line
+		     comment-start-skip
+		     fill-prefix
+		     paragraph-start
+		     adaptive-fill-mode
+		     adaptive-fill-regexp)
+		   nil)))
+	(delq 'c-special-indent-hook vars)
+	(mapcar (lambda (var) (unless (boundp var) (delq var vars)))
+		'(signal-error-on-buffer-boundary
+		  filladapt-mode
+		  defun-prompt-regexp))
+	vars)
       (function
        (lambda ()
+	 (run-hooks 'c-prepare-bug-report-hooks)
 	 (insert
 	  "Buffer Style: " style "\n\n"
-	  (if (and hook
-		   (or (/= (length hook) 1)
-		       (not (eq (car hook) 'c-gnu-impose-minimum))
-		       ))
-	      (concat "\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n"
-		      "c-special-indent-hook is set to '"
-		      (format "%s" hook)
-		      ".\nPerhaps this is your problem?\n"
-		      "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n")
-	    "\n")
 	  (format "c-emacs-features: %s\n" c-features)
-	  )))
-      nil
-      "Dear Barry and Martin,"
-      ))))
+	  )))))))
 
 
-(provide 'cc-mode)
+(cc-provide 'cc-mode)
 ;;; cc-mode.el ends here

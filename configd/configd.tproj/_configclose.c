@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -79,8 +79,9 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 	}
 
 	/* Remove notification keys */
-	if ((keyCnt = CFSetGetCount(storePrivate->keys)) > 0) {
-		void		**watchedKeys;
+	keyCnt = CFSetGetCount(storePrivate->keys);
+	if (keyCnt > 0) {
+		const void	**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex		i;
 
@@ -97,8 +98,9 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 	}
 
 	/* Remove regex notification keys */
-	if ((keyCnt = CFSetGetCount(storePrivate->reKeys)) > 0) {
-		void		**watchedKeys;
+	keyCnt = CFSetGetCount(storePrivate->reKeys);
+	if (keyCnt > 0) {
+		const void	**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex		i;
 

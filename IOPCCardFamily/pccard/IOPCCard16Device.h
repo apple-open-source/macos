@@ -66,6 +66,7 @@ public:
     virtual bool		attach(IOService * provider);
     virtual void		detach(IOService * provider);
     virtual IOReturn		setPowerState(unsigned long powerState, IOService * whatDevice);
+    virtual IOReturn		setProperties(OSObject * properties);
 
     virtual u_int		getState(void);
     virtual client_handle_t	getCardServicesHandle(void);

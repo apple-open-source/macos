@@ -1,50 +1,70 @@
 #!/bin/sh
 
+##
+# Network File System
+##
+
 . /etc/rc.common
 
-CheckForNetwork 
+StartService ()
+{
+    CheckForNetwork 
+    if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
 
-if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+    ##
+    # Set up NFS client.
+    ##
+    ConsoleMessage "Starting network file system"
 
-ConsoleMessage "Mounting remote file systems"
+    # nsfiod is the NFS asynchronous block I/O daemon, which implements
+    # NFS read-ahead and write-behind caching on NFS clients.
+    nfsiod -n 4 
 
-##
-# Set up NFS client.
-##
+    ##
+    # Set up NFS server.
+    ##
 
-##
-# nsfiod is the NFS asynchronous block I/O daemon, which implements
-# NFS read-ahead and write-behind caching on NFS clients.
-##
+    # If exportfs finds something to export (either using /etc/exports or the
+    # exports NetInfo directory), then start the NFS daemons (which service
+    # NFS requests) and the mount server (which services NFS mount requests).
 
-nfsiod -n 4 
+    # Clear the table of exported filesystems.
+    rm -f /var/db/mountdtab
 
-##
-# Set up NFS server.
-##
+    exports_ni=$(niutil -list . /exports 2> /dev/null | wc -w)
+    # Look for exports in /etc/exports, ignoring comments and blank lines.
+    exports_etc=$(grep -v '^[[:space:]]*\(#\|$\)' /etc/exports 2> /dev/null | wc -l)
+    exports=$((exports_ni+exports_etc))
 
-# If exportfs finds something to export (either using /etc/exports or the
-# exports NetInfo directory), then start the NFS daemons (which service
-# NFS requests) and the mount server (which services NFS mount requests).
-
-# Clear the table of exported filesystems.
-rm -f /var/db/mountdtab
-
-exports=$(niutil -list . /exports 2> /dev/null | wc -w)
-
-if [ "${exports}" -gt 0 ]; then
-    ConsoleMessage "Starting Network File System server"
-    mountd
+    if [ "${exports}" -gt 0 ]; then
+	ConsoleMessage "Starting Network File System server"
+	mountd
 
 	# If the NetInfo config/nfsd directory contains startup args for nfsd, use those.
 	arguments=`niutil -readprop . /config/nfsd arguments`
-	nfsd ${arguments:-"-t -u -n 6"}
-fi
+	if [ "${arguments}" = "" ]; then
+		arguments="-t -u -n 6"
+	fi
+	nfsd ${arguments}
+    fi
 
-##
-# Start the automounter
-##
+    ##
+    # Start the automounter
+    ##
 
-if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
-    automount -m /Network/Servers -fstab -m /automount -static
-fi
+    if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
+	automount -m /Network/Servers -fstab -m /automount -static
+    fi
+}
+
+StopService ()
+{
+    return 0
+}
+
+RestartService ()
+{
+    return 0
+}
+
+RunService "$1"

@@ -2,9 +2,6 @@
 things that still need to be fixed
 -------------------------------------------------------------------------------
 
-write simple command line program to "eject" a card 
-	- override setProperties to get a user level eject working?
-
 write a sample pccard16 driver
 	- test different types of matching
 
@@ -30,7 +27,7 @@ write funky cis tuple code
 write and call a new macosx version of exit_pcmcia_cs()
 	- the pccard card family doesn't unload yet
 
-update code base to pcmcia-cs-3.1.26 (currently pcmcia-cs-3.1.22)
+update code base to pcmcia-cs-3.1.26 (last check it was pcmcia-cs-3.1.31)
 	- fix the cardbus code, it should delay the creation of the nub
 		- switch CS cardbus to pci "space" addressing instead of the nub
 		- make cardbus and 16 bit code more symetric

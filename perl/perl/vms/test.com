@@ -96,7 +96,7 @@ $   testdir = "Directory/NoHead/NoTrail/Column=1"
 $   Define/User 'dbg'Perlshr Sys$Disk:[-]'dbg'PerlShr'exe'
 $   MCR Sys$Disk:[]Perl. "-I[-.lib]" - "''p3'" "''p4'" "''p5'" "''p6'"
 $   Deck/Dollar=$$END-OF-TEST$$
-# $RCSfile: test.com,v $$Revision: 1.1.1.3 $$Date: 2000/03/31 05:12:54 $
+# $RCSfile: test.com,v $$Revision: 1.2 $$Date: 2002/03/14 09:03:40 $
 # Modified for VMS 30-Sep-1994  Charles Bailey  bailey@newman.upenn.edu
 #
 # This is written in a peculiar style, since we're trying to avoid

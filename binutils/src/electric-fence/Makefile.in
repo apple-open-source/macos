@@ -58,7 +58,7 @@ CFLAGS =	-g
 MAKEINFO =	makeinfo
 RANLIB =	@RANLIB@
 RM =		rm
-NSLIBTOOL =	libtool
+NSLIBTOOL =	cc -dynamiclib
 
 # where to find makeinfo
 MAKEINFO=makeinfo
@@ -134,7 +134,7 @@ $(OFILES) :	$(HFILES) Makefile
 mm.o:		$(HFILES) $(CFILES)
 		$(CC) -c $(CFLAGS) $(DEFS) -I. -I$(srcdir)/../include $(srcdir)/mm.c
 
-SYSTEM_FRAMEWORK = -framework System -lcc_dynamic
+SYSTEM_FRAMEWORK = -framework System
 
 FRAMEWORK = electric-fence
 FRAMEWORK_ADDRESS = 0x0
@@ -165,13 +165,13 @@ stamp-framework: $(FRAMEWORK_OFILES)
 	mkdir -p $(FRAMEWORK).framework/Versions/Current/Resources/English.lproj
 
 	set -e; if [ "$(FRAMEWORK_SUFFIX)" != "" ]; then \
-		$(NSLIBTOOL) -arch_only $(HOST_ARCHITECTURE) -dynamic -seg1addr $(FRAMEWORK_ADDRESS) -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
+		$(NSLIBTOOL) -arch $(HOST_ARCHITECTURE)  -seg1addr $(FRAMEWORK_ADDRESS) -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
 		ln -s $(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX); \
 		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX); \
 		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX); \
 		ln -s $(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK); \
 	else \
-		$(NSLIBTOOL) -arch_only $(HOST_ARCHITECTURE) -dynamic -seg1addr $(FRAMEWORK_ADDRESS) -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
+		$(NSLIBTOOL) -arch $(HOST_ARCHITECTURE)  -seg1addr $(FRAMEWORK_ADDRESS) -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
 		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK); \
 	fi
 	touch stamp-framework

@@ -8,7 +8,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: cmdIL.test,v 1.1.1.4 2000/12/06 23:04:04 wsanchez Exp $
+# RCS: @(#) $Id: cmdIL.test,v 1.1.1.5 2002/04/05 16:13:50 jevans Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -82,6 +82,28 @@ test cmdIL-1.23 {Tcl_LsortObjCmd procedure, unique sort with index} {
     # lsort -unique should return the last unique item
     lsort -unique -index 0 {{a b} {c b} {a c} {d a}}
 } {{a c} {c b} {d a}}
+test cmdIL-1.24 {Tcl_LsortObjCmd procedure, order of -index and -command} {
+    catch {rename 1 ""}
+    proc testcmp {a b} {return [string compare $a $b]}
+    set l [list [list a b] [list c d]]
+    set result [list [catch {lsort -command testcmp -index 1 $l} msg] $msg]
+    rename testcmp ""
+    set result
+} [list 0 [list [list a b] [list c d]]]
+test cmdIL-1.25 {Tcl_LsortObjCmd procedure, order of -index and -command} {
+    catch {rename 1 ""}
+    proc testcmp {a b} {return [string compare $a $b]}
+    set l [list [list a b] [list c d]]
+    set result [list [catch {lsort -index 1 -command testcmp $l} msg] $msg]
+    rename testcmp ""
+    set result
+} [list 0 [list [list a b] [list c d]]]
+# Note that the required order only exists in the end-1'th element;
+# indexing using the end element or any fixed offset from the start
+# will not work...
+test cmdIL-1.26 {Tcl_LsortObjCmd procedure, offset indexing from end} {
+    lsort -index end-1 {{a 1 e i} {b 2 3 f g} {c 4 5 6 d h}}
+} {{c 4 5 6 d h} {a 1 e i} {b 2 3 f g}}
 
 # Can't think of any good tests for the MergeSort and MergeLists
 # procedures, except a bunch of random lists to sort.

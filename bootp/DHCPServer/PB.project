@@ -4,6 +4,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         FRAMEWORKS = (CoreFoundation.framework); 
+        HEADERSEARCH = (../bootplib); 
         H_FILES = (DHCPServer.h); 
         OTHER_LINKED = (DHCPServer.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 

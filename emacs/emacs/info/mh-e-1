@@ -1,30 +1,31 @@
 This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * MH-E: (mh-e).		Emacs interface to the MH mail system.
 END-INFO-DIR-ENTRY
 
-   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+   This is Edition 1.3, last updated 18 February 2001, of `mh-e, The
 Emacs Interface to MH', for mh-e, Version 5.0.2.
 
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "Copying" is included exactly as in the
-original, and provided that the entire resulting derived work is
-distributed under the terms of a permission notice identical to this
-one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that this permission notice may be stated in a
-translation approved by the Free Software Foundation.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: mh-e,  Node: Top,  Next: Preface,  Prev: (dir),  Up: (dir)
@@ -32,8 +33,8 @@ File: mh-e,  Node: Top,  Next: Preface,  Prev: (dir),  Up: (dir)
 MH and Emacs
 ************
 
-   This is Edition 1.2 of `mh-e, The Emacs Interface to MH', last
-updated 22 August 1995 for mh-e Version 5.0.2.
+   This is Edition 1.3 of `mh-e, The Emacs Interface to MH', last
+updated 18 February 2001 for mh-e Version 5.0.2.
 
 * Menu:
 
@@ -44,7 +45,6 @@ updated 22 August 1995 for mh-e Version 5.0.2.
 * Odds and Ends::               Getting mh-e, reporting bugs, mailing
                                 list and FAQ.
 * History::                     The authors speak up!
-* Changes to mh-e::             Actual changes between Versions 3 and beyond.
 * Copying::                     The GNU General Public License
 * Command Index::
 * Variable Index::
@@ -64,13 +64,14 @@ the tip of the iceberg, and I discovered more and more niceties about
 GNU Emacs and MH.  Now I'm fully hooked on both of them.
 
    The mh-e package is distributed with GNU Emacs, (1) so you shouldn't
-have to do anything special to use it.  But it's important to note a
-brief history of mh-e.  Version 3 was prevalent through the Emacs 18
-and early Emacs 19 years.  Then Version 4 came out (Emacs 19.23), which
+have to do anything special to use it. But it's important to note a
+brief history of mh-e. Version 3 was prevalent through the Emacs 18 and
+early Emacs 19 years. Then Version 4 came out (Emacs 19.23), which
 introduced several new and changed commands.  Finally, Version 5.0 was
-released, which fixed some bugs and incompatibilities.  This is the
-version covered by this manual.  *Note Getting Started:: will help you
-decide which version you have.
+released, which fixed some bugs and incompatibilities, and was
+incorporated into Emacs 19.29. This is the version covered by this
+manual. *Note Getting Started:: will help you decide which version you
+have.
 
    If you don't already use GNU Emacs but want to learn more, you can
 read an online tutorial by starting GNU Emacs and typing `C-h t'
@@ -90,9 +91,9 @@ Bill Wohler <wohler@newt.com>
 
    ---------- Footnotes ----------
 
-   (1) Note that mh-e is supported with MH 6 and either Emacs 18 or
-Emacs 19.  Reportedly, large parts of it work with MH 5 and also with
-Lucid/XEmacs and Epoch, but there are no guarantees.  It is also
+   (1) Note that mh-e is supported with MH 6 and Emacs 18 through
+Emacs 21.  Reportedly, large parts of it work with MH 5 and also with
+Lucid/XEmacs and Epoch, but there are no guarantees. It is also
 distributed with Lucid/XEmacs, as well as with MH itself.
 
 
@@ -158,8 +159,10 @@ Started:: below.  The conventions are as follows:
      Press the <TAB> key.
 
 `DEL'
-     Press the <DELETE> key.  This may also be a Backspace key,
-     depending on your keyboard or Emacs configuration.
+     Press the <DELETE> key.
+
+`BS'
+     Press the <BACKSPACE> key. (2)
 
    A "prefix argument" allows you to pass an argument to any Emacs
 function.  To pass an argument, type `C-u' before the Emacs command or
@@ -212,6 +215,9 @@ entirely, use `C-x C-c'.
    (1) This is emphasized because pressing ESC twice or holding it down
 a second too long so that it repeats gives you an error message.
 
+   (2) If you are using Version 20 or earlier of Emacs, you will need
+to use the <DEL> key.
+
 
 File: mh-e,  Node: Getting Started,  Next: Sending Mail Tour,  Prev: Conventions,  Up: Tour Through mh-e
 
@@ -239,9 +245,7 @@ old version of mh-e.
 consider obtaining a new version.  You can have your system
 administrator upgrade the system-wide version, or you can install your
 own personal version.  It's really quite easy; instructions for getting
-and installing mh-e are in *Note Getting mh-e::.  In the meantime, see
-*Note Changes to mh-e::, which compares the old and new names of
-commands, functions, variables, and buffers.
+and installing mh-e are in *Note Getting mh-e::.
 
    Also, older versions of mh-e assumed that you had already set up
 your MH environment.  Newer versions set up a new MH environment for
@@ -301,7 +305,7 @@ should now have something like this: (2)
 
 
 
-     -----Emacs: *scratch*         (Lisp Interaction)--All---------------------
+     -----Emacs: *scratch*         (Lisp Interaction)--All-------------------
      To: wohler
      cc:
      Subject: Test
@@ -309,7 +313,7 @@ should now have something like this: (2)
        This is a test message to get the wheels churning...#
      
      
-     --**-{draft}      (MH-Letter)--All----------------------------------------
+     --**-{draft}      (MH-Letter)--All-------------------------------------
      mh-e message composition window
 
    Note the line of dashes that separates the header and the body of the
@@ -354,10 +358,10 @@ is MH-Folder.
 Use `n' or `p' to move the cursor to your test message and type <RET>
 to read your message.  You should see something like:
 
-        3  24Aug  root       received fax files on Wed Aug 24 11:00:13 PDT 1994
-     #  4+ 24Aug  To:wohler  Test<<This is a test message to get the wheels chu
+       3  24Aug root      received fax files on Wed Aug 24 11:00:13 PDT 1994
+     # 4+ 24Aug To:wohler Test<<This is a test message to get the wheels chu
      
-     --%%-{+inbox} 4 msgs (1-4)      (MH-Folder Show)--Bot---------------------
+     --%%-{+inbox} 4 msgs (1-4)      (MH-Folder Show)--Bot------------------
      To: wohler
      Subject: Test
      Date: Wed, 24 Aug 1994 13:01:13 -0700
@@ -369,7 +373,7 @@ to read your message.  You should see something like:
      
      
      
-     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+     -----{show-+inbox} 4      (MH-Show)--Bot-------------------------------
      After incorporating new messages
 
    If you typed a long message, you can view subsequent pages with <SPC>
@@ -399,7 +403,7 @@ sending the original message, like this:
      --------
      #
      
-     --**-{draft}      (MH-Letter)--All----------------------------------------
+     --**-{draft}      (MH-Letter)--All-------------------------------------
      To: wohler
      Subject: Test
      Date: Wed, 24 Aug 1994 13:01:13 -0700
@@ -407,7 +411,7 @@ sending the original message, like this:
      
        This is a test message to get the wheels churning...
      
-     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+     -----{show-+inbox} 4      (MH-Show)--Bot-------------------------------
      Composing a reply...done
      Composition window during reply
 
@@ -417,7 +421,7 @@ this case, type `C-c C-f C-t' to create and go to the `To:' field,
 where you can type your login name again.  You can move around with the
 arrow keys or with `C-p' (`previous-line'), `C-n' (`next-line'), `C-b'
 (`backward-char'), and `C-f' (`forward-char') and can delete the
-previous character with <DEL>.  When you're finished editing your
+previous character with <BS>.  When you're finished editing your
 message, send it with `C-c C-c' as before.
 
    You'll often want to save messages that were sent to you in an
@@ -560,7 +564,7 @@ lines, and see the Figure in *Note Reading Mail Tour::, for an example.
 `SPC'
      Go to next page in message (`mh-page-msg').
 
-`DEL'
+`BS'
      Go to previous page in message (`mh-previous-page').
 
 `, (comma)'
@@ -569,7 +573,7 @@ lines, and see the Figure in *Note Reading Mail Tour::, for an example.
 `M-SPC'
      Go to next message in digest (`mh-page-digest').
 
-`M-DEL'
+`M-BS'
      Go to previous message in digest (`mh-page-digest-backwards').
 
 `M-b'
@@ -615,7 +619,7 @@ Viewing Your Mail
 
    The `RET' (`mh-show') command displays the message that the cursor
 is on.  If the message is already displayed, it scrolls to the
-beginning of the message.  Use <SPC> (`mh-page-msg') and <DEL>
+beginning of the message.  Use <SPC> (`mh-page-msg') and <BS>
 (`mh-previous-page') to move forwards and backwards one page at a time
 through the message.  You can give either of these commands a prefix
 argument that specifies the number of lines to scroll (such as `10
@@ -635,10 +639,10 @@ Reading Digests
 ...............
 
    A digest is a message that contains other messages.  Special mh-e
-commands let you read digests conveniently.  You can use <SPC> and
-<DEL> to page through the digest as if it were a normal message, but if
-you wish to skip to the next message in the digest, use `M-SPC'
-(`mh-page-digest').  To return to a previous message, use `M-DEL'
+commands let you read digests conveniently.  You can use <SPC> and <BS>
+to page through the digest as if it were a normal message, but if you
+wish to skip to the next message in the digest, use `M-SPC'
+(`mh-page-digest').  To return to a previous message, use `M-BS'
 (`mh-page-digest-backwards').
 
    Another handy command is `M-b' (`mh-burst-digest').  This command
@@ -663,14 +667,14 @@ Reading Multimedia Mail
 
    MH has the ability to read "MIME" (Multipurpose Internet Mail
 Extensions) messages.  Unfortunately, mh-e does not yet have this
-ability, so you have to use the MH commands `show' or `mhn' from the
+ability, so you have to use the MH commands `show' or `mhshow' from the
 shell to read MIME messages.  (1)
 
    ---------- Footnotes ----------
 
    (1) You can call them directly from Emacs if you're running the X
-Window System: type `M-!  xterm -e mhn MESSAGE-NUMBER'.  You can leave
-out the `xterm -e' if you use `mhn -list' or `mhn -store'.
+Window System: type `M-!  xterm -e mhshow MESSAGE-NUMBER'.  You can
+leave out the `xterm -e' if you use `mhlist' or `mhstore'.
 
 
 File: mh-e,  Node: Moving Around,  Prev: Viewing,  Up: Reading Mail

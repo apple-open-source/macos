@@ -31,8 +31,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-enum.cpp,v 1.2 2001/06/26 23:49:52 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-enum.cpp,v 1.3 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-enum.cpp,v $
+// Revision 1.3  2002/03/21 05:38:44  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.2.44.1  2002/03/20 00:36:49  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.2  2001/06/26 23:49:52  dmitch
 // Was cerr, is Asn1Error.
 //
@@ -113,7 +119,11 @@ void AsnEnum::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
     if (BDecTag (b, bytesDecoded, env) != MAKE_TAG_ID (UNIV, PRIM, ENUM_TAG_CODE))
     {
 	Asn1Error << "AsnEnum::BDec: ERROR tag on ENUMERATED is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-52);
+	#else
 	longjmp (env,-52);
+	#endif
     }
 
     elmtLen = BDecLen (b, bytesDecoded, env);

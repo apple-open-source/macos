@@ -28,17 +28,15 @@
 //
 // @@@ Assumption: {bool,T*} atomic unless PTHREAD_STRICT
 //
-#ifdef __MWERKS__
-#define _CPP_GLOBALIZER
-#endif
 #include <Security/globalizer.h>
+#include <Security/debugging.h>
 #include <cstdlib>
 
 
 //
 // The Error class thrown if Nexus operations fail
 //
-GlobalNexus::Error::~Error()
+GlobalNexus::Error::~Error() throw()
 {
 }
 
@@ -70,8 +68,8 @@ GlobalNexus::Error::~Error()
 // WARNING:
 // This code makes the following non-portable assumptions:
 //  (a) NULL == 0 (binary representation of NULL pointer is zero value)
-//	Pointers acquired from new have at least their LSB zero (are at
-//  (b) least two-byte aligned).
+//	(b) Pointers acquired from new have at least their LSB zero (are at
+//      least two-byte aligned).
 // It seems like it's been a while since anyone made a machine/runtime that
 // violated either of those. But you have been warned.
 //
@@ -102,12 +100,14 @@ AtomicWord ModuleNexusCommon::create(void *(*make)())
             } catch (...) {
 				debug("nexus", "ModuleNexus %p construction failed", this);
                 mutex->unlock();
-                sync--;
-                //@@@ set up for retry here?
+                if (--sync == 0) {
+                    delete mutex;
+                    pointer = 0;
+                }
                 throw;
             }
         } else {
-            mutex = reinterpret_cast<Mutex *>(pointer & ~0x1);
+            mutex = reinterpret_cast<Mutex *>(initialPointer & ~0x1);
             mutex->lock();	// we'll wait here
         }
         mutex->unlock();

@@ -1,5 +1,5 @@
 #if	!defined(DOS)
-static char rcsid[] = "$Id: ansi.c,v 1.1.1.1 1999/04/15 17:45:11 wsanchez Exp $";
+static char rcsid[] = "$Id: ansi.c,v 1.2 2002/01/03 22:16:38 jevans Exp $";
 #endif
 /*
  * Program:	ANSI terminal driver routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: ansi.c,v 1.1.1.1 1999/04/15 17:45:11 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -73,6 +73,9 @@ extern	int	ansirev();
  * Standard terminal interface dispatch table. Most of the fields point into
  * "termio" code.
  */
+#if defined(VAX) && !defined(__ALPHA)
+globaldef
+#endif
 TERM    term    = {
         NROW-1,
         NCOL,
@@ -119,10 +122,15 @@ ansirev(state)		/* change reverse video state */
 int state;	/* TRUE = reverse, FALSE = normal */
 
 {
-	ttputc(ESC);
-	ttputc('[');
-	ttputc(state ? '7': '0');
-	ttputc('m');
+	static int PrevState = 0;
+
+	if(state != PrevState) {
+		PrevState = state ;
+		ttputc(ESC);
+		ttputc('[');
+		ttputc(state ? '7': '0');
+		ttputc('m');
+	}
 }
 
 ansibeep()

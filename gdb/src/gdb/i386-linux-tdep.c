@@ -1,5 +1,6 @@
-/* Target-dependent code for Linux running on i386's, for GDB.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+/* Target-dependent code for GNU/Linux running on i386's, for GDB.
+
+   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,22 +23,57 @@
 #include "gdbcore.h"
 #include "frame.h"
 #include "value.h"
+#include "regcache.h"
+#include "inferior.h"
 
 /* For i386_linux_skip_solib_resolver.  */
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "solib-svr4.h"	/* for struct link_map_offsets */
 
+#include "solib-svr4.h"		/* For struct link_map_offsets.  */
+
+/* Return the name of register REG.  */
+
+char *
+i386_linux_register_name (int reg)
+{
+  /* Deal with the extra "orig_eax" pseudo register.  */
+  if (reg == I386_LINUX_ORIG_EAX_REGNUM)
+    return "orig_eax";
+
+  return i386_register_name (reg);
+}
+
+int
+i386_linux_register_byte (int reg)
+{
+  /* Deal with the extra "orig_eax" pseudo register.  */
+  if (reg == I386_LINUX_ORIG_EAX_REGNUM)
+    return (i386_register_byte (I386_LINUX_ORIG_EAX_REGNUM - 1)
+	    + i386_register_raw_size (I386_LINUX_ORIG_EAX_REGNUM - 1));
+
+  return i386_register_byte (reg);
+}
+
+int
+i386_linux_register_raw_size (int reg)
+{
+  /* Deal with the extra "orig_eax" pseudo register.  */
+  if (reg == I386_LINUX_ORIG_EAX_REGNUM)
+    return 4;
+
+  return i386_register_raw_size (reg);
+}
 
 /* Recognizing signal handler frames.  */
 
-/* Linux has two flavors of signals.  Normal signal handlers, and
+/* GNU/Linux has two flavors of signals.  Normal signal handlers, and
    "realtime" (RT) signals.  The RT signals can provide additional
    information to the signal handler if the SA_SIGINFO flag is set
    when establishing a signal handler using `sigaction'.  It is not
-   unlikely that future versions of Linux will support SA_SIGINFO for
-   normal signals too.  */
+   unlikely that future versions of GNU/Linux will support SA_SIGINFO
+   for normal signals too.  */
 
 /* When the i386 Linux kernel calls a signal handler and the
    SA_RESTORER flag isn't set, the return address points to a bit of
@@ -186,7 +222,7 @@ i386_linux_rt_sigtramp_start (CORE_ADDR pc)
   return pc;
 }
 
-/* Return whether PC is in a Linux sigtramp routine.  */
+/* Return whether PC is in a GNU/Linux sigtramp routine.  */
 
 int
 i386_linux_in_sigtramp (CORE_ADDR pc, char *name)
@@ -198,8 +234,8 @@ i386_linux_in_sigtramp (CORE_ADDR pc, char *name)
 	  || i386_linux_rt_sigtramp_start (pc) != 0);
 }
 
-/* Assuming FRAME is for a Linux sigtramp routine, return the address
-   of the associated sigcontext structure.  */
+/* Assuming FRAME is for a GNU/Linux sigtramp routine, return the
+   address of the associated sigcontext structure.  */
 
 CORE_ADDR
 i386_linux_sigcontext_addr (struct frame_info *frame)
@@ -250,10 +286,10 @@ i386_linux_sigcontext_addr (struct frame_info *frame)
 /* Offset to saved PC in sigcontext, from <asm/sigcontext.h>.  */
 #define LINUX_SIGCONTEXT_PC_OFFSET (56)
 
-/* Assuming FRAME is for a Linux sigtramp routine, return the saved
-   program counter.  */
+/* Assuming FRAME is for a GNU/Linux sigtramp routine, return the
+   saved program counter.  */
 
-CORE_ADDR
+static CORE_ADDR
 i386_linux_sigtramp_saved_pc (struct frame_info *frame)
 {
   CORE_ADDR addr;
@@ -264,15 +300,70 @@ i386_linux_sigtramp_saved_pc (struct frame_info *frame)
 /* Offset to saved SP in sigcontext, from <asm/sigcontext.h>.  */
 #define LINUX_SIGCONTEXT_SP_OFFSET (28)
 
-/* Assuming FRAME is for a Linux sigtramp routine, return the saved
-   stack pointer.  */
+/* Assuming FRAME is for a GNU/Linux sigtramp routine, return the
+   saved stack pointer.  */
 
-CORE_ADDR
+static CORE_ADDR
 i386_linux_sigtramp_saved_sp (struct frame_info *frame)
 {
   CORE_ADDR addr;
   addr = i386_linux_sigcontext_addr (frame);
   return read_memory_integer (addr + LINUX_SIGCONTEXT_SP_OFFSET, 4);
+}
+
+/* Signal trampolines don't have a meaningful frame.  As in
+   "i386/tm-i386.h", the frame pointer value we use is actually the
+   frame pointer of the calling frame -- that is, the frame which was
+   in progress when the signal trampoline was entered.  GDB mostly
+   treats this frame pointer value as a magic cookie.  We detect the
+   case of a signal trampoline by looking at the SIGNAL_HANDLER_CALLER
+   field, which is set based on IN_SIGTRAMP.
+
+   When a signal trampoline is invoked from a frameless function, we
+   essentially have two frameless functions in a row.  In this case,
+   we use the same magic cookie for three frames in a row.  We detect
+   this case by seeing whether the next frame has
+   SIGNAL_HANDLER_CALLER set, and, if it does, checking whether the
+   current frame is actually frameless.  In this case, we need to get
+   the PC by looking at the SP register value stored in the signal
+   context.
+
+   This should work in most cases except in horrible situations where
+   a signal occurs just as we enter a function but before the frame
+   has been set up.  */
+
+#define FRAMELESS_SIGNAL(frame)					\
+  ((frame)->next != NULL					\
+   && (frame)->next->signal_handler_caller			\
+   && frameless_look_for_prologue (frame))
+
+CORE_ADDR
+i386_linux_frame_chain (struct frame_info *frame)
+{
+  if (frame->signal_handler_caller || FRAMELESS_SIGNAL (frame))
+    return frame->frame;
+
+  if (! inside_entry_file (frame->pc))
+    return read_memory_unsigned_integer (frame->frame, 4);
+
+  return 0;
+}
+
+/* Return the saved program counter for FRAME.  */
+
+CORE_ADDR
+i386_linux_frame_saved_pc (struct frame_info *frame)
+{
+  if (frame->signal_handler_caller)
+    return i386_linux_sigtramp_saved_pc (frame);
+
+  if (FRAMELESS_SIGNAL (frame))
+    {
+      CORE_ADDR sp = i386_linux_sigtramp_saved_sp (frame->next);
+      return read_memory_unsigned_integer (sp, 4);
+    }
+
+  return read_memory_unsigned_integer (frame->frame + 4, 4);
 }
 
 /* Immediately after a function call, return the saved pc.  */
@@ -283,12 +374,35 @@ i386_linux_saved_pc_after_call (struct frame_info *frame)
   if (frame->signal_handler_caller)
     return i386_linux_sigtramp_saved_pc (frame);
 
-  return read_memory_integer (read_register (SP_REGNUM), 4);
+  return read_memory_unsigned_integer (read_register (SP_REGNUM), 4);
 }
 
-
+/* Set the program counter for process PTID to PC.  */
 
+void
+i386_linux_write_pc (CORE_ADDR pc, ptid_t ptid)
+{
+  write_register_pid (PC_REGNUM, pc, ptid);
+
+  /* We must be careful with modifying the program counter.  If we
+     just interrupted a system call, the kernel might try to restart
+     it when we resume the inferior.  On restarting the system call,
+     the kernel will try backing up the program counter even though it
+     no longer points at the system call.  This typically results in a
+     SIGSEGV or SIGILL.  We can prevent this by writing `-1' in the
+     "orig_eax" pseudo-register.
+
+     Note that "orig_eax" is saved when setting up a dummy call frame.
+     This means that it is properly restored when that frame is
+     popped, and that the interrupted system call will be restarted
+     when we resume the inferior on return from a function call from
+     within GDB.  In all other cases the system call will not be
+     restarted.  */
+  write_register_pid (I386_LINUX_ORIG_EAX_REGNUM, -1, ptid);
+}
+
 /* Calling functions in shared libraries.  */
+
 /* Find the minimal symbol named NAME, and return both the minsym
    struct and its objfile.  This probably ought to be in minsym.c, but
    everything there is trying to deal with things like C++ and
@@ -335,7 +449,7 @@ skip_hurd_resolver (CORE_ADDR pc)
      It's kind of gross to do all these checks every time we're
      called, since they don't change once the executable has gotten
      started.  But this is only a temporary hack --- upcoming versions
-     of Linux will provide a portable, efficient interface for
+     of GNU/Linux will provide a portable, efficient interface for
      debugging programs that use shared libraries.  */
 
   struct objfile *objfile;
@@ -345,7 +459,7 @@ skip_hurd_resolver (CORE_ADDR pc)
   if (resolver)
     {
       struct minimal_symbol *fixup
-	= lookup_minimal_symbol ("fixup", 0, objfile);
+	= lookup_minimal_symbol ("fixup", NULL, objfile);
 
       if (fixup && SYMBOL_VALUE_ADDRESS (fixup) == pc)
 	return (SAVED_PC_AFTER_CALL (get_current_frame ()));
@@ -374,31 +488,31 @@ i386_linux_skip_solib_resolver (CORE_ADDR pc)
   return 0;
 }
 
-/* Fetch (and possibly build) an appropriate link_map_offsets structure
-   for native i386 linux targets using the struct offsets defined in
-   link.h (but without actual reference to that file).
+/* Fetch (and possibly build) an appropriate link_map_offsets
+   structure for native GNU/Linux x86 targets using the struct offsets
+   defined in link.h (but without actual reference to that file).
 
-   This makes it possible to access i386-linux shared libraries from
-   a gdb that was not built on an i386-linux host (for cross debugging).
-   */
+   This makes it possible to access GNU/Linux x86 shared libraries
+   from a GDB that was not built on an GNU/Linux x86 host (for cross
+   debugging).  */
 
 struct link_map_offsets *
 i386_linux_svr4_fetch_link_map_offsets (void)
 {
   static struct link_map_offsets lmo;
-  static struct link_map_offsets *lmp = 0;
+  static struct link_map_offsets *lmp = NULL;
 
-  if (lmp == 0)
+  if (lmp == NULL)
     {
       lmp = &lmo;
 
-      lmo.r_debug_size = 8;	/* 20 not actual size but all we need */
-
+      lmo.r_debug_size = 8;	/* The actual size is 20 bytes, but
+				   this is all we need.  */
       lmo.r_map_offset = 4;
       lmo.r_map_size   = 4;
 
-      lmo.link_map_size = 20;	/* 552 not actual size but all we need */
-
+      lmo.link_map_size = 20;	/* The actual size is 552 bytes, but
+				   this is all we need.  */
       lmo.l_addr_offset = 0;
       lmo.l_addr_size   = 4;
 
@@ -412,6 +526,5 @@ i386_linux_svr4_fetch_link_map_offsets (void)
       lmo.l_prev_size   = 4;
     }
 
-    return lmp;
+  return lmp;
 }
-

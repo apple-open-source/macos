@@ -1,4 +1,25 @@
 /*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * if_ppp.h - Point-to-Point Protocol definitions.
  *
  * Copyright (c) 1989 Carnegie Mellon University.
@@ -16,18 +37,6 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- */
-
-/*
- *  ==FILEVERSION 20000724==
- *
- *  NOTE TO MAINTAINERS:
- *     If you modify this file at all, please set the above date.
- *     if_ppp.h is shipped with a PPP distribution as well as with the kernel;
- *     if everyone increases the FILEVERSION number above, then scripts
- *     can do the right thing when deciding whether to install a new if_ppp.h
- *     file.  Don't change the format of that line otherwise, so the
- *     installation script can recognize it.
  */
 
 #ifndef _IF_PPP_H_
@@ -48,11 +57,15 @@
  * Bit definitions for flags.
  */
 
+/* Link flags */
 #define SC_COMP_PROT	0x00000001	/* protocol compression (output) */
 #define SC_COMP_AC	0x00000002	/* header compression (output) */
+#define SC_REJ_COMP_AC	0x00000010	/* reject adrs/ctrl comp. on input */
+#define SC_HOLD		0x00000020	/* temporarily stop link */
+
+/* Interface flags */
 #define	SC_COMP_TCP	0x00000004	/* TCP (VJ) compression (output) */
 #define SC_NO_TCP_CCID	0x00000008	/* disable VJ connection-id comp. */
-#define SC_REJ_COMP_AC	0x00000010	/* reject adrs/ctrl comp. on input */
 #define SC_REJ_COMP_TCP	0x00000020	/* reject TCP (VJ) comp. on input */
 #define SC_CCP_OPEN	0x00000040	/* Look at CCP packets */
 #define SC_CCP_UP	0x00000080	/* May send/recv compressed packets */
@@ -64,15 +77,22 @@
 #define SC_DECOMP_RUN	0x00002000	/* decompressor has been inited */
 #define SC_MP_XSHORTSEQ	0x00004000	/* transmit short MP seq numbers */
 #define SC_DEBUG	0x00010000	/* enable debug messages */
-#define SC_LOG_INPKT	0x00020000	/* log contents of good pkts recvd */
-#define SC_LOG_OUTPKT	0x00040000	/* log contents of pkts sent */
+#define SC_LOOP_LOCAL	0x01000000      /* loopback packet to local address */
+#define	SC_SYNC		0x00200000	/* synchronous serial mode */
 #define SC_LOG_RAWIN	0x00080000	/* log all chars received */
 #define SC_LOG_FLUSH	0x00100000	/* log all chars flushed */
-#define	SC_SYNC		0x00200000	/* synchronous serial mode */
+
+/* unused flags */
+#if 0
+#define SC_LOG_INPKT	0x00020000	/* log contents of good pkts recvd */
+#define SC_LOG_OUTPKT	0x00040000	/* log contents of pkts sent */
+#endif
+
 #define	SC_MASK		0x0f200fff	/* bits that user can change */
 
 /* state bits */
-#define SC_XMIT_BUSY	0x10000000	/* (used by isdn_ppp?) */
+#define SC_XMIT_BUSY	0x10000000	/* link is busy transmitting, don't attempt to send */
+#define SC_XMIT_FULL	0x20000000	/* link is full transmitting, don't attempt to send */
 #define SC_RCV_ODDP	0x08000000	/* have rcvd char with odd parity */
 #define SC_RCV_EVNP	0x04000000	/* have rcvd char with even parity */
 #define SC_RCV_B7_1	0x02000000	/* have rcvd char with bit 7 = 1 */

@@ -38,7 +38,7 @@
 #define _SIGNATURE_CONTEXT_H_
 
 #include <AppleCSP/RawSigner.h>
-#include <AppleCSP/DigestObject.h>
+#include <Security/digestobject.h>
 #include <AppleCSP/AppleCSPContext.h>
 
 class SignatureContext : public AppleCSPContext  {

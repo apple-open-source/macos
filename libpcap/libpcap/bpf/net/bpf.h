@@ -37,7 +37,7 @@
  *
  *      @(#)bpf.h       7.1 (Berkeley) 5/7/91
  *
- * @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/bpf/net/bpf.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/bpf/net/bpf.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
  */
 
 #ifndef BPF_MAJOR_VERSION

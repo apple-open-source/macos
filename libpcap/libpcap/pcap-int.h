@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/pcap-int.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/pcap-int.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
  */
 
 #ifndef pcap_int_h

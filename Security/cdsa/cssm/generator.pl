@@ -12,26 +12,15 @@
         "CL" => "cssmcli.h", "TP"  => "cssmtpi.h");
 @OIDS_H=("oidscert.h", "oidscrl.h", "oidsattr.h", "oidsalg.h");
 
-$SOURCEDIR=$ARGV[0];		# directory with inputs
-
-(${D}) = $SOURCEDIR =~ m@([/:])@;		# guess directory delimiter
-sub macintosh() { return ${D} eq ':'; }
-
-# XXX The configuration file should be passed in as a command line argument
-if( macintosh() ){
-  $TARGETDIR=$ARGV[2];					# directory for outputs
-  $APICFG=":::cdsa:cdsa:generator.cfg";				# configuration file
-}
-else{
-  $TARGETDIR=$ARGV[1];					# directory for outputs
-  $APICFG="generator.cfg";		# configuration file 
-}
+$SOURCEDIR=$ARGV[0];			# directory with inputs
+$APICFG=$ARGV[1];				# configuration file
+$TARGETDIR=$ARGV[2];			# directory for outputs
 
 
-$TRANSITION="$TARGETDIR${D}transition.gen"; # C++ code for transition layer
-$TABLES="$TARGETDIR${D}funcnames.gen";		# function name tables
-$REPORT="$TARGETDIR${D}generator.rpt";		# report file
-$EXPORTS="$TARGETDIR${D}cssmexports.gen";	# Exports file
+$TRANSITION="$TARGETDIR/transition.gen"; # C++ code for transition layer
+$TABLES="$TARGETDIR/funcnames.gen";		# function name tables
+$REPORT="$TARGETDIR/generator.rpt";		# report file
+$EXPORTS="$TARGETDIR/cssmexports.gen";	# Exports file
 
 $tabs = "\t\t\t";	# argument indentation (noncritical)
 $warning = "This file was automatically generated. Do not edit on penalty of futility!";
@@ -42,9 +31,8 @@ $warning = "This file was automatically generated. Do not edit on penalty of fut
 #
 $/=undef;	# big gulp mode
 foreach $_ (@API_H) {
-  open(API_H, "$SOURCEDIR${D}$_") or die "Cannot open $SOURCEDIR${D}$_: $^E";
+  open(API_H, "$SOURCEDIR/$_") or die "Cannot open $SOURCEDIR/$_: $^E";
   $_ = <API_H>;		# glglgl... aaaaah
-  tr/\012/\015/ if macintosh;
   %formals = /CSSM_RETURN CSSMAPI\s*([A-Za-z_]+)\s+\(([^)]*)\);/gs;
   while (($name, $args) = each %formals) {
     $args =~ s/^.*[ *]([A-Za-z_]+,?)$/$tabs$1/gm;	# remove type declarators
@@ -60,9 +48,8 @@ close(API_H);
 #
 $/=undef;	# slurp files
 while (($key, $file) = each %SPI_H) {
-  open(SPI_H, "$SOURCEDIR${D}$file") or die "Cannot open $SOURCEDIR${D}$file: $^E";
+  open(SPI_H, "$SOURCEDIR/$file") or die "Cannot open $SOURCEDIR/$file: $^E";
   $spi{$key} = <SPI_H>;
-  $spi{$key} =~ tr/\012/\015/ if macintosh;
 };
 close(SPI_H);
 
@@ -74,7 +61,6 @@ $/=undef;	# gulp yet again
 open(APICFG, $APICFG) or die "Cannot open $APICFG: $^E";
 $_=<APICFG>;
 close(APICFG);
-tr/\012/\015/ if macintosh;
 %config = /^\s*(\w+)\s+(.*)$/gm;
 
 
@@ -204,9 +190,8 @@ for $name (keys %formals) {
 # OID-related data symbols
 $/=undef;
 foreach $_ (@OIDS_H) {
-  open(OIDS_H, "$SOURCEDIR${D}$_") or die "Cannot open $SOURCEDIR${D}$_: $^E";
+  open(OIDS_H, "$SOURCEDIR/$_") or die "Cannot open $SOURCEDIR/$_: $^E";
   $_ = <OIDS_H>;		# glglgl... aaaaah
-  tr/\012/\015/ if macintosh;
   s/\/\*.*\*\///gm;	# remove comments
   
   foreach $name (/\s+(CSSMOID_[A-Za-z0-9_]+)/gs) {

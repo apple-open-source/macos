@@ -13,7 +13,7 @@
 #include "AudioHardwareCommon.h"
 #include "AudioHardwareUtilities.h"
 #include "AudioHardwareMux.h"
-//#include "AppleOnboardAudio.h"  //we should replace with AppleAudioHardware generic class
+// #include "AppleOnboardAudio.h"  // we should replace with AppleAudioHardware generic class
 class AudioHardwareMux;
 
 typedef struct _s_AudioHardwareInputInfo {
@@ -32,22 +32,22 @@ enum{
     kAudioHardwareInputExtMic = 3
 };
 
-    //4 char code equivalent of Sound.h for the source input
+    // 4 char code equivalent of Sound.h for the source input
 enum {
-    kNoSource                     = 'none', /*no source selection*/
-    kCDSource                     = 'cd  ', /*internal CD player input*/
-    kExtMicSource                 = 'emic', /*external mic input*/
-    kSoundInSource                = 'sinj', /*sound input jack*/
-    kRCAInSource                  = 'irca', /*RCA jack input*/
+    kNoSource                     = 'none',	// no source selection
+    kCDSource                     = 'cd  ',	// internal CD player input
+    kExtMicSource                 = 'emic',	// external mic input
+    kSoundInSource                = 'sinj',	// sound input jack
+    kRCAInSource                  = 'irca',	// RCA jack input
     kTVFMTunerSource              = 'tvfm',
-    kDAVInSource                  = 'idav', /*DAV analog input*/
-    kIntMicSource                 = 'imic', /*internal mic input*/
-    kMediaBaySource               = 'mbay', /*media bay input*/
-    kModemSource                  = 'modm', /*modem input (internal modem on desktops, PCI input on PowerBooks)*/
-    kPCCardSource                 = 'pcm ', /*PC Card pwm input*/
-    kZoomVideoSource              = 'zvpc', /*zoom video input*/
-    kDVDSource                    = 'dvda', /* DVD audio input*/
-    kMicrophoneArray              = 'mica' /* microphone array*/
+    kDAVInSource                  = 'idav',	// DAV analog input
+    kIntMicSource                 = 'imic',	// internal mic input
+    kMediaBaySource               = 'mbay',	// media bay input
+    kModemSource                  = 'modm',	// modem input (internal modem on desktops, PCI input on PowerBooks)
+    kPCCardSource                 = 'pcm ',	// PC Card pwm input
+    kZoomVideoSource              = 'zvpc',	// zoom video input
+    kDVDSource                    = 'dvda',	// DVD audio input
+    kMicrophoneArray              = 'mica'	// microphone array
 };
 
 
@@ -68,11 +68,11 @@ protected:
 
     void ioLog();
     
-    UInt32	sndHWPort; 		// which port the device is connected to
-    UInt32	inputPortType;		// type of input port
-    UInt32	channels;		// channels affected
-    bool 	isOnMuX;		// set if the input is on a Mux
-    bool	active;			// set if the input is active
+    UInt32	sndHWPort; 				// which port the device is connected to
+    UInt32	inputPortType;			// type of input port
+    UInt32	channels;				// channels affected
+    bool 	isOnMuX;				// set if the input is on a Mux
+    bool	active;					// set if the input is active
     AudioHardwareMux *theMuxRef;  	//the Mux if there isone
 
     AppleOnboardAudio *pluginRef;

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 34;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -23,6 +23,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -49,6 +50,16 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
 		089C1669FE841209C02AAC07 = {
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
@@ -90,8 +101,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntel8255x;
-				MODULE_VERSION = 1.0.0d1;
-				OPTIMIZATION_CFLAGS = "";
+				MODULE_VERSION = 1.1;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -100,8 +110,6 @@
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -129,11 +137,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
+	<string>1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>8255x</key>
@@ -147,7 +155,7 @@
 			<key>IODefaultMedium</key>
 			<string>00000020</string>
 			<key>IOPCIMatch</key>
-			<string>0x12298086 0x12098086 0x10298086 0x10308086</string>
+			<string>0x12298086 0x12098086 0x10298086 0x10308086 0x10318086 0x24498086 0x10398086</string>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>Verbose</key>
@@ -199,6 +207,7 @@
 				3A81C77A0097A0B111CA2928,
 				3A81C77B0097A0B111CA2928,
 				3A81C77C0097A0B111CA2928,
+				B913377C01AAD9B708CA29FD,
 			);
 			isa = PBXSourcesBuildPhase;
 			name = Sources;
@@ -246,11 +255,31 @@
 			settings = {
 			};
 		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
 		0B81C263FFB7832611CA28AA = {
 			isa = PBXBundleReference;
 			path = AppleIntel8255x.kext;
 			refType = 3;
 		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
@@ -259,6 +288,16 @@
 			name = Products;
 			refType = 4;
 		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
 		247142CAFF3F8F9811CA285C = {
 			children = (
 				3A81C76B0097A0B111CA2928,
@@ -270,12 +309,23 @@
 				3A81C7710097A0B111CA2928,
 				3A81C7720097A0B111CA2928,
 				3A81C7730097A0B111CA2928,
+				B913377B01AAD9B708CA29FD,
 			);
 			isa = PBXGroup;
 			name = Source;
 			path = "";
 			refType = 4;
 		};
+//240
+//241
+//242
+//243
+//244
+//3A0
+//3A1
+//3A2
+//3A3
+//3A4
 		3A81C76B0097A0B111CA2928 = {
 			isa = PBXFileReference;
 			path = i82557.cpp;
@@ -371,6 +421,27 @@
 		};
 		3A81C77C0097A0B111CA2928 = {
 			fileRef = 3A81C7730097A0B111CA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//3A0
+//3A1
+//3A2
+//3A3
+//3A4
+//B90
+//B91
+//B92
+//B93
+//B94
+		B913377B01AAD9B708CA29FD = {
+			isa = PBXFileReference;
+			path = i82557PM.cpp;
+			refType = 4;
+		};
+		B913377C01AAD9B708CA29FD = {
+			fileRef = B913377B01AAD9B708CA29FD;
 			isa = PBXBuildFile;
 			settings = {
 			};

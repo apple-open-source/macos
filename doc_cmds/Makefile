@@ -12,9 +12,9 @@ NAME = doc_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = apropos catman checknr colcrt getNAME makewhatis man whatis
+TOOLS = lib apropos catman checknr colcrt getNAME makewhatis man manpath
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.inc
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

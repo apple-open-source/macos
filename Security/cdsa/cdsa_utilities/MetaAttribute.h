@@ -109,8 +109,16 @@ public:
 	{
 		T value(rs, offset);
 		data.Length = value.size();
-		data.Data = reinterpret_cast<uint8 *>(allocator.malloc(data.Length));
-		memcpy(data.Data, value.bytes(), data.Length);
+
+		if (data.Length != 0)
+		{
+			data.Data = reinterpret_cast<uint8 *>(allocator.malloc(data.Length));
+			memcpy(data.Data, value.bytes(), data.Length);
+		}
+		else
+		{
+			data.Data = NULL;
+		}
 	}
 
 	void skipValue(const ReadSection &rs, uint32 &offset) const

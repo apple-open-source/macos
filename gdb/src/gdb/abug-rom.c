@@ -1,5 +1,6 @@
 /* Remote debugging interface for ABug Rom monitor for GDB, the GNU debugger.
-   Copyright 1995, 1996, 1998 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    Written by Rob Savoye of Cygnus Support
 
@@ -25,6 +26,7 @@
 #include "target.h"
 #include "monitor.h"
 #include "serial.h"
+#include "regcache.h"
 
 /* Prototypes for local functions. */
 

@@ -1,3 +1,134 @@
+Changes for the 5.10 release (the cctools-422 release):
+- Added the section attribute S_ATTR_STRIP_STATIC_SYMS to <mach-o/loader.h>.
+  Radar bug #2945659.
+  
+Changes for the 5.10 release (the cctools-421 release):
+- Added the constant MH_NOFIXPREBINDING to <mach-o/loader.h> so that the
+  fix_prebinding(1) program can be marked with this.  Radar bug #2941669.
+
+Changes for the 5.10 release (the cctools-420 release):
+- Changed the comment on the constant NOT_PREBINDABLE in
+  <mach-o/redo_prebinding.h> to include "or statically linked" to indicate
+  that it will be returned for statically linked binaries.  Radar bug #2934831.
+
+Changes for the 5.10 release (the cctools-416 release):
+- Added the N_WEAK_DEF define to <mach-o/nlist.h> to support weak definitions
+  and non-weak definitions in the same coalesced section. Radar bug #2919646.
+- Removed the section attribute S_ATTR_WEAK_DEFS to <mach-o/loader.h> .
+  Radar bug #2919646.
+- Added the dont_update_LC_ID_DYLIB_timestamp field to the arch struct in
+  breakout.h .  Radar bug #2914003.
+
+Changes for the 5.10 release (the cctools-414 release):
+- Added the section attribute S_ATTR_WEAK_DEFS to <mach-o/loader.h> for weak
+  definitions to be used with coalesced sections for supporting explicit
+  template instantiation.  Radar bug #2898558.
+
+Changes for the 5.10 release (the cctools-412 release):
+- Added the no_error_if_missing parameter to symLocForDylib(), dstLocForDylib()
+  and LocForDylib() in stuff/SymLoc.h .  Radar bug #2882324.
+- Added the no_error_if_missing parameter to get_symfile_for_dylib() and
+  get_dstfile_for_dylib() in stuff/dylib_roots.h.  Radar bug #2882324.
+
+Changes for the 5.10 release (the cctools-411 release):
+- Added the header file <stuff/macosx_deployment_target.h> so that both the
+  ld(1) code and the seg_addr_table(1) code can use them.
+
+Changes for the 5.10 release (the cctools-408 release):
+- Changed the comments in <mach-o/loader.h> where it used sizeof(unsigned long)
+  to 4 bytes.
+
+Changes for the 5.10 release (the cctools-407 release):
+- Added "(obsolete)" to the comment in <mach-o/loader.h> for the MH_LAZY_INIT
+  constant.
+
+Changes for the 5.10 release (the cctools-404 release):
+- Changed crc32() in <stuff/crc32.h> to be a __private_extern__. 
+  Radar bug #2859919.
+
+Changes for the 5.10 release (the cctools-403 release):
+- Changed mach-o/ppc/swap.h and mach-o/i386/swap.h to use #include and not
+  #import.  Radar bug #2778821.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Added a new throttle parameter to redo_prebinding() in
+  <mach-o/redo_prebinding.h> to allow it to be used prebinding on demand to
+  throttle back its I/O when running in the back ground.  Radar bug #2850642.
+- Added a new throttle parameter to writeout() in <stuff/writeout.h> to allow
+  redo_prebinding(3) used with prebinding on demand to throttle back its
+  I/O when running in the back ground.  Radar bug #2850642.
+
+Changes for the 5.10 release (the cctools-397 release):
+- Added the new allow_missing_architectures parameter to the
+  needs_redo_prebinding() API in <mach-o/redo_prebinding.h> .  Radar bug
+  #2836068
+- Added the macro #define REDO_PREBINDING_VERSION 1 to
+  <mach-o/redo_prebinding.h> . Radar bug #2836572.
+- Removed the DYLD_BOOL macro from <mach-o/dyld.h> because ANSI C99 has a
+  macro bool defined as _Bool which causes problems with this.  Radar bug 
+  #2831923.
+- Added the _NSGetExecutablePath SPI to <mach-o/dyld.h>. Radar bug #2432816.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Added the new allow_missing_architectures parameter to the redo_prebinding()
+  API in <mach-o/redo_prebinding.h> .  Radar bug #2809673.
+- Changed the N_WEAK_SYM macro in <mach-o/nlist.h> to N_WEAK_REF so that it is
+  clear it means weak references not weak defintions.
+
+Changes for the 5.10 release (the cctools-394 release):
+- Added guards to <mach-o/ranlib.h>, "stuff/bytesex.h", "stuff/arch.h",
+  "stuff/ofile.h",
+  to prevent multiple includes.
+
+Changes for the 5.10 release (the cctools-393 release):
+- Added the N_WEAK_SYM macro to <mach-o/nlist.h>.
+- Added the LC_LOAD_WEAK_DYLIB macro for the new weak dylib load command to
+  <mach-o/loader.h>.
+
+Changes for the 5.10 release (the cctools-392 release):
+- Added the new parameter use_member_syntax to the ofile_process() prototype
+  in <stuff/ofile.h>.  Radar bug #2730127.
+
+Changes for the 5.10 release (the cctools-388 release):
+- Changed the use of #import to #include in the mach-o directory files and
+  added guards to each header to prevent multiple includes.  Radar bug #2778821.
+
+Changes for the 5.10 release (the cctools-387 release):
+- Added NSADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME to <mach-o/dyld.h>
+
+Changes for the 5.10 release (the cctools-386 release):
+- Added the get_prebind_cksums() prototype to <mach-o/redo_prebinding.h> .
+- Added a <stuff/crc32.h> header for the crc32() prototype.
+- Added the parameter zero_out_prebind_checksum to redo_prebinding() in
+  <mach-o/redo_prebinding.h>
+- Added the two fields:
+    struct prebind_cksum_command *cs;
+    unsigned long calculated_input_prebind_cksum;
+  to the object struct.  And added the calculate_input_prebind_cksum parameter
+  to breakout() prototype.
+- Added the swap_prebind_cksum_command() to <stuff/bytesex.h> and to
+  <mach-o/swap.c>.
+- Added the prebind check sum load command to <mach-o/loader.h> .
+
+Changes for the 5.10 release (the cctools-385 release):
+- Added the routines archive_error(), archive_member_error() and
+  Mach_O_error() to ofile.h as they were moved out of ofile.c to ofile_error.c
+  so the redo_prebinding library can override them.
+- Changed <mach-o/redo_prebinding.h> for the following API changes for
+  Radar bug #2575205 and #2729976:
+
+  Added the routine object_file_type().
+
+  Added the only_if_needed boolean parameter to the redo_prebinding(3) library.
+            
+  Changed the return type of the redo_prebinding(3) library API to be an enum.
+
+  Removed the comment about the slide_to_address parameter of the
+  redo_prebinding(3) library API not being supported.
+
+  Added the expected_address parameter to the needs_redo_prebinding(3) library
+  API.
+
 Changes for the 5.9 release (the cctools-384 release):
 - Removed the semicolon after the closing curly brace in the trailing endif
   __cplusplus wrapper in <mach-o/dyld.h>.  Radar bug #2748160.

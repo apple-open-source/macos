@@ -174,13 +174,69 @@ public:
          CSSM_TP_RESULT_SET_PTR &RetrieveOutput);
 
 private:
-	void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
-			CSSM_CSP_HANDLE cspHand,
-			const CSSM_DL_DB_LIST &DBList,
-			const void *ConstructParams,
-			const CSSM_CERTGROUP &CertGroupFrag,
-			CSSM_BOOL ignoreExpired,
-			TPCertGroup *&CertGroup);
+	void CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
+		CSSM_CSP_HANDLE cspHand,
+		const CSSM_DL_DB_LIST &DBList,
+		const void *ConstructParams,
+		const CSSM_CERTGROUP &CertGroupFrag,
+		CSSM_BOOL ignoreExpired,
+		const char *cssmTimeStr,				// May be NULL
+		TPCertGroup *&CertGroup);
+			
+	/* in tpCredRequest.cp */
+	CSSM_X509_NAME * buildX509Name(const CSSM_APPLE_TP_NAME_OID *nameArray,
+		unsigned numNames);
+	void freeX509Name(CSSM_X509_NAME *top);
+	CSSM_X509_TIME *buildX509Time(unsigned secondsFromNow);
+	void freeX509Time(CSSM_X509_TIME *xtime);
+	void refKeyToRaw(
+		CSSM_CSP_HANDLE	cspHand,
+		const CSSM_KEY	*refKey,	
+		CSSM_KEY_PTR	rawKey);
+	void makeCertTemplate(
+		/* required */
+		CSSM_CL_HANDLE			clHand,
+		CSSM_CSP_HANDLE			cspHand,		// for converting ref to raw key
+		uint32					serialNumber,
+		const CSSM_X509_NAME	*issuerName,	
+		const CSSM_X509_NAME	*subjectName,
+		const CSSM_X509_TIME	*notBefore,	
+		const CSSM_X509_TIME	*notAfter,	
+		const CSSM_KEY			*subjectPubKey,
+		const CSSM_OID			&sigOid,		// e.g., CSSMOID_SHA1WithRSA
+		/* optional */
+		const CSSM_DATA			*subjectUniqueId,
+		const CSSM_DATA			*issuerUniqueId,
+		CSSM_X509_EXTENSION		*extensions,
+		unsigned				numExtensions,
+		CSSM_DATA_PTR			&rawCert);
+
+	void SubmitCsrRequest(
+		const CSSM_TP_REQUEST_SET &RequestInput,
+		sint32 					&EstimatedTime,	
+		CssmData 				&ReferenceIdentifier);
+		
+	/* 
+	 * Per-session storage of SubmitCredRequest results.
+	 *
+	 * A TpCredHandle is just an address of a cert, cast to a uint32. It's 
+	 * what ReferenceIdentifier.Data points to.
+	 */ 
+	typedef uint32 TpCredHandle;
+	typedef std::map<TpCredHandle, 
+				     const CSSM_DATA * /* the actual cert */ > credMap;
+	credMap					tpCredMap;
+	Mutex					tpCredMapLock;
+	
+	/* given a cert and a ReferenceIdentifier, fill in ReferenceIdentifier and 
+	 * add it and the cert to tpCredMap. */
+	void addCertToMap(
+		const CSSM_DATA		*cert,
+		CSSM_DATA_PTR		refId);
+		
+	/* given a ReferenceIdentifier, obtain associated cert and remove from the map */
+	CSSM_DATA_PTR getCertFromMap(
+		const CSSM_DATA		*refId);
 
 };
 

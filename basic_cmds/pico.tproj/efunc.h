@@ -1,5 +1,5 @@
 /*
- * $Id: efunc.h,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
+ * $Id: efunc.h,v 1.2 2002/01/03 22:16:39 jevans Exp $
  *
  * Program:	Pine's composer and pico's function declarations
  *
@@ -14,7 +14,7 @@
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -89,7 +89,7 @@ extern	int normal(int, int (*)[2],int);
 extern	int rebindfunc(int (*a)(int, int),int (*)(int, int));
 
 /* browse.c */
-extern	int FileBrowse(char *, char *, char *);
+extern	int FileBrowse(char *, char *, char *, int);
 extern	int ResizeBrowser(void);
 
 /* buffer.c */
@@ -107,11 +107,9 @@ extern	void PaintHeader(int, int);
 extern	int ArrangeHeader(void);
 extern	int ToggleHeader(int);
 extern	int HeaderLen(void);
-static	struct hdr_line *next_line(int *, struct hdr_line *);
-static	struct hdr_line *prev_line(int *, struct hdr_line *);
 extern	int UpdateHeader(void);
 extern	int entry_line(int, int);
-extern	int resolve_niks(int);
+extern	int call_builder(struct headerentry *);
 extern	int ShowPrompt(void);
 extern	int packheader(void);
 extern	int zotheader(void);
@@ -124,8 +122,8 @@ extern	int modeline(struct WINDOW *);
 extern	int movecursor(int, int);
 extern	int mlerase(void);
 extern	int mlyesno(char *, int);
-extern	int mlreply(char *, char *, int, int);
-extern	int mlreplyd(char *, char *, int, int);
+extern	int mlreply(char *, char *, int, int, KEYMENU *);
+extern	int mlreplyd(char *, char *, int, int, KEYMENU *);
 extern	void emlwrite(char *, void *);
 extern	int mlwrite(char *, void *);
 extern	int scrolldown(struct WINDOW *, int, int);
@@ -142,7 +140,7 @@ extern	int pclear(int, int);
 extern	int pinsert(CELL);
 extern	int pdel(void);
 extern	void wstripe(int, int, char *, int);
-extern	int wkeyhelp(char *, char *);
+extern	int wkeyhelp(KEYMENU *);
 
 /* file.c */
 extern	int fileread(int, int);
@@ -180,8 +178,8 @@ extern	int ttflush(void);
 extern	int ttgetc(void);
 extern	int ttgetwinsz(void);
 extern	int GetKey(void);
-#ifdef	JOB_CONTROL
 extern	int alt_editor(int, int);
+#ifdef	JOB_CONTROL
 extern	int bktoshell(void);
 #endif
 extern	int fallowc(int);
@@ -312,11 +310,9 @@ extern	void PaintHeader();
 extern	int ArrangeHeader();
 extern	int ToggleHeader();
 extern	int HeaderLen();
-static	struct hdr_line *next_line();
-static	struct hdr_line *prev_line();
 extern	int UpdateHeader();
 extern	int entry_line();
-extern	int resolve_niks();
+extern	int call_builder();
 extern	int ShowPrompt();
 extern	int packheader();
 extern	int zotheader();
@@ -385,8 +381,8 @@ extern	int ttflush();
 extern	int ttgetc();
 extern	int ttgetwinsz();
 extern	int GetKey();
-#ifdef	JOB_CONTROL
 extern	int alt_editor();
+#ifdef	JOB_CONTROL
 extern	int bktoshell();
 #endif
 extern	int fallowc();

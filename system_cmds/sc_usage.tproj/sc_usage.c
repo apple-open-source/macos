@@ -23,7 +23,7 @@
  */
 
 /*
-cc -I. -DKERNEL_PRIVATE -O -o sc_usage sc_usage.c
+cc -I. -DKERNEL_PRIVATE -O -o sc_usage sc_usage.c -lncurses
 */
 
 #define	Default_DELAY	1	/* default delay interval */
@@ -42,7 +42,7 @@ cc -I. -DKERNEL_PRIVATE -O -o sc_usage sc_usage.c
 
 #include <libc.h>
 #include <termios.h>
-#include <bsd/curses.h>
+#include <curses.h>
 
 #include <sys/ioctl.h>
 
@@ -192,7 +192,6 @@ int    scalls;
 #define DIVISOR 16.6666        /* Trace divisor converts to microseconds */
 double divisor = DIVISOR;
 
-struct termios tmode, omode;
 
 int mib[6];
 size_t needed;
@@ -226,8 +225,6 @@ void leave()			/* exit under normal conditions -- INT handler */
 	        move(LINES - 1, 0);
 		refresh();
 		endwin();
-
-		tcsetattr(0, TCSANOW, &omode);
 	}
 	set_enable(0);
 	set_pidcheck(pid, 0);
@@ -243,8 +240,6 @@ char *s;
 	        move(LINES - 1, 0);
 		refresh();
 		endwin();
-
-		tcsetattr(0, TCSANOW, &omode);
 	}
 
         printf("sc_usage: ");
@@ -423,22 +418,17 @@ main(argc, argv)
 
 
 	if (no_screen_refresh == 0) {
-	        if (tcgetattr(0, &tmode) < 0) {
-		        printf("can't get terminal attributes\n");
-			exit(1);
-		}
-		omode = tmode;
-	
-		tmode.c_lflag &= ~ICANON;
-		tmode.c_cc[VMIN] = 0;
-		tmode.c_cc[VTIME] = 1;
 
-		if (tcsetattr(0, TCSANOW, &tmode) < 0) {
-		        printf("can't set terminal attributes\n");
-			exit(1);
-		}
 	        /* initializes curses and screen (last) */
-	        initscr();
+		if (initscr() == (WINDOW *) 0)
+		  {
+		    printf("Unrecognized TERM type, try vt100\n");
+		    exit(1);
+		  }
+		cbreak();
+		timeout(100);
+		noecho();
+
 		clear();
 		refresh();
 	}
@@ -447,6 +437,8 @@ main(argc, argv)
 	/* set up signal handlers */
 	signal(SIGINT, leave);
 	signal(SIGQUIT, leave);
+        signal(SIGHUP, leave);
+        signal(SIGTERM, leave);
 	signal(SIGWINCH, sigwinch);
 
         if (no_screen_refresh == 0)
@@ -480,21 +472,16 @@ main(argc, argv)
 	while (1) {
 	        int     i;
 		int     cnt;
-		char    ibuf[128];
+		char    c;
 		void    sample_sc();
 		
 	        for (i = 0; i < (10 * delay) && newLINES == 0; i++) {
 
 			if (no_screen_refresh == 0) {
-			        if ((cnt = read(0, &ibuf, 128)) > 0) {
-				        int   n;
-
-					for (n = 0; n < cnt; n++)
-					        if (ibuf[n] == 'q')
-						        leave();
-					reset_counters();
-					break;
-				}
+			        if ((c = getch()) != ERR && (char)c == 'q') 
+				        leave();
+				if (c != ERR)
+				        reset_counters();
 			} else
 			        usleep(100000);
 			sample_sc();
@@ -502,7 +489,11 @@ main(argc, argv)
 		(void)sort_scalls();
 
 	        if (newLINES) {
-		        initscr();
+		        /*
+			  No need to check for initscr error return.
+			  We won't get here if it fails on the first call.
+			*/
+		        endwin();
 			clear();
 			refresh();
 
@@ -1425,11 +1416,12 @@ sample_sc()
 		        (uint64_t)((unsigned int)(kd[i].timestamp.tv_nsec));
 		baseid = debugid & 0xffff0000;
 
-		if (debugid == vfs_lookup) {
+		if (type == vfs_lookup) {
 		        long *sargptr;
 
 		        if ((ti = find_thread(thread)) == (struct th_info *)0)
 			        continue;
+
 		        if (ti->vfslookup == 1) {
 			        ti->vfslookup++;
 				memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
@@ -1451,7 +1443,21 @@ sample_sc()
 				*/
 
 				if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
-				  continue;
+					continue;
+
+				/*
+				  We need to detect consecutive vfslookup entries.
+				  So, if we get here and find a START entry,
+				  fake the pathptr so we can bypass all further
+				  vfslookup entries.
+				*/
+
+				if (debugid & DBG_FUNC_START)
+				  {
+				    (long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+				    continue;
+				  }
+
 				*sargptr++ = kd[i].arg1;
 				*sargptr++ = kd[i].arg2;
 				*sargptr++ = kd[i].arg3;

@@ -35,7 +35,7 @@
 
 #define LOG(text) 	log(LOGVAL, text)
 #define LOGDBG(ifp, text) \
-    if (ifp->if_flags & IFF_DEBUG) {	\
+    if ((ifp)->if_flags & IFF_DEBUG) {	\
         log text; 		\
     }
 
@@ -64,6 +64,8 @@
 struct ppp_fam {
     struct if_proto 	*ip_proto;
     u_long	    	ip_tag;
+    struct in_addr	ip_addr;
+    u_long	    	ip_lotag;
 };
 
 

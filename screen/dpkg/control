@@ -1,0 +1,7 @@
+Package: screen
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: FSF
+Version: 3.9.10
+URL: ftp://ftp.gnu.org/gnu/screen
+Build-Depends: build-base, libcurses-hdrs, gnudiff
+Description: Cool tool

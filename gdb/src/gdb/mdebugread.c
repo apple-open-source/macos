@@ -1,5 +1,6 @@
 /* Read a symbol table in ECOFF format (Third-Eye).
-   Copyright 1986, 87, 89, 90, 91, 92, 93, 94, 95, 96, 97, 1998
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Original version contributed by Alessandro Forin (af@cs.cmu.edu) at
    CMU.  Major work by Per Bothner, John Gilmore and Ian Lance Taylor
@@ -78,8 +79,6 @@ typedef struct mips_extra_func_info
 #include "gdb_stat.h"
 #include "gdb_string.h"
 
-#include "gdb-stabs.h"
-
 #include "bfd.h"
 
 #include "coff/ecoff.h"		/* COFF-like aspects of ecoff files */
@@ -89,14 +88,9 @@ typedef struct mips_extra_func_info
 #include "aout/stab_gnu.h"	/* STABS information */
 
 #include "expression.h"
-#include "language.h"		/* Needed inside partial-stab.h */
+#include "language.h"		/* For local_hex_string() */
 
 extern void _initialize_mdebugread (void);
-
-/* Provide a default mapping from a ecoff register number to a gdb REGNUM.  */
-#ifndef ECOFF_REG_TO_REGNUM
-#define ECOFF_REG_TO_REGNUM(num) (num)
-#endif
 
 /* Provide a way to test if we have both ECOFF and ELF symbol tables.  
    We use this define in order to know whether we should override a 
@@ -111,6 +105,11 @@ extern void _initialize_mdebugread (void);
 
 struct symloc
   {
+    /* Our running best guess as to the range of text addresses for
+       this psymtab.  After we've read everything in, we use this to
+       build pst->text_addrs.  */
+    CORE_ADDR textlow, texthigh;
+
     /* Index of the FDR that this psymtab represents.  */
     int fdr_idx;
     /* The BFD that the psymtab was created from.  */
@@ -126,6 +125,8 @@ struct symloc
   };
 
 #define PST_PRIVATE(p) ((struct symloc *)(p)->read_symtab_private)
+#define TEXTLOW(p) (PST_PRIVATE(p)->textlow)
+#define TEXTHIGH(p) (PST_PRIVATE(p)->texthigh)
 #define FDR_IDX(p) (PST_PRIVATE(p)->fdr_idx)
 #define CUR_BFD(p) (PST_PRIVATE(p)->cur_bfd)
 #define DEBUG_SWAP(p) (PST_PRIVATE(p)->debug_swap)
@@ -145,11 +146,6 @@ struct symloc
 #define SC_IS_BSS(sc) ((sc) == scBss || (sc) == scSBss)
 #define SC_IS_UNDEF(sc) ((sc) == scUndefined || (sc) == scSUndefined)
 
-
-/* Things we import explicitly from other modules */
-
-extern int info_verbose;
-
 /* Various complaints about symbol reading that don't abort the process */
 
 static struct complaint bad_file_number_complaint =
@@ -331,30 +327,15 @@ static int found_ecoff_debugging_info;
 
 /* Forward declarations */
 
-static void add_pending (FDR *, char *, struct type *);
-
-static struct mdebug_pending *is_pending_symbol (FDR *, char *);
-
-static void pop_parse_stack (void);
-
-static void push_parse_stack (void);
-
-static char *fdr_name (FDR *);
-
-static void mdebug_psymtab_to_symtab (struct partial_symtab *);
-
-static int
-upgrade_type (int, struct type **, int, union aux_ext *, int, char *);
+static int upgrade_type (int, struct type **, int, union aux_ext *,
+			 int, char *);
 
 static void parse_partial_symbols (struct objfile *);
 
-static FDR * get_rfd (int, int);
-
 static int has_opaque_xref (FDR *, SYMR *);
 
-static int
-cross_ref (int, union aux_ext *, struct type **, enum type_code,
-	   char **, int, char *);
+static int cross_ref (int, union aux_ext *, struct type **, enum type_code,
+		      char **, int, char *);
 
 static struct symbol *new_symbol (char *);
 
@@ -368,10 +349,6 @@ static struct linetable *new_linetable (int);
 
 static struct blockvector *new_bvect (int);
 
-static int
-parse_symbol (SYMR *, union aux_ext *, char *, int, struct section_offsets *,
-	      struct objfile *);
-
 static struct type *parse_type (int, union aux_ext *, unsigned int, int *,
 				int, char *);
 
@@ -380,11 +357,7 @@ static struct symbol *mylookup_symbol (char *, struct block *, namespace_enum,
 
 static struct block *shrink_block (struct block *, struct symtab *);
 
-static PTR xzalloc (unsigned int);
-
 static void sort_blocks (struct symtab *);
-
-static int compare_blocks (const void *, const void *);
 
 static struct partial_symtab *new_psymtab (char *, struct objfile *);
 
@@ -398,8 +371,8 @@ static int add_line (struct linetable *, int, CORE_ADDR, int);
 
 static struct linetable *shrink_linetable (struct linetable *);
 
-static void
-handle_psymbol_enumerators (struct objfile *, FDR *, int, CORE_ADDR);
+static void handle_psymbol_enumerators (struct objfile *, FDR *, int,
+					CORE_ADDR);
 
 static char *mdebug_next_symbol_text (struct objfile *);
 
@@ -409,10 +382,10 @@ CORE_ADDR sigtramp_address, sigtramp_end;
 
 /* Allocate zeroed memory */
 
-static PTR
+static void *
 xzalloc (unsigned int size)
 {
-  PTR p = xmalloc (size);
+  void *p = xmalloc (size);
 
   memset (p, 0, size);
   return p;
@@ -497,6 +470,11 @@ mdebug_build_psymtabs (struct objfile *objfile,
   debug_swap = swap;
   debug_info = info;
 
+  stabsread_new_init ();
+  buildsym_new_init ();
+  free_header_files ();
+  init_header_files ();
+        
   /* Make sure all the FDR information is swapped in.  */
   if (info->fdr == (FDR *) NULL)
     {
@@ -516,6 +494,19 @@ mdebug_build_psymtabs (struct objfile *objfile,
     }
 
   parse_partial_symbols (objfile);
+
+  /* Take the text ranges the partial symbol scanner computed for each
+     of the psymtabs and convert it into the canonical form for
+     psymtabs.  */
+  {
+    struct partial_symtab *p;
+
+    ALL_OBJFILE_PSYMTABS (objfile, p)
+      {
+        p->textlow = TEXTLOW (p);
+        p->texthigh = TEXTHIGH (p);
+      }
+  }
 
 #if 0
   /* Check to make sure file was compiled with -g.  If not, warn the
@@ -684,7 +675,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	      struct section_offsets *section_offsets, struct objfile *objfile)
 {
   const bfd_size_type external_sym_size = debug_swap->external_sym_size;
-  void (*const swap_sym_in) (bfd *, PTR, SYMR *) = debug_swap->swap_sym_in;
+  void (*const swap_sym_in) (bfd *, void *, SYMR *) = debug_swap->swap_sym_in;
   char *name;
   struct symbol *s;
   struct block *b;
@@ -1123,7 +1114,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 		enum_sym = ((struct symbol *)
 			    obstack_alloc (&current_objfile->symbol_obstack,
 					   sizeof (struct symbol)));
-		memset ((PTR) enum_sym, 0, sizeof (struct symbol));
+		memset (enum_sym, 0, sizeof (struct symbol));
 		SYMBOL_NAME (enum_sym) =
 		  obsavestring (f->name, strlen (f->name),
 				&current_objfile->symbol_obstack);
@@ -1221,7 +1212,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	  e = ((struct mips_extra_func_info *)
 	       obstack_alloc (&current_objfile->symbol_obstack,
 			      sizeof (struct mips_extra_func_info)));
-	  memset ((PTR) e, 0, sizeof (struct mips_extra_func_info));
+	  memset (e, 0, sizeof (struct mips_extra_func_info));
 	  SYMBOL_VALUE (s) = (long) e;
 	  e->numargs = top_stack->numargs;
 	  e->pdr.framereg = -1;
@@ -1268,6 +1259,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 			case LOC_REGPARM:
 			case LOC_REGPARM_ADDR:
 			  TYPE_FIELD_TYPE (ftype, iparams) = SYMBOL_TYPE (sym);
+			  TYPE_FIELD_ARTIFICIAL (ftype, iparams) = 0;
 			  iparams++;
 			  break;
 			default:
@@ -2175,7 +2167,7 @@ parse_lines (FDR *fh, PDR *pr, struct linetable *lt, int maxlines,
 	halt = base + fh->cbLine;
       base += pr->cbLineOffset;
 
-      adr = pst->textlow + pr->adr - lowest_pdr_addr;
+      adr = TEXTLOW (pst) + pr->adr - lowest_pdr_addr;
 
       l = adr >> 2;		/* in words */
       for (lineno = pr->lnLow; base < halt;)
@@ -2215,9 +2207,9 @@ parse_partial_symbols (struct objfile *objfile)
   const bfd_size_type external_sym_size = debug_swap->external_sym_size;
   const bfd_size_type external_rfd_size = debug_swap->external_rfd_size;
   const bfd_size_type external_ext_size = debug_swap->external_ext_size;
-  void (*const swap_ext_in) (bfd *, PTR, EXTR *) = debug_swap->swap_ext_in;
-  void (*const swap_sym_in) (bfd *, PTR, SYMR *) = debug_swap->swap_sym_in;
-  void (*const swap_rfd_in) (bfd *, PTR, RFDT *) = debug_swap->swap_rfd_in;
+  void (*const swap_ext_in) (bfd *, void *, EXTR *) = debug_swap->swap_ext_in;
+  void (*const swap_sym_in) (bfd *, void *, SYMR *) = debug_swap->swap_sym_in;
+  void (*const swap_rfd_in) (bfd *, void *, RFDT *) = debug_swap->swap_rfd_in;
   int f_idx, s_idx;
   HDRR *hdr = &debug_info->symbolic_header;
   /* Running pointers */
@@ -2291,7 +2283,7 @@ parse_partial_symbols (struct objfile *objfile)
      Minor hack: -O3 images might claim some global data belongs
      to FDR -1. We`ll go along with that */
   fdr_to_pst = (struct pst_map *) xzalloc ((hdr->ifdMax + 1) * sizeof *fdr_to_pst);
-  old_chain = make_cleanup (free, fdr_to_pst);
+  old_chain = make_cleanup (xfree, fdr_to_pst);
   fdr_to_pst++;
   {
     struct partial_symtab *pst = new_psymtab ("", objfile);
@@ -2304,12 +2296,12 @@ parse_partial_symbols (struct objfile *objfile)
     ((struct mdebug_pending **)
      obstack_alloc (&objfile->psymbol_obstack,
 		    hdr->ifdMax * sizeof (struct mdebug_pending *)));
-  memset ((PTR) pending_list, 0,
+  memset (pending_list, 0,
 	  hdr->ifdMax * sizeof (struct mdebug_pending *));
 
   /* Pass 0 over external syms: swap them in.  */
   ext_block = (EXTR *) xmalloc (hdr->iextMax * sizeof (EXTR));
-  make_cleanup (free, ext_block);
+  make_cleanup (xfree, ext_block);
 
   ext_out = (char *) debug_info->external_ext;
   ext_out_end = ext_out + hdr->iextMax * external_ext_size;
@@ -2507,9 +2499,11 @@ parse_partial_symbols (struct objfile *objfile)
       pst->read_symtab_private = ((char *)
 				  obstack_alloc (&objfile->psymbol_obstack,
 						 sizeof (struct symloc)));
-      memset ((PTR) pst->read_symtab_private, 0, sizeof (struct symloc));
+      memset (pst->read_symtab_private, 0, sizeof (struct symloc));
 
       save_pst = pst;
+      TEXTLOW (pst) = pst->textlow;
+      TEXTHIGH (pst) = pst->texthigh;
       FDR_IDX (pst) = f_idx;
       CUR_BFD (pst) = cur_bfd;
       DEBUG_SWAP (pst) = debug_swap;
@@ -2545,7 +2539,7 @@ parse_partial_symbols (struct objfile *objfile)
 	psymtab_language = prev_language;
       PST_PRIVATE (pst)->pst_language = psymtab_language;
 
-      pst->texthigh = pst->textlow;
+      TEXTHIGH (pst) = TEXTLOW (pst);
 
       /* For stabs-in-ecoff files, the second symbol must be @stab.
          This symbol is emitted by mips-tfile to signal that the
@@ -2612,10 +2606,10 @@ parse_partial_symbols (struct objfile *objfile)
 
 			  /* Kludge for Irix 5.2 zero fh->adr.  */
 			  if (!relocatable
-			  && (pst->textlow == 0 || procaddr < pst->textlow))
-			    pst->textlow = procaddr;
-			  if (high > pst->texthigh)
-			    pst->texthigh = high;
+			  && (TEXTLOW (pst) == 0 || procaddr < TEXTLOW (pst)))
+			    TEXTLOW (pst) = procaddr;
+			  if (high > TEXTHIGH (pst))
+			    TEXTHIGH (pst) = high;
 			}
 		    }
 		  else if (sh.st == stStatic)
@@ -2690,26 +2684,560 @@ parse_partial_symbols (struct objfile *objfile)
 		     && stabstring != debug_info->ss + fh->issBase + sh.iss)
 		      stabstring = xrealloc (stabstring, len + len2 + 1);
 		    else
-		      stabstring = xmalloc (len + len2 + 1);
-		    strcpy (stabstring, stabstring1);
+		      {
+			stabstring = xmalloc (len + len2 + 1);
+			strcpy (stabstring, stabstring1);
+		      }
 		    strcpy (stabstring + len, stabstring2);
 		    len += len2;
 		  }
 
-#define SET_NAMESTRING() \
-  namestring = stabstring
-#define CUR_SYMBOL_TYPE type_code
-#define CUR_SYMBOL_VALUE sh.value
-#define START_PSYMTAB(ofile,fname,low,symoff,global_syms,static_syms)\
-  (pst = save_pst)
-#define END_PSYMTAB(pst,ilist,ninc,c_off,c_text,dep_list,n_deps,textlow_not_set) (void)0
-#define HANDLE_RBRAC(val) \
-  if ((val) > save_pst->texthigh) save_pst->texthigh = (val);
-#include "partial-stab.h"
+		switch (type_code)
+		  {
+		    static struct complaint function_outside_compilation_unit = {
+		      "function `%s' appears to be defined outside of all compilation units", 0, 0
+		    };
+		    char *p;
+		    /*
+		     * Standard, external, non-debugger, symbols
+		     */
 
+		  case N_TEXT | N_EXT:
+		  case N_NBTEXT | N_EXT:
+		    sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+		    goto record_it;
+
+		  case N_DATA | N_EXT:
+		  case N_NBDATA | N_EXT:
+		    sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
+		    goto record_it;
+
+		  case N_BSS:
+		  case N_BSS | N_EXT:
+		  case N_NBBSS | N_EXT:
+		  case N_SETV | N_EXT:		/* FIXME, is this in BSS? */
+		    sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_BSS (objfile));
+		    goto record_it;
+
+		  case N_ABS | N_EXT:
+		  record_it:
+		  continue;
+
+		  /* Standard, local, non-debugger, symbols */
+
+		  case N_NBTEXT:
+
+		    /* We need to be able to deal with both N_FN or N_TEXT,
+		       because we have no way of knowing whether the sys-supplied ld
+		       or GNU ld was used to make the executable.  Sequents throw
+		       in another wrinkle -- they renumbered N_FN.  */
+
+		  case N_FN:
+		  case N_FN_SEQ:
+		  case N_TEXT:
+		    continue;
+
+		  case N_DATA:
+		    sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
+		    goto record_it;
+
+		  case N_UNDF | N_EXT:
+		    continue;			/* Just undefined, not COMMON */
+
+		  case N_UNDF:
+		    continue;
+
+		    /* Lots of symbol types we can just ignore.  */
+
+		  case N_ABS:
+		  case N_NBDATA:
+		  case N_NBBSS:
+		    continue;
+
+		    /* Keep going . . . */
+
+		    /*
+		     * Special symbol types for GNU
+		     */
+		  case N_INDR:
+		  case N_INDR | N_EXT:
+		  case N_SETA:
+		  case N_SETA | N_EXT:
+		  case N_SETT:
+		  case N_SETT | N_EXT:
+		  case N_SETD:
+		  case N_SETD | N_EXT:
+		  case N_SETB:
+		  case N_SETB | N_EXT:
+		  case N_SETV:
+		    continue;
+
+		    /*
+		     * Debugger symbols
+		     */
+
+		  case N_SO:
+		    {
+		      CORE_ADDR valu;
+		      static int prev_so_symnum = -10;
+		      static int first_so_symnum;
+		      char *p;
+		      int prev_textlow_not_set;
+
+		      valu = sh.value + ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+
+		      prev_textlow_not_set = textlow_not_set;
+
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+		      /* A zero value is probably an indication for the SunPRO 3.0
+			 compiler. end_psymtab explicitly tests for zero, so
+			 don't relocate it.  */
+
+		      if (sh.value == 0)
+			{
+			  textlow_not_set = 1;
+			  valu = 0;
+			}
+		      else
+			textlow_not_set = 0;
+#else
+		      textlow_not_set = 0;
+#endif
+		      past_first_source_file = 1;
+
+		      if (prev_so_symnum != symnum - 1)
+			{			/* Here if prev stab wasn't N_SO */
+			  first_so_symnum = symnum;
+
+			  if (pst)
+			    {
+			      pst = (struct partial_symtab *) 0;
+			      includes_used = 0;
+			      dependencies_used = 0;
+			    }
+			}
+
+		      prev_so_symnum = symnum;
+
+		      /* End the current partial symtab and start a new one */
+
+		      /* SET_NAMESTRING ();*/
+		      namestring = stabstring;
+
+		      /* Null name means end of .o file.  Don't start a new one. */
+		      if (*namestring == '\000')
+			continue;
+
+		      /* Some compilers (including gcc) emit a pair of initial N_SOs.
+			 The first one is a directory name; the second the file name.
+			 If pst exists, is empty, and has a filename ending in '/',
+			 we assume the previous N_SO was a directory name. */
+
+		      p = strrchr (namestring, '/');
+		      if (p && *(p + 1) == '\000')
+			continue;		/* Simply ignore directory name SOs */
+
+		      /* Some other compilers (C++ ones in particular) emit useless
+			 SOs for non-existant .c files.  We ignore all subsequent SOs that
+			 immediately follow the first.  */
+
+		      if (!pst)
+			pst = save_pst;
+		      continue;
+		    }
+
+		  case N_BINCL:
+		    continue;
+
+		  case N_SOL:
+		    {
+		      enum language tmp_language;
+		      /* Mark down an include file in the current psymtab */
+
+		      /* SET_NAMESTRING ();*/
+		      namestring = stabstring;
+
+		      tmp_language = deduce_language_from_filename (namestring);
+
+		      /* Only change the psymtab's language if we've learned
+			 something useful (eg. tmp_language is not language_unknown).
+			 In addition, to match what start_subfile does, never change
+			 from C++ to C.  */
+		      if (tmp_language != language_unknown
+			  && (tmp_language != language_c
+			      || psymtab_language != language_cplus))
+			psymtab_language = tmp_language;
+
+		      /* In C++, one may expect the same filename to come round many
+			 times, when code is coming alternately from the main file
+			 and from inline functions in other files. So I check to see
+			 if this is a file we've seen before -- either the main
+			 source file, or a previously included file.
+
+			 This seems to be a lot of time to be spending on N_SOL, but
+			 things like "break c-exp.y:435" need to work (I
+			 suppose the psymtab_include_list could be hashed or put
+			 in a binary tree, if profiling shows this is a major hog).  */
+		      if (pst && STREQ (namestring, pst->filename))
+			continue;
+		      {
+			register int i;
+			for (i = 0; i < includes_used; i++)
+			  if (STREQ (namestring, psymtab_include_list[i]))
+			    {
+			      i = -1;
+			      break;
+			    }
+			if (i == -1)
+			  continue;
+		      }
+
+		      psymtab_include_list[includes_used++] = namestring;
+		      if (includes_used >= includes_allocated)
+			{
+			  char **orig = psymtab_include_list;
+
+			  psymtab_include_list = (char **)
+			    alloca ((includes_allocated *= 2) *
+				    sizeof (char *));
+			  memcpy ((PTR) psymtab_include_list, (PTR) orig,
+				  includes_used * sizeof (char *));
+			}
+		      continue;
+		    }
+		  case N_LSYM:			/* Typedef or automatic variable. */
+		  case N_STSYM:		/* Data seg var -- static  */
+		  case N_LCSYM:		/* BSS      "  */
+		  case N_ROSYM:		/* Read-only data seg var -- static.  */
+		  case N_NBSTS:		/* Gould nobase.  */
+		  case N_NBLCS:		/* symbols.  */
+		  case N_FUN:
+		  case N_GSYM:			/* Global (extern) variable; can be
+						   data or bss (sigh FIXME).  */
+
+		    /* Following may probably be ignored; I'll leave them here
+		       for now (until I do Pascal and Modula 2 extensions).  */
+
+		  case N_PC:			/* I may or may not need this; I
+						   suspect not.  */
+		  case N_M2C:			/* I suspect that I can ignore this here. */
+		  case N_SCOPE:		/* Same.   */
+
+		    /*    SET_NAMESTRING ();*/
+		    namestring = stabstring;
+		    p = (char *) strchr (namestring, ':');
+		    if (!p)
+		      continue;			/* Not a debugging symbol.   */
+
+
+
+		    /* Main processing section for debugging symbols which
+		       the initial read through the symbol tables needs to worry
+		       about.  If we reach this point, the symbol which we are
+		       considering is definitely one we are interested in.
+		       p must also contain the (valid) index into the namestring
+		       which indicates the debugging type symbol.  */
+
+		    switch (p[1])
+		      {
+		      case 'S':
+			sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
+#ifdef STATIC_TRANSFORM_NAME
+			namestring = STATIC_TRANSFORM_NAME (namestring);
+#endif
+			add_psymbol_to_list (namestring, p - namestring,
+					     VAR_NAMESPACE, LOC_STATIC,
+					     &objfile->static_psymbols,
+					     0, sh.value,
+					     psymtab_language, objfile);
+			continue;
+		      case 'G':
+			sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
+			/* The addresses in these entries are reported to be
+			   wrong.  See the code that reads 'G's for symtabs. */
+			add_psymbol_to_list (namestring, p - namestring,
+					     VAR_NAMESPACE, LOC_STATIC,
+					     &objfile->global_psymbols,
+					     0, sh.value,
+					     psymtab_language, objfile);
+			continue;
+
+		      case 'T':
+			/* When a 'T' entry is defining an anonymous enum, it
+			   may have a name which is the empty string, or a
+			   single space.  Since they're not really defining a
+			   symbol, those shouldn't go in the partial symbol
+			   table.  We do pick up the elements of such enums at
+			   'check_enum:', below.  */
+			if (p >= namestring + 2
+			    || (p == namestring + 1
+				&& namestring[0] != ' '))
+			  {
+			    add_psymbol_to_list (namestring, p - namestring,
+						 STRUCT_NAMESPACE, LOC_TYPEDEF,
+						 &objfile->static_psymbols,
+						 sh.value, 0,
+						 psymtab_language, objfile);
+			    if (p[2] == 't')
+			      {
+				/* Also a typedef with the same name.  */
+				add_psymbol_to_list (namestring, p - namestring,
+						     VAR_NAMESPACE, LOC_TYPEDEF,
+						     &objfile->static_psymbols,
+						     sh.value, 0,
+						     psymtab_language, objfile);
+				p += 1;
+			      }
+			    /* The semantics of C++ state that "struct foo { ... }"
+			       also defines a typedef for "foo".  Unfortuantely, cfront
+			       never makes the typedef when translating from C++ to C.
+			       We make the typedef here so that "ptype foo" works as
+			       expected for cfront translated code.  */
+			    else if (psymtab_language == language_cplus)
+			      {
+				/* Also a typedef with the same name.  */
+				add_psymbol_to_list (namestring, p - namestring,
+						     VAR_NAMESPACE, LOC_TYPEDEF,
+						     &objfile->static_psymbols,
+						     sh.value, 0,
+						     psymtab_language, objfile);
+			      }
+			  }
+			goto check_enum;
+		      case 't':
+			if (p != namestring)	/* a name is there, not just :T... */
+			  {
+			    add_psymbol_to_list (namestring, p - namestring,
+						 VAR_NAMESPACE, LOC_TYPEDEF,
+						 &objfile->static_psymbols,
+						 sh.value, 0,
+						 psymtab_language, objfile);
+			  }
+		      check_enum:
+			/* If this is an enumerated type, we need to
+			   add all the enum constants to the partial symbol
+			   table.  This does not cover enums without names, e.g.
+			   "enum {a, b} c;" in C, but fortunately those are
+			   rare.  There is no way for GDB to find those from the
+			   enum type without spending too much time on it.  Thus
+			   to solve this problem, the compiler needs to put out the
+			   enum in a nameless type.  GCC2 does this.  */
+
+			/* We are looking for something of the form
+			   <name> ":" ("t" | "T") [<number> "="] "e"
+			   {<constant> ":" <value> ","} ";".  */
+
+			/* Skip over the colon and the 't' or 'T'.  */
+			p += 2;
+			/* This type may be given a number.  Also, numbers can come
+			   in pairs like (0,26).  Skip over it.  */
+			while ((*p >= '0' && *p <= '9')
+			       || *p == '(' || *p == ',' || *p == ')'
+			       || *p == '=')
+			  p++;
+
+			if (*p++ == 'e')
+			  {
+			    /* The aix4 compiler emits extra crud before the members.  */
+			    if (*p == '-')
+			      {
+				/* Skip over the type (?).  */
+				while (*p != ':')
+				  p++;
+
+				/* Skip over the colon.  */
+				p++;
+			      }
+
+			    /* We have found an enumerated type.  */
+			    /* According to comments in read_enum_type
+			       a comma could end it instead of a semicolon.
+			       I don't know where that happens.
+			       Accept either.  */
+			    while (*p && *p != ';' && *p != ',')
+			      {
+				char *q;
+
+				/* Check for and handle cretinous dbx symbol name
+				   continuation!  */
+				if (*p == '\\' || (*p == '?' && p[1] == '\0'))
+				  p = next_symbol_text (objfile);
+
+				/* Point to the character after the name
+				   of the enum constant.  */
+				for (q = p; *q && *q != ':'; q++)
+				  ;
+				/* Note that the value doesn't matter for
+				   enum constants in psymtabs, just in symtabs.  */
+				add_psymbol_to_list (p, q - p,
+						     VAR_NAMESPACE, LOC_CONST,
+						     &objfile->static_psymbols, 0,
+						     0, psymtab_language, objfile);
+				/* Point past the name.  */
+				p = q;
+				/* Skip over the value.  */
+				while (*p && *p != ',')
+				  p++;
+				/* Advance past the comma.  */
+				if (*p)
+				  p++;
+			      }
+			  }
+			continue;
+		      case 'c':
+			/* Constant, e.g. from "const" in Pascal.  */
+			add_psymbol_to_list (namestring, p - namestring,
+					     VAR_NAMESPACE, LOC_CONST,
+					     &objfile->static_psymbols, sh.value,
+					     0, psymtab_language, objfile);
+			continue;
+
+		      case 'f':
+			if (! pst)
+			  {
+			    int name_len = p - namestring;
+			    char *name = xmalloc (name_len + 1);
+			    memcpy (name, namestring, name_len);
+			    name[name_len] = '\0';
+			    complain (&function_outside_compilation_unit, name);
+			    xfree (name);
+			  }
+			sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+			add_psymbol_to_list (namestring, p - namestring,
+					     VAR_NAMESPACE, LOC_BLOCK,
+					     &objfile->static_psymbols,
+					     0, sh.value,
+					     psymtab_language, objfile);
+			continue;
+
+			/* Global functions were ignored here, but now they
+			   are put into the global psymtab like one would expect.
+			   They're also in the minimal symbol table.  */
+		      case 'F':
+			if (! pst)
+			  {
+			    int name_len = p - namestring;
+			    char *name = xmalloc (name_len + 1);
+			    memcpy (name, namestring, name_len);
+			    name[name_len] = '\0';
+			    complain (&function_outside_compilation_unit, name);
+			    xfree (name);
+			  }
+			sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+			add_psymbol_to_list (namestring, p - namestring,
+					     VAR_NAMESPACE, LOC_BLOCK,
+					     &objfile->global_psymbols,
+					     0, sh.value,
+					     psymtab_language, objfile);
+			continue;
+
+			/* Two things show up here (hopefully); static symbols of
+			   local scope (static used inside braces) or extensions
+			   of structure symbols.  We can ignore both.  */
+		      case 'V':
+		      case '(':
+		      case '0':
+		      case '1':
+		      case '2':
+		      case '3':
+		      case '4':
+		      case '5':
+		      case '6':
+		      case '7':
+		      case '8':
+		      case '9':
+		      case '-':
+		      case '#':		/* for symbol identification (used in live ranges) */
+			/* added to support cfront stabs strings */
+		      case 'Z':		/* for definition continuations */
+		      case 'P':		/* for prototypes */
+			continue;
+
+		      case ':':
+			/* It is a C++ nested symbol.  We don't need to record it
+			   (I don't think); if we try to look up foo::bar::baz,
+			   then symbols for the symtab containing foo should get
+			   read in, I think.  */
+			/* Someone says sun cc puts out symbols like
+			   /foo/baz/maclib::/usr/local/bin/maclib,
+			   which would get here with a symbol type of ':'.  */
+			continue;
+
+		      default:
+			/* Unexpected symbol descriptor.  The second and subsequent stabs
+			   of a continued stab can show up here.  The question is
+			   whether they ever can mimic a normal stab--it would be
+			   nice if not, since we certainly don't want to spend the
+			   time searching to the end of every string looking for
+			   a backslash.  */
+
+			complain (&unknown_symchar_complaint, p[1]);
+
+			/* Ignore it; perhaps it is an extension that we don't
+			   know about.  */
+			continue;
+		      }
+
+		  case N_EXCL:
+		    continue;
+
+		  case N_ENDM:
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+		    /* Solaris 2 end of module, finish current partial symbol table.
+		       END_PSYMTAB will set TEXTHIGH (pst) to the proper value, which
+		       is necessary if a module compiled without debugging info
+		       follows this module.  */
+		    if (pst)
+		      {
+			pst = (struct partial_symtab *) 0;
+			includes_used = 0;
+			dependencies_used = 0;
+		      }
+#endif
+		    continue;
+
+		  case N_RBRAC:
+		    if (sh.value > TEXTHIGH (save_pst))
+		      TEXTHIGH (save_pst) = sh.value;
+		    continue;
+		  case N_EINCL:
+		  case N_DSLINE:
+		  case N_BSLINE:
+		  case N_SSYM:			/* Claim: Structure or union element.
+						   Hopefully, I can ignore this.  */
+		  case N_ENTRY:		/* Alternate entry point; can ignore. */
+		  case N_MAIN:			/* Can definitely ignore this.   */
+		  case N_CATCH:		/* These are GNU C++ extensions */
+		  case N_EHDECL:		/* that can safely be ignored here. */
+		  case N_LENG:
+		  case N_BCOMM:
+		  case N_ECOMM:
+		  case N_ECOML:
+		  case N_FNAME:
+		  case N_SLINE:
+		  case N_RSYM:
+		  case N_PSYM:
+		  case N_LBRAC:
+		  case N_NSYMS:		/* Ultrix 4.0: symbol count */
+		  case N_DEFD:			/* GNU Modula-2 */
+		  case N_ALIAS:		/* SunPro F77: alias name, ignore for now.  */
+
+		  case N_OBJ:			/* useless types from Solaris */
+		  case N_OPT:
+		    /* These symbols aren't interesting; don't worry about them */
+
+		    continue;
+
+		  default:
+		    /* If we haven't found it yet, ignore it.  It's probably some
+		       new type we don't know about yet.  */
+		    complain (&unknown_symtype_complaint,
+			      local_hex_string (type_code)); /*CUR_SYMBOL_TYPE*/
+		    continue;
+		  }
 		if (stabstring
 		    && stabstring != debug_info->ss + fh->issBase + sh.iss)
-		  free (stabstring);
+		  xfree (stabstring);
 	      }
 	      /* end - Handle continuation */
 	    }
@@ -2837,12 +3365,12 @@ parse_partial_symbols (struct objfile *objfile)
 
 		  /* Kludge for Irix 5.2 zero fh->adr.  */
 		  if (!relocatable
-		      && (pst->textlow == 0 || procaddr < pst->textlow))
-		    pst->textlow = procaddr;
+		      && (TEXTLOW (pst) == 0 || procaddr < TEXTLOW (pst)))
+		    TEXTLOW (pst) = procaddr;
 
 		  high = procaddr + sh.value;
-		  if (high > pst->texthigh)
-		    pst->texthigh = high;
+		  if (high > TEXTHIGH (pst))
+		    TEXTHIGH (pst) = high;
 		  continue;
 
 		case stStatic:	/* Variable */
@@ -2948,7 +3476,7 @@ parse_partial_symbols (struct objfile *objfile)
 	      CORE_ADDR svalue;
 
 	      if (ext_ptr->ifd != f_idx)
-		abort ();
+		internal_error (__FILE__, __LINE__, "failed internal consistency check");
 	      psh = &ext_ptr->asym;
 
 	      /* Do not add undefined symbols to the partial symbol table.  */
@@ -3016,16 +3544,16 @@ parse_partial_symbols (struct objfile *objfile)
          empty and put on the free list.  */
       fdr_to_pst[f_idx].pst = end_psymtab (save_pst,
 					psymtab_include_list, includes_used,
-					   -1, save_pst->texthigh,
+					   -1, TEXTHIGH (save_pst),
 		       dependency_list, dependencies_used, textlow_not_set);
       includes_used = 0;
       dependencies_used = 0;
 
-      if (objfile->ei.entry_point >= save_pst->textlow &&
-	  objfile->ei.entry_point < save_pst->texthigh)
+      if (objfile->ei.entry_point >= TEXTLOW (save_pst) &&
+	  objfile->ei.entry_point < TEXTHIGH (save_pst))
 	{
-	  objfile->ei.entry_file_lowpc = save_pst->textlow;
-	  objfile->ei.entry_file_highpc = save_pst->texthigh;
+	  objfile->ei.entry_file_lowpc = TEXTLOW (save_pst);
+	  objfile->ei.entry_file_highpc = TEXTHIGH (save_pst);
 	}
 
       /* The objfile has its functions reordered if this partial symbol
@@ -3041,15 +3569,15 @@ parse_partial_symbols (struct objfile *objfile)
          other cases.  */
       save_pst = fdr_to_pst[f_idx].pst;
       if (save_pst != NULL
-	  && save_pst->textlow != 0
+	  && TEXTLOW (save_pst) != 0
 	  && !(objfile->flags & OBJF_REORDERED))
 	{
 	  ALL_OBJFILE_PSYMTABS (objfile, pst)
 	  {
 	    if (save_pst != pst
-		&& save_pst->textlow >= pst->textlow
-		&& save_pst->textlow < pst->texthigh
-		&& save_pst->texthigh > pst->texthigh)
+		&& TEXTLOW (save_pst) >= TEXTLOW (pst)
+		&& TEXTLOW (save_pst) < TEXTHIGH (pst)
+		&& TEXTHIGH (save_pst) > TEXTHIGH (pst))
 	      {
 		objfile->flags |= OBJF_REORDERED;
 		break;
@@ -3122,7 +3650,7 @@ handle_psymbol_enumerators (struct objfile *objfile, FDR *fh, int stype,
 			    CORE_ADDR svalue)
 {
   const bfd_size_type external_sym_size = debug_swap->external_sym_size;
-  void (*const swap_sym_in) (bfd *, PTR, SYMR *) = debug_swap->swap_sym_in;
+  void (*const swap_sym_in) (bfd *, void *, SYMR *) = debug_swap->swap_sym_in;
   char *ext_sym = ((char *) debug_info->external_sym
 		   + ((fh->isymBase + cur_sdx + 1) * external_sym_size));
   SYMR sh;
@@ -3213,13 +3741,14 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 {
   bfd_size_type external_sym_size;
   bfd_size_type external_pdr_size;
-  void (*swap_sym_in) (bfd *, PTR, SYMR *);
-  void (*swap_pdr_in) (bfd *, PTR, PDR *);
+  void (*swap_sym_in) (bfd *, void *, SYMR *);
+  void (*swap_pdr_in) (bfd *, void *, PDR *);
   int i;
-  struct symtab *st;
+  struct symtab *st = NULL;
   FDR *fh;
   struct linetable *lines;
   CORE_ADDR lowest_pdr_addr = 0;
+  int last_symtab_ended = 0;
 
   if (pst->readin)
     return;
@@ -3252,7 +3781,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
   /* Do nothing if this is a dummy psymtab.  */
 
   if (pst->n_global_syms == 0 && pst->n_static_syms == 0
-      && pst->textlow == 0 && pst->texthigh == 0)
+      && TEXTLOW (pst) == 0 && TEXTHIGH (pst) == 0)
     return;
 
   /* Now read the symbols for this symtab */
@@ -3325,8 +3854,30 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 	         complaining about them.  */
 	      if (type_code & N_STAB)
 		{
-		  process_one_symbol (type_code, 0, valu, name, NULL,
-				      pst->section_offsets, pst->objfile);
+		  /* If we found a trailing N_SO with no name, process
+                     it here instead of in process_one_symbol, so we
+                     can keep a handle to its symtab.  The symtab
+                     would otherwise be ended twice, once in
+                     process_one_symbol, and once after this loop. */
+		  if (type_code == N_SO
+		      && last_source_file
+		      && previous_stab_code != (unsigned char) N_SO
+		      && *name == '\000')
+		    {
+		      valu += ANOFFSET (pst->section_offsets,
+					SECT_OFF_TEXT (pst->objfile));
+		      previous_stab_code = N_SO;
+		      st = end_symtab (valu, pst->objfile,
+				       SECT_OFF_TEXT (pst->objfile));
+		      end_stabs ();
+		      last_symtab_ended = 1;
+		    }
+		  else
+		    {
+		      last_symtab_ended = 0;
+		      process_one_symbol (type_code, 0, valu, name, NULL,
+					  pst->section_offsets, pst->objfile);
+		    }
 		}
 	      /* Similarly a hack.  */
 	      else if (name[0] == '#')
@@ -3344,7 +3895,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 				  sizeof (struct mips_extra_func_info)));
 		  struct symbol *s = new_symbol (MIPS_EFI_SYMBOL_NAME);
 
-		  memset ((PTR) e, 0, sizeof (struct mips_extra_func_info));
+		  memset (e, 0, sizeof (struct mips_extra_func_info));
 		  SYMBOL_NAMESPACE (s) = LABEL_NAMESPACE;
 		  SYMBOL_CLASS (s) = LOC_CONST;
 		  SYMBOL_TYPE (s) = mdebug_type_void;
@@ -3375,8 +3926,12 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 	  else
 	    complain (&stab_unknown_complaint, name);
 	}
-      st = end_symtab (pst->texthigh, pst->objfile, SECT_OFF_TEXT (pst->objfile));
-      end_stabs ();
+
+      if (! last_symtab_ended)
+	{
+	  st = end_symtab (TEXTHIGH (pst), pst->objfile, SECT_OFF_TEXT (pst->objfile));
+	  end_stabs ();
+	}
 
       /* Sort the symbol table now, we are done adding symbols to it.
          We must do this before parse_procedure calls lookup_symbol.  */
@@ -3399,7 +3954,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 	  PDR *pdr_in_end;
 
 	  pr_block = (PDR *) xmalloc (fh->cpd * sizeof (PDR));
-	  old_chain = make_cleanup (free, pr_block);
+	  old_chain = make_cleanup (xfree, pr_block);
 
 	  pdr_ptr = ((char *) debug_info->external_pdr
 		     + fh->ipdFirst * external_pdr_size);
@@ -3464,7 +4019,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
       top_stack->cur_st = st;
       top_stack->cur_block = BLOCKVECTOR_BLOCK (BLOCKVECTOR (st),
 						STATIC_BLOCK);
-      BLOCK_START (top_stack->cur_block) = pst->textlow;
+      BLOCK_START (top_stack->cur_block) = TEXTLOW (pst);
       BLOCK_END (top_stack->cur_block) = 0;
       top_stack->blocktype = stFile;
       top_stack->maxsyms = 2 * f_max;
@@ -3508,7 +4063,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 
 	      pr_block = (PDR *) xmalloc (fh->cpd * sizeof (PDR));
 
-	      old_chain = make_cleanup (free, pr_block);
+	      old_chain = make_cleanup (xfree, pr_block);
 
 	      pdr_ptr = ((char *) debug_info->external_pdr
 			 + fh->ipdFirst * external_pdr_size);
@@ -3659,8 +4214,7 @@ cross_ref (int fd, union aux_ext *ax, struct type **tpp, enum type_code type_cod
   if (rf == -1)
     {
       *pname = "<undefined>";
-      *tpp = init_type (type_code, 0, 0, (char *) NULL, current_objfile);
-      TYPE_FLAGS (*tpp) |= TYPE_FLAG_STUB;
+      *tpp = init_type (type_code, 0, TYPE_FLAG_STUB, (char *) NULL, current_objfile);
       return result;
     }
 
@@ -3827,22 +4381,19 @@ static struct symbol *
 mylookup_symbol (char *name, register struct block *block,
 		 namespace_enum namespace, enum address_class class)
 {
-  register int bot, top, inc;
-  register struct symbol *sym;
+  int i, inc;
+  struct symbol *sym;
 
-  bot = 0;
-  top = BLOCK_NSYMS (block);
   inc = name[0];
-  while (bot < top)
+  ALL_BLOCK_SYMBOLS (block, i, sym)
     {
-      sym = BLOCK_SYM (block, bot);
       if (SYMBOL_NAME (sym)[0] == inc
 	  && SYMBOL_NAMESPACE (sym) == namespace
 	  && SYMBOL_CLASS (sym) == class
 	  && strcmp (SYMBOL_NAME (sym), name) == 0)
 	return sym;
-      bot++;
     }
+
   block = BLOCK_SUPERBLOCK (block);
   if (block)
     return mylookup_symbol (name, block, namespace, class);
@@ -3893,7 +4444,7 @@ add_block (struct block *b, struct symtab *s)
 {
   struct blockvector *bv = BLOCKVECTOR (s);
 
-  bv = (struct blockvector *) xrealloc ((PTR) bv,
+  bv = (struct blockvector *) xrealloc ((void *) bv,
 					(sizeof (struct blockvector)
 					 + BLOCKVECTOR_NBLOCKS (bv)
 					 * sizeof (bv->block)));
@@ -3941,7 +4492,7 @@ add_line (struct linetable *lt, int lineno, CORE_ADDR adr, int last)
 /* Blocks with a smaller low bound should come first */
 
 static int
-compare_blocks (const PTR arg1, const PTR arg2)
+compare_blocks (const void *arg1, const void *arg2)
 {
   register int addr_diff;
   struct block **b1 = (struct block **) arg1;
@@ -4043,7 +4594,7 @@ new_psymtab (char *name, struct objfile *objfile)
   psymtab->read_symtab_private = ((char *)
 				  obstack_alloc (&objfile->psymbol_obstack,
 						 sizeof (struct symloc)));
-  memset ((PTR) psymtab->read_symtab_private, 0, sizeof (struct symloc));
+  memset (psymtab->read_symtab_private, 0, sizeof (struct symloc));
   CUR_BFD (psymtab) = cur_bfd;
   DEBUG_SWAP (psymtab) = debug_swap;
   DEBUG_INFO (psymtab) = debug_info;
@@ -4081,7 +4632,7 @@ static struct linetable *
 shrink_linetable (struct linetable *lt)
 {
 
-  return (struct linetable *) xrealloc ((PTR) lt,
+  return (struct linetable *) xrealloc ((void *) lt,
 					(sizeof (struct linetable)
 					 + ((lt->nitems - 1)
 					    * sizeof (lt->item))));
@@ -4125,7 +4676,7 @@ shrink_block (struct block *b, struct symtab *s)
 
   /* Just reallocate it and fix references to the old one */
 
-  new = (struct block *) xrealloc ((PTR) b,
+  new = (struct block *) xrealloc ((void *) b,
 				   (sizeof (struct block)
 				    + ((BLOCK_NSYMS (b) - 1)
 				       * sizeof (struct symbol *))));
@@ -4151,7 +4702,7 @@ new_symbol (char *name)
 		      obstack_alloc (&current_objfile->symbol_obstack,
 				     sizeof (struct symbol)));
 
-  memset ((PTR) s, 0, sizeof (*s));
+  memset (s, 0, sizeof (*s));
   SYMBOL_NAME (s) = obsavestring (name, strlen (name),
 				  &current_objfile->symbol_obstack);
   SYMBOL_LANGUAGE (s) = psymtab_language;

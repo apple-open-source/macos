@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacMath.h,v 1.1.1.2 2000/04/12 02:02:39 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacMath.h,v 1.1.1.3 2002/04/05 16:13:45 jevans Exp $
  */
 
 #ifndef _TCLMACMATH
@@ -135,7 +135,7 @@
 #endif
 #endif
 
-#if (defined(THINK_C) || defined(__MWERKS__))
+#if (defined(THINK_C))
 #pragma export on
 double		hypotd(double x, double y);
 #define hypot hypotd

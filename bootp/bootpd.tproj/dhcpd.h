@@ -1,3 +1,7 @@
+
+#ifndef _S_DHCPD_H
+#define _S_DHCPD_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -24,16 +28,15 @@
  * - DHCP server definitions
  */
 
-#import "dhcplib.h"
+#include "dhcplib.h"
+#include "bootpd.h"
 
 void
 dhcp_init();
 
 void
-dhcp_request(dhcp_msgtype_t dhcp_msgtype, boolean_t dhcp_allocate,
-	     interface_t * intface, 
-	     u_char * rxpkt, int n, dhcpol_t * rq_options, 
-	     struct in_addr * dstaddr_p, struct timeval * time_in_p);
+dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
+	     boolean_t dhcp_allocate);
 
 boolean_t
 dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
@@ -65,3 +68,7 @@ struct dhcp *
 make_dhcp_reply(struct dhcp * reply, int pkt_size, 
 		struct in_addr server_id, dhcp_msgtype_t msg, 
 		struct dhcp * request, dhcpoa_t * options);
+int
+dhcp_max_message_size(dhcpol_t * client_options);
+
+#endif _S_DHCPD_H

@@ -283,9 +283,9 @@ Multiple concurrent instances of fetchmail
    ABOUT_NLS   in  the  source  distribution).  This  places  some  minor
    constraints on the code.
 
-   Strings that must be subject to translation should be wrapped with _()
-   or  N_()  --  the  former  in function arguments, the latter in static
-   initializers and other non-function-argument contexts.
+   Strings  that  must  be  subject to translation should be wrapped with
+   GT_()  or  N_()  --  the  former  in function arguments, the latter in
+   static initializers and other non-function-argument contexts.
 
                          Checklist for Adding Options
 
@@ -548,14 +548,17 @@ Multiple concurrent instances of fetchmail
    RFC2449
           POP3 Extension Mechanism
 
-   RFC2683
-          IMAP4 Implementation Recommendations
+   RFC2554
+          SMTP Service Extension for Authentication
 
    RFC2595
           Using TLS with IMAP, POP3 and ACAP
 
    RFC2645
           On-Demand Mail Relay: SMTP with Dynamic IP Addresses
+
+   RFC2683
+          IMAP4 Implementation Recommendations
 
    RFC2821
           Simple Mail Transfer Protocol

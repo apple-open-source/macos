@@ -24,7 +24,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-netbios.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-netbios.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H

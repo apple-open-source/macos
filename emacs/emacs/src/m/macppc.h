@@ -1,5 +1,5 @@
 /* machine description file For the powerpc Macintosh.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -74,7 +74,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define NO_SOCK_SIGIO */
 
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__OpenBSD__)
 #define ORDINARY_LINK
 #endif
 
@@ -89,3 +89,23 @@ Boston, MA 02111-1307, USA.  */
 #if (defined (__NetBSD__) || defined (__OpenBSD__)) && defined (__ELF__)
 #define HAVE_TEXT_START
 #endif
+
+/* NAKAJI Hiroyuki <nakaji@tutrp.tut.ac.jp> says this is needed
+   For MkLinux/LinuxPPC.  */
+
+#ifdef LINUX
+#define LINKER $(CC) -nostdlib
+#define LD_SWITCH_MACHINE -Xlinker -m -Xlinker elf32ppc
+#endif
+
+#if 0  /* This breaks things on PPC GNU/Linux ecept for Yellowdog,
+	  even with identical GCC, as, ld.  Let's take it out until we
+	  know what's really going on here.  */
+/* GCC 2.95 and newer on GNU/Linux PPC changed the load address to
+   0x10000000.  */
+#if defined __linux__
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
+#define DATA_SEG_BITS  0x10000000
+#endif
+#endif
+#endif /* 0 */

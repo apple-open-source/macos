@@ -23,29 +23,20 @@
 #define _H_CSSMERRNO
 
 #include <Security/utilities.h>
+#include <Security/cssmapple.h>		/* for cssmPerror() */
+#include <string>
 
 #ifdef _CPP_CSSMERRNO
 #pragma export on
 #endif
 
-#ifdef __cplusplus
-
-#include <string>
-
 namespace Security
 {
 
-extern "C" void cssmPerror(const char *how, CSSM_RETURN error);
 string cssmErrorString(CSSM_RETURN error);
 string cssmErrorString(const CssmCommonError &error);
 
 } // end namespace Security
-
-#else // C, not C++
-
-void cssmPerror(const char *how, CSSM_RETURN error);
-
-#endif
 
 #ifdef _CPP_CSSMERRNO
 #pragma export off

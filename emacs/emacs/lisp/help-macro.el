@@ -1,10 +1,10 @@
-;;; help-macro.el --- Makes command line help such as help-for-help
+;;; help-macro.el --- makes command line help such as help-for-help
 
 ;; Copyright (C) 1993, 1994 Free Software Foundation, Inc.
 
 ;; Author: Lynn Slater <lrs@indetech.com>
 ;; Maintainer: FSF
-;; Created: : Mon Oct  1 11:42:39 1990
+;; Created: Mon Oct  1 11:42:39 1990
 ;; Adapted-By: ESR
 
 ;; This file is part of GNU Emacs.
@@ -29,7 +29,7 @@
 ;; This file supplies the macro make-help-screen which constructs
 ;; single character dispatching with browsable help such as that provided
 ;; by help-for-help. This can be used to make many modes easier to use; for
-;; example, the Gnu Emacs Empire Tool uses this for every "nested" mode map
+;; example, the GNU Emacs Empire Tool uses this for every "nested" mode map
 ;; called from the main mode map.
 
 ;;       The name of this package was changed from help-screen.el to
@@ -44,7 +44,7 @@
 ;;->
 ;;->c	Redistribute civs from overfull sectors into connected underfull ones
 ;;->	  The functions typically named by empire-ideal-civ-fcn control
-;;->          based in part on empire-sector-civ-threshold  
+;;->          based in part on empire-sector-civ-threshold
 ;;->m	Redistribute military using levels given by empire-ideal-mil-fcn
 ;;->p	Redistribute excess population to highways for max pop growth
 ;;->	  Excess is any sector so full babies will not be born.
@@ -62,22 +62,23 @@
 
 ;;; Change Log:
 ;;
-;; 22-Jan-1991		Lynn Slater x2048	
+;; 22-Jan-1991		Lynn Slater x2048
 ;;    Last Modified: Mon Oct  1 11:43:52 1990 #3 (Lynn Slater)
 ;;    documented better
 
 ;;; Code:
 
-(provide 'help-macro)
 (require 'backquote)
 
 ;;;###autoload
-(defvar three-step-help nil
+(defcustom three-step-help nil
   "*Non-nil means give more info about Help command in three steps.
 The three steps are simple prompt, prompt with all options,
 and window listing and describing the options.
 A value of nil means skip the middle step, so that
-\\[help-command] \\[help-command] gives the window that lists the options.")
+\\[help-command] \\[help-command] gives the window that lists the options."
+  :type 'boolean
+  :group 'help)
 
 (defmacro make-help-screen (fname help-line help-text helped-map)
   "Construct help-menu function name FNAME.
@@ -193,5 +194,6 @@ and then returns."
 		     (set-window-configuration config))))))
      )))
 
-;;; help-macro.el
+(provide 'help-macro)
 
+;;; help-macro.el ends here

@@ -25,17 +25,21 @@ class StackWin {
     variable protect_me 0
     method build_win {}
     method cursor {glyph}
-    method change_frame {y}
-    method update {}
-    method busy {}
+    method change_frame {}
     method no_inferior {}
-    method idle {}
   }
 
   public {
     method reconfig {}
     method constructor {args} 
     method destructor {}
+
+    #
+    # GDB Events
+    #
+    method busy {event}
+    method idle {event}
+    method update {event}
   }
 
 }

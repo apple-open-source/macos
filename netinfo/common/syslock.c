@@ -28,6 +28,16 @@
 #include <stdlib.h>
 #endif
 
+typedef struct
+{
+	char *name;
+	syslock *lock;
+}
+named_syslock_t;
+
+static named_syslock_t *named_lock = NULL;
+static unsigned int named_lock_count = 0;
+
 static thread_id_t
 _thread_id(void)
 {
@@ -106,6 +116,7 @@ syslock_new(bool_t recursive)
 	s->locked = 0;
 	s->thread = NO_THREAD;
 	s->recursive = recursive;
+
 	return s;
 }
 
@@ -258,4 +269,75 @@ syslock_signal_broadcast(syslock *s)
 #else
 	condition_broadcast(s->condition);
 #endif
+}
+
+bool_t
+syslock_set_name(syslock *s, char *n)
+{
+	unsigned int i, j, unset;
+
+	if (s == NULL) return FALSE;
+
+	unset = 0;
+	if (n == NULL) unset = 1;
+
+	for (i = 0; i < named_lock_count; i++)
+	{
+		if ((unset == 1) && (s == named_lock[i].lock))
+		{
+			free(named_lock[i].name);
+			for (j = i + 1; j < named_lock_count; j++)
+			{
+				named_lock[j - 1] = named_lock[j];
+			}
+
+			if (named_lock_count == 1)
+			{
+				free(named_lock);
+				named_lock = NULL;
+				return TRUE;
+			}
+
+			named_lock_count--;
+			named_lock = (named_syslock_t *)realloc(named_lock, named_lock_count * sizeof(named_syslock_t));
+			return TRUE;
+		}
+
+		if ((unset == 0) && (strcmp(named_lock[i].name, n) == 0))
+		{
+			if (s == named_lock[i].lock) return TRUE;
+			return FALSE;
+		}
+	}
+
+	if (unset == 1) return FALSE;
+
+	if (named_lock_count == 0)
+	{
+		named_lock = (named_syslock_t *)malloc(sizeof(named_syslock_t));
+	}
+	else
+	{
+		named_lock = (named_syslock_t *)realloc(named_lock, (named_lock_count + 1) * sizeof(named_syslock_t));
+	}
+
+	named_lock[named_lock_count].name = strdup(n);
+	named_lock[named_lock_count].lock = s;
+	named_lock_count++;
+
+	return TRUE;
+}
+
+syslock *syslock_get(char *name)
+{
+	unsigned int i;
+
+	if (name == NULL) return NULL;
+
+	for (i = 0; i < named_lock_count; i++)
+	{
+		if (strcmp(name, named_lock[i].name) == 0) return named_lock[i].lock;
+	}
+
+	return NULL;
 }

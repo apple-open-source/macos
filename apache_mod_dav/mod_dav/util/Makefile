@@ -2,7 +2,7 @@
 # quickie Makefile to build the utilities
 #
 
-APACHE=../../apache-1.3
+APACHE=/usr/local/apache/include
 CC    =gcc
 CFLAGS=-Wall
 
@@ -21,8 +21,7 @@ dbu: dbu.c sdbm_combined.o
 
 lockview: lockview.c sdbm_combined.o
 	$(CC) $(CFLAGS) -o $@ \
-            -I$(APACHE)/src/os/unix \
-            -I$(APACHE)/src/include \
+            -I$(APACHE) \
             lockview.c sdbm_combined.o
 
 sdbm_combined.o:

@@ -56,6 +56,8 @@
 #define DataTypeFloat         5
 #define DataTypeCStr          6
 #define DataTypeUTF8Str       7
+#define DataTypeCaseCStr      8
+#define DataTypeCaseUTF8Str   9
 /* 8-63 reserved for simple types */
 #define DataTypeInt8Array    64
 #define DataTypeUInt8Array   65
@@ -65,13 +67,30 @@
 #define DataTypeUInt32Array  69
 #define DataTypeInt64Array   70
 #define DataTypeUInt64Array  71
-/* 72-251 reserved  */
+/* 72-250 reserved  */
+#define DataTypeDSReference 251
+#define DataTypeCPtr        252
 #define DataTypeDirectoryID	253
 #define DataTypeDSAttribute	254
 #define DataTypeAny			255
 #define DataTypeDSRecord		256
 
-#define IsStringDataType(type) ((type == DataTypeCStr) || (type == DataTypeUTF8Str))
+#define IsStringDataType(type) (((type) == DataTypeCStr) || \
+	((type) == DataTypeCaseCStr) || \
+	((type) == DataTypeUTF8Str) || \
+	((type) == DataTypeCaseUTF8Str))
+
+#define IsCaseStringDataType(type) (((type) == DataTypeCaseCStr) || \
+	((type) == DataTypeCaseUTF8Str))
+
+#define IsUTF8DataType(type) (((type) == DataTypeUTF8Str) || \
+	((type) == DataTypeCaseUTF8Str))
+
+#define StringDataTypes(t1, t2) (IsStringDataType(t1) && IsStringDataType(t2))
+
+/* can t2 be compared against t1? */
+#define ComparableDataTypes(t1, t2) (((t2) == DataTypeAny) ? 1 : \
+	(StringDataTypes(t1, t2) || ((t1) == (t2))))
 
 /* Size of type + length */
 #define DSDATA_STORAGE_HEADER_SIZE 8
@@ -86,38 +105,44 @@ typedef struct
 } dsdata;
 
 
-dsdata *dsdata_alloc(void);
-dsdata *dsdata_new(u_int32_t, u_int32_t, char *);
-dsdata *dsdata_copy(dsdata *);
+dsdata *dsdata_alloc(u_int32_t size);
+dsdata *dsdata_new(u_int32_t type, u_int32_t len, char *buf);
+dsdata *dsdata_copy(dsdata *d);
 
+/*
+ * Inserts data from b into a.
+ * Returns a NEW pointer for a - don't use the old one!
+ */
 dsdata *dsdata_insert(dsdata *a, dsdata *b, u_int32_t where, u_int32_t len);
 
-dsdata *dsdata_retain(dsdata *);
-void dsdata_release(dsdata *);
+dsdata *dsdata_retain(dsdata *d);
+void dsdata_release(dsdata *d);
 
-u_int32_t dsdata_size(dsdata *);
+u_int32_t dsdata_size(dsdata *d);
 
-dsdata *dsdata_read(char *);
-dsdata *dsdata_fread(FILE *);
+dsdata *dsdata_read(char *filename);
+dsdata *dsdata_fread(FILE *file);
 
-dsstatus dsdata_write(dsdata *, char *);
-dsstatus dsdata_fwrite(dsdata *, FILE *);
+dsstatus dsdata_write(dsdata *d, char *filename);
+dsstatus dsdata_fwrite(dsdata *d, FILE *file);
 
-int32_t dsdata_equal(dsdata *, dsdata *);
-int32_t dsdata_compare(dsdata *, dsdata *);
-int32_t dsdata_compare_sub(dsdata *, dsdata *, u_int32_t, u_int32_t);
+int32_t dsdata_equal(dsdata *a, dsdata *b);
+int32_t dsdata_compare(dsdata *a, dsdata *b);
+int32_t dsdata_compare_sub(dsdata *a, dsdata *b, u_int32_t start, u_int32_t len);
 
-dsdata *cstring_to_dsdata(char *);
-dsdata *utf8string_to_dsdata(char *);
-dsdata *int8_to_dsdata(int8_t);
-dsdata *uint8_to_dsdata(u_int8_t);
-dsdata *int16_to_dsdata(int16_t);
-dsdata *uint16_to_dsdata(u_int16_t);
-dsdata *int32_to_dsdata(int32_t);
-dsdata *uint32_to_dsdata(u_int32_t);
-dsdata *int64_to_dsdata(int64_t);
-dsdata *uint64_to_dsdata(u_int64_t);
-dsdata *dsid_to_dsdata(u_int32_t i);
+dsdata *cstring_to_dsdata(char *s);
+dsdata *casecstring_to_dsdata(char *s);
+dsdata *utf8string_to_dsdata(char *s);
+dsdata *caseutf8string_to_dsdata(char *);
+dsdata *int8_to_dsdata(int8_t n);
+dsdata *uint8_to_dsdata(u_int8_t n);
+dsdata *int16_to_dsdata(int16_t n);
+dsdata *uint16_to_dsdata(u_int16_t n);
+dsdata *int32_to_dsdata(int32_t n);
+dsdata *uint32_to_dsdata(u_int32_t n);
+dsdata *int64_to_dsdata(int64_t n);
+dsdata *uint64_to_dsdata(u_int64_t n);
+dsdata *dsid_to_dsdata(u_int32_t n);
 
 /*
  * NB - the following two routines do not allocate memory.
@@ -125,18 +150,18 @@ dsdata *dsid_to_dsdata(u_int32_t i);
  * This works because dsdata includes a NULL character to
  * terminate strings.  Do not free the returned pointers!
  */
-char *dsdata_to_cstring(dsdata *);
-char *dsdata_to_utf8string(dsdata *);
+char *dsdata_to_cstring(dsdata *d);
+char *dsdata_to_utf8string(dsdata *d);
 
-int8_t dsdata_to_int8(dsdata *);
-u_int8_t dsdata_to_uint8(dsdata *);
-int16_t dsdata_to_int16(dsdata *);
-u_int16_t dsdata_to_uint16(dsdata *);
-int32_t dsdata_to_int32(dsdata *);
-u_int32_t dsdata_to_uint32(dsdata *);
-int64_t dsdata_to_int64(dsdata *);
-u_int64_t dsdata_to_uint64(dsdata *);
-u_int32_t dsdata_to_dsid(dsdata *data);
+int8_t dsdata_to_int8(dsdata *d);
+u_int8_t dsdata_to_uint8(dsdata *d);
+int16_t dsdata_to_int16(dsdata *d);
+u_int16_t dsdata_to_uint16(dsdata *d);
+int32_t dsdata_to_int32(dsdata *d);
+u_int32_t dsdata_to_uint32(dsdata *d);
+int64_t dsdata_to_int64(dsdata *d);
+u_int64_t dsdata_to_uint64(dsdata *d);
+u_int32_t dsdata_to_dsid(dsdata *d);
 
 dsdata *int8_array_to_dsdata(int8_t *, u_int32_t);
 dsdata *uint8_array_to_dsdata(u_int8_t *, u_int32_t);
@@ -147,15 +172,15 @@ dsdata *uint32_array_to_dsdata(u_int32_t *, u_int32_t);
 dsdata *int64_array_to_dsdata(int64_t *, u_int32_t);
 dsdata *uint64_array_to_dsdata(u_int64_t *, u_int32_t);
 
-int8_t dsdata_int8_at_index(dsdata *, u_int32_t);
-u_int8_t dsdata_uint8_at_index(dsdata *, u_int32_t);
-int16_t dsdata_int16_at_index(dsdata *, u_int32_t);
-u_int16_t dsdata_uint16_at_index(dsdata *, u_int32_t);
-int32_t dsdata_int32_at_index(dsdata *, u_int32_t);
-u_int32_t dsdata_uint32_at_index(dsdata *, u_int32_t);
-int64_t dsdata_int64_at_index(dsdata *, u_int32_t);
-u_int64_t dsdata_uint64_at_index(dsdata *, u_int32_t);
+int8_t dsdata_int8_at_index(dsdata *d, u_int32_t i);
+u_int8_t dsdata_uint8_at_index(dsdata *d, u_int32_t i);
+int16_t dsdata_int16_at_index(dsdata *d, u_int32_t i);
+u_int16_t dsdata_uint16_at_index(dsdata *d, u_int32_t i);
+int32_t dsdata_int32_at_index(dsdata *d, u_int32_t i);
+u_int32_t dsdata_uint32_at_index(dsdata *d, u_int32_t i);
+int64_t dsdata_int64_at_index(dsdata *d, u_int32_t i);
+u_int64_t dsdata_uint64_at_index(dsdata *d, u_int32_t i);
 
-void dsdata_print(dsdata *, FILE *);
+void dsdata_print(dsdata *d, FILE *f);
 
 #endif __DSDATA_H__

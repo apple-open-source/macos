@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test for bug in conditionals.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AM_CONDITIONAL(COND1, true)
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = foo
+if COND1
+SUBDIRS += bar
+endif
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

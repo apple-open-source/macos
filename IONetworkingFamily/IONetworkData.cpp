@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -102,11 +105,11 @@ bool
 IONetworkData::init(const char * name,
                     UInt32       bufferType,
                     UInt32       bufferSize,
-                    void *       extBuffer   = 0,
-                    UInt32       accessTypes = kIONetworkDataBasicAccessTypes,
-                    void *       target = 0,
-                    Action       action = 0,
-                    void *       param  = 0)
+                    void *       extBuffer,
+                    UInt32       accessTypes,
+                    void *       target,
+                    Action       action,
+                    void *       param)
 {
     if ( super::init() == false )
         return false;
@@ -150,10 +153,10 @@ IONetworkData *
 IONetworkData::withInternalBuffer(
                    const char * name,
                    UInt32       bufferSize,
-                   UInt32       accessTypes = kIONetworkDataBasicAccessTypes,
-                   void *       target = 0,
-                   Action       action = 0,
-                   void *       param  = 0)
+                   UInt32       accessTypes,
+                   void *       target,
+                   Action       action,
+                   void *       param)
 {
     IONetworkData * aData = new IONetworkData;
     
@@ -181,10 +184,10 @@ IONetworkData::withExternalBuffer(
                    const char * name,
                    UInt32       bufferSize,
                    void *       buffer,
-                   UInt32       accessTypes = kIONetworkDataBasicAccessTypes,
-                   void *       target = 0,
-                   Action       action = 0,
-                   void *       param  = 0)
+                   UInt32       accessTypes,
+                   void *       target,
+                   Action       action,
+                   void *       param)
 {
     IONetworkData * aData = new IONetworkData;
     
@@ -214,7 +217,7 @@ IONetworkData::withNoBuffer(const char * name,
                             UInt32       accessTypes,
                             void *       target,
                             Action       action,
-                            void *       param = 0)
+                            void *       param)
 {
     IONetworkData * aData = new IONetworkData;
     

@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacSock.c,v 1.1.1.4 2000/12/06 23:04:31 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacSock.c,v 1.1.1.5 2002/04/05 16:13:47 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -75,7 +75,7 @@ typedef struct TcpState {
 				    * TCL_WRITABLE as set by an asynchronous
 				    * event handler. */
     int watchMask;		   /* OR'ed combination of TCL_READABLE and
-				    * TCL_WRITABLE as set by Tcl_WatchFile. */
+				    * TCL_WRITABLE as set by TcpWatch. */
     Tcl_TcpAcceptProc *acceptProc; /* Proc to call on accept. */
     ClientData acceptProcData;	   /* The data for the accept proc. */
     wdsEntry dataSegment[2];       /* List of buffers to be written async. */
@@ -196,7 +196,7 @@ pascal void NotifyRoutine (
 
 static Tcl_ChannelType tcpChannelType = {
     "tcp",			/* Type name. */
-    TcpBlockMode,		/* Set blocking or
+    (Tcl_ChannelTypeVersion)TcpBlockMode,		/* Set blocking or
                                  * non-blocking mode.*/
     TcpClose,			/* Close proc. */
     TcpInput,			/* Input proc. */

@@ -315,6 +315,9 @@ objcplus_TYPE_SIZE (type)
 
 #define start_function(declspecs, declarator, raises, attrs, pre_parsed_p) \
   start_function (declspecs, declarator, attrs, pre_parsed_p)
+
+#define build_function_call(function, args) \
+  build_x_function_call (function, args, current_class_ref)  
   
 #elif defined (NEXT_SEMANTICS)
 #define start_decl(declarator, declspecs, spspecs) \
@@ -343,7 +346,7 @@ static tree init_module_descriptor		PROTO((tree));
 static tree build_objc_method_call		PROTO((int, tree, tree, tree, tree, tree));
 static void generate_strings			PROTO((void));
 static void build_selector_translation_table	PROTO((void));
-static tree build_ivar_chain			PROTO((tree, int));
+static tree build_ivar_chain			PROTO((tree));
 
 static tree build_ivar_template			PROTO((void));
 static tree build_method_template		PROTO((void));
@@ -2734,11 +2737,23 @@ add_class_reference (ident)
 
 /* Get a class reference, creating it if necessary.  Also create the
    reference variable.  */
-
+   
 tree
 get_class_reference (ident)
     tree ident;
 {
+#ifdef OBJCPLUS
+  if (processing_template_decl)
+    /* Must wait until template instantiation time.  */
+    return build_min_nt (CLASS_REFERENCE_EXPR, ident);
+
+  /* When coming back from template expansion, ObjC++ class
+     references may be more sophisticated than just
+     identifiers.  */    
+  if (TREE_CODE (ident) != IDENTIFIER_NODE)
+    ident = DECL_NAME (ident);  
+#endif
+
   if (flag_class_references)
     {
       tree *chain;
@@ -3012,25 +3027,29 @@ objc_copy_list (list, head)
 }
 
 /* Used by: build_private_template, get_class_ivars, and
-   continue_class.  COPY is 1 when called from @defs.  In this case
-   copy all fields.  Otherwise don't copy leaf ivars since we rely on
-   them being side-effected exactly once by finish_struct.  */
+   continue_class.  This function constructs a list of all
+   the ivars in INTERFACE (including any superclasses).
+   It copies each ivar node along the way, since we don't
+   want to alter the original ivar list further down during
+   compilation.  */
 
 static tree
-build_ivar_chain (interface, copy)
+build_ivar_chain (interface)
      tree interface;
-     int copy;
 {
   tree my_name, super_name, ivar_chain;
 
   my_name = CLASS_NAME (interface);
   super_name = CLASS_SUPER_NAME (interface);
 
-  /* Possibly copy leaf ivars.  */
-  if (copy)
-    objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
-  else
-    ivar_chain = CLASS_IVARS (interface);
+  /* Copy leaf ivars.  */
+  objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
+  /* APPLE LOCAL bitfield alignment */
+  /* Save off a pointer to ivars for the current class only
+     (i.e., excluding any superclasses); these must be side-effected
+     by 'finish_struct' exactly once.  */
+  if (!CLASS_OWN_IVARS (interface))
+    CLASS_OWN_IVARS (interface) = ivar_chain;
 
   while (super_name)
     {
@@ -3090,7 +3109,7 @@ build_private_template (class)
     {
       uprivate_record = objcplus_start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      ivar_context = build_ivar_chain (class, 0);
+      ivar_context = build_ivar_chain (class);
 
       objcplus_finish_struct (uprivate_record, ivar_context);
 
@@ -4505,7 +4524,8 @@ generate_ivar_lists ()
   else
     UOBJC_CLASS_VARIABLES_decl = 0;
 
-  chain = CLASS_IVARS (implementation_template);
+  /* APPLE LOCAL bitfield alignment */
+  chain = CLASS_OWN_IVARS (implementation_template);
   if (chain)
     {
       size = list_length (chain);
@@ -5606,27 +5626,76 @@ build_message_expr (mess)
      tree mess;
 {
   tree receiver = TREE_PURPOSE (mess);
-  tree selector, self_object;
-  tree rtype, sel_name;
+  tree sel_name;
   tree args = TREE_VALUE (mess);
   tree method_params = NULL_TREE;
-  tree method_prototype = NULL_TREE;
-  tree retval;
-  int statically_typed = 0, statically_allocated = 0;
-  tree class_ident = 0;
-
-  /* 1 if this is sending to the superclass.  */
-  int super;
-
-  if (!doing_objc_thang)
-    objc_fatal ();
 
   if (TREE_CODE (receiver) == ERROR_MARK)
     return error_mark_node;
 
+  /* Obtain the full selector name.  */
+  if (TREE_CODE (args) == IDENTIFIER_NODE)
+    /* A unary selector. */
+    sel_name = args;
+  else if (TREE_CODE (args) == TREE_LIST)
+    sel_name = build_keyword_selector (args);
+  else
+    {
+      /* internal parser error */
+      fprintf (stderr, "Internal objc parser error, please report to bug-gcc\n");
+      fflush (stderr);
+      abort ();
+    }
+
+  /* Build the parameter list to give to the method.  */
+  if (TREE_CODE (args) == TREE_LIST)
+    {
+      tree chain = args, prev = NULL_TREE;
+
+      /* We have a keyword selector--check for comma expressions.  */
+      while (chain)
+	{
+	  tree element = TREE_VALUE (chain);
+
+	  /* We have a comma expression, must collapse...  */
+	  if (TREE_CODE (element) == TREE_LIST)
+	    {
+	      if (prev)
+		TREE_CHAIN (prev) = element;
+	      else
+		args = element;
+	    }
+	  prev = chain;
+	  chain = TREE_CHAIN (chain);
+        }
+      method_params = args;
+    }
+
+#ifdef OBJCPLUS
+  if (processing_template_decl)
+    /* Must wait until template instantiation time.  */
+    return build_min_nt (MESSAGE_SEND_EXPR, receiver, sel_name, method_params);
+#endif
+
+  return finish_message_expr (receiver, sel_name, method_params);
+}
+
+/* The 'finish_message_expr' routine is called from within
+   'build_message_expr' for non-template functions.  In the case
+   of C++ template functions, it is called from 'build_expr_from_tree'
+   (in decl2.c) after RECEIVER and METHOD_PARAMS have been expanded.  */
+   
+tree
+finish_message_expr (receiver, sel_name, method_params)
+     tree receiver, sel_name, method_params; 
+{      
+  tree method_prototype = NULL_TREE, class_ident = NULL_TREE;
+  tree selector, self_object, retval;
+  int statically_typed = 0, statically_allocated = 0;
+  
   /* Determine receiver type. */
-  rtype = TREE_TYPE (receiver);
-  super = IS_SUPER (rtype);
+  tree rtype = TREE_TYPE (receiver);
+  int super = IS_SUPER (rtype);
 
   if (! super)
     {
@@ -5676,52 +5745,9 @@ build_message_expr (mess)
     /* If sending to `super', use current self as the object.  */
     self_object = self_decl;
 
-  /* Obtain the full selector name.  */
-
-  if (TREE_CODE (args) == IDENTIFIER_NODE)
-    /* A unary selector. */
-    sel_name = args;
-  else if (TREE_CODE (args) == TREE_LIST)
-    {
-      sel_name = build_keyword_selector (args);
-    }
-  else
-    {
-      /* internal parser error */
-      fprintf (stderr, "Internal objc parser error, please report to bug-gcc\n");
-      fflush (stderr);
-      abort ();
-    }
-
-  /* Build the parameter list to give to the method.  */
-
-  method_params = NULL_TREE;
-  if (TREE_CODE (args) == TREE_LIST)
-    {
-      tree chain = args, prev = NULL_TREE;
-
-      /* We have a keyword selector--check for comma expressions.  */
-      while (chain)
-	{
-	  tree element = TREE_VALUE (chain);
-
-	  /* We have a comma expression, must collapse...  */
-	  if (TREE_CODE (element) == TREE_LIST)
-	    {
-	      if (prev)
-		TREE_CHAIN (prev) = element;
-	      else
-		args = element;
-	    }
-	  prev = chain;
-	  chain = TREE_CHAIN (chain);
-        }
-      method_params = args;
-    }
-
   /* Determine operation return type.  */
 
-  if (IS_SUPER (rtype))
+  if (super)
     {
       tree iface;
 
@@ -5938,30 +5964,6 @@ build_message_expr (mess)
 }
 
 static int
-is_protocol_contained_in_protocols PROTO((tree, tree));
-
-is_protocol_contained_in_protocol (protocol1, protocol2)
-tree protocol1;
-tree protocol2;
-{
-    if (protocol1 == protocol2)
-       return 1;
-    return is_protocol_contained_in_protocols(protocol1, PROTOCOL_LIST(protocol2));
-}
-	
-static int
-is_protocol_contained_in_protocols (protocol, protocols)
-tree protocol;
-tree protocols;
-{
-    while (protocols) {
-       if (is_protocol_contained_in_protocol(protocol, TREE_VALUE(protocols))) return 1;
-       protocols = TREE_CHAIN (protocols);
-    }
-    return 0;
-}
-
-static int
 check_protocol (p, type, name)
      tree p;
      char *type;
@@ -6134,11 +6136,10 @@ build_objc_method_call (super_flag, method_prototype, lookup_object, object,
 	     Clobber the data type of SENDER temporarily to accept
 	     all the arguments for this operation, and to return
 	     whatever this operation returns.  */
-	  tree arglist = NULL_TREE;
-	  tree retval, savarg, savret;
+	  tree arglist = NULL_TREE, retval, savarg, savret;
+	  tree ret_type = groktypename (TREE_TYPE (method_prototype));
 
 #ifdef STRUCT_VALUE
-	  tree ret_type = groktypename (TREE_TYPE (method_prototype));
 	  /* If we are returning a struct in memory, and the address
 	     of that memory location is passed as a hidden first argument,
 	     then change which messenger entry point this expr will call.  */
@@ -6950,9 +6951,9 @@ get_class_ivars (interface)
      using temporary storage.  */
 #ifdef OBJCPLUS
   return build_tree_list ((tree)access_default_node, 
-			  build_ivar_chain (interface, 1));
+			  build_ivar_chain (interface));
 #else
-  return build_ivar_chain (interface, 1);
+  return build_ivar_chain (interface);
 #endif
 }
 
@@ -7189,7 +7190,8 @@ start_class (code, class_name, super_name, protocol_list)
 #endif
 
     class = make_node (code);
-    TYPE_BINFO (class) = make_tree_vec (5);
+  /* APPLE LOCAL bitfield alignment */
+  TYPE_BINFO (class) = make_tree_vec (6);
 
 #ifdef OBJCPLUS    
     current_obstack = ambient_obstack;
@@ -7404,7 +7406,7 @@ continue_class (class)
 #ifdef OBJCPLUS
 	  build_private_template (class);
 #else
-	  objcplus_finish_struct (record, build_ivar_chain (class, 0));
+	  objcplus_finish_struct (record, build_ivar_chain (class));
 	  CLASS_STATIC_TEMPLATE (class) = record;
 #endif
 
@@ -9854,7 +9856,7 @@ emit_class_ivars(class_name)
 {
     tree interface = lookup_interface (class_name);
     if (interface) {
-      tree ivar = build_ivar_chain (interface, 1);  /* 1 = make a copy */
+      tree ivar = build_ivar_chain (interface);  
       /* finish_member_declaration takes only one decl at a time */
       for(; ivar; ivar = TREE_CHAIN (ivar)) {
         finish_member_declaration (copy_node(ivar));

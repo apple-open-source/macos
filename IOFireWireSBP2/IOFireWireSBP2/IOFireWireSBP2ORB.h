@@ -207,6 +207,9 @@ protected:
 	IOFWDelayCommand *		fTimeoutCommand;
     bool					fTimeoutTimerSet;
 
+	bool					fInProgress;
+	bool					fIsAppended;
+	
     virtual IOReturn allocateResources( void );
     virtual void free( void );
 
@@ -443,7 +446,13 @@ public:
         @result Returns the FireWire address of this ORB.
 	*/
     
-    virtual void getORBAddress( FWAddress * address );    
+    virtual void getORBAddress( FWAddress * address );
+
+protected:
+	
+	virtual bool isAppended( void );
+	virtual void setIsAppended( bool state );
+	
 };
     
 #endif

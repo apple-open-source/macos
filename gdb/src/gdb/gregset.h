@@ -1,5 +1,5 @@
 /* Interface for functions using gregset and fpregset types.
-   Copyright 2000 Free Software Foundation, Inc.
+   Copyright 2000, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -37,7 +37,7 @@ typedef GDB_FPREGSET_T gdb_fpregset_t;
    includes integer registers and control registers.  An fpregset is a
    data structure containing the floating point registers.  These data
    structures were originally a part of the /proc interface, but have
-   been borrowed or copied by other GDB targets, eg. Linux.  */
+   been borrowed or copied by other GDB targets, eg. GNU/Linux.  */
 
 /* Copy register values from the native target gregset/fpregset
    into GDB's internal register cache.  */
@@ -51,5 +51,6 @@ extern void supply_fpregset (gdb_fpregset_t *fpregs);
 
 extern void fill_gregset (gdb_gregset_t *gregs, int regno);
 extern void fill_fpregset (gdb_fpregset_t *fpregs, int regno);
+
 
 #endif

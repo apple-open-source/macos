@@ -161,6 +161,15 @@ public:
         else
             return 0;
     }
+    
+    bool getInt(CSSM_ATTRIBUTE_TYPE type, uint32 &value) const
+    {
+        if (Attr *attr = find(type)) {
+            value = static_cast<uint32>(*attr);
+            return true;
+        } else
+            return false;
+    }
 	
 public:
 	template <class T>
@@ -173,11 +182,11 @@ public:
 	}
 
 public:
-    void *operator new (size_t size, CssmAllocator &alloc)
+    void *operator new (size_t size, CssmAllocator &alloc) throw(std::bad_alloc)
     { return alloc.malloc(size); }
-    void operator delete (void *addr, size_t, CssmAllocator &alloc)
+    void operator delete (void *addr, size_t, CssmAllocator &alloc) throw()
     { return alloc.free(addr); }
-    static void destroy(Context *context, CssmAllocator &alloc)
+    static void destroy(Context *context, CssmAllocator &alloc) throw()
     { alloc.free(context->ContextAttributes); alloc.free(context); }
 	
 public:

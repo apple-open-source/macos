@@ -21,7 +21,7 @@
 
 	Contains:	SSLContext transport layer
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -80,7 +80,6 @@
 #include "ssl2.h"
 #endif
 
-#ifdef	_APPLE_CDSA_
 #ifndef	_APPLE_GLUE_H_
 #include "appleGlue.h"
 #endif
@@ -94,8 +93,8 @@
 #endif
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-#endif
 
+#include <assert.h>
 #include <string.h>
 
 #define SSL_IO_TRACE	0
@@ -179,7 +178,8 @@ SSLWrite(
         else
             rec.contents.length = MAX_RECORD_LENGTH;
         
-        if (ERR(err = SSLWriteRecord(rec, ctx)) != 0)
+		assert(ctx->sslTslCalls != NULL);
+       if (ERR(err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
             goto exit;
         
         processed += rec.contents.length;
@@ -275,7 +275,14 @@ SSLRead	(
         ctx->receivedDataPos = 0;
     }
     
+	/*
+	 * This while statement causes a hang when using nonblocking low-level I/O!
     while (remaining > 0 && ctx->state != SSLGracefulClose)
+	 ..what we really have to do is just return as soon as we read one 
+	   record. A performance hit in the nonblocking case, but that is 
+	   the only way this code can work in both modes...
+	 */
+    if (remaining > 0 && ctx->state != SSLGracefulClose)
     {   CASSERT(ctx->receivedDataBuffer.data == 0);
         if (ERR(err = SSLReadRecord(&rec, ctx)) != 0)
             goto exit;
@@ -379,6 +386,10 @@ SSLHandshake(SSLContext *ctx)
             return sslErrToOsStatus(err);
     }
     
+	/* one more flush at completion of successful handshake */ 
+    if ((err = SSLServiceWriteQueue(ctx)) != 0) {
+		return sslErrToOsStatus(err);
+	}
     return noErr;
 }
 
@@ -419,19 +430,40 @@ SSLInitConnection(SSLContext *ctx)
     }
     
     if (ctx->peerID.data != 0)
-    {   ERR(SSLGetSessionID(&ctx->resumableSession, ctx));
+    {   ERR(SSLGetSessionData(&ctx->resumableSession, ctx));
         /* Ignore errors; just treat as uncached session */
     }
     
-/* If we're a client, and we have a cached resumable session, we want
- *  to try to negotiate the same session type we negotiated before,
- *  because an SSL 3.0 session can only be resumed with an SSL 3.0
- *  hello message.
- */
-    if (ctx->protocolSide == SSL_ClientSide && ctx->resumableSession.data != 0)
-    {   if (ERR(err = SSLRetrieveSessionIDProtocolVersion(ctx->resumableSession,
-                                        &ctx->negProtocolVersion, ctx)) != 0)
+	/* 
+	 * If we have a cached resumable session, blow it off if it's a higher
+	 * version than the max currently allowed. Note that this means that once
+	 * a process negotiates a given version with a given server/port, it won't
+	 * be able to negotiate a higher version. We might want to revisit this.
+	 */
+    if (ctx->resumableSession.data != 0) {
+    
+		SSLProtocolVersion savedVersion;
+		
+		if (ERR(err = SSLRetrieveSessionProtocolVersion(ctx->resumableSession,
+				&savedVersion, ctx)) != 0) {
             return err;
+		}
+		if(savedVersion > ctx->maxProtocolVersion) {
+			SSLLogResumSess("===Resumable session protocol mismatch\n");
+			SSLFreeBuffer(&ctx->resumableSession, &ctx->sysCtx);
+		} 
+		else {
+			SSLLogResumSess("===attempting to resume session\n");
+			/*
+			 * A bit of a special case for server side here. If currently 
+			 * configged to allow for SSL3/TLS1 with an SSL2 hello, we 
+			 * don't want to preclude the possiblity of an SSL2 hello...
+			 * so we'll just leave the negProtocolVersion alone in the server case.
+			 */
+			if(ctx->protocolSide == SSL_ClientSide) {
+				ctx->negProtocolVersion = savedVersion;
+			}
+		}
     }
     
 /* If we're the client & handshake hasn't yet begun, start it by
@@ -447,6 +479,8 @@ SSLInitConnection(SSLContext *ctx)
                 break;
             case SSL_Version_3_0_Only:
             case SSL_Version_3_0:
+            case TLS_Version_1_0_Only:
+            case TLS_Version_1_0:
                 if (ERR(err = SSLAdvanceHandshake(SSL_hello_request, ctx)) != 0)
                     return err;
                 break;
@@ -461,20 +495,15 @@ SSLInitConnection(SSLContext *ctx)
 
 static SSLErr
 SSLServiceWriteQueue(SSLContext *ctx)
-{   SSLErr          err;
-    UInt32          written;
+{   SSLErr          err = SSLNoErr, werr = SSLNoErr;
+    UInt32          written = 0;
     SSLBuffer       buf, recBuf;
     WaitingRecord   *rec;
-    
-    while ((rec = ctx->recordWriteQueue) != 0)
+
+    while (!werr && ((rec = ctx->recordWriteQueue) != 0))
     {   buf.data = rec->data.data + rec->sent;
         buf.length = rec->data.length - rec->sent;
-        #ifdef	_APPLE_CDSA_
-        err = sslIoWrite(buf, &written, ctx);
-        #else
-        err = ctx->ioCtx.write(buf, &written, ctx->ioCtx.ioRef);
-        #endif
-        // FIXME - detect & abort ERR(err);
+        werr = sslIoWrite(buf, &written, ctx);
         rec->sent += written;
         if (rec->sent >= rec->data.length)
         {   CASSERT(rec->sent == rec->data.length);
@@ -491,8 +520,8 @@ SSLServiceWriteQueue(SSLContext *ctx)
             return err;
         CASSERT(ctx->recordWriteQueue == 0 || ctx->recordWriteQueue->sent == 0);
     }
-    
-    return SSLNoErr;
+
+    return werr;
 }
 
 #if		LOG_RX_PROTOCOL
@@ -536,12 +565,12 @@ SSLProcessProtocolMessage(SSLRecord rec, SSLContext *ctx)
 OSStatus
 SSLClose(SSLContext *ctx)
 {   
-	SSLErr      err = SSLNoErr;		/* _APPLE_CDSA_ bug fix - was uninit'd */
+	SSLErr      err = SSLNoErr;	
     
 	if(ctx == NULL) {
 		return paramErr;
 	}
-    if (ctx->negProtocolVersion == SSL_Version_3_0)
+    if (ctx->negProtocolVersion >= SSL_Version_3_0)
         ERR(err = SSLSendAlert(alert_warning, alert_close_notify, ctx));
     if (err == 0)
         ERR(err = SSLServiceWriteQueue(ctx));
@@ -549,4 +578,29 @@ SSLClose(SSLContext *ctx)
     if (err == SSLIOErr)
         err = SSLNoErr;     /* Ignore errors related to closed streams */
     return sslErrToOsStatus(err);
+}
+
+/*
+ * Determine how much data the client can be guaranteed to 
+ * obtain via SSLRead() without blocking or causing any low-level 
+ * read operations to occur.
+ *
+ * Implemented here because the relevant info in SSLContext (receivedDataBuffer
+ * and receivedDataPos) are only used in this file.
+ */
+OSStatus 
+SSLGetBufferedReadSize(SSLContextRef ctx,
+	size_t *bufSize)      			/* RETURNED */
+{   
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(ctx->receivedDataBuffer.data == NULL) {
+		*bufSize = 0;
+	}
+	else {
+		CASSERT(ctx->receivedDataBuffer.length >= ctx->receivedDataPos);
+		*bufSize = ctx->receivedDataBuffer.length - ctx->receivedDataPos;
+	}
+	return noErr;
 }

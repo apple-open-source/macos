@@ -1,89 +1,35 @@
 #!/bin/sh
 
+##
+# Directory Services
+##
+
 . /etc/rc.common
 
-##
-# Start up NetInfo
-##
-
-ConsoleMessage "Starting NetInfo"
-
-##
-# Create local NetInfo database if it doesn't exist
-##
-
-if [ ! -d /var/db/netinfo/local.nidb ]; then
-    ConsoleMessage "Creating local NetInfo database"
-    mkdir -p /var/db/netinfo
-    /usr/libexec/create_nidb
-fi
-
-##
-# Start NetInfo services
-##
-
-##
-# nibindd is required if there are NetInfo domains other than "local", or
-# if the local domain has any non-loopback values for "trusted_networks".
-##
-if [ "${NETINFOSERVER:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
-    NETINFOSERVER=-YES-
-    ni_not_local=$(/bin/ls -1d /var/db/netinfo/*.nidb | sed 's:/var/db/netinfo/local.nidb::' | wc -w)
-    ni_local_export=$(nicl -raw /var/db/netinfo/local.nidb -read / trusted_networks | sed 's/trusted_networks://' | sed 's/127[^ ]*//g' | wc -w)
-    total=$(($ni_not_local + $ni_local_export))
-	if [ "${total}" -eq 0 ]; then
-        NETINFOSERVER=-NO-
-	fi
-fi
-
-##
-# If nibindd is not required, we just start the local NetInfo daemon.
-##
-if [ "${NETINFOSERVER}" = "-YES-" ]; then
-    nibindd
-else
-    cd /var/db/netinfo
-    netinfod -s local
-    cd /
-fi
-
-##
-# Start up the Network Information Service.
-##
-
-CheckForNetwork
-
-if [ "${NETWORKUP}" = "-YES-" ] &&
-   [ "${NISDOMAIN:=-NO-}" != "-NO-" ]; then
-
-    VARYP=/var/yp
-
-    ConsoleMessage "Starting Network Information Service"
-
-    echo "Setting NIS domainname to ${NISDOMAIN}"
-    domainname "${NISDOMAIN}"
-
-    # ypserv is run on NIS servers - machines with an ${VARYP}/${NISDOMAIN} dir
-    if [ -d "${VARYP}/${NISDOMAIN}" ]; then
-	ypserv
+StartService ()
+{
+    ##
+    # Directory Services
+    ##
+    if pid=$(GetPID lookupd); then
+        return 0
+    else
+        ConsoleMessage "Starting Directory Services"
+        lookupd
     fi
-    
-    # rpc.yppasswdd is run on NIS masters
-    if [ -f "${VARYP}/${NISDOMAIN}/ypservers.db" ]; then
-	NISMASTER=$(makedbm -U "${VARYP}/${NISDOMAIN}/ypservers" | sed -n '/YP_MASTER_NAME/p' | awk '{print $2}')
-	if [ "$NISMASTER" = "$(hostname)" ]; then
-	    rpc.yppasswdd
-	fi
-    fi 
+}
 
-    # ypbind is run on all NIS clients
-    ypbind
-fi
+StopService ()
+{
+    return 0
+}
 
-##
-# Start up name resolver
-##
+RestartService ()
+{
+    if pid=$(GetPID lookupd); then
+	ConsoleMessage "Resetting Directory Services"
+	kill -HUP "${pid}"
+    fi
+}
 
-ConsoleMessage "Starting name resolver"
-
-lookupd
+RunService "$1"

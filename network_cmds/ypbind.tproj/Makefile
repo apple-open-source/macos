@@ -15,7 +15,7 @@ PROJECT_TYPE = Tool
 CFILES = ypbind.c
 
 OTHERSRCS = Makefile Makefile.dist Makefile.postamble Makefile.preamble\
-            yp.x
+            yp.x ypbind.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

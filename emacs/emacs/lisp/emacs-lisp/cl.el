@@ -32,8 +32,6 @@
 ;; This package was written by Dave Gillespie; it is a complete
 ;; rewrite of Cesar Quiroz's original cl.el package of December 1986.
 ;;
-;; This package works with Emacs 18, Emacs 19, and Lucid Emacs 19.
-;;
 ;; Bug reports, comments, and suggestions are welcome!
 
 ;; This file contains the portions of the Common Lisp extensions
@@ -95,14 +93,6 @@
 
 ;;; Code:
 
-(defvar cl-emacs-type (cond ((or (and (fboundp 'epoch::version)
-				      (symbol-value 'epoch::version))
-				 (string-lessp emacs-version "19")) 18)
-			    ((string-match "Lucid" emacs-version) 'lucid)
-			    (t 19)))
-
-(or (fboundp 'defalias) (fset 'defalias 'fset))
-
 (defvar cl-optimize-speed 1)
 (defvar cl-optimize-safety 1)
 
@@ -133,7 +123,7 @@ Floating-point numbers of equal value are `eql', but they may not be `eq'."
 ;;; can safely be used in .emacs files.
 
 (defmacro incf (place &optional x)
-  "(incf PLACE [X]): increment PLACE by X (1 by default).
+  "Increment PLACE by X (1 by default).
 PLACE may be a symbol, or any generalized variable allowed by `setf'.
 The return value is the incremented value of PLACE."
   (if (symbolp place)
@@ -141,7 +131,7 @@ The return value is the incremented value of PLACE."
     (list 'callf '+ place (or x 1))))
 
 (defmacro decf (place &optional x)
-  "(decf PLACE [X]): decrement PLACE by X (1 by default).
+  "Decrement PLACE by X (1 by default).
 PLACE may be a symbol, or any generalized variable allowed by `setf'.
 The return value is the decremented value of PLACE."
   (if (symbolp place)
@@ -149,7 +139,7 @@ The return value is the decremented value of PLACE."
     (list 'callf '- place (or x 1))))
 
 (defmacro pop (place)
-  "(pop PLACE): remove and return the head of the list stored in PLACE.
+  "Remove and return the head of the list stored in PLACE.
 Analogous to (prog1 (car PLACE) (setf PLACE (cdr PLACE))), though more
 careful about evaluating each argument only once and in the right order.
 PLACE may be a symbol, or any generalized variable allowed by `setf'."
@@ -158,7 +148,7 @@ PLACE may be a symbol, or any generalized variable allowed by `setf'."
     (cl-do-pop place)))
 
 (defmacro push (x place)
-  "(push X PLACE): insert X at the head of the list stored in PLACE.
+  "Insert X at the head of the list stored in PLACE.
 Analogous to (setf PLACE (cons X PLACE)), though more careful about
 evaluating each argument only once and in the right order.  PLACE may
 be a symbol, or any generalized variable allowed by `setf'."
@@ -200,8 +190,7 @@ Keywords supported:  :test :test-not :key"
 ;;; them all the time than to load them from cl-macs.el.
 
 (defun cl-map-extents (&rest cl-args)
-  (if (fboundp 'next-overlay-at) (apply 'cl-map-overlays cl-args)
-    (if (fboundp 'map-extents) (apply 'map-extents cl-args))))
+  (apply 'cl-map-overlays cl-args))
 
 
 ;;; Blocks and exits.
@@ -233,7 +222,7 @@ If FORM is not a macro call, it is returned unchanged.
 Otherwise, the macro is expanded and the expansion is considered
 in place of FORM.  When a non-macro-call results, it is returned.
 
-The second optional arg ENVIRONMENT species an environment of macro
+The second optional arg ENVIRONMENT specifies an environment of macro
 definitions to shadow the loaded ones for use in file byte-compilation."
   (let ((cl-macro-environment cl-env))
     (while (progn (setq cl-macro (funcall cl-old-macroexpand cl-macro cl-env))
@@ -300,11 +289,6 @@ always returns nil."
   "T if INTEGER is even."
   (eq (logand x 1) 0))
 
-(defun cl-abs (x)
-  "Return the absolute value of ARG."
-  (if (>= x 0) x (- x)))
-(or (fboundp 'abs) (defalias 'abs 'cl-abs))   ; This is built-in to Emacs 19
-
 (defvar *random-state* (vector 'cl-random-state-tag -1 30 (cl-random-time)))
 
 ;;; We use `eval' in case VALBITS differs from compile-time to load-time.
@@ -345,43 +329,40 @@ SEQ, this is like `mapcar'.  With several, it is like the Common Lisp
 ;;; List functions.
 
 (defalias 'first 'car)
+(defalias 'second 'cadr)
 (defalias 'rest 'cdr)
 (defalias 'endp 'null)
 
-(defun second (x)
-  "Return the second element of the list LIST."
-  (car (cdr x)))
-
 (defun third (x)
-  "Return the third element of the list LIST."
+  "Return the third element of the list X."
   (car (cdr (cdr x))))
 
 (defun fourth (x)
-  "Return the fourth element of the list LIST."
+  "Return the fourth element of the list X."
   (nth 3 x))
 
 (defun fifth (x)
-  "Return the fifth element of the list LIST."
+  "Return the fifth element of the list X."
   (nth 4 x))
 
 (defun sixth (x)
-  "Return the sixth element of the list LIST."
+  "Return the sixth element of the list X."
   (nth 5 x))
 
 (defun seventh (x)
-  "Return the seventh element of the list LIST."
+  "Return the seventh element of the list X."
   (nth 6 x))
 
 (defun eighth (x)
-  "Return the eighth element of the list LIST."
+  "Return the eighth element of the list X."
   (nth 7 x))
 
 (defun ninth (x)
-  "Return the ninth element of the list LIST."
+  "Return the ninth element of the list X."
   (nth 8 x))
 
 (defun tenth (x)
-  "Return the tenth element of the list LIST."
+  "Return the tenth element of the list X."
   (nth 9 x))
 
 (defun caaar (x)
@@ -491,20 +472,6 @@ SEQ, this is like `mapcar'.  With several, it is like the Common Lisp
 ;;    (while (consp (cdr x)) (pop x))
 ;;    x))
 
-(defun butlast (x &optional n)
-  "Returns a copy of LIST with the last N elements removed."
-  (if (and n (<= n 0)) x
-    (nbutlast (copy-sequence x) n)))
-
-(defun nbutlast (x &optional n)
-  "Modifies LIST to remove the last N elements."
-  (let ((m (length x)))
-    (or n (setq n 1))
-    (and (< n m)
-	 (progn
-	   (if (> n 0) (setcdr (nthcdr (- (1- m) n) x) nil))
-	   x))))
-
 (defun list* (arg &rest rest)   ; See compiler macro in cl-macs.el
   "Return a new list with specified args as elements, cons'd to last arg.
 Thus, `(list* A B C D)' is equivalent to `(nconc (list A B C) D)', or to
@@ -536,10 +503,6 @@ The elements of the list are not copied, just the list structure itself."
 (defun cl-maclisp-member (item list)
   (while (and list (not (equal item (car list)))) (setq list (cdr list)))
   list)
-
-;;; Define an Emacs 19-compatible `member' for the benefit of Emacs 18 users.
-(or (and (fboundp 'member) (subrp (symbol-function 'member)))
-    (defalias 'member 'cl-maclisp-member))
 
 (defalias 'cl-member 'memq)   ; for compatibility with old CL package
 (defalias 'cl-floor 'floor*)
@@ -585,46 +548,41 @@ Keywords supported:  :test :test-not :key"
 (put 'cl-assertion-failed 'error-conditions '(error))
 (put 'cl-assertion-failed 'error-message "Assertion failed")
 
-;;; This is defined in Emacs 19; define it here for Emacs 18 users.
-(defun cl-add-hook (hook func &optional append)
-  "Add to hook variable HOOK the function FUNC.
-FUNC is not added if it already appears on the list stored in HOOK."
-  (let ((old (and (boundp hook) (symbol-value hook))))
-    (and (listp old) (not (eq (car old) 'lambda))
-	 (setq old (list old)))
-    (and (not (member func old))
-	 (set hook (if append (nconc old (list func)) (cons func old))))))
-(or (fboundp 'add-hook) (defalias 'add-hook 'cl-add-hook))
-
+(defvar cl-fake-autoloads nil
+  "Non-nil means don't make CL functions autoload.")
 
 ;;; Autoload the other portions of the package.
+;; We want to replace the basic versions of dolist, dotimes below.
+(fmakunbound 'dolist)
+(fmakunbound 'dotimes)
 (mapcar (function
 	 (lambda (set)
-	   (mapcar (function
-		    (lambda (func)
-		      (autoload func (car set) nil nil (nth 1 set))))
-		   (cddr set))))
+	   (let ((file (if cl-fake-autoloads "<none>" (car set))))
+	     (mapcar (function
+		      (lambda (func)
+			(autoload func (car set) nil nil (nth 1 set))))
+		     (cddr set)))))
 	'(("cl-extra" nil
 	   coerce equalp cl-map-keymap maplist mapc mapl mapcan mapcon
 	   cl-map-keymap cl-map-keymap-recursively cl-map-intervals
 	   cl-map-overlays cl-set-frame-visible-p cl-float-limits
-	   gcd lcm isqrt expt floor* ceiling* truncate* round*
+	   gcd lcm isqrt floor* ceiling* truncate* round*
 	   mod* rem* signum random* make-random-state random-state-p
 	   subseq concatenate cl-mapcar-many map some every notany
 	   notevery revappend nreconc list-length tailp copy-tree get* getf
-	   cl-set-getf cl-do-remf remprop make-hash-table cl-hash-lookup
-	   gethash cl-puthash remhash clrhash maphash hash-table-p
-	   hash-table-count cl-progv-before cl-prettyexpand
+	   cl-set-getf cl-do-remf remprop cl-make-hash-table cl-hash-lookup
+	   cl-gethash cl-puthash cl-remhash cl-clrhash cl-maphash cl-hash-table-p
+	   cl-hash-table-count cl-progv-before cl-prettyexpand
 	   cl-macroexpand-all)
 	  ("cl-seq" nil
-	   reduce fill replace remq remove remove* remove-if remove-if-not
-	   delete delete* delete-if delete-if-not remove-duplicates
+	   reduce fill replace remove* remove-if remove-if-not
+	   delete* delete-if delete-if-not remove-duplicates
 	   delete-duplicates substitute substitute-if substitute-if-not
 	   nsubstitute nsubstitute-if nsubstitute-if-not find find-if
 	   find-if-not position position-if position-if-not count count-if
 	   count-if-not mismatch search sort* stable-sort merge member*
 	   member-if member-if-not cl-adjoin assoc* assoc-if assoc-if-not
-	   rassoc* rassoc rassoc-if rassoc-if-not union nunion intersection
+	   rassoc* rassoc-if rassoc-if-not union nunion intersection
 	   nintersection set-difference nset-difference set-exclusive-or
 	   nset-exclusive-or subsetp subst-if subst-if-not nsubst nsubst-if
 	   nsubst-if-not sublis nsublis tree-equal)
@@ -633,7 +591,7 @@ FUNC is not added if it already appears on the list stored in HOOK."
 	   cl-struct-setf-expander compiler-macroexpand cl-compile-time-init)
 	  ("cl-macs" t
 	   defun* defmacro* function* destructuring-bind eval-when
-	   eval-when-compile load-time-value case ecase typecase etypecase
+	   load-time-value case ecase typecase etypecase
 	   block return return-from loop do do* dolist dotimes do-symbols
 	   do-all-symbols psetq progv flet labels macrolet symbol-macrolet
 	   lexical-let lexical-let* multiple-value-bind multiple-value-setq
@@ -663,7 +621,6 @@ FUNC is not added if it already appears on the list stored in HOOK."
 	  ((do do*) 2 ((&rest &or symbolp (symbolp &optional form form))
 		       (form &rest form)
 		       &rest form))
-	  ((dolist dotimes) 1 ((symbolp form &rest form) &rest form))
 	  ((do-symbols) 1 ((symbolp form &optional form form) &rest form))
 	  ((do-all-symbols) 1 ((symbolp form &optional form) &rest form))
 	  ((psetq setf psetf) nil edebug-setq-form)
@@ -674,7 +631,7 @@ FUNC is not added if it already appears on the list stored in HOOK."
 	   ((&rest &or symbolp (symbolp form)) &rest form))
 	  ((multiple-value-bind) 2 ((&rest symbolp) &rest form))
 	  ((multiple-value-setq) 1 ((&rest symbolp) &rest form))
-	  ((incf decf remf pop push pushnew shiftf rotatef) nil (&rest form))
+	  ((incf decf remf pushnew shiftf rotatef) nil (&rest form))
 	  ((letf letf*) 1 ((&rest (&rest form)) &rest form))
 	  ((callf destructuring-bind) 2 (sexp form &rest form))
 	  ((callf2) 3 (sexp form form &rest form))
@@ -701,20 +658,13 @@ FUNC is not added if it already appears on the list stored in HOOK."
 (cl-hack-byte-compiler)
 
 ;;; Also make a hook in case compiler is loaded after this file.
-;;; The compiler doesn't call any hooks when it loads or runs, but
-;;; we can take advantage of the fact that emacs-lisp-mode will be
-;;; called when the compiler reads in the file to be compiled.
-;;; BUG: If the first compilation is `byte-compile' rather than
-;;; `byte-compile-file', we lose.  Oh, well.
-(add-hook 'emacs-lisp-mode-hook 'cl-hack-byte-compiler)
+(add-hook 'bytecomp-load-hook 'cl-hack-byte-compiler)
 
 
 ;;; The following ensures that packages which expect the old-style cl.el
 ;;; will be happy with this one.
 
 (provide 'cl)
-
-(provide 'mini-cl)   ; for Epoch
 
 (run-hooks 'cl-load-hook)
 

@@ -34,39 +34,38 @@
  *   assuming there's just one response per read
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/time.h>
-#import <sys/sockio.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <net/if_arp.h>
-#import <net/etherdefs.h>
-#import <netinet/if_ether.h>
-#import <arpa/inet.h>
-#import <net/if_types.h>
-#import <net/bpf.h>
-#import "util.h"
-#import <syslog.h>
-#import "bpflib.h"
-#import "util.h"
-#import "dprintf.h"
-#import "dynarray.h"
-#import "timer.h"
-#import "FDSet.h"
-#import "ipconfigd_globals.h"
-#import "arp_session.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <sys/sockio.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <net/if_arp.h>
+#include <netinet/if_ether.h>
+#include <arpa/inet.h>
+#include <net/if_types.h>
+#include <net/bpf.h>
+#include "util.h"
+#include <syslog.h>
+#include "bpflib.h"
+#include "util.h"
+#include "dprintf.h"
+#include "dynarray.h"
+#include "timer.h"
+#include "FDSet.h"
+#include "ipconfigd_globals.h"
+#include "arp_session.h"
 
 extern char *  			ether_ntoa(struct ether_addr *e);
 extern struct ether_addr *	ether_aton(char *);
@@ -282,7 +281,8 @@ arp_read(void * arg1, void * arg2)
 	    && ntohs(earp->ea_hdr.ar_pro) == ETHERTYPE_IP
 	    && (client->target_ip.s_addr 
 		== ((struct in_addr *)earp->arp_spa)->s_addr)
-	    && (*session->is_our_address)(client->if_p, earp->ea_hdr.ar_hrd,
+	    && (*session->is_our_address)(client->if_p, 
+					  ntohs(earp->ea_hdr.ar_hrd),
 					  earp->arp_sha,
 					  earp->ea_hdr.ar_hln) == FALSE) {
 	    /* IP is in use by some other host */

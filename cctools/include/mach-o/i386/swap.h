@@ -21,8 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <architecture/byte_order.h>
-#import <mach/i386/thread_status.h>
+#include <architecture/byte_order.h>
+#include <mach/i386/thread_status.h>
 
 extern void swap_i386_thread_state(
     i386_thread_state_t *cpu,

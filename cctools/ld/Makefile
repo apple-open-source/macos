@@ -1,4 +1,5 @@
 export USE_APPLE_PB_SUPPORT = all
+RC_OS = macos
 OFLAG = -O
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -force_cpusubtype_ALL -msoft-float -nostdinc \
@@ -15,23 +16,18 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifneq "mwcc" "$(notdir $(CC))"
+
+ifneq "mwccppc" "$(notdir $(CC))"
   GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
 endif
 
-# This won't happen for a while 
-#ifeq "macos" "$(RC_OS)"
-# PRIVATEHEADERS := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Bunsen" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Gonzo" ]; then \
-#			 echo /System/Library; else echo /MacOSX/System; fi; \
-#		)/Frameworks/System.framework/PrivateHeaders
-#else
-#  PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-#endif
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+
 PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
 PRIVATE_IFLAG = -I$(NEXT_ROOT)$(PRIVATEHEADERS)
 CFLAGS = -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(GCC_FLAGS) \
@@ -87,7 +83,7 @@ OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) $(HFILES) Makefile notes \
 		make.defs make_defs.h librld.ofileList
 
-all:	$(OFILE_DIRS) $(SYMROOT) ld_build $(RC_OS)_lib_ofiles
+all:	$(OFILE_DIRS) $(SYMROOT) ld_build kld_build lib_ofiles
 
 macos_lib_ofiles:
 
@@ -329,12 +325,14 @@ libkld.a: $(OBJS)
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/prehack_libkld.a $(OBJS) $(LIBSTUFF) $(LIBMACHO)
 	nmedit -p $(SYMROOT)/prehack_libkld.a
-	seg_hack __KLD $(SYMROOT)/prehack_libkld.a -o $(SYMROOT)/libkld.a
+	seg_hack __KLD $(SYMROOT)/prehack_libkld.a -o $(SYMROOT)/static_libkld.o
+	libtool -o $(SYMROOT)/libkld.a $(SYMROOT)/static_libkld.o
 
 libkld.dylib: $(OBJS)
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
-		-o $(SYMROOT)/libkld.dylib $(OBJS) $(LIBSTUFF)
-	nmedit -p $(SYMROOT)/libkld.dylib
+		-o $(SYMROOT)/dynamic_libkld.o $(OBJS) $(LIBSTUFF)
+	nmedit -p $(SYMROOT)/dynamic_libkld.o
+	libtool -o $(SYMROOT)/libkld.dylib $(SYMROOT)/dynamic_libkld.o
 
 ld_vers.c:
 	vers_string -l $(VERS_STRING_FLAGS) ld > $(OFILE_DIR)/$@
@@ -347,34 +345,48 @@ make.h makeUser.c: make.defs
 	rm -f makeServer.c
 
 ld_vers.o: ld_vers.c
-ifeq "mwcc" "$(notdir $(CC))"
-	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c -MD \
-		-Dstatic="__declspec(private_extern)" \
-		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+ifeq "mwccppc" "$(notdir $(CC))"
+	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
+		-Dstatic="__declspec(private_extern)"
+else
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
+		-Dstatic=__private_extern__ -o $(OFILE_DIR)/$*.o $<
 else
 	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c -MD \
 		-Dstatic=__private_extern__ \
 		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
+endif
 
 makeUser.o: makeUser.c
-ifeq "mwcc" "$(notdir $(CC))"
-	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c -MD \
+ifeq "mwccppc" "$(notdir $(CC))"
+	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
 		-Dmig_external="__declspec(private_extern)" \
-		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
+		-o $(OFILE_DIR)/$*.o $<
+else
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
+		-Dmig_external=__private_extern__ -o $(OFILE_DIR)/$*.o $<
 else
 	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c -MD \
 		-Dmig_external=__private_extern__ \
 		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
+endif
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(COPTS) $(OFLAG) $(RC_CFLAGS) -c \
+		-o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(COPTS) $(OFLAG) $(RC_CFLAGS) -c -MD \
 		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean:
 	-rm -r -f $(OFILE_DIRS) ld_g_dir ld_p_dir make.out
@@ -386,7 +398,7 @@ shlib_clean:
 		Makedep ld_vers.c ld_vers.o
 
 
-install: all $(RC_OS)_install
+install: $(OFILE_DIRS) $(SYMROOT) ld_build $(RC_OS)_lib_ofiles $(RC_OS)_install
 
 macos_install:
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
@@ -428,30 +440,56 @@ x_lib_ofiles: lib_ofiles common_install
 
 macos_lib_ofiles_install: $(KLD_BUILD) $(X_LIB_OFILES)
 	$(MKDIRS) $(DSTROOT)$(SYSTEMDIR)
-	if [ $(X_LIB_OFILES) = x_lib_ofiles ];				\
+	if [ "$(X_LIB_OFILES)" = x_lib_ofiles ];			\
 	then								\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
-		     $(DSTROOT)$(LOCLIBDIR)/librld.a ;			\
-	    ranlib $(DSTROOT)$(LOCLIBDIR)/librld.a ;			\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
-		     $(DSTROOT)$(SYSTEMDIR)/librld.a ;			\
-	    ranlib $(DSTROOT)$(SYSTEMDIR)/librld.a ;			\
-	    (cd $(DSTROOT)$(SYSTEMDIR);					\
-	    rm -f librld_debug.a ; ln -s librld.a librld_debug.a) ;	\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a		\
-		     $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;		\
-	    ranlib $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;		\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a		\
-		     $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;		\
-	    ranlib $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;		\
+	    if [ $(SRCROOT) = . ];					\
+	    then							\
+		install -p -c -m 444 dtmp_obj/librld.a			\
+			 $(DSTROOT)$(LOCLIBDIR)/librld.a ;		\
+		ranlib $(DSTROOT)$(LOCLIBDIR)/librld.a ;		\
+		install -p -c -m 444 dtmp_obj/librld.a			\
+			 $(DSTROOT)$(SYSTEMDIR)/librld.a ;		\
+		ranlib $(DSTROOT)$(SYSTEMDIR)/librld.a ;		\
+		(cd $(DSTROOT)$(SYSTEMDIR);				\
+		rm -f librld_debug.a ; ln -s librld.a librld_debug.a) ;	\
+		install -p -c -m 444 ptmp_obj/librld_pg.a		\
+			 $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;	\
+		ranlib $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;	\
+		install -p -c -m 444 ptmp_obj/ld_dir/librld_pg.a	\
+			 $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;	\
+		ranlib $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;	\
+	    else							\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
+			 $(DSTROOT)$(LOCLIBDIR)/librld.a ;		\
+		ranlib $(DSTROOT)$(LOCLIBDIR)/librld.a ;		\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
+			 $(DSTROOT)$(SYSTEMDIR)/librld.a ;		\
+		ranlib $(DSTROOT)$(SYSTEMDIR)/librld.a ;		\
+		(cd $(DSTROOT)$(SYSTEMDIR);				\
+		rm -f librld_debug.a ; ln -s librld.a librld_debug.a) ;	\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a	\
+			 $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;	\
+		ranlib $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;	\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a	\
+			 $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;	\
+		ranlib $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;	\
+	    fi								\
 	fi
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)
 	if [ $(KLD_BUILD) = kld_build ];				\
 	then								\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/libkld.a 		\
-		    $(DSTROOT)$(LOCLIBDIR)/libkld.a ;			\
-	    install -p -c -m 444 $(SYMROOT)/ld_dir/libkld.dylib		\
-		    $(DSTROOT)$(LOCLIBDIR)/libkld.dylib ;		\
+	    if [ $(SRCROOT) = . ];					\
+	    then							\
+		install -p -c -m 444 static_kld/libkld.a		\
+			$(DSTROOT)$(LOCLIBDIR)/libkld.a ;		\
+		install -p -c -m 444 dynamic_kld/libkld.dylib		\
+			$(DSTROOT)$(LOCLIBDIR)/libkld.dylib ;		\
+	    else							\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/libkld.a		\
+			$(DSTROOT)$(LOCLIBDIR)/libkld.a ;		\
+		install -p -c -m 444 $(SYMROOT)/ld_dir/libkld.dylib	\
+			$(DSTROOT)$(LOCLIBDIR)/libkld.dylib ;		\
+	    fi								\
 	fi
 
 teflon_lib_ofiles_install nextstep_lib_ofiles_install:

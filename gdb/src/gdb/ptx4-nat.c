@@ -1,5 +1,6 @@
 /* Native-dependent code for ptx 4.0
-   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1994, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "gdbcore.h"
+#include "regcache.h"
 #include <sys/procfs.h>
 #include <sys/ptrace.h>
 #include <sys/param.h>
@@ -151,7 +153,7 @@ proc_iterate_over_mappings (int (*func) (int, CORE_ADDR))
   curseg = 0;
   while (1)
     {
-      rv = ptrace (PT_NEXT_VSEG, inferior_pid, &pv, curseg);
+      rv = ptrace (PT_NEXT_VSEG, PIDGET (inferior_ptid), &pv, curseg);
 #ifdef VERBOSE_DEBUG
       printf ("PT_NEXT_VSEG: rv %d errno %d\n", rv, errno);
 #endif
@@ -185,7 +187,7 @@ proc_iterate_over_mappings (int (*func) (int, CORE_ADDR))
 	      close (interp_fd);
 	      return 0;
 	    }
-	  rv = ptrace (PT_RDATA_PAGE, inferior_pid, buf2,
+	  rv = ptrace (PT_RDATA_PAGE, PIDGET (inferior_ptid), buf2,
 		       memptr);
 	  if (-1 == rv)
 	    {

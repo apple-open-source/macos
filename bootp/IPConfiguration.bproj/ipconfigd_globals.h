@@ -1,3 +1,6 @@
+
+#ifndef _S_IPCONFIGD_GLOBALS_H
+#define _S_IPCONFIGD_GLOBALS_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -32,9 +35,10 @@
  */
 
 
-#import "timer.h"
-#import "globals.h"
-#import "FDSet.h"
+#include "timer.h"
+#include "globals.h"
+#include "FDSet.h"
 
 extern FDSet_t *		G_readers;
 
+#endif _S_IPCONFIGD_GLOBALS_H

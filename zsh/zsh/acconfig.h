@@ -58,6 +58,9 @@
 /* Define to 1 if compiler incorrectly cast signed to unsigned */
 #undef BROKEN_SIGNED_TO_UNSIGNED_CASTING
 
+/* Define to 1 if compiler supports variable-length arrays */
+#undef HAVE_VARIABLE_LENGTH_ARRAYS
+
 /* Define if your system defines TIOCGWINSZ in sys/ioctl.h.  */
 #undef GWINSZ_IN_SYS_IOCTL
 
@@ -70,17 +73,14 @@
 /* Define to 1 if you have RFS superroot directory. */
 #undef HAVE_SUPERROOT
 
+/* Define to 1 if you need to use the native getcwd */
+#undef USE_GETCWD
+
 /* Define to the path of the /dev/fd filesystem */
 #undef PATH_DEV_FD
 
 /* Define if sys/time.h and sys/select.h cannot be both included */
 #undef TIME_H_SELECT_H_CONFLICTS
-
-/* Define if your system's struct utmp has a member named ut_host.  */
-#undef HAVE_UT_HOST
-
-/* Define if you have the <utmpx.h> header file.  */
-#undef HAVE_UTMPX_H
 
 /* Define to be the machine type (microprocessor class or machine model) */
 #undef MACHTYPE
@@ -91,19 +91,60 @@
 /* Define to 1 if ANSI function prototypes are usable.  */
 #undef PROTOTYPES
 
-/* Define to be location of utmp file.  This value is only used if UTMP_FILE, *
- * UTMPX_FILE, or _PATH_UTMP are not defined in an include file.              */
-#undef UTMP_FILE_CONFIG
+/* Define to be location of utmp file. */
+#undef PATH_UTMP_FILE
+
+/* Define to be location of utmpx file. */
+#undef PATH_UTMPX_FILE
+
+/* Define to be location of wtmp file. */
+#undef PATH_WTMP_FILE
+
+/* Define to be location of wtmpx file. */
+#undef PATH_WTMPX_FILE
+
+/* Define to 1 if struct utmp is defined by a system header */
+#undef HAVE_STRUCT_UTMP
+
+/* Define to 1 if struct utmpx is defined by a system header */
+#undef HAVE_STRUCT_UTMPX
+
+/* Define if your system's struct utmp has a member named ut_host.  */
+#undef HAVE_STRUCT_UTMP_UT_HOST
+
+/* Define if your system's struct utmpx has a member named ut_host.  */
+#undef HAVE_STRUCT_UTMPX_UT_HOST
+
+/* Define if your system's struct utmpx has a member named ut_xtime.  */
+#undef HAVE_STRUCT_UTMPX_UT_XTIME
+
+/* Define if your system's struct utmpx has a member named ut_tv.  */
+#undef HAVE_STRUCT_UTMPX_UT_TV
+
+/* Define if your system's struct dirent has a member named d_ino.  */
+#undef HAVE_STRUCT_DIRENT_D_INO
+
+/* Define if your system's struct dirent has a member named d_stat.  */
+#undef HAVE_STRUCT_DIRENT_D_STAT
+
+/* Define if your system's struct direct has a member named d_ino.  */
+#undef HAVE_STRUCT_DIRECT_D_INO
+
+/* Define if your system's struct direct has a member named d_stat.  */
+#undef HAVE_STRUCT_DIRECT_D_STAT
+
+/* Define if your system's struct sockaddr_in6 has a member named sin6_scope_id.  */
+#undef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 
 /* Define to be a string corresponding the vendor of the machine */
 #undef VENDOR
 
+/* Define to limit job table size */
+#undef MAXJOB
+#undef NEED_LINUX_TASKS_H
+
 /* Define if your system defines `struct winsize' in sys/ptem.h.  */
 #undef WINSIZE_IN_PTEM
-
-/* Define  to be location of wtmp file.  This value is only use if WTMP_FILE, *
- * WTMPX_FILE, or _PATH_WTMP are not defined in an include file.              */
-#undef WTMP_FILE_CONFIG
 
 /* Define to 1 if you want to debug zsh */
 #undef DEBUG
@@ -123,6 +164,17 @@
 /* Define to 1 if you want to get debugging information on internal *
  * hash tables.  This turns on the `hashinfo' builtin.              */
 #undef ZSH_HASH_DEBUG
+
+/* Undefine this if you don't want to get a restricted shell *
+ * when zsh is exec'd with basename that starts with r.      *
+ * By default this is defined.                               */
+#undef RESTRICTED_R
+
+/* Define for Maildir support */
+#undef MAILDIR_SUPPORT
+
+/* Define for function depth limits */
+#undef MAX_FUNCTION_DEPTH
 
 /* Define if you want locale features.  By default this is defined. */
 #undef CONFIG_LOCALE
@@ -165,6 +217,9 @@
 /* Define to 1 if there is a prototype defined for mknod() on your system */
 #undef HAVE_MKNOD_PROTO
 
+/* Define to 1 if select() is defined in <sys/socket.h>, ie BeOS R4.51*/
+#undef SELECT_IN_SYS_SOCKET_H
+
 /* Define to 1 if system has working FIFO's */
 #undef HAVE_FIFOS
 
@@ -183,6 +238,39 @@
 /* Define to 1 if /bin/sh does not interpret \ escape sequences */
 #undef SH_USE_BSD_ECHO
 
+/* Define to 1 if system has working link() */
+#undef HAVE_LINK
+
+/* Define to 1 if kill(pid, 0) doesn't return ESRCH, ie BeOS R4.51 */
+#undef BROKEN_KILL_ESRCH
+
+/* Define to 1 if sigsuspend() is broken, ie BeOS R4.51 */
+#undef BROKEN_POSIX_SIGSUSPEND
+
+/* Define to 1 if getpwnam() is faked, ie BeOS R4.51 */
+#undef GETPWNAM_FAKED
+
+/* Define to 1 if tcsetpgrp() doesn't work, ie BeOS R4.51 */
+#undef BROKEN_TCSETPGRP
+
+/* Define to 1 if an underscore has to be prepended to dlsym() argument */
+#undef DLSYM_NEEDS_UNDERSCORE
+
+/* Define to 1 if multiple modules defining the same symbol are OK */
+#undef DYNAMIC_NAME_CLASH_OK
+
+/* The extension used for dynamically loaded modules */
+#undef DL_EXT
+
+/* Define to 1 if you want to use dynamically loaded modules */
+#undef DYNAMIC
+
+/* Define to 1 if you want to use dynamically loaded modules on AIX */
+#undef AIXDYNAMIC
+
+/* Define to 1 if you want to use dynamically loaded modules on HPUX 10 */
+#undef HPUXDYNAMIC
+
 /* Define to `unsigned long' if <sys/types.h> doesn't define. */
 #undef ino_t
 
@@ -194,6 +282,8 @@
  * defined if long is already 64 bits, since in that case no special handling
  * is required.
  */
+/* Define to 1 if long is 64 bits */
+#undef LONG_IS_64_BIT
 
 /* Define to a 64 bit integer type if there is one, but long is shorter */
 #undef ZSH_64_BIT_TYPE
@@ -206,3 +296,30 @@
 
 /* Define to 1 if ino_t is 64 bit (for large file support) */
 #undef INO_T_IS_64_BIT
+
+/* Define to 1 if h_errno is not defined by the system */
+#undef USE_LOCAL_H_ERRNO
+
+/* Define if you have the termcap boolcodes symbol.  */
+#undef HAVE_BOOLCODES
+
+/* Define if you have the termcap numcodes symbol.  */
+#undef HAVE_NUMCODES
+
+/* Define if you have the termcap strcodes symbol.  */
+#undef HAVE_STRCODES
+
+/* Define if you have the terminfo boolnames symbol.  */
+#undef HAVE_BOOLNAMES
+
+/* Define if you have the terminfo numnames symbol.  */
+#undef HAVE_NUMNAMES
+
+/* Define if you have the terminfo strnames symbol.  */
+#undef HAVE_STRNAMES
+
+/* Define if term.h chokes without curses.h */
+#undef TERM_H_NEEDS_CURSES_H
+
+/* Define to the base type of the third argument of accept */
+#undef SOCKLEN_T

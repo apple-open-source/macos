@@ -1,4 +1,4 @@
-.TH DYLD 1 "March 12, 2001" "Apple Computer, Inc."
+.TH DYLD 1 "March 27, 2002" "Apple Computer, Inc."
 .SH NAME
 dyld \- the dynamic link editor
 .SH SYNOPSIS
@@ -31,6 +31,10 @@ DYLD_PREBIND_DEBUG
 DYLD_ABORT_MULTIPLE_INITS
 .br
 DYLD_NEW_LOCAL_SHARED_REGIONS
+.br
+DYLD_NO_FIX_PREBINDING
+.br
+DYLD_TRACE
 .SH DESCRIPTION
 The dynamic linker uses the following environment variables.
 They affect any program that uses the dynamic linker.
@@ -56,10 +60,12 @@ and
 .SM DYLD_FALLBACK_LIBRARY_PATH
 in turn.
 .IP
-You can view which version of the framework that the dyld uses with the
+Use the
 .B \-L
-option to
+option to 
 .IR otool (1).
+to discover the frameworks and shared libraries that the executable
+is linked against.
 .TP
 .B DYLD_FALLBACK_FRAMEWORK_PATH
 This is a colon separated list of directories that contain frameworks.
@@ -84,10 +90,12 @@ and
 .SM DYLD_FALLBACK_LIBRARY_PATH
 in turn.
 .IP
-You can view which version of the library that the dyld uses with the
+Use the
 .B \-L
-option to
+option to 
 .IR otool (1).
+to discover the frameworks and shared libraries that the executable
+is linked against.
 .TP
 .B DYLD_FALLBACK_LIBRARY_PATH
 This is a colon separated list of directories that contain libraries.
@@ -184,7 +192,7 @@ linker clears out the value of the dyld path and insertion environment
 variables.  This is so that if a program is
 .IR exec (2)'ed
 from a secure program too will not have it's libraries searched for, as well.
-For staticly linked secure programs that
+For statically linked secure programs that
 .IR exec (2) 
 other programs that might use the dynamic linker, they too should clear out the
 values of the dyld path and insertion environment variables.
@@ -211,7 +219,7 @@ private libraries.  Setting the
 .SM DYLD_NEW_LOCAL_SHARED_REGIONS
 flag will cause
 all children of the current process to have their own set of sub-maps.  In this
-way the libraries found in the childrens' submaps will not be caused to be
+way the libraries found in the children's submaps will not be caused to be
 present in the submaps shared by the rest of the system.
 
 .SM DYLD_NEW_LOCAL_SHARED_REGIONS
@@ -221,6 +229,14 @@ point to them.  i.e. by using the DYLD_LIBRARY_PATH environment variable
 instead of changing the root by executing a
 .IR chroot (2)
 call.
+.TP
+.B DYLD_TRACE
+Cause dyld to put tracing information in the kernel trace buffer for its
+operations.
+.TP
+.B DYLD_NO_FIX_PREBINDING
+Causes dyld not to run /usr/bin/fix_prebinding on executables that are launched
+which had prebinding information that could not be used for the launch.
 
 .SH "SEE ALSO"
 libtool(1), ld(1), otool(1), redo_prebinding(1)

@@ -21,7 +21,7 @@
 
 	Contains:	interface between SSL and SHA, MD5 digest libraries
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -51,42 +51,29 @@
 
     ****************************************************************** */
 
-#ifndef _SSLCTX_H_
 #include "sslctx.h"
-#endif
-
-#ifndef _CRYPTTYPE_H_
 #include "cryptType.h"
-#endif
-
-#ifndef SHA_H
-#include <stdio.h>      /* sha.h has a prototype with a FILE* */
-#include "st_sha.h"
-#endif
-
-#ifndef	_SSL_MD5_H_
-#include "sslmd5.h"
-#endif
-
-#ifndef _SSLALLOC_H_
 #include "sslalloc.h"
-#endif
-
-#ifndef	_DIGESTS_H_
 #include "digests.h"
-#endif
-
-#ifndef	_SSL_DEBUG_H_
 #include "sslDebug.h"
-#endif
-
+#include "appleCdsa.h"
+#include <Security/cssm.h>
 #include <string.h>
 
-typedef struct
-{   SHA_INFO    sha;
-    int         bufferPos;
-    uint8       dataBuffer[SHA_BLOCKSIZE];
-} SSL_SHA_INFO;
+#define DIGEST_PRINT		0
+#if		DIGEST_PRINT
+#define dgprintf(s)	printf s
+#else
+#define dgprintf(s)
+#endif
+
+/*
+ * Common digest context. The SSLBuffer.data pointer in a "digest state" argument
+ * casts to one of these.
+ */
+typedef struct {
+	CSSM_CC_HANDLE	hashHand;
+} cdsaHashContext;
 
 uint8   SSLMACPad1[MAX_MAC_PADDING], SSLMACPad2[MAX_MAC_PADDING];
 
@@ -103,40 +90,63 @@ SSLInitMACPads(void)
     }
 }
 
-/* FIXME - what's this for, if each alg has its own clone functions? */
+/* 
+ * A convenience wrapper for HashReference.clone, which has the added benefit of
+ * allocating the state buffer for the caller.
+ */
 SSLErr
 CloneHashState(const HashReference *ref, SSLBuffer state, SSLBuffer *newState, SSLContext *ctx)
-{   SSLErr      err;
-    if ((err = SSLAllocBuffer(newState, state.length, &ctx->sysCtx)) != 0)
+{   
+	SSLErr      err;
+    if ((err = SSLAllocBuffer(newState, ref->contextSize, &ctx->sysCtx)) != 0)
         return err;
-    memcpy(newState->data, state.data, state.length);
-    return SSLNoErr;
+	return ref->clone(state, *newState);
 }
 
+/* 
+ * Wrapper for HashReference.init.
+ */
 SSLErr
 ReadyHash(const HashReference *ref, SSLBuffer *state, SSLContext *ctx)
-{   SSLErr      err;
+{   
+	SSLErr      err;
     if ((err = SSLAllocBuffer(state, ref->contextSize, &ctx->sysCtx)) != 0)
         return err;
-    if ((err = ref->init(*state)) != 0)
-        return err;
-    return SSLNoErr;
+    return ref->init(*state, ctx);
 }
 
-static SSLErr HashNullInit(SSLBuffer);
+/*
+ * Wrapper for HashReference.clone. Tolerates NULL digestCtx and frees it if it's
+ * there.
+ */
+SSLErr CloseHash(const HashReference *ref, SSLBuffer *state, SSLContext *ctx)
+{
+	SSLErr serr;
+	
+	if((state == NULL) || (state->data == NULL)) {
+		return SSLNoErr;
+	}
+	serr = ref->close(*state, ctx);
+	if(serr) {
+		return serr;
+	}
+	return SSLFreeBuffer(state, &ctx->sysCtx);
+}
+
+static SSLErr HashNullInit(SSLBuffer digestCtx, SSLContext *sslCtx);
 static SSLErr HashNullUpdate(SSLBuffer,SSLBuffer);
 static SSLErr HashNullFinal(SSLBuffer,SSLBuffer);
+static SSLErr HashNullClose(SSLBuffer digestCtx, SSLContext *sslCtx);
 static SSLErr HashNullClone(SSLBuffer,SSLBuffer);
 
-static SSLErr HashMD5Init(SSLBuffer digestCtx);
-static SSLErr HashMD5Update(SSLBuffer digestCtx, SSLBuffer data);
-static SSLErr HashMD5Final(SSLBuffer digestCtx, SSLBuffer digest);
-static SSLErr HashMD5Clone(SSLBuffer src, SSLBuffer dest);
-
-static SSLErr HashSHA1Init(SSLBuffer digestCtx);
-static SSLErr HashSHA1Update(SSLBuffer digestCtx, SSLBuffer data);
-static SSLErr HashSHA1Final(SSLBuffer digestCtx, SSLBuffer digest);
-static SSLErr HashSHA1Clone(SSLBuffer src, SSLBuffer dest);
+static SSLErr HashMD5Init(SSLBuffer digestCtx, SSLContext *sslCtx);
+static SSLErr HashSHA1Init(SSLBuffer digestCtx, SSLContext *sslCtx);
+static SSLErr cdsaHashInit(SSLBuffer digestCtx, SSLContext *sslCtx,
+	CSSM_ALGORITHMS digestAlg);
+static SSLErr cdsaHashUpdate(SSLBuffer digestCtx, SSLBuffer data);
+static SSLErr cdsaHashFinal(SSLBuffer digestCtx, SSLBuffer digest);
+static SSLErr cdsaHashClose(SSLBuffer digestCtx, SSLContext *sslCtx);
+static SSLErr cdsaHashClone(SSLBuffer src, SSLBuffer dest);
 
 /*
  * These are the handles by which the bulk of digesting work
@@ -150,33 +160,36 @@ const HashReference SSLHashNull =
 	  	HashNullInit, 
 	  	HashNullUpdate, 
 	  	HashNullFinal, 
+		HashNullClose,
 	  	HashNullClone 
 	};
 	
 const HashReference SSLHashMD5 = 
 	{ 
-		sizeof(MD5_CTX), 
+		sizeof(cdsaHashContext), 
 		16, 
 		48, 
 		HashMD5Init, 
-		HashMD5Update, 
-		HashMD5Final, 
-		HashMD5Clone 
+		cdsaHashUpdate, 
+		cdsaHashFinal, 
+		cdsaHashClose,
+		cdsaHashClone 
 	};
 
 const HashReference SSLHashSHA1 = 
 	{ 
-		sizeof(SSL_SHA_INFO), 
+		sizeof(cdsaHashContext), 
 		20, 
 		40, 
 		HashSHA1Init, 
-		HashSHA1Update, 
-		HashSHA1Final, 
-		HashSHA1Clone 
+		cdsaHashUpdate, 
+		cdsaHashFinal, 
+		cdsaHashClose,
+		cdsaHashClone 
 	};
 
 /*** NULL ***/
-static SSLErr HashNullInit(SSLBuffer digestCtx) { 
+static SSLErr HashNullInit(SSLBuffer digestCtx, SSLContext *sslCtx) { 
 	return SSLNoErr; 
 }
 
@@ -187,94 +200,140 @@ static SSLErr HashNullUpdate(SSLBuffer digestCtx, SSLBuffer data) {
 static SSLErr HashNullFinal(SSLBuffer digestCtx, SSLBuffer digest) { 
 	return SSLNoErr; 
 }
-
+static SSLErr HashNullClose(SSLBuffer digestCtx, SSLContext *sslCtx) {
+	return SSLNoErr; 
+}
 static SSLErr HashNullClone(SSLBuffer src, SSLBuffer dest) { 
 	return SSLNoErr; 
 }
 
-/*** MD5 ***/
-
-static SSLErr HashMD5Init(SSLBuffer digestCtx)
-{   CASSERT(digestCtx.length >= sizeof(MD5_CTX));
-    SSLMD5Init((MD5_CTX*)digestCtx.data);
-    return SSLNoErr;
-}
-
-static SSLErr HashMD5Update(SSLBuffer digestCtx, SSLBuffer data)
-{   CASSERT(digestCtx.length >= sizeof(MD5_CTX));
-    SSLMD5Update((MD5_CTX*)digestCtx.data, data.data, data.length);
-    return SSLNoErr;
-}
-
-static SSLErr HashMD5Final(SSLBuffer digestCtx, SSLBuffer digest)
-{   CASSERT(digestCtx.length >= sizeof(MD5_CTX));
-    CASSERT(digest.length >= 16);
-    SSLMD5Final(digest.data, (MD5_CTX*)digestCtx.data);
-    digest.length = 16;
-    return SSLNoErr;
-}
-
-static SSLErr HashMD5Clone(SSLBuffer src, SSLBuffer dest)
+static SSLErr HashMD5Init(SSLBuffer digestCtx, SSLContext *sslCtx)
 {   
-	if (src.length != dest.length) {
-		errorLog0("HashMD5Clone: length mismatch\n");
-        return SSLProtocolErr;
-    }
-    memcpy(dest.data, src.data, src.length);
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	return cdsaHashInit(digestCtx, sslCtx, CSSM_ALGID_MD5);
+}
+
+static SSLErr HashSHA1Init(SSLBuffer digestCtx, SSLContext *sslCtx)
+{   
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	return cdsaHashInit(digestCtx, sslCtx, CSSM_ALGID_SHA1);
+}
+
+/* common digest functions via CDSA */
+static SSLErr cdsaHashInit(SSLBuffer digestCtx, 
+	SSLContext *sslCtx,
+	CSSM_ALGORITHMS digestAlg)
+{
+	SSLErr serr;
+	cdsaHashContext *cdsaCtx;
+	CSSM_CC_HANDLE hashHand = 0;
+	CSSM_RETURN crtn;
+	
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	serr = attachToCsp(sslCtx);		// should be a nop
+	if(serr) {
+		return serr;
+	}
+	cdsaCtx = (cdsaHashContext *)digestCtx.data;
+	cdsaCtx->hashHand = 0;
+	dgprintf(("###cdsaHashInit  cdsaCtx %p\n", cdsaCtx));
+	
+	/* cook up a digest context, initialize it */
+	crtn = CSSM_CSP_CreateDigestContext(sslCtx->cspHand,
+		digestAlg,
+		&hashHand);
+	if(crtn) {
+		errorLog0("CSSM_CSP_CreateDigestContext failure\n");
+		return SSLCryptoError;
+	}
+	crtn = CSSM_DigestDataInit(hashHand);
+	if(crtn) {
+		CSSM_DeleteContext(hashHand);
+		errorLog0("CSSM_DigestDataInit failure\n");
+		return SSLCryptoError;
+	}
+	cdsaCtx->hashHand = hashHand;
     return SSLNoErr;
+}
+
+static SSLErr cdsaHashUpdate(SSLBuffer digestCtx, SSLBuffer data)
+{   
+	cdsaHashContext *cdsaCtx;
+	CSSM_RETURN crtn;
+	CSSM_DATA cdata;
+	
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	cdsaCtx = (cdsaHashContext *)digestCtx.data;
+	//dgprintf(("###cdsaHashUpdate  cdsaCtx %p\n", cdsaCtx));
+	
+	SSLBUF_TO_CSSM(&data, &cdata);
+	crtn = CSSM_DigestDataUpdate(cdsaCtx->hashHand, &cdata, 1);
+	if(crtn) {
+		errorLog0("CSSM_DigestDataUpdate failure\n");
+		return SSLCryptoError;
+	}
+	else {
+		return SSLNoErr;
+	}
+}
+
+static SSLErr cdsaHashFinal(SSLBuffer digestCtx, SSLBuffer digest)
+{	
+	cdsaHashContext *cdsaCtx;
+	CSSM_RETURN crtn;
+	CSSM_DATA cdata;
+	SSLErr srtn = SSLNoErr;
+	
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	cdsaCtx = (cdsaHashContext *)digestCtx.data;
+	dgprintf(("###cdsaHashFinal  cdsaCtx %p\n", cdsaCtx));
+	SSLBUF_TO_CSSM(&digest, &cdata);
+	crtn = CSSM_DigestDataFinal(cdsaCtx->hashHand, &cdata);
+	if(crtn) {
+		errorLog0("CSSM_DigestDataFinal failure\n");
+		srtn = SSLCryptoError;
+	}
+	else {
+		digest.length = cdata.Length;
+	}
+	CSSM_DeleteContext(cdsaCtx->hashHand);
+	cdsaCtx->hashHand = 0;
+    return srtn;
+}
+
+static SSLErr cdsaHashClose(SSLBuffer digestCtx, SSLContext *sslCtx)
+{
+	cdsaHashContext *cdsaCtx;
+	
+	CASSERT(digestCtx.length >= sizeof(cdsaHashContext));
+	cdsaCtx = (cdsaHashContext *)digestCtx.data;
+	dgprintf(("###cdsaHashClose  cdsaCtx %p\n", cdsaCtx));
+	if(cdsaCtx->hashHand != 0) {
+		CSSM_DeleteContext(cdsaCtx->hashHand);
+		cdsaCtx->hashHand = 0;
+	}
+	return SSLNoErr;
+}
+
+static SSLErr cdsaHashClone(SSLBuffer src, SSLBuffer dst)
+{   
+	cdsaHashContext *srcCtx;
+	cdsaHashContext *dstCtx;
+	CSSM_RETURN crtn;
+
+	CASSERT(src.length >= sizeof(cdsaHashContext));
+	CASSERT(dst.length >= sizeof(cdsaHashContext));
+	srcCtx = (cdsaHashContext *)src.data;
+	dstCtx = (cdsaHashContext *)dst.data;
+	dgprintf(("###cdsaHashClone  srcCtx %p  dstCtx %p\n", srcCtx, dstCtx));
+
+	crtn = CSSM_DigestDataClone(srcCtx->hashHand, &dstCtx->hashHand);
+	if(crtn) {
+		errorLog0("CSSM_DigestDataClone failure\n");
+		return SSLCryptoError;
+	}
+	else {
+		return SSLNoErr;
+	}
 }   
 
-/*** SHA ***/
-static SSLErr HashSHA1Init(SSLBuffer digestCtx)
-{   SSL_SHA_INFO    *ctx = (SSL_SHA_INFO*)digestCtx.data;
-    CASSERT(digestCtx.length >= sizeof(SSL_SHA_INFO));
-    sha_init(&ctx->sha);
-    ctx->bufferPos = 0;
-    return SSLNoErr;
-}
-
-static SSLErr HashSHA1Update(SSLBuffer digestCtx, SSLBuffer data)
-{   SSL_SHA_INFO    *ctx = (SSL_SHA_INFO*)digestCtx.data;
-    uint32          dataRemaining, processed;
-    uint8           *dataPos;
-    
-    CASSERT(digestCtx.length >= sizeof(SSL_SHA_INFO));
-    dataRemaining = data.length;
-    dataPos = data.data;
-    while (dataRemaining > 0)
-    {   processed = SHA_BLOCKSIZE - ctx->bufferPos;
-        if (dataRemaining < processed)
-            processed = dataRemaining;
-        memcpy(ctx->dataBuffer+ctx->bufferPos, dataPos, processed);
-        ctx->bufferPos += processed;
-        if (ctx->bufferPos == SHA_BLOCKSIZE)
-        {   sha_update(&ctx->sha, ctx->dataBuffer, ctx->bufferPos);
-            ctx->bufferPos = 0;
-        }
-        dataRemaining -= processed;
-        dataPos += processed;
-    }
-    //DUMP_BUFFER_PTR("SHA1 data", digestCtx.data, data);
-    return SSLNoErr;
-}
-
-static SSLErr HashSHA1Final(SSLBuffer digestCtx, SSLBuffer digest)
-{   SSL_SHA_INFO    *ctx = (SSL_SHA_INFO*)digestCtx.data;
-    CASSERT(digestCtx.length >= sizeof(SSL_SHA_INFO));
-    CASSERT(digest.length >= SHA_DIGESTSIZE);
-    if (ctx->bufferPos > 0)
-        sha_update(&ctx->sha, ctx->dataBuffer, ctx->bufferPos);
-    sha_final((SHA_INFO*)digestCtx.data);
-    memcpy(digest.data, ((SHA_INFO*)digestCtx.data)->digest, 20);
-    //DUMP_BUFFER_PTR("SHA1 final", digestCtx.data, digest);
-    return SSLNoErr;
-}
-
-static SSLErr HashSHA1Clone(SSLBuffer src, SSLBuffer dest)
-{   if (src.length != dest.length) {
-		errorLog0("HashSHA1Clone: length mismatch\n");
-        return SSLProtocolErr;
-    }
-    memcpy(dest.data, src.data, src.length);
-    return SSLNoErr;
-}   

@@ -1,3 +1,7 @@
+
+#ifndef _S_BOOTP_SESSION_H
+#define _S_BOOTP_SESSION_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -34,7 +38,7 @@
  * - created
  */
 
-#import "FDSet.h"
+#include "FDSet.h"
 
 /*
  * Type: bootp_receive_func_t
@@ -101,3 +105,5 @@ bootp_session_set_debug(bootp_session_t * slist, int debug);
 
 void
 bootp_session_free(bootp_session_t * * slist);
+
+#endif _S_BOOTP_SESSION_H

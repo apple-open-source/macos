@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,6 +45,35 @@ __BEGIN_DECLS
 	@result The last error encountered.
  */
 void		_SCErrorSet			(int			error);
+
+/*
+	@function _SCSerialize
+	@discussion Serialize a CFPropertyList object for passing
+		to/from configd.
+	@param obj CFPropertyList object to serialize
+	@param xml A pointer to a CFDataRef, NULL if data should be
+		vm_allocated.
+	@param data A pointer to the newly allocated/serialized data
+	@param dataLen A pointer to the length in bytes of the newly
+		allocated/serialized data
+ */
+Boolean		_SCSerialize			(CFPropertyListRef	obj,
+						 CFDataRef		*xml,
+						 void			**dataRef,
+						 CFIndex		*dataLen);
+
+/*
+	@function _SCUnserialize
+	@discussion Unserialize a stream of bytes passed from/to configd
+		into a CFPropertyList object.
+        @param obj A pointer to memory that will be filled with the CFPropertyList
+                associated with the stream of bytes.
+	@param data A pointer to the serialized data
+	@param dataLen A pointer to the length of the serialized data
+ */
+Boolean		_SCUnserialize			(CFPropertyListRef	*obj,
+						 void			*dataRef,
+						 CFIndex		dataLen);
 
 /*
 	@function SCLog

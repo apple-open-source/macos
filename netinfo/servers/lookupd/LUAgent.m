@@ -92,13 +92,105 @@ char *categoryPathname[] =
 
 @implementation LUAgent
 
++ (char *)canonicalAgentName:(char *)name
+{
+	char *arg, *colon, *cname;
+	int len;
+
+	if (name == NULL) return NULL;
+
+	arg = NULL;
+	colon = strchr(name, ':');
+	if (colon != NULL)
+	{
+		*colon = '\0';
+		arg = colon + 1;
+	}
+
+	cname = NULL;
+	len = strlen(name);
+	if ((name[0] == '/') || (name[0] == '.'))
+	{
+		cname = copyString(name);
+	}
+	else if (len > 5)
+	{
+		if (streq(name + (len - 5), "Agent"))
+		{
+			cname = copyString(name);
+		}
+	}
+
+	if (cname == NULL)
+	{
+		cname = malloc(len + 6);
+		sprintf(cname, "%sAgent", name);
+	}
+
+	if (colon != NULL) *colon = ':';
+
+	return cname;
+}
+
++ (char *)canonicalServiceName:(char *)name
+{
+	char *arg, *colon, *cname, *cserv;
+	int len;
+
+	if (name == NULL) return NULL;
+
+	arg = NULL;
+	colon = strchr(name, ':');
+	if (colon != NULL)
+	{
+		*colon = '\0';
+		arg = colon + 1;
+	}
+
+	cname = NULL;
+	len = strlen(name);
+	if ((name[0] == '/') || (name[0] == '.'))
+	{
+		cname = copyString(name);
+	}
+	else if (len > 5)
+	{
+		if (streq(name + (len - 5), "Agent"))
+		{
+			cname = copyString(name);
+		}
+	}
+
+	if (cname == NULL)
+	{
+		cname = malloc(len + 6);
+		sprintf(cname, "%sAgent", name);
+	}
+
+	if (colon != NULL) *colon = ':';
+
+	cserv = NULL;
+	if (arg == NULL)
+	{
+		cserv = copyString(cname);
+	}
+	else 
+	{
+		cserv = malloc(strlen(cname) + strlen(arg) + 2);
+		sprintf(cserv, "%s:%s", cname, arg);
+	}
+
+	free(cname);
+
+	return cserv;
+}
+
 - (LUAgent *)init
 {
 	if (didInit) return self;
 
 	[super init];
 
-	generation = [configManager generation];
 	configurationArray = [configManager config];
 
 	didInit = YES;
@@ -115,7 +207,6 @@ char *categoryPathname[] =
 
 	[super init];
 
-	generation = [configManager generation];
 	configurationArray = [configManager config];
 
 	didInit = YES;
@@ -241,119 +332,188 @@ char *categoryPathname[] =
 	return str;
 }
 
-/*
- * merge values from netgroup b into a
- */
-- (void)mergeNetgroup:(LUDictionary *)b into:(LUDictionary *)a
-{
-	if (a == nil || b == nil) return;
-	
-	[a mergeKey:"name" from:b];
-	[a mergeKey:"netgroups" from:b];
-	[a mergeKey:"hosts" from:b];
-	[a mergeKey:"users" from:b];
-	[a mergeKey:"domains" from:b];
-}
-
 - (const char *)serviceName
-{return serviceName;}
+{
+	return serviceName;
+}
 
 - (const char *)shortName
-{return NULL;}
-
-- (BOOL)isValid:(LUDictionary *)item
-{return NO;}
-
-- (BOOL)isArrayValid:(LUArray *)array
 {
-	unsigned int i, len;
-	time_t age;
-	LUDictionary *stamp;
-	LUAgent *agent;
-
-	if (array == nil) return NO;
-
-	len = [array validationStampCount];
-	if (len == 0) return YES;
-
-	for (i = 0; i < len; i++)
-	{
-		stamp = [array validationStampAtIndex:i];
-		if (stamp == nil) return NO;
-		age = [stamp age];
-		if (age > [stamp timeToLive]) return NO;
-
-		agent = [stamp agent];
-		if (agent == nil) return NO;
-		if (![agent isValid:stamp]) return NO;
-	}
-
-	return YES;
-}
-
-- (BOOL)isStale
-{
-	return (generation != [configManager generation]);
+	return serviceName;
 }
 
 - (BOOL)inNetgroup:(char *)group
 	host:(char *)host
 	user:(char *)user
 	domain:(char *)domain
-{return NO;}
+{
+	return NO;
+}
 
 - (LUDictionary *)statistics
-{return nil;}
+{
+	return nil;
+}
 
 - (void)resetStatistics
 {}
 
-- (LUArray *)allGroupsWithUser:(char *)name
+- (LUDictionary *)ipv6NodeWithName:(char *)name
 {
-	LUDictionary *q, *u, *g;
+	return nil;
+}
+
+- (LUDictionary *)allGroupsWithUser:(char *)name
+{
+	LUDictionary *q, *u, *item;
 	LUArray *all;
+	int i, len;
+	char str[16];
 
 	if (name == NULL) return nil;
 
-	g = nil;
-	u = [self itemWithKey:"name" value:name category:LUCategoryUser];
-	if (u != nil)
-	{
-		g = [self itemWithKey:"gid" value:[u valueForKey:"gid"] category:LUCategoryGroup];
-		[u release];
-	}
-
 	q = [[LUDictionary alloc] init];
-	[q setValue:"group" forKey:"_lookup_category"];
+	sprintf(str, "%u", LUCategoryGroup);
+	[q setValue:str forKey:"_lookup_category"];
 	[q setValue:name forKey:"users"];
 
 	all = [self query:q];
 	[q release];
 
-	if (all == nil)
+	u = [self itemWithKey:"name" value:name category:LUCategoryUser];
+
+	if ((all == nil) && (u == nil)) return nil;
+
+	item = [[LUDictionary alloc] init];
+	[item setValue:name forKey:"name"];
+
+	if (u != nil)
 	{
-		if (g == nil) return nil;
-		all = [[LUArray alloc] init];
+		[item mergeKey:"gid" from:u];
+		[u release];
 	}
 
-	if (g != nil) 
+	if (all != nil)
 	{
-		if (![all containsObject:g]) [all addObject:g];
-		[g release];
+		len = [all count];
+		for (i = 0; i < len; i++)
+		{
+			[item mergeKey:"gid" from:[all objectAtIndex:i]];
+		}
+		[all release];
 	}
 
-	return all;
+	return item;
+}
+
+- (LUDictionary *)netgroupWithName:(char *)name
+{
+	LUDictionary *q;
+	LUDictionary *item;
+	LUArray *all;
+	char str[16], **p;
+	int i, len;
+	BOOL found;
+
+	if (name == NULL) return nil;
+
+	item = [[LUDictionary alloc] init];
+	[item setValue:name forKey:"name"];
+	found = NO;
+
+	q = [[LUDictionary alloc] init];
+	sprintf(str, "%u", LUCategoryHost);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:name forKey:"netgroups"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all != nil)
+	{
+		len = [all count];
+		for (i = 0; i < len; i++)
+		{
+			p = [[all objectAtIndex:i] valuesForKey:"name"];
+			if (p != NULL)
+			{
+				[item mergeValues:p forKey:"hosts"];
+				found = YES;
+			}
+		}
+
+		[all release];
+	}
+
+	q = [[LUDictionary alloc] init];
+	sprintf(str, "%u", LUCategoryUser);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:name forKey:"netgroups"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all != nil)
+	{
+		len = [all count];
+		for (i = 0; i < len; i++)
+		{
+			p = [[all objectAtIndex:i] valuesForKey:"name"];
+			if (p != NULL)
+			{
+				[item mergeValues:p forKey:"users"];
+				found = YES;
+			}
+		}
+
+		[all release];
+	}
+
+	q = [[LUDictionary alloc] init];
+	sprintf(str, "%u", LUCategoryNetDomain);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:name forKey:"netgroups"];
+
+	all = [self query:q];
+	[q release];
+
+	if (all != nil)
+	{
+		len = [all count];
+		for (i = 0; i < len; i++)
+		{
+			p = [[all objectAtIndex:i] valuesForKey:"name"];
+			if (p != NULL)
+			{
+				[item mergeValues:p forKey:"domains"];
+				found = YES;
+			}
+		}
+
+		[all release];
+	}
+	
+	if (!found)
+	{
+		[item release];
+		return nil;
+	}
+
+	return item;
 }
 
 - (LUDictionary *)serviceWithName:(char *)name protocol:(char *)prot
 {
 	LUDictionary *q;
 	LUArray *all;
+	char str[16];
 
 	if (name == NULL) return nil;
 
 	q = [[LUDictionary alloc] init];
-	[q setValue:"service" forKey:"_lookup_category"];
+	sprintf(str, "%u", LUCategoryService);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:"YES" forKey:"_lookup_single"];
 	[q setValue:name forKey:"name"];
 	if (prot != NULL) [q setValue:prot forKey:"protocol"];
 
@@ -376,7 +536,9 @@ char *categoryPathname[] =
 	if (number == NULL) return nil;
 
 	q = [[LUDictionary alloc] init];
-	[q setValue:"service" forKey:"_lookup_category"];
+	sprintf(str, "%u", LUCategoryService);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:"YES" forKey:"_lookup_single"];
 	sprintf(str, "%u", *number);
 	[q setValue:str forKey:"port"];
 	if (prot != NULL) [q setValue:prot forKey:"protocol"];
@@ -405,8 +567,8 @@ char *categoryPathname[] =
 	where = [pattern indexForKey:"_lookup_category"];
 	if (where == IndexNull) return nil;
 
-	cat = [LUAgent categoryWithName:[pattern valueAtIndex:where]];
-	if (cat > NCATEGORIES) return nil;
+	cat = atoi([pattern valueAtIndex:where]);
+	if (cat >= NCATEGORIES) return nil;
 
 	return [self query:pattern category:cat];
 }
@@ -421,11 +583,15 @@ char *categoryPathname[] =
 	LUDictionary *q;
 	LUDictionary *item;
 	LUArray *all;
+	char str[16];
 
 	if (key == NULL) return nil;
+	if (cat >= NCATEGORIES) return nil;
 
 	q = [[LUDictionary alloc] init];
-	[q setValue:categoryName[cat] forKey:"_lookup_category"];
+	sprintf(str, "%u", cat);
+	[q setValue:str forKey:"_lookup_category"];
+	[q setValue:"YES" forKey:"_lookup_single"];
 	[q setValue:val forKey:key];
 
 	all = [self query:q];

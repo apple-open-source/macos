@@ -65,7 +65,7 @@
 #define TRANSMIT_INT_DELAY		8
 #define TRANSMIT_QUEUE_SIZE		256
 
-#define MAX_BUF_SIZE			(ETHERMAXPACKET + ETHERCRC)
+#define MAX_BUF_SIZE			kIOEthernetMaxPacketSize
 
 #define SPIN_TIMEOUT			50000
 #define SPIN_COUNT				1
@@ -189,6 +189,15 @@ public:
 	rfd_t *                        headRfd;
 	rfd_t *                        tailRfd;
 
+    /* power management support */
+    IOService *	                   pmPolicyMaker;
+    UInt32                         pmPowerState;
+    UInt8                          pmPCICapPtr;
+    thread_call_t                  powerOffThreadCall;
+    thread_call_t                  powerOnThreadCall;
+    bool                           magicPacketEnabled;
+    bool                           magicPacketSupported;
+
 	// --------------------------------------------------
 	// IOService (or its superclass) methods.
 	// --------------------------------------------------
@@ -227,14 +236,15 @@ public:
     virtual bool         createWorkLoop();
     virtual IOWorkLoop * getWorkLoop() const;
 
-	// --------------------------------------------------
-	// IOEthernetController methods.
-	// --------------------------------------------------
+	//-----------------------------------------------------------------------
+	// Methods inherited from IOEthernetController.
+	//-----------------------------------------------------------------------
 
-	virtual IOReturn getHardwareAddress(IOEthernetAddress * addr);
-	virtual IOReturn setPromiscuousMode(IOEnetPromiscuousMode mode);
-	virtual IOReturn setMulticastMode(IOEnetMulticastMode mode);
-	virtual IOReturn setMulticastList(IOEthernetAddress *addrs, UInt32 count);
+	virtual IOReturn getHardwareAddress( IOEthernetAddress * addr );
+	virtual IOReturn setPromiscuousMode( bool active );
+	virtual IOReturn setMulticastMode( bool active );
+	virtual IOReturn setMulticastList( IOEthernetAddress * addrs,
+                                       UInt32 count );
 
 	// --------------------------------------------------
 	// Intel82557 driver specific methods.
@@ -249,7 +259,7 @@ public:
 	bool config();
 	void disableAdapterInterrupts();
 	void enableAdapterInterrupts();
-	bool hwInit();
+	bool hwInit( bool resetOnly = false );
 	bool iaSetup();
 	bool mcSetup(IOEthernetAddress * addrs, UInt count, bool fromData = false);
 	bool nop();
@@ -306,6 +316,23 @@ public:
 	mediumType_t      _phyGetMediumTypeFromBits(bool rate100,
                                                 bool fullDuplex,
                                                 bool t4);
+
+	//-----------------------------------------------------------------------
+	// Power management support.
+	//-----------------------------------------------------------------------
+
+    virtual IOReturn registerWithPolicyMaker( IOService * policyMaker );
+
+    virtual IOReturn setPowerState( unsigned long powerStateOrdinal,
+                                    IOService *   policyMaker);
+    
+    virtual IOReturn setWakeOnMagicPacket( bool active );
+
+    virtual IOReturn getPacketFilters( const OSSymbol * group,
+                                       UInt32 *         filters ) const;
+
+    void setPowerStateOff(void);
+    void setPowerStateOn(void);
 };
 
 #endif /* !_I82557_H */

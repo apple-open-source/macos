@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #ifndef _IOKIT_IOFireWireLink_H
 #define _IOKIT_IOFireWireLink_H
 #include <IOKit/IOService.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/firewire/IOFireWireController.h>
 
 enum
@@ -37,11 +38,33 @@ enum
 	kIOFWAllPhysicalFilters = 64
 };
 
+enum
+{
+	kIOFWNodeFlagRetryOnAckD	= (1 << 0)
+};
+
 struct IOFWNodeScan;
 
+/*! @class IOFireWireLink
+*/
 class IOFireWireLink : public IOService
 {
     OSDeclareAbstractStructors(IOFireWireLink)
+
+	// Subclass of IOFilterInterruptEventSource, just to get public access to opengate, closegate.
+	class FWOHCIIsocInterruptEventSource : public IOFilterInterruptEventSource
+	{
+	
+	public:
+		static FWOHCIIsocInterruptEventSource *
+		filterInterruptEventSource(OSObject *owner,
+					IOInterruptEventSource::Action action,
+					Filter filter,
+					IOService *provider,
+					int intIndex = 0);
+		inline void openGate()		{IOEventSource::openGate();};
+		inline void closeGate()		{IOEventSource::closeGate();};
+	};
 
 protected:
 
@@ -134,13 +157,18 @@ public:
     virtual IOFireWireController * getController() const;
     
     // Implement IOService::getWorkLoop
-    virtual IOWorkLoop *getWorkLoop() const;
+    virtual IOWorkLoop *	getWorkLoop() const;
     
     // FireWire wants an IOFWWorkLoop
-    virtual IOFWWorkLoop *getFireWireWorkLoop() const;
+    virtual IOFWWorkLoop *	getFireWireWorkLoop() const;
     
-    virtual void setNodeIDPhysicalFilter( UInt16 nodeID, bool state ) =0;
-
+    virtual void 			setNodeIDPhysicalFilter( UInt16 nodeID, bool state ) =0;
+	virtual void 			setNodeFlags( UInt16 nodeID, UInt32 flags )=0;
+	
+	// don't forget about the isoch workloop:
+	virtual void			closeIsochGate() ;
+	virtual void			openIsochGate() ;
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 1);
@@ -151,7 +179,10 @@ private:
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 6);
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 7);
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 8);
-	
+
+ protected:
+	FWOHCIIsocInterruptEventSource*	fIsocInterruptEventSource;
+    IOWorkLoop *					fIsocWorkloop;
 };
 
 #endif /* ! _IOKIT_IOFireWireLink_H */

@@ -19,12 +19,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <IOKit/IOLib.h>
+
 #include "IOPMUSB99.h"
-
-extern "C" {
-extern void kprintf(const char *, ...);
-}
-
 
 #define number_of_power_states 3
 

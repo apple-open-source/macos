@@ -48,47 +48,28 @@
  * Completely reworked by Sam Streeper (sam_s@NeXT.com)
  * Reworked again by Curtis Galloway (galloway@NeXT.com)
  */
-#include "libsa.h"
-#include "memory.h"
-#include "saio.h"
-#include "libsaio.h"
-#include "kernBootStruct.h"
+
 #include "boot.h"
-#include "nbp.h"
 
 /*
  * The user asked for boot graphics.
  */
-static BOOL gWantBootGraphics = NO;
+BOOL gBootGraphics = NO;
+int  gBIOSDev;
+long gBootMode = kBootModeNormal;
 
-/*
- * The device that the booter was loaded from.
- */
-int    gBootDev;
-
-extern char * gFilename;
-extern BOOL   sysConfigValid;
-extern char   bootPrompt[];
-extern BOOL   errors;
-extern BOOL   gVerboseMode;
-extern BOOL   gSilentBoot;
-
-/*
- * Prototypes.
- */
-static void getBootString();
+static BOOL gUnloadPXEOnExit = 0;
 
 /*
  * How long to wait (in seconds) to load the
  * kernel after displaying the "boot:" prompt.
  */
-#define kBootTimeout  10
+#define kBootErrorTimeout 5
 
 //==========================================================================
 // Zero the BSS.
 
-static void
-zeroBSS()
+static void zeroBSS()
 {
     extern char _DATA__bss__begin, _DATA__bss__end;
     extern char _DATA__common__begin, _DATA__common__end;
@@ -103,8 +84,7 @@ zeroBSS()
 //==========================================================================
 // execKernel - Load the kernel image (mach-o) and jump to its entry point.
 
-static int
-execKernel(int fd)
+static int execKernel(int fd)
 {
     register KERNBOOTSTRUCT * kbp = kernBootStruct;
     static struct mach_header head;
@@ -117,8 +97,7 @@ execKernel(int fd)
 
     kbp->kaddr = kbp->ksize = 0;
 
-    ret = loadprog( kbp->kernDev,
-                    fd,
+    ret = loadprog( kbp->kernDev, fd,
                     &head,
                     &kernelEntry,
                     (char **) &kbp->kaddr,
@@ -129,18 +108,18 @@ execKernel(int fd)
     if ( ret != 0 )
         return ret;
 
-    // Load boot drivers from the specifed root.
+    // Load boot drivers from the specifed root path.
 
     LoadDrivers("/");
     clearActivityIndicator();
 
-    if (errors) {
+    if (gErrors) {
         printf("Errors encountered while starting up the computer.\n");
-        printf("Pausing %d seconds...\n", kBootTimeout);
-        sleep(kBootTimeout);
+        printf("Pausing %d seconds...\n", kBootErrorTimeout);
+        sleep(kBootErrorTimeout);
     }
 
-    message("Starting Darwin/x86", 0);
+    printf("Starting Darwin/x86");
 
     turnOffFloppy();
 
@@ -153,24 +132,22 @@ execKernel(int fd)
 
 	// Cleanup the PXE base code.
 
-	if ( gBootDev == kBootDevNetwork )
+	if ( gUnloadPXEOnExit )
     {
 		if ( (ret = nbpUnloadBaseCode()) != nbpStatusSuccess )
         {
-        	printf("nbpUnloadBaseCode error %d\n", (int) ret); sleep(2);
+        	printf("nbpUnloadBaseCode error %d\n", (int) ret);
+            sleep(2);
         }
     }
 
-    // Switch to graphics mode just before starting the kernel.
+    // Switch to desired video mode just before starting the kernel.
 
-    if ( gWantBootGraphics )
-    {
-        setMode(GRAPHICS_MODE);
-    }
+    setVideoMode( gBootGraphics ? GRAPHICS_MODE : TEXT_MODE );
 
     // Jump to kernel's entry point. There's no going back now.
 
-    startprog(kernelEntry);
+    startprog( kernelEntry );
 
     // Not reached
 
@@ -178,37 +155,39 @@ execKernel(int fd)
 }
 
 //==========================================================================
-// Scan and record the system's PCI bus information.
+// Scan and record the system's hardware information.
 
 static void scanHardware()
 {
-extern int  ReadPCIBusInfo(PCI_bus_info_t *);
-extern void PCI_Bus_Init(PCI_bus_info_t *);
+    extern int  ReadPCIBusInfo(PCI_bus_info_t *);
+    extern void PCI_Bus_Init(PCI_bus_info_t *);
 
     ReadPCIBusInfo( &kernBootStruct->pciInfo );
-    PCI_Bus_Init( &kernBootStruct->pciInfo );
+    
+    //
+    // Initialize PCI matching support in the booter.
+    // Not used, commented out to minimize code size.
+    //
+    // PCI_Bus_Init( &kernBootStruct->pciInfo );
 }
 
 //==========================================================================
-// The 'main' function for the booter. This function is called by the
-// assembly routine init(), which is in turn called by boot1 or by
-// NBP.
+// The 'main' function for the booter. Called by boot0 when booting
+// from a block device, or by the network booter.
 //
 // arguments:
-//   bootdev - Value passed from boot1/NBP to specify the device
-//             that the booter was loaded from. See boot.h for the list
-//             of allowable values.
+//   biosdev - Value passed from boot1/NBP to specify the device
+//             that the booter was loaded from.
 //
-// If bootdev is kBootDevNetwork, then this function will return if
+// If biosdev is kBIOSDevNetwork, then this function will return if
 // booting was unsuccessful. This allows the PXE firmware to try the
-// next bootable device on its list. If bootdev is not kBootDevNetwork,
-// this function will not return control back to the caller.
+// next boot device on its list.
 
-void
-boot(int bootdev)
+void boot(int biosdev)
 {
     register KERNBOOTSTRUCT * kbp = kernBootStruct;
     int      fd;
+    int      status;
 
     zeroBSS();
 
@@ -216,25 +195,40 @@ boot(int bootdev)
 
     enableA20();
 
-    // Remember the device that the booter was loaded from.
+    // Set reminder to unload the PXE base code. Neglect to unload
+    // the base code will result in a hang or kernel panic.
 
-    gBootDev = bootdev;
+    if ( BIOS_DEV_TYPE(biosdev) == kBIOSDevTypeNetwork )
+        gUnloadPXEOnExit = 1;
+
+#if 0
+    gUnloadPXEOnExit = 1;
+    biosdev  = 0x80;
+#endif
+
+    // Record the device that the booter was loaded from.
+
+    gBIOSDev = biosdev & kBIOSDevMask;
 
     // Initialize boot info structure.
 
-    initKernBootStruct();
+    initKernBootStruct( gBIOSDev );
 
     // Setup VGA text mode.
+    // Not sure if it is safe to call setVideoMode() before the
+    // config table has been loaded. Call video_mode() instead.
 
-    setMode(TEXT_MODE);
+	video_mode( 2 );  // 80x25 mono text mode.
 
     // Scan hardware configuration.
 
     scanHardware();
 
-    // Display boot prompt.
+    // Display banner and show hardware info.
 
-    printf( bootPrompt, kbp->convmem, kbp->extmem, kBootTimeout );
+    setCursorPosition( 0, 0, 0 );
+    printf( bootBanner, kbp->convmem, kbp->extmem );
+    printVBEInfo();
 
     // Parse args, load and start kernel.
 
@@ -243,64 +237,18 @@ boot(int bootdev)
         // Initialize globals.
 
         sysConfigValid = 0;
-        errors         = 0;
+        gErrors        = 0;
 
-        // Make sure we are in VGA text mode.
-
-        setMode(TEXT_MODE);
-
-        // Set up kbp->kernDev to reflect the boot device.
-
-        if ( bootdev == kBootDevHardDisk )
-        {
-            if (kbp->numIDEs > 0)
-            {
-                kbp->kernDev = DEV_HD;
-            }
-            else
-            {
-                kbp->kernDev = DEV_SD;
-            }
-        }
-        else if ( bootdev == kBootDevFloppyDisk )
-        {
-            kbp->kernDev = DEV_FLOPPY;
-        }
-        else
-        {
-            kbp->kernDev = DEV_EN;
-        }
-        flushdev();
-
-        // Display boot prompt and get user supplied boot string.
-
-        getBootString();
-
-        if ( bootdev != kBootDevNetwork )
-        {
-            // To force loading config file off same device as kernel,
-            // open kernel file to force device change if necessary.
-
-            fd = open(kbp->bootFile, 0);
-            if (fd >= 0) close(fd);
-        }
-
-        if ( sysConfigValid == 0 )
-        {
-            if (kbp->kernDev == DEV_EN)
-                break;      // return control back to PXE
-            else
-                continue;   // keep looping
-        }
+        getBootOptions();
+        status = processBootOptions();
+        if ( status ==  1 ) break;
+        if ( status == -1 ) continue;
 
         // Found and loaded a config file. Proceed with boot.
 
-        gWantBootGraphics = getBoolForKey( kBootGraphicsKey );
-        gSilentBoot       = getBoolForKey( kQuietBootKey );
+        printf("Loading Darwin/x86\n");
 
-        message("Loading Darwin/x86", 0);
-
-        if ( (fd = openfile(kbp->bootFile, 0)) >= 0 )
+        if ( (fd = openfile( kbp->bootFile, 0 )) >= 0 )
         {
             execKernel(fd);  // will not return on success
         }
@@ -308,184 +256,21 @@ boot(int bootdev)
         {
             error("Can't find %s\n", kbp->bootFile);
 
-            if ( bootdev == kBootDevFloppyDisk )
+            if ( BIOS_DEV_TYPE(gBIOSDev) == kBIOSDevTypeFloppy )
             {
                 // floppy in drive, but failed to load kernel.
-                bootdev = kBootDevHardDisk;
-                message("Couldn't start up the computer using this "
-                        "floppy disk.", 0);
+                gBIOSDev = kBIOSDevTypeHardDrive;
+                initKernBootStruct( gBIOSDev );
+                printf("Attempt to load from hard drive.");
             }
-            else if ( bootdev == kBootDevNetwork )
+            else if ( BIOS_DEV_TYPE(gBIOSDev) == kBIOSDevTypeNetwork )
             {
-                break;   // Return control back to PXE.
+                // Return control back to PXE. Don't unload PXE base code.
+                gUnloadPXEOnExit = 0;
+                break;
             }
         }
     } /* while(1) */
-}
-
-//==========================================================================
-// Skip spaces/tabs characters.
-
-static inline void
-skipblanks(char ** cp) 
-{
-    while ( **(cp) == ' ' || **(cp) == '\t' )
-        ++(*cp);
-}
-
-//==========================================================================
-// Load the help file and display the file contents on the screen.
-
-static void showHelp()
-{
-#define BOOT_DIR_DISK       "/usr/standalone/i386/"
-#define BOOT_DIR_NET        ""
-#define makeFilePath(x) \
-    (gBootDev == kBootDevNetwork) ? BOOT_DIR_NET x : BOOT_DIR_DISK x
-
-    int    fd;
-    char * help = makeFilePath("BootHelp.txt");
-
-    if ( (fd = open(help, 0)) >= 0 )
-    {
-        char * buffer = malloc( file_size(fd) );
-        read(fd, buffer, file_size(fd) - 1);
-        close(fd);
-        printf("%s", buffer);
-        free(buffer);
-    }
-}
-
-//==========================================================================
-// Returns 1 if the string pointed by 'cp' contains an user-specified
-// kernel image file name. Used by getBootString() function.
-
-static int
-containsKernelName(const char * cp)
-{
-    register char c;
-
-    skipblanks(&cp);
-
-    // Convert char to lower case.
-
-    c = *cp | 0x20;
-
-    // Must start with a letter or a '/'.
-
-    if ( (c < 'a' || c > 'z') && ( c != '/' ) )
-        return 0;
-
-    // Keep consuming characters until we hit a separator.
-
-    while ( *cp && (*cp != '=') && (*cp != ' ') && (*cp != '\t') )
-        cp++;
-
-    // Only SPACE or TAB separator is accepted.
-    // Reject everything else.
-
-    if (*cp == '=')
-        return 0;
-
-    return 1;
-}
-
-//==========================================================================
-// Display the "boot:" prompt and copies the user supplied string to
-// kernBootStruct->bootString. The kernel image file name is written
-// to kernBootStruct->bootFile.
-
-static void
-getBootString()
-{
-    char         line[BOOT_STRING_LEN];
-    char *       cp;
-    char *       val;
-    int          count;
-    static int   timeout = kBootTimeout;
-
-    do {
-        line[0] = '\0';
-        cp      = &line[0];
-
-        // If there were errors, don't timeout on boot prompt since
-        // the same error is likely to occur again.
-
-        if ( errors ) timeout = 0;
-        errors = 0;
-
-        // Print the boot prompt and wait a few seconds for user input.
-
-        printf("\n");
-        count = Gets(line, sizeof(line), timeout, "boot: ", "");
-        flushdev();
-
-        // If something was typed, don't use automatic boot again.
-        // The boot: prompt will not timeout and go away until
-        // the user hits the return key.
-
-        if ( count ) timeout = 0;
-
-        skipblanks(&cp);
-
-        // If user typed '?', then display the usage message.
-
-        if ( *cp == '?' )
-        {
-            showHelp();
-            continue;
-        }
-
-        // Load config table file specified by the user, or fallback
-        // to the default one.
-
-        val = 0;
-        getValueForBootKey(cp, "config", &val, &count);
-        loadSystemConfig(val, count);
-        if ( !sysConfigValid )
-            continue;
-    }
-    while ( 0 );
-
-    // Did the user specify a kernel file name at the boot prompt?
-
-    if ( containsKernelName(cp) == 0 )
-    {
-        // User did not type a kernel image file name on the boot prompt.
-        // This is fine, read the default kernel file name from the
-        // config table.
-
-        if ( getValueForKey(kKernelNameKey, &val, &count) )
-        {
-            strncpy(kernBootStruct->bootFile, val, count);
-        }
-    }
-    else
-    {
-        // Get the kernel name from the user-supplied boot string,
-        // and copy the name to the buffer provided.
-
-        char * namep = kernBootStruct->bootFile;
-
-        while ( *cp && !(*cp == ' ' || *cp == '\t') )
-            *namep++ = *cp++;
-
-        *namep = '\0';
-    }
-
-    // Verbose flag specified.
-
-    gVerboseMode = getValueForBootKey(cp, "-v", &val, &count);
-
-    // Save the boot string in kernBootStruct->bootString.
-
-    if ( getValueForKey(kKernelFlagsKey, &val, &count) && count )
-    {
-        strncpy( kernBootStruct->bootString, val, count );
-    }
-    if ( strlen(cp) )
-    {
-        strcat(kernBootStruct->bootString, " ");
-        strcat(kernBootStruct->bootString, cp);
-    }
+    
+    if (gUnloadPXEOnExit) nbpUnloadBaseCode();
 }

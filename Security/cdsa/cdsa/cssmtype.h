@@ -1137,10 +1137,10 @@ typedef struct cssm_context {
     uint32 NumberOfAttributes;
     CSSM_CONTEXT_ATTRIBUTE_PTR ContextAttributes;
     CSSM_CSP_HANDLE CSPHandle;
-    uint32 Reserved; /* reserved for future use */
-    CSSM_BOOL Reserved1; /* reserved for future use */
-    uint32 Reserved2; /* reserved for future use */
-    uint32 Reserved3; /* reserved for future use */
+	CSSM_BOOL Privileged;
+	uint32 /*CSSM_KR_POLICY_FLAGS*/ EncryptionProhibited;
+	uint32 WorkFactor;
+	uint32 Reserved;	/* reserved for future use */
 } CSSM_CONTEXT, *CSSM_CONTEXT_PTR;
 
 typedef uint32 CSSM_SC_FLAGS;

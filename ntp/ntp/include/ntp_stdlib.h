@@ -8,11 +8,11 @@
 #include "l_stdlib.h"
 
 /*
- * Handle gcc __attribute__ if availabe.
+ * Handle gcc __attribute__ if available.
  */
 #ifndef __attribute__
 /* This feature is available in gcc versions 2.5 and later.  */
-# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5) || __STRICT_ANSI__
+# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5) || (defined(__STRICT_ANSI__))
 #  define __attribute__(Spec) /* empty */
 # endif
 /* The __-protected variants of `format' and `printf' attributes
@@ -32,25 +32,15 @@ extern	void	msyslog		P((int, const char *, ...))
 extern	void msyslog		P(());
 #endif
 
-#if 0				/* HMS: These seem to be unused now */
-extern	void	auth_des	P((u_long *, u_char *));
 extern	void	auth_delkeys	P((void));
-extern	int	auth_parity	P((u_long *));
-extern	void	auth_setkey	P((u_long, u_long *));
-extern	void	auth_subkeys	P((u_long *, u_char *, u_char *));
-#endif
-
-extern	void	auth1crypt	P((u_long, u_int32 *, int));
-extern	int	auth2crypt	P((u_long, u_int32 *, int));
-extern	void	auth_delkeys	P((void));
-extern	int	auth_havekey	P((u_long));
-extern	int	authdecrypt	P((u_long, u_int32 *, int, int));
-extern	int	authencrypt	P((u_long, u_int32 *, int));
-extern	int	authhavekey	P((u_long));
-extern	int	authistrusted	P((u_long));
+extern	int	auth_havekey	P((keyid_t));
+extern	int	authdecrypt	P((keyid_t, u_int32 *, int, int));
+extern	int	authencrypt	P((keyid_t, u_int32 *, int));
+extern	int	authhavekey	P((keyid_t));
+extern	int	authistrusted	P((keyid_t));
 extern	int	authreadkeys	P((const char *));
-extern	void	authtrust	P((u_long, int));
-extern	int	authusekey	P((u_long, int, const u_char *));
+extern	void	authtrust	P((keyid_t, u_long));
+extern	int	authusekey	P((keyid_t, int, const u_char *));
 
 extern	u_long	calleapwhen	P((u_long));
 extern	u_long	calyearstart	P((u_long));
@@ -66,25 +56,22 @@ extern	int	ntp_getopt	P((int, char **, const char *));
 extern	void	init_auth	P((void));
 extern	void	init_lib	P((void));
 extern	void	init_random	P((void));
-extern	struct savekey *auth_findkey P((u_long));
+extern	struct savekey *auth_findkey P((keyid_t));
 extern	int	auth_moremem	P((void));
 extern	int	ymd2yd		P((int, int, int));
 
 #ifdef	DES
 extern	int	DESauthdecrypt	P((u_char *, u_int32 *, int, int));
 extern	int	DESauthencrypt	P((u_char *, u_int32 *, int));
-extern	void	DESauth_setkey	P((u_long, const u_int32 *));
+extern	void	DESauth_setkey	P((keyid_t, const u_int32 *));
 extern	void	DESauth_subkeys	P((const u_int32 *, u_char *, u_char *));
 extern	void	DESauth_des	P((u_int32 *, u_char *));
 extern	int	DESauth_parity	P((u_int32 *));
 #endif	/* DES */
 
-#ifdef	MD5
 extern	int	MD5authdecrypt	P((u_char *, u_int32 *, int, int));
 extern	int	MD5authencrypt	P((u_char *, u_int32 *, int));
-extern	void	MD5auth_setkey	P((u_long, const u_char *, const int));
-extern	u_long	session_key	P((u_int32, u_int32, u_long, u_long));
-#endif	/* MD5 */
+extern	void	MD5auth_setkey	P((keyid_t, const u_char *, const int));
 
 extern	int	atoint		P((const char *, long *));
 extern	int	atouint		P((const char *, u_long *));
@@ -143,11 +130,12 @@ extern int	authnumfreekeys;
 /*
  * The key cache. We cache the last key we looked at here.
  */
-extern u_long	cache_keyid;		/* key identifier */
+extern keyid_t	cache_keyid;		/* key identifier */
 extern u_char *	cache_key;		/* key pointer */
 extern u_int	cache_keylen;		/* key length */
 
 /* clocktypes.c */
+struct clktype;
 extern struct clktype clktypes[];
 
 /* getopt.c */
@@ -163,11 +151,7 @@ extern HANDLE	hServDoneEvent;
 #endif
 
 /* systime.c */
-#if defined SCO5_CLOCK
-extern int	sco5_oldclock;		/* runtime detection of new clock */
-#endif /* SCO5_CLOCK */
-
-extern double	sys_maxfreq;		/* max frequency correction */
+extern int	systime_10ms_ticks;	/* adj sysclock in 10ms increments */
 
 /* version.c */
 extern const char *Version;		/* version declaration */

@@ -18,7 +18,7 @@
      * [8]Configuration for complex setups
        This section explains how to configure mod_dav when other "content
        handlers" such as mod_include, PHP, or CGI scripts are present.
-       
+   
    When this page refers to "Unix", it generally means any of the Unix or
    Unix-like platforms (such as Linux, *BSD, Solaris, AIX, HP/UX, etc).
    
@@ -410,7 +410,7 @@ drwxr-s---   2 nobody   www          1024 Oct 18 11:52 images/
 -rw-r--r--   1 nobody   www          2136 Jul 14 11:28 intro.html
 -rw-r--r--   1 nobody   www          5456 Jul 14 11:28 news.html
 -rw-r--r--   1 nobody   www          3125 Jul 14 11:28 tutorial.html
-
+   
    In this example, the web server will have no problem reading and
    writing the files in the /home/www/davhome file repository.
    

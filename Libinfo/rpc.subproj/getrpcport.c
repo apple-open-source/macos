@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)getrpcport.c 1.3 87/08/11 SMI";*/
 /*static char *sccsid = "from: @(#)getrpcport.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: getrpcport.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: getrpcport.c,v 1.3 2002/02/19 20:36:23 epeyton Exp $";
 #endif
 
 /*
@@ -61,10 +61,13 @@ static char *rcsid = "$Id: getrpcport.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <rpc/rpc.h>
+#include <rpc/pmap_clnt.h>
 #include <netdb.h>
 #include <sys/socket.h>
 
+int
 getrpcport(host, prognum, versnum, proto)
 	char *host;
 {

@@ -55,6 +55,7 @@ __RCSID("$NetBSD: fsplit.c,v 1.5 1997/10/18 15:14:52 lukem Exp $");
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 /*
  *	usage:		fsplit [-e efile] ... [file]

@@ -13,16 +13,14 @@
 
 #if defined(REFCLOCK) && defined(CLOCK_CHRONOLOG)
 
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/time.h>
-#include <time.h>
-
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_refclock.h"
 #include "ntp_calendar.h"
 #include "ntp_stdlib.h"
+
+#include <stdio.h>
+#include <ctype.h>
 
 /*
  * This driver supports the Chronolog K-series WWVB receiver.
@@ -293,15 +291,10 @@ chronolog_receive(
 	 */
 	if (!refclock_process(pp)) {
 		refclock_report(peer, CEVNT_BADTIME);
-		peer->burst = 0;
 		return;
 	}
-	if (peer->burst > 0)
-		return;
 	record_clock_stats(&peer->srcadr, pp->a_lastcode);
-
 	refclock_receive(peer);
-
 	up->lasthour = pp->hour;
 }
 

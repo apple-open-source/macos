@@ -31,6 +31,11 @@
 extern "C" {
 #endif
 
+/* lengths of time strings without trailing NULL */
+#define UTC_TIME_STRLEN				13
+#define CSSM_TIME_STRLEN			14		/* no trailing 'Z' */
+#define GENERALIZED_TIME_STRLEN		15		
+
 /*
  * Given a string containing either a UTC-style or "generalized time"
  * time string, convert to a struct tm (in GMT/UTC). Returns nonzero on
@@ -41,7 +46,10 @@ extern int timeStringToTm(
 	unsigned			len,
 	struct tm			*tmp);
 
-/* return current GMT time as a struct tm */
+/* 
+ * Return current GMT time as a struct tm.
+ * Caller must hold tpTimeLock.
+ */
 extern void nowTime(
 	struct tm		 	*now);
 
@@ -55,6 +63,21 @@ extern int compareTimes(
 	const struct tm 	*t1,
 	const struct tm 	*t2);
 	
+/*
+ * Create a time string, in either UTC (2-digit) or or Generalized (4-digit)
+ * year format. Caller mallocs the output string whose length is at least
+ * (UTC_TIME_STRLEN+1) or (GENERALIZED_TIME_STRLEN+1) respectively.
+ * Caller must hold tpTimeLock.
+ */
+typedef enum {
+	TIME_UTC,
+	TIME_GEN
+} TpTimeSpec;
+
+void timeAtNowPlus(unsigned secFromNow,
+	TpTimeSpec timeSpec,
+	char *outStr);
+
 #ifdef	__cplusplus
 }
 #endif

@@ -191,10 +191,16 @@ right_posix: right_only other_two
 #	ln -s ${TZDIR}/${LOCALTIME} ${DSTROOT}/etc/localtime
 
 #since we are not doing native builds ... hack hack hack
+
+ZONE_FILES = africa antarctica asia australasia europe northamerica southamerica pacificnew etcetera factory backward systemv solar87 solar88 solar89
+
 after_install::
 	-mkdir -p ${DSTROOT}/usr/share
 	-rm -rf ${DSTROOT}/usr/share/zoneinfo
-	cp -r HACK ${DSTROOT}/usr/share/zoneinfo
+	mkdir -p ${DSTROOT}/usr/share/zoneinfo
+	for tz in $(ZONE_FILES); do \
+		zic -L /dev/null -d ${DSTROOT}/usr/share/zoneinfo -y datfiles/yearistype.sh datfiles/$${tz}; \
+	done
 	chmod -R og-w ${DSTROOT}/usr/share/zoneinfo
 	-mkdir -p ${DSTROOT}/private/etc
 	-rm -f ${DSTROOT}/private/etc/localtime

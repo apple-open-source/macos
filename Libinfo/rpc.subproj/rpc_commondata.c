@@ -52,7 +52,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)rpc_commondata.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: rpc_commondata.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
+static char *rcsid = "$Id: rpc_commondata.c,v 1.3 2002/02/19 20:36:24 epeyton Exp $";
 #endif
 
 #include <rpc/rpc.h>
@@ -62,7 +62,7 @@ static char *rcsid = "$Id: rpc_commondata.c,v 1.2 1999/10/14 21:56:54 wsanchez E
  */
 #if defined(__APPLE__)
 struct opaque_auth _null_auth = {0};
-fd_set svc_fdset = {0};
+fd_set svc_fdset = {{0}};
 int svc_maxfd = -1;
 struct rpc_createerr rpc_createerr = {0};
 #else

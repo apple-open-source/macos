@@ -35,7 +35,7 @@ namespace Security
 
 // a nicer name for an authorization tag
 typedef CSSM_ACL_AUTHORIZATION_TAG AclAuthorization;
-typedef set<AclAuthorization> AclAuthorizationSet;
+typedef std::set<AclAuthorization> AclAuthorizationSet;
 
 
 //
@@ -45,7 +45,9 @@ class AuthorizationGroup : public PodWrapper<AuthorizationGroup, CSSM_AUTHORIZAT
 public:
 	AuthorizationGroup() { NumberOfAuthTags = 0; }
 	AuthorizationGroup(AclAuthorization auth);
+	
 	explicit AuthorizationGroup(const AclAuthorizationSet &, CssmAllocator &alloc);
+	void destroy(CssmAllocator &alloc);
 	
     bool empty() const			{ return NumberOfAuthTags == 0; }
 	unsigned int count() const	{ return NumberOfAuthTags; }
@@ -60,16 +62,17 @@ class AclOwnerPrototype;
 
 class AclEntryPrototype : public PodWrapper<AclEntryPrototype, CSSM_ACL_ENTRY_PROTOTYPE> {
 public:
-	AclEntryPrototype() { memset(this, 0, sizeof(*this)); }
-	AclEntryPrototype(const AclOwnerPrototype &proto);
+	AclEntryPrototype() { clearPod(); }
+	explicit AclEntryPrototype(const AclOwnerPrototype &proto);
 	AclEntryPrototype(const CSSM_LIST &subj, bool delegate = false)
-	{ memset(this, 0, sizeof(*this)); TypedSubject = subj; Delegate = delegate; }
+	{ clearPod(); TypedSubject = subj; Delegate = delegate; }
 	
 	TypedList &subject() { return TypedList::overlay(TypedSubject); }
 	const TypedList &subject() const { return TypedList::overlay(TypedSubject); }
 	bool delegate() const { return Delegate; }
 	char *tag() { return EntryTag; }
 	const char *tag() const { return EntryTag; }
+	void tag(const char *tagString);
 	AuthorizationGroup &authorization() { return AuthorizationGroup::overlay(Authorization); }
 	const AuthorizationGroup &authorization() const
 	{ return AuthorizationGroup::overlay(Authorization); }
@@ -77,9 +80,11 @@ public:
 
 class AclOwnerPrototype : public PodWrapper<AclOwnerPrototype, CSSM_ACL_OWNER_PROTOTYPE> {
 public:
-	AclOwnerPrototype() { }
+	AclOwnerPrototype() { clearPod(); }
 	explicit AclOwnerPrototype(const AclEntryPrototype &proto)
 	{ TypedSubject = proto.subject(); Delegate = proto.delegate(); }
+	AclOwnerPrototype(const CSSM_LIST &subj, bool delegate = false)
+	{ TypedSubject = subj; Delegate = delegate; }
 	
 	TypedList &subject() { return TypedList::overlay(TypedSubject); }
 	const TypedList &subject() const { return TypedList::overlay(TypedSubject); }
@@ -101,7 +106,7 @@ public:
 
 class AclEntryInput : public PodWrapper<AclEntryInput, CSSM_ACL_ENTRY_INPUT> {
 public:
-	AclEntryInput() { memset(this, 0, sizeof(*this)); }
+	AclEntryInput() { clearPod(); }
 	AclEntryInput(const AclEntryPrototype &prot)
 	{ Prototype = prot; Callback = NULL; CallerContext = NULL; }
 
@@ -134,16 +139,20 @@ class AutoAclOwnerPrototype {
 	NOCOPY(AutoAclOwnerPrototype)
 public:
 	// allocator can be set after construction
-	AutoAclOwnerPrototype(CssmAllocator *allocator = NULL) : mAllocator(allocator) { }
+	AutoAclOwnerPrototype(CssmAllocator *allocator = NULL)
+		: mAclOwnerPrototype(NULL), mAllocator(allocator) { }
 	~AutoAclOwnerPrototype();
 	
-	operator CSSM_ACL_OWNER_PROTOTYPE *() { return mAclOwnerPrototype; }
+	operator CSSM_ACL_OWNER_PROTOTYPE *()	{ return make(); }
+	AclOwnerPrototype &operator * ()		{ return *make(); }
 
 	void allocator(CssmAllocator &allocator);
 
 private:
 	AclOwnerPrototype *mAclOwnerPrototype;
 	CssmAllocator *mAllocator;
+	
+	AclOwnerPrototype *make();
 };
 
 
@@ -163,13 +172,27 @@ public:
 	const AclEntryInfo &at(uint32 ix) const { return mAclEntryInfo[ix]; }
 	const AclEntryInfo &operator[](uint32 ix) const
 	{ assert(ix < mNumberOfAclEntries); return mAclEntryInfo[ix]; }
+	AclEntryInfo &operator[](uint32 ix)
+	{ assert(ix < mNumberOfAclEntries); return mAclEntryInfo[ix]; }
 
-	uint32 size() const { return mNumberOfAclEntries; }
+	uint32 size() const { return mNumberOfAclEntries; }	// obsolete
+	uint32 count() const { return mNumberOfAclEntries; }
+	AclEntryInfo *entries() const { return mAclEntryInfo; }
 
 private:
 	AclEntryInfo *mAclEntryInfo;
 	uint32 mNumberOfAclEntries;
 	CssmAllocator *mAllocator;
+};
+
+class AutoAuthorizationGroup : public AuthorizationGroup {
+public:
+	AutoAuthorizationGroup(CssmAllocator &alloc) : allocator(alloc) { }
+	explicit AutoAuthorizationGroup(const AclAuthorizationSet &set,
+		CssmAllocator &alloc) : AuthorizationGroup(set, alloc), allocator(alloc) { }
+	~AutoAuthorizationGroup()	{ destroy(allocator); }
+
+	CssmAllocator &allocator;
 };
 
 

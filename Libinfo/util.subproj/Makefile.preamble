@@ -1,0 +1,3 @@
+AFTER_POSTINSTALL += install-man-page
+OTHER_CFLAGS = \
+	-DINET6=1 \

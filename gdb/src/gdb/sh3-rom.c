@@ -1,5 +1,6 @@
 /* Remote target glue for the Hitachi SH-3 ROM monitor.
-   Copyright 1995, 1996, 2000 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,8 +26,9 @@
 #include "serial.h"
 #include "srec.h"
 #include "arch-utils.h"
+#include "regcache.h"
 
-static serial_t parallel;
+static struct serial *parallel;
 static int parallel_in_use;
 
 static void sh3_open (char *args, int from_tty);
@@ -118,7 +120,7 @@ sh3_supply_register (char *regname, int regnamelen, char *val, int vallen)
 }
 
 static void
-sh3_load (serial_t desc, char *file, int hashmark)
+sh3_load (struct serial *desc, char *file, int hashmark)
 {
   if (parallel_in_use)
     {
@@ -130,13 +132,13 @@ sh3_load (serial_t desc, char *file, int hashmark)
     {
       monitor_printf ("il;s:x\r");
       monitor_expect ("\005", NULL, 0);		/* Look for ENQ */
-      SERIAL_WRITE (desc, "\006", 1);	/* Send ACK */
+      serial_write (desc, "\006", 1);	/* Send ACK */
       monitor_expect ("LO x\r", NULL, 0);	/* Look for filename */
 
       load_srec (desc, file, 0, 80, SREC_ALL, hashmark, NULL);
 
       monitor_expect ("\005", NULL, 0);		/* Look for ENQ */
-      SERIAL_WRITE (desc, "\006", 1);	/* Send ACK */
+      serial_write (desc, "\006", 1);	/* Send ACK */
       monitor_expect_prompt (NULL, 0);
     }
 }
@@ -249,7 +251,7 @@ sh3_open (char *args, int from_tty)
 
   if (args)
     {
-      char *cursor = serial_port_name = strsave (args);
+      char *cursor = serial_port_name = xstrdup (args);
 
       while (*cursor && *cursor != ' ')
 	cursor++;
@@ -268,7 +270,7 @@ sh3_open (char *args, int from_tty)
 
   if (parallel_port_name)
     {
-      parallel = SERIAL_OPEN (parallel_port_name);
+      parallel = serial_open (parallel_port_name);
 
       if (!parallel)
 	perror_with_name ("Unable to open parallel port.");
@@ -289,7 +291,7 @@ sh3e_open (char *args, int from_tty)
 
   if (args)
     {
-      char *cursor = serial_port_name = strsave (args);
+      char *cursor = serial_port_name = xstrdup (args);
 
       while (*cursor && *cursor != ' ')
 	cursor++;
@@ -315,7 +317,7 @@ sh3e_open (char *args, int from_tty)
 
   if (parallel_port_name)
     {
-      parallel = SERIAL_OPEN (parallel_port_name);
+      parallel = serial_open (parallel_port_name);
 
       if (!parallel)
 	perror_with_name ("Unable to open parallel port.");
@@ -333,7 +335,7 @@ sh3_close (int quitting)
   monitor_close (quitting);
   if (parallel_in_use)
     {
-      SERIAL_CLOSE (parallel);
+      serial_close (parallel);
       parallel_in_use = 0;
     }
 }
@@ -348,16 +350,11 @@ _initialize_sh3_rom (void)
   sh3_ops.to_longname = "Hitachi SH-3 rom monitor";
 
   sh3_ops.to_doc =
-#ifdef _WINDOWS
-  /* On windows we can talk through the parallel port too. */
-    "Debug on a Hitachi eval board running the SH-3 rom monitor.\n"
-    "Specify the serial device it is connected to (e.g. com2).\n"
+  /* We can download through the parallel port too. */
+    "Debug on a Hitachi eval board running the SH-3E rom monitor.\n"
+    "Specify the serial device it is connected to.\n"
     "If you want to use the parallel port to download to it, specify that\n"
-    "as the second argument. (e.g. lpt1)";
-#else
-    "Debug on a Hitachi eval board running the SH-3 rom monitor.\n\
-Specify the serial device it is connected to (e.g. /dev/ttya).";
-#endif
+    "as an additional second argument.";
 
   sh3_ops.to_open = sh3_open;
   sh3_ops.to_close = sh3_close;
@@ -372,16 +369,11 @@ Specify the serial device it is connected to (e.g. /dev/ttya).";
   sh3e_ops.to_longname = "Hitachi SH-3E rom monitor";
 
   sh3e_ops.to_doc =
-#ifdef _WINDOWS
-  /* On windows we can talk through the parallel port too. */
+  /* We can download through the parallel port too. */
     "Debug on a Hitachi eval board running the SH-3E rom monitor.\n"
-    "Specify the serial device it is connected to (e.g. com2).\n"
+    "Specify the serial device it is connected to.\n"
     "If you want to use the parallel port to download to it, specify that\n"
-    "as the second argument. (e.g. lpt1)";
-#else
-    "Debug on a Hitachi eval board running the SH-3E rom monitor.\n\
-Specify the serial device it is connected to (e.g. /dev/ttya).";
-#endif
+    "as an additional second argument.";
 
   sh3e_ops.to_open = sh3e_open;
   sh3e_ops.to_close = sh3_close;

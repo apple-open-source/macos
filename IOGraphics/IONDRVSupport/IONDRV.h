@@ -19,15 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 July 98 - start IOKit
- */
 
 
 #ifndef __IONDRV__
@@ -44,6 +35,35 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
+enum {
+    kIONDRVOpenCommand                = 128 + 0,
+    kIONDRVCloseCommand               = 128 + 1,
+    kIONDRVReadCommand                = 128 + 2,
+    kIONDRVWriteCommand               = 128 + 3,
+    kIONDRVControlCommand             = 128 + 4,
+    kIONDRVStatusCommand              = 128 + 5,
+    kIONDRVKillIOCommand              = 128 + 6,
+    kIONDRVInitializeCommand          = 128 + 7,		/* init driver and device*/
+    kIONDRVFinalizeCommand            = 128 + 8,		/* shutdown driver and device*/
+    kIONDRVReplaceCommand             = 128 + 9,		/* replace an old driver*/
+    kIONDRVSupersededCommand          = 128 + 10		/* prepare to be replaced by a new driver*/
+};
+enum {
+    kIONDRVSynchronousIOCommandKind   = 0x00000001,
+    kIONDRVAsynchronousIOCommandKind  = 0x00000002,
+    kIONDRVImmediateIOCommandKind     = 0x00000004
+};
+
+struct IONDRVControlParameters {
+    UInt8	__reservedA[0x1a];
+    UInt16	code;
+    void *	params;
+    UInt8	__reservedB[0x12];
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef void * RegEntryID[4];
 
@@ -129,14 +149,30 @@ extern OSStatus    CallTVector(
 }
 #endif
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 class IONDRV : public OSObject
 {
-    OSDeclareDefaultStructors(IONDRV)
+    OSDeclareAbstractStructors(IONDRV)
+
+public:
+    virtual IOReturn getSymbol( const char * symbolName,
+				IOLogicalAddress * address ) = 0;
+
+    virtual const char * driverName( void ) = 0;
+
+    virtual IOReturn doDriverIO( UInt32 commandID, void * contents,
+				 UInt32 commandCode, UInt32 commandKind ) = 0;
+};
+
+class IOPEFNDRV : public IONDRV
+{
+    OSDeclareDefaultStructors(IOPEFNDRV)
 
 private:
-    void * 			pcInst;
+    void * 			fPEFInst;
     struct IOTVector *		fDoDriverIO;
-    struct DriverDescription *	theDriverDesc;
+    struct DriverDescription *	fDriverDesc;
     char			fName[64];
 
 public:
@@ -158,8 +194,7 @@ public:
     virtual const char * driverName( void );
 
     virtual IOReturn doDriverIO( UInt32 commandID, void * contents,
-				UInt32 commandCode, UInt32 commandKind );
-
+				 UInt32 commandCode, UInt32 commandKind );
 };
 
 struct IONDRVInterruptSource {

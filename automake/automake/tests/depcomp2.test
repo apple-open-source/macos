@@ -1,0 +1,40 @@
+#! /bin/sh
+
+# Test to make sure that depcomp is not used when it's not installed
+# From Pavel Roskin.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(subdir/foo.c)
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_OUTPUT(Makefile subdir/Makefile)
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = subdir
+END
+
+rm -f depcomp
+mkdir subdir
+
+cat > subdir/Makefile.in << 'END'
+foo:
+	$(CC) -o foo foo.c
+END
+
+: > subdir/foo.c
+
+# Likewise for gcc.
+(gcc -v) > /dev/null 2>&1 || exit 77
+
+# Ignore user CFLAGS.
+CFLAGS=
+export CFLAGS
+
+$ACLOCAL || exit 1
+$AUTOMAKE --add-missing || exit 1
+$AUTOCONF || exit 1
+CC='gcc' ./configure 2>error.log
+test -z "`cat error.log`"

@@ -4,8 +4,7 @@
 # View diffs in FileMerge
 # Must be run in a working copy.
 ##
-# Wilfredo Sanchez Jr. | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 ##

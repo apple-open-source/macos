@@ -1,6 +1,33 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.10 release (the cctools-415 release):
+- Changed the incomplete implementation of dlopen() to have the dlsym() function
+  append the needed underbar for symbol name lookups.  Radar bug #2908831.
+
+Changes for the 5.10 release (the cctools-414 release):
+- Changed the call to mach_host_self() in get_or_start_debug_thread() in
+  debug.c to call mach_port_deallocate() on the port after the call.  Radar bug
+  #2895931.
+
+Changes for the 5.10 release (the cctools-403 release):
+- Changed the macos_lib_ofiles_install target in the Makefile to work when
+  $SYMROOT is not set.  So the top level Makefile can do a make install and
+  work by default.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-397 release):
+- Added #include "stuff/bool.h" to images.c, bind.c, core.c, ofi.c,
+  runtime_loading.c and dyld_support.c.  Also changed where "stuff/bool.h" was
+  included in debug.c. Radar bug #2831923.
+- Added _NSGetExecutablePath() to dyld_support.c.  Radar bug #2432816.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+
 Changes for the 5.9 release (the cctools-365 release):
 - Added NSAddImage(), NSLookupSymbolInImage() and NSIsSymbolNameDefinedInImage()
   to dyld_support.c .  Radar bug #2689833.

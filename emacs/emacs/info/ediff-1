@@ -1,17 +1,32 @@
-This is Info file ../info/ediff, produced by Makeinfo version 1.68 from
-the input file ediff.texi.
+This is ../info/ediff, produced by makeinfo version 4.0 from ediff.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Ediff: (ediff).       A visual interface for comparing and merging programs.
 END-INFO-DIR-ENTRY
 
-   This file documents Ediff, a comprehensive visual interface to Unix
-diff and patch utilities.
+   This file documents Ediff, a comprehensive visual interface to diff
+and patch utilities.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: ediff,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
@@ -81,6 +96,16 @@ File: ediff,  Node: Major Entry Points,  Next: Session Commands,  Prev: Introduc
 Major Entry Points
 ******************
 
+   When Ediff starts up, it displays a small control window, which
+accepts the Ediff commands and two or three windows displaying the
+files to be compared or merged. The control window can be in its own
+small frame or it can be part of a bigger frame that displays other
+buffers. In any case, it is important that the control window be active
+(i.e., be the one receiving the keystrokes) when you use Ediff. You can
+switch to other Emacs buffers at will and even edit the files currently
+being compared with Ediff and then switch back to Ediff at any time by
+activating the appropriate Emacs windows.
+
    Ediff can be invoked interactively using the following functions,
 which can be run either from the minibuffer or from the menu bar.  In
 the menu bar, all Ediff's entry points belong to three submenus of the
@@ -148,13 +173,19 @@ Tools menu: Compare, Merge, and Apply Patch.
      interface will be used and the user will be able to patch the
      files selectively.  *Note Session Groups::, for more details.
 
+     Since the patch might be in a buffer or a file, you will be asked
+     which is the case. To avoid this extra prompt, you can invoke this
+     command with a prefix argument.  With an odd prefix argument,
+     Ediff assumes the patch is in a file; with an even argument, a
+     buffer is assumed.
+
      Note that `ediff-patch-file' will actually use the `patch' utility
-     to change the the original files on disk.  This is not that
-     dangerous, since you will always have the original contents of the
-     file saved in another file that has the extension `.orig'.
-     Furthermore, if the file is under version control, then you can
-     always back out to one of the previous versions (see the section
-     on Version Countrol in Emacs manual).
+     to change the original files on disk.  This is not that dangerous,
+     since you will always have the original contents of the file saved
+     in another file that has the extension `.orig'.  Furthermore, if
+     the file is under version control, then you can always back out to
+     one of the previous versions (see the section on Version Countrol
+     in Emacs manual).
 
      `ediff-patch-file' is careful about versions control: if the file
      to be patched is checked in, then Ediff will offer to check it
@@ -168,13 +199,19 @@ Tools menu: Compare, Merge, and Apply Patch.
 `ediff-patch-buffer'
 `epatch-buffer'
      Patch a buffer, then compare.  The buffer being patched and the
-     file visited by that buffer (if any) is *not* modified.  The
+     file visited by that buffer (if any) is _not_ modified.  The
      result of the patch appears in some other buffer that has the name
-     ending with *_patched*.
+     ending with __patched_.
 
      This function would refuse to apply a multifile patch to a buffer.
      Use `ediff-patch-file' for that (and when you want the original
      file to be modified by the `patch' utility).
+
+     Since the patch might be in a buffer or a file, you will be asked
+     which is the case. To avoid this extra prompt, you can invoke this
+     command with a prefix argument.  With an odd prefix argument,
+     Ediff assumes the patch is in a file; with an even argument, a
+     buffer is assumed.
 
 `ediff-merge-files'
 `ediff-merge'
@@ -248,7 +285,7 @@ displayed in the mode line of the control window.
    Since `diff' may report fairly large chunks of text as being
 different, even though the difference may be localized to just a few
 words or even to the white space or line breaks, Ediff further
-*refines* the regions to indicate which exact words differ.  If the
+_refines_ the regions to indicate which exact words differ.  If the
 only difference is in the white space and line breaks, Ediff says so.
 
    On a color display, fine differences are highlighted with color; on a
@@ -373,20 +410,20 @@ Quick Help Commands
      compares three files simultaneously).
 
 `a'
-     *In comparison sessions:* Copies the current difference region (or
+     _In comparison sessions:_ Copies the current difference region (or
      the region specified as the prefix to this command) from buffer A
      to buffer B.  Ediff saves the old contents of buffer B's region;
      it can be restored via the command `rb', which see.
 
-     *In merge sessions:* Copies the current difference region (or the
+     _In merge sessions:_ Copies the current difference region (or the
      region specified as the prefix to this command) from buffer A to
      the merge buffer.  The old contents of this region in buffer C can
      be restored via the command `r'.
 
 `b'
      Works similarly, but copies the current difference region from
-     buffer B to buffer A (in *comparison sessions*) or the merge
-     buffer (in *merge sessions*).
+     buffer B to buffer A (in _comparison sessions_) or the merge
+     buffer (in _merge sessions_).
 
      Ediff saves the old contents of the difference region copied over;
      it can be reinstated via the command `ra' in comparison sessions
@@ -458,10 +495,10 @@ Quick Help Commands
      buffer B.
 
 `gc'
-     *In merge sessions:* makes current the difference region closest
+     _In merge sessions:_ makes current the difference region closest
      to the point in the merge buffer.
 
-     *In 3-file comparison sessions:* makes current the region closest
+     _In 3-file comparison sessions:_ makes current the region closest
      to the point in buffer C.
 
      With a prefix argument, behaves like `ga', but with respect to
@@ -652,7 +689,7 @@ Quick Help Commands
      to resume an Ediff session, but it works only if the control panel
      of that session is visible.
 
-`$'
+`$$'
      While merging with an ancestor file, Ediff is determined to reduce
      user's wear and tear by saving him and her much of unproductive,
      repetitive typing.  If it notices that, say, file A's difference
@@ -670,7 +707,23 @@ Quick Help Commands
 
      The above command does this for you by skipping the regions where
      only one of the variants clashes with the ancestor but the other
-     variant agrees with it.  Typing `$' again undoes this setting.
+     variant agrees with it.  Typing `$$' again undoes this setting.
+
+`$*'
+     When merging files with large number of differences, it is
+     sometimes convenient to be able to skip the difference regions for
+     which you already decided which variant is most appropriate.
+     Typing `$*' will accomplish precisely this.
+
+     To be more precise, this toggles the check for whether the current
+     merge is identical to its default setting, as originally decided
+     by Ediff.  For instance, if Ediff is merging according to the
+     `combined' policy, then the merge region is skipped over if it is
+     different from the combination of the regions in buffers A and B.
+     (Warning: swapping buffers A and B will confuse things in this
+     respect).  If the merge region is marked as `prefer-A' then this
+     region will be skipped if it differs from the current difference
+     region in buffer A, etc.
 
 `/'
      Displays the ancestor file during merges.
@@ -717,7 +770,7 @@ Quick Help Commands
 
 `+'
      Combines the difference regions from buffers A and B and copies the
-     result into the merge buffer.  *Note Merging and diff3:: and the
+     result into the merge buffer.  *Note Merging and diff3::, and the
      variables `ediff-combine-diffs' and `ediff-combination-pattern'.
 
 `='
@@ -734,16 +787,20 @@ Quick Help Commands
      creates a child Ediff session for comparing current Emacs regions
      in buffers A, B, or C as follows:
 
-     *If you are comparing 2 files or buffers:* Ediff would compare
+     _If you are comparing 2 files or buffers:_ Ediff would compare
      current Emacs regions in buffers A and B.
 
-     *If you are comparing 3 files or buffers simultaneously:* Ediff
+     _If you are comparing 3 files or buffers simultaneously:_ Ediff
      would compare the current Emacs regions in the buffers of your
      choice (you will be asked which two of the three buffers to use).
 
-     *If you are merging files or buffers (with or without ancestor):*
+     _If you are merging files or buffers (with or without ancestor):_
      Ediff would take the current region in the merge buffer and compare
      it to the current region in the buffer of your choice (A or B).
+
+     _Note: In all these cases you must first switch to the appropriate
+     Emacs buffers and manually set the regions that you want to
+     compare._
 
      Highlighting set by the parent Ediff session is removed, to avoid
      interference with highlighting of the child session.  When done
@@ -810,12 +867,12 @@ Registry of Ediff Sessions
 **************************
 
    Ediff maintains a registry of all its invocations that are still
-*active*.  This feature is very convenient for switching among active
+_active_.  This feature is very convenient for switching among active
 Ediff sessions or for quickly restarting a suspended Ediff session.
 
-   The focal point of this activity is a buffer called **Ediff
-Registry**.  You can display this buffer by typing `R' in any Ediff
-Control Buffer or Session Group Buffer (*note Session Groups::.), or by
+   The focal point of this activity is a buffer called _*Ediff
+Registry*_.  You can display this buffer by typing `R' in any Ediff
+Control Buffer or Session Group Buffer (*note Session Groups::), or by
 typing `M-x eregistry' into the Minibuffer.  The latter would be the
 fastest way to bring up the registry buffer if no control or group
 buffer is displayed in any of the visible Emacs windows.  If you are in
@@ -849,7 +906,7 @@ directories.  On entering `ediff-directories', `ediff-directories3',
 with a Dired-like buffer that lists files common to the directories
 involved along with their sizes.  (The list of common files can be
 further filtered through a regular expression, which the user is
-prompted for.)  We call this buffer *Session Group Panel* because all
+prompted for.)  We call this buffer _Session Group Panel_ because all
 Ediff sessions associated with the listed files will have this buffer
 as a common focal point.
 
@@ -896,30 +953,30 @@ value is `nil', nothing is done to the merge buffers--it will be the
 user's responsibility to save them.  If the value is `t', the user will
 be asked where to save the merge buffers in all merge jobs, even those
 that do not originate from a session group.  It the value is neither
-`nil' nor `t', the merge buffer is saved *only* if this merge session
+`nil' nor `t', the merge buffer is saved _only_ if this merge session
 was invoked from a session group.  This behavior is implemented in the
 function `ediff-maybe-save-and-delete-merge', which is a hook in
 `ediff-quit-merge-hook'.  The user can supply a different hook, if
 necessary.
 
    The variable `ediff-autostore-merges' is buffer-local, so it can be
-set in a per-buffer manner.  Therefore, use `setq-default' to globally
-change this variable.
+set on a per-buffer basis.  Therefore, use `setq-default' to change
+this variable globally.
 
    A multi-file patch is a concatenated output of several runs of the
-Unix `diff' command (some versions of `diff' let you create a
-multi-file patch in just one run).  Ediff facilitates creation of
-multi-file patches as follows.  If you are in a session group buffer
-created in response to `ediff-directories' or
-`ediff-directory-revisions', you can mark (by typing `m') the desired
-Ediff sessions and then type `P' to create a multi-file patch of those
-marked sessions.  Ediff will then display a buffer containing the patch.
-The patch is generated by invoking `diff' on all marked individual
-sessions (represented by files) and session groups (represented by
-directories).  Ediff will also recursively descend into any *unmarked*
-session group and will search for marked sessions there.  In this way,
-you can create multi-file patches that span file subtrees that grow out
-of any given directory.
+`diff' command (some versions of `diff' let you create a multi-file
+patch in just one run).  Ediff facilitates creation of multi-file
+patches as follows.  If you are in a session group buffer created in
+response to `ediff-directories' or `ediff-directory-revisions', you can
+mark (by typing `m') the desired Ediff sessions and then type `P' to
+create a multi-file patch of those marked sessions.  Ediff will then
+display a buffer containing the patch.  The patch is generated by
+invoking `diff' on all marked individual sessions (represented by
+files) and session groups (represented by directories).  Ediff will
+also recursively descend into any _unmarked_ session group and will
+search for marked sessions there.  In this way, you can create
+multi-file patches that span file subtrees that grow out of any given
+directory.
 
    In an `ediff-directories' session, it is enough to just mark the
 requisite sessions.  In `ediff-directory-revisions' revisions, the
@@ -975,7 +1032,7 @@ customization and faces) can be done by putting appropriate lines in
 `.Xdefaults', `.xrdb', or whatever X resource file is in use.
 
    With respect to the latter, please note that the X resource for
-Ediff customization is `Ediff', *not* `emacs'.  *Note Window and Frame
+Ediff customization is `Ediff', _not_ `emacs'.  *Note Window and Frame
 Configuration::, *Note Highlighting Difference Regions::, for further
 details.  Please also refer to Emacs manual for the information on how
 to set Emacs X resources.
@@ -1009,6 +1066,10 @@ Hooks
 `ediff-load-hook'
      This hook can be used to change defaults after Ediff is loaded.
 
+`ediff-before-setup-hook'
+     Hook that is run just before Ediff rearranges windows to its
+     liking.  Can be used to save windows configuration.
+
 `ediff-keymap-setup-hook'
      This hook can be used to alter bindings in Ediff's keymap,
      `ediff-mode-map'.  These hooks are run right after the default
@@ -1019,8 +1080,9 @@ Hooks
 `ediff-before-setup-windows-hook'
 `ediff-after-setup-windows-hook'
      These two hooks are called before and after Ediff sets up its
-     window configuration.  Can be used to save the configuration that
-     existed before Ediff starts or for whatever other purposes.
+     window configuration.  These hooks are run each time Ediff
+     rearranges windows to its liking. This happens whenever it detects
+     that the user changed the windows setup.
 
 `ediff-suspend-hook'
 `ediff-quit-hook'
@@ -1099,7 +1161,12 @@ Hooks
      Hooks run after setting up the registry for all active Ediff
      session.  *Note Session Groups::, for details.
 
-`ediff-session-group-setup-hook'
+`ediff-before-session-group-setup-hook'
+     Hooks run before setting up a control panel for a group of related
+     Ediff sessions. Can be used, for example, to save window
+     configuration to restore later.
+
+`ediff-after-session-group-setup-hook'
      Hooks run after setting up a control panel for a group of related
      Ediff sessions.  *Note Session Groups::, for details.
 
@@ -1111,26 +1178,4 @@ Hooks
      map that controls key bindings in the meta buffer.  Since
      `ediff-meta-buffer-map' is a local variable, you can set different
      bindings for different kinds of meta buffers.
-
-
-File: ediff,  Node: Quick Help Customization,  Next: Window and Frame Configuration,  Prev: Hooks,  Up: Customization
-
-Quick Help Customization
-========================
-
-   Ediff provides quick help using its control panel window.  Since
-this window takes a fair share of the screen real estate, you can
-toggle it off by typing `?'.  The control window will then shrink to
-just one line and a mode line, displaying a short help message.
-
-   The variable `ediff-use-long-help-message' tells Ediff whether you
-use the short message or the long one.  By default, it is set to `nil',
-meaning that the short message is used.  Set this to `t', if you want
-Ediff to use the long message by default.  This property can always be
-changed interactively, by typing `?' into Ediff Control Buffer.
-
-   If you want to change the appearance of the help message on a
-per-buffer basis, you must use `ediff-startup-hook' to change the value
-of the variable `ediff-help-message', which is local to
-`ediff-control-buffer'.
 

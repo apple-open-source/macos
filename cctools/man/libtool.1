@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "July 26, 2001" "Apple Computer, Inc."
+.TH LIBTOOL 1 "May 23, 2002" "Apple Computer, Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -53,7 +53,7 @@ ranlib \- add or update the table of contents of archive libraries
 .sp
 .B ranlib
 [
-.B \-sact
+.B \-sactfLT
 ]
 [
 .B \-
@@ -249,6 +249,7 @@ flags are accepted and passed through:
 .B \-segs_read_only_addr,
 .B \-segs_read_write_addr,
 .B \-seg_addr_table,
+.B \-seg_addr_table_filename,
 .B \-segprot,
 .B \-segalign,
 .B \-sectcreate,
@@ -258,6 +259,7 @@ flags are accepted and passed through:
 .B \-undefined,
 .B \-read_only_relocs,
 .B \-prebind,
+.B \-prebind_all_twolevel_modules,
 .B \-noprebind,
 .B \-framework,
 .B \-umbrella,
@@ -278,10 +280,15 @@ flags are accepted and passed through:
 .B \-run_init_lazily,
 .B \-final_output,
 .B \-multiply_defined,
+.B \-multiply_defined_unused,
 .B \-twolevel_namespace,
 .B \-twolevel_namespace_hints,
 .B \-flat_namespace,
-.B \-nomultidefs.
+.B \-nomultidefs,
+.B \-headerpad,
+.B \-headerpad_max_install_names,
+.B \-weak_reference_mismatches,
+.B \-M.
 See the
 .IR ld (1)
 man page for details on these flags.
@@ -363,6 +370,11 @@ the default.
 .B \-T
 Truncate archive member names to 16 characters and don't use the 4.4bsd extended
 format #1.  This option is not the default.
+.TP
+.B \-f
+Warns when the output archive is fat and
+.IR ar (1)
+will no longer be able to operate on it.
 .PP
 For compatibility, the following 
 .I ranlib
@@ -385,7 +397,7 @@ options.
 .SH "SEE ALSO"
 ld(1), ar(1), otool(1), make(1), redo_prebinding(1), ar(5)
 .SH BUGS
-The way libraries use to be created, errors were possible if the library 
+With the way libraries used to be created, errors were possible if the library 
 was modified with
 .IR ar (1)
 and the table of contents was not updated by rerunning

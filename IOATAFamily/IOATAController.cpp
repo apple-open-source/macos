@@ -1310,11 +1310,18 @@ IOATAController::asyncStatus(void)
 		error = *_tfFeatureReg;
 		OSSynchronizeIO();
 		err = kATADeviceError;
-		if( _currentCommand->getFlags() & mATAFlagTFAccess )
+		// look for error results in the TF 
+		if( _currentCommand->getFlags() & (mATAFlagTFAccess | mATAFlagTFAccessResult) )
 		{
 			registerAccess( false );
 		}
 
+
+	// if this command returns results in registers on successful completion
+	// read them now. 
+	} else if( _currentCommand->getFlags() & mATAFlagTFAccessResult ) {
+	
+		registerAccess( false );
 	}
 
 	 _currentCommand->setEndResult( status, error);

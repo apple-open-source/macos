@@ -46,6 +46,7 @@ dsstatus nistore_remove(dsstore *s, u_int32_t dsid);
 	dsstatus nistore_remove_attribute(dsstore *s, dsrecord *r, dsattribute *a, u_int32_t asel);
 */
 
+dsstatus nistore_list(dsstore *s, u_int32_t dsid, dsdata *key, u_int32_t asel, dsrecord **list);
 dsstatus nistore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t asel, u_int32_t *match);
 
 u_int32_t nistore_record_version(dsstore *s, u_int32_t dsid);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -69,6 +69,11 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	}
 
 	xmlData = CFPropertyListCreateXMLData(NULL, storeData);
+	if (!xmlData) {
+		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		close(fd);
+		return kSCStatusFailed;
+	}
 	(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
 	(void) close(fd);
 	CFRelease(xmlData);
@@ -84,6 +89,11 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	/* Save a snapshot of the "session" data */
 
 	xmlData = CFPropertyListCreateXMLData(NULL, sessionData);
+	if (!xmlData) {
+		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		close(fd);
+		return kSCStatusFailed;
+	}
 	(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
 	(void) close(fd);
 	CFRelease(xmlData);

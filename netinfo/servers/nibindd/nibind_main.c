@@ -217,6 +217,7 @@ main(int argc, char *argv[])
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot chdir to netinfo directory");
+		exit(1);
 	}
 
 	dp = opendir(NETINFO_DIR);
@@ -224,6 +225,7 @@ main(int argc, char *argv[])
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot open netinfo directory");
+		exit(1);
 	}
 
 	MM_ZERO(&nl);
@@ -250,6 +252,7 @@ main(int argc, char *argv[])
 	{
 		killparent();
 		system_log(LOG_ALERT, "nibindd already running");
+		exit(1);
 	}
 	fcntl(dp->dd_fd, F_SETFD, 1);
 #else
@@ -269,12 +272,14 @@ main(int argc, char *argv[])
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot start udp service");
+		exit(1);
 	}
 
 	if (!svc_register(utransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_UDP))
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot register udp service");
+		exit(1);
 	}
 
 	udp_sock = utransp->xp_sock;
@@ -284,12 +289,14 @@ main(int argc, char *argv[])
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot start tcp service");
+		exit(1);
 	}
 
 	if (!svc_register(ttransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_TCP))
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot register tcp service");
+		exit(1);
 	}
 
 	waitreg = 0;

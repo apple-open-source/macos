@@ -1,7 +1,8 @@
-;;; japan-util.el ---  utilities for Japanese
+;;; japan-util.el --- utilities for Japanese -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
+;; Copyright (C) 2001 Free SOftware Foundation, Inc.
 
 ;; Keywords: mule, multilingual, Japanese
 
@@ -22,21 +23,18 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (defvar sentence-end-save nil)
 
 ;;;###autoload
-(defun setup-japanese-environment ()
-  "Setup multilingual environment (MULE) for Japanese."
-  (interactive)
-  (set-language-environment "Japanese"))
-
-;;;###autoload
 (defun setup-japanese-environment-internal ()
-  (if (eq system-type 'ms-dos)
-      (prefer-coding-system 'japanese-shift-jis)
-    (setq default-file-name-coding-system 'japanese-iso-8bit))
+  (cond ((eq system-type 'ms-dos)
+	 (prefer-coding-system 'japanese-shift-jis))
+	((eq system-type 'usg-unix-v)
+	 (prefer-coding-system 'japanese-iso-8bit)))
   (setq sentence-end-save sentence-end)
   (setq sentence-end (concat sentence-end "\\|[。？！]")))
 
@@ -106,7 +104,7 @@ HANKAKU-KATAKANA belongs to `japanese-jisx0201-kana'.")
 (defconst japanese-symbol-table
   '((?\　 ?\ ) (?， ?, ?､) (?． ?. ?｡) (?、 ?, ?､) (?。 ?. ?｡) (?・ nil ?･)
     (?： ?:) (?； ?\;) (?？ ??) (?！ ?!) (?゛ nil ?ﾞ) (?゜ nil ?ﾟ)
-    (?´ ?') (?｀ ?`) (?＾ ?^) (?＿ ?_) (?ー ?-) (?― ?-) (?‐ ?-)
+    (?´ ?') (?｀ ?`) (?＾ ?^) (?＿ ?_) (?ー ?- ?ｰ) (?― ?-) (?‐ ?-)
     (?／ ?/) (?＼ ?\\) (?〜 ?~)  (?｜ ?|) (?‘ ?`) (?’ ?') (?“ ?\") (?” ?\")
     (?\（ ?\() (?\） ?\)) (?\［ ?[) (?\］ ?]) (?\｛ ?{) (?\｝ ?})
     (?〈 ?<) (?〉 ?>) (?＋ ?+) (?− ?-) (?＝ ?=) (?＜ ?<) (?＞ ?>)
@@ -204,9 +202,9 @@ The argument object is not altered--the value is a copy.
 Optional argument ASCII-ONLY non-nil means to return only ASCII character."
   (if (stringp obj)
       (japanese-string-conversion obj 'japanese-hankaku-region ascii-only)
-    (or (get-char-code-property obj 'ascii)
-	(and (not ascii-only)
+    (or (and (not ascii-only)
 	     (get-char-code-property obj 'jisx0201))
+	(get-char-code-property obj 'ascii)
 	obj)))
 
 ;;;###autoload
@@ -237,7 +235,9 @@ of which charset is `japanese-jisx0201-kana'."
       (goto-char (point-min))
       (while (re-search-forward "\\cH\\|\\cK" nil t)
 	(let* ((kana (preceding-char))
-	       (composition (get-char-code-property kana 'kana-composition))
+	       (composition
+		(and (not hankaku)
+		     (get-char-code-property kana 'kana-composition)))
 	       next slot)
 	  (if (and composition (setq slot (assq (following-char) composition)))
 	      (japanese-replace-region (match-beginning 0) (1+ (point))
@@ -283,9 +283,9 @@ Optional argument ASCII-ONLY non-nil means to convert only to ASCII char."
       (goto-char (point-min))
       (while (re-search-forward "\\cj" nil t)
 	(let* ((zenkaku (preceding-char))
-	       (hankaku (or (get-char-code-property zenkaku 'ascii)
-			    (and (not ascii-only)
-				 (get-char-code-property zenkaku 'jisx0201)))))
+	       (hankaku (or (and (not ascii-only)
+				 (get-char-code-property zenkaku 'jisx0201))
+			    (get-char-code-property zenkaku 'ascii))))
 	  (if hankaku
 	      (japanese-replace-region (match-beginning 0) (match-end 0)
 				       hankaku)))))))

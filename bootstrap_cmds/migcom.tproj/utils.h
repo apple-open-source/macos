@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,43 +69,44 @@
 
 /* stuff used by more than one of header.c, user.c, server.c */
 
-extern void WriteImport(/* FILE *file, string_t filename */);
-extern void WriteRCSDecl(/* FILE *file, identifier_t name, string_t rcs */);
-extern void WriteBogusDefines(/* FILE *file */);
+extern void WriteImport(FILE *file, string_t filename);
+extern void WriteRCSDecl( FILE *file, identifier_t name, string_t rcs );
+extern void WriteBogusDefines( FILE *file );
 
-extern void WriteList(/* FILE *file, argument_t *args,
+extern void WriteList( FILE *file, argument_t *args,
 			 void (*func)(FILE *file, argument_t *arg),
-			 u_int mask, char *between, char *after */);
+			 u_int mask, char *between, char *after );
 
-extern void WriteReverseList(/* FILE *file, argument_t *args,
+extern void WriteReverseList( FILE *file, argument_t *args,
 				void (*func)(FILE *file, argument_t *arg),
-				u_int mask, char *between, char *after */);
+				u_int mask, char *between, char *after );
 
 /* good as arguments to WriteList */
-extern void WriteNameDecl(/* FILE *file, argument_t *arg */);
-extern void WriteUserVarDecl(/* FILE *file, argument_t *arg */);
-extern void WriteServerVarDecl(/* FILE *file, argument_t *arg */);
-extern void WriteTemplateDeclIn(/* FILE *file, argument_t *arg */);
-extern void WriteTemplateDeclOut(/* FILE *file, argument_t *arg */);
-extern void WriteCheckDecl(/* FILE *file, argument_t *arg */);
+extern void WriteNameDecl( FILE *file, argument_t *arg );
+extern void WriteUserVarDecl( FILE *file, argument_t *arg );
+extern void WriteServerVarDecl( FILE *file, argument_t *arg );
+extern void WriteTemplateDeclIn( FILE *file, argument_t *arg );
+extern void WriteTemplateDeclOut( FILE *file, argument_t *arg );
+extern void WriteCheckDecl( FILE *file, argument_t *arg );
 
-extern char *ReturnTypeStr(/* routine_t *rt */);
+extern char *ReturnTypeStr( routine_t *rt );
 
-extern char *FetchUserType(/* ipc_type_t *it */);
-extern char *FetchServerType(/* ipc_type_t *it */);
-extern char *FetchUserKPDType(/* ipc_type_t *it */);
-extern char *FetchServerKPDType(/* ipc_type_t *it */);
-extern void WriteFieldDeclPrim(/* FILE *file, argument_t *arg,
-				  char *(*tfunc)(ipc_type_t *it) */);
+extern char *FetchUserType( ipc_type_t *it );
+extern char *FetchServerType( ipc_type_t *it );
+extern char *FetchKPDType( ipc_type_t *it );
+extern void WriteKPDFieldDecl(FILE *file, argument_t *arg);
 
-extern void WriteStructDecl(/* FILE *file, argument_t *args,
+extern void WriteFieldDeclPrim( FILE *file, argument_t *arg,
+				  char *(*tfunc)(ipc_type_t *it) );
+
+extern void WriteStructDecl( FILE *file, argument_t *args,
 			       void (*func)(FILE *file, argument_t *arg),
 			       u_int mask, char *name,
 			       boolean_t simple, boolean_t trailer, 
 			       boolean_t isuser, 
-			       boolean_t template_only */);
+			       boolean_t template_only );
 
-extern void WriteStaticDecl(/* FILE *file, argument_t *arg */);
+extern void WriteStaticDecl( FILE *file, argument_t *arg );
 
 extern void WriteCopyType(FILE *file, ipc_type_t *it,
 			     char *left, char *right, ...);
@@ -113,32 +114,33 @@ extern void WriteCopyType(FILE *file, ipc_type_t *it,
 extern void WriteCopyArg(FILE *file, argument_t *arg,
 			     char *left, char *right, ...);
 
-extern void WriteLogMsg(/* FILE *file, routine_t rt, 
-		      boolean_t where, boolean_t what */);
+extern void WriteLogMsg( FILE *file, routine_t *rt, 
+		      boolean_t where, boolean_t what );
  
-extern void WriteCheckTrailerHead(/* FILE *file, routine_t *rt,
-				     boolean_t isuser */);
+extern void WriteCheckTrailerHead( FILE *file, routine_t *rt,
+				     boolean_t isuser );
 
-extern void WriteCheckTrailerSize(/* FILE *file, boolean_t isuser,
-				     argument_t *arg */);
+extern void WriteCheckTrailerSize( FILE *file, boolean_t isuser,
+				     argument_t *arg );
 
-extern void WriteReturnMsgError(/* FILE *file, routine_t *rt,
+extern void WriteReturnMsgError( FILE *file, routine_t *rt,
 				   boolean_t isuser,
-				   argument_t *arg, string_t error */);
+				   argument_t *arg, string_t error );
 
-extern void  WriteRPCRoutineDescriptor(/* FILE *file, routine_t *rt,
-					 int arg_count, descr_count,
+extern void  WriteRPCRoutineDescriptor( FILE *file, routine_t *rt,
+					 int arg_count,
+                                         int descr_count,
 					 string_t stub_routine,
-					 string_t sig_array */);
+					 string_t sig_array );
 
-extern void WriteRPCRoutineArgDescriptor(/* FILE *file, routine_t *rt */);
+extern void WriteRPCRoutineArgDescriptor( FILE *file, routine_t *rt );
 
-extern void WriteRequestTypes(/* FILE *file, statement_t *stats */);
+extern void WriteRequestTypes( FILE *file, statement_t *stats);
+extern void WriteUserRequestUnion( FILE *file, statement_t *stats );
+extern void WriteServerRequestUnion( FILE *file, statement_t *stats );
 
-extern void WriteRequestUnion(/* FILE *file, statement_t *stats */);
-
-extern void WriteReplyTypes(/* FILE *file, statement_t *stats */);
-
-extern void WriteReplyUnion(/* FILE *file, statement_t *stats */);
+extern void WriteReplyTypes( FILE *file, statement_t *stats);
+extern void WriteUserReplyUnion( FILE *file, statement_t *stats );
+extern void WriteServerReplyUnion( FILE *file, statement_t *stats );
 
 #endif	/* _UTILS_H */

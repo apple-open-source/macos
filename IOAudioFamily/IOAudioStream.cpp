@@ -41,24 +41,34 @@
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSDictionary.h>
 
+typedef struct IOAudioStreamFormatExtensionDesc {
+    UInt32								version;
+    UInt32								flags;
+	UInt32								framesPerPacket;
+	UInt32								bytesPerPacket;
+} IOAudioStreamFormatExtensionDesc;
+
 typedef struct IOAudioStreamFormatDesc {
-    IOAudioStreamFormat				format;
-    IOAudioSampleRate				minimumSampleRate;
-    IOAudioSampleRate				maximumSampleRate;
-    IOAudioStream::AudioIOFunction	*ioFunctionList;
-    UInt32							numIOFunctions;
+    IOAudioStreamFormat					format;
+    IOAudioSampleRate					minimumSampleRate;
+    IOAudioSampleRate					maximumSampleRate;
+    IOAudioStream::AudioIOFunction		*ioFunctionList;
+    UInt32								numIOFunctions;
+    IOAudioStreamFormatExtensionDesc	formatExtension;
 } IOAudioStreamFormatDesc;
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOAudioStream, IOService)
-OSMetaClassDefineReservedUnused(IOAudioStream, 0);
-OSMetaClassDefineReservedUnused(IOAudioStream, 1);
-OSMetaClassDefineReservedUnused(IOAudioStream, 2);
-OSMetaClassDefineReservedUnused(IOAudioStream, 3);
-OSMetaClassDefineReservedUnused(IOAudioStream, 4);
-OSMetaClassDefineReservedUnused(IOAudioStream, 5);
-OSMetaClassDefineReservedUnused(IOAudioStream, 6);
-OSMetaClassDefineReservedUnused(IOAudioStream, 7);
+
+OSMetaClassDefineReservedUsed(IOAudioStream, 0);
+OSMetaClassDefineReservedUsed(IOAudioStream, 1);
+OSMetaClassDefineReservedUsed(IOAudioStream, 2);
+OSMetaClassDefineReservedUsed(IOAudioStream, 3);
+OSMetaClassDefineReservedUsed(IOAudioStream, 4);
+OSMetaClassDefineReservedUsed(IOAudioStream, 5);
+OSMetaClassDefineReservedUsed(IOAudioStream, 6);
+OSMetaClassDefineReservedUsed(IOAudioStream, 7);
+
 OSMetaClassDefineReservedUnused(IOAudioStream, 8);
 OSMetaClassDefineReservedUnused(IOAudioStream, 9);
 OSMetaClassDefineReservedUnused(IOAudioStream, 10);
@@ -100,6 +110,339 @@ OSMetaClassDefineReservedUnused(IOAudioStream, 45);
 OSMetaClassDefineReservedUnused(IOAudioStream, 46);
 OSMetaClassDefineReservedUnused(IOAudioStream, 47);
 
+// New code added here:
+const IOAudioStreamFormatExtension *IOAudioStream::getFormatExtension()
+{
+	assert(reserved);
+	return &reserved->streamFormatExtension;
+}
+
+IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, bool callDriver)
+{
+    IOReturn result = kIOReturnSuccess;
+    OSDictionary *formatDict = NULL;
+    
+    if (streamFormat) {
+        if (formatDict = createDictionaryFromFormat(streamFormat, formatExtension)) {
+            result = setFormat(streamFormat, formatExtension, formatDict, callDriver);
+            formatDict->release();
+        } else {
+            result = kIOReturnError;
+        }
+    } else {
+        result = kIOReturnBadArgument;
+    }
+
+    return result;
+}
+
+IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict, bool callDriver)
+{
+    IOReturn result = kIOReturnSuccess;
+    IOAudioStreamFormat validFormat;
+    IOAudioStreamFormatDesc formatDesc;
+	IOAudioStreamFormatExtension validFormatExtension;
+    
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioStream[%p]::setFormat(%p, %p)\n", this, streamFormat, formatDict);
+#endif
+
+    if (!streamFormat || !formatDict) {
+        return kIOReturnBadArgument;
+    }
+    
+#ifdef DEBUG
+    setProperty("IOAudioStreamPendingFormat", formatDict);
+#endif
+    
+    validFormat = *streamFormat;
+	if (NULL != formatExtension) {
+		validFormatExtension = *formatExtension;
+	} else {
+		validFormatExtension.fVersion = kFormatExtensionCurrentVersion;
+		validFormatExtension.fFlags = 0;
+		validFormatExtension.fFramesPerPacket = 1;
+		validFormatExtension.fBytesPerPacket = streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
+	}
+
+    if (validateFormat(&validFormat, &validFormatExtension, &formatDesc)) {
+        OSDictionary *sampleRateDict;
+        IOAudioSampleRate *newSampleRate = NULL;
+        OSSet *userClientsToLock;
+        
+        sampleRateDict = OSDynamicCast(OSDictionary, formatDict->getObject(kIOAudioSampleRateKey));
+        if (sampleRateDict) {
+            const IOAudioSampleRate *currentSampleRate;
+            
+            newSampleRate = IOAudioEngine::createSampleRateFromDictionary(sampleRateDict);
+            currentSampleRate = audioEngine->getSampleRate();
+            if (newSampleRate && (newSampleRate->whole == currentSampleRate->whole) && (newSampleRate->fraction == currentSampleRate->fraction)) {
+                newSampleRate = NULL;
+            }
+        }
+        
+        // In order to avoid deadlocks, we need to ensure we hold all of the user client locks
+        // before making calls while holding our IO lock.  Everything works fine as long
+        // as the order of the locks is workLoop -> user client -> stream.
+        // Any other order is sure to cause trouble.
+        
+        // Because we pause the engine while doing the format change, the user clients will be removed
+        // from our list before we complete.  Therefore, we must make a copy of the list to allow
+        // all of the clients to be unlocked when we are done.
+        userClientsToLock = OSSet::withCapacity(numClients);
+        if (userClientsToLock) {
+            OSCollectionIterator *clientIterator;
+            IOAudioClientBuffer *clientBuf;
+            IOAudioEngineUserClient *userClient;
+            
+            clientBuf = userClientList;
+            while (clientBuf) {
+                assert(clientBuf->userClient);
+                
+                userClientsToLock->setObject(clientBuf->userClient);
+                clientBuf = clientBuf->nextClient;
+            }
+        
+            clientIterator = OSCollectionIterator::withCollection(userClientsToLock);
+            if (!clientIterator) {
+                userClientsToLock->release();
+                result = kIOReturnNoMemory;
+                goto Done;
+            }
+            
+            while (userClient = (IOAudioEngineUserClient *)clientIterator->getNextObject()) {
+                userClient->lockBuffers();
+            }
+            
+            clientIterator->release();
+        
+            lockStreamForIO();
+            
+            audioEngine->pauseAudioEngine();
+            
+            if (callDriver) {
+                result = audioEngine->performFormatChange(this, &validFormat, &validFormatExtension, newSampleRate);
+                if ( result == kIOReturnUnsupported )
+                {
+                    result = audioEngine->performFormatChange(this, &validFormat, newSampleRate);
+                }
+            }
+            
+            if (result == kIOReturnSuccess) {
+                OSDictionary *newFormatDict;
+                
+                if (formatDesc.ioFunctionList && (formatDesc.numIOFunctions > 0)) {
+                    setIOFunctionList(formatDesc.ioFunctionList, formatDesc.numIOFunctions);
+                }
+                
+                newFormatDict = createDictionaryFromFormat(&validFormat, &validFormatExtension);
+                if (newFormatDict) {
+                    UInt32 oldNumChannels;
+                    
+                    if (mixBuffer != NULL) {
+                        // If we have a mix buffer and the new format is not mixable, free the mix buffer
+                        if (!validFormat.fIsMixable) {
+                            setMixBuffer(NULL, 0);
+                        } else if (streamAllocatedMixBuffer && (format.fNumChannels != validFormat.fNumChannels)) {	// We need to reallocate the mix buffer
+                            UInt32 newMixBufSize;
+        
+                            assert(audioEngine);
+                            newMixBufSize = validFormat.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
+        
+                            if (newMixBufSize > 0) {
+                                void *newMixBuf = IOMallocAligned(newMixBufSize, 32);
+                                if (newMixBuf) {
+                                    setMixBuffer(newMixBuf, newMixBufSize);
+                                    streamAllocatedMixBuffer = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    oldNumChannels = format.fNumChannels;
+                    
+                    format = validFormat;
+                    setProperty(kIOAudioStreamFormatKey, newFormatDict);
+                    newFormatDict->release();
+    
+                    if (format.fNumChannels != oldNumChannels) {
+                        audioEngine->updateChannelNumbers();
+                    }
+    
+                    if (newSampleRate) {
+                        audioEngine->setSampleRate(newSampleRate);
+                    }
+                } else {
+                    result = kIOReturnError;
+                }
+            } else {
+                IOLog("IOAudioStream<0x%x>::setFormat(0x%x, 0x%x) - audio engine unable to change format\n", (unsigned int)this, (unsigned int)streamFormat, (unsigned int)formatDict);
+            }
+            
+            if (result == kIOReturnSuccess) {
+                audioEngine->sendFormatChangeNotification(this);
+            }
+            
+            audioEngine->resumeAudioEngine();
+    
+            unlockStreamForIO();
+            
+            // Unlock all of the user clients we originally locked
+            assert(userClientsToLock);
+            clientIterator = OSCollectionIterator::withCollection(userClientsToLock);
+            if (clientIterator) {
+                while (userClient = (IOAudioEngineUserClient *)clientIterator->getNextObject()) {
+                    userClient->unlockBuffers();
+                }
+                clientIterator->release();
+            } else {
+                // Uh oh... we're in trouble now!
+                // We have to unlock the clients, but we can't get an iterator on the collection.
+                // All existing clients will now hang trying to play audio
+                result = kIOReturnNoMemory;
+            }
+            
+            userClientsToLock->release();
+        } else {
+            result = kIOReturnNoMemory;
+        }
+    } else {
+        IOLog("IOAudioStream<0x%x>::setFormat(0x%x, 0x%x) - invalid format.\n", (unsigned int)this, (unsigned int)streamFormat, (unsigned int)formatDict);
+        result = kIOReturnBadArgument;
+    }
+    
+Done:
+    
+    return result;
+}
+
+void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList, UInt32 numFunctions)
+{
+    assert(availableFormatDictionaries);
+
+    if (streamFormat && minRate && maxRate) {
+        IOAudioStreamFormatDesc *newAvailableFormatList;
+		IOAudioStreamFormatExtension	localFormatExtension;
+        
+        newAvailableFormatList = (IOAudioStreamFormatDesc *)IOMallocAligned((numAvailableFormats+1) * sizeof(IOAudioStreamFormatDesc), sizeof (IOAudioStreamFormatDesc *));
+        if (newAvailableFormatList) {
+            if (availableFormats && (numAvailableFormats > 0)) {
+                memcpy(newAvailableFormatList, availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+            }
+            newAvailableFormatList[numAvailableFormats].format = *streamFormat;
+            newAvailableFormatList[numAvailableFormats].minimumSampleRate = *minRate;
+            newAvailableFormatList[numAvailableFormats].maximumSampleRate = *maxRate;
+            if (formatExtension) {
+				localFormatExtension = *formatExtension;
+                newAvailableFormatList[numAvailableFormats].formatExtension.flags = formatExtension->fFlags;
+                newAvailableFormatList[numAvailableFormats].formatExtension.framesPerPacket = formatExtension->fFramesPerPacket;
+                newAvailableFormatList[numAvailableFormats].formatExtension.bytesPerPacket = formatExtension->fBytesPerPacket;
+            } else {
+                newAvailableFormatList[numAvailableFormats].formatExtension.flags = localFormatExtension.fFlags = 0;
+                newAvailableFormatList[numAvailableFormats].formatExtension.framesPerPacket = localFormatExtension.fFramesPerPacket = 1;
+                newAvailableFormatList[numAvailableFormats].formatExtension.bytesPerPacket = localFormatExtension.fBytesPerPacket = streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
+            }
+
+            if (ioFunctionList && (numFunctions > 0)) {
+                newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
+                newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
+                memcpy(newAvailableFormatList[numAvailableFormats].ioFunctionList, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
+            } else {
+                newAvailableFormatList[numAvailableFormats].ioFunctionList = NULL;
+                newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
+            }
+            
+            IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+            availableFormats = newAvailableFormatList;
+            numAvailableFormats++;
+        }
+        
+        OSDictionary *formatDict = createDictionaryFromFormat(streamFormat, &localFormatExtension);
+        if (formatDict) {
+            OSDictionary *sampleRateDict;
+        
+            sampleRateDict = IOAudioEngine::createDictionaryFromSampleRate(minRate);
+            if (sampleRateDict) {
+                formatDict->setObject(gMinimumSampleRateKey, sampleRateDict);
+                sampleRateDict->release();
+                sampleRateDict = IOAudioEngine::createDictionaryFromSampleRate(maxRate);
+                if (sampleRateDict) {
+                    formatDict->setObject(gMaximumSampleRateKey, sampleRateDict);
+                    sampleRateDict->release();
+                    availableFormatDictionaries->setObject(formatDict);
+                    if (streamFormat->fNumChannels > maxNumChannels) {
+                        maxNumChannels = streamFormat->fNumChannels;
+                    }
+                }
+            }
+            formatDict->release();
+        }
+    }
+}
+
+void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction)
+{
+    addAvailableFormat(streamFormat, formatExtension, minRate, maxRate, &ioFunction, 1);
+}
+
+bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc)
+{
+    bool foundFormat = false;
+    
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioStream[%p]::validateFormat(%p, %p, %p)\n", this, streamFormat, formatExtension, formatDesc);
+#endif
+    
+    if (streamFormat && availableFormats && (numAvailableFormats > 0)) {
+        UInt32 formatIndex;
+
+        for (formatIndex = 0; formatIndex < numAvailableFormats; formatIndex++) {
+#ifdef DEBUG
+			IOLog ("%ld: streamFormat->fNumChannels = %ld\n", availableFormats[formatIndex].format.fNumChannels, streamFormat->fNumChannels);
+			IOLog ("0x%lx: streamFormat->fSampleFormat = 0x%lx\n", availableFormats[formatIndex].format.fSampleFormat, streamFormat->fSampleFormat);
+			IOLog ("0x%lx: streamFormat->fNumericRepresentation = 0x%lx\n", availableFormats[formatIndex].format.fNumericRepresentation, streamFormat->fNumericRepresentation);
+			IOLog ("%d: streamFormat->fBitDepth = %d\n", availableFormats[formatIndex].format.fBitDepth, streamFormat->fBitDepth);
+			IOLog ("%d: streamFormat->fBitWidth = %d\n", availableFormats[formatIndex].format.fBitWidth, streamFormat->fBitWidth);
+			IOLog ("%d: streamFormat->fAlignment = %d\n", availableFormats[formatIndex].format.fAlignment, streamFormat->fAlignment);
+			IOLog ("%d: streamFormat->fByteOrder = %d\n", availableFormats[formatIndex].format.fByteOrder, streamFormat->fByteOrder);
+#endif
+            if ((availableFormats[formatIndex].format.fNumChannels == streamFormat->fNumChannels)
+             && (availableFormats[formatIndex].format.fSampleFormat == streamFormat->fSampleFormat)
+             && (availableFormats[formatIndex].format.fNumericRepresentation == streamFormat->fNumericRepresentation)
+             && (availableFormats[formatIndex].format.fBitDepth == streamFormat->fBitDepth)
+             && (availableFormats[formatIndex].format.fBitWidth == streamFormat->fBitWidth)
+             && (availableFormats[formatIndex].format.fAlignment == streamFormat->fAlignment)
+             && (availableFormats[formatIndex].format.fByteOrder == streamFormat->fByteOrder)
+			 && (availableFormats[formatIndex].format.fIsMixable == streamFormat->fIsMixable)) {
+				streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
+//				streamFormat->fIsMixable = availableFormats[formatIndex].format.fIsMixable;
+                if (formatDesc) {
+                    memcpy(formatDesc, &availableFormats[formatIndex], sizeof(IOAudioStreamFormatDesc));
+                }
+                foundFormat = true;
+                break;
+            }
+        }
+    }
+    
+    return foundFormat;
+}
+
+void IOAudioStream::setTerminalType(const UInt32 terminalType)
+{
+    if (terminalType) {
+        setProperty(kIOAudioStreamTerminalTypeKey, terminalType, 32);
+    }
+}
+
+IOReturn IOAudioStream::mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
+{
+	bcopy (sourceBuf, (float *)mixBuf + (firstSampleFrame * streamFormat->fNumChannels), numSampleFrames * sizeof (float) * streamFormat->fNumChannels);
+
+	return kIOReturnSuccess;
+}
+
+// Original code from here on:
 const OSSymbol *IOAudioStream::gDirectionKey = NULL;
 const OSSymbol *IOAudioStream::gNumChannelsKey = NULL;
 const OSSymbol *IOAudioStream::gSampleFormatKey = NULL;
@@ -133,7 +476,7 @@ void IOAudioStream::initKeys()
     }
 }
 
-OSDictionary *IOAudioStream::createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict = 0)
+OSDictionary *IOAudioStream::createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict)
 {
     OSDictionary *newDict = NULL;
 
@@ -186,6 +529,20 @@ OSDictionary *IOAudioStream::createDictionaryFromFormat(const IOAudioStreamForma
             num = OSNumber::withNumber(streamFormat->fDriverTag, 32);
             newDict->setObject(gDriverTagKey, num);
             num->release();
+
+			if (formatExtension && formatExtension->fVersion >= kFormatExtensionCurrentVersion) {
+				num = OSNumber::withNumber(formatExtension->fFlags, 32);
+				newDict->setObject(kIOAudioStreamFormatFlagsKey, num);
+				num->release();
+			
+				num = OSNumber::withNumber(formatExtension->fFramesPerPacket, 32);
+				newDict->setObject(kIOAudioStreamFramesPerPacketKey, num);
+				num->release();
+
+				num = OSNumber::withNumber(formatExtension->fBytesPerPacket, 32);
+				newDict->setObject(kIOAudioStreamBytesPerPacketKey, num);
+				num->release();
+			}
         }
     }
 
@@ -193,7 +550,7 @@ OSDictionary *IOAudioStream::createDictionaryFromFormat(const IOAudioStreamForma
     return newDict;
 }
 
-IOAudioStreamFormat *IOAudioStream::createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0)
+IOAudioStreamFormat *IOAudioStream::createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension)
 {
     IOAudioStreamFormat *format = NULL;
     static IOAudioStreamFormat staticFormat;
@@ -258,6 +615,26 @@ IOAudioStreamFormat *IOAudioStream::createFormatFromDictionary(const OSDictionar
             if (num) {
                 format->fDriverTag = num->unsigned32BitValue();
             }
+
+			if (formatExtension) {
+				formatExtension->fVersion = kFormatExtensionCurrentVersion;
+
+				num = OSDynamicCast(OSNumber, formatDict->getObject(kIOAudioStreamFormatFlagsKey));
+				if (num) {
+					formatExtension->fFlags = num->unsigned32BitValue();
+				}
+
+				num = OSDynamicCast(OSNumber, formatDict->getObject(kIOAudioStreamFramesPerPacketKey));
+				if (num) {
+					formatExtension->fFramesPerPacket = num->unsigned32BitValue();
+				}
+
+				num = OSDynamicCast(OSNumber, formatDict->getObject(kIOAudioStreamBytesPerPacketKey));
+				if (num) {
+					formatExtension->fBytesPerPacket = num->unsigned32BitValue();
+				}
+
+			}
         }
     }
 
@@ -281,6 +658,11 @@ bool IOAudioStream::initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDire
 
     audioEngine = engine;
     
+	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	if (!reserved) {
+		return false;
+	}
+
     workLoop = audioEngine->getWorkLoop();
     if (!workLoop) {
         return false;
@@ -397,6 +779,10 @@ void IOAudioStream::free()
         availableFormats = NULL;
         numAvailableFormats = 0;
     }
+
+	if (reserved) {
+		IOFree (reserved, sizeof(struct ExpansionData));
+	}
 
     super::free();
 }
@@ -593,21 +979,7 @@ IOReturn IOAudioStream::setFormatAction(OSObject *owner, void *arg1, void *arg2,
 
 IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, bool callDriver)
 {
-    IOReturn result = kIOReturnSuccess;
-    OSDictionary *formatDict = NULL;
-    
-    if (streamFormat) {
-        if (formatDict = createDictionaryFromFormat(streamFormat)) {
-            result = setFormat(streamFormat, formatDict, callDriver);
-            formatDict->release();
-        } else {
-            result = kIOReturnError;
-        }
-    } else {
-        result = kIOReturnBadArgument;
-    }
-
-    return result;
+    return setFormat(streamFormat, (IOAudioStreamFormatExtension *)NULL, callDriver);
 }
 
 IOReturn IOAudioStream::setFormat(OSDictionary *formatDict)
@@ -616,8 +988,9 @@ IOReturn IOAudioStream::setFormat(OSDictionary *formatDict)
 
     if (formatDict) {
         IOAudioStreamFormat streamFormat;
-        if (createFormatFromDictionary(formatDict, &streamFormat)) {
-            result = setFormat(&streamFormat, formatDict);
+		IOAudioStreamFormatExtension formatExtension;
+        if (createFormatFromDictionary(formatDict, &streamFormat, &formatExtension)) {
+            result = setFormat(&streamFormat, &formatExtension, formatDict);
         } else {
             result = kIOReturnBadArgument;
         }
@@ -630,232 +1003,23 @@ IOReturn IOAudioStream::setFormat(OSDictionary *formatDict)
 
 IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict, bool callDriver)
 {
-    IOReturn result = kIOReturnSuccess;
-    IOAudioStreamFormat validFormat;
-    IOAudioStreamFormatDesc formatDesc;
-    
-#ifdef DEBUG_CALLS
-    IOLog("IOAudioStream[%p]::setFormat(%p, %p)\n", this, streamFormat, formatDict);
-#endif
-
-    if (!streamFormat || !formatDict) {
-        return kIOReturnBadArgument;
-    }
-    
-#ifdef DEBUG
-    setProperty("IOAudioStreamPendingFormat", formatDict);
-#endif
-    
-    validFormat = *streamFormat;
-    
-    if (validateFormat(&validFormat, &formatDesc)) {
-        OSDictionary *sampleRateDict;
-        IOAudioSampleRate *newSampleRate = NULL;
-        OSSet *userClientsToLock;
-        
-        sampleRateDict = OSDynamicCast(OSDictionary, formatDict->getObject(kIOAudioSampleRateKey));
-        if (sampleRateDict) {
-            const IOAudioSampleRate *currentSampleRate;
-            
-            newSampleRate = IOAudioEngine::createSampleRateFromDictionary(sampleRateDict);
-            currentSampleRate = audioEngine->getSampleRate();
-            if (newSampleRate && (newSampleRate->whole == currentSampleRate->whole) && (newSampleRate->fraction == currentSampleRate->fraction)) {
-                newSampleRate = NULL;
-            }
-        }
-        
-        // In order to avoid deadlocks, we need to ensure we hold all of the user client locks
-        // before making calls while holding our IO lock.  Everything works fine as long
-        // as the order of the locks is workLoop -> user client -> stream.
-        // Any other order is sure to cause trouble.
-        
-        // Because we pause the engine while doing the format change, the user clients will be removed
-        // from our list before we complete.  Therefore, we must make a copy of the list to allow
-        // all of the clients to be unlocked when we are done.
-        userClientsToLock = OSSet::withCapacity(numClients);
-        if (userClientsToLock) {
-            OSCollectionIterator *clientIterator;
-            IOAudioClientBuffer *clientBuf;
-            IOAudioEngineUserClient *userClient;
-            
-            clientBuf = userClientList;
-            while (clientBuf) {
-                assert(clientBuf->userClient);
-                
-                userClientsToLock->setObject(clientBuf->userClient);
-                clientBuf = clientBuf->nextClient;
-            }
-        
-            clientIterator = OSCollectionIterator::withCollection(userClientsToLock);
-            if (!clientIterator) {
-                userClientsToLock->release();
-                result = kIOReturnNoMemory;
-                goto Done;
-            }
-            
-            while (userClient = (IOAudioEngineUserClient *)clientIterator->getNextObject()) {
-                userClient->lockBuffers();
-            }
-            
-            clientIterator->release();
-        
-            lockStreamForIO();
-            
-            audioEngine->pauseAudioEngine();
-            
-            if (callDriver) {
-                result = audioEngine->performFormatChange(this, &validFormat, newSampleRate);
-            }
-            
-            if (result == kIOReturnSuccess) {
-                OSDictionary *newFormatDict;
-                
-                if (formatDesc.ioFunctionList && (formatDesc.numIOFunctions > 0)) {
-                    setIOFunctionList(formatDesc.ioFunctionList, formatDesc.numIOFunctions);
-                }
-                
-                newFormatDict = createDictionaryFromFormat(&validFormat);
-                if (newFormatDict) {
-                    UInt32 oldNumChannels;
-                    
-                    if (mixBuffer != NULL) {
-                        // If we have a mix buffer and the new format is not mixable, free the mix buffer
-                        if (!validFormat.fIsMixable) {
-                            setMixBuffer(NULL, 0);
-                        } else if (streamAllocatedMixBuffer && (format.fNumChannels != validFormat.fNumChannels)) {	// We need to reallocate the mix buffer
-                            UInt32 newMixBufSize;
-        
-                            assert(audioEngine);
-                            newMixBufSize = validFormat.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
-        
-                            if (newMixBufSize > 0) {
-                                void *newMixBuf = IOMallocAligned(newMixBufSize, 32);
-                                if (newMixBuf) {
-                                    setMixBuffer(newMixBuf, newMixBufSize);
-                                    streamAllocatedMixBuffer = true;
-                                }
-                            }
-                        }
-                    }
-                    
-                    oldNumChannels = format.fNumChannels;
-                    
-                    format = validFormat;
-                    setProperty(kIOAudioStreamFormatKey, newFormatDict);
-                    newFormatDict->release();
-    
-                    if (format.fNumChannels != oldNumChannels) {
-                        audioEngine->updateChannelNumbers();
-                    }
-    
-                    if (newSampleRate) {
-                        audioEngine->setSampleRate(newSampleRate);
-                    }
-                } else {
-                    result = kIOReturnError;
-                }
-            } else {
-                IOLog("IOAudioStream<0x%x>::setFormat(0x%x, 0x%x) - audio engine unable to change format\n", (unsigned int)this, (unsigned int)streamFormat, (unsigned int)formatDict);
-            }
-            
-            if (result == kIOReturnSuccess) {
-                audioEngine->sendFormatChangeNotification(this);
-            }
-            
-            audioEngine->resumeAudioEngine();
-    
-            unlockStreamForIO();
-            
-            // Unlock all of the user clients we originally locked
-            assert(userClientsToLock);
-            clientIterator = OSCollectionIterator::withCollection(userClientsToLock);
-            if (clientIterator) {
-                while (userClient = (IOAudioEngineUserClient *)clientIterator->getNextObject()) {
-                    userClient->unlockBuffers();
-                }
-                clientIterator->release();
-            } else {
-                // Uh oh... we're in trouble now!
-                // We have to unlock the clients, but we can't get an iterator on the collection.
-                // All existing clients will now hang trying to play audio
-                result = kIOReturnNoMemory;
-            }
-            
-            userClientsToLock->release();
-        } else {
-            result = kIOReturnNoMemory;
-        }
-    } else {
-        IOLog("IOAudioStream<0x%x>::setFormat(0x%x, 0x%x) - invalid format.\n", (unsigned int)this, (unsigned int)streamFormat, (unsigned int)formatDict);
-        result = kIOReturnBadArgument;
-    }
-    
-Done:
-    
-    return result;
+	return setFormat(streamFormat, NULL, formatDict, callDriver);
 }
 
 IOReturn IOAudioStream::hardwareFormatChanged(const IOAudioStreamFormat *streamFormat)
 {
-    return setFormat(streamFormat, false);
+	assert(reserved);
+    return setFormat(streamFormat, &reserved->streamFormatExtension, false);
 }
 
 void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction)
 {
-    addAvailableFormat(streamFormat, minRate, maxRate, &ioFunction, 1);
+    addAvailableFormat(streamFormat, NULL, minRate, maxRate, &ioFunction, 1);
 }
 
-void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0)
+void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList, UInt32 numFunctions)
 {
-    assert(availableFormatDictionaries);
-
-    if (streamFormat && minRate && maxRate) {
-        IOAudioStreamFormatDesc *newAvailableFormatList;
-        
-        newAvailableFormatList = (IOAudioStreamFormatDesc *)IOMallocAligned((numAvailableFormats+1) * sizeof(IOAudioStreamFormatDesc), sizeof (IOAudioStreamFormatDesc *));
-        if (newAvailableFormatList) {
-            if (availableFormats && (numAvailableFormats > 0)) {
-                memcpy(newAvailableFormatList, availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
-            }
-            newAvailableFormatList[numAvailableFormats].format = *streamFormat;
-            newAvailableFormatList[numAvailableFormats].minimumSampleRate = *minRate;
-            newAvailableFormatList[numAvailableFormats].maximumSampleRate = *maxRate;
-            
-            if (ioFunctionList && (numFunctions > 0)) {
-                newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
-                newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
-                memcpy(newAvailableFormatList[numAvailableFormats].ioFunctionList, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
-            } else {
-                newAvailableFormatList[numAvailableFormats].ioFunctionList = NULL;
-                newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
-            }
-            
-            IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
-            availableFormats = newAvailableFormatList;
-            numAvailableFormats++;
-        }
-        
-        OSDictionary *formatDict = createDictionaryFromFormat(streamFormat);
-        if (formatDict) {
-            OSDictionary *sampleRateDict;
-        
-            sampleRateDict = IOAudioEngine::createDictionaryFromSampleRate(minRate);
-            if (sampleRateDict) {
-                formatDict->setObject(gMinimumSampleRateKey, sampleRateDict);
-                sampleRateDict->release();
-                sampleRateDict = IOAudioEngine::createDictionaryFromSampleRate(maxRate);
-                if (sampleRateDict) {
-                    formatDict->setObject(gMaximumSampleRateKey, sampleRateDict);
-                    sampleRateDict->release();
-                    availableFormatDictionaries->setObject(formatDict);
-                    if (streamFormat->fNumChannels > maxNumChannels) {
-                        maxNumChannels = streamFormat->fNumChannels;
-                    }
-                }
-            }
-            formatDict->release();
-        }
-    }
+    addAvailableFormat(streamFormat, NULL, minRate, maxRate, ioFunctionList, numFunctions);
 }
 
 void IOAudioStream::clearAvailableFormats()
@@ -867,35 +1031,7 @@ void IOAudioStream::clearAvailableFormats()
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc)
 {
-    bool foundFormat = false;
-    
-#ifdef DEBUG_CALLS
-    IOLog("IOAudioStream[%p]::validateFormat(%p, %p)\n", this, streamFormat, formatDesc);
-#endif
-    
-    if (streamFormat && availableFormats && (numAvailableFormats > 0)) {
-        UInt32 formatIndex;
-        
-        for (formatIndex = 0; formatIndex < numAvailableFormats; formatIndex++) {
-            if ((availableFormats[formatIndex].format.fNumChannels == streamFormat->fNumChannels)
-             && (availableFormats[formatIndex].format.fSampleFormat == streamFormat->fSampleFormat)
-             && (availableFormats[formatIndex].format.fNumericRepresentation == streamFormat->fNumericRepresentation)
-             && (availableFormats[formatIndex].format.fBitDepth == streamFormat->fBitDepth)
-             && (availableFormats[formatIndex].format.fBitWidth == streamFormat->fBitWidth)
-             && (availableFormats[formatIndex].format.fAlignment == streamFormat->fAlignment)
-             && (availableFormats[formatIndex].format.fByteOrder == streamFormat->fByteOrder)) {
-                streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
-                streamFormat->fIsMixable = availableFormats[formatIndex].format.fIsMixable;
-                if (formatDesc) {
-                    memcpy(formatDesc, &availableFormats[formatIndex], sizeof(IOAudioStreamFormatDesc));
-                }
-                foundFormat = true;
-                break;
-            }
-        }
-    }
-    
-    return foundFormat;
+	return validateFormat(streamFormat, NULL, formatDesc);
 }
 
 UInt32 IOAudioStream::getStartingChannelID()
@@ -1040,6 +1176,7 @@ void IOAudioStream::removeClient(IOAudioClientBuffer *clientBuffer)
                 }
             }
         }
+        
 		// clear these values for bug 2851917
 		clientBuffer->previousClip = NULL;
 		clientBuffer->nextClip = NULL;
@@ -1126,6 +1263,7 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
         }
     } else {
         result = kIOReturnBadArgument;
+		IOLog ("!!! No client buffer in readInputSamples !!!\n");
     }
     
     return result;
@@ -1134,7 +1272,7 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
 IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame, UInt32 loopCount, bool samplesAvailable)
 {
     IOReturn result = kIOReturnSuccess;
-    
+	
 #ifdef DEBUG_OUTPUT_CALLS
     //IOLog("IOAudioStream[%p]::processOutputSamples(%p, 0x%lx)\n", this, clientBuffer, firstSampleFrame);
     //IOLog("m(%lx,%lx,%lx)\n", loopCount, firstSampleFrame, clientBuffer->numSampleFrames);
@@ -1247,22 +1385,44 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
                 }
 #endif
 */
-                // Only mix output samples if this is a mixable format
-                if (format.fIsMixable) {
-                    // Check if the buffer wraps
-                    if (numSampleFramesPerBuffer > (firstSampleFrame + numSamplesToMix)) {	// No wrap
-                        result = audioEngine->mixOutputSamples(clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSamplesToMix, &format, this);
-                        nextSampleFrame = firstSampleFrame + numSamplesToMix;
-                    } else {	// Buffer wraps around
-                        mixBufferWrapped = true;
-                        result = audioEngine->mixOutputSamples(clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSampleFramesPerBuffer - firstSampleFrame, &format, this);
-                        if (result != kIOReturnSuccess) {
-                            IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Error: 0x%x returned from audioEngine->mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)\n", this, clientBuffer, result, clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSampleFramesPerBuffer - firstSampleFrame, &format, this);
-                        }
-                        nextSampleFrame = numSamplesToMix - (numSampleFramesPerBuffer - firstSampleFrame);
-                        result = audioEngine->mixOutputSamples(((float *)clientBuffer->sourceBuffer) + ((numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels), mixBuffer, 0, nextSampleFrame, &format, this);
-                    }
-                }
+
+				// Check if the buffer wraps
+				if (numSampleFramesPerBuffer > (firstSampleFrame + numSamplesToMix)) {	// No wrap
+					if (format.fIsMixable) {
+						if (numClients == 1) {
+							result = mixOutputSamples (clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSamplesToMix, &format, this);
+						} else {
+							result = audioEngine->mixOutputSamples(clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSamplesToMix, &format, this);
+						}
+					} else {
+						result = kIOReturnSuccess;
+					}
+					nextSampleFrame = firstSampleFrame + numSamplesToMix;
+				} else {	// Buffer wraps around
+					mixBufferWrapped = true;
+					if (format.fIsMixable) {
+						if (numClients == 1) {
+							result = mixOutputSamples (clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSampleFramesPerBuffer - firstSampleFrame, &format, this);
+						} else {
+							result = audioEngine->mixOutputSamples(clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSampleFramesPerBuffer - firstSampleFrame, &format, this);
+						}
+					} else {
+						result = kIOReturnSuccess;
+					}
+					if (result != kIOReturnSuccess) {
+						IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Error: 0x%x returned from audioEngine->mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)\n", this, clientBuffer, result, clientBuffer->sourceBuffer, mixBuffer, firstSampleFrame, numSampleFramesPerBuffer - firstSampleFrame, &format, this);
+					}
+					nextSampleFrame = numSamplesToMix - (numSampleFramesPerBuffer - firstSampleFrame);
+					if (format.fIsMixable) {
+						if (numClients == 1) {
+							result = mixOutputSamples (((float *)clientBuffer->sourceBuffer) + ((numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels), mixBuffer, 0, nextSampleFrame, &format, this);
+						} else {
+							result = audioEngine->mixOutputSamples(((float *)clientBuffer->sourceBuffer) + ((numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels), mixBuffer, 0, nextSampleFrame, &format, this);
+						}
+					} else {
+						result = kIOReturnSuccess;
+					}
+				}
             
                 if (result == kIOReturnSuccess) {
                     // Reset startingSampleFrame and startingLoopCount if we haven't clipped
@@ -1363,7 +1523,13 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
             // were called as a result of the watchdog timer (indicated
             // by samplesAvailable being false)
             if ((numSamplesToMix > 0) || !samplesAvailable) {
+				if (!format.fIsMixable) {
+					mixBuffer = clientBuffer->sourceBuffer;
+				}
                 clipIfNecessary();
+				if (!format.fIsMixable) {
+					mixBuffer = NULL;
+				}
             }
         } else {
             IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Internal Error: No mix buffer\n", this, clientBuffer);
@@ -1371,6 +1537,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
         }
     } else {
         result = kIOReturnBadArgument;
+		IOLog ("!!! No clientBuffer in processOutputSample !!!");
     }
     
     return result;
@@ -1442,7 +1609,21 @@ void IOAudioStream::clipIfNecessary()
                 IOLog("IOAudioStream[%p]::clipIfNecessary() - adjusting clipped position to (%lx,%lx)\n", this, clippedPosition.fLoopCount, clippedPosition.fSampleFrame);
             }
             
-            if (clientBufferListStart->mixedPosition.fLoopCount == clippedPosition.fLoopCount) {
+			// Add a test to see if we'd be clipping more samples than delivered because the HAL might skip some samples around a loop increment
+			// If the HAL skipped samples around a loop increment, then just start from where it wants to
+			if (clientBufferListStart->mixedPosition.fLoopCount + 1 == clippedPosition.fLoopCount && (clientBufferListStart->numSampleFrames < audioEngine->getNumSampleFramesPerBuffer() - clippedPosition.fSampleFrame)) {
+				clientBufferListStart->mixedPosition.fLoopCount = clippedPosition.fLoopCount;
+				IOLog ("clip position is off %ld < %ld - %ld \n", clientBufferListStart->numSampleFrames, audioEngine->getNumSampleFramesPerBuffer(), clippedPosition.fSampleFrame);
+			}
+/*
+	static UInt32 lastSampleFrame;
+	if (clippedPosition.fSampleFrame != lastSampleFrame) {
+		IOLog ("Family sample frames wrong %ld %ld\n", clippedPosition.fSampleFrame, lastSampleFrame);
+	}
+	lastSampleFrame = clippedPosition.fSampleFrame + (clientBufferListStart->mixedPosition.fSampleFrame - clippedPosition.fSampleFrame);
+*/
+
+			if (clientBufferListStart->mixedPosition.fLoopCount == clippedPosition.fLoopCount) {
                 if (clientBufferListStart->mixedPosition.fSampleFrame > clippedPosition.fSampleFrame) {
                     clipOutputSamples(clippedPosition.fSampleFrame, clientBufferListStart->mixedPosition.fSampleFrame - clippedPosition.fSampleFrame);
                     clippedPosition.fSampleFrame = clientBufferListStart->mixedPosition.fSampleFrame;
@@ -1457,10 +1638,15 @@ void IOAudioStream::clipIfNecessary()
                 assert(audioEngine);
                 
                 numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
-                
+
                 clipOutputSamples(clippedPosition.fSampleFrame, numSampleFramesPerBuffer - clippedPosition.fSampleFrame);
-                clipOutputSamples(0, clientBufferListStart->mixedPosition.fSampleFrame);
-                
+				if (!format.fIsMixable) {
+					// Move the mix buffer to where we left off because the clip routine always starts at the beginning of the source buffer,
+					// but that's not the right place when we don't have a source buffer and are using the mixbuffer as a pseduo-source buffer.
+					mixBuffer = (char *)mixBuffer + ((numSampleFramesPerBuffer - clippedPosition.fSampleFrame) * format.fNumChannels * (format.fBitWidth / 8));
+				}
+
+				clipOutputSamples(0, clientBufferListStart->mixedPosition.fSampleFrame);
                 clippedPosition = clientBufferListStart->mixedPosition;
             }
         }

@@ -8,7 +8,7 @@
         M_FILES = (); 
         OTHER_LIBS = (); 
         OTHER_LINKED = (hfs_endian.c, makehfs.c, newfs_hfs.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, hfsbootdata.img); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, hfsbootdata.img, newfs_hfs.8); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

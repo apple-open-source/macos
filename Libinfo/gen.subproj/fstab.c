@@ -53,8 +53,7 @@ static char _root_fstype[MFSNAMELEN];
 static int firstTime = 1;
 static int returnedRoot = 0;
 static void error __P((int));
-static fstabscan __P((void));
-static char *getRootDev(void);
+static int fstabscan __P((void));
 static const char *slash = "/";
 static const char *remountedroot = "/root";
 
@@ -66,8 +65,14 @@ static const char *remountedroot = "/root";
 */
 
 static char *getDevPath(dev_t target_dev) {
-    static char dev[MAXPATHLEN];
+    static char *dev = NULL;
     char *name;
+
+    if (dev == NULL) {
+	dev = malloc(MAXPATHLEN);
+	if (dev == NULL)
+	    return NULL;
+    }
 
     strcpy(dev, _PATH_DEV);
 
@@ -106,10 +111,9 @@ static char *getDevPath(dev_t target_dev) {
 
 static int initrootentry(struct fstab *rootentry)
 {
-     char *rootpath = slash;
+     char *rootpath = (char *)slash;
      struct stat rootstat;
      struct statfs rootfsinfo;
-     char *rootdevname;
      
      if (stat(rootpath, &rootstat) < 0) {
         perror("stat");
@@ -122,7 +126,7 @@ static int initrootentry(struct fstab *rootentry)
      
      /* Check to make sure we're not looking at a synthetic root: */
      if (strcmp(rootfsinfo.f_fstypename, "synthfs") == 0) {
-     	rootpath = remountedroot;
+     	rootpath = (char *)remountedroot;
         if (stat(rootpath, &rootstat) < 0) {
            perror("stat");
            return -1;
@@ -151,7 +155,7 @@ static int fstabscan()
 {
 	register char *cp;
 #define	MAXLINELENGTH	1024
-	static char line[MAXLINELENGTH];
+	static char *line = NULL;
 	char subline[MAXLINELENGTH];
 	int typexx;
 
@@ -169,6 +173,13 @@ static int fstabscan()
 	if (!_fs_fp) {
 		return(0);
 	}
+
+	if (line == NULL) {
+		line = malloc(MAXLINELENGTH);
+		if (line == NULL)
+			return 0;
+	}
+
         for (;;) {
 		if (!(cp = fgets(line, sizeof(line), _fs_fp)))
 			return(0);

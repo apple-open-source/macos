@@ -25,22 +25,9 @@
  * Copyright 1993 NeXT, Inc.
  * All rights reserved.
  */
-#include "io_inline.h"
-#include "libsaio.h"
-#include "vga.h"
-#include "vbe.h"
-#include "kernBootStruct.h"
-#include "appleClut8.h"
 
-/*
- * Graphics mode settings.
- */
-BOOL            in_linear_mode;
-unsigned char * frame_buffer;
-unsigned short  screen_width;
-unsigned short  screen_height;
-unsigned char   bits_per_pixel;
-unsigned short  screen_rowbytes;
+#include "libsaio.h"
+#include "vbe.h"
 
 /* 
  * Various inline routines for video I/O
@@ -73,159 +60,26 @@ rmwi (int port, int index, int clear, int set)
 }
 
 /*
- * Local Prototypes
- */
-void setupPalette(VBEPalette * p, const unsigned char * g);
-
-/*
  * Globals
  */
 static biosBuf_t bb;
 
-#if 0
-static char *models[] = { "Text", 
-			  "CGA", 
-			  "Hercules", 
-			  "Planar", 
-			  "Packed Pixel", 
-			  "Non-Chain 4", 
-			  "Direct Color", 
-			  "YUV" };
-#endif
-
-int
-set_linear_video_mode(unsigned short mode)
+int getVBEInfo( void * infoBlock )
 {
-    VBEInfoBlock        vinfo;
-    VBEModeInfoBlock    minfo;
-    int                 err;
-    VBEPalette          palette;
-
-    do {
-        /*
-         * See if VESA is around.
-         */
-        err = getVBEInfo(&vinfo);
-        if (err != errSuccess)
-        {
-            printf("VESA not available.\n");
-            break;
-        }
-
-#if 0
-        /*
-         * See if this mode is supported.
-         */
-        err = getVBEModeInfo(mode, &minfo);
-        if ( !((err == errSuccess) && 
-            (minfo.ModeAttributes & maModeIsSupportedBit) &&
-            (minfo.ModeAttributes & maGraphicsModeBit) /* &&
-            (minfo.ModeAttributes & maLinearFrameBufferAvailBit)*/) )
-        {
-            printf("Mode %d is not supported.\n", mode);
-            err = errFuncNotSupported;
-            break;
-        }
-#endif
-
-        /*
-         * Set the mode.
-         */
-        err = setVBEMode(mode | kLinearFrameBufferBit );
-        if ( err != errSuccess )
-        {
-            if (vinfo.VESAVersion < MIN_VESA_VERSION)
-            {
-                printf("Video Card is VESA %d.%d. It must be at least VESA %d.%d\n",
-                    vinfo.VESAVersion >> 8,
-                    vinfo.VESAVersion & 0xff,
-                    MIN_VESA_VERSION >> 8,
-                    MIN_VESA_VERSION & 0xff);
-            }
-            else
-            {
-                printf("Error #%d in set video mode.\n", err);
-            }
-            break;
-        }
-
-        /*
-         * Get mode info.
-         */
-        err = getVBEModeInfo(mode, &minfo);
-        if ( err != errSuccess )
-        {
-            printf("Error #%d in get mode info.\n", err);
-            break;
-        }
-
-        /*
-         * Set the palette.
-         */
-        if (( vinfo.VESAVersion >= MIN_VESA_VERSION ) &&
-            ( minfo.BitsPerPixel == 8 ))
-        {
-            setupPalette(&palette, appleClut8);
-            if ((err = setVBEPalette(palette)) != errSuccess)
-            {
-                printf("Error #%d in setting palette.\n", err);
-                break;
-            }
-        }
-
-        err             = errSuccess;
-        in_linear_mode  = YES;
-        screen_width    = minfo.XResolution;
-        screen_height   = minfo.YResolution;
-        bits_per_pixel  = minfo.BitsPerPixel;
-        screen_rowbytes = minfo.BytesPerScanline;
-
-        /* The S3 video card reports 15 bits... the video console driver
-         * Can't deal.. set it to 16.
-         */
-        if (bits_per_pixel > 8 && bits_per_pixel < 16)
-            bits_per_pixel = 16;
-
-        frame_buffer = (unsigned char *) ADDRESS(minfo.PhysBasePtr_low, 
-                                                 minfo.PhysBasePtr_1, 
-                                                 minfo.PhysBasePtr_2, 
-                                                 minfo.PhysBasePtr_high);
-    }
-    while ( 0 );
-    
-    return err;
-}
-
-void setupPalette(VBEPalette * p, const unsigned char * g)
-{
-    int             i;
-    unsigned char * source = (unsigned char *) g;
-
-    for (i = 0; i < 256; i++)
-    {
-        (*p)[i] = 0;
-        (*p)[i] |= ((unsigned long)((*source++) >> 2)) << 16;   // Red
-        (*p)[i] |= ((unsigned long)((*source++) >> 2)) << 8;    // Green
-        (*p)[i] |= ((unsigned long)((*source++) >> 2));         // Blue
-    }
-}
-
-int getVBEInfo(void *vinfo_p)
-{
-    bb.intno = 0x10;
+    bb.intno  = 0x10;
     bb.eax.rr = funcGetControllerInfo;
-    bb.es = SEG(vinfo_p);
-    bb.edi.rr = OFF(vinfo_p);
-    bios(&bb);
+    bb.es     = SEG( infoBlock );
+    bb.edi.rr = OFF( infoBlock );
+    bios( &bb );
     return(bb.eax.r.h);
 }
 
-int getVBEModeInfo(int mode, void *minfo_p)
+int getVBEModeInfo( int mode, void * minfo_p )
 {
-    bb.intno = 0x10;
+    bb.intno  = 0x10;
     bb.eax.rr = funcGetModeInfo;
     bb.ecx.rr = mode;
-    bb.es = SEG(minfo_p);
+    bb.es     = SEG(minfo_p);
     bb.edi.rr = OFF(minfo_p);
     bios(&bb);
     return(bb.eax.r.h);

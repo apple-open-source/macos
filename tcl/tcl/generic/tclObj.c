@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclObj.c,v 1.1.1.3 2000/04/12 02:01:32 wsanchez Exp $
+ * RCS: @(#) $Id: tclObj.c,v 1.1.1.4 2002/04/05 16:13:24 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -48,15 +48,6 @@ Tcl_Mutex tclObjMutex;
 static char emptyString;
 char *tclEmptyStringRep = &emptyString;
 
-/*
- * The number of Tcl objects ever allocated (by Tcl_NewObj) and freed
- * (by TclFreeObj).
- */
-
-#ifdef TCL_COMPILE_STATS
-long tclObjsAlloced = 0;
-long tclObjsFreed = 0;
-#endif /* TCL_COMPILE_STATS */
 
 /*
  * Prototypes for procedures defined later in this file:
@@ -409,12 +400,15 @@ Tcl_NewObj()
      */
 
     Tcl_MutexLock(&tclObjMutex);
+#ifdef PURIFY
+    objPtr = (Tcl_Obj *) Tcl_Ckalloc(sizeof(Tcl_Obj));
+#else
     if (tclFreeObjList == NULL) {
 	TclAllocateFreeObjects();
     }
     objPtr = tclFreeObjList;
     tclFreeObjList = (Tcl_Obj *) tclFreeObjList->internalRep.otherValuePtr;
-    
+#endif    
     objPtr->refCount = 0;
     objPtr->bytes    = tclEmptyStringRep;
     objPtr->length   = 0;
@@ -523,10 +517,7 @@ Tcl_DbNewObj(file, line)
 void
 TclAllocateFreeObjects()
 {
-    Tcl_Obj tmp[2];
-    size_t objSizePlusPadding =	/* NB: this assumes byte addressing. */
-	((int)(&(tmp[1])) - (int)(&(tmp[0])));
-    size_t bytesToAlloc = (OBJS_TO_ALLOC_EACH_TIME * objSizePlusPadding);
+    size_t bytesToAlloc = (OBJS_TO_ALLOC_EACH_TIME * sizeof(Tcl_Obj));
     char *basePtr;
     register Tcl_Obj *prevPtr, *objPtr;
     register int i;
@@ -536,10 +527,10 @@ TclAllocateFreeObjects()
 
     prevPtr = NULL;
     objPtr = (Tcl_Obj *) basePtr;
-    for (i = 0;  i < OBJS_TO_ALLOC_EACH_TIME;  i++) {
+    for (i = 0; i < OBJS_TO_ALLOC_EACH_TIME; i++) {
 	objPtr->internalRep.otherValuePtr = (VOID *) prevPtr;
 	prevPtr = objPtr;
-	objPtr = (Tcl_Obj *) (((char *)objPtr) + objSizePlusPadding);
+	objPtr++;
     }
     tclFreeObjList = prevPtr;
 }
@@ -594,7 +585,7 @@ TclFreeObj(objPtr)
      */
 
     Tcl_MutexLock(&tclObjMutex);
-#ifdef TCL_MEM_DEBUG
+#if defined(TCL_MEM_DEBUG) || defined(PURIFY)
     ckfree((char *) objPtr);
 #else
     objPtr->internalRep.otherValuePtr = (VOID *) tclFreeObjList;
@@ -648,15 +639,7 @@ Tcl_DuplicateObj(objPtr)
     if (objPtr->bytes == NULL) {
 	dupPtr->bytes = NULL;
     } else if (objPtr->bytes != tclEmptyStringRep) {
-	int len = objPtr->length;
-	
-	dupPtr->bytes = (char *) ckalloc((unsigned) len+1);
-	if (len > 0) {
-	    memcpy((VOID *) dupPtr->bytes, (VOID *) objPtr->bytes,
-		   (unsigned) len);
-	}
-	dupPtr->bytes[len] = '\0';
-	dupPtr->length = len;
+	TclInitStringRep(dupPtr, objPtr->bytes, objPtr->length);
     }
     
     if (typePtr != NULL) {

@@ -19,6 +19,7 @@
 #define __UTF_8_H__
 
 #include <NetInfo/config.h>
+#include <NetInfo/dsdata.h>
 
 /* returns the number of bytes in the UTF-8 string */
 u_int32_t dsutil_utf8_bytes( const char * );
@@ -73,5 +74,17 @@ char* dsutil_utf8_strtok( char* sp, const char* sep, char **last);
 /* For symmetry */
 #define DSUTIL_UTF8_PREV(p) (dsutil_utf8_prev((p)))
 #define DSUTIL_UTF8_DECR(p) ((p)=DSUTIL_UTF8_PREV((p)))
+
+/* Optional character-set aware callbacks. */
+#define DSUTIL_UTF8_CALLBACKS_VERSION 2
+typedef struct {
+	u_int32_t version;
+	dsdata *(*normalize)(dsdata *, u_int32_t);
+	int32_t (*compare)(dsdata *, dsdata *, u_int32_t);
+} dsutil_utf8_callbacks;
+
+void dsutil_utf8_set_callbacks(dsutil_utf8_callbacks *callbacks);
+dsdata *dsutil_utf8_normalize(dsdata *, u_int32_t);
+int32_t dsutil_utf8_compare(dsdata *, dsdata *, u_int32_t);
 
 #endif __UTF_8_H__

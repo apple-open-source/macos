@@ -1,0 +1,66 @@
+\section{\module{base64} ---
+         Encode and decode MIME base64 data}
+
+\declaremodule{standard}{base64}
+\modulesynopsis{Encode and decode files using the MIME base64 data.}
+
+
+\indexii{base64}{encoding}
+\index{MIME!base64 encoding}
+
+This module performs base64 encoding and decoding of arbitrary binary
+strings into text strings that can be safely sent by email or included
+as part of an HTTP POST request.  The
+encoding scheme is defined in \rfc{1521} (\emph{MIME
+(Multipurpose Internet Mail Extensions) Part One: Mechanisms for
+Specifying and Describing the Format of Internet Message Bodies},
+section 5.2, ``Base64 Content-Transfer-Encoding'') and is used for
+MIME email and various other Internet-related applications; it is not
+the same as the output produced by the \program{uuencode} program.
+For example, the string \code{'www.python.org'} is encoded as the
+string \code{'d3d3LnB5dGhvbi5vcmc=\e n'}.  
+
+
+\begin{funcdesc}{decode}{input, output}
+Decode the contents of the \var{input} file and write the resulting
+binary data to the \var{output} file.
+\var{input} and \var{output} must either be file objects or objects that
+mimic the file object interface. \var{input} will be read until
+\code{\var{input}.read()} returns an empty string.
+\end{funcdesc}
+
+\begin{funcdesc}{decodestring}{s}
+Decode the string \var{s}, which must contain one or more lines of
+base64 encoded data, and return a string containing the resulting
+binary data.
+\end{funcdesc}
+
+\begin{funcdesc}{encode}{input, output}
+Encode the contents of the \var{input} file and write the resulting
+base64 encoded data to the \var{output} file.
+\var{input} and \var{output} must either be file objects or objects that
+mimic the file object interface. \var{input} will be read until
+\code{\var{input}.read()} returns an empty string.  If the last input
+character is not a newline (\code{'\e n'}), a newline will be added to
+the input data.
+\end{funcdesc}
+
+\begin{funcdesc}{encodestring}{s}
+Encode the string \var{s}, which can contain arbitrary binary data,
+and return a string containing one or more lines of
+base64-encoded data.  If the last character of \var{s} is not a
+newline (\code{'\e n'}), a newline will be added.  This causes
+\code{encodestring('hello!')} to return the same value as
+\code{encodestring('hello!\e n')}.
+\end{funcdesc}
+
+
+\begin{seealso}
+  \seemodule{binascii}{Support module containing \ASCII-to-binary
+                       and binary-to-\ASCII{} conversions.}
+  \seerfc{1521}{MIME (Multipurpose Internet Mail Extensions) Part One:
+          Mechanisms for Specifying and Describing the Format of
+          Internet Message Bodies}{Section 5.2, ``Base64
+          Content-Transfer-Encoding,'' provides the definition of the
+          base64 encoding.}
+\end{seealso}

@@ -1,0 +1,25 @@
+#! /bin/sh
+# Make sure commented variables are output near their comments.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in <<'EOF'
+AC_OUTPUT
+EOF
+
+cat > Makefile.am << 'EOF'
+# UnIqUe_COPYRIGHT_BOILERPLATE
+
+# UnIqUe_MUMBLE_COMMENT
+mumble = UnIqUe_MUMBLE_VALUE
+EOF
+
+set -e
+$ACLOCAL
+$AUTOMAKE
+# UnIqUe_COPYRIGHT_BOILERPLATE should appear near the top of the file
+test `sed -n -e '1,/UnIqUe_COPYRIGHT_BOILERPLATE/p' Makefile.in \
+      | wc -l` -le 30
+# UnIqUe_MUMBLE_COMMENT should appear right before the mumble declaration.
+test `sed -n -e '/UnIqUe_MUMBLE_COMMENT/,/UnIqUe_MUMBLE_VALUE/p' Makefile.in \
+      | wc -l` -eq 2

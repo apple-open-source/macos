@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,7 @@
 #include <IOKit/firewire/IOFWAddressSpace.h>
 #include <IOKit/firewire/IOFireWireController.h>
 
-OSData *IOFWPseudoAddressSpace::allocatedAddresses = NULL;
+OSData *IOFWPseudoAddressSpace::allocatedAddresses = NULL;  // unused
 
 /*
  * Base class for FireWire address space objects
@@ -65,8 +65,8 @@ UInt32 IOFWAddressSpace::doLock(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr,
     size = inLen/8;	// Depends on type, right for 'compare and swap'
     outLen = inLen/2;	// right for 'compare and swap'
     ret = doRead(nodeID, speed, addr, size*4, &desc, &offset, refcon);
-     if(ret != kFWResponseComplete)
-            return ret;
+	if(ret != kFWResponseComplete)
+		return ret;
 
     desc->readBytes(offset, oldVal, size*4);
     
@@ -197,49 +197,12 @@ OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpace, 1);
 
 IOReturn IOFWPseudoAddressSpace::allocateAddress(FWAddress *addr, UInt32 lenDummy)
 {
-    unsigned int i, len;
-    UInt8 * data;
-    UInt8 used = 1;
-    if(allocatedAddresses == NULL) {
-        allocatedAddresses = OSData::withCapacity(4);	// SBP2 + some spare
-        allocatedAddresses->appendBytes(&used, 1);	// Physical always allocated
-    }
-    if(!allocatedAddresses)
-        return kIOReturnNoMemory;
-
-    len = allocatedAddresses->getLength();
-    data = (UInt8*)allocatedAddresses->getBytesNoCopy();
-    for(i=0; i<len; i++) {
-        if(data[i] == 0) {
-            data[i] = 1;
-            addr->addressHi = i;
-            addr->addressLo = 0;
-            return kIOReturnSuccess;
-        }
-    }
-    if(len >= 0xfffe)
-        return kIOReturnNoMemory;
-
-    if(allocatedAddresses->appendBytes(&used, 1)) {
-        addr->addressHi = len;
-        addr->addressLo = 0;
-        return kIOReturnSuccess;
-    }
-
-    return kIOReturnNoMemory;      
+	return fControl->allocatePseudoAddress( addr, lenDummy );     
 }
 
-void	IOFWPseudoAddressSpace::freeAddress(FWAddress addr, UInt32 lenDummy)
+void IOFWPseudoAddressSpace::freeAddress(FWAddress addr, UInt32 lenDummy)
 {
-    unsigned int len;
-    UInt8 * data;
-    assert(allocatedAddresses != NULL);
-    
-    len = allocatedAddresses->getLength();
-    assert(addr.addressHi < len);
-    data = (UInt8*)allocatedAddresses->getBytesNoCopy();
-    assert(data[addr.addressHi]);
-    data[addr.addressHi] = 0;
+    fControl->freePseudoAddress( addr, lenDummy );
 }
 
 UInt32 IOFWPseudoAddressSpace::simpleReader(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
@@ -357,9 +320,10 @@ IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
 bool IOFWPseudoAddressSpace::initAll(IOFireWireBus *control,
                 FWAddress *addr, UInt32 len, 
 		FWReadCallback reader, FWWriteCallback writer, void *refCon)
-{
+{	
     if(!IOFWAddressSpace::init(control))
 		return false;
+
     if(allocateAddress(addr, len) != kIOReturnSuccess)
         return false;
 
@@ -370,13 +334,14 @@ bool IOFWPseudoAddressSpace::initAll(IOFireWireBus *control,
     fRefCon = refCon;
     fReader = reader;
     fWriter = writer;
+	
     return true;
 }
 
 bool IOFWPseudoAddressSpace::initFixed(IOFireWireBus *control,
                 FWAddress addr, UInt32 len,
                 FWReadCallback reader, FWWriteCallback writer, void *refCon)
-{
+{	
     if(!IOFWAddressSpace::init(control))
         return false;
 

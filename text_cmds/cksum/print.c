@@ -1,5 +1,3 @@
-/*	$NetBSD: print.c,v 1.6 1997/10/17 11:37:14 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,13 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)print.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: print.c,v 1.6 1997/10/17 11:37:14 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/cksum/print.c,v 1.4 1999/12/05 20:03:22 charnier Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -51,7 +48,7 @@ pcrc(fn, val, len)
 	char *fn;
 	u_int32_t val, len;
 {
-	(void)printf("%lu %lu", (unsigned long)val, (unsigned long)len);
+	(void)printf("%lu %lu", (u_long) val, (u_long) len);
 	if (fn)
 		(void)printf(" %s", fn);
 	(void)printf("\n");
@@ -62,8 +59,7 @@ psum1(fn, val, len)
 	char *fn;
 	u_int32_t val, len;
 {
-	(void)printf("%lu %lu", (unsigned long)val,
-	    (unsigned long)(len + 1023) / 1024);
+	(void)printf("%lu %lu", (u_long) val, (u_long) (len + 1023) / 1024);
 	if (fn)
 		(void)printf(" %s", fn);
 	(void)printf("\n");
@@ -74,8 +70,7 @@ psum2(fn, val, len)
 	char *fn;
 	u_int32_t val, len;
 {
-	(void)printf("%lu %lu", (unsigned long)val,
-	    (unsigned long)(len + 511) / 512);
+	(void)printf("%lu %lu", (u_long) val, (u_long) (len + 511) / 512);
 	if (fn)
 		(void)printf(" %s", fn);
 	(void)printf("\n");

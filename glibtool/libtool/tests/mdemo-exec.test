@@ -1,0 +1,35 @@
+#! /bin/sh
+# mdemo-exec.test - check that programs in the ../mdemo subdirectory are viable
+
+# Test script header.
+need_prefix=no
+if test -z "$srcdir"; then
+  srcdir=`echo "$0" | sed 's%/[^/]*$%%'`
+  test "$srcdir" = "$0" && srcdir=.
+  test "${VERBOSE+set}" != "set" && VERBOSE=yes
+fi
+. $srcdir/defs || exit 1
+
+if test -f ../mdemo/mdemo; then :
+else
+  echo "You must run mdemo-make.test before running $0" 1>&2
+  exit 77
+fi
+
+# Check to see if the programs really run.
+echo "Executing uninstalled programs in ../mdemo"
+
+status=0
+if ../mdemo/mdemo.static ../mdemo/foo1.la ../mdemo/libfoo2.la; then :
+else
+  echo "$0: execution of ../mdemo/mdemo.static failed" 1>&2
+  status=1
+fi
+
+if ../mdemo/mdemo ../mdemo/foo1.la ../mdemo/libfoo2.la; then :
+else
+  echo "$0: execution of ../mdemo/mdemo failed" 1>&2
+  status=1
+fi
+
+exit $status

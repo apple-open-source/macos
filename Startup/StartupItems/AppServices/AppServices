@@ -6,42 +6,35 @@
 
 . /etc/rc.common
 
-##
-# Desktop Database
-##
+StartService ()
+{
+    local coreservicedRunFile="/var/run/StartupItems/coreserviced.run"
 
-if [ -x /System/Library/CoreServices/coreservicesd ]; then
-  ConsoleMessage "Starting Core Services"
+    # Core Services
+    if [ -x /System/Library/CoreServices/coreservicesd ]; then
+        if ! [ -f "${coreservicedRunFile}" ]; then
 
-  /System/Library/CoreServices/coreservicesd
-fi
+            ConsoleMessage "Starting Core Services"
+            /usr/bin/touch "${coreservicedRunFile}"
 
-##
-# InputManager startup procedure
-##
+            /System/Library/CoreServices/coreservicesd -preload AEServer
+        fi
+    fi
 
-if [ -d /System/Library/InputManagers ]; then
-    ConsoleMessage "Starting input servers"
+    # Launch Services
+    if [ -x /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister ]; then
+        /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -load
+    fi
+}
 
-    cd /System/Library/InputManagers
+StopService ()
+{
+    return 0
+}
 
-    for i in *; do
-	if [ -d "${i}" ]; then
-	    if [ "${i}" = "Resources" ]; then continue; fi
+RestartService ()
+{
+    return 0
+}
 
-	    rcfile=$(basename "${i}")
-
-	    if [ -f "${i}/${rcfile}.rc" ]; then
-		sh "${i}/${rcfile}.rc" $1
-	    fi
-	fi
-    done
-fi
-
-##
-# Start printing services
-##
-
-ConsoleMessage "Configuring print services" 
-
-/System/Library/Printers/Libraries/PrintStarter
+RunService "$1"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -199,9 +199,15 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 boolean_t
 server_active()
 {
-	kern_return_t 		status;
-	mach_port_t		bootstrap_port;
 	boolean_t		active;
+	mach_port_t		bootstrap_port;
+	char			*server_name;
+	kern_return_t 		status;
+
+	server_name = getenv("SCD_SERVER");
+	if (!server_name) {
+		server_name = SCD_SERVER;
+	}
 
 	/* Getting bootstrap server port */
 	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
@@ -212,12 +218,12 @@ server_active()
 	}
 
 	/* Check "configd" server status */
-	status = bootstrap_status(bootstrap_port, SCD_SERVER, &active);
+	status = bootstrap_status(bootstrap_port, server_name, &active);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			if (active) {
 				fprintf(stderr, "configd: '%s' server already active\n",
-					SCD_SERVER);
+					server_name);
 				return TRUE;
 			}
 			break;
@@ -234,10 +240,16 @@ server_active()
 void
 server_init()
 {
-	kern_return_t 		status;
-	mach_port_t		bootstrap_port;
 	boolean_t		active;
+	mach_port_t		bootstrap_port;
 	CFRunLoopSourceRef	rls;
+	char			*server_name;
+	kern_return_t 		status;
+
+	server_name = getenv("SCD_SERVER");
+	if (!server_name) {
+		server_name = SCD_SERVER;
+	}
 
 	/* Getting bootstrap server port */
 	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
@@ -247,11 +259,11 @@ server_init()
 	}
 
 	/* Check "configd" server status */
-	status = bootstrap_status(bootstrap_port, SCD_SERVER, &active);
+	status = bootstrap_status(bootstrap_port, server_name, &active);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			if (active) {
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("\"%s\" is currently active, exiting."), SCD_SERVER);
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("\"%s\" is currently active, exiting."), server_name);
 				exit (EX_UNAVAILABLE);
 			}
 			break;
@@ -281,8 +293,8 @@ server_init()
 	/* Create a session for the primary / new connection port */
 	(void) addSession(configd_port);
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Registering service \"%s\""), SCD_SERVER);
-	status = bootstrap_register(bootstrap_port, SCD_SERVER, CFMachPortGetPort(configd_port));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Registering service \"%s\""), server_name);
+	status = bootstrap_register(bootstrap_port, server_name, CFMachPortGetPort(configd_port));
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service not currently registered, "a good thing" (tm) */

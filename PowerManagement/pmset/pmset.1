@@ -1,0 +1,51 @@
+.\"
+.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd January 7, 2002
+.Dt PMSET 1
+.Os Darwin
+.Sh NAME
+.Nm pmset
+.Nd modify power management settings
+.Sh SYNOPSIS
+.Nm
+.Op Fl a b c
+.Op dim Ar minutes
+.Op spindown Ar minutes
+.Op sleep Ar minutes
+.Op womp Ar 1/0
+.Op boot
+
+.\.Nm
+.\.Op Fl a b c
+.\.Op dim
+.\.Op spindown
+.\.Op sleep
+.\.Op womp
+
+.Sh DESCRIPTION
+.Nm
+changes power management settings such as idle sleep timing and wake on LAN. The
+.Fl a,
+.Fl b,
+.Fl c
+flags determine whether the settings apply to battery (-b), charger (-c), or all (-a). womp means Wake on Magic Packet. Use a minutes argument of 0 to set the idle time to never. Must be run as root.
+.Pp
+The boot argument tells Power Management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
+
+.Sh EXAMPLES
+.Nm
+.Fl b 
+dim 5
+.Fl c
+dim 10
+.Pp
+.Nm
+.Fl a
+dim 10 spin 10 sleep 30 womp 1
+.Pp 
+.Sh FILES
+All changes made through
+.Nm
+are saved in a persistent preferences file (per-system, not per-user) at 
+.Pa /var/db/SystemConfiguration/com.apple.PowerManagement.xml 

@@ -413,8 +413,12 @@ IOReturn MacRISC2CPU::setAggressiveness(unsigned long selector, unsigned long ne
 
 void MacRISC2CPU::initCPU(bool boot)
 {
-    if (!boot && bootCPU)
-    {
+	OSIterator 		*childIterator;
+	IORegistryEntry *childEntry, *childDriver;
+	IOPCIBridge		*pciDriver;
+	OSData			*deviceTypeString;
+
+    if (!boot && bootCPU) {
         // Tell Uni-N to enter normal mode.
         macRISC2PE->writeUniNReg(kUniNPowerMngmnt, kUniNNormal);
     
@@ -422,9 +426,26 @@ void MacRISC2CPU::initCPU(bool boot)
         macRISC2PE->writeUniNReg(kUniNHWInitState, kUniNHWInitStateRunning);
     
         if (!processorSpeedChange) {
-			// Restore the PCI-PCI Bridge.
-			if (decBridge) decBridge->restoreBridgeState();
-		
+			// Notify our pci children to restore their state
+			if ((childIterator = macRISC2PE->getChildIterator (gIOServicePlane)) != NULL) {
+				while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+					deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
+					if (deviceTypeString) {
+						if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
+							childDriver = childEntry->copyChildEntry(gIOServicePlane);
+							if (childDriver) {
+								pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
+								if (pciDriver)
+									// Got the driver - send the message
+									pciDriver->setDevicePowerState (NULL, 3);
+
+								childDriver->release();
+							}
+						}
+					}
+				}
+			}
+
 			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
 	
 			// Disables the interrupts for this CPU.
@@ -525,21 +546,35 @@ kern_return_t MacRISC2CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*a
 
 void MacRISC2CPU::haltCPU(void)
 {
-    IORegistryEntry *decBridgeEntry;
-    IOService       *decBridgeNub;
+	OSIterator 		*childIterator;
+	IORegistryEntry *childEntry, *childDriver;
+	IOPCIBridge		*pciDriver;
+	OSData			*deviceTypeString;
+
   
     setCPUState(kIOCPUStateStopped);
   
     if (bootCPU)
     {
-        // Find the DEC Bridge if it is there.
-        decBridge = 0;
-        decBridgeEntry = fromPath("/pci@f2000000/@d", gIODTPlane);
-        decBridgeNub = OSDynamicCast(IOService, decBridgeEntry);
-        if (decBridgeNub != 0)
-        {
-            decBridge = OSDynamicCast(IOPCI2PCIBridge, decBridgeNub->getClient());
-        }
+		// Notify our pci children to save their state
+		if ((childIterator = macRISC2PE->getChildIterator (gIOServicePlane)) != NULL) {
+			while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+				deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
+				if (deviceTypeString) {
+					if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
+						childDriver = childEntry->copyChildEntry(gIOServicePlane);
+						if (childDriver) {
+							pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
+							if (pciDriver)
+								// Got the driver - send the message
+								pciDriver->setDevicePowerState (NULL, 2);
+								
+							childDriver->release();
+						}
+					}
+				}
+			}
+		}
     }
 
    kprintf("MacRISC2CPU::haltCPU %d Here!\n", getCPUNumber());

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h find.h
 
-CFILES = find.c function.c ls.c main.c misc.c operator.c option.c
+CFILES = find.c function.c ls.c main.c misc.c operator.c option.c y.tab.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble find.1
 

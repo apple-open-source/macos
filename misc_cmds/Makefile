@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = cal calendar leave lock tsort units
 
-OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -24,7 +24,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -Wall
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

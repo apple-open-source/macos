@@ -1,4 +1,4 @@
-;;; emacsbug.el --- command to report Emacs bugs to appropriate mailing list.
+;;; emacsbug.el --- command to report Emacs bugs to appropriate mailing list
 
 ;; Copyright (C) 1985, 1994, 1997, 1998 Free Software Foundation, Inc.
 
@@ -72,13 +72,14 @@ Prompts for bug subject.  Leaves you in a mail buffer."
   ;; This strange form ensures that (recent-keys) is the value before
   ;; the bug subject string is read.
   (interactive (reverse (list (recent-keys) (read-string "Bug Subject: "))))
-  (let (user-point message-end-point)
+  ;; If there are four numbers in emacs-version, this is a pretest
+  ;; version.
+  (let ((pretest-p (string-match "\\..*\\..*\\." emacs-version))
+	user-point message-end-point)
     (setq message-end-point
-	  (with-current-buffer (get-buffer "*Messages*")
+	  (with-current-buffer (get-buffer-create "*Messages*")
 	    (point-max-marker)))
-    (compose-mail (if (string-match "\\..*\\..*\\." emacs-version)
-		      ;; If there are four numbers in emacs-version,
-		      ;; this is a pretest version.
+    (compose-mail (if pretest-p
 		      report-emacs-bug-pretest-address
 		    report-emacs-bug-address)
 		  topic)
@@ -88,8 +89,6 @@ Prompts for bug subject.  Leaves you in a mail buffer."
     (forward-line 1)
 
     (let ((signature (buffer-substring (point) (point-max))))
-      ;; Discourage users to write non-English text.
-      (set-buffer-multibyte nil)
       (delete-region (point) (point-max))
       (insert signature)
       (backward-char (length signature)))
@@ -97,20 +96,36 @@ Prompts for bug subject.  Leaves you in a mail buffer."
       ;; Insert warnings for novice users.
       (insert "This bug report will be sent to the Free Software Foundation,\n")
       (let ((pos (point)))
-	(insert " not to your local site managers!!")
+	(insert "not to your local site managers!")
 	(put-text-property pos (point) 'face 'highlight))
       (insert "\nPlease write in ")
       (let ((pos (point)))
 	(insert "English")
 	(put-text-property pos (point) 'face 'highlight))
       (insert ", because the Emacs maintainers do not have
-translators to read other languages for them.\n\n"))
+translators to read other languages for them.\n\n")
+      (insert (format "Your bug report will be posted to the %s mailing list"
+		      (if pretest-p
+			  report-emacs-bug-pretest-address
+			report-emacs-bug-address)))
+      (if pretest-p
+	  (insert ".\n\n")
+	(insert ",\nand to the gnu.emacs.bug news group.\n\n")))
 
     (insert "In " (emacs-version) "\n")
     (if (and system-configuration-options
 	     (not (equal system-configuration-options "")))
 	(insert "configured using `configure "
 		system-configuration-options "'\n"))
+    (insert "Important settings:\n")
+    (mapcar
+     '(lambda (var)
+	(insert (format "  value of $%s: %s\n" var (getenv var))))
+     '("LC_ALL" "LC_COLLATE" "LC_CTYPE" "LC_MESSAGES"
+       "LC_MONETARY" "LC_NUMERIC" "LC_TIME" "LANG"))
+    (insert (format "  locale-coding-system: %s\n" locale-coding-system))
+    (insert (format "  default-enable-multibyte-characters: %s\n"
+		    default-enable-multibyte-characters))
     (insert "\n")
     (insert "Please describe exactly what actions triggered the bug\n"
 	    "and the precise symptoms of the bug:\n\n") 

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: buffer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: buffer.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Buffer management routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: buffer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -53,43 +53,10 @@ static char rcsid[] = "$Id: buffer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp 
 #include        "edef.h"
 
 #ifdef	ANSI
-int zotbuf(struct BUFFER *);
 int sgetline(char **, int *, char *, int);
 #else
-int zotbuf();
 int sgetline();
 #endif
-
-
-zotbuf(bp)	/* kill the buffer pointed to by bp */
-  register BUFFER *bp;
-{
-    register BUFFER *bp1;
-    register BUFFER *bp2;
-    register int    s;
-
-        if (bp->b_nwnd != 0) {                  /* Error if on screen.  */
-                mlwrite("Buffer is being displayed");
-                return (FALSE);
-        }
-        if ((s=bclear(bp)) != TRUE)             /* Blow text away.      */
-                return (s);
-        free((char *) bp->b_linep);             /* Release header line. */
-        bp1 = NULL;                             /* Find the header.     */
-        bp2 = bheadp;
-        while (bp2 != bp) {
-                bp1 = bp2;
-                bp2 = bp2->b_bufp;
-        }
-        bp2 = bp2->b_bufp;                      /* Next one in chain.   */
-        if (bp1 == NULL)                        /* Unlink it.           */
-                bheadp = bp2;
-        else
-                bp1->b_bufp = bp2;
-        free((char *) bp);                      /* Release buffer block */
-        return (TRUE);
-}
-
 
 
 /*

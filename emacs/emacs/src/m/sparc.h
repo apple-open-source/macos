@@ -43,13 +43,6 @@ NOTE-END  */
 #define sparc
 #endif
 
-#ifdef __GNUC__
-# define C_OPTIMIZE_SWITCH -O
-#else
-     /* This level of optimization is reported to work.  */
-# define C_OPTIMIZE_SWITCH -O2
-#endif
-
 /* Use type int rather than a union, to represent Lisp_Object */
 
 #define NO_UNION_TYPE
@@ -78,13 +71,6 @@ NOTE-END  */
 #if __GNUC__ < 2 /* Modern versions of GCC handle alloca directly.  */
 #include <alloca.h>
 #endif
-#endif
-
-/* Must use the system's termcap, if we use any termcap.
-   It does special things.  */
-
-#ifndef TERMINFO
-#define LIBS_TERMCAP -ltermcap
 #endif
 
 /* Mask for address bits within a memory segment */
@@ -117,3 +103,11 @@ NOTE-END  */
 #define A_TEXT_SEEK(HDR) (N_TXTOFF (hdr) + sizeof (hdr))
 
 #endif /* not __NetBSD__ and not __linux__ and not __OpenBSD__ */
+
+#ifdef __arch64__		/* GCC, 64-bit ABI.  */
+#define BITS_PER_LONG 64
+#ifndef _LP64
+#define _LP64			/* Done on Alpha -- not sure if it
+				   should be here.  -- fx */
+#endif
+#endif

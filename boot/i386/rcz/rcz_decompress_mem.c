@@ -46,7 +46,6 @@ rcz_decompress_memory(unsigned char *in, unsigned char *out)
     unsigned int c, j, k, jmatch, jabove;
     unsigned int length, even_length, word, token, version;
     unsigned char *outorigin = out;
-    int *a, *b;
 
     version = *in++;
     version = (version<<8) | (*in++);

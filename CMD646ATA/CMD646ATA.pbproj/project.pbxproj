@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 33;
+	objectVersion = 34;
 	objects = {
 		01640CD4FFDF4DCA7F000001 = {
 			isa = PBXFileReference;
@@ -44,7 +44,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -122,7 +122,6 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.CMD646ATA;
 				MODULE_VERSION = 1.0.6f1;
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -187,7 +186,7 @@
 		<string>1.4.8b1</string>
 	</dict>
 	<key>OSBundleRequired</key>
-	<string>Root</string>
+	<string>Local-Root</string>
 </dict>
 </plist>
 ";

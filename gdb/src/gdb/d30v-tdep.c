@@ -1,5 +1,6 @@
 /* Target-dependent code for Mitsubishi D30V, for GDB.
-   Copyright (C) 1996, 1997, 2000 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -33,6 +34,7 @@
 #include "dis-asm.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include "regcache.h"
 
 #include "language.h" /* For local_hex_string() */
 
@@ -867,7 +869,8 @@ d30v_do_registers_info (int regnum, int fpregs)
 
 CORE_ADDR
 d30v_fix_call_dummy (char *dummyname, CORE_ADDR start_sp, CORE_ADDR fun,
-		     int nargs, value_ptr *args, struct type *type, int gcc_p)
+		     int nargs, struct value **args,
+		     struct type *type, int gcc_p)
 {
   int regnum;
   CORE_ADDR sp;
@@ -905,7 +908,7 @@ d30v_pop_dummy_frame (struct frame_info *fi)
 
 
 CORE_ADDR
-d30v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+d30v_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     int struct_return, CORE_ADDR struct_addr)
 {
   int i, len, index = 0, regnum = 2;
@@ -917,7 +920,7 @@ d30v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   /* Pass 1. Put all large args on stack */
   for (i = 0; i < nargs; i++)
     {
-      value_ptr arg = args[i];
+      struct value *arg = args[i];
       struct type *arg_type = check_typedef (VALUE_TYPE (arg));
       len = TYPE_LENGTH (arg_type);
       contents = VALUE_CONTENTS (arg);
@@ -935,7 +938,7 @@ d30v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 
   for (i = 0; i < nargs; i++)
     {
-      value_ptr arg = args[i];
+      struct value *arg = args[i];
       struct type *arg_type = check_typedef (VALUE_TYPE (arg));
       len = TYPE_LENGTH (arg_type);
       contents = VALUE_CONTENTS (arg);
@@ -1146,13 +1149,14 @@ print_insn (CORE_ADDR memaddr, struct ui_file *stream)
 {
   /* If there's no disassembler, something is very wrong.  */
   if (tm_print_insn == NULL)
-    internal_error ("print_insn: no disassembler");
+    internal_error (__FILE__, __LINE__,
+		    "print_insn: no disassembler");
 
-  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     tm_print_insn_info.endian = BFD_ENDIAN_BIG;
   else
     tm_print_insn_info.endian = BFD_ENDIAN_LITTLE;
-  return (*tm_print_insn) (memaddr, &tm_print_insn_info);
+  return TARGET_PRINT_INSN (memaddr, &tm_print_insn_info);
 }
 
 void
@@ -1221,7 +1225,7 @@ d30v_eva_get_trace_data (void)
   oldsize = trace_data.size;
   trace_data.size += count;
 
-  free (tmpspace);
+  xfree (tmpspace);
 
   if (trace_display)
     display_trace (oldsize, trace_data.size);

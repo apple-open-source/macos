@@ -16,7 +16,7 @@ HFILES = hfs_endian.h
 
 CFILES = mount_hfs.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble mount_hfs.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

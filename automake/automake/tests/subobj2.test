@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Test of subdir objects with C++.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CXX
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = wish
+wish_SOURCES = generic/a.cc generic/b.cxx
+END
+
+: > compile
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep 'generic/a.$(OBJEXT)' Makefile.in || exit 1
+grep '[^/]a\.\$(OBJEXT)' Makefile.in && exit 1
+fgrep -e '-c -o' Makefile.in

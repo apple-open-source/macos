@@ -25,8 +25,26 @@
 
 #undef LIBS_SYSTEM
 #define LIBS_SYSTEM -lsocket -lnsl -lkstat
-#define HAVE_VFORK
 
 /* Prefer kstat over kvm in getloadavg.c, kstat doesn't require root.
    ghazi@caip.rutgers.edu, 7/21/97. */
 #define HAVE_LIBKSTAT
+
+/* eggert thinks all versions of SunPro C allowed this.  */
+#ifndef __GNUC__
+#define C_DEBUG_SWITCH -g -O
+#endif
+
+/* inoue@ainet.or.jp says Solaris has a bug related to X11R6-style
+   XIM support.  */
+
+#define INHIBIT_X11R6_XIM
+
+/* Must use the system's termcap, if we use any termcap.
+   It does special things.  */
+
+#ifndef TERMINFO
+#define LIBS_TERMCAP -ltermcap
+#endif
+
+#define USE_MMAP_FOR_BUFFERS 1

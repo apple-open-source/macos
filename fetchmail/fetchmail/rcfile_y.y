@@ -74,7 +74,7 @@ extern char * yytext;
 %token DROPSTATUS DROPDELIVERED
 %token DNS SERVICE PORT UIDL INTERVAL MIMEDECODE IDLE CHECKALIAS 
 %token SSL SSLKEY SSLCERT SSLPROTO SSLCERTCK SSLCERTPATH SSLFINGERPRINT
-%token PRINCIPAL
+%token PRINCIPAL ESMTPNAME ESMTPPASSWORD
 %token TRACEPOLLS
 
 %%
@@ -117,7 +117,7 @@ statement	: SET LOGFILE optmap STRING	{run.logfile = xstrdup($4);}
 
 /* detect and complain about the most common user error */
 		| define_server serverspecs userspecs serv_option
-			{yyerror(_("server option after user options"));}
+			{yyerror(GT_("server option after user options"));}
 		;
 
 define_server	: POLL STRING		{reset_server($2, FALSE);}
@@ -157,12 +157,14 @@ serv_option	: AKA alias_list
 #endif /* INET6_ENABLE */
 					}
 		| PRINCIPAL STRING	{current.server.principal = xstrdup($2);}
+		| ESMTPNAME STRING	{current.server.esmtp_name = xstrdup($2);}
+		| ESMTPPASSWORD STRING	{current.server.esmtp_password = xstrdup($2);}
 		| PROTOCOL SDPS		{
 #ifdef SDPS_ENABLE
 					    current.server.protocol = P_POP3;
 					    current.server.sdps = TRUE;
 #else
-					    yyerror(_("SDPS not enabled."));
+					    yyerror(GT_("SDPS not enabled."));
 #endif /* SDPS_ENABLE */
 					}
 		| UIDL			{current.server.uidl = FLAG_TRUE;}
@@ -210,27 +212,27 @@ serv_option	: AKA alias_list
 					    int requestlen;
 
 		    			    if (net_security_strtorequest($2, &request, &requestlen))
-						yyerror(_("invalid security request"));
+						yyerror(GT_("invalid security request"));
 					    else {
 						current.server.netsec = xstrdup($2);
 					        free(request);
 					    }
 #else
-					    yyerror(_("network-security support disabled"));
+					    yyerror(GT_("network-security support disabled"));
 #endif /* NET_SECURITY */
 					}
 		| INTERFACE STRING	{
 #if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
 					interface_parse($2, &current.server);
 #else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
-					fprintf(stderr, _("fetchmail: interface option is only supported under Linux (without IPv6) and FreeBSD\n"));
+					fprintf(stderr, GT_("fetchmail: interface option is only supported under Linux (without IPv6) and FreeBSD\n"));
 #endif /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
 					}
 		| MONITOR STRING	{
 #if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
 					current.server.monitor = xstrdup($2);
 #else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
-					fprintf(stderr, _("fetchmail: monitor option is only supported under Linux (without IPv6) and FreeBSD\n"));
+					fprintf(stderr, GT_("fetchmail: monitor option is only supported under Linux (without IPv6) and FreeBSD\n"));
 #endif /* (defined(linux) && !defined(INET6_ENABLE) || defined(__FreeBSD__)) */
 					}
 		| PLUGIN STRING		{ current.server.plugin = xstrdup($2); }
@@ -338,7 +340,13 @@ user_option	: TO localnames HERE
 		| MIMEDECODE		{current.mimedecode  = FLAG_TRUE;}
 		| IDLE			{current.idle        = FLAG_TRUE;}
 
-		| SSL 	                {current.use_ssl = FLAG_TRUE;}
+		| SSL 	                {
+#ifdef SSL_ENABLE
+		    current.use_ssl = FLAG_TRUE;
+#else
+		    yyerror(GT_("SSL is not enabled"));
+#endif 
+		}
 		| SSLKEY STRING		{current.sslkey = xstrdup($2);}
 		| SSLCERT STRING	{current.sslcert = xstrdup($2);}
 		| SSLPROTO STRING	{current.sslproto = xstrdup($2);}
@@ -358,7 +366,7 @@ user_option	: TO localnames HERE
 		| NO MIMEDECODE		{current.mimedecode  = FLAG_FALSE;}
 		| NO IDLE		{current.idle        = FLAG_FALSE;}
 
-		| NO SSL 	        {current.use_ssl = FLAG_FALSE;}
+		| NO SSL 	        {current.use_ssl     = FLAG_FALSE;}
 
 		| LIMIT NUMBER		{current.limit       = NUM_VALUE_IN($2);}
 		| WARNINGS NUMBER	{current.warnings    = NUM_VALUE_IN($2);}
@@ -381,8 +389,8 @@ static struct query *hosttail;	/* where to add new elements */
 void yyerror (const char *s)
 /* report a syntax error */
 {
-    report_at_line(stderr, 0, rcfile, prc_lineno, _("%s at %s"), s, 
-		   (yytext && yytext[0]) ? yytext : _("end of input"));
+    report_at_line(stderr, 0, rcfile, prc_lineno, GT_("%s at %s"), s, 
+		   (yytext && yytext[0]) ? yytext : GT_("end of input"));
     prc_errflag++;
 }
 
@@ -419,14 +427,14 @@ int prc_filecheck(const char *pathname, const flag securecheck)
 
     if ((statbuf.st_mode & S_IFLNK) == S_IFLNK)
     {
-	fprintf(stderr, _("File %s must not be a symbolic link.\n"), pathname);
+	fprintf(stderr, GT_("File %s must not be a symbolic link.\n"), pathname);
 	return(PS_IOERR);
     }
 
 #ifndef __BEOS__
     if (statbuf.st_mode & ~(S_IFREG | S_IREAD | S_IWRITE | S_IEXEC | S_IXGRP))
     {
-	fprintf(stderr, _("File %s must have no more than -rwx--x--- (0710) permissions.\n"), 
+	fprintf(stderr, GT_("File %s must have no more than -rwx--x--- (0710) permissions.\n"), 
 		pathname);
 	return(PS_IOERR);
     }
@@ -438,7 +446,7 @@ int prc_filecheck(const char *pathname, const flag securecheck)
     if (statbuf.st_uid != getuid())
 #endif /* HAVE_GETEUID */
     {
-	fprintf(stderr, _("File %s must be owned by you.\n"), pathname);
+	fprintf(stderr, GT_("File %s must be owned by you.\n"), pathname);
 	return(PS_IOERR);
     }
 #endif

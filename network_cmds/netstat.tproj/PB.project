@@ -8,18 +8,7 @@
         H_FILES = (netstat.h); 
         LIBRARYSEARCH = (); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (
-            data.c, 
-            if.c, 
-            inet.c, 
-            iso.c, 
-            main.c, 
-            mbuf.c, 
-            mroute.c, 
-            route.c, 
-            tp_astring.c, 
-            unix.c
-        ); 
+        OTHER_LINKED = (data.c, if.c, inet.c, main.c, mbuf.c, mroute.c, route.c, tp_astring.c, unix.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, netstat.1, DERIVED_FILES); 
         SUBPROJECTS = (); 
     }; 

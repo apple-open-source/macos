@@ -135,6 +135,7 @@ extern void yyerror();
 <Normal>[Oo][Uu][Tt]				RETURN(syOut);
 <Normal>[Uu][Ss][Ee][Rr][Ii][Mm][Pp][Ll]		RETURN(syUserImpl);
 <Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Ii][Mm][Pp][Ll]	RETURN(syServerImpl);
+<Normal>[Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn]	RETURN(sySecToken);
 <Normal>[Ss][Ee][Rr][Vv][Ee][Rr][Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn] RETURN(syServerSecToken);
 <Normal>[Uu][Ss][Ee][Rr][Ss][Ee][Cc][Tt][Oo][Kk][Ee][Nn]	RETURN(syUserSecToken);
 <Normal>[Ii][Nn][Oo][Uu][Tt]			RETURN(syInOut);

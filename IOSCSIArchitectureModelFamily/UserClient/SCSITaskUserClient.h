@@ -23,14 +23,64 @@
 #ifndef _IOKIT_SCSI_TASK_USER_CLIENT_H_
 #define _IOKIT_SCSI_TASK_USER_CLIENT_H_
 
+
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
 #include <IOKit/IOLib.h>
 #include <IOKit/IOUserClient.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSITask.h>
 #include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
+
+// Private includes
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+enum
+{
+	kMaxSCSITaskArraySize	= 16
+};
+
+enum
+{
+	kCommandTypeExecuteSync		= 0,
+	kCommandTypeExecuteAsync	= 1,
+	kCommandTypeNonExclusive	= 2
+};
+
+// Forward class declaration
+class SCSITaskUserClient;
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Typedefs
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+struct SCSITaskRefCon
+{
+	SCSITaskUserClient *	self;
+	IOMemoryDescriptor *	taskResultsBuffer;
+	OSAsyncReference		asyncReference;
+	UInt32					commandType;
+};
+typedef struct SCSITaskRefCon SCSITaskRefCon;
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declarations
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 
 class SCSITaskUserClient : public IOUserClient
@@ -40,94 +90,123 @@ class SCSITaskUserClient : public IOUserClient
 	
 public:
 	
-	virtual bool initWithTask ( task_t owningTask, void * securityToken, UInt32 type );
+	virtual bool 	initWithTask 		( task_t owningTask, void * securityToken, UInt32 type );
 	
-    virtual bool init ( OSDictionary * dictionary = 0 );
-    virtual bool start ( IOService * provider );
+    virtual bool 	start 				( IOService * provider );
+	virtual void	free				( void );
 	
-    virtual IOReturn message ( UInt32 type, IOService * provider, void * arg );
+    virtual IOReturn message 			( UInt32 type, IOService * provider, void * arg );
 	
-    virtual IOReturn clientClose ( void );
-    virtual IOReturn clientDied ( void );
+    virtual IOReturn clientClose 		( void );
 	
-	virtual IOReturn HandleTermination ( IOService * provider );
-	
-	virtual IOReturn IsExclusiveAccessAvailable ( void );	
-	virtual IOReturn ObtainExclusiveAccess ( void );
+	virtual IOReturn IsExclusiveAccessAvailable ( void );
+	virtual IOReturn ObtainExclusiveAccess 	( void );
 	virtual IOReturn ReleaseExclusiveAccess ( void );
 	
-    virtual IOReturn CreateTask ( SCSITask ** outSCSITask, void *, void *, void *, void *, void * );
-    virtual IOReturn ReleaseTask ( SCSITask * inSCSITask, void *, void *, void *, void *, void * );
-	virtual IOReturn ExecuteTaskAsync ( SCSITask * inSCSITask, void *, void *, void *, void *, void * );
-	virtual IOReturn ExecuteTaskSync ( SCSITask * inSCSITask, vm_address_t senseDataBuffer,
-									  SCSITaskStatus * taskStatus, UInt32 * tranferCountHi,
-									  UInt32 * tranferCountLo, void * );
-	virtual IOReturn AbortTask ( SCSITask * inSCSITask, void *, void *, void *, void *, void * );
-    virtual IOReturn SetAsyncCallback ( OSAsyncReference asyncRef, SCSITask * inTask,
-										void * callback, void * refCon, void *, void * );
+    virtual IOReturn CreateTask 		( SInt32 * taskReference );
+    virtual IOReturn ReleaseTask 		( SInt32 taskReference );
+	virtual IOReturn ExecuteTask 		( SCSITaskData * args, UInt32 argSize );
+	virtual IOReturn AbortTask 			( SInt32 taskReference );
+	virtual IOReturn SetBuffers 		( SInt32 taskReference,
+										  vm_address_t results,
+										  vm_address_t senseData,
+										  UInt32 senseBufferSize );
 	
-	virtual IOReturn IsTaskActive ( SCSITask * inSCSITask, UInt32 * active, void *, void *, void *, void * );
-	virtual IOReturn SetTransferDirection ( SCSITask * inSCSITask, UInt32 transferDirection, void *, void *, void *, void * );
-	virtual IOReturn SetTaskAttribute ( SCSITask * inSCSITask, UInt32 attribute, void *, void *, void *, void * );
-	virtual IOReturn GetTaskAttribute ( SCSITask * inSCSITask, UInt32 * attribute, void *, void *, void *, void * );
-	virtual IOReturn SetCommandDescriptorBlock ( SCSITask * inSCSITask, UInt32 size, UInt8 * cdb, UInt32 dataSize, void *, void * );
+    virtual IOReturn SetAsyncCallback 	( OSAsyncReference asyncRef,
+    									  SInt32 taskReference,
+										  void * callback,
+										  void * userRefCon );
 	
-	virtual IOReturn SetScatterGatherList ( SCSITask * inSCSITask, UInt32 inScatterGatherEntries,
-											UInt32 inTransferCountHi, UInt32 inTransferCountLo,
-											UInt32 inTransferDirection, IOVirtualRange * inScatterGatherList );
-	
-	virtual IOReturn SetSenseDataBuffer ( SCSITask * inSCSITask, vm_address_t buffer, UInt32 bufferSize, void *, void *, void * );
-	
-	virtual IOReturn SetTimeoutDuration ( SCSITask * inSCSITask, UInt32 timeoutMS, void *, void *, void *, void * );
-	virtual IOReturn GetTimeoutDuration ( SCSITask * inSCSITask, UInt32 * timeoutMS, void *, void *, void *, void * );
-	
-	virtual IOReturn GetTaskStatus ( SCSITask * inSCSITask, SCSITaskStatus * attribute, void *, void *, void *, void * );
-	virtual IOReturn GetSCSIServiceResponse ( SCSITask * inSCSITask, SCSIServiceResponse * serviceResponse, void *, void *, void *, void * );
-	virtual IOReturn GetTaskState ( SCSITask * inSCSITask, SCSITaskState * taskState, void *, void *, void *, void * );
-	virtual IOReturn GetRealizedDataTransferCount ( SCSITask * inSCSITask, UInt64 * transferCount, void *, void *, void *, void * );
-	virtual IOReturn GetAutoSenseData ( SCSITask * inSCSITask, SCSI_Sense_Data * senseDataBuffer, void *, void *, void *, void * );
-	
-	// MMC-2 Device methods
-	virtual IOReturn Inquiry ( UInt32 inqBufferSize, vm_address_t inqBuffer, vm_address_t senseBuffer,
-							  UInt32 * outTaskStatus, void *, void * );
+	// MMC Device methods
+	virtual IOReturn Inquiry 			( AppleInquiryStruct * 	inquiryData,
+							  			  SCSITaskStatus * 		taskStatus,
+							  			  UInt32				inStructSize,
+							  			  UInt32 *				outStructSize );
 
-	virtual IOReturn TestUnitReady ( vm_address_t senseDataBuffer, UInt32 * outTaskStatus, void *, void *, void *, void * );
-	virtual IOReturn GetPerformance ( UInt32 TOLERANCE_WRITE_EXCEPT, UInt32 STARTING_LBA, UInt32 MAXIMUM_NUMBER_OF_DESCRIPTORS_AND_BUFFER_SIZE,
-									  vm_address_t performanceBuffer, vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
-	virtual IOReturn GetConfiguration ( UInt32 RT, UInt32 STARTING_FEATURE_NUMBER, vm_address_t configBuffer, UInt32 bufferSize,
-										vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
-	virtual IOReturn ModeSense10 ( UInt32 LLBAAandDBD, UInt32 PCandPageCode, vm_address_t pageBuffer,
-								  UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
-	virtual IOReturn SetWriteParametersModePage ( vm_address_t paramBuffer, UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
-	virtual IOReturn GetTrayState ( UInt32 * trayState );
-	virtual IOReturn SetTrayState ( UInt32 trayState );
-	virtual IOReturn ReadTableOfContents ( UInt32 MSF_FORMAT, UInt32 TRACK_SESSION_NUMBER, vm_address_t tocBuffer,
-										  UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
-	virtual IOReturn ReadDiscInformation ( vm_address_t discInfoBuffer, UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus, void *, void * );
-	virtual IOReturn ReadTrackInformation ( UInt32 ADDRESS_NUMBER_TYPE, UInt32 LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
-											vm_address_t trackInfoBuffer, UInt32 bufferSize, vm_address_t senseDataBuffer,
-											UInt32 * outTaskStatus );
-	virtual IOReturn ReadDVDStructure ( UInt32 LBA, UInt32 LAYER_FORMAT, vm_address_t dvdBuffer,
-									    UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus );
+	virtual IOReturn TestUnitReady 		( vm_address_t 		senseDataBuffer,
+										  SCSITaskStatus * 	outTaskStatus,
+										  UInt32 * 			outStructSize );
+
+	virtual IOReturn GetPerformance 	( AppleGetPerformanceStruct * 	performanceData,
+									 	  SCSITaskStatus * 				taskStatus,
+									 	  UInt32 						inStructSize,
+									 	  UInt32 * 						outStructSize );
+
+	virtual IOReturn GetConfiguration 	( AppleGetConfigurationStruct * 	configData,
+									   	  SCSITaskStatus * 					taskStatus,
+									   	  UInt32 							inStructSize,
+									   	  UInt32 * 							outStructSize );
+
+	virtual IOReturn ModeSense10 		( AppleModeSense10Struct * 	modeSenseData,
+								  		  SCSITaskStatus * 			taskStatus,
+								  		  UInt32 					inStructSize,
+								  		  UInt32 * 					outStructSize );
+	
+	virtual IOReturn SetWriteParametersModePage ( AppleWriteParametersModePageStruct * paramsData,
+												  SCSITaskStatus * 	taskStatus,
+												  UInt32 			inStructSize,
+												  UInt32 * 			outStructSize );
+	
+	virtual IOReturn GetTrayState 		( UInt32 * trayState );
+
+	virtual IOReturn SetTrayState 		( UInt32 trayState );
+	
+	virtual IOReturn ReadTableOfContents ( AppleReadTableOfContentsStruct * 	readTOCData,
+										   SCSITaskStatus * 					taskStatus,
+										   UInt32 								inStructSize,
+										   UInt32 * 							outStructSize );
+										   
+	virtual IOReturn ReadDiscInformation ( AppleReadDiscInfoStruct * 	discInfoData,
+										   SCSITaskStatus * 			taskStatus,
+										   UInt32 						inStructSize,
+										   UInt32 * 					outStructSize );
+	
+	virtual IOReturn ReadTrackInformation ( AppleReadTrackInfoStruct * 	trackInfoData,
+										    SCSITaskStatus * 			taskStatus,
+										    UInt32 						inStructSize,
+										    UInt32 * 					outStructSize );
+	
+	virtual IOReturn ReadDVDStructure 	( AppleReadDVDStructureStruct * dvdStructData,
+									   	  SCSITaskStatus * 				taskStatus,
+									   	  UInt32 						inStructSize,
+									   	  UInt32 * 						outStructSize );
 	
 protected:
 	
-	static IOExternalMethod			sMethods[kSCSITaskUserClientMethodCount];
-	static IOExternalAsyncMethod	sAsyncMethods[kSCSITaskUserClientAsyncMethodCount];
+	static IOExternalMethod				sMethods[kSCSITaskUserClientMethodCount];
+	static IOExternalAsyncMethod		sAsyncMethods[kSCSITaskUserClientAsyncMethodCount];
+
+	static IOReturn	sCreateTask 		( void * self, SCSITask * task, SInt32 * taskReference );
+	static IOReturn	sReleaseTask 		( void * self, SInt32 taskReference, void * task );
+	static IOReturn	sWaitForTask 		( void * userClient, SCSITask * request );
+	static IOReturn	sValidateTask 		( void * userClient, SCSITask * request, SCSITaskData * args, UInt32 argSize );
+	static void 	sTaskCallback		( SCSITaskIdentifier completedTask );
 	
-	task_t							fTask;
-	IOService *						fProvider;
-	IOSCSIProtocolInterface *		fProtocolInterface;
-	OSSet *							fSetOfSCSITasks;
+	virtual IOReturn GatedCreateTask 	( SCSITask * task, SInt32 * taskReference );
+	virtual IOReturn GatedReleaseTask 	( SInt32 taskReference, SCSITask ** task );
+	virtual IOReturn GatedWaitForTask 	( SCSITask * request );
+	virtual IOReturn GatedValidateTask 	( SCSITask * request, SCSITaskData * args, UInt32 argSize );
+	virtual void	 TaskCallback		( SCSITask * task, SCSITaskRefCon * refCon );
 	
-	virtual IOExternalAsyncMethod *	getAsyncTargetAndMethodForIndex ( IOService ** target, UInt32 index );	
-	virtual IOExternalMethod *		getTargetAndMethodForIndex ( IOService ** target, UInt32 index );
+	task_t								fTask;
+	IOService *							fProvider;
+	IOSCSIProtocolInterface *			fProtocolInterface;
+	SCSITask *							fArray[kMaxSCSITaskArraySize];
+	IOCommandGate *						fCommandGate;
+	UInt32								fOutstandingCommands;
 	
-	virtual SCSIServiceResponse		SendCommand ( SCSITask * request );
-	static	void 					sTaskCallback ( SCSITaskIdentifier completedTask );
-	static	void 					sAsyncTaskCallback ( SCSITaskIdentifier completedTask );
+	virtual IOExternalAsyncMethod *		getAsyncTargetAndMethodForIndex ( IOService ** target, UInt32 index );	
+	virtual IOExternalMethod *			getTargetAndMethodForIndex 		( IOService ** target, UInt32 index );
+	
+	virtual IOReturn 	HandleTerminate	( IOService * provider );
+	virtual IOReturn	SendCommand 	( SCSITask * request, void * senseBuffer, SCSITaskStatus * taskStatus );
+	
+	virtual IOReturn	SetupTask		( SCSITask ** task );
+	virtual IOReturn	PrepareBuffers	( IOMemoryDescriptor ** buffer, void * userBuffer, IOByteCount bufferSize, IODirection direction );
+	virtual IOReturn	CompleteBuffers ( IOMemoryDescriptor * buffer );
 	
 };
+
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */
 

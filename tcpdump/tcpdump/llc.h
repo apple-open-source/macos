@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/llc.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/llc.h,v 1.1.1.2 2002/05/29 00:05:31 landonf Exp $ (LBL)
  */
 
 /*
@@ -51,8 +51,8 @@ struct llc {
 
 #define	llcui		ctl.snap.snap_ui
 #define	llcpi		ctl.snap.snap_pi
-#define	orgcode		ctl.snap_ether.snap_orgcode
-#define	ethertype	ctl.snap_ether.snap_ethertype
+#define	llc_orgcode	ctl.snap_ether.snap_orgcode
+#define	llc_ethertype	ctl.snap_ether.snap_ethertype
 #define	llcis		ctl.is_ctl
 #define	llcu		ctl.u_ctl
 
@@ -88,10 +88,10 @@ struct llc {
 #ifndef LLCSAP_GLOBAL
 #define	LLCSAP_GLOBAL		0xff
 #endif
-#ifndef LLCSAP_8021B
+#ifndef LLCSAP_8021B_I
 #define	LLCSAP_8021B_I		0x02
 #endif
-#ifndef LLCSAP_8021B
+#ifndef LLCSAP_8021B_G
 #define	LLCSAP_8021B_G		0x03
 #endif
 #ifndef LLCSAP_IP
@@ -115,6 +115,18 @@ struct llc {
 #ifndef LLCSAP_SNAP
 #define	LLCSAP_SNAP		0xaa
 #endif
+#ifndef LLCSAP_IPX
+#define LLCSAP_IPX		0xe0
+#endif
+#ifndef LLCSAP_NETBEUI
+#define LLCSAP_NETBEUI		0xf0
+#endif
 #ifndef LLCSAP_ISONS
 #define	LLCSAP_ISONS		0xfe
 #endif
+
+#define	OUI_ENCAP_ETHER	0x000000	/* encapsulated Ethernet */
+#define	OUI_CISCO	0x00000c	/* Cisco protocols */
+#define	ETHERTYPE_CISCO_CDP	0x2000	/* Cisco Discovery Protocol */
+#define	OUI_CISCO_90	0x0000f8	/* Cisco bridging */
+#define	OUI_APPLETALK	0x080007	/* Appletalk */

@@ -1,5 +1,5 @@
 /* cris-opc.c -- Table of opcodes for the CRIS processor.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright 2000 Free Software Foundation, Inc.
    Contributed by Axis Communications AB, Lund, Sweden.
    Originally written for GAS 1.38.1 by Mikael Asker.
    Reorganized by Hans-Peter Nilsson.
@@ -70,7 +70,7 @@ cris_spec_regs[] =
   {"p14", 14, 4, cris_ver_v3p,	   NULL},
   {"usp", 15, 4, cris_ver_v10p,	   NULL},
   {"p15", 15, 4, cris_ver_v10p,	   NULL},
-  {NULL, 0, 0, NULL}
+  {NULL, 0, 0, cris_ver_version_all, NULL}
 };
 
 /* All CRIS opcodes are 16 bits.

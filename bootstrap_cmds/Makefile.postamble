@@ -127,4 +127,5 @@ after_install:
 	fi
 
 	install -c -m 755 vers_string.sh $(DSTROOT)/usr/bin/vers_string
-
+	install -d $(DSTROOT)/usr/share/man/man1
+	install -c -m 444 vers_string.1 $(DSTROOT)/usr/share/man/man1

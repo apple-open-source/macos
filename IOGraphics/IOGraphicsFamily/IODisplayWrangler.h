@@ -19,13 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- */
 
 #ifndef _IOKIT_IODISPLAYWRANGLER_H
 #define _IOKIT_IODISPLAYWRANGLER_H

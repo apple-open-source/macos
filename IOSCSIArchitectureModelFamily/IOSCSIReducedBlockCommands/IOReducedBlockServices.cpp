@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,17 +20,34 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * IOReducedBlockServices.cpp
- *
- * This subclass implements a relay to a protocol and device-specific
- * provider.
- *
- */
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
 #include <IOKit/IOLib.h>
+
+// Generic IOKit storage related headers
 #include <IOKit/storage/IOBlockStorageDriver.h>
+
+// SCSI Architecture Model Family includes
 #include "IOReducedBlockServices.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 												0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING					"RBC Services"
+
+#if DEBUG
+#define SCSI_REDUCED_BLOCK_SERVICES_DEBUGGING_LEVEL			0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_REDUCED_BLOCK_SERVICES_DEBUGGING_LEVEL >= 1 )
@@ -51,15 +68,29 @@
 #define STATUS_LOG(x)
 #endif
 
+
+#define super IOBlockStorageDevice
+OSDefineMetaClassAndStructors ( IOReducedBlockServices, IOBlockStorageDevice );
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 // The command should be tried 5 times.  The original attempt 
 // plus 4 retries.
 #define kNumberRetries		4
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Structures
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Structure for the asynch client data
 struct BlockServicesClientData
 {
 	// The object that owns the copy of this structure.
-	IOReducedBlockServices		*owner;
+	IOReducedBlockServices *	owner;
 
 	// The request parameters provided by the client.
 	IOStorageCompletion			completionData;
@@ -71,61 +102,19 @@ struct BlockServicesClientData
 	// The internally needed parameters.
 	UInt32						retriesLeft;
 };
-
 typedef struct BlockServicesClientData	BlockServicesClientData;
 
-#define super IOBlockStorageDevice
-OSDefineMetaClassAndStructors ( IOReducedBlockServices, IOBlockStorageDevice );
 
-//---------------------------------------------------------------------------
-// attach to provider.
-
-bool
-IOReducedBlockServices::attach ( IOService * provider )
-{
-
-	STATUS_LOG ( ( "IOReducedBlockServices: attach called\n" ) );
-	
-	if ( !super::attach ( provider ) )
-		return false;
-	
-	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceType0E, provider );
-	if ( fProvider == NULL )
-	{
-		
-		STATUS_LOG ( ( "IOReducedBlockServices: attach; wrong provider type!\n" ) );
-		return false;
-		
-	}
-	
-	setProperty ( kIOPropertyProtocolCharacteristicsKey, fProvider->GetProtocolCharacteristicsDictionary ( ) );
-	setProperty ( kIOPropertyDeviceCharacteristicsKey, fProvider->GetDeviceCharacteristicsDictionary ( ) );
-	
-	STATUS_LOG ( ( "IOReducedBlockServices: attach exiting\n" ) );
-		
-	return true;
-	
-}
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods - API Exported to layers above
+#pragma mark -
+#endif
 
 
-//---------------------------------------------------------------------------
-// detach from provider.
-
-void
-IOReducedBlockServices::detach ( IOService * provider )
-{
-
-	STATUS_LOG ( ( "IOReducedBlockServices: detach called\n" ) );
-		
-	super::detach ( provider );
-
-	STATUS_LOG ( ( "IOReducedBlockServices: detach exiting\n" ) );
-		
-}
-
-
-//---------------------------------------------------------------------------
-// message
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ message - Handle messages sent to this object.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::message ( UInt32 		type,
@@ -135,22 +124,20 @@ IOReducedBlockServices::message ( UInt32 		type,
 	
 	IOReturn 	status = kIOReturnSuccess;
 	
-	ERROR_LOG ( ( "IOReducedBlockServices::message called\n" ) );
-		
 	switch ( type )
 	{
 		
 		case kIOMessageMediaStateHasChanged:
 		{
-
-			ERROR_LOG ( ( "type = kIOMessageMediaStateHasChanged, nub = %p\n", nub ) );
+			
+			STATUS_LOG ( ( "type = kIOMessageMediaStateHasChanged, nub = %p\n", nub ) );
 			status = messageClients ( type, arg );
-			ERROR_LOG ( ( "status = %ld\n", ( UInt32 ) status ) );
-		
+			STATUS_LOG ( ( "status = %ld\n", ( UInt32 ) status ) );
+			
 		}
 		
 		break;
-				
+		
 		default:
 		{
 			status = super::message ( type, nub, arg );
@@ -165,104 +152,43 @@ IOReducedBlockServices::message ( UInt32 		type,
 }
 
 
-//---------------------------------------------------------------------------
-// 
-
-void 
-IOReducedBlockServices::AsyncReadWriteComplete( void * 			clientData,
-                                				IOReturn		status,
-                                				UInt64 			actualByteCount )
-{
-	IOReducedBlockServices		*owner;
-	BlockServicesClientData * 	servicesData;
-	IOStorageCompletion			returnData;
-	bool						commandComplete = true;
-	
-	// Save the IOCompletion information so that it may be returned
-	// to the client.
-	servicesData 	= ( BlockServicesClientData * ) clientData;
-	returnData 		= servicesData->completionData;
-	owner 			= servicesData->owner;
-
-	STATUS_LOG( ("IOReducedBlockServices: AsyncReadWriteComplete; command status %x\n", status ));
-	// Check to see if an error occurred that the request should be retried on
-	if ((( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
-		( status != kIOReturnSuccess )) && ( servicesData->retriesLeft > 0 ))
-	{
-		IOReturn 	requestStatus;
-
-		STATUS_LOG(("IOReducedBlockServices: AsyncReadWriteComplete; retry command\n"));
-		// An error occurred, but it is one on which the command should be retried.  Decrement
-		// the retry counter and try again.
-		servicesData->retriesLeft--;
-		requestStatus = owner->fProvider->AsyncReadWrite( 
-										servicesData->clientBuffer, 
-										servicesData->clientStartingBlock, 
-										servicesData->clientRequestedBlockCount, 
-										clientData );
-		if ( requestStatus != kIOReturnSuccess )
-		{
-			commandComplete = true;
-		}
-		else
-		{
-			commandComplete = false;
-		}
-	}
-
-	if ( commandComplete == true )
-	{
-		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
-
-		// Release the retains for this command.
-		owner->fProvider->release ( );	
-		owner->release ( );
-		
-		IOStorage::complete ( returnData, status, actualByteCount );
-	}
-}
-
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doAsyncReadWrite - Performs an asynchronous read or write		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::doAsyncReadWrite (
-											IOMemoryDescriptor *	buffer,
-											UInt32					block,
-											UInt32					nblks,
-											IOStorageCompletion		completion )
+				IOMemoryDescriptor *	buffer,
+				UInt32					block,
+				UInt32					nblks,
+				IOStorageCompletion		completion )
 {
-	BlockServicesClientData	*	clientData;
+	
+	BlockServicesClientData	*	clientData	= NULL;
+	IOReturn					status 		= kIOReturnNotAttached;
 	IODirection					direction;
-	IOReturn					requestStatus;
-	
-	// Return an error for incoming I/O if we have been terminated
-	if ( isInactive() != false )
-	{
-		return kIOReturnNotAttached;
-	}
 
-	direction = buffer->getDirection();
-	if (( direction != kIODirectionIn ) && ( direction != kIODirectionOut ))
-	{
-		// This is neither a read or write request (since this is a read/write method,
-		// what kind of request is it?) return an error to the client.
-		return kIOReturnBadArgument;
-	}
+	// Return an error for incoming I/O if we have been terminated	
+	require ( isInactive ( ) == false, ErrorExit );
 	
-	clientData = (BlockServicesClientData *) IOMalloc( sizeof(BlockServicesClientData) );
-	if ( clientData == NULL )
-	{
-		ERROR_LOG ( ( "IOReducedBlockServices: doAsyncReadWrite; clientData malloc failed!\n" ) );
-		return kIOReturnNoResources;
-	}
-
+	// Determine the direction for I/O. If this is neither a read
+	// nor a write request (since this is a read/write method,
+	// what kind of request is it?) return an error to the client.
+	direction = buffer->getDirection ( );
+	require_action ( ( direction == kIODirectionIn ) ||
+					 ( direction == kIODirectionOut ),
+					 ErrorExit,
+					 status = kIOReturnBadArgument );
+	
+	// Allocated data for clientData. Eventually this should be moved to a pooling
+	// method of some sort (allocations on paging path seem bad...)
+	clientData = ( BlockServicesClientData * ) IOMalloc ( sizeof ( BlockServicesClientData ) );
+	require_nonzero_action ( clientData, ErrorExit, status = kIOReturnNoResources );
+	
 	// Make sure we don't go away while the command is being executed.
 	retain ( );
-	fProvider->retain ( );	
-
-	STATUS_LOG ( ( "IOReducedBlockServices: doAsyncReadWrite; save completion data!\n" ) );
-
+	fProvider->retain ( );
+	
 	// Set the owner of this request.
 	clientData->owner = this;
 	
@@ -274,213 +200,270 @@ IOReducedBlockServices::doAsyncReadWrite (
 	
 	// Set the retry limit to the maximum
 	clientData->retriesLeft = kNumberRetries;
-
-	fProvider->CheckPowerState();
-
-	requestStatus = fProvider->AsyncReadWrite ( buffer, block, nblks, (void *) clientData );
-	if ( requestStatus != kIOReturnSuccess )
-	{
-		if ( clientData != NULL )
-		{
-			IOFree ( clientData, sizeof ( BlockServicesClientData ) );
-		}
-	}
 	
-	return requestStatus;
+	// Make sure our provider is in the correct power state to handle the I/O.
+	fProvider->CheckPowerState ( );
+	
+	status = fProvider->AsyncReadWrite ( buffer, block, nblks, ( void * ) clientData );
+	require_success ( status, ReleaseClientDataAndRetain );
+	
+	return status;
+	
+	
+ReleaseClientDataAndRetain:
+	
+	
+	require_nonzero ( clientData, ErrorExit );
+	IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+	clientData = NULL;
+	
+	// Release the retain for this command.	
+	fProvider->release ( );
+	release ( );
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doSyncReadWrite - Performs a synchronous read or write		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-IOReducedBlockServices::doSyncReadWrite (	IOMemoryDescriptor * 	buffer,
-											UInt32 					block,
-											UInt32 					nblks )
+IOReducedBlockServices::doSyncReadWrite (
+				IOMemoryDescriptor * 	buffer,
+				UInt32 					block,
+				UInt32 					nblks )
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't go away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
 	
+	// Make sure our provider is in the correct power state to handle the I/O.
 	fProvider->CheckPowerState ( );	
-
+	
 	// Execute the command
-	result = fProvider->SyncReadWrite ( buffer, block, nblks );
-
+	status = fProvider->SyncReadWrite ( buffer, block, nblks );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doEjectMedia - Ejects the media								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::doEjectMedia ( void )
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
-	
+
+	// Make sure our provider is in the correct power state to handle the I/O.	
 	fProvider->CheckPowerState ( );
 	
 	// Execute the command
-	result = fProvider->EjectTheMedia ( );
-
+	status = fProvider->EjectTheMedia ( );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doFormatMedia - Formats the media								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::doFormatMedia ( UInt64 byteCapacity )
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
 	
-	fProvider->CheckPowerState ( );	
-
+	// Make sure our provider is in the correct power state to handle the I/O.	
+	fProvider->CheckPowerState ( );
+	
 	// Execute the command
-	result = fProvider->FormatMedia ( byteCapacity );
-
+	status = fProvider->FormatMedia ( byteCapacity );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doGetFormatCapacities - Gets format capacities				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt32
-IOReducedBlockServices::doGetFormatCapacities ( 	UInt64 * capacities,
-													UInt32   capacitiesMaxCount ) const
+IOReducedBlockServices::doGetFormatCapacities (
+								UInt64 * capacities,
+								UInt32   capacitiesMaxCount ) const
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
 	
+	// Make sure our provider is in the correct power state to handle the I/O.	
+	fProvider->CheckPowerState ( );
+	
 	// Execute the command
-	result = fProvider->GetFormatCapacities ( capacities, capacitiesMaxCount );
-
+	status = fProvider->GetFormatCapacities ( capacities, capacitiesMaxCount );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doLockUnlockMedia - Locks/Unlocks the media					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::doLockUnlockMedia ( bool doLock )
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
 	
 	// Execute the command
-	result = fProvider->LockUnlockMedia ( doLock );
-
+	status = fProvider->LockUnlockMedia ( doLock );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ doSynchronizeCache - Synchronizes the write cache				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::doSynchronizeCache ( void )
 {
-	IOReturn result;
+	
+	IOReturn	status = kIOReturnNotAttached;
 	
 	// Return an error for incoming activity if we have been terminated
-	if ( isInactive ( ) != false )
-	{
-		return kIOReturnNotAttached;
-	}
-
+	require ( isInactive ( ) == false, ErrorExit );
+	
 	// Make sure we don't away while the command in being executed.
 	retain ( );
 	fProvider->retain ( );
 	
+	// Make sure our provider is in the correct power state to handle the I/O.	
+	fProvider->CheckPowerState ( );
+	
 	// Execute the command
-	result = fProvider->SynchronizeCache ( );
-
+	status = fProvider->SynchronizeCache ( );
+	
 	// Release the retain for this command.	
 	fProvider->release ( );
 	release ( );
-	return result;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getVendorString - Gets the vendor string for the device		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
 IOReducedBlockServices::getVendorString ( void )
 {
-
+	
 	return fProvider->GetVendorString ( );
-
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getProductString - Gets the product string for the device		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
 IOReducedBlockServices::getProductString ( void )
@@ -491,8 +474,10 @@ IOReducedBlockServices::getProductString ( void )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getRevisionString - Gets the product revision string for the device
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
 IOReducedBlockServices::getRevisionString ( void )
@@ -503,21 +488,23 @@ IOReducedBlockServices::getRevisionString ( void )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getAdditionalDeviceInfoString - Gets the additional device info string
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
 IOReducedBlockServices::getAdditionalDeviceInfoString ( void )
 {
 	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	return ( "No Additional Device Info" );
 	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportBlockSize - Reports the medium block size				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportBlockSize ( UInt64 * blockSize )
@@ -528,20 +515,24 @@ IOReducedBlockServices::reportBlockSize ( UInt64 * blockSize )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportEjectability - Reports the medium ejectability characteristic.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportEjectability ( bool * isEjectable )
 {
 	
 	return fProvider->ReportEjectability ( isEjectable );
-
+	
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportLockability - Reports the medium lockability characteristic.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportLockability ( bool * isLockable )
@@ -552,8 +543,9 @@ IOReducedBlockServices::reportLockability ( bool * isLockable )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportPollRequirements - Reports polling requirements.		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportPollRequirements ( 	bool * pollIsRequired,
@@ -565,12 +557,15 @@ IOReducedBlockServices::reportPollRequirements ( 	bool * pollIsRequired,
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMaxReadTransfer - Reports maximum read transfer in bytes.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-IOReducedBlockServices::reportMaxReadTransfer ( UInt64 blockSize,
-												 UInt64 * max )
+IOReducedBlockServices::reportMaxReadTransfer (
+								UInt64 		blockSize,
+								UInt64 *	max )
 {
 	
 	return fProvider->ReportMaxReadTransfer ( blockSize, max );
@@ -578,8 +573,10 @@ IOReducedBlockServices::reportMaxReadTransfer ( UInt64 blockSize,
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMaxValidBlock - Reports maximum valid block on the media.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportMaxValidBlock ( UInt64 * maxBlock )
@@ -590,12 +587,14 @@ IOReducedBlockServices::reportMaxValidBlock ( UInt64 * maxBlock )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMaxWriteTransfer - Reports maximum write transfer in bytes.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-IOReducedBlockServices::reportMaxWriteTransfer ( UInt64	blockSize,
-													 UInt64 * max )
+IOReducedBlockServices::reportMaxWriteTransfer ( UInt64		blockSize,
+												 UInt64 *	max )
 {
 	
 	return fProvider->ReportMaxWriteTransfer ( blockSize, max );
@@ -603,8 +602,9 @@ IOReducedBlockServices::reportMaxWriteTransfer ( UInt64	blockSize,
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMediaState - Reports state of media in the device		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportMediaState ( 	bool * mediaPresent,
@@ -616,8 +616,10 @@ IOReducedBlockServices::reportMediaState ( 	bool * mediaPresent,
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportRemovability - Reports removability characteristic of media
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportRemovability ( bool * isRemovable )
@@ -628,8 +630,10 @@ IOReducedBlockServices::reportRemovability ( bool * isRemovable )
 }
 
 
-//---------------------------------------------------------------------------
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportWriteProtection - Reports write protection characteristic of media
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOReducedBlockServices::reportWriteProtection ( bool * isWriteProtected )
@@ -639,18 +643,149 @@ IOReducedBlockServices::reportWriteProtection ( bool * isWriteProtected )
 	
 }
 
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Protected Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ attach - 	Attach to our provider in the registry.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOReducedBlockServices::attach ( IOService * provider )
+{
+	
+	bool	result = false;
+	
+	require_string ( super::attach ( provider ), ErrorExit,
+					 "Superclass didn't attach" );
+	
+	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceType0E, provider );
+	require_nonzero_string ( fProvider, ErrorExit, "Incorrect provider type\n" );
+	
+	setProperty ( kIOPropertyProtocolCharacteristicsKey,
+				  fProvider->GetProtocolCharacteristicsDictionary ( ) );
+	setProperty ( kIOPropertyDeviceCharacteristicsKey,
+				  fProvider->GetDeviceCharacteristicsDictionary ( ) );
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ detach - 	Detach from our provider in the registry.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOReducedBlockServices::detach ( IOService * provider )
+{
+	
+	super::detach ( provider );
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AsyncReadWriteComplete - Completion routine for I/O			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void 
+IOReducedBlockServices::AsyncReadWriteComplete (
+				void * 			clientData,
+				IOReturn		status,
+				UInt64			actualByteCount )
+{
+	
+	IOReducedBlockServices *	owner			= NULL;
+	BlockServicesClientData * 	servicesData	= NULL;
+	IOStorageCompletion			returnData		= { 0 };
+	bool						commandComplete = true;
+	
+	// Save the IOCompletion information so that it may be returned
+	// to the client.
+	servicesData = ( BlockServicesClientData * ) clientData;	
+	
+	check ( servicesData );
+	
+	returnData	= servicesData->completionData;
+	owner 		= servicesData->owner;
+	
+	check ( owner );
+	
+	STATUS_LOG ( ( "IOReducedBlockServices: AsyncReadWriteComplete; command status %x\n",
+				   status ) );
+	
+	// Check to see if an error occurred that the request should be retried on
+	if ( ( ( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
+		   ( status != kIOReturnSuccess ) ) && ( servicesData->retriesLeft > 0 ) )
+	{
+		
+		IOReturn 	requestStatus;
+		
+		STATUS_LOG ( ( "IOReducedBlockServices: AsyncReadWriteComplete; retry command\n" ) );
+		// An error occurred, but it is one on which the command should be retried.
+		// Decrement the retry counter and try again.
+		servicesData->retriesLeft--;
+		requestStatus = owner->fProvider->AsyncReadWrite ( 
+										servicesData->clientBuffer, 
+										servicesData->clientStartingBlock, 
+										servicesData->clientRequestedBlockCount, 
+										clientData );
+		
+		if ( requestStatus == kIOReturnSuccess )
+		{
+			commandComplete = false;
+		}
+		
+	}
+	
+	if ( commandComplete == true )
+	{
+		
+		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
+		
+		// Release the retains for this command.
+		owner->fProvider->release ( );	
+		owner->release ( );
+		
+		IOStorage::complete ( returnData, status, actualByteCount );
+		
+	}
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 1 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 2 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 3 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 4 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 5 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 6 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 7 );
-OSMetaClassDefineReservedUnused( IOReducedBlockServices, 8 );
-
-
-
-//--------------------------------------------------------------------------------------
-//							End				Of				File
-//--------------------------------------------------------------------------------------
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 1 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 2 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 3 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 4 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 5 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 6 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 7 );
+OSMetaClassDefineReservedUnused ( IOReducedBlockServices, 8 );

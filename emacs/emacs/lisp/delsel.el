@@ -1,10 +1,11 @@
 ;;; delsel.el --- delete selection if you insert
 
-;; Copyright (C) 1992, 1997, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1997, 1998, 2001 Free Software Foundation, Inc.
 
 ;; Author: Matthieu Devin <devin@lucid.com>
 ;; Maintainer: FSF
 ;; Created: 14 Jul 92
+;; Keywords: convenience emulations
 
 ;; This file is part of GNU Emacs.
 
@@ -55,7 +56,7 @@
 (defalias 'pending-delete-mode 'delete-selection-mode)
 
 ;;;###autoload
-(defun delete-selection-mode (&optional arg)
+(define-minor-mode delete-selection-mode
   "Toggle Delete Selection mode.
 With prefix ARG, turn Delete Selection mode on if and only if ARG is
 positive.
@@ -64,27 +65,11 @@ When Delete Selection mode is enabled, Transient Mark mode is also
 enabled and typed text replaces the selection if the selection is
 active.  Otherwise, typed text is just inserted at point regardless of
 any selection."
-  (interactive "P")
-  (setq delete-selection-mode (if arg
-				  (> (prefix-numeric-value arg) 0)
-				(not delete-selection-mode)))
+  :global t :group 'editing-basics
   (if (not delete-selection-mode)
       (remove-hook 'pre-command-hook 'delete-selection-pre-hook)
     (add-hook 'pre-command-hook 'delete-selection-pre-hook)
     (transient-mark-mode t)))
-
-;;;###autoload
-(defcustom delete-selection-mode nil
-  "Toggle Delete Selection mode.
-See command `delete-selection-mode'.
-Setting this variable directly does not take effect;
-use either \\[customize] or the function `delete-selection-mode'."
-  :set (lambda (symbol value)
-	 (delete-selection-mode (or value 0)))
-  :initialize 'custom-initialize-default
-  :type 'boolean
-  :group 'editing-basics
-  :require 'delsel)
 
 (defun delete-active-region (&optional killp)
   (if killp
@@ -111,8 +96,10 @@ use either \\[customize] or the function `delete-selection-mode'."
 	       (current-kill 1))
 	     (delete-active-region))
 	    ((eq type 'supersede)
-	     (delete-active-region)
-	     (setq this-command 'ignore))
+	     (let ((empty-region (= (point) (mark))))
+	       (delete-active-region)
+	       (unless empty-region
+		 (setq this-command 'ignore))))
 	    (type
 	     (delete-active-region))))))
 
@@ -133,7 +120,7 @@ use either \\[customize] or the function `delete-selection-mode'."
 
 (put 'insert-parentheses 'delete-selection t)
 
-;; This is very useful for cancelling a selection in the minibuffer without 
+;; This is very useful for cancelling a selection in the minibuffer without
 ;; aborting the minibuffer.
 (defun minibuffer-keyboard-quit ()
   "Abort recursive edit.
@@ -144,18 +131,19 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
       (setq deactivate-mark t)
     (abort-recursive-edit)))
 
-(define-key minibuffer-local-map "\C-g" 'minibuffer-keyboard-quit) 
-(define-key minibuffer-local-ns-map "\C-g" 'minibuffer-keyboard-quit) 
-(define-key minibuffer-local-completion-map "\C-g" 'minibuffer-keyboard-quit) 
-(define-key minibuffer-local-must-match-map "\C-g" 'minibuffer-keyboard-quit) 
-(define-key minibuffer-local-isearch-map "\C-g" 'minibuffer-keyboard-quit) 
+(define-key minibuffer-local-map "\C-g" 'minibuffer-keyboard-quit)
+(define-key minibuffer-local-ns-map "\C-g" 'minibuffer-keyboard-quit)
+(define-key minibuffer-local-completion-map "\C-g" 'minibuffer-keyboard-quit)
+(define-key minibuffer-local-must-match-map "\C-g" 'minibuffer-keyboard-quit)
+(define-key minibuffer-local-isearch-map "\C-g" 'minibuffer-keyboard-quit)
+
+(defun delsel-unload-hook ()
+  (define-key minibuffer-local-map "\C-g" 'abort-recursive-edit)
+  (define-key minibuffer-local-ns-map "\C-g" 'abort-recursive-edit)
+  (define-key minibuffer-local-completion-map "\C-g" 'abort-recursive-edit)
+  (define-key minibuffer-local-must-match-map "\C-g" 'abort-recursive-edit)
+  (define-key minibuffer-local-isearch-map "\C-g" 'abort-recursive-edit))
 
 (provide 'delsel)
-
-;; This is the standard way mechanism to put the mode into effect
-;; if delete-selection-mode has already been set to t
-;; when this file is loaded.
-(when delete-selection-mode
-  (delete-selection-mode t))
 
 ;;; delsel.el ends here

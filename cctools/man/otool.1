@@ -1,4 +1,4 @@
-.TH OTOOL 1 "August 9, 2001" "Apple Computer, Inc."
+.TH OTOOL 1 "April 30, 2002" "Apple Computer, Inc."
 .SH NAME
 otool \- object file displaying tool
 .SH SYNOPSIS
@@ -11,7 +11,9 @@ otool \- object file displaying tool
 .SH DESCRIPTION
 The
 .I otool
-command displays specified parts of object files or libraries.  The file
+command displays specified parts of object files or libraries.  If the,
+.B \-m
+option is not used, the file
 arguments may be of the form
 .IR "libx.a(foo.o)" ,
 to request information about only that object file and not
@@ -50,6 +52,9 @@ Display the load commands.
 .B \-L
 Display the names and version numbers of the shared libraries that the object
 file uses.
+.TP
+.B \-D
+Display just install name of a shared library.
 .TP
 .BI \-s " segname sectname"
 Display the contents of the section
@@ -140,3 +145,7 @@ The
 can be "all" to operate on all architectures in the file.
 The default is to display only the host architecture, if the file contains it;
 otherwise, all architectures in the file are shown.
+.TP
+.B \-m
+The object file names are not assumed to be in the archive(member) syntax,
+which allows file names containing parenthesis.

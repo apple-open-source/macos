@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,35 +27,139 @@
  *
  */
 
-#include "zsh.h"
+#include "zsh.mdh"
+
+/* Headers for utmp/utmpx structures */
+#ifdef HAVE_UTMP_H
+# include <utmp.h>
+#endif
+#ifdef HAVE_UTMPX_H
+# include <utmpx.h>
+#endif
+
+/* Find utmp file */
+#if !defined(REAL_UTMP_FILE) && defined(UTMP_FILE)
+# define REAL_UTMP_FILE UTMP_FILE
+#endif
+#if !defined(REAL_UTMP_FILE) && defined(_PATH_UTMP)
+# define REAL_UTMP_FILE _PATH_UTMP
+#endif
+#if !defined(REAL_UTMP_FILE) && defined(PATH_UTMP_FILE)
+# define REAL_UTMP_FILE PATH_UTMP_FILE
+#endif
+
+/* Find wtmp file */
+#if !defined(REAL_WTMP_FILE) && defined(WTMP_FILE)
+# define REAL_WTMP_FILE WTMP_FILE
+#endif
+#if !defined(REAL_WTMP_FILE) && defined(_PATH_WTMP)
+# define REAL_WTMP_FILE _PATH_WTMP
+#endif
+#if !defined(REAL_WTMP_FILE) && defined(PATH_WTMP_FILE)
+# define REAL_WTMP_FILE PATH_WTMP_FILE
+#endif
+
+/* Find utmpx file */
+#if !defined(REAL_UTMPX_FILE) && defined(UTMPX_FILE)
+# define REAL_UTMPX_FILE UTMPX_FILE
+#endif
+#if !defined(REAL_UTMPX_FILE) && defined(_PATH_UTMPX)
+# define REAL_UTMPX_FILE _PATH_UTMPX
+#endif
+#if !defined(REAL_UTMPX_FILE) && defined(PATH_UTMPX_FILE)
+# define REAL_UTMPX_FILE PATH_UTMPX_FILE
+#endif
+
+/* Find wtmpx file */
+#if !defined(REAL_WTMPX_FILE) && defined(WTMPX_FILE)
+# define REAL_WTMPX_FILE WTMPX_FILE
+#endif
+#if !defined(REAL_WTMPX_FILE) && defined(_PATH_WTMPX)
+# define REAL_WTMPX_FILE _PATH_WTMPX
+#endif
+#if !defined(REAL_WTMPX_FILE) && defined(PATH_WTMPX_FILE)
+# define REAL_WTMPX_FILE PATH_WTMPX_FILE
+#endif
+
+/* Decide which structure to use.  We use a structure that exists in *
+ * the headers, and require that its corresponding utmp file exist.  *
+ * (wtmp is less important.)                                         */
+
+#if !defined(WATCH_STRUCT_UTMP) && defined(HAVE_STRUCT_UTMPX) && defined(REAL_UTMPX_FILE)
+# define WATCH_STRUCT_UTMP struct utmpx
+# ifdef HAVE_STRUCT_UTMPX_UT_XTIME
+#  undef ut_time
+#  define ut_time ut_xtime
+# else /* !HAVE_STRUCT_UTMPX_UT_XTIME */
+#  ifdef HAVE_STRUCT_UTMPX_UT_TV
+#   undef ut_time
+#   define ut_time ut_tv.tv_sec
+#  endif /* HAVE_STRUCT_UTMPX_UT_TV */
+# endif /* !HAVE_STRUCT_UTMPX_UT_XTIME */
+# define WATCH_UTMP_FILE REAL_UTMPX_FILE
+# ifdef REAL_WTMPX_FILE
+#  define WATCH_WTMP_FILE REAL_WTMPX_FILE
+# endif
+# ifdef HAVE_STRUCT_UTMPX_UT_HOST
+#  define WATCH_UTMP_UT_HOST 1
+# endif
+#endif
+
+#if !defined(WATCH_STRUCT_UTMP) && defined(HAVE_STRUCT_UTMP) && defined(REAL_UTMP_FILE)
+# define WATCH_STRUCT_UTMP struct utmp
+# define WATCH_UTMP_FILE REAL_UTMP_FILE
+# ifdef REAL_WTMP_FILE
+#  define WATCH_WTMP_FILE REAL_WTMP_FILE
+# endif
+# ifdef HAVE_STRUCT_UTMP_UT_HOST
+#  define WATCH_UTMP_UT_HOST 1
+# endif
+#endif
+
+#ifdef WATCH_UTMP_UT_HOST
+# define DEFAULT_WATCHFMT "%n has %a %l from %m."
+#else /* !WATCH_UTMP_UT_HOST */
+# define DEFAULT_WATCHFMT "%n has %a %l."
+#endif /* !WATCH_UTMP_UT_HOST */
+
+/**/
+char const * const default_watchfmt = DEFAULT_WATCHFMT;
+
+#ifdef WATCH_STRUCT_UTMP
+
+# include "watch.pro"
+
+# ifndef WATCH_WTMP_FILE
+#  define WATCH_WTMP_FILE "/dev/null"
+# endif
 
 static int wtabsz;
-STRUCT_UTMP *wtab;
+static WATCH_STRUCT_UTMP *wtab;
 static time_t lastutmpcheck;
 
 /* get the time of login/logout for WATCH */
 
 /**/
-time_t
-getlogtime(STRUCT_UTMP *u, int inout)
+static time_t
+getlogtime(WATCH_STRUCT_UTMP *u, int inout)
 {
     FILE *in;
-    STRUCT_UTMP uu;
+    WATCH_STRUCT_UTMP uu;
     int first = 1;
     int srchlimit = 50;		/* max number of wtmp records to search */
 
     if (inout)
 	return u->ut_time;
-    if (!(in = fopen(WTMP_FILE, "r")))
+    if (!(in = fopen(WATCH_WTMP_FILE, "r")))
 	return time(NULL);
     fseek(in, 0, 2);
     do {
-	if (fseek(in, ((first) ? -1 : -2) * sizeof(STRUCT_UTMP), 1)) {
+	if (fseek(in, ((first) ? -1 : -2) * sizeof(WATCH_STRUCT_UTMP), 1)) {
 	    fclose(in);
 	    return time(NULL);
 	}
 	first = 0;
-	if (!fread(&uu, sizeof(STRUCT_UTMP), 1, in)) {
+	if (!fread(&uu, sizeof(WATCH_STRUCT_UTMP), 1, in)) {
 	    fclose(in);
 	    return time(NULL);
 	}
@@ -67,7 +171,7 @@ getlogtime(STRUCT_UTMP *u, int inout)
     while (memcmp(&uu, u, sizeof(uu)));
 
     do
-	if (!fread(&uu, sizeof(STRUCT_UTMP), 1, in)) {
+	if (!fread(&uu, sizeof(WATCH_STRUCT_UTMP), 1, in)) {
 	    fclose(in);
 	    return time(NULL);
 	}
@@ -78,12 +182,12 @@ getlogtime(STRUCT_UTMP *u, int inout)
 
 /* Mutually recursive call to handle ternaries in $WATCHFMT */
 
-#define BEGIN3	'('
-#define END3	')'
+# define BEGIN3 '('
+# define END3 ')'
 
 /**/
-char *
-watch3ary(int inout, STRUCT_UTMP *u, char *fmt, int prnt)
+static char *
+watch3ary(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt)
 {
     int truth = 1, sep;
 
@@ -100,12 +204,12 @@ watch3ary(int inout, STRUCT_UTMP *u, char *fmt, int prnt)
 	else
 	    truth = (u->ut_line[0] != 0);
 	break;
-#ifdef HAVE_UT_HOST
+# ifdef WATCH_UTMP_UT_HOST
     case 'm':
     case 'M':
 	truth = (u->ut_host[0] != 0);
 	break;
-#endif
+# endif /* WATCH_UTMP_UT_HOST */
     default:
 	prnt = 0;		/* Skip unknown conditionals entirely */
 	break;
@@ -118,17 +222,17 @@ watch3ary(int inout, STRUCT_UTMP *u, char *fmt, int prnt)
 /* print a login/logout event */
 
 /**/
-char *
-watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
+static char *
+watchlog2(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 {
     char buf[40], buf2[80];
     time_t timet;
     struct tm *tm;
     char *fm2;
-#ifdef HAVE_UT_HOST
+# ifdef WATCH_UTMP_UT_HOST
     char *p;
     int i;
-#endif
+# endif /* WATCH_UTMP_UT_HOST */
 
     while (*fmt)
 	if (*fmt == '\\') {
@@ -140,7 +244,8 @@ watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 		return fmt;
 	    else
 		break;
-	} else if (*fmt == fini)
+	}
+	else if (*fmt == fini)
 	    return ++fmt;
 	else if (*fmt != '%') {
 	    if (prnt)
@@ -165,7 +270,7 @@ watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 		    else
 			printf("%.*s", (int)sizeof(u->ut_line), u->ut_line);
 		    break;
-#ifdef HAVE_UT_HOST
+# ifdef WATCH_UTMP_UT_HOST
 		case 'm':
 		    for (p = u->ut_host, i = sizeof(u->ut_host); i && *p; i--, p++) {
 			if (*p == '.' && !idigit(p[1]))
@@ -176,7 +281,7 @@ watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 		case 'M':
 		    printf("%.*s", (int)sizeof(u->ut_host), u->ut_host);
 		    break;
-#endif
+# endif /* WATCH_UTMP_UT_HOST */
 		case 'T':
 		case 't':
 		case '@':
@@ -189,10 +294,10 @@ watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 			fm2 = "%l:%M%p";
 			break;
 		    case 'T':
-			fm2 = "%k:%M";
+			fm2 = "%K:%M";
 			break;
 		    case 'w':
-			fm2 = "%a %e";
+			fm2 = "%a %f";
 			break;
 		    case 'W':
 			fm2 = "%m/%d/%y";
@@ -266,8 +371,8 @@ watchlog2(int inout, STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 /* check the List for login/logouts */
 
 /**/
-void
-watchlog(int inout, STRUCT_UTMP *u, char **w, char *fmt)
+static void
+watchlog(int inout, WATCH_STRUCT_UTMP *u, char **w, char *fmt)
 {
     char *v, *vv, sav;
     int bad;
@@ -306,7 +411,7 @@ watchlog(int inout, STRUCT_UTMP *u, char **w, char *fmt)
 		*vv = sav;
 		v = vv;
 	    }
-#ifdef HAVE_UT_HOST
+# ifdef WATCH_UTMP_UT_HOST
 	    else if (*v == '@') {
 		for (vv = ++v; *vv && *vv != '%'; vv++);
 		sav = *vv;
@@ -316,7 +421,7 @@ watchlog(int inout, STRUCT_UTMP *u, char **w, char *fmt)
 		*vv = sav;
 		v = vv;
 	    }
-#endif
+# endif /* WATCH_UTMP_UT_HOST */
 	    else
 		break;
 	if (!bad) {
@@ -329,8 +434,8 @@ watchlog(int inout, STRUCT_UTMP *u, char **w, char *fmt)
 /* compare 2 utmp entries */
 
 /**/
-int
-ucmp(STRUCT_UTMP *u, STRUCT_UTMP *v)
+static int
+ucmp(WATCH_STRUCT_UTMP *u, WATCH_STRUCT_UTMP *v)
 {
     if (u->ut_time == v->ut_time)
 	return strncmp(u->ut_line, v->ut_line, sizeof(u->ut_line));
@@ -340,33 +445,33 @@ ucmp(STRUCT_UTMP *u, STRUCT_UTMP *v)
 /* initialize the user List */
 
 /**/
-void
+static void
 readwtab(void)
 {
-    STRUCT_UTMP *uptr;
+    WATCH_STRUCT_UTMP *uptr;
     int wtabmax = 32;
     FILE *in;
 
     wtabsz = 0;
-    if (!(in = fopen(UTMP_FILE, "r")))
+    if (!(in = fopen(WATCH_UTMP_FILE, "r")))
 	return;
-    uptr = wtab = (STRUCT_UTMP *)zalloc(wtabmax * sizeof(STRUCT_UTMP));
-    while (fread(uptr, sizeof(STRUCT_UTMP), 1, in))
-#ifdef USER_PROCESS
+    uptr = wtab = (WATCH_STRUCT_UTMP *)zalloc(wtabmax * sizeof(WATCH_STRUCT_UTMP));
+    while (fread(uptr, sizeof(WATCH_STRUCT_UTMP), 1, in))
+# ifdef USER_PROCESS
 	if   (uptr->ut_type == USER_PROCESS)
-#else
+# else /* !USER_PROCESS */
 	if   (uptr->ut_name[0])
-#endif
+# endif /* !USER_PROCESS */
 	{
 	    uptr++;
 	    if (++wtabsz == wtabmax)
-		uptr = (wtab = (STRUCT_UTMP *)realloc((void *) wtab, (wtabmax *= 2) *
-						      sizeof(STRUCT_UTMP))) + wtabsz;
+		uptr = (wtab = (WATCH_STRUCT_UTMP *)realloc((void *) wtab, (wtabmax *= 2) *
+						      sizeof(WATCH_STRUCT_UTMP))) + wtabsz;
 	}
     fclose(in);
 
     if (wtabsz)
-	qsort((void *) wtab, wtabsz, sizeof(STRUCT_UTMP),
+	qsort((void *) wtab, wtabsz, sizeof(WATCH_STRUCT_UTMP),
 	           (int (*) _((const void *, const void *)))ucmp);
 }
 
@@ -378,7 +483,7 @@ void
 dowatch(void)
 {
     FILE *in;
-    STRUCT_UTMP *utab, *uptr, *wptr;
+    WATCH_STRUCT_UTMP *utab, *uptr, *wptr;
     struct stat st;
     char **s;
     char *fmt;
@@ -386,8 +491,6 @@ dowatch(void)
     int uct, wct;
 
     s = watch;
-    if (!(fmt = getsparam("WATCHFMT")))
-	fmt = DEFAULT_WATCHFMT;
 
     holdintr();
     if (!wtab) {
@@ -395,29 +498,29 @@ dowatch(void)
 	noholdintr();
 	return;
     }
-    if ((stat(UTMP_FILE, &st) == -1) || (st.st_mtime <= lastutmpcheck)) {
+    if ((stat(WATCH_UTMP_FILE, &st) == -1) || (st.st_mtime <= lastutmpcheck)) {
 	noholdintr();
 	return;
     }
     lastutmpcheck = st.st_mtime;
-    uptr = utab = (STRUCT_UTMP *) zalloc(utabmax * sizeof(STRUCT_UTMP));
+    uptr = utab = (WATCH_STRUCT_UTMP *) zalloc(utabmax * sizeof(WATCH_STRUCT_UTMP));
 
-    if (!(in = fopen(UTMP_FILE, "r"))) {
+    if (!(in = fopen(WATCH_UTMP_FILE, "r"))) {
 	free(utab);
 	noholdintr();
 	return;
     }
     while (fread(uptr, sizeof *uptr, 1, in))
-#ifdef USER_PROCESS
+# ifdef USER_PROCESS
 	if (uptr->ut_type == USER_PROCESS)
-#else
+# else /* !USER_PROCESS */
 	if (uptr->ut_name[0])
-#endif
+# endif /* !USER_PROCESS */
 	{
 	    uptr++;
 	    if (++utabsz == utabmax)
-		uptr = (utab = (STRUCT_UTMP *)realloc((void *) utab, (utabmax *= 2) *
-						      sizeof(STRUCT_UTMP))) + utabsz;
+		uptr = (utab = (WATCH_STRUCT_UTMP *)realloc((void *) utab, (utabmax *= 2) *
+						      sizeof(WATCH_STRUCT_UTMP))) + utabsz;
 	}
     fclose(in);
     noholdintr();
@@ -426,7 +529,7 @@ dowatch(void)
 	return;
     }
     if (utabsz)
-	qsort((void *) utab, utabsz, sizeof(STRUCT_UTMP),
+	qsort((void *) utab, utabsz, sizeof(WATCH_STRUCT_UTMP),
 	           (int (*) _((const void *, const void *)))ucmp);
 
     wct = wtabsz;
@@ -437,6 +540,9 @@ dowatch(void)
 	free(utab);
 	return;
     }
+    queue_signals();
+    if (!(fmt = getsparam("WATCHFMT")))
+	fmt = DEFAULT_WATCHFMT;
     while ((uct || wct) && !errflag)
 	if (!uct || (wct && ucmp(uptr, wptr) > 0))
 	    wct--, watchlog(0, wptr++, s, fmt);
@@ -444,6 +550,7 @@ dowatch(void)
 	    uct--, watchlog(1, uptr++, s, fmt);
 	else
 	    uptr++, wptr++, wct--, uct--;
+    unqueue_signals();
     free(wtab);
     wtab = utab;
     wtabsz = utabsz;
@@ -458,10 +565,25 @@ bin_log(char *nam, char **argv, char *ops, int func)
 	return 1;
     if (wtab)
 	free(wtab);
-    wtab = (STRUCT_UTMP *)zalloc(1);
+    wtab = (WATCH_STRUCT_UTMP *)zalloc(1);
     wtabsz = 0;
     lastutmpcheck = 0;
     dowatch();
     return 0;
 }
 
+#else /* !WATCH_STRUCT_UTMP */
+
+/**/
+void dowatch(void)
+{
+}
+
+/**/
+int
+bin_log(char *nam, char **argv, char *ops, int func)
+{
+    return bin_notavail(nam, argv, ops, func);
+}
+
+#endif /* !WATCH_STRUCT_UTMP */

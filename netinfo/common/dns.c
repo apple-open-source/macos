@@ -39,31 +39,57 @@
 #include <sys/syslog.h>
 #include <errno.h>
 #include <sys/types.h>
-
+#include <sys/socket.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <NetInfo/dns.h>
 #include <NetInfo/system.h>
 #include <NetInfo/syslock.h>
 
-#define REPLY_BUF_SIZE 1024
+#define REPLY_BUF_SIZE 8192
 
 #define NI_LOCATION_RESOLVER_OLD "/locations/resolver"
 #define NI_LOCATION_RESOLVER "/domains"
-#define FF_LOCATION_RESOLVER "/etc/resolv.conf"
-#define NI_TIMEOUT 10
+#define FF_RESOLVE_CONF "/etc/resolv.conf"
+#define FF_RESOLVER_DIR "/etc/resolver"
 
 #define DNS_SERVER_TIMEOUT 2
 #define DNS_SERVER_RETRIES 3
 
-#define PLX_DOMAIN 0
-#define PLX_NAMESERVER 1
-#define PLX_SEARCH 2
-#define PLX_DEBUG 3
-#define PLX_NDOTS 4
-#define PLX_PROTOCOL 5
-#define PLX_SORTLIST 6
-#define PLX_LENGTH 7
+typedef enum
+{
+	PLX_DOMAIN,
+	PLX_NAMESERVER,
+	PLX_SEARCH,
+	PLX_DEBUG,
+	PLX_NDOTS,
+	PLX_PROTOCOL,
+	PLX_PORT,
+	PLX_SORTLIST,
+#ifdef DNS_EXCLUSION
+	PLX_EXCLUDE,
+	PLX_EXCLUSIVE,
+#endif
+	PLX_TIMEOUT,
+	PLX_RETRIES,
+	PLX_LFACTOR
+} plindex;
 
-#define DNS_SERVICE_PORT 53
+#ifdef DNS_EXCLUSION
+#define PLINDEX_COUNT 13
+#else
+#define PLINDEX_COUNT 11
+#endif
+
+typedef struct
+{
+	struct timeval send_time;
+	struct timeval reply_time;
+	u_int32_t server_index;
+	u_int16_t xid;
+	char *query_packet;
+	u_int32_t query_length;
+} dns_query_data_t;
 
 dns_handle_t *dns_open_lock(char *, u_int32_t);
 
@@ -73,6 +99,59 @@ static syslock *_logLock = NULL;
 #ifdef _UNIX_BSD_43_
 extern char *strdup(char *s);
 #endif
+
+static void
+_time_subtract(struct timeval *t, u_int32_t sec, u_int32_t usec)
+{
+	if (t == NULL) return;
+
+	if (sec > t->tv_sec) t->tv_sec = 0;
+	else t->tv_sec -= sec;
+
+	while (usec > t->tv_usec) 
+	{
+		if (t->tv_sec == 0)
+		{
+			t->tv_usec = 0;
+			return;
+		}
+
+		t->tv_usec += 1000000;
+		t->tv_sec -= 1;
+	}
+
+	t->tv_usec -= usec;
+}
+
+/* 
+ * Compute x[n + 1] = (7^5 * x[n]) mod (2^31 - 1).
+ * From "Random number generators: good ones are hard to find",
+ * Park and Miller, Communications of the ACM, vol. 31, no. 10,
+ * October 1988, p. 1195.
+ */
+static int 
+dns_random() 
+{
+	static int did_init = 0;
+	static unsigned int randseed = 1;
+	int x, hi, lo, t;
+	struct timeval tv;   
+   
+	if (did_init++ == 0)
+	{
+		gettimeofday(&tv, NULL);
+		randseed = tv.tv_usec;
+		if(randseed == 0) randseed = 1;
+	}
+
+	x = randseed; 
+	hi = x / 127773;
+	lo = x % 127773;
+	t = 16807 * lo - 2836 * hi;
+	if (t <= 0) t += 0x7fffffff;
+	randseed = t;
+	return t;
+}
 
 void
 dns_log_msg(dns_handle_t *dns, int priority, char *message, ...)
@@ -239,49 +318,6 @@ dns_open_log(dns_handle_t *dns, char *title, int dest, FILE *file, int flags, in
 	}
 }
 
-/*
- * Find a directory in the lookup chain and return the domain and
- * directory ID.
- */
-static ni_status
-_dns_ni_find(char *dirname, void **dom, ni_id *nid, u_int32_t timeout)
-{
-	void *d, *p;
-	ni_id n;
-	ni_status status;
-
-	*dom = NULL;
-	nid->nii_object = NI_INDEX_NULL;
-	nid->nii_instance = NI_INDEX_NULL;
-	
-	status = ni_open(NULL, ".", &d);
-	if (status != NI_OK) return status;
-
-	if (timeout > 0)
-	{
-		ni_setreadtimeout(d, timeout);
-		ni_setabort(d, 1);
-	}
-
-	while (d != NULL)
-	{
-		status = ni_pathsearch(d, &n, dirname);
-		if (status == NI_OK)
-		{
-			*dom = d;
-			*nid = n;
-			return NI_OK;
-		}
-	
-		status = ni_open(d, "..", &p);
-		ni_free(d);
-		d = NULL;
-		if (status == NI_OK) d = p;
-	}
-	
-	return NI_NODIR;
-}
-
 static u_int16_t
 _dns_port(u_int32_t proto)
 {
@@ -289,228 +325,48 @@ _dns_port(u_int32_t proto)
 	return htons(DNS_SERVICE_PORT);
 }
 
-/*
- * Use default domain to lookup nameserver records for another domain
- */
-static ni_proplist *
-_dns_dns_init(char *dom, u_int32_t timeout)
+static int
+key_match(char *line, char *keyword)
 {
-	ni_proplist *p;
-	ni_property *dp;
-	ni_namelist *nl;
-	char s[32];
+	int len;
+
+	if (line == NULL) return 0;
+	if (keyword == NULL) return 0;
+
+	len = strlen(keyword);
+
+	if ((strncasecmp(line, keyword, len) == 0) && ((line[len] == ' ') || (line[len] == '\t'))) return len;
+	return 0;
+}
+
+static char *
+get_val(char *line, int *off)
+{
+	char *s, *t;
 	int i, len;
-	dns_reply_t *r;
-	dns_question_t dnsq;
-	dns_handle_t *t;
 
-	if (dom == NULL) return NULL;
-
-	t = dns_open_lock(NULL, 0);
-	if (t == NULL) return NULL;
-
-	len = strlen(dom);
-	dnsq.name = malloc(len + 2);
-	memmove(dnsq.name, dom, len);
-	dnsq.name[len] = '.';
-	dnsq.name[len + 1] = '\0';
-	dnsq.class = DNS_CLASS_IN;
-	dnsq.type = DNS_TYPE_NS;
-
-	r = dns_query(t, &dnsq);
-	free(dnsq.name);
-	dns_free(t);
-
-	if (r == NULL) return NULL;
-
-	if ((r->header->ancount == 0) || (r->header->arcount == 0))
-	{
-		dns_free_reply(r);
-		return NULL;
-	}
-
-	p = (ni_proplist *)malloc(sizeof(ni_proplist));
-	NI_INIT(p);
-
-	p->ni_proplist_len = 2;
-
-	dp = (ni_property *)malloc(p->ni_proplist_len * sizeof(ni_property));
-	NI_INIT(dp);
+	if (line == NULL) return NULL;
+	if (off == NULL) return NULL;
 	
-	dp[PLX_DOMAIN].nip_name = strdup("domain");
-	dp[PLX_DOMAIN].nip_val.ni_namelist_len = 0;
-	dp[PLX_DOMAIN].nip_val.ni_namelist_val = NULL;
+	/* skip whitespace */
+	for (i = *off, len = 0; ((line[i] == ' ') || (line[i] == '\t')); i++, len++);
+	*off += len;
+
+	/* get chars */
+	s = line + *off;
+	for (len = 0; ((s[len] != '\0') && (s[len] != '\n') && (s[len] != ' ') && (s[len] != '\t')); len++);
+
+	if (len == 0) return NULL;
+	t = malloc(len + 1);
+	memmove(t, s, len);
+	t[len] = '\0';
+	*off += len;
+	return t;
+}	
 	
-	dp[PLX_NAMESERVER].nip_name = strdup("nameserver");
-	dp[PLX_NAMESERVER].nip_val.ni_namelist_len = 0;
-	dp[PLX_NAMESERVER].nip_val.ni_namelist_val = NULL;
-
-	p->ni_proplist_val = dp;
-
-	nl = &(dp[PLX_DOMAIN].nip_val);
-	nl->ni_namelist_len = 1;
-	nl->ni_namelist_val = malloc(sizeof(char *));
-	nl->ni_namelist_val[0] = strdup(dom);
-
-	nl = &(dp[PLX_NAMESERVER].nip_val);
-	nl->ni_namelist_val = malloc(r->header->arcount * sizeof(char *));
-	nl->ni_namelist_len = r->header->arcount;
-
-	for (i = 0; i < r->header->arcount; i++)
-	{
-		sprintf(s, "%s", inet_ntoa(r->additional[i]->data.A->addr));
-		nl->ni_namelist_val[i] = strdup(s);
-	}
-
-	dns_free_reply(r);
-	return p;
-}
-
-static ni_proplist *
-_dns_ni_init(char *dom, u_int32_t timeout)
-{
-	void *d;
-	ni_id nid;
-	ni_status status;
-	ni_index where;
-	ni_proplist *p;
-	ni_namelist *nl;
-	char *s = NULL;
-	char *domainname, *hname, *dot;
-	int using_domains_dir;
-
-	using_domains_dir = 0;
-
-	p = (ni_proplist *)malloc(sizeof(ni_proplist));
-	NI_INIT(p);
-
-	status = NI_NODIR;
-
-	if (dom != NULL)
-	{
-		/* dom is given, use /domains/<dom> */
-		using_domains_dir = 1;
-		s = malloc(strlen(NI_LOCATION_RESOLVER) + strlen(dom) + 2);
-		sprintf(s, "%s/%s", NI_LOCATION_RESOLVER, dom);
-		status = _dns_ni_find(s, &d, &nid, timeout);
-		free(s);
-		if (status != NI_OK)
-		{
-			ni_proplist_free(p);
-			free(p);
-			return NULL;
-		}
-	}
-	else
-	{
-		/* Find /domains and use the value of the "domain" property */
-		status = _dns_ni_find(NI_LOCATION_RESOLVER, &d, &nid, timeout);
-		if (status == NI_OK)
-		{
-			status = ni_read(d, &nid, p);
-			if (status == NI_OK)
-			{
-				where = ni_proplist_match(*p, "domain", NULL);
-				if (where == NI_INDEX_NULL) status = NI_NOPROP;
-				else
-				{
-					nl = &(p->ni_proplist_val[where].nip_val);
-					if (nl->ni_namelist_len == 0)
-					{
-						status = NI_NONAME;
-					}
-					else
-					{
-						using_domains_dir = 1;
-						status = ni_pathsearch(d, &nid, nl->ni_namelist_val[0]);
-					}
-				}
-			}
-			ni_proplist_free(p);
-		}
-	}
-	
-	if (status != NI_OK)
-	{
-		/*
-		 * try /locations/resolver
-		 */
-		status = _dns_ni_find(NI_LOCATION_RESOLVER_OLD, &d, &nid, timeout);
-		if (status != NI_OK)
-		{
-			ni_proplist_free(p);
-			return NULL;
-		}
-	}
-
-	status = ni_read(d, &nid, p);
-	if (status != NI_OK)
-	{
-		ni_free(d);
-		ni_proplist_free(p);
-		free(p);
-		return NULL;
-	}
-
-	/*
-	 * Check for "domain" property
-	 */
-	where = ni_proplist_match(*p, "domain", NULL);
-	if (where == NI_INDEX_NULL) 
-	{
-		/*
-		 * No "domain" property.
-		 * If this came from /domains/<dom> use the value of the "name" property.
-		 * Else if there is a "search" property, use the first value.
-		 * Else if hostname has a ".", use trailing part as a domain.
-		 * Else use "local".
-		 */
-
-		domainname = NULL;
-	
-		if (using_domains_dir == 1)
-		{
-			where = ni_proplist_match(*p, "name", NULL);
-			if ((where != NI_INDEX_NULL) && (p->ni_proplist_val[where].nip_val.ni_namelist_len > 0))
-				domainname = p->ni_proplist_val[where].nip_val.ni_namelist_val[0];
-		}
-
-		if (domainname == NULL)
-		{
-			where = ni_proplist_match(*p, "search", NULL);
-			if ((where != NI_INDEX_NULL) && (p->ni_proplist_val[where].nip_val.ni_namelist_len > 0))
-				domainname = p->ni_proplist_val[where].nip_val.ni_namelist_val[0];
-		}
-
-		if (domainname == NULL)
-		{
-			hname = sys_hostname();
-			if (hname != NULL)
-			{
-				dot = strchr(hname, '.');
-				if (dot != NULL) domainname = dot + 1;
-			}
-		}
-
-		if (domainname == NULL) domainname = "local";
-		
-		/*
-		 * Add a "domain" property to the proplist.
-		 */
-		p->ni_proplist_val = (ni_property *)realloc(p->ni_proplist_val, (p->ni_proplist_len + 1) * sizeof(ni_property));
-		p->ni_proplist_val[p->ni_proplist_len].nip_name = strdup("domain");
-		p->ni_proplist_val[p->ni_proplist_len].nip_val.ni_namelist_len = 1;
-		p->ni_proplist_val[p->ni_proplist_len].nip_val.ni_namelist_val = malloc(sizeof(char *));
-		p->ni_proplist_val[p->ni_proplist_len].nip_val.ni_namelist_val[0] = strdup(domainname);
-		p->ni_proplist_len++;
-	}
-
-	ni_free(d);
-	return p;
-}
-
 /*
  * Get resolver configuration from /etc/resolv.conf
+ * or /etc/resolver/<<dom>>
  */
 static ni_proplist *
 _dns_file_init(char *dom)
@@ -518,17 +374,26 @@ _dns_file_init(char *dom)
 	ni_proplist *p;
 	ni_property *dp;
 	ni_namelist *nl;
-	char line[1024], *s, t[1024], *dot, *hname;
+	char line[1024], *s, *dot, *hname;
 	FILE *fp;
-	int i;
-	
-	fp = fopen(FF_LOCATION_RESOLVER, "r");
+	int n;
+
+	sprintf(line, "%s", FF_RESOLVE_CONF);
+	fp = NULL;
+
+	/* If dom is non-NULL, open /etc/resolver/dom */
+	if (dom != NULL)
+	{
+		sprintf(line, "%s/%s", FF_RESOLVER_DIR, dom);
+	}
+
+	fp = fopen(line, "r");
 	if (fp == NULL) return NULL;
 
 	p = (ni_proplist *)malloc(sizeof(ni_proplist));
 	NI_INIT(p);
 
-	p->ni_proplist_len = PLX_LENGTH;
+	p->ni_proplist_len = PLINDEX_COUNT;
 
 	dp = (ni_property *)malloc(p->ni_proplist_len * sizeof(ni_property));
 	NI_INIT(dp);
@@ -536,7 +401,15 @@ _dns_file_init(char *dom)
 	dp[PLX_DOMAIN].nip_name = strdup("domain");
 	dp[PLX_DOMAIN].nip_val.ni_namelist_len = 0;
 	dp[PLX_DOMAIN].nip_val.ni_namelist_val = NULL;
-	
+
+	/* If input "dom" arg is non-null, use it as the domain name */
+	if (dom != NULL)
+	{
+		dp[PLX_DOMAIN].nip_val.ni_namelist_len = 1;
+		dp[PLX_DOMAIN].nip_val.ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+		dp[PLX_DOMAIN].nip_val.ni_namelist_val[0] = strdup(dom);
+	}
+
 	dp[PLX_NAMESERVER].nip_name = strdup("nameserver");
 	dp[PLX_NAMESERVER].nip_val.ni_namelist_len = 0;
 	dp[PLX_NAMESERVER].nip_val.ni_namelist_val = NULL;
@@ -546,184 +419,307 @@ _dns_file_init(char *dom)
 	dp[PLX_SEARCH].nip_val.ni_namelist_val = NULL;
 
 	dp[PLX_DEBUG].nip_name = strdup("debug");
-	dp[PLX_DEBUG].nip_val.ni_namelist_len = 1;
-	dp[PLX_DEBUG].nip_val.ni_namelist_val =  malloc(sizeof(char *));
-	dp[PLX_DEBUG].nip_val.ni_namelist_val[0] = strdup("NO");
+	dp[PLX_DEBUG].nip_val.ni_namelist_len = 0;
+	dp[PLX_DEBUG].nip_val.ni_namelist_val = NULL;
 
 	dp[PLX_NDOTS].nip_name = strdup("ndots");
 	dp[PLX_NDOTS].nip_val.ni_namelist_len = 0;
 	dp[PLX_NDOTS].nip_val.ni_namelist_val = NULL;
 
 	dp[PLX_PROTOCOL].nip_name = strdup("protocol");
-	dp[PLX_PROTOCOL].nip_val.ni_namelist_len = 1;
-	dp[PLX_PROTOCOL].nip_val.ni_namelist_val = malloc(sizeof(char *));
-	dp[PLX_PROTOCOL].nip_val.ni_namelist_val[0] = strdup("udp");
+	dp[PLX_PROTOCOL].nip_val.ni_namelist_len = 0;
+	dp[PLX_PROTOCOL].nip_val.ni_namelist_val = NULL;
+
+	dp[PLX_PORT].nip_name = strdup("port");
+	dp[PLX_PORT].nip_val.ni_namelist_len = 0;
+	dp[PLX_PORT].nip_val.ni_namelist_val = NULL;
 
 	dp[PLX_SORTLIST].nip_name = strdup("sortlist");
 	dp[PLX_SORTLIST].nip_val.ni_namelist_len = 0;
 	dp[PLX_SORTLIST].nip_val.ni_namelist_val = NULL;
 
+#ifdef DNS_EXCLUSION
+	dp[PLX_EXCLUDE].nip_name = strdup("exclude");
+	dp[PLX_EXCLUDE].nip_val.ni_namelist_len = 0;
+	dp[PLX_EXCLUDE].nip_val.ni_namelist_val = NULL;
+
+	dp[PLX_EXCLUSIVE].nip_name = strdup("exclusive");
+	dp[PLX_EXCLUSIVE].nip_val.ni_namelist_len = 0;
+	dp[PLX_EXCLUSIVE].nip_val.ni_namelist_val = NULL;
+#endif
+
+	dp[PLX_TIMEOUT].nip_name = strdup("timeout");
+	dp[PLX_TIMEOUT].nip_val.ni_namelist_len = 0;
+	dp[PLX_TIMEOUT].nip_val.ni_namelist_val = NULL;
+
+	dp[PLX_RETRIES].nip_name = strdup("retries");
+	dp[PLX_RETRIES].nip_val.ni_namelist_len = 0;
+	dp[PLX_RETRIES].nip_val.ni_namelist_val = NULL;
+
+	dp[PLX_LFACTOR].nip_name = strdup("latency_factor");
+	dp[PLX_LFACTOR].nip_val.ni_namelist_len = 0;
+	dp[PLX_LFACTOR].nip_val.ni_namelist_val = NULL;
+
 	p->ni_proplist_val = dp;
 
-	fgets(line, 1024, fp);
-	while (!feof(fp))
+	for (fgets(line, 1024, fp); !feof(fp); fgets(line, 1024, fp))
 	{
-		if (!strncmp(line, "domain", 6) &&
-			((line[6] == ' ') || (line[6] == '\t')))
+		if ((n = key_match(line, "domain")))
 		{
 			nl = &(dp[PLX_DOMAIN].nip_val);
-			
+
+			/* If already set, ignore this line */
 			if (nl->ni_namelist_len != 0) continue;
 
-			for (i = 7; (line[i] == ' ') || (line[i] == '\t'); i++);
-			if (line[i] == '\0') continue;
-			s = line + i;
-			for (;
-				(line[i] != ' ') && (line[i] != '\t') &&
-				(line[i] != '\0') && (line[i] != '\n');
-				i++);
-			line[i] = '\0';
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+
 			nl->ni_namelist_len = 1;
-			nl->ni_namelist_val = malloc(sizeof(char *));
-			nl->ni_namelist_val[0] = strdup(s);
-			
-			if (dom != NULL)
-			{
-				if (strcmp(dom, s))
-				{
-					ni_proplist_free(p);
-					free(p);
-					fclose(fp);
-					return NULL;
-				}
-			}
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
 		}
 		
-		else if (!strncmp(line, "nameserver", 10) &&
-			((line[10] == ' ') || (line[10] == '\t')))
+		else if ((n = key_match(line, "nameserver")))
 		{
 			nl = &(dp[PLX_NAMESERVER].nip_val);
-			
-			for (i = 11; (line[i] == ' ') || (line[i] == '\t'); i++);
-			if (line[i] == '\0') continue;
-			s = line + i;
-			for (;
-				(line[i] != ' ') && (line[i] != '\t') &&
-				(line[i] != '\0') && (line[i] != '\n');
-				i++);
-			line[i] = '\0';
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+
 			if (nl->ni_namelist_len == 0)
 			{
-				nl->ni_namelist_val = malloc(sizeof(char *));
+				nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
 			}
 			else
 			{
 				nl->ni_namelist_val =
-					realloc(nl->ni_namelist_val,
+					(ni_name *)realloc(nl->ni_namelist_val,
 						(nl->ni_namelist_len + 1) * sizeof(char *));
 			}
 			
-			nl->ni_namelist_val[nl->ni_namelist_len] = strdup(s);
+			nl->ni_namelist_val[nl->ni_namelist_len] = s;
 			nl->ni_namelist_len++;
 		}
 
-		else if (!strncmp(line, "search", 6) &&
-			((line[6] == ' ') || (line[6] == '\t')))
+		else if ((n = key_match(line, "search")))
 		{
 			nl = &(dp[PLX_SEARCH].nip_val);
-			
-			for (i = 7; (line[i] == ' ') || (line[i] == '\t'); i++);
-			while (sscanf(line+i, "%s", t) == 1)
+
+			while (NULL != (s = get_val(line, &n)))
 			{
 				if (nl->ni_namelist_len == 0)
 				{
-					nl->ni_namelist_val = malloc(sizeof(char *));
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
 				}
 				else
 				{
 					nl->ni_namelist_val =
-						realloc(nl->ni_namelist_val,
+						(ni_name *)realloc(nl->ni_namelist_val,
 							(nl->ni_namelist_len + 1) * sizeof(char *));
 				}
 			
-				nl->ni_namelist_val[nl->ni_namelist_len] = strdup(t);
+				nl->ni_namelist_val[nl->ni_namelist_len] = s;
 				nl->ni_namelist_len++;
-
-				for (i += strlen(t); (line[i] == ' ') || (line[i] == '\t'); i++);
 			}
 		}
 
-		else if (!strncmp(line, "sortlist", 8) &&
-			((line[8] == ' ') || (line[8] == '\t')))
+		else if ((n = key_match(line, "latency_factor")))
+		{
+			nl = &(dp[PLX_LFACTOR].nip_val);
+
+			/* If already set, ignore this line */
+			if (nl->ni_namelist_len != 0) continue;
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+	
+			nl->ni_namelist_len = 1;
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
+		}
+
+		else if ((n = key_match(line, "retries")))
+		{
+			nl = &(dp[PLX_RETRIES].nip_val);
+
+			/* If already set, ignore this line */
+			if (nl->ni_namelist_len != 0) continue;
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+	
+			nl->ni_namelist_len = 1;
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
+		}
+
+		else if ((n = key_match(line, "timeout")))
+		{
+			nl = &(dp[PLX_TIMEOUT].nip_val);
+
+			/* If already set, ignore this line */
+			if (nl->ni_namelist_len != 0) continue;
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+	
+			nl->ni_namelist_len = 1;
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
+		}
+
+		else if ((n = key_match(line, "port")))
+		{
+			nl = &(dp[PLX_PORT].nip_val);
+
+			/* If already set, ignore this line */
+			if (nl->ni_namelist_len != 0) continue;
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+	
+			nl->ni_namelist_len = 1;
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
+		}
+
+		else if ((n = key_match(line, "protocol")))
+		{
+			nl = &(dp[PLX_PROTOCOL].nip_val);
+
+			/* If already set, ignore this line */
+			if (nl->ni_namelist_len != 0) continue;
+
+			s = get_val(line, &n);
+			if (s == NULL) continue;
+	
+			nl->ni_namelist_len = 1;
+			nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+			nl->ni_namelist_val[0] = s;
+		}
+
+		else if ((n = key_match(line, "sortlist")))
 		{
 			nl = &(dp[PLX_SORTLIST].nip_val);
-			
-			for (i = 9; (line[i] == ' ') || (line[i] == '\t'); i++);
-			while (sscanf(line+i, "%s", t) == 1)
+
+			while (NULL != (s = get_val(line, &n)))
 			{
 				if (nl->ni_namelist_len == 0)
 				{
-					nl->ni_namelist_val = malloc(sizeof(char *));
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
 				}
 				else
 				{
 					nl->ni_namelist_val =
-						realloc(nl->ni_namelist_val,
+						(ni_name *)realloc(nl->ni_namelist_val,
 							(nl->ni_namelist_len + 1) * sizeof(char *));
 				}
 			
-				nl->ni_namelist_val[nl->ni_namelist_len] = strdup(t);
+				nl->ni_namelist_val[nl->ni_namelist_len] = s;
 				nl->ni_namelist_len++;
-
-				for (i += strlen(t); (line[i] == ' ') || (line[i] == '\t'); i++);
 			}
 		}
 
-		else if (!strncmp(line, "options", 7) &&
-			((line[7] == ' ') || (line[7] == '\t')))
+#ifdef DNS_EXCLUSION
+		else if ((n = key_match(line, "exclude")))
 		{
-			for (i = 8; (line[i] == ' ') || (line[i] == '\t'); i++);
-			while (sscanf(line+i, "%s", t) == 1)
+			nl = &(dp[PLX_EXCLUDE].nip_val);
+
+			while (NULL != (s = get_val(line, &n)))
 			{
-				if (!strcmp(t, "debug"))
+				if (nl->ni_namelist_len == 0)
+				{
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+				}
+				else
+				{
+					nl->ni_namelist_val =
+						(ni_name *)realloc(nl->ni_namelist_val,
+							(nl->ni_namelist_len + 1) * sizeof(char *));
+				}
+			
+				nl->ni_namelist_val[nl->ni_namelist_len] = s;
+				nl->ni_namelist_len++;
+			}
+		}
+#endif
+
+		else if ((n = key_match(line, "options")))
+		{
+			while (NULL != (s = get_val(line, &n)))
+			{
+				if (!strcasecmp(s, "debug"))
 				{
 					nl = &(dp[PLX_DEBUG].nip_val);
 					if (nl->ni_namelist_len != 0)
 					{
 						free(nl->ni_namelist_val);
 					}
-					nl->ni_namelist_val = malloc(sizeof(char *));
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
 					nl->ni_namelist_val[0] = strdup("YES");
+					nl->ni_namelist_len = 1;
 				}
-				else if (!strncmp(t, "ndots:", 6))
+				else if (!strncasecmp(s, "ndots:", 6))
 				{
-					nl = &(dp[PLX_DEBUG].nip_val);
+					nl = &(dp[PLX_NDOTS].nip_val);
 					if (nl->ni_namelist_len != 0)
 					{
 						free(nl->ni_namelist_val);
 					}
-					nl->ni_namelist_val = malloc(sizeof(char *));
-					nl->ni_namelist_val[0] = strdup(t + 6);
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+					nl->ni_namelist_val[0] = strdup(s + 6);
+					nl->ni_namelist_len = 1;
 				}
-				else if (!strcmp(t, "tcp"))
+#ifdef DNS_EXCLUSION
+				else if (!strncasecmp(s, "exclusive", 9))
+				{
+					nl = &(dp[PLX_EXCLUSIVE].nip_val);
+					if (nl->ni_namelist_len != 0)
+					{
+						free(nl->ni_namelist_val);
+					}
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+					nl->ni_namelist_val[0] = strdup("YES");
+					nl->ni_namelist_len = 1;
+				}
+#endif
+				else if (!strcasecmp(s, "tcp"))
 				{
 					nl = &(dp[PLX_PROTOCOL].nip_val);
 					if (nl->ni_namelist_len != 0)
 					{
 						free(nl->ni_namelist_val);
 					}
-					nl->ni_namelist_val = malloc(sizeof(char *));
-					nl->ni_namelist_val[0] = strdup(t);
+					nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+					nl->ni_namelist_val[0] = strdup(s);
+					nl->ni_namelist_len = 1;
 				}
-				
-				i += strlen(t);
 			}
+			free(s);
 		}
-
-		fgets(line, 1024, fp);
 	}
 
 	fclose(fp);
+
+	/*
+	 * Default DEBUG to NO
+	 */
+	if (dp[PLX_DEBUG].nip_val.ni_namelist_len == 0)
+	{
+		dp[PLX_DEBUG].nip_val.ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+		dp[PLX_DEBUG].nip_val.ni_namelist_val[0] = strdup("NO");
+		dp[PLX_DEBUG].nip_val.ni_namelist_len = 1;
+	}
+
+	/*
+	 * Default protocol is udp
+	 */
+	if (dp[PLX_PROTOCOL].nip_val.ni_namelist_len == 0)
+	{
+		dp[PLX_PROTOCOL].nip_val.ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+		dp[PLX_PROTOCOL].nip_val.ni_namelist_val[0] = strdup("udp");
+		dp[PLX_PROTOCOL].nip_val.ni_namelist_len = 1;
+	}
 
 	/*
 	 * If no nameserver addresses are set, return NULL.
@@ -739,43 +735,22 @@ _dns_file_init(char *dom)
 	{
 		/*
 		 * domain is unset
-		 * If search was specified, use first value.
 		 * Else if hostname has a ".", use trailing part as a domain.
-		 * Else use "local".
+		 * Else assume root.
 		 */
-		if (dp[PLX_SEARCH].nip_val.ni_namelist_len != 0)
+		s = ".";
+		hname = NULL;
+		if (hname != NULL)
 		{
-			nl = &(dp[PLX_DOMAIN].nip_val);
-			nl->ni_namelist_len = 1;
-			nl->ni_namelist_val = malloc(sizeof(char *));
-			nl->ni_namelist_val[0] = strdup(dp[PLX_SEARCH].nip_val.ni_namelist_val[0]);
+			dot = strchr(hname, '.');
+			if (dot != NULL) s = dot + 1;
 		}
-		else
-		{
-			s = "local";
-			hname = sys_hostname();
-			if (hname != NULL)
-			{
-				dot = strchr(hname, '.');
-				if (dot != NULL) s = dot + 1;
-			}
 
-		    nl = &(dp[PLX_DOMAIN].nip_val);
+		nl = &(dp[PLX_DOMAIN].nip_val);
 			
-	  	  nl->ni_namelist_len = 1;
-	  	  nl->ni_namelist_val = malloc(sizeof(char *));
-	  	  nl->ni_namelist_val[0] = strdup(s);
-	  }
-	}
-
-	if (dom != NULL)
-	{
-		if (strcmp(dom, dp[PLX_DOMAIN].nip_val. ni_namelist_val[0]))
-		{
-			ni_proplist_free(p);
-			free(p);
-			return NULL;
-		}
+		nl->ni_namelist_len = 1;
+		nl->ni_namelist_val = (ni_name *)malloc(sizeof(char *));
+		nl->ni_namelist_val[0] = strdup(s);
 	}
 
 	return p;
@@ -836,7 +811,7 @@ dns_open_lock(char *dom, u_int32_t lockit)
 	dns_handle_t *dns;
 	ni_proplist *p;
 	ni_index dx, nx, where;
-	int i, len, s, proto, stype;
+	int i, len, s, proto, stype, lfactor;
 	unsigned long addr;
 	u_int16_t port;
 	u_int32_t sa, sm;
@@ -845,8 +820,6 @@ dns_open_lock(char *dom, u_int32_t lockit)
 	if (lockit != 0) _dns_lock();
 
 	p = _dns_file_init(dom);
-	if (p == NULL) p = _dns_ni_init(dom, NI_TIMEOUT);
-	if (p == NULL) p = _dns_dns_init(dom, NI_TIMEOUT);
 	if (p == NULL)
 	{
 		if (lockit != 0) _dns_unlock();
@@ -861,6 +834,7 @@ dns_open_lock(char *dom, u_int32_t lockit)
 		if (lockit != 0) _dns_unlock();
 		return NULL;
 	}
+
 	if (p->ni_proplist_val[dx].nip_val.ni_namelist_len == 0)
 	{
 		ni_proplist_free(p);
@@ -868,14 +842,7 @@ dns_open_lock(char *dom, u_int32_t lockit)
 		if (lockit != 0) _dns_unlock();
 		return NULL;
 	}
-	if ((dom != NULL) && strcmp(p->ni_proplist_val[dx].nip_val.ni_namelist_val[0], dom))
-	{
-		ni_proplist_free(p);
-		free(p);
-		if (lockit != 0) _dns_unlock();
-		return NULL;
-	}
-		
+
 	nx = ni_proplist_match(*p, "nameserver", NULL);
 	if (nx == NI_INDEX_NULL)
 	{
@@ -894,6 +861,18 @@ dns_open_lock(char *dom, u_int32_t lockit)
 		return NULL;
 	}
 
+	lfactor = 10;
+	where = ni_proplist_match(*p, "latency_factor", NULL);
+	if (where != NI_INDEX_NULL)
+	{
+		if (p->ni_proplist_val[where].nip_val.ni_namelist_len != 0)
+		{
+			lfactor = atoi(p->ni_proplist_val[where].nip_val.ni_namelist_val[0]);
+			if (lfactor <= 0) lfactor = 10;
+			if (lfactor > 100) lfactor = 100;
+		}
+	}
+
 	proto = IPPROTO_UDP;
 	stype = SOCK_DGRAM;
 	where = ni_proplist_match(*p, "protocol", NULL);
@@ -902,8 +881,7 @@ dns_open_lock(char *dom, u_int32_t lockit)
 		if (p->ni_proplist_val[where].nip_val.ni_namelist_len != 0)
 		{
 			str = p->ni_proplist_val[where].nip_val.ni_namelist_val[0];
-			if (!strcmp(str, "tcp")) proto = IPPROTO_TCP;
-			else if (!strcmp(str, "TCP")) proto = IPPROTO_TCP;
+			if (!strcasecmp(str, "tcp")) proto = IPPROTO_TCP;
 		}
 	}
 
@@ -926,7 +904,7 @@ dns_open_lock(char *dom, u_int32_t lockit)
 	dns->sockstate = DNS_SOCK_UDP;
 	if (proto == IPPROTO_TCP) dns->sockstate = DNS_SOCK_TCP_UNCONNECTED;
 
-	dns->xid = random() % 0x10000;
+	dns->xid = dns_random() % 0x10000;
 
 	dns->ias_dots = 1;
 	where = ni_proplist_match(*p, "ndots", NULL);
@@ -934,28 +912,83 @@ dns_open_lock(char *dom, u_int32_t lockit)
 		(p->ni_proplist_val[where].nip_val.ni_namelist_len > 0))
 	dns->ias_dots = atoi(p->ni_proplist_val[where].nip_val.ni_namelist_val[0]);
 
+#ifdef DNS_EXCLUSION
+	dns->exclusive = 0;
+	where = ni_proplist_match(*p, "exclusive", NULL);
+	if ((where != NI_INDEX_NULL) && (p->ni_proplist_val[where].nip_val.ni_namelist_len > 0))
+	{
+		if (!strcasecmp(p->ni_proplist_val[where].nip_val.ni_namelist_val[0], "YES")) dns->exclusive = 1;	
+	}
+#endif
+
 	port = _dns_port(dns->protocol);
+
+	/* LOCAL.ARPA USED HERE */
+	if ((dom != NULL) && (!strcasecmp(dom, LOCAL_DOMAIN_STRING)))
+	{
+		port = htons(DNS_LOCAL_DOMAIN_SERVICE_PORT);
+	}
+
+	where = ni_proplist_match(*p, "port", NULL);
+	if (where != NI_INDEX_NULL)
+	{
+		if (p->ni_proplist_val[where].nip_val.ni_namelist_len != 0)
+		{
+			port = atoi(p->ni_proplist_val[where].nip_val.ni_namelist_val[0]);
+			port = htons(port);
+		}
+	}
 	
 	dns->selected_server = 0;
 	dns->server_count = len;
 	dns->server = (struct sockaddr_in *)malloc(len * sizeof(struct sockaddr_in));
+	dns->server_latency = (u_int32_t *)malloc(len * sizeof(u_int32_t));
 	for (i = 0; i < len; i++)
 	{
 		addr = inet_addr(p->ni_proplist_val[nx].nip_val.ni_namelist_val[i]);
 		dns->server[i].sin_addr.s_addr = addr;
 		dns->server[i].sin_family = AF_INET;
 		dns->server[i].sin_port = port;
+		dns->server_latency[i] = 0;
 #ifdef _UNIX_BSD_44_
 		dns->server[i].sin_len = sizeof(struct sockaddr_in);
 #endif
 	}
 
-	dns->server_timeout.tv_sec = DNS_SERVER_TIMEOUT;
+	dns->server_timeout.tv_sec = 0;
 	dns->server_timeout.tv_usec = 0;
-	dns->server_retries = DNS_SERVER_RETRIES;
 
-	dns->timeout.tv_sec = DNS_SERVER_TIMEOUT * DNS_SERVER_RETRIES * dns->server_count;
+	dns->server_retries = DNS_SERVER_RETRIES;
+	where = ni_proplist_match(*p, "retries", NULL);
+	if (where != NI_INDEX_NULL)
+	{
+		if (p->ni_proplist_val[where].nip_val.ni_namelist_len != 0)
+		{
+			dns->server_retries = atoi(p->ni_proplist_val[where].nip_val.ni_namelist_val[0]);
+		}
+	}
+
+	dns->timeout.tv_sec = 0;
 	dns->timeout.tv_usec = 0;
+
+	/* LOCAL.ARPA USED HERE */
+	if (!strcasecmp(p->ni_proplist_val[dx].nip_val.ni_namelist_val[0], LOCAL_DOMAIN_STRING))
+	{
+		dns->server_timeout.tv_sec = 0;
+		dns->server_timeout.tv_usec = 250000;
+	}
+
+	where = ni_proplist_match(*p, "timeout", NULL);
+	if (where != NI_INDEX_NULL)
+	{
+		if (p->ni_proplist_val[where].nip_val.ni_namelist_len != 0)
+		{
+			dns->timeout.tv_sec = atoi(p->ni_proplist_val[where].nip_val.ni_namelist_val[0]);
+			dns_set_timeout(dns, &(dns->timeout));
+		}
+	}
+
+	dns->latency_adjust = lfactor;
 
 	dns->domain = strdup(p->ni_proplist_val[dx].nip_val.ni_namelist_val[0]);
 
@@ -965,12 +998,28 @@ dns_open_lock(char *dom, u_int32_t lockit)
 	if (where != NI_INDEX_NULL)
 	{
 		dns->search_count = p->ni_proplist_val[where].nip_val.ni_namelist_len;
+
 		if (dns->search_count > 0) dns->search = (char **)malloc(dns->search_count * sizeof(char *));
 		for (i = 0; i < dns->search_count; i++)
 		{
 			dns->search[i] = strdup(p->ni_proplist_val[where].nip_val.ni_namelist_val[i]);
 		}
 	}
+
+#ifdef DNS_EXCLUSION
+	dns->exclude_count = 0;
+	dns->exclude = NULL;
+	where = ni_proplist_match(*p, "exclude", NULL);
+	if (where != NI_INDEX_NULL)
+	{
+		dns->exclude_count = p->ni_proplist_val[where].nip_val.ni_namelist_len;
+		if (dns->exclude_count > 0) dns->exclude = (char **)malloc(dns->exclude_count * sizeof(char *));
+		for (i = 0; i < dns->exclude_count; i++)
+		{
+			dns->exclude[i] = strdup(p->ni_proplist_val[where].nip_val.ni_namelist_val[i]);
+		}
+	}
+#endif
 
 	dns->sort_count = 0;
 	where = ni_proplist_match(*p, "sortlist", NULL);
@@ -1040,7 +1089,7 @@ dns_connect(char *name, struct sockaddr_in *addr)
 	dns->protocol = IPPROTO_UDP;
 	dns->sockstate = DNS_SOCK_UDP;
 	
-	dns->xid = random() % 0x10000;
+	dns->xid = dns_random() % 0x10000;
 
 	dns->ias_dots = 1;
 	dns->selected_server = 0;
@@ -1052,11 +1101,15 @@ dns_connect(char *name, struct sockaddr_in *addr)
 #ifndef _NO_SOCKADDR_LENGTH_
 	dns->server[0].sin_len = sizeof(struct sockaddr_in);
 #endif
-	dns->server_timeout.tv_sec = DNS_SERVER_TIMEOUT;
+
+	dns->server_timeout.tv_sec = 0;
 	dns->server_timeout.tv_usec = 0;
+
 	dns->server_retries = DNS_SERVER_RETRIES;
-	dns->timeout.tv_sec = DNS_SERVER_TIMEOUT * DNS_SERVER_RETRIES;
+
+	dns->timeout.tv_sec = 0;
 	dns->timeout.tv_usec = 0;
+
 	dns->domain = strdup(name);
 	dns->search_count = 0;
 
@@ -1144,6 +1197,7 @@ dns_free(dns_handle_t *dns)
 	close(dns->sock);
 
 	free(dns->server);
+	free(dns->server_latency);
 	free(dns->domain);
 	for (i = 0; i < dns->search_count; i++) free(dns->search[i]);
 	if (dns->search_count > 0) free(dns->search);
@@ -1172,15 +1226,15 @@ dns_set_server_timeout(dns_handle_t *dns, struct timeval *tv)
 
 	if (dns == NULL) return;
 
-	us = (tv->tv_sec * 1000) + tv->tv_usec;
+	us = (tv->tv_sec * 1000000) + tv->tv_usec;
 
-	dns->server_timeout.tv_sec = us / 1000;
-	dns->server_timeout.tv_usec = us % 1000;
+	dns->server_timeout.tv_sec = us / 1000000;
+	dns->server_timeout.tv_usec = us % 1000000;
 	
 	us = us * (dns->server_retries + 1) * dns->server_count;
 
-	dns->timeout.tv_sec = us / 1000;
-	dns->timeout.tv_usec = us % 1000;
+	dns->timeout.tv_sec = us / 1000000;
+	dns->timeout.tv_usec = us % 1000000;
 }
 
 void
@@ -1191,22 +1245,22 @@ dns_set_timeout(dns_handle_t *dns, struct timeval *tv)
 
 	if (dns == NULL) return;
 
-	us = (tv->tv_sec * 1000) + tv->tv_usec;
+	us = (tv->tv_sec * 1000000) + tv->tv_usec;
 
-	dns->timeout.tv_sec = us / 1000;
-	dns->timeout.tv_usec = us % 1000;
+	dns->timeout.tv_sec = us / 1000000;
+	dns->timeout.tv_usec = us % 1000000;
 
 	us = us / ((dns->server_retries + 1) * dns->server_count);
 	if (us == 0)
 	{
 		m.tv_sec = 0;
-		m.tv_usec = 1;
+		m.tv_usec = 1000;
 		dns_set_server_timeout(dns, &m);
 		return;
 	}
 
-	dns->server_timeout.tv_sec = us / 1000;
-	dns->server_timeout.tv_usec = us % 1000;
+	dns->server_timeout.tv_sec = us / 1000000;
+	dns->server_timeout.tv_usec = us % 1000000;
 }
 
 void
@@ -1217,12 +1271,12 @@ dns_set_server_retries(dns_handle_t *dns, u_int32_t n)
 	if (dns == NULL) return;
 	dns->server_retries = n;
 
-	us = (dns->server_timeout.tv_sec * 1000) + dns->server_timeout.tv_usec;
+	us = (dns->server_timeout.tv_sec * 1000000) + dns->server_timeout.tv_usec;
 	
 	us = us * (dns->server_retries + 1) * dns->server_count;
 
-	dns->timeout.tv_sec = us / 1000;
-	dns->timeout.tv_usec = us % 1000;
+	dns->timeout.tv_sec = us / 1000000;
+	dns->timeout.tv_usec = us % 1000000;
 }
 
 void
@@ -1236,8 +1290,7 @@ dns_set_protocol(dns_handle_t *dns, u_int32_t protocol)
 
 	if ((protocol != IPPROTO_UDP) && (protocol != IPPROTO_TCP))
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_set_protocol - unknown protocol %u", protocol);
+		dns_log_msg(dns, LOG_ERR, "dns_set_protocol - unknown protocol %u", protocol);
 		return;
 	}
 
@@ -1533,7 +1586,7 @@ dns_parse_resource_record(char *p, char **x)
 			r->data.DNSNULL->length = rdlen;
 			r->data.DNSNULL->data = malloc(rdlen);
 			memmove(r->data.DNSNULL->data, *x, rdlen);
-			x += rdlen;
+			*x += rdlen;
 			break;
 
 		case DNS_TYPE_WKS:
@@ -1585,8 +1638,23 @@ dns_parse_resource_record(char *p, char **x)
 		case DNS_TYPE_TXT:
 			size = sizeof(dns_TXT_record_t);
 			r->data.TXT = (dns_TXT_record_t *)malloc(size);
+			r->data.TXT->string_count = 0;
+			r->data.TXT->strings = NULL;
 
-			r->data.TXT->string = _dns_parse_string(p, x);
+			while (*x < (eor + rdlen))
+			{
+				if (r->data.TXT->string_count == 0)
+				{
+					r->data.TXT->strings = (char **)malloc(sizeof(char *));
+				}
+				else
+				{
+					r->data.TXT->strings = (char **)realloc(r->data.TXT->strings, (r->data.TXT->string_count + 1) * sizeof(char *));
+				}
+
+				r->data.TXT->strings[r->data.TXT->string_count++] = _dns_parse_string(p, x);
+			}
+
 			break;
 
 		case DNS_TYPE_RP:
@@ -1679,7 +1747,29 @@ dns_parse_question(char *p, char **x)
 u_int32_t
 dns_dname_cmp(char *a, char *b)
 {
-	return strcmp(a, b);
+	return strcasecmp(a, b);
+}
+
+/* Return 1 if input is name.domain */
+u_int32_t
+dns_domain_match(char *name, char *domain)
+{
+	u_int32_t dl, nl, l;
+
+	if (name == NULL) return 0;
+	if (domain == NULL) return 1;
+
+	nl = strlen(name);
+	while (name[nl-1] == '.') nl--;
+	dl = strlen(domain);
+	if (dl > nl) return 0;
+
+	l = nl - dl;
+
+	if ((l != 0) && (name[l - 1] != '.')) return 0;
+	if (strncasecmp(name + l, domain, dl)) return 0;
+
+	return 1;
 }
 
 dns_reply_t *
@@ -1807,10 +1897,6 @@ dns_apply_sortlist(dns_handle_t *dns, dns_reply_t *r)
 				tr = r->answer[x[i]];
 				r->answer[x[i]] = r->answer[x[j]];
 				r->answer[x[j]] = tr;
-
-				t = x[i];
-				x[i] = x[j];
-				x[j] = t;
 			}
 		}
 		len--;
@@ -1823,6 +1909,8 @@ dns_apply_sortlist(dns_handle_t *dns, dns_reply_t *r)
 void
 dns_free_resource_record(dns_resource_record_t *r)
 {
+	int i;
+
 	free(r->name);
 
 	switch (r->type)
@@ -1879,7 +1967,12 @@ dns_free_resource_record(dns_resource_record_t *r)
 			break;
 
 		case DNS_TYPE_TXT:
-			free(r->data.TXT->string);
+			for (i=0; i<r->data.TXT->string_count; i++)
+			{
+				free(r->data.TXT->strings[i]);
+			}
+			if (r->data.TXT->strings != NULL)
+				free(r->data.TXT->strings);
 			free(r->data.TXT);
 			break;
 
@@ -1930,28 +2023,25 @@ dns_free_reply(dns_reply_t *r)
 	u_int32_t i;
 
 	if (r == NULL) return;
-	if (r->header == NULL) return;
-
-	for (i = 0; i < r->header->qdcount; i++)
+	if (r->header != NULL)
 	{
-		free(r->question[i]->name);
-		free(r->question[i]);
-	}
-	free(r->question);
+		for (i = 0; i < r->header->qdcount; i++)
+		{
+			free(r->question[i]->name);
+			free(r->question[i]);
+		}
 
-	for (i = 0; i < r->header->ancount; i++)
-		dns_free_resource_record(r->answer[i]);
-	free(r->answer);
-	
-	for (i = 0; i < r->header->nscount; i++)
-		dns_free_resource_record(r->authority[i]);
-	free(r->authority);
-	
-	for (i = 0; i < r->header->arcount; i++)
-		dns_free_resource_record(r->additional[i]);
-	free(r->additional);
-	
-	free(r->header);
+		for (i = 0; i < r->header->ancount; i++) dns_free_resource_record(r->answer[i]);
+		for (i = 0; i < r->header->nscount; i++) dns_free_resource_record(r->authority[i]);
+		for (i = 0; i < r->header->arcount; i++) dns_free_resource_record(r->additional[i]);
+
+		free(r->header);
+	}
+
+	if (r->question != NULL) free(r->question);
+	if (r->answer != NULL) free(r->answer);
+	if (r->authority != NULL) free(r->authority);
+	if (r->additional != NULL) free(r->additional);
 
 	free(r);
 }
@@ -1967,9 +2057,30 @@ dns_free_reply_list(dns_reply_list_t *l)
 	free(l);
 }
 
+static u_int16_t
+dns_random_xid(dns_handle_t *dns, char *packet)
+{
+	dns_header_t *h;
+	char *q;
+	u_int16_t x;
+
+	q = packet;
+	if (dns->protocol == IPPROTO_TCP) q += 2;
+
+	h = (dns_header_t *)q;
+
+	x = dns_random() % 0x10000;
+	if (x == dns->xid) x++;
+	if (x == 0) x++;
+
+	h->xid = htons(x);
+	dns->xid = x;
+
+	return x;
+}
+
 char *
-dns_build_query_packet(dns_handle_t *dns, dns_question_t *dnsq,
-	u_int16_t *ql, u_int16_t *xid)
+dns_build_query_packet(dns_handle_t *dns, dns_question_t *dnsq, u_int16_t *ql, u_int16_t *xid)
 {
 	u_int16_t *p, len, x, flags;
 	char *q, *s;
@@ -1977,13 +2088,13 @@ dns_build_query_packet(dns_handle_t *dns, dns_question_t *dnsq,
 
 	if (dnsq == NULL)
 	{
-		dns_log_msg(dns, LOG_ERR, "dns_build_query_packet - NULL query");
+		dns_log_msg(dns, LOG_WARNING, "dns_build_query_packet - NULL query");
 		return NULL;
 	}
 
 	if (dnsq->name == NULL)
 	{
-		dns_log_msg(dns, LOG_ERR, "dns_build_query_packet - NULL name in query");
+		dns_log_msg(dns, LOG_WARNING, "dns_build_query_packet - NULL name in query");
 		return NULL;
 	}
 
@@ -2004,11 +2115,8 @@ dns_build_query_packet(dns_handle_t *dns, dns_question_t *dnsq,
 
 	h = (dns_header_t *)q;
 
-	x = random() % 0x10000;
-	if (x == 0) x++;
-	if (x == dns->xid) x++;
-	*xid = x;
-	h->xid = htons(*xid);
+	*xid = dns_random_xid(dns, s);
+
 	flags = DNS_FLAGS_RD;
 	h->flags = htons(flags);
 	h->qdcount = htons(1);
@@ -2023,14 +2131,13 @@ dns_build_query_packet(dns_handle_t *dns, dns_question_t *dnsq,
 }
 
 int32_t
-dns_read_reply(dns_handle_t *dns, u_int32_t which,
-	u_int16_t qxid, char *qname,
-	char **r, u_int16_t *rlen)
+dns_read_reply(dns_handle_t *dns, dns_query_data_t *q, u_int32_t qn, u_int32_t *whichreply, char *qname, char **r, u_int16_t *rlen)
 {
 	ssize_t rsize;
 	u_int16_t len;
 	u_int32_t flen;
 	u_int16_t *prxid, rxid;
+	u_int32_t i;
 	struct sockaddr_in from;
 	int status;
 
@@ -2040,6 +2147,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 	}
 	else
 	{
+		/* TCP: first 4 bytes is the reply length */
 		flen = sizeof(struct sockaddr_in);
 		rsize = recvfrom(dns->sock, &len, 2, 0, (struct sockaddr *)&from, &flen);
 		if (rsize <= 0)
@@ -2047,6 +2155,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 			dns_log_msg(dns, LOG_ERR, "dns_read_reply - size receive failed");
 			return DNS_STATUS_RECEIVE_FAILED;
 		}
+
 		*rlen = ntohs(len);
 		status = setsockopt(dns->sock, SOL_SOCKET, SO_RCVLOWAT, rlen, 4);
 		if (status < 0) dns_log_msg(dns, LOG_ERR, "dns_read_reply - setsockopt status %d errno=%d", status, errno);
@@ -2068,8 +2177,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 	if ((dns->protocol == IPPROTO_TCP) && (*rlen != rsize))
 	{
 		free(*r);
-		dns_log_msg(dns, LOG_ERR,
-			"dns_read_reply - short reply %d %d\n", *rlen, rsize);
+		dns_log_msg(dns, LOG_ERR, "dns_read_reply - short reply %d %d\n", *rlen, rsize);
 		return DNS_STATUS_RECEIVE_FAILED;
 	}
 
@@ -2081,7 +2189,7 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 		(from.sin_addr.s_addr != dns->server[which].sin_addr.s_addr))
 		{
 			free(*r);
-			dns_log_msg(dns, LOG_ERR,
+			dns_log_msg(dns, LOG_INFO,
 				"dns_read_reply - reply from wrong server (%s)",
 				inet_ntoa(from.sin_addr));
 			return DNS_STATUS_WRONG_SERVER;
@@ -2089,16 +2197,20 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 	}
 #endif
 
-	/* Check for wrong xid in reply */
+	/* Check reply xid */
 	prxid = (u_int16_t *)*r;
 	rxid = ntohs(*prxid);
 
-	if ((qxid != 0) && (rxid != qxid))
+	/* See if this is the reply for an outstanding query */
+	for (i = 0; i <= qn; i++)
+	{
+		if (rxid == q[i].xid) break;
+	}
+
+	if (i > qn)
 	{
 		free(*r);
-		dns_log_msg(dns, LOG_NOTICE,
-			"dns_read_reply - wrong XID in reply (expected %hu got %hu)",
-			qxid, rxid);
+		dns_log_msg(dns, LOG_INFO, "dns_read_reply - no reply for XID %hu", rxid);
 		return DNS_STATUS_WRONG_XID;
 	}
 
@@ -2106,15 +2218,215 @@ dns_read_reply(dns_handle_t *dns, u_int32_t which,
 	if ((qname != NULL) && (dns_dname_cmp((*r) + DNS_HEADER_SIZE, qname)))
 	{
 		free(*r);
-		dns_log_msg(dns, LOG_ERR, "dns_read_reply - bad query");
+		dns_log_msg(dns, LOG_INFO, "dns_read_reply - bad query");
 		return DNS_STATUS_WRONG_QUESTION;
+	}
+
+	/* Timestamp the reply for latency measurement */
+	gettimeofday(&(q[i].reply_time), NULL);
+	if (whichreply != NULL) *whichreply = i;
+
+	return DNS_STATUS_OK;
+}
+
+static void
+_dns_append_question(dns_question_t *q, char **s, u_int16_t *l)
+{
+	u_int16_t len, *p;
+	char *x;
+
+	if (q == NULL) return;
+
+	len = *l + _dns_cname_length(q->name) + 2 + 4;
+	*s = realloc(*s, len);
+
+	_dns_insert_cname(q->name, (char *)*s + *l);
+	*l = len;
+
+	x = *s + (len - 4);
+
+	p = (u_int16_t *)x;
+	*p = htons(q->type);
+	x += 2;
+
+	p = (u_int16_t *)x;
+	*p = htons(q->class);
+
+}
+
+static void
+_dns_append_resource_record(dns_resource_record_t *r, char **s, u_int16_t *l)
+{
+	u_int16_t clen, len, *p, extra, rdlen;
+	u_int32_t *p2;
+	char *x;
+
+	if (r == NULL) return;
+
+	extra = 10;
+	switch (r->type)
+	{
+		case DNS_TYPE_A:
+			extra += 4;
+			break;
+		case DNS_TYPE_PTR:
+			extra += 2;
+			clen = _dns_cname_length(r->data.PTR->name);
+			extra += clen;
+			break;
+		default: break;
+	}
+
+	len = *l + _dns_cname_length(r->name) + 2 + extra;
+	*s = realloc(*s, len);
+
+	_dns_insert_cname(r->name, (char *)*s + *l);
+	*l = len;
+
+	x = *s + (len - extra);
+
+	p = (u_int16_t *)x;
+	*p = htons(r->type);
+	x += 2;
+
+	p = (u_int16_t *)x;
+	*p = htons(r->class);
+	x += 2;
+
+	p2 = (u_int32_t *)x;
+	*p2 = htonl(r->ttl);
+	x += 4;
+
+	switch (r->type)
+	{
+		case DNS_TYPE_A:
+			rdlen = 4;
+			p = (u_int16_t *)x;
+			*p = htons(rdlen);
+			x += 2;
+
+			p2 = (u_int32_t *)x;
+			*p2 = htons(r->data.A->addr.s_addr);
+			x += 4;
+			return;
+
+		case DNS_TYPE_PTR:
+			clen = _dns_cname_length(r->data.PTR->name) + 2;
+			p = (u_int16_t *)x;
+			*p = htons(clen);
+			x += 2;
+			_dns_insert_cname(r->data.PTR->name, x);
+			x += clen;
+			return;
+		
+		default: return;
+	}
+}
+
+char *
+dns_build_reply(dns_reply_t *dnsr, u_int16_t *rl)
+{
+	u_int16_t i, len;
+	dns_header_t *h;
+	char *s, *x;
+
+	if (dnsr == NULL) return NULL;
+
+	len = DNS_HEADER_SIZE;
+
+	s = malloc(len);
+	x = s + len;
+
+	memset(s, 0, len);
+	*rl = len;
+
+	h = (dns_header_t *)s;
+
+	h->xid = htons(dnsr->header->xid);
+	h->flags = htons(dnsr->header->flags);
+	h->qdcount = htons(dnsr->header->qdcount);
+	h->ancount = htons(dnsr->header->ancount);
+	h->nscount = htons(dnsr->header->nscount);
+	h->arcount = htons(dnsr->header->arcount);
+
+	for (i = 0; i < dnsr->header->qdcount; i++)
+	{
+		_dns_append_question(dnsr->question[i], &s, rl);
+	}
+
+	for (i = 0; i < dnsr->header->ancount; i++)
+	{
+		_dns_append_resource_record(dnsr->answer[i], &s, rl);
+	}
+
+	for (i = 0; i < dnsr->header->nscount; i++)
+	{
+		_dns_append_resource_record(dnsr->authority[i], &s, rl);
+	}
+
+	for (i = 0; i < dnsr->header->arcount; i++)
+	{
+		_dns_append_resource_record(dnsr->additional[i], &s, rl);
+	}
+
+	return s;
+}
+
+int32_t
+dns_read_query(dns_handle_t *dns, char **q, u_int16_t *qlen)
+{
+	ssize_t rsize;
+	u_int16_t len;
+	u_int32_t flen;
+	struct sockaddr_in from;
+	int status;
+
+	if (dns->protocol == IPPROTO_UDP)
+	{
+		*qlen = REPLY_BUF_SIZE;
+	}
+	else
+	{
+		/* TCP: first 4 bytes is the query length */
+		flen = sizeof(struct sockaddr_in);
+		rsize = recvfrom(dns->sock, &len, 2, 0, (struct sockaddr *)&from, &flen);
+		if (rsize <= 0)
+		{
+			dns_log_msg(dns, LOG_ERR, "dns_read_query - size receive failed");
+			return DNS_STATUS_RECEIVE_FAILED;
+		}
+
+		*qlen = ntohs(len);
+		status = setsockopt(dns->sock, SOL_SOCKET, SO_RCVLOWAT, qlen, 4);
+		if (status < 0) dns_log_msg(dns, LOG_ERR, "dns_read_query - setsockopt status %d errno=%d", status, errno);
+	}
+
+	*q = malloc(*qlen);
+	memset(*q, 0, *qlen);
+
+	flen = sizeof(struct sockaddr_in);
+
+	rsize = recvfrom(dns->sock, *q, *qlen, 0, (struct sockaddr *)&from, &flen);
+	if (rsize <= 0)
+	{
+		free(*q);
+		dns_log_msg(dns, LOG_ERR, "dns_read_query - receive failed");
+		return DNS_STATUS_RECEIVE_FAILED;
+	}
+
+	if ((dns->protocol == IPPROTO_TCP) && (*qlen != rsize))
+	{
+		free(*q);
+		dns_log_msg(dns, LOG_ERR, "dns_read_query - short reply %d %d\n", *qlen, rsize);
+		return DNS_STATUS_RECEIVE_FAILED;
 	}
 
 	return DNS_STATUS_OK;
 }
 
+/* Only used by zone transfer */
 int32_t
-dns_send_query(dns_handle_t *dns, u_int32_t which, char *qp, u_int16_t qplen)
+dns_send_query(dns_handle_t *dns, dns_query_data_t *q)
 {
 	ssize_t i;
 	int32_t status;
@@ -2122,17 +2434,18 @@ dns_send_query(dns_handle_t *dns, u_int32_t which, char *qp, u_int16_t qplen)
 	struct sockaddr *dst;
 
 	if (dns == NULL) return DNS_STATUS_BAD_HANDLE;
-	if (which >= dns->server_count)
+	if (q == NULL) return DNS_STATUS_MALFORMED_QUERY;
+
+	if (q->server_index >= dns->server_count)
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_send_query - invalid server selection");
+		dns_log_msg(dns, LOG_ERR, "dns_send_query - invalid server selection");
 		return DNS_STATUS_BAD_HANDLE;
 	}
 
 	slen = sizeof(struct sockaddr_in);
-	dst = (struct sockaddr *)&(dns->server[which]);
+	dst = (struct sockaddr *)&(dns->server[q->server_index]);
 
-	dns_select_server(dns, which);
+	dns_select_server(dns, q->server_index);
 
 	if (dns->sockstate == DNS_SOCK_TCP_UNCONNECTED)
 	{
@@ -2146,10 +2459,13 @@ dns_send_query(dns_handle_t *dns, u_int32_t which, char *qp, u_int16_t qplen)
 		dns->sockstate = DNS_SOCK_TCP_CONNECTED;
 	}
 
-	i = sendto(dns->sock, qp, qplen, 0, dst, slen);
+	/* Timestamp the query for latency measurement */
+	gettimeofday(&(q->send_time), NULL);
+
+	i = sendto(dns->sock, q->query_packet, q->query_length, 0, dst, slen);
 	if (i < 0)
 	{
-		dns_log_msg(dns, LOG_ERR, "dns_send_query - send failed");
+		dns_log_msg(dns, LOG_ERR, "dns_send_query - send failed (%s)", strerror(errno));
 		return DNS_STATUS_SEND_FAILED;
 	}
 
@@ -2157,7 +2473,7 @@ dns_send_query(dns_handle_t *dns, u_int32_t which, char *qp, u_int16_t qplen)
 }
 
 int32_t
-dns_zone_transfer_query(dns_handle_t *dns, u_int16_t class, u_int16_t *xid, u_int32_t *which)
+dns_zone_transfer_query(dns_handle_t *dns, u_int16_t class, dns_query_data_t *q)
 {
 	dns_question_t ztq;
 	int32_t i, j, status, *si, silen;
@@ -2170,12 +2486,15 @@ dns_zone_transfer_query(dns_handle_t *dns, u_int16_t class, u_int16_t *xid, u_in
 	ztq.class = class;
 	ztq.name = dns->domain;
 	
-	qp = dns_build_query_packet(dns, &ztq, &qlen, xid);
+	qp = dns_build_query_packet(dns, &ztq, &qlen, &(q->xid));
 	if (qp == NULL)
 	{
 		dns_log_msg(dns, LOG_ERR, "dns_zone_transfer_query - malformed query");
 		return DNS_STATUS_MALFORMED_QUERY;
 	}
+
+	q->query_packet = qp;
+	q->query_length = qlen;
 
 	silen = dns->server_count;
 	si = (u_int32_t *)malloc(silen * sizeof(u_int32_t));
@@ -2186,10 +2505,9 @@ dns_zone_transfer_query(dns_handle_t *dns, u_int16_t class, u_int16_t *xid, u_in
 
 	for (i = 0; i < silen; i++)
 	{
-		*which = si[i];
-		dns_select_server(dns, si[i]);
+		q->server_index = si[i];
 	
-		status = dns_send_query(dns, si[i], qp, qlen);
+		status = dns_send_query(dns, q);
 		if (status == DNS_STATUS_OK)
 		{
 			free(qp);
@@ -2211,16 +2529,17 @@ dns_zone_transfer(dns_handle_t *dns, u_int16_t class)
 {
 	char *rp;
 	u_int32_t status, which;
-	u_int16_t xid, rplen;
+	u_int16_t rplen;
 	int proto;
 	dns_reply_t *r;
 	dns_reply_list_t *rlist;
+	dns_query_data_t q;
 
 	if (dns == NULL) return NULL;
 
 	proto = dns->protocol;
 	dns_set_protocol(dns, IPPROTO_TCP);
-	status = dns_zone_transfer_query(dns, class, &xid, &which);
+	status = dns_zone_transfer_query(dns, class, &q);
 	if (status != DNS_STATUS_OK)
 	{
 		dns_log_msg(dns, LOG_ERR, "dns_zone_transfer - query failed");
@@ -2232,7 +2551,8 @@ dns_zone_transfer(dns_handle_t *dns, u_int16_t class)
 	rlist->count = 0;
 	rlist->reply = NULL;
 
-	status = dns_read_reply(dns, which, 0, NULL, &rp, &rplen);
+	status = dns_read_reply(dns, &q, 0, &which, NULL, &rp, &rplen);
+
 	while (status == DNS_STATUS_OK)
 	{
 		r = dns_parse_packet(rp);
@@ -2253,14 +2573,12 @@ dns_zone_transfer(dns_handle_t *dns, u_int16_t class)
 		rlist->reply[rlist->count] = r;
 		rlist->count++;
 
-		if ((rlist->count > 1) &&
-			(r->header->ancount > 0) &&
-			(r->answer[0]->type == DNS_TYPE_SOA))
+		if ((rlist->count > 1) && (r->header->ancount > 0) && (r->answer[0]->type == DNS_TYPE_SOA))
 		{
 			break;
 		}
 
-		status = dns_read_reply(dns, which, 0, NULL, &rp, &rplen);
+		status = dns_read_reply(dns, &q, 0, &which, NULL, &rp, &rplen);
 	}
 
 	dns_set_protocol(dns, proto);
@@ -2268,47 +2586,42 @@ dns_zone_transfer(dns_handle_t *dns, u_int16_t class)
 }
 
 static int32_t
-dns_send_query_server(dns_handle_t *dns, u_int32_t which,
-	u_int16_t qxid,
-	char *q, u_int16_t qlen,
-	char **r, u_int16_t *rlen)
+dns_send_query_server(dns_handle_t *dns, dns_query_data_t *q, u_int32_t qn, char **r, u_int16_t *rlen, struct timeval *tout)
 {
 	ssize_t i;
-	int32_t status, ss, dosend;
+	int32_t status, ss, which, whichreply;
 	u_int32_t slen;
 	struct sockaddr *dst;
+	struct sockaddr_in *sin;
+	in_addr_t dstaddr;
 	fd_set readfds;
-	int try, maxfd;
+	int maxfd;
 	char *qname;
+	struct timeval dt;
+	struct ifaddrs *ifa, *p;
 
 	if (dns == NULL) return DNS_STATUS_BAD_HANDLE;
-	if (which >= dns->server_count)
-	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_send_query_server - invalid server selection");
-		return DNS_STATUS_BAD_HANDLE;
-	}
-	
+
 	if (q == NULL)
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_send_query_server - malformed query");
+		dns_log_msg(dns, LOG_ERR, "dns_send_query_server - malformed query");
 		return DNS_STATUS_MALFORMED_QUERY;
 	}
 
-	if (qlen == 0)
+	if (q[qn].query_length == 0)
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_send_query_server - malformed query");
+		dns_log_msg(dns, LOG_ERR, "dns_send_query_server - malformed query");
 		return DNS_STATUS_MALFORMED_QUERY;
 	}
 
 	slen = sizeof(struct sockaddr_in);
 	maxfd = dns->sock + 1;
+	which = q[qn].server_index;
 	dst = (struct sockaddr *)&(dns->server[which]);
+	dstaddr = dns->server[which].sin_addr.s_addr;
 
 	dns_select_server(dns, which);
-	qname = q + DNS_HEADER_SIZE;
+	qname = q[qn].query_packet + DNS_HEADER_SIZE;
 	if (dns->protocol == IPPROTO_TCP) qname += 2;
 
 	if (dns->sockstate == DNS_SOCK_TCP_UNCONNECTED)
@@ -2317,8 +2630,7 @@ dns_send_query_server(dns_handle_t *dns, u_int32_t which,
 		status = connect(dns->sock, dst, sizeof(struct sockaddr_in));
 		if (status < 0)
 		{
-			dns_log_msg(dns, LOG_ERR,
-				"dns_send_query_server - TCP connect failed");
+			dns_log_msg(dns, LOG_ERR, "dns_send_query_server - TCP connect failed");
 			return DNS_STATUS_CONNECTION_FAILED;
 		}
 
@@ -2326,70 +2638,126 @@ dns_send_query_server(dns_handle_t *dns, u_int32_t which,
 	}
 
 	status = DNS_STATUS_TIMEOUT;
-	dosend = 1;
-	try = 0;
-	
-	while (try <= dns->server_retries)
-	{
-		if (dosend == 1)
-		{
-			try++;
-			i = -1;
+
 #ifdef DEBUG_QUERY
-			dns_log_msg(dns, LOG_DEBUG,
-				"dns_send_query_server - XID %hu server %s",
-				qxid, inet_ntoa(dns->server[which].sin_addr));
+	dns_log_msg(dns, LOG_DEBUG,
+		"dns_send_query_server - XID %hu server %s (latency %u timeout %u+%u)",
+		q[qn].xid, inet_ntoa(dns->server[which].sin_addr), dns->server_latency[which], 
+		tout->tv_sec, tout->tv_usec);
 #endif
-			i = sendto(dns->sock, q, qlen, 0, dst, slen);
+
+	gettimeofday(&(q[qn].send_time), NULL);
+
+	/* Send the query */
+	if (IN_MULTICAST(ntohl(dstaddr)))
+	{
+		/* XXX Could improve performance by cacheing the interfaces XXX */
+		if (getifaddrs(&ifa) < 0)
+		{
+				dns_log_msg(dns, LOG_ERR, "dns_send_query_server - getifaddrs failed (%s)", strerror(errno));
+				return DNS_STATUS_SEND_FAILED;
+		}
+
+		for (p = ifa; p != NULL; p = p->ifa_next)
+		{
+			if (p->ifa_addr == NULL) continue;
+			if ((p->ifa_flags & IFF_UP) == 0) continue;
+			if (p->ifa_addr->sa_family != AF_INET) continue;
+			if ((p->ifa_flags & IFF_MULTICAST) == 0) continue;
+			if ((p->ifa_flags & IFF_POINTOPOINT) != 0)
+			{
+				if (dstaddr <= htonl(INADDR_MAX_LOCAL_GROUP)) continue;
+			}
+
+			sin = (struct sockaddr_in *)p->ifa_addr;
+			i = setsockopt(dns->sock, IPPROTO_IP, IP_MULTICAST_IF, &sin->sin_addr, sizeof(sin->sin_addr));
 			if (i < 0)
 			{
-				dns_log_msg(dns, LOG_ERR,
-					"dns_send_query_server - send failed for %s",
-					inet_ntoa(dns->server[which].sin_addr));
+				dns_log_msg(dns, LOG_ERR, "dns_send_query - setsockopt failed for interface %s (%s)", p->ifa_name, strerror(errno));
+				return DNS_STATUS_SEND_FAILED;
+			}
+
+			i = sendto(dns->sock, q[qn].query_packet, q[qn].query_length, 0, dst, slen);
+			if (i < 0)
+			{
+				dns_log_msg(dns, LOG_ERR, "dns_send_query_server - multicast send failed on interface %s for %s", p->ifa_name, inet_ntoa(dns->server[which].sin_addr));
 				return DNS_STATUS_SEND_FAILED;
 			}
 		}
-		else dosend = 1;
 
-		FD_ZERO(&readfds);
-		FD_SET(dns->sock, &readfds);
+		freeifaddrs(ifa);   
+	}
+	else
+	{
+		i = sendto(dns->sock, q[qn].query_packet, q[qn].query_length, 0, dst, slen);
+		if (i < 0)
+		{
+			dns_log_msg(dns, LOG_ERR, "dns_send_query_server - send failed for %s", inet_ntoa(dns->server[which].sin_addr));
+			return DNS_STATUS_SEND_FAILED;
+		}
+	}	
 
-		ss = select(maxfd, &readfds, NULL, NULL, &(dns->server_timeout));
-		if (ss < 0)
-		{
-			dns_log_msg(dns, LOG_ERR,
-				"dns_send_query_server - select failed");
-			continue;
-		}
+	FD_ZERO(&readfds);
+	FD_SET(dns->sock, &readfds);
 
-		if (ss == 0)
-		{
-			dns_log_msg(dns, LOG_ERR,
-				"dns_send_query_server - timeout for %s",
-				inet_ntoa(dns->server[which].sin_addr));
-			continue;
-		}
-	
-		if (! FD_ISSET(dns->sock, &readfds))
-		{
-			dns_log_msg(dns, LOG_ERR,
-				"dns_send_query_server - bad reply for %s",
-				inet_ntoa(dns->server[which].sin_addr));
-			continue;
-		}
-	
-		status = dns_read_reply(dns, which, qxid, qname, r, rlen);
-
-		if ((status == DNS_STATUS_WRONG_SERVER) ||
-			(status == DNS_STATUS_WRONG_XID))
-		{
-			dosend = 0;
-			continue;
-		}
-		
-		return status;
+	ss = select(maxfd, &readfds, NULL, NULL, tout);
+	if (ss < 0)
+	{
+		dns_log_msg(dns, LOG_ERR, "dns_send_query_server - select failed");
+		return DNS_STATUS_SEND_FAILED;
 	}
 
+	if (ss == 0)
+	{
+		dns_log_msg(dns, LOG_INFO,
+			"dns_send_query_server - timeout for %s",
+			inet_ntoa(dns->server[which].sin_addr));
+		return DNS_STATUS_TIMEOUT;
+	}
+	
+	if (! FD_ISSET(dns->sock, &readfds))
+	{
+		dns_log_msg(dns, LOG_INFO,
+			"dns_send_query_server - bad reply for %s",
+			inet_ntoa(dns->server[which].sin_addr));
+		return DNS_STATUS_SEND_FAILED;
+	}
+	
+	status = dns_read_reply(dns, q, qn, &whichreply, qname, r, rlen);
+
+	/* If the reply wasn't what we were expecting, check for more replies */
+	while ((status == DNS_STATUS_WRONG_XID) || (status == DNS_STATUS_WRONG_QUESTION))
+	{
+		/* 1/4 second to check for more data */
+		dt.tv_sec = 0;
+		dt.tv_usec = 250000;
+
+		ss = select(maxfd, &readfds, NULL, NULL, &dt);
+		if (ss > 0) status = dns_read_reply(dns, q, qn, &whichreply, qname, r, rlen);
+ 		else status = DNS_STATUS_TIMEOUT;
+	}
+
+	if (status == DNS_STATUS_OK)
+	{
+		i = q[whichreply].server_index;
+
+		/* Latency for this reply */
+		_time_subtract(&(q[whichreply].reply_time), q[whichreply].send_time.tv_sec, q[whichreply].send_time.tv_usec);
+		*tout = q[whichreply].reply_time;
+
+		/* Update latency measure for this server */
+		q[whichreply].reply_time.tv_usec += (q[whichreply].reply_time.tv_sec * 1000000);
+		if (dns->server_latency[i] == 0) dns->server_latency[i] = q[whichreply].reply_time.tv_usec;
+		dns->server_latency[i] = ((dns->server_latency[i] / 100) * (100 - dns->latency_adjust)) + ((q[whichreply].reply_time.tv_usec / 100) * dns->latency_adjust);
+
+#ifdef DEBUG_QUERY
+		dns_log_msg(dns, LOG_DEBUG, "dns_send_query_server - reply time %u from %s", q[whichreply].reply_time.tv_usec, inet_ntoa(dns->server[i].sin_addr));
+#endif
+	}
+
+#ifdef DEBUG_QUERY
+	dns_log_msg(dns, LOG_DEBUG, "dns_send_query_server - reply status %u", status);
+#endif
 	return status;
 }
 
@@ -2398,53 +2766,130 @@ dns_fqdn_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 {
 	dns_reply_t *r;
 	char *qp, *rp;
-	int32_t i, j, status, *si, silen;
-	u_int16_t rplen, qplen, xid;
+	int32_t i, j, status, nqueries, tr, ts, tl, rcode;
+	u_int16_t rplen, qplen;
+	struct timeval time_remaining, dt;
+	dns_query_data_t *q;
 
 	if (dns == NULL) return NULL;
 	if (dnsq == NULL) return NULL;
 
 	if ((which != (u_int32_t)-1) && (which >= dns->server_count))
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_fqdn_query_server - invalid server selection");
+		dns_log_msg(dns, LOG_ERR, "dns_fqdn_query_server - invalid server selection");
 		return NULL;
+	}
+
+	/* .LOCAL USED HERE */
+
+	/*
+	 * Exclude local multicast queries
+	 * if this is not a local multicast client
+	 */
+	if (strcasecmp(dns->domain, LOCAL_DOMAIN_STRING))
+	{
+		if (dns_domain_match(dnsq->name, LOCAL_DOMAIN_STRING)) return NULL;
 	}
 
 	status = DNS_STATUS_SEND_FAILED;
 
-	qp = dns_build_query_packet(dns, dnsq, &qplen, &xid);
+	nqueries = dns->server_retries;
+	if (which == (u_int32_t)-1) nqueries = dns->server_count * dns->server_retries;
+
+#ifdef DEBUG_QUERY
+	dns_log_msg(dns, LOG_DEBUG, "dns_fqdn_query_server name:%s type:%hu class:%hu", dnsq->name, dnsq->type, dnsq->class);
+#endif
+
+	q = (dns_query_data_t *)malloc(nqueries * sizeof(dns_query_data_t));
+
+	qp = dns_build_query_packet(dns, dnsq, &qplen, &(q[0].xid));
 	if (qp == NULL)
 	{
-		dns_log_msg(dns, LOG_ERR,
-			"dns_fqdn_query_server - malformed query");
+		dns_log_msg(dns, LOG_ERR, "dns_fqdn_query_server - malformed query");
+		free(q);
 		return NULL;
 	}
 
-	silen = 0;
-	
 	if (which == (u_int32_t)-1)
 	{
-		silen = dns->server_count;
-		si = (u_int32_t *)malloc(silen * sizeof(u_int32_t));
-		for (j = 0, i = dns->selected_server; i < dns->server_count; i++, j++)
-			si[j] = i;
-		for (i = 0; i < dns->selected_server; i++, j++)
-			si[j] = i;
+		j = dns->selected_server;
+		for (i = 0; i < nqueries; i++)
+		{
+			q[i].server_index = j;
+			j++;
+			if (j >= dns->server_count) j = 0;
+			q[i].query_packet = qp;
+			q[i].query_length = qplen;
+		}
 	}
 	else
 	{
-		silen = 1;
-		si = (u_int32_t *)malloc(sizeof(u_int32_t));
-		si[0] = which;
+		j = dns->selected_server;
+		for (i = 0; i < nqueries; i++)
+		{
+			q[i].server_index = j;
+			q[i].query_packet = qp;
+			q[i].query_length = qplen;
+		}
 	}
 
-	for (i = 0; i < silen; i++)
+	status = DNS_STATUS_TIMEOUT;
+
+	ts = (dns->server_timeout.tv_sec * 1000000) + dns->server_timeout.tv_usec;
+	time_remaining = dns->timeout;
+
+	if ((ts == 0) && (dns->timeout.tv_sec == 0) && (dns->timeout.tv_usec == 0))
 	{
-		dns_select_server(dns, si[i]);
-	
+		time_remaining.tv_sec = DNS_SERVER_TIMEOUT * (DNS_SERVER_RETRIES + 1);
+	}
+
+	for (i = 0; (i < nqueries) && (status != DNS_STATUS_OK); i++)
+	{
+		q[i].xid = dns_random_xid(dns, qp);
+
 		rplen = REPLY_BUF_SIZE;
-		status = dns_send_query_server(dns, si[i], xid, qp, qplen, &rp, &rplen);
+
+		/* Timeout (seconds) is 2 * expected latency for this server */
+		dt.tv_sec = dns->server_latency[q[i].server_index] / 500000;
+		dt.tv_usec = 0;
+
+		/* If we haven't determined a latency yet, use default server timeout */
+		if ((dt.tv_sec == 0) && (dt.tv_usec == 0)) dt.tv_sec = DNS_SERVER_TIMEOUT;
+
+		tl = (dt.tv_sec * 1000000) + dt.tv_usec;
+
+		tr = (time_remaining.tv_sec * 1000000) + time_remaining.tv_usec;
+
+		/*
+		 * If per-server timeout is set (non-zero)
+		 * and is less than latency, use per-server timeout
+		 */
+		if ((ts > 0) && (ts < tl))
+		{
+			dt.tv_sec = dns->server_timeout.tv_sec;
+			dt.tv_usec = dns->server_timeout.tv_usec;
+			tl = (dt.tv_sec * 1000000) + dt.tv_usec;
+		}
+
+		/*
+		 * If time remaining for this query is less than timeout
+		 * use time_remaining as timeout.
+		 */
+		if ((tr > 0) && (tr < tl))
+		{
+			dt.tv_sec = time_remaining.tv_sec;
+			dt.tv_usec = time_remaining.tv_usec;
+			tl = (dt.tv_sec * 1000000) + dt.tv_usec;
+		}
+	
+		if (tl == 0)
+		{
+			/* No time left */
+			status = DNS_STATUS_TIMEOUT;
+			break;
+		}
+
+		status = dns_send_query_server(dns, q, i, &rp, &rplen, &dt);
 
 		if (status == DNS_STATUS_OK)
 		{
@@ -2453,50 +2898,75 @@ dns_fqdn_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 			{
 				/* Switch to TCP and try again */
 				free(rp);
-				free(qp);
 				dns_free_reply(r);
-
+				
 				dns_set_protocol(dns, IPPROTO_TCP);
-				qp = dns_build_query_packet(dns, dnsq, &qplen, &xid);
-				if (qp == NULL) return NULL;
+				free(qp);
+				qp = dns_build_query_packet(dns, dnsq, &qplen, &(q[i].xid));
+				if (qp == NULL)
+				{
+					free(q);
+					return NULL;
+				}
 				rplen = REPLY_BUF_SIZE;
-				status = dns_send_query_server(dns, si[i], xid, qp, qplen, &rp, &rplen);
+				status = dns_send_query_server(dns, q, i, &rp, &rplen, &dt);
 
 				/* Switch back to UDP */
 				dns_set_protocol(dns, IPPROTO_UDP);
-
 				/* If the query failed, return to the loop to try again. */
-				if (status != DNS_STATUS_OK) continue;
+				if (status != DNS_STATUS_OK)
+				{
+					dns_log_msg(dns, LOG_INFO, "dns_fqdn_query_server - TCP query failed, retrying.");
+					_time_subtract(&time_remaining, dt.tv_sec, dt.tv_usec);
+					continue;
+				}
 				r = dns_parse_packet(rp);
 			}
 
+			/*
+			 * Check for "recoverable" rcode errors
+			 *
+			 * We retry (skipping to the next server) for Server Failure,
+			 * Not Implemented, and Refused rcode conditions.
+			 * Name Error and Format Error are passed back to the caller
+			 * - i.e. these are not "recoverable" conditions.
+			 */
+			rcode = r->header->flags & DNS_FLAGS_RCODE_MASK;
+			if ((rcode == DNS_FLAGS_RCODE_SERVER_FAILURE) ||
+				(rcode == DNS_FLAGS_RCODE_NOT_IMPLEMENTED) ||
+				(rcode == DNS_FLAGS_RCODE_REFUSED))
+			{
+				status = DNS_STATUS_RECEIVE_FAILED;
+				dns_log_msg(dns, LOG_INFO, "dns_fqdn_query_server - rcode %u, retrying.", rcode);
+				_time_subtract(&time_remaining, dt.tv_sec, dt.tv_usec);
+				continue;
+			}
+		
 			dns_apply_sortlist(dns, r);
-			free(qp);
 			free(rp);
 			r->status = status;
-			r->server.s_addr = dns->server[si[i]].sin_addr.s_addr;
-			free(si);
+			r->server.s_addr = dns->server[q[i].server_index].sin_addr.s_addr;
+			free(q);
+			free(qp);
+#ifdef DEBUG_QUERY
+			dns_log_msg(dns, LOG_DEBUG, "dns_fqdn_query_server - reply status %u", status);
+#endif
 			return r;
 		}
-		else if (status == DNS_STATUS_WRONG_QUESTION)
-		{
-			break;
-		}
-		else
-		{
-			dns_log_msg(dns, LOG_ERR,
-				"dns_fqdn_query_server - query failed for %s",
-				inet_ntoa(dns->server[si[i]].sin_addr));
-		}
+
+		/* Update time remaining for this query */
+		_time_subtract(&time_remaining, dt.tv_sec, dt.tv_usec);
 	}
 
-	dns_select_server(dns, si[0]);
-
+	free(q);
 	free(qp);
-	free(si);
+
 	r = (dns_reply_t *)malloc(sizeof(dns_reply_t));
 	memset(r, 0, sizeof(dns_reply_t));
 	r->status = status;
+#ifdef DEBUG_QUERY
+	dns_log_msg(dns, LOG_DEBUG, "dns_fqdn_query_server - reply status %u", status);
+#endif
 	return r;
 }
 
@@ -2511,15 +2981,55 @@ dns_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 {
 	dns_reply_t *r;
 	dns_question_t fqdnq;
+#ifdef DNS_EXCLUSION
+	u_int32_t ex;
+#endif
 	u_int32_t i, ndots, len;
 	char *p, *name;
+
+#ifdef DNS_EXCLUSION
+	/* Check for a qualified name that is specifically excluded */
+	for (i = 0; i < dns->exclude_count; i++)
+	{
+		if (dns_domain_match(dnsq->name, dns->exclude[i])) return NULL;
+	}
+#endif
+
+	ndots = 0;
+	for (p = dnsq->name; *p != '\0'; p++) if (*p == '.') ndots++;
+
+#ifdef DNS_EXCLUSION
+	/*
+	 * If the "exclusive" option was specified, reject qualified names
+	 * that are not in our domain name list
+	 */
+	if ((ndots != 0) && (dns->exclusive))
+	{
+		ex = 1;
+
+		if (dns_domain_match(dnsq->name, dns->domain) == 1) ex = 0;
+		for (i = 0; (i < dns->search_count) && (ex == 1); i++)
+		{
+			if (dns_domain_match(dnsq->name, dns->search[i]) == 1) ex = 0;
+		}
+
+		if (ex == 1) return NULL;
+	}
+#endif
+
+	/* .LOCAL USED HERE */
+	/*
+	 * Reject qualified names other than local multicast domain
+	 * if this is a local multicast client
+	 */
+	if ((ndots != 0) && (!strcasecmp(dns->domain, LOCAL_DOMAIN_STRING)))
+	{
+		if ((dns_domain_match(dnsq->name, IN_ADDR_DOMAIN_STRING) == 0) && (dns_domain_match(dnsq->name, LOCAL_DOMAIN_STRING) == 0)) return NULL;
+	}
 
 	len = strlen(dnsq->name);
 	if (dnsq->name[len - 1] == '.')
 		return dns_fqdn_query_server(dns, which, dnsq);
-
-	ndots = 0;
-	for (p = dnsq->name; *p != '\0'; p++) if (*p == '.') ndots++;
 
 	if (ndots >= dns->ias_dots) 
 	{
@@ -2535,8 +3045,10 @@ dns_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 	fqdnq.class = dnsq->class;
 	name = strdup(dnsq->name);
 	while (name[strlen(name) - 1] == '.')
+	{
 		name[strlen(name) - 1] = '\0';
-		
+	}
+
 	if (dns->search_count == 0)
 	{
 		fqdnq.name = malloc(strlen(name) + strlen(dns->domain) + 2);
@@ -2544,8 +3056,15 @@ dns_query_server(dns_handle_t *dns, u_int32_t which, dns_question_t *dnsq)
 	
 		r = dns_fqdn_query_server(dns, which, &fqdnq);
 		free(fqdnq.name);
-		free(name);
-		return r;
+		if (r != NULL)
+		{
+			if ((r->status == DNS_STATUS_OK) && (r->header->ancount != 0))
+			{
+				free(name);
+				return r;
+			}
+			dns_free_reply(r);
+		}
 	}
 
 	for (i = 0; i < dns->search_count; i++)

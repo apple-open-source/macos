@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 static void usage ();
 
@@ -211,14 +212,17 @@ cleanup ()
     unlink (node->name);
 }
 
+void error (int n, int e, char *s, ...) __attribute__((format (printf, 3, 4)));
+
 void
-error (n, e, s, s1)
-     int n, e;
-     char *s, *s1;
+error (int n, int e, char *s, ...)
 {
+  va_list s1;
+  va_start(s1,s);
   if (e)
     fprintf(stderr,"error %d:", e);
-  fprintf(stderr, s, s1);
+  vfprintf(stderr, s, s1);
+  va_end(s1);
   if (n)
     exit(n);
 }
@@ -1804,7 +1808,7 @@ main (argc, argv)
      Solaris, Ultrix, and Irix.  This premature fflush makes the output
      reappear. --karl@cs.umb.edu  */
   if (fflush (ofp) < 0)
-    error (1, errno, "fflush", outfile);
+    error (1, errno, "fflush");
 
   if (have_read_stdin && fclose (stdin) == EOF)
     error (1, errno, "-");

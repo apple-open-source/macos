@@ -1,5 +1,6 @@
 /* objdump.c -- dump information about an object file.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 98, 99, 2000
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001
    Free Software Foundation, Inc.
 
 This file is part of GNU Binutils.
@@ -19,21 +20,15 @@ along with this program; if not, write to the Free Software
 Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
-#include "getopt.h"
 #include "progress.h"
 #include "bucomm.h"
-#include <ctype.h>
+#include "getopt.h"
+#include "safe-ctype.h"
 #include "dis-asm.h"
 #include "libiberty.h"
 #include "demangle.h"
 #include "debug.h"
 #include "budbg.h"
-
-#ifdef ANSI_PROTOTYPES
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #define true 1
 #define false 0
@@ -116,122 +111,63 @@ static long dynsymcount = 0;
 
 /* Static declarations.  */
 
-static void
-usage PARAMS ((FILE *, int));
+static void usage PARAMS ((FILE *, int));
+static void nonfatal PARAMS ((const char *));
+static void display_file PARAMS ((char *filename, char *target));
+static void dump_section_header PARAMS ((bfd *, asection *, PTR));
+static void dump_headers PARAMS ((bfd *));
+static void dump_data PARAMS ((bfd *abfd));
+static void dump_relocs PARAMS ((bfd *abfd));
+static void dump_dynamic_relocs PARAMS ((bfd * abfd));
+static void dump_reloc_set PARAMS ((bfd *, asection *, arelent **, long));
+static void dump_symbols PARAMS ((bfd *abfd, boolean dynamic));
+static void dump_bfd_header PARAMS ((bfd *));
+static void dump_bfd_private_header PARAMS ((bfd *));
+static void dump_bfd PARAMS ((bfd *));
+static void display_bfd PARAMS ((bfd *abfd));
+static void display_target_list PARAMS ((void));
+static void display_info_table PARAMS ((int, int));
+static void display_target_tables PARAMS ((void));
+static void display_info PARAMS ((void));
+static void objdump_print_value
+  PARAMS ((bfd_vma, struct disassemble_info *, boolean));
+static void objdump_print_symname
+  PARAMS ((bfd *, struct disassemble_info *, asymbol *));
+static asymbol *find_symbol_for_address
+  PARAMS ((bfd *, asection *, bfd_vma, boolean, long *));
+static void objdump_print_addr_with_sym
+  PARAMS ((bfd *, asection *, asymbol *, bfd_vma,
+	   struct disassemble_info *, boolean));
+static void objdump_print_addr
+  PARAMS ((bfd_vma, struct disassemble_info *, boolean));
+static void objdump_print_address
+  PARAMS ((bfd_vma, struct disassemble_info *));
+static int objdump_symbol_at_address
+  PARAMS ((bfd_vma, struct disassemble_info *));
+static void show_line PARAMS ((bfd *, asection *, bfd_vma));
+static void disassemble_bytes
+  PARAMS ((struct disassemble_info *, disassembler_ftype, boolean,
+	   bfd_byte *, bfd_vma, bfd_vma, arelent ***, arelent **));
+static void disassemble_data PARAMS ((bfd *));
+static const char *endian_string PARAMS ((enum bfd_endian));
+static asymbol ** slurp_symtab PARAMS ((bfd *));
+static asymbol ** slurp_dynamic_symtab PARAMS ((bfd *));
+static long remove_useless_symbols PARAMS ((asymbol **, long));
+static int compare_symbols PARAMS ((const PTR, const PTR));
+static int compare_relocs PARAMS ((const PTR, const PTR));
+static void dump_stabs PARAMS ((bfd *));
+static boolean read_section_stabs PARAMS ((bfd *, const char *, const char *));
+static void print_section_stabs PARAMS ((bfd *, const char *, const char *));
 
-static void
-nonfatal PARAMS ((const char *));
-
-static void
-display_file PARAMS ((char *filename, char *target));
-
-static void
-dump_section_header PARAMS ((bfd *, asection *, PTR));
-
-static void
-dump_headers PARAMS ((bfd *));
-
-static void
-dump_data PARAMS ((bfd *abfd));
-
-static void
-dump_relocs PARAMS ((bfd *abfd));
-
-static void
-dump_dynamic_relocs PARAMS ((bfd * abfd));
-
-static void
-dump_reloc_set PARAMS ((bfd *, asection *, arelent **, long));
-
-static void
-dump_symbols PARAMS ((bfd *abfd, boolean dynamic));
-
-static void
-dump_bfd_header PARAMS ((bfd *));
-
-static void
-dump_bfd_private_header PARAMS ((bfd *));
-
-static void
-display_bfd PARAMS ((bfd *abfd));
-
-static void
-display_target_list PARAMS ((void));
-
-static void
-display_info_table PARAMS ((int, int));
-
-static void
-display_target_tables PARAMS ((void));
-
-static void
-display_info PARAMS ((void));
-
-static void
-objdump_print_value PARAMS ((bfd_vma, struct disassemble_info *, boolean));
-
-static void
-objdump_print_symname PARAMS ((bfd *, struct disassemble_info *, asymbol *));
-
-static asymbol *
-find_symbol_for_address PARAMS ((bfd *, asection *, bfd_vma, boolean, long *));
-
-static void
-objdump_print_addr_with_sym PARAMS ((bfd *, asection *, asymbol *, bfd_vma,
-				     struct disassemble_info *, boolean));
-
-static void
-objdump_print_addr PARAMS ((bfd_vma, struct disassemble_info *, boolean));
-
-static void
-objdump_print_address PARAMS ((bfd_vma, struct disassemble_info *));
-
-static void
-show_line PARAMS ((bfd *, asection *, bfd_vma));
-
-static void
-disassemble_bytes PARAMS ((struct disassemble_info *, disassembler_ftype,
-			   boolean, bfd_byte *, bfd_vma, bfd_vma,
-			   arelent ***, arelent **));
-
-static void
-disassemble_data PARAMS ((bfd *));
-
-static const char *
-endian_string PARAMS ((enum bfd_endian));
-
-static asymbol **
-slurp_symtab PARAMS ((bfd *));
-
-static asymbol **
-slurp_dynamic_symtab PARAMS ((bfd *));
-
-static long
-remove_useless_symbols PARAMS ((asymbol **, long));
-
-static int
-compare_symbols PARAMS ((const PTR, const PTR));
-
-static int
-compare_relocs PARAMS ((const PTR, const PTR));
-
-static void
-dump_stabs PARAMS ((bfd *));
-
-static boolean
-read_section_stabs PARAMS ((bfd *, const char *, const char *));
-
-static void
-print_section_stabs PARAMS ((bfd *, const char *, const char *));
 
 static void
 usage (stream, status)
      FILE *stream;
      int status;
 {
-  fprintf (stream, _("Usage: %s OPTION... FILE...\n"), program_name);
-  fprintf (stream, _("Display information from object FILE.\n"));
-  fprintf (stream, _("\n At least one of the following switches must be given:\n"));
+  fprintf (stream, _("Usage: %s <option(s)> <file(s)>\n"), program_name);
+  fprintf (stream, _(" Display information from object <file(s)>.\n"));
+  fprintf (stream, _(" At least one of the following switches must be given:\n"));
   fprintf (stream, _("\
   -a, --archive-headers    Display archive header information\n\
   -f, --file-headers       Display the contents of the overall file header\n\
@@ -248,7 +184,7 @@ usage (stream, status)
   -T, --dynamic-syms       Display the contents of the dynamic symbol table\n\
   -r, --reloc              Display the relocation entries in the file\n\
   -R, --dynamic-reloc      Display the dynamic relocation entries in the file\n\
-  -V, --version            Display this program's version number\n\
+  -v, --version            Display this program's version number\n\
   -i, --info               List object formats and architectures supported\n\
   -H, --help               Display this information\n\
 "));
@@ -276,6 +212,7 @@ usage (stream, status)
       --adjust-vma=OFFSET        Add OFFSET to all displayed section addresses\n\
 \n"));
       list_supported_targets (program_name, stream);
+      list_supported_architectures (program_name, stream);
 
       disassembler_usage (stream);
     }
@@ -351,10 +288,10 @@ dump_section_header (abfd, section, ignored)
   printf ("%3d %-13s %08lx  ", section->index,
 	  bfd_get_section_name (abfd, section),
 	  (unsigned long) bfd_section_size (abfd, section) / opb);
-  printf_vma (bfd_get_section_vma (abfd, section));
+  bfd_printf_vma (abfd, bfd_get_section_vma (abfd, section));
   printf ("  ");
-  printf_vma (section->lma);
-  printf ("  %08lx  2**%u", section->filepos,
+  bfd_printf_vma (abfd, section->lma);
+  printf ("  %08lx  2**%u", (unsigned long) section->filepos,
 	  bfd_get_section_alignment (abfd, section));
   if (! wide_output)
     printf ("\n                ");
@@ -371,9 +308,6 @@ dump_section_header (abfd, section, ignored)
   PF (SEC_CONSTRUCTOR_BSS, "CONSTRUCTOR BSS");
   PF (SEC_LOAD, "LOAD");
   PF (SEC_RELOC, "RELOC");
-#ifdef SEC_BALIGN
-  PF (SEC_BALIGN, "BALIGN");
-#endif
   PF (SEC_READONLY, "READONLY");
   PF (SEC_CODE, "CODE");
   PF (SEC_DATA, "DATA");
@@ -386,6 +320,7 @@ dump_section_header (abfd, section, ignored)
   PF (SEC_CLINK, "CLINK");
   PF (SEC_SMALL_DATA, "SMALL_DATA");
   PF (SEC_SHARED, "SHARED");
+  PF (SEC_ARCH_BIT_0, "ARCH_BIT_0");
 
   if ((section->flags & SEC_LINK_ONCE) != 0)
     {
@@ -675,8 +610,10 @@ objdump_print_value (vma, info, skip_zeroes)
 {
   char buf[30];
   char *p;
+  struct objdump_disasm_info *aux
+    = (struct objdump_disasm_info *) info->application_data;
 
-  sprintf_vma (buf, vma);
+  bfd_sprintf_vma (aux->abfd, buf, vma);
   if (! skip_zeroes)
     p = buf;
   else
@@ -1174,35 +1111,20 @@ typedef struct
 /* sprintf to a "stream" */
 
 static int
-#ifdef ANSI_PROTOTYPES
-objdump_sprintf (SFILE *f, const char *format, ...)
-#else
-objdump_sprintf (va_alist)
-     va_dcl
-#endif
+objdump_sprintf VPARAMS ((SFILE *f, const char *format, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  SFILE *f;
-  const char *format;
-#endif
   char *buf;
-  va_list args;
   size_t n;
 
-#ifdef ANSI_PROTOTYPES
-  va_start (args, format);
-#else
-  va_start (args);
-  f = va_arg (args, SFILE *);
-  format = va_arg (args, const char *);
-#endif
+  VA_OPEN (args, format);
+  VA_FIXEDARG (args, SFILE *, f);
+  VA_FIXEDARG (args, const char *, format);
 
   vasprintf (&buf, format, args);
 
-  va_end (args);
-
   if (buf == NULL)
     {
+      va_end (args);
       fatal (_("Out of virtual memory"));
     }
 
@@ -1224,13 +1146,16 @@ objdump_sprintf (va_alist)
 
   free (buf);
 
+  VA_CLOSE (args);
   return n;
 }
 
 /* The number of zeroes we want to see before we start skipping them.
    The number is arbitrarily chosen.  */
 
+#ifndef SKIP_ZEROES
 #define SKIP_ZEROES (8)
+#endif
 
 /* The number of zeroes to skip at the end of a section.  If the
    number of zeroes at the end is between SKIP_ZEROES_AT_END and
@@ -1239,7 +1164,9 @@ objdump_sprintf (va_alist)
    attempt to avoid disassembling zeroes inserted by section
    alignment.  */
 
+#ifndef SKIP_ZEROES_AT_END
 #define SKIP_ZEROES_AT_END (3)
+#endif
 
 /* Disassemble some data in memory between given values.  */
 
@@ -1282,8 +1209,10 @@ disassemble_bytes (info, disassemble_fn, insns, data,
       char buf[30];
       char *s;
 
-      sprintf_vma (buf, section->vma + 
-                   bfd_section_size (section->owner, section) / opb);
+      bfd_sprintf_vma
+	(aux->abfd, buf,
+	 (section->vma
+	  + bfd_section_size (section->owner, section) / opb));
       s = buf;
       while (s[0] == '0' && s[1] == '0' && s[2] == '0' && s[3] == '0'
 	     && s[4] == '0')
@@ -1336,13 +1265,16 @@ disassemble_bytes (info, disassemble_fn, insns, data,
 	  done_dot = false;
 
 	  if (with_line_numbers || with_source_code)
-	    show_line (aux->abfd, section, addr_offset);
+	    /* The line number tables will refer to unadjusted
+	       section VMAs, so we must undo any VMA modifications
+	       when calling show_line.  */
+	    show_line (aux->abfd, section, addr_offset - adjust_section_vma);
 
 	  if (! prefix_addresses)
 	    {
 	      char *s;
 
-	      sprintf_vma (buf, section->vma + addr_offset);
+	      bfd_sprintf_vma (aux->abfd, buf, section->vma + addr_offset);
 	      for (s = buf + skip_addr_chars; *s == '0'; s++)
 		*s = ' ';
 	      if (*s == '\0')
@@ -1367,13 +1299,15 @@ disassemble_bytes (info, disassemble_fn, insns, data,
 	      info->bytes_per_line = 0;
 	      info->bytes_per_chunk = 0;
 
+#ifdef DISASSEMBLER_NEEDS_RELOCS
 	      /* FIXME: This is wrong.  It tests the number of octets
                  in the last instruction, not the current one.  */
 	      if (*relppp < relppend
 		  && (**relppp)->address >= addr_offset
-		  && (**relppp)->address < addr_offset + octets / opb)
+		  && (**relppp)->address <= addr_offset + octets / opb)
 		info->flags = INSN_HAS_RELOC;
 	      else
+#endif
 		info->flags = 0;
 
 	      octets = (*disassemble_fn) (section->vma + addr_offset, info);
@@ -1399,7 +1333,7 @@ disassemble_bytes (info, disassemble_fn, insns, data,
 
 	      for (j = addr_offset * opb; j < addr_offset * opb + octets; ++j)
 		{
-		  if (isprint (data[j]))
+		  if (ISPRINT (data[j]))
 		    buf[j - addr_offset * opb] = data[j];
 		  else
 		    buf[j - addr_offset * opb] = '.';
@@ -1477,7 +1411,7 @@ disassemble_bytes (info, disassemble_fn, insns, data,
 		  putchar ('\n');
 		  j = addr_offset * opb + pb;
 
-		  sprintf_vma (buf, section->vma + j / opb);
+		  bfd_sprintf_vma (aux->abfd, buf, section->vma + j / opb);
 		  for (s = buf + skip_addr_chars; *s == '0'; s++)
 		    *s = ' ';
 		  if (*s == '\0')
@@ -1513,12 +1447,20 @@ disassemble_bytes (info, disassemble_fn, insns, data,
 	    need_nl = true;
 	}
 
-      if (dump_reloc_info
-	  && (section->flags & SEC_RELOC) != 0)
+      if ((section->flags & SEC_RELOC) != 0
+#ifndef DISASSEMBLER_NEEDS_RELOCS	  
+  	  && dump_reloc_info
+#endif
+	  )
 	{
 	  while ((*relppp) < relppend
 		 && ((**relppp)->address >= (bfd_vma) addr_offset
 		     && (**relppp)->address < (bfd_vma) addr_offset + octets / opb))
+#ifdef DISASSEMBLER_NEEDS_RELOCS
+	    if (! dump_reloc_info)
+	      ++(*relppp);
+	    else
+#endif
 	    {
 	      arelent *q;
 
@@ -1674,8 +1616,11 @@ disassemble_data (abfd)
       if (only != (char *) NULL && strcmp (only, section->name) != 0)
 	continue;
 
-      if (dump_reloc_info
-	  && (section->flags & SEC_RELOC) != 0)
+      if ((section->flags & SEC_RELOC) != 0
+#ifndef DISASSEMBLER_NEEDS_RELOCS	  
+	  && dump_reloc_info
+#endif
+	  ) 
 	{
 	  long relsize;
 
@@ -1723,6 +1668,7 @@ disassemble_data (abfd)
       disasm_info.buffer = data;
       disasm_info.buffer_vma = section->vma;
       disasm_info.buffer_length = datasize;
+      disasm_info.section = section;
       if (start_address == (bfd_vma) -1
 	  || start_address < disasm_info.buffer_vma)
 	addr_offset = 0;
@@ -1992,7 +1938,7 @@ print_section_stabs (abfd, stabsect_name, strsect_name)
       else
 	printf ("%-6d", type);
       printf (" %-6d %-6d ", other, desc);
-      printf_vma (value);
+      bfd_printf_vma (abfd, value);
       printf (" %-6lu", strx);
 
       /* Symbols with type == 0 (N_UNDF) specify the length of the
@@ -2041,7 +1987,7 @@ dump_section_stabs (abfd, stabsect_name, strsect_name)
 	 match or a section followed by a number.  */
       if (strncmp (stabsect_name, s->name, len) == 0
 	  && (s->name[len] == '\000'
-	      || isdigit ((unsigned char) s->name[len])))
+	      || ISDIGIT (s->name[len])))
 	{
 	  if (read_section_stabs (abfd, s->name, strsect_name))
 	    {
@@ -2076,7 +2022,7 @@ dump_bfd_header (abfd)
   PF (D_PAGED, "D_PAGED");
   PF (BFD_IS_RELAXABLE, "BFD_IS_RELAXABLE");
   printf (_("\nstart address 0x"));
-  printf_vma (abfd->start_address);
+  bfd_printf_vma (abfd, abfd->start_address);
   printf ("\n");
 }
 
@@ -2328,7 +2274,7 @@ dump_data (abfd)
 		      if (j >= stop_offset * opb)
 			printf (" ");
 		      else
-			printf ("%c", isprint (data[j]) ? data[j] : '.');
+			printf ("%c", ISPRINT (data[j]) ? data[j] : '.');
 		    }
 		  putchar ('\n');
 		}
@@ -2525,7 +2471,7 @@ dump_reloc_set (abfd, sec, relpp, relcount)
     if (width == 0)
       {
 	char buf[30];
-	sprintf_vma (buf, (bfd_vma) -1);
+	bfd_sprintf_vma (abfd, buf, (bfd_vma) -1);
 	width = strlen (buf) - 7;
       }
     printf ("OFFSET %*s TYPE %*s VALUE \n", width, "", 12, "");
@@ -2593,7 +2539,7 @@ dump_reloc_set (abfd, sec, relpp, relcount)
 	}
       if (sym_name)
 	{
-	  printf_vma (q->address);
+	  bfd_printf_vma (abfd, q->address);
 	  if (q->howto->name)
 	    printf (" %-16s  ", q->howto->name);
 	  else
@@ -2605,7 +2551,7 @@ dump_reloc_set (abfd, sec, relpp, relcount)
 	{
 	  if (section_name == (CONST char *) NULL)
 	    section_name = "*unknown*";
-	  printf_vma (q->address);
+	  bfd_printf_vma (abfd, q->address);
 	  printf (" %-16s  [%s]",
 		  q->howto->name,
 		  section_name);
@@ -2613,7 +2559,7 @@ dump_reloc_set (abfd, sec, relpp, relcount)
       if (q->addend)
 	{
 	  printf ("+0x");
-	  printf_vma (q->addend);
+	  bfd_printf_vma (abfd, q->addend);
 	}
       printf ("\n");
     }
@@ -2640,14 +2586,14 @@ endian_string (endian)
 static void
 display_target_list ()
 {
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target *const *bfd_target_vector;
   char *dummy_name;
   int t;
 
   dummy_name = make_temp_file (NULL);
   for (t = 0; bfd_target_vector[t]; t++)
     {
-      bfd_target *p = bfd_target_vector[t];
+      const bfd_target *p = bfd_target_vector[t];
       bfd *abfd = bfd_openw (dummy_name, p->name);
       int a;
 
@@ -2688,7 +2634,7 @@ display_info_table (first, last)
      int first;
      int last;
 {
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target *const *bfd_target_vector;
   int t, a;
   char *dummy_name;
 
@@ -2706,7 +2652,7 @@ display_info_table (first, last)
 		bfd_printable_arch_mach (a, 0));
 	for (t = first; t < last && bfd_target_vector[t]; t++)
 	  {
-	    bfd_target *p = bfd_target_vector[t];
+	    const bfd_target *p = bfd_target_vector[t];
 	    boolean ok = true;
 	    bfd *abfd = bfd_openw (dummy_name, p->name);
 
@@ -2757,7 +2703,7 @@ static void
 display_target_tables ()
 {
   int t, columns;
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target *const *bfd_target_vector;
   char *colum;
 
   columns = 0;
@@ -2791,10 +2737,12 @@ display_target_tables ()
 static void
 display_info ()
 {
-  printf (_("BFD header file version %s\n"), BFD_VERSION);
+  printf (_("BFD header file version %s\n"), BFD_VERSION_STRING);
   display_target_list ();
   display_target_tables ();
 }
+
+int main PARAMS ((int, char **));
 
 int
 main (argc, argv)
@@ -2808,6 +2756,9 @@ main (argc, argv)
 #if defined (HAVE_SETLOCALE) && defined (HAVE_LC_MESSAGES)
   setlocale (LC_MESSAGES, "");
 #endif
+#if defined (HAVE_SETLOCALE)
+  setlocale (LC_CTYPE, "");
+#endif
   bindtextdomain (PACKAGE, LOCALEDIR);
   textdomain (PACKAGE);
 
@@ -2819,14 +2770,14 @@ main (argc, argv)
   bfd_init ();
   set_default_bfd_target ();
 
-  while ((c = getopt_long (argc, argv, "pib:m:M:VCdDlfahHrRtTxsSj:wE:zgG",
+  while ((c = getopt_long (argc, argv, "pib:m:M:VvCdDlfaHhrRtTxsSj:wE:zgG",
 			   long_options, (int *) 0))
 	 != EOF)
     {
       switch (c)
 	{
 	case 0:
-	  break;		/* we've been given a long option */
+	  break;		/* We've been given a long option.  */
 	case 'm':
 	  machine = optarg;
 	  break;
@@ -2847,12 +2798,12 @@ main (argc, argv)
 	  if (optarg != NULL)
 	    {
 	      enum demangling_styles style;
-	      
+
 	      style = cplus_demangle_name_to_style (optarg);
 	      if (style == unknown_demangling) 
 		fatal (_("unknown demangling style `%s'"),
 		       optarg);
-	      
+
 	      cplus_demangle_set_style (style);
            }
 	  break;
@@ -2890,7 +2841,7 @@ main (argc, argv)
 	      usage (stderr, 1);
 	    }
 	  break;
-	  
+
 	case 'f':
 	  dump_file_header = true;
 	  seenflag = true;
@@ -2968,6 +2919,7 @@ main (argc, argv)
 	case 'H':
 	  usage (stdout, 0);
 	  seenflag = true;
+	case 'v':
 	case 'V':
 	  show_version = true;
 	  seenflag = true;

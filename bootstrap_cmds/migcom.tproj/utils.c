@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,10 +49,12 @@
 
 #include <mach/message.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "routine.h"
 #include "write.h"
 #include "global.h"
 #include "utils.h"
+#include "error.h"
 
 extern char *MessFreeRoutine;
 
@@ -304,9 +306,10 @@ WriteUserVarDecl(file, arg)
 {
     boolean_t pointer = (arg->argByReferenceUser ||arg->argType->itNativePointer);
     char *ref = (pointer) ? "*" : "";
-    char *cnst = ((IS_VARIABLE_SIZED_UNTYPED(arg->argType) ||
-			arg->argType->itNoOptArray) &&
-			(arg->argFlags & flConst)) ? "const " : "";
+    char *cnst = ((arg->argFlags & flConst) &&
+		  (IS_VARIABLE_SIZED_UNTYPED(arg->argType) ||
+		   arg->argType->itNoOptArray || arg->argType->itString)) ?
+		"const " : "";
 
     fprintf(file, "\t%s%s %s%s", cnst, arg->argType->itUserType, ref, arg->argVarName);
 }
@@ -318,9 +321,12 @@ WriteServerVarDecl(file, arg)
 {
     char *ref = (arg->argByReferenceServer ||
 		 arg->argType->itNativePointer) ? "*" : "";
-  
-    fprintf(file, "\t%s %s%s",
-	    arg->argType->itTransType, ref, arg->argVarName);
+    char *cnst = ((arg->argFlags & flConst) &&
+		  (IS_VARIABLE_SIZED_UNTYPED(arg->argType) ||
+		   arg->argType->itNoOptArray || arg->argType->itString)) ?
+		"const " : "";
+
+    fprintf(file, "\t%s%s %s%s", cnst, arg->argType->itTransType, ref, arg->argVarName);
 }
 
 char *
@@ -338,13 +344,6 @@ FetchUserType(it)
 }
 
 char *
-FetchUserKPDType(it)
-    ipc_type_t *it;
-{
-    return it->itUserKPDType;
-}
-
-char *
 FetchServerType(it)
     ipc_type_t *it;
 {
@@ -352,11 +351,10 @@ FetchServerType(it)
 }
 
 char *
-FetchServerKPDType(it)
+FetchKPDType(it)
     ipc_type_t *it;
 {
-    /* do we really need to differentiate User and Server ?? */
-    return it->itServerKPDType;
+    return it->itKPDType;
 }
 
 void
@@ -427,6 +425,17 @@ WriteFieldDeclPrim(file, arg, tfunc)
 	fprintf(file, "\n\t\tchar %s[%d];", arg->argPadName, it->itPadSize);
 }
 
+void
+WriteKPDFieldDecl(file, arg)
+    FILE *file;
+    argument_t *arg;
+{
+    if (akCheck(arg->argKind, akbSendKPD) ||
+	akCheck(arg->argKind, akbReturnKPD))
+    	WriteFieldDeclPrim(file, arg, FetchKPDType);
+    else
+	WriteFieldDeclPrim(file, arg, FetchServerType);
+}
 
 void
 WriteStructDecl(file, args, func, mask, name, simple, trailer, trailer_t, template_only)
@@ -487,7 +496,7 @@ WriteTemplateKPD_port(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itKPDType, arg->argTTName);
 
     fprintf(file, "\t\t/* name = */\t\tMACH_PORT_NULL,\n");
     fprintf(file, "\t\t/* pad1 = */\t\t0,\n");
@@ -509,7 +518,7 @@ WriteTemplateKPD_ool(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itKPDType, arg->argTTName);
 
     if (IS_MULTIPLE_KPD(it))
 	it = it->itElement;
@@ -542,7 +551,7 @@ WriteTemplateKPD_oolport(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itKPDType, arg->argTTName);
 
     if (IS_MULTIPLE_KPD(it))
 	it = it->itElement;
@@ -563,6 +572,56 @@ WriteTemplateKPD_oolport(file, arg, in)
 
     fprintf(file, "\t};\n");
     fprintf(file, "#endif\t/* UseStaticTemplates */\n");
+}
+
+void
+WriteReplyTypes(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* typedefs for all replies */\n\n");
+    fprintf(file, "#ifndef __Reply__%s_subsystem__defined\n", SubsystemName);
+    fprintf(file, "#define __Reply__%s_subsystem__defined\n", SubsystemName);
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+            char str[MAX_STR_LEN];
+	    
+	    rt = stat->stRoutine;
+	    sprintf(str, "__Reply__%s_t", rt->rtName);
+	    WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbReply, 
+			    str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
+	}
+    }
+    fprintf(file, "#endif /* !__Reply__%s_subsystem__defined */\n", SubsystemName);
+    fprintf(file, "\n");
+}
+
+void
+WriteRequestTypes(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* typedefs for all requests */\n\n");
+    fprintf(file, "#ifndef __Request__%s_subsystem__defined\n", SubsystemName);
+    fprintf(file, "#define __Request__%s_subsystem__defined\n", SubsystemName);
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+            char str[MAX_STR_LEN];
+	    
+	    rt = stat->stRoutine;
+	    sprintf(str, "__Request__%s_t", rt->rtName);
+	    WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbRequest, 
+			    str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
+	}
+    }
+    fprintf(file, "#endif /* !__Request__%s_subsystem__defined */\n", SubsystemName);
+    fprintf(file, "\n");
 }
 
 /*

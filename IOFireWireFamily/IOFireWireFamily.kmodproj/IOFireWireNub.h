@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,8 @@ class IOFireWireController;
 class IOFireWireBus;
 class IOConfigDirectory;
 
+/*! @class IOFireWireNub
+*/
 class IOFireWireNub : public IOService
 {
     OSDeclareAbstractStructors(IOFireWireNub)
@@ -66,6 +68,8 @@ protected:
 
     UInt32		fNodeFlags;
     
+	OSSet *	 fConfigDirectorySet;
+		
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -87,10 +91,8 @@ protected:
 public:
 
     // Get nodeID and bus generation info
-    IOReturn getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID, UInt16 &localID) const
-    { generation = fGeneration; nodeID = fNodeID; localID = fLocalNodeID; return kIOReturnSuccess;};
-    IOReturn getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID) const
-    { generation = fGeneration; nodeID = fNodeID; return kIOReturnSuccess;};
+    IOReturn getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID, UInt16 &localID) const;
+    IOReturn getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID) const;
     
     // How fast can this system talk to the node?
     virtual IOFWSpeed FWSpeed() const;
@@ -142,20 +144,21 @@ public:
     /*
      * Get Config directory for nub
      * Device nub directory is root directory, Unit nub directory is Unit directory.
-     */
-    virtual IOReturn getConfigDirectory(IOConfigDirectory *&dir);
+	 *
+	 * Depricated use getConfigDirectoryRef
+     *
+	 */
+    
+	virtual IOReturn getConfigDirectory(IOConfigDirectory *&dir);
 
     /*
      * Get bus for nub
      */
-    IOFireWireBus * getBus() const
-        { return (IOFireWireBus *)fControl; };
+    IOFireWireBus * getBus() const;
 
-    IOFireWireController * getController() const
-        { return fControl; };
+    IOFireWireController * getController() const;
 
-    const CSRNodeUniqueID &getUniqueID() const
-        { return fUniqueID; };
+    const CSRNodeUniqueID &getUniqueID() const;
 
     /*
      * Standard nub initialization
@@ -164,10 +167,15 @@ public:
 
     virtual void setNodeFlags( UInt32 flags );
     virtual UInt32 getNodeFlags( void );
-    
+	virtual void clearNodeFlags( UInt32 flags );
+	
+	virtual IOReturn setConfigDirectory( IOConfigDirectory *directory );
+
+    virtual IOReturn getConfigDirectoryRef( IOConfigDirectory *&dir );
+	    
 private:
-    OSMetaClassDeclareReservedUnused(IOFireWireNub, 0);
-    OSMetaClassDeclareReservedUnused(IOFireWireNub, 1);
+    OSMetaClassDeclareReservedUsed(IOFireWireNub, 0);
+	OSMetaClassDeclareReservedUnused(IOFireWireNub, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 3);
 

@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Make sure programs with only Fortran 77 source are handled properly.
+# Matthew D. Langston <langston@SLAC.Stanford.EDU>
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_F77
+END
+
+# Tue Aug 11 09:50:48 1998  Matthew D. Langston  <langston@SLAC.Stanford.EDU>
+#
+# This test currently fails with automake v. 1.3 since automake assumes
+# that elements of `bin_PROGRAMS' (e.g. zardoz) without a corresponding
+# `_SOURCES' (e.g. zardoz_SOURCES) should be compiled from `zardoz.c'
+# whether or not `zardoz.c' actually exists.  For example, even if the
+# file `zardoz.c' doesn't exist but the file `zardoz.f' does exist, this
+# tests would still fail.
+#
+# Therefore, for now I have put in the line `zardoz_SOURCES = zardoz.f'
+# (see below) so that automake's top-level `make check' won't fail, but
+# this line should be removed once automake handles this situation
+# correctly.
+
+cat > Makefile.am <<'END'
+bin_PROGRAMS = zardoz
+zardoz_SOURCES = zardoz.f
+END
+
+: > zardoz.f
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'zardoz.f' Makefile.in

@@ -21,18 +21,35 @@
 #include <Security/mds_schema.h>
 #include <memory>
 
+namespace Security
+{
+
 ModuleNexus<MDSModule> MDSModule::mModuleNexus;
 
 // Names and IDs of tables used in the MDS databases
 
 #define TABLE(t) { t, #t }
 
+/*
+ * For now, to allow compatibility with AppleFileDL, we use the same record IDs
+ * it uses when constructing an AppleDatabaseManager. See Radar 2817921 for details. 
+ * The fix requires that AppleDatabase be able to fetch its meta-table relationIDs 
+ * from an existing DB at DbOpen time; I'm not sure that's possible. 
+ */
+#define USE_FILE_DL_TABLES		1
+
 static const AppleDatabaseTableName kTableNames[] = {
     // the meta-tables. the parsing module is not used by MDS, but is required
     // by the implementation of the database
+	#if USE_FILE_DL_TABLES
+    TABLE(CSSM_DL_DB_SCHEMA_INFO),
+    TABLE(CSSM_DL_DB_SCHEMA_ATTRIBUTES),
+    TABLE(CSSM_DL_DB_SCHEMA_INDEXES),
+	#else
     TABLE(MDS_CDSADIR_MDS_SCHEMA_RELATIONS),
     TABLE(MDS_CDSADIR_MDS_SCHEMA_ATTRIBUTES),
     TABLE(MDS_CDSADIR_MDS_SCHEMA_INDEXES),
+	#endif
     TABLE(CSSM_DL_DB_SCHEMA_PARSING_MODULE),
 	
     // the MDS-specific tables
@@ -67,10 +84,43 @@ MDSModule::get ()
 }
 
 MDSModule::MDSModule ()
-    :	mDatabaseManager(kTableNames)
+    :	mDatabaseManager(kTableNames),
+	    mLastScanTime((time_t)0)
 {
+	mDbPath[0] = '\0';
 }
 
+/*
+ * Called upon unload or process death by CleanModuleNexus.
+ */
 MDSModule::~MDSModule ()
 {
+	/* TBD - close all DBs */
 }
+
+void MDSModule::lastScanIsNow()
+{
+	mLastScanTime = Time::now();
+}
+
+double MDSModule::timeSinceLastScan()
+{
+	Time::Interval delta = Time::now() - mLastScanTime;
+	return delta.seconds();
+}
+
+void MDSModule::getDbPath(
+	char *path)
+{
+	StLock<Mutex> _(mDbPathLock);
+	strcpy(path, mDbPath);
+}
+
+void MDSModule::setDbPath(const char *path)
+{
+	StLock<Mutex> _(mDbPathLock);
+	assert(strlen(path) <= MAXPATHLEN);
+	strcpy(mDbPath, path);
+}
+
+} // end namespace Security

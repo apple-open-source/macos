@@ -69,7 +69,7 @@ void Server::connect(SocksClientSocket &me, const Host &host, IPPort port)
             IPSockAddress addr(*it, port);
             connect(me, addr);
             return;
-        } catch (UnixError &err) {
+        } catch (const UnixError &err) {
             errno = err.error;
         }
     }

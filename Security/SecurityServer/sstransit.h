@@ -41,7 +41,7 @@ namespace Security
 {
 
 // stock leading argument profile used by all calls
-#define UCSP_ARGS	mGlobal().serverPort, mig_get_reply_port(), &rcode
+#define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().replyPort, &rcode
 
 // IPC/IPCN wrap the actual Mach IPC call. IPC also activates the connection first
 #define IPCN(statement) \
@@ -64,7 +64,7 @@ namespace Security
 class DataOutput {
 public:
 	DataOutput(CssmData &arg, CssmAllocator &alloc)
-		: argument(arg), allocator(alloc) { mData = NULL; }
+		: argument(arg), allocator(alloc) { mData = NULL; mLength = 0; }
 	~DataOutput();
 	
 	void **data() { return &mData; }

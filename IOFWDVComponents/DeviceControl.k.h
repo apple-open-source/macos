@@ -7,11 +7,14 @@
  
      DRI:        Jed (George) Wilson
  
-     Copyright:  © 1999-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1999-2001 by Apple Computer, Inc., all rights reserved.
+ 
+     Warning:    *** APPLE INTERNAL USE ONLY ***
+                 This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:23 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Tue Mar 12 16:49:01 2002
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                DeviceControl.i
                      Revision:        3
                      Dated:           6/16/99
@@ -25,8 +28,7 @@
 #ifndef __DEVICECONTROL_K__
 #define __DEVICECONTROL_K__
 
-#include <DeviceControl.h>
-
+#include <DVComponentGlue/DeviceControl.h>
 /*
 	Example usage:
 

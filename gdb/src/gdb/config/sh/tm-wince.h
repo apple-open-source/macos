@@ -1,5 +1,5 @@
 /* Target-specific definition for Window CE
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,12 +23,10 @@
 
 #include "sh/tm-sh.h"
 #undef SOFTWARE_SINGLE_STEP_P
-#define SOFTWARE_SINGLE_STEP_P 1
+#define SOFTWARE_SINGLE_STEP_P() 1
 
 #undef SOFTWARE_SINGLE_STEP
 #define SOFTWARE_SINGLE_STEP(sig, bp_p) wince_software_single_step (sig, bp_p)
 void wince_software_single_step (unsigned int, int);
-#undef TARGET_BYTE_ORDER_SELECTABLE
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
 
 #endif /* TM_WINCE_H */

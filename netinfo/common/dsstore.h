@@ -36,18 +36,20 @@
 
 #define DSSTORE_VERSION 1
 
-#define DSSTORE_FLAGS_ACCESS_MASK      0x0001
-#define DSSTORE_FLAGS_ACCESS_READONLY  0x0000
-#define DSSTORE_FLAGS_ACCESS_READWRITE 0x0001
+#define DSSTORE_FLAGS_ACCESS_MASK		0x0001
+#define DSSTORE_FLAGS_ACCESS_READONLY	0x0000
+#define DSSTORE_FLAGS_ACCESS_READWRITE	0x0001
 
-#define DSSTORE_FLAGS_SERVER_MASK   0x0002
-#define DSSTORE_FLAGS_SERVER_CLONE  0x0000
-#define DSSTORE_FLAGS_SERVER_MASTER 0x0002
+#define DSSTORE_FLAGS_SERVER_MASK		0x0002
+#define DSSTORE_FLAGS_SERVER_CLONE		0x0000
+#define DSSTORE_FLAGS_SERVER_MASTER		0x0002
 
-#define DSSTORE_FLAGS_REMOTE_NETINFO 0x8000
-#define DSSTORE_FLAGS_OPEN_BY_TAG  0x4000
+#define DSSTORE_FLAGS_CACHE_MASK		0x0004
+#define DSSTORE_FLAGS_CACHE_ENABLED		0x0000
+#define DSSTORE_FLAGS_CACHE_DISABLED	0x0004
 
-#define DSSTORE_FLAGS_CASE_INSENSITIVE 0x0100
+#define DSSTORE_FLAGS_REMOTE_NETINFO	0x8000
+#define DSSTORE_FLAGS_OPEN_BY_TAG		0x4000
 
 typedef struct
 {
@@ -66,6 +68,8 @@ typedef struct
 	u_int32_t index_count;
 	u_int32_t dirty;
 	void **index;
+	void (*sync_delegate)(void *);
+	void *sync_private;
 } dsstore;
 
 void dsstore_print_index(dsstore *s, FILE *);
@@ -78,8 +82,9 @@ dsstatus dsstore_authenticate(dsstore *s, dsdata *user, dsdata *password);
 
 dsrecord *dsstore_fetch(dsstore *s, u_int32_t);
 
-dsstatus dsstore_save(dsstore *s, dsrecord *);
-dsstatus dsstore_save_copy(dsstore *s, dsrecord *);
+dsstatus dsstore_save(dsstore *s, dsrecord *r);
+dsstatus dsstore_save_copy(dsstore *s, dsrecord *r);
+dsstatus dsstore_save_fast(dsstore *s, dsrecord *r, u_int32_t lock);
 dsstatus dsstore_save_attribute(dsstore *s, dsrecord *r, dsattribute *a, u_int32_t asel);
 
 dsstatus dsstore_remove(dsstore *s, u_int32_t);
@@ -88,6 +93,7 @@ dsstatus dsstore_remove(dsstore *s, u_int32_t);
 	dsstatus dsstore_remove_attribute(dsstore *s, dsrecord *r, dsattribute *a, u_int32_t asel);
 */
 
+dsstatus dsstore_list(dsstore *s, u_int32_t dsid, dsdata *key, u_int32_t asel, dsrecord **list);
 dsstatus dsstore_match(dsstore *s, u_int32_t, dsdata *, dsdata *, u_int32_t, u_int32_t *);
 
 u_int32_t dsstore_max_id(dsstore *s);
@@ -105,5 +111,7 @@ dsrecord *dsstore_statistics(dsstore *s);
 
 void dsstore_flush_cache(dsstore *s);
 void dsstore_reset(dsstore *s);
+
+void dsstore_set_sync_delegate(dsstore *, void (*)(void *), void *);
 
 #endif __DSSTORE_H__

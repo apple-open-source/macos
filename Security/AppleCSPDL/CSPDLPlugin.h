@@ -25,7 +25,7 @@
 #include "SSCSPDLSession.h"
 #include "CSPDLDatabase.h"
 #include "SSFactory.h"
-
+#include <Security/cspclient.h>
 #include <Security/cssmplugin.h>
 
 class SSCSPSession;
@@ -49,6 +49,7 @@ private:
 	SSCSPDLSession mSSCSPDLSession;
     CSPDLDatabaseManager mDatabaseManager;
     SSFactory mSSFactory;
+	CssmClient::CSP mRawCsp;		// raw (nonsecure) CSP connection
 };
 
 

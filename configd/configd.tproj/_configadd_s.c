@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -120,13 +120,9 @@ _configadd_s(mach_port_t 		server,
 	     int			*sc_status
 )
 {
-	kern_return_t		status;
 	serverSessionRef	mySession = getSession(server);
-	CFDataRef		xmlKey;		/* key  (XML serialized) */
 	CFStringRef		key;		/* key  (un-serialized) */
-	CFDataRef		xmlData;	/* data (XML serialized) */
 	CFPropertyListRef	data;		/* data (un-serialized) */
-	CFStringRef		xmlError;
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add (session) key to configuration database."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
@@ -134,50 +130,20 @@ _configadd_s(mach_port_t 		server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	key = CFPropertyListCreateFromXMLData(NULL,
-					      xmlKey,
-					      kCFPropertyListImmutable,
-					      &xmlError);
-	CFRelease(xmlKey);
-	if (!key) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-	} else if (!isA_CFString(key)) {
+	}
+
+	if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
-	xmlData = CFDataCreate(NULL, dataRef, dataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	data = CFPropertyListCreateFromXMLData(NULL,
-					       xmlData,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xmlData);
-	if (!data) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&data, (void *)dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
-	} else if (!isA_CFPropertyList(data)) {
+	}
+
+	if (!isA_CFPropertyList(data)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 

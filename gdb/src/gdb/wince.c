@@ -1,5 +1,5 @@
 /* Target-vector operations for controlling Windows CE child processes, for GDB.
-   Copyright 1999, 2000 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions, A Red Hat Company.
 
    This file is part of GDB.
@@ -55,6 +55,7 @@
 #include <sys/param.h>
 #include "wince-stub.h"
 #include <time.h>
+#include "regcache.h"
 
 /* The ui's event loop. */
 extern int (*ui_loop_hook) (int signo);
@@ -128,7 +129,7 @@ static int remote_add_host = 0;
 /* Forward declaration */
 extern struct target_ops child_ops;
 
-static int win32_child_thread_alive (int);
+static int win32_child_thread_alive (ptid_t);
 void child_kill_inferior (void);
 
 static int last_sig = 0;	/* Set if a signal was received from the
@@ -601,10 +602,10 @@ towide (const char *s, gdb_wince_len * out_len)
     n = 0;			/* wrap */
 
   /* Allocate space for the converted string, reusing any previously allocated
-     space, if applicable. Note that if outs[n] is NULL, realloc will act as
+     space, if applicable. Note that if outs[n] is NULL, xrealloc will act as
      a malloc (under cygwin, at least).
    */
-  outs[n] = (LPWSTR) realloc (outs[n], *out_len);
+  outs[n] = (LPWSTR) xrealloc (outs[n], *out_len);
   memset (outs[n], 0, *out_len);
   (void) MultiByteToWideChar (CP_ACP, 0, s, -1, outs[n], *out_len);
   return outs[n];
@@ -808,7 +809,8 @@ undoSStep (thread_info * th)
 }
 
 void
-wince_software_single_step (unsigned int ignore, int insert_breakpoints_p)
+wince_software_single_step (enum target_signal ignore,
+			    int insert_breakpoints_p)
 {
   unsigned long pc;
   thread_info *th = current_thread;	/* Info on currently selected thread */
@@ -948,7 +950,8 @@ undoSStep (thread_info * th)
    which would be executed.  This code hails from sh-stub.c.
  */
 void
-wince_software_single_step (unsigned int ignore, int insert_breakpoints_p)
+wince_software_single_step (enum target_signal ignore,
+			    int insert_breakpoints_p)
 {
   thread_info *th = current_thread;	/* Info on currently selected thread */
 
@@ -994,7 +997,8 @@ undoSStep (thread_info * th)
 }
 
 void
-wince_software_single_step (unsigned int ignore, int insert_breakpoints_p)
+wince_software_single_step (enum target_signal ignore,
+			    int insert_breakpoints_p)
 {
   unsigned long pc;
   thread_info *th = current_thread;	/* Info on currently selected thread */
@@ -1075,7 +1079,7 @@ child_init_thread_list (void)
       thread_info *here = th->next;
       th->next = here->next;
       (void) close_handle (here->h);
-      free (here);
+      xfree (here);
     }
 }
 
@@ -1099,7 +1103,7 @@ child_delete_thread (DWORD id)
       thread_info *here = th->next;
       th->next = here->next;
       close_handle (here->h);
-      free (here);
+      xfree (here);
     }
 }
 
@@ -1127,7 +1131,7 @@ do_child_fetch_inferior_registers (int r)
 static void
 child_fetch_inferior_registers (int r)
 {
-  current_thread = thread_rec (inferior_pid, TRUE);
+  current_thread = thread_rec (PIDGET (inferior_ptid), TRUE);
   do_child_fetch_inferior_registers (r);
 }
 
@@ -1147,7 +1151,7 @@ do_child_store_inferior_registers (int r)
 static void
 child_store_inferior_registers (int r)
 {
-  current_thread = thread_rec (inferior_pid, TRUE);
+  current_thread = thread_rec (PIDGET (inferior_ptid), TRUE);
   do_child_store_inferior_registers (r);
 }
 
@@ -1155,7 +1159,7 @@ child_store_inferior_registers (int r)
    of error; store status through argument pointer OURSTATUS.  */
 
 static int
-handle_load_dll (PTR dummy)
+handle_load_dll (void *dummy)
 {
   LOAD_DLL_DEBUG_INFO *event = &current_event.u.LoadDll;
   char dll_buf[MAX_PATH + 1];
@@ -1408,9 +1412,10 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus,
 		     "CREATE_PROCESS_DEBUG_EVENT"));
       current_process_handle = current_event.u.CreateProcessInfo.hProcess;
 
-      main_thread_id = inferior_pid = current_event.dwThreadId;
+      main_thread_id = current_event.dwThreadId;
+      inferior_ptid = pid_to_ptid (main_thread_id);
       /* Add the main thread */
-      th = child_add_thread (inferior_pid,
+      th = child_add_thread (PIDGET (inferior_ptid),
 			     current_event.u.CreateProcessInfo.hThread);
       break;
 
@@ -1482,11 +1487,12 @@ out:
 }
 
 /* Wait for interesting events to occur in the target process. */
-static int
-child_wait (int pid, struct target_waitstatus *ourstatus)
+static ptid_t
+child_wait (ptid_t ptid, struct target_waitstatus *ourstatus)
 {
   DWORD event_code;
   int retval;
+  int pid = PIDGET (ptid);
 
   /* We loop when we get a non-standard exception rather than return
      with a SPURIOUS because resume can try and step or modify things,
@@ -1496,7 +1502,7 @@ child_wait (int pid, struct target_waitstatus *ourstatus)
 
   while (1)
     if (get_child_debug_event (pid, ourstatus, EXCEPTION_DEBUG_EVENT, &retval))
-      return retval;
+      return pid_to_ptid (retval);
     else
       {
 	int detach = 0;
@@ -1515,7 +1521,7 @@ static void
 child_files_info (struct target_ops *ignore)
 {
   printf_unfiltered ("\tUsing the running image of child %s.\n",
-		     target_pid_to_str (inferior_pid));
+		     target_pid_to_str (inferior_ptid));
 }
 
 /* ARGSUSED */
@@ -1572,7 +1578,7 @@ upload_to_device (const char *to, const char *from)
     error ("no filename found to upload - %s.", in_to);
 
   len = strlen (dir) + strlen (to) + 2;
-  remotefile = (char *) realloc (remotefile, len);
+  remotefile = (char *) xrealloc (remotefile, len);
   strcpy (remotefile, dir);
   strcat (remotefile, "\\");
   strcat (remotefile, to);
@@ -1707,7 +1713,7 @@ wince_initialize (void)
   close (s0);
 }
 
-/* Start an inferior win32 child process and sets inferior_pid to its pid.
+/* Start an inferior win32 child process and sets inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
    ENV is the environment vector to pass.  Errors reported with error().  */
@@ -1755,7 +1761,8 @@ child_create_inferior (char *exec_file, char *args, char **env)
   current_process_handle = pi.hProcess;
   current_event.dwProcessId = pi.dwProcessId;
   memset (&current_event, 0, sizeof (current_event));
-  inferior_pid = current_event.dwThreadId = pi.dwThreadId;
+  current_event.dwThreadId = pi.dwThreadId;
+  inferior_ptid = pid_to_ptid (current_event.dwThreadId);
   push_target (&child_ops);
   child_init_thread_list ();
   child_add_thread (pi.dwThreadId, pi.hThread);
@@ -1765,7 +1772,7 @@ child_create_inferior (char *exec_file, char *args, char **env)
   target_terminal_inferior ();
 
   /* Run until process and threads are loaded */
-  while (!get_child_debug_event (inferior_pid, &dummy,
+  while (!get_child_debug_event (PIDGET (inferior_ptid), &dummy,
 				 CREATE_PROCESS_DEBUG_EVENT, &ret))
     continue;
 
@@ -1786,8 +1793,9 @@ child_mourn_inferior (void)
 
 /* Move memory from child to/from gdb. */
 int
-child_xfer_memory (CORE_ADDR memaddr, char *our, int len,
-		   int write, struct target_ops *target)
+child_xfer_memory (CORE_ADDR memaddr, char *our, int len, int write,
+		   struct mem_attrib *attrib,
+		   struct target_ops *target)
 {
   if (len <= 0)
     return 0;
@@ -1823,11 +1831,12 @@ child_kill_inferior (void)
 
 /* Resume the child after an exception. */
 void
-child_resume (int pid, int step, enum target_signal sig)
+child_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   thread_info *th;
   DWORD continue_status = last_sig > 0 && last_sig < NSIG ?
   DBG_EXCEPTION_NOT_HANDLED : DBG_CONTINUE;
+  int pid = PIDGET (ptid);
 
   DEBUG_EXEC (("gdb: child_resume (pid=%d, step=%d, sig=%d);\n",
 	       pid, step, sig));
@@ -1865,7 +1874,8 @@ child_can_run (void)
 static void
 child_close (void)
 {
-  DEBUG_EVENTS (("gdb: child_close, inferior_pid=%d\n", inferior_pid));
+  DEBUG_EVENTS (("gdb: child_close, inferior_ptid=%d\n",
+                PIDGET (inferior_ptid)));
 }
 
 /* Explicitly upload file to remotedir */
@@ -1923,7 +1933,7 @@ init_child_ops (void)
 
 #define replace_upload(what) \
       upload_when = what; \
-      remote_upload = realloc (remote_upload, strlen (upload_options[upload_when].name) + 1); \
+      remote_upload = xrealloc (remote_upload, strlen (upload_options[upload_when].name) + 1); \
       strcpy (remote_upload, upload_options[upload_when].name);
 
 static void
@@ -1973,9 +1983,8 @@ _initialize_inftarg (void)
 	       (char *) "Set how to upload executables to remote device.\n",
 		     &setlist);
   add_show_from_set (set, &showlist);
-  set->function.cfunc = set_upload_type;
+  set_cmd_cfunc (set, set_upload_type);
   set_upload_type (NULL, 0);
-  set_dcache_state (1);
 
   add_show_from_set
     (add_set_cmd ((char *) "debugexec", class_support, var_boolean,
@@ -2019,8 +2028,9 @@ debugging over a network.", &setlist),
    by "polling" it.  If WaitForSingleObject returns WAIT_OBJECT_0
    it means that the pid has died.  Otherwise it is assumed to be alive. */
 static int
-win32_child_thread_alive (int pid)
+win32_child_thread_alive (ptid_t ptid)
 {
+  int pid = PIDGET (ptid);
   return thread_alive (thread_rec (pid, FALSE)->h);
 }
 

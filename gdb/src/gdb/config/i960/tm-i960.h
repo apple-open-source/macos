@@ -1,5 +1,6 @@
 /* Parameters for target machine Intel 960, for GDB, the GNU debugger.
-   Copyright (C) 1990, 1991, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1993, 1994, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Intel Corporation.
    This file is part of GDB.
 
@@ -24,6 +25,8 @@
 #define I80960
 #endif
 
+#include "doublest.h"
+
 /* Hook for the SYMBOL_CLASS of a parameter when decoding DBX symbol
    information.  In the i960, parameters can be stored as locals or as
    args, depending on the type of the debug record.
@@ -34,13 +37,6 @@
    g14-relative argument block.  */
 
 #define	DBX_PARM_SYMBOL_CLASS(type) ((type == N_LSYM)? LOC_LOCAL_ARG: LOC_ARG)
-
-/* Byte order is configurable, but this machine runs little-endian.  */
-#define	TARGET_BYTE_ORDER	LITTLE_ENDIAN
-
-/* We have IEEE floating point, if we have any float at all.  */
-
-#define IEEE_FLOAT (1)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -153,39 +149,15 @@ extern CORE_ADDR saved_pc_after_call ();
 
 #define MAX_REGISTER_VIRTUAL_SIZE 8
 
-/* Nonzero if register N requires conversion from raw format to virtual
-   format.  */
-
-#define REGISTER_CONVERTIBLE(N) ((N) >= FP0_REGNUM)
-
 #include "floatformat.h"
 
 #define TARGET_LONG_DOUBLE_FORMAT &floatformat_i960_ext
 
-/* Convert data from raw format for register REGNUM in buffer FROM
-   to virtual format with type TYPE in buffer TO.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO)	\
-{ \
-  DOUBLEST val; \
-  floatformat_to_doublest (&floatformat_i960_ext, (FROM), &val); \
-  store_floating ((TO), TYPE_LENGTH (TYPE), val); \
-}
-
-/* Convert data from virtual format with type TYPE in buffer FROM
-   to raw format for register REGNUM in buffer TO.  */
-
-#define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
-{ \
-  DOUBLEST val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
-  floatformat_from_doublest (&floatformat_i960_ext, &val, (TO)); \
-}
-
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N) ((N) < FP0_REGNUM ? \
-					builtin_type_int : builtin_type_double)
+struct type *i960_register_type (int regnum);
+#define REGISTER_VIRTUAL_TYPE(N) i960_register_type (N)
 
 /* Macros for understanding function return values... */
 
@@ -356,7 +328,7 @@ void i960_pop_frame (void);
 
 /* #define CALL_DUMMY { 0x86003000, 0x00000000, 0x66003e00 } */
 
-									      /* #define CALL_DUMMY_START_OFFSET 0 *//* Start execution at beginning of dummy */
+																			    /* #define CALL_DUMMY_START_OFFSET 0 *//* Start execution at beginning of dummy */
 
 /* Indicate that we don't support calling inferior child functions.  */
 

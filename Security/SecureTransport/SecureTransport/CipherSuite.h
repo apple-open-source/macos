@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -26,8 +26,8 @@
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
-#ifndef _CIPHER_SUITE_H_
-#define _CIPHER_SUITE_H_
+#ifndef _SECURITY_CIPHERSUITE_H_
+#define _SECURITY_CIPHERSUITE_H_
 
 /* fetch Uint32 */
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
@@ -76,4 +76,4 @@ enum
     SSL_NO_SUCH_CIPHERSUITE =                   0xFFFF
 };
 
-#endif	/* _CIPHER_SUITE_H_ */
+#endif	/* !_SECURITY_CIPHERSUITE_H_ */

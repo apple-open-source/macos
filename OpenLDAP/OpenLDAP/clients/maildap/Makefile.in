@@ -1,0 +1,31 @@
+# $OpenLDAP: pkg/ldap/clients/maildap/Makefile.in,v 1.3 2002/02/10 21:42:52 kurt Exp $
+
+UNIX_PRGS = maildap
+PROGRAMS = $(@PLAT@_PRGS)
+
+SRCS=	main.c
+XSRCS= version.c
+OBJS=	main.o
+
+LDAP_INCDIR= ../../include
+LDAP_LIBDIR= ../../libraries
+
+XLIBS =  $(LDAP_L)
+XXLIBS	= $(SECURITY_LIBS) $(LUTIL_LIBS)
+
+maildap : version.o
+	$(LTLINK) -o $@ version.o $(OBJS) $(LIBS)
+
+version.c: $(OBJS) $(XLIBS)
+	@-$(RM) $@
+	$(MKVERSION) maildap > $@
+
+install-local: $(PROGRAMS) FORCE
+	-$(MKDIR) $(DESTDIR)$(libexecdir)
+	@(								\
+	    for prg in $(PROGRAMS); do					\
+		$(LTINSTALL) $(INSTALLFLAGS) -s -m 755 $$prg$(EXEEXT)	\
+		    $(DESTDIR)$(libexecdir);				\
+	    done							\
+	)
+

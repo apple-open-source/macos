@@ -101,10 +101,15 @@ struct DriversPackage {
 };
 typedef struct DriversPackage DriversPackage;
 
+enum {
+  kCFBundleType2,
+  kCFBundleType3
+};
+
 static long FileLoadDrivers(char *dirSpec, long plugin);
 static long NetLoadDrivers(char *dirSpec);
 static long LoadDriverMKext(char *fileSpec);
-static long LoadDriverPList(char *dirSpec, char *name);
+static long LoadDriverPList(char *dirSpec, char *name, long bundleType);
 static long LoadMatchedModules(void);
 static long MatchPersonalities(void);
 static long MatchLibraries(void);
@@ -132,6 +137,8 @@ static TagPtr    gPersonalityHead, gPersonalityTail;
 static char      gExtensionsSpec[4096];
 static char      gDriverSpec[4096];
 static char      gFileSpec[4096];
+static char      gTempSpec[4096];
+static char      gFileName[4096];
 
 // Public Functions
 
@@ -160,14 +167,15 @@ long LoadDrivers(char *dirSpec)
 
 static long FileLoadDrivers(char *dirSpec, long plugin)
 {
-  long      ret, length, index, flags, time, time2;
-  char      *name;
+  long ret, length, index, flags, time, time2, bundleType;
+  char *name;
   
   if (!plugin) {
     ret = GetFileInfo(dirSpec, "Extensions.mkext", &flags, &time);
-    if ((ret == 0) && (flags == kFlatFileType)) {
+    if ((ret == 0) && ((flags & kFileTypeMask) == kFileTypeFlat)) {
       ret = GetFileInfo(dirSpec, "Extensions", &flags, &time2);
-      if ((ret != 0) || (flags != kDirectoryFileType) || (time > time2)) {
+      if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeDirectory) ||
+	  (((gBootMode & kBootModeSafe) == 0) && (time > time2))) {
 	sprintf(gDriverSpec, "%sExtensions.mkext", dirSpec);
 	printf("LoadDrivers: Loading from [%s]\n", gDriverSpec);
 	if (LoadDriverMKext(gDriverSpec) == 0) return 0;
@@ -185,22 +193,34 @@ static long FileLoadDrivers(char *dirSpec, long plugin)
     if (ret == -1) break;
     
     // Make sure this is a directory.
-    if (flags != kDirectoryFileType) continue;
+    if ((flags & kFileTypeMask ) != kFileTypeDirectory) continue;
     
     // Make sure this is a kext.
     length = strlen(name);
     if (strcmp(name + length - 5, ".kext")) continue;
     
-    if (!plugin)
-      sprintf(gDriverSpec, "%s\\%s\\Contents\\PlugIns", dirSpec, name);
+    // Save the file name.
+    strcpy(gFileName, name);
     
-    ret = LoadDriverPList(dirSpec, name);
+    // Determine the bundle type.
+    sprintf(gTempSpec, "%s\\%s", dirSpec, gFileName);
+    ret = GetFileInfo(gTempSpec, "Contents", &flags, &time);
+    if (ret == 0) bundleType = kCFBundleType2;
+    else bundleType = kCFBundleType3;
+    
+    if (!plugin) {
+      sprintf(gDriverSpec, "%s\\%s\\%sPlugIns", dirSpec, gFileName,
+	      (bundleType == kCFBundleType2) ? "Contents\\" : "");
+    }
+    
+    ret = LoadDriverPList(dirSpec, gFileName, bundleType);
     if (ret != 0) {
       printf("LoadDrivers: failed\n");
     }
     
-    if (!plugin) 
+    if (!plugin) {
       ret = FileLoadDrivers(gDriverSpec, 1);
+    }
   }
   
   return 0;
@@ -265,7 +285,7 @@ static long LoadDriverMKext(char *fileSpec)
 }
 
 
-static long LoadDriverPList(char *dirSpec, char *name)
+static long LoadDriverPList(char *dirSpec, char *name, long bundleType)
 {
   long      length, ret, driverPathLength;
   char      *buffer;
@@ -273,15 +293,20 @@ static long LoadDriverPList(char *dirSpec, char *name)
   TagPtr    personalities;
   char      *tmpDriverPath;
   
+  // Reset the malloc zone.
+  malloc_init((char *)kMallocAddr, kMallocSize);
+  
   // Save the driver path.
-  sprintf(gFileSpec, "%s\\%s\\Contents\\MacOS\\", dirSpec, name);
+  sprintf(gFileSpec, "%s\\%s\\%s", dirSpec, name,
+	  (bundleType == kCFBundleType2) ? "Contents\\MacOS\\" : "");
   driverPathLength = strlen(gFileSpec);
   tmpDriverPath = malloc(driverPathLength + 1);
   if (tmpDriverPath == 0) return -1;
   strcpy(tmpDriverPath, gFileSpec);
   
   // Construct the file spec.
-  sprintf(gFileSpec, "%s\\%s\\Contents\\Info.plist", dirSpec, name);
+  sprintf(gFileSpec, "%s\\%s\\%sInfo.plist", dirSpec, name,
+	  (bundleType == kCFBundleType2) ? "Contents\\" : "");
   
   length = LoadFile(gFileSpec);
   if (length == -1) {

@@ -73,10 +73,22 @@ extern kern_return_t
 IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
 
 extern kern_return_t
+IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration );
+
+extern kern_return_t
+IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration );
+
+extern kern_return_t
 IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration );
 
 extern kern_return_t
 IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration );
+
+extern kern_return_t
+IOHIDGetMouseButtonMode( io_connect_t handle, int * mode );
+
+extern kern_return_t
+IOHIDSetMouseButtonMode( io_connect_t handle, int mode );
 
 extern kern_return_t
 IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration );

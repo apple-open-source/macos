@@ -1,5 +1,6 @@
 /* HP/UX native interface for HP 300's, for GDB when running under Unix.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1996, 1999, 2000,
+   2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,7 @@
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
+#include "regcache.h"
 
 /* Defining this means some system include files define some extra stuff.  */
 #define WOPR
@@ -72,8 +74,8 @@ _initialize_hp300ux_nat (void)
 
 #define INFERIOR_AR0(u)							\
   ((ptrace								\
-    (PT_RUAREA, inferior_pid,						\
-     (PTRACE_ARG3_TYPE) ((char *) &u.u_ar0 - (char *) &u), 0, 0))		\
+    (PT_RUAREA, PIDGET (inferior_ptid),					\
+     (PTRACE_ARG3_TYPE) ((char *) &u.u_ar0 - (char *) &u), 0, 0))	\
    - kernel_u_addr)
 
 static void
@@ -90,8 +92,8 @@ fetch_inferior_register (register int regno, register unsigned int regaddr)
       ps_val;
       int regval;
 
-      ps_val.i = (ptrace (PT_RUAREA, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
-			  0, 0));
+      ps_val.i = (ptrace (PT_RUAREA, PIDGET (inferior_ptid),
+                          (PTRACE_ARG3_TYPE) regaddr, 0, 0));
       regval = ps_val.s[0];
       supply_register (regno, (char *) &regval);
     }
@@ -103,7 +105,7 @@ fetch_inferior_register (register int regno, register unsigned int regaddr)
 
       for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
 	{
-	  *(int *) &buf[i] = ptrace (PT_RUAREA, inferior_pid,
+	  *(int *) &buf[i] = ptrace (PT_RUAREA, PIDGET (inferior_ptid),
 				     (PTRACE_ARG3_TYPE) regaddr, 0, 0);
 	  regaddr += sizeof (int);
 	}
@@ -116,7 +118,8 @@ static void
 store_inferior_register_1 (int regno, unsigned int regaddr, int val)
 {
   errno = 0;
-  ptrace (PT_WUAREA, inferior_pid, (PTRACE_ARG3_TYPE) regaddr, val, 0);
+  ptrace (PT_WUAREA, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) regaddr,
+          val, 0);
 #if 0
   /* HP-UX randomly sets errno to non-zero for regno == 25.
      However, the value is correctly written, so ignore errno. */
@@ -144,8 +147,8 @@ store_inferior_register (register int regno, register unsigned int regaddr)
 	}
       ps_val;
 
-      ps_val.i = (ptrace (PT_RUAREA, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
-			  0, 0));
+      ps_val.i = (ptrace (PT_RUAREA, PIDGET (inferior_ptid),
+                          (PTRACE_ARG3_TYPE) regaddr, 0, 0));
       ps_val.s[0] = (read_register (regno));
       store_inferior_register_1 (regno, regaddr, ps_val.i);
     }

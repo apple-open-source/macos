@@ -1,0 +1,584 @@
+2002-06-27  Jim Ingham <jingham@apple.com>
+
+	* macosx-nat-inferior-util.c (macosx_inferior_reset): Set uses_dyld
+	to 1.  If we are wrong about this, it is only a problem when we go
+	to set the start breakpoint, and we always check before we do that,
+	so this is a better setting.
+	* macosx-nat-dyld.c (macosx_locate_dyld): exec_bfd is NULL currently
+	when you attach.  (FIXME - why is this the case?).  So only change
+	uses_dyld if you really have an exec_bfd to look at.
+	
+2002-06-26  Klee Dienes  <kdienes@annecy.apple.com>
+
+	* ppc-macosx-frameinfo.c (ppc_parse_instructions): properly
+	initialize 'start'.
+
+2002-06-17  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* macosx-nat-inferior-util.c, macosx-nat-inferior.c: move the
+	signal to the exception thread that causes it to continue out of
+	individual functions, and into macosx_inferior_resume_mach.  Add
+	calls to sched_yield() after killing the target and before
+	terminating the debug thread, so that the debug thread has a
+	chance to reap the dead target in waitpid().
+
+2002-06-17  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* macosx-nat-inferior-util.c (macosx_inferior_resume_ptrace):
+	check for PTRACE_DETACH, and always call ptrace in that case.
+
+2002-06-17  Klee Dienes  <kdienes@law.apple.com>
+
+        * macosx-nat-mutils.c (mach_xfer_memory): Handle integer overflow
+	when returning negative values.  Previously when the next
+	available address was more -INT_MIN away from the address
+	requested, mach_xfer_memory would overflow and return a positive
+	number in error.  Now it just returns 0.  A better fix for this
+	would be to change the signature for mach_xfer_memory, but that's
+	a much bigger change.
+
+2002-06-13  Jim Ingham <jingham@apple.com>
+
+        * ppc-macosx-regs.c: New function ppc_macosx_stab_reg_to_regnum,
+        this implements the mapping from the gcc3 stabs register numbering
+        scheme to gdb's internal numbering scheme.
+        * ppc-macosx-regs.h: Declare it.
+        * ppc-macosx-tdep.c: Add ppc_macosx_stab_reg_to_regnum to the ppc
+        gdbarch.
+        
+2002-06-12  Klee Dienes  <kdienes@law.apple.com>
+
+	* macosx-nat.c: remove obsolete (#ifdef 0) exception processing code.
+
+2002-06-07  Jim Ingham <jingham@apple.com>
+
+	* macosx-nat-dyld.c (macosx_locate_dyld): If we notice that the
+	exec_bfd doesn't have the DYLINKER load command, then note that
+	that fact in the dyld_status.
+	(dyld_print_status_info): don't try to print dyld info if dyld isn't
+	used.
+	(macosx_set_start_breakpoint): don't try to set the start breakpoint
+	if the executable doesn't load dyld.
+	(macosx_add_shared_symbol_files): don't try to do this if the executable
+	doesn't load dyld either.
+	* macosx-nat-dyld.h: add uses_dyld to the dyld_status structure.
+
+	* macosx-tdep.c (dyld_symbol_stub_function_addr): check that the block
+	for the symbol value we just found is valid before trying to access it.
+
+	* ppc-macosx-frameinfo.c (ppc_parse_instructions): treat an "sc" or a
+	bare branch (except for the ones we recognize)  as end of prologue
+	markers.  This way we don't scan too far in some hand-crafted functions,
+	"read" being the example I found.
+	
+2002-05-30  Rab Hagy <rhagy@apple.com>
+
+	* ppc-macosx-tdep.c, tm-ppc-macosx.h: added a limit argument to 
+	ppc_fast_show_stack_helper.
+
+2002-05-24  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* cached-symfile.c: Improve logic to detect mismatch between
+	cached symbol files and object file / GDB versions.
+
+2002-05-24  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* cached-symfile.c (open_mapped_objfile): Use openp instead of
+	explicit search logic to find the cached symbol file; respect the
+	'cached-symfile-path' variable.
+	(_initialize_cached_symfile): Add cached-symfile-path variable.
+	(dyld_cache_symfiles): Cleanup.
+
+2002-05-23  Jim Ingham <jingham@apple.com>
+
+	* machoread.c (macho_read_indirect_symbols): New function, 
+	encapsulate getting the "dyld_stub" symbols from a SYMBOL_STUB
+	type section.
+	(macho_symfile_read): read in both the __picsymbol_stub and the
+	new __symbol_stub sections.
+	
+2002-05-14  Jim Ingham <jingham@apple.com>
+
+	* ppc-macosx-frameinfo.c (ppc_parse_instructions): Keep
+	track of the last recognized instruction so we don't over
+	report the prologue's size.
+	
+2002-05-01  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* config/i386/macosx.mh, config/i386/nm-i386-macosx.h,
+	config/i386/tm-i386-macosx.h, macosx/i386-macosx-nat-exec.c,
+	macosx/i386-macosx-tdep.c, macosx/macosx-nat-inferior.c:
+	Fixes for i386.
+
+2002-05-01  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* ppc-macosx-regs.h: re-order register numbering. VSCR is a 4-byte
+	integer.
+
+	* ppc-macosx-tdep.c (gdb_register_names): update to new ordering.
+
+	* ppc-macosx-tdep.c (ppc_register_virtual_type): Change type of
+	AltiVec registers to builtin_type_vec128.
+
+	* ppc-macosx-regs.c (ppc_macosx_skip_trampoline_code,
+	ppc_macosx_dynamic_trampoline_nextpc,
+	ppc_macosx_in_solib_dynsym_resolve_code,
+	ppc_macosx_in_solib_return_trampoline): move to ppc-macosx-tdep.c.
+
+	
+2002-05-01  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* ppc-macosx-frameinfo.c (ppc_parse_instructions): gcc3 has a new
+	instruction 'mr r31,r12' in a function prologue.  Ignore it.
+
+2002-04-23  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* ppc-macosx-regs.c (ppc_macosx_fetch_vp_registers) Process the
+	vector data as unsigned integer, not as float (the Mach interface
+	returns them as unsigned int as well).
+	(ppc_macosx_store_vp_registers): Ditto.
+
+2002-04-15  Jim Ingham  <jingham@apple.com>
+
+	* core-macho.c: Small cleanups to remove compiler warnings.
+	* macosx-metrowerks.c: ditto.
+	* nextstep-core.c: ditto.
+	* nextstep-nat-cfm.c: ditto.
+	* nextstep-nat-cfmthread.c: ditto.
+	* nextstep-nat-dyld-info.c: ditto.
+	* nextstep-nat-dyld-io.c: ditto.
+	* nextstep-nat-dyld-path.c: ditto.
+	* nextstep-nat-dyld-process.c: ditto.
+	* nextstep-nat-dyld-process.h: ditto.
+	* nextstep-nat-dyld.c: ditto.
+	* nextstep-nat-excthread.c: ditto.
+	* nextstep-nat-inferior-debug.c: ditto.
+	* nextstep-nat-inferior-debug.h: ditto.
+	* nextstep-nat-inferior-util.c: ditto.
+	* nextstep-nat-inferior.c: ditto.
+	* nextstep-nat-inferior.h: ditto.
+	* nextstep-nat-info.c: ditto.
+	* nextstep-nat-mutils.c: ditto.
+	* nextstep-nat-sigthread.c: ditto.
+	* nextstep-nat-threads.c: ditto.
+	* nextstep-nat-watchpoint.c: ditto.
+	* ppc-frameinfo.c: ditto.
+	* ppc-frameops.c: ditto.
+	* ppc-next-tdep.h: ditto.
+	* ppc-tdep.h: ditto.
+	
+2002-04-11  Jim Ingham	<jingham@apple.com>
+
+	* nextstep-nat-dyld.c (dyld_lookup_and_bind_function): New function
+	calls NSLookupAndBindSymbol on a function to make sure the module
+	is bound before we try to call a function.
+	* nextstep-nat-dyld.h: declare dyld_lookup_and_bind_function.
+	* nextstep-nat-inferior.c (_initialize_next_inferior): Add 
+	dyld_lookup_and_bind_function to the child_ops.
+	
+2002-03-26  Jim Ingham  <jingham@apple.com>
+
+	* macosx-nat-dyld.c: (macosx_locate_dyld): New function, extract
+	this functionality from macosx_set_start_breakpoint.
+	Also, don't pass a null cleanup to do_cleanups.
+	(dyld_starts_here_p): New function, again, refactoring for
+	convenience.
+
+2002-03-19  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-process.c: rearrange the include order to remove a few
+	compiler warnings.
+	
+	* ppc-tdep.c (ppc_fast_show_stack_helper): Return 1 when you find
+	only 1 frame, not 0 dummy...
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Fix a bug with handling the
+	saveFP builtin function in prologues.
+
+2002-03-19  Klee Dienes  <klee@apple.com>
+
+	* macosx-nat-inferior.c: Check incoming exceptions --- if the
+	task receiving the exception is not the same as the one being
+	debugged by GDB, reset the exception ports of the task back to the
+	ones GDB saved for the target when it first started debugging;
+	then resume the task.  This isn't quite perfect, since ideally GDB
+	would allow changes to the exception ports made by the target be
+	reflected in children of the target as well; and also because it
+	relies on being able to repeat an exception by simply continuing
+	the child without modifying the program state (I think this should
+	always work, but there may be cases I haven't thought of).
+
+2002-03-19  Klee Dienes  <klee@apple.com>
+
+	* macosx-nat-dyld.c (dyld_info_process_raw); Treat ':' as a
+	string terminator when reading library names from DYLD.
+
+2002-03-14  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-tdep.c (ppc_fast_show_stack_helper): Use lookup_minimal_symbol to find
+	_sigtramp, it is much more efficient than parse_and_eval_address...
+
+2002-03-05  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld.c (dyld_starts_here_p): New function, does the memory
+	passed in actually contain dyld?
+	(macosx_locate_dyld): New function, find where dyld got loaded in this
+	executable.
+	(macosx_set_start_breakpoint): call macosx_locate_dyld.
+	(dyld_lookup_address): use the slide set by macosx_locate_dyld.
+
+	* macosx-nat-cfm.h: add cfm_update to silence compiler warnings.
+	* macosx-nat-dyld-info.h: add dyld_objfile_info_compare.
+	* macosx-nat-dyld-process.h: add dyld_parse_load_level and
+	dyld_minimal_load_flag.
+	* macosx-nat-dyld.h: remove macosx_start_dyld - it is never used
+	or defined.
+
+2002-02-26  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-sigthread.c (macosx_signal_thread): Don't call pause
+	in between pthread_testcancel calls, we never get a signal to wake
+	us up...
+	
+	* macosx-nat-inferior.c (macosx_clear_pending_events): New
+	function, clears out the pending event chain.
+	(macosx_mourn_inferior): Call macosx_clear_pending_events.
+
+2002-02-21  James Ingham  <jingham@inghji.apple.com>
+
+	* remote-kdp.c (kdp_resume): Fix signature of kdp_resume - should
+	be a ptid_t for first argument, not an int...
+
+2002-02-06  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-process.c (dyld_libraries_compatible): The prefix may 
+	be NULL, check this before comparing the contents.
+	(dyld_objfile_move_load_data): copy the prefix over as well.
+	* macosx-nat-dyld-info.c (dyld_objfile_entry_clear): The unset value for
+	the prefix should be NULL, not "".
+
+2002-01-25  James Ingham <jingham@inghji.apple.com>
+        Create a queue of "pending events" to handle the case where we get more
+	than one event from either Mach or BSD when the inferior stops.  If we
+	get more than one event, then we report them to the user serially, and
+	each call to macosx_child_resume will fetch the next pending event till
+	the queue is exhausted.  Only then do we really resume the inferior.
+	
+	* macosx-nat-inferior-stubs.c: Fix child_wait to pass the client_data
+	field.
+	* macosx-nat-inferior-util.c (macosx_inferior_suspend_ptrace): Fix call 
+	to macosx_wait.
+	* macosx-nat-inferior.h: Change declaration of macosx_wait.
+	* macosx-nat-inferior.c: Include regcache.h to remove compiler warnings.
+	Generalize the signal & exception handling functions so we can share them 
+	between the immediate event handling and the deferred servicing routines.
+	Add the macosx_pending_event struct, queue, and handling functions.
+	* kdp.c: change declaration of kdp_wait, and since the gdb_queue_event
+	function is now exported, remove the copy of it from here.
+	
+2002-01-18  James Ingham  <jingham@inghji.apple.com>
+
+	* i386-macosx-nat-exec.c (fetch_inferior_registers): Fix a reference to
+	the obsolete inferior_pid.
+	(store_inferior_registers): ditto
+
+2002-01-11  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-tdep.c (ppc_breakpoint_from_pc): Fixed a couple of places
+	where we needed to switch BIG_ENDIAN for BFD_BIG_ENDIAN.
+
+2001-12-07  James Ingham  <jingham@inghji.apple.com>
+
+	(From Bernard Semeria)
+	* remote-kdp.c (kdp_attach): Use the version packet rather than
+	hijacking the region packet to get the kdp version.
+	* kdp-protocol.c (kdp_marshall, kdp_unmarshall): ditto.
+	* kdp-protocol.h: ditto.
+
+2001-12-03  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-inferior.c: Format changes, more functions comply
+	with the GNU coding conventions.  Also added a few prototypes, and
+	extern'ed some functions from exec.c to remove compiler warnings.
+
+	* macosx-nat-inferior.c (macosx_set_auto_start_dyld): New
+	function, used to dynamically switch the dyld breakpoint on and
+	off.
+	(_initialize_macosx_inferior): use macosx_set_auto_start_dyld.
+	
+	(macosx_process_events): drain both event sources here, not just the
+	one you got the first hit on.  We have more chance of handling
+	extraneous events here than in macosx_child_resume...
+	
+2001-11-01  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-tdep.c (ppc_fast_show_stack_helper): Move most of the
+	functionality into this function, and set it as the
+	FAST_COUNT_STACK_DEPTH function, which is used in
+	mi_cmd_info_stack_depth.
+	* tm-ppc.h: Add define for FAST_COUNT_STACK_DEPTH
+	
+2001-10-31  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-tdep.c (ppc_fast_show_stack): New function.  Run up the
+	stack and return pc & fp for each frame, and a frame count.  Since
+	this doesn't build up the frame cache, it is much faster.
+	(ppc_frame_find_pc): We were looking in the wrong place for the
+	frame stored PC for signal frames.
+
+2001-10-30  Klee Dienes  <kdienes@apple.com>
+
+	* macosx-nat-dyld-process.c (dyld_add_image_libraries): 
+	recognize BFD_MACH_O_LC_LOAD_WEAK_DYLIB; treat it like
+	LC_LOAD_DYLIB for now.
+
+2001-10-26  Klee Dienes  <kdienes@apple.com>
+
+	* macosx-nat-dyld-info.c (dyld_entry_out): Send the basename as
+	the "path" field when talking via MI.  The ProjectBuilder shared
+	library dialog uses the pathname as the key for the table, so all
+	entries without a "path" field were getting collapsed into one
+	line in the table.  The correct fix for this is to have PB used a
+	different algorithm for building the table, but this fix should
+	work well for now.
+
+	* macosx-nat-dyld-process.c (dyld_load_library): Automatically
+	load CFM fragments from memory, rather than trying to load from
+	disk first.  The only time we should be relying on the fragment
+	name to match a disk file is when looking for xSym files.  Trying
+	to read from disk was taking extra time in the cases where the
+	disk access failed, and the warning messages when it failed were
+	distracting.
+
+	* macosx-nat-dyld-.c (inferior_bfd_generic): Handle the case
+	where a memory object is provided without a text string for the
+	name (previously it would crash).
+
+2001-10-23  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld.c (macosx_dyld_update): If you have turned off
+	cfm with the inferior-auto-start-cfm variable, then don't call
+	update-cfm when you update the libraries.
+
+2001-10-17  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-tdep.c (ppc_frame_find_pc): Actually return the signal frame
+	value. Dopey bug...
+	(ppc_frame_saved_pc_after_call): remove spurious warning.  This is
+	always supposed to return the link register, and looking for the
+	frame saved value is not relevant.
+	(ppc_frame_chain_valid): Guard the call that reads the stack from
+	errors.  Callers don't expect ppc_frame_chain_valid to error out,
+	but it can if the stack is mauled so that the fp is an unreadable
+	address.
+
+	* ppc-frameinfo.h: define safe_read_memory_unsigned_integer, so
+	that ppc-tdep can use is.  
+	
+	* ppc-frameinfo.c (ppc_parse_instructions): Don't assume that the
+	pic base will use register 31.  The dyld stub code uses 11, for
+	instance.
+
+2001-10-02  Jim Ingham (jingham@apple.com) and Jason Molenda (jmolenda@apple.com)
+
+       * macosx-nat-inferior.c (macosx_fetch_event):  Accept a third
+       type of timeout:  Check for an event to read, but don't block if
+       there's nothing there.
+       (macosx_process_events, macosx_child_resume):  Update callers.
+
+2001-08-06  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (safe_read_memory_unsigned_integer): The wrapped
+	function has to return a value, or bad things happen...
+	(ppc_frame_cache_properties): pass the function_end as the stop
+	for the parsing, not the pc.  This way we can correctly parse the
+	prologue & figure out where we are EVEN IF the pc is in the
+	prologue.
+
+2001-08-03  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-info.c (dyld_entry_info): Check for 
+	e->loaded_name not null before passing to strrchr.
+
+2001-08-02  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld.c (_initialize_macosx_nat_dyld): fix up doc strings.
+	(macosx_init_dyld): Add a missing check for the ofile being NULL.
+
+2001-08-02  Derek Kumar
+
+	* remote-kdp.c: Added breakpoint packets, kdp-reattach and
+	versioning support and kdp_mourn_inferior()
+
+2001-07-31  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-process.c: The dyld code doesn't own the
+	objfile for the executable.  The generic gdb code keeps a pointer
+	to this through the symfile_objfile pointer.  So let the generic
+	code handle the lifetime of the executable objfile.
+
+2001-07-27  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (safe_read_memory_unsigned_integer): New
+	function, safe version of read_memory_unsigned_int.
+	(wrap_read_memory_unsigned_integer): This is the wrapper function.
+	(ppc_parse_instructions): catch errors from
+	read_memory_unsigned_integer, this gives us a much better chance
+	of cleaning up from cases where the pc is off in unreadable
+	memory.
+
+2001-06-21  Klee Dienes  <kdienes@localhost>
+
+	* macosx-nat-dyld.c (section_info_helper): protect the CFM
+	section of the code with #if WITH_CFM .
+
+2001-06-14  James Ingham  <jingham@gdbrulez.apple.com>
+
+        * ppc-frameinfo.c (ppc_parse_instructions): properly sign extend
+	the instruction offset from the "bl" instruction - the old way
+	didn't work for CORE_ADDR = unsigned long long.
+	
+	* macosx-nat-dyld-path.c (dyld_resolve_image): check for name
+	being null and don't crash.
+	* macosx-nat-dyld-process.c (dyld_resolve_load_flag): Ditto...
+
+2001-06-07  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_frame_cache_properties): protect against
+	the case where we think the lr wasn't saved in a non-leaf
+	function.
+	* ppc-tdep.c (ppc_frame_find_pc): ditto.
+
+2001-05-18  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Add a fallback if we
+	don't recognize ANY valid prologue instructions.  In that case, we
+	are just guessing, but guess that the pc is stored on the stack,
+	since this is usually the case.
+
+2001-05-15  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-info.c (dyld_print_shlib_info): use dyld_entry_out to 
+	output the path, offset & slide in ui-out'ified form.
+	(dyld_entry_string): Use dyld_entry_info.
+	(dyld_entry_out): New function, format the path, offset & slide in ui-out.
+	(dyld_entry_info): Generic function, returns path, offset & slide in separate
+	fields, for use in dyld_entry_string & dyld_entry_out.
+
+2001-05-10  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld.c (dyld_print_status_info): ui_out'ify the info 
+	messages so we don't spam the mi...
+
+	* macosx-nat-dyld-info.c (dyld_print_shlib_info): ui_out'ify the
+	output from info sharedlibrary.
+
+2001-04-18  Jim Ingham  <jingham@localhost.apple.com>
+
+	* ppc-tdep.c (ppc_get_unsaved_pc): New function.  How to get the
+	frame's pc if it hasn't been saved in the frame.
+	(ppc_frame_find_pc): Reworked the logic to better handle cases
+	where the of the parent frame is in its prologue.
+	(ppc_frame_chain_valid): If the frame pointer is null, we are at
+	the end of the stack.  Re-enable the code that does this check.
+	Klee thinks this might cause trouble somewhere but can't remember
+	where, and it is the right thing to do, so...
+
+	* ppc-frameinfo.h: Removed the offset2 field, it was just for use
+	IN ppc_parse_instructions.  Added lr_invalid to handle prologues
+	that temporarily invalidate the link register.
+
+	* ppc-frameinfo.c (ppc_print_properties): mutatis mutandi for
+	changes to the properties structure.
+	(ppc_parse_instructions): Add support for the saveFP and saveVec
+	gcc prolog setup routines.  Also record WHEN the link register is
+	stored in the frame so we can do a better job of backtraces while
+	in the prolog.
+	(ppc_clear_function_properties): mutatis mutandi for changes to
+	the properties structure.
+
+2001-02-21  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-process.c (dyld_load_library): If you get an
+	error in getting the TEXT segment for a shlib, mark the entry as
+	invalid.  You can't free it, it wasn't malloc'ed...
+
+2001-01-24  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-inferior.c (macosx_fetch_task_info): Comment out the call 
+	to macosx_init_dyld_symfile.  This caused gdb to reset shared library
+	info when quitting.
+	(macosx_child_stop): New function: don't use child_stop, it sends
+	a kill (-pid, SIGINT) which doesn't work on MacOS X unless the inferior
+	actually IS a process group leader.  But apps in MacOS X almost never
+	are (they are children of the WindowServer).
+	
+	initialize remote_async_terminal_ours_p to 1 - this reflects truth:
+	gdb at startup DOES own the terminal.
+	* remote-kdp.c: ditto.
+
+2001-01-22  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_frame_cache_properties): Check that the
+	frame's extra_info is set.
+
+2000-11-07  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): If the FIRST instruction of the
+	prologue is a bl, we are probably NOT in the prologue.
+
+	* ppc-tdep.c (ppc_frame_find_pc): In the case where we have no symbols, 
+	use the instruction parser to tell us whether the return address has
+	been put on the stack yet or not.
+
+2000-09-06  Jim Ingham  <jingham@localhost>
+
+	* macosx-nat-inferior-util.c: add WITH_CFM guards in the
+	appropriate places.
+	* macosx-nat-inferior.c: ditto
+	* macosx-nat-inferior.h: ditto.
+
+2000-09-05  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Cleanup a comment & remove
+	an unused variable.
+
+2000-09-01  James Ingham  <jingham@inghji.apple.com>
+
+	* ppc-frameinfo.h: Added a few comments.
+
+	* ppc-frameinfo.c (ppc_parse_instructions): Detect the
+	"save_world" stack setup routine that gcc uses for C++, and set up
+	the props structure based on what it does.  NB. This will break if
+	gcc changes this routine, but there's not much I can do about
+	this...
+
+2000-08-09  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-path.c (build_suffix_name): new function, find
+	full name including the DYLD_IMAGE_SUFFIX.
+	(search_for_name_in_path): Pass in the
+	suffix that comes from DYLD_IMAGE_SUFFIX, and use in search.
+	(get_framework_pathname): pass in flag telling whether to use
+	the image suffix, and use it.
+	(dyld_resolve_image): use the image suffix in resolving the image 
+	path.
+	(dyld_init_paths): Initialize the image_suffix from the environment.
+	* macosx-nat-dyld-path.c: Add image_suffix to dyld_path_info struct.
+
+2000-07-20  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-inferior-debug.c: Add fflush to the inferior_stderr.  
+	There may be other places where this is needed as well, but we 
+	will chase them down as we find them.
+
+	* macosx-nat-inferior.c: Open the inferior_stderr "w", not
+	"w+", so the debugging output will work when gdb is running as
+	pipe under another program.
+
+2000-06-23  James Ingham  <jingham@inghji.apple.com>
+
+	* macosx-nat-dyld-process.c: Take out the call to 
+	build_objfile_section_table, since it only screwed up the 
+	section table, and had no other purpose...
+

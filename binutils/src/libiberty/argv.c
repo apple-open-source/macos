@@ -1,5 +1,5 @@
 /* Create and destroy argument vectors (argv's)
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 2001 Free Software Foundation, Inc.
    Written by Fred Fish @ Cygnus Support
 
 This file is part of the libiberty library.
@@ -25,10 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ansidecl.h"
 #include "libiberty.h"
 
-#ifdef isspace
-#undef isspace
-#endif
-#define isspace(ch) ((ch) == ' ' || (ch) == '\t')
+#define ISBLANK(ch) ((ch) == ' ' || (ch) == '\t')
 
 /*  Routines imported from standard C runtime libraries. */
 
@@ -51,7 +48,6 @@ extern char *strdup ();		/* Duplicate a string */
 
 #endif	/* __STDC__ */
 
-#include "alloca-conf.h"
 
 #ifndef NULL
 #define NULL 0
@@ -66,26 +62,15 @@ extern char *strdup ();		/* Duplicate a string */
 
 /*
 
-NAME
+@deftypefn Extension char** dupargv (char **@var{vector})
 
-	dupargv -- duplicate an argument vector
+Duplicate an argument vector.  Simply scans through @var{vector},
+duplicating each argument until the terminating @code{NULL} is found.
+Returns a pointer to the argument vector if successful.  Returns
+@code{NULL} if there is insufficient memory to complete building the
+argument vector.
 
-SYNOPSIS
-
-	char **dupargv (vector)
-	char **vector;
-
-DESCRIPTION
-
-	Duplicate an argument vector.  Simply scans through the
-	vector, duplicating each argument until the
-	terminating NULL is found.
-
-RETURNS
-
-	Returns a pointer to the argument vector if
-	successful. Returns NULL if there is insufficient memory to
-	complete building the argument vector.
+@end deftypefn
 
 */
 
@@ -123,24 +108,14 @@ dupargv (argv)
 
 /*
 
-NAME
+@deftypefn Extension void freeargv (char **@var{vector})
 
-	freeargv -- free an argument vector
+Free an argument vector that was built using @code{buildargv}.  Simply
+scans through @var{vector}, freeing the memory for each argument until
+the terminating @code{NULL} is found, and then frees @var{vector}
+itself.
 
-SYNOPSIS
-
-	void freeargv (vector)
-	char **vector;
-
-DESCRIPTION
-
-	Free an argument vector that was built using buildargv.  Simply scans
-	through the vector, freeing the memory for each argument until the
-	terminating NULL is found, and then frees the vector itself.
-
-RETURNS
-
-	No value.
+@end deftypefn
 
 */
 
@@ -161,53 +136,46 @@ char **vector;
 
 /*
 
-NAME
+@deftypefn Extension char** buildargv (char *@var{sp})
 
-	buildargv -- build an argument vector from a string
+Given a pointer to a string, parse the string extracting fields
+separated by whitespace and optionally enclosed within either single
+or double quotes (which are stripped off), and build a vector of
+pointers to copies of the string for each field.  The input string
+remains unchanged.  The last element of the vector is followed by a
+@code{NULL} element.
 
-SYNOPSIS
+All of the memory for the pointer array and copies of the string
+is obtained from @code{malloc}.  All of the memory can be returned to the
+system with the single function call @code{freeargv}, which takes the
+returned result of @code{buildargv}, as it's argument.
 
-	char **buildargv (sp)
-	char *sp;
+Returns a pointer to the argument vector if successful.  Returns
+@code{NULL} if @var{sp} is @code{NULL} or if there is insufficient
+memory to complete building the argument vector.
 
-DESCRIPTION
+If the input is a null string (as opposed to a @code{NULL} pointer),
+then buildarg returns an argument vector that has one arg, a null
+string.
 
-	Given a pointer to a string, parse the string extracting fields
-	separated by whitespace and optionally enclosed within either single
-	or double quotes (which are stripped off), and build a vector of
-	pointers to copies of the string for each field.  The input string
-	remains unchanged.
+@end deftypefn
 
-	All of the memory for the pointer array and copies of the string
-	is obtained from malloc.  All of the memory can be returned to the
-	system with the single function call freeargv, which takes the
-	returned result of buildargv, as it's argument.
+The memory for the argv array is dynamically expanded as necessary.
 
-	The memory for the argv array is dynamically expanded as necessary.
+In order to provide a working buffer for extracting arguments into,
+with appropriate stripping of quotes and translation of backslash
+sequences, we allocate a working buffer at least as long as the input
+string.  This ensures that we always have enough space in which to
+work, since the extracted arg is never larger than the input string.
 
-RETURNS
+The argument vector is always kept terminated with a @code{NULL} arg
+pointer, so it can be passed to @code{freeargv} at any time, or
+returned, as appropriate.
 
-	Returns a pointer to the argument vector if successful. Returns NULL
-	if the input string pointer is NULL or if there is insufficient
-	memory to complete building the argument vector.
-
-NOTES
-
-	In order to provide a working buffer for extracting arguments into,
-	with appropriate stripping of quotes and translation of backslash
-	sequences, we allocate a working buffer at least as long as the input
-	string.  This ensures that we always have enough space in which to
-	work, since the extracted arg is never larger than the input string.
-
-	If the input is a null string (as opposed to a NULL pointer), then
-	buildarg returns an argv that has one arg, a null string.
-
-	Argv is always kept terminated with a NULL arg pointer, so it can
-	be passed to freeargv at any time, or returned, as appropriate.
 */
 
 char **buildargv (input)
-const char *input;
+     const char *input;
 {
   char *arg;
   char *copybuf;
@@ -227,7 +195,7 @@ const char *input;
       do
 	{
 	  /* Pick off argv[argc] */
-	  while (isspace (*input))
+	  while (ISBLANK (*input))
 	    {
 	      input++;
 	    }
@@ -260,7 +228,7 @@ const char *input;
 	  arg = copybuf;
 	  while (*input != EOS)
 	    {
-	      if (isspace (*input) && !squote && !dquote && !bsquote)
+	      if (ISBLANK (*input) && !squote && !dquote && !bsquote)
 		{
 		  break;
 		}
@@ -326,7 +294,7 @@ const char *input;
 	  argc++;
 	  argv[argc] = NULL;
 
-	  while (isspace (*input))
+	  while (ISBLANK (*input))
 	    {
 	      input++;
 	    }
@@ -340,7 +308,7 @@ const char *input;
 
 /* Simple little test driver. */
 
-static char *tests[] =
+static const char *const tests[] =
 {
   "a simple command line",
   "arg 'foo' is single quoted",
@@ -357,10 +325,10 @@ static char *tests[] =
   NULL
 };
 
-main ()
+int main ()
 {
   char **argv;
-  char **test;
+  const char *const *test;
   char **targs;
 
   for (test = tests; *test != NULL; test++)
@@ -381,6 +349,7 @@ main ()
       freeargv (argv);
     }
 
+  return 0;
 }
 
 #endif	/* MAIN */

@@ -165,11 +165,7 @@ public:
 	CSSM_KEY_PTR extractCSSMKey(
 		CssmAllocator		&alloc) const;
 
-	static void freeCSSMKey(
-		CSSM_KEY_PTR		cssmKey,
-		CssmAllocator		&alloc,
-		bool				freeTop = true);	// delete the actual key
-												// as well as contents
+	CSSM_KEYUSE inferKeyUsage() const;
 
 private:
 
@@ -183,8 +179,6 @@ private:
 	/* encode mExtensions ==> tbs->Extensions */
 	void encodeExtensions();
 	
-	CSSM_KEYUSE inferKeyUsage() const;
-
 	/* called from decodeExtensions and setField* */
 	void addExtension(
 		AsnType 			*snaccThing,	// e.g. KeyUsage

@@ -30,24 +30,14 @@ includes
 #include <sys/signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <sys/un.h>
-#include <pthread.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <net/dlil.h>
 #include <sys/param.h>
-#include <termios.h>
-#include <fcntl.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <net/dlil.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+//#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
+#define SCLog
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
@@ -73,21 +63,23 @@ forward declarations
 ----------------------------------------------------------------------------- */
 
 
-void initThings(const char *bundleDir);
-void postInitThings();
-void startListen();
-void socketCallBack(CFSocketRef s, CFSocketCallBackType type,
-                     CFDataRef address, const void *data, void *info);
+int initThings();
+int startListen();
+
 u_long processRequest (struct client *client, struct msg *msg);
 u_long close_cleanup (struct client *client, struct msg *msg);
+
+void listenCallBack(CFSocketRef s, CFSocketCallBackType type,
+                     CFDataRef address, const void *data, void *info);
+void clientCallBack(CFSocketRef s, CFSocketCallBackType type,
+                     CFDataRef address, const void *data, void *info);
 
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
 struct msg 		gMsg;
-CFSocketRef		gApiListenRef = 0;
-char 			*gPluginsDir = 0;
+CFStringRef 		gPluginsDir = 0;
 CFBundleRef 		gBundleRef = 0;
 CFURLRef 		gBundleURLRef = 0;
 CFStringRef 		gCancelRef = 0;
@@ -97,144 +89,178 @@ CFURLRef 		gIconURLRef = 0;
 /* -----------------------------------------------------------------------------
 plugin entry point, called by configd
 ----------------------------------------------------------------------------- */
-void start(const char *bundleName, const char *bundleDir)
+void load(CFBundleRef bundle, Boolean debug)
 {
-    
-    initThings(bundleDir);
-    startListen();
-    postInitThings();
+    gBundleRef = bundle;
+
+    if (initThings())
+        return;
+    if (startListen())
+        return;
+    if (client_init_all())
+        return;
+    if (ppp_init_all())
+        return;
+
+    CFRetain(bundle);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void initThings(const char *bundleDir)
+int initThings()
 {
-    CFStringRef		dirref;
-    CFURLRef 		pluginurlref;
-    char 		str[MAXPATHLEN];
+    CFURLRef 		urlref, absurlref;
     
-    dirref = CFStringCreateWithCString(NULL, bundleDir, kCFStringEncodingUTF8);
-    if (dirref) {
-        gBundleURLRef = CFURLCreateWithFileSystemPath(NULL, dirref, kCFURLPOSIXPathStyle, 1);
-        if (gBundleURLRef) {
-            gBundleRef = CFBundleCreate(NULL, gBundleURLRef);
-            if (gBundleRef) {
-                pluginurlref = CFBundleCopyBuiltInPlugInsURL(gBundleRef);
-                if (pluginurlref) {
-                    getcwd(str, MAXPATHLEN);
-                    gPluginsDir = malloc(strlen(str) + strlen(bundleDir) + CFStringGetLength(CFURLGetString(pluginurlref)) + 1);
-                    if (gPluginsDir) {
-                        strcpy(gPluginsDir, str);
-                        strcat(gPluginsDir, bundleDir + 1);
-                        strcat(gPluginsDir, "/");
-                        CFStringGetCString(CFURLGetString(pluginurlref), gPluginsDir + strlen(gPluginsDir), CFStringGetLength(CFURLGetString(pluginurlref)) + 1, kCFStringEncodingUTF8);
-                    }
-                    CFRelease(pluginurlref);
-                }
-            }
+    
+    gBundleURLRef = CFBundleCopyBundleURL(gBundleRef);
+    
+    // create plugins dir
+    urlref = CFBundleCopyBuiltInPlugInsURL(gBundleRef);
+    if (urlref) {
+        absurlref = CFURLCopyAbsoluteURL(urlref);
+	if (absurlref) {
+            gPluginsDir = CFURLCopyPath(absurlref);
+            CFRelease(absurlref);
         }
-        CFRelease(dirref);
+        CFRelease(urlref);
     }
-
+  
     // create misc notification strings
-    if (gBundleRef) {
-        gCancelRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Cancel"), CFSTR("Cancel"), NULL);
-	gInternetConnectRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
-        gIconURLRef = CFBundleCopyResourceURL(gBundleRef, CFSTR(ICON), NULL, NULL);
-    }
+    gCancelRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Cancel"), CFSTR("Cancel"), NULL);
+    gInternetConnectRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
+    gIconURLRef = CFBundleCopyResourceURL(gBundleRef, CFSTR(ICON), NULL, NULL);
+    return 0;
 }
-
-/* -----------------------------------------------------------------------------
-// init now things that need to have sockets instantiated
------------------------------------------------------------------------------ */
-void postInitThings()
-{
-
-    ppp_init_all();
-}
-
+ 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void startListen ()
+int startListen ()
 {
-    struct sockaddr_un	serveraddr;
+    struct sockaddr_un	addr;
     int			error, s;
     mode_t		mask;
+    CFSocketRef		ref = 0;
+    CFRunLoopSourceRef	rls;
+    CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
 
-    SCDLog(LOG_INFO, CFSTR("Running PPPController plugin...\n"));
-
-    s = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if ((s = socket(AF_LOCAL, SOCK_STREAM, 0)) == -1)
+        goto fail;
 
     unlink(PPP_PATH);
-
-    bzero(&serveraddr, sizeof(serveraddr));
-    serveraddr.sun_family = AF_LOCAL;
-    strcpy(serveraddr.sun_path, PPP_PATH);
+    bzero(&addr, sizeof(addr));
+    addr.sun_family = AF_LOCAL;
+    strcpy(addr.sun_path, PPP_PATH);
     mask = umask(0);
-    error = bind(s, (struct sockaddr *)&serveraddr, SUN_LEN(&serveraddr));
-    if (error) {
-        SCDLog(LOG_INFO, CFSTR("PPPController: Bind error... err = 0x%x\n"), errno);
-        umask(mask);
-        return;
-    }
+    error = bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr));
     umask(mask);
+    if (error) 
+        goto fail;
+
+    if ((ref = CFSocketCreateWithNative(NULL, s, kCFSocketReadCallBack,
+                                   listenCallBack, &context)) == 0)
+        goto fail;
+    
+    if ((rls = CFSocketCreateRunLoopSource(NULL, ref, 0)) == 0)
+        goto fail;
+           
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
 
     listen(s, SOMAXCONN);
+    CFRelease(ref);
+    return 0;
+    
+fail:
+    SCLog(TRUE, LOG_INFO, CFSTR("PPPController: initialization failed...\n"));
+    if (s != -1) 
+        close(s);
+    if (ref) {
+        CFSocketInvalidate(ref);
+        CFRelease(ref);
+    }
+    return 1;
+}
 
-    client_init_all();
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
+                     CFDataRef address, const void *data, void *info)
+{
+    struct sockaddr_un	addr;
+    int			s, len;//, flags;
+    CFSocketRef		ref;
+    CFRunLoopSourceRef	rls;
+    CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
 
-    gApiListenRef = AddSocketNativeToRunLoop(s);
+    len = sizeof(addr);
+    if ((s = accept(CFSocketGetNative(inref), (struct sockaddr *) &addr, &len)) == -1)
+        return;
+        
+    PRINTF(("Accepted connection...\n"));
+
+//       if ((flags = fcntl(connfd, F_GETFL)) == -1
+//           || fcntl(connfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+//           printf("Couldn't set accepting socket in non-blocking mode, errno = %d\n", errno);
+//       }
+        
+    if ((ref = CFSocketCreateWithNative(NULL, s, 
+                    kCFSocketReadCallBack, clientCallBack, &context)) == 0) {
+        close(s);
+        return;
+    }
+    if ((rls = CFSocketCreateRunLoopSource(NULL, ref, 0)) == 0)
+        goto fail;
+
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+
+    if (client_new(ref) == 0)
+        goto fail;
+
+    CFRelease(ref);
+    return;
+    
+fail:
+    CFSocketInvalidate(ref);
+    CFRelease(ref);
+    return;
 
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void socketCallback(CFSocketRef s, CFSocketCallBackType type,
+void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
                      CFDataRef address, const void *data, void *info)
 {
-    int 		fd = CFSocketGetNative(s);
-    struct sockaddr_un	cliaddr;
-    int			connfd, clilen, action;//, flags;
+    int 		s = CFSocketGetNative(inref);
+    int			action, len;
     ssize_t		n;
-    CFSocketRef		connRef;
     struct client 	*client;
 
-    if (s == gApiListenRef) {
-        clilen = sizeof(cliaddr);
-        connfd = accept(fd, (struct sockaddr *) &cliaddr, &clilen);
-        PRINTF(("Accepted connection...\n"));
-
- //       if ((flags = fcntl(connfd, F_GETFL)) == -1
- //           || fcntl(connfd, F_SETFL, flags | O_NONBLOCK) == -1) {
- //           printf("Couldn't set accepting socket in non-blocking mode, errno = %d\n", errno);
- //       }
-
-        connRef = AddSocketNativeToRunLoop(connfd);
-
-        if (!client_new(connRef)) {
-            // no memory to create client...
-            DelSocketRef(connRef);
-            close(connfd);
-            return;			       
-        }
-        
-        return;
-    }
-
-    client = client_findbysocketref(s);
+    client = client_findbysocketref(inref);
     if (client) {
 
         action = do_process;
-        if ((n = read(fd, &gMsg, sizeof(struct ppp_msg_hdr))) == 0) {
+        if ((n = read(s, &gMsg, sizeof(struct ppp_msg_hdr))) == 0) {
             action = do_close;
         } else {
-            PRINTF(("Data to process... len = %d\n", gmsg.hdr.m_len));
-
-            if (gMsg.hdr.m_len) {
-                if (gMsg.hdr.m_len > MAXDATASIZE) {
+            PRINTF(("Data to process... len = %d\n", gMsg.hdr.m_len));
+            len = 0;
+            if ((gMsg.hdr.m_flags & USE_SERVICEID)
+                && gMsg.hdr.m_link) {
+                len = gMsg.hdr.m_link;
+                if (gMsg.hdr.m_link > MAXDATASIZE) {
                     action = do_error;
                 }
-                else if (read(fd, &gMsg.data[0], gMsg.hdr.m_len) != gMsg.hdr.m_len) {
+                else if (read(s, &gMsg.data[0], gMsg.hdr.m_link) != gMsg.hdr.m_link) {
+                    action = do_close;
+                }
+            }
+           if ((action == do_process) && gMsg.hdr.m_len) {
+                if ((len + gMsg.hdr.m_len) > MAXDATASIZE) {
+                    action = do_error;
+                }
+                else if (read(s, &gMsg.data[len], gMsg.hdr.m_len) != gMsg.hdr.m_len) {
                     action = do_close;
                 }
             }
@@ -244,8 +270,7 @@ void socketCallback(CFSocketRef s, CFSocketCallBackType type,
             case do_close:
                 PRINTF(("Connection closed...\n"));
                 /* connection closed by client */
-                close_cleanup(client, &gMsg);
-                DelSocketRef(s);
+                CFSocketInvalidate(inref);
                 client_dispose(client);
                 break;
             case do_error:
@@ -263,7 +288,6 @@ void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 ----------------------------------------------------------------------------- */
 u_long processRequest (struct client *client, struct msg *msg)
 {
-    struct ppp_status *stat;
 
     PRINTF(("process_request : type = %x, len = %d\n", msg->hdr.m_type, msg->hdr.m_len));
 
@@ -301,6 +325,15 @@ u_long processRequest (struct client *client, struct msg *msg)
         case PPP_GETLINKBYSERVICEID:
             ppp_getlinkbyserviceid(client, msg);
             break;
+        case PPP_GETLINKBYIFNAME:
+            ppp_getlinkbyifname(client, msg);
+            break;
+        case PPP_SUSPEND:
+            ppp_suspend(client, msg);
+            break;
+        case PPP_RESUME:
+            ppp_resume(client, msg);
+            break;
 
         // private pppd event
         case PPPD_EVENT:
@@ -311,104 +344,22 @@ u_long processRequest (struct client *client, struct msg *msg)
 
     if (msg->hdr.m_len != 0xFFFFFFFF) {
 
-        write(CFSocketGetNative(client->ref), msg, sizeof(struct ppp_msg_hdr) + msg->hdr.m_len);
-        //PRINTF(("process_request : write on output, len = %d\n", sizeof(struct ppp_msg_hdr) + msg->hdr.m_len));
+        write(CFSocketGetNative(client->ref), msg, sizeof(struct ppp_msg_hdr) + msg->hdr.m_len + 
+            (msg->hdr.m_flags & USE_SERVICEID ? msg->hdr.m_link : 0));
+        
         PRINTF(("process_request : m_type = 0x%x, result = 0x%x, cookie = 0x%x, link = 0x%x, len = 0x%x\n",
                 msg->hdr.m_type, msg->hdr.m_result, msg->hdr.m_cookie, msg->hdr.m_link, msg->hdr.m_len));
-        //PRINTF(("process_request : m_result = 0x%x\n", msg->hdr.m_result));
-        //PRINTF(("process_request : m_cookie = 0x%x\n", msg->hdr.m_cookie));
-        //PRINTF(("process_request : m_link = 0x%x\n", msg->hdr.m_link));
-        //PRINTF(("process_request : m_len = 0x%x\n", msg->hdr.m_len));
+#if 0
         if (msg->hdr.m_type == PPP_STATUS) {
-            stat = (struct ppp_status *)&msg->data[0];
+            struct ppp_status *stat = (struct ppp_status *)&msg->data[0];
             PRINTF(("     ----- status = 0x%x", stat->status));
             if (stat->status != PPP_RUNNING) {
                 PRINTF((", cause = 0x%x", stat->s.disc.lastDiscCause));
             }
             PRINTF(("\n"));
         }
-    }
-    else {
-        //      PRINTF(("process_request : write nothing on output\n"));
+#endif
     }
 
     return 0;
-}
-
-/* -----------------------------------------------------------------------------
-perform some cleanup action when client is about to leave
------------------------------------------------------------------------------ */
-u_long close_cleanup (struct client *client, struct msg *msg)
-{
-
-    return 0;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-CFSocketRef AddSocketNativeToRunLoop(int fd)
-{
-    CFRunLoopSourceRef	rls;
-    CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
-    CFSocketRef 	ref;
-
-    PRINTF(("AddSocketNativeToRunLoop...\n"));
-    ref = CFSocketCreateWithNative(NULL, fd, kCFSocketReadCallBack,
-                                   socketCallback, &context);
-    rls = CFSocketCreateRunLoopSource(NULL, ref, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-
-    return ref;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-int DelSocketRef(CFSocketRef ref)
-{
-    int 	fd = CFSocketGetNative(ref);
-
-    PRINTF(("DelSocketRef...\n"));
-    CFSocketInvalidate(ref);
-    CFRelease(ref);
-    return fd;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void DelRunLoopSource(CFRunLoopSourceRef rls)
-{
-    CFRunLoopSourceInvalidate(rls);
-    //CFRunLoopRemoveSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-}
-
-/* -----------------------------------------------------------------------------
-* schedule a timeout to run (once) in 'time' seconds
-return the ref to the newly created timer
------------------------------------------------------------------------------ */
-CFRunLoopTimerRef AddTimerToRunLoop(void (*func) __P((CFRunLoopTimerRef, void *)), void *arg, u_short time)
-{
-    CFRunLoopTimerRef		timer;
-    CFRunLoopTimerContext	context = { 0, 0, 0, 0, 0 };
-
-    context.info = arg;
-    timer = CFRunLoopTimerCreate(0, CFAbsoluteTimeGetCurrent() + time, 0, 0, 0, func, &context);
-
-    CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
-
-    return timer;
-}
-
-/* -----------------------------------------------------------------------------
-* cancel a scheduled timeout
------------------------------------------------------------------------------ */
-void DelTimerFromRunLoop(CFRunLoopTimerRef *timer)
-{
-
-    if (*timer) {
-        CFRunLoopTimerInvalidate(*timer);
-        CFRelease(*timer);
-        *timer = 0;
-    }
 }

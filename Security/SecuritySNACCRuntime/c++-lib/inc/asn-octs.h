@@ -57,8 +57,14 @@
 // 
 // 
 // 
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-octs.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-octs.h,v 1.2 2002/04/18 18:58:08 dmitch Exp $
 // $Log: asn-octs.h,v $
+// Revision 1.2  2002/04/18 18:58:08  dmitch
+// Radar 2904404 - avoid deprecated iostream.h
+//
+// Revision 1.1.1.1.70.1  2002/04/17 00:48:53  dmitch
+// Radar 2904404 - avoid deprecated iostream.h.
+//
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository
 //
@@ -162,6 +168,8 @@ public:
   size_t			Len() const				{ return octetLen; }
 				operator const char* () const		{ return octs; }
 				operator char* ()			{ return octs; }
+				
+  const char *		Octs() const	{ return octs; }
 
 #ifdef VDADER_RULES
   bool operator == (const AsnOcts &o) const { if (OctsEquiv(o)) return true; else return false; }

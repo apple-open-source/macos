@@ -1,13 +1,13 @@
-;;; cust-print.el --- handles print-level and print-circle.
+;;; cust-print.el --- handles print-level and print-circle
 
 ;; Copyright (C) 1992 Free Software Foundation, Inc.
 
-;; Author: Daniel LaLiberte <liberte@cs.uiuc.edu>
+;; Author: Daniel LaLiberte <liberte@holonexus.org>
 ;; Adapted-By: ESR
 ;; Keywords: extensions
 
 ;; LCD Archive Entry:
-;; cust-print|Daniel LaLiberte|liberte@cs.uiuc.edu
+;; cust-print|Daniel LaLiberte|liberte@holonexus.org
 ;; |Handle print-level, print-circle and more.
 
 ;; This file is part of GNU Emacs.
@@ -117,8 +117,6 @@
 
 '(in-package cust-print)
 
-(require 'backquote)
-
 ;; Emacs 18 doesn't have defalias.
 ;; Provide def for byte compiler.
 (eval-and-compile
@@ -220,18 +218,18 @@ Any pair that has the same PREDICATE is first removed."
   (defalias 'cust-print-use-custom-printer
     ;; We don't really want to require the byte-compiler.
     ;; (byte-compile
-     (` (lambda (object)
-	  (cond
-	   (,@ (mapcar (function 
-			(lambda (pair)
-			  (` (((, (car pair)) object) 
-			      ((, (cdr pair)) object)))))
-		       custom-printers))
-	   ;; Otherwise return nil.
-	   (t nil)
-	   )))
-     ;; )
-  ))
+    `(lambda (object)
+       (cond
+	,@(mapcar (function 
+		   (lambda (pair)
+		     `((,(car pair) object) 
+		       (,(cdr pair) object))))
+		  custom-printers)
+	;; Otherwise return nil.
+	(t nil)
+	))
+    ;; )
+    ))
 
 
 ;; Saving and restoring emacs printing routines.
@@ -296,11 +294,11 @@ by running `custom-print-uninstall'."
 (defalias 'with-custom-print-funcs 'with-custom-print)
 (defmacro with-custom-print (&rest body)
   "Temporarily install the custom print package while executing BODY."
-  (` (unwind-protect
-	 (progn
-	   (custom-print-install)
-	   (,@ body))
-       (custom-print-uninstall))))
+  `(unwind-protect
+       (progn
+	 (custom-print-install)
+	 ,@body)
+     (custom-print-uninstall)))
 
 
 ;; Lisp replacements for prin1 and princ, and for some subrs that use them
@@ -691,4 +689,3 @@ See `custom-format' for the details."
 (provide 'cust-print)
 
 ;;; cust-print.el ends here
-

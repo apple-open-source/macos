@@ -1,3 +1,5 @@
+#ifndef _READ_H_
+#define _READ_H_
 /* read.h - of read.c
    Copyright (C) 1986 Free Software Foundation, Inc.
 
@@ -98,3 +100,4 @@ extern void s_endmacro(
     int value);
 extern void big_cons(
     int nbytes);
+#endif /* _READ_H_ */

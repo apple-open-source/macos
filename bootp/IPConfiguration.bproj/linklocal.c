@@ -29,42 +29,46 @@
  *
  * September 27, 2001	Dieter Siegmund (dieter@apple.com)
  * - moved ad-hoc processing into its own service
+ *
+ * January 8, 2002	Dieter Siegmund (dieter@apple.com)
+ * - added pseudo-link-local service support i.e. configure the
+ *   subnet, but don't configure a link-local address
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/sockio.h>
-#import <ctype.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/bootp.h>
-#import <arpa/inet.h>
-#import <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/sockio.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
+#include <arpa/inet.h>
+#include <syslog.h>
+#include <net/if_types.h>
 
-#import "dhcp_options.h"
-#import "dhcp.h"
-#import "interfaces.h"
-#import "util.h"
-#import <net/if_types.h>
-#import "host_identifier.h"
-#import "dhcplib.h"
+#include "dhcp_options.h"
+#include "dhcp.h"
+#include "interfaces.h"
+#include "util.h"
+#include "host_identifier.h"
+#include "dhcplib.h"
 
-#import "ipconfigd_threads.h"
+#include "ipconfigd_threads.h"
 
 extern char *  			ether_ntoa(struct ether_addr *e);
 
-#import "dprintf.h"
+#include "dprintf.h"
 
 /* ad-hoc networking definitions */
 #define LINKLOCAL_RANGE_START	((u_long)0xa9fe0000) /* 169.254.0.0 */
@@ -76,26 +80,67 @@ extern char *  			ether_ntoa(struct ether_addr *e);
 #define	MAX_LINKLOCAL_TRIES	10
 
 typedef struct {
-    arp_client_t *	arp;
+    arp_client_t *	arp;	/* if NULL, we don't configure an address */
     timer_callout_t *	timer;
     int			current;
     struct in_addr	our_ip;
     struct in_addr	probe;
     u_short		offset[MAX_LINKLOCAL_TRIES];
+    boolean_t		allocate;
 } Service_linklocal_t;
+
+static struct in_addr	S_last_address;
+
+static __inline__ boolean_t
+in_addr_is_linklocal(struct in_addr iaddr)
+{
+    return (IN_LINKLOCAL(iptohl(iaddr)));
+}
+
+static __inline__ void
+linklocal_subnet_remove()
+{
+    subnet_route_delete(G_ip_zeroes, hltoip(IN_LINKLOCALNETNUM),
+			hltoip(IN_CLASSB_NET), NULL);
+    return;
+}
+
+static __inline__ void
+linklocal_subnet_set(Service_t * service_p)
+{
+    struct in_addr	iaddr = { 0 };
+
+    subnet_route_delete(G_ip_zeroes, hltoip(IN_LINKLOCALNETNUM),
+			hltoip(IN_CLASSB_NET), NULL);
+    if (service_p->info.addr.s_addr != 0) {
+	iaddr = service_p->info.addr;
+    }
+    else {
+	Service_t * parent_service_p = service_parent_service(service_p);
+	if (parent_service_p == NULL) {
+	    return;
+	}
+	iaddr = parent_service_p->info.addr;
+    }
+    subnet_route_add(iaddr, hltoip(IN_LINKLOCALNETNUM),
+		     hltoip(IN_CLASSB_NET), 
+		     if_name(service_interface(service_p)));
+    return;
+}
 
 struct in_addr
 S_find_linklocal_address(interface_t * if_p)
 {
-    const struct in_addr	linklocal_net = {htonl(LINKLOCAL_RANGE_START)};
-    const struct in_addr	linklocal_mask = {htonl(LINKLOCAL_MASK)};
     int				count = if_inet_count(if_p);
     int				i;
 
+    if (S_last_address.s_addr != 0) {
+	return (S_last_address);
+    }
     for (i = 0; i < count; i++) {
 	inet_addrinfo_t * 	info = if_inet_addr_at(if_p, i);
 
-	if (in_subnet(linklocal_net, linklocal_mask, info->addr)) {
+	if (in_addr_is_linklocal(info->addr)) {
 	    my_log(LOG_DEBUG, "LINKLOCAL %s: found address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&info->addr));
 	    return (info->addr);
@@ -196,6 +241,7 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      my_log(LOG_DEBUG, "LINKLOCAL %s: ARP probe failed, %s", 
 		     if_name(if_p),
 		     arp_client_errmsg(linklocal->arp));
+	      break;
 	  }
 	  else if (result->in_use) {
 	      my_log(LOG_DEBUG, "LINKLOCAL %s: IP address " 
@@ -204,7 +250,7 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		     IP_LIST(&linklocal->probe),
 		     EA_LIST(result->hwaddr));
 	      if (linklocal->our_ip.s_addr == linklocal->probe.s_addr) {
-		  linklocal->our_ip = G_ip_zeroes;
+		  S_last_address = linklocal->our_ip = G_ip_zeroes;
 		  (void)service_remove_address(service_p);
 		  service_publish_failure(service_p, 
 					  ipconfig_status_address_in_use_e,
@@ -222,20 +268,11 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      }
 
 	      /* ad-hoc IP address is not in use, so use it */
-	      if (service_set_address(service_p, linklocal->probe, 
-				      linklocal_mask, 
-				      G_ip_zeroes) == EEXIST) {
-		  /* some other interface is already ad hoc */
-		  (void)service_remove_address(service_p);
-		  service_publish_failure(service_p, 
-					  ipconfig_status_address_in_use_e,
-					  NULL);
-	      }
-	      else {
-		  linklocal_cancel_pending_events(service_p);
-		  linklocal->our_ip = linklocal->probe;
-		  service_publish_success(service_p, NULL, 0);
-	      }
+	      (void)service_set_address(service_p, linklocal->probe, 
+					linklocal_mask, G_ip_zeroes);
+	      linklocal_cancel_pending_events(service_p);
+	      S_last_address = linklocal->our_ip = linklocal->probe;
+	      service_publish_success(service_p, NULL, 0);
 	      /* we're done */
 	      break; /* out of switch */
 	  }
@@ -278,6 +315,14 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
     switch (event_id) {
       case IFEventID_start_e: {
+	  start_event_data_t *    evdata = ((start_event_data_t *)event_data);
+	  ipconfig_method_data_t *ipcfg = NULL;
+
+	  my_log(LOG_DEBUG, "LINKLOCAL %s: start", if_name(if_p));
+
+	  if (evdata != NULL) {
+	      ipcfg = evdata->config.data;
+	  }
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      status = ipconfig_status_invalid_operation_e;
 	      break;
@@ -298,7 +343,6 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  bzero(linklocal, sizeof(*linklocal));
 	  service_p->private = linklocal;
 
-	  linklocal->our_ip = S_find_linklocal_address(if_p);
 	  linklocal->timer = timer_callout_init();
 	  if (linklocal->timer == NULL) {
 	      my_log(LOG_ERR, "LINKLOCAL %s: timer_callout_init failed", 
@@ -313,7 +357,16 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  my_log(LOG_DEBUG, "LINKLOCAL %s: start", if_name(if_p));
+	  linklocal->allocate = TRUE;
+	  if (ipcfg != NULL && ipcfg->reserved_0 == TRUE) {
+	      /* don't allocate an IP address, just set the subnet */
+	      linklocal->allocate = FALSE;
+	      linklocal_subnet_set(service_p);
+	      service_publish_failure(service_p, 
+				      ipconfig_status_success_e, NULL);
+	      break;
+	  }
+	  linklocal->our_ip = S_find_linklocal_address(if_p);
 	  linklocal_init(service_p, IFEventID_start_e, NULL);
 	  break;
       }
@@ -326,8 +379,18 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_internal_error_e; /* shouldn't happen */
 	      break;
 	  }
+
 	  /* remove IP address(es) */
-	  service_remove_address(service_p);
+	  if (linklocal->allocate) {
+	      service_remove_address(service_p);
+	  }
+	  else {
+	      linklocal_subnet_remove();
+	  }
+
+	  /* clean-up the published state */
+	  service_publish_failure(service_p, 
+				  ipconfig_status_success_e, NULL);
 
 	  /* clean-up resources */
 	  if (linklocal->timer) {
@@ -343,11 +406,33 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  break;
       }
       case IFEventID_change_e: {
+	  change_event_data_t *   evdata = ((change_event_data_t *)event_data);
+	  ipconfig_method_data_t *ipcfg = evdata->config.data;
+	  boolean_t		  allocate = TRUE;
+
+	  if (ipcfg != NULL && ipcfg->reserved_0 == TRUE) {
+	      /* don't allocate an IP address, just set the subnet */
+	      allocate = FALSE;
+	  }
+	  if (linklocal->allocate != allocate) {
+	      linklocal->allocate = allocate;
+	      if (allocate) {
+		  linklocal->our_ip = S_find_linklocal_address(if_p);
+		  linklocal_init(service_p, IFEventID_start_e, NULL);
+	      }
+	      else {
+		  linklocal_failed(service_p, ipconfig_status_success_e, NULL);
+		  linklocal_subnet_set(service_p);
+	      }
+	  }
 	  break;
       }
       case IFEventID_media_e: {
 	  if (linklocal == NULL) {
 	      return (ipconfig_status_internal_error_e);
+	  }
+	  if (linklocal->allocate == FALSE) {
+	      break;
 	  }
 	  if (service_link_status(service_p)->valid == TRUE) {
 	      if (service_link_status(service_p)->active == TRUE) {

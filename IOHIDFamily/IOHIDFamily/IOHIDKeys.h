@@ -24,6 +24,7 @@
 #define _IOKIT_HID_IOHIDKEYS_H_
 
 #include <sys/cdefs.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
 
 __BEGIN_DECLS
 
@@ -60,6 +61,9 @@ __BEGIN_DECLS
 #define kIOHIDElementScaledMinKey           "ScaledMin"
 #define kIOHIDElementScaledMaxKey           "ScaledMax"
 #define kIOHIDElementSizeKey                "Size"
+#define kIOHIDElementReportSizeKey          "ReportSize"
+#define kIOHIDElementReportCountKey         "ReportCount"
+#define kIOHIDElementIsArrayKey             "IsArray"
 #define kIOHIDElementIsRelativeKey          "IsRelative"
 #define kIOHIDElementIsWrappingKey          "IsWrapping"
 #define kIOHIDElementIsNonLinearKey         "IsNonLinear"

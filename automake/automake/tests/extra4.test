@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# Check to make sure EXTRA_DATA can be specified.
+
+. $srcdir/defs || exit 1
+
+echo 'AC_SUBST(CODICIL)' >> configure.in
+
+cat > Makefile.am << 'END'
+sysconf_DATA = @CODICIL@
+EXTRA_DATA = codicil.txt
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

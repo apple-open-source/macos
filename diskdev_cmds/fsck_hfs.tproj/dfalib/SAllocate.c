@@ -73,19 +73,16 @@ Internal routines:
 
 
 enum {
-	kBitsPerByte			=	8,
+	kBitsPerByte			=	8, 
 	kBitsPerWord			=	32,
-	kWordsPerBlock			=	128,
-	kBytesPerBlock			=	512,
-	kBitsPerBlock			=	4096,
-	kBitsPerSector			=	kBitsPerBlock,
-	
-	kBitsWithinWordMask		=	kBitsPerWord-1,
-	kBitsWithinBlockMask	=	kBitsPerBlock-1,
-	kWordsWithinBlockMask	=	kWordsPerBlock-1,
-	
-	kExtentsPerRecord		=	3
+	kBitsWithinWordMask		=	kBitsPerWord-1
 };
+
+#define kBytesPerBlock		( (vcb->vcbSignature == kHFSSigWord) ? kHFSBlockSize : vcb->vcbAllocationFile->fcbBlockSize )
+#define kWordsPerBlock		( kBytesPerBlock / 4 )
+#define kBitsPerBlock		( kBytesPerBlock * kBitsPerByte )
+#define kBitsWithinBlockMask ( kBitsPerBlock - 1 )
+#define kWordsWithinBlockMask ( kWordsPerBlock - 1 )
 
 #define kLowBitInWordMask	0x00000001ul
 #define kHighBitInWordMask	0x80000000ul
@@ -385,20 +382,12 @@ static OSErr ReadBitmapBlock(
 		err = GetVolumeBlock(vcb, blockNum, kGetBlock, block);
 
 	} else {
-		UInt32	availableSectors;
-		
-		//
-		//	HFS+: Read from allocation file.  We simply convert the block number into a byte
-		//	offset within the allocation file and then determine which block that byte is in.
-		//
-
-		//
-		//	Find out which file block holds byte #block in allocation file.  Note that we
-		//	map only 1 sector.
-		//
-		err = MapFileBlockC(vcb, vcb->vcbAllocationFile, 1, bit/kBitsPerSector, &blockNum, &availableSectors);
-		if (err == 0)
-			err = GetFileBlock(vcb->vcbAllocationFile, blockNum, kGetBlock, block);
+		// HFS+:  "bit" is the allocation block number that we are looking for  
+		// in the allocation bit map.  GetFileBlock wants a file block number 
+		// so we calculate how many bits (kBitsPerBlock) fit in a file  
+		// block then convert that to a file block number (bit / kBitsPerBlock) 
+		// for our call.
+		err = GetFileBlock( vcb->vcbAllocationFile, (bit / kBitsPerBlock), kGetBlock, block );
 	}
 
 	return err;
@@ -690,7 +679,7 @@ static OSErr BlockMarkAllocated(
 	//
 	//	Pre-read the bitmap block containing the first word of allocation
 	//
-
+	
 	err = ReadBitmapBlock(vcb, startingBlock, &bd);
 	if (err != noErr) goto Exit;
 	buffer = (UInt32 *) bd.buffer;

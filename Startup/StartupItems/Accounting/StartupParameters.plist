@@ -1,10 +1,6 @@
 {
   Description     = "system usage accounting";
   Provides        = ("Accounting");
+  Uses            = ("System Tuning");
   OrderPreference = "Last";
-  Messages =
-  {
-    start = "Starting accounting";
-    stop  = "Stopping accounting";
-  };
 }

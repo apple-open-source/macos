@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# check that 'DEP_FILES' is defined when there are many header files
+
+. $srcdir/defs || exit 1
+
+echo AC_PROG_CC >> configure.in
+
+$ACLOCAL || exit 1
+
+headers=
+for header in one.h two.h three.h four.h five.h six.h
+do
+    headers="$headers $header"
+    cat > Makefile.am << END
+bin_PROGRAMS = fred
+fred_SOURCES = fred1.c $headers
+END
+
+    $AUTOMAKE || exit 1
+
+    egrep '^(@[^@]+@)*DEP_FILES = ' Makefile.in || exit 1
+done
+
+exit 0

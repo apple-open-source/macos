@@ -1,7 +1,6 @@
-This is Info file ../info/cl, produced by Makeinfo version 1.68 from
-the input file cl.texi.
+This is ../info/cl, produced by makeinfo version 4.0 from cl.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * CL: (cl).		Partial Common Lisp support for Emacs Lisp.
 END-INFO-DIR-ENTRY
@@ -10,22 +9,22 @@ END-INFO-DIR-ENTRY
 
    Copyright (C) 1993 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the author instead of in
-the original English.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: cl,  Node: For Clauses,  Next: Iteration Clauses,  Prev: Loop Examples,  Up: Loop Facility
@@ -141,7 +140,7 @@ form you use is purely a matter of style.
 
      This clause type is taken from older versions of the `loop' macro,
      and is not present in modern Common Lisp.  The `using (sequence
-     ...)'  term of the older macros is not supported.
+     ...)' term of the older macros is not supported.
 
 `for VAR being the elements of-ref SEQUENCE'
      This clause iterates over a sequence, with VAR a `setf'-able
@@ -168,7 +167,7 @@ form you use is purely a matter of style.
      Due to a minor implementation restriction, it will not work to have
      more than one `for' clause iterating over symbols, hash tables,
      keymaps, overlays, or intervals in a given `loop'.  Fortunately,
-     it would rarely if ever be useful to do so.  It *is* legal to mix
+     it would rarely if ever be useful to do so.  It _is_ legal to mix
      one of these types of clauses with other clauses like `for ... to'
      or `while'.
 
@@ -182,30 +181,26 @@ form you use is purely a matter of style.
      two parts of each hash table entry.
 
 `for VAR being the key-codes of KEYMAP'
-     This clause iterates over the entries in KEYMAP.  In GNU Emacs 18
-     and 19, keymaps are either alists or vectors, and key-codes are
-     integers or symbols.  In Lucid Emacs 19, keymaps are a special new
-     data type, and key-codes are symbols or lists of symbols.  The
-     iteration does not enter nested keymaps or inherited (parent)
-     keymaps.  You can use `the key-bindings' to access the commands
-     bound to the keys rather than the key codes, and you can add a
-     `using' clause to access both the codes and the bindings together.
+     This clause iterates over the entries in KEYMAP.  The iteration
+     does not enter nested keymaps or inherited (parent) keymaps.  You
+     can use `the key-bindings' to access the commands bound to the
+     keys rather than the key codes, and you can add a `using' clause
+     to access both the codes and the bindings together.
 
 `for VAR being the key-seqs of KEYMAP'
      This clause iterates over all key sequences defined by KEYMAP and
-     its nested keymaps, where VAR takes on values which are strings in
-     Emacs 18 or vectors in Emacs 19.  The strings or vectors are
-     reused for each iteration, so you must copy them if you wish to
-     keep them permanently.  You can add a `using (key-bindings ...)'
-     clause to get the command bindings as well.
+     its nested keymaps, where VAR takes on values which are vectors.
+     The strings or vectors are reused for each iteration, so you must
+     copy them if you wish to keep them permanently.  You can add a
+     `using (key-bindings ...)' clause to get the command bindings as
+     well.
 
 `for VAR being the overlays [of BUFFER] ...'
-     This clause iterates over the Emacs 19 "overlays" or Lucid Emacs
-     "extents" of a buffer (the clause `extents' is synonymous with
-     `overlays').  Under Emacs 18, this clause iterates zero times.  If
-     the `of' term is omitted, the current buffer is used.  This clause
-     also accepts optional `from POS' and `to POS' terms, limiting the
-     clause to overlays which overlap the specified region.
+     This clause iterates over the "overlays" of a buffer (the clause
+     `extents' is synonymous with `overlays').  If the `of' term is
+     omitted, the current buffer is used.  This clause also accepts
+     optional `from POS' and `to POS' terms, limiting the clause to
+     overlays which overlap the specified region.
 
 `for VAR being the intervals [of BUFFER] ...'
      This clause iterates over all intervals of a buffer with constant
@@ -214,20 +209,17 @@ form you use is purely a matter of style.
      to the previous end position.  The clause allows `of', `from',
      `to', and `property' terms, where the latter term restricts the
      search to just the specified property.  The `of' term may specify
-     either a buffer or a string.  This clause is useful only in GNU
-     Emacs 19; in other versions, all buffers and strings consist of a
-     single interval.
+     either a buffer or a string.
 
 `for VAR being the frames'
      This clause iterates over all frames, i.e., X window system windows
-     open on Emacs files.  This clause works only under Emacs 19.  The
-     clause `screens' is a synonym for `frames'.  The frames are
-     visited in `next-frame' order starting from `selected-frame'.
+     open on Emacs files.  The clause `screens' is a synonym for
+     `frames'.  The frames are visited in `next-frame' order starting
+     from `selected-frame'.
 
 `for VAR being the windows [of FRAME]'
      This clause iterates over the windows (in the Emacs sense) of the
-     current frame, or of the specified FRAME.  (In Emacs 18 there is
-     only ever one frame, and the `of' term is not allowed there.)
+     current frame, or of the specified FRAME.
 
 `for VAR being the buffers'
      This clause iterates over all buffers in Emacs.  It is equivalent
@@ -553,20 +545,20 @@ functions, by contrast, always return exactly one result.  This package
 makes no attempt to emulate Common Lisp multiple return values; Emacs
 versions of Common Lisp functions that return more than one value
 either return just the first value (as in `compiler-macroexpand') or
-return a list of values (as in `get-setf-method').  This package *does*
+return a list of values (as in `get-setf-method').  This package _does_
 define placeholders for the Common Lisp functions that work with
 multiple values, but in Emacs Lisp these functions simply operate on
 lists instead.  The `values' form, for example, is a synonym for `list'
 in Emacs.
 
- - Special Form: multiple-value-bind (VAR...) VALUES-FORM FORMS...
+ - Special Form: multiple-value-bind (var...) values-form forms...
      This form evaluates VALUES-FORM, which must return a list of
      values.  It then binds the VARs to these respective values, as if
      by `let', and then executes the body FORMS.  If there are more
      VARs than values, the extra VARs are bound to `nil'.  If there are
      fewer VARs than values, the excess values are ignored.
 
- - Special Form: multiple-value-setq (VAR...) FORM
+ - Special Form: multiple-value-setq (var...) form
      This form evaluates FORM, which must return a list of values.  It
      then sets the VARs to these respective values, as if by `setq'.
      Extra VARs or values are treated the same as in
@@ -595,7 +587,7 @@ Argument Lists::.
    Destructuring is made available to the user by way of the following
 macro:
 
- - Special Form: destructuring-bind ARGLIST EXPR FORMS...
+ - Special Form: destructuring-bind arglist expr forms...
      This macro expands to code which executes FORMS, with the
      variables in ARGLIST bound to the list of values returned by EXPR.
      The ARGLIST can include all the features allowed for `defmacro'
@@ -608,7 +600,7 @@ macro:
 facility, which allows you to define compile-time expansions and
 optimizations for your functions.
 
- - Special Form: define-compiler-macro NAME ARGLIST FORMS...
+ - Special Form: define-compiler-macro name arglist forms...
      This form is similar to `defmacro', except that it only expands
      calls to NAME at compile-time; calls processed by the Lisp
      interpreter are not expanded, nor are they expanded by the
@@ -640,7 +632,7 @@ optimizations for your functions.
      optimizes a number of other cases, including common `:test'
      predicates.)
 
- - Function: compiler-macroexpand FORM
+ - Function: compiler-macroexpand form
      This function is analogous to `macroexpand', except that it
      expands compiler macros rather than regular macros.  It returns
      FORM unchanged if it is not a call to a function for which a
@@ -669,16 +661,16 @@ versions of all the Common Lisp declaration forms: `declare',
 Emacs Lisp, as the byte-code system provides little opportunity to
 benefit from type information, and `special' declarations are redundant
 in a fully dynamically-scoped Lisp.  A few declarations are meaningful
-when the optimizing Emacs 19 byte compiler is being used, however.
-Under the earlier non-optimizing compiler, these declarations will
-effectively be ignored.
+when the optimizing byte compiler is being used, however.  Under the
+earlier non-optimizing compiler, these declarations will effectively be
+ignored.
 
- - Function: proclaim DECL-SPEC
+ - Function: proclaim decl-spec
      This function records a "global" declaration specified by
      DECL-SPEC.  Since `proclaim' is a function, DECL-SPEC is evaluated
      and thus should normally be quoted.
 
- - Special Form: declaim DECL-SPECS...
+ - Special Form: declaim decl-specs...
      This macro is like `proclaim', except that it takes any number of
      DECL-SPEC arguments, and the arguments are unevaluated and
      unquoted.  The `declaim' macro also puts an `(eval-when (compile
@@ -688,7 +680,7 @@ effectively be ignored.
      compiler treats the rest of the file that contains the `declaim'
      form.)
 
- - Special Form: declare DECL-SPECS...
+ - Special Form: declare decl-specs...
      This macro is used to make declarations within functions and other
      code.  Common Lisp allows declarations in various locations,
      generally at the beginning of any of the many "implicit `progn's"
@@ -696,10 +688,10 @@ effectively be ignored.
      etc.  Currently the only declaration understood by `declare' is
      `special'.
 
- - Special Form: locally DECLARATIONS... FORMS...
+ - Special Form: locally declarations... forms...
      In this package, `locally' is no different from `progn'.
 
- - Special Form: the TYPE FORM
+ - Special Form: the type form
      Type information provided by `the' is ignored in this package; in
      other words, `(the TYPE FORM)' is equivalent to FORM.  Future
      versions of the optimizing byte-compiler may make use of this
@@ -751,13 +743,11 @@ such as `type' and `ftype', are silently ignored.
 
      The following declarations are all equivalent.  Note that the
      `defsubst' form is a convenient way to define a function and
-     declare it inline all at once, but it is available only in Emacs
-     19.
+     declare it inline all at once.
 
           (declaim (inline foo bar))
           (eval-when (compile load eval) (proclaim '(inline foo bar)))
-          (proclaim-inline foo bar)      ; Lucid Emacs only
-          (defsubst foo (...) ...)       ; instead of defun; Emacs 19 only
+          (defsubst foo (...) ...)       ; instead of defun
 
      *Note:*  This declaration remains in effect after the containing
      source file is done.  It is correct to use it to request that a
@@ -786,16 +776,15 @@ such as `type' and `ftype', are silently ignored.
      3, with 0 meaning "unimportant" and 3 meaning "very important."
      The default level for both qualities is 1.
 
-     In this package, with the Emacs 19 optimizing compiler, the
-     `speed' quality is tied to the `byte-compile-optimize' flag, which
-     is set to `nil' for `(speed 0)' and to `t' for higher settings;
-     and the `safety' quality is tied to the
-     `byte-compile-delete-errors' flag, which is set to `t' for
-     `(safety 3)' and to `nil' for all lower settings.  (The latter
-     flag controls whether the compiler is allowed to optimize out code
-     whose only side-effect could be to signal an error, e.g.,
-     rewriting `(progn foo bar)' to `bar' when it is not known whether
-     `foo' will be bound at run-time.)
+     In this package, with the optimizing compiler, the `speed' quality
+     is tied to the `byte-compile-optimize' flag, which is set to `nil'
+     for `(speed 0)' and to `t' for higher settings; and the `safety'
+     quality is tied to the `byte-compile-delete-errors' flag, which is
+     set to `t' for `(safety 3)' and to `nil' for all lower settings.
+     (The latter flag controls whether the compiler is allowed to
+     optimize out code whose only side-effect could be to signal an
+     error, e.g., rewriting `(progn foo bar)' to `bar' when it is not
+     known whether `foo' will be bound at run-time.)
 
      Note that even compiling with `(safety 0)', the Emacs byte-code
      system provides sufficient checking to prevent real harm from
@@ -846,7 +835,7 @@ These functions augment the standard Emacs Lisp functions `get' and
 functions for working with property lists as first-class data
 structures not attached to particular symbols.
 
- - Function: get* SYMBOL PROPERTY &optional DEFAULT
+ - Function: get* symbol property &optional default
      This function is like `get', except that if the property is not
      found, the DEFAULT argument provides the return value.  (The Emacs
      Lisp `get' function always uses `nil' as the default; this
@@ -855,7 +844,7 @@ structures not attached to particular symbols.
      The `get*' function is `setf'-able; when used in this fashion, the
      DEFAULT argument is allowed but ignored.
 
- - Function: remprop SYMBOL PROPERTY
+ - Function: remprop symbol property
      This function removes the entry for PROPERTY from the property
      list of SYMBOL.  It returns a true value if the property was
      indeed found and removed, or `nil' if there was no such property.
@@ -865,7 +854,7 @@ structures not attached to particular symbols.
      was `nil'; thus, setting a property to `nil' was close enough to
      `remprop' for most purposes.)
 
- - Function: getf PLACE PROPERTY &optional DEFAULT
+ - Function: getf place property &optional default
      This function scans the list PLACE as if it were a property list,
      i.e., a list of alternating property names and values.  If an
      even-numbered element of PLACE is found which is `eq' to PROPERTY,
@@ -896,7 +885,7 @@ structures not attached to particular symbols.
      When not used as a `setf' form, `getf' is just a regular function
      and its PLACE argument can actually be any Lisp expression.
 
- - Special Form: remf PLACE PROPERTY
+ - Special Form: remf place property
      This macro removes the property-value pair for PROPERTY from the
      property list stored at PLACE, which is any `setf'-able place
      expression.  It returns true if the property was found.  Note that
@@ -913,7 +902,7 @@ Creating Symbols
 These functions create unique symbols, typically for use as temporary
 variables.
 
- - Function: gensym &optional X
+ - Function: gensym &optional x
      This function creates a new, uninterned symbol (using
      `make-symbol') with a unique name.  (The name of an uninterned
      symbol is relevant only if the symbol is printed.)  By default,
@@ -935,9 +924,9 @@ variables.
      to be treated a bit more carefully than in Common Lisp where
      uninterned symbols remain uninterned after loading.)
 
- - Function: gentemp &optional X
+ - Function: gentemp &optional x
      This function is like `gensym', except that it produces a new
-     *interned* symbol.  If the symbol that is generated already
+     _interned_ symbol.  If the symbol that is generated already
      exists, the function keeps incrementing the counter and trying
      again until a new symbol is generated.
 
@@ -959,7 +948,7 @@ which were left out of Emacs Lisp.
 * Menu:
 
 * Predicates on Numbers::       `plusp', `oddp', `floatp-safe', etc.
-* Numerical Functions::         `abs', `expt', `floor*', etc.
+* Numerical Functions::         `abs', `floor*', etc.
 * Random Numbers::              `random*', `make-random-state'
 * Implementation Parameters::   `most-positive-fixnum', `most-positive-float'
 
@@ -972,23 +961,23 @@ Predicates on Numbers
 These functions return `t' if the specified condition is true of the
 numerical argument, or `nil' otherwise.
 
- - Function: plusp NUMBER
+ - Function: plusp number
      This predicate tests whether NUMBER is positive.  It is an error
      if the argument is not a number.
 
- - Function: minusp NUMBER
+ - Function: minusp number
      This predicate tests whether NUMBER is negative.  It is an error
      if the argument is not a number.
 
- - Function: oddp INTEGER
+ - Function: oddp integer
      This predicate tests whether INTEGER is odd.  It is an error if
      the argument is not an integer.
 
- - Function: evenp INTEGER
+ - Function: evenp integer
      This predicate tests whether INTEGER is even.  It is an error if
      the argument is not an integer.
 
- - Function: floatp-safe OBJECT
+ - Function: floatp-safe object
      This predicate tests whether OBJECT is a floating-point number.
      On systems that support floating-point, this is equivalent to
      `floatp'.  On other systems, this always returns `nil'.
@@ -1001,46 +990,33 @@ Numerical Functions
 
 These functions perform various arithmetic operations on numbers.
 
- - Function: abs NUMBER
-     This function returns the absolute value of NUMBER.  (Newer
-     versions of Emacs provide this as a built-in function; this package
-     defines `abs' only for Emacs 18 versions which don't provide it as
-     a primitive.)
-
- - Function: expt BASE POWER
-     This function returns BASE raised to the power of NUMBER.  (Newer
-     versions of Emacs provide this as a built-in function; this
-     package defines `expt' only for Emacs 18 versions which don't
-     provide it as a primitive.)
-
- - Function: gcd &rest INTEGERS
+ - Function: gcd &rest integers
      This function returns the Greatest Common Divisor of the arguments.
      For one argument, it returns the absolute value of that argument.
      For zero arguments, it returns zero.
 
- - Function: lcm &rest INTEGERS
+ - Function: lcm &rest integers
      This function returns the Least Common Multiple of the arguments.
      For one argument, it returns the absolute value of that argument.
      For zero arguments, it returns one.
 
- - Function: isqrt INTEGER
+ - Function: isqrt integer
      This function computes the "integer square root" of its integer
      argument, i.e., the greatest integer less than or equal to the true
      square root of the argument.
 
- - Function: floor* NUMBER &optional DIVISOR
+ - Function: floor* number &optional divisor
      This function implements the Common Lisp `floor' function.  It is
      called `floor*' to avoid name conflicts with the simpler `floor'
-     function built-in to Emacs 19.
+     function built-in to Emacs.
 
      With one argument, `floor*' returns a list of two numbers: The
      argument rounded down (toward minus infinity) to an integer, and
      the "remainder" which would have to be added back to the first
      return value to yield the argument again.  If the argument is an
      integer X, the result is always the list `(X 0)'.  If the argument
-     is an Emacs 19 floating-point number, the first result is a Lisp
-     integer and the second is a Lisp float between 0 (inclusive) and 1
-     (exclusive).
+     is a floating-point number, the first result is a Lisp integer and
+     the second is a Lisp float between 0 (inclusive) and 1 (exclusive).
 
      With two arguments, `floor*' divides NUMBER by DIVISOR, and
      returns the floor of the quotient and the corresponding remainder
@@ -1053,37 +1029,37 @@ These functions perform various arithmetic operations on numbers.
      function, except that it returns the two results in a list since
      Emacs Lisp does not support multiple-valued functions.
 
- - Function: ceiling* NUMBER &optional DIVISOR
+ - Function: ceiling* number &optional divisor
      This function implements the Common Lisp `ceiling' function, which
      is analogous to `floor' except that it rounds the argument or
      quotient of the arguments up toward plus infinity.  The remainder
      will be between 0 and minus R.
 
- - Function: truncate* NUMBER &optional DIVISOR
+ - Function: truncate* number &optional divisor
      This function implements the Common Lisp `truncate' function,
      which is analogous to `floor' except that it rounds the argument
      or quotient of the arguments toward zero.  Thus it is equivalent
      to `floor*' if the argument or quotient is positive, or to
      `ceiling*' otherwise.  The remainder has the same sign as NUMBER.
 
- - Function: round* NUMBER &optional DIVISOR
+ - Function: round* number &optional divisor
      This function implements the Common Lisp `round' function, which
      is analogous to `floor' except that it rounds the argument or
      quotient of the arguments to the nearest integer.  In the case of
      a tie (the argument or quotient is exactly halfway between two
      integers), it rounds to the even integer.
 
- - Function: mod* NUMBER DIVISOR
+ - Function: mod* number divisor
      This function returns the same value as the second return value of
      `floor'.
 
- - Function: rem* NUMBER DIVISOR
+ - Function: rem* number divisor
      This function returns the same value as the second return value of
      `truncate'.
 
    These definitions are compatible with those in the Quiroz `cl.el'
 package, except that this package appends `*' to certain function names
-to avoid conflicts with existing Emacs 19 functions, and that the
+to avoid conflicts with existing Emacs functions, and that the
 mechanism for returning multiple values is different.
 
 
@@ -1097,7 +1073,7 @@ number generator.  It uses its own additive-congruential algorithm,
 which is much more likely to give statistically clean random numbers
 than the simple generators supplied by many operating systems.
 
- - Function: random* NUMBER &optional STATE
+ - Function: random* number &optional state
      This function returns a random nonnegative number less than
      NUMBER, and of the same type (either integer or floating-point).
      The STATE argument should be a `random-state' object which holds
@@ -1114,7 +1090,7 @@ than the simple generators supplied by many operating systems.
      sequence generated from this variable will be irreproducible for
      all intents and purposes.
 
- - Function: make-random-state &optional STATE
+ - Function: make-random-state &optional state
      This function creates or copies a `random-state' object.  If STATE
      is omitted or `nil', it returns a new copy of `*random-state*'.
      This is a copy in the sense that future sequences of calls to
@@ -1137,7 +1113,7 @@ than the simple generators supplied by many operating systems.
      later rerun, it can read the original run's random-state from the
      file.
 
- - Function: random-state-p OBJECT
+ - Function: random-state-p object
      This predicate returns `t' if OBJECT is a `random-state' object,
      or `nil' otherwise.
 

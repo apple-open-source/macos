@@ -1,0 +1,2 @@
+kextmanager_mig.h: kextmanager_mig.defs
+	$(CD) $(SFILE_DIR) && $(MIG) -user kextmanagerUser.c -header $*.h $(shell pwd)/$<

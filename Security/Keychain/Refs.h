@@ -15,7 +15,7 @@
  * specific language governing rights and limitations under the License.
  */
 
-
+#if 0
 //
 // Refs.h
 //
@@ -124,3 +124,4 @@ public:
 } // end namespace Security
 
 #endif // _H_REFS
+#endif

@@ -2,8 +2,10 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
-	<key>Starting application services</key>
-	<string>Starting application services</string>
+	<key>Starting Core Services</key>
+	<string>Starting Core Services</string>
+	<key>Configuring print services</key>
+	<string>Configuring print services</string>
 </dict>
 </plist>
 

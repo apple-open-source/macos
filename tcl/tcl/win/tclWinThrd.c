@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinThrd.c,v 1.1.1.3 2000/12/06 23:04:29 wsanchez Exp $
+ * RCS: @(#) $Id: tclWinThrd.c,v 1.1.1.4 2002/04/05 16:14:17 jevans Exp $
  */
 
 #include "tclWinInt.h"
@@ -123,13 +123,19 @@ Tcl_CreateThread(idPtr, proc, clientData, stackSize, flags)
     int flags;				/* Flags controlling behaviour of
 					 * the new thread */
 {
-    unsigned long code;
+    HANDLE tHandle;
 
-    code = _beginthreadex(NULL, stackSize, proc, clientData, 0,
-	(unsigned *)idPtr);
-    if (code == 0) {
+    tHandle = (HANDLE) _beginthreadex(NULL, (unsigned) stackSize, proc,
+	clientData, 0, (unsigned *)idPtr);
+
+    if (tHandle == NULL) {
 	return TCL_ERROR;
     } else {
+	/*
+	 * The only purpose of this is to decrement the reference count so the
+	 * OS resources will be reaquired when the thread closes.
+	 */
+	CloseHandle(tHandle);
 	return TCL_OK;
     }
 }
@@ -428,6 +434,7 @@ TclpFinalizeMutex(mutexPtr)
 {
     CRITICAL_SECTION *csPtr = *(CRITICAL_SECTION **)mutexPtr;
     if (csPtr != NULL) {
+	DeleteCriticalSection(csPtr);
 	ckfree((char *)csPtr);
 	*mutexPtr = NULL;
     }
@@ -896,6 +903,7 @@ TclpFinalizeCondition(condPtr)
      */
 
     if (winCondPtr != NULL) {
+	DeleteCriticalSection(&winCondPtr->condLock);
 	ckfree((char *)winCondPtr);
 	*condPtr = NULL;
     }

@@ -1,5 +1,5 @@
 /* Target-dependent code for NetBSD/i386, for GDB.
-   Copyright 1988, 1989, 1991, 1992, 1994, 1996, 2000
+   Copyright 1988, 1989, 1991, 1992, 1994, 1996, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -21,14 +21,6 @@
 
 #include "defs.h"
 #include "gdbtypes.h"
-#if 0
-#include <sys/types.h>
-#include <sys/ptrace.h>
-#include <machine/reg.h>
-#include <machine/frame.h>
-#include "inferior.h"
-#include "gdbcore.h" /* for registers_fetched() */
-#endif
 
 int
 i386nbsd_use_struct_convention (int gcc_p, struct type *type)

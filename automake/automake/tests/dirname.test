@@ -1,0 +1,38 @@
+#! /bin/sh
+
+# Test the operation of the _AM_DIRNAME macro from m4/header.m4
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+echo "1 /a/path/to/a/file      = _AM_DIRNAME([/a/path/to/a/file])"
+echo "2 another/path/to/a/file = _AM_DIRNAME([another/path/to/a/file])"
+echo "3 file                   = _AM_DIRNAME([file])"
+echo "4 //                     = _AM_DIRNAME([//])"
+echo "5 //file                 = _AM_DIRNAME([//file])"
+echo "6 /                      = _AM_DIRNAME([/])"
+echo "7 /file                  = _AM_DIRNAME([/file])"
+END
+
+$ACLOCAL || exit 1
+# fail gracefully if autoconf didn't support support our regexps anyhow
+$AUTOCONF || exit 77
+
+# Use --quiet otherwise unwelcome messages like "loading site script"
+# would cause a failure.
+./configure --quiet >got || exit 1
+
+cat >wanted <<EOF
+1 /a/path/to/a/file      = /a/path/to/a
+2 another/path/to/a/file = another/path/to/a
+3 file                   = .
+4 //                     = //
+5 //file                 = //
+6 /                      = /
+7 /file                  = /
+EOF
+
+diff wanted got || exit 1
+
+exit 0

@@ -1,5 +1,6 @@
 /* Macro definitions for running gdb on a Sun 4 running Solaris 2.
-   Copyright 1989, 1992 Free Software Foundation, Inc.
+   Copyright 1989, 1992, 1993, 1994, 1995, 1996, 1998, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,10 +19,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* Most of what we know is generic to SPARC hosts.  */
-
-#include "sparc/xm-sparc.h"
-
 /* Pick up more stuff from the generic SVR4 host include file. */
 
 #include "xm-sysv4.h"
@@ -29,9 +26,6 @@
 /* These are not currently used in SVR4 (but should be, FIXME!).  */
 #undef	DO_DEFERRED_STORES
 #undef	CLEAR_DEFERRED_STORES
-
-/* May be needed, may be not?  From Pace Willisson's port.  FIXME.  */
-#define NEED_POSIX_SETPGID
 
 /* solaris doesn't have siginterrupt, though it has sigaction; however,
    in this case siginterrupt would just be setting the default. */

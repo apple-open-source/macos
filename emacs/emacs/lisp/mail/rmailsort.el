@@ -1,6 +1,6 @@
-;;; rmailsort.el --- Rmail: sort messages.
+;;; rmailsort.el --- Rmail: sort messages
 
-;; Copyright (C) 1990, 1993, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1990, 1993, 1994, 2001 Free Software Foundation, Inc.
 
 ;; Author: Masanobu UMEDA <umerin@mse.kyutech.ac.jp>
 ;; Maintainer: FSF
@@ -22,6 +22,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -121,7 +123,7 @@ If prefix argument REVERSE is non-nil, sort them in reverse order."
 				       (rmail-msgend msg))))))
 
 ;;;###autoload
-(defun rmail-sort-by-keywords (reverse labels)
+(defun rmail-sort-by-labels (reverse labels)
   "Sort messages of current Rmail file by labels.
 If prefix argument REVERSE is non-nil, sort them in reverse order.
 KEYWORDS is a comma-separated list of labels."

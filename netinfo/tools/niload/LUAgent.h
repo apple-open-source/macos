@@ -41,7 +41,7 @@
 #import <netinet/in.h>
 #import <net/if.h>
 #import <net/if_arp.h>
-#import <net/etherdefs.h>
+#import <net/ethernet.h>
 #import "LUDictionary.h"
 #import "LUArray.h"
 #import "LUGlobal.h"

@@ -1,4 +1,7 @@
 
+#ifndef _S_DYNARRAY_H
+#define _S_DYNARRAY_H
+
 /*
  * dynarray.h
  * - simple array "object" that handles elements of the same size,
@@ -13,16 +16,15 @@
  */
 
 #include <mach/boolean.h>
+#include "ptrlist.h"
 
 /* the initial number of elements in the list */
 #define DYNARRAY_NUMBER		16
 
-#import "ptrlist.h"
-
 typedef void dynarray_free_func_t(void *);
 typedef void * dynarray_copy_func_t(void * source);
 
-typedef struct {
+typedef struct dynarray_s {
     ptrlist_t			list;
     dynarray_free_func_t *	free_func;
     dynarray_copy_func_t *	copy_func;
@@ -39,3 +41,5 @@ boolean_t	dynarray_dup(dynarray_t * source, dynarray_t * copy);
 int		dynarray_count(dynarray_t * list);
 void *		dynarray_element(dynarray_t * list, int i);
 int		dynarray_index(dynarray_t * list, void * element);
+
+#endif _S_DYNARRAY_H

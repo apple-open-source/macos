@@ -28,8 +28,8 @@
  * Writes result on stdout.
  */
  
-#import <stdio.h>
-#import <libc.h>
+#include <stdio.h>
+#include <libc.h>
 
 /*
  * State of input scanner.

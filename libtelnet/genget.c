@@ -29,16 +29,24 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * @(#)genget.c	8.1 (Berkeley) 6/4/93
  */
 
-#ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD$");
+
+#ifdef __FBSDID
+__FBSDID("$FreeBSD: src/crypto/telnet/libtelnet/genget.c,v 1.2.8.2 2002/04/13 10:59:07 markm Exp $");
 #endif
 
+#ifndef lint
+#if 0
+static const char sccsid[] = "@(#)genget.c	8.2 (Berkeley) 5/30/95";
+#endif
+#endif /* not lint */
+
+
 #include <ctype.h>
+
+#include "misc-proto.h"
 
 #define	LOWER(x) (isupper(x) ? tolower(x) : (x))
 /*
@@ -47,37 +55,33 @@ __RCSID("$FreeBSD$");
  * the length is returned.  If *s1 is a prefix of *s2,
  * the length of *s1 is returned.
  */
-	int
-isprefix(s1, s2)
-	register char *s1, *s2;
+int
+isprefix(char *s1, const char *s2)
 {
-        char *os1;
-	register char c1, c2;
+	char *os1;
+	char c1, c2;
 
-        if (*s1 == '\0')
-                return(-1);
-        os1 = s1;
+	if (*s1 == '\0')
+		return(-1);
+	os1 = s1;
 	c1 = *s1;
 	c2 = *s2;
-        while (LOWER(c1) == LOWER(c2)) {
+	while (LOWER(c1) == LOWER(c2)) {
 		if (c1 == '\0')
 			break;
-                c1 = *++s1;
-                c2 = *++s2;
-        }
-        return(*s1 ? 0 : (*s2 ? (s1 - os1) : (os1 - s1)));
+		c1 = *++s1;
+		c2 = *++s2;
+	}
+	return(*s1 ? 0 : (*s2 ? (s1 - os1) : (os1 - s1)));
 }
 
 static char *ambiguous;		/* special return value for command routines */
 
-	char **
-genget(name, table, stlen)
-	char	*name;		/* name to match */
-	char	**table;	/* name entry in table */
-	int	stlen;
+char **
+genget(char *name, char **table, int stlen)
 {
-	register char **c, **found;
-	register int n;
+	char **c, **found;
+	int n;
 
 	if (name == 0)
 	    return 0;
@@ -98,9 +102,8 @@ genget(name, table, stlen)
 /*
  * Function call version of Ambiguous()
  */
-	int
-Ambiguous(s)
-	char *s;
+int
+Ambiguous(char **s)
 {
-	return((char **)s == &ambiguous);
+	return(s == &ambiguous);
 }

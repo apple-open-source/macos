@@ -1,4 +1,4 @@
-;;; decipher.el --- Cryptanalyze monoalphabetic substitution ciphers
+;;; decipher.el --- cryptanalyze monoalphabetic substitution ciphers
 ;;
 ;; Copyright (C) 1995, 1996 Free Software Foundation, Inc.
 ;;
@@ -22,6 +22,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+;;
 ;;; Quick Start:
 ;;
 ;; To decipher a message, type or load it into a buffer and type
@@ -37,8 +39,6 @@
 ;;   Helen Fouche Gaines
 ;;   ISBN 0-486-20097-3
 
-;;; Commentary:
-;;
 ;; This package is designed to help you crack simple substitution
 ;; ciphers where one letter stands for another.  It works for ciphers
 ;; with or without word divisions.  (You must set the variable
@@ -687,7 +687,7 @@ ciphertext."
       (set-buffer (decipher-stats-buffer))
       (goto-char (point-min))
       (or (re-search-forward (format "^%c: " cipher-char) nil t)
-          (error "Character `%c' is not used in ciphertext." cipher-char))
+          (error "Character `%c' is not used in ciphertext" cipher-char))
       (forward-line -1)
       (setq start (point))
       (forward-line 3)

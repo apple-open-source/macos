@@ -1,5 +1,6 @@
 /* Low level interface to simulators, for the remote server for GDB.
-   Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,9 +19,8 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
-#include "bfd.h"
 #include "server.h"
+#include "bfd.h"
 #include "callback.h"		/* GDB simulator callback interface */
 #include "remote-sim.h"		/* GDB simulator interface */
 
@@ -41,7 +41,7 @@ static SIM_DESC gdbsim_desc = 0;
    does not support loading itself.  */
 
 static void
-generic_load (bfd *loadfile_bfd)
+mygeneric_load (bfd *loadfile_bfd)
 {
   asection *s;
 
@@ -88,10 +88,8 @@ create_inferior (char *program, char **argv)
 {
   bfd *abfd;
   int pid = 0;
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
   char **new_argv;
   int nargs;
-#endif
 
   abfd = bfd_openr (program, 0);
   if (!abfd)
@@ -108,7 +106,6 @@ create_inferior (char *program, char **argv)
       exit (1);
     }
 
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
   /* Add "-E big" or "-E little" to the argument list depending on the
      endianness of the program to be loaded.  */
   for (nargs = 0; argv[nargs] != NULL; nargs++)		/* count the args */
@@ -120,7 +117,6 @@ create_inferior (char *program, char **argv)
   new_argv[nargs + 1] = bfd_big_endian (abfd) ? "big" : "little";
   new_argv[nargs + 2] = NULL;
   argv = new_argv;
-#endif
 
   /* Create an instance of the simulator.  */
   default_callback.init (&default_callback);
@@ -131,12 +127,19 @@ create_inferior (char *program, char **argv)
   /* Load the program into the simulator.  */
   if (abfd)
     if (sim_load (gdbsim_desc, program, NULL, 0) == SIM_RC_FAIL)
-      generic_load (abfd);
+      mygeneric_load (abfd);
 
   /* Create an inferior process in the simulator.  This initializes SP.  */
   sim_create_inferior (gdbsim_desc, abfd, argv, /* env */ NULL);
   sim_resume (gdbsim_desc, 1, 0);	/* execute one instr */
   return pid;
+}
+
+/* Attaching is not supported.  */
+int
+myattach (int pid)
+{
+  return -1;
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */

@@ -1,5 +1,6 @@
 ;;; gnus-draft.el --- draft message support for Gnus
-;; Copyright (C) 1997,98 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2000
+;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -67,12 +68,13 @@
   (interactive "P")
   (when (eq major-mode 'gnus-summary-mode)
     (when (set (make-local-variable 'gnus-draft-mode)
-		  (if (null arg) (not gnus-draft-mode)
-		    (> (prefix-numeric-value arg) 0)))
+	       (if (null arg) (not gnus-draft-mode)
+		 (> (prefix-numeric-value arg) 0)))
       ;; Set up the menu.
       (when (gnus-visual-p 'draft-menu 'menu)
 	(gnus-draft-make-menu-bar))
       (gnus-add-minor-mode 'gnus-draft-mode " Draft" gnus-draft-mode-map)
+      (mml-mode)
       (gnus-run-hooks 'gnus-draft-mode-hook))))
 
 ;;; Commands
@@ -94,9 +96,11 @@
   (interactive)
   (let ((article (gnus-summary-article-number)))
     (gnus-summary-mark-as-read article gnus-canceled-mark)
-    (gnus-draft-setup article gnus-newsgroup-name)
+    (gnus-draft-setup article gnus-newsgroup-name t)
     (set-buffer-modified-p t)
     (save-buffer)
+    (let ((gnus-verbose-backends nil))
+      (gnus-request-expire-articles (list article) gnus-newsgroup-name t))
     (push
      `((lambda ()
 	 (when (gnus-buffer-exists-p ,gnus-summary-buffer)
@@ -108,19 +112,31 @@
 (defun gnus-draft-send-message (&optional n)
   "Send the current draft."
   (interactive "P")
-  (let ((articles (gnus-summary-work-articles n))
-	article)
+  (let* ((articles (gnus-summary-work-articles n))
+	 (total (length articles))
+	 article)
     (while (setq article (pop articles))
       (gnus-summary-remove-process-mark article)
       (unless (memq article gnus-newsgroup-unsendable)
-	(gnus-draft-send article gnus-newsgroup-name)
+	(let ((message-sending-message 
+	       (format "Sending message %d of %d..." 
+		       (- total (length articles)) total)))
+	  (gnus-draft-send article gnus-newsgroup-name t))
 	(gnus-summary-mark-article article gnus-canceled-mark)))))
 
-(defun gnus-draft-send (article &optional group)
+(defun gnus-draft-send (article &optional group interactive)
   "Send message ARTICLE."
-  (gnus-draft-setup article (or group "nndraft:queue"))
-  (let ((message-syntax-checks 'dont-check-for-anything-just-trust-me)
-	message-send-hook type method)
+  (let ((message-syntax-checks (if interactive nil
+				 'dont-check-for-anything-just-trust-me))
+	(message-inhibit-body-encoding (or (not group) 
+					   (equal group "nndraft:queue")
+					   message-inhibit-body-encoding))
+	(message-send-hook (and group (not (equal group "nndraft:queue"))
+				message-send-hook))
+	(message-setup-hook (and group (not (equal group "nndraft:queue"))
+				 message-setup-hook))
+	type method)
+    (gnus-draft-setup article (or group "nndraft:queue"))
     ;; We read the meta-information that says how and where
     ;; this message is to be sent.
     (save-restriction
@@ -131,6 +147,8 @@
 	(setq type (ignore-errors (read (current-buffer)))
 	      method (ignore-errors (read (current-buffer))))
 	(message-remove-header gnus-agent-meta-information-header)))
+    ;; Let Agent restore any GCC lines and have message.el perform them.
+    (gnus-agent-restore-gcc)
     ;; Then we send it.  If we have no meta-information, we just send
     ;; it and let Message figure out how.
     (when (and (or (null method)
@@ -158,15 +176,19 @@
   (interactive)
   (gnus-activate-group "nndraft:queue")
   (save-excursion
-    (let ((articles (nndraft-articles))
-	  (unsendable (gnus-uncompress-range
-		       (cdr (assq 'unsend
-				  (gnus-info-marks
-				   (gnus-get-info "nndraft:queue"))))))
-	  article)
+    (let* ((articles (nndraft-articles))
+	   (unsendable (gnus-uncompress-range
+			(cdr (assq 'unsend
+				   (gnus-info-marks
+				    (gnus-get-info "nndraft:queue"))))))
+	   (total (length articles))
+	   article)
       (while (setq article (pop articles))
 	(unless (memq article unsendable)
-	  (gnus-draft-send article))))))
+	  (let ((message-sending-message 
+		 (format "Sending message %d of %d..." 
+			 (- total (length articles)) total)))
+	    (gnus-draft-send article)))))))
 
 ;;; Utility functions
 
@@ -176,20 +198,22 @@
 ;;;!!!but for the time being, we'll just run this tiny function uncompiled.
 
 (progn
-(defun gnus-draft-setup (narticle group)
-  (gnus-setup-message 'forward
-    (let ((article narticle))
-      (message-mail)
-      (erase-buffer)
-      (if (not (gnus-request-restore-buffer article group))
-	  (error "Couldn't restore the article")
-	;; Insert the separator.
-	(goto-char (point-min))
-	(search-forward "\n\n")
-	(forward-char -1)
-	(insert mail-header-separator)
-	(forward-line 1)
-	(message-set-auto-save-file-name))))))
+  (defun gnus-draft-setup (narticle group &optional restore)
+    (gnus-setup-message 'forward
+      (let ((article narticle))
+	(message-mail)
+	(erase-buffer)
+	(if (not (gnus-request-restore-buffer article group))
+	    (error "Couldn't restore the article")
+	  (if (and restore (equal group "nndraft:queue"))
+	      (mime-to-mml))
+	  ;; Insert the separator.
+	  (goto-char (point-min))
+	  (search-forward "\n\n")
+	  (forward-char -1)
+	  (insert mail-header-separator)
+	  (forward-line 1)
+	  (message-set-auto-save-file-name))))))
 
 (defun gnus-draft-article-sendable-p (article)
   "Say whether ARTICLE is sendable."

@@ -48,10 +48,10 @@ public:
                     CSSM_ATTACH_FLAGS attachFlags,
                     const CSSM_UPCALLS &upcalls,
                     DatabaseManager &databaseManager);
-	
-	void *malloc(size_t size);
-	void free(void *addr);
-	void *realloc(void *addr, size_t size);
+
+	void *malloc(size_t size) throw(std::bad_alloc);
+	void free(void *addr) throw();
+	void *realloc(void *addr, size_t size) throw(std::bad_alloc);
 
 protected:
     CSSM_MODULE_FUNCS_PTR construct();

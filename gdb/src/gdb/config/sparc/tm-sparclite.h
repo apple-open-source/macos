@@ -1,5 +1,6 @@
 /* Macro definitions for GDB for a Fujitsu SPARClite.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -17,6 +18,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include "regcache.h"
 
 #define TARGET_SPARCLITE 1	/* Still needed for non-multi-arch case */
 
@@ -42,7 +45,6 @@ enum {
 /* overrides of tm-sparc.h */
 
 #undef TARGET_BYTE_ORDER
-#define TARGET_BYTE_ORDER_SELECTABLE
 
 /* Select the sparclite disassembler.  Slightly different instruction set from
    the V8 sparc.  */

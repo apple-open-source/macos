@@ -94,8 +94,8 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
 
 	// Send the command over the control endpoint
 	status = GetInterfaceReference()->GetDevice()->DeviceRequest( 	&theCBIRequestBlock->cbiDevRequest, 
-														//GetTimeoutDuration( theCBIRequestBlock->request ),  // Use the client's timeout for both
-														//GetTimeoutDuration( theCBIRequestBlock->request ),
+														GetTimeoutDuration( theCBIRequestBlock->request ),  // Use the client's timeout for both
+														GetTimeoutDuration( theCBIRequestBlock->request ),
 														&theCBIRequestBlock->cbiCompletion );
    	STATUS_LOG(("%s: SendSCSICommandForCBIProtocol DeviceRequest returned %d\n", 
    				getName(), 
@@ -280,7 +280,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
    					STATUS_LOG(("%s: kCBIExecuteCommand no data to transfer status %d\n", getName(), status));
 					break;
 				}
-
+				
 				status = CBIProtocolTransferData( cbiRequestBlock, kCBIBulkIOComplete );
 				if ( status == kIOReturnSuccess )
 				{

@@ -1,5 +1,6 @@
 /* Parameters for execution on any Hewlett-Packard PA-RISC machine.
-   Copyright 1986, 1987, 1989-1993, 1995, 1999, 2000 Free Software Foundation, Inc. 
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -24,6 +25,8 @@
 #ifndef _TM_HHPA_H_
 #define _TM_HHPA_H_
 
+#include "regcache.h"
+
 /* Forward declarations of some types we use in prototypes */
 
 struct frame_info;
@@ -31,10 +34,6 @@ struct frame_saved_regs;
 struct value;
 struct type;
 struct inferior_status;
-
-/* Target system byte order. */
-
-#define	TARGET_BYTE_ORDER	BIG_ENDIAN
 
 /* By default assume we don't have to worry about software floating point.  */
 #ifndef SOFT_FLOAT
@@ -53,10 +52,6 @@ struct inferior_status;
 #define GET_FIELD(X, FROM, TO) \
   ((X) >> (31 - (TO)) & ((1 << ((TO) - (FROM) + 1)) - 1))
 #endif
-
-/* Watch out for NaNs */
-
-#define IEEE_FLOAT (1)
 
 /* On the PA, any pass-by-value structure > 8 bytes is actually
    passed via a pointer regardless of its type or the compiler
@@ -251,7 +246,7 @@ extern CORE_ADDR saved_pc_after_call (struct frame_info *);
    clean them up using this macro.  BUF is a char pointer to
    the raw value of the register in the registers[] array.  */
 
-#define	CLEAN_UP_REGISTER_VALUE(regno, buf) \
+#define	DEPRECATED_CLEAN_UP_REGISTER_VALUE(regno, buf) \
   do {	\
     if ((regno) == PCOQ_HEAD_REGNUM || (regno) == PCOQ_TAIL_REGNUM) \
       (buf)[sizeof(CORE_ADDR) -1] &= ~0x3; \
@@ -316,27 +311,10 @@ extern void pa_do_strcat_registers_info (int, int, struct ui_file *, enum precis
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
-   into VALBUF. 
-
-   elz: changed what to return when length is > 4: the stored result is 
-   in register 28 and in register 29, with the lower order word being in reg 29, 
-   so we must start reading it from somehere in the middle of reg28
-
-   FIXME: Not sure what to do for soft float here.  */
+   into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  { \
-    if (TYPE_CODE (TYPE) == TYPE_CODE_FLT && !SOFT_FLOAT) \
-      memcpy ((VALBUF), \
-	      ((char *)(REGBUF)) + REGISTER_BYTE (FP4_REGNUM), \
-	      TYPE_LENGTH (TYPE)); \
-    else \
-      memcpy ((VALBUF), \
-	      (char *)(REGBUF) + REGISTER_BYTE (28) + \
-	      (TYPE_LENGTH (TYPE) > 4 ? (8 - TYPE_LENGTH (TYPE)) : (4 - TYPE_LENGTH (TYPE))), \
-	      TYPE_LENGTH (TYPE)); \
-  }
-
+  hppa_extract_return_value (TYPE, REGBUF, VALBUF);
 
  /* elz: decide whether the function returning a value of type type
     will put it on the stack or in the registers.
@@ -353,20 +331,10 @@ extern use_struct_convention_fn hppa_use_struct_convention;
 #define USE_STRUCT_CONVENTION(gcc_p,type) hppa_use_struct_convention (gcc_p,type)
 
 /* Write into appropriate registers a function return value
-   of type TYPE, given in virtual format.
-
-   For software floating point the return value goes into the integer
-   registers.  But we don't have any flag to key this on, so we always
-   store the value into the integer registers, and if it's a float value,
-   then we put it in the float registers too.  */
+   of type TYPE, given in virtual format.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  write_register_bytes (REGISTER_BYTE (28),(VALBUF), TYPE_LENGTH (TYPE)) ; \
-  if (!SOFT_FLOAT) \
-    write_register_bytes ((TYPE_CODE(TYPE) == TYPE_CODE_FLT \
-			   ? REGISTER_BYTE (FP4_REGNUM) \
-			   : REGISTER_BYTE (28)),		\
-			  (VALBUF), TYPE_LENGTH (TYPE))
+  hppa_store_return_value (TYPE, VALBUF);
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
@@ -568,7 +536,7 @@ extern void hppa_pop_frame (void);
 #else /* defined PA_LEVEL_0 */
 
 /* This is the call dummy for a level 0 PA.  Level 0's don't have space
-   registers (or floating point??), so we skip all that inter-space call stuff,
+   registers (or floating point?), so we skip all that inter-space call stuff,
    and avoid touching the fp regs.
 
    call_dummy
@@ -767,12 +735,12 @@ extern CORE_ADDR skip_trampoline_code (CORE_ADDR, char *);
 #endif
 
 #define TARGET_READ_PC(pid) target_read_pc (pid)
-extern CORE_ADDR target_read_pc (int);
+extern CORE_ADDR target_read_pc (ptid_t);
 
 #define TARGET_WRITE_PC(v,pid) target_write_pc (v,pid)
-extern void target_write_pc (CORE_ADDR, int);
+extern void target_write_pc (CORE_ADDR, ptid_t);
 
-#define TARGET_READ_FP() target_read_fp (inferior_pid)
+#define TARGET_READ_FP() target_read_fp (PIDGET (inferior_ptid))
 extern CORE_ADDR target_read_fp (int);
 
 /* For a number of horrible reasons we may have to adjust the location

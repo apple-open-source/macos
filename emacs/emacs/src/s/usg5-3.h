@@ -1,5 +1,5 @@
 /* Definitions file for GNU Emacs running on AT&T's System V Release 3
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -118,10 +118,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define SHORTNAMES */
 
-/* We use the Berkeley (and usg5.2.2) interface to nlist.  */
-
-#define NLIST_STRUCT
-
 /* The file containing the kernel's symbol table is called /unix.  */
 
 #define KERNEL_FILE "/unix"
@@ -151,25 +147,13 @@ Boston, MA 02111-1307, USA.  */
 #define _setjmp setjmp
 #define _longjmp longjmp
 
-/* On USG systems the system calls are interruptible by signals
- that the user program has elected to catch.  Thus the system call
- must be retried in these cases.  To handle this without massive
- changes in the source code, we remap the standard system call names
- to names for our own functions in sysdep.c that do the system call
- with retries. */
-
-#define read sys_read
-#define write sys_write
-#define open sys_open
-#define close sys_close
-
-#define INTERRUPTIBLE_OPEN
-#define INTERRUPTIBLE_CLOSE
-#define INTERRUPTIBLE_IO
-
 /* On USG systems these have different names */
+#ifndef HAVE_INDEX
 #define index strchr
+#endif /* ! defined (HAVE_INDEX) */
+#ifndef HAVE_RINDEX
 #define rindex strrchr
+#endif /* ! defined (HAVE_RINDEX) */
 
 /* USG systems tend to put everything declared static
    into the initialized data area, which becomes pure after dumping Emacs.

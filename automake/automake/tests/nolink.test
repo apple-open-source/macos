@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# Make sure Automake does not emit a link rule for unknown languages.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = no-exeext
+
+bin_PROGRAMS = meal
+meal_SOURCES = beans.veg beef.meat
+
+meal: beans.veg beef.meat
+	cat beans.veg beef.meat > meal
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^meal.*:' Makefile.in | grep -v beef.meat && exit 1
+
+exit 0

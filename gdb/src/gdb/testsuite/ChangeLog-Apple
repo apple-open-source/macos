@@ -1,0 +1,18 @@
+2001-09-04  Syd Polk  <spolk@apple.com>
+
+	* gdb.base/page.exp: Changed tests to call gdb_expect directly;
+	otherwise, they would hang.
+
+	* gdb.base/shlib.exp sizeof.exp: Fixed tests to compile for Darwin.
+	* gdb.c++/templates.exp userdef.exp: Ditto.
+
+2000-10-02  James Ingham  <jingham@inghji.apple.com>
+
+	* gdb.threads/pthreads.exp: Add the System framework to the
+	libraries searched for pthread.  
+
+	* gdb.base/default.exp: Adjust test for inclusion of ObjC in help
+	string.
+
+	* gdb.base/assign.exp: cut & paste typo in test label.
+

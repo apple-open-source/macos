@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -20,8 +20,6 @@
    File:      cssmapple.h
 
    Contains:  CSSM features specific to Apple's Implementation
-
-   Copyright: (c) 1999-2000 Apple Computer, Inc., all rights reserved.
 */
 
 #ifndef _CSSMAPPLE_H_
@@ -29,7 +27,9 @@
 
 #include <Security/cssmerr.h>
 #include <Security/cssmtype.h>
-#include <sys/types.h>	/* for the BSD *_t types */
+#include <Security/x509defs.h>			/* for CSSM_APPLE_ROOT_CERT_REQUEST fields */
+#include <Security/certextensions.h>	/* ditto */
+#include <sys/types.h>					/* for the BSD *_t types */
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +63,7 @@ enum
     CSSM_WORDID_KEYCHAIN_LOCK,
     CSSM_WORDID_KEYCHAIN_CHANGE_LOCK,
 	CSSM_WORDID_PROCESS,
+	CSSM_WORDID__RESERVED_1,		// was used in 10.2 test seeds; no longer in use
 	CSSM_WORDID__FIRST_UNUSED
 };
 
@@ -100,6 +101,7 @@ enum {	/* types of code signatures - item 1 of CSSM_ACL_SUBJECT_TYPE_CODE_SIGNAT
     CSSM_ACL_CODE_SIGNATURE_OSX = 1		/* standard OS X code signature */
 };
 
+/* ACL subjects of type PROCESS */
 
 enum {	/* PROCESS_SUBJECT mask fields */
     CSSM_ACL_MATCH_UID = 0x01,			/* match userid against uid field */
@@ -115,9 +117,24 @@ enum {	/* PROCESS_SUBJECT structure version field */
 typedef struct cssm_acl_process_subject_selector {	/* PROCESS_SUBJECT selector */
     uint16 version;			/* version of this selector */
     uint16 mask;			/* active fields mask */
-    uid_t uid;				/* effective user id match */
-    gid_t gid;				/* effective group id match */
+    uint32 uid;				/* effective user id match */
+    uint32 gid;				/* effective group id match */
 } CSSM_ACL_PROCESS_SUBJECT_SELECTOR;
+
+/* ACL subjects of type KEYCHAIN_PROMPT */
+
+enum {	/* KEYCHAIN_PROMPT structure version field */
+	CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION = 0x101
+};
+
+enum {	/* KEYCHAIN_PROMPT operational flags */
+	CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE = 0x0001 /* require re-entering of passphrase */
+};
+
+typedef struct cssm_acl_keychain_prompt_selector { /* KEYCHAIN_PROMPT selector */
+	uint16 version;			/* version of this selector */
+	uint16 flags;			/* flag bits */
+} CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR;
 
 
 /* Apple defined algorithm IDs */
@@ -180,7 +197,12 @@ enum
 {
     CSSM_DL_DB_RECORD_GENERIC_PASSWORD = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0,
     CSSM_DL_DB_RECORD_INTERNET_PASSWORD = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 1,
-    CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 2
+    CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 2,
+
+    CSSM_DL_DB_RECORD_X509_CERTIFICATE = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0x1000,
+	CSSM_DL_DB_RECORD_USER_TRUST,
+
+    CSSM_DL_DB_RECORD_METADATA = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0x8000
 };
 
 /* AppleFileDL extentions: passthrough ids */
@@ -221,6 +243,29 @@ enum
     /* the internal data format version for a database's internal information ("blob") is invalid */
     CSSMERR_APPLEDL_INCOMPATIBLE_DATABASE_BLOB =	CSSM_DL_PRIVATE_ERROR + 6,
     CSSMERR_APPLEDL_INCOMPATIBLE_KEY_BLOB =			CSSM_DL_PRIVATE_ERROR + 7,    
+};
+
+/* Apple X509TP private error codes. */
+enum 
+{
+	/* mismatch between Cert's common name and app-specified host name */
+	CSSMERR_APPLETP_HOSTNAME_MISMATCH =				CSSM_TP_PRIVATE_ERROR + 0,
+	/* Non-understood extension with Critical flag true */
+	CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN =		CSSM_TP_PRIVATE_ERROR + 1,
+	/* Basic Constraints extension required per policy, but not present */
+	CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS =			CSSM_TP_PRIVATE_ERROR + 2,
+	/* Invalid BasicConstraints.CA */
+	CSSMERR_APPLETP_INVALID_CA =					CSSM_TP_PRIVATE_ERROR + 3,
+	/* Invalid Authority Key ID */
+	CSSMERR_APPLETP_INVALID_AUTHORITY_ID =			CSSM_TP_PRIVATE_ERROR + 4,
+	/* Invalid Subject Key ID */
+	CSSMERR_APPLETP_INVALID_SUBJECT_ID =			CSSM_TP_PRIVATE_ERROR + 5,
+	/* Invalid Key Usage for policy */
+	CSSMERR_APPLETP_INVALID_KEY_USAGE =				CSSM_TP_PRIVATE_ERROR + 6,
+	/* Invalid Extended Key Usage for policy */
+	CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE =	CSSM_TP_PRIVATE_ERROR + 7,
+	/* Invalid Subject/Authority Key ID Linkage */
+	CSSMERR_APPLETP_INVALID_ID_LINKAGE =			CSSM_TP_PRIVATE_ERROR + 8,
 };
 
 enum
@@ -309,7 +354,7 @@ enum
 	CSSM_APPLECSPDL_DB_CHANGE_PASSWORD =5,
 
 	
-	/* Given a CSSM_KEY_PTR in any format, obtain the SSHA-1 hash of the 
+	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the 
 	 * associated key blob. 
 	 * Key is specified in CSSM_CSP_CreatePassThroughContext.
 	 * Hash is allocated bythe CSP, in the App's memory, and returned
@@ -341,26 +386,6 @@ enum {
 	CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM = 100
 };
 
-/* 
- * Optional argument for X509TP's CertGroupVerify. Instructs TP to
- * ignore "certificate expired" error conditions. Expressed in 
- * CSSM_TP_CALLERAUTH_CONTEXT.Policy.PolicyControl. 
- */
-#define CSSM_TP_ALLOW_EXPIRE	((void *)0x55)
-
-/*
- * Structure containing parameters for the MDS DbOpen() function.
- */
- 
-#define MDS_APPLE_OPEN_LOCAL_DB    ((uint32) (1 << 0))
-#define MDS_APPLE_CREATE_LOCAL_DB  ((uint32) (1 << 1))
-
-typedef struct mds_apple_open_parameters
-{
-	uint32 version;
-	uint32 openFlags;
-} MDS_APPLE_OPEN_PARAMETERS, *MDS_APPLE_OPEN_PARAMETERS_PTR;
-
 /*
  * Custom context attributes for AppleCSP.
  */
@@ -377,19 +402,26 @@ enum {
 			
 	/*
 	 * FEE key attributes.
-	 * See CSSM_FEE_PRIME_TYPE_xxx, CSSM_FEE_CURVE_TYPE_xxx enumsm below.
+	 * See CSSM_FEE_PRIME_TYPE_xxx, CSSM_FEE_CURVE_TYPE_xxx enums, below.
 	 */
 	CSSM_ATTRIBUTE_FEE_PRIME_TYPE = 
 			(CSSM_ATTRIBUTE_DATA_UINT32 | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 1)),
 	CSSM_ATTRIBUTE_FEE_CURVE_TYPE = 
 			(CSSM_ATTRIBUTE_DATA_UINT32 | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 2)),
+			
+	/*
+	 * Apple Secure Compression (ComCryption) optimization.
+	 * See CSSM_ASC_OPTIMIZE_xxx, enums, below.
+	 */
+	CSSM_ATTRIBUTE_ASC_OPTIMIZATION = 
+			(CSSM_ATTRIBUTE_DATA_UINT32 | (CSSM_ATTRIBUTE_VENDOR_DEFINED + 3)),
 };
 
 /*
  * FEE key pair prime modulus types.
  */
 enum {
-	CSSM_FEE_PRIME_TYPE_DEFAULT,		/* default per key size */
+	CSSM_FEE_PRIME_TYPE_DEFAULT = 0,	/* default per key size */
 	CSSM_FEE_PRIME_TYPE_MERSENNE,		/* (2 ** q) - 1Ê*/
 	CSSM_FEE_PRIME_TYPE_FEE,			/* (2 ** q) - k */
 	CSSM_FEE_PRIME_TYPE_GENERAL			/* random prime */
@@ -401,13 +433,216 @@ enum {
  *    y**2 = x**3 + c(x**2) + ax + b
  */
 enum {
-	CSSM_FEE_CURVE_TYPE_DEFAULT,		/* default per key size */
+	CSSM_FEE_CURVE_TYPE_DEFAULT = 0,	/* default per key size */
 	CSSM_FEE_CURVE_TYPE_MONTGOMERY,		/* a==1, b==0 */
 	CSSM_FEE_CURVE_TYPE_WEIERSTRASS		/* c==0. IEEE P1363 compliant. */
 };
 
-#ifdef __cplusplus
+/*
+ * Apple Secure Compression (ComCryption) optimization attributes.
+ */
+enum {
+	CSSM_ASC_OPTIMIZE_DEFAULT = 0,
+	CSSM_ASC_OPTIMIZE_SIZE,				/* max compression (currently the default) */
+	CSSM_ASC_OPTIMIZE_SECURITY,			/* currently not implemented */
+	CSSM_ASC_OPTIMIZE_TIME,				/* min runtime */
+	CSSM_ASC_OPTIMIZE_TIME_SIZE,		/* implies loss of security */
+	CSSM_ASC_OPTIMIZE_ASCII,			/* optimized for ASCC text, not implemented */
+};
+
+/*
+ * Name/OID pair used in CSSM_APPLE_TP_CERT_REQUEST
+ */
+typedef struct {
+	const char 			*string;
+	const CSSM_OID 		*oid;
+} CSSM_APPLE_TP_NAME_OID;
+
+/* 
+ * Certificate request passed to CSSM_TP_SubmitCredRequest() in the
+ * CSSM_TP_AUTHORITY_REQUEST_TYPE.Requests field. Used for requesting
+ * both locally-generated certs (CSSMOID_APPLE_TP_LOCAL_CERT_GEN) and
+ * cert signing requests (CSSMOID_APPLE_TP_CSR_GEN). 
+ */
+typedef struct {
+	CSSM_CSP_HANDLE			cspHand;		// sign with this CSP
+	CSSM_CL_HANDLE			clHand;			// and this CL
+	uint32					serialNumber;
+	uint32 					numSubjectNames;// size subjectNames[]
+	CSSM_APPLE_TP_NAME_OID	*subjectNames;	// from certextensions.h
+	
+	/*
+	 * Issuer name can be expressed in the simplified CSSM_APPLE_TP_NAME_OID
+	 * array, as is the subject name, or as an CSSM_X509_NAME, which is 
+	 * typically obtained from a signing cert. 
+	 * Exactly one of {issuerNames, issuerNameX509} must be non-NULL. 
+	 */
+	uint32 					numIssuerNames;	// size issuerNames[]
+	CSSM_APPLE_TP_NAME_OID	*issuerNames;   // optional; NULL implies root 
+											//    (signer == subject)
+	CSSM_X509_NAME_PTR		issuerNameX509;		
+	const CSSM_KEY  		*certPublicKey;
+	const CSSM_KEY  		*issuerPrivateKey;
+	
+	/* Unfortunately there is no practical way to map any algorithm
+	 * to its appropriate OID, and we need both.... */
+	CSSM_ALGORITHMS 		signatureAlg;   // e.g., CSSM_ALGID_SHA1WithRSA
+	CSSM_OID				signatureOid;	// e.g., CSSMOID_SHA1WithRSA
+	uint32					notBefore;		// relative to "now"
+	uint32					notAfter;
+	uint32					numExtensions;
+	CE_DataAndType  		*extensions;	// optional
+	
+	/* 
+	 * Optional challenge string for CSSMOID_APPLE_TP_CSR_GEN.
+	 */
+	const char				*challengeString;
+} CSSM_APPLE_TP_CERT_REQUEST;
+
+/* 
+ * Options for X509TP's CSSM_TP_CertGroupVerify for policy CSSMOID_APPLE_TP_SSL. 
+ * A pointer to, and length of, one of these is optionally placed in 
+ * CSSM_TP_VERIFY_CONTEXT.Cred->Policy.PolicyIds[n].FieldValue.
+ */
+#define CSSM_APPLE_TP_SSL_OPTS_VERSION		0
+typedef struct {
+	uint32      Version;        // CSSM_APPLE_TP_SSL_OPTS_VERSION
+
+	/* 
+	 * The domain name of the server (e.g., "store.apple.com".) In the 
+	 * SSL and TLS protocols, this must match the common name of the 
+	 * subject cert. Expressed as a C string, optionally NULL terminated
+	 * if it is NULL terminated, the length field should include the NULL).
+	 */
+	uint32      ServerNameLen;
+	const char  *ServerName;    // optional
+} CSSM_APPLE_TP_SSL_OPTIONS;
+
+/*
+ * Optional ActionData for all X509TP CertGroupVerify policies.
+ * A pointer to, and length of, one of these is optionally placed in 
+ * CSSM_TP_VERIFY_CONTEXT.ActionData.
+ */
+typedef uint32 CSSM_APPLE_TP_ACTION_FLAGS;
+enum {
+   CSSM_TP_ACTION_ALLOW_EXPIRED = 0x00000001,	// allow expired certs
+   /* other flags TBD */
+};
+
+#define CSSM_APPLE_TP_ACTION_VERSION		0
+typedef struct {
+	uint32						Version; 		// CSSM_APPLE_TP_ACTION_VERSION
+	CSSM_APPLE_TP_ACTION_FLAGS	ActionFlags;	// CSSM_TP_ACTION_ALLOW_EXPIRED, etc.
+} CSSM_APPLE_TP_ACTION_DATA;
+
+/*
+ * Per-cert evidence returned from CSSM_TP_CertGroupVerify.
+ * An array of these is presented in CSSM_TP_VERIFY_CONTEXT_RESULT.Evidence[2]. 
+ * Same number of these as in the cert group in Evidence[1].
+ */
+ 
+/* First, an array of bits indicating various status of the cert. */
+typedef uint32 CSSM_TP_APPLE_CERT_STATUS;
+enum 
+{
+	CSSM_CERT_STATUS_EXPIRED			= 0x00000001,
+	CSSM_CERT_STATUS_NOT_VALID_YET		= 0x00000002,
+	CSSM_CERT_STATUS_IS_IN_INPUT_CERTS	= 0x00000004,
+	CSSM_CERT_STATUS_IS_IN_ANCHORS		= 0x00000008,
+	CSSM_CERT_STATUS_IS_ROOT			= 0x00000010
+};
+
+typedef struct {
+	CSSM_TP_APPLE_CERT_STATUS	StatusBits;
+	uint32 						NumStatusCodes;
+	CSSM_RETURN 				*StatusCodes;
+	
+	/* index into raw cert group or AnchorCerts depending on IS_IN_ANCHORS */
+	uint32 						Index;   
+	
+	/* nonzero if cert came from a DLDB */
+	CSSM_DL_DB_HANDLE			DlDbHandle;
+	CSSM_DB_UNIQUE_RECORD_PTR	UniqueRecord;
+} CSSM_TP_APPLE_EVIDENCE_INFO;
+
+/*
+ * CSSM_TP_VERIFY_CONTEXT_RESULT.Evidence[0], basically defines which version/flavor 
+ * of remaining evidence is.
+ */
+#define CSSM_TP_APPLE_EVIDENCE_VERSION		0
+typedef struct 
+{
+	uint32		Version;
+} CSSM_TP_APPLE_EVIDENCE_HEADER;
+
+
+/*
+ * Apple-specific CSSM_EVIDENCE_FORM values
+ *
+ * The form of the evidence returns from CSSM_TP_CertGroupVerify is:
+ *
+ * EvidenceForm							contents of *Evidence
+ * ------------  						---------------------
+ * CSSM_EVIDENCE_FORM_APPLE_HEADER		CSSM_TP_APPLE_EVIDENCE_HEADER
+ * CSSM_EVIDENCE_FORM_APPLE_CERTGROUP	CSSM_CERTGROUP
+ * CSSM_EVIDENCE_FORM_APPLE_CERT_INFO	array of CSSM_TP_APPLE_EVIDENCE_INFO, size
+ *											CSSM_CERTGROUP.NumCerts
+ */
+
+#define CSSM_EVIDENCE_FORM_APPLE_CUSTOM		0x80000000
+enum 
+{
+	CSSM_EVIDENCE_FORM_APPLE_HEADER 	= CSSM_EVIDENCE_FORM_APPLE_CUSTOM + 0,
+	CSSM_EVIDENCE_FORM_APPLE_CERTGROUP 	= CSSM_EVIDENCE_FORM_APPLE_CUSTOM + 1,
+	CSSM_EVIDENCE_FORM_APPLE_CERT_INFO  = CSSM_EVIDENCE_FORM_APPLE_CUSTOM + 2
+};
+
+/* AppleX509CL extensions: passthrough ids */
+enum {
+	/* 
+	 * Obtain a signed Certificate Signing Request.
+	 * Input = CSSM_APPLE_CL_CSR_REQUEST
+	 * Output = allocated CSSM_DATA which points to a DER-encoded CSR.
+	 */
+	CSSM_APPLEX509CL_OBTAIN_CSR,
+	
+	/*
+	 * Perform signature verify of a CSR.
+	 * Input:  CSSM_DATA referring to a DER-encoded CSR.
+	 * Output: Nothing, returns CSSMERR_CL_VERIFICATION_FAILURE on
+	 *         on failure.
+	 */
+	CSSM_APPLEX509CL_VERIFY_CSR
+};
+
+/*
+ * Used in CL's CSSM_APPLEX509_OBTAIN_CSR Passthrough. This is the 
+ * input; the output is a CSSM_DATA * containing the signed and 
+ * PEM-encoded CSR.
+ */
+typedef struct {
+	CSSM_X509_NAME_PTR		subjectNameX509;		
+	
+	/* Unfortunately there is no practical way to map any algorithm
+	 * to its appropriate OID, and we need both.... */
+	CSSM_ALGORITHMS 		signatureAlg;   // e.g., CSSM_ALGID_SHA1WithRSA
+	CSSM_OID				signatureOid;	// e.g., CSSMOID_SHA1WithRSA
+
+	CSSM_CSP_HANDLE			cspHand;		// sign with this CSP
+	const CSSM_KEY  		*subjectPublicKey;
+	const CSSM_KEY  		*subjectPrivateKey;
+	
+	/* 
+	 * Optional challenge string.
+	 */
+	const char				*challengeString;
+} CSSM_APPLE_CL_CSR_REQUEST;
+
+
+void cssmPerror(const char *how, CSSM_RETURN error);
+
+#ifdef	__cplusplus
 }
-#endif
+#endif	// __cplusplus
 
 #endif /* _CSSMAPPLE_H_ */

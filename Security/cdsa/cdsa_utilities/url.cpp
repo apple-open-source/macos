@@ -115,7 +115,6 @@ string URL::path() const
 
 string URL::resourceSpec() const
 {
-    Boolean isAbsolute;
     return mkstr(CFURLCopyResourceSpecifier(ref));
 }
 

@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Test to make sure AM_CFLAGS appears in subdir compilation rule.
+# Report from Steve M. Robbins.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(f)
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = wish
+wish_SOURCES = foo.c generic/a.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep wish_CFLAGS Makefile.in && exit 1
+exit 0

@@ -119,4 +119,4 @@ genSCFiles:
 	/tmp/genSCFiles cfile  > /tmp/SCSchemaDefinitions.c
 
 dhcp: DHCP.c
-	cc -Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS -DTEST_DHCPCLIENT_PREFERENCES -g -o dhcp DHCP.c -framework CoreFoundation -framework SystemConfiguration
+	cc -Wall -DTEST_DHCPCLIENT_PREFERENCES -g -o dhcp DHCP.c -framework CoreFoundation -framework SystemConfiguration

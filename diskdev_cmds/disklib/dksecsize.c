@@ -38,7 +38,7 @@
 
 #include <sys/types.h>
 #include <sys/file.h>
-#include <bsd/dev/disk.h>
+#include <dev/disk.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>

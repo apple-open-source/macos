@@ -1,7 +1,6 @@
-This is Info file ../info/viper, produced by Makeinfo version 1.68 from
-the input file viper.texi.
+This is ../info/viper, produced by makeinfo version 4.0 from viper.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * VIPER: (viper).       The newest Emacs VI-emulation mode.
                           (also, A VI Plan for Emacs Rescue
@@ -11,20 +10,24 @@ END-INFO-DIR-ENTRY
 Distribution
 ************
 
-Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+Copyright (C) 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided that
-the entire resulting derived work is distributed under the terms of a
-permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the same conditions as for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: viper,  Node: Concept Index,  Prev: Package Index,  Up: Top
@@ -34,8 +37,8 @@ Concept Index
 
 * Menu:
 
-* # (Previous file) <1>:                 Shell Commands.
-* # (Previous file):                     Groundwork.
+* # (Previous file) <1>:                 Groundwork.
+* # (Previous file):                     Shell Commands.
 * % (Current file) <1>:                  Shell Commands.
 * % (Current file):                      Groundwork.
 * % (Ex address) <1>:                    Shell Commands.
@@ -53,7 +56,7 @@ Concept Index
 * <move>:                                Groundwork.
 * <sp>:                                  Groundwork.
 * abbrevs:                               Abbreviation Facilities.
-* absolute paths:                        Multiple Files in Viper.
+* absolute file names:                   Multiple Files in Viper.
 * appending:                             Appending Text.
 * auto fill:                             Options.
 * auto save:                             Undo and Backups.
@@ -66,17 +69,17 @@ Concept Index
 * buffer search:                         Improved Search.
 * C-c and Viper:                         Packages that Change Keymaps.
 * case and searching:                    Options.
-* case-insensitive search <1>:           Move Commands.
-* case-insensitive search <2>:           New Commands.
-* case-insensitive search:               Vi State.
-* case-sensitive search <1>:             Move Commands.
+* case-insensitive search <1>:           Vi State.
+* case-insensitive search <2>:           Move Commands.
+* case-insensitive search:               New Commands.
+* case-sensitive search <1>:             Vi State.
 * case-sensitive search <2>:             New Commands.
-* case-sensitive search:                 Vi State.
+* case-sensitive search:                 Move Commands.
 * changing case <1>:                     Changing Text.
 * changing case:                         New Commands.
 * changing tab width:                    Options.
-* CHAR:                                  Groundwork.
 * char:                                  Groundwork.
+* CHAR:                                  Groundwork.
 * column movement:                       Move Commands.
 * Command history:                       New Commands.
 * command line:                          Emacs Preliminaries.
@@ -93,27 +96,27 @@ Concept Index
 * dired:                                 Useful Packages.
 * dynamic abbrevs:                       Abbreviation Facilities.
 * ediff:                                 Useful Packages.
-* Emacs state <1>:                       Emacs State.
-* Emacs state:                           States in Viper.
+* Emacs state <1>:                       States in Viper.
+* Emacs state:                           Emacs State.
 * email:                                 Useful Packages.
 * end (of buffer):                       Emacs Preliminaries.
 * end (of line):                         Emacs Preliminaries.
 * Ex addresses:                          Groundwork.
-* Ex commands <1>:                       Groundwork.
+* Ex commands <1>:                       States in Viper.
 * Ex commands <2>:                       Vi State.
-* Ex commands:                           States in Viper.
+* Ex commands:                           Groundwork.
 * Ex style motion:                       Movement and Markers.
 * expanding (region):                    Basics.
 * font-lock:                             Useful Packages.
 * global keymap:                         Emacs Preliminaries.
-* headings <1>:                          Move Commands.
-* headings:                              Viper Specials.
+* headings <1>:                          Viper Specials.
+* headings:                              Move Commands.
 * history:                               History.
 * incremental search:                    Improved Search.
 * initialization:                        Customization.
 * Insert state <1>:                      Editing in Insert State.
-* Insert state <2>:                      Insert State.
-* Insert state:                          States in Viper.
+* Insert state <2>:                      States in Viper.
+* Insert state:                          Insert State.
 * inserting:                             Appending Text.
 * Insertion history:                     New Commands.
 * Insertion ring <1>:                    Viper Specials.
@@ -121,13 +124,13 @@ Concept Index
 * interactive shell:                     Useful Packages.
 * ispell:                                Useful Packages.
 * joining lines:                         Changing Text.
+* key bindings <1>:                      Mapping.
+* key bindings:                          Key Bindings.
 * key mapping:                           Mapping.
-* keybindings <1>:                       Mapping.
-* keybindings:                           Keybindings.
-* keyboard macros <1>:                   New Commands.
-* keyboard macros:                       Macros and Registers.
+* keyboard macros <1>:                   Macros and Registers.
+* keyboard macros:                       New Commands.
 * keymap:                                Emacs Preliminaries.
-* keymaps:                               Keybindings.
+* keymaps:                               Key Bindings.
 * last keyboard macro:                   Macros and Registers.
 * layout:                                Options.
 * line commands <1>:                     Groundwork.
@@ -142,18 +145,18 @@ Concept Index
 * make:                                  Useful Packages.
 * managing multiple files:               Multiple Files in Viper.
 * mark:                                  Emacs Preliminaries.
-* markers <1>:                           Move Commands.
+* markers <1>:                           Multiple Files in Viper.
 * markers <2>:                           Undo and Backups.
-* markers:                               Multiple Files in Viper.
+* markers:                               Move Commands.
 * marking:                               Marking.
 * matching parens <1>:                   Options.
 * matching parens:                       Move Commands.
-* Meta key <1>:                          Insert State.
-* Meta key <2>:                          Vi State.
+* Meta key <1>:                          Vi State.
+* Meta key <2>:                          Insert State.
 * Meta key:                              Emacs Preliminaries.
-* Minibuffer <1>:                        History.
-* Minibuffer <2>:                        The Minibuffer.
-* Minibuffer:                            Emacs Preliminaries.
+* Minibuffer <1>:                        The Minibuffer.
+* Minibuffer <2>:                        Emacs Preliminaries.
+* Minibuffer:                            History.
 * minor mode:                            Emacs Preliminaries.
 * mode:                                  Emacs Preliminaries.
 * mode line <1>:                         States in Viper.
@@ -169,12 +172,12 @@ Concept Index
 * multiple files <1>:                    File and Buffer Handling.
 * multiple files:                        Multiple Files in Viper.
 * multiple undo:                         Vi State.
-* paragraphs <1>:                        Move Commands.
-* paragraphs:                            Viper Specials.
-* paren matching <1>:                    Options.
-* paren matching:                        Move Commands.
-* paste <1>:                             Yanking.
-* paste:                                 Appending Text.
+* paragraphs <1>:                        Viper Specials.
+* paragraphs:                            Move Commands.
+* paren matching <1>:                    Move Commands.
+* paren matching:                        Options.
+* paste <1>:                             Appending Text.
+* paste:                                 Yanking.
 * point:                                 Emacs Preliminaries.
 * point commands <1>:                    Groundwork.
 * point commands:                        Basics.
@@ -191,17 +194,17 @@ Concept Index
 * region specification:                  Basics.
 * register execution <1>:                New Commands.
 * register execution:                    Macros and Registers.
-* registers <1>:                         Macros and Registers.
-* registers <2>:                         Undo and Backups.
-* registers:                             Multiple Files in Viper.
+* registers <1>:                         Multiple Files in Viper.
+* registers <2>:                         Macros and Registers.
+* registers:                             Undo and Backups.
 * regular expressions:                   Vi State.
 * Replace state <1>:                     Replace State.
 * Replace state:                         States in Viper.
 * scrolling:                             Display.
-* searching <1>:                         Options.
-* searching:                             Move Commands.
-* sections <1>:                          Move Commands.
-* sections:                              Viper Specials.
+* searching <1>:                         Move Commands.
+* searching:                             Options.
+* sections <1>:                          Viper Specials.
+* sections:                              Move Commands.
 * sentences <1>:                         Move Commands.
 * sentences:                             Viper Specials.
 * setting variables:                     Rudimentary Changes.
@@ -211,36 +214,36 @@ Concept Index
 * shifting text <1>:                     Options.
 * shifting text:                         Deleting Text.
 * substitution:                          Changing Text.
-* syntax table <1>:                      Groundwork.
-* syntax table:                          Movement and Markers.
+* syntax table <1>:                      Movement and Markers.
+* syntax table:                          Groundwork.
 * tabbing:                               Options.
 * text:                                  Emacs Preliminaries.
 * text processing:                       Search and Replace.
-* textmarkers <1>:                       Move Commands.
-* textmarkers <2>:                       Movement and Markers.
-* textmarkers <3>:                       Undo and Backups.
-* textmarkers:                           Multiple Files in Viper.
+* textmarkers <1>:                       Movement and Markers.
+* textmarkers <2>:                       Multiple Files in Viper.
+* textmarkers <3>:                       Move Commands.
+* textmarkers:                           Undo and Backups.
 * transparent ftp:                       Useful Packages.
-* undo <1>:                              Undoing.
+* undo <1>:                              Vi State.
 * undo <2>:                              Undo and Backups.
-* undo:                                  Vi State.
-* vanilla search <1>:                    Move Commands.
-* vanilla search <2>:                    New Commands.
-* vanilla search:                        Vi State.
+* undo:                                  Undoing.
+* vanilla search <1>:                    New Commands.
+* vanilla search <2>:                    Vi State.
+* vanilla search:                        Move Commands.
 * variables for customization:           Rudimentary Changes.
 * version maintenance:                   Useful Packages.
 * Vi macros:                             Vi Macros.
 * Vi options:                            Options.
 * Vi state <1>:                          Vi State.
 * Vi state:                              States in Viper.
-* viewing registers and markers <1>:     Macros and Registers.
-* viewing registers and markers:         Undo and Backups.
+* viewing registers and markers <1>:     Undo and Backups.
+* viewing registers and markers:         Macros and Registers.
 * Viper and C-c:                         Packages that Change Keymaps.
 * Viper as minor mode:                   Emacs Preliminaries.
 * window:                                Emacs Preliminaries.
 * word search:                           Improved Search.
 * word wrap:                             Options.
-* WORDS:                                 Groundwork.
 * words:                                 Groundwork.
+* WORDS:                                 Groundwork.
 
 

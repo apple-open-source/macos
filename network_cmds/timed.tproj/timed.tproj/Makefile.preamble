@@ -128,3 +128,4 @@ OTHER_HELP_DIRS =
 # Don't add more rules here unless you want the first one to be the default
 # target for make!  Put all your targets in Makefile.postamble.
 
+AFTER_INSTALL = after_install

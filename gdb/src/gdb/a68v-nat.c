@@ -1,5 +1,6 @@
 /* Host-dependent code for Apollo-68ks for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,6 +21,7 @@
 
 #include "defs.h"
 #include "inferior.h"
+#include "regcache.h"
 
 #ifndef _ISP__M68K
 #define _ISP__M68K 1
@@ -41,19 +43,19 @@ fetch_inferior_registers (int ignored)
 
   registers_fetched ();
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers,
 	  ptrace_$data_set,
 	  (PTRACE_ARG3_TYPE) & inferior_registers,
 	  ptrace_$data_set);
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k);
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,
 	  ptrace_$control_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,
@@ -80,13 +82,13 @@ store_inferior_registers (int regno)
   ptrace_$init_control (&inferior_control_registers);
   inferior_fp_registers.size = sizeof (inferior_fp_registers);
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k);
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,
 	  ptrace_$control_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,
@@ -100,19 +102,19 @@ store_inferior_registers (int regno)
   inferior_control_registers.sr = *(int *) &registers[REGISTER_BYTE (PS_REGNUM)];
   inferior_control_registers.pc = *(int *) &registers[REGISTER_BYTE (PC_REGNUM)];
 
-  ptrace (PTRACE_SETREGS, inferior_pid,
+  ptrace (PTRACE_SETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers,
 	  ptrace_$data_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_registers,
 	  ptrace_$data_set_m68k);
 
-  ptrace (PTRACE_SETREGS, inferior_pid,
+  ptrace (PTRACE_SETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers,
 	  ptrace_$floating_set_m68k);
 
-  ptrace (PTRACE_SETREGS, inferior_pid,
+  ptrace (PTRACE_SETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,
 	  ptrace_$control_set_m68k,
 	  (PTRACE_ARG3_TYPE) & inferior_control_registers,

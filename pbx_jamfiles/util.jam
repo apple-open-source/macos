@@ -1,4 +1,4 @@
-# Copyright (c) 1999,2000 Apple Computer, Inc.
+# Copyright (c) 1999-2002 Apple Computer, Inc.
 # All rights reserved.
 
 # This file defines various functions for transforming text and
@@ -7,16 +7,16 @@
 / default = / ;
 
 # NonObjectFiles <non-object files returned> : <list of files>
-# Returns only files not in $(OBJECT_FILES) or $(OBJECT_FILES_$(ARCH))
-# for ARCH in $(ARCHS)
+# Returns only files not in $(OBJECT_FILES_$(VARIANT)
+# or $(OBJECT_FILES_$(VARIANT)_$(ARCH)) for ARCH in $(ARCHS)
 rule NonObjectFiles
 {
     $(1) = ;
     for X in $(2) {
-        if ! $(X) in $(OBJECT_FILES) {
+        if ! $(X) in $(OBJECT_FILES_$(VARIANT)) {
             REJECT = ;
             for ARCH in $(ARCHS) {
-                if $(X) in $(OBJECT_FILES_$(ARCH)) {
+                if $(X) in $(OBJECT_FILES_$(VARIANT)_$(ARCH)) {
                     REJECT = YES ;
                 }
             }

@@ -1,5 +1,5 @@
 # Debug window for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Copyright 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -22,11 +22,10 @@
 # ARGS:		None are used yet.
 # -----------------------------------------------------------------------------
 body DebugWin::constructor {args} {
-  debug ""
-  window_name "GDBTK Debug" "Debug"
+  debug $args
+  window_name "Insight Debug" "Debug"
 
   build_win
-  incr numTopWins
 }
 
 # -----------------------------------------------------------------------------
@@ -41,7 +40,6 @@ body DebugWin::constructor {args} {
 body DebugWin::destructor {} {
   # notify debug code that window is going away
   ::debug::debugwin ""
-  incr numTopWins -1
 }
 
 # -----------------------------------------------------------------------------
@@ -61,7 +59,9 @@ body DebugWin::build_win {} {
   # initialize the gdbtk_de array
   if {![info exists ::gdbtk_de]} {
     set ::gdbtk_de(ALL) 1
+    set ::gdbtk_de(ERRORS_ONLY) 0
     set ::gdbtk_de(others) 0
+    set ::gdbtk_de(filter_var) ALL
   }
 
   # create menubar
@@ -129,7 +129,6 @@ body DebugWin::build_win {} {
   # override the window delete procedure so the messages are
   # turned off first.
   wm protocol $top WM_DELETE_WINDOW "::debug::debugwin {};destroy $top"
-
 }
 
 # -----------------------------------------------------------------------------
@@ -147,16 +146,33 @@ body DebugWin::build_win {} {
 #		msg   - message to display
 # -----------------------------------------------------------------------------
 body DebugWin::puts {level cls func msg} {
-
   # filter. check if we should display this message
   # for now we always let high-level messages through
-  if {!$::gdbtk_de(ALL) && $level == "I"} {
-    if {[info exists ::gdbtk_de($cls)]} {
-      if {!$::gdbtk_de($cls)} {
+  if {$level == "I"} {
+
+    # errors and warnings only
+    if {$::gdbtk_de(ERRORS_ONLY)} { return }
+
+    # ALL classes except those set
+    if {$::gdbtk_de(ALL)} {
+      if {[info exists ::gdbtk_de($cls)]} {
+	if {$::gdbtk_de($cls)} {
+	  return
+	}
+      } elseif {$::gdbtk_de(others)} {
 	return
       }
-    } elseif {!$::gdbtk_de(others)} {
-      return
+    }
+
+    # ONLY the classes set
+    if {!$::gdbtk_de(ALL)} {
+      if {[info exists ::gdbtk_de($cls)]} {
+	if {!$::gdbtk_de($cls)} {
+	  return
+	}
+      } elseif {!$::gdbtk_de(others)} {
+	return
+      }
     }
   }
 
@@ -322,25 +338,38 @@ body DebugWinDOpts::build_win {} {
   wm title [winfo toplevel $itk_interior] "Debug Display Options"
   # initialize here so we can resource this file and update the list
   set _classes {DebugWin RegWin SrcBar SrcWin ToolBar WatchWin EmbeddedWin \
-		ManagedWin GDBWin StackWin SrcTextWin VariableWin global BPWin \
-		  TargetSelection ModalDialog ProcessWin}
+		  ManagedWin GDBWin StackWin SrcTextWin VariableWin global \
+		  BpWin TargetSelection ModalDialog ProcessWin \
+		  GDBEventHandler MemWin}
+  set _classes [concat [lsort $_classes] others]
+
   set f [frame $itk_interior.f]
   set btns [frame $itk_interior.buttons]
 
-  iwidgets::Labeledframe $f.classes -labelpos nw -labeltext {Classes}
+  iwidgets::Labeledframe $f.display -labelpos nw -labeltext {Classes}
+  set fr [$f.display childsite]
+  radiobutton $fr.0 -text "Messages from ALL classes EXCEPT those selected below" \
+    -variable ::gdbtk_de(filter_var) -value ALL -command [code $this _all]
+  radiobutton $fr.1 -text "Messages from ONLY those classes selected below" \
+    -variable ::gdbtk_de(filter_var) -value ONLY -command [code $this _all]
+  radiobutton $fr.2 -text "Only WARNINGS and ERRORS" \
+    -variable ::gdbtk_de(filter_var) -value ERRORS -command [code $this _all]
+
+  grid $fr.0 -sticky w -padx 5 -pady 5
+  grid $fr.1 -sticky w -padx 5 -pady 5
+  grid $fr.2 -sticky w -padx 5 -pady 5
+
+  iwidgets::Labeledframe $f.classes 
   set fr [$f.classes childsite]
 
-  checkbutton $fr.0 -text ALL -variable ::gdbtk_de(ALL) -command [code $this _all]
-  set i 1
-  foreach cls [lsort $_classes] {
+  set i 0
+  foreach cls $_classes {
     if {![info exists ::gdbtk_de($cls)]} {
       set ::gdbtk_de($cls) 0
     }
     checkbutton $fr.$i -text $cls -variable ::gdbtk_de($cls)
     incr i
   }
-  checkbutton $fr.$i -text others -variable ::gdbtk_de(others)
-  incr i
 
   set k [expr 3*(int($i/3))]
   set more [expr $i - $k]
@@ -354,12 +383,13 @@ body DebugWinDOpts::build_win {} {
     2 { grid $fr.$j $fr.[expr $j+1] x -sticky w -padx 5 -pady 5}
   }
 
+  pack $f.display -side top -expand 1 -fill both
   pack $f.classes -side top -expand 1 -fill both
 
-  button $btns.ok -text [gettext OK] -width 7 -command [code delete object $this] \
+  button $btns.ok -text [gettext OK] -width 7 -command [code $this _apply 1] \
     -default active
   button $btns.apply -text "Apply to All"  -width 7 \
-    -command [code $this _apply]
+    -command [code $this _apply 0]
   if {$::debug::logfile == "" || $::debug::logfile == "stdout"} {
     $btns.apply configure -state disabled
   }
@@ -383,11 +413,37 @@ body DebugWinDOpts::build_win {} {
 #		deselect all the individual class checkbuttons.
 # -----------------------------------------------------------------------------
 body DebugWinDOpts::_all {} {
-  if {$::gdbtk_de(ALL)} {
-    foreach cls $_classes {
-      set ::gdbtk_de($cls) 0
+  switch $::gdbtk_de(filter_var) {
+    ALL {
+      set ::gdbtk_de(ALL) 1
+      set ::gdbtk_de(ERRORS_ONLY) 0
+      #enable class buttons
+      set num 0
+      foreach class $_classes {
+	[$itk_interior.f.classes childsite].$num configure -state normal
+	incr num
+      }
     }
-    set ::gdbtk_de(others) 0
+    ONLY {
+      set ::gdbtk_de(ALL) 0
+      set ::gdbtk_de(ERRORS_ONLY) 0
+      #enable class buttons
+      set num 0
+      foreach class $_classes {
+	[$itk_interior.f.classes childsite].$num configure -state normal
+	incr num
+      }
+    }
+    ERRORS {
+      set ::gdbtk_de(ALL) 0
+      set ::gdbtk_de(ERRORS_ONLY) 1
+      # disable class buttons
+      set num 0
+      foreach class $_classes {
+	[$itk_interior.f.classes childsite].$num configure -state disabled
+	incr num
+      }
+    }
   }
 }
 
@@ -401,9 +457,13 @@ body DebugWinDOpts::_all {} {
 #		log file through the new filter into the debug window. The
 #		button is disabled if there is no log file.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::_apply {} {
+body DebugWinDOpts::_apply { done } {
   set dw [ManagedWin::find DebugWin]
+  debug $dw
   if {$dw != ""} {
     $dw loadlog
+  }
+  if {$done} {
+    delete object $this
   }
 }

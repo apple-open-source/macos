@@ -41,7 +41,7 @@
 #import <netinet/in.h>
 #import <net/if.h>
 #import <net/if_arp.h>
-#import <net/etherdefs.h>
+#import <net/ethernet.h>
 #import "LUDictionary.h"
 #import "LUArray.h"
 #import "LUGlobal.h"
@@ -49,7 +49,6 @@
 @interface LUAgent : Root
 {
 	BOOL didInit;
-	unsigned long generation;
 	char *serviceName;
 	LUArray *configurationArray;
 }
@@ -60,10 +59,10 @@
 
 + (char **)variationsOfEthernetAddress:(char *)addr;
 + (char *)canonicalEthernetAddress:(char *)addr;
++ (char *)canonicalAgentName:(char *)name;
++ (char *)canonicalServiceName:(char *)name;
 
 - (LUAgent *)initWithArg:(char *)arg;
-
-- (void)mergeNetgroup:(LUDictionary *)b into:(LUDictionary *)a;
 
 - (const char *)serviceName;
 - (const char *)shortName;
@@ -71,22 +70,21 @@
 - (LUDictionary *)statistics;
 - (void)resetStatistics;
 
-- (BOOL)isStale;
-
-- (BOOL)isValid:(LUDictionary *)item;
-- (BOOL)isArrayValid:(LUArray *)array;
+- (LUDictionary *)ipv6NodeWithName:(char *)name;
 
 - (LUDictionary *)serviceWithName:(char *)name
 	protocol:(char *)prot;
 - (LUDictionary *)serviceWithNumber:(int *)number
 	protocol:(char *)prot;
 
+- (LUDictionary *)netgroupWithName:(char *)name;
+
 - (BOOL)inNetgroup:(char *)group
 	host:(char *)host
 	user:(char *)user
 	domain:(char *)domain;
 
-- (LUArray *)allGroupsWithUser:(char *)name;
+- (LUDictionary *)allGroupsWithUser:(char *)name;
 
 - (LUDictionary *)itemWithKey:(char *)key
 	value:(char *)val

@@ -1,5 +1,5 @@
 /* Disassembler for the PA-RISC. Somewhat derived from sparc-pinsn.c.
-   Copyright 1989, 90, 92, 93, 94, 95, 98, 99, 2000
+   Copyright 1989, 1990, 1992, 1993, 1994, 1995, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
@@ -554,15 +554,27 @@ print_insn_hppa (memaddr, info)
 		  switch (*++s)
 		    {
 		    case 'x':
+		      (*info->fprintf_func) (info->stream, "%s",
+					     index_compl_names[GET_COMPL (insn)]);
+		      break;
+		    case 'X':
 		      (*info->fprintf_func) (info->stream, "%s ",
 					     index_compl_names[GET_COMPL (insn)]);
 		      break;
 		    case 'm':
+		      (*info->fprintf_func) (info->stream, "%s",
+					     short_ldst_compl_names[GET_COMPL (insn)]);
+		      break;
+		    case 'M':
 		      (*info->fprintf_func) (info->stream, "%s ",
 					     short_ldst_compl_names[GET_COMPL (insn)]);
 		      break;
-		    case 's':
+		    case 'A':
 		      (*info->fprintf_func) (info->stream, "%s ",
+					     short_bytes_compl_names[GET_COMPL (insn)]);
+		      break;
+		    case 's':
+		      (*info->fprintf_func) (info->stream, "%s",
 					     short_bytes_compl_names[GET_COMPL (insn)]);
 		      break;
 		    case 'c':
@@ -686,7 +698,7 @@ print_insn_hppa (memaddr, info)
 		      break;
 		    case 'H':
 		      (*info->fprintf_func)
-			  (info->stream, "%s", saturation_names[GET_FIELD
+			  (info->stream, "%s ", saturation_names[GET_FIELD
 							       (insn, 24, 25)]);
 		      break;
 		    case '*':
@@ -889,6 +901,7 @@ print_insn_hppa (memaddr, info)
 		case 'k':
 		  fput_const (extract_21 (insn), info);
 		  break;
+		case '<':
 		case 'l':
 		  /* 16-bit long disp., PA2.0 wide only.  */
 		  fput_const (extract_16 (insn), info);
@@ -1099,6 +1112,7 @@ print_insn_hppa (memaddr, info)
 		    break;
 		  }
 
+		case '>':
 		case 'y':
 		  {
 		    /* 16-bit long disp., PA2.0 wide only.  */

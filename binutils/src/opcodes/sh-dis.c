@@ -1,5 +1,5 @@
 /* Disassemble SH instructions.
-   Copyright (C) 1993, 94, 95, 96, 97, 1998, 2000
+   Copyright 1993, 1994, 1995, 1997, 1998, 2000, 2001
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "dis-asm.h"
 
 #define LITTLE_BIT 2
+
+static void print_movxy
+  PARAMS ((sh_opcode_info *, int, int, fprintf_ftype, void *));
+static void print_insn_ddt PARAMS ((int, struct disassemble_info *));
+static void print_dsp_reg PARAMS ((int, fprintf_ftype, void *));
+static void print_insn_ppi PARAMS ((int, struct disassemble_info *));
+static int print_insn_shx PARAMS ((bfd_vma, struct disassemble_info *));
 
 static void
 print_movxy (op, rn, rm, fprintf_fn, stream)
@@ -99,7 +106,7 @@ print_insn_ddt (insn, info)
     {
       static sh_opcode_info *first_movx, *first_movy;
       sh_opcode_info *opx, *opy;
-      int insn_x, insn_y;
+      unsigned int insn_x, insn_y;
 
       if (! first_movx)
 	{
@@ -182,8 +189,8 @@ print_insn_ppi (field_b, info)
   static char *sy_tab[] = { "y0", "y1", "m0", "m1" };
   fprintf_ftype fprintf_fn = info->fprintf_func;
   void *stream = info->stream;
-  int nib1, nib2, nib3;
-  char *dc;
+  unsigned int nib1, nib2, nib3;
+  char *dc = NULL;
   sh_opcode_info *op;
 
   if ((field_b & 0xe800) == 0)
@@ -314,6 +321,11 @@ print_insn_shx (memaddr, info)
       target_arch = arch_sh3e;
       break;
     case bfd_mach_sh4:
+      target_arch = arch_sh4;
+      break;
+    case bfd_mach_sh5:
+      /* When we get here for sh64, it's because we want to disassemble
+	 SHcompact, i.e. arch_sh4.  */
       target_arch = arch_sh4;
       break;
     default:
@@ -458,7 +470,7 @@ print_insn_shx (memaddr, info)
 	      if ((rn & 0xc) != 4)
 		goto fail;
 	      rn = rn & 0x3;
-	      rn |= (rn & 2) << 1;
+	      rn |= (!(rn & 2)) << 2;
 	      break;
 	    case PPI:
 	    case REPEAT:
@@ -612,7 +624,6 @@ print_insn_shx (memaddr, info)
 		  fprintf_fn (stream, "xd%d", rn & ~1);
 		  break;
 		}
-	    d_reg_n:
 	    case D_REG_N:
 	      fprintf_fn (stream, "dr%d", rn);
 	      break;

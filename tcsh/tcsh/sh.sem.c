@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.sem.c: I/O redirections and job forking. A touchy issue!
  *	     Most stuff with builtins is incorrect

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -16,18 +16,11 @@
  */
 
 
-/*
-	File:		StorageManager.h
-
-	Contains:	Working with multiple keychains
-
-	Copyright:	2000 by Apple Computer, Inc., all rights reserved.
-
-	To Do:
-*/
-
-#ifndef _H_STORAGEMANAGER_
-#define _H_STORAGEMANAGER_
+//
+// StorageManager.h -- Working with multiple keychains
+//
+#ifndef _SECURITY_STORAGEMANAGER_H_
+#define _SECURITY_STORAGEMANAGER_H_
 
 #include <list>
 #include <Security/multidldb.h>
@@ -44,6 +37,8 @@ class StorageManager
 {
     NOCOPY(StorageManager)
 public:
+    typedef vector<Keychain> KeychainList;
+
 	StorageManager();
     ~StorageManager() {}
 
@@ -55,7 +50,6 @@ public:
 
 	// Misc
     void lockAll();
-    void reload(bool force = false);
 
     void add(const Keychain& keychainToAdd); // Only add if not there yet.  Doesn't write out CFPref
 
@@ -64,22 +58,37 @@ public:
 	Keychain at(unsigned int ix);
 	Keychain operator[](unsigned int ix);
 
-    void erase(const Keychain& keychainToRemove);
-
 	KCCursor createCursor(const SecKeychainAttributeList *attrList);
 	KCCursor createCursor(SecItemClass itemClass, const SecKeychainAttributeList *attrList);
 
-     // Create KC if it doesn't exist, add to cache, but don't modify search list.	
-    Keychain keychain(const DLDbIdentifier &dlDbIdentifier);
+	// Create KC if it doesn't exist, add to cache, but don't modify search list.	
+    Keychain keychain(const DLDbIdentifier &dLDbIdentifier);
 
-     // Create KC if it doesn't exist, add it to the search list if it is not already on it.
-    Keychain makeKeychain(const DLDbIdentifier &dlDbIdentifier);
+	// Same as keychain(const DLDbIdentifier &) but assumes mLock is already held.
+    Keychain _keychain(const DLDbIdentifier &dLDbIdentifier);
+
+	// Create KC if it doesn't exist, add it to the search list if it exists and is not already on it.
+    Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier);
 
 
 	// Keychain list maintenance
-	void remove(const list<SecKeychainRef>& kcsToRemove);	    // remove keychains from list
-	void replace(const list<SecKeychainRef>& newKCList);		// replace keychains list with new list
-	void convert(const list<SecKeychainRef>& SecKeychainRefList,CssmClient::DLDbList& dldbList);	// maybe should be private
+
+	// remove kcsToRemove from the search list
+	void remove(const KeychainList &kcsToRemove, bool deleteDb = false);
+
+	void getSearchList(KeychainList &keychainList);
+	void setSearchList(const KeychainList &keychainList);
+
+	// Iff keychainOrArray is NULL return the default KeychainList in keychainList otherwise
+	// if keychainOrArray is a CFArrayRef containing SecKeychainRef's convernt it to KeychainList,
+	// if keychainOrArray is a SecKeychainRef return a KeychainList with one element.
+	void optionalSearchList(CFTypeRef keychainOrArray, KeychainList &keychainList);
+
+	// Convert CFArrayRef of SecKeychainRef's a KeychainList.  The array must not be NULL
+	static void convertToKeychainList(CFArrayRef keychainArray, KeychainList &keychainList);
+
+	// Convert KeychainList to a CFArrayRef of SecKeychainRef's.
+	static CFArrayRef convertFromKeychainList(const KeychainList &keychainList);
 
 	// Login keychain support
 	void login(ConstStringPtr name, ConstStringPtr password);
@@ -88,24 +97,34 @@ public:
 	void changeLoginPassword(ConstStringPtr oldPassword, ConstStringPtr newPassword);
 	void changeLoginPassword(UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword);
 
+	// Reload mSearchList from mList if the searchList on disk has changed.
+    void reload(bool force = false);
+
 private:
     typedef map<DLDbIdentifier, Keychain> KeychainMap;
 	typedef set<KeychainSchema> KeychainSchemaSet;
+
+	// Reload mSearchList from mList and add new keychains to mKeychains if not already there
+	// Assumes mLock is already locked.
+	void _doReload();
+
+	// Reload mSearchList from mList if the searchList on disk has changed.
+	// Assumes mLock is already locked.
+    void _reload(bool force = false);
 
     // Only add if not there yet.  Writes out CFPref and broadcasts KCPrefListChanged notification
 	void addAndNotify(const Keychain& keychainToAdd);
 	KeychainSchema keychainSchemaFor(const CssmClient::Db &db);
 
-	//Mutex mKeychainsLock;
     DLDbListCFPref mSavedList;
-    KeychainMap mKeychains;		// the array of Keychains
-    CssmClient::MultiDLDb mMultiDLDb;
+    KeychainMap mKeychains;		// the cache of Keychains
+	KeychainList mSearchList;
 	KeychainSchemaSet mKeychainSchemaSet;
+	Mutex mLock;
 };
 
 } // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif /* _H_STORAGEMANAGER_ */
-
+#endif // !_SECURITY_STORAGEMANAGER_H_

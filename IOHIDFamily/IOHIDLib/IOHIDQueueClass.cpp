@@ -58,7 +58,10 @@ __END_DECLS
 IOHIDQueueClass::IOHIDQueueClass()
 : IOHIDIUnknown(NULL),
   fAsyncPort(MACH_PORT_NULL),
-  fIsCreated(false)
+  fIsCreated(false),
+  fEventCallback(NULL),
+  fEventTarget(NULL),
+  fEventRefcon(NULL)
 {
     fHIDQueue.pseudoVTable = (IUnknownVTbl *)  &sHIDQueueInterfaceV1;
     fHIDQueue.obj = this;
@@ -99,7 +102,7 @@ createAsyncEventSource(CFRunLoopSourceRef *source)
     context.copyDescription = NULL;
 
     cfPort = CFMachPortCreateWithPort(NULL, fAsyncPort,
-                (CFMachPortCallBack) IODispatchCalloutFromMessage,
+                (CFMachPortCallBack) IOHIDQueueClass::queueEventSourceCallback,
                 &context, &shouldFreeInfo);
     if (!cfPort)
         return kIOReturnNoMemory;
@@ -120,6 +123,23 @@ CFRunLoopSourceRef IOHIDQueueClass::getAsyncEventSource()
     return fCFSource;
 }
 
+/* CFMachPortCallBack */
+void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
+    
+    IOHIDQueueClass *queue = (IOHIDQueueClass *)info;
+    
+    if ( queue ) {
+        if ( queue->fEventCallback ) {
+                
+            (queue->fEventCallback)(queue->fEventTarget, 
+                            kIOReturnSuccess, 
+                            queue->fEventRefcon, 
+                            (void *)&queue->fHIDQueue);
+        }
+    }
+}
+
+
 IOReturn IOHIDQueueClass::createAsyncPort(mach_port_t *port)
 {
     IOReturn ret;
@@ -132,13 +152,15 @@ IOReturn IOHIDQueueClass::createAsyncPort(mach_port_t *port)
             *port = fAsyncPort;
 
         if (fIsCreated) {
-            natural_t asyncRef[1];
-            mach_msg_type_number_t len = 0;
+            natural_t 			asyncRef[1];
+            int				input[1];
+            mach_msg_type_number_t 	len = 0;
         
-            // async kIOCDBUserClientSetAsyncPort, kIOUCScalarIScalarO, 0, 0
-            return io_async_method_structureI_structureO(
+            input[0] = (int) fQueueRef;
+            // async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
+            return io_async_method_scalarI_scalarO(
                     fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
-                    kIOHIDLibUserClientSetAsyncPort, NULL, 0, NULL, &len);
+                    kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
         }
     }
 
@@ -179,14 +201,15 @@ IOReturn IOHIDQueueClass::create (UInt32 flags, UInt32 depth)
     // if we have async port, set it on other side
     if (fAsyncPort)
     {
-        natural_t asyncRef[1];
-        mach_msg_type_number_t len = 0;
+        natural_t 			asyncRef[1];
+        int				input[1];
+        mach_msg_type_number_t 	len = 0;
     
-        // async 
-        // kIOHIDLibUserClientSetAsyncPort, kIOUCScalarIScalarO, 0, 0
-        ret = io_async_method_scalarI_scalarO(
+        input[0] = (int) fQueueRef;
+        // async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
+        return io_async_method_scalarI_scalarO(
                 fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
-                kIOHIDLibUserClientSetAsyncPort, NULL, 0, NULL, &len);
+                kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
         if (ret != kIOReturnSuccess) {
             (void) this->dispose();
             return ret;
@@ -387,9 +410,7 @@ IOReturn IOHIDQueueClass::getNextEvent (
     }
 #endif
 
-    // the element value (note size only 1 for now)
-    IOHIDElementValue hidElementValue;
-    UInt32 dataSize = sizeof (IOHIDElementValue);
+    UInt32 dataSize = sizeof(IOHIDElementValue);
     
 #if 0
     // еее TODO deal with long sizes
@@ -398,38 +419,63 @@ IOReturn IOHIDQueueClass::getNextEvent (
 #endif
     
     // check size of next entry
-    if (nextEntry && nextEntry->size != sizeof(IOHIDElementValue))
-        printf ("size mismatch (%ld, %ld)\n", nextEntry->size, sizeof(IOHIDElementValue));
+    // Make sure that it is not smaller than IOHIDElementValue
+    if (nextEntry && (nextEntry->size < sizeof(IOHIDElementValue)))
+        printf ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", nextEntry->size, sizeof(IOHIDElementValue));
     
     // dequeue the item
 //    printf ("IOHIDQueueClass::getNextEvent about to dequeue\n");
     ret = IODataQueueDequeue(fQueueMappedMemory, NULL, &dataSize);
 //    printf ("IODataQueueDequeue result %lx\n", (UInt32) ret);
     
-    if (nextEntry)
-    {
-        IOHIDElementValue * nextElementValue = (IOHIDElementValue *) &nextEntry->data;
-        hidElementValue = *nextElementValue;
-    }
 
     // if we got an entry
     if (ret == kIOReturnSuccess && nextEntry)
     {
+    
+        IOHIDElementValue * nextElementValue = (IOHIDElementValue *) &nextEntry->data;
+        
 #if 0
-        printf ("hidElementValue.cookie = %lx\n", (UInt32) hidElementValue.cookie);
-        printf ("hidElementValue.value[0] = %lx\n", hidElementValue.value[0]);
+        printf ("nextElementValue->cookie = %lx\n", (UInt32) nextElementValue->cookie);
+        printf ("nextElementValue->value[0] = %lx\n", nextElementValue->value[0]);
 #endif
 
+        void *		longValue = 0;
+        UInt32		longValueSize = 0;
+        SInt32		value = 0;
+        UInt64		timestamp = 0;
+
+        
         // check size of result
-        if (dataSize != sizeof(IOHIDElementValue))
-            printf ("size mismatch (%ld, %ld)\n", dataSize, sizeof(IOHIDElementValue));
+        if (dataSize == sizeof(IOHIDElementValue))
+        {
+            value = nextElementValue->value[0];
+            timestamp = *(UInt64 *)& nextElementValue->timestamp;
+        }
+        else if (dataSize > sizeof(IOHIDElementValue))
+        {
+            longValueSize = fOwningDevice->getElementByteSize(nextElementValue->cookie);
+            longValue = malloc( longValueSize );
+            bzero(longValue, longValueSize);
+            
+            // *** FIX ME ***
+            // Since we are getting mapped memory, we should probably
+            // hold a shared lock
+            fOwningDevice->convertWordToByte(nextElementValue->value, longValue, longValueSize<<3);
+            
+            timestamp = *(UInt64 *)& nextElementValue->timestamp;
+
+        }
+        else
+            printf ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", dataSize, sizeof(IOHIDElementValue));
         
         // copy the data to the event struct
-        event->type = fOwningDevice->getElementType(hidElementValue.cookie);
-        event->elementCookie = hidElementValue.cookie;
-        event->value = hidElementValue.value[0];
-        event->timestamp = hidElementValue.timestamp;
-        event->longValueSize = 0;
+        event->type = fOwningDevice->getElementType(nextElementValue->cookie);
+        event->elementCookie = nextElementValue->cookie;
+        event->value = value;
+        *(UInt64 *)& event->timestamp = timestamp;
+        event->longValueSize = longValueSize;
+        event->longValue = longValue;
     }
     
     
@@ -442,21 +488,30 @@ IOReturn IOHIDQueueClass::getNextEvent (
 /*  inserted to the queue  */
 /* callbackTarget and callbackRefcon are passed to the callback */
 IOReturn IOHIDQueueClass::setEventCallout (
-                        IOHIDCallbackFunction * 	callback,
+                        IOHIDCallbackFunction 	callback,
                         void * 			callbackTarget,
                         void *			callbackRefcon)
 {
-    return kIOReturnUnsupported;
+    fEventCallback = callback;
+    fEventTarget = callbackTarget;
+    fEventRefcon = callbackRefcon;
+    
+    return kIOReturnSuccess;
 }
 
 
 /* Get the current notification callout */
 IOReturn IOHIDQueueClass::getEventCallout (
-                        IOHIDCallbackFunction ** 	outCallback,
+                        IOHIDCallbackFunction * 	outCallback,
                         void ** 			outCallbackTarget,
                         void **			outCallbackRefcon)
 {
-    return kIOReturnUnsupported;
+
+    *outCallback = fEventCallback;
+    *outCallbackTarget = fEventTarget;
+    *outCallbackRefcon = fEventRefcon;
+    
+    return kIOReturnSuccess;
 }
 
 
@@ -539,7 +594,7 @@ IOReturn IOHIDQueueClass::queueGetNextEvent (
 /* set a callback for notification when queue transistions from non-empty */
 IOReturn IOHIDQueueClass::queueSetEventCallout (
                         void * 			self,
-                        IOHIDCallbackFunction * callback,
+                        IOHIDCallbackFunction   callback,
                         void * 			callbackTarget,
                         void *			callbackRefcon)
     { return getThis(self)->setEventCallout(callback, callbackTarget, callbackRefcon); }
@@ -547,7 +602,7 @@ IOReturn IOHIDQueueClass::queueSetEventCallout (
 /* Get the current notification callout */
 IOReturn IOHIDQueueClass::queueGetEventCallout (
                         void * 			self,
-                        IOHIDCallbackFunction ** outCallback,
+                        IOHIDCallbackFunction * outCallback,
                         void ** 		outCallbackTarget,
                         void **			outCallbackRefcon)
     { return getThis(self)->getEventCallout(outCallback, outCallbackTarget, outCallbackRefcon); }

@@ -12,3 +12,6 @@ and install.
 
   GNUSource.make implements the build and install targets for sources
 which use GNU autoconf's configure script to build.
+
+  BSDSource.make implements the build and install targets for sources
+which use BSD makefiles to build.

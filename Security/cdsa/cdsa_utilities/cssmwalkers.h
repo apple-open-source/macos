@@ -118,6 +118,14 @@ template <class Action>
 CSSM_CRYPTO_DATA *walk(Action &operate, CSSM_CRYPTO_DATA * &data)
 { return walk(operate, CssmCryptoData::overlayVar(data)); }
 
+template <class Action>
+CSSM_PKCS5_PBKDF2_PARAMS *walk(Action &operate, CSSM_PKCS5_PBKDF2_PARAMS * &data)
+{
+    operate(data);
+    walk(operate, data->Passphrase);
+    return data;
+}
+
 
 } // end namespace DataWalkers
 

@@ -3,7 +3,7 @@
 ;; Copyright (C) 1993, 1996  Free Software Foundation, Inc.
 
 ;; Author: Masanobu UMEDA <umerin@mse.kyutech.ac.jp>
-;; Version: $Id: metamail.el,v 1.1.1.3 2000/06/30 17:52:39 wsanchez Exp $
+;; Version: $Id: metamail.el,v 1.1.1.4 2001/10/31 17:57:14 jevans Exp $
 ;; Keywords: mail, news, mime, multimedia
 
 ;; This file is part of GNU Emacs.
@@ -25,25 +25,11 @@
 
 ;;; Commentary:
 
-;; The latest version will be at:
-;;	ftp://ftp.kyutech.ac.jp/pub/MultiMedia/mime/emacs-mime-tools.shar
-;;  [This is probably _not_ the latest version; as of Jan 1999, it
-;;  is dated 1995.]
-
-;; Note: Metamail does not have all options which is compatible with
-;; the environment variables.  For that reason, matamail.el have to
+;; Note: Metamail does not have all the options which are compatible with
+;; the environment variables.  For that reason, metamail.el has to
 ;; hack the environment variables.  In addition, there is no way to
 ;; display all header fields without extra informative body messages
-;; which are suppressed by "-q" option.
-
-;; The following definition is what I'm using with GNUS 4:
-;;(setq gnus-show-mime-method
-;;      (function
-;;       (lambda ()
-;;	   (metamail-interpret-header)
-;;	   (let ((metamail-switches	;Suppress header fields in a body.
-;;		  (append metamail-switches '("-q"))))
-;;	     (metamail-interpret-body)))))
+;; which are suppressed by the "-q" option.
 
 ;; The idea of using metamail to process MIME messages is from
 ;; gnus-mime.el by Spike <Spike@world.std.com>.
@@ -165,7 +151,7 @@ redisplayed as output is inserted."
   (interactive "r\np")
   (let ((curbuf (current-buffer))
 	(buffer-read-only nil)
-	(metafile (make-temp-name "/tmp/metamail"))
+	(metafile (make-temp-file "metamail"))
 	(option-environment
 	 (list (format "EMACS_VIEW_MODE=%d" 
 		       (if (numberp viewmode) viewmode 1)))))

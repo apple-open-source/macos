@@ -372,7 +372,7 @@ static tree build_objc_method_call		PROTO((int, tree, tree,
                                                        tree, tree, tree));
 static void generate_strings			PROTO((void));
 static void build_selector_translation_table	PROTO((void));
-static tree build_ivar_chain			PROTO((tree, int));
+static tree build_ivar_chain			PROTO((tree));
 
 static tree build_ivar_template			PROTO((void));
 static tree build_method_template		PROTO((void));
@@ -601,12 +601,6 @@ static char* TAG_MSGSENDSUPER_STRET;
 static char* TAG_EXECCLASS;
 static char* TAG_ATOM;
 
-/* Set by `continue_class' and checked by `is_public'.  */
-
-#define TREE_STATIC_TEMPLATE(record_type) (TREE_PUBLIC (record_type))
-#define TYPED_OBJECT(type) \
-       (TREE_CODE (type) == RECORD_TYPE && TREE_STATIC_TEMPLATE (type))
-
 /* Some commonly used instances of "identifier_node".  */
 
 static tree self_id, ucmd_id;
@@ -617,7 +611,6 @@ static tree umsg_stret_decl, umsg_super_stret_decl;
 static tree objc_get_class_decl, objc_get_meta_class_decl;
 static tree objc_get_orig_class_decl;
 
-static tree super_type, selector_type, id_type, objc_class_type;
 static tree instance_type, protocol_type;
 #ifdef OBJCPLUS
 static tree objc_module_type;
@@ -3211,26 +3204,30 @@ objc_copy_list (list, head)
 }
 
 /* Used by: build_private_template, get_class_ivars, and
-   continue_class.  COPY is 1 when called from @defs.  In this case
-   copy all fields.  Otherwise don't copy leaf ivars since we rely on
-   them being side-effected exactly once by finish_struct.  */
+   continue_class.  This function constructs a list of all
+   the ivars in INTERFACE (including any superclasses).
+   It copies each ivar node along the way, since we don't
+   want to alter the original ivar list further down during
+   compilation.  */
 
 static tree
-build_ivar_chain (interface, copy)
+build_ivar_chain (interface)
      tree interface;
-     int copy;
 {
   tree my_name, super_name, ivar_chain;
 
   my_name = CLASS_NAME (interface);
   super_name = CLASS_SUPER_NAME (interface);
 
-  /* Possibly copy leaf ivars.  */
-  if (copy)
-    objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
-  else
-    ivar_chain = CLASS_IVARS (interface);
-
+  /* Copy leaf ivars.  */
+  objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
+  /* APPLE LOCAL bitfield alignment */
+  /* Save off a pointer to ivars for the current class only
+     (i.e., excluding any superclasses); these must be side-effected
+     by 'finish_struct' exactly once.  */
+  if (!CLASS_OWN_IVARS (interface))
+    CLASS_OWN_IVARS (interface) = ivar_chain;
+  
   while (super_name)
     {
       tree op1;
@@ -3289,7 +3286,7 @@ build_private_template (class)
     {
       uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      ivar_context = build_ivar_chain (class, 0);
+      ivar_context = build_ivar_chain (class);
 
       finish_struct2 (uprivate_record, ivar_context);
 
@@ -4705,7 +4702,8 @@ generate_ivar_lists ()
   else
     UOBJC_CLASS_VARIABLES_decl = 0;
 
-  chain = CLASS_IVARS (implementation_template);
+  /* APPLE LOCAL bitfield alignment */
+  chain = CLASS_OWN_IVARS (implementation_template);
   if (chain)
     {
       size = list_length (chain);
@@ -6386,30 +6384,6 @@ build_message_expr (mess, modern_flag)
   return retval;
 }
 
-static int
-is_protocol_contained_in_protocols PROTO((tree, tree));
-
-is_protocol_contained_in_protocol (protocol1, protocol2)
-tree protocol1;
-tree protocol2;
-{
-    if (protocol1 == protocol2)
-       return 1;
-    return is_protocol_contained_in_protocols(protocol1, PROTOCOL_LIST(protocol2));
-}
-	
-static int
-is_protocol_contained_in_protocols (protocol, protocols)
-tree protocol;
-tree protocols;
-{
-    while (protocols) {
-       if (is_protocol_contained_in_protocol(protocol, TREE_VALUE(protocols))) return 1;
-       protocols = TREE_CHAIN (protocols);
-    }
-    return 0;
-}
-
 /* Build a tree expression to send OBJECT the operation SELECTOR,
    looking up the method on object LOOKUP_OBJECT (often same as OBJECT),
    assuming the method has prototype METHOD_PROTOTYPE.
@@ -6447,9 +6421,9 @@ build_objc_method_call (super_flag, method_prototype, lookup_object, object,
 	     whatever this operation returns.  */
 	  tree arglist = NULL_TREE;
 	  tree retval, savarg, savret;
+	  tree ret_type = groktypename (TREE_TYPE (method_prototype));
 
 #ifdef STRUCT_VALUE
-	  tree ret_type = groktypename (TREE_TYPE (method_prototype));
 	  /* If we are returning a struct in memory, and the address
 	     of that memory location is passed as a hidden first argument,
 	     then change which messenger entry point this expr will call.  */
@@ -6471,8 +6445,7 @@ build_objc_method_call (super_flag, method_prototype, lookup_object, object,
 	  TYPE_ARG_TYPES (TREE_TYPE (sender)) = arglist;
 
 	  /* Install this method's return type.  */
-	  TREE_TYPE (TREE_TYPE (sender))
-	    = groktypename (TREE_TYPE (method_prototype));
+	  TREE_TYPE (TREE_TYPE (sender)) = ret_type;
 
 	  /* Call SENDER with all the parameters.  This will do type
 	     checking using the arg types for this method.  */
@@ -7292,9 +7265,9 @@ get_class_ivars (interface)
      using temporary storage.  */
 #ifdef OBJCPLUS
   return build_tree_list ((tree)access_default, 
-			  build_ivar_chain (interface, 1));
+			  build_ivar_chain (interface));
 #else
-  return build_ivar_chain (interface, 1);
+  return build_ivar_chain (interface);
 #endif
 }
 
@@ -7628,7 +7601,8 @@ start_class (code, class_name, super_name, protocol_list, lineno)
 #endif
 
     class = make_node (code);
-    TYPE_BINFO (class) = make_tree_vec (5);
+  /* APPLE LOCAL bitfield alignment */
+  TYPE_BINFO (class) = make_tree_vec (6);
 
 #ifdef OBJCPLUS    
     current_obstack = ambient_obstack;
@@ -7839,7 +7813,7 @@ continue_class (class)
 #ifdef OBJCPLUS
 	  build_private_template (class);
 #else
-	  finish_struct2 (record, build_ivar_chain (class, 0));
+	  finish_struct2 (record, build_ivar_chain (class));
 	  CLASS_STATIC_TEMPLATE (class) = record;
 #endif
 

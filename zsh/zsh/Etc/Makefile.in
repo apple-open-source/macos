@@ -1,7 +1,7 @@
 #
 # Makefile for Etc subdirectory
 #
-# Copyright (c) 1995 Richard Coleman
+# Copyright (c) 1995-1997 Richard Coleman
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -24,45 +24,43 @@
 # support, updates, enhancements, or modifications.
 #
 
-SHELL = /bin/sh
+subdir = Etc
+dir_top = ..
+SUBDIRS =
 
-srcdir = @srcdir@
-VPATH  = @srcdir@
+@VERSION_MK@
 
-.SUFFIXES:
+# source/build directories
+VPATH           = @srcdir@
+sdir            = @srcdir@
+sdir_top        = @top_srcdir@
+INSTALL         = @INSTALL@
 
-# all files in this directory included in the distribution
-DIST = Makefile.in BUGS CONTRIBUTORS FAQ FEATURES \
-MACHINES NEWS
+@DEFS_MK@
 
 # ========== DEPENDENCIES FOR BUILDING ==========
 
-all:
+all: FAQ
+
+FAQ: FAQ.yo
+	cd $(sdir) && $(YODL2TXT) FAQ.yo && mv -f FAQ.txt FAQ
+
+FAQ.html: FAQ.yo
+	$(YODL2HTML) $(sdir)/FAQ.yo
 
 # ========== DEPENDENCIES FOR CLEANUP ==========
 
-mostlyclean:
-	rm -f *~
+@CLEAN_MK@
 
-clean: mostlyclean
+mostlyclean-here:
+	rm -f FAQ.html
 
-distclean: clean
+distclean-here:
 	rm -f Makefile
 
-realclean: distclean
-
-superclean: realclean
+realclean-here:
+	rm -f FAQ
 
 # ========== DEPENDENCIES FOR MAINTENANCE ==========
 
-subdir = Etc
-
-Makefile: Makefile.in ../config.status
-	cd .. && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= ./config.status
-
-distdir = ../`cat ../distname`/$(subdir)
-dist: $(DIST)
-	@echo "Copying distribution files in $(subdir)"
-	for file in $(DIST); do    \
-	  cp -p $$file $(distdir); \
-	done
+@CONFIG_MK@

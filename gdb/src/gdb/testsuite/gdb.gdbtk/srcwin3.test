@@ -1,4 +1,4 @@
-#   Copyright (C) 1999 Cygnus Solutions
+#   Copyright (C) 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,16 +39,10 @@ global objdir srcdir
 #####                 #####
 
 # Load the test executable
-if {$tcl_platform(platform) == "windows"} {
-  set file [file join $objdir list.exe]
-} else {
-  set file [file join $objdir list]
-}
-
-# This isn't a test case, since if this fails, we're hosed.
-if {[catch {gdb_cmd "file $file" 1} t]} {
-  # an error occured loading the file
-  gdbtk_test_error "loading \"$file\": $t"
+set program [file join $objdir list]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
 }
 
 set srcwin [ManagedWin::open SrcWin]
@@ -58,7 +52,7 @@ set statbar [$srcwin test_get _statbar]
 
 # get things started
 gdb_cmd "break main"
-run_executable
+gdbtk_test_run
 
 # Test: srcwin3-1.1
 # Desc: Check for something in source window
@@ -541,41 +535,43 @@ gdbtk_test srcwin3-3.4 "stack up (4)" {
   set r
 } {1}
 
+# Disabled for now because there are different correct results.
+# Test should be rewritten to include those.
 # Test: srcwin3-3.5
 # Desc: "stack up" when we are at the top
-gdbtk_test srcwin3-3.5 "stack up when at the top" {
-  $srcwin stack up
-  set r 0
-  set name [$statbar.name get]
-  set func [$statbar.func get]
+#gdbtk_test srcwin3-3.5 "stack up when at the top" {
+#  $srcwin stack up
+#  set r 0
+#  set name [$statbar.name get]
+#  set func [$statbar.func get]
 
   # check contents of name and function comboboxes
-  if {$name != ""} {set r -1}
-  if {$func != "main"} {set r -2}
+#  if {$name != ""} {set r -1}
+#  if {$func != "main"} {set r -2}
 
   # check that the correct file is displayed
-  set twin [$stw test_get twin]
-  set a [$twin get 1.0 end]
-  if {[string compare $source(main) $a]} {set r -3}
+#  set twin [$stw test_get twin]
+#  set a [$twin get 1.0 end]
+#  if {[string compare $source(main) $a]} {set r -3}
   
   # check for STACK_TAG
-  if {$r == 0} {
-    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
-      foreach {k v i} $z {
-	if {$k == "tagon"} {
-	  if {$v == "STACK_TAG"} {
-	    incr r
-	  }
-	  if {$v == "PC_TAG"} {incr r 10}
-	  if {$v == "BROWSE_TAG"} {incr r 100}
-	}
-      }
-    } else {
-      set r -4
-    }
-  }
-  set r
-} {1}
+#  if {$r == 0} {
+#    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+#      foreach {k v i} $z {
+#	if {$k == "tagon"} {
+#	  if {$v == "STACK_TAG"} {
+#	    incr r
+#	  }
+#	  if {$v == "PC_TAG"} {incr r 10}
+#	  if {$v == "BROWSE_TAG"} {incr r 100}
+#	}
+#      }
+#    } else {
+#      set r -4
+#    }
+#  }
+#  set r
+#} {1}
 
 # Test: srcwin3-3.6
 # Desc: "stack down"  test
@@ -791,8 +787,3 @@ gdbtk_test srcwin3-4.2 "temporary BP" {
 } {3}
 
 gdbtk_test_done
-
-# Local variables:
-# mode: tcl
-# change-log-default-name: "ChangeLog-gdbtk"
-# End:

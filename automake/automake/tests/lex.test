@@ -1,0 +1,31 @@
+#! /bin/sh
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_PROG_LEX
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = zot
+zot_SOURCES = joe.l
+LDADD = @LEXLIB@
+END
+
+: > joe.l
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+
+# Test to make sure that lex source generates correct target.
+
+fgrep '$(LEX)' Makefile.in || exit 1
+
+# Test to make sure that lex source generates correct clean rule.
+# From Ralf Corsepius.
+
+fgrep joel Makefile.in && exit 1
+
+exit 0

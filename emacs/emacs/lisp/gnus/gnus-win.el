@@ -1,5 +1,6 @@
 ;;; gnus-win.el --- window configuration functions for Gnus
-;; Copyright (C) 1996,97,98 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000
+;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -24,8 +25,6 @@
 ;;; Commentary:
 
 ;;; Code:
-
-(eval-when-compile (require 'cl))
 
 (eval-when-compile (require 'cl))
 
@@ -87,9 +86,9 @@
 		  (article 1.0)))
       (t
        '(vertical 1.0
-		 (summary 0.25 point)
-		 (if gnus-carpal '(summary-carpal 4))
-		 (article 1.0)))))
+		  (summary 0.25 point)
+		  (if gnus-carpal '(summary-carpal 4))
+		  (article 1.0)))))
     (server
      (vertical 1.0
 	       (server 1.0 point)
@@ -146,7 +145,7 @@
 	       ("*Shell Command Output*" 1.0)))
     (bug
      (vertical 1.0
-	       ("*Gnus Help Bug*" 0.5)
+	       (if gnus-bug-create-help-buffer '("*Gnus Help Bug*" 0.5))
 	       ("*Gnus Bug*" 1.0 point)))
     (score-trace
      (vertical 1.0
@@ -287,171 +286,184 @@ See the Gnus manual for an explanation of the syntax used.")
 
 (defun gnus-configure-frame (split &optional window)
   "Split WINDOW according to SPLIT."
-  (unless window
-    (setq window (get-buffer-window (current-buffer))))
-  (select-window window)
-  ;; This might be an old-stylee buffer config.
-  (when (vectorp split)
-    (setq split (append split nil)))
-  (when (or (consp (car split))
-	    (vectorp (car split)))
-    (push 1.0 split)
-    (push 'vertical split))
-  ;; The SPLIT might be something that is to be evaled to
-  ;; return a new SPLIT.
-  (while (and (not (assq (car split) gnus-window-to-buffer))
-	      (gnus-functionp (car split)))
-    (setq split (eval split)))
-  (let* ((type (car split))
-	 (subs (cddr split))
-	 (len (if (eq type 'horizontal) (window-width) (window-height)))
-	 (total 0)
-	 (window-min-width (or gnus-window-min-width window-min-width))
-	 (window-min-height (or gnus-window-min-height window-min-height))
-	 s result new-win rest comp-subs size sub)
-    (cond
-     ;; Nothing to do here.
-     ((null split))
-     ;; Don't switch buffers.
-     ((null type)
-      (and (memq 'point split) window))
-     ;; This is a buffer to be selected.
-     ((not (memq type '(frame horizontal vertical)))
-      (let ((buffer (cond ((stringp type) type)
-			  (t (cdr (assq type gnus-window-to-buffer))))))
-	(unless buffer
-	  (error "Illegal buffer type: %s" type))
-	(switch-to-buffer (gnus-get-buffer-create
-			   (gnus-window-to-buffer-helper buffer)))
-	(when (memq 'frame-focus split)
-	  (setq gnus-window-frame-focus window))
-	;; We return the window if it has the `point' spec.
-	(and (memq 'point split) window)))
-     ;; This is a frame split.
-     ((eq type 'frame)
-      (unless gnus-frame-list
-	(setq gnus-frame-list (list (window-frame
-				     (get-buffer-window (current-buffer))))))
-      (let ((i 0)
-	    params frame fresult)
-	(while (< i (length subs))
-	  ;; Frame parameter is gotten from the sub-split.
-	  (setq params (cadr (elt subs i)))
-	  ;; It should be a list.
-	  (unless (listp params)
-	    (setq params nil))
-	  ;; Create a new frame?
-	  (unless (setq frame (elt gnus-frame-list i))
-	    (nconc gnus-frame-list (list (setq frame (make-frame params))))
-	    (push frame gnus-created-frames))
-	  ;; Is the old frame still alive?
-	  (unless (frame-live-p frame)
-	    (setcar (nthcdr i gnus-frame-list)
-		    (setq frame (make-frame params))))
-	  ;; Select the frame in question and do more splits there.
-	  (select-frame frame)
-	  (setq fresult (or (gnus-configure-frame (elt subs i)) fresult))
-	  (incf i))
-	;; Select the frame that has the selected buffer.
-	(when fresult
-	  (select-frame (window-frame fresult)))))
-     ;; This is a normal split.
-     (t
-      (when (> (length subs) 0)
-	;; First we have to compute the sizes of all new windows.
-	(while subs
-	  (setq sub (append (pop subs) nil))
-	  (while (and (not (assq (car sub) gnus-window-to-buffer))
-		      (gnus-functionp (car sub)))
-	    (setq sub (eval sub)))
-	  (when sub
-	    (push sub comp-subs)
-	    (setq size (cadar comp-subs))
-	    (cond ((equal size 1.0)
-		   (setq rest (car comp-subs))
-		   (setq s 0))
-		  ((floatp size)
-		   (setq s (floor (* size len))))
-		  ((integerp size)
-		   (setq s size))
-		  (t
-		   (error "Illegal size: %s" size)))
-	    ;; Try to make sure that we are inside the safe limits.
-	    (cond ((zerop s))
-		  ((eq type 'horizontal)
-		   (setq s (max s window-min-width)))
-		  ((eq type 'vertical)
-		   (setq s (max s window-min-height))))
-	    (setcar (cdar comp-subs) s)
-	    (incf total s)))
-	;; Take care of the "1.0" spec.
-	(if rest
-	    (setcar (cdr rest) (- len total))
-	  (error "No 1.0 specs in %s" split))
-	;; The we do the actual splitting in a nice recursive
-	;; fashion.
-	(setq comp-subs (nreverse comp-subs))
-	(while comp-subs
-	  (if (null (cdr comp-subs))
-	      (setq new-win window)
-	    (setq new-win
-		  (split-window window (cadar comp-subs)
-				(eq type 'horizontal))))
-	  (setq result (or (gnus-configure-frame
-			    (car comp-subs) window)
-			   result))
-	  (select-window new-win)
-	  (setq window new-win)
-	  (setq comp-subs (cdr comp-subs))))
-      ;; Return the proper window, if any.
-      (when result
-	(select-window result))))))
+  (let ((current-window
+	 (or (get-buffer-window (current-buffer)) (selected-window))))
+    (unless window
+      (setq window current-window))
+    (select-window window)
+    ;; This might be an old-stylee buffer config.
+    (when (vectorp split)
+      (setq split (append split nil)))
+    (when (or (consp (car split))
+	      (vectorp (car split)))
+      (push 1.0 split)
+      (push 'vertical split))
+    ;; The SPLIT might be something that is to be evaled to
+    ;; return a new SPLIT.
+    (while (and (not (assq (car split) gnus-window-to-buffer))
+		(gnus-functionp (car split)))
+      (setq split (eval split)))
+    (let* ((type (car split))
+	   (subs (cddr split))
+	   (len (if (eq type 'horizontal) (window-width) (window-height)))
+	   (total 0)
+	   (window-min-width (or gnus-window-min-width window-min-width))
+	   (window-min-height (or gnus-window-min-height window-min-height))
+	   s result new-win rest comp-subs size sub)
+      (cond
+       ;; Nothing to do here.
+       ((null split))
+       ;; Don't switch buffers.
+       ((null type)
+	(and (memq 'point split) window))
+       ;; This is a buffer to be selected.
+       ((not (memq type '(frame horizontal vertical)))
+	(let ((buffer (cond ((stringp type) type)
+			    (t (cdr (assq type gnus-window-to-buffer))))))
+	  (unless buffer
+	    (error "Invalid buffer type: %s" type))
+	  (let ((buf (gnus-get-buffer-create
+		      (gnus-window-to-buffer-helper buffer))))
+	    (if (eq buf (window-buffer (selected-window))) (set-buffer buf)
+	      (switch-to-buffer buf)))
+	  (when (memq 'frame-focus split)
+	    (setq gnus-window-frame-focus window))
+	  ;; We return the window if it has the `point' spec.
+	  (and (memq 'point split) window)))
+       ;; This is a frame split.
+       ((eq type 'frame)
+	(unless gnus-frame-list
+	  (setq gnus-frame-list (list (window-frame current-window))))
+	(let ((i 0)
+	      params frame fresult)
+	  (while (< i (length subs))
+	    ;; Frame parameter is gotten from the sub-split.
+	    (setq params (cadr (elt subs i)))
+	    ;; It should be a list.
+	    (unless (listp params)
+	      (setq params nil))
+	    ;; Create a new frame?
+	    (unless (setq frame (elt gnus-frame-list i))
+	      (nconc gnus-frame-list (list (setq frame (make-frame params))))
+	      (push frame gnus-created-frames))
+	    ;; Is the old frame still alive?
+	    (unless (frame-live-p frame)
+	      (setcar (nthcdr i gnus-frame-list)
+		      (setq frame (make-frame params))))
+	    ;; Select the frame in question and do more splits there.
+	    (select-frame frame)
+	    (setq fresult (or (gnus-configure-frame (elt subs i)) fresult))
+	    (incf i))
+	  ;; Select the frame that has the selected buffer.
+	  (when fresult
+	    (select-frame (window-frame fresult)))))
+       ;; This is a normal split.
+       (t
+	(when (> (length subs) 0)
+	  ;; First we have to compute the sizes of all new windows.
+	  (while subs
+	    (setq sub (append (pop subs) nil))
+	    (while (and (not (assq (car sub) gnus-window-to-buffer))
+			(gnus-functionp (car sub)))
+	      (setq sub (eval sub)))
+	    (when sub
+	      (push sub comp-subs)
+	      (setq size (cadar comp-subs))
+	      (cond ((equal size 1.0)
+		     (setq rest (car comp-subs))
+		     (setq s 0))
+		    ((floatp size)
+		     (setq s (floor (* size len))))
+		    ((integerp size)
+		     (setq s size))
+		    (t
+		     (error "Invalid size: %s" size)))
+	      ;; Try to make sure that we are inside the safe limits.
+	      (cond ((zerop s))
+		    ((eq type 'horizontal)
+		     (setq s (max s window-min-width)))
+		    ((eq type 'vertical)
+		     (setq s (max s window-min-height))))
+	      (setcar (cdar comp-subs) s)
+	      (incf total s)))
+	  ;; Take care of the "1.0" spec.
+	  (if rest
+	      (setcar (cdr rest) (- len total))
+	    (error "No 1.0 specs in %s" split))
+	  ;; The we do the actual splitting in a nice recursive
+	  ;; fashion.
+	  (setq comp-subs (nreverse comp-subs))
+	  (while comp-subs
+	    (if (null (cdr comp-subs))
+		(setq new-win window)
+	      (setq new-win
+		    (split-window window (cadar comp-subs)
+				  (eq type 'horizontal))))
+	    (setq result (or (gnus-configure-frame
+			      (car comp-subs) window)
+			     result))
+	    (select-window new-win)
+	    (setq window new-win)
+	    (setq comp-subs (cdr comp-subs))))
+	;; Return the proper window, if any.
+	(when result
+	  (select-window result)))))))
 
 (defvar gnus-frame-split-p nil)
 
 (defun gnus-configure-windows (setting &optional force)
-  (setq gnus-current-window-configuration setting)
-  (setq force (or force gnus-always-force-window-configuration))
-  (setq setting (gnus-windows-old-to-new setting))
-  (let ((split (if (symbolp setting)
-		   (cadr (assq setting gnus-buffer-configuration))
-		 setting))
-	all-visible)
+  (if (window-configuration-p setting)
+      (set-window-configuration setting)
+    (setq gnus-current-window-configuration setting)
+    (setq force (or force gnus-always-force-window-configuration))
+    (setq setting (gnus-windows-old-to-new setting))
+    (let ((split (if (symbolp setting)
+		     (cadr (assq setting gnus-buffer-configuration))
+		   setting))
+	  all-visible)
 
-    (setq gnus-frame-split-p nil)
+      (setq gnus-frame-split-p nil)
 
-    (unless split
-      (error "No such setting: %s" setting))
+      (unless split
+	(error "No such setting in `gnus-buffer-configuration': %s" setting))
 
-    (if (and (setq all-visible (gnus-all-windows-visible-p split))
-	     (not force))
-	;; All the windows mentioned are already visible, so we just
-	;; put point in the assigned buffer, and do not touch the
-	;; winconf.
-	(select-window all-visible)
+      (if (and (setq all-visible (gnus-all-windows-visible-p split))
+	       (not force))
+	  ;; All the windows mentioned are already visible, so we just
+	  ;; put point in the assigned buffer, and do not touch the
+	  ;; winconf.
+	  (select-window all-visible)
 
-      ;; Either remove all windows or just remove all Gnus windows.
-      (let ((frame (selected-frame)))
-	(unwind-protect
-	    (if gnus-use-full-window
-		;; We want to remove all other windows.
-		(if (not gnus-frame-split-p)
-		    ;; This is not a `frame' split, so we ignore the
-		    ;; other frames.
-		    (delete-other-windows)
-		  ;; This is a `frame' split, so we delete all windows
-		  ;; on all frames.
-		  (gnus-delete-windows-in-gnusey-frames))
-	      ;; Just remove some windows.
-	      (gnus-remove-some-windows)
-	      (switch-to-buffer nntp-server-buffer))
-	  (select-frame frame)))
+	;; Make sure "the other" buffer, nntp-server-buffer, is live.
+	(unless (gnus-buffer-live-p nntp-server-buffer)
+	  (nnheader-init-server-buffer))
 
-      (switch-to-buffer nntp-server-buffer)
-      (let (gnus-window-frame-focus)
-	(gnus-configure-frame split (get-buffer-window (current-buffer)))
-	(when gnus-window-frame-focus
-	  (select-frame (window-frame gnus-window-frame-focus)))))))
+	;; Either remove all windows or just remove all Gnus windows.
+	(let ((frame (selected-frame)))
+	  (unwind-protect
+	      (if gnus-use-full-window
+		  ;; We want to remove all other windows.
+		  (if (not gnus-frame-split-p)
+		      ;; This is not a `frame' split, so we ignore the
+		      ;; other frames.
+		      (delete-other-windows)
+		    ;; This is a `frame' split, so we delete all windows
+		    ;; on all frames.
+		    (gnus-delete-windows-in-gnusey-frames))
+		;; Just remove some windows.
+		(gnus-remove-some-windows)
+		(if (featurep 'xemacs)
+		    (switch-to-buffer nntp-server-buffer)
+		  (set-buffer nntp-server-buffer)))
+	    (select-frame frame)))
+
+	(let (gnus-window-frame-focus)
+	  (if (featurep 'xemacs)
+	      (switch-to-buffer nntp-server-buffer)
+	    (set-buffer nntp-server-buffer))
+	  (gnus-configure-frame split)
+	  (when gnus-window-frame-focus
+	    (select-frame (window-frame gnus-window-frame-focus))))))))
 
 (defun gnus-delete-windows-in-gnusey-frames ()
   "Do a `delete-other-windows' in all frames that have Gnus windows."
@@ -502,11 +514,11 @@ should have point."
 	(setq buffer (cond ((stringp type) type)
 			   (t (cdr (assq type gnus-window-to-buffer)))))
 	(unless buffer
-	  (error "Illegal buffer type: %s" type))
+	  (error "Invalid buffer type: %s" type))
 	(if (and (setq buf (get-buffer (gnus-window-to-buffer-helper buffer)))
 		 (setq win (get-buffer-window buf t)))
 	    (if (memq 'point split)
-	      (setq all-visible win))
+		(setq all-visible win))
 	  (setq all-visible nil)))
        (t
 	(when (eq type 'frame)
@@ -533,7 +545,9 @@ should have point."
 		  lowest-buf buf))))
       (when lowest-buf
 	(pop-to-buffer lowest-buf)
-	(switch-to-buffer nntp-server-buffer))
+	(if (featurep 'xemacs)
+	    (switch-to-buffer nntp-server-buffer)
+	  (set-buffer nntp-server-buffer)))
       (mapcar (lambda (b) (delete-windows-on b t)) bufs))))
 
 (provide 'gnus-win)

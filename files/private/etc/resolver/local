@@ -1,0 +1,3 @@
+nameserver 224.0.0.251
+port 5353
+timeout 1

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,7 @@
 #include <sys/stat.h>
 #include <sys/vnode.h>
 #include <sys/wait.h>
-#include <bsd/sys/time.h> // gettimeofday
+#include <sys/time.h> // gettimeofday
 
 #include <ctype.h>
 #include <err.h>
@@ -46,7 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <bsd/fcntl.h>
+#include <fcntl.h>
 #include <hfs/hfs_mount.h>
 #include <hfs/hfs_format.h>
 #include <sys/attr.h>
@@ -205,7 +205,12 @@ struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
 	{ "Hebrew",	5 },
 	{ "Greek",	6 },
 	{ "Cyrillic",	7 },
-	{ "ChineseSimp", 25 }
+	{ "Thai",	21 },
+	{ "ChineseSimp", 25 },
+	{ "Turkish",	35 },
+	{ "Croatian",	36 },
+	{ "Icelandic",	37 },
+	{ "Romanian",	38 },
 };
 
 
@@ -378,7 +383,7 @@ main(argc, argv)
 
 
 	optind = optreset = 1;		/* Reset for parse of new argv. */
-	while ((ch = getopt(argc, argv, "xu:g:m:e:o:")) != EOF)
+	while ((ch = getopt(argc, argv, "xu:g:m:e:o:w")) != EOF)
 		switch (ch) {
 		case 'x':
 			if (args.flags == VNOVAL)
@@ -413,6 +418,11 @@ main(argc, argv)
 #endif
 				};
 			}
+			break;
+		case 'w':
+			if (args.flags == VNOVAL)
+				args.flags = 0;
+			args.flags |= HFSFSMNT_WRAPPER;
 			break;
 		case '?':
 			usage();
@@ -618,6 +628,6 @@ void
 usage()
 {
 	(void)fprintf(stderr,
-               "usage: mount_hfs [-x] [-u user] [-g group] [-m mask] [-e encoding] [-o options] special-device filesystem-node\n");
+               "usage: mount_hfs [-xw] [-u user] [-g group] [-m mask] [-e encoding] [-o options] special-device filesystem-node\n");
 	exit(1);
 }

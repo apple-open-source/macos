@@ -79,6 +79,10 @@ clean:
 distclean: clean
 	-rm -f Makefile libdav.module config.h config.status config.log config.cache
 
+extraclean: distclean
+	-rm -f config.h.in configure
+	-rm -f INSTALL
+
 lint:
 	$(LCLINT) @INCLUDE@ -weak +matchanyintegral +posixstrictlib -fullinitblock -ifempty -globs "-Du_int32_t=unsigned int" *.c
 

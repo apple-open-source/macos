@@ -1,0 +1,67 @@
+# Jamfile for target mount_msdos of project msdosfs
+
+
+PROJECT = msdosfs ;
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# mount_msdos target
+export deferred TARGET_NAME = mount_msdos ;
+export deferred PRODUCT_NAME = mount_msdos ;
+
+export deferred CLONE_HEADERS = NO ;
+export deferred FRAMEWORK_SEARCH_PATHS =  ;
+export deferred HEADER_SEARCH_PATHS =  ;
+export deferred INSTALL_PATH = /sbin ;
+export deferred LIBRARY_SEARCH_PATHS =  ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS = -ldisk ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = mount_msdos ;
+export deferred REZ_EXECUTABLE = YES ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+commitdeferred ;
+
+
+BeginTool "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+mount_msdos.tproj/mount_msdos.c_ATTRIBUTES = ;
+SOURCES = mount_msdos.tproj/mount_msdos.c ;
+ProcessSources "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/CoreFoundation.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES = /System/Library/Frameworks/CoreFoundation.framework ;
+ProcessFrameworksAndLibraries "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag002 : BPTag003 ;
+
+# Copy Files
+COPY_FILES = mount_msdos.tproj/mount_msdos.8 ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/usr/share/man/man8" ;
+if $(ACTION) in install installhdrs {
+	ProcessCopyFiles "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+else {
+	NoOp "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+
+EndTool "<mount_msdos>mount_msdos$(TOOL_SUFFIX)" ;
+

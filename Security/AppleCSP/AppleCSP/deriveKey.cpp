@@ -33,6 +33,7 @@
 #include "cspdebugging.h"
 #include <Security/context.h>
 #include <Security/utilities.h>
+#include <DiffieHellman/DH_exchange.h>
 
 /* minimum legal values */
 #define PBKDF2_MIN_SALT			8		/* bytes */
@@ -140,6 +141,7 @@ void AppleCSPSession::DeriveKey(
 	/* validate input args, common to all algorithms */
 	switch(context.algorithm()) {
 		case CSSM_ALGID_PKCS5_PBKDF2:
+		case CSSM_ALGID_DH:
 			break;
 		/* maybe more here, later */
 		default:
@@ -188,6 +190,12 @@ void AppleCSPSession::DeriveKey(
 			DeriveKey_PBKDF2(context,
 				Param,
 				keyData);
+			break;
+		case CSSM_ALGID_DH:
+			DeriveKey_DH(context,
+				Param,
+				keyData,
+				*this);
 			break;
 		/* maybe more here, later */
 		default:

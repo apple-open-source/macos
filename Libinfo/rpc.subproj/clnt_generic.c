@@ -53,12 +53,13 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)clnt_generic.c 1.4 87/08/11 (C) 1987 SMI";*/
 /*static char *sccsid = "from: @(#)clnt_generic.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: clnt_generic.c,v 1.2 1999/10/14 21:56:52 wsanchez Exp $";
+static char *rcsid = "$Id: clnt_generic.c,v 1.3 2002/02/19 20:36:22 epeyton Exp $";
 #endif
 
 /*
  * Copyright (C) 1987, Sun Microsystems, Inc.
  */
+#include <string.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
 #include <sys/errno.h>

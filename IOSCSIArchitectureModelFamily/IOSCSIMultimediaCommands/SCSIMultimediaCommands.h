@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,6 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
+ 
 /*
  * ABOUT THIS FILE
  *		This file contains the definition for the command object that 
@@ -36,6 +38,25 @@
 #ifndef _IOKIT_SCSI_MULTIMEDIA_COMMANDS_H_
 #define _IOKIT_SCSI_MULTIMEDIA_COMMANDS_H_
 
+#if defined(KERNEL) && defined(__cplusplus)
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// General IOKit headers
+#include <IOKit/IOLib.h>
+#include <IOKit/IOService.h>
+
+// SCSI Architecture Model Family includes
+#include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
+#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define		SECONDS_IN_A_MINUTE					60
 #define		FRAMES_IN_A_SECOND					75
@@ -51,17 +72,12 @@
 #define		PERFORMANCE_DESCRIPTOR_SIZE			8
 #define		C2_ERROR_BLOCK_DATA_SIZE			294
 #define		C2_AND_BLOCK_ERROR_BITS_SIZE		296
+#define		SUBCHANNEL_DATA_SIZE				96
 
 
-#if defined(KERNEL) && defined(__cplusplus)
-
-// Headers for general IOKit definitions
-#include <IOKit/IOLib.h>
-#include <IOKit/IOService.h>
-
-// Headers for SCSI command support definitions
-#include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
-
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class SCSIMultimediaCommands : public SCSIPrimaryCommands
 {
@@ -463,9 +479,10 @@ protected:
 						SCSICmdField2Bit 			HEADER_CODES,
 						SCSICmdField1Bit 			USER_DATA,
 						SCSICmdField1Bit 			EDC_ECC,
-						SCSICmdField2Bit 			ERROR_FIELD );
+						SCSICmdField2Bit 			ERROR_FIELD,
+						SCSICmdField3Bit 			SUBCHANNEL_SELECTION_BITS );
 	
-	inline virtual SCSICmdField4Byte ConvertMSFToLBA ( SCSICmdField3Byte MSF );
+	virtual SCSICmdField4Byte ConvertMSFToLBA ( SCSICmdField3Byte MSF );
 	
 };
 

@@ -1,0 +1,23 @@
+#! /bin/sh
+# Test to make sure nodist_noinst_HEADERS work.
+# For PR 249.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in <<'EOF'
+AC_OUTPUT
+EOF
+
+cat > Makefile.am << 'EOF'
+nodist_noinst_HEADERS = baz.h
+EOF
+
+: > baz.h
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+./configure --prefix `pwd`/install
+$MAKE install-data

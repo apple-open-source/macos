@@ -74,11 +74,9 @@ dsattribute_to_dsdata(dsattribute *a)
 		len += (4 + 4 + a->value[i]->length);
 	}
 
-	d = dsdata_alloc();
+	d = dsdata_alloc(len);
 	d->retain = 1;
 	d->type = DataTypeDSAttribute;
-	d->length = len;
-	d->data = malloc(len);
 
 	p = d->data;
 

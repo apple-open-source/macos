@@ -8,14 +8,15 @@
 
 /* -*-C-*-
  *
- * 1.1.1.5
- *     2000/01/25 02:40:14
+ * 1.3
+ *     2002/01/20 22:44:44
  *
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "adp.h"
 #include "sys.h"
@@ -36,7 +37,6 @@ static int angelDebugLogEnable = 0;
 static void openLogFile ()
 {
   time_t t;
-  struct tm lt;
   
   if (angelDebugFilename == NULL || *angelDebugFilename =='\0')
     return;
@@ -66,7 +66,6 @@ static void openLogFile ()
 static void closeLogFile (void)
 {
   time_t t;
-  struct tm lt;
   
   if (!angelDebugLogFile)
     return;

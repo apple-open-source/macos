@@ -22,7 +22,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* $Id: bsd-misc.h,v 1.1.1.2 2001/05/03 16:51:27 zarzycki Exp $ */
+/* $Id: bsd-misc.h,v 1.1.1.4 2002/06/26 18:33:46 zarzycki Exp $ */
 
 #ifndef _BSD_MISC_H
 #define _BSD_MISC_H
@@ -71,6 +71,14 @@ struct timeval {
 
 int utimes(char *filename, struct timeval *tvp);
 #endif /* HAVE_UTIMES */
+
+#ifndef HAVE_TRUNCATE
+int truncate (const char *path, off_t length);
+#endif /* HAVE_TRUNCATE */
+
+#if !defined(HAVE_SETGROUPS) && defined(SETGROUPS_NOOP)
+int setgroups(size_t size, const gid_t *list);
+#endif
 
 
 #endif /* _BSD_MISC_H */

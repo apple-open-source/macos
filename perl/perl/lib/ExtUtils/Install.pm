@@ -2,8 +2,8 @@ package ExtUtils::Install;
 
 use 5.005_64;
 our(@ISA, @EXPORT, $VERSION);
-$VERSION = substr q$Revision: 1.1.1.4 $, 10;
-# $Date: 2000/03/31 05:11:52 $
+$VERSION = substr q$Revision: 1.2 $, 10;
+# $Date: 2002/03/14 08:58:20 $
 
 use Exporter;
 use Carp ();

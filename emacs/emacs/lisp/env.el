@@ -1,6 +1,6 @@
-;;; env.el --- functions to manipulate environment variables.
+;;; env.el --- functions to manipulate environment variables
 
-;; Copyright (C) 1991, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1994, 2000, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: processes, unix
@@ -49,7 +49,6 @@ If it is also not t, RET does not exit if it does non-null completion."
 ;; History list for VALUE argument to setenv.
 (defvar setenv-history nil)
 
-;;;###autoload
 (defun setenv (variable &optional value unset)
   "Set the value of the environment variable named VARIABLE to VALUE.
 VARIABLE should be a string.  VALUE is optional; if not provided or is
@@ -63,11 +62,14 @@ This function works by modifying `process-environment'."
   (interactive
    (if current-prefix-arg
        (list (read-envvar-name "Clear environment variable: " 'exact) nil t)
-     (let ((var (read-envvar-name "Set environment variable: " nil)))
+     (let* ((var (read-envvar-name "Set environment variable: " nil))
+	    (value (getenv var)))
+       (when value
+	 (push value setenv-history))
        ;; Here finally we specify the args to give call setenv with.
        (list var (read-from-minibuffer (format "Set %s to value: " var)
 				       nil nil nil 'setenv-history
-				       (getenv var))))))
+				       value)))))
   (if unset (setq value nil))
   (if (string-match "=" variable)
       (error "Environment variable name `%s' contains `='" variable)
@@ -90,6 +92,19 @@ This function works by modifying `process-environment'."
 	      (setq process-environment
 		    (cons (concat variable "=" value)
 			  process-environment)))))))
+
+(defun getenv (variable)
+  "Get the value of environment variable VARIABLE.
+VARIABLE should be a string.  Value is nil if VARIABLE is undefined in
+the environment.  Otherwise, value is a string.
+
+This function consults the variable `process-environment'
+for its value."
+  (interactive (list (read-envvar-name "Get environment variable: " t)))
+  (let ((value (getenv-internal variable)))
+    (when (interactive-p)
+      (message "%s" (if value value "Not set")))
+    value))
 
 (provide 'env)
 

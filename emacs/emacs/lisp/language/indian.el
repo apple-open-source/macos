@@ -1,4 +1,4 @@
-;;; indian.el --- Support for Indian Languages -*- coding: iso-2022-7bit; -*-
+;;; indian.el --- support for Indian Languages -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Free Software Foundation, Inc.
 
@@ -308,5 +308,7 @@ positions (integers or markers) specifying the stretch of the region."
 	      (delete-region (match-beginning 0) (match-end 0))
 	      (insert ch)))))
     (goto-char (point-min))))
+
+(provide 'indian)
   
 ;;; indian.el ends here

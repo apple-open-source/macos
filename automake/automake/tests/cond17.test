@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Test for being able to define an object to be generated in different ways
+# according to a conditional.
+# Report from Richard Boulton
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(hello,0.23)
+AC_PROG_CC
+AC_PROG_CXX
+AM_CONDITIONAL(COND1, true)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = helldl
+if COND1
+helldl_SOURCES = foo.cc
+else
+helldl_SOURCES = foo.c
+endif
+END
+
+set -e
+
+$ACLOCAL
+$AUTOMAKE -a

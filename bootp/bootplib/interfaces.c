@@ -50,7 +50,7 @@ static struct sockaddr_in init_sin = {sizeof(init_sin), AF_INET};
 
 #define MAX_IF		16
 
-boolean_t
+static boolean_t
 S_get_ifreq_buf(int * sock_p, struct ifconf * ifconf_p)
 {
     struct ifreq * 	ifreq = NULL;
@@ -75,7 +75,7 @@ S_get_ifreq_buf(int * sock_p, struct ifconf * ifconf_p)
 	    syslog(LOG_INFO, "ioctl SIOCGIFCONF failed");
 	    goto err;
 	}
-	if ((ifconf_p->ifc_len + sizeof(struct ifreq)) < size)
+	if ((ifconf_p->ifc_len + SOCK_MAXADDRLEN + IFNAMSIZ) < size)
 	    break;
 	size *= 2;
     }
@@ -429,7 +429,12 @@ if_inet_addr_at(interface_t * if_p, int i)
 struct in_addr
 if_inet_addr(interface_t * if_p)
 {
-    inet_addrinfo_t * info = if_inet_addr_at(if_p, 0);
+    inet_addrinfo_t * 	info = if_inet_addr_at(if_p, 0);
+
+    if (info == NULL) {
+	struct in_addr	zeroes = { 0 };
+	return (zeroes);
+    }
     return (info->addr);
 }
 
@@ -467,14 +472,33 @@ if_inet_valid(interface_t * if_p)
     return (dynarray_count(&if_p->inet) > 0);
 }
 
+void
+if_free(interface_t * * if_p_p)
+{
+    interface_t * if_p;
+
+    if (if_p_p == NULL) {
+	return;
+    }
+    if_p = *if_p_p;
+    if (if_p == NULL) {
+	return;
+    }
+    dynarray_free(&if_p->inet);
+    free(if_p);
+    *if_p_p = NULL;
+    return;
+}
+
 interface_t *
 if_dup(interface_t * intface)
 {
     interface_t * new_p;
 
     new_p = (interface_t *)calloc(1, sizeof(*new_p));
-    if (new_p == NULL)
+    if (new_p == NULL) {
 	return (NULL);
+    }
     *new_p = *intface;
     (void)dynarray_dup(&new_p->inet, &intface->inet);
     return (new_p);

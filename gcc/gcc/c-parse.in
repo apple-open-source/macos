@@ -280,6 +280,7 @@ tree objc_ivar_context;
 enum tree_code objc_inherit_code;
 int objc_receiver_context;
 int objc_public_flag;
+tree super_type, selector_type, id_type, objc_class_type;
 #ifdef MODERN_OBJC_SYNTAX
 extern flag_modern_objc_syntax;
 #endif

@@ -1,8 +1,8 @@
-#! /usr/bin/perl
+#! /usr/bin/perl -w
 # Utilities.pm
 # 
 # Common subroutines
-# Last Updated: $Date: 2001/03/22 02:27:13 $
+# Last Updated: $Date: 2001/11/30 22:43:18 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -26,10 +26,16 @@ use strict;
 use vars qw(@ISA @EXPORT $VERSION);
 use Carp;
 use Exporter;
+foreach (qw(Mac::Files Mac::MoreFiles)) {
+    eval "use $_";
+}
+
+$VERSION = 1.02;
 @ISA = qw(Exporter);
-@EXPORT = qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker 
-			 printArray printHash updateHashFromConfigFiles getHashFromConfigFile);
-$VERSION = 1.00;
+@EXPORT = qw(findRelativePath safeName safeNameNoCollide linesFromFile makeAbsolutePath
+             printHash printArray fileNameFromPath folderPathForFile convertCharsForFileMaker 
+             updateHashFromConfigFiles getHashFromConfigFile getAPINameAndDisc openLogs
+             logMsg logMsgAndWarning logWarning logToAllFiles closeLogs);
 
 ########## Portability ##############################
 my $pathSeparator;
@@ -43,22 +49,84 @@ BEGIN {
 		$isMacOS = 0;
 	}
 }
+########## Name length constants ##############################
+my $macFileLengthLimit = 31;
+my $longestExtension = 5;
+###############################################################
+
+########### Log File Handling  ################################
+my $logFile;
+my $warningsFile;
+###############################################################
+
+sub openLogs {
+    $logFile = shift;
+    $warningsFile = shift;
+    
+    if (-e $logFile) {
+        unlink $logFile || die "Couldn't delete old log file $logFile\n";
+    }
+    
+    if (-e $warningsFile) {
+        unlink $warningsFile || die "Couldn't delete old log file $warningsFile\n";
+    }
+    
+	open(LOGFILE, ">$logFile") || die "Can't open output file $logFile.\n";
+	if ($isMacOS) {MacPerl::SetFileInfo('R*ch', 'TEXT', $logFile);};
+
+	open(WARNINGSFILE, ">$warningsFile") || die "Can't open output file $warningsFile.\n";
+	if ($isMacOS) {MacPerl::SetFileInfo('R*ch', 'TEXT', $warningsFile);};
+}
+
+sub logMsg {
+    my $msg = shift;
+    my $toConsole = shift;
+    
+    if ($toConsole) {
+	    print "$msg";
+    }
+    print LOGFILE "$msg";
+}
+
+sub logWarning {
+    my $msg = shift;
+    my $toConsole = shift;
+    
+    if ($toConsole) {
+	    print "$msg";
+    }
+    print LOGFILE "$msg";
+    print WARNINGSFILE "$msg";
+}
+
+sub logToAllFiles {  # print to all outs, without the "warning" overtone
+    my $msg = shift;    
+    &logWarning($msg, 1);
+}
+
+sub closeLogs {
+	close LOGFILE;
+	close WARNINGSFILE;
+	undef $logFile;
+	undef $warningsFile;
+}
 
 sub findRelativePath {
-    my ($fromMe, $toMe) = @_;	
+    my ($fromMe, $toMe) = @_;
+    if ($fromMe eq $toMe) {return "";}; # link to same file
 	my @fromMeParts = split (/$pathSeparator/, $fromMe);
 	my @toMeParts = split (/$pathSeparator/, $toMe);
-	my $localDebug = 0;
-	
-	print "fromMe --> |$fromMe|\n" if $localDebug;
-	print "toMe --> |$toMe|\n" if $localDebug;
 	
 	# find number of identical parts
 	my $i = 0;
-	while (($fromMeParts[$i] eq $toMeParts[$i]) && ($i < $#fromMeParts)) {
-	    print "$i\n" if $localDebug; 
-	    $i++;
+	# figure out why perl complain of uninitialized var in while loop
+	my $oldWarningLevel = $^W;
+	{
+	    $^W = 0;
+		while ($fromMeParts[$i] eq $toMeParts[$i]) { $i++;};
 	}
+	$^W = $oldWarningLevel;
+	
 	@fromMeParts = splice (@fromMeParts, $i);
 	@toMeParts = splice (@toMeParts, $i);
     my $numFromMeParts = @fromMeParts; #number of unique elements left in fromMeParts
@@ -67,32 +135,128 @@ sub findRelativePath {
 	return $relPath;
 }
 
+sub fileNameFromPath {
+    my $path = shift;
+    my @pathParts = split (/$pathSeparator/, $path);
+	my $fileName = pop (@pathParts);
+    return $fileName;
+}
 
-# this version of safeName doesn't guard against name collisions
+sub folderPathForFile {
+    my $path = shift;
+    my @pathParts = split (/$pathSeparator/, $path);
+	my $fileName = pop (@pathParts);
+    my $folderPath = join("$pathSeparator", @pathParts);
+    return $folderPath;
+}
+
+# set up default values for safeName and safeNameNoCollide
+my %safeNameDefaults  = (filename => "", fileLengthLimit =>"$macFileLengthLimit", longestExtension => "$longestExtension");
+
 sub safeName {
-    my ($filename) = @_;
+    my %args = (%safeNameDefaults, @_);
+    my ($filename) = $args{"filename"};
     my $returnedName="";
     my $safeLimit;
-    my $macFileLengthLimit = 31;
-    my $longestExtension = 5;
     my $partLength;
     my $nameLength;
 
-    $safeLimit = ($macFileLengthLimit - $longestExtension);
+    $safeLimit = ($args{"fileLengthLimit"} - $args{"longestExtension"});
     $partLength = int (($safeLimit/2)-1);
 
     $filename =~ tr/a-zA-Z0-9./_/cs; # ensure name is entirely alphanumeric
-    
-    # check for length problems
-    $nameLength = length($filename);
-    if ($nameLength > $safeLimit) {
+    $nameLength = ($filename =~ tr/a-zA-Z0-9._//);
+
+    #check for length problems
+    if ( $nameLength > $safeLimit) {
         my $safeName =  $filename;
         $safeName =~ s/^(.{$partLength}).*(.{$partLength})$/$1_$2/;
         $returnedName = $safeName;       
     } else {
         $returnedName = $filename;       
     }
+    return $returnedName;
+    
+}
+
+
+my %dispensedSafeNames;
+
+sub safeNameNoCollide {
+    my %args = (%safeNameDefaults, @_);
+    
+    my ($filename) = $args{"filename"};
+    my $returnedName="";
+    my $safeLimit;
+    my $partLength;
+    my $nameLength;
+    my $localDebug = 0;
+    
+    $filename =~ tr/a-zA-Z0-9./_/cs; # ensure name is entirely alphanumeric
+    # check if name would collide case insensitively
+    if (exists $dispensedSafeNames{lc($filename)}) {
+        while (exists $dispensedSafeNames{lc($filename)}) {
+            # increment numeric part of name
+            $filename =~ /(\D+)(\d*)((\.\w*)*)/;
+            my $rootTextPart = $1;
+            my $rootNumPart = $2;
+            my $extension = $4;
+            if (defined $rootNumPart) {
+                $rootNumPart++;
+            } else {
+                $rootNumPart = 2
+            }
+            if (!$extension){$extension = '';};
+            $filename = $rootTextPart.$rootNumPart.$extension;
+        }
+    }
+    $returnedName = $filename;       
+
+    # check for length problems
+    $safeLimit = ($args{"fileLengthLimit"} - $args{"longestExtension"});
+    $partLength = int (($safeLimit/2)-1);
+    $nameLength = length($filename);
+    if ($nameLength > $safeLimit) {
+        my $safeName =  $filename;
+        $safeName =~ s/^(.{$partLength}).*(.{$partLength})$/$1_$2/;
+        if (exists $dispensedSafeNames{lc($safeName)}) {
+            my $i = 1;
+	        while (exists $dispensedSafeNames{lc($safeName)}) {
+	            $safeName =~ s/^(.{$partLength}).*(.{$partLength})$/$1$i$2/;
+	            $i++;
+	        }
+	    }
+        my $lcSafename = lc($safeName);
+        print "\t $lcSafename\n" if ($localDebug);
+        $returnedName = $safeName;       
+    } else {
+        $returnedName = $filename;       
+    }
+    $dispensedSafeNames{lc($returnedName)}++;
     return $returnedName;    
+}
+
+#sub linesFromFile {
+#	my $filePath = shift;
+#	my $oldRecSep = $/;
+#	my $fileString;
+#	
+#	undef $/; # read in files as strings
+#	open(INFILE, "<$filePath") || die "Can't open $filePath.\n";
+#	$fileString = <INFILE>;
+#    $fileString =~ s/\015/\n/g;
+#	close INFILE;
+#	$/ = $oldRecSep;
+#	return (split (/\n/, $fileString));
+#}
+#
+sub makeAbsolutePath {
+   my $relPath = shift;
+   my $relTo = shift;
+   if ($relPath !~ /^\//) { # doesn't start with a slash
+       $relPath = $relTo."/".$relPath;
+   }
+   return $relPath;
 }
 
 sub getAPINameAndDisc {
@@ -127,6 +291,7 @@ sub updateHashFromConfigFiles {
     return %{$configHashRef};
 }
 
+
 sub getHashFromConfigFile {
     my $configFile = shift;
     my %hash;
@@ -134,6 +299,7 @@ sub getHashFromConfigFile {
     my @lines;
     
     if ((-e $configFile) && (-f $configFile)) {
+    	print "reading $configFile\n" if ($localDebug);
 		open(INFILE, "<$configFile") || die "Can't open $configFile.\n";
 		@lines = <INFILE>;
 		close INFILE;
@@ -147,6 +313,7 @@ sub getHashFromConfigFile {
 	    chomp $line;
 	    my ($key, $value) = split (/\s*=>\s*/, $line);
 	    if ((defined($key)) && (length($key))){
+			print "    $key => $value\n" if ($localDebug);
 		    $hash{$key} = $value;
 		}
 	}
@@ -154,16 +321,40 @@ sub getHashFromConfigFile {
 	return %hash;
 }
 
+sub linesFromFile {
+	my $filePath = shift;
+	my $oldRecSep;
+	my $fileString;
+	
+	$oldRecSep = $/;
+	undef $/;    # read in files as strings
+	open(INFILE, "<$filePath") || die "Can't open $filePath: $!\n";
+	$fileString = <INFILE>;
+	close INFILE;
+	$/ = $oldRecSep;
+
+	$fileString =~ s/\015\012/\n/g;
+	$fileString =~ s/\r/\n/g;
+	my @lineArray = split (/\n/, $fileString);
+	
+	# put the newline back on the end of each element of the array
+	# we can't use split (/(\n)/, $fileString); because that adds the 
+	# newlines as new elements in the array.
+	return map($_."\n", @lineArray);
+}
 
 ############### Debugging Routines ########################
 sub printArray {
     my (@theArray) = @_;
-    my $i= 0;
-    my $length = @theArray;
+    my ($i, $length);
+    $i = 0;
+    $length = @theArray;
     
+    print ("Printing contents of array:\n");
     while ($i < $length) {
-	    print ("\t$theArray[$i++]\n");
+	print ("Element $i ---> |$theArray[$i++]|\n");
     }
+    print("\n\n");
 }
 
 sub printHash {
@@ -174,6 +365,7 @@ sub printHash {
     }
     print("-----------------------------------\n\n");
 }
+
 
 1;
 

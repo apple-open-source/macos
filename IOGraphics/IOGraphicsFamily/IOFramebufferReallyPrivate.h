@@ -19,9 +19,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 class _IOFramebufferNotifier : public IONotifier
 {
-    friend IOFramebuffer;
+    friend class IOFramebuffer;
 
     OSDeclareDefaultStructors(_IOFramebufferNotifier)
 

@@ -21,6 +21,39 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+/*
+ * Copyright (c) 1997, 1998, 2000, 2001  Kenneth D. Merry
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * $FreeBSD: src/usr.sbin/iostat/iostat.c,v 1.22 2001/09/01 07:40:19 kris Exp $
+ */
+/*
+ * Parts of this program are derived from the original FreeBSD iostat
+ * program:
+ */
 /*-
  * Copyright (c) 1986, 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -53,362 +86,800 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+/*
+ * Ideas for the new iostat statistics output modes taken from the NetBSD
+ * version of iostat:
+ */
+/*
+ * Copyright (c) 1996 John M. Vinopal
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *      This product includes software developed for the NetBSD Project
+ *      by John M. Vinopal.
+ * 4. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
 
-#ifndef lint
-static char copyright[] =
-"@(#) Copyright (c) 1986, 1991, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)iostat.c	8.3 (Berkeley) 4/28/95";
-#endif /* not lint */
+#define IOKIT	1	/* to get io_name_t in device_types.h */
 
 #include <sys/param.h>
-#include <sys/buf.h>
-#include <sys/dkstat.h>
+#include <sys/sysctl.h>
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOBlockStorageDriver.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/IOBSD.h>
 
 #include <err.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <kvm.h>
-#include <limits.h>
-#include <nlist.h>
-#include <paths.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-struct nlist namelist[] = {
-#define	X_DK_TIME	0
-	{ "_dk_time" },
-#define	X_DK_XFER	1
-	{ "_dk_xfer" },
-#define	X_DK_WDS	2
-	{ "_dk_wds" },
-#define	X_TK_NIN	3
-	{ "_tk_nin" },
-#define	X_TK_NOUT	4
-	{ "_tk_nout" },
-#define	X_DK_SEEK	5
-	{ "_dk_seek" },
-#define	X_CP_TIME	6
-	{ "_cp_time" },
-#define	X_DK_WPMS	7
-	{ "_dk_wpms" },
-#define	X_HZ		8
-	{ "_hz" },
-#define	X_STATHZ	9
-	{ "_stathz" },
-#define	X_DK_NDRIVE	10
-	{ "_dk_ndrive" },
-#define	X_END		10
-#if defined(hp300) || defined(luna68k)
-#define	X_HPDINIT	(X_END+1)
-	{ "_hp_dinit" },
-#endif
-#ifdef mips
-#define	X_SCSI_DINIT	(X_END+1)
-	{ "_scsi_dinit" },
-#endif
-#ifdef tahoe
-#define	X_VBDINIT	(X_END+1)
-	{ "_vbdinit" },
-#endif
-#ifdef vax
-	{ "_mbdinit" },
-#define X_MBDINIT	(X_END+1)
-	{ "_ubdinit" },
-#define X_UBDINIT	(X_END+2)
-#endif
-	{ NULL },
+#define MAXDRIVES	16	/* most drives we will record */
+#define MAXDRIVENAME	31	/* largest drive name we allow */
+
+struct drivestats {
+	io_registry_entry_t	driver;
+	char			name[MAXDRIVENAME + 1];
+	u_int64_t		blocksize;
+	u_int64_t		total_bytes;
+	u_int64_t		total_transfers;
+	u_int64_t		total_time;
 };
 
-struct _disk {
-	long	cp_time[CPUSTATES];
-	long	*dk_time;
-	long	*dk_wds;
-	long	*dk_seek;
-	long	*dk_xfer;
-	long	tk_nin;
-	long	tk_nout;
-} cur, last;
+static struct drivestats drivestat[MAXDRIVES];
 
-kvm_t	 *kd;
-double	  etime;
-long	 *dk_wpms;
-int	  dk_ndrive, *dr_select, hz, kmemfd, ndrives;
-char	**dr_name;
+static struct timeval	cur_time, last_time;
 
-#define nlread(x, v) \
-	kvm_read(kd, namelist[x].n_value, &(v), sizeof(v))
+struct statinfo {
+	long		tk_nin;
+	long		tk_nout;
+	host_cpu_load_info_data_t load;
+};
 
-#include "names.c"				/* XXX */
+static struct statinfo cur, last;
 
-void cpustats __P((void));
-void dkstats __P((void));
-void phdr __P((int));
-void usage __P((void));
+static mach_port_t host_priv_port;
+static mach_port_t masterPort;
+
+static int num_devices;
+static int maxshowdevs;
+static int dflag = 0, Iflag = 0, Cflag = 0, Tflag = 0, oflag = 0, Kflag = 0;
+static volatile sig_atomic_t phdr_flag = 0;
+
+/* local function declarations */
+static void usage(void);
+static void phdr(int signo);
+static void do_phdr();
+static void devstats(int perf_select, long double etime, int havelast);
+static void cpustats(void);
+static int readvar(const char *name, void *ptr, size_t len);
+
+static int record_all_devices(void);
+static int record_one_device(char *name);
+static int record_device(io_registry_entry_t drive);
+
+static long double compute_etime(struct timeval cur_time, 
+				 struct timeval prev_time);
+
+static void
+usage(void)
+{
+	/*
+	 * We also support the following 'traditional' syntax:
+	 * iostat [drives] [wait [count]]
+	 * This isn't mentioned in the man page, or the usage statement,
+	 * but it is supported.
+	 */
+	fprintf(stderr, "usage: iostat [-CdIKoT?] [-c count] [-n devs]\n"
+		"\t      [-w wait] [drives]\n");
+}
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char **argv)
 {
-	register int i;
-	long tmp;
-	int ch, hdrcnt, reps, interval, stathz, ndrives;
-	char **cp, *memf, *nlistf, buf[30];
-        char errbuf[_POSIX2_LINE_MAX];
+	int c;
+	int hflag = 0, cflag = 0, wflag = 0, nflag = 0;
+	int count = 0, waittime = 0;
+	int headercount;
+	int num_devices_specified;
+	int havelast = 0;
 
-	interval = reps = 0;
-	nlistf = memf = NULL;
-	while ((ch = getopt(argc, argv, "c:M:N:w:")) != EOF)
-		switch(ch) {
-		case 'c':
-			if ((reps = atoi(optarg)) <= 0)
-				errx(1, "repetition count <= 0.");
-			break;
-		case 'M':
-			memf = optarg;
-			break;
-		case 'N':
-			nlistf = optarg;
-			break;
-		case 'w':
-			if ((interval = atoi(optarg)) <= 0)
-				errx(1, "interval <= 0.");
-			break;
-		case '?':
-		default:
-			usage();
+	maxshowdevs = 3;
+
+	while ((c = getopt(argc, argv, "c:CdIKM:n:oTw:?")) != -1) {
+		switch(c) {
+			case 'c':
+				cflag++;
+				count = atoi(optarg);
+				if (count < 1)
+					errx(1, "count %d is < 1", count);
+				break;
+			case 'C':
+				Cflag++;
+				break;
+			case 'd':
+				dflag++;
+				break;
+			case 'I':
+				Iflag++;
+				break;
+			case 'K':
+				Kflag++;
+				break;
+			case 'n':
+				nflag++;
+				maxshowdevs = atoi(optarg);
+				if (maxshowdevs < 0)
+					errx(1, "number of devices %d is < 0",
+					     maxshowdevs);
+				break;
+			case 'o':
+				oflag++;
+				break;
+			case 'T':
+				Tflag++;
+				break;
+			case 'w':
+				wflag++;
+				waittime = atoi(optarg);
+				if (waittime < 1)
+					errx(1, "wait time is < 1");
+				break;
+			default:
+				usage();
+				exit(1);
+				break;
 		}
+	}
+
 	argc -= optind;
 	argv += optind;
 
 	/*
-	 * Discard setgid privileges if not the running kernel so that bad
-	 * guys can't print interesting stuff from kernel memory.
+	 * Get the Mach private port.
 	 */
-	if (nlistf != NULL || memf != NULL)
-		setgid(getgid());
-
-        kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
-	if (kd == 0)
-		errx(1, "kvm_openfiles: %s", errbuf);
-	if (kvm_nlist(kd, namelist) == -1)
-		errx(1, "kvm_nlist: %s", kvm_geterr(kd));
-	if (namelist[X_DK_NDRIVE].n_type == 0)
-		errx(1, "dk_ndrive not found in namelist");
-	(void)nlread(X_DK_NDRIVE, dk_ndrive);
-	if (dk_ndrive <= 0)
-		errx(1, "invalid dk_ndrive %d\n", dk_ndrive);
-
-	cur.dk_time = calloc(dk_ndrive, sizeof(long));
-	cur.dk_wds = calloc(dk_ndrive, sizeof(long));
-	cur.dk_seek = calloc(dk_ndrive, sizeof(long));
-	cur.dk_xfer = calloc(dk_ndrive, sizeof(long));
-	last.dk_time = calloc(dk_ndrive, sizeof(long));
-	last.dk_wds = calloc(dk_ndrive, sizeof(long));
-	last.dk_seek = calloc(dk_ndrive, sizeof(long));
-	last.dk_xfer = calloc(dk_ndrive, sizeof(long));
-	dr_select = calloc(dk_ndrive, sizeof(int));
-	dr_name = calloc(dk_ndrive, sizeof(char *));
-	dk_wpms = calloc(dk_ndrive, sizeof(long));
-
-	for (i = 0; i < dk_ndrive; i++) {
-		(void)sprintf(buf, "dk%d", i);
-		dr_name[i] = strdup(buf);
-	}
-	if (!read_names())
-		exit(1);
-	(void)nlread(X_HZ, hz);
-	(void)nlread(X_STATHZ, stathz);
-	if (stathz)
-		hz = stathz;
-	(void)kvm_read(kd, namelist[X_DK_WPMS].n_value, dk_wpms,
-		dk_ndrive * sizeof(dk_wpms));
+	host_priv_port = mach_host_self();
 
 	/*
-	 * Choose drives to be displayed.  Priority goes to (in order) drives
-	 * supplied as arguments and default drives.  If everything isn't
-	 * filled in and there are drives not taken care of, display the first
-	 * few that fit.
-	 *
-	 * The backward compatibility #ifdefs permit the syntax:
-	 *	iostat [ drives ] [ interval [ count ] ]
+	 * Get the I/O Kit communication handle.
 	 */
-#define	BACKWARD_COMPATIBILITY
-	for (ndrives = 0; *argv; ++argv) {
-#ifdef	BACKWARD_COMPATIBILITY
+	IOMasterPort(bootstrap_port, &masterPort);
+
+	/*
+	 * Make sure Tflag and/or Cflag are set if dflag == 0.  If dflag is
+	 * greater than 0, they may be 0 or non-zero.
+	 */
+	if (dflag == 0) {
+		Cflag = 1;
+		Tflag = 1;
+	}
+
+	/*
+	 * Figure out how many devices we should display if not given
+	 * an explicit value.
+	 */
+	if (nflag == 0) {
+		if (oflag > 0) {
+			if ((dflag > 0) && (Cflag == 0) && (Tflag == 0))
+				maxshowdevs = 5;
+			else if ((dflag > 0) && (Tflag > 0) && (Cflag == 0))
+				maxshowdevs = 5;
+			else
+				maxshowdevs = 4;
+		} else {
+			if ((dflag > 0) && (Cflag == 0))
+				maxshowdevs = 4;		
+			else
+				maxshowdevs = 3;
+		}
+	}
+
+	/*
+	 * If the user specified any devices on the command line, record
+	 * them for monitoring.
+	 */
+	for (num_devices_specified = 0; *argv; ++argv) {
 		if (isdigit(**argv))
 			break;
-#endif
-		for (i = 0; i < dk_ndrive; i++) {
-			if (strcmp(dr_name[i], *argv))
-				continue;
-			dr_select[i] = 1;
-			++ndrives;
-		}
+		if (record_one_device(*argv))
+			errx(1, "can't record '%s' for monitoring");
+		num_devices_specified++;
 	}
-#ifdef	BACKWARD_COMPATIBILITY
+	if (nflag == 0 && maxshowdevs < num_devices_specified)
+		maxshowdevs = num_devices_specified;
+
+	/* if no devices were specified, pick them ourselves */
+	if ((num_devices_specified == 0) && record_all_devices())
+		err(1, "can't find any devices to display");
+
+	/*
+	 * Look for the traditional wait time and count arguments.
+	 */
 	if (*argv) {
-		interval = atoi(*argv);
-		if (*++argv)
-			reps = atoi(*argv);
-	}
-#endif
+		waittime = atoi(*argv);
 
-	if (interval) {
-		if (!reps)
-			reps = -1;
-	} else
-		if (reps)
-			interval = 1;
+		/* Let the user know he goofed, but keep going anyway */
+		if (wflag != 0) 
+			warnx("discarding previous wait interval, using"
+			      " %d instead", waittime);
+		wflag++;
 
-	for (i = 0; i < dk_ndrive && ndrives < 4; i++) {
-		if (dr_select[i] || dk_wpms[i] == 0)
-			continue;
-		for (cp = defdrives; *cp; cp++)
-			if (strcmp(dr_name[i], *cp) == 0) {
-				dr_select[i] = 1;
-				++ndrives;
-				break;
-			}
-	}
-	for (i = 0; i < dk_ndrive && ndrives < 4; i++) {
-		if (dr_select[i])
-			continue;
-		dr_select[i] = 1;
-		++ndrives;
+		if (*++argv) {
+			count = atoi(*argv);
+			if (cflag != 0)
+				warnx("discarding previous count, using %d"
+				      " instead", count);
+			cflag++;
+		} else
+			count = -1;
 	}
 
+	/*
+	 * If the user specified a count, but not an interval, we default
+	 * to an interval of 1 second.
+	 */
+	if ((wflag == 0) && (cflag > 0))
+		waittime = 1;
+
+	/*
+	 * If the user specified a wait time, but not a count, we want to
+	 * go on ad infinitum.  This can be redundant if the user uses the
+	 * traditional method of specifying the wait, since in that case we
+	 * already set count = -1 above.  Oh well.
+	 */
+	if ((wflag > 0) && (cflag == 0))
+		count = -1;
+
+	cur.tk_nout = 0;
+	cur.tk_nin = 0;
+
+	/*
+	 * Set the busy time to the system boot time, so the stats are
+	 * calculated since system boot.
+	 */
+	if (readvar("kern.boottime", &cur_time,	sizeof(cur_time)) != 0)
+		exit(1);
+
+	/*
+	 * If the user stops the program (control-Z) and then resumes it,
+	 * print out the header again.
+	 */
 	(void)signal(SIGCONT, phdr);
 
-	for (hdrcnt = 1;;) {
-		if (!--hdrcnt) {
-			phdr(0);
-			hdrcnt = 20;
+	for (headercount = 1;;) {
+		long tmp;
+		long double etime;
+
+		if (Tflag > 0) {
+			if ((readvar("kern.tty_nin", &cur.tk_nin,
+			     sizeof(cur.tk_nin)) != 0)
+			 || (readvar("kern.tty_nout",
+			     &cur.tk_nout, sizeof(cur.tk_nout))!= 0)) {
+				Tflag = 0;
+				warnx("disabling TTY statistics");
+			}
+		 }
+
+		if (phdr_flag) {
+			phdr_flag = 0;
+			do_phdr();
 		}
-		(void)kvm_read(kd, namelist[X_DK_TIME].n_value,
-		    cur.dk_time, dk_ndrive * sizeof(long));
-		(void)kvm_read(kd, namelist[X_DK_XFER].n_value,
-		    cur.dk_xfer, dk_ndrive * sizeof(long));
-		(void)kvm_read(kd, namelist[X_DK_WDS].n_value,
-		    cur.dk_wds, dk_ndrive * sizeof(long));
-		(void)kvm_read(kd, namelist[X_DK_SEEK].n_value,
-		    cur.dk_seek, dk_ndrive * sizeof(long));
-		(void)kvm_read(kd, namelist[X_TK_NIN].n_value,
-		    &cur.tk_nin, sizeof(cur.tk_nin));
-		(void)kvm_read(kd, namelist[X_TK_NOUT].n_value,
-		    &cur.tk_nout, sizeof(cur.tk_nout));
-		(void)kvm_read(kd, namelist[X_CP_TIME].n_value,
-		    cur.cp_time, sizeof(cur.cp_time));
-		for (i = 0; i < dk_ndrive; i++) {
-			if (!dr_select[i])
-				continue;
-#define X(fld)	tmp = cur.fld[i]; cur.fld[i] -= last.fld[i]; last.fld[i] = tmp
-			X(dk_xfer);
-			X(dk_seek);
-			X(dk_wds);
-			X(dk_time);
+		
+		if (!--headercount) {
+			do_phdr();
+			headercount = 20;
 		}
-		tmp = cur.tk_nin;
-		cur.tk_nin -= last.tk_nin;
-		last.tk_nin = tmp;
-		tmp = cur.tk_nout;
-		cur.tk_nout -= last.tk_nout;
-		last.tk_nout = tmp;
-		etime = 0;
-		for (i = 0; i < CPUSTATES; i++) {
-			X(cp_time);
-			etime += cur.cp_time[i];
+
+		last_time = cur_time;
+		gettimeofday(&cur_time, NULL);
+
+		if (Tflag > 0) {
+			tmp = cur.tk_nin;
+			cur.tk_nin -= last.tk_nin;
+			last.tk_nin = tmp;
+			tmp = cur.tk_nout;
+			cur.tk_nout -= last.tk_nout;
+			last.tk_nout = tmp;
 		}
+
+		etime = compute_etime(cur_time, last_time);
+
 		if (etime == 0.0)
 			etime = 1.0;
-		etime /= (float)hz;
-		(void)printf("%4.0f%5.0f",
-		    cur.tk_nin / etime, cur.tk_nout / etime);
-		dkstats();
-		cpustats();
-		(void)printf("\n");
-		(void)fflush(stdout);
 
-		if (reps >= 0 && --reps <= 0)
+		if (Tflag > 0)
+			printf("%4.0Lf%5.0Lf", cur.tk_nin / etime, 
+				cur.tk_nout / etime);
+
+		devstats(hflag, etime, havelast);
+
+		if (Cflag > 0)
+			cpustats();
+
+		printf("\n");
+		fflush(stdout);
+
+		if (count >= 0 && --count <= 0)
 			break;
-		(void)sleep(interval);
+
+		sleep(waittime);
+		havelast = 1;
 	}
+
 	exit(0);
 }
 
-/* ARGUSED */
-void
-phdr(signo)
-	int signo;
+static void
+phdr(int signo)
+{
+
+	phdr_flag = 1;	
+}
+
+static void
+do_phdr() 
 {
 	register int i;
 
-	(void)printf("      tty");
-	for (i = 0; i < dk_ndrive; i++)
-		if (dr_select[i])
-			(void)printf("          %3.3s ", dr_name[i]);
-	(void)printf("         cpu\n tin tout");
-	for (i = 0; i < dk_ndrive; i++)
-		if (dr_select[i])
-			(void)printf(" sps tps msps ");
-	(void)printf(" us ni sy in id\n");
+	if (Tflag > 0)
+		(void)printf("      tty");
+
+	for (i = 0; (i < num_devices); i++){
+		if (oflag > 0)
+			(void)printf("%12.6s ", drivestat[i].name);
+		else
+			printf("%15.6s ", drivestat[i].name);
+	}
+		
+	if (Cflag > 0)
+		(void)printf("      cpu\n");
+	else
+		(void)printf("\n");
+
+	if (Tflag > 0)
+		(void)printf(" tin tout");
+
+	for (i=0; i < num_devices; i++){
+		if (oflag > 0) {
+			if (Iflag == 0)
+				(void)printf(" sps tps msps ");
+			else
+				(void)printf(" blk xfr msps ");
+		} else {
+			if (Iflag == 0)
+				printf("  KB/t tps  MB/s ");
+			else
+				printf("  KB/t xfrs   MB ");
+		}
+	}
+
+	if (Cflag > 0)
+		(void)printf(" us sy id\n");
+	else
+		printf("\n");
 }
 
-void
-dkstats()
+static void
+devstats(int perf_select, long double etime, int havelast)
 {
-	register int dn;
-	double atime, itime, msps, words, xtime;
+	CFNumberRef number;
+	CFDictionaryRef properties;
+	CFDictionaryRef statistics;
+	long double transfers_per_second;
+	long double kb_per_transfer, mb_per_second;
+	u_int64_t value;
+	u_int64_t total_bytes, total_transfers, total_blocks, total_time;
+	u_int64_t interval_bytes, interval_transfers, interval_blocks;
+	u_int64_t interval_time;
+	long double interval_mb;
+	long double blocks_per_second, ms_per_transaction;
+	kern_return_t status;
+	int i;
 
-	for (dn = 0; dn < dk_ndrive; ++dn) {
-		if (!dr_select[dn])
-			continue;
-		words = cur.dk_wds[dn] * 32;		/* words xfer'd */
-		(void)printf("%4.0f",			/* sectors */
-		    words / (DEV_BSIZE / 2) / etime);
+	for (i = 0; i < num_devices; i++) {
 
-		(void)printf("%4.0f", cur.dk_xfer[dn] / etime);
+		/*
+		 * If the drive goes away, we may not get any properties
+		 * for it.  So take some defaults.
+		 */
+		total_bytes = 0;
+		total_transfers = 0;
+		total_time = 0;
 
-		if (dk_wpms[dn] && cur.dk_xfer[dn]) {
-			atime = cur.dk_time[dn];	/* ticks disk busy */
-			atime /= (float)hz;		/* ticks to seconds */
-			xtime = words / dk_wpms[dn];	/* transfer time */
-			itime = atime - xtime;		/* time not xfer'ing */
-			if (itime < 0)
-				msps = 0;
+		/* get drive properties */
+		status = IORegistryEntryCreateCFProperties(drivestat[i].driver,
+			(CFMutableDictionaryRef *)&properties,
+			kCFAllocatorDefault,
+			kNilOptions);
+		if (status != KERN_SUCCESS)
+			err(1, "device has no properties");
+
+		/* get statistics from properties */
+		statistics = (CFDictionaryRef)CFDictionaryGetValue(properties,
+			CFSTR(kIOBlockStorageDriverStatisticsKey));
+		if (statistics) {
+
+			/*
+			 * Get I/O volume.
+			 */
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsBytesReadKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_bytes += value;
+			}
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsBytesWrittenKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_bytes += value;
+			}
+
+			/*
+			 * Get I/O counts.
+			 */
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsReadsKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_transfers += value;
+			}
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsWritesKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_transfers += value;
+			}
+
+			/*
+			 * Get I/O time.
+			 */
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsLatentReadTimeKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_time += value;
+			}
+			if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
+				CFSTR(kIOBlockStorageDriverStatisticsLatentWriteTimeKey)))) {
+				CFNumberGetValue(number, kCFNumberSInt64Type, &value);
+				total_time += value;
+			}
+
+		}
+		CFRelease(properties);
+
+		/*
+		 * Compute delta values and stats.
+		 */
+		interval_bytes = total_bytes - drivestat[i].total_bytes;
+		interval_transfers = total_transfers 
+			- drivestat[i].total_transfers;
+		interval_time = total_time - drivestat[i].total_time;
+
+		/* update running totals, only once for -I */
+		if ((Iflag == 0) || (drivestat[i].total_bytes == 0)) {
+			drivestat[i].total_bytes = total_bytes;
+			drivestat[i].total_transfers = total_transfers;
+			drivestat[i].total_time = total_time;
+		}				
+
+		interval_blocks = interval_bytes / drivestat[i].blocksize;
+		total_blocks = total_bytes / drivestat[i].blocksize;
+
+		blocks_per_second = interval_blocks / etime;
+		transfers_per_second = interval_transfers / etime;
+		mb_per_second = (interval_bytes / etime) / (1024 * 1024);
+
+		kb_per_transfer = (interval_transfers > 0) ?
+			((long double)interval_bytes / interval_transfers) 
+			/ 1024 : 0;
+
+		/* times are in nanoseconds, convert to milliseconds */
+		ms_per_transaction = (interval_transfers > 0) ?
+			((long double)interval_time / interval_transfers) 
+			/ 1000 : 0;
+
+		if (Kflag)
+			total_blocks = total_blocks * drivestat[i].blocksize 
+				/ 1024;
+
+		if (oflag > 0) {
+			int msdig = (ms_per_transaction < 100.0) ? 1 : 0;
+
+			if (Iflag == 0)
+				printf("%4.0Lf%4.0Lf%5.*Lf ",
+				       blocks_per_second,
+				       transfers_per_second,
+				       msdig,
+				       ms_per_transaction);
 			else 
-				msps = itime * 1000 / cur.dk_xfer[dn];
-		} else
-			msps = 0;
-		(void)printf("%5.1f ", msps);
+				printf("%4.1qu%4.1qu%5.*Lf ",
+				       interval_blocks,
+				       interval_transfers,
+				       msdig,
+				       ms_per_transaction);
+		} else {
+			if (Iflag == 0)
+				printf(" %5.2Lf %3.0Lf %5.2Lf ", 
+				       kb_per_transfer,
+				       transfers_per_second,
+				       mb_per_second);
+			else {
+				interval_mb = interval_bytes;
+				interval_mb /= 1024 * 1024;
+
+				printf(" %5.2Lf %3.1qu %5.2Lf ", 
+				       kb_per_transfer,
+				       interval_transfers,
+				       interval_mb);
+			}
+		}
 	}
 }
 
-void
-cpustats()
+static void
+cpustats(void)
 {
-	register int state;
+	mach_msg_type_number_t count;
+	kern_return_t status;
 	double time;
 
-	time = 0;
-	for (state = 0; state < CPUSTATES; ++state)
-		time += cur.cp_time[state];
-	for (state = 0; state < CPUSTATES; ++state)
-		(void)printf("%3.0f",
-		    100. * cur.cp_time[state] / (time ? time : 1));
+	/*
+	 * Get CPU usage counters.
+	 */
+	count = HOST_CPU_LOAD_INFO_COUNT;
+	status = host_statistics(host_priv_port, HOST_CPU_LOAD_INFO,
+		(host_info_t)&cur.load, &count);
+	if (status != KERN_SUCCESS)
+		errx(1, "couldn't fetch CPU stats");
+
+	/*
+	 * Make 'cur' fields relative, update 'last' fields to current values,
+	 * calculate total elapsed time.
+	 */
+	time = 0.0;
+	cur.load.cpu_ticks[CPU_STATE_USER]
+		-= last.load.cpu_ticks[CPU_STATE_USER];
+	last.load.cpu_ticks[CPU_STATE_USER]
+		+= cur.load.cpu_ticks[CPU_STATE_USER];
+	time += cur.load.cpu_ticks[CPU_STATE_USER];
+	cur.load.cpu_ticks[CPU_STATE_SYSTEM]
+		-= last.load.cpu_ticks[CPU_STATE_SYSTEM];
+	last.load.cpu_ticks[CPU_STATE_SYSTEM]
+		+= cur.load.cpu_ticks[CPU_STATE_SYSTEM];
+	time += cur.load.cpu_ticks[CPU_STATE_SYSTEM];
+	cur.load.cpu_ticks[CPU_STATE_IDLE]
+		-= last.load.cpu_ticks[CPU_STATE_IDLE];
+	last.load.cpu_ticks[CPU_STATE_IDLE]
+		+= cur.load.cpu_ticks[CPU_STATE_IDLE];
+	time += cur.load.cpu_ticks[CPU_STATE_IDLE];
+	
+	/*
+	 * Print times.
+	 */
+	printf("%3.0f",
+		rint(100. * cur.load.cpu_ticks[CPU_STATE_USER]
+		     / (time ? time : 1)));
+	printf("%3.0f",
+		rint(100. * cur.load.cpu_ticks[CPU_STATE_SYSTEM]
+		     / (time ? time : 1)));
+	printf("%3.0f",
+		rint(100. * cur.load.cpu_ticks[CPU_STATE_IDLE]
+		     / (time ? time : 1)));
 }
 
-void
-usage()
+static int
+readvar(const char *name, void *ptr, size_t len)
 {
-	(void)fprintf(stderr,
-"usage: iostat [-c count] [-M core] [-N system] [-w wait] [drives]\n");
-	exit(1);
+	int	oid[4];
+	int	oidlen;
+
+	size_t nlen = len;
+
+	if (sysctlbyname(name, ptr, &nlen, NULL, 0) == -1) {
+		if (errno != ENOENT) {
+			warn("sysctl(%s) failed", name);
+			return (1);
+		}
+		/*
+		 * XXX fallback code to deal with systems where
+		 * sysctlbyname can't find "old" OIDs, should be removed.
+		 */
+		if (!strcmp(name, "kern.boottime")) {
+			oid[0] = CTL_KERN;
+			oid[1] = KERN_BOOTTIME;
+			oidlen = 2;
+		} else {
+			warn("sysctl(%s) failed", name);
+			return (1);
+		}
+
+		nlen = len;
+		if (sysctl(oid, oidlen, ptr, &nlen, NULL, 0) == -1) {
+			warn("sysctl(%s) failed", name);
+			return (1);
+		}
+	}
+	if (nlen != len) {
+		warnx("sysctl(%s): expected %lu, got %lu", name,
+		      (unsigned long)len, (unsigned long)nlen);
+		return (1);
+	}
+	return (0);
+}
+
+static long double
+compute_etime(struct timeval cur_time, struct timeval prev_time)
+{
+	struct timeval busy_time;
+	u_int64_t busy_usec;
+	long double etime;
+
+	timersub(&cur_time, &prev_time, &busy_time);
+
+	busy_usec = busy_time.tv_sec;  
+	busy_usec *= 1000000;          
+	busy_usec += busy_time.tv_usec;
+	etime = busy_usec;
+	etime /= 1000000;
+
+	return(etime);
+}
+
+/*
+ * Record all "whole" IOMedia objects as being interesting.
+ */
+static int
+record_all_devices(void)
+{
+	io_iterator_t drivelist;
+	io_registry_entry_t drive;
+	CFMutableDictionaryRef match;
+	int error, ndrives;
+	kern_return_t status;
+
+	/*
+	 * Get an iterator for IOMedia objects.
+	 */
+	match = IOServiceMatching("IOMedia");
+	CFDictionaryAddValue(match, CFSTR(kIOMediaWholeKey), kCFBooleanTrue);
+	status = IOServiceGetMatchingServices(masterPort, match, &drivelist);
+	if (status != KERN_SUCCESS)
+		errx(1, "couldn't match whole IOMedia devices");
+
+	/*
+	 * Scan all of the IOMedia objects, and for each
+	 * object that has a parent IOBlockStorageDriver, save
+	 * the object's name and the parent (from which we can
+	 * fetch statistics).
+	 *
+	 * XXX What about RAID devices?
+	 */
+	error = 1;
+	ndrives = 0;
+	while ((drive = IOIteratorNext(drivelist))
+		&& (ndrives < maxshowdevs)) {
+		if (!record_device(drive)) {
+			error = 0;
+			ndrives++;
+		}
+		IOObjectRelease(drive);
+	}
+	IOObjectRelease(drivelist);
+
+	return(error);
+}
+
+/*
+ * Try to record the named device as interesting.  It
+ * must be an IOMedia device.
+ */
+static int
+record_one_device(char *name)
+{
+	io_iterator_t drivelist;
+	io_registry_entry_t drive;
+	kern_return_t status;
+
+	/*
+	 * Find the device.
+	 */
+	status = IOServiceGetMatchingServices(masterPort,
+		IOBSDNameMatching(masterPort, kNilOptions, name),
+		&drivelist);
+	if (status != KERN_SUCCESS)
+		errx(1, "couldn't match '%s'", name);
+
+	/*
+	 * Get the first match (should only be one)
+	 */
+	if ((drive = IOIteratorNext(drivelist)) == NULL)
+		errx(1, "'%s' not found", name);
+	if (!IOObjectConformsTo(drive, "IOMedia"))
+		errx(1, "'%s' is not a storage device", name);
+
+	/*
+	 * Record the device.
+	 */
+	if (record_device(drive))
+		errx(1, "could not record '%s' for monitoring", name);
+
+	IOObjectRelease(drive);
+	IOObjectRelease(drivelist);
+
+	return(0);
+}
+
+/*
+ * Determine whether an IORegistryEntry refers to a valid
+ * I/O device, and if so, record it.
+ */
+static int
+record_device(io_registry_entry_t drive)
+{
+	io_registry_entry_t parent;
+	CFDictionaryRef properties;
+	CFStringRef name;
+	CFNumberRef number;
+	kern_return_t status;
+	
+	/* get drive's parent */
+	status = IORegistryEntryGetParentEntry(drive,
+		kIOServicePlane, &parent);
+	if (status != KERN_SUCCESS)
+		errx(1, "device has no parent");
+	if (IOObjectConformsTo(parent, "IOBlockStorageDriver")) {
+		drivestat[num_devices].driver = parent;
+
+		/* get drive properties */
+		status = IORegistryEntryCreateCFProperties(drive,
+			(CFMutableDictionaryRef *)&properties,
+			kCFAllocatorDefault,
+			kNilOptions);
+		if (status != KERN_SUCCESS)
+			errx(1, "device has no properties");
+
+		/* get name from properties */
+		name = (CFStringRef)CFDictionaryGetValue(properties,
+			CFSTR(kIOBSDNameKey));
+		CFStringGetCString(name, drivestat[num_devices].name, 
+			MAXDRIVENAME, CFStringGetSystemEncoding());
+
+		/* get blocksize from properties */
+		number = (CFNumberRef)CFDictionaryGetValue(properties,
+			CFSTR(kIOMediaPreferredBlockSizeKey));
+		CFNumberGetValue(number, kCFNumberSInt64Type,
+			&drivestat[num_devices].blocksize);
+
+		/* clean up, return success */
+		CFRelease(properties);
+		num_devices++;
+		return(0);
+	}
+
+	/* failed, don't keep parent */
+	IOObjectRelease(parent);
+	return(1);
 }

@@ -118,6 +118,7 @@ static char *dlopen(char *path, int mode /* mode is ignored */)
     	// NSLinkModule will cause the run to abort on any link error's
 	// not very friendly but the error recovery functionality is limited.
 	handle = NSLinkModule(ofile, path, TRUE);
+	NSDestroyObjectFileImage(ofile);
     }
 
     return handle;

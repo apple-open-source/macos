@@ -50,21 +50,15 @@ OBJTOP = $(shell (test -d $(OBJROOT) || $(INSTALL) -c -d $(OBJROOT)) && cd $(OBJ
 SYMTOP = $(shell (test -d $(SYMROOT) || $(INSTALL) -c -d $(SYMROOT)) && cd $(SYMROOT) && pwd)
 DSTTOP = $(shell (test -d $(DSTROOT) || $(INSTALL) -c -d $(DSTROOT)) && cd $(DSTROOT) && pwd)
 
-BINUTILS_VERSION = 5.0-20001113
-APPLE_VERSION = 23.1
+BINUTILS_VERSION = 5.0-20011017
+APPLE_VERSION = 36
 
-BINUTILS_VERSION_STRING = $(BINUTILS_VERSION) (Apple version binutils-$(APPLE_VERSION))
+BINUTILS_VERSION_STRING = "$(BINUTILS_VERSION) (Apple version binutils-$(APPLE_VERSION))"
 
 BINUTILS_BINARIES = objdump objcopy addr2line nm-new size strings cxxfilt
-BINUTILS_MANPAGES = objdump.1 objcopy.1 addr2line.1 nm.1 size.1 strings.1 cxxfilt.man
+BINUTILS_MANPAGES = 
 
 FRAMEWORKS = electric-fence mmalloc liberty bfd opcodes binutils
-
-MMALLOC_ADDRESS = 0xb9f00000
-LIBERTY_ADDRESS = 0x66b00000
-OPCODES_ADDRESS = 0x66d00000
-BFD_ADDRESS = 0xb5700000
-ELECTRIC_FENCE_ADDRESS = 0x0
 
 CC = cc
 CC_FOR_BUILD = cc
@@ -74,7 +68,7 @@ HOST_ARCHITECTURE = UNKNOWN
 
 RC_CFLAGS_NOARCH = $(shell echo $(RC_CFLAGS) | sed -e 's/-arch [a-z0-9]*//g')
 
-SYSTEM_FRAMEWORK = -framework System -lcc_dynamic
+SYSTEM_FRAMEWORK = -framework System
 FRAMEWORK_PREFIX =
 FRAMEWORK_SUFFIX =
 FRAMEWORK_VERSION = A
@@ -97,7 +91,8 @@ PPC_TARGET=UNKNOWN
 I386_TARGET=UNKNOWN
 
 CONFIG_VERBOSE=-v
-CONFIG_ALL_BFD_TARGETS=--enable-targets=all
+CONFIG_ALL_BFD_TARGETS=
+#CONFIG_ALL_BFD_TARGETS=--enable-targets=all
 CONFIG_64_BIT_BFD=--enable-64-bit-bfd
 CONFIG_WITH_MMAP=--with-mmap
 CONFIG_WITH_MMALLOC=--with-mmalloc
@@ -111,9 +106,9 @@ MAKE_PTHREADS=USE_PTHREADS=1
 TAR = gnutar
 
 ifneq ($(findstring rhapsody,$(CANONICAL_ARCHS))$(findstring macos10,$(CANONICAL_ARCHS)),)
-CC = cc -arch $(HOST_ARCHITECTURE) -traditional-cpp
-CC_FOR_BUILD = NEXT_ROOT= cc -traditional-cpp
-CDEBUGFLAGS = -g -O3
+CC = cc -arch $(HOST_ARCHITECTURE) -no-cpp-precomp
+CC_FOR_BUILD = NEXT_ROOT= cc -no-cpp-precomp
+CDEBUGFLAGS = -g -Os
 CFLAGS = $(CDEBUGFLAGS) -Wall -Wimplicit $(RC_CFLAGS_NOARCH)
 HOST_ARCHITECTURE = $(shell echo $* | sed -e 's/--.*//' -e 's/powerpc/ppc/' -e 's/-apple-rhapsody//' -e 's/-apple-macos.*//')
 endif
@@ -245,25 +240,25 @@ $(OBJROOT)/%/stamp-rc-configure:
 	touch $@
 
 $(OBJROOT)/%/stamp-build-headers:
-	$(SUBMAKE) -C $(OBJROOT)/$*/electric-fence $(FFLAGS) FRAMEWORK_ADDRESS=$(ELECTRIC_FENCE_ADDRESS) stamp-framework-headers
-	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) FRAMEWORK_ADDRESS=$(MMALLOC_ADDRESS) stamp-framework-headers 
-	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) FRAMEWORK_ADDRESS=$(LIBERTY_ADDRESS) stamp-framework-headers
-	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) FRAMEWORK_ADDRESS=$(BFD_ADDRESS) headers stamp-framework-headers
-	$(SUBMAKE) -C $(OBJROOT)/$*/opcodes $(FFLAGS) FRAMEWORK_ADDRESS=$(OPCODES_ADDRESS) stamp-framework-headers
-	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) FRAMEWORK_ADDRESS=$(OPCODES_ADDRESS) stamp-framework-headers-binutils
+	$(SUBMAKE) -C $(OBJROOT)/$*/electric-fence $(FFLAGS) stamp-framework-headers
+	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) stamp-framework-headers 
+	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) stamp-framework-headers
+	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) headers stamp-framework-headers
+	$(SUBMAKE) -C $(OBJROOT)/$*/opcodes $(FFLAGS) stamp-framework-headers
+	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-headers-binutils
 	#touch $@
 
 $(OBJROOT)/%/stamp-build-core:
 	$(SUBMAKE) -C $(OBJROOT)/$*/intl $(SFLAGS) libintl.a
-	$(SUBMAKE) -C $(OBJROOT)/$*/electric-fence $(FFLAGS) FRAMEWORK_ADDRESS=$(ELECTRIC_FENCE_ADDRESS) all stamp-framework 
-	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) FRAMEWORK_ADDRESS=$(MMALLOC_ADDRESS) all stamp-framework 
-	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) FRAMEWORK_ADDRESS=$(LIBERTY_ADDRESS) all stamp-framework
-	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) FRAMEWORK_ADDRESS=$(BFD_ADDRESS) headers all stamp-framework
-	$(SUBMAKE) -C $(OBJROOT)/$*/opcodes $(FFLAGS) FRAMEWORK_ADDRESS=$(OPCODES_ADDRESS) all stamp-framework
+	$(SUBMAKE) -C $(OBJROOT)/$*/electric-fence $(FFLAGS) stamp-framework all
+	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) stamp-framework all
+	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) stamp-framework all
+	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) headers stamp-framework all
+	$(SUBMAKE) -C $(OBJROOT)/$*/opcodes $(FFLAGS) stamp-framework all
 	#touch $@
 
 $(OBJROOT)/%/stamp-build-binutils:
-	$(SUBMAKE) -C $(OBJROOT)/$*/binutils $(FSFLAGS) VERSION='$(BINUTILS_VERSION_STRING)'
+	$(SUBMAKE) -C $(OBJROOT)/$*/binutils $(FSFLAGS) VERSION='$(BINUTILS_VERSION)' VERSION_STRING='$(BINUTILS_VERSION_STRING)'
 	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-binutils
 	#touch $@
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,8 +61,8 @@ main(int argc, char **argv)
 	SCPreferencesRef	session;
 	CFDictionaryRef		sets;
 	CFIndex			nSets;
-	void			**setKeys;
-	void			**setVals;
+	const void		**setKeys	= NULL;
+	const void		**setVals	= NULL;
 	CFIndex			i;
 
 	/* process any arguments */
@@ -139,9 +139,11 @@ main(int argc, char **argv)
 	}
 
 	nSets = CFDictionaryGetCount(sets);
-	setKeys = CFAllocatorAllocate(NULL, nSets * sizeof(CFStringRef), 0);
-	setVals = CFAllocatorAllocate(NULL, nSets * sizeof(CFDictionaryRef), 0);
-	CFDictionaryGetKeysAndValues(sets, setKeys, setVals);
+	if (nSets > 0) {
+		setKeys = CFAllocatorAllocate(NULL, nSets * sizeof(CFStringRef), 0);
+		setVals = CFAllocatorAllocate(NULL, nSets * sizeof(CFDictionaryRef), 0);
+		CFDictionaryGetKeysAndValues(sets, setKeys, setVals);
+	}
 
 	/* check for set with matching name */
 	for (i=0; i<nSets; i++) {

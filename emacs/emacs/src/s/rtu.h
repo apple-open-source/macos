@@ -1,5 +1,5 @@
 /* Definitions file for GNU Emacs running on RTU 3.0, ucb universe.
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -116,30 +116,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CLASH_DETECTION
 
-/* We use the Berkeley (and usg5.2.2) interface to nlist.  */
-
-#define NLIST_STRUCT
-
 /* The symbol in the kernel where the load average is found
    is named _avenrun.  */
 
 #define LDAV_SYMBOL "_avenrun"
 
 /* Special hacks needed to make Emacs run on this system.  */
-
-/* On RTU systems (like USG) the system calls are interruptible by signals
- that the user program has elected to catch.  Thus the system call
- must be retried in these cases.  To handle this without massive
- changes in the source code, we remap the standard system call names
- to names for our own functions in sysdep.c that do the system call
- with retries. */
-
-#define read sys_read
-#define open sys_open
-#define write sys_write
-
-#define INTERRUPTIBLE_OPEN
-#define INTERRUPTIBLE_IO
 
 /* The "fsync" call on RTU versions 3.0 and 3.1 is badly broken!
    This hack below isn't the best solution, but without it this
@@ -158,10 +140,6 @@ Boston, MA 02111-1307, USA.  */
 /* This is how to get the device name of the control end of a pty.  */
 #define PTY_NAME_SPRINTF \
 	sprintf (pty_name, "/dev/pty%x", i);
-
-/* (Assume) we do have vfork.  */
-
-#define HAVE_VFORK
 
 /* Process groups work in the traditional BSD manner.  */
 

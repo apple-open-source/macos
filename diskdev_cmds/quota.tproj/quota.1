@@ -1,4 +1,4 @@
-.\" Copyright (c) 1983, 1990, 1993
+.\" Copyright (c) 1983, 1990, 1993, 2002
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
 .\" This code is derived from software contributed to Berkeley by
@@ -34,7 +34,7 @@
 .\"
 .\"	@(#)quota.1	8.1 (Berkeley) 6/6/93
 .\"
-.Dd June 6, 1993
+.Dd March 28, 2002
 .Dt QUOTA 1
 .Os BSD 4.2
 .Sh NAME
@@ -89,7 +89,7 @@ Only the super-user may use the
 flag and the optional
 .Ar user
 argument to view the limits of other users.
-Non-super-users can use the the
+Non-super-users can use the
 .Fl g
 flag and optional
 .Ar group
@@ -102,20 +102,27 @@ flag takes precedence over the
 flag.
 .Pp
 .Nm Quota
-reports the quotas of all the filesystems listed in
-.Pa /etc/fstab .
+reports the quotas of all the filesystems that have
+a mount option file located at its root.
 If
 .Nm quota
-exits with a non-zero status, one or more filesystems
+exits with a non-zero status, then one or more filesystems
 are over quota.
 .Sh FILES
-.Bl -tag -width quota.group -compact
-.It Pa quota.user
-located at the filesystem root with user quotas
-.It Pa quota.group
-located at the filesystem root with group quotas
-.It Pa /etc/fstab
-to find filesystem names and locations
+Each of the following quota files is located at the root of the
+mounted filesystem.  The mount option files are empty files
+whose existence indicates that quotas are to be enabled
+for that filesystem.
+.Pp
+.Bl -tag -width .quota.ops.group -compact
+.It Pa .quota.user
+data file containing user quotas
+.It Pa .quota.group
+data file containing group quotas
+.It Pa .quota.ops.user
+mount option file used to enable user quotas
+.It Pa .quota.ops.group
+mount option file used to enable group quotas
 .El
 .Sh HISTORY
 The
@@ -124,7 +131,6 @@ command appeared in
 .Bx 4.2 .
 .Sh SEE ALSO
 .Xr quotactl 2 ,
-.Xr fstab 5 ,
 .Xr edquota 8 ,
 .Xr quotacheck 8 ,
 .Xr quotaon 8 ,

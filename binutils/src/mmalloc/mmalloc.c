@@ -146,7 +146,7 @@ mmalloc (md, size)
       
   if (mdp -> mmalloc_hook != NULL)
     {
-      return ((*mdp -> mmalloc_hook) (md, size));
+      return ((*mdp -> mmalloc_hook) (mdp, size));
     }
 
   if (!(mdp -> flags & MMALLOC_INITIALIZED))

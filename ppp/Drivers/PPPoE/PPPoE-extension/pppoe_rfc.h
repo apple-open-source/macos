@@ -88,6 +88,7 @@ u_int16_t pppoe_rfc_output(void *data, struct mbuf *m);
 
 // callback from dlil layer
 void pppoe_rfc_lower_input(u_long dl_tag, struct mbuf *m, u_int8_t *from, u_int16_t typ);
+void pppoe_rfc_lower_detaching(u_long dl_tag);
 
 
 #endif

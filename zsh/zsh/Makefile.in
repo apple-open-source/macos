@@ -1,7 +1,7 @@
 #
 # Makefile for top level of zsh distribution
 #
-# Copyright (c) 1996 Richard Coleman
+# Copyright (c) 1995-1997 Richard Coleman
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -24,186 +24,143 @@
 # support, updates, enhancements, or modifications.
 #
 
-# zsh version
-VERSION = @VERSION@
+subdir = .
+dir_top = .
+SUBDIRS = Doc Etc Src Test
 
-SHELL = /bin/sh
-@SET_MAKE@
+@VERSION_MK@
 
-srcdir = @srcdir@
-VPATH  = @srcdir@
-
-# ========== USER CONFIGURATION SECTION ==========
-#
-# If `make' is executed in the directory containing this Makefile,
-# any changes made in this section will override the values of
-# these parameters in makefiles in any of the subdirectories.
-
-prefix      = @prefix@
-exec_prefix = @exec_prefix@
-bindir      = @bindir@
-infodir     = @infodir@
-mandir      = @mandir@
-manext      = 1
-
-CC       = @CC@
-CPPFLAGS = @CPPFLAGS@
-DEFS     = @DEFS@
-CFLAGS   = @CFLAGS@
-LDFLAGS  = @LDFLAGS@
-LIBS     = @LIBS@
-
-# ========== YOU SHOULDN'T HAVE TO CHANGE ANYTHING BELOW HERE ==========
-
+# source/build directories
+VPATH           = @srcdir@
+sdir            = @srcdir@
+sdir_top        = @top_srcdir@
 INSTALL         = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
-INSTALL_DATA    = @INSTALL_DATA@
 
-.SUFFIXES:
+@DEFS_MK@
 
-# flags passed to recursive makes in subdirectories
-MAKEDEFS = CC='$(CC)' CPPFLAGS='$(CPPFLAGS)' DEFS='$(DEFS)' \
-CFLAGS='$(CFLAGS)' LDFLAGS='$(LDFLAGS)' LIBS='$(LIBS)' \
-prefix='$(prefix)' exec_prefix='$(exec_prefix)' bindir='$(bindir)' \
-infodir='$(infodir)' mandir='$(mandir)' manext='$(manext)'
-
-# subdirectories in distribution
-SUBDIRS = Src Doc Etc Functions StartupFiles Misc Util
-
-# all files in this directory included in the distribution
-DIST = README INSTALL META-FAQ ChangeLog configure.in Makefile.in aclocal.m4 \
-config.guess config.sub acconfig.h config.h.in install-sh stamp-h.in \
-mkinstalldirs configure
-
-# ========== DEPENDENCIES FOR BUILDING AND INSTALLING ==========
+# ========== DEPENDENCIES FOR BUILDING ==========
 
 # default target
-all: config.h Makefile $(SUBDIRS)
+all: config.h
+	@for subdir in Src Doc; do \
+	  (cd $$subdir && $(MAKE) $(MAKEDEFS) $@) || exit 1; \
+	done
 
-$(SUBDIRS): FORCE
-	cd $@ && $(MAKE) $(MAKEDEFS)
+# prepare module configuration
+prep:
+	@cd Src && $(MAKE) $(MAKEDEFS) $@
 
-FORCE:
+META-FAQ: FORCE
+	@cd Doc && $(MAKE) $(MAKEDEFS) ../META-FAQ
+
+dvi ps html info:
+	@cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# ========== DEPENDENCIES FOR INSTALLING ==========
 
 # install stripped
 install-strip:
 	$(MAKE) install STRIPFLAGS="-s"
 
-# install everything
-install: install.bin install.man #install.info
+# install/uninstall most things
+install: install.bin install.modules install.fns install.man
+uninstall: uninstall.bin uninstall.modules uninstall.fns uninstall.man
 
 # install/uninstall just the binary
 install.bin uninstall.bin:
-	cd Src && $(MAKE) $(MAKEDEFS) $@
+	@cd Src && $(MAKE) $(MAKEDEFS) $@
+
+# install/uninstall just the modules
+install.modules uninstall.modules:
+	@cd Src && $(MAKE) $(MAKEDEFS) $@
 
 # install/uninstall just the man pages
 install.man uninstall.man:
-	cd Doc && $(MAKE) $(MAKEDEFS) $@
+	@cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# install/uninstall just the shell functions
+install.fns:
+	if test x$(fndir) != x && test x$(fndir) != xno; then \
+	  test x$(sitefndir) != xno && \
+	    $(SHELL) $(sdir_top)/mkinstalldirs $(DESTDIR)$(sitefndir); \
+	  sdir_top="$(sdir_top)" fndir="$(fndir)" dir_top="$(dir_top)" \
+	  FUNCTIONS_SUBDIRS="$(FUNCTIONS_SUBDIRS)" \
+	  INSTALL_DATA="$(INSTALL_DATA)" \
+	  DESTDIR="$(DESTDIR)" VERSION="$(VERSION)" \
+	  $(SHELL) $(sdir_top)/Config/installfns.sh || exit 1; \
+	fi; \
+	exit 0
+
+uninstall.fns:
+	if test x$(fndir) != x && test x$(fndir) != xno; then \
+	  fndir="$(fndir)" dir_top="$(dir_top)" \
+	  FUNCTIONS_SUBDIRS="$(FUNCTIONS_SUBDIRS)" \
+	  DESTDIR="$(DESTDIR)" VERSION="$(VERSION)" \
+	  $(SHELL) $(sdir_top)/Config/uninstallfns.sh || exit 1; \
+	fi; \
+	exit 0
 
 # install/uninstall just the info pages
 install.info uninstall.info:
-	cd Doc && $(MAKE) $(MAKEDEFS) $@
+	@cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# install/uninstall just the HTML manual
+install.html uninstall.html:
+	@cd Doc && $(MAKE) $(MAKEDEFS) $@
+
+# ========== DEPENDENCIES FOR TESTING ==========
+check test:
+	cd Test ; $(MAKE) check
 
 # ========== DEPENDENCIES FOR CLEANUP ==========
 
-mostlyclean: mostlyclean-recursive mostlyclean-top
-clean:       clean-recursive       clean-top
-distclean:   distclean-recursive   distclean-top
-realclean:   realclean-recursive   realclean-top
-superclean:  superclean-recursive  superclean-top
+@CLEAN_MK@
 
-mostlyclean-top:
-	rm -f *~
+distclean-here:
+	rm -f Makefile config.h config.status config.log config.cache config.modules stamp-h Config/defs.mk
 
-clean-top: mostlyclean-top
-
-distclean-top: clean-top
-	rm -f Makefile config.h config.status config.log config.cache stamp-h distname
-
-realclean-top: distclean-top
-
-superclean-top: realclean-top
-	cd $(srcdir) && rm -f config.h.in stamp-h.in configure *~
-
-mostlyclean-recursive clean-recursive distclean-recursive realclean-recursive superclean-recursive:
-	for subdir in $(SUBDIRS); do \
-	  target=`echo $@ | sed s/-recursive//`; \
-	  (cd $$subdir && $(MAKE) $(MAKEDEFS) $$target) || exit 1; \
-	done
+realclean-here:
+	cd $(sdir) && rm -f config.h.in stamp-h.in configure
 
 # ========== DEPENDENCIES FOR MAINTENANCE ==========
 
-Makefile: Makefile.in config.status
-	CONFIG_FILES=$@ CONFIG_HEADERS= ./config.status
+@CONFIG_MK@
 
-config.status: configure Src/version.h
-	./config.status --recheck
+config: config.h
 
-#configure: configure.in aclocal.m4
-#	cd $(srcdir) && autoconf
+config.status: $(sdir)/configure
+	$(SHELL) ./config.status --recheck
+
+$(sdir)/configure: $(sdir)/zshconfig.ac $(sdir)/aclocal.m4 $(sdir)/aczsh.m4 $(sdir)/configure.in $(sdir)/configure.ac
+	cd $(sdir) && autoconf
 
 config.h: stamp-h
-stamp-h: config.h.in config.status
-	CONFIG_FILES= CONFIG_HEADERS=config.h ./config.status
+stamp-h: $(sdir)/config.h.in config.status
+	cd $(dir_top) && \
+	  CONFIG_FILES= CONFIG_HEADERS=$(subdir)/config.h $(SHELL) ./config.status
 
-config.h.in: stamp-h.in
-stamp-h.in: configure.in acconfig.h aclocal.m4
-	cd $(srcdir) && autoheader
-	echo > $@
+$(sdir)/config.h.in: $(sdir)/stamp-h.in
+$(sdir)/stamp-h.in: $(sdir)/zshconfig.ac $(sdir)/acconfig.h \
+		$(sdir)/aclocal.m4 $(sdir)/aczsh.m4
+	cd $(sdir) && autoheader
+	echo > $(sdir)/stamp-h.in
 
-# create tag files for vi and emacs
-tags:
-	cd Src && $(MAKE) $@
+# ========== DEPENDENCIES FOR DISTRIBUTION ==========
 
-test:
-	@echo zsh test suite not available yet
+DISTNAME = zsh-$(VERSION)
 
-FTPDIR   = @ftpdir@
-FTP_DIST = $(FTPDIR)/zsh-$(VERSION).tar.gz
+targz-src: $(DISTNAME).tar.gz
+$(DISTNAME).tar.gz: FORCE
+	@$(sdir_top)/Util/mkdisttree.sh $(DISTNAME) $(sdir_top) $(dir_top) SRC \
+	    $(MAKE) $(MAKEDEFS)
+	tar cf - $(DISTNAME) | gzip -9 > $@
+	rm -rf $(DISTNAME)
 
-# build zsh distribution
-distdir = @distdir@/zsh-$(VERSION)
-dist: $(DIST) Makefile
-	@echo "Copying distribution files in $(srcdir)" ; \
-	echo "$(distdir)" > distname
-	(test -d $(distdir) || mkdir -p $(distdir)) || exit 1 ; \
-	for file in $(DIST); do    \
-	  cp -p $$file $(distdir); \
-	done; \
-	for subdir in $(SUBDIRS); do \
-	  target=$(distdir)/$$subdir ; \
-	  (test -d $$target || mkdir $$target) || exit 1; \
-	  (cd $$subdir && $(MAKE) $(MAKEDEFS) $@) || exit 1; \
-	done
+targz-doc: $(DISTNAME)-doc.tar.gz
+$(DISTNAME)-doc.tar.gz: FORCE
+	@$(sdir_top)/Util/mkdisttree.sh $(DISTNAME) $(sdir_top) $(dir_top) DOC \
+	    $(MAKE) $(MAKEDEFS)
+	tar cf - $(DISTNAME) | gzip -9 > $@
+	rm -rf $(DISTNAME)
 
-# build zsh distribution for FTP
-ftp-dist: dist-diff
-	@echo "Begin building zsh distribution"
-	Src/zsh -c '(cd $(distdir)/.. ; \
-	tar cf - zsh-$(VERSION)) | gzip > $(FTP_DIST) && \
-	ln -sf $${$${:-$(FTP_DIST)}#$(FTPDIR)/} $(FTPDIR)/zsh.tar.gz'
-	@echo "Done building zsh distribution"
-
-# make patch against the previous release
-dist-diff: Src dist
-	@echo "Making patch against the previous release"
-	Src/zsh -o extendedglob -c 'VERSION=$(VERSION) ; \
-	pl=$${(M)VERSION%%[0-9]##} ; \
-	: $${prevrel:=$${VERSION%%[0-9]##}$$((pl-1))} ; \
-	(cd $(distdir)/.. && diff -ru zsh-$${prevrel} zsh-$(VERSION)) | \
-	gzip > $(FTPDIR)/zsh-$${prevrel}-$(VERSION).diff.gz && \
-	rm -f $(FTPDIR)/zsh-$${prevrel}.tar.gz'
-
-md5sum:
-	cd $(FTPDIR) ; md5sum *.gz > MD5SUM
-
-$(FTPDIR)/zsh-doc.tar.gz: $(srcdir)/Doc/zsh.texi
-	if test -d Doc/zsh-doc ; then \
-		(cd Doc ; \
-		make everything ; \
-		mv zsh*.html zsh*.ps zsh.dvi zsh.info* zsh-doc) ; \
-		(cd Doc ; tar cf - zsh-doc) | gzip > $@ ; \
-	fi
-
-release: ftp-dist dist-diff $(FTPDIR)/zsh-doc.tar.gz md5sum
-	cd $(srcdir) && cp -p META-FAQ Etc/FAQ $(FTPDIR)
+FORCE:

@@ -332,6 +332,8 @@ extern int flag_no_inline;
 
 extern int flag_dump_symbols;
 extern int flag_gen_index;
+extern int flag_gen_index_original;
+extern int flag_check_indexed_header_list;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
@@ -536,6 +538,7 @@ extern int flag_check_mem;
 #ifdef HAVE_COALESCED_SYMBOLS
 extern int flag_ignore_unused_static_aggregates;
 extern int flag_coalescing_enabled;
+extern int flag_coalesce_static_inline_data;
 extern int flag_coalesce_templates;
 extern int flag_coalesce_static_vtables;
 extern int flag_coalesce_out_of_line_inlines;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -P
 
-# $RCSfile: scan_messages,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:11:03 $
+# $RCSfile: scan_messages,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:25 $
 
 # This prints out extraordinary console messages.  You'll need to customize.
 

@@ -5,14 +5,14 @@
 		activeTarget = 089C1673FE841209C02AAC07;
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{600, 523}";
+				ContentSize = "{987, 821}";
 				LeftSlideOut = {
-					ActiveTab = 2;
-					Frame = "{{0, 23}, {600, 500}}";
+					ActiveTab = 3;
+					Frame = "{{0, 23}, {987, 798}}";
 					Split0 = {
-						Frame = "{{225, 0}, {375, 500}}";
+						Frame = "{{225, 0}, {762, 798}}";
 						Split0 = {
-							Frame = "{{0, 25}, {375, 475}}";
+							Frame = "{{0, 25}, {762, 773}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -62,25 +62,33 @@
 						Frame = "{{0, 0}, {200, 500}}";
 					};
 					Tab1 = {
+						ClassesFrame = "{{0, 0}, {202, 56}}";
 						Frame = "{{0, 0}, {200, 100}}";
+						MembersFrame = "{{0, 65}, {202, 35}}";
+						OptionsSetName = "Default Options";
 					};
 					Tab2 = {
-						Frame = "{{0, 0}, {200, 500}}";
+						Frame = "{{0, 0}, {200, 100}}";
+					};
+					Tab3 = {
+						Frame = "{{0, 0}, {200, 798}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 242}}";
+							Frame = "{{0, 0}, {200, 383}}";
 						};
 						Split1 = {
-							Frame = "{{0, 251}, {200, 249}}";
+							Frame = "{{0, 392}, {200, 406}}";
 						};
 						SplitCount = 2;
 					};
-					Tab3 = {
+					Tab4 = {
 						Frame = "{{0, 0}, {250, 100}}";
 					};
-					TabCount = 4;
+					TabCount = 5;
 				};
 			};
 		};
+		wantsIndex = 1;
+		wantsSCM = -1;
 	};
 	089C1673FE841209C02AAC07 = {
 		activeExec = 0;

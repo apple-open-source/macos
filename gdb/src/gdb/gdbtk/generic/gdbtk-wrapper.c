@@ -1,5 +1,5 @@
 /* longjmp-free interface between gdb and gdbtk.
-   Copyright (C) 1999-2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -134,9 +134,7 @@ static int wrap_find_relative_frame (char *opaque_arg);
 static int wrap_get_current_frame (char *opaque_arg);
 
 static gdb_result
-call_wrapped_function (fn, arg)
-     catch_errors_ftype *fn;
-     struct gdb_wrapper_arguments *arg;
+call_wrapped_function (catch_errors_ftype *fn, struct gdb_wrapper_arguments *arg)
 {
   if (!catch_errors (fn, (char *) &arg, "", RETURN_MASK_ERROR))
     {
@@ -148,11 +146,8 @@ call_wrapped_function (fn, arg)
 }
 
 gdb_result
-GDB_type_print (val, varstring, stream, show)
-     value_ptr val;
-     char *varstring;
-     struct ui_file *stream;
-     int show;
+GDB_type_print (value_ptr val, char *varstring,
+		struct ui_file *stream, int show)
 {
   struct gdb_wrapper_arguments args;
 
@@ -164,8 +159,7 @@ GDB_type_print (val, varstring, stream, show)
 }
 
 static int
-wrap_type_print (a)
-     char *a;
+wrap_type_print (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
   value_ptr val = (value_ptr) (*args)->args[0];
@@ -177,16 +171,14 @@ wrap_type_print (a)
 }
 
 gdb_result
-GDB_val_print (type, valaddr, address, stream, format, deref_ref,
-	       recurse, pretty)
-     struct type *type;
-     char *valaddr;
-     CORE_ADDR address;
-     struct ui_file *stream;
-     int format;
-     int deref_ref;
-     int recurse;
-     enum val_prettyprint pretty;
+GDB_val_print (struct type *type,
+	       char *valaddr,
+	       CORE_ADDR address,
+	       struct ui_file *stream,
+	       int format,
+	       int deref_ref,
+	       int recurse,
+	       enum val_prettyprint pretty)
 {
   struct gdb_wrapper_arguments args;
 
@@ -203,8 +195,7 @@ GDB_val_print (type, valaddr, address, stream, format, deref_ref,
 }
 
 static int
-wrap_val_print (a)
-     char *a;
+wrap_val_print (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
   struct type *type;
@@ -231,8 +222,7 @@ wrap_val_print (a)
 }
 
 gdb_result
-GDB_value_fetch_lazy (value)
-     value_ptr value;
+GDB_value_fetch_lazy (value_ptr value)
 {
   struct gdb_wrapper_arguments args;
 
@@ -241,8 +231,7 @@ GDB_value_fetch_lazy (value)
 }
 
 static int
-wrap_value_fetch_lazy (a)
-     char *a;
+wrap_value_fetch_lazy (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
 
@@ -251,9 +240,7 @@ wrap_value_fetch_lazy (a)
 }
 
 gdb_result
-GDB_evaluate_expression (exp, value)
-     struct expression *exp;
-     value_ptr *value;
+GDB_evaluate_expression (struct expression *exp, value_ptr *value)
 {
   struct gdb_wrapper_arguments args;
   gdb_result result;
@@ -268,8 +255,7 @@ GDB_evaluate_expression (exp, value)
 }
 
 static int
-wrap_evaluate_expression (a)
-     char *a;
+wrap_evaluate_expression (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
 
@@ -279,9 +265,7 @@ wrap_evaluate_expression (a)
 }
 
 gdb_result
-GDB_select_frame (fi, level)
-     struct frame_info *fi;
-     int level;
+GDB_select_frame (struct frame_info *fi, int level)
 {
   struct gdb_wrapper_arguments args;
 
@@ -292,8 +276,7 @@ GDB_select_frame (fi, level)
 }
 
 static int
-wrap_select_frame (a)
-     char *a;
+wrap_select_frame (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
   int level = *(int *) (*args)->args[1];
@@ -324,8 +307,7 @@ GDB_value_equal (val1, val2, result)
 }
 
 static int
-wrap_value_equal (a)
-     char *a;
+wrap_value_equal (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
   value_ptr val1, val2;
@@ -338,11 +320,8 @@ wrap_value_equal (a)
 }
 
 gdb_result
-GDB_parse_exp_1 (stringptr, block, comma, result)
-     char **stringptr;
-     struct block *block;
-     int comma;
-     struct expression **result;
+GDB_parse_exp_1 (char **stringptr, struct block *block,
+		 int comma, struct expression **result)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -360,8 +339,7 @@ GDB_parse_exp_1 (stringptr, block, comma, result)
 }
 
 static int
-wrap_parse_exp_1 (opaque_arg)
-     char *opaque_arg;
+wrap_parse_exp_1 (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   struct block *block;
@@ -377,9 +355,7 @@ wrap_parse_exp_1 (opaque_arg)
 }
 
 gdb_result
-GDB_evaluate_type (exp, result)
-     struct expression *exp;
-     value_ptr *result;
+GDB_evaluate_type (struct expression *exp, value_ptr *result)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -395,8 +371,7 @@ GDB_evaluate_type (exp, result)
 }
 
 static int
-wrap_evaluate_type (opaque_arg)
-     char *opaque_arg;
+wrap_evaluate_type (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   struct expression *exp;
@@ -407,9 +382,7 @@ wrap_evaluate_type (opaque_arg)
 }
 
 gdb_result
-GDB_block_for_pc (pc, result)
-     CORE_ADDR pc;
-     struct block **result;
+GDB_block_for_pc (CORE_ADDR pc, struct block **result)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -425,8 +398,7 @@ GDB_block_for_pc (pc, result)
 }
 
 static int
-wrap_block_for_pc (opaque_arg)
-     char *opaque_arg;
+wrap_block_for_pc (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   CORE_ADDR pc;
@@ -437,9 +409,7 @@ wrap_block_for_pc (opaque_arg)
 }
 
 gdb_result
-GDB_block_innermost_frame (block, result)
-     struct block *block;
-     struct frame_info **result;
+GDB_block_innermost_frame (struct block *block, struct frame_info **result)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -455,8 +425,7 @@ GDB_block_innermost_frame (block, result)
 }
 
 static int
-wrap_block_innermost_frame (opaque_arg)
-     char *opaque_arg;
+wrap_block_innermost_frame (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   struct block *block;
@@ -479,17 +448,15 @@ GDB_reinit_frame_cache ()
 }
 
 static int
-wrap_reinit_frame_cache (opaque_arg)
-     char *opaque_arg;
+wrap_reinit_frame_cache (char *opaque_arg)
 {
   reinit_frame_cache ();
   return 1;
 }
 
 gdb_result
-GDB_find_frame_addr_in_frame_chain (addr, result)
-     CORE_ADDR addr;
-     struct frame_info **result;
+GDB_find_frame_addr_in_frame_chain (CORE_ADDR addr, 
+				    struct frame_info **result)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -505,8 +472,7 @@ GDB_find_frame_addr_in_frame_chain (addr, result)
 }
 
 static int
-wrap_find_frame_addr_in_frame_chain (opaque_arg)
-     char *opaque_arg;
+wrap_find_frame_addr_in_frame_chain (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   CORE_ADDR addr;
@@ -517,9 +483,7 @@ wrap_find_frame_addr_in_frame_chain (opaque_arg)
 }
 
 gdb_result
-GDB_value_ind (val, rval)
-     value_ptr val;
-     value_ptr *rval;
+GDB_value_ind (value_ptr val, value_ptr *rval)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -535,8 +499,7 @@ GDB_value_ind (val, rval)
 }
 
 static int
-wrap_value_ind (opaque_arg)
-     char *opaque_arg;
+wrap_value_ind (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   value_ptr val;
@@ -547,11 +510,7 @@ wrap_value_ind (opaque_arg)
 }
 
 gdb_result
-GDB_value_slice (val, low, num, rval)
-     value_ptr val;
-     int low;
-     int num;
-     value_ptr *rval;
+GDB_value_slice (value_ptr val, int low, int num, value_ptr *rval)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -569,8 +528,7 @@ GDB_value_slice (val, low, num, rval)
 }
 
 static int
-wrap_value_slice (opaque_arg)
-     char *opaque_arg;
+wrap_value_slice (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   value_ptr val;
@@ -603,8 +561,7 @@ GDB_value_coerce_array (val, rval)
 }
 
 static int
-wrap_value_coerce_array (opaque_arg)
-     char *opaque_arg;
+wrap_value_coerce_array (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   value_ptr val;
@@ -615,13 +572,12 @@ wrap_value_coerce_array (opaque_arg)
 }
 
 gdb_result
-GDB_value_struct_elt (argp, args, name, static_memfunc, err, rval)
-     value_ptr *argp;
-     value_ptr *args;
-     char *name;
-     int *static_memfunc;
-     char *err;
-     value_ptr *rval;
+GDB_value_struct_elt (value_ptr *argp,
+		      value_ptr *args,
+		      char *name,
+		      int *static_memfunc,
+		      char *err,
+		      value_ptr *rval)
 {
   struct gdb_wrapper_arguments argss;
   gdb_result r;
@@ -640,8 +596,7 @@ GDB_value_struct_elt (argp, args, name, static_memfunc, err, rval)
 }
 
 static int
-wrap_value_struct_elt (opaque_arg)
-     char *opaque_arg;
+wrap_value_struct_elt (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **argss = (struct gdb_wrapper_arguments **) opaque_arg;
   value_ptr *argp, *args;
@@ -660,10 +615,7 @@ wrap_value_struct_elt (opaque_arg)
 }
 
 gdb_result
-GDB_value_cast (type, val, rval)
-     struct type *type;
-     value_ptr val;
-     value_ptr *rval;
+GDB_value_cast (struct type *type, value_ptr val, value_ptr *rval)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -680,8 +632,7 @@ GDB_value_cast (type, val, rval)
 }
 
 static int
-wrap_value_cast (opaque_arg)
-     char *opaque_arg;
+wrap_value_cast (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   value_ptr val;
@@ -695,9 +646,7 @@ wrap_value_cast (opaque_arg)
 }
 
 gdb_result
-GDB_get_frame_block (fi, rval)
-     struct frame_info *fi;
-     struct block **rval;
+GDB_get_frame_block (struct frame_info *fi, struct block **rval)
 {
   struct gdb_wrapper_arguments args;
   gdb_result r;
@@ -713,8 +662,7 @@ GDB_get_frame_block (fi, rval)
 }
 
 static int
-wrap_get_frame_block (opaque_arg)
-     char *opaque_arg;
+wrap_get_frame_block (char *opaque_arg)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) opaque_arg;
   struct frame_info *fi;

@@ -1,5 +1,5 @@
 /* Functions taken directly from X sources for use with the Microsoft W32 API.
-   Copyright (C) 1989, 1992, 1993, 1994, 1995 Free Software Foundation.
+   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1999 Free Software Foundation.
 
 This file is part of GNU Emacs.
 
@@ -18,10 +18,11 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include <signal.h>
 #include <config.h>
+#include <signal.h>
 #include <stdio.h>
 #include "lisp.h"
+#include "keyboard.h"
 #include "frame.h"
 #include "charset.h"
 #include "fontset.h"
@@ -83,9 +84,17 @@ signal_quit ()
 void
 select_palette (FRAME_PTR f, HDC hdc)
 {
+  struct w32_display_info *display_info = FRAME_W32_DISPLAY_INFO (f);
+
+  if (!display_info->has_palette)
+    return;
+
+  if (display_info->palette == 0)
+    return;
+
   if (!NILP (Vw32_enable_palette))
     f->output_data.w32->old_palette =
-      SelectPalette (hdc, one_w32_display_info.palette, FALSE);
+      SelectPalette (hdc, display_info->palette, FALSE);
   else
     f->output_data.w32->old_palette = NULL;
 
@@ -113,10 +122,17 @@ get_frame_dc (FRAME_PTR f)
 {
   HDC hdc;
 
+  if (f->output_method != output_w32)
+    abort ();
+
   enter_crit ();
 
   hdc = GetDC (f->output_data.w32->window_desc);
-  select_palette (f, hdc);
+
+  /* If this gets called during startup before the frame is valid,
+     there is a chance of corrupting random data or crashing. */
+  if (hdc)
+    select_palette (f, hdc);
 
   return hdc;
 }

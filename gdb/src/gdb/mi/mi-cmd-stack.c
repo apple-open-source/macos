@@ -1,5 +1,5 @@
 /* MI Command Set - stack commands.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -28,8 +28,9 @@
 #include "varobj.h"
 #include "wrapper.h"
 #include "interpreter.h"
+#include "symtab.h"
+#include "symtab.h"
 
-#ifdef UI_OUT
 /* FIXME: these should go in some .h file but stack.c doesn't have a
    corresponding .h file. These wrappers will be obsolete anyway, once
    we pull the plug on the sanitization. */
@@ -51,7 +52,6 @@ extern struct gdb_interpreter *mi_interp;
 void mi_print_frame_more_info (struct ui_out *uiout,
 				struct symtab_and_line *sal,
 				struct frame_info *fi);
-#endif
 
 static void list_args_or_locals (int locals, int values, 
 				 struct frame_info *fi,
@@ -167,13 +167,17 @@ mi_cmd_stack_info_depth (char *command, char **argv, int argc)
        the stack. */
     frame_high = -1;
 
-  for (i = 0, fi = get_current_frame ();
-       fi && (i < frame_high || frame_high == -1);
-       i++, fi = get_prev_frame (fi))
-    QUIT;
-
+#ifdef FAST_COUNT_STACK_DEPTH
+  if (!FAST_COUNT_STACK_DEPTH (&i))
+#endif
+    {
+      for (i = 0, fi = get_current_frame ();
+	   fi && (i < frame_high || frame_high == -1);
+	   i++, fi = get_prev_frame (fi))
+	QUIT;
+    }
   ui_out_field_int (uiout, "depth", i);
-
+  
   return MI_CMD_DONE;
 }
 
@@ -255,10 +259,10 @@ mi_cmd_stack_list_args (char *command, char **argv, int argc)
        i++, fi = get_prev_frame (fi))
     {
       QUIT;
-      ui_out_list_begin (uiout, "frame");
+      ui_out_tuple_begin (uiout, "frame");
       ui_out_field_int (uiout, "level", i); 
       list_args_or_locals (0, values, fi, 0, create_varobj);
-      ui_out_list_end (uiout);
+      ui_out_tuple_end (uiout);
     }
 
   ui_out_list_end (uiout);
@@ -280,7 +284,6 @@ list_args_or_locals (int locals, int values, struct frame_info *fi,
 {
   struct block *block = NULL;
   int i, nsyms;
-  int print_me = 0;
   static struct ui_stream *stb = NULL;
 
   stb = ui_out_stream_new (uiout);
@@ -290,7 +293,7 @@ list_args_or_locals (int locals, int values, struct frame_info *fi,
   if (all_blocks)
     {
       CORE_ADDR fstart;
-      int endaddr;
+      CORE_ADDR endaddr;
       int index;
       int nblocks;
       struct blockvector *bv;
@@ -331,7 +334,7 @@ list_args_or_locals (int locals, int values, struct frame_info *fi,
     }
   else
     {
-      block = get_frame_block (fi);
+      block = get_frame_block (fi, 0);
 
       while (block != 0)
 	{
@@ -371,10 +374,10 @@ print_syms_for_block (struct block *block,
   error_stb = ui_out_stream_new (uiout);
   old_chain = make_cleanup_ui_out_stream_delete (error_stb);
 
-  for (i = 0; i < nsyms; i++)
+  ALL_BLOCK_SYMBOLS (block, i, sym)
     {
-      sym = BLOCK_SYM (block, i);
       print_me = 0;
+
       switch (SYMBOL_CLASS (sym))
 	{
 	default:
@@ -388,7 +391,7 @@ print_syms_for_block (struct block *block,
 	case LOC_OPTIMIZED_OUT:	/* optimized out         */
 	  print_me = 0;
 	  break;
-	  
+
 	case LOC_ARG:	/* argument              */
 	case LOC_REF_ARG:	/* reference arg         */
 	case LOC_REGPARM:	/* register arg          */
@@ -398,7 +401,7 @@ print_syms_for_block (struct block *block,
 	  if (!locals)
 	    print_me = 1;
 	  break;
-	  
+
 	case LOC_LOCAL:	/* stack local           */
 	case LOC_BASEREG:	/* basereg local         */
 	case LOC_STATIC:	/* static                */
@@ -412,16 +415,13 @@ print_syms_for_block (struct block *block,
 	{
 	  struct symbol *sym2;
 
-	  if (create_varobj)
-	    ui_out_list_begin (uiout, "varobj");
-	  else if (values)
-	    ui_out_list_begin (uiout, NULL);
-
-	  if (!create_varobj)
-	    ui_out_field_string (uiout, "name", SYMBOL_NAME (sym));
-
 	  if (!create_varobj && !values)
-	    continue;
+	    {
+	      ui_out_list_begin (uiout, NULL);
+	      ui_out_field_string (uiout, "name", SYMBOL_NAME (sym));
+	      ui_out_list_end (uiout);
+	      continue;
+	    }
 
 	  if (!locals)
 	    sym2 = lookup_symbol (SYMBOL_NAME (sym),
@@ -436,9 +436,18 @@ print_syms_for_block (struct block *block,
 	      struct varobj *new_var;
 	      new_var = varobj_create (varobj_gen_name (), 
 				       SYMBOL_NAME (sym2),
-				       (CORE_ADDR) block,
+				       fi->frame,
+				       block,
 				       USE_BLOCK_IN_FRAME);
 
+	      /* FIXME: There should be a better way to report an error in 
+		 creating a variable here, but I am not sure how to do it,
+	         so I will just bag out for now. */
+
+	      if (new_var == NULL)
+		continue;
+
+	      ui_out_list_begin (uiout, "varobj");
 	      ui_out_field_string (uiout, "exp", SYMBOL_NAME (sym));
 	      if (values)
 		{
@@ -472,6 +481,8 @@ print_syms_for_block (struct block *block,
 	    }	  
 	  else
 	    {
+	      ui_out_list_begin (uiout, NULL);
+	      ui_out_field_string (uiout, "name", SYMBOL_NAME (sym));
 	      print_variable_value (sym2, fi, stb->stream);
 	      ui_out_field_stream (uiout, "value", stb);
 	    }
@@ -485,7 +496,6 @@ print_syms_for_block (struct block *block,
 enum mi_cmd_result
 mi_cmd_stack_select_frame (char *command, char **argv, int argc)
 {
-#ifdef UI_OUT
   if (!target_has_stack)
     error ("mi_cmd_stack_select_frame: No stack.");
 
@@ -497,7 +507,6 @@ mi_cmd_stack_select_frame (char *command, char **argv, int argc)
     select_frame_command_wrapper (0, 1 /* not used */ );
   else
     select_frame_command_wrapper (argv[0], 1 /* not used */ );
-#endif
   return MI_CMD_DONE;
 }
 

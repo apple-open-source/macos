@@ -346,6 +346,7 @@ BIGNUM *BN_CTX_get(BN_CTX *ctx);
 void	BN_CTX_end(BN_CTX *ctx);
 int     BN_rand(BIGNUM *rnd, int bits, int top,int bottom);
 int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top,int bottom);
+int	BN_rand_range(BIGNUM *rnd, BIGNUM *range);
 int	BN_num_bits(const BIGNUM *a);
 int	BN_num_bits_word(BN_ULONG);
 BIGNUM *BN_new(void);
@@ -381,6 +382,8 @@ int	BN_exp(BIGNUM *r, BIGNUM *a, BIGNUM *p,BN_CTX *ctx);
 int	BN_mod_exp(BIGNUM *r, BIGNUM *a, const BIGNUM *p,
 		   const BIGNUM *m,BN_CTX *ctx);
 int	BN_mod_exp_mont(BIGNUM *r, BIGNUM *a, const BIGNUM *p,
+			const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
+int	BN_mod_exp_mont_word(BIGNUM *r, BN_ULONG a, const BIGNUM *p,
 			const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
 int	BN_mod_exp2_mont(BIGNUM *r, BIGNUM *a1, BIGNUM *p1,BIGNUM *a2,
 		BIGNUM *p2,BIGNUM *m,BN_CTX *ctx,BN_MONT_CTX *m_ctx);
@@ -504,11 +507,13 @@ BN_ULONG bn_sub_words(BN_ULONG *rp, BN_ULONG *ap, BN_ULONG *bp,int num);
 #define BN_F_BN_DIV					 107
 #define BN_F_BN_EXPAND2					 108
 #define BN_F_BN_MOD_EXP_MONT				 109
+#define BN_F_BN_MOD_EXP_MONT_WORD			 117
 #define BN_F_BN_MOD_INVERSE				 110
 #define BN_F_BN_MOD_MUL_RECIPROCAL			 111
 #define BN_F_BN_MPI2BN					 112
 #define BN_F_BN_NEW					 113
 #define BN_F_BN_RAND					 114
+#define BN_F_BN_RAND_RANGE				 122
 #define BN_F_BN_USUB					 115
 
 /* Reason codes. */
@@ -519,6 +524,7 @@ BN_ULONG bn_sub_words(BN_ULONG *rp, BN_ULONG *ap, BN_ULONG *bp,int num);
 #define BN_R_ENCODING_ERROR				 104
 #define BN_R_EXPAND_ON_STATIC_BIGNUM_DATA		 105
 #define BN_R_INVALID_LENGTH				 106
+#define BN_R_INVALID_RANGE				 115
 #define BN_R_NOT_INITIALIZED				 107
 #define BN_R_NO_INVERSE					 108
 #define BN_R_TOO_MANY_TEMPORARY_VARIABLES		 109

@@ -74,6 +74,7 @@ extern int gdb_delete_interpreter(struct gdb_interpreter *interp);
 extern int gdb_set_interpreter (struct gdb_interpreter *interp);
 extern struct gdb_interpreter *gdb_lookup_interpreter (char *name);
 extern struct gdb_interpreter *gdb_current_interpreter ();
+extern struct ui_out *gdb_interpreter_ui_out (struct gdb_interpreter *interp);
 extern int gdb_current_interpreter_is_named(char *interp_name);
 extern int gdb_interpreter_exec (char *command_str);
 extern int gdb_interpreter_display_prompt (char *new_prompt);

@@ -22,24 +22,19 @@
 #include "defs.h"
 #include "serial.h"
 
-#ifdef _MSC_VER
-# include <stdlib.h>
-# define sleep _sleep
-#endif
-
 /* Flush all pending input and output for SERIAL, wait for a second, and
    then if there is a character pending, discard it and flush again.  */
 
 int
 tty_flush (serial)
-     serial_t serial;
+     struct serial *serial;
 {
   while (1)
     {
-      SERIAL_FLUSH_INPUT (serial);
-      SERIAL_FLUSH_OUTPUT (serial);
+      serial_flush_input (serial);
+      serial_flush_output (serial);
       sleep(1);
-      switch (SERIAL_READCHAR (serial, 0))
+      switch (serial_readchar (serial, 0))
 	{
 	case SERIAL_TIMEOUT:
 	case SERIAL_ERROR:

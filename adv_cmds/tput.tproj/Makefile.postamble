@@ -1,6 +1,0 @@
-${SYMDIR}/clear: clear.sh
-	$(CP) clear.sh ${SYM_DIR}/clear
-
-after_install::
-	$(CP) -p ${SYM_DIR}/clear $(DSTROOT)$(INSTALLDIR)/clear
-	$(CHMOD) 555 $(DSTROOT)$(INSTALLDIR)/clear

@@ -3,6 +3,7 @@
     FILESTABLE = {
         FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
         FRAMEWORKSEARCH = ("$(NEXT_ROOT)/System/Library/PrivateFrameworks"); 
+        HEADERSEARCH = (../bootplib); 
         LIBRARYSEARCH = (); 
         OTHER_LIBS = (bootplib); 
         OTHER_LINKED = (client.c); 

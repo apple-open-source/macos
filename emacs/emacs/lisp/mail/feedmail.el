@@ -1,6 +1,13 @@
 ;;; feedmail.el --- assist other email packages to massage outgoing messages
 ;;; This file is in the public domain.
 
+;; This file is part of GNU Emacs.
+
+;; Author: Bill Carpenter <bill@bubblegum.net>, <bill@carpenter.ORG>
+;; Version: 8
+;; Keywords: email, queue, mail, sendmail, message, spray, smtp, draft
+;; X-URL: <URL:http://www.carpenter.org/feedmail/feedmail.html>
+
 ;;; Commentary:
 
 ;; A replacement for parts of Emacs' sendmail.el (specifically,
@@ -19,10 +26,6 @@
 ;; this specific piece of code.  No warranty or promise of support is
 ;; offered.  This code is hereby released into the public domain.
 
-;; Author: Bill Carpenter <bill@bubblegum.net>, <bill@carpenter.ORG>
-;; Version: 8
-;; Keywords: email, queue, mail, sendmail, message, spray, smtp, draft
-;; Where: <URL:http://www.carpenter.org/feedmail/feedmail.html>
 ;; Thanks: My thanks to the many people who have sent me suggestions
 ;;    and fixes over time, as well as those who have tested many beta
 ;;    iterations.  Some are cited in comments in code fragments below,
@@ -299,9 +302,13 @@
     (defmacro defcustom (var value doc &rest args)
       (` (defvar (, var) (, value) (, doc))))))
 
+(eval-when-compile (require 'smtpmail))
+(autoload 'mail-do-fcc "sendmail")
 
 (defgroup feedmail nil
   "Assist other email packages to massage outgoing messages."
+  :link '(url-link "http://www.carpenter.org/feedmail/feedmail.html")
+  :link '(emacs-commentary "feedmail")
   :group 'mail)
 
 (defgroup feedmail-misc nil
@@ -426,7 +433,6 @@ beginning of the body intact.  The result is that the Fcc: copy will
 consist only of the message headers, serving as a sort of an outgoing
 message log."
   :group 'feedmail-headers
-  ;;:type 'boolean
   :type '(choice (const nil) (const t) integer)
   )
 
@@ -1348,7 +1354,7 @@ complicated cases."
 ;;   Mon 14-Oct-1996; Douglas Gray Stephens
 ;;   modified to insert error for displaying
 (defun feedmail-buffer-to-smtpmail (prepped errors-to addr-listoid)
-  "Function which actually calls smtpmail-via-smtp to send buffer as e-mail."
+  "Function which actually calls `smtpmail-via-smtp' to send buffer as e-mail."
   ;; I'm not sure smtpmail.el is careful about the following
   ;; return value, but it also uses it internally, so I will fear
   ;; no evil.
@@ -1427,14 +1433,11 @@ FOLDING can be nil, in which case VALUE is used as-is.  If FOLDING is
 non-nil, feedmail \"smart filling\" is done on VALUE just before
 insertion.")
 
-
+;;;###autoload
 (defun feedmail-send-it ()
-  "A function which is a suitable value for `send-mail-function'.
-To use it, you probably want something like this in your .emacs or
-similar place:
-
-  (setq send-mail-function 'feedmail-send-it)
-  (autoload 'feedmail-send-it \"feedmail\")"
+  "Send the current mail buffer using the Feedmail package.
+This is a suitable value for `send-mail-function'.  It can be used
+with various lower-level mechanisms to provide features such as queueing."
 
   ;; avoid matching trouble over slash vs backslash by getting canonical
   (if feedmail-queue-directory
@@ -1767,7 +1770,7 @@ you can set feedmail-queue-reminder-alist to nil."
 
 (defun feedmail-queue-send-edit-prompt-help (d-string)
   (let ((fqm-help (get-buffer feedmail-p-h-b-n)))
-    (if (and fqm-help (get-buffer-window fqm-help))
+    (if (and fqm-help (get-buffer-window fqm-help 'visible))
 	(feedmail-queue-send-edit-prompt-help-later fqm-help d-string)
       (feedmail-queue-send-edit-prompt-help-first d-string))))
 
@@ -2651,10 +2654,20 @@ been weeded out."
   "Internal; finds the end of message header fields, returns mark just before it"
   (save-excursion
     (goto-char (point-min))
-    (if (re-search-forward (concat "^" (regexp-quote mail-header-separator) "\n") nil noerror)
-	(progn
-	  (forward-line -1)
-	  (point-marker)))))
+    (when (or (re-search-forward (concat "^"
+					 (regexp-quote mail-header-separator)
+					 "\n")
+				 nil noerror)
+	      (and feedmail-queue-alternative-mail-header-separator
+		   (re-search-forward
+		    (concat "^"
+			    (regexp-quote
+			     feedmail-queue-alternative-mail-header-separator)
+			    "\n")
+		    nil noerror)))
+      (forward-line -1)
+      (point-marker))))
 
 (provide 'feedmail)
+
 ;;; feedmail.el ends here

@@ -51,6 +51,7 @@ __RCSID("$NetBSD: ul.c,v 1.6 1997/10/20 02:08:29 lukem Exp $");
 #include <string.h>
 #ifdef __APPLE__
 #include <curses.h>
+#include <term.h>
 #else
 #include <termcap.h>
 #endif
@@ -89,14 +90,14 @@ int	upln;
 int	iflag;
 
 int	main __P((int, char **));
-void	filter __P((FILE *));
+void	ul_filter __P((FILE *));
 void	flushln __P((void));
 void	fwd __P((void));
 void	iattr __P((void));
 void	initbuf __P((void));
 void	initcap __P((void));
 void	outc __P((int));
-void	outchar __P((int));
+int	outchar __P((int));
 void	overstrike __P((void));
 void	reverse __P((void));
 void	setulmode __P((int));
@@ -157,7 +158,7 @@ main(argc, argv)
 			must_overstrike = 1;
 	initbuf();
 	if (optind == argc)
-		filter(stdin);
+		ul_filter(stdin);
 	else for (; optind<argc; optind++) {
 		f = fopen(argv[optind],"r");
 		if (f == NULL) {
@@ -165,14 +166,14 @@ main(argc, argv)
 			exit(1);
 		}
 
-		filter(f);
+		ul_filter(f);
 		fclose(f);
 	}
 	exit(0);
 }
 
 void
-filter(f)
+ul_filter(f)
 	FILE *f;
 {
 	int c;
@@ -472,11 +473,13 @@ initcap()
 	must_use_uc = (UNDER_CHAR && !ENTER_UNDERLINE);
 }
 
-void
+int
 outchar(c)
 	int c;
 {
 	putchar(c & 0177);
+
+	return OK;
 }
 
 static int curmode = 0;

@@ -1,0 +1,12 @@
+#! /bin/sh
+
+# Test to make sure depcomp isn't always required.
+
+. $srcdir/defs || exit 1
+
+rm -f depcomp
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -28,7 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wno-error -traditional-cpp
+NEXTSTEP_PB_CFLAGS = -Wall -no-cpp-precomp
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

@@ -1,3 +1,5 @@
+#ifndef _S_UTIL_H
+#define _S_UTIL_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -20,17 +22,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <netinet/in.h>
-#import <sys/types.h>
-#import <sys/stat.h>
-#import <sys/param.h>
-#import <errno.h>
-#import <mach/boolean.h>
-#import <string.h>
-#import <ctype.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <errno.h>
+#include <mach/boolean.h>
+#include <string.h>
+#include <ctype.h>
+#include <net/ethernet.h>
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip, i)	(((u_char *)(ip))[i])
@@ -94,3 +97,7 @@ char *  tagtext_get(char * data, char * data_end, char * tag, char * * end_p);
 
 void	timestamp_syslog(char * msg);
 void	timestamp_printf(char * msg);
+int	ether_cmp(struct ether_addr * e1, struct ether_addr * e2);
+int	dns_hostname_is_clean(const char * source_str);
+
+#endif _S_UTIL_H

@@ -29,10 +29,15 @@ enum {
     kInGainLeft = 4,
     kInGainRight = 5,
     kInputSelector = 6,
+	kOutVolMaster = 7,
+	kPRAMVol = 8,
+	kHeadphoneInsert = 9,
+	kInputInsert = 10,
     kNumControls
 };
 
-#define kPowerDownDelayTime 30000000000ULL
+#define kBatteryPowerDownDelayTime		30000000000ULL				// 30 seconds
+#define kACPowerDownDelayTime			300000000000ULL				// 300 seconds == 5 minutes
 #define kiSubMaxVolume		60
 #define kiSubVolumePercent	92
 
@@ -50,90 +55,97 @@ class AppleOnboardAudio : public IOAudioDevice
     OSDeclareDefaultStructors(AppleOnboardAudio);
 
 protected:
-        //general controls : these are the default controls attached to a DMA audio engine
+	// general controls : these are the default controls attached to a DMA audio engine
     IOAudioToggleControl *		outMute;
     IOAudioToggleControl *		playthruToggle;
+	IOAudioToggleControl *		headphoneConnection;
+	IOAudioToggleControl *		inputConnection;
+	IOAudioLevelControl *		pramVol;
+	IOAudioLevelControl *		outVolMaster;
     IOAudioLevelControl *		outVolLeft;
     IOAudioLevelControl *		outVolRight;
     IOAudioLevelControl *		inGainLeft;
     IOAudioLevelControl *		inGainRight;
     IOAudioSelectorControl *	inputSelector;
+	IOAudioSelectorControl *	outputSelector;			// This is a read only selector
         
-        //globals for the driver
-    bool						gIsMute;			// global mute (that is on all the ports)
+	// globals for the driver
+    bool						gIsMute;					// global mute (that is on all the ports)
     bool						gIsPlayThroughActive;		// playthrough mode is on
-    UInt32      				gVolLeft;
-    UInt32      				gVolRight;
-    UInt32      				gGainLeft;
-    UInt32      				gGainRight;
+    SInt32      				gVolLeft;
+    SInt32      				gVolRight;
+    SInt32      				gGainLeft;
+    SInt32      				gGainRight;
     bool 						gHasModemSound;
     bool 						gIsModemSoundActive;
     UInt32						gLastInputSourceBeforeModem;
-    bool						gExpertMode;			//when off we are in a OS 9 like config. On we 
+    bool						gExpertMode;				// when off we are in a OS 9 like config. On we 
     UInt32						fMaxVolume;
     UInt32						fMinVolume;
-	IOAudioDevicePowerState		fNewPowerState;
 	IOAudioDevicePowerState		ourPowerState;
 	Boolean						shuttingDown;
-	IONotifier *				powerHandler;
-	IOTimerEventSource *		idleTimer;
 
-            //we keep the engines around to have a cleaner initHardware
-    AppleDBDMAAudioDMAEngine 	*driverDMAEngine;
+	// we keep the engines around to have a cleaner initHardware
+    AppleDBDMAAudioDMAEngine *	driverDMAEngine;
 
-        //Port Handler like info
-    OSArray	*AudioDetects;
-    OSArray	*AudioOutputs;
-    OSArray	*AudioInputs;
-    OSArray	*AudioSoftDSPFeatures;
+	// Port Handler like info
+    OSArray	*					AudioDetects;
+    OSArray	*					AudioOutputs;
+    OSArray	*					AudioInputs;
+    OSArray	*					AudioSoftDSPFeatures;
     
-        //Other objects
-    AudioDeviceTreeParser 	*theAudioDeviceTreeParser;
-    AudioPowerObject		*theAudioPowerObject;
+	// Other objects
+    AudioDeviceTreeParser *		theAudioDeviceTreeParser;
+    AudioPowerObject *			theAudioPowerObject;
     
-        //Dynamic variable that handle the connected devices
-    sndHWDeviceSpec currentDevices;
-    bool 	fCPUNeedsPhaseInversion;	//true if this CPU's channels are out-of-phase
+	// Dynamic variable that handle the connected devices
+    sndHWDeviceSpec				currentDevices;
+    bool 						fCPUNeedsPhaseInversion;	// true if this CPU's channels are out-of-phase
+    bool 						mHasHardwareInputGain;		// aml 5.3.02
+    IOFixed 					mDefaultInMinDB;			// aml 5.24.02, added for saving input control range
+	IOFixed 					mDefaultInMaxDB;
+	bool 						mRangeInChanged;	
+	
+	DualMonoModeType			mInternalMicDualMonoMode;	// aml 6.17.02
 
 public:
-            //Classical Unix funxtions
+	// Classical Unix funxtions
     virtual bool init(OSDictionary *properties);
     virtual void free();
     virtual IOService* probe(IOService *provider, SInt32*);
 
     bool     getMuteState();
     void     setMuteState(bool newMuteState);
-            //Usefule getter
+	// Useful getter
     virtual OSArray *getDetectArray();
-            //IOAudioDevice subclass
+	// IOAudioDevice subclass
     virtual bool initHardware(IOService *provider);
     virtual IOReturn createDefaultsPorts();
     
     virtual IORegistryEntry * FindEntryByNameAndProperty (const IORegistryEntry * start, const char * name, const char * key, UInt32 value);
 
-    static IOReturn volumeChangeHandler (IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
-    static IOReturn volumeChangeAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn outputControlChangeHandler (IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
+	static IOReturn inputControlChangeHandler (IOService *target, IOAudioControl *control, SInt32 oldValue, SInt32 newValue);
 
-    static IOReturn volumeLeftChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn volumeLeftChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
+//	virtual IOReturn setiSubVolume (UInt32 iSubVolumeControl, SInt32 iSubVolumeLevel);
+//	virtual IOReturn setiSubMute (UInt32 setMute);
+
+	virtual IOReturn volumeMasterChange(SInt32 newValue);
+    virtual IOReturn volumeLeftChange(SInt32 newValue);
+    virtual IOReturn volumeRightChange(SInt32 newValue);
+	virtual IOReturn outputMuteChange(SInt32 newValue);
+
+//    static IOReturn gainLeftChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
+    virtual IOReturn gainLeftChanged(SInt32 newValue);
+
+//    static IOReturn gainRightChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
+    virtual IOReturn gainRightChanged(SInt32 newValue);
     
-    static IOReturn volumeRightChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn volumeRightChanged(IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue);
-    
-    static IOReturn outputMuteChangeHandler(IOService *target, IOAudioControl *muteControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn outputMuteChanged(IOAudioControl *muteControl, SInt32 oldValue, SInt32 newValue);
+//    static IOReturn passThruChangeHandler(IOService *target, IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
+    virtual IOReturn passThruChanged(SInt32 newValue);
 
-    static IOReturn gainLeftChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn gainLeftChanged(IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
-
-    static IOReturn gainRightChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn gainRightChanged(IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue);
-    
-    static IOReturn passThruChangeHandler(IOService *target, IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn passThruChanged(IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
-
-    static IOReturn inputSelectorChangeHandler(IOService *target, IOAudioControl *inputSelector, SInt32 oldValue, SInt32 newValue);
-    virtual IOReturn inputSelectorChanged(IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
+//    static IOReturn inputSelectorChangeHandler(IOService *target, IOAudioControl *inputSelector, SInt32 oldValue, SInt32 newValue);
+    virtual IOReturn inputSelectorChanged(SInt32 newValue);
 
     virtual IOReturn performPowerStateChange(IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState,
                                                                                             UInt32 *microsecondsUntilComplete);
@@ -148,10 +160,8 @@ public:
 							IOUserClient **	outHandler );
 
 protected:
-            //Do the link to the IOAudioFamily 
-//    virtual bool createPorts(IOAudioEngine *outputDMAEngine, IOAudioEngine *inputDMAEngine);
-  //  virtual IOReturn createDefaultsPorts();
-            //These will help to create the port config through the OF Device Tree
+	// Do the link to the IOAudioFamily 
+	// These will help to create the port config through the OF Device Tree
             
     IOReturn configureDMAEngines(IOService *provider);
     IOReturn parseAndActivateInit(IOService *provider);
@@ -166,8 +176,7 @@ protected:
     void setCurrentDevices(sndHWDeviceSpec devices);
     void changedDeviceHandler(UInt32 odevices);
 
-	static void IdleSleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender);
-	void ScheduleIdle (void);
+	IOReturn setAggressiveness(unsigned long type, unsigned long newLevel);
 
 public:
     virtual void setDeviceDetectionActive() = 0;
@@ -179,8 +188,8 @@ protected:
     void WritePRAMVol (UInt32 volLeft, UInt32 volRight);
 	UInt8 ReadPRAMVol (void);
     
-            //Hardware specific functions : These are all virtual functions and we have to 
-            //to the work here
+	// Hardware specific functions : These are all virtual functions and we have to 
+	// to the work here
     virtual void 		sndHWInitialize(IOService *provider) = 0;
 	virtual void		sndHWPostDMAEngineInit (IOService *provider) = 0;
     virtual UInt32 		sndHWGetInSenseBits(void) = 0;
@@ -193,20 +202,20 @@ public:
     virtual  UInt32 	sndHWGetProgOutput() = 0;
     virtual  IOReturn   sndHWSetProgOutput(UInt32 outputBits) = 0;
 
-			// User Client calls
+	// User Client calls
 	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) = 0;
 	virtual UInt8	readGPIO (UInt32 selector) = 0;
 	virtual void	writeGPIO (UInt32 selector, UInt8 data) = 0;
 
 protected:
 
-            //activation functions
+	// activation functions
     virtual  UInt32	sndHWGetActiveOutputExclusive(void) = 0;
     virtual  IOReturn   sndHWSetActiveOutputExclusive(UInt32 outputPort ) = 0;
     virtual  UInt32 	sndHWGetActiveInputExclusive(void) = 0;
     virtual  IOReturn   sndHWSetActiveInputExclusive(UInt32 input )= 0;
     
-            // control function
+	// control function
     virtual  bool   	sndHWGetSystemMute(void) = 0;
     virtual  IOReturn  	sndHWSetSystemMute(bool mutestate) = 0;
     virtual  bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume) = 0;
@@ -214,9 +223,9 @@ protected:
     virtual  IOReturn	sndHWSetPlayThrough(bool playthroughstate) = 0;
     virtual	 IOReturn	sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain) = 0;
     
-            //Power Management
+	// Power Management
 
-            //Identification
+	// Identification
     virtual UInt32 	sndHWGetType( void ) = 0;
     virtual UInt32	sndHWGetManufacturer( void ) = 0;
 };

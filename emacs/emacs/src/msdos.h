@@ -1,5 +1,5 @@
 /* MS-DOS specific C utilities, interface.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,8 +18,8 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef _MSDOS_H_
-#define _MSDOS_H_
+#ifndef EMACS_MSDOS_H
+#define EMACS_MSDOS_H
 
 #include <dpmi.h>
 
@@ -55,84 +55,84 @@ typedef int XRectangle;
 #define PIX_TYPE int
 #define XDISPLAY
 
+/* A stripped version of struct x_display_info in xterm.h, which see.  */
+struct display_info
+{
+  /* These variables describe the range of text currently shown in its
+     mouse-face, together with the window they apply to.  As long as
+     the mouse stays within this range, we need not redraw anything on
+     its account.  Rows and columns are glyph matrix positions in
+     MOUSE_FACE_WINDOW.  */
+  int mouse_face_beg_row, mouse_face_beg_col;
+  int mouse_face_end_row, mouse_face_end_col;
+  int mouse_face_past_end;
+  Lisp_Object mouse_face_window;
+  int mouse_face_face_id;
+
+  /* 1 if a mouse motion event came and we didn't handle it right away because
+     gc was in progress.  */
+  int mouse_face_deferred_gc;
+
+  /* FRAME and X, Y position of mouse when last checked for
+     highlighting.  X and Y can be negative or out of range for the frame.  */
+  struct frame *mouse_face_mouse_frame;
+  int mouse_face_mouse_x, mouse_face_mouse_y;
+
+  /* Nonzero means defer mouse-motion highlighting.  */
+  int mouse_face_defer;
+};
+
 /* This is a cut-down version of the one in xterm.h, which see.  */
 struct x_output
 {
-  int left_pos;
-  int top_pos;
-  int line_height;
-  PIX_TYPE background_pixel;
-  PIX_TYPE foreground_pixel;
-  XFontStruct *font;
-  struct face **param_faces;
-  int n_param_faces;
-  struct face **computed_faces;
-  int n_computed_faces;
-  int size_computed_faces;
+  int left_pos;			/* used in xmenu_show (xmenu.c) */
+  int top_pos;			/* ditto */
+  int line_height;		/* used in x-popup-menu (xmenu.c) */
+  PIX_TYPE background_pixel;	/* used in xfaces.c and lots of other places */
+  PIX_TYPE foreground_pixel;	/* ditto */
+  XFontStruct *font;		/* used in x-popup-menu (xmenu.c) */
+  Window hourglass_window;	/* currently unused (but maybe some day) */
+  unsigned hourglass_p : 1;	/* ditto */
+  struct display_info display_info; /* used for drawing mouse highlight */
 };
 
 extern struct x_output the_only_x_display;
-extern Display *x_current_display;
 
-#define FRAME_PARAM_FACES(f) (the_only_x_display.param_faces)
-#define FRAME_N_PARAM_FACES(f) (the_only_x_display.n_param_faces)
-#define FRAME_DEFAULT_PARAM_FACE(f) (FRAME_PARAM_FACES (f)[0])
-#define FRAME_MODE_LINE_PARAM_FACE(f) (FRAME_PARAM_FACES (f)[1])
-#define FRAME_COMPUTED_FACES(f) (the_only_x_display.computed_faces)
-#define FRAME_N_COMPUTED_FACES(f) (the_only_x_display.n_computed_faces)
-#define FRAME_SIZE_COMPUTED_FACES(f) (the_only_x_display.size_computed_faces)
-#define FRAME_DEFAULT_FACE(f) (the_only_x_display.computed_faces[0])
-#define FRAME_MODE_LINE_FACE(f) (the_only_x_display.computed_faces[1])
 #define FRAME_X_DISPLAY(f) ((Display *) 0)
 #define FRAME_FOREGROUND_PIXEL(f) (the_only_x_display.foreground_pixel)
 #define FRAME_BACKGROUND_PIXEL(f) (the_only_x_display.background_pixel)
 #define FRAME_FONT(f) (the_only_x_display.font)
+#define FRAME_X_DISPLAY_INFO(f) (&the_only_x_display.display_info)
+
+#define FRAME_INTERNAL_BORDER_WIDTH(f) (0)
 
 /* Prototypes.  */
 
 /* Forward declarations for prototypes.  */
 struct frame;
 struct window;
-extern void init_frame_faces P_ ((struct frame *));
-extern void free_frame_faces P_ ((struct frame *));
-extern struct face *intern_face P_ ((struct frame *, struct face *));
-extern int face_name_id_number P_ ((struct frame *, Lisp_Object));
-extern void recompute_basic_faces P_ ((struct frame *));
-extern int compute_char_face P_ ((struct frame *frame,
-				  struct window *w,
-				  int pos,
-				  int region_beg, int region_end,
-				  int *endptr,
-				  int limit, int mouse));
-extern int compute_glyph_face P_ ((struct frame *, int, int));
+
+/* From xterm.c; emulated on msdos.c */
+
 extern void pixel_to_glyph_coords P_ ((struct frame *f, int pix_x, int pix_y,
 				       int *x, int *y, XRectangle *bounds,
 				       int noclip));
 extern void glyph_to_pixel_coords P_ ((struct frame *f, int x, int y,
 				       int *pix_x, int *pix_y));
 
-/* Defined in xfns.c */
+/* Defined in xfns.c; emulated on msdos.c */
 
 extern int have_menus_p P_ ((void));
 extern void x_set_menu_bar_lines P_ ((struct frame *, Lisp_Object, Lisp_Object));
 extern int x_pixel_width P_ ((struct frame *));
 extern int x_pixel_height P_ ((struct frame *));
 
-/* Defined in xfaces.c */
-extern void clear_face_cache P_ ((void));
-extern int compute_glyph_face P_ ((struct frame *, int, int));
-extern int compute_glyph_face_1 P_ ((struct frame *, Lisp_Object, int));
-
-
 #define XFreeGC (void)
-#define same_size_fonts(foo,bar) (1)
-#define unload_font(p1,p2)
-#define unload_color(p1,p2)
 #define x_destroy_bitmap(p1,p2)
 #define load_pixmap(p1,p2,p3,p4) (0)
 #define XGetGeometry(p1,p2,p3,p4,p5,p6,p7,p8,p9)
-#define DisplayWidth(p1,p2) (selected_frame->width)
-#define DisplayHeight(p1,p2) (selected_frame->height)
+#define DisplayWidth(p1,p2) (SELECTED_FRAME()->width)
+#define DisplayHeight(p1,p2) (SELECTED_FRAME()->height)
 #define XMenuSetAEQ (void)
 #define XMenuSetFreeze (void)
 #define XMenuRecompute (void)
@@ -152,16 +152,18 @@ typedef struct x_menu_struct
   int allocated;
   int panecount;
   int width;
+  char **help_text;
 } XMenu;
 
 XMenu *XMenuCreate (Display *, Window, char *);
 int XMenuAddPane (Display *, XMenu *, char *, int);
-int XMenuAddSelection (Display *, XMenu *, int, int, char *, int);
+int XMenuAddSelection (Display *, XMenu *, int, int, char *, int, char *);
 void XMenuLocate (Display *, XMenu *, int, int, int, int,
 		  int *, int *, int *, int *);
-int XMenuActivate (Display *, XMenu *, int *, int *, int, int, unsigned, char **);
+int XMenuActivate (Display *, XMenu *, int *, int *, int, int, unsigned,
+		   char **, void (*callback)(char *, int, int));
 void XMenuDestroy (Display *, XMenu *);
 
 #endif /* not HAVE_X_WINDOWS */
 
-#endif /* not _MSDOS_H_ */
+#endif /* not EMACS_MSDOS_H */

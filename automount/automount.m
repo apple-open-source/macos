@@ -22,13 +22,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #import <stdio.h>
+#import <fcntl.h>
 #import <unistd.h>
 #import <stdlib.h>
 #import <syslog.h>
 #import <signal.h>
 #import <string.h>
 #import <errno.h>
+#import <err.h>
 #import <sys/types.h>
+#import <sys/stat.h>
 #import <sys/wait.h>
 #import <sys/time.h>
 #import <sys/resource.h>
@@ -39,6 +42,8 @@
 #import "NIMap.h"
 #import "AMVersion.h"
 #import "systhread.h"
+#import "NSLMap.h"
+#import "NSLVnode.h"
 #ifndef __APPLE__
 #import <libc.h>
 extern int getppid(void);
@@ -52,6 +57,9 @@ int debug_proc = 0;
 int debug_options = 0;
 int debug;
 int doing_timeout = 0;
+
+int protocol_1 = IPPROTO_UDP;
+int protocol_2 = IPPROTO_TCP;
 
 Controller *controller;
 String *dot;
@@ -69,7 +77,20 @@ int osType;
 
 BOOL doServerMounts = YES;
 
+NSLMap *GlobalTargetNSLMap;
+
+MountProgressRecord_List gMountsInProgress = LIST_HEAD_INITIALIZER(&gMountsInProgress);
+
+BOOL gForkedMountInProgress = NO;
+BOOL gForkedMount = NO;
+BOOL gBlockedMountDependency = NO;
+unsigned long gBlockingMountTransactionID;
+int gMountResult;
+
 #define DefaultMountDir "/private"
+
+static char gForkedExecutionFlag[] = "-f";
+static char gAutomounterPath[] = "/usr/sbin/automount";
 
 struct debug_fdset
 {
@@ -125,8 +146,9 @@ do_select(struct timeval *tv)
 
 	x = svc_fdset;
 
-	if (tv != NULL) 
+	if (tv) {
 		sys_msg(debug_select, LOG_DEBUG, "select timeout %d %d", tv->tv_sec, tv->tv_usec);
+	};
 
 	n = select(FD_SETSIZE, &x, NULL, NULL, tv);
 
@@ -137,7 +159,9 @@ do_select(struct timeval *tv)
 		sys_msg(debug_select, LOG_DEBUG, "select: %s", strerror(errno));
 
 	if (n != 0) svc_getreqset(&x);
-
+	
+	if (gForkedMount) exit((gMountResult < 128) ? gMountResult : ECANCELED);
+	
 	return n;
 }
 
@@ -149,7 +173,7 @@ select_loop(void *x)
 
 	sys_msg(debug_select, LOG_DEBUG, "--> select loop");
 
-	tv.tv_sec = 5;
+	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 
 	while (run_select_loop != 0)
@@ -286,7 +310,7 @@ usage(void)
 void
 parentexit(int x)
 {
-	exit(0);
+	_exit(0);
 }
 
 void
@@ -297,14 +321,26 @@ shutdown_server(int x)
 	[controller release];
 	[dot release];
 	[dotdot release];
+}
 
-	exit(0);
+void shutdown_server_sighandler(int x)
+{
+	shutdown_server(x);
+	_exit(0);
 }
 
 void
-schedule_timeout(int x)
+child_exit(int x)
 {
-	[controller unmountAutomounts:0];
+	int result;
+	pid_t pid;
+
+	while ((((pid = wait4((pid_t)-1, &result, WNOHANG, NULL)) != 0) && (pid != -1)) ||
+           (errno == EINTR)) {
+		if ((pid != 0) && (pid != -1)) {
+			[controller completeMountInProgressBy:pid exitStatus:result];
+		};
+	};
 }
 
 void
@@ -343,22 +379,201 @@ print_host_info(void)
 	sys_msg(debug, LOG_DEBUG, banner);
 }
 
+// *********************************************************************
+// 			look for network and user changes
+// *********************************************************************
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/v1Compatibility.h>
+
+static SCDynamicStoreRef	store = NULL;
+static CFRunLoopSourceRef	rls;
+static CFStringRef		userChangedKey;
+static CFStringRef		networkChangedKey;
+static CFStringRef		netinfoChangedKey;
+
+void
+systemConfigHasChanged(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
+{
+	int i, count;
+	CFStringRef key, user;
+	BOOL userLogOut = NO;
+	BOOL networkChange = NO;
+    
+	count = CFArrayGetCount(changedKeys);
+	for (i=0; i < count; i++) {
+	    key = CFArrayGetValueAtIndex(changedKeys, i);
+	    
+	    if (CFStringCompare(key, userChangedKey, 0) == kCFCompareEqualTo) {
+		user = SCDynamicStoreCopyConsoleUser(store, NULL, NULL);
+		if (user) {
+			sys_msg(debug, LOG_DEBUG, "the console user is logged in\n");
+			CFRelease(user);
+		} else {
+			sys_msg(debug, LOG_DEBUG, "the console user has logged out\n");
+			userLogOut = YES;
+		}
+		continue;
+	    }
+
+	    if (CFStringCompare(key, networkChangedKey, 0) == kCFCompareEqualTo) {
+		sys_msg(debug, LOG_DEBUG, "the network environment has changed\n");
+		networkChange = YES;
+		continue;
+	    }
+
+	    if (CFStringCompare(key, netinfoChangedKey, 0) == kCFCompareEqualTo) {
+		sys_msg(debug, LOG_DEBUG, "the netinfo configuration has changed\n");
+		networkChange = YES;
+		continue;
+	    }
+
+	    // since we don't know what matched our pattern we can not just do
+	    // a simple string compare for the networkChangedPattern case, instead
+	    // we just default to this after checking for the other keys above.
+	    {
+		sys_msg(debug, LOG_DEBUG, "a network service has changed\n");
+		networkChange = YES;
+		continue;
+	    }
+	}
+
+	if (userLogOut) {
+
+	    // unmount (no force)
+	    [controller unmountAutomounts:0];
+	}
+
+	if (networkChange) {
+
+	    // flush maps
+	    [controller flushMaps];
+	    // unmount (force?)
+//	    [controller unmountAutomounts:1];
+	}
+}
+
+void
+watchForSystemConfigChanges()
+{
+	CFMutableArrayRef	keys;
+	CFMutableArrayRef	patterns;
+	CFStringRef		networkChangedPattern;
+	SCDynamicStoreContext	context = { 0, store, NULL, NULL, NULL };
+
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("watchForSystemConfigChanges"),
+				     systemConfigHasChanged,
+				     &context);
+	if (!store) {
+		sys_msg(debug, LOG_ERR, "could not open session with configd\n");
+		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		return;
+	}
+
+	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	/*
+	 * establish and register dynamic store keys to watch
+	 *   - global IPv4 configuration changes (e.g. new default route)
+	 *   - netinfo configuration changes
+	 *   - per-service IPv4 state changes (IP service added/removed/...)
+	 *   - apple talk configuration changes
+	 */
+	networkChangedKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							 kSCCacheDomainState,
+							 kSCEntNetIPv4);
+	CFArrayAppendValue(keys, networkChangedKey);
+
+	netinfoChangedKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							   kSCCacheDomainState,
+							   kSCEntNetNetInfo);
+	CFArrayAppendValue(keys, netinfoChangedKey);
+
+	networkChangedPattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							  kSCCacheDomainState,
+							  kSCCompAnyRegex,
+							  kSCEntNetIPv4);
+	CFArrayAppendValue(patterns, networkChangedPattern);
+	CFRelease(networkChangedPattern);
+
+	networkChangedPattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+                                                          kSCCacheDomainState,
+                                                          kSCCompAnyRegex,
+                                                          kSCEntNetAppleTalk);
+        CFArrayAppendValue(patterns, networkChangedPattern);
+	CFRelease(networkChangedPattern);
+
+	/*
+	 * establish and register dynamic store keys to watch console user login/logouts
+	 */
+	userChangedKey = SCDynamicStoreKeyCreateConsoleUser(NULL);
+	CFArrayAppendValue(patterns, userChangedKey);
+
+	if (!SCDynamicStoreSetNotificationKeys(store, keys, patterns)) {
+		sys_msg(debug, LOG_ERR, "could not register notification keys\n");
+		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		CFRelease(store);
+		CFRelease(keys);
+		CFRelease(patterns);
+		return;
+	}
+	CFRelease(keys);
+	CFRelease(patterns);
+
+	/* add a callback */
+	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	if (!rls) {
+		sys_msg(debug, LOG_ERR, "could not create runloop source\n");
+		sys_msg(debug, LOG_ERR, "error = %s\n", SCErrorString(SCError()));
+		CFRelease(store);
+		return;
+	}
+
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+}
+
+static void
+mainRunLoop() {
+
+	watchForSystemConfigChanges();
+	CFRunLoopRun();
+}
+
 int
 main(int argc, char *argv[])
 {
+	int daemon_argc;
+	char **daemon_argv = NULL;
 	String *mapName;
 	String *mapDir;
 	char *mntdir;
-	int pid, i, nmaps;
+	int pid, i, nmaps, result;
 	struct timeval timeout;
-	BOOL becomeDaemon, printVers, staticMode;
+	BOOL becomeDaemon, forkedExecution, printVers, staticMode;
 	struct rlimit rlim;
-	systhread *rpcLoop;
-
+	systhread *rpcLoop, *runLoop;
+	struct stat sb;
+	
+	if ((argc > 1) && (strcmp(argv[1], gForkedExecutionFlag))) {
+		daemon_argc = argc + 1;
+		daemon_argv = malloc((daemon_argc + 1) * sizeof(char *));
+		if (daemon_argv) {
+			daemon_argv[0] = argv[0];
+			daemon_argv[1] = gForkedExecutionFlag;
+			for (i = 2; i < daemon_argc; ++i) {
+				daemon_argv[i] = argv[i - 1];
+			};
+			daemon_argv[daemon_argc] = NULL;
+		}
+	};
+	
 	mntdir = DefaultMountDir;
 
 	nmaps = 0;
 	becomeDaemon = YES;
+	forkedExecution = NO;
 	printVers = NO;
 	staticMode = NO;
 	debug = DEBUG_SYSLOG;
@@ -372,6 +587,11 @@ main(int argc, char *argv[])
 		{
 			usage();
 			exit(0);
+		}
+		else if (!strcmp(argv[i], gForkedExecutionFlag))
+		{
+			forkedExecution = YES;
+			becomeDaemon = NO;
 		}
 		else if (!strcmp(argv[i], "-d"))
 		{
@@ -389,6 +609,11 @@ main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "-s"))
 		{
 			staticMode = YES;
+		}
+		else if (!strcmp(argv[i], "-tcp"))
+		{
+			protocol_1 = IPPROTO_TCP;
+			protocol_2 = IPPROTO_UDP;
 		}
 		else if (!strcmp(argv[i], "-D"))
 		{
@@ -480,6 +705,7 @@ main(int argc, char *argv[])
 	if (becomeDaemon)
 	{
 		signal(SIGTERM, parentexit);
+		signal(SIGCHLD, parentexit);
 
 		pid = fork();
 		if (pid < 0)
@@ -500,6 +726,12 @@ main(int argc, char *argv[])
 		}
 
 		writepid();
+		
+		if ((stat(daemon_argv[0], &sb) != 0) || ((sb.st_mode & S_IFMT) != S_IFREG)) {
+			daemon_argv[0] = gAutomounterPath;
+		};
+		result = execv(daemon_argv[0], daemon_argv);
+		err(1, "execv() failed");
 	}
 
 	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
@@ -510,12 +742,19 @@ main(int argc, char *argv[])
 	sys_msg(debug, LOG_ERR, "automount version %s", version);
 
 	signal(SIGHUP, reinit);
-	signal(SIGUSR1, schedule_timeout);
 	signal(SIGUSR2, print_tree);
-	signal(SIGINT, shutdown_server);
-	signal(SIGQUIT, shutdown_server);
-	signal(SIGTERM, shutdown_server);
+	signal(SIGINT, shutdown_server_sighandler);
+	signal(SIGQUIT, shutdown_server_sighandler);
+	signal(SIGTERM, shutdown_server_sighandler);
+	signal(SIGCHLD, child_exit);
 
+	/*
+	 * Replace stdin, which might be a TTY, with /dev/null to prevent
+	 * file systems like SMB from trying to use the terminal during mount:
+	 */
+	fclose(stdin);
+	(void)open("/dev/null", 0, 0);
+	
 	controller = [[Controller alloc] init:mntdir];
 	if (controller == nil)
 	{
@@ -525,6 +764,11 @@ main(int argc, char *argv[])
 
 	print_host_info();
 
+	// kick off the "main" cf run loop on it's own thread
+	runLoop = systhread_new();
+	systhread_run(runLoop, mainRunLoop, NULL);
+	systhread_yield();
+		
 	run_select_loop = 1;
 	rpcLoop = systhread_new();
 	systhread_run(rpcLoop, select_loop, NULL);
@@ -535,7 +779,7 @@ main(int argc, char *argv[])
 		if ([NIMap loadNetInfoMaps] != 0)
 		{
 			fprintf(stderr, "No maps to mount!\n");
-			if (becomeDaemon) kill(getppid(), SIGTERM);
+			if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
 			else usage();
 			exit(0);
 		}
@@ -563,11 +807,11 @@ main(int argc, char *argv[])
 
 	while (running_select_loop)
 	{
-		systhread_yield();
+		usleep(1000*100);
 	}
 
 	sys_msg(debug, LOG_DEBUG, "Starting service");
-	if (becomeDaemon) kill(getppid(), SIGTERM);
+	if (becomeDaemon || forkedExecution) kill(getppid(), SIGTERM);
 
 	if (staticMode) auto_run_no_timeout(NULL);
 	else auto_run(&timeout);

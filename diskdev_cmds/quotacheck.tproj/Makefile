@@ -12,9 +12,9 @@ NAME = quotacheck
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = ufs_byte_order.h
+HFILES = quotacheck.h ufs_byte_order.h
 
-CFILES = quotacheck.c ufs_byte_order.c
+CFILES = quotacheck.c ufs_quotacheck.c ufs_byte_order.c hfs_quotacheck.c
 
 OTHERSRCS = Makefile.preamble Makefile.postamble Makefile Makefile.dist quotacheck.8
 

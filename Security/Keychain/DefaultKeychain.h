@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -15,21 +15,11 @@
  * specific language governing rights and limitations under the License.
  */
 
-
-/*
-    File:		DefaultKeychain.h
-
-    Contains:	User preference for default keychain
-
-    Written by:	John Hurley
-
-    Copyright:	2000 by Apple Computer, Inc., all rights reserved.
-
-    To Do:
-*/
-
-#ifndef _H_KEYCHAINCORE_DEFAULTKEYCHAIN__
-#define _H_KEYCHAINCORE_DEFAULTKEYCHAIN__
+//
+// DefaultKeychain.h - Default Keychain singleton
+//
+#ifndef _SECURITY_DEFAULTKEYCHAIN_H_
+#define _SECURITY_DEFAULTKEYCHAIN_H_
 
 #include <Security/DLDBListCFPref.h>
 #include <Security/Keychains.h>
@@ -81,8 +71,8 @@ private:
     DLDbIdentifier defaultID;
 };
 
-}; // end namespace KeychainCore
+} // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif /* _H_KEYCHAINCORE_DEFAULTKEYCHAIN__ */
+#endif // !_SECURITY_DEFAULTKEYCHAIN_H_

@@ -85,16 +85,22 @@ inline Derived safe_cast(Base *base)
 //
 // Exception hierarchy
 //
-class CssmCommonError : public exception {
+class CssmCommonError : public std::exception {
 protected:
     CssmCommonError();
     CssmCommonError(const CssmCommonError &source);
 public:
-    virtual ~CssmCommonError();
+    virtual ~CssmCommonError() throw ();
 
     virtual CSSM_RETURN cssmError() const = 0;
     virtual CSSM_RETURN cssmError(CSSM_RETURN base) const;
     virtual OSStatus osStatus() const;
+	
+protected:
+	virtual void debugDiagnose(const void *id) const;	// used internally for debug logging
+	
+private:
+	IFDEBUG(mutable bool mCarrier);	// primary carrier of exception flow
 };
 
 class CssmError : public CssmCommonError {
@@ -104,10 +110,11 @@ public:
     const CSSM_RETURN error;
     virtual CSSM_RETURN cssmError() const;
     virtual OSStatus osStatus() const;
-    virtual const char *what () const;
+    virtual const char *what () const throw ();
 
     static CSSM_RETURN merge(CSSM_RETURN error, CSSM_RETURN base);
     
+	static void check(CSSM_RETURN error)	{ if (error != CSSM_OK) throwMe(error); }
     static void throwMe(CSSM_RETURN error) __attribute__((noreturn));
 };
 
@@ -119,13 +126,16 @@ public:
     const int error;
     virtual CSSM_RETURN cssmError() const;
     virtual OSStatus osStatus() const;
-    virtual const char *what () const;
+    virtual const char *what () const throw ();
     
     static void check(int result)		{ if (result == -1) throwMe(); }
     static void throwMe(int err = errno) __attribute__((noreturn));
 
     // @@@ This is a hack for the Network protocol state machine
     static UnixError make(int err = errno);
+
+private:
+	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 class MacOSError : public CssmCommonError {
@@ -135,7 +145,7 @@ public:
     const int error;
     virtual CSSM_RETURN cssmError() const;
     virtual OSStatus osStatus() const;
-    virtual const char *what () const;
+    virtual const char *what () const throw ();
     
     static void check(OSStatus status)	{ if (status != noErr) throwMe(status); }
     static void throwMe(int err) __attribute__((noreturn));
@@ -155,7 +165,7 @@ public:
 #define BEGIN_API	try {
 #define END_API(base) 	} \
 catch (const CssmCommonError &err) { return err.cssmError(CSSM_ ## base ## _BASE_ERROR); } \
-catch (std::bad_alloc) { return CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
+catch (const std::bad_alloc &) { return CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
 catch (...) { return CssmError::merge(CSSM_ERRCODE_INTERNAL_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
     return CSSM_OK;
 #define END_API0		} catch (...) { return; }
@@ -204,6 +214,10 @@ public:
     { return overlay(data); }
     static const Wrapper *optional(const POD *data)
     { return overlay(data); }
+    
+    // general helpers for all PodWrappers
+    void clearPod()
+    { memset(static_cast<POD *>(this), 0, sizeof(POD)); }
 };
 
 
@@ -364,8 +378,7 @@ public:
 	void clear()
 	{ Data = NULL; Length = 0; }
 
-    operator string () const	// convert to string type (no trailing null)
-    { return string(reinterpret_cast<const char *>(data()), length()); }
+    string toString () const;	// convert to string type (no trailing null)
 
     operator bool () const { return Data != NULL; }
     bool operator ! () const { return Data == NULL; }
@@ -580,14 +593,46 @@ typedef CssmKey CssmWrappedKey;
 //
 // Other PodWrappers for stuff that is barely useful...
 //
+class CssmKeySize : public PodWrapper<CssmKeySize, CSSM_KEY_SIZE> {
+public:
+    CssmKeySize() { }
+    CssmKeySize(uint32 nom, uint32 eff) { LogicalKeySizeInBits = nom; EffectiveKeySizeInBits = eff; }
+    CssmKeySize(uint32 size) { LogicalKeySizeInBits = EffectiveKeySizeInBits = size; }
+    
+    uint32 logical() const		{ return LogicalKeySizeInBits; }
+    uint32 effective() const	{ return EffectiveKeySizeInBits; }
+    operator uint32 () const	{ return effective(); }
+};
+
+inline bool operator == (const CSSM_KEY_SIZE &s1, const CSSM_KEY_SIZE &s2)
+{
+    return s1.LogicalKeySizeInBits == s2.LogicalKeySizeInBits
+        && s1.EffectiveKeySizeInBits == s2.EffectiveKeySizeInBits;
+}
+
+inline bool operator != (const CSSM_KEY_SIZE &s1, const CSSM_KEY_SIZE &s2)
+{ return !(s1 == s2); }
+
+
 class QuerySizeData : public PodWrapper<QuerySizeData, CSSM_QUERY_SIZE_DATA> {
 public:
+    QuerySizeData() { }
 	QuerySizeData(uint32 in) { SizeInputBlock = in; SizeOutputBlock = 0; }
 	
 	uint32 inputSize() const { return SizeInputBlock; }
 	uint32 inputSize(uint32 size) { return SizeInputBlock = size; }
 	uint32 outputSize() const { return SizeOutputBlock; }
 };
+
+inline bool operator == (const CSSM_QUERY_SIZE_DATA &s1, const CSSM_QUERY_SIZE_DATA &s2)
+{
+    return s1.SizeInputBlock == s2.SizeInputBlock
+        && s1.SizeOutputBlock == s2.SizeOutputBlock;
+}
+
+inline bool operator != (const CSSM_QUERY_SIZE_DATA &s1, const CSSM_QUERY_SIZE_DATA &s2)
+{ return !(s1 == s2); }
+
 
 class CSPOperationalStatistics : 
 	public PodWrapper<CSPOperationalStatistics, CSSM_CSP_OPERATIONAL_STATISTICS> {
@@ -608,51 +653,6 @@ public:
     { memcpy(this, &q, sizeof(*this)); return *this; }
 };
 
-
-//
-// CoreFoundation support.
-// This will move into a separate file.
-//
-
-//
-// Initialize-only self-releasing CF object handler (lightweight).
-// Does not support assignment.
-//
-template <class CFType> class CFRef {
-public:
-    CFRef() : mRef(NULL) { }
-    CFRef(CFType ref) : mRef(ref) { }
-    CFRef(const CFRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    ~CFRef() { if (mRef) CFRelease(mRef); }
-
-    CFRef &operator = (CFType ref)
-    { if (ref) CFRetain(ref); if (mRef) CFRelease(mRef); mRef = ref; return *this; }
-
-    operator CFType () const { return mRef; }
-    operator bool () const { return mRef != NULL; }
-    bool operator ! () const { return mRef == NULL; }
-
-private:
-    CFType mRef;
-};
-
-template <class CFType> class CFCopyRef {
-public:
-    CFCopyRef() : mRef(NULL) { }
-    explicit CFCopyRef(CFType ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    CFCopyRef(const CFCopyRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    ~CFCopyRef() { if (mRef) CFRelease(mRef); }
-
-    CFCopyRef &operator = (CFType ref)
-    { if (ref) CFRetain(ref); if (mRef) CFRelease(mRef); mRef = ref; return *this; }
-
-    operator CFType () const { return mRef; }
-    operator bool () const { return mRef != NULL; }
-    bool operator ! () const { return mRef == NULL; }
-
-private:
-    CFType mRef;
-};
 
 // Help with container of something->pointer cleanup
 template <class In>
@@ -701,7 +701,7 @@ public:
     typedef size_t size_type;
     typedef ptrdiff_t difference_type;
 
-    typedef reverse_iterator<const_iterator> const_reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 public:
     const_iterator begin() const { return _M_start; }
     const_iterator end() const { return _M_finish; }
@@ -740,10 +740,14 @@ private:
     const _Tp *_M_finish;
 };
 
+
 } // end namespace Security
 
-#ifdef _CPP_UTILITIES
-#pragma export off
-#endif
+
+//
+// Strictly as a transition measure, include cfutilities.h here
+//
+#include "cfutilities.h"
+
 
 #endif //_H_UTILITIES

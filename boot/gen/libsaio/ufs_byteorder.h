@@ -32,12 +32,12 @@
  * 8 Jul 1992 Brian Pinkerton at NeXT
  *      Created.
  */
-#import <bsd/sys/disktab.h>
-#import <bsd/sys/vnode.h>
-#import <bsd/sys/buf.h>
-#import <bsd/dev/disk.h>
-#import <bsd/ufs/fs.h>
-#import <bsd/ufs/inode.h>
+#import <sys/disktab.h>
+#import <sys/vnode.h>
+#import <sys/buf.h>
+#import <dev/disk.h>
+#import <ufs/fs.h>
+#import <ufs/inode.h>
 
 void byte_swap_ints(int *array, int count);
 void byte_swap_shorts(short *array, int count);

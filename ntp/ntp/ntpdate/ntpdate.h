@@ -1,8 +1,10 @@
 /*
- * ntpdate.h - declarations for the ntpdate program
+ * ntpdate.h - declarations for the ntpdate and ntptimeset programs
  */
 
 #include "ntp_malloc.h"
+
+extern void	loadservers	P((char *cfgpath));
 
 /*
  * The server structure is a much simplified version of the
@@ -12,7 +14,9 @@
  * remember about the server.
  */
 struct server {
+	struct server *next_server;	/* next server in build list */
 	struct sockaddr_in srcadr;	/* address of remote host */
+	u_char version;			/* version to use */
 	u_char leap;			/* leap indicator */
 	u_char stratum;			/* stratum of remote server */
 	s_char precision;		/* server's clock precision */
@@ -22,7 +26,10 @@ struct server {
 	u_int32 refid;			/* peer reference ID */
 	l_fp reftime;			/* time of peer's last update */
 	u_long event_time;		/* time for next timeout */
+	u_long last_xmit;		/* time of last transmit */
 	u_short xmtcnt;			/* number of packets transmitted */
+	u_short rcvcnt;			/* number of packets received */
+	u_char reach;			/* reachability, NTP_WINDOW bits */
 	u_short filter_nextpt;		/* index into filter shift register */
 	s_fp filter_delay[NTP_SHIFT];	/* delay part of shift register */
 	l_fp filter_offset[NTP_SHIFT];	/* offset part of shift register */
@@ -56,6 +63,8 @@ struct server {
  */
 #define	NTPDATE_THRESHOLD	(FP_SECOND >> 1)	/* 1/2 second */
 
+#define NTP_MAXAGE	86400	/* one day in seconds */
+
 /*
  * When doing adjustments, ntpdate actually overadjusts (currently
  * by 50%, though this may change).  While this will make it take longer
@@ -76,6 +85,7 @@ struct server {
 #define	NTPDATE_DISTANCE	FP_SECOND	/* distance is 1 sec */
 #define	NTPDATE_DISP		FP_SECOND	/* so is the dispersion */
 #define	NTPDATE_REFID		(0)		/* reference ID to use */
+#define PEER_MAXDISP	(64*FP_SECOND)	/* maximum dispersion (fp 64) */
 
 
 /*
@@ -83,3 +93,7 @@ struct server {
  */
 #define	DEFTIMEOUT	5		/* 5 timer increments */
 #define	DEFSAMPLES	4		/* get 4 samples per server */
+#define	DEFPRECISION	(-5)		/* the precision we claim */
+#define	DEFMAXPERIOD	60		/* maximum time to wait */
+#define	DEFMINSERVERS	3		/* minimum responding servers */
+#define	DEFMINVALID	1		/* mimimum servers with valid time */

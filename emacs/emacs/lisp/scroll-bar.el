@@ -1,6 +1,7 @@
-;;; scroll-bar.el --- window system-independent scroll bar support.
+;;; scroll-bar.el --- window system-independent scroll bar support
 
-;; Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1999, 2000, 2001
+;;  Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: hardware
@@ -284,16 +285,78 @@ EVENT should be a scroll bar click."
 	(setq point-before-scroll before-scroll)))))
 
 
+;;; Tookit scroll bars.
+
+(defun scroll-bar-toolkit-scroll (event)
+  (interactive "e")
+  (let* ((end-position (event-end event))
+	 (window (nth 0 end-position))
+	 (part (nth 4 end-position))
+	 before-scroll)
+    (cond ((eq part 'end-scroll))
+	  (t
+	   (with-current-buffer (window-buffer window)
+	     (setq before-scroll point-before-scroll))
+	   (save-selected-window
+	     (select-window window)
+	     (setq before-scroll (or before-scroll (point)))
+	     (cond ((eq part 'above-handle)
+		    (scroll-up '-))
+		   ((eq part 'below-handle)
+		    (scroll-up nil))
+		   ((eq part 'ratio)
+		    (let* ((portion-whole (nth 2 end-position))
+			   (lines (scroll-bar-scale portion-whole
+						    (1- (window-height)))))
+		      (scroll-up (cond ((not (zerop lines)) lines)
+				       ((< (car portion-whole) 0) -1)
+				       (t 1)))))
+		   ((eq part 'up)
+		    ;; Avoid ringing the bell when at beginning of
+		    ;; buffer, since that causes redisplay to bitch
+		    ;; endlessly when visible-bell is in effect, for
+		    ;; some reason.
+		    (if (= 0 (save-excursion
+			       (goto-char (window-start))
+			       (forward-line -1)))
+			(scroll-up -1)
+		      (message "Beginning of buffer")))
+		   ((eq part 'down)
+		    ;; Avoid ringing the bell if already at end of
+		    ;; buffer.
+		    (if (= 0 (save-excursion (forward-line 2)))
+			(scroll-up 1)
+		      (message "End of buffer")))
+		   ((eq part 'top)
+		    (set-window-start window (point-min)))
+		   ((eq part 'bottom)
+		    (goto-char (point-max))
+		    (recenter))
+		   ((eq part 'handle)
+		    (scroll-bar-drag-1 event))))
+	   (sit-for 0)
+	   (with-current-buffer (window-buffer window)
+	     (setq point-before-scroll before-scroll))))))
+
+
+
 ;;;; Bindings.
 
 ;;; For now, we'll set things up to work like xterm.
-(global-set-key [vertical-scroll-bar mouse-1] 'scroll-bar-scroll-up)
-(global-set-key [vertical-scroll-bar drag-mouse-1] 'scroll-bar-scroll-up)
-
-(global-set-key [vertical-scroll-bar down-mouse-2] 'scroll-bar-drag)
-
-(global-set-key [vertical-scroll-bar mouse-3] 'scroll-bar-scroll-down)
-(global-set-key [vertical-scroll-bar drag-mouse-3] 'scroll-bar-scroll-down)
+(cond ((and (boundp 'x-toolkit-scroll-bars) x-toolkit-scroll-bars)
+       (global-set-key [vertical-scroll-bar mouse-1]
+		       'scroll-bar-toolkit-scroll))
+      (t
+       (global-set-key [vertical-scroll-bar mouse-1]
+		       'scroll-bar-scroll-up)
+       (global-set-key [vertical-scroll-bar drag-mouse-1]
+		       'scroll-bar-scroll-up)
+       (global-set-key [vertical-scroll-bar down-mouse-2]
+		       'scroll-bar-drag)
+       (global-set-key [vertical-scroll-bar mouse-3]
+		       'scroll-bar-scroll-down)
+       (global-set-key [vertical-scroll-bar drag-mouse-3]
+		       'scroll-bar-scroll-down)))
 
 
 (provide 'scroll-bar)

@@ -1,11 +1,16 @@
 /*
  * ntpd.c - main program for the fixed point NTP daemon
  */
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 
-#include <sys/types.h>
+#include "ntp_machine.h"
+#include "ntpd.h"
+#include "ntp_io.h"
+#include "ntp_stdlib.h"
+
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -13,19 +18,23 @@
 # include <sys/stat.h>
 #endif
 #include <stdio.h>
-#include <errno.h>
 #ifndef SYS_WINNT
 # if !defined(VMS)	/*wjm*/
-#  include <sys/param.h>
+#  ifdef HAVE_SYS_PARAM_H
+#   include <sys/param.h>
+#  endif
 # endif /* VMS */
-# include <sys/signal.h>
+# ifdef HAVE_SYS_SIGNAL_H
+#  include <sys/signal.h>
+# else
+#  include <signal.h>
+# endif
 # ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
 # endif /* HAVE_SYS_IOCTL_H */
-# include <sys/time.h>
-# if !defined(VMS)	/*wjm*/
+# ifdef HAVE_SYS_RESOURCE_H
 #  include <sys/resource.h>
-# endif /* VMS */
+# endif /* HAVE_SYS_RESOURCE_H */
 #else
 # include <signal.h>
 # include <process.h>
@@ -69,12 +78,8 @@
 # include <apollo/base.h>
 #endif /* SYS_DOMAINOS */
 
-#include "ntpd.h"
-#include "ntp_select.h"
-#include "ntp_io.h"
-
-#include "ntp_stdlib.h"
 #include "recvbuff.h"  
+#include "ntp_cmdargs.h"  
 
 #if 0				/* HMS: I don't think we need this. 961223 */
 #ifdef LOCK_PROCESS
@@ -87,8 +92,17 @@
 #endif
 
 #ifdef _AIX
-#include <ulimit.h>
+# include <ulimit.h>
 #endif /* _AIX */
+
+#ifdef SCO5_CLOCK
+# include <sys/ci/ciioctl.h>
+#endif
+
+#ifdef PUBKEY
+#include "ntp_crypto.h"
+#endif /* PUBKEY */
+
 /*
  * Signals we catch for debugging.	If not debugging we ignore them.
  */
@@ -99,13 +113,13 @@
  * Signals which terminate us gracefully.
  */
 #ifndef SYS_WINNT
-#define SIGDIE1 	SIGHUP
-#define SIGDIE3 	SIGQUIT
-#define SIGDIE2 	SIGINT
-#define SIGDIE4 	SIGTERM
+# define SIGDIE1 	SIGHUP
+# define SIGDIE3 	SIGQUIT
+# define SIGDIE2 	SIGINT
+# define SIGDIE4 	SIGTERM
 #endif /* SYS_WINNT */
 
-#if defined SYS_WINNT || defined SYS_CYGWIN32
+#if defined SYS_WINNT
 /* handles for various threads, process, and objects */
 HANDLE ResolverThreadHandle = NULL;
 /* variables used to inform the Service Control Manager of our current state */
@@ -119,11 +133,12 @@ static BOOL WINAPI OnConsoleEvent(DWORD dwCtrlType);
 /*
  * Scheduling priority we run at
  */
-#if !defined SYS_WINNT
-# define NTPD_PRIO	(-12)
-#else
-# define NTPD_PRIO	REALTIME_PRIORITY_CLASS
-#endif
+#define NTPD_PRIO	(-12)
+
+int priority_done = 2;		/* 0 - Set priority */
+				/* 1 - priority is OK where it is */
+				/* 2 - Don't set priority */
+				/* 1 and 2 are pretty much the same */
 
 /*
  * Debugging flag
@@ -148,7 +163,7 @@ extern const char *Version;
 
 int was_alarmed;
 
-#if defined(DECL_SYSCALL) && !defined(__APPLE__)
+#ifdef DECL_SYSCALL
 /*
  * We put this here, since the argument profile is syscall-specific
  */
@@ -224,15 +239,23 @@ catch_danger(int signo)
 static void
 set_process_priority(void)
 {
+
+#ifdef DEBUG
+	if (debug > 1)
+		msyslog(LOG_DEBUG, "set_process_priority: %s: priority_done is <%d>",
+			((priority_done)
+			 ? "Leave priority alone"
+			 : "Attempt to set priority"
+				),
+			priority_done);
+#endif /* DEBUG */
+
 #ifdef SYS_WINNT
-	if (!SetPriorityClass(GetCurrentProcess(), (DWORD) REALTIME_PRIORITY_CLASS))
-	{
-		msyslog(LOG_ERR, "SetPriorityClass: %m");
-		return;
-	}
-#else  /* not SYS_WINNT */
-# if defined(HAVE_SCHED_SETSCHEDULER)
-	{
+	priority_done += NT_set_process_priority();
+#endif
+
+#if defined(HAVE_SCHED_SETSCHEDULER)
+	if (!priority_done) {
 		extern int config_priority_override, config_priority;
 		int pmax, pmin;
 		struct sched_param sched;
@@ -249,44 +272,56 @@ set_process_priority(void)
 				sched.sched_priority = config_priority;
 		}
 		if ( sched_setscheduler(0, SCHED_FIFO, &sched) == -1 )
-		{
 			msyslog(LOG_ERR, "sched_setscheduler(): %m");
-			return;
-		}
+		else
+			++priority_done;
 	}
-# else /* not HAVE_SCHED_SETSCHEDULER */
-#  if defined(HAVE_RTPRIO)
-#	ifdef RTP_SET
-	{
+#endif /* HAVE_SCHED_SETSCHEDULER */
+#if defined(HAVE_RTPRIO)
+# ifdef RTP_SET
+	if (!priority_done) {
 		struct rtprio srtp;
 
 		srtp.type = RTP_PRIO_REALTIME;	/* was: RTP_PRIO_NORMAL */
 		srtp.prio = 0;		/* 0 (hi) -> RTP_PRIO_MAX (31,lo) */
 
-		if (rtprio(RTP_SET, getpid(), &srtp) < 0) {
+		if (rtprio(RTP_SET, getpid(), &srtp) < 0)
 			msyslog(LOG_ERR, "rtprio() error: %m");
-			return;
-		}
+		else
+			++priority_done;
 	}
-#	else /* not RTP_SET */
-	if (rtprio(0, 120) < 0) {
-		msyslog(LOG_ERR, "rtprio() error: %m");
-		return;
+# else /* not RTP_SET */
+	if (!priority_done) {
+		if (rtprio(0, 120) < 0)
+			msyslog(LOG_ERR, "rtprio() error: %m");
+		else
+			++priority_done;
 	}
-#	endif /* not RTP_SET */
-#  else  /* not HAVE_RTPRIO */
-#	if defined(NTPD_PRIO) && NTPD_PRIO != 0
-#	 ifdef HAVE_ATT_NICE
-	nice (NTPD_PRIO);
-#	 endif /* HAVE_ATT_NICE */
-#	 ifdef HAVE_BSD_NICE
-	(void) setpriority(PRIO_PROCESS, 0, NTPD_PRIO);
-#	 endif /* HAVE_BSD_NICE */
-#	endif /* NTPD_PRIO && NTPD_PRIO != 0 */
-#  endif /* not HAVE_RTPRIO */
-# endif /* not HAVE_SCHED_SETSCHEDULER */
-#endif /* not SYS_WINNT */
+# endif /* not RTP_SET */
+#endif  /* HAVE_RTPRIO */
+#if defined(NTPD_PRIO) && NTPD_PRIO != 0
+# ifdef HAVE_ATT_NICE
+	if (!priority_done) {
+		errno = 0;
+		if (-1 == nice (NTPD_PRIO) && errno != 0)
+			msyslog(LOG_ERR, "nice() error: %m");
+		else
+			++priority_done;
+	}
+# endif /* HAVE_ATT_NICE */
+# ifdef HAVE_BSD_NICE
+	if (!priority_done) {
+		if (-1 == setpriority(PRIO_PROCESS, 0, NTPD_PRIO))
+			msyslog(LOG_ERR, "setpriority() error: %m");
+		else
+			++priority_done;
+	}
+# endif /* HAVE_BSD_NICE */
+#endif /* NTPD_PRIO && NTPD_PRIO != 0 */
+	if (!priority_done)
+		msyslog(LOG_ERR, "set_process_priority: No way found to improve our priority");
 }
+
 
 /*
  * Main program.  Initialize us, disconnect us from the tty if necessary,
@@ -300,6 +335,10 @@ ntpdmain(
 {
 	l_fp now;
 	char *cp;
+#ifdef AUTOKEY
+	u_int n;
+	char hostname[MAXFILENAME];
+#endif /* AUTOKEY */
 	struct recvbuf *rbuflist;
 	struct recvbuf *rbuf;
 #ifdef _AIX			/* HMS: ifdef SIGDANGER? */
@@ -312,7 +351,7 @@ ntpdmain(
 
 #ifdef HAVE_UMASK
 	{
-		unsigned int uv;
+		mode_t uv;
 
 		uv = umask(0);
 		if(uv)
@@ -322,7 +361,7 @@ ntpdmain(
 	}
 #endif
 
-#ifdef HAVE_GETUID
+#if defined(HAVE_GETUID) && !defined(MPE) /* MPE lacks the concept of root */
 	{
 		uid_t uid;
 
@@ -343,10 +382,13 @@ ntpdmain(
 	}
 	addSourceToRegistry("NTP", szMsgPath);
 #endif
+	getstartup(argc, argv); /* startup configuration, may set debug */
 
+	/*
+	 * Initialize random generator and public key pair
+	 */
 	get_systime(&now);
 	SRANDOM((int)(now.l_i * now.l_uf));
-	getstartup(argc, argv); /* startup configuration, may set debug */
 
 #if !defined(VMS)
 # ifndef NODETACH
@@ -360,9 +402,9 @@ ntpdmain(
 #  endif /* DEBUG */
 	{
 #  ifndef SYS_WINNT
-#	ifdef HAVE_DAEMON
+#   ifdef HAVE_DAEMON
 		daemon(0, 0);
-#	else /* not HAVE_DAEMON */
+#   else /* not HAVE_DAEMON */
 		if (fork())	/* HMS: What about a -1? */
 			exit(0);
 
@@ -382,11 +424,11 @@ ntpdmain(
 			    msyslog(LOG_ERR, "ntpd: failed to close open files(): %m");
 #else  /* not F_CLOSEM */
 
-#if defined(HAVE_SYSCONF) && defined(_SC_OPEN_MAX)
+# if defined(HAVE_SYSCONF) && defined(_SC_OPEN_MAX)
 			max_fd = sysconf(_SC_OPEN_MAX);
-#else /* HAVE_SYSCONF && _SC_OPEN_MAX */
+# else /* HAVE_SYSCONF && _SC_OPEN_MAX */
 			max_fd = getdtablesize();
-#endif /* HAVE_SYSCONF && _SC_OPEN_MAX */
+# endif /* HAVE_SYSCONF && _SC_OPEN_MAX */
 			for (s = 0; s < max_fd; s++)
 				(void) close((int)s);
 #endif /* not F_CLOSEM */
@@ -412,6 +454,7 @@ ntpdmain(
 # endif
 #else /* HAVE_SETPGID || HAVE_SETSID */
 			{
+# if defined(TIOCNOTTY)
 				int fid;
 
 				fid = open("/dev/tty", 2);
@@ -420,6 +463,7 @@ ntpdmain(
 					(void) ioctl(fid, (u_long) TIOCNOTTY, (char *) 0);
 					(void) close(fid);
 				}
+# endif /* defined(TIOCNOTTY) */
 # ifdef HAVE_SETPGRP_0
 				(void) setpgrp();
 # else /* HAVE_SETPGRP_0 */
@@ -436,8 +480,8 @@ ntpdmain(
 			(void) sigaction(SIGDANGER, &sa, NULL);
 #endif /* _AIX */
 		}
-#endif /* not HAVE_DAEMON */
-#else /* SYS_WINNT */
+#   endif /* not HAVE_DAEMON */
+#  else /* SYS_WINNT */
 
 		{
 			SERVICE_TABLE_ENTRY dispatchTable[] = {
@@ -452,10 +496,10 @@ ntpdmain(
 				ExitProcess(2);
 			}
 		}
-#endif /* SYS_WINNT */
+#  endif /* SYS_WINNT */
 	}
-#endif /* NODETACH */
-#if defined(SYS_WINNT) && !defined(NODETACH)
+# endif /* NODETACH */
+# if defined(SYS_WINNT) && !defined(NODETACH)
 	else
 		service_main(argc, argv);
 	return 0;	/* must return a value */
@@ -476,7 +520,10 @@ service_main(
 	char *cp;
 	struct recvbuf *rbuflist;
 	struct recvbuf *rbuf;
-
+#ifdef AUTOKEY
+	u_int n;
+	char hostname[MAXFILENAME];
+#endif /* AUTOKEY */
 	if(!debug)
 	{
 		/* register our service control handler */
@@ -504,7 +551,7 @@ service_main(
 		}
 
 	}  /* debug */
-#endif /* defined(SYS_WINNT) && !defined(NODETACH) */
+# endif /* defined(SYS_WINNT) && !defined(NODETACH) */
 #endif /* VMS */
 
 	/*
@@ -530,7 +577,6 @@ service_main(
 #	define	LOG_NTP LOG_DAEMON
 #  endif
 	openlog(cp, LOG_PID | LOG_NDELAY, LOG_NTP);
-#ifndef SYS_CYGWIN32
 #  ifdef DEBUG
 	if (debug)
 		setlogmask(LOG_UPTO(LOG_DEBUG));
@@ -538,8 +584,6 @@ service_main(
 #  endif /* DEBUG */
 		setlogmask(LOG_UPTO(LOG_DEBUG)); /* @@@ was INFO */
 # endif /* LOG_DAEMON */
-#endif
-
 #endif	/* !SYS_WINNT && !VMS */
 
 	NLOG(NLOG_SYSINFO) /* conditional if clause for conditional syslog */
@@ -558,6 +602,26 @@ service_main(
 	 }
 	*/
 #endif /* SYS_WINNT */
+
+#ifdef SCO5_CLOCK
+	/*
+	 * SCO OpenServer's system clock offers much more precise timekeeping
+	 * on the base CPU than the other CPUs (for multiprocessor systems),
+	 * so we must lock to the base CPU.
+	 */
+	{
+	    int fd = open("/dev/at1", O_RDONLY);
+	    if (fd >= 0) {
+		int zero = 0;
+		if (ioctl(fd, ACPU_LOCK, &zero) < 0)
+		    msyslog(LOG_ERR, "cannot lock to base CPU: %m\n");
+		close( fd );
+	    } /* else ...
+	       *   If we can't open the device, this probably just isn't
+	       *   a multiprocessor system, so we're A-OK.
+	       */
+	}
+#endif
 
 #if defined(HAVE_MLOCKALL) && defined(MCL_CURRENT) && defined(MCL_FUTURE)
 	/*
@@ -584,15 +648,15 @@ service_main(
 	if (plock(PROCLOCK) < 0)
 		msyslog(LOG_ERR, "plock(PROCLOCK): %m");
 #  else /* not PROCLOCK */
-#	ifdef TXTLOCK
+#   ifdef TXTLOCK
 	/*
 	 * Lock text into ram
 	 */
 	if (plock(TXTLOCK) < 0)
 		msyslog(LOG_ERR, "plock(TXTLOCK) error: %m");
-#	else /* not TXTLOCK */
+#   else /* not TXTLOCK */
 	msyslog(LOG_ERR, "plock() - don't know what to lock!");
-#	endif /* not TXTLOCK */
+#   endif /* not TXTLOCK */
 #  endif /* not PROCLOCK */
 # endif /* HAVE_PLOCK */
 #endif /* not (HAVE_MLOCKALL && MCL_CURRENT && MCL_FUTURE) */
@@ -630,7 +694,7 @@ service_main(
 	/*
 	 * Set up signals we should never pay attention to.
 	 */
-#if defined SIGPIPE && !defined SYS_CYGWIN32
+#if defined SIGPIPE
 	(void) signal_no_reset(SIGPIPE, SIG_IGN);
 #endif	/* SIGPIPE */
 
@@ -645,6 +709,7 @@ service_main(
 	 */
 #if defined (HAVE_IO_COMPLETION_PORT)
 	init_io_completion_port();
+	init_winnt_time();
 #endif
 	init_auth();
 	init_util();
@@ -659,29 +724,39 @@ service_main(
 #ifdef REFCLOCK
 	init_refclock();
 #endif
-	init_proto();
+	set_process_priority();
+	init_proto();		/* Call at high priority */
 	init_io();
 	init_loopfilter();
-
-	mon_start(MON_ON);		/* monitor on by default now	  */
+	mon_start(MON_ON);	/* monitor on by default now	  */
 				/* turn off in config if unwanted */
 
 	/*
 	 * Get configuration.  This (including argument list parsing) is
 	 * done in a separate module since this will definitely be different
-	 * for the gizmo board.
+	 * for the gizmo board. While at it, save the host name for later
+	 * along with the length. The crypto needs this.
 	 */
+#ifdef DEBUG
+	debug = 0;
+#endif
 	getconfig(argc, argv);
-
-	set_process_priority();
-
+#ifdef AUTOKEY
+	gethostname(hostname, MAXFILENAME);
+	n = strlen(hostname) + 1;
+	sys_hostname = emalloc(n);
+	memcpy(sys_hostname, hostname, n);
+#ifdef PUBKEY
+	crypto_setup();
+#endif /* PUBKEY */
+#endif /* AUTOKEY */
 	initializing = 0;
 
 #if defined(SYS_WINNT) && !defined(NODETACH)
 # if defined(DEBUG)
 	if(!debug)
 	{
-#endif
+# endif
 		/* report to the service control manager that the service is running */
 		ssStatus.dwCurrentState = SERVICE_RUNNING;
 		ssStatus.dwWin32ExitCode = NO_ERROR;
@@ -696,7 +771,7 @@ service_main(
 		}
 # if defined(DEBUG)
 	}
-#endif  
+# endif  
 #endif
 
 	/*
@@ -719,67 +794,74 @@ service_main(
 	 * and - lacking a hardware reference clock - I have
 	 * yet to learn about anything else that is.
 	 */
-# if defined(HAVE_IO_COMPLETION_PORT)
-	{
+#if defined(HAVE_IO_COMPLETION_PORT)
 		WaitHandles[0] = CreateEvent(NULL, FALSE, FALSE, NULL); /* exit reques */
-		WaitHandles[1] = get_recv_buff_event();
-		WaitHandles[2] = get_timer_handle();
+		WaitHandles[1] = get_timer_handle();
+	    WaitHandles[2] = get_io_event();
 
 		for (;;) {
-			DWORD Index = MsgWaitForMultipleObjectsEx(sizeof(WaitHandles)/sizeof(WaitHandles[0]), WaitHandles, INFINITE, QS_ALLEVENTS, MWMO_ALERTABLE);
+			DWORD Index = WaitForMultipleObjectsEx(sizeof(WaitHandles)/sizeof(WaitHandles[0]), WaitHandles, FALSE, 1000, MWMO_ALERTABLE);
 			switch (Index) {
 				case WAIT_OBJECT_0 + 0 : /* exit request */
 					exit(0);
 				break;
 
-				case WAIT_OBJECT_0 + 1 : {/* recv buffer */
-					if (NULL != (rbuf = get_full_recv_buffer())) {
-						if (rbuf->receiver != NULL) {
-							rbuf->receiver(rbuf);
-						}
-						freerecvbuf(rbuf);
-					}
-				}
-				break;
-
-				case WAIT_OBJECT_0 + 2 : /* 1 second timer */
+				case WAIT_OBJECT_0 + 1 : /* timer */
 					timer();
 				break;
 
-				case WAIT_OBJECT_0 + 3 : { /* Windows message */
+				case WAIT_OBJECT_0 + 2 : /* Io event */
+# ifdef DEBUG
+					if ( debug > 3 )
+					{
+						printf( "IoEvent occurred\n" );
+					}
+# endif
+				break;
+
+# if 1
+				/*
+				 * FIXME: According to the documentation for WaitForMultipleObjectsEx
+				 *        this is not possible. This may be a vestigial from when this was
+				 *        MsgWaitForMultipleObjects, maybe it should be removed?
+				 */
+				case WAIT_OBJECT_0 + 3 : /* windows message */
+				{
 					MSG msg;
-					while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-						if (msg.message == WM_QUIT) {
-							exit(0);
+					while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) )
+					{
+						if ( msg.message == WM_QUIT )
+						{
+							exit( 0 );
 						}
-						DispatchMessage(&msg);
+						DispatchMessage( &msg );
 					}
 				}
 				break;
+# endif
 
 				case WAIT_IO_COMPLETION : /* loop */
 				case WAIT_TIMEOUT :
 				break;
 				
-			}
+			} /* switch */
+			rbuflist = getrecvbufs();	/* get received buffers */
 
-		}
-	}
-# else /* normal I/O */
+#else /* normal I/O */
 
 	was_alarmed = 0;
 	rbuflist = (struct recvbuf *)0;
 	for (;;)
 	{
-#  if !defined(HAVE_SIGNALED_IO) 
+# if !defined(HAVE_SIGNALED_IO) 
 		extern fd_set activefds;
 		extern int maxactivefd;
 
 		fd_set rdfdes;
 		int nfound;
-#  elif defined(HAVE_SIGNALED_IO)
+# elif defined(HAVE_SIGNALED_IO)
 		block_io_and_alarm();
-#  endif
+# endif
 
 		rbuflist = getrecvbufs();	/* get received buffers */
 		if (alarm_flag) 	/* alarmed? */
@@ -793,9 +875,9 @@ service_main(
 			/*
 			 * Nothing to do.  Wait for something.
 			 */
-#ifndef HAVE_SIGNALED_IO
+# ifndef HAVE_SIGNALED_IO
 			rdfdes = activefds;
-# if defined(VMS) || defined(SYS_VXWORKS)
+#  if defined(VMS) || defined(SYS_VXWORKS)
 			/* make select() wake up after one second */
 			{
 				struct timeval t1;
@@ -804,10 +886,10 @@ service_main(
 				nfound = select(maxactivefd+1, &rdfdes, (fd_set *)0,
 						(fd_set *)0, &t1);
 			}
-# else
+#  else
 			nfound = select(maxactivefd+1, &rdfdes, (fd_set *)0,
 					(fd_set *)0, (struct timeval *)0);
-# endif /* VMS */
+#  endif /* VMS */
 			if (nfound > 0)
 			{
 				l_fp ts;
@@ -818,15 +900,13 @@ service_main(
 			}
 			else if (nfound == -1 && errno != EINTR)
 				msyslog(LOG_ERR, "select() error: %m");
-			else if (debug) {
-#   if !defined SYS_VXWORKS && !defined SYS_CYGWIN32 /* to unclutter log */
+			else if (debug > 2) {
 				msyslog(LOG_DEBUG, "select(): nfound=%d, error: %m", nfound);
-#   endif
 			}
-#  else /* HAVE_SIGNALED_IO */
+# else /* HAVE_SIGNALED_IO */
                         
 			wait_for_signal();
-#  endif /* HAVE_SIGNALED_IO */
+# endif /* HAVE_SIGNALED_IO */
 			if (alarm_flag) 	/* alarmed? */
 			{
 				was_alarmed = 1;
@@ -848,6 +928,7 @@ service_main(
 			was_alarmed = 0;
 		}
 
+#endif /* HAVE_IO_COMPLETION_PORT */
 		/*
 		 * Call the data procedure to handle each received
 		 * packet.
@@ -859,18 +940,18 @@ service_main(
 			(rbuf->receiver)(rbuf);
 			freerecvbuf(rbuf);
 		}
-#  if defined DEBUG && defined SYS_WINNT
+#if defined DEBUG && defined SYS_WINNT
 		if (debug > 4)
 		    printf("getrecvbufs: %ld handler interrupts, %ld frames\n",
 			   handler_calls, handler_pkts);
-#  endif
+#endif
 
 		/*
 		 * Go around again
 		 */
 	}
-# endif /* HAVE_IO_COMPLETION_PORT */
-	exit(0);
+	exit(1); /* unreachable */
+	return 1;		/* DEC OSF cc braindamage */
 }
 
 
@@ -888,11 +969,11 @@ finish(
 
 	switch (sig)
 	{
-#ifdef SIGBUS
+# ifdef SIGBUS
 		case SIGBUS:
 		printf("\nfinish(SIGBUS)\n");
 		exit(0);
-#endif
+# endif
 		case 0: 		/* Should never happen... */
 		return;
 		default:
@@ -1059,11 +1140,6 @@ service_exit(
 	int status
 	)
 {
-	/* restore the clock frequency back to its original value */
-	if (!SetSystemTimeAdjustment((DWORD)0, TRUE)) {
-		msyslog(LOG_ERR, "Failed to reset clock frequency, SetSystemTimeAdjustment(): %m");
-	}
-
 	if (!debug) { /* did not become a service, simply exit */
 		/* service mode, need to have the service_main routine
 		 * register with the service control manager that the 
@@ -1074,6 +1150,7 @@ service_exit(
 
 	}
 	uninit_io_completion_port();
+	reset_winnt_time();
 
 # if defined _MSC_VER
 	_CrtDumpMemoryLeaks();

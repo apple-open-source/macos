@@ -19,11 +19,8 @@
 //
 // osxsigning - MacOS X's standard signable objects.
 //
-#ifdef __MWERKS__
-#define _CPP_OSXSIGNING
-#endif
-
 #include <Security/osxsigning.h>
+#include <Security/cfutilities.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -109,4 +109,12 @@ namespace Security
 // Automatically use the Security namespace for everything that includes the utility_config header.
 using namespace Security;
 
+// Make sure that namespace std exists
+namespace std
+{
+} // end namespace std
+
+// Automatically use the std namespace for everything that includes the utility_config header.
+using namespace std;
+
 #endif //_H_UTILITY_CONFIG

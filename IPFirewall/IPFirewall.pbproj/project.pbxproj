@@ -3,232 +3,291 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 38;
 	objects = {
-		1B428135FFF2B0F911CA2C33 = {
-			buildStyles = (
-				1C24F233FFF2B3DF11CA2C33,
-				1C24F234FFF2B3DF11CA2C33,
+		06AA1261FFB20DD611CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
 			);
-			isa = PBXProject;
-			mainGroup = 1B428136FFF2B0F911CA2C33;
-			productRefGroup = 1B428148FFF2B0F911CA2C33;
-			projectDirPath = .;
-			targets = (
-				1B42814AFFF2B0F911CA2C33,
+			generatedFileNames = (
 			);
-		};
-		1B428136FFF2B0F911CA2C33 = {
-			children = (
-				1B42813DFFF2B0F911CA2C33,
-				1B428148FFF2B0F911CA2C33,
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
 			);
-			isa = PBXGroup;
-			name = IPFirewall;
-			refType = 4;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		1B42813DFFF2B0F911CA2C33 = {
-			children = (
-				1B42813FFFF2B0F911CA2C33,
-				1B428141FFF2B0F911CA2C33,
-			);
-			isa = PBXGroup;
-			name = IPFirewall;
-			path = IPFirewall.kmodproj;
-			refType = 4;
-		};
-		1B42813FFFF2B0F911CA2C33 = {
-			isa = PBXFileReference;
-			path = ip_fw.h;
-			refType = 4;
-		};
-		1B428141FFF2B0F911CA2C33 = {
-			isa = PBXFileReference;
-			path = ip_fw.c;
-			refType = 4;
-		};
-		1B428148FFF2B0F911CA2C33 = {
-			children = (
-				1B428149FFF2B0F911CA2C33,
-			);
-			isa = PBXGroup;
-			name = Products;
-			refType = 4;
-		};
-		1B428149FFF2B0F911CA2C33 = {
-			isa = PBXBundleReference;
-			path = IPFirewall.kext;
-			refType = 3;
-		};
-		1B42814AFFF2B0F911CA2C33 = {
-			buildPhases = (
-				1B42814BFFF2B0F911CA2C33,
-				1B42814CFFF2B0F911CA2C33,
-				1B42814EFFF2B0F911CA2C33,
-				1B42814FFFF2B0F911CA2C33,
-				1B428151FFF2B0F911CA2C33,
-				1B428152FFF2B0F911CA2C33,
-				1B428153FFF2B0F911CA2C33,
+		06AA1262FFB20DD611CA28AA = {
+			buildRules = (
 			);
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1263FFB20DD611CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OPTIMIZATION_CFLAGS = "-Os";
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1268FFB211EB11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1263FFB20DD611CA28AA,
+				06AA1262FFB20DD611CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IPFirewall;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1268FFB211EB11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1261FFB20DD611CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.nke.IPFirewall;
-				MODULE_START = ipfw_load;
-				MODULE_STOP = ipfw_unload;
-				MODULE_VERSION = 1.1;
-				OPTIMIZATION_CFLAGS = "";
-				OTHER_CFLAGS = "-DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD=1 -DIPFIREWALL_KEXT=1 -DINET -Wno-format -traditional-cpp";
+				MODULE_START = IPFirewall_start;
+				MODULE_STOP = IPFirewall_stop;
+				MODULE_VERSION = 1.2;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -traditional-cpp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = YES;
 				PRODUCT_NAME = IPFirewall;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
 			name = "IPFirewall (Kernel Extension)";
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = "IPFirewall (Bundle)";
-			productReference = 1B428149FFF2B0F911CA2C33;
+			productName = IPFirewall;
+			productReference = 0A5A7D55FFB780D811CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IPFirewall</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple 2000-10-30T22:40:43Z IPFirewall</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>IP network firewall</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.nke.IPFirewall</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>com.apple.nke.IPFirewall</string>
+	<string>IP Firewall</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>ipfw</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>6.0</string>
 	</dict>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
+			shouldUseHeadermap = 1;
 		};
-		1B42814BFFF2B0F911CA2C33 = {
+		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
-			neededFileNames = (
-			);
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		1B42814CFFF2B0F911CA2C33 = {
-			buildActionMask = 2147483647;
-			files = (
-				1B42814DFFF2B0F911CA2C33,
+				F583985F0241C95401CA2E50,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
-		1B42814DFFF2B0F911CA2C33 = {
-			fileRef = 1B42813FFFF2B0F911CA2C33;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		1B42814EFFF2B0F911CA2C33 = {
+		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
-		1B42814FFFF2B0F911CA2C33 = {
+		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				1B428150FFF2B0F911CA2C33,
+				F583985A0241C93401CA2E50,
+				F583985D0241C94401CA2E50,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
-		1B428150FFF2B0F911CA2C33 = {
-			fileRef = 1B428141FFF2B0F911CA2C33;
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+//080
+//081
+//082
+//083
+//084
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+		0A5A7D55FFB780D811CA28AA = {
+			isa = PBXBundleReference;
+			path = IPFirewall.kext;
+			refType = 3;
+		};
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0A5A7D55FFB780D811CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				F58398590241C93401CA2E50,
+				F583985C0241C94401CA2E50,
+				F583985E0241C95401CA2E50,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//F50
+//F51
+//F52
+//F53
+//F54
+		F58398590241C93401CA2E50 = {
+			isa = PBXFileReference;
+			name = IPFirewall.c;
+			path = IPFirewall.kmodproj/IPFirewall.c;
+			refType = 4;
+		};
+		F583985A0241C93401CA2E50 = {
+			fileRef = F58398590241C93401CA2E50;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F583985C0241C94401CA2E50 = {
+			isa = PBXFileReference;
+			name = ip_fw.c;
+			path = IPFirewall.kmodproj/ip_fw.c;
+			refType = 4;
+		};
+		F583985D0241C94401CA2E50 = {
+			fileRef = F583985C0241C94401CA2E50;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F583985E0241C95401CA2E50 = {
+			isa = PBXFileReference;
+			name = OldInterface.h;
+			path = IPFirewall.kmodproj/OldInterface.h;
+			refType = 4;
+		};
+		F583985F0241C95401CA2E50 = {
+			fileRef = F583985E0241C95401CA2E50;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
 				);
 			};
 		};
-		1B428151FFF2B0F911CA2C33 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
-		};
-		1B428152FFF2B0F911CA2C33 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
-		};
-		1B428153FFF2B0F911CA2C33 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
-			neededFileNames = (
-			);
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		1C24F233FFF2B3DF11CA2C33 = {
-			buildRules = (
-			);
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-			};
-			isa = PBXBuildStyle;
-			name = Development;
-		};
-		1C24F234FFF2B3DF11CA2C33 = {
-			buildRules = (
-			);
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-			};
-			isa = PBXBuildStyle;
-			name = Deployment;
-		};
 	};
-	rootObject = 1B428135FFF2B0F911CA2C33;
+	rootObject = 089C1669FE841209C02AAC07;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -18,6 +18,16 @@
  * under the License.
  *
  * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+ * Modification History
+ *
+ * Feb 10, 2001			Allan Nathanson <ajn@apple.com>
+ * - cleanup API
+ *
+ * Feb 2000			Christophe Allie <callie@apple.com>
+ * - initial revision (as ppplib.h)
  */
 
 #ifndef _PPP_H
@@ -46,12 +56,6 @@ int		PPPConnect		(int			ref,
 					 u_long			link);
 
 int		PPPDisconnect		(int			ref,
-					 u_long			link);
-
-int		PPPListen		(int			ref,
-					 u_long			link);
-
-int		PPPApply		(int			ref,
 					 u_long			link);
 #endif	/* NOT_NEEDED */
 
@@ -83,6 +87,12 @@ int		PPPSetOption		(int			ref,
 int		PPPStatus		(int			ref,
 					 u_long			link,
 					 struct ppp_status	**stat);
+
+#ifdef	NOT_NEEDED
+int		PPPEnableEvents		(int			ref,
+					 u_long			link,
+					 u_char			enable);
+#endif	/* NOT_NEEDED */
 
 __END_DECLS
 

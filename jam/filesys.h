@@ -39,8 +39,19 @@ struct _filename {
 # ifdef VMS
 	int		parent;
 # endif
-
+#ifdef APPLE_EXTENSIONS
+	int		quoting_style;
+#endif
 } ;
+
+#ifdef APPLE_EXTENSIONS
+enum {
+    NO_QUOTING = 0,
+    SINGLE_QUOTING,
+    DOUBLE_QUOTING,
+    BACKSLASH_QUOTING
+};
+#endif
 
 void file_parse();
 void file_build();

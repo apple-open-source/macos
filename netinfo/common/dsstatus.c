@@ -44,6 +44,9 @@ char *dsstatus_message(dsstatus s)
 		case DSStatusInvalidKey: return "Invalid Key";
 		case DSStatusStaleRecord: return "Stale Record Serial Number";
 		case DSStatusPathNotLocal: return "Path Not Local to Datastore";
+		case DSStatusConstraintViolation: return "Constraint Violation";
+		case DSStatusNamingViolation: return "Naming Violation";
+		case DSStatusObjectClassViolation: return "Object Class Violation";
 		case DSStatusInvalidSessionMode: return "Invalid Session Mode";
 		case DSStatusInvalidSession: return "Invalid Session";
 		case DSStatusAccessRestricted: return "Access Restricted";

@@ -237,8 +237,9 @@ void IOAudioClientBufferSet::watchdogTimerFired(IOAudioClientBufferSet *clientBu
 #define super IOUserClient
 
 OSDefineMetaClassAndStructors(IOAudioEngineUserClient, IOUserClient)
-OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 0);
-OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 1);
+OSMetaClassDefineReservedUsed(IOAudioEngineUserClient, 0);
+OSMetaClassDefineReservedUsed(IOAudioEngineUserClient, 1);
+
 OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 2);
 OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 3);
 OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 4);
@@ -270,7 +271,104 @@ OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 29);
 OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 30);
 OSMetaClassDefineReservedUnused(IOAudioEngineUserClient, 31);
 
+// New code added here
+// Used to pass extra information about how many samples are actually in a buffer and other things related to interesting non-mixable audio formats.
+IOReturn IOAudioEngineUserClient::registerClientParameterBuffer (void *paramBuffer, UInt32 bufferSetID)
+{
+	IOReturn						result = kIOReturnSuccess;
+	IOAudioClientBufferSet			*bufferSet = NULL;
+	IOAudioClientBufferExtendedInfo *extendedInfo;
 
+    if (!isInactive()) {
+        if (!paramBuffer || ((IOAudioStreamDataDescriptor *)paramBuffer)->fVersion > kStreamDataDescriptorCurrentVersion) {
+            return kIOReturnBadArgument;
+        }
+        
+		// this buffer set can't have already been registered with extended info
+        extendedInfo = findExtendedInfo (bufferSetID);
+		if (extendedInfo) {
+            return kIOReturnBadArgument;
+		}
+
+		// make sure that this buffer set has already been registered for output
+        bufferSet = findBufferSet(bufferSetID);
+
+        if (bufferSet) {
+			IOAudioClientBufferExtendedInfo *info;
+			
+			extendedInfo = (IOAudioClientBufferExtendedInfo*)IOMalloc (sizeof (IOAudioClientBufferExtendedInfo));
+			if (!extendedInfo) {
+				return kIOReturnError;
+			}
+
+			// Can only be for output buffers, so always kIODirectionIn
+			extendedInfo->paramBufferDescriptor = IOMemoryDescriptor::withAddress((vm_address_t)paramBuffer, (((IOAudioStreamDataDescriptor *)paramBuffer)->fNumberOfStreams * 4) + 8, kIODirectionIn, clientTask);
+			if (!extendedInfo->paramBufferDescriptor) {
+				result = kIOReturnInternalError;
+				goto Exit;
+			}
+			
+			if ((result = extendedInfo->paramBufferDescriptor->prepare()) != kIOReturnSuccess) {
+				goto Exit;
+			}
+			
+			extendedInfo->paramBufferMap = extendedInfo->paramBufferDescriptor->map();
+			
+			if (extendedInfo->paramBufferMap == NULL) {
+				IOLog("IOAudioEngineUserClient<0x%x>::registerClientParameterBuffer() - error mapping memory.\n", (unsigned int)this);
+				result = kIOReturnVMError;
+				goto Exit;
+			}
+			
+			extendedInfo->paramBuffer = (void *)extendedInfo->paramBufferMap->getVirtualAddress();
+			if (extendedInfo->paramBuffer == NULL) {
+				result = kIOReturnVMError;
+				goto Exit;
+			}
+	
+			extendedInfo->unmappedParamBuffer = paramBuffer;
+			extendedInfo->next = NULL;
+			
+			if (reserved->extendedInfo) {
+				// Get to the end of the linked list of extended info and add this new entry there
+				info = reserved->extendedInfo;
+				while (info) {
+					info = info->next;
+				}
+
+				info->next = extendedInfo;
+			} else {
+				// The list is empty, so this the start of the list
+				reserved->extendedInfo = extendedInfo;
+			}
+		}
+     } else {
+        result = kIOReturnNoDevice;
+    }
+
+Exit:
+	return result;
+}
+
+IOAudioClientBufferExtendedInfo *IOAudioEngineUserClient::findExtendedInfo(UInt32 bufferSetID)
+{
+    IOAudioClientBufferExtendedInfo *extendedInfo;
+    
+    assert(clientBufferLock);
+    
+    IORecursiveLockLock(clientBufferLock);
+    
+    extendedInfo = reserved->extendedInfo;
+    while (extendedInfo && (extendedInfo->bufferSetID != bufferSetID)) {
+        extendedInfo = extendedInfo->next;
+    }
+    
+    IORecursiveLockUnlock(clientBufferLock);
+    
+    return extendedInfo;
+}
+
+// Original code
 IOAudioEngineUserClient *IOAudioEngineUserClient::withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type)
 {
     IOAudioEngineUserClient *client;
@@ -329,7 +427,14 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
         return false;
     }
     
-    workLoop->addEventSource(commandGate);
+ 	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	if (!reserved) {
+		return false;
+	}
+
+	reserved->extendedInfo = NULL;
+
+	workLoop->addEventSource(commandGate);
     
     methods[kIOAudioEngineCallRegisterClientBuffer].object = this;
     methods[kIOAudioEngineCallRegisterClientBuffer].func = (IOMethod) &IOAudioEngineUserClient::registerBuffer;
@@ -360,7 +465,7 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
     methods[kIOAudioEngineCallStop].count0 = 0;
     methods[kIOAudioEngineCallStop].count1 = 0;
     methods[kIOAudioEngineCallStop].flags = kIOUCScalarIScalarO;
-    
+
     trap.object = this;
     trap.func = (IOTrap) &IOAudioEngineUserClient::performClientIO;
 
@@ -369,6 +474,9 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 
 void IOAudioEngineUserClient::free()
 {
+	IOAudioClientBufferExtendedInfo *			cur;
+	IOAudioClientBufferExtendedInfo *			prev;
+
 #ifdef DEBUG_CALLS
     IOLog("IOAudioEngineUserClient[%p]::free()\n", this);
 #endif
@@ -399,6 +507,20 @@ void IOAudioEngineUserClient::free()
         workLoop = NULL;
     }
     
+	if (reserved) {
+		if (NULL != reserved->extendedInfo) {
+			cur = reserved->extendedInfo;
+			while (cur) {
+				prev = cur;
+				if (NULL != prev) {
+					IOFree (prev, sizeof (IOAudioClientBufferExtendedInfo));
+				}
+				cur = cur->next;
+			}
+		}
+		IOFree (reserved, sizeof(struct ExpansionData));
+	}
+
     super::free();
 }
 
@@ -607,7 +729,7 @@ IOExternalTrap *IOAudioEngineUserClient::getExternalTrapForIndex( UInt32 index )
     if (index != kIOAudioEngineTrapPerformClientIO) {
         return NULL;
     }
-    
+
     return &trap;
 }
 
@@ -739,7 +861,7 @@ IOReturn IOAudioEngineUserClient::unregisterBufferAction(OSObject *owner, void *
     
     return result;
 }
-    
+
 IOReturn IOAudioEngineUserClient::registerClientBuffer(IOAudioStream *audioStream, void *sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID)
 {
     IOReturn result = kIOReturnSuccess;
@@ -794,6 +916,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer(IOAudioStream *audioStrea
         
         audioStream->retain();
         clientBuffer->audioStream = audioStream;
+
         clientBuffer->sourceBufferDescriptor = IOMemoryDescriptor::withAddress((vm_address_t)sourceBuffer, bufSizeInBytes, bufferDirection, clientTask);
         if (!clientBuffer->sourceBufferDescriptor) {
             result = kIOReturnInternalError;
@@ -817,8 +940,15 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer(IOAudioStream *audioStrea
             result = kIOReturnVMError;
             goto Exit;
         }
-        
-        clientBuffer->numSampleFrames = bufSizeInBytes / (kIOAudioEngineDefaultMixBufferSampleSize * streamFormat->fNumChannels);
+
+		numSampleFrames = bufSizeInBytes;
+		if (streamFormat->fIsMixable) {
+			// If it's mixable the data is floats, so that's the size of each sample
+			clientBuffer->numSampleFrames = bufSizeInBytes / (kIOAudioEngineDefaultMixBufferSampleSize * streamFormat->fNumChannels);
+		} else {
+			// If it's not mixable then the size is whatever the bitwidth is
+			clientBuffer->numSampleFrames = bufSizeInBytes / ((streamFormat->fBitWidth / 8) * streamFormat->fNumChannels);
+		}
         clientBuffer->numChannels = streamFormat->fNumChannels;
                 
         clientBuffer->unmappedSourceBuffer = sourceBuffer;
@@ -1068,6 +1198,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
     IOLog("IOAudioEngineUserClient[%p]::performClientIO(0x%lx, 0x%lx, %d, 0x%lx) - firstSampleFrame is out of range - 0x%lx frames per buffer.\n", this, firstSampleFrame, loopCount, inputIO, bufferSetID, audioEngine->numSampleFramesPerBuffer);
 #endif
                 result = kIOReturnBadArgument;
+				IOLog ("!!! firstSampleFrame > audioEngine->numSampleFramesPerBuffer (%ld > %ld)\n", firstSampleFrame, audioEngine->numSampleFramesPerBuffer);
             }
         } else {
             result = kIOReturnOffline;
@@ -1084,7 +1215,10 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
 IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, UInt32 loopCount, IOAudioClientBufferSet *bufferSet, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo)
 {
     IOReturn result = kIOReturnSuccess;
-    
+	IOAudioClientBufferExtendedInfo *extendedInfo;
+	IOAudioStreamDataDescriptor		*dataDescriptor;
+
+//IOLog ("%ld %ld\n", firstSampleFrame, loopCount);
     bufferSet->sampleInterval.hi = sampleIntervalHi;
     bufferSet->sampleInterval.lo = sampleIntervalLo;
     
@@ -1093,10 +1227,22 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
         UInt32 numSampleFrames, numSampleFramesPerBuffer;
         
         assert(audioEngine != NULL);
-    
-        // All buffers in this set must have the same number of samples
-        numSampleFrames = bufferSet->outputBufferList->numSampleFrames;
-        numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
+
+		// check to see if there is extended info registered for this buffer set
+		extendedInfo = findExtendedInfo(bufferSet->bufferSetID);
+		if (extendedInfo) {
+			dataDescriptor = (IOAudioStreamDataDescriptor *)extendedInfo->paramBuffer;
+			if (dataDescriptor) {
+				// fNumChannels should probably be 1 and fBitWidth should be 8 (1 byte) for when you want to pass raw data through IOAudioFamily and the driver.
+				numSampleFrames = dataDescriptor->fStreamLength[0] / (bufferSet->outputBufferList->audioStream->format.fNumChannels * (bufferSet->outputBufferList->audioStream->format.fBitWidth / 8));
+			} else {
+				return kIOReturnError;
+			}
+		} else {
+			// All buffers in this set must have the same number of samples if there isn't an extended info struct for this buffer set
+			numSampleFrames = bufferSet->outputBufferList->numSampleFrames;
+		}
+		numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
         
         outputEndingPosition.fLoopCount = loopCount;
         outputEndingPosition.fSampleFrame = firstSampleFrame + numSampleFrames;
@@ -1200,54 +1346,56 @@ IOLog("IOAudioEngineUserClient[%p]::performWatchdogOutput(%p, %ld) - (%lx,%lx)\n
     IORecursiveLockLock(clientBufferLock);
     
     if (!isInactive() && isOnline()) {
-		// If the generation count of the clientBufferSet is different than the
-		// generation count passed in, then a new client IO was received just before
-		// the timer fired, and we don't need to do the fake IO
-		// We just leave the timerPending field set
-		if (clientBufferSet->generationCount == generationCount) {
-			IOAudioClientBuffer *clientBuffer;
-			
-			clientBuffer = clientBufferSet->outputBufferList;
-			
-			while (clientBuffer) {
-				IOAudioStream *audioStream;
-				
-				audioStream = clientBuffer->audioStream;
-				
-				assert(audioStream);
-				assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
-				
-				audioStream->lockStreamForIO();
-				
-				audioStream->processOutputSamples(clientBuffer, clientBufferSet->nextOutputPosition.fSampleFrame, clientBufferSet->nextOutputPosition.fLoopCount, false);
-				
-				audioStream->unlockStreamForIO();
-				
-				clientBuffer = clientBuffer->next;
-			}
+        if (clientBufferSet->timerPending) {
+            // If the generation count of the clientBufferSet is different than the
+            // generation count passed in, then a new client IO was received just before
+            // the timer fired, and we don't need to do the fake IO
+            // We just leave the timerPending field set
+            if (clientBufferSet->generationCount == generationCount) {
+                IOAudioClientBuffer *clientBuffer;
+                
+                clientBuffer = clientBufferSet->outputBufferList;
+                
+                while (clientBuffer) {
+                    IOAudioStream *audioStream;
+                    
+                    audioStream = clientBuffer->audioStream;
+                    
+                    assert(audioStream);
+                    assert(audioStream->getDirection() == kIOAudioStreamDirectionOutput);
+                    
+                    audioStream->lockStreamForIO();
+                    
+                    audioStream->processOutputSamples(clientBuffer, clientBufferSet->nextOutputPosition.fSampleFrame, clientBufferSet->nextOutputPosition.fLoopCount, false);
+                    
+                    audioStream->unlockStreamForIO();
+                    
+                    clientBuffer = clientBuffer->next;
+                }
 
-			if (clientBufferSet->outputBufferList != NULL) {
-				UInt32 numSampleFrames, numSampleFramesPerBuffer;
-				AbsoluteTime outputTimeout;
-				
-				numSampleFrames = clientBufferSet->outputBufferList->numSampleFrames;
-				numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
-				
-				clientBufferSet->nextOutputPosition.fSampleFrame += numSampleFrames;
-				
-				if (clientBufferSet->nextOutputPosition.fSampleFrame >= numSampleFramesPerBuffer) {
-					clientBufferSet->nextOutputPosition.fSampleFrame -= numSampleFramesPerBuffer;
-					clientBufferSet->nextOutputPosition.fLoopCount++;
-				}
-				
-				audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
-				
-				clientBufferSet->setWatchdogTimeout(&outputTimeout);
+                if (clientBufferSet->outputBufferList != NULL) {
+                    UInt32 numSampleFrames, numSampleFramesPerBuffer;
+                    AbsoluteTime outputTimeout;
+                    
+                    numSampleFrames = clientBufferSet->outputBufferList->numSampleFrames;
+                    numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
+                    
+                    clientBufferSet->nextOutputPosition.fSampleFrame += numSampleFrames;
+                    
+                    if (clientBufferSet->nextOutputPosition.fSampleFrame >= numSampleFramesPerBuffer) {
+                        clientBufferSet->nextOutputPosition.fSampleFrame -= numSampleFramesPerBuffer;
+                        clientBufferSet->nextOutputPosition.fLoopCount++;
+                    }
+                    
+                    audioEngine->calculateSampleTimeout(&clientBufferSet->sampleInterval, numSampleFrames, &clientBufferSet->nextOutputPosition, &outputTimeout);
+                    
+                    clientBufferSet->setWatchdogTimeout(&outputTimeout);
 
-			} else {
-				clientBufferSet->timerPending = false;
-			}
-		}
+                } else {
+                    clientBufferSet->timerPending = false;
+                }
+            }
+        }
     } else {
         clientBufferSet->timerPending = false;
     }

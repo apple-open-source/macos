@@ -1,0 +1,34 @@
+! <scp> disable 3Y "compound"
+!3Y	    >=e	    -1d1    -32767	  ox	  H
+!3Y	    e	    -1d2    -281    ox	    H
+3M	    ALL	    2	    2	    OK	    0
+3M	    ALL	    0	    0	    i	    Q
+3e	d	1d1	0	OK	0
+3e	d	-1d1	0	OK	0
+3E		ALL		H		0		OK		H
+3E		ALL		Q		0		OK		Q
+3z	=>d	1p14	0	x	1
+3z	=>d	Hm1	0	x	1
+3H	d	Q	-H	OK	H
+3F		ALL		Q		0		OK		0
+3F		ALL		-Q		0		OK		0	
+3n		ALL		H		0		OK		0
+3n		ALL		-H		0		OK		0	
+3o		ALL		Q		0		OK		0
+38	d	1	0	OK	0
+38	=d	10	0	x	1	!	flags????
+3O	d	1	0	OK	0
+3P	d	1	0	OK	0
+3L	d	3m1	0	OK	0
+3%	    ALL	    2	    2	    OK	    0
+3%	    ALL	    Hm1		 Hd1  OK	  -Hm1d2
+3%	    ALL	    0	    0	    i	    Q
+3m		ALL		Q		0		OK		0
+3V	 ALL    -H	 0  i   Q
+3Q	d	Ep3	0	x	Ep3
+3Q	d	0i1	0	ux	0i1
+3V	 ALL    +0	 0  OK	 +0
+3V	 ALL    -0	 0  OK	 -0
+3V	 ALL    +H	 0  OK	 +H
+3V	 =0<    1d1	  0	 x	 1d1
+3V	    ALL	    Q	    0	    OK	    Q

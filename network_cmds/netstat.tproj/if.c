@@ -36,12 +36,13 @@
 static char sccsid[] = "@(#)if.c	8.3 (Berkeley) 4/28/95";
 */
 static const char rcsid[] =
-	"$Id: if.c,v 1.1.1.2 2000/01/11 01:48:51 wsanchez Exp $";
+	"$Id: if.c,v 1.2 2002/03/05 20:35:13 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/protosw.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/time.h>
 
 #include <net/if.h>
@@ -61,10 +62,6 @@ static const char rcsid[] =
 #include <netns/ns.h>
 #include <netns/ns_if.h>
 #endif
-#ifdef ISO
-#include <netiso/iso.h>
-#include <netiso/iso_var.h>
-#endif
 #include <arpa/inet.h>
 
 #include <signal.h>
@@ -77,23 +74,94 @@ static const char rcsid[] =
 #define	YES	1
 #define	NO	0
 
-static void sidewaysintpr __P((u_int, u_long));
-static void catchalarm __P((int));
+static void sidewaysintpr (u_int, u_long);
+static void catchalarm (int);
+
+#ifdef INET6
+char *netname6 (struct sockaddr_in6 *, struct in6_addr *);
+static char ntop_buf[INET6_ADDRSTRLEN];		/* for inet_ntop() */
+static int bdg_done;
+#endif
+
+#if 0
+/* print bridge statistics */
+void
+bdg_stats(u_long dummy , char *name, int af )
+{
+    int i;
+    size_t slen ;
+    struct bdg_stats s ;
+    int mib[4] ;
+
+    slen = sizeof(s);
+
+    mib[0] = CTL_NET ;
+    mib[1] = PF_LINK ;
+    mib[2] = IFT_ETHER ;
+    if (sysctl(mib,4, &s,&slen,NULL,0)==-1)
+	return ; /* no bridging */
+#ifdef INET6
+    if (bdg_done != 0)
+	return;
+    else
+	bdg_done = 1;
+#endif
+    printf("-- Bridging statistics (%s) --\n", name) ;
+    printf(
+"Name          In      Out  Forward     Drop    Bcast    Mcast    Local  Unknown\n");
+    for (i = 0 ; i < 16 ; i++) {
+	if (s.s[i].name[0])
+	printf("%-6s %9ld%9ld%9ld%9ld%9ld%9ld%9ld%9ld\n",
+	  s.s[i].name,
+	  s.s[i].p_in[(int)BDG_IN],
+	  s.s[i].p_in[(int)BDG_OUT],
+	  s.s[i].p_in[(int)BDG_FORWARD],
+	  s.s[i].p_in[(int)BDG_DROP],
+	  s.s[i].p_in[(int)BDG_BCAST],
+	  s.s[i].p_in[(int)BDG_MCAST],
+	  s.s[i].p_in[(int)BDG_LOCAL],
+	  s.s[i].p_in[(int)BDG_UNKNOWN] );
+    }
+}
+
+#endif
+
+
+/*
+ * Display a formatted value, or a '-' in the same space.
+ */
+static void
+show_stat(const char *fmt, int width, u_long value, short showvalue)
+{
+	char newfmt[32];
+
+	/* Construct the format string */
+	if (showvalue) {
+		sprintf(newfmt, "%%%d%s", width, fmt);
+		printf(newfmt, value);
+	} else {
+		sprintf(newfmt, "%%%ds", width);
+		printf(newfmt, "-");
+	}
+}
+
+
 
 /*
  * Print a description of the network interfaces.
  */
 void
-intpr(interval, ifnetaddr)
-	int interval;
-	u_long ifnetaddr;
+intpr(int interval, u_long ifnetaddr, void (*pfunc)(char *))
 {
 	struct ifnet ifnet;
 	struct ifnethead ifnethead;
 	union {
 		struct ifaddr ifa;
 		struct in_ifaddr in;
-#ifdef IPX
+#ifdef INET6
+		struct in6_ifaddr in6;
+#endif
+#if 0
 		struct ipx_ifaddr ipx;
 #endif
 #ifdef NS
@@ -106,8 +174,19 @@ intpr(interval, ifnetaddr)
 	u_long ifaddraddr;
 	u_long ifaddrfound;
 	u_long ifnetfound;
-	struct sockaddr *sa;
+	u_long opackets;
+	u_long ipackets;
+	u_long obytes;
+	u_long ibytes;
+	u_long oerrors;
+	u_long ierrors;
+	u_long collisions;
+	short timer;
+	int drops;
+	struct sockaddr *sa = NULL;
 	char name[32], tname[16];
+	short network_layer;
+	short link_layer;
 
 	if (ifnetaddr == 0) {
 		printf("ifnet: symbol not defined\n");
@@ -119,28 +198,36 @@ intpr(interval, ifnetaddr)
 	}
 	if (kread(ifnetaddr, (char *)&ifnethead, sizeof ifnethead))
 		return;
-	ifnetaddr = (u_long)ifnethead.tqh_first;
+	ifnetaddr = (u_long)TAILQ_FIRST(&ifnethead);
 	if (kread(ifnetaddr, (char *)&ifnet, sizeof ifnet))
 		return;
 
-	printf("%-5.5s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
-		"Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
-	if (bflag)
-		printf(" %10.10s","Ibytes");
-	printf(" %8.8s %5.5s", "Opkts", "Oerrs");
-	if (bflag)
-		printf(" %10.10s","Obytes");
-	printf(" %5s", "Coll");
-	if (tflag)
-		printf(" %s", "Time");
-	if (dflag)
-		printf(" %s", "Drop");
-	putchar('\n');
+	if (!pfunc) {
+		printf("%-5.5s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
+		       "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
+		if (bflag)
+			printf(" %10.10s","Ibytes");
+		printf(" %8.8s %5.5s", "Opkts", "Oerrs");
+		if (bflag)
+			printf(" %10.10s","Obytes");
+		printf(" %5s", "Coll");
+		if (tflag)
+			printf(" %s", "Time");
+		if (dflag)
+			printf(" %s", "Drop");
+		putchar('\n');
+	}
 	ifaddraddr = 0;
 	while (ifnetaddr || ifaddraddr) {
 		struct sockaddr_in *sin;
+#ifdef INET6
+		struct sockaddr_in6 *sin6;
+#endif
 		register char *cp;
 		int n, m;
+
+		network_layer = 0;
+		link_layer = 0;
 
 		if (ifaddraddr == 0) {
 			ifnetfound = ifnetaddr;
@@ -148,18 +235,39 @@ intpr(interval, ifnetaddr)
 			    kread((u_long)ifnet.if_name, tname, 16))
 				return;
 			tname[15] = '\0';
-			ifnetaddr = (u_long)ifnet.if_link.tqe_next;
+			ifnetaddr = (u_long)TAILQ_NEXT(&ifnet, if_link);
 			snprintf(name, 32, "%s%d", tname, ifnet.if_unit);
 			if (interface != 0 && (strcmp(name, interface) != 0))
 				continue;
 			cp = index(name, '\0');
+
+			if (pfunc) {
+				(*pfunc)(name);
+				continue;
+			}
+
 			if ((ifnet.if_flags&IFF_UP) == 0)
 				*cp++ = '*';
 			*cp = '\0';
-			ifaddraddr = (u_long)ifnet.if_addrhead.tqh_first;
+			ifaddraddr = (u_long)TAILQ_FIRST(&ifnet.if_addrhead);
 		}
 		printf("%-5.5s %-5lu ", name, ifnet.if_mtu);
 		ifaddrfound = ifaddraddr;
+
+		/*
+		 * Get the interface stats.  These may get
+		 * overriden below on a per-interface basis.
+		 */
+		opackets = ifnet.if_opackets;
+		ipackets = ifnet.if_ipackets;
+		obytes = ifnet.if_obytes;
+		ibytes = ifnet.if_ibytes;
+		oerrors = ifnet.if_oerrors;
+		ierrors = ifnet.if_ierrors;
+		collisions = ifnet.if_collisions;
+		timer = ifnet.if_timer;
+		drops = ifnet.if_snd.ifq_drops;
+
 		if (ifaddraddr == 0) {
 			printf("%-13.13s ", "none");
 			printf("%-15.15s ", "none");
@@ -170,7 +278,8 @@ intpr(interval, ifnetaddr)
 			}
 #define CP(x) ((char *)(x))
 			cp = (CP(ifaddr.ifa.ifa_addr) - CP(ifaddraddr)) +
-				CP(&ifaddr); sa = (struct sockaddr *)cp;
+				CP(&ifaddr);
+			sa = (struct sockaddr *)cp;
 			switch (sa->sa_family) {
 			case AF_UNSPEC:
 				printf("%-13.13s ", "none");
@@ -193,9 +302,24 @@ intpr(interval, ifnetaddr)
 #endif
 				printf("%-15.15s ",
 				    routename(sin->sin_addr.s_addr));
-				break;
-#ifdef IPX
 
+				network_layer = 1;
+				break;
+#ifdef INET6
+			case AF_INET6:
+				sin6 = (struct sockaddr_in6 *)sa;
+				printf("%-11.11s ",
+				       netname6(&ifaddr.in6.ia_addr,
+						&ifaddr.in6.ia_prefixmask.sin6_addr));
+				printf("%-17.17s ",
+				    (char *)inet_ntop(AF_INET6,
+					&sin6->sin6_addr,
+					ntop_buf, sizeof(ntop_buf)));
+
+				network_layer = 1;
+				break;
+#endif /*INET6*/
+#if 0
 			case AF_IPX:
 				{
 				struct sockaddr_ipx *sipx =
@@ -205,14 +329,13 @@ intpr(interval, ifnetaddr)
 
 				*(union ipx_net *) &net = sipx->sipx_addr.x_net;
 				sprintf(netnum, "%lx", (u_long)ntohl(net));
-				printf("ipx:%-8s ", netnum);
+				printf("ipx:%-8s  ", netnum);
 /*				printf("ipx:%-8s ", netname(net, 0L)); */
 				printf("%-15s ",
 				    ipx_phost((struct sockaddr *)sipx));
 				}
 				break;
-#endif
-#if 0
+
 			case AF_APPLETALK:
 				printf("atalk:%-12.12s ",atalk_print(sa,0x10) );
 				printf("%-9.9s  ",atalk_print(sa,0x0b) );
@@ -239,10 +362,12 @@ intpr(interval, ifnetaddr)
 				{
 				struct sockaddr_dl *sdl =
 					(struct sockaddr_dl *)sa;
-				    cp = (char *)LLADDR(sdl);
-				    n = sdl->sdl_alen;
+				char linknum[10];
+				cp = (char *)LLADDR(sdl);
+				n = sdl->sdl_alen;
+				sprintf(linknum, "<Link#%d>", sdl->sdl_index);
+				m = printf("%-11.11s ", linknum);
 				}
-				m = printf("%-11.11s ", "<Link>");
 				goto hexprint;
 			default:
 				m = printf("(%d)", sa->sa_family);
@@ -253,27 +378,54 @@ intpr(interval, ifnetaddr)
 			hexprint:
 				while (--n >= 0)
 					m += printf("%02x%c", *cp++ & 0xff,
-						    n > 0 ? '.' : ' ');
+						    n > 0 ? ':' : ' ');
 				m = 30 - m;
 				while (m-- > 0)
 					putchar(' ');
+
+				link_layer = 1;
 				break;
 			}
-			ifaddraddr = (u_long)ifaddr.ifa.ifa_link.tqe_next;
+#ifndef __APPLE__
+			/*
+			 * Fixup the statistics for interfaces that
+			 * update stats for their network addresses
+			 */
+			if (network_layer) {
+				opackets = ifaddr.in.ia_ifa.if_opackets;
+				ipackets = ifaddr.in.ia_ifa.if_ipackets;
+				obytes = ifaddr.in.ia_ifa.if_obytes;
+				ibytes = ifaddr.in.ia_ifa.if_ibytes;
+			}
+#endif
+			ifaddraddr = (u_long)TAILQ_NEXT(&ifaddr.ifa, ifa_link);
 		}
-		printf("%8lu %5lu ",
-		    ifnet.if_ipackets, ifnet.if_ierrors);
-		if (bflag)
-			printf("%10lu ", ifnet.if_ibytes);
-		printf("%8lu %5lu ",
-		    ifnet.if_opackets, ifnet.if_oerrors);
-		if (bflag)
-			printf("%10lu ", ifnet.if_obytes);
-		printf("%5lu", ifnet.if_collisions);
-		if (tflag)
-			printf(" %3d", ifnet.if_timer);
-		if (dflag)
-			printf(" %3d", ifnet.if_snd.ifq_drops);
+
+		show_stat("lu", 8, ipackets, link_layer|network_layer);
+		printf(" ");
+		show_stat("lu", 5, ierrors, link_layer);
+		printf(" ");
+		if (bflag) {
+			show_stat("lu", 10, ibytes, link_layer|network_layer);
+			printf(" ");
+		}
+		show_stat("lu", 8, opackets, link_layer|network_layer);
+		printf(" ");
+		show_stat("lu", 5, oerrors, link_layer);
+		printf(" ");
+		if (bflag) {
+			show_stat("lu", 10, obytes, link_layer|network_layer);
+			printf(" ");
+		}
+		show_stat("lu", 5, collisions, link_layer);
+		if (tflag) {
+			printf(" ");
+			show_stat("d", 3, timer, link_layer);
+		}
+		if (dflag) {
+			printf(" ");
+			show_stat("d", 3, drops, link_layer);
+		}
 		putchar('\n');
 		if (aflag && ifaddrfound) {
 			/*
@@ -284,6 +436,9 @@ intpr(interval, ifnetaddr)
 			union {
 				struct sockaddr sa;
 				struct sockaddr_in in;
+#ifdef INET6
+				struct sockaddr_in6 in6;
+#endif /* INET6 */
 				struct sockaddr_dl dl;
 			} msa;
 			const char *fmt;
@@ -305,9 +460,18 @@ intpr(interval, ifnetaddr)
 				case AF_INET:
 					fmt = routename(msa.in.sin_addr.s_addr);
 					break;
-
+#ifdef INET6
+				case AF_INET6:
+					printf("%23s %-19.19s(refs: %d)\n", "",
+					       inet_ntop(AF_INET6,
+							 &msa.in6.sin6_addr,
+							 ntop_buf,
+							 sizeof(ntop_buf)),
+					       ifma.ifma_refcount);
+					break;
+#endif /* INET6 */
 				case AF_LINK:
-					switch (ifnet.if_type) {
+					switch (msa.dl.sdl_type) {
 					case IFT_ETHER:
 					case IFT_FDDI:
 						fmt = ether_ntoa(
@@ -324,18 +488,18 @@ intpr(interval, ifnetaddr)
 	}
 }
 
-#define	MAXIF	10
 struct	iftot {
+	SLIST_ENTRY(iftot) chain;
 	char	ift_name[16];		/* interface name */
-	u_int	ift_ip;			/* input packets */
-	u_int	ift_ie;			/* input errors */
-	u_int	ift_op;			/* output packets */
-	u_int	ift_oe;			/* output errors */
-	u_int	ift_co;			/* collisions */
+	u_long	ift_ip;			/* input packets */
+	u_long	ift_ie;			/* input errors */
+	u_long	ift_op;			/* output packets */
+	u_long	ift_oe;			/* output errors */
+	u_long	ift_co;			/* collisions */
 	u_int	ift_dr;			/* drops */
-	u_int	ift_ib;			/* input bytes */
-	u_int	ift_ob;			/* output bytes */
-} iftot[MAXIF];
+	u_long	ift_ib;			/* input bytes */
+	u_long	ift_ob;			/* output bytes */
+};
 
 u_char	signalled;			/* set if alarm goes off "early" */
 
@@ -347,26 +511,26 @@ u_char	signalled;			/* set if alarm goes off "early" */
  * XXX - should be rewritten to use ifmib(4).
  */
 static void
-sidewaysintpr(interval, off)
-	unsigned interval;
-	u_long off;
+sidewaysintpr(unsigned interval, u_long off)
 {
 	struct ifnet ifnet;
 	u_long firstifnet;
 	struct ifnethead ifnethead;
-	register struct iftot *ip, *total;
+	struct iftot *iftot, *ip, *ipn, *total, *sum, *interesting;
 	register int line;
-	struct iftot *lastif, *sum, *interesting;
 	int oldmask, first;
 	u_long interesting_off;
 
 	if (kread(off, (char *)&ifnethead, sizeof ifnethead))
 		return;
-	firstifnet = (u_long)ifnethead.tqh_first;
+	firstifnet = (u_long)TAILQ_FIRST(&ifnethead);
 
-	lastif = iftot;
-	sum = iftot + MAXIF - 1;
-	total = sum - 1;
+	if ((iftot = malloc(sizeof(struct iftot))) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
+	memset(iftot, 0, sizeof(struct iftot));
+
 	interesting = NULL;
 	interesting_off = 0;
 	for (off = firstifnet, ip = iftot; off;) {
@@ -383,26 +547,30 @@ sidewaysintpr(interval, off)
 			interesting_off = off;
 		}
 		snprintf(ip->ift_name, 16, "(%s)", name);;
-		ip++;
-		if (ip >= iftot + MAXIF - 2)
-			break;
-		off = (u_long) ifnet.if_link.tqe_next;
+		if ((ipn = malloc(sizeof(struct iftot))) == NULL) {
+			printf("malloc failed\n");
+			exit(1);
+		}
+		memset(ipn, 0, sizeof(struct iftot));
+		SLIST_NEXT(ip, chain) = ipn;
+		ip = ipn;
+		off = (u_long)TAILQ_NEXT(&ifnet, if_link);
 	}
-	lastif = ip;
+	if ((total = malloc(sizeof(struct iftot))) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
+	memset(total, 0, sizeof(struct iftot));
+	if ((sum = malloc(sizeof(struct iftot))) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
+	memset(sum, 0, sizeof(struct iftot));
+
 
 	(void)signal(SIGALRM, catchalarm);
 	signalled = NO;
 	(void)alarm(interval);
-	for (ip = iftot; ip < iftot + MAXIF; ip++) {
-		ip->ift_ip = 0;
-		ip->ift_ie = 0;
-		ip->ift_ib = 0;
-		ip->ift_op = 0;
-		ip->ift_oe = 0;
-		ip->ift_ob = 0;
-		ip->ift_co = 0;
-		ip->ift_dr = 0;
-	}
 	first = 1;
 banner:
 	printf("%17s %14s %16s", "input",
@@ -451,7 +619,9 @@ loop:
 		sum->ift_ob = 0;
 		sum->ift_co = 0;
 		sum->ift_dr = 0;
-		for (off = firstifnet, ip = iftot; off && ip < lastif; ip++) {
+		for (off = firstifnet, ip = iftot;
+		     off && SLIST_NEXT(ip, chain) != NULL;
+		     ip = SLIST_NEXT(ip, chain)) {
 			if (kread(off, (char *)&ifnet, sizeof ifnet)) {
 				off = 0;
 				continue;
@@ -464,10 +634,10 @@ loop:
 			sum->ift_ob += ifnet.if_obytes;
 			sum->ift_co += ifnet.if_collisions;
 			sum->ift_dr += ifnet.if_snd.ifq_drops;
-			off = (u_long) ifnet.if_link.tqe_next;
+			off = (u_long)TAILQ_NEXT(&ifnet, if_link);
 		}
 		if (!first) {
-			printf("%10u %5u %10u %10u %5u %10u %5u",
+			printf("%10lu %5lu %10lu %10lu %5lu %10lu %5lu",
 				sum->ift_ip - total->ift_ip,
 				sum->ift_ie - total->ift_ie,
 				sum->ift_ib - total->ift_ib,
@@ -504,8 +674,7 @@ loop:
  * Sets a flag to not wait for the alarm.
  */
 static void
-catchalarm(signo)
-	int signo;
+catchalarm(int signo )
 {
 	signalled = YES;
 }

@@ -1,4 +1,6 @@
-/* mx.h -- name-to-preference association for MX records */
+/* mx.h -- name-to-preference association for MX records.
+ * For license terms, see the file COPYING in this directory.
+ */
 
 struct mxentry
 {

@@ -1,0 +1,14 @@
+#! /bin/sh
+
+# Minimal test of Java functionality.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+javadir = $(datadir)/java
+java_JAVA = a.java b.java c.java
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+grep '^all[-a-z]*:.*classjava\.stamp' Makefile.in

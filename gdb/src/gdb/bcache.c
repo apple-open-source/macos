@@ -1,7 +1,7 @@
 /* Implement a cached obstack.
    Written by Fred Fish <fnf@cygnus.com>
    Rewritten by Jim Blandy <jimb@cygnus.com>
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -33,7 +33,7 @@
  */
 
 unsigned long
-hash(void *addr, int length)
+hash(const void *addr, int length)
 {
 		const unsigned char *k, *e;
 		unsigned long h;
@@ -111,7 +111,7 @@ expand_hash_table (struct bcache *bcache)
 
   /* Plug in the new table.  */
   if (bcache->bucket)
-    free (bcache->bucket);
+    xfree (bcache->bucket);
   bcache->bucket = new_buckets;
   bcache->num_buckets = new_num_buckets;
 }
@@ -127,7 +127,7 @@ expand_hash_table (struct bcache *bcache)
    never seen those bytes before, add a copy of them to BCACHE.  In
    either case, return a pointer to BCACHE's copy of that string.  */
 void *
-bcache (void *addr, int length, struct bcache *bcache)
+bcache (const void *addr, int length, struct bcache *bcache)
 {
   int hash_index;
   struct bstring *s;
@@ -173,7 +173,7 @@ free_bcache (struct bcache *bcache)
 {
   obstack_free (&bcache->cache, 0);
   if (bcache->bucket)
-    free (bcache->bucket);
+    xfree (bcache->bucket);
 
   /* This isn't necessary, but at least the bcache is always in a
      consistent state.  */

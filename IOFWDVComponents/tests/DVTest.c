@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <IOKit/IOReturn.h>
 
 #include "DVFamily.h"
 
@@ -44,7 +45,8 @@ typedef struct DVFuncsStruct {
     OSErr (*fDVDisableWrite)( DVDeviceRefNum refNum );
     OSErr (*fDVGetEmptyFrame)( DVDeviceRefNum refNum, Ptr *ppEmptyFrameBuffer, UInt32 * pSize );
     OSErr (*fDVWriteFrame)( DVDeviceRefNum refNum, Ptr pWriteBuffer );
-
+    OSErr (*fDVSetWriteSignalMode)( DVDeviceRefNum refNum, UInt8 mode);
+    
     // Notifications
     OSErr (*fDVNewNotification)( DVDeviceRefNum refNum, DVNotifyProc notifyProc,
 						void *userData, DVNotificationID *pNotifyID );	
@@ -56,6 +58,11 @@ typedef struct DVFuncsStruct {
 
 static DVFuncs sDVFuncs;
 static char *sFile = "/tmp/dump.dv";
+static int sWrite = 0;
+static int sLoop = 0;
+static int sSDL;
+static int sDVCPro;
+static int sNotifyTest;
 
 static CFBundleRef findMe()
 {
@@ -67,13 +74,23 @@ static CFBundleRef findMe()
     // for details.
     bundleURL = CFURLCreateWithFileSystemPath( 
                     kCFAllocatorDefault, 
-                    CFSTR("/System/Library/Extensions/DVFamily.bundle"),
+                    //CFSTR("/System/Library/Extensions/DVFamily.bundle"),
+                    CFSTR("DVFamily.bundle"),
                     kCFURLPOSIXPathStyle,
                     true );
     
-    printf("Bundle URL: %p\n", bundleURL);
     // Make a bundle instance using the URLRef.
     myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+    if(!myBundle) {
+        bundleURL = CFURLCreateWithFileSystemPath( 
+                        kCFAllocatorDefault, 
+                        CFSTR("/System/Library/Extensions/DVFamily.bundle"),
+                        kCFURLPOSIXPathStyle,
+                        true );
+        
+        // Make a bundle instance using the URLRef.
+        myBundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+    }
     printf("Bundle: %p\n", myBundle);
 
     // Try to load the executable from my bundle.
@@ -119,6 +136,8 @@ static CFBundleRef findMe()
                 myBundle, CFSTR("DVGetEmptyFrame") );
     sDVFuncs.fDVWriteFrame = CFBundleGetFunctionPointerForName( 
                 myBundle, CFSTR("DVWriteFrame") );
+    sDVFuncs.fDVSetWriteSignalMode = CFBundleGetFunctionPointerForName( 
+                myBundle, CFSTR("DVSetWriteSignalMode") );
 
 // Notifications
     sDVFuncs.fDVNewNotification = CFBundleGetFunctionPointerForName( 
@@ -187,30 +206,114 @@ static void readFrames(DVDeviceRefNum refNum, int file, int numFrames)
 
 }
 
-static void writeFrames(DVDeviceRefNum refNum, int file, int numFrames)
+static void destructoRead(DVDeviceRefNum refNum)
 {
     OSErr err, wait;
     Ptr pReadBuffer;
     UInt32 size;
     int i;
     
-    err = sDVFuncs.fDVEnableWrite(refNum);
+    do {
+        err = sDVFuncs.fDVEnableRead(refNum);
+        
+        for(i=0; i<100; i++) {
+            wait = sDVFuncs.fDVReadFrame( refNum, &pReadBuffer, &size );
+            while(wait == -1) {
+                //usleep(10000);	// 10 milliseconds
+                wait = sDVFuncs.fDVReadFrame( refNum, &pReadBuffer, &size );
+            }
+            err = sDVFuncs.fDVReleaseFrame( refNum, pReadBuffer );        
+        }
     
-    for(i=0; i<numFrames; i++) {
+        err = sDVFuncs.fDVDisableRead( refNum );
+    } while(1);
+}
+
+static void writeFrames(DVDeviceRefNum refNum, int file)
+{
+    OSErr err, wait;
+    Ptr pReadBuffer;
+    UInt32 size, len;
+    
+    err = sDVFuncs.fDVEnableWrite(refNum);
+    if(err)
+        return;
+        
+    do {
         wait = sDVFuncs.fDVGetEmptyFrame( refNum, &pReadBuffer, &size );
         while(wait == -1) {
             usleep(10000);	// 10 milliseconds
             wait = sDVFuncs.fDVGetEmptyFrame( refNum, &pReadBuffer, &size );
         }
-        if(file)
-            read(file, pReadBuffer, size);
+        if(wait)
+            break;
+        if(file) {
+            len = read(file, pReadBuffer, size);
+            if(len < size) {
+                if(sLoop) {
+                    int res;
+                    res = lseek(file, 0, SEEK_SET);
+                    printf("lseek res %d\n", res);
+                        //break;
+                }
+                else
+                    break;
+            }
+        }
         err = sDVFuncs.fDVWriteFrame( refNum, pReadBuffer );        
-    }
+    } while (1);
 
     err = sDVFuncs.fDVDisableWrite( refNum );
 
 }
 
+static void destructoWrite(DVDeviceID device, DVDeviceRefNum refNum, int file)
+{
+    OSErr err, wait;
+    Ptr pReadBuffer;
+    UInt32 size, len;
+    int i;
+    
+    do {
+        err = sDVFuncs.fDVEnableWrite(refNum);
+        if(err) {
+            sleep(1);
+            continue;
+        }
+        for(i=0; i<100; i++) {
+            wait = sDVFuncs.fDVGetEmptyFrame( refNum, &pReadBuffer, &size );
+            while(wait == -1) {
+                usleep(10000);	// 10 milliseconds
+                wait = sDVFuncs.fDVGetEmptyFrame( refNum, &pReadBuffer, &size );
+            }
+            if(file) {
+                len = read(file, pReadBuffer, size);
+                if(len < size) {
+                    int res;
+                    res = lseek(file, 0, SEEK_SET);
+                    printf("lseek res %d\n", res);
+                }
+            }
+            err = sDVFuncs.fDVWriteFrame( refNum, pReadBuffer );        
+        };
+    
+        err = sDVFuncs.fDVDisableWrite( refNum );
+#if 1
+        err = sDVFuncs.fDVCloseDriver(refNum );
+        err = sDVFuncs.fDVOpenDriver( device, &refNum );
+        if(err) {
+            if(err == (OSErr)kIOReturnExclusiveAccess) {
+                do {
+                    sleep(1);
+                	err = sDVFuncs.fDVOpenDriver( device, &refNum );
+                }
+                while (err == (OSErr)kIOReturnExclusiveAccess);
+            }
+            printf("Error %d calling DVOpenDriver(%ld)\n", err, device);
+        }
+#endif
+    } while (err == noErr);
+}
 
 static OSStatus myNotifyProc(DVEventRecordPtr event, void *userData )
 {
@@ -227,13 +330,37 @@ int main(int argc, char **argv)
     Boolean isEnabled;
     OSErr err;
     DVDeviceID device;
-    DVDeviceRefNum refNum;
     DVNotificationID notifyID;
     char name[256];
     int file;
+    int pos = 1;
+    int destruct = 0;
     
+    while(argc > pos) {
+        if(strcmp(argv[pos], "-w") == 0)
+            sWrite = 1;
+        else if(strcmp(argv[pos], "-r") == 0)
+            sWrite = 0;
+        else if(strcmp(argv[pos], "-d") == 0)
+            destruct = 1;
+        else if(strcmp(argv[pos], "-l") == 0)
+            sLoop = 1;
+        else if(strcmp(argv[pos], "-sdl") == 0)
+            sSDL = 1;
+        else if(strcmp(argv[pos], "-DVCPro") == 0)
+            sDVCPro = 1;
+        else if(strcmp(argv[pos], "-n") == 0)
+            sNotifyTest = 1;
+        else if(strcmp(argv[pos], "-h") == 0) {
+            printf("%s [-w/-r] [-l(oop)] [-d(estructoTest)] [-sdl/-DVCPro] [-n(otify test] [filename]\n", argv[0]);
+            exit(0);
+        }
+        else
+            sFile = argv[pos];
+        pos++;
+    }
     myBundle = findMe();
-    
+    printf("sLoop = %d\n", sLoop);
     numDevs = sDVFuncs.fDVCountDevices();
     printf("Number of devices: %ld\n", numDevs);
     if(numDevs == 0) {
@@ -241,18 +368,19 @@ int main(int argc, char **argv)
 						0x1234, &notifyID );
         if(err)
             printf("Error %d calling DVNewNotification(, %ld)\n", err, kEveryDVDeviceRefNum);
-	err = sDVFuncs.fDVNotifyMeWhen( kEveryDVDeviceRefNum, notifyID,
+        err = sDVFuncs.fDVNotifyMeWhen( kEveryDVDeviceRefNum, notifyID,
             kDVDeviceAdded | kDVDeviceRemoved);
         if(err)
             printf("Error %d calling NotifyMeWhen(%ld, %ld)\n", err, kEveryDVDeviceRefNum, notifyID);
 
-        while (true) {
-        printf("Waiting for devices: %ld\n", numDevs);
-        usleep(1000000);	// 1000 milliseconds
-        numDevs = sDVFuncs.fDVCountDevices();
+        while (numDevs == 0 || sNotifyTest) {
+            printf("Waiting for devices: %ld\n", numDevs);
+            usleep(1000000);	// 1000 milliseconds
+            numDevs = sDVFuncs.fDVCountDevices();
         }
     }
     for(i=1; i<=numDevs; i++) {
+        DVDeviceRefNum refNum;
         err = sDVFuncs.fDVGetIndDevice(&device, i);
         if(err)
             printf("Error %d calling DVGetIndDevice(, %ld)\n", err, i);
@@ -263,9 +391,16 @@ int main(int argc, char **argv)
             printf("Device %ld name is %s\n", device, name);
             
         err = sDVFuncs.fDVOpenDriver( device, &refNum );
-        if(err)
+        if(err) {
+            if(err == (OSErr)kIOReturnExclusiveAccess) {
+                do {
+                    sleep(1);
+                	err = sDVFuncs.fDVOpenDriver( device, &refNum );
+                }
+                while (err == (OSErr)kIOReturnExclusiveAccess);
+            }
             printf("Error %d calling DVOpenDriver(%ld)\n", err, device);
-            
+        }
         err = sDVFuncs.fDVGetDeviceStandard(refNum, &standard);
         if(err)
             printf("Error %d calling DVGetDeviceStandard(%ld)\n", err, device);
@@ -276,39 +411,52 @@ int main(int argc, char **argv)
         else
             printf("Device %ld, unknown video standard %ld\n", device, standard);
 
-	err = sDVFuncs.fDVIsEnabled(refNum, &isEnabled);
+        err = sDVFuncs.fDVIsEnabled(refNum, &isEnabled);
         if(err)
             printf("Error %d calling DVIsEnabled(%ld)\n", err, device);
         else
             printf("Device %ld isEnabled: %d\n", device, isEnabled);
         
-#if 0
-        file = open(sFile, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-// Start camera playing
-        
-        err = doControlTest(refNum, kAVCPlayOpcode, kAVCPlayForward);
-        
-        readFrames(refNum, file, 30);
-       
-        //sleep(10);
-        err = doControlTest(refNum, kAVCWindOpcode, kAVCWindStop);
-        
-        err = sDVFuncs.fDVCloseDriver( refNum );
-        if(err)
-            printf("Error %d calling DVCloseDriver(%ld)\n", err, device);
-        printf("Destruction test...\n");
-        while(true) {
-            readFrames(refNum, 0, 30);
+        if(sWrite) {
+            if(sSDL) {
+                err = sDVFuncs.fDVSetWriteSignalMode(refNum, kAVCSignalModeSDL525_60);
+            }
+            file = open(sFile, O_RDONLY, 0666);
+            printf("opened file, %d\n", file);
+            if(destruct)
+                destructoWrite(device, refNum, file);
+            else
+                writeFrames(refNum, file);
         }
-#else
-        file = open(sFile, O_RDONLY, 0666);
-        printf("opend file, %d\n", file);
-        writeFrames(refNum, file, 300);
-#endif    
+        else {
+            file = open(sFile, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+    // Start camera playing
+            
+            err = doControlTest(refNum, kAVCPlayOpcode, kAVCPlayForward);
+            
+            if(destruct)
+                destructoRead(refNum);
+            else
+                readFrames(refNum, file, 300);
+        
+            //sleep(10);
+            err = doControlTest(refNum, kAVCWindOpcode, kAVCWindStop);
+            
+            err = sDVFuncs.fDVCloseDriver( refNum );
+            if(err)
+                printf("Error %d calling DVCloseDriver(%ld)\n", err, device);
+            while(sLoop) {
+                readFrames(refNum, 0, 300);
+            }
+        }
+        err = sDVFuncs.fDVCloseDriver(refNum );
+
     }
     
-    // Unload the bundle's executable code. 
-    CFBundleUnloadExecutable( myBundle );
-    CFRelease( myBundle );
+    sleep(10);
+    // Unload the bundle's executable code.
+    // Don't, because there's no way to stop it!
+    //CFBundleUnloadExecutable( myBundle );
+    //CFRelease( myBundle );
     return 0;
 }

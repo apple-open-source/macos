@@ -16,7 +16,7 @@ HFILES = ldef.h
 
 OTHERLINKED = yacc.y lex.l
 
-OTHERSRCS = Makefile.preamble Makefile Japanese mklocale.1 POSIX
+OTHERSRCS = Makefile.preamble Makefile.postamble Makefile Japanese mklocale.1 POSIX share
 
 OTHERLINKEDOFILES = yacc.o lex.o
 

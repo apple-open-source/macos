@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $RCSfile: shmkill,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:11:01 $
+# $RCSfile: shmkill,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:15 $
 
 # A script to call from crontab periodically when people are leaving shared
 # memory sitting around unattached.

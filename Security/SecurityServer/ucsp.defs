@@ -33,6 +33,10 @@ type AclEntryInfoBlob = Data
 	ctype: AclEntryInfoPtr;
 type AclEntryInfoPtr = unsigned32;
 
+type AclEntryInputBlob = Data
+	ctype: AclEntryInputPtr;
+type AclEntryInputPtr = unsigned32;
+
 type AclOwnerPrototypeBlob = Data
 	ctype: AclOwnerPrototypePtr;
 type AclOwnerPrototypePtr = unsigned32;
@@ -44,6 +48,10 @@ type AccessCredentialsPtr = unsigned32;
 type DLDbIdentBlob = Data
     ctype: DLDbIdentPtr;
 type DLDbIdentPtr = unsigned32;
+
+type VoidBlob = Data
+    ctype: VoidPtr;
+type VoidPtr = unsigned32;
 
 type Context = struct [9] of unsigned32
 	ctype: CSSM_CONTEXT
@@ -57,6 +65,9 @@ type CssmKey = struct [23+2] of unsigned32
 	ctype: CSSM_KEY
 	intran: CssmKey inTrans(CSSM_KEY)
 	outtran: CSSM_KEY outTrans(CssmKey);
+    
+type CSSM_KEY_SIZE = struct [2] of unsigned32
+    ctype: CSSM_KEY_SIZE;
 
 type DBParameters = struct [1] of unsigned32;
 
@@ -100,6 +111,8 @@ type ExecutablePath = c_string[*:2048];
 // Management and administrative functions
 //
 routine setup(UCSP_PORTS; in tport: mach_port_t; in executablePath: ExecutablePath);
+routine setupNew(UCSP_PORTS; in tport: mach_port_t; in executablePath: ExecutablePath;
+	out newServicePort: mach_port_make_send_t);
 routine teardown(UCSP_PORTS);
 
 
@@ -133,6 +146,9 @@ routine decodeKey(UCSP_PORTS; out key: KeyHandle; out header: CssmKeyHeader;
     in db: DbHandle; in blob: KeyBlob);
 routine releaseKey(UCSP_PORTS; in key: KeyHandle);
 
+routine queryKeySizeInBits(UCSP_PORTS; in key: KeyHandle; out length: CSSM_KEY_SIZE);
+routine getOutputSize(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+    in inputSize: uint32; in encrypt: boolean_t; out outputSize: uint32);
 
 //
 // Random numbers
@@ -144,9 +160,9 @@ routine generateRandom(UCSP_PORTS; in bytes: uint32; out data: Data);
 // Cryptographic operations
 //
 routine generateSignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
-	in data: Data; out signature: Data);
+    in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; out signature: Data);
 routine verifySignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
-	in data: Data; in signature: Data);
+	in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; in signature: Data);
 routine generateMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
 	in data: Data; out signature: Data);
 routine verifyMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
@@ -163,6 +179,10 @@ routine generateKeyPair(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
 	in pubUsage: uint32; in pubAttrs: uint32; in privUsage: uint32; in privAttrs: uint32;
 	out pubKey: KeyHandle; out pubHeader: CssmKeyHeader;
     out privKey: KeyHandle; out privHeader: CssmKeyHeader);
+routine deriveKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in baseKey: KeyHandle;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+    IN_BLOB(paramInput,Void); out paramOutput: Data;
+	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
 
 routine wrapKey(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
     IN_BLOB(accessCredentials,AccessCredentials); in keyToBeWrapped: KeyHandle;
@@ -187,7 +207,7 @@ routine getAcl(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
 routine changeAcl(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
 	IN_BLOB(accessCredentials,AccessCredentials);
 	in mode: CSSM_ACL_EDIT_MODE; in handle: CSSM_ACL_HANDLE;
-	IN_BLOB(aclEntryPrototype,AclEntryPrototype));
+	IN_BLOB(aclEntryInput,AclEntryInput));
 
 
 //
@@ -224,3 +244,11 @@ routine getSessionInfo(UCSP_PORTS; inout sessionId: SecuritySessionId;
     out attrs: SessionAttributeBits);
 
 routine setupSession(UCSP_PORTS; in flags: SessionCreationFlags; in attrs: SessionAttributeBits);
+
+
+//
+// Notification subsystem
+//
+routine requestNotification(UCSP_PORTS; in receiver: mach_port_t; in domain: uint32; in events: uint32);
+routine stopNotification(UCSP_PORTS; in receiver: mach_port_t);
+routine postNotification(UCSP_PORTS; in domain: uint32; in event: uint32; in data: Data);

@@ -177,6 +177,10 @@ Percent-signs (%) in the command, unless escaped with backslash
 (\\), will be changed into newline characters, and all data
 after the first % will be sent to the command as standard
 input.
+The command can optionally be prefixed by ``@AppleNotOnBattery '' to
+tell cron not to run the command when functioning on battery power. 
+For example, the ``sixth'' field when using this option would appear
+something like ``@AppleNotOnBattery /usr/bin/touch /tmp/foo''
 .Pp
 Note: The day of a command's execution can be specified by two
 fields \(em day of month, and day of week.  If both fields are

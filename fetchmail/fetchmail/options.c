@@ -89,7 +89,7 @@
 
 /* options still left: CDgGhHjJoORwWxXYz */
 static const char *shortoptions = 
-	"?Vcsvd:NqL:f:i:p:UP:A:t:E:Q:u:akKFnl:r:S:Z:b:B:e:m:T:I:M:yw:";
+	"?Vcsvd:NqL:f:i:p:UP:A:t:E:Q:u:akKFnl:r:S:Z:b:B:e:m:T:I:M:yw:D:";
 
 static const struct option longoptions[] = {
 /* this can be const because all flag fields are 0 and will never get set */
@@ -194,7 +194,7 @@ static int xatoi(char *s, int *errflagptr)
 
     /* any invalid chars in string? */
     if ( (endptr == s) || (*endptr != '\0') ) {
-    	(void) fprintf(stderr, _("String '%s' is not a valid number string.\n"), s);
+    	(void) fprintf(stderr, GT_("String '%s' is not a valid number string.\n"), s);
 	(*errflagptr)++;
 	return 0;
     }
@@ -203,8 +203,8 @@ static int xatoi(char *s, int *errflagptr)
     if ( (((value == LONG_MAX) || (value == LONG_MIN)) && (errno == ERANGE)) ||
 				(value > INT_MAX) || (value < INT_MIN)) {
 
-    	(void) fprintf(stderr, _("Value of string '%s' is %s than %d.\n"), s,
-					(value < 0) ? _("smaller"): _("larger"),
+    	(void) fprintf(stderr, GT_("Value of string '%s' is %s than %d.\n"), s,
+					(value < 0) ? GT_("smaller"): GT_("larger"),
 					(value < 0) ? INT_MIN : INT_MAX);
 	(*errflagptr)++;
 	return 0;
@@ -238,7 +238,7 @@ static int xatoi(char *s, int *errflagptr)
 
     /* check for trailing garbage */
     if (i != len) {
-    	(void) fprintf(stderr, _("String '%s' is not a valid number string.\n"), s);
+    	(void) fprintf(stderr, GT_("String '%s' is not a valid number string.\n"), s);
     	(*errflagptr)++;
 	return 0;
     }
@@ -277,8 +277,8 @@ struct query *ctl;	/* option record to be initialized */
 
     while (!errflag && 
 	   (c = getopt_long(argc,argv,shortoptions,
-			    longoptions,&option_index)) != -1) {
-
+			    longoptions, &option_index)) != -1)
+    {
 	switch (c) {
 	case 'V':
 	case LA_VERSION:
@@ -376,7 +376,7 @@ struct query *ctl;	/* option record to be initialized */
 	    else if (strcasecmp(optarg,"odmr") == 0)
 		ctl->server.protocol = P_ODMR;
 	    else {
-		fprintf(stderr,_("Invalid protocol `%s' specified.\n"), optarg);
+		fprintf(stderr,GT_("Invalid protocol `%s' specified.\n"), optarg);
 		errflag++;
 	    }
 	    break;
@@ -420,7 +420,7 @@ struct query *ctl;	/* option record to be initialized */
 	    else if (strcmp(optarg, "any") == 0)
 		ctl->server.authenticate = A_ANY;
 	    else {
-		fprintf(stderr,_("Invalid authentication `%s' specified.\n"), optarg);
+		fprintf(stderr,GT_("Invalid authentication `%s' specified.\n"), optarg);
 		errflag++;
 	    }
 	    break;
@@ -550,7 +550,7 @@ struct query *ctl;	/* option record to be initialized */
 #if NET_SECURITY
 	    ctl->server.netsec = (void *)optarg;
 #else
-	    fprintf(stderr, _("fetchmail: network security support is disabled\n"));
+	    fprintf(stderr, GT_("fetchmail: network security support is disabled\n"));
 	    errflag++;
 #endif /* NET_SECURITY */
 	    break;
@@ -643,72 +643,72 @@ struct query *ctl;	/* option record to be initialized */
     if (errflag || ocount > 1 || helpflag) {
 	/* squawk if syntax errors were detected */
 #define P(s)	fputs(s, helpflag ? stdout : stderr)
-	P(_("usage:  fetchmail [options] [server ...]\n"));
-	P(_("  Options are as follows:\n"));
-	P(_("  -?, --help        display this option help\n"));
-	P(_("  -V, --version     display version info\n"));
+	P(GT_("usage:  fetchmail [options] [server ...]\n"));
+	P(GT_("  Options are as follows:\n"));
+	P(GT_("  -?, --help        display this option help\n"));
+	P(GT_("  -V, --version     display version info\n"));
 
-	P(_("  -c, --check       check for messages without fetching\n"));
-	P(_("  -s, --silent      work silently\n"));
-	P(_("  -v, --verbose     work noisily (diagnostic output)\n"));
-	P(_("  -d, --daemon      run as a daemon once per n seconds\n"));
-	P(_("  -N, --nodetach    don't detach daemon process\n"));
-	P(_("  -q, --quit        kill daemon process\n"));
-	P(_("  -L, --logfile     specify logfile name\n"));
-	P(_("      --syslog      use syslog(3) for most messages when running as a daemon\n"));
-	P(_("      --invisible   don't write Received & enable host spoofing\n"));
-	P(_("  -f, --fetchmailrc specify alternate run control file\n"));
-	P(_("  -i, --idfile      specify alternate UIDs file\n"));
-	P(_("      --postmaster  specify recipient of last resort\n"));
-	P(_("      --nobounce    redirect bounces from user to postmaster.\n"));
+	P(GT_("  -c, --check       check for messages without fetching\n"));
+	P(GT_("  -s, --silent      work silently\n"));
+	P(GT_("  -v, --verbose     work noisily (diagnostic output)\n"));
+	P(GT_("  -d, --daemon      run as a daemon once per n seconds\n"));
+	P(GT_("  -N, --nodetach    don't detach daemon process\n"));
+	P(GT_("  -q, --quit        kill daemon process\n"));
+	P(GT_("  -L, --logfile     specify logfile name\n"));
+	P(GT_("      --syslog      use syslog(3) for most messages when running as a daemon\n"));
+	P(GT_("      --invisible   don't write Received & enable host spoofing\n"));
+	P(GT_("  -f, --fetchmailrc specify alternate run control file\n"));
+	P(GT_("  -i, --idfile      specify alternate UIDs file\n"));
+	P(GT_("      --postmaster  specify recipient of last resort\n"));
+	P(GT_("      --nobounce    redirect bounces from user to postmaster.\n"));
 #if (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__)
-	P(_("  -I, --interface   interface required specification\n"));
-	P(_("  -M, --monitor     monitor interface for activity\n"));
+	P(GT_("  -I, --interface   interface required specification\n"));
+	P(GT_("  -M, --monitor     monitor interface for activity\n"));
 #endif
 #if defined( SSL_ENABLE )
-	P(_("      --ssl         enable ssl encrypted session\n"));
-	P(_("      --sslkey      ssl private key file\n"));
-	P(_("      --sslcert     ssl client certificate\n"));
-	P(_("      --sslproto    force ssl protocol (ssl2/ssl3/tls1)\n"));
+	P(GT_("      --ssl         enable ssl encrypted session\n"));
+	P(GT_("      --sslkey      ssl private key file\n"));
+	P(GT_("      --sslcert     ssl client certificate\n"));
+	P(GT_("      --sslproto    force ssl protocol (ssl2/ssl3/tls1)\n"));
 #endif
-	P(_("      --plugin      specify external command to open connection\n"));
-	P(_("      --plugout     specify external command to open smtp connection\n"));
+	P(GT_("      --plugin      specify external command to open connection\n"));
+	P(GT_("      --plugout     specify external command to open smtp connection\n"));
 
-	P(_("  -p, --protocol    specify retrieval protocol (see man page)\n"));
-	P(_("  -U, --uidl        force the use of UIDLs (pop3 only)\n"));
-	P(_("  -P, --port        TCP/IP service port to connect to\n"));
-	P(_("      --auth        authentication type (password/kerberos/ssh)\n"));
-	P(_("  -t, --timeout     server nonresponse timeout\n"));
-	P(_("  -E, --envelope    envelope address header\n"));
-	P(_("  -Q, --qvirtual    prefix to remove from local user id\n"));
-	P(_("      --principal   mail service principal\n"));
-        P(_("      --tracepolls  add poll-tracing information to Received header\n"));
+	P(GT_("  -p, --protocol    specify retrieval protocol (see man page)\n"));
+	P(GT_("  -U, --uidl        force the use of UIDLs (pop3 only)\n"));
+	P(GT_("  -P, --port        TCP/IP service port to connect to\n"));
+	P(GT_("      --auth        authentication type (password/kerberos/ssh)\n"));
+	P(GT_("  -t, --timeout     server nonresponse timeout\n"));
+	P(GT_("  -E, --envelope    envelope address header\n"));
+	P(GT_("  -Q, --qvirtual    prefix to remove from local user id\n"));
+	P(GT_("      --principal   mail service principal\n"));
+        P(GT_("      --tracepolls  add poll-tracing information to Received header\n"));
 
-	P(_("  -u, --username    specify users's login on server\n"));
-	P(_("  -a, --all         retrieve old and new messages\n"));
-	P(_("  -K, --nokeep      delete new messages after retrieval\n"));
-	P(_("  -k, --keep        save new messages after retrieval\n"));
-	P(_("  -F, --flush       delete old messages from server\n"));
-	P(_("  -n, --norewrite   don't rewrite header addresses\n"));
-	P(_("  -l, --limit       don't fetch messages over given size\n"));
-	P(_("  -w, --warnings    interval between warning mail notification\n"));
+	P(GT_("  -u, --username    specify users's login on server\n"));
+	P(GT_("  -a, --all         retrieve old and new messages\n"));
+	P(GT_("  -K, --nokeep      delete new messages after retrieval\n"));
+	P(GT_("  -k, --keep        save new messages after retrieval\n"));
+	P(GT_("  -F, --flush       delete old messages from server\n"));
+	P(GT_("  -n, --norewrite   don't rewrite header addresses\n"));
+	P(GT_("  -l, --limit       don't fetch messages over given size\n"));
+	P(GT_("  -w, --warnings    interval between warning mail notification\n"));
 
 #if NET_SECURITY
-	P(_("  -T, --netsec      set IP security request\n"));
+	P(GT_("  -T, --netsec      set IP security request\n"));
 #endif /* NET_SECURITY */
-	P(_("  -S, --smtphost    set SMTP forwarding host\n"));
-	P(_("      --fetchdomains fetch mail for specified domains\n"));
-	P(_("  -D, --smtpaddress set SMTP delivery domain to use\n"));
-	P(_("      --smtpname    set SMTP full name username@domain\n"));
-	P(_("  -Z, --antispam,   set antispam response values\n"));
-	P(_("  -b, --batchlimit  set batch limit for SMTP connections\n"));
-	P(_("  -B, --fetchlimit  set fetch limit for server connections\n"));
-	P(_("  -e, --expunge     set max deletions between expunges\n"));
-        P(_("  -m, --mda         set MDA to use for forwarding\n"));
-        P(_("      --bsmtp       set output BSMTP file\n"));
-        P(_("      --lmtp        use LMTP (RFC2033) for delivery\n"));
-	P(_("  -r, --folder      specify remote folder name\n"));
-	P(_("      --showdots    show progress dots even in logfiles\n"));
+	P(GT_("  -S, --smtphost    set SMTP forwarding host\n"));
+	P(GT_("      --fetchdomains fetch mail for specified domains\n"));
+	P(GT_("  -D, --smtpaddress set SMTP delivery domain to use\n"));
+	P(GT_("      --smtpname    set SMTP full name username@domain\n"));
+	P(GT_("  -Z, --antispam,   set antispam response values\n"));
+	P(GT_("  -b, --batchlimit  set batch limit for SMTP connections\n"));
+	P(GT_("  -B, --fetchlimit  set fetch limit for server connections\n"));
+	P(GT_("  -e, --expunge     set max deletions between expunges\n"));
+        P(GT_("  -m, --mda         set MDA to use for forwarding\n"));
+        P(GT_("      --bsmtp       set output BSMTP file\n"));
+        P(GT_("      --lmtp        use LMTP (RFC2033) for delivery\n"));
+	P(GT_("  -r, --folder      specify remote folder name\n"));
+	P(GT_("      --showdots    show progress dots even in logfiles\n"));
 #undef P
 
 	if (helpflag)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,7 +48,7 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 
-#include <bsd/dev/disk.h>
+#include <dev/disk.h>
 #include <sys/loadable_fs.h>
 #include <hfs/hfs_format.h>
 
@@ -68,10 +68,6 @@
 #define FSUR_MOUNT_HIDDEN (-9)
 #endif
 
-#ifndef FSUC_GETKEY
-#define FSUC_GETKEY 'k'
-#endif
-
 #ifndef FSUC_ADOPT
 #define FSUC_ADOPT 'a'
 #endif
@@ -80,8 +76,12 @@
 #define FSUC_DISOWN 'd'
 #endif
 
-#ifndef FSUC_NEWUUID
-#define FSUC_NEWUUID 'n'
+#ifndef FSUC_GETUUID
+#define FSUC_GETUUID 'k'
+#endif
+
+#ifndef FSUC_SETUUID
+#define FSUC_SETUUID 's'
 #endif
 
 
@@ -93,7 +93,6 @@
 char gHFS_FS_NAME[] = "hfs";
 char gHFS_FS_NAME_NAME[] = "HFS";
 
-char gFS_UUID_SUFFIX[] = ".uuid";
 char gNewlineString[] = "\n";
 
 char gMountCommand[] = "/sbin/mount";
@@ -139,7 +138,6 @@ typedef void *VolumeStatusDBHandle;
 void GenerateVolumeUUID(VolumeUUID *newVolumeID);
 void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID);
 void ConvertVolumeUUIDToString(VolumeUUID *volumeID, char *UUIDString);
-
 int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr);
 int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long *VolumeStatus);
 int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, unsigned long VolumeStatus);
@@ -147,7 +145,6 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 
 /* ************************************ P R O T O T Y P E S *************************************** */
-
 static void	DoDisplayUsage( const char * argv[] );
 static void	DoFileSystemFile( char * theFileNameSuffixPtr, char * theContentsPtr );
 static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
@@ -163,11 +160,17 @@ static int	GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, b
 static int	SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
 static int	GetEmbeddedHFSPlusVol(HFSMasterDirectoryBlock * hfsMasterDirectoryBlockPtr, off_t * startOffsetPtr);
 static int	GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * name_o);
-static int	GetBTreeNodeInfo(int fd, off_t btreeOffset, u_int32_t *nodeSize, u_int32_t *firstLeafNode);
-static off_t	CalcLeafNodeOffset(off_t fileOffset, u_int32_t blockSize, u_int32_t extentCount,
-									 HFSPlusExtentDescriptor *extentList);
+static int	GetBTreeNodeInfo(int fd, off_t hfsPlusVolumeOffset, u_int32_t blockSize,
+							u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList,
+							u_int32_t *nodeSize, u_int32_t *firstLeafNode);
 static int	GetCatalogOverflowExtents(int fd, off_t hfsPlusVolumeOffset, HFSPlusVolumeHeader *volHdrPtr,
 									 HFSPlusExtentDescriptor **catalogExtents, u_int32_t *catalogExtCount);
+static int	LogicalToPhysical(off_t logicalOffset, ssize_t length, u_int32_t blockSize,
+							u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList,
+							off_t *physicalOffset, ssize_t *availableBytes);
+static int	ReadFile(int fd, void *buffer, off_t offset, ssize_t length,
+					off_t volOffset, u_int32_t blockSize,
+					u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList);
 static ssize_t	readAt( int fd, void * buf, off_t offset, ssize_t length );
 static ssize_t	writeAt( int fd, void * buf, off_t offset, ssize_t length );
 
@@ -261,15 +264,13 @@ int main (int argc, const char *argv[])
         case FSUC_UNMOUNT:
             result = DoUnmount( mountPointPtr );
             break;
-
-		case FSUC_GETKEY:
+		case FSUC_GETUUID:
 			result = DoGetUUIDKey( blockDeviceName );
 			break;
 		
-		case FSUC_NEWUUID:
+		case FSUC_SETUUID:
 			result = DoChangeUUIDKey( blockDeviceName );
 			break;
-			
 		case FSUC_ADOPT:
 			result = DoAdopt( blockDeviceName );
 			break;
@@ -519,6 +520,12 @@ DoProbe(char *deviceNamePtr)
 		CFStringRef cfstr;
 		CFStringEncoding encoding;
 
+		/* Some poorly mastered HFS CDs have an empty MDB name field! */
+		if (mdbPtr->drVN[0] == '\0') {
+			strcpy(&mdbPtr->drVN[1], gHFS_FS_NAME_NAME);
+			mdbPtr->drVN[0] = strlen(gHFS_FS_NAME_NAME);
+		}
+
 		encoding = CFStringGetSystemEncoding();
 		cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
 			    mdbPtr->drVN, encoding);
@@ -590,8 +597,10 @@ DoProbe(char *deviceNamePtr)
 		};
 
 		CFStringGetCString(volumeName, volnameUTF8, NAME_MAX, kCFStringEncodingUTF8);
+		write(1, volnameUTF8, strlen(volnameUTF8));
 
-		DoFileSystemFile( FS_NAME_SUFFIX, gHFS_FS_NAME_NAME );
+		/* backwards compatibility */
+		DoFileSystemFile( FS_NAME_SUFFIX, gHFS_FS_NAME );
 		DoFileSystemFile( FS_LABEL_SUFFIX, volnameUTF8 );
 		result = FSUR_MOUNT_HIDDEN;
 	}
@@ -612,7 +621,7 @@ Return:
 
 /* **************************************** DoGetUUIDKey *******************************************
 Purpose -
-    This routine will open the given block device and return the volume UUID in text form.
+    This routine will open the given block device and return the volume UUID in text form written to stdout.
 Input -
     theDeviceNamePtr - pointer to the device name (full path, like /dev/disk0s2).
 Output -
@@ -629,8 +638,7 @@ DoGetUUIDKey( const char * theDeviceNamePtr ) {
 	
 	ConvertVolumeUUIDToString( &targetVolumeUUID, UUIDString);
 	strncpy(uuidLine, UUIDString, VOLUMEUUIDLENGTH+1);
-	strcat(uuidLine, gNewlineString);
-	DoFileSystemFile( gFS_UUID_SUFFIX, uuidLine );
+	write(1, uuidLine, strlen(uuidLine));
 	result = FSUR_IO_SUCCESS;
 	
 Err_Exit:
@@ -841,11 +849,11 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
             }
             break;
         
-        case FSUC_GETKEY:
+        case FSUC_GETUUID:
         	index = 0;
 			break;
 		
-		case FSUC_NEWUUID:
+		case FSUC_SETUUID:
 			index = 0;
 			break;
 			
@@ -865,7 +873,7 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 
     /* Make sure device (argv[2]) is something reasonable */
     deviceLength = strlen( argv[2] );
-    if ( deviceLength < 3 || deviceLength > 10 ) {
+    if ( deviceLength < 3 || deviceLength > NAME_MAX ) {
         DoDisplayUsage( argv );
         goto Return;
     }
@@ -937,8 +945,10 @@ DoDisplayUsage(const char *argv[])
     printf("       -%c (Mount)\n", FSUC_MOUNT);
     printf("       -%c (Unmount)\n", FSUC_UNMOUNT);
     printf("       -%c (Force Mount)\n", FSUC_MOUNT_FORCE);
-    printf("       -%c (Get UUID Key)\n", FSUC_GETKEY);
-    printf("       -%c (New UUID Key)\n", FSUC_NEWUUID);
+#ifdef HFS_UUID_SUPPORT
+    printf("       -%c (Get UUID Key)\n", FSUC_GETUUID);
+    printf("       -%c (Set UUID Key)\n", FSUC_SETUUID);
+#endif HFS_UUID_SUPPORT
     printf("       -%c (Adopt permissions)\n", FSUC_ADOPT);
     printf("device_arg:\n");
     printf("       device we are acting upon (for example, 'disk0s2')\n");
@@ -989,17 +999,12 @@ DoFileSystemFile(char *fileNameSuffixPtr, char *contentsPtr)
         if ( fd > 0 ) {
             write( fd, contentsPtr, strlen( contentsPtr ) );
             close( fd );
-        } else {
-            perror( fileName );
         }
     }
 
     return;
 
 } /* DoFileSystemFile */
-
-
-
 
 /*
  --	GetVolumeUUID
@@ -1261,7 +1266,6 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
     u_int32_t				blockSize;
     char			*	bufPtr = NULL;
     HFSPlusVolumeHeader		*	volHdrPtr;
-    off_t				offset;
     BTNodeDescriptor		*	bTreeNodeDescriptorPtr;
     u_int32_t				catalogNodeSize;
 	u_int32_t leafNode;
@@ -1312,25 +1316,13 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 			goto Return;
 	}
 
-    offset = (off_t)catalogExtents[0].startBlock * (off_t)blockSize;
-    
 	/* Read the header node of the catalog B-Tree */
 
-	result = GetBTreeNodeInfo(fd, hfsPlusVolumeOffset + offset, &catalogNodeSize, &leafNode);
+	result = GetBTreeNodeInfo(fd, hfsPlusVolumeOffset, blockSize,
+							catalogExtCount, catalogExtents,
+							&catalogNodeSize, &leafNode);
 	if (result != FSUR_IO_SUCCESS)
         goto Return;
-
-	/* Calculate the starting block of the first leaf node */
-
-	offset = CalcLeafNodeOffset((leafNode * catalogNodeSize), blockSize, catalogExtCount, catalogExtents);
-
-    if ( offset == 0 ) {
-		result = FSUR_IO_FAIL;
-#if TRACE_HFS_UTIL
-        fprintf(stderr, "hfs.util: ERROR: can't find leaf block\n");
-#endif
-        goto Return;
-	}
 
 	/* Read the first leaf node of the catalog b-tree */
 
@@ -1342,10 +1334,12 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 
     bTreeNodeDescriptorPtr = (BTNodeDescriptor *)bufPtr;
 
-    result = readAt( fd, bufPtr, hfsPlusVolumeOffset + offset, catalogNodeSize );
+	result = ReadFile(fd, bufPtr, (off_t) leafNode * (off_t) catalogNodeSize, catalogNodeSize,
+						hfsPlusVolumeOffset, blockSize,
+						catalogExtCount, catalogExtents);
     if (result == FSUR_IO_FAIL) {
 #if TRACE_HFS_UTIL
-        fprintf(stderr, "hfs.util: ERROR: readAt (first leaf) failed\n");
+        fprintf(stderr, "hfs.util: ERROR: reading first leaf failed\n");
 #endif
         goto Return; // return FSUR_IO_FAIL
     }
@@ -1422,7 +1416,9 @@ typedef struct {
  --
  */
 static int
-GetBTreeNodeInfo(int fd, off_t btreeOffset, u_int32_t *nodeSize, u_int32_t *firstLeafNode)
+GetBTreeNodeInfo(int fd, off_t hfsPlusVolumeOffset, u_int32_t blockSize,
+				u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList,
+				u_int32_t *nodeSize, u_int32_t *firstLeafNode)
 {
 	int result;
 	HeaderRec * bTreeHeaderPtr = NULL;
@@ -1433,10 +1429,12 @@ GetBTreeNodeInfo(int fd, off_t btreeOffset, u_int32_t *nodeSize, u_int32_t *firs
     
 	/* Read the b-tree header node */
 
-	result = readAt( fd, bTreeHeaderPtr, btreeOffset, HFS_BLOCK_SIZE );
+	result = ReadFile(fd, bTreeHeaderPtr, 0, HFS_BLOCK_SIZE,
+					hfsPlusVolumeOffset, blockSize,
+					extentCount, extentList);
 	if ( result == FSUR_IO_FAIL ) {
 #if TRACE_HFS_UTIL
-		fprintf(stderr, "hfs.util: ERROR: readAt (header node) failed\n");
+		fprintf(stderr, "hfs.util: ERROR: reading header node failed\n");
 #endif
 		goto free;
 	}
@@ -1462,44 +1460,6 @@ free:;
 	return result;
 
 } /* GetBTreeNodeInfo */
-
-
-/*
- --
- --
- --	Returns: byte offset to first leaf node 
- --
- */
-static off_t
-CalcLeafNodeOffset(off_t fileOffset, u_int32_t blockSize, u_int32_t extentCount,
-			HFSPlusExtentDescriptor *extentList)
-{
-	off_t offset = 0;
-	int i;
-	u_long extblks;
-	u_long leafblk;
-
-	/* Find this block in the list of extents */
- 
-	leafblk = fileOffset / blockSize;
-	extblks = 0;
-
-	for (i = 0; i < extentCount; ++i) {
-		if (extentList[i].startBlock == 0 || extentList[i].blockCount == 0)
-			break; /* done when we reach empty extents */
-
-		extblks += extentList [i].blockCount;
-
-		if (extblks > leafblk) {
-			offset = (off_t) extentList[i].startBlock * (off_t) blockSize;
-			offset += fileOffset - (off_t) ((extblks - extentList[i].blockCount) * blockSize);
-			break;
-		}
-	}
-
-	return offset;
-
-} /* CalcLeafNodeOffset */
 
 
 /*
@@ -1531,23 +1491,15 @@ GetCatalogOverflowExtents(int fd, off_t hfsPlusVolumeOffset,
 
 	/* Read the header node of the extents B-Tree */
 
-	result = GetBTreeNodeInfo(fd, hfsPlusVolumeOffset + offset,
+	result = GetBTreeNodeInfo(fd, hfsPlusVolumeOffset, volHdrPtr->blockSize,
+			kHFSPlusExtentDensity, volHdrPtr->extentsFile.extents,
 		    &nodeSize, &leafNode);
 	if (result != FSUR_IO_SUCCESS || leafNode == 0)
 		goto Return;
 
-	/* Calculate the starting block of the first leaf node */
+	/* Calculate the logical position of the first leaf node */
 
-	offset = CalcLeafNodeOffset((leafNode * nodeSize), volHdrPtr->blockSize,
-		    kHFSPlusExtentDensity, &volHdrPtr->extentsFile.extents[0]);
-
-	if (offset == 0) {
-		result = FSUR_IO_FAIL;
-#if TRACE_HFS_UTIL
-		fprintf(stderr, "hfs.util: ERROR: can't find extents b-tree leaf block\n");
-#endif
-		goto Return;
-	}
+	offset = (off_t) leafNode * (off_t) nodeSize;
 
 	/* Read the first leaf node of the extents b-tree */
 
@@ -1560,15 +1512,17 @@ GetCatalogOverflowExtents(int fd, off_t hfsPlusVolumeOffset,
 	bTreeNodeDescriptorPtr = (BTNodeDescriptor *)bufPtr;
 
 again:
-        result = readAt(fd, bufPtr, hfsPlusVolumeOffset + offset, nodeSize);
-        if ( result == FSUR_IO_FAIL ) {
+	result = ReadFile(fd, bufPtr, offset, nodeSize,
+					hfsPlusVolumeOffset, volHdrPtr->blockSize,
+					kHFSPlusExtentDensity, volHdrPtr->extentsFile.extents);
+	if ( result == FSUR_IO_FAIL ) {
 #if TRACE_HFS_UTIL
-            fprintf(stderr, "hfs.util: ERROR: readAt (first leaf) failed\n");
+		fprintf(stderr, "hfs.util: ERROR: reading first leaf failed\n");
 #endif
-            goto Return;
+		goto Return;
 	}
 
-        if (bTreeNodeDescriptorPtr->kind != kBTLeafNode) {
+	if (bTreeNodeDescriptorPtr->kind != kBTLeafNode) {
 		result = FSUR_IO_FAIL;
 		goto Return;
 	}
@@ -1605,17 +1559,8 @@ again:
 	
 	if ((leafNode = bTreeNodeDescriptorPtr->fLink) != 0) {
 	
-		offset = CalcLeafNodeOffset((leafNode * nodeSize),
-			    volHdrPtr->blockSize, kHFSPlusExtentDensity,
-		&volHdrPtr->extentsFile.extents[0]);
+		offset = (off_t) leafNode * (off_t) nodeSize;
 		
-		if (offset == 0) {
-			result = FSUR_IO_FAIL;
-#if TRACE_HFS_UTIL
-			fprintf(stderr, "hfs.util: ERROR: can't find extents b-tree leaf block\n");
-#endif
-			goto Return;
-		}
 		goto again;
 	}
 
@@ -1626,6 +1571,122 @@ Return:;
 	return (result);
 }
 
+
+
+/*
+ *	LogicalToPhysical - Map a logical file position and size to volume-relative physical
+ *	position and number of contiguous bytes at that position.
+ *
+ *	Inputs:
+ *		logicalOffset	Logical offset in bytes from start of file
+ *		length			Maximum number of bytes to map
+ *		blockSize		Number of bytes per allocation block
+ *		extentCount		Number of extents in file
+ *		extentList		The file's extents
+ *
+ *	Outputs:
+ *		physicalOffset	Physical offset in bytes from start of volume
+ *		availableBytes	Number of bytes physically contiguous (up to length)
+ *
+ *	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
+ */
+static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
+							u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList,
+							off_t *physicalOffset, ssize_t *availableBytes)
+{
+	off_t		temp;
+	u_int32_t	logicalBlock;
+	u_int32_t	extent;
+	u_int32_t	blockCount = 0;
+	
+	/* Determine allocation block containing logicalOffset */
+	logicalBlock = offset / blockSize;	/* This can't overflow for valid volumes */
+	offset %= blockSize;	/* Offset from start of allocation block */
+	
+	/* Find the extent containing logicalBlock */
+	for (extent = 0; extent < extentCount; ++extent)
+	{
+		blockCount = extentList[extent].blockCount;
+		
+		if (blockCount == 0)
+			return FSUR_IO_FAIL;	/* Tried to map past physical end of file */
+		
+		if (logicalBlock < blockCount)
+			break;				/* Found it! */
+		
+		logicalBlock -= blockCount;
+	}
+
+	if (extent >= extentCount)
+		return FSUR_IO_FAIL;		/* Tried to map past physical end of file */
+
+	/*
+	 *	When we get here, extentList[extent] is the extent containing logicalOffset.
+	 *	The desired allocation block is logicalBlock blocks into the extent.
+	 */
+	
+	/* Compute the physical starting position */
+	temp = extentList[extent].startBlock + logicalBlock;	/* First physical block */
+	temp *= blockSize;	/* Byte offset of first physical block */
+	*physicalOffset = temp + offset;
+
+	/* Compute the available contiguous bytes. */
+	temp = blockCount - logicalBlock;	/* Number of blocks available in extent */
+	temp *= blockSize;
+	temp -= offset;						/* Number of bytes available */
+	
+	if (temp < length)
+		*availableBytes = temp;
+	else
+		*availableBytes = length;
+	
+	return FSUR_IO_SUCCESS;
+}
+
+
+
+/*
+ *	ReadFile - Read bytes from a file.  Handles cases where the starting and/or
+ *	ending position are not allocation or device block aligned.
+ *
+ *	Inputs:
+ *		fd			Descriptor for reading the volume
+ *		buffer		The bytes are read into here
+ *		offset		Offset in file to start reading
+ *		length		Number of bytes to read
+ *		volOffset	Byte offset from start of device to start of volume
+ *		blockSize	Number of bytes per allocation block
+ *		extentCount	Number of extents in file
+ *		extentList	The file's exents
+ *
+ *	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL
+ */
+static int	ReadFile(int fd, void *buffer, off_t offset, ssize_t length,
+					off_t volOffset, u_int32_t blockSize,
+					u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList)
+{
+	int		result = FSUR_IO_SUCCESS;
+	off_t	physOffset;
+	ssize_t	physLength;
+	
+	while (length > 0)
+	{
+		result = LogicalToPhysical(offset, length, blockSize, extentCount, extentList,
+									&physOffset, &physLength);
+		if (result != FSUR_IO_SUCCESS)
+			break;
+		
+		result = readAt(fd, buffer, volOffset+physOffset, physLength);
+		if (result != FSUR_IO_SUCCESS)
+			break;
+		
+		length -= physLength;
+		offset += physLength;
+		buffer = (char *) buffer + physLength;
+	}
+	
+	return result;
+}
 
 /*
  --	readAt = lseek() + read()

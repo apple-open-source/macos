@@ -25,11 +25,11 @@
 #include "securityserver.h"
 #include "AuthorizationEngine.h"
 
-
+using Authorization::Credential;
 using Authorization::CredentialSet;
 using Authorization::RightSet;
 using Authorization::MutableRightSet;
-
+using Authorization::AuthItemSet;
 
 class Process;
 class Session;
@@ -61,7 +61,13 @@ public:
 	bool mayExternalize(Process &proc) const;
 	bool mayInternalize(Process &proc, bool countIt = true);
 
-	uid_t creatorUid() const;
+	uid_t creatorUid() const	{ return mCreatorUid; }
+    CodeSigning::OSXCode *creatorCode() const { return mCreatorCode; }
+
+    AuthorizationItemSet &infoSet();   
+    void setInfoSet(AuthorizationItemSet &newInfoSet);
+    void setCredentialInfo(const Credential &inCred);
+
 public:
 	static AuthorizationToken &find(const AuthorizationBlob &blob);
     
@@ -88,6 +94,9 @@ private:
 	ProcessSet mUsingProcesses;		// set of process objects using this token
 
 	uid_t mCreatorUid;				// Uid of proccess that created this authorization
+    RefPointer<OSXCode> mCreatorCode; // code id of creator
+
+    AuthorizationItemSet *mInfoSet;          // Side band info gathered from evaluations in this session
 
 private:
 	typedef map<AuthorizationBlob, AuthorizationToken *> AuthMap;
@@ -102,14 +111,7 @@ private:
 class Authority : public Authorization::Engine {
 public:
 	Authority(const char *configFile);
-	virtual ~Authority();
-
-	OSStatus authorize(const RightSet &inRights, const AuthorizationEnvironment *environment,
-		AuthorizationFlags flags, const CredentialSet *inCredentials, CredentialSet *outCredentials,
-		MutableRightSet *outRights, const AuthorizationToken &auth);
-
-private:
-	Mutex mLock;			// force-single-thread lock for authorize()
+	~Authority();
 };
 
 

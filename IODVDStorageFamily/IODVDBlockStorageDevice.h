@@ -19,27 +19,56 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- /* This class is the protocol for generic DVD functionality, independent of
- * the physical connection protocol (e.g. SCSI, ATA, USB).
- *
- * The APIs are the union of CDRO APIs and all
- * necessary new low-level DVD APIs.
- *
- * A subclass implements relay methods that translate our requests into
- * calls to a protocol- and device-specific provider.
+
+/*!
+ * @header IODVDBlockStorageDevice
+ * @abstract
+ * This header contains the IODVDBlockStorageDevice class definition.
  */
 
 #ifndef	_IODVDBLOCKSTORAGEDEVICE_H
 #define	_IODVDBLOCKSTORAGEDEVICE_H
 
-#include <IOKit/IOTypes.h>
-#include <IOKit/storage/IOCDBlockStorageDevice.h>
 #include <IOKit/storage/IODVDTypes.h>
+
+/*!
+ * @defined kIODVDBlockStorageDeviceClass
+ * @abstract
+ * kIODVDBlockStorageDeviceClass is the name of the IODVDBlockStorageDevice class.
+ * @discussion
+ * kIODVDBlockStorageDeviceClass is the name of the IODVDBlockStorageDevice class.
+ */
+
+#define kIODVDBlockStorageDeviceClass "IODVDBlockStorageDevice"
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
+/*
+ * Kernel
+ */
+
+#include <IOKit/storage/IOCDBlockStorageDevice.h>
 
 /* Property used for matching, so the generic driver gets the nub it wants. */
 #define	kIOBlockStorageDeviceTypeDVD	"DVD"
 
-class IOMemoryDescriptor;
+/*!
+ * @class
+ * IODVDBlockStorageDevice : public IOCDBlockStorageDevice
+ * @abstract
+ * The IODVDBlockStorageDevice class is a generic DVD block storage device
+ * abstraction.
+ * @discussion
+ * This class is the protocol for generic DVD functionality, independent of
+ * the physical connection protocol (e.g. SCSI, ATA, USB).
+ *
+ * The APIs are the union of CD APIs and all
+ * necessary new low-level DVD APIs.
+ *
+ * A subclass implements relay methods that translate our requests into
+ * calls to a protocol- and device-specific provider.
+ */
 
 class IODVDBlockStorageDevice : public IOCDBlockStorageDevice {
 
@@ -101,4 +130,7 @@ public:
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice, 30);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice, 31);
 };
-#endif
+
+#endif /* __cplusplus */
+#endif /* KERNEL */
+#endif /* !_IODVDBLOCKSTORAGEDEVICE_H */

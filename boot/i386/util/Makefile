@@ -14,8 +14,9 @@ LOCALBIN = $(DSTROOT)/usr/local/bin
 LANGDIR = $(INSTALLDIR)/English.lproj
 
 OPTIM = -Os
-CFLAGS = $(RC_CFLAGS) $(OPTIM) -Wmost -Wno-precomp -g -I../rcz -traditional-cpp -nostdinc -nostdlib -I/usr/include -I/System/Library/Frameworks/System.framework/Headers
-LDFLAGS = /usr/lib/crt1.o /System/Library/Frameworks/System.framework/System -lcc
+CFLAGS = $(RC_CFLAGS) $(OPTIM) -Wmost -Werror -g -I../rcz -nostdinc -nostdlib -I/usr/include \
+	 -I/System/Library/Frameworks/System.framework/Headers
+LDFLAGS = -L/usr/lib -lcrt1.o -lSystem -lcc_dynamic
 CFILES = machOconv.c mkfont.c tif_packbits.c
 MFILES = dumptiff.m
 HFILES = cursor.h

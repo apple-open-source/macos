@@ -71,4 +71,7 @@ void syslock_signal_wait(syslock *s);
 void syslock_signal_send(syslock *s);
 void syslock_signal_broadcast(syslock *s);
 
+bool_t syslock_set_name(syslock *s, char *n);
+syslock *syslock_get(char *n);
+
 #endif __SYSLOCK_H__

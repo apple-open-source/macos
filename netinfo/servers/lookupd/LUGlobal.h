@@ -24,33 +24,14 @@
 
 #import "Root.h"
 #import <NetInfo/syslock.h>
+#import <NetInfo/DynaAPI.h>
 
-typedef enum
-{
-	LUCategoryUser,
-	LUCategoryGroup,
-	LUCategoryHost,
-	LUCategoryNetwork,
-	LUCategoryService,
-	LUCategoryProtocol,
-	LUCategoryRpc,
-	LUCategoryMount,
-	LUCategoryPrinter,
-	LUCategoryBootparam,
-	LUCategoryBootp,
-	LUCategoryAlias,
-	LUCategoryNetDomain,
-	LUCategoryEthernet,
-	LUCategoryNetgroup,
-	LUCategoryInitgroups,
-	LUCategoryHostServices
-} LUCategory;
+/* RPC lock */
+extern syslock *rpcLock;
 
-/* Number of categories above */
-#define NCATEGORIES 17
-
-/* Null Category (used for non-lookup dictionaries, e.g. statistics) */
-#define LUCategoryNull ((LUCategory)-1)
+/* statistics directory lock */
+#define StatsLockName "Stats_lock"
+extern syslock *statsLock;
 
 /* shared CacheAgent */
 extern id cacheAgent;
@@ -61,12 +42,7 @@ extern id configManager;
 /* statistics LUDictionary */
 extern id statistics;
 
-/* RPC lock */
-extern syslock *rpcLock;
-
-/* statistics directory lock */
-extern syslock *statsLock;
-
 extern BOOL shutting_down;
+extern BOOL statistics_enabled;
 
-#define DefaultName "lookupd"
+#define DefaultName "lookup daemon v2"

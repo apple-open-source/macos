@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# Test to make sure Automake doesn't abort on user-defined extensions.
+# Based on a report from Dmitry Mikhin <dmitrym@acres.com.au>.
+
+# Also make sure that .SUFFIXES is automatically adjusted with
+# extensions from implicit rules.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+.k.o:
+	echo $< > $@
+
+bin_PROGRAMS = foo
+foo_SOURCES = foo.k
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+grep '.SUFFIXES:.*\.k' Makefile.in || exit 1
+exit 0

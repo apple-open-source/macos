@@ -1,0 +1,46 @@
+#! /bin/sh
+
+# Test to make sure `make' check works.
+# From Ralf Corsepius.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(foo,0,no)
+AM_MAKE_INCLUDE
+AC_OUTPUT(Makefile)
+END
+
+: > Makefile.am
+
+$needs_gnu_make
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+
+export ACLOCAL
+export AUTOCONF
+export AUTOMAKE
+
+# Do the test twice -- once with make and once with make -w.
+# This tests for a bug reported by Rainer Orth (see PR 175).
+
+save="$MAKE"
+for flag in '' -w; do
+   MAKE="$save $flag" ./configure
+
+   fgrep 'am__include = include' Makefile
+
+   touch configure.in
+   $MAKE $flag
+
+   fgrep 'am__include = include' Makefile
+
+   rm -f config.cache
+done
+
+exit 0

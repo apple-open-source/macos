@@ -1,5 +1,3 @@
-/*	$NetBSD: misc.c,v 1.7 1998/02/02 14:02:25 mrg Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,12 +34,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static char sccsid[] = "from: @(#)misc.c	8.2 (Berkeley) 4/1/94";
+static char sccsid[] = "@(#)misc.c	8.2 (Berkeley) 4/1/94";
 #else
-__RCSID("$NetBSD: misc.c,v 1.7 1998/02/02 14:02:25 mrg Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/find/misc.c,v 1.2.12.1 2000/06/23 18:38:46 roberto Exp $";
 #endif
 #endif /* not lint */
 
@@ -56,26 +54,25 @@ __RCSID("$NetBSD: misc.c,v 1.7 1998/02/02 14:02:25 mrg Exp $");
 #include <string.h>
 
 #include "find.h"
- 
+
 /*
  * brace_subst --
- *	Replace occurrences of {} in orig with path, and place it in a malloced
- *      area of memory set in store.
+ *	Replace occurrences of {} in s1 with s2 and return the result string.
  */
 void
 brace_subst(orig, store, path, len)
 	char *orig, **store, *path;
 	int len;
 {
-	int plen;
-	char ch, *p;
+	register int plen;
+	register char ch, *p;
 
 	plen = strlen(path);
 	for (p = *store; (ch = *orig) != '\0'; ++orig)
 		if (ch == '{' && orig[1] == '}') {
 			while ((p - *store) + plen > len)
 				if (!(*store = realloc(*store, len *= 2)))
-					err(1, "realloc");
+					err(1, NULL);
 			memmove(p, path, plen);
 			p += plen;
 			++orig;
@@ -91,7 +88,7 @@ brace_subst(orig, store, path, len)
  */
 int
 queryuser(argv)
-	char **argv;
+	register char **argv;
 {
 	int ch, first, nl;
 
@@ -118,7 +115,7 @@ queryuser(argv)
 	}
         return (first == 'y');
 }
- 
+
 /*
  * emalloc --
  *	malloc with error checking.
@@ -130,6 +127,6 @@ emalloc(len)
 	void *p;
 
 	if ((p = malloc(len)) == NULL)
-		err(1, "malloc");
+		err(1, NULL);
 	return (p);
 }

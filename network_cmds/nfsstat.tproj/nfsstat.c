@@ -190,7 +190,6 @@ readstats(stp)
 		int name[3];
 		size_t buflen = sizeof *stp;
 		struct vfsconf vfc;
-		extern int getvfsbyname(char *, struct vfsconf *);
 
 		if (getvfsbyname("nfs", &vfc) < 0)
 			err(1, "getvfsbyname: NFS not compiled into kernel");

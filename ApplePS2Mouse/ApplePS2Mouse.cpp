@@ -237,14 +237,15 @@ void ApplePS2Mouse::interruptOccurred(UInt8 data)      // PS2InterruptAction
 
   if (_packetByteCount == _packetLength)
   {
-    dispatchRelativePointerEventWithPacket(_packetBuffer);
+    dispatchRelativePointerEventWithPacket(_packetBuffer, _packetLength);
     _packetByteCount = 0;
   }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void ApplePS2Mouse::dispatchRelativePointerEventWithPacket(UInt8 * packet)
+void ApplePS2Mouse::dispatchRelativePointerEventWithPacket(UInt8 * packet,
+                                                           UInt32  packetSize)
 {
   //
   // Process the three byte mouse packet that was retreived from the mouse.
@@ -256,24 +257,44 @@ void ApplePS2Mouse::dispatchRelativePointerEventWithPacket(UInt8 * packet)
   // Y7 Y6 Y5 Y4 Y3 Y2 Y1 Y0
   // Z7 Z6 Z5 Z4 Z3 Z2 Z1 Z0 <- fourth byte returned only for Intellimouse type
   //
+  //  0  0 B5 B4 Z3 Z2 Z1 Z0 <- fourth byte for 5-button wheel mouse mode
+  //
 
   UInt32       buttons = 0;
   SInt32       dx;
   SInt32       dy;
-  SInt32       dz;
+  SInt16       dz = 0;
   AbsoluteTime now;
 
-  if ( !(packet[0] & 0x1) ) buttons |= 0x1;  // left button   (bit 0 in packet)
-  if ( !(packet[0] & 0x2) ) buttons |= 0x2;  // right button  (bit 1 in packet)
-  if ( !(packet[0] & 0x4) ) buttons |= 0x4;  // middle button (bit 2 in packet)
+  if ( (packet[0] & 0x1) ) buttons |= 0x1;  // left button   (bit 0 in packet)
+  if ( (packet[0] & 0x2) ) buttons |= 0x2;  // right button  (bit 1 in packet)
+  if ( (packet[0] & 0x4) ) buttons |= 0x4;  // middle button (bit 2 in packet)
 
   dx = ((packet[0] & 0x10) ? 0xffffff00 : 0 ) | packet[1];
   dy = -(((packet[0] & 0x20) ? 0xffffff00 : 0 ) | packet[2]);
-  dz = (SInt32)((SInt8)packet[3]);
 
   clock_get_uptime(&now);
 
   dispatchRelativePointerEvent(dx, dy, buttons, now);
+
+  if ( packetSize > 3 )
+  {
+    //
+    // We treat the 4th byte in the packet as a 8-bit signed Z value.
+    // There are mice that can report only 4-bits for the Z data, and
+    // use two of the remaining 4 bits for buttons 4 and 5. To enable
+    // the 5-button mouse mode, the command sequence should be:
+    //
+    // setMouseSampleRate(200);
+    // setMouseSampleRate(200);
+    // setMouseSampleRate(80);
+    //
+    dz = (SInt16)((SInt8)packet[3]);
+    if ( dz )
+    {
+      dispatchScrollWheelEvent(dz, 0, 0, now);
+    }
+  }
 
   return;
 }

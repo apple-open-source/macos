@@ -44,7 +44,7 @@ usenm='true';
 libc='/System/Library/Frameworks/System.framework/System';
 
 # Optimize.
-optimize='-O3';
+optimize='-Os';
 
 # We have a prototype for telldir, we don't like commons.
 ccflags="${ccflags} -pipe -fno-common -no-cpp-precomp -flat_namespace -DHAS_TELLDIR_PROTOTYPE";

@@ -100,14 +100,18 @@ extern int _keymgr_get_lock_count_processwide_ptr(unsigned int key) ;
 
 #define KEYMGR_ZOE_IMAGE_LIST		12	/*Head pointer for list of per image dwarf2 unwind sections.*/
 
-
+/* KeyMgr 3.x is the first one supporting GCC3 stuff natively.  */
+#define KEYMGR_API_MAJOR_GCC3		3
+/* ... with these keys.  */
+#define KEYMGR_GCC3_LIVE_IMAGE_LIST	301	/* loaded images  */
+#define KEYMGR_GCC3_DW2_OBJ_LIST	302	/* Dwarf2 object list  */
 
 /*
  * Other important data.
  */
  
-#define KEYMGR_API_REV_MAJOR		2	/*Major revision number of the keymgr API.*/
-#define KEYMGR_API_REV_MINOR		1	/*Minor revision number of the keymgr API.*/
+#define KEYMGR_API_REV_MAJOR		3	/*Major revision number of the keymgr API.*/
+#define KEYMGR_API_REV_MINOR		0	/*Minor revision number of the keymgr API.*/
 
 
 

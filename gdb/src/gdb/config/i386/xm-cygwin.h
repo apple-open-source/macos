@@ -1,5 +1,5 @@
 /* Definitions for hosting on WIN32, for GDB.
-   Copyright 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997, 1998, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,14 +22,5 @@
 
 #include "fopen-bin.h"
 
-#define GDBINIT_FILENAME "gdb.ini"
-
-#define SLASH_P(X) ((X)=='\\' || (X) == '/')
-#define ROOTED_P(X) ((SLASH_P((X)[0]))|| ((X)[1] ==':'))
-#define SLASH_CHAR '/'
-#define SLASH_STRING "/"
-
 /* Define this if source files use \r\n rather than just \n.  */
 #define CRLF_SOURCE_FILES
-
-#define HAVE_SIGSETMASK 0

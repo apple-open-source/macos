@@ -1,5 +1,6 @@
 /* Symbol table definitions for GDB.
-   Copyright 1986, 89, 91, 92, 93, 94, 95, 96, 1998
+   Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -26,7 +27,7 @@
 
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
+#define obstack_chunk_free xfree
 #include "bcache.h"
 
 /* Don't do this; it means that if some .o's are compiled with GNU C
@@ -160,6 +161,10 @@ extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, asection *);
       {									\
 	SYMBOL_OBJC_DEMANGLED_NAME (symbol) = NULL;			\
       }									\
+    else if (SYMBOL_LANGUAGE (symbol) == language_objcplus)		\
+      {									\
+	SYMBOL_OBJC_DEMANGLED_NAME (symbol) = NULL;			\
+      }									\
     else								\
       {									\
 	memset (&(symbol)->ginfo.language_specific, 0,			\
@@ -167,124 +172,22 @@ extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, asection *);
       }									\
   } while (0)
 
-/* Macro that attempts to initialize the demangled name for a symbol,
-   based on the language of that symbol.  If the language is set to
-   language_auto, it will attempt to find any demangling algorithm
-   that works and then set the language appropriately.  If no demangling
-   of any kind is found, the language is set back to language_unknown,
-   so we can avoid doing this work again the next time we encounter
-   the symbol.  Any required space to store the name is obtained from the
-   specified obstack. */
-
-#define SYMBOL_INIT_DEMANGLED_NAME(symbol,obstack)			\
-  do {									\
-    char *demangled = NULL;						\
-    if (SYMBOL_LANGUAGE (symbol) == language_unknown)                 \
-          SYMBOL_LANGUAGE (symbol) = language_auto;                    \
-    if (SYMBOL_LANGUAGE (symbol) == language_cplus			\
-	|| SYMBOL_LANGUAGE (symbol) == language_auto)			\
-      {									\
-	demangled =							\
-	  cplus_demangle (SYMBOL_NAME (symbol), DMGL_PARAMS | DMGL_ANSI);\
-	if (demangled != NULL)						\
-	  {								\
-	    SYMBOL_LANGUAGE (symbol) = language_cplus;			\
-	    SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = 			\
-	      obsavestring (demangled, strlen (demangled), (obstack));	\
-	    free (demangled);						\
-	  }								\
-	else								\
-	  {								\
-	    SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = NULL;		\
-	  }								\
-      }									\
-    if (SYMBOL_LANGUAGE (symbol) == language_java)			\
-      {									\
-	demangled =							\
-	  cplus_demangle (SYMBOL_NAME (symbol),				\
-			  DMGL_PARAMS | DMGL_ANSI | DMGL_JAVA);		\
-	if (demangled != NULL)						\
-	  {								\
-	    SYMBOL_LANGUAGE (symbol) = language_java;			\
-	    SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = 			\
-	      obsavestring (demangled, strlen (demangled), (obstack));	\
-	    free (demangled);						\
-	  }								\
-	else								\
-	  {								\
-	    SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = NULL;		\
-	  }								\
-      }									\
-    if (demangled == NULL						\
-	&& (SYMBOL_LANGUAGE (symbol) == language_chill			\
-	    || SYMBOL_LANGUAGE (symbol) == language_auto))		\
-      {									\
-	demangled =							\
-	  chill_demangle (SYMBOL_NAME (symbol));			\
-	if (demangled != NULL)						\
-	  {								\
-	    SYMBOL_LANGUAGE (symbol) = language_chill;			\
-	    SYMBOL_CHILL_DEMANGLED_NAME (symbol) = 			\
-	      obsavestring (demangled, strlen (demangled), (obstack));	\
-	    free (demangled);						\
-	  }								\
-	else								\
-	  {								\
-	    SYMBOL_CHILL_DEMANGLED_NAME (symbol) = NULL;		\
-	  }								\
-      }									\
-    if (demangled == NULL &&						\
- 	(SYMBOL_LANGUAGE (symbol) == language_objc ||			\
- 	 SYMBOL_LANGUAGE (symbol) == language_auto))			\
-       {								\
- 	demangled =							\
- 	  objc_demangle (SYMBOL_NAME (symbol));				\
- 	if (demangled != NULL)						\
- 	  {								\
- 	    SYMBOL_LANGUAGE (symbol) = language_objc;			\
- 	    SYMBOL_OBJC_DEMANGLED_NAME (symbol) = 			\
- 	      obsavestring (demangled, strlen (demangled), (obstack));	\
- 	    free (demangled);						\
- 	  }								\
- 	else								\
- 	  {								\
- 	    SYMBOL_OBJC_DEMANGLED_NAME (symbol) = NULL;			\
- 	  }								\
-       }								\
-     if (demangled &&							\
- 	SYMBOL_LANGUAGE (symbol) != language_objc &&			\
-        (demangled = SYMBOL_NAME (symbol)) && 				\
- 	demangled[0] == '_' &&						\
-        (demangled[1] == 'i' || demangled[1] == 'c') &&			\
- 	demangled[2] == '_')						\
-	/* some other demangling succeeded, yet it looks like ObjC   */	\
-       {								\
- 	demangled =							\
- 	  objc_demangle (SYMBOL_NAME (symbol));				\
- 	if (demangled != NULL)  /*  yes, it was ObjC: let ObjC win   */	\
- 	  {			/* (C++ demangling is too forgiving) */	\
- 	    SYMBOL_LANGUAGE (symbol) = language_objc;			\
- 	    SYMBOL_OBJC_DEMANGLED_NAME (symbol) = 			\
- 	      obsavestring (demangled, strlen (demangled), (obstack));	\
- 	    free (demangled);						\
- 	  }								\
-       }								\
-    if (SYMBOL_LANGUAGE (symbol) == language_auto)			\
-      {									\
-	SYMBOL_LANGUAGE (symbol) = language_unknown;			\
-      }									\
-  } while (0)
-
+#define SYMBOL_INIT_DEMANGLED_NAME(symbol,obstack) \
+  (symbol_init_demangled_name (&symbol->ginfo, (obstack)))
+extern void symbol_init_demangled_name (struct general_symbol_info *symbol,
+                                        struct obstack *obstack);
+  
 /* Macro that returns the demangled name for a symbol based on the language
    for that symbol.  If no demangled name exists, returns NULL. */
 
 #define SYMBOL_DEMANGLED_NAME(symbol)					\
-  (SYMBOL_LANGUAGE (symbol) == language_cplus				\
-   || SYMBOL_LANGUAGE (symbol) == language_java				\
+  ((SYMBOL_LANGUAGE (symbol) == language_cplus)				\
+   || (SYMBOL_LANGUAGE (symbol) == language_java)			\
    ? SYMBOL_CPLUS_DEMANGLED_NAME (symbol)				\
-   : (SYMBOL_LANGUAGE (symbol) == language_chill			\
+   : ((SYMBOL_LANGUAGE (symbol) == language_chill)			\
       ? SYMBOL_CHILL_DEMANGLED_NAME (symbol)				\
-      : (SYMBOL_LANGUAGE (symbol) == language_objc			\
+      : ((SYMBOL_LANGUAGE (symbol) == language_objc) ||			\
+         (SYMBOL_LANGUAGE (symbol) == language_objcplus)		\
          ? SYMBOL_OBJC_DEMANGLED_NAME (symbol)				\
 	 : NULL)))
 
@@ -519,6 +422,14 @@ struct block
 #define BLOCK_FUNCTION(bl)	(bl)->function
 #define BLOCK_SUPERBLOCK(bl)	(bl)->superblock
 #define BLOCK_GCC_COMPILED(bl)	(bl)->gcc_compile_flag
+
+/* Macro to loop through all symbols in a block BL.
+   i counts which symbol we are looking at, and sym points to the current
+   symbol.  */
+#define ALL_BLOCK_SYMBOLS(bl, i, sym)			\
+	for ((i) = 0, (sym) = BLOCK_SYM ((bl), (i));	\
+	     (i) < BLOCK_NSYMS ((bl));			\
+	     ++(i), (sym) = BLOCK_SYM ((bl), (i)))
 
 /* Nonzero if symbols of block BL should be sorted alphabetically.
    Don't sort a block which corresponds to a function.  If we did the
@@ -846,7 +757,10 @@ struct linetable_entry
    30   0x300
    10   0x400   - for the increment part of a for stmt.
 
- */
+   If an entry has a line number of zero, it marks the start of a PC
+   range for which no line number information is available.  It is
+   acceptable, though wasteful of table space, for such a range to be
+   zero length.  */
 
 struct linetable
   {
@@ -883,8 +797,9 @@ struct section_offsets
   };
 
 #define	ANOFFSET(secoff, whichone) \
-   ((whichone == -1) ? \
-    (internal_error ("Section index is uninitialized"), -1) : secoff->offsets[whichone])
+   ((whichone == -1) \
+    ? (internal_error (__FILE__, __LINE__, "Section index is uninitialized"), -1) \
+    : secoff->offsets[whichone])
 
 /* The maximum possible size of a section_offsets table.  */
 
@@ -1012,6 +927,10 @@ struct partial_symtab
 
     char *filename;
 
+    /* Full path of the source file.  NULL if not known.  */
+
+    char *fullname;
+
     /* Information about the object file from which symbols should be read.  */
 
     struct objfile *objfile;
@@ -1099,30 +1018,6 @@ struct partial_symtab
 
 #define VTBL_FNADDR_OFFSET 2
 
-/* Macro that yields non-zero value iff NAME is the prefix for C++ operator
-   names.  If you leave out the parenthesis here you will lose!  */
-#define OPNAME_PREFIX_P(NAME) \
-  (!strncmp (NAME, "operator", 8))
-
-/* Macro that yields non-zero value iff NAME is the prefix for C++ vtbl
-   names.  Note that this macro is g++ specific (FIXME).
-   '_vt$' is the old cfront-style vtables; '_VT$' is the new
-   style, using thunks (where '$' is really CPLUS_MARKER). */
-
-#define VTBL_PREFIX_P(NAME) \
-  (((NAME)[0] == '_' \
-   && (((NAME)[1] == 'V' && (NAME)[2] == 'T') \
-       || ((NAME)[1] == 'v' && (NAME)[2] == 't')) \
-   && is_cplus_marker ((NAME)[3])) || ((NAME)[0]=='_' && (NAME)[1]=='_' \
-   && (NAME)[2]=='v' && (NAME)[3]=='t' && (NAME)[4]=='_'))
-
-/* Macro that yields non-zero value iff NAME is the prefix for C++ destructor
-   names.  Note that this macro is g++ specific (FIXME).  */
-
-#define DESTRUCTOR_PREFIX_P(NAME) \
-  ((NAME)[0] == '_' && is_cplus_marker ((NAME)[1]) && (NAME)[2] == '_')
-
-
 /* External variables and functions for the objects described above. */
 
 /* This symtab variable specifies the current file for printing source lines */
@@ -1149,7 +1044,7 @@ extern int asm_demangle;
 
 /* lookup a symbol table by source file name */
 
-extern struct symtab *lookup_symtab (char *);
+extern struct symtab *lookup_symtab (const char *);
 
 /* lookup a symbol by name (optional block, optional symtab) */
 
@@ -1165,6 +1060,7 @@ extern struct symbol *lookup_block_symbol_helper (const struct block *,
 						  int exhaustive);
 
 extern struct symbol *lookup_block_symbol (const struct block *, const char *,
+					   const char *,
 					   const namespace_enum);
 
 /* lookup a [struct, union, enum] by name, within a specified block */
@@ -1204,7 +1100,7 @@ find_pc_sect_partial_function (CORE_ADDR, asection *,
 
 /* lookup partial symbol table by filename */
 
-extern struct partial_symtab *lookup_partial_symtab (char *);
+extern struct partial_symtab *lookup_partial_symtab (const char *);
 
 /* lookup partial symbol table by address */
 
@@ -1320,7 +1216,7 @@ struct symtab_and_line
     /* Line number.  Line numbers start at 1 and proceed through symtab->nlines.
        0 is never a valid line number; it is used to indicate that line number
        information is not available.  */
-    unsigned int line;
+    int line;
 
     /* Character range. */
     unsigned int startchar;
@@ -1415,11 +1311,6 @@ extern struct symtabs_and_lines decode_line_spec (char *, int);
 
 extern struct symtabs_and_lines decode_line_spec_1 (char *, int);
 
-/* From linespec.c */
-
-extern struct symtabs_and_lines decode_line_1 (char **,
-                                          int, struct symtab *, int, char ***);
-
 /* Symmisc.c */
 
 void maintenance_print_symbols (char *, int);
@@ -1466,7 +1357,11 @@ extern void select_source_symtab (struct symtab *);
 
 extern char **make_symbol_completion_list (char *, char *);
 
+extern char **make_file_symbol_completion_list (char *, char *, char *);
+
 extern struct symbol **make_symbol_overload_list (struct symbol *);
+
+extern char **make_source_files_completion_list (char *, char *);
 
 /* symtab.c */
 
@@ -1529,5 +1424,12 @@ extern void search_symbols (char *, namespace_enum, int, char **,
 			    struct symbol_search **);
 extern void free_search_symbols (struct symbol_search *);
 extern struct cleanup *make_cleanup_free_search_symbols (struct symbol_search *);
+
+/* The name of the ``main'' function.
+   FIXME: cagney/2001-03-20: Can't make main_name() const since some
+   of the calling code currently assumes that the string isn't
+   const. */
+extern void set_main_name (const char *name);
+extern /*const*/ char *main_name (void);
 
 #endif /* !defined(SYMTAB_H) */

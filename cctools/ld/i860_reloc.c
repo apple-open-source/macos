@@ -333,13 +333,6 @@ struct section_map *section_map)
 				  nlists[symbolnum].n_un.n_strx);
 			}
 			merged_symbol = *hash_pointer;
-			if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
-			    keep_private_externs == FALSE) ||
-			   dynamic == FALSE ||
-			   (output_for_dyld && has_dynamic_linker_command))
-			    force_extern_reloc = FALSE;
-			else
-			    force_extern_reloc = TRUE;
 		    }
 		    else{
 			if(nlists[symbolnum].n_type != (N_EXT | N_UNDF)){
@@ -354,6 +347,17 @@ struct section_map *section_map)
 			fatal("internal error, in i860_reloc() symbol index %lu"
 			    " in above file not in undefined map", symbolnum);
 		    }
+		}
+		if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
+		   (get_output_section(merged_symbol->nlist.n_sect)->
+		    flags & SECTION_TYPE) == S_COALESCED){
+		    if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
+			keep_private_externs == FALSE) ||
+		       dynamic == FALSE ||
+		       (output_for_dyld && has_dynamic_linker_command))
+			force_extern_reloc = FALSE;
+		    else
+			force_extern_reloc = TRUE;
 		}
 		/*
 		 * If this is an indirect symbol resolve indirection (all chains

@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinPort.h,v 1.1.1.4 2000/12/06 23:04:29 wsanchez Exp $
+ * RCS: @(#) $Id: tclWinPort.h,v 1.1.1.5 2002/04/05 16:14:16 jevans Exp $
  */
 
 #ifndef _TCLWINPORT
@@ -21,16 +21,12 @@
 #endif
 
 #ifdef CHECK_UNICODE_CALLS
-
-#define _UNICODE
-#define UNICODE
-
-#define __TCHAR_DEFINED
-typedef float *_TCHAR;
-
-#define _TCHAR_DEFINED
-typedef float *TCHAR;
-
+#   define _UNICODE
+#   define UNICODE
+#   define __TCHAR_DEFINED
+    typedef float *_TCHAR;
+#   define _TCHAR_DEFINED
+    typedef float *TCHAR;
 #endif
 
 /*
@@ -43,7 +39,6 @@ typedef float *TCHAR;
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <direct.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -61,16 +56,20 @@ typedef float *TCHAR;
 #ifndef __MWERKS__
 #include <sys/stat.h>
 #include <sys/timeb.h>
-#include <sys/utime.h>
+#   ifdef __BORLANDC__
+#	include <utime.h>
+#   else
+#	include <sys/utime.h>
+#   endif
 #endif
 
-#include <tchar.h>
 #include <time.h>
-#include <winsock2.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
+
+#include <winsock2.h>
 
 #ifdef BUILD_tcl
 # undef TCL_STORAGE_CLASS

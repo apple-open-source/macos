@@ -36,7 +36,7 @@ time_t	*time;
 	f->f_grist.ptr = 0;
 	f->f_grist.len = 0;
 
-	if( varlist = var_get( "LOCATE" ) )
+	if( (varlist = var_get( "LOCATE" )) != NULL )
 	{
 	    f->f_root.ptr = varlist->string;
 	    f->f_root.len = strlen( varlist->string );
@@ -50,7 +50,7 @@ time_t	*time;
 
 	    return newstr( buf );
 	}
-	else if( varlist = var_get( "SEARCH" ) )
+	else if( (varlist = var_get( "SEARCH" )) != NULL )
 	{
 	    while( varlist )
 	    {

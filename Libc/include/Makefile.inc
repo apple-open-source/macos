@@ -1,0 +1,70 @@
+.include "${.CURDIR}/include/arpa/Makefile.inc"
+.include "${.CURDIR}/include/protocols/Makefile.inc"
+.include "${.CURDIR}/include/objc/Makefile.inc"
+
+INC_INSTHDRS += NSSystemDirectories.h \
+               ar.h \
+               asm.h \
+               bitstring.h \
+               c.h \
+               crt_externs.h \
+               ctype.h \
+               db.h \
+               dirent.h \
+               disktab.h \
+               err.h \
+               errno.h \
+               fcntl.h \
+               fnmatch.h \
+               fsproperties.h \
+               fstab.h \
+               fts.h \
+               glob.h \
+               grp.h \
+               kvm.h \
+               libc.h \
+               libgen.h \
+               limits.h \
+               locale.h \
+               memory.h \
+               monitor.h \
+               mpool.h \
+               ndbm.h \
+               netdb.h \
+               nlist.h \
+               paths.h \
+               pwd.h \
+               ranlib.h \
+               regex.h \
+               regexp.h \
+               rune.h \
+               runetype.h \
+               semaphore.h \
+               setjmp.h \
+               sgtty.h \
+               signal.h \
+               stab.h \
+               standards.h \
+               stddef.h \
+               stdio.h \
+               stdlib.h \
+               string.h \
+               strings.h \
+               struct.h \
+               sysexits.h \
+               syslog.h \
+               tar.h \
+               termios.h \
+               time.h \
+               ttyent.h \
+               tzfile.h \
+               ucontext.h \
+               ulimit.h \
+               unistd.h \
+               util.h \
+               utime.h \
+               utmp.h \
+               vis.h \
+
+INC_INSTHDRS := ${INC_INSTHDRS:S/^/${.CURDIR}\/include\//}
+INSTHDRS += ${INC_INSTHDRS}

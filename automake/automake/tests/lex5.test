@@ -1,0 +1,73 @@
+#! /bin/sh
+
+# Test for subdir lexers.
+
+required='gcc make gzip'
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_CONFIG_AUX_DIR([.])
+AC_PROG_CC
+AM_PROG_CC_C_O
+AM_PROG_LEX
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS  = foreign subdir-objects
+LDADD             = @LEXLIB@
+
+bin_PROGRAMS    = foo/foo
+foo_foo_SOURCES = foo/foo.l
+END
+
+mkdir foo
+
+cat > foo/foo.l << 'END'
+%%
+"END"   return EOF;
+.
+%%
+int
+main ()
+{
+  while (yylex () != EOF)
+    ;
+
+  return 0;
+}
+END
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+mkdir sub
+cd sub
+../configure
+$MAKE foo/foo.o
+
+test -f foo/foo.c
+test -f foo/foo.o
+
+# Now, adds another lexer to test ylwrap.
+
+cd ..
+cp foo/foo.l foo/foo2.l
+cat >> Makefile.am << 'END'
+EXTRA_foo_foo_SOURCES = foo/foo2.l
+END
+
+$AUTOMAKE -a
+test -f ./ylwrap
+
+cd sub
+$MAKE foo/foo2.o
+test -f foo/foo2.c
+test -f foo/foo2.o
+
+exit 0

@@ -1,5 +1,6 @@
 /* Synchronous subprocess invocation for GNU Emacs.
-   Copyright (C) 1985, 86, 87, 88, 93, 94, 95 Free Software Foundation, Inc.
+   Copyright (C) 1985,86,87,88,93,94,95,99, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,14 +20,14 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+#include <config.h>
 #include <signal.h>
 #include <errno.h>
-
-#include <config.h>
 #include <stdio.h>
 
+#ifndef USE_CRT_DLL
 extern int errno;
-extern char *strerror ();
+#endif
 
 /* Define SIGCHLD as an alias for SIGCLD.  */
 
@@ -35,6 +36,10 @@ extern char *strerror ();
 #endif /* SIGCLD */
 
 #include <sys/types.h>
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include <sys/file.h>
 #ifdef USG5
@@ -73,6 +78,7 @@ extern char *strerror ();
 #include "charset.h"
 #include "ccl.h"
 #include "coding.h"
+#include "composite.h"
 #include <epaths.h>
 #include "process.h"
 #include "syssignal.h"
@@ -85,11 +91,14 @@ extern char *strerror ();
 #ifdef VMS
 extern noshare char **environ;
 #else
+#ifndef USE_CRT_DLL
 extern char **environ;
+#endif
 #endif
 
 #ifdef HAVE_SETPGID
 #if !defined (USG) || defined (BSD_PGRPS)
+#undef setpgrp
 #define setpgrp setpgid
 #endif
 #endif
@@ -136,7 +145,7 @@ static Lisp_Object
 call_process_kill (fdpid)
      Lisp_Object fdpid;
 {
-  close (XFASTINT (Fcar (fdpid)));
+  emacs_close (XFASTINT (Fcar (fdpid)));
   EMACS_KILLPG (XFASTINT (Fcdr (fdpid)), SIGKILL);
   synch_process_alive = 0;
   return Qnil;
@@ -146,20 +155,19 @@ Lisp_Object
 call_process_cleanup (fdpid)
      Lisp_Object fdpid;
 {
-#ifdef MSDOS
+#if defined (MSDOS) || defined (macintosh)
   /* for MSDOS fdpid is really (fd . tempfile)  */
   register Lisp_Object file;
   file = Fcdr (fdpid);
-  close (XFASTINT (Fcar (fdpid)));
+  emacs_close (XFASTINT (Fcar (fdpid)));
   if (strcmp (XSTRING (file)-> data, NULL_DEVICE) != 0)
     unlink (XSTRING (file)->data);
-#else /* not MSDOS */
+#else /* not MSDOS and not macintosh */
   register int pid = XFASTINT (Fcdr (fdpid));
-
 
   if (call_process_exited)
     {
-      close (XFASTINT (Fcar (fdpid)));
+      emacs_close (XFASTINT (Fcar (fdpid)));
       return Qnil;
     }
 
@@ -176,7 +184,7 @@ call_process_cleanup (fdpid)
       message1 ("Waiting for process to die...done");
     }
   synch_process_alive = 0;
-  close (XFASTINT (Fcar (fdpid)));
+  emacs_close (XFASTINT (Fcar (fdpid)));
 #endif /* not MSDOS */
   return Qnil;
 }
@@ -221,6 +229,10 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   Lisp_Object error_file;
 #ifdef MSDOS	/* Demacs 1.1.1 91/10/16 HIRANO Satoshi */
   char *outf, *tempfile;
+  int outfilefd;
+#endif
+#ifdef macintosh
+  char *tempfile;
   int outfilefd;
 #endif
 #if 0
@@ -273,9 +285,9 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	    for (i = 0; i < nargs; i++) args2[i + 1] = args[i];
 	    coding_systems = Ffind_operation_coding_system (nargs + 1, args2);
 	    if (CONSP (coding_systems))
-	      val = XCONS (coding_systems)->cdr;
+	      val = XCDR (coding_systems);
 	    else if (CONSP (Vdefault_process_coding_system))
-	      val = XCONS (Vdefault_process_coding_system)->cdr;
+	      val = XCDR (Vdefault_process_coding_system);
 	    else
 	      val = Qnil;
 	  }
@@ -299,10 +311,10 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	 (BUFFER-FOR-STDOUT FILE-FOR-STDERR).  */
       if (CONSP (buffer))
 	{
-	  if (CONSP (XCONS (buffer)->cdr))
+	  if (CONSP (XCDR (buffer)))
 	    {
 	      Lisp_Object stderr_file;
-	      stderr_file = XCONS (XCONS (buffer)->cdr)->car;
+	      stderr_file = XCAR (XCDR (buffer));
 
 	      if (NILP (stderr_file) || EQ (Qt, stderr_file))
 		error_file = stderr_file;
@@ -310,7 +322,7 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 		error_file = Fexpand_file_name (stderr_file, Qnil);
 	    }
 
-	  buffer = XCONS (buffer)->car;
+	  buffer = XCAR (buffer);
 	}
 
       if (!(EQ (buffer, Qnil)
@@ -358,7 +370,7 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 
   display = nargs >= 4 ? args[3] : Qnil;
 
-  filefd = open (XSTRING (infile)->data, O_RDONLY, 0);
+  filefd = emacs_open (XSTRING (infile)->data, O_RDONLY, 0);
   if (filefd < 0)
     {
       report_file_error ("Opening process input file", Fcons (infile, Qnil));
@@ -373,47 +385,30 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   }
   if (NILP (path))
     {
-      close (filefd);
+      emacs_close (filefd);
       report_file_error ("Searching for program", Fcons (args[0], Qnil));
     }
   new_argv[0] = XSTRING (path)->data;
   if (nargs > 4)
     {
       register int i;
+      struct gcpro gcpro1, gcpro2, gcpro3;
 
-      if (! CODING_REQUIRE_ENCODING (&argument_coding))
+      GCPRO3 (infile, buffer, current_dir);
+      argument_coding.dst_multibyte = 0;
+      for (i = 4; i < nargs; i++)
 	{
-	  for (i = 4; i < nargs; i++)
-	    new_argv[i - 3] = XSTRING (args[i])->data;
-	}
-      else
-	{
-	  /* We must encode the arguments.  */
-	  struct gcpro gcpro1, gcpro2, gcpro3;
-
-	  GCPRO3 (infile, buffer, current_dir);
-	  for (i = 4; i < nargs; i++)
+	  argument_coding.src_multibyte = STRING_MULTIBYTE (args[i]);
+	  if (CODING_REQUIRE_ENCODING (&argument_coding))
 	    {
-	      int size = encoding_buffer_size (&argument_coding,
-					       STRING_BYTES (XSTRING (args[i])));
-	      unsigned char *dummy1 = (unsigned char *) alloca (size);
-	      int dummy;
-
-	      /* The Irix 4.0 compiler barfs if we eliminate dummy.  */
-	      new_argv[i - 3] = dummy1;
-	      argument_coding.mode |= CODING_MODE_LAST_BLOCK;
-	      encode_coding (&argument_coding,
-			     XSTRING (args[i])->data,
-			     new_argv[i - 3],
-			     STRING_BYTES (XSTRING (args[i])),
-			     size);
-	      new_argv[i - 3][argument_coding.produced] = 0;
-	      /* We have to initialize CCL program status again.  */
+	      /* We must encode this argument.  */
+	      args[i] = encode_coding_string (args[i], &argument_coding, 1);
 	      if (argument_coding.type == coding_type_ccl)
 		setup_ccl_program (&(argument_coding.spec.ccl.encoder), Qnil);
 	    }
-	  UNGCPRO;
+	  new_argv[i - 3] = XSTRING (args[i])->data;
 	}
+      UNGCPRO;
       new_argv[nargs - 3] = 0;
     }
   else
@@ -436,7 +431,7 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   outfilefd = creat (tempfile, S_IREAD | S_IWRITE);
   if (outfilefd < 0)
     {
-      close (filefd);
+      emacs_close (filefd);
       report_file_error ("Opening process output file",
 			 Fcons (build_string (tempfile), Qnil));
     }
@@ -444,12 +439,39 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   fd[1] = outfilefd;
 #endif /* MSDOS */
 
+#ifdef macintosh
+  /* Since we don't have pipes on the Mac, create a temporary file to
+     hold the output of the subprocess.  */
+  tempfile = (char *) alloca (STRING_BYTES (XSTRING (Vtemp_file_name_pattern)) + 1);
+  bcopy (XSTRING (Vtemp_file_name_pattern)->data, tempfile,
+	 STRING_BYTES (XSTRING (Vtemp_file_name_pattern)) + 1);
+
+  mktemp (tempfile);
+
+  outfilefd = creat (tempfile, S_IREAD | S_IWRITE);
+  if (outfilefd < 0)
+    {
+      close (filefd);
+      report_file_error ("Opening process output file",
+			 Fcons (build_string (tempfile), Qnil));
+    }
+  fd[0] = filefd;
+  fd[1] = outfilefd;
+#endif /* macintosh */
+
   if (INTEGERP (buffer))
-    fd[1] = open (NULL_DEVICE, O_WRONLY), fd[0] = -1;
+    fd[1] = emacs_open (NULL_DEVICE, O_WRONLY, 0), fd[0] = -1;
   else
     {
 #ifndef MSDOS
-      pipe (fd);
+#ifndef macintosh
+      errno = 0;
+      if (pipe (fd) == -1)
+	{
+	  emacs_close (filefd);
+	  report_file_error ("Creating process pipe", Qnil);
+	}
+#endif
 #endif
 #if 0
       /* Replaced by close_process_descs */
@@ -478,13 +500,13 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
     synch_process_retcode = 0;
 
     if (NILP (error_file))
-      fd_error = open (NULL_DEVICE, O_WRONLY);
+      fd_error = emacs_open (NULL_DEVICE, O_WRONLY, 0);
     else if (STRINGP (error_file))
       {
 #ifdef DOS_NT
-	fd_error = open (XSTRING (error_file)->data,
-			 O_WRONLY | O_TRUNC | O_CREAT | O_TEXT,
-			 S_IREAD | S_IWRITE);
+	fd_error = emacs_open (XSTRING (error_file)->data,
+			       O_WRONLY | O_TRUNC | O_CREAT | O_TEXT,
+			       S_IREAD | S_IWRITE);
 #else  /* not DOS_NT */
 	fd_error = creat (XSTRING (error_file)->data, 0666);
 #endif /* not DOS_NT */
@@ -492,11 +514,11 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 
     if (fd_error < 0)
       {
-	close (filefd);
+	emacs_close (filefd);
 	if (fd[0] != filefd)
-	  close (fd[0]);
+	  emacs_close (fd[0]);
 	if (fd1 >= 0)
-	  close (fd1);
+	  emacs_close (fd1);
 #ifdef MSDOS
 	unlink (tempfile);
 #endif
@@ -508,6 +530,52 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 
     current_dir = ENCODE_FILE (current_dir);
 
+#ifdef macintosh
+    {
+      /* Call run_mac_command in sysdep.c here directly instead of doing
+         a child_setup as for MSDOS and other platforms.  Note that this
+         code does not handle passing the environment to the synchronous
+         Mac subprocess.  */
+      char *infn, *outfn, *errfn, *currdn;
+      
+      /* close these files so subprocess can write to them */
+      close (outfilefd);
+      if (fd_error != outfilefd)
+        close (fd_error);
+      fd1 = -1; /* No harm in closing that one! */
+
+      infn = XSTRING (infile)->data;
+      outfn = tempfile;
+      if (NILP (error_file))
+        errfn = NULL_DEVICE;
+      else if (EQ (Qt, error_file))
+        errfn = outfn;
+      else
+        errfn = XSTRING (error_file)->data;
+      currdn = XSTRING (current_dir)->data;
+      pid = run_mac_command (new_argv, currdn, infn, outfn, errfn);
+
+      /* Record that the synchronous process exited and note its
+         termination status.  */
+      synch_process_alive = 0;
+      synch_process_retcode = pid;
+      if (synch_process_retcode < 0)  /* means it couldn't be exec'ed */
+	{
+	  synchronize_system_messages_locale ();
+	  synch_process_death = strerror (errno);
+	}
+
+      /* Since CRLF is converted to LF within `decode_coding', we can
+         always open a file with binary mode.  */
+      fd[0] = open (tempfile, O_BINARY);
+      if (fd[0] < 0)
+	{
+	  unlink (tempfile);
+	  close (filefd);
+	  report_file_error ("Cannot re-open temporary file", Qnil);
+	}
+    }
+#else /* not macintosh */
 #ifdef MSDOS /* MW, July 1993 */
     /* Note that on MSDOS `child_setup' actually returns the child process
        exit status, not its PID, so we assign it to `synch_process_retcode'
@@ -520,19 +588,22 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
     synch_process_alive = 0;
     synch_process_retcode = pid;
     if (synch_process_retcode < 0)  /* means it couldn't be exec'ed */
-      synch_process_death = strerror (errno);
+      {
+	synchronize_system_messages_locale ();
+	synch_process_death = strerror (errno);
+      }
 
-    close (outfilefd);
+    emacs_close (outfilefd);
     if (fd_error != outfilefd)
-      close (fd_error);
+      emacs_close (fd_error);
     fd1 = -1; /* No harm in closing that one!  */
     /* Since CRLF is converted to LF within `decode_coding', we can
        always open a file with binary mode.  */
-    fd[0] = open (tempfile, O_BINARY);
+    fd[0] = emacs_open (tempfile, O_RDONLY | O_BINARY, 0);
     if (fd[0] < 0)
       {
 	unlink (tempfile);
-	close (filefd);
+	emacs_close (filefd);
 	report_file_error ("Cannot re-open temporary file", Qnil);
       }
 #else /* not MSDOS */
@@ -549,7 +620,7 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
     if (pid == 0)
       {
 	if (fd[0] >= 0)
-	  close (fd[0]);
+	  emacs_close (fd[0]);
 #ifdef HAVE_SETSID
         setsid ();
 #endif
@@ -565,29 +636,30 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 
     /* The MSDOS case did this already.  */
     if (fd_error >= 0)
-      close (fd_error);
+      emacs_close (fd_error);
 #endif /* not MSDOS */
+#endif /* not macintosh */
 
     environ = save_environ;
 
     /* Close most of our fd's, but not fd[0]
        since we will use that to read input from.  */
-    close (filefd);
+    emacs_close (filefd);
     if (fd1 >= 0 && fd1 != fd_error)
-      close (fd1);
+      emacs_close (fd1);
   }
 
   if (pid < 0)
     {
       if (fd[0] >= 0)
-	close (fd[0]);
+	emacs_close (fd[0]);
       report_file_error ("Doing vfork", Qnil);
     }
 
   if (INTEGERP (buffer))
     {
       if (fd[0] >= 0)
-	close (fd[0]);
+	emacs_close (fd[0]);
 #ifndef subprocesses
       /* If Emacs has been built with asynchronous subprocess support,
 	 we don't need to do this, I think because it will then have
@@ -600,14 +672,14 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   /* Enable sending signal if user quits below.  */
   call_process_exited = 0;
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(macintosh)
   /* MSDOS needs different cleanup information.  */
   record_unwind_protect (call_process_cleanup,
 			 Fcons (make_number (fd[0]), build_string (tempfile)));
 #else
   record_unwind_protect (call_process_cleanup,
 			 Fcons (make_number (fd[0]), make_number (pid)));
-#endif /* not MSDOS */
+#endif /* not MSDOS and not macintosh */
 
 
   if (BUFFERP (buffer))
@@ -639,9 +711,9 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 		= Ffind_operation_coding_system (nargs + 1, args2);
 	    }
 	  if (CONSP (coding_systems))
-	    val = XCONS (coding_systems)->car;
+	    val = XCAR (coding_systems);
 	  else if (CONSP (Vdefault_process_coding_system))
-	    val = XCONS (Vdefault_process_coding_system)->car;
+	    val = XCAR (Vdefault_process_coding_system);
 	  else
 	    val = Qnil;
 	}
@@ -653,6 +725,11 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	  && !NILP (val))
 	setup_raw_text_coding_system (&process_coding);
     }
+  process_coding.src_multibyte = 0;
+  process_coding.dst_multibyte
+    = (BUFFERP (buffer)
+       ? ! NILP (XBUFFER (buffer)->enable_multibyte_characters)
+       : ! NILP (current_buffer->enable_multibyte_characters));
 
   immediate_quit = 1;
   QUIT;
@@ -664,9 +741,12 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
     int carryover = 0;
     int display_on_the_fly = !NILP (display) && INTERACTIVE;
     struct coding_system saved_coding;
+    int pt_orig = PT, pt_byte_orig = PT_BYTE;
+    int inserted;
 
     saved_coding = process_coding;
-
+    if (process_coding.composing != COMPOSITION_DISABLED)
+      coding_allocate_composition_data (&process_coding, PT);
     while (1)
       {
 	/* Repeatedly read until we've filled as much as possible
@@ -675,7 +755,8 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	nread = carryover;
 	while (nread < bufsize - 1024)
 	  {
-	    int this_read = read (fd[0], bufptr + nread, bufsize - nread);
+	    int this_read = emacs_read (fd[0], bufptr + nread,
+					bufsize - nread);
 
 	    if (this_read < 0)
 	      goto give_up;
@@ -698,15 +779,23 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	
 	if (!NILP (buffer))
 	  {
-	    if (process_coding.type == coding_type_no_conversion)
-	      insert (bufptr, nread);
+	    if (! CODING_MAY_REQUIRE_DECODING (&process_coding))
+	      insert_1_both (bufptr, nread, nread, 0, 1, 0);
 	    else
 	      {			/* We have to decode the input.  */
-		int size = decoding_buffer_size (&process_coding, nread);
-		char *decoding_buf = (char *) xmalloc (size);
+		int size;
+		char *decoding_buf;
 
+	      repeat_decoding:
+		size = decoding_buffer_size (&process_coding, nread);
+		decoding_buf = (char *) xmalloc (size);
+		
+		if (process_coding.cmp_data)
+		  process_coding.cmp_data->char_offset = PT;
+		
 		decode_coding (&process_coding, bufptr, decoding_buf,
 			       nread, size);
+		
 		if (display_on_the_fly
 		    && saved_coding.type == coding_type_undecided
 		    && process_coding.type != coding_type_undecided)
@@ -721,28 +810,91 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 		    carryover = nread;
 		    continue;
 		  }
+		
 		if (process_coding.produced > 0)
-		  insert (decoding_buf, process_coding.produced);
+		  insert_1_both (decoding_buf, process_coding.produced_char,
+				 process_coding.produced, 0, 1, 0);
 		xfree (decoding_buf);
-		carryover = nread - process_coding.consumed;
-		if (carryover > 0)
-		  {
-		    /* As CARRYOVER should not be that large, we had
-		       better avoid overhead of bcopy.  */
-		    char *p = bufptr + process_coding.consumed;
-		    char *pend = p + carryover;
-		    char *dst = bufptr;
 
-		    while (p < pend) *dst++ = *p++;
+		if (process_coding.result == CODING_FINISH_INCONSISTENT_EOL)
+		  {
+		    Lisp_Object eol_type, coding;
+
+		    if (process_coding.eol_type == CODING_EOL_CR)
+		      {
+			/* CRs have been replaced with LFs.  Undo
+			   that in the text inserted above.  */
+			unsigned char *p;
+			
+			move_gap_both (PT, PT_BYTE);
+			
+			p = BYTE_POS_ADDR (pt_byte_orig);
+			for (; p < GPT_ADDR; ++p)
+			  if (*p == '\n')
+			    *p = '\r';
+		      }
+		    else if (process_coding.eol_type == CODING_EOL_CRLF)
+		      {
+			/* CR LFs have been replaced with LFs.  Undo
+			   that by inserting CRs in front of LFs in
+			   the text inserted above.  */
+			EMACS_INT bytepos, old_pt, old_pt_byte, nCR;
+
+			old_pt = PT;
+			old_pt_byte = PT_BYTE;
+			nCR = 0;
+			
+			for (bytepos = PT_BYTE - 1;
+			     bytepos >= pt_byte_orig;
+			     --bytepos)
+			  if (FETCH_BYTE (bytepos) == '\n')
+			    {
+			      EMACS_INT charpos = BYTE_TO_CHAR (bytepos);
+			      TEMP_SET_PT_BOTH (charpos, bytepos);
+			      insert_1_both ("\r", 1, 1, 0, 1, 0);
+			      ++nCR;
+			    }
+
+			TEMP_SET_PT_BOTH (old_pt + nCR, old_pt_byte + nCR);
+		      }
+
+		    /* Set the coding system symbol to that for
+		       Unix-like EOL.  */
+		    eol_type = Fget (saved_coding.symbol, Qeol_type);
+		    if (VECTORP (eol_type)
+			&& ASIZE (eol_type) == 3
+			&& SYMBOLP (AREF (eol_type, CODING_EOL_LF)))
+		      coding = AREF (eol_type, CODING_EOL_LF);
+		    else
+		      coding = saved_coding.symbol;
+		    
+		    process_coding.symbol = coding;
+		    process_coding.eol_type = CODING_EOL_LF;
+		    process_coding.mode
+		      &= ~CODING_MODE_INHIBIT_INCONSISTENT_EOL;
+		  }
+		
+		nread -= process_coding.consumed;
+		carryover = nread;
+		if (carryover > 0)
+		  /* As CARRYOVER should not be that large, we had
+		     better avoid overhead of bcopy.  */
+		  BCOPY_SHORT (bufptr + process_coding.consumed, bufptr,
+			       carryover);
+		if (process_coding.result == CODING_FINISH_INSUFFICIENT_CMP)
+		  {
+		    /* The decoding ended because of insufficient data
+		       area to record information about composition.
+		       We must try decoding with additional data area
+		       before reading more output for the process.  */
+		    coding_allocate_composition_data (&process_coding, PT);
+		    goto repeat_decoding;
 		  }
 	      }
 	  }
+
 	if (process_coding.mode & CODING_MODE_LAST_BLOCK)
-	  {
-	    if (carryover > 0)
-	      insert (bufptr, carryover);
-	    break;
-	  }
+	  break;
 
 	/* Make the buffer bigger as we continue to read more data,
 	   but not past 64k.  */
@@ -757,20 +909,40 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	    if (first)
 	      prepare_menu_bars ();
 	    first = 0;
-	    redisplay_preserve_echo_area ();
+	    redisplay_preserve_echo_area (1);
 	  }
 	immediate_quit = 1;
 	QUIT;
       }
   give_up: ;
 
-  Vlast_coding_system_used = process_coding.symbol;
+    if (!NILP (buffer)
+	&& process_coding.cmp_data)
+      {
+	coding_restore_composition (&process_coding, Fcurrent_buffer ());
+	coding_free_composition_data (&process_coding);
+      }
 
-  /* If the caller required, let the buffer inherit the
-     coding-system used to decode the process output.  */
-  if (inherit_process_coding_system)
-    call1 (intern ("after-insert-file-set-buffer-file-coding-system"),
-	   make_number (total_read));
+    {
+      int post_read_count = specpdl_ptr - specpdl;
+
+      record_unwind_protect (save_excursion_restore, save_excursion_save ());
+      inserted = PT - pt_orig;
+      TEMP_SET_PT_BOTH (pt_orig, pt_byte_orig);
+      if (SYMBOLP (process_coding.post_read_conversion)
+	  && !NILP (Ffboundp (process_coding.post_read_conversion)))
+	call1 (process_coding.post_read_conversion, make_number (inserted));
+
+      Vlast_coding_system_used = process_coding.symbol;
+
+      /* If the caller required, let the buffer inherit the
+	 coding-system used to decode the process output.  */
+      if (inherit_process_coding_system)
+	call1 (intern ("after-insert-file-set-buffer-file-coding-system"),
+	       make_number (total_read));
+
+      unbind_to (post_read_count, Qnil);
+    }
   }
 
   /* Wait for it to terminate, unless it already has.  */
@@ -787,7 +959,8 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
   unbind_to (count, Qnil);
 
   if (synch_process_death)
-    return build_string (synch_process_death);
+    return code_convert_string_norecord (build_string (synch_process_death),
+					 Vlocale_coding_system, 0);
   return make_number (synch_process_retcode);
 }
 #endif
@@ -799,6 +972,7 @@ delete_temp_file (name)
   /* Use Fdelete_file (indirectly) because that runs a file name handler.
      We did that when writing the file, so we should do so when deleting.  */
   internal_delete_file (name);
+  return Qnil;
 }
 
 DEFUN ("call-process-region", Fcall_process_region, Scall_process_region,
@@ -866,7 +1040,18 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 
   coding_systems = Qt;
 
+#ifdef HAVE_MKSTEMP
+ {
+   int fd = mkstemp (tempfile);
+   if (fd == -1)
+     report_file_error ("Failed to open temporary file",
+			Fcons (Vtemp_file_name_pattern, Qnil));
+   else
+     close (fd);
+ }
+#else
   mktemp (tempfile);
+#endif
 
   filename_string = build_string (tempfile);
   GCPRO1 (filename_string);
@@ -884,9 +1069,9 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
       for (i = 0; i < nargs; i++) args2[i + 1] = args[i];
       coding_systems = Ffind_operation_coding_system (nargs + 1, args2);
       if (CONSP (coding_systems))
-	val = XCONS (coding_systems)->cdr;
+	val = XCDR (coding_systems);
       else if (CONSP (Vdefault_process_coding_system))
-	val = XCONS (Vdefault_process_coding_system)->cdr;
+	val = XCDR (Vdefault_process_coding_system);
       else
 	val = Qnil;
     }
@@ -990,7 +1175,14 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
     register int i;
 
     i = STRING_BYTES (XSTRING (current_dir));
+#ifdef MSDOS
+    /* MSDOS must have all environment variables malloc'ed, because
+       low-level libc functions that launch subsidiary processes rely
+       on that.  */
+    pwd_var = (char *) xmalloc (i + 6);
+#else
     pwd_var = (char *) alloca (i + 6);
+#endif
     temp = pwd_var + 4;
     bcopy ("PWD=", pwd_var, 4);
     bcopy (XSTRING (current_dir)->data, temp, i);
@@ -1029,8 +1221,8 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
 
     new_length = 0;
     for (tem = Vprocess_environment;
-	 CONSP (tem) && STRINGP (XCONS (tem)->car);
-	 tem = XCONS (tem)->cdr)
+	 CONSP (tem) && STRINGP (XCAR (tem));
+	 tem = XCDR (tem))
       new_length++;
 
     /* new_length + 2 to include PWD and terminating 0.  */
@@ -1043,11 +1235,11 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
 
     /* Copy the Vprocess_environment strings into new_env.  */
     for (tem = Vprocess_environment;
-	 CONSP (tem) && STRINGP (XCONS (tem)->car);
-	 tem = XCONS (tem)->cdr)
+	 CONSP (tem) && STRINGP (XCAR (tem));
+	 tem = XCDR (tem))
       {
 	char **ep = env;
-	char *string = (char *) XSTRING (XCONS (tem)->car)->data;
+	char *string = (char *) XSTRING (XCAR (tem))->data;
 	/* See if this string duplicates any string already in the env.
 	   If so, don't put it in.
 	   When an env var has multiple definitions,
@@ -1101,16 +1293,16 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
   }
 
 #ifndef MSDOS
-  close (0);
-  close (1);
-  close (2);
+  emacs_close (0);
+  emacs_close (1);
+  emacs_close (2);
 
   dup2 (in, 0);
   dup2 (out, 1);
   dup2 (err, 2);
-  close (in);
-  close (out);
-  close (err);
+  emacs_close (in);
+  emacs_close (out);
+  emacs_close (err);
 #endif /* not MSDOS */
 #endif /* not WINDOWSNT */
 
@@ -1124,12 +1316,9 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
   /* setpgrp_of_tty is incorrect here; it uses input_fd.  */
   EMACS_SET_TTY_PGRP (0, &pid);
 
-#ifdef vipc
-  something missing here;
-#endif /* vipc */
-
 #ifdef MSDOS
   pid = run_msdos_command (new_argv, pwd_var + 4, in, out, err, env);
+  xfree (pwd_var);
   if (pid == -1)
     /* An error occurred while trying to run the subprocess.  */
     report_file_error ("Spawning child process", Qnil);
@@ -1150,9 +1339,9 @@ child_setup (in, out, err, new_argv, set_pgrp, current_dir)
   environ = env;
   execvp (new_argv[0], new_argv);
 
-  write (1, "Can't exec program: ", 20);
-  write (1, new_argv[0], strlen (new_argv[0]));
-  write (1, "\n", 1);
+  emacs_write (1, "Can't exec program: ", 20);
+  emacs_write (1, new_argv[0], strlen (new_argv[0]));
+  emacs_write (1, "\n", 1);
   _exit (1);
 #endif /* not WINDOWSNT */
 #endif /* not MSDOS */
@@ -1174,15 +1363,15 @@ relocate_fd (fd, minfd)
 	  char *message1 = "Error while setting up child: ";
 	  char *errmessage = strerror (errno);
 	  char *message2 = "\n";
-	  write (2, message1, strlen (message1));
-	  write (2, errmessage, strlen (errmessage));
-	  write (2, message2, strlen (message2));
+	  emacs_write (2, message1, strlen (message1));
+	  emacs_write (2, errmessage, strlen (errmessage));
+	  emacs_write (2, message2, strlen (message2));
 	  _exit (1);
 	}
       /* Note that we hold the original FD open while we recurse,
 	 to guarantee we'll get a new FD if we need it.  */
       new = relocate_fd (new, minfd);
-      close (fd);
+      emacs_close (fd);
       return new;
     }
 }
@@ -1196,11 +1385,11 @@ getenv_internal (var, varlen, value, valuelen)
 {
   Lisp_Object scan;
 
-  for (scan = Vprocess_environment; CONSP (scan); scan = XCONS (scan)->cdr)
+  for (scan = Vprocess_environment; CONSP (scan); scan = XCDR (scan))
     {
       Lisp_Object entry;
 
-      entry = XCONS (scan)->car;
+      entry = XCAR (scan);
       if (STRINGP (entry)
 	  && STRING_BYTES (XSTRING (entry)) > varlen
 	  && XSTRING (entry)->data[varlen] == '='
@@ -1221,7 +1410,7 @@ getenv_internal (var, varlen, value, valuelen)
   return 0;
 }
 
-DEFUN ("getenv", Fgetenv, Sgetenv, 1, 1, 0,
+DEFUN ("getenv-internal", Fgetenv_internal, Sgetenv_internal, 1, 1, 0,
   "Return the value of environment variable VAR, as a string.\n\
 VAR should be a string.  Value is nil if VAR is undefined in the environment.\n\
 This function consults the variable ``process-environment'' for its value.")
@@ -1430,12 +1619,14 @@ This is used by `call-process-region'.");
   DEFVAR_LISP ("process-environment", &Vprocess_environment,
     "List of environment variables for subprocesses to inherit.\n\
 Each element should be a string of the form ENVVARNAME=VALUE.\n\
+If multiple entries define the same variable, the first one always\n\
+takes precedence.\n\
 The environment which Emacs inherits is placed in this variable\n\
 when Emacs starts.");
 
 #ifndef VMS
   defsubr (&Scall_process);
-  defsubr (&Sgetenv);
+  defsubr (&Sgetenv_internal);
 #endif
   defsubr (&Scall_process_region);
 }

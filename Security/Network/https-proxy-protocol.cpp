@@ -147,7 +147,7 @@ void ConnectHTTPProtocol::ConnectHTTPConnection::transit(Event event,
                 connectState = connectReady;
                 try {
                     startSSL();
-                } catch (CssmCommonError &err) {
+                } catch (const CssmCommonError &err) {
                     setError("SSL failed", err.osStatus());
                     throw;
                 } catch (...) {

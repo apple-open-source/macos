@@ -1,5 +1,3 @@
-/*	$NetBSD: dd.h,v 1.5 1998/02/04 06:42:31 enami Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -37,41 +35,41 @@
  * SUCH DAMAGE.
  *
  *	@(#)dd.h	8.3 (Berkeley) 4/2/94
+ * $FreeBSD: src/bin/dd/dd.h,v 1.17 2002/02/22 20:51:00 markm Exp $
  */
 
 /* Input/output stream state. */
 typedef struct {
-	u_char	*db;			/* buffer address */
-	u_char	*dbp;			/* current buffer I/O address */
-	u_long	dbcnt;			/* current buffer byte count */
-	int	dbrcnt;			/* last read byte count */
-	u_long	dbsz;			/* buffer size */
+	u_char		*db;		/* buffer address */
+	u_char		*dbp;		/* current buffer I/O address */
+	/* XXX ssize_t? */
+	size_t		dbcnt;		/* current buffer byte count */
+	size_t		dbrcnt;		/* last read byte count */
+	size_t		dbsz;		/* buffer size */
 
 #define	ISCHR		0x01		/* character device (warn on short) */
-#define	ISPIPE		0x02		/* pipe (not truncatable) */
-#define	ISTAPE		0x04		/* tape (not seekable) */
-#define	NOREAD		0x08		/* not readable */
-	u_int	flags;
+#define	ISPIPE		0x02		/* pipe-like (see position.c) */
+#define	ISTAPE		0x04		/* tape */
+#define	ISSEEK		0x08		/* valid to seek on */
+#define	NOREAD		0x10		/* not readable */
+#define	ISTRUNC		0x20		/* valid to ftruncate() */
+	u_int		flags;
 
-	char 	*name;			/* name */
-	int	fd;			/* file descriptor */
-	u_long	offset;			/* # of blocks to skip */
+	const char 	*name;		/* name */
+	int		fd;		/* file descriptor */
+	off_t		offset;		/* # of blocks to skip */
 
-	u_long	f_stats;		/* # of full blocks processed */
-	u_long	p_stats;		/* # of partial blocks processed */
-	u_long	s_stats;		/* # of odd swab blocks */
-	u_long	t_stats;		/* # of truncations */
 } IO;
 
 typedef struct {
-	u_long	in_full;		/* # of full input blocks */
-	u_long	in_part;		/* # of partial input blocks */
-	u_long	out_full;		/* # of full output blocks */
-	u_long	out_part;		/* # of partial output blocks */
-	u_long	trunc;			/* # of truncated records */
-	u_long	swab;			/* # of odd-length swab blocks */
-	u_quad_t bytes;			/* # of bytes written */
-	time_t	start;			/* start time of dd */
+	u_quad_t	in_full;	/* # of full input blocks */
+	u_quad_t	in_part;	/* # of partial input blocks */
+	u_quad_t	out_full;	/* # of full output blocks */
+	u_quad_t	out_part;	/* # of partial output blocks */
+	u_quad_t	trunc;		/* # of truncated records */
+	u_quad_t	swab;		/* # of odd-length swab blocks */
+	u_quad_t	bytes;		/* # of bytes written */
+	double		start; 			/* start time of dd */
 } STAT;
 
 /* Flags (in ddflags). */
@@ -96,3 +94,4 @@ typedef struct {
 #define	C_UCASE		0x40000
 #define	C_UNBLOCK	0x80000
 #define	C_OSYNC		0x100000
+#define	C_SPARSE	0x200000

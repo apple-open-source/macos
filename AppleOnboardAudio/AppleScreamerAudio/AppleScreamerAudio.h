@@ -75,7 +75,7 @@ class AppleScreamerAudio : public AppleOnboardAudio
     OSDeclareDefaultStructors(AppleScreamerAudio);
 
 protected:
-        //Registers
+	// Registers
     volatile awacs_regmap_t *		ioBase;
 	UInt32							awacsRegs[kMaxSndHWRegisters];	// Shadow awacs registers
     UInt32							soundControlRegister;
@@ -84,47 +84,47 @@ protected:
 	IOAudioDevicePowerState			powerState;
 	Boolean							recalibrateNecessary;
 	Boolean							deviceIntsEnabled;
+	Boolean							leftMute;
+	Boolean							rightMute;
 
     bool							mVolMuteActive;
     bool							gCanPollStatus;
 	volatile void					*soundConfigSpace;				// address of sound config space
 	
-        //information specific to the chip
+	// information specific to the chip
     AwacsInformation				chipInformation;
-    bool							mIsMute;
-    UInt32 							mVolRight;
-	UInt32							mVolLeft;
-        //PM info
- //   bool			wakingFromSleep;
-    bool			duringInitialization;
-    
+//    bool							mIsMute;
+//    UInt32 							mVolRight;
+//	UInt32							mVolLeft;
+	// PM info
+	// bool							wakingFromSleep;
       
 public:
-            //Classical Unix funxtions
+	// Classical Unix funxtions
     virtual bool init(OSDictionary *properties);
     virtual void free();
 
     virtual IOService* probe(IOService *provider, SInt32*);
 
-            //IOAudioDevice subclass
+	// IOAudioDevice subclass
     virtual bool initHardware(IOService *provider);
         
-                    //PRAM volume - need to move to common class
+	// PRAM volume - need to move to common class
     UInt8 VolumeToPRAMValue( UInt32 volLeft ,  UInt32 volRight);
-    //void WritePRAMVol(  UInt32 volLeft ,  UInt32 volRight);
+    // void WritePRAMVol(  UInt32 volLeft ,  UInt32 volRight);
 
 protected:
 
-            //These will probably change when we have a general method
-            //to verify the Detects.
+	// These will probably change when we have a general method
+	// to verify the Detects.
     virtual void checkStatus(bool force);
     static void timerCallback(OSObject *target, IOAudioDevice *device);
     void setDeviceDetectionActive();
     void setDeviceDetectionInActive();       
-           // These should be virtual method in a superclass. All "Get" method
-           // could be common.
-                
-            //hardware registers manipulationf
+	// These should be virtual method in a superclass. All "Get" method
+	// could be common.
+		
+	// hardware registers manipulationf
     void 	sndHWInitialize(IOService *provider);
 	virtual void	sndHWPostDMAEngineInit (IOService *provider);
 
@@ -135,7 +135,7 @@ public:
     UInt32	sndHWGetConnectedDevices(void);
 protected:    
 
-            //activation functions
+	// activation functions
     UInt32	sndHWGetActiveOutputExclusive(void);
     IOReturn   	sndHWSetActiveOutputExclusive(UInt32 outputPort );
     UInt32 	sndHWGetActiveInputExclusive(void);
@@ -143,7 +143,7 @@ protected:
     UInt32 	sndHWGetProgOutput();    
     IOReturn   	sndHWSetProgOutput(UInt32 outputBits);
     
-            // control function
+	// control function
     bool   	sndHWGetSystemMute(void);
     IOReturn  	sndHWSetSystemMute(bool mutestate);
     bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
@@ -151,14 +151,14 @@ protected:
     IOReturn	sndHWSetPlayThrough(bool playthroughstate);
     IOReturn sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
     
-            //Power Management
+	// Power Management
     IOReturn   	sndHWSetPowerState(IOAudioDevicePowerState theState);
 
-            //Identification
+	// Identification
     UInt32 	sndHWGetType( void );
     UInt32	sndHWGetManufacturer( void );
     
-            //chip specific
+	// chip specific
     void GC_Recalibrate(void);
     void restoreSndHWRegisters(void);
     void setAWACsPowerState( IOAudioDevicePowerState state );
@@ -173,7 +173,7 @@ protected:
 	IOAudioDevicePowerState SndHWGetPowerState( void );
 	void SetStateBits( UInt32 stateBits, UInt32 delay );
 
-			// User Client calls
+	// User Client calls
 	virtual UInt8	readGPIO (UInt32 selector) {return 0;}
 	virtual void	writeGPIO (UInt32 selector, UInt8 data) {return;}
 	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) {return 0;}

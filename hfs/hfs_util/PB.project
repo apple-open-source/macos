@@ -20,11 +20,12 @@
             hfs_HD.fs.tiff, 
             hfs_HD.openfs.tiff, 
             hfs_RHD.fs.tiff, 
-            hfs_RHD.openfs.tiff,
-            Info.plist,
-            InfoPlist.strings,
-            PkgInfo,
-            version.plist
+            hfs_RHD.openfs.tiff, 
+            Info.plist, 
+            InfoPlist.strings, 
+            PkgInfo, 
+            version.plist, 
+            hfs.util.8
         ); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

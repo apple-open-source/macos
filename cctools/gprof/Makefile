@@ -6,12 +6,18 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifneq "mwcc" "$(notdir $(CC))"
+
+ifneq "mwccppc" "$(notdir $(CC))"
   GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+
 # This won't happen for a while 
 #ifeq "macos" "$(RC_OS)"
 # PRIVATEHEADERS := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
@@ -60,10 +66,15 @@ $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c

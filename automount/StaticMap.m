@@ -39,6 +39,8 @@
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
 {
 	String *servername, *serversrc, *link;
+	String *authOpts, *opt;
+	int i;
 	Vnode *v;
 	Server *server;
 	int status;
@@ -74,6 +76,18 @@
 		[servername release];
 		[serversrc release];
 		return;
+	}
+
+	authOpts = [String uniqueString:""];
+	
+	for (i = 0; i < [opts count]; i++)
+	{
+		opt = [opts objectAtIndex:i];
+		if (!strncmp([opt value], "url==", 5))
+		{
+			authOpts = [[opt postfix:'='] postfix:'='];
+			sys_msg(debug, LOG_DEBUG, "***** Found url string %s", [authOpts value]);
+		}
 	}
 
 	status = lstat([dst value], &sb);
@@ -117,6 +131,7 @@
 	[v setSource:serversrc];
 	[v setVfsType:type];
 	[v setupOptions:opts];
+	[v setUrlString:authOpts];
 	[servername release];
 	[serversrc release];
 	[self setupLink:v];
@@ -152,7 +167,7 @@
 
 		if (type != nil) [options addObject:type];
 
-		[self newMount:spec dir:file opts:options vfsType:nil];
+		[self newMount:spec dir:file opts:options vfsType:vfstype];
 
 		[spec release];
 		[file release];

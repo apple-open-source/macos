@@ -1,5 +1,6 @@
 /* Intel 387 floating point stuff.
-   Copyright (C) 1988, 89, 91, 98, 99, 2000 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1993, 1994, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,7 +26,11 @@
 #include "value.h"
 #include "gdbcore.h"
 #include "floatformat.h"
+#include "regcache.h"
+#include "gdb_assert.h"
+#include "doublest.h"
 
+#include "i386-tdep.h"
 
 /* FIXME: Eliminate the next two functions when we have the time to
    change all the callers.  */
@@ -159,21 +164,11 @@ print_i387_value (char *raw)
 {
   DOUBLEST value;
 
-  /* Avoid call to floatformat_to_doublest if possible to preserve as
-     much information as possible.  */
-
-#ifdef HAVE_LONG_DOUBLE
-  if (sizeof (value) == sizeof (long double)
-      && HOST_LONG_DOUBLE_FORMAT == &floatformat_i387_ext)
-    {
-      /* Copy straight over, but take care of the padding.  */
-      memcpy (&value, raw, FPU_REG_RAW_SIZE);
-      memset ((char *) &value + FPU_REG_RAW_SIZE, 0,
-	      sizeof (value) - FPU_REG_RAW_SIZE);
-    }
-  else
-#endif
-    floatformat_to_doublest (&floatformat_i387_ext, raw, &value);
+  /* Using extract_typed_floating here might affect the representation
+     of certain numbers such as NaNs, even if GDB is running natively.
+     This is fine since our caller already detects such special
+     numbers and we print the hexadecimal representation anyway.  */
+  value = extract_typed_floating (raw, builtin_type_i387_ext);
 
   /* We try to print 19 digits.  The last digit may or may not contain
      garbage, but we'd better print one too many.  We need enough room
@@ -253,7 +248,7 @@ print_i387_status_word (unsigned int status)
   puts_filtered ("  ");
   printf_filtered (" %s", (status & 0x0080) ? "ES" : "  ");
   puts_filtered ("  ");
-  printf_filtered (" %s", (status & 0x0080) ? "SF" : "  ");
+  printf_filtered (" %s", (status & 0x0040) ? "SF" : "  ");
   puts_filtered ("  ");
   printf_filtered (" %s", (status & 0x0100) ? "C0" : "  ");
   printf_filtered (" %s", (status & 0x0200) ? "C1" : "  ");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,15 +17,12 @@
 
 
 /*
- *  AuthorizationTags.h
- *  Authorization -- Right tags for implementing access control in applications and daemons
- *
- *    Copyright:  (c) 2000, 2001 by Apple Computer, Inc., all rights reserved
- *
+ *  AuthorizationTags.h -- Right tags for implementing access control in
+ *  applications and daemons
  */
 
-#if !defined(__AuthorizationTags__)
-#define __AuthorizationTags__ 1
+#ifndef _SECURITY_AUTHORIZATIONTAGS_H_
+#define _SECURITY_AUTHORIZATIONTAGS_H_
 
 
 /*!
@@ -62,4 +59,4 @@
 */
 #define kAuthorizationRightExecute "system.privilege.admin"
 
-#endif /* ! __AuthorizationTags__ */
+#endif /* !_SECURITY_AUTHORIZATIONTAGS_H_ */

@@ -71,6 +71,7 @@ protected:
 	// async callbacks
 	
 	mach_port_t 			fAsyncPort;
+	CFMachPortRef			fCFAsyncPort;
 	CFRunLoopRef			fCFRunLoop;
 	CFRunLoopSourceRef		fCFRunLoopSource;
 	IOFWSBP2MessageCallback	fMessageCallbackRoutine;

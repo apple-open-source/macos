@@ -47,20 +47,25 @@ class TypedList;
 //
 class ListElement : public PodWrapper<ListElement, CSSM_LIST_ELEMENT> {
 public:
-    // list element chaining
+	// type control
 	CSSM_LIST_ELEMENT_TYPE type() const { return ElementType; }
+	bool is(CSSM_LIST_ELEMENT_TYPE t) const { return type() == t; }
+	
+    // list element chaining
 	ListElement * &next() { return ListElement::overlayVar(NextElement); }
 	ListElement *next() const { return ListElement::overlay(NextElement); }
 	ListElement *last();
 	
     // CssmData personality
 	ListElement(const CssmData &data);
-    ListElement(CssmAllocator &alloc, string stringData);
+	ListElement(CssmAllocator &alloc, const CssmData &data);
+	ListElement(CssmAllocator &alloc, const std::string &stringData);
 	CssmData &data();
+	string toString() const	{ return data().toString(); }
 	const CssmData &data() const;
 	ListElement &operator = (const CssmData &data);
 	operator CssmData &() { return data(); }
-	operator string () const { return data(); }
+	operator std::string () const { return toString(); }
 	bool operator == (const CssmData &other) const	{ return data() == other; }
 	bool operator != (const CssmData &other) const	{ return data() != other; }
 
@@ -158,7 +163,12 @@ public:
     TypedList(const CSSM_LIST &list) { *(CSSM_LIST *)this = list; }
 	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type);
 	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1);
-	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1, ListElement *elem2);
+	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1,
+		ListElement *elem2);
+	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1,
+		ListElement *elem2, ListElement *elem3);
+	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1,
+		ListElement *elem2, ListElement *elem3, ListElement *elem4);
 	
 	bool isProper() const;	// format check (does not throw)
 	static TypedList &overlay(CSSM_LIST &list)

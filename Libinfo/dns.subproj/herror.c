@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)herror.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: herror.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $";
+static char rcsid[] = "$Id: herror.c,v 1.3 2002/02/19 20:36:12 epeyton Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -140,6 +140,6 @@ hstrerror(err)
 	if (err < 0)
 		return ("Resolver internal error");
 	else if (err < h_nerr)
-		return (h_errlist[err]);
+		return ((char *)h_errlist[err]);
 	return ("Unknown resolver error");
 }

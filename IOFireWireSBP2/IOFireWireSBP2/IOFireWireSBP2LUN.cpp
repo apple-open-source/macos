@@ -36,6 +36,7 @@ extern const OSSymbol *gCommand_Set_Revision_Symbol;
 extern const OSSymbol *gIOUnit_Symbol;
 extern const OSSymbol *gFirmware_Revision_Symbol;
 extern const OSSymbol *gDevice_Type_Symbol;
+extern const OSSymbol *gGUID_Symbol;
 
 const OSSymbol *gDiagnostics_Symbol;
 
@@ -551,7 +552,8 @@ bool IOFireWireSBP2LUN::matchPropertyTable(OSDictionary * table)
 				compareProperty(table, gCommand_Set_Revision_Symbol) &&
 				compareProperty(table, gIOUnit_Symbol) &&
 				compareProperty(table, gFirmware_Revision_Symbol) &&
-				compareProperty(table, gDevice_Type_Symbol);
+				compareProperty(table, gDevice_Type_Symbol) &&
+                compareProperty(table, gGUID_Symbol);
 				
     return res;
 }

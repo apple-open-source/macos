@@ -301,15 +301,15 @@
 (provide 'forms)			;;; official
 (provide 'forms-mode)			;;; for compatibility
 
-(defconst forms-version (substring "$Revision: 1.1.1.3 $" 11 -2)
+(defconst forms-version (substring "$Revision: 1.1.1.4 $" 11 -2)
   "The version number of forms-mode (as string).  The complete RCS id is:
 
-  $Id: forms.el,v 1.1.1.3 2000/06/30 17:49:51 wsanchez Exp $")
+  $Id: forms.el,v 1.1.1.4 2001/10/31 17:55:48 jevans Exp $")
 
 (defcustom forms-mode-hooks nil
-  "Hook functions to be run upon entering Forms mode."
+  "Hook run upon entering Forms mode."
   :group 'forms
-  :type 'function)
+  :type 'hook)
 
 ;;; Mandatory variables - must be set by evaluating the control file.
 
@@ -923,23 +923,23 @@ Commands:                        Equivalent keys in read-only mode:
     (setq 
      forms--format
      (if forms-use-text-properties 
-	 (` (lambda (arg)
-	      (let ((inhibit-read-only t))
-		(,@ (apply 'append
-			   (mapcar 'forms--make-format-elt-using-text-properties
-				   forms-format-list)))
-		;; Prevent insertion before the first text.
-		(,@ (if (numberp (car forms-format-list))
-			nil
-		      '((add-text-properties (point-min) (1+ (point-min))
-					     '(front-sticky (read-only intangible))))))
-		;; Prevent insertion after the last text.
-		(remove-text-properties (1- (point)) (point)
-					'(rear-nonsticky)))
-	      (setq forms--iif-start nil)))
-       (` (lambda (arg)
-	    (,@ (apply 'append
-		       (mapcar 'forms--make-format-elt forms-format-list)))))))
+	 `(lambda (arg)
+	    (let ((inhibit-read-only t))
+	      ,@(apply 'append
+		       (mapcar 'forms--make-format-elt-using-text-properties
+			       forms-format-list))
+	      ;; Prevent insertion before the first text.
+	      ,@(if (numberp (car forms-format-list))
+		    nil
+		  '((add-text-properties (point-min) (1+ (point-min))
+					 '(front-sticky (read-only intangible)))))
+	      ;; Prevent insertion after the last text.
+	      (remove-text-properties (1- (point)) (point)
+				      '(rear-nonsticky)))
+	    (setq forms--iif-start nil))
+       `(lambda (arg)
+	  ,@(apply 'append
+		   (mapcar 'forms--make-format-elt forms-format-list)))))
 
     ;; We have tallied the number of markers and dynamic texts,
     ;; so we can allocate the arrays now.
@@ -1009,46 +1009,46 @@ Commands:                        Equivalent keys in read-only mode:
   (cond
    ((stringp el)
     
-    (` ((set-text-properties 
-	 (point)			; start at point
-	 (progn				; until after insertion
-	   (insert (, el))
-	   (point))
-	 (list 'face forms--ro-face	; read-only appearance
-	       'read-only (,@ (list (1+ forms--marker)))
-	       'intangible t
-	       'insert-in-front-hooks '(forms--iif-hook)
-	       'rear-nonsticky '(face read-only insert-in-front-hooks
-				 intangible))))))
+    `((set-text-properties 
+       (point)				; start at point
+       (progn				; until after insertion
+	 (insert ,el)
+	 (point))
+       (list 'face forms--ro-face	; read-only appearance
+	     'read-only ,@(list (1+ forms--marker))
+	     'intangible ,@(list (1+ forms--marker))
+	     'insert-in-front-hooks '(forms--iif-hook)
+	     'rear-nonsticky '(face read-only insert-in-front-hooks
+				    intangible)))))
     
    ((numberp el)
-    (` ((let ((here (point)))
-	  (aset forms--markers 
-		(, (prog1 forms--marker
-		     (setq forms--marker (1+ forms--marker))))
-		(point-marker))
-	  (insert (elt arg (, (1- el))))
-	  (or (= (point) here)
-	      (set-text-properties 
-	       here (point)
-	       (list 'face forms--rw-face
-		     'front-sticky '(face))))))))
+    `((let ((here (point)))
+	(aset forms--markers 
+	      ,(prog1 forms--marker
+		 (setq forms--marker (1+ forms--marker)))
+	      (point-marker))
+	(insert (elt arg ,(1- el)))
+	(or (= (point) here)
+	    (set-text-properties 
+	     here (point)
+	     (list 'face forms--rw-face
+		   'front-sticky '(face)))))))
 
    ((listp el)
-    (` ((set-text-properties
-	 (point)
-	 (progn
-	   (insert (aset forms--dyntexts 
-			 (, (prog1 forms--dyntext
-			      (setq forms--dyntext (1+ forms--dyntext))))
-			 (, el)))
-	   (point))
-	 (list 'face forms--ro-face
-	       'read-only (,@ (list (1+ forms--marker)))
-	       'intangible t
-	       'insert-in-front-hooks '(forms--iif-hook)
-	       'rear-nonsticky '(read-only face insert-in-front-hooks
-				 intangible))))))
+    `((set-text-properties
+       (point)
+       (progn
+	 (insert (aset forms--dyntexts 
+		       ,(prog1 forms--dyntext
+			  (setq forms--dyntext (1+ forms--dyntext)))
+		       ,el))
+	 (point))
+       (list 'face forms--ro-face
+	     'read-only ,@(list (1+ forms--marker))
+	     'intangible ,@(list (1+ forms--marker))
+	     'insert-in-front-hooks '(forms--iif-hook)
+	     'rear-nonsticky '(read-only face insert-in-front-hooks
+					 intangible)))))
 
    ;; end of cond
    ))
@@ -1073,15 +1073,15 @@ Commands:                        Equivalent keys in read-only mode:
 
   (cond 
    ((stringp el)
-    (` ((insert (, el)))))
+    `((insert ,el)))
    ((numberp el)
     (prog1
-	(` ((aset forms--markers (, forms--marker) (point-marker))
-	    (insert (elt arg (, (1- el))))))
+	`((aset forms--markers ,forms--marker (point-marker))
+	  (insert (elt arg ,(1- el))))
       (setq forms--marker (1+ forms--marker))))
    ((listp el)
     (prog1
-	(` ((insert (aset forms--dyntexts (, forms--dyntext) (, el)))))
+	`((insert (aset forms--dyntexts ,forms--dyntext ,el)))
       (setq forms--dyntext (1+ forms--dyntext))))))
 
 (defvar forms--field)
@@ -1106,13 +1106,13 @@ Commands:                        Equivalent keys in read-only mode:
 
        ;; Note: we add a nil element to the list passed to `mapcar',
        ;; see `forms--make-parser-elt' for details.
-       (` (lambda nil
-	    (let (here)
-	      (goto-char (point-min))
-	      (,@ (apply 'append
-			 (mapcar 
-			  'forms--make-parser-elt 
-			  (append forms-format-list (list nil)))))))))))
+       `(lambda nil
+	  (let (here)
+	    (goto-char (point-min))
+	    ,@(apply 'append
+		     (mapcar 
+		      'forms--make-parser-elt 
+		      (append forms-format-list (list nil)))))))))
 
   (forms--debug 'forms--parser))
 
@@ -1171,15 +1171,15 @@ Commands:                        Equivalent keys in read-only mode:
    ((stringp el)
     (prog1
 	(if forms--field
-	    (` ((setq here (point))
-		(if (not (search-forward (, el) nil t nil))
-		    (error "Parse error: cannot find `%s'" (, el)))
-		(aset forms--recordv (, (1- forms--field))
-		      (buffer-substring-no-properties here
-					(- (point) (, (length el)))))))
-	  (` ((if (not (looking-at (, (regexp-quote el))))
-		  (error "Parse error: not looking at `%s'" (, el)))
-	      (forward-char (, (length el))))))
+	    `((setq here (point))
+	      (if (not (search-forward ,el nil t nil))
+		  (error "Parse error: cannot find `%s'" ,el))
+	      (aset forms--recordv ,(1- forms--field)
+		    (buffer-substring-no-properties here
+						    (- (point) ,(length el)))))
+	  `((if (not (looking-at ,(regexp-quote el)))
+		(error "Parse error: not looking at `%s'" ,el))
+	    (forward-char ,(length el))))
       (setq forms--seen-text t)
       (setq forms--field nil)))
    ((numberp el)
@@ -1190,22 +1190,22 @@ Commands:                        Equivalent keys in read-only mode:
       nil))
    ((null el)
     (if forms--field
-	(` ((aset forms--recordv (, (1- forms--field))
-		  (buffer-substring-no-properties (point) (point-max)))))))
+	`((aset forms--recordv ,(1- forms--field)
+		(buffer-substring-no-properties (point) (point-max))))))
    ((listp el)
     (prog1
 	(if forms--field
-	    (` ((let ((here (point))
-		      (forms--dyntext (aref forms--dyntexts (, forms--dyntext))))
-		  (if (not (search-forward forms--dyntext nil t nil))
-		      (error "Parse error: cannot find `%s'" forms--dyntext))
-		  (aset forms--recordv (, (1- forms--field))
-			(buffer-substring-no-properties here
-					  (- (point) (length forms--dyntext)))))))
-	  (` ((let ((forms--dyntext (aref forms--dyntexts (, forms--dyntext))))
-		(if (not (looking-at (regexp-quote forms--dyntext)))
-		    (error "Parse error: not looking at `%s'" forms--dyntext))
-		(forward-char (length forms--dyntext))))))
+	    `((let ((here (point))
+		    (forms--dyntext (aref forms--dyntexts ,forms--dyntext)))
+		(if (not (search-forward forms--dyntext nil t nil))
+		    (error "Parse error: cannot find `%s'" forms--dyntext))
+		(aset forms--recordv ,(1- forms--field)
+		      (buffer-substring-no-properties here
+						      (- (point) (length forms--dyntext))))))
+	  `((let ((forms--dyntext (aref forms--dyntexts ,forms--dyntext)))
+	      (if (not (looking-at (regexp-quote forms--dyntext)))
+		  (error "Parse error: not looking at `%s'" forms--dyntext))
+	      (forward-char (length forms--dyntext)))))
       (setq forms--dyntext (1+ forms--dyntext))
       (setq forms--seen-text t)
       (setq forms--field nil)))
@@ -1219,7 +1219,7 @@ Commands:                        Equivalent keys in read-only mode:
 
       ;; Need a file to do this.
       (if (not (file-exists-p forms-file))
-	  (error "Need existing file or explicit 'forms-number-of-records'.")
+	  (error "Need existing file or explicit 'forms-number-of-records'")
 
 	;; Visit the file and extract the first record.
 	(setq forms--file-buffer (find-file-noselect forms-file))
@@ -2090,4 +2090,4 @@ Usage: (setq forms-number-of-fields
 	  (goto-char (point-max))
 	  (insert ret)))))
 
-;;; forms.el ends here.
+;;; forms.el ends here

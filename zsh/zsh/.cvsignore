@@ -1,0 +1,12 @@
+Makefile
+META-FAQ
+config.cache
+config.h
+config.h.in
+config.log
+config.modules
+config.status
+configure
+stamp-h
+stamp-h.in
+cscope.out

@@ -1,7 +1,6 @@
-This is Info file ../info/cl, produced by Makeinfo version 1.68 from
-the input file cl.texi.
+This is ../info/cl, produced by makeinfo version 4.0 from cl.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * CL: (cl).		Partial Common Lisp support for Emacs Lisp.
 END-INFO-DIR-ENTRY
@@ -10,22 +9,22 @@ END-INFO-DIR-ENTRY
 
    Copyright (C) 1993 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the author instead of in
-the original English.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: cl,  Node: Modify Macros,  Next: Customizing Setf,  Prev: Basic Setf,  Up: Generalized Variables
@@ -37,14 +36,14 @@ This package defines a number of other macros besides `setf' that
 operate on generalized variables.  Many are interesting and useful even
 when the PLACE is just a variable name.
 
- - Special Form: psetf [PLACE FORM]...
+ - Special Form: psetf [place form]...
      This macro is to `setf' what `psetq' is to `setq': When several
      PLACEs and FORMs are involved, the assignments take place in
      parallel rather than sequentially.  Specifically, all subforms are
      evaluated from left to right, then all the assignments are done
      (in an undefined order).
 
- - Special Form: incf PLACE &optional X
+ - Special Form: incf place &optional x
      This macro increments the number stored in PLACE by one, or by X
      if specified.  The incremented value is returned.  For example,
      `(incf i)' is equivalent to `(setq i (1+ i))', and `(incf (car x)
@@ -57,7 +56,7 @@ when the PLACE is just a variable name.
 
      appears to increment `i' once, then increment the element of `vec'
      addressed by `i'; this is indeed exactly what it does, which means
-     the above form is *not* equivalent to the "obvious" expansion,
+     the above form is _not_ equivalent to the "obvious" expansion,
 
           (setf (aref vec (incf i)) (1+ (aref vec (incf i))))   ; Wrong!
 
@@ -72,28 +71,28 @@ when the PLACE is just a variable name.
      As a more Emacs-specific example of `incf', the expression `(incf
      (point) N)' is essentially equivalent to `(forward-char N)'.
 
- - Special Form: decf PLACE &optional X
+ - Special Form: decf place &optional x
      This macro decrements the number stored in PLACE by one, or by X
      if specified.
 
- - Special Form: pop PLACE
+ - Special Form: pop place
      This macro removes and returns the first element of the list stored
      in PLACE.  It is analogous to `(prog1 (car PLACE) (setf PLACE (cdr
      PLACE)))', except that it takes care to evaluate all subforms only
      once.
 
- - Special Form: push X PLACE
+ - Special Form: push x place
      This macro inserts X at the front of the list stored in PLACE.  It
      is analogous to `(setf PLACE (cons X PLACE))', except for
      evaluation of the subforms.
 
- - Special Form: pushnew X PLACE &key :test :test-not :key
+ - Special Form: pushnew x place &key :test :test-not :key
      This macro inserts X at the front of the list stored in PLACE, but
      only if X was not `eql' to any existing element of the list.  The
      optional keyword arguments are interpreted in the same way as for
      `adjoin'.  *Note Lists as Sets::.
 
- - Special Form: shiftf PLACE... NEWVALUE
+ - Special Form: shiftf place... newvalue
      This macro shifts the PLACEs left by one, shifting in the value of
      NEWVALUE (which may be any Lisp expression, not just a generalized
      variable), and returning the value shifted out of the first PLACE.
@@ -108,7 +107,7 @@ when the PLACE is just a variable name.
      except that the subforms of A, B, and C are actually evaluated
      only once each and in the apparent order.
 
- - Special Form: rotatef PLACE...
+ - Special Form: rotatef place...
      This macro rotates the PLACEs left by one in circular fashion.
      Thus, `(rotatef A B C D)' is equivalent to
 
@@ -123,7 +122,7 @@ when the PLACE is just a variable name.
    The following macros were invented for this package; they have no
 analogues in Common Lisp.
 
- - Special Form: letf (BINDINGS...) FORMS...
+ - Special Form: letf (bindings...) forms...
      This macro is analogous to `let', but for generalized variables
      rather than just symbols.  Each BINDING should be of the form
      `(PLACE VALUE)'; the original contents of the PLACEs are saved,
@@ -168,7 +167,7 @@ analogues in Common Lisp.
      not bound on entry, it is simply made unbound by `makunbound' or
      `fmakunbound' on exit.
 
- - Special Form: letf* (BINDINGS...) FORMS...
+ - Special Form: letf* (bindings...) forms...
      This macro is to `letf' what `let*' is to `let': It does the
      bindings in sequential rather than parallel order.
 
@@ -188,14 +187,14 @@ analogues in Common Lisp.
      that `callf' is an extension to standard Common Lisp.
 
  - Special Form: callf2 FUNCTION ARG1 PLACE ARGS...
-     This macro is like `callf', except that PLACE is the *second*
+     This macro is like `callf', except that PLACE is the _second_
      argument of FUNCTION rather than the first.  For example, `(push X
      PLACE)' is equivalent to `(callf2 cons X PLACE)'.
 
    The `callf' and `callf2' macros serve as building blocks for other
 macros like `incf', `pushnew', and `define-modify-macro'.  The `letf'
 and `letf*' macros are used in the processing of symbol macros; *note
-Macro Bindings::..
+Macro Bindings::.
 
 
 File: cl,  Node: Customizing Setf,  Prev: Modify Macros,  Up: Generalized Variables
@@ -207,7 +206,7 @@ Common Lisp defines three macros, `define-modify-macro', `defsetf', and
 `define-setf-method', that allow the user to extend generalized
 variables in various ways.
 
- - Special Form: define-modify-macro NAME ARGLIST FUNCTION [DOC-STRING]
+ - Special Form: define-modify-macro name arglist function [doc-string]
      This macro defines a "read-modify-write" macro similar to `incf'
      and `decf'.  The macro NAME is defined to take a PLACE argument
      followed by additional arguments described by ARGLIST.  The call
@@ -237,7 +236,7 @@ variables in various ways.
      `get-setf-method', or consult the source file `cl-macs.el' to see
      how to use the internal `setf' building blocks.
 
- - Special Form: defsetf ACCESS-FN UPDATE-FN
+ - Special Form: defsetf access-fn update-fn
      This is the simpler of two `defsetf' forms.  Where ACCESS-FN is
      the name of a function which accesses a place, this declares
      UPDATE-FN to be the corresponding store function.  From now on,
@@ -270,7 +269,7 @@ variables in various ways.
           (defsetf symbol-value set)
           (defsetf buffer-name rename-buffer t)
 
- - Special Form: defsetf ACCESS-FN ARGLIST (STORE-VAR) FORMS...
+ - Special Form: defsetf access-fn arglist (store-var) forms...
      This is the second, more complex, form of `defsetf'.  It is rather
      like `defmacro' except for the additional STORE-VAR argument.  The
      FORMS should return a Lisp form which stores the value of
@@ -295,7 +294,7 @@ variables in various ways.
           (defsetf nth (n x) (store)
             (list 'setcar (list 'nthcdr n x) store))
 
- - Special Form: define-setf-method ACCESS-FN ARGLIST FORMS...
+ - Special Form: define-setf-method access-fn arglist forms...
      This is the most general way to create new place forms.  When a
      `setf' to ACCESS-FN with arguments described by ARGLIST is
      expanded, the FORMS are evaluated and must return a list of five
@@ -334,7 +333,7 @@ variables in various ways.
      optimize away most temporaries that turn out to be unnecessary, so
      there is little reason for the setf-method itself to optimize.
 
- - Function: get-setf-method PLACE &optional ENV
+ - Function: get-setf-method place &optional env
      This function returns the setf-method for PLACE, by invoking the
      definition previously recorded by `defsetf' or
      `define-setf-method'.  The result is a list of five values as
@@ -357,7 +356,7 @@ variables in various ways.
    Modern Common Lisp defines a second, independent way to specify the
 `setf' behavior of a function, namely "`setf' functions" whose names
 are lists `(setf NAME)' rather than symbols.  For example, `(defun
-(setf foo) ...)'  defines the function that is used when `setf' is
+(setf foo) ...)' defines the function that is used when `setf' is
 applied to `foo'.  This package does not currently support `setf'
 functions.  In particular, it is a compile-time error to use `setf' on
 a form which has not already been `defsetf''d or otherwise declared; in
@@ -393,7 +392,7 @@ The standard `let' form binds variables whose names are known at
 compile-time.  The `progv' form provides an easy way to bind variables
 whose names are computed at run-time.
 
- - Special Form: progv SYMBOLS VALUES FORMS...
+ - Special Form: progv symbols values forms...
      This form establishes `let'-style variable bindings on a set of
      variables computed at run-time.  The expressions SYMBOLS and
      VALUES are evaluated, and must return lists of symbols and values,
@@ -412,7 +411,7 @@ Lexical Bindings
 The "CL" package defines the following macro which more closely follows
 the Common Lisp `let' form:
 
- - Special Form: lexical-let (BINDINGS...) FORMS...
+ - Special Form: lexical-let (bindings...) forms...
      This form is exactly like `let' except that the bindings it
      establishes are purely lexical.  Lexical bindings are similar to
      local variables in a language like C:  Only the code physically
@@ -485,7 +484,7 @@ the Common Lisp `let' form:
      closures:
 
           (defun add-to-list (x list)
-            (mapcar (function (lambda (y) (+ x y))) list))
+            (mapcar (lambda (y) (+ x y))) list)
           (add-to-list 7 '(1 2 5))
                => (8 9 12)
 
@@ -500,7 +499,7 @@ the Common Lisp `let' form:
      The `lexical-let' form is an extension to Common Lisp.  In true
      Common Lisp, all bindings are lexical unless declared otherwise.
 
- - Special Form: lexical-let* (BINDINGS...) FORMS...
+ - Special Form: lexical-let* (bindings...) forms...
      This form is just like `lexical-let', except that the bindings are
      made sequentially in the manner of `let*'.
 
@@ -512,7 +511,7 @@ Function Bindings
 
 These forms make `let'-like bindings to functions instead of variables.
 
- - Special Form: flet (BINDINGS...) FORMS...
+ - Special Form: flet (bindings...) forms...
      This form establishes `let'-style bindings on the function cells
      of symbols rather than on the value cells.  Each BINDING must be a
      list of the form `(NAME ARGLIST FORMS...)', which defines a
@@ -548,7 +547,7 @@ These forms make `let'-like bindings to functions instead of variables.
      enclosed in an implicit block as if by `defun*'.  *Note Program
      Structure::.
 
- - Special Form: labels (BINDINGS...) FORMS...
+ - Special Form: labels (bindings...) forms...
      The `labels' form is like `flet', except that it makes lexical
      bindings of the function names rather than dynamic bindings.  (In
      true Common Lisp, both `flet' and `labels' make lexical bindings
@@ -576,7 +575,7 @@ Macro Bindings
 
 These forms create local macros and "symbol macros."
 
- - Special Form: macrolet (BINDINGS...) FORMS...
+ - Special Form: macrolet (bindings...) forms...
      This form is analogous to `flet', but for macros instead of
      functions.  Each BINDING is a list of the same form as the
      arguments to `defmacro*' (i.e., a macro name, argument list, and
@@ -588,7 +587,7 @@ These forms create local macros and "symbol macros."
      that appear physically within the body FORMS, possibly after
      expansion of other macros in the body.
 
- - Special Form: symbol-macrolet (BINDINGS...) FORMS...
+ - Special Form: symbol-macrolet (bindings...) forms...
      This form creates "symbol macros", which are macros that look like
      variable references rather than function calls.  Each BINDING is a
      list `(VAR EXPANSION)'; any reference to VAR within the body FORMS
@@ -626,7 +625,7 @@ These forms create local macros and "symbol macros."
                => (2 3 4 5)
 
      In this example, the `my-dolist' macro is similar to `dolist'
-     (*note Iteration::.) except that the variable `x' becomes a true
+     (*note Iteration::) except that the variable `x' becomes a true
      reference onto the elements of the list.  The `my-dolist' call
      shown here expands to
 
@@ -651,27 +650,7 @@ Conditionals
 These conditional forms augment Emacs Lisp's simple `if', `and', `or',
 and `cond' forms.
 
- - Special Form: when TEST FORMS...
-     This is a variant of `if' where there are no "else" forms, and
-     possibly several "then" forms.  In particular,
-
-          (when TEST A B C)
-
-     is entirely equivalent to
-
-          (if TEST (progn A B C) nil)
-
- - Special Form: unless TEST FORMS...
-     This is a variant of `if' where there are no "then" forms, and
-     possibly several "else" forms:
-
-          (unless TEST A B C)
-
-     is entirely equivalent to
-
-          (when (not TEST) A B C)
-
- - Special Form: case KEYFORM CLAUSE...
+ - Special Form: case keyform clause...
      This macro evaluates KEYFORM, then compares it with the key values
      listed in the various CLAUSEs.  Whichever clause matches the key
      is executed; comparison is done by `eql'.  If no clause matches,
@@ -699,12 +678,12 @@ and `cond' forms.
             ((?\r ?\n) (do-ret-thing))
             (t (do-other-thing)))
 
- - Special Form: ecase KEYFORM CLAUSE...
+ - Special Form: ecase keyform clause...
      This macro is just like `case', except that if the key does not
      match any of the clauses, an error is signaled rather than simply
      returning `nil'.
 
- - Special Form: typecase KEYFORM CLAUSE...
+ - Special Form: typecase keyform clause...
      This macro is a version of `case' that checks for types rather
      than values.  Each CLAUSE is of the form `(TYPE BODY...)'.  *Note
      Type Predicates::, for a description of type specifiers.  For
@@ -720,7 +699,7 @@ and `cond' forms.
      `otherwise' is also allowed.  To make one clause match any of
      several types, use an `(or ...)' type specifier.
 
- - Special Form: etypecase KEYFORM CLAUSE...
+ - Special Form: etypecase keyform clause...
      This macro is just like `typecase', except that if the key does
      not match any of the clauses, an error is signaled rather than
      simply returning `nil'.
@@ -738,7 +717,7 @@ the lexical scoping allows the optimizing byte-compiler to omit the
 costly `catch' step if the body of the block does not actually
 `return-from' the block.
 
- - Special Form: block NAME FORMS...
+ - Special Form: block name forms...
      The FORMS are evaluated as if by a `progn'.  However, if any of
      the FORMS execute `(return-from NAME)', they will jump out and
      return directly from the `block' form.  The `block' returns the
@@ -769,20 +748,19 @@ costly `catch' step if the body of the block does not actually
 
      Because they are implemented in terms of Emacs Lisp `catch' and
      `throw', blocks have the same overhead as actual `catch'
-     constructs (roughly two function calls).  However, Zawinski and
-     Furuseth's optimizing byte compiler (standard in Emacs 19) will
-     optimize away the `catch' if the block does not in fact contain
-     any `return' or `return-from' calls that jump to it.  This means
-     that `do' loops and `defun*' functions which don't use `return'
-     don't pay the overhead to support it.
+     constructs (roughly two function calls).  However, the optimizing
+     byte compiler will optimize away the `catch' if the block does not
+     in fact contain any `return' or `return-from' calls that jump to
+     it.  This means that `do' loops and `defun*' functions which don't
+     use `return' don't pay the overhead to support it.
 
- - Special Form: return-from NAME [RESULT]
+ - Special Form: return-from name [result]
      This macro returns from the block named NAME, which must be an
      (unevaluated) symbol.  If a RESULT form is specified, it is
      evaluated to produce the result returned from the `block'.
      Otherwise, `nil' is returned.
 
- - Special Form: return [RESULT]
+ - Special Form: return [result]
      This macro is exactly like `(return-from nil RESULT)'.  Common
      Lisp loops like `do' and `dolist' implicitly enclose themselves in
      `nil' blocks.
@@ -796,12 +774,12 @@ Iteration
 The macros described here provide more sophisticated, high-level
 looping constructs to complement Emacs Lisp's basic `while' loop.
 
- - Special Form: loop FORMS...
+ - Special Form: loop forms...
      The "CL" package supports both the simple, old-style meaning of
      `loop' and the extremely powerful and flexible feature known as
      the "Loop Facility" or "Loop Macro".  This more advanced facility
-     is discussed in the following section; *note Loop Facility::..
-     The simple form of `loop' is described here.
+     is discussed in the following section; *note Loop Facility::.  The
+     simple form of `loop' is described here.
 
      If `loop' is followed by zero or more Lisp expressions, then
      `(loop EXPRS...)' simply creates an infinite loop executing the
@@ -820,7 +798,7 @@ looping constructs to complement Emacs Lisp's basic `while' loop.
      the above notation would simply access and throw away the value of
      a variable.)
 
- - Special Form: do (SPEC...) (END-TEST [RESULT...]) FORMS...
+ - Special Form: do (spec...) (end-test [result...]) forms...
      This macro creates a general iterative loop.  Each SPEC is of the
      form
 
@@ -842,7 +820,7 @@ looping constructs to complement Emacs Lisp's basic `while' loop.
      VAR has no STEP form, it is bound to its INIT value but not
      otherwise modified during the `do' loop (unless the code
      explicitly modifies it); this case is just a shorthand for putting
-     a `(let ((VAR INIT)) ...)'  around the loop.  If INIT is also
+     a `(let ((VAR INIT)) ...)' around the loop.  If INIT is also
      omitted it defaults to `nil', and in this case a plain `VAR' can
      be used in place of `(VAR)', again following the analogy with
      `let'.
@@ -859,7 +837,7 @@ looping constructs to complement Emacs Lisp's basic `while' loop.
             ((or (null x) (null y))
              (nreverse z)))
 
- - Special Form: do* (SPEC...) (END-TEST [RESULT...]) FORMS...
+ - Special Form: do* (spec...) (end-test [result...]) forms...
      This is to `do' what `let*' is to `let'.  In particular, the
      initial values are bound as if by `let*' rather than `let', and
      the steps are assigned as if by `setq' rather than `psetq'.
@@ -875,24 +853,25 @@ looping constructs to complement Emacs Lisp's basic `while' loop.
              (nreverse z))
             (push (f x y) z))
 
- - Special Form: dolist (VAR LIST [RESULT]) FORMS...
+ - Special Form: dolist (var list [result]) forms...
      This is a more specialized loop which iterates across the elements
      of a list.  LIST should evaluate to a list; the body FORMS are
      executed with VAR bound to each element of the list in turn.
      Finally, the RESULT form (or `nil') is evaluated with VAR bound to
-     `nil' to produce the result returned by the loop.  The loop is
-     surrounded by an implicit `nil' block.
+     `nil' to produce the result returned by the loop.  Unlike with
+     Emacs's built in `dolist', the loop is surrounded by an implicit
+     `nil' block.
 
- - Special Form: dotimes (VAR COUNT [RESULT]) FORMS...
+ - Special Form: dotimes (var count [result]) forms...
      This is a more specialized loop which iterates a specified number
      of times.  The body is executed with VAR bound to the integers
      from zero (inclusive) to COUNT (exclusive), in turn.  Then the
      `result' form is evaluated with VAR bound to the total number of
      iterations that were done (i.e., `(max 0 COUNT)') to get the
-     return value for the loop form.  The loop is surrounded by an
-     implicit `nil' block.
+     return value for the loop form.  Unlike with Emacs's built in
+     `dolist', the loop is surrounded by an implicit `nil' block.
 
- - Special Form: do-symbols (VAR [OBARRAY [RESULT]]) FORMS...
+ - Special Form: do-symbols (var [obarray [result]]) forms...
      This loop iterates over all interned symbols.  If OBARRAY is
      specified and is not `nil', it loops over all symbols in that
      obarray.  For each symbol, the body FORMS are evaluated with VAR
@@ -901,7 +880,7 @@ looping constructs to complement Emacs Lisp's basic `while' loop.
      bound to `nil') to get the return value.  The loop is surrounded
      by an implicit `nil' block.
 
- - Special Form: do-all-symbols (VAR [RESULT]) FORMS...
+ - Special Form: do-all-symbols (var [result]) forms...
      This is identical to `do-symbols' except that the OBARRAY argument
      is omitted; it always iterates over the default obarray.
 
@@ -947,7 +926,7 @@ to be very easy to learn and well-suited to its purpose.
 place at byte-compile time; compiled `loop's are just as efficient as
 the equivalent `while' loops written longhand.
 
- - Special Form: loop CLAUSES...
+ - Special Form: loop clauses...
      A loop construct consists of a series of CLAUSEs, each introduced
      by a symbol like `for' or `do'.  Clauses are simply strung
      together in the argument list of `loop', with minimal extra

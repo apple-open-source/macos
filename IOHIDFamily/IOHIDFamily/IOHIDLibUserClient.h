@@ -41,7 +41,8 @@ enum IOHIDLibUserClientMemoryTypes {
 
 
 enum IOHIDLibUserClientAsyncCommandCodes {
-    kIOHIDLibUserClientSetAsyncPort,   // kIOUCScalarIScalarO,  0,	 0
+    kIOHIDLibUserClientSetAsyncPort,   		// kIOUCScalarIScalarO, 0, 0
+    kIOHIDLibUserClientSetQueueAsyncPort,	// kIOUCScalarIScalarO, 1, 0
     kIOHIDLibUserClientNumAsyncCommands
 };
 
@@ -55,7 +56,9 @@ enum IOHIDLibUserClientCommandCodes {
     kIOHIDLibUserClientQueueHasElement, 	// kIOUCScalarIScalarO, 2, 1
     kIOHIDLibUserClientStartQueue, 		// kIOUCScalarIScalarO, 1, 0
     kIOHIDLibUserClientStopQueue, 		// kIOUCScalarIScalarO, 1, 0
-    
+    kIOHIDLibUserClientUpdateElementValue, 	// kIOUCScalarIScalarO, 1, 0
+    kIOHIDLibUserClientPostElementValue,	// kIOUCStructIStructO, 0xffffffff, 0
+
     kIOHIDLibUserClientNumCommands
 };
 
@@ -110,6 +113,7 @@ protected:
 
     task_t fClient;
     mach_port_t fWakePort;
+    mach_port_t fQueuePort;
 
     // Methods
     virtual bool
@@ -127,6 +131,10 @@ protected:
     virtual IOReturn setAsyncPort(OSAsyncReference asyncRef,
                                   void *, void *, void *,
                                   void *, void *, void *);
+                                  
+    virtual IOReturn setQueueAsyncPort(OSAsyncReference asyncRef,
+                                  void *vInQueue, void *, void *,
+                                  void *, void *, void *);
 
     // Open the IOHIDDevice
     virtual IOReturn open(void *, void *, void *,
@@ -135,6 +143,10 @@ protected:
     // Close the IOHIDDevice
     virtual IOReturn close(void * = 0, void * = 0, void * = 0,
 			   void * = 0, void * = 0, void *gated = 0);
+    
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
+    
+    virtual void free();
 
     // return the shared memory for type (called indirectly)
     virtual IOReturn clientMemoryForType(
@@ -169,6 +181,14 @@ protected:
     // stop a queue
     virtual IOReturn stopQueue (void * vInQueue, void *, void *, 
                             void *, void *, void * gated);
+                            
+    // Update Feature element value
+    virtual IOReturn updateElementValue (void *cookie, void *, void *,
+                                                void *, void *, void *);
+                                                
+    // Post element value
+    virtual IOReturn postElementValue (void *cookie, void *, void *,
+                                                void *, void *, void *);
 
 protected:
     // used 'cause C++ is a pain in the backside

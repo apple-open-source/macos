@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = StartupItems
 
-TOOLS = SystemStarter init-rc
+TOOLS = SystemStarter init-rc ConsoleMessage
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble TODO\
             NOTES.rtf

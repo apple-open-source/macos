@@ -5,29 +5,8 @@
 ##
 
 . /etc/rc.common
+ARCH=$(uname -p)
 
-ConsoleMessage "Tuning system parameters:"
-
-##
-# Set boot-command option for server configuration
-##
-
-if [ -z "${SERVER:=-NO-}" ]; then
-    if [ "${AFPSERVER}" = "-YES-" ] ||
-       [ "${QTSSERVER}" = "-YES-" ]; then
-	SERVER=-YES-
-    else
-	SERVER=-NO-
-    fi
-fi
-
-NewWorld=$(sysctl hw.epoch | sed 's/^hw.epoch = //')
-
-if [ "${NewWorld}" = "1" ]; then
-    BootArgsVar=boot-args
-else
-    BootArgsVar=boot-command
-fi
 
 SetBootCommand()
 {
@@ -43,49 +22,99 @@ SetBootCommand()
     fi
 }
 
-if [ $ARCH = "powerpc" ]; then
-    if boot_command=$(nvram "${BootArgsVar}" | cut -f 2-); then
+StartService ()
+{
+    ConsoleMessage "Tuning system"
 
-        case ${SERVER} in
+    ##
+    # Set boot-command option for server configuration
+    ##
 
-          -YES-)
-	    if [ -n "$( echo ${boot_command} | sed -n '/srv=/p' )" ]; then
-	        if [ -n "$( echo ${boot_command} | sed -n '/srv=0/p' )" ]; then
-		    ConsoleMessage "Rebooting with server configuration"
-		    SetBootCommand $(echo ${boot_command} | sed 's/srv=0/srv=1/')
-	        fi
-	    else
-	        ConsoleMessage "Rebooting with server configuration"
-	        SetBootCommand ${boot_command} srv=1
-	    fi
-	    ;;
-    
-          -NO-)
-	    if [ -n "$( echo ${boot_command} | sed -n '/srv=1/p' )" ]; then
-	        ConsoleMessage "Rebooting without server configuration"
-	        SetBootCommand $(echo ${boot_command} | sed 's/srv=1//')
-	    fi
-	    ;;
-    
-        esac
-    
-        nvram boot-command
-    
-    else
-        echo "Warning: Unable to access OpenFirmware to set boot-command"
+    if [ -z "${SERVER:=-NO-}" ]; then
+	if [ "${AFPSERVER}" = "-YES-" ] ||
+	   [ "${QTSSERVER}" = "-YES-" ]; then
+	    SERVER=-YES-
+	else
+	    SERVER=-NO-
+	fi
     fi
-fi
-##
-# Scale number of vnodes based on RAM
-# base memory is 32MB and each 32MB gets 512 vnodes
-##
 
-     base=32
-addvnodes=512
-      mem=$(hostinfo | sed -n '/Primary memory available/p' | sed -e 's/Primary memory available: *//' -e 's/\.[0-9][0-9] *megabytes.$//')
-   excess=$((${mem} - ${base}))
-   factor=$((${excess} / ${base}))
-defvnodes=$(sysctl kern.maxvnodes | sed -e 's/^[^0-9]*//')
-newvnodes=$((${addvnodes} * ${factor} + ${defvnodes}))
+    NewWorld=$(sysctl hw.epoch | sed 's/^hw.epoch = //')
 
-sysctl -w kern.maxvnodes=${newvnodes}
+    if [ "${NewWorld}" = "1" ]; then
+	BootArgsVar=boot-args
+    else
+	BootArgsVar=boot-command
+    fi
+
+    if [ $ARCH = "powerpc" ]; then
+	if boot_command=$(nvram "${BootArgsVar}" | cut -f 2-); then
+
+	    case ${SERVER} in
+
+	      -YES-)
+		if [ -n "$( echo ${boot_command} | sed -n '/srv=/p' )" ]; then
+		    if [ -n "$( echo ${boot_command} | sed -n '/srv=0/p' )" ]; then
+			ConsoleMessage "Rebooting with server configuration"
+			SetBootCommand $(echo ${boot_command} | sed 's/srv=0/srv=1/')
+		    fi
+		else
+		    ConsoleMessage "Rebooting with server configuration"
+		    SetBootCommand ${boot_command} srv=1
+		fi
+		;;
+    
+	      -NO-)
+		if [ -n "$( echo ${boot_command} | sed -n '/srv=1/p' )" ]; then
+		    ConsoleMessage "Rebooting without server configuration"
+		    SetBootCommand $(echo ${boot_command} | sed 's/srv=1//')
+		fi
+		;;
+    
+	    esac
+    
+	    nvram boot-command
+    
+	else
+	    echo "Warning: Unable to access OpenFirmware to set boot-command"
+	fi
+    fi
+
+    # Scale number of vnodes based on RAM
+    # base memory is 32MB and each 32MB gets 512 vnodes
+
+	 base=32
+    addvnodes=512
+	  mem=$(hostinfo | sed -n '/Primary memory available/p' | sed -e 's/Primary memory available: *//' -e 's/\.[0-9][0-9] *megabytes.$//')
+       excess=$((${mem} - ${base}))
+       factor=$((${excess} / ${base}))
+    defvnodes=$(sysctl kern.maxvnodes | sed -e 's/^[^0-9]*//')
+    newvnodes=$((${addvnodes} * ${factor} + ${defvnodes}))
+
+    sysctl -w kern.maxvnodes=${newvnodes}
+
+    # Set systemV shared memory limits and enable the service.
+    # If you want to set to any other values, set all the 5 values.
+    # The last set value will enble the access to the service
+    # The defaults are for 4M. shmall is in terms of pages and rest in bytes
+
+    sysctl -w kern.sysv.shmmax=4194304
+    sysctl -w kern.sysv.shmmin=1
+    sysctl -w kern.sysv.shmmni=32
+    sysctl -w kern.sysv.shmseg=8
+    sysctl -w kern.sysv.shmall=1024
+
+
+    if [ -f /System/Library/CoreServices/ServerVersion.plist -o "${SERVER:=-NO-}" = "-YES-" ]; then
+	    sysctl -w kern.maxproc=2048
+    fi
+}
+
+StopService ()
+{
+    return 0;
+}
+
+RestartService () { StartService; }
+
+RunService "$1"

@@ -39,7 +39,9 @@ enum {
 };
 
 enum {
-    kMacRISCAddressSelect 	= 0x48
+  kMacRISCAddressSelect 	= 0x48,
+  kMacRISCModeSelect		= 0x50,
+  kMacRISCModeSelectRDGBit 	= 0x00080000
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -61,7 +63,7 @@ protected:
     UInt16			fineAddressMask;
     UInt8			primaryBus;
     UInt8			configDataOffsetMask;
-    UInt32               	uniNVersion;
+    UInt32			uniNVersion;
 
     inline bool setConfigSpace( IOPCIAddressSpace space, UInt8 offset );
     virtual UInt8 firstBusNum( void );
@@ -111,7 +113,8 @@ enum {
 enum {
     kGART_INV			= 0x00000001,
     kGART_EN			= 0x00000100,
-    kGART_2xRESET		= 0x00010000
+    kGART_2xRESET		= 0x00010000,
+    kGART_DISSBADET		= 0x00020000
 };
 
 class IORangeAllocator;
@@ -129,6 +132,8 @@ protected:
     IOPhysicalLength	systemLength;
     volatile UInt32 *	gartArray;
     IOByteCount		gartLength;
+    UInt32		gartCtrl;
+    UInt32		agpCommandMask;
     UInt8		targetAGPRegisters;
 
 private:

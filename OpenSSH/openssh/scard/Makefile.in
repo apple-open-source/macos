@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.4 2001/12/01 01:05:38 bbraun Exp $
+# $Id: Makefile.in,v 1.5 2002/05/28 23:32:22 zarzycki Exp $
 
 prefix=@prefix@
 datadir=@datadir@
@@ -11,13 +11,14 @@ VPATH=@srcdir@
 
 all:
 
-Ssh.bin:  Ssh.bin.uu
-	uudecode $(srcdir)/Ssh.bin.uu
+#Ssh.bin:  Ssh.bin.uu
+#	uudecode Ssh.bin.uu
 
 clean:
-	rm -rf Ssh.bin
+#	rm -rf Ssh.bin
 
-distprep: Ssh.bin
+distprep:
+	uudecode Ssh.bin.uu
 
 distclean: clean
 	rm -f Makefile *~

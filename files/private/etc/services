@@ -13,6 +13,10 @@
 # The Registered Ports are those from 1024 through 49151
 # The Dynamic and/or Private Ports are those from 49152 through 65535
 #
+# WARNING! This file is not referenced in any way.  This information is
+# stored in netinfo.  Please see the niutil(1) or nicl(1) man page for
+# information on editing the netinfo database.
+#
 # Kerberos services are for Kerberos v4, and are unofficial.  Sites running
 # v5 should uncomment v5 entries and comment v4 entries.
 #
@@ -1089,6 +1093,8 @@ npmp-local	610/tcp
 npmp-local	610/udp
 npmp-gui	611/tcp
 npmp-gui	611/udp
+ipp		631/tcp	    #IPP (Internet Printing Protocol)
+ipp		631/udp	    #IPP (Internet Printing Protocol)
 ginad		634/tcp
 ginad		634/udp
 mdqs		666/tcp 

@@ -1,4 +1,4 @@
-# Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,7 +56,8 @@ gdb_test "b ending-run.c:1" ".*Breakpoint.*ending-run.c, line 1.*" \
 	"bpt at line before routine"
 
 gdb_test "b ending-run.c:13" \
-	".*Note.*also.*Breakpoint 2.*ending-run.c, line 13.*"
+	".*Note.*also.*Breakpoint 2.*ending-run.c, line 13.*" \
+	"b ending-run.c:13, one"
 
 # Set up to go to the next-to-last line of the program
 #
@@ -81,7 +82,7 @@ gdb_expect {
 # Test some other "clear" combinations
 #
 gdb_test "b ending-run.c:1" ".*Breakpoint.*4.*"
-gdb_test "b ending-run.c:13" ".*Note.*also.*Breakpoint.*5.*"
+gdb_test "b ending-run.c:13" ".*Note.*also.*Breakpoint.*5.*" "b ending-run.c:13, two"
 gdb_test "cle ending-run.c:13" \
 	".*Deleted breakpoint 5.*" "Only cleared 1 by line"
 
@@ -128,10 +129,14 @@ gdb_expect {
 # See if we can step out with control.  The "1 2 3" stuff
 # is output from the program.
 #
-gdb_test "cont" ".*Breakpoint.*31.*"
+if ![gdb_skip_stdio_test "cont"] {
+    gdb_test "cont" ".*1 2 7 14 23 34 47 62 79.*Breakpoint.*31.*"
+} else {
+    gdb_test "cont" ".*Breakpoint.*31.*"
+}
 
 if ![gdb_skip_stdio_test "Step to return"] {
-    gdb_test "next" ".*1 2 7 14 23 34 47 62 79  Goodbye!.*32.*" \
+    gdb_test "next" ".*Goodbye!.*32.*" \
 	    "Step to return"
 } else {
     gdb_test "next" "" ""
@@ -139,6 +144,7 @@ if ![gdb_skip_stdio_test "Step to return"] {
 
 set old_timeout $timeout
 set timeout 50
+set program_exited 0
 send_gdb "next\n"
 gdb_expect {
     -re "33.*$gdb_prompt $" {
@@ -152,13 +158,25 @@ gdb_expect {
 	    -re ".*in.*start.*$gdb_prompt $" { 
 		pass "step out of main"
 	    }
+	    -re ".*in.*bsp_trap.*$gdb_prompt $" { 
+		pass "step out of main"
+	    }
 	    -re ".*in.*init.*$gdb_prompt $" { 
 		# This is what happens on sparc64-elf ultra.
+		pass "step out of main"
+	    }
+	    -re ".*Program exited normally.*$gdb_prompt $" {
+		# This is what happens on Linux i86 (and I would expect others)
+		set program_exited 1
 		pass "step out of main"
 	    }
 	    -re ".*in .nope ().*$gdb_prompt $" {
 		# This is what happens on Solaris currently -sts 1999-08-25
 		pass "step out of main on Solaris"
+	    }
+	    -re ".*in _int_reset ().*$gdb_prompt $" {
+		# This is what happens on Sanyo XStormy16
+		pass "step out of main"
 	    }
 	    -re ".*in ..change.mode ().*$gdb_prompt $" {
 		# This is what happens on ARM in thumb mode -fn 2000-02-01
@@ -181,6 +199,11 @@ gdb_expect {
     -re ".*in.*\\\$START\\\$.*from.*dld.sl.*$gdb_prompt $"  {
         pass "step out of main 2"
     }
+    -re ".*Program exited normally.*$gdb_prompt $" {
+	# This is what happens on Linux i86 (and I would expect others)
+	set program_exited 1
+	pass "step out of main"
+    }
     -re ".*in.*currently asm.*$gdb_prompt $" { 
         pass "step out of main into assembler"
     }
@@ -192,41 +215,52 @@ gdb_expect {
 }
 
 if {![target_info exists use_cygmon] || ![target_info use_cygmon]} {
-    send_gdb "n\n"
-    gdb_expect {
-	-re "Program exited normally.*$gdb_prompt $" {
-	    # If we actually have debug info for the start function,
-	    # then we won't get the "Single-stepping until function
-	    # exit" message.
-	    pass "step to end of run 1"
-	}
-	-re ".*Single.*Program exited.*$gdb_prompt $" {
-	    pass "step to end of run 1"
-	}
-	-re ".*Single.*in exit.*from.*dld.sl.*$gdb_prompt $" {
-	    pass "step to end of run 2" 
-	    gdb_test "c" ".*" "continue after exit"
-	}
-	timeout { fail "(timeout) step to end of run" }
+    global program_exited;
+    if {[eval expr $program_exited == 0]} {
+	send_gdb "n\n"
+	gdb_expect {
+	    -re "Program exited normally.*$gdb_prompt $" {
+		# If we actually have debug info for the start function,
+		# then we won't get the "Single-stepping until function
+		# exit" message.
+		pass "step to end of run"
+	    }
+	    -re ".*Single.*Program exited.*$gdb_prompt $" {
+		pass "step to end of run"
+	    }
+	    -re ".*Single.*in exit.*from.*dld.sl.*$gdb_prompt $" {
+		pass "step to end of run" 
+		gdb_test "c" ".*" "continue after exit"
+	    }
+	    -re ".*Single.*_int_reset.*$gdb_prompt $" {
+	        pass "step to end of run"
+		setup_xfail "xstormy16-*-*"
+	    }
+	    -re ".*$gdb_prompt $" {
+		fail "step to end of run"
+	    }
+	    timeout { 
+		fail "(timeout) step to end of run" 
+	    }
+	}   
     }
 
-  set timeout $old_timeout
-  
-  gdb_test "n" ".*The program is not being run.*" "don't step after run"
-  
-  set exec_output [remote_exec host "ls core"]
-  
-  
-  if [ regexp "core not found" $exec_output]  {
-    pass "No core dumped on quit"
-  } else {
-    if [ regexp "No such file or directory" $exec_output] {
-      pass "ls: core: No core dumped on quit"
+    set timeout $old_timeout
+
+    gdb_test "n" ".*The program is not being run.*" "don't step after run"
+
+    set exec_output [remote_exec host "ls core"]
+
+    if [ regexp "core not found" $exec_output]  {
+	pass "No core dumped on quit"
     } else {
-      remote_exec build "rm -f core"
-      fail "Core dumped on quit"
+	if [ regexp "No such file or directory" $exec_output] {
+	    pass "ls: core: No core dumped on quit"
+	} else {
+	    remote_exec build "rm -f core"
+	    fail "Core dumped on quit"
+	}
     }
-  }
 }
 
 #remote_exec build "rm -f ${binfile}"

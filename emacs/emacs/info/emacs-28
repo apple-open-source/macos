@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,718 +11,1296 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Acknowledgments,  Next: Screen,  Prev: Concept Index,  Up: Top
+File: emacs,  Node: General Variables,  Next: Misc Variables,  Up: Environment
+
+General Variables
+-----------------
+
+   Here is an alphabetical list of specific environment variables that
+have special meanings in Emacs, giving the name of each variable and
+its meaning.  Most of these variables are also used by some other
+programs.  Emacs does not require any of these environment variables to
+be set, but it uses their values if they are set.
+
+`CDPATH'
+     Used by the `cd' command to search for the directory you specify,
+     when you specify a relative directory name.
+
+`EMACS_UNIBYTE'
+     Defining this environment variable with a nonempty value directs
+     Emacs to do almost everything with single-byte buffers and
+     strings.  It is equivalent to using the `--unibyte' command-line
+     option on each invocation.  *Note Initial Options::.
+
+`EMACSDATA'
+     Directory for the architecture-independent files that come with
+     Emacs.  This is used to initialize the Lisp variable
+     `data-directory'.
+
+`EMACSDOC'
+     Directory for the documentation string file, `DOC-EMACSVERSION'.
+     This is used to initialize the Lisp variable `doc-directory'.
+
+`EMACSLOADPATH'
+     A colon-separated list of directories(1) to search for Emacs Lisp
+     files--used to initialize `load-path'.
+
+`EMACSPATH'
+     A colon-separated list of directories to search for executable
+     files--used to initialize `exec-path'.
+
+`ESHELL'
+     Used for shell-mode to override the `SHELL' environment variable.
+
+`HISTFILE'
+     The name of the file that shell commands are saved in between
+     logins.  This variable defaults to `~/.bash_history' if you use
+     Bash, to `~/.sh_history' if you use ksh, and to `~/.history'
+     otherwise.
+
+`HOME'
+     The location of the user's files in the directory tree; used for
+     expansion of file names starting with a tilde (`~').  On MS-DOS, it
+     defaults to the directory from which Emacs was started, with `/bin'
+     removed from the end if it was present.  On Windows, the default
+     value of `HOME' is `C:/', the root directory of drive `C:'.
+
+`HOSTNAME'
+     The name of the machine that Emacs is running on.
+
+`INCPATH'
+     A colon-separated list of directories.  Used by the `complete'
+     package to search for files.
+
+`INFOPATH'
+     A colon-separated list of directories in which to search for Info
+     files.
+
+`LC_ALL'
+`LC_COLLATE'
+`LC_CTYPE'
+`LC_MESSAGES'
+`LC_MONETARY'
+`LC_NUMERIC'
+`LC_TIME'
+`LANG'
+     The user's preferred locale.  The locale has six categories,
+     specified by the environment variables `LC_COLLATE' for sorting,
+     `LC_CTYPE' for character encoding, `LC_MESSAGES' for system
+     messages, `LC_MONETARY' for monetary formats, `LC_NUMERIC' for
+     numbers, and `LC_TIME' for dates and times.  If one of these
+     variables is not set, the category defaults to the value of the
+     `LANG' environment variable, or to the default `C' locale if
+     `LANG' is not set.  But if `LC_ALL' is specified, it overrides the
+     settings of all the other locale environment variables.
+
+     The value of the LC_CTYPE category is matched against entries in
+     `locale-language-names', `locale-charset-language-names', and
+     `locale-preferred-coding-systems', to select a default language
+     environment and coding system.  *Note Language Environments::.
+
+`LOGNAME'
+     The user's login name.  See also `USER'.
+
+`MAIL'
+     The name of the user's system mail inbox.
+
+`MAILRC'
+     Name of file containing mail aliases.  (The default is
+     `~/.mailrc'.)
+
+`MH'
+     Name of setup file for the mh system.  (The default is
+     `~/.mh_profile'.)
 
-Acknowledgments
-***************
+`NAME'
+     The real-world name of the user.
 
-   Many people have contributed code included in the Free Software
-Foundation's distribution of GNU Emacs.  To show our appreciation for
-their public spirit, we list here those who have written substantial
-portions.
+`NNTPSERVER'
+     The name of the news server.  Used by the mh and Gnus packages.
 
-   * Per Abrahamsen wrote the customization buffer facilities, as well
-     as `double.el' for typing accented characters not normally
-     available from the keyboard, `xt-mouse.el' which handles mouse
-     commands through Xterm, and `cpp.el' which hides or highlights
-     parts of C programs according to preprocessor conditionals.
-
-   * Jay K. Adams wrote `jka-compr.el', providing automatic
-     decompression and recompression for compressed files.
-
-   * Joe Arceneaux wrote the original text property implementation, and
-     implemented support for X11.
-
-   * Boaz Ben-Zvi wrote `profile.el', to time Emacs Lisp functions.
-
-   * Jim Blandy wrote Emacs 19's input system, brought its
-     configuration and build process up to the GNU coding standards,
-     and contributed to the frame support and multi-face support.
-
-   * Terrence M. Brannon wrote `landmark.el', a neural-network robot
-     that learns landmarks.
-
-   * Frank Bresz wrote `diff.el', a program to display `diff' output.
-
-   * Peter Breton implemented `dirtrack' which does better tracking of
-     directory changes in shell buffers, `filecache.el' which records
-     which directories your files are in, `locate.el' which interfaces
-     to the `locate' command, `net-utils.el', and the "generic mode"
-     feature.
-
-   * Kevin Broadey wrote `foldout.el', providing folding extensions to
-     Emacs's outline modes.
-
-   * Vincent Broman wrote `ada.el', a mode for editing Ada code (since
-     replaced by `ada-mode.el').
-
-   * David M. Brown wrote `array.el', for editing arrays and other
-     tabular data.
-
-   * Bill Carpenter provided `feedmail.el'.
-
-   * Hans Chalupsky wrote `advice.el', an overloading mechanism for
-     Emacs Lisp functions, and `trace.el', a tracing facility for Emacs
-     Lisp.
-
-   * Bob Chassell wrote `texnfo-upd.el' and `makeinfo.el', modes and
-     utilities for working with Texinfo files.
-
-   * James Clark wrote `sgml-mode.el', a mode for editing SGML
-     documents, and contributed to Emacs's dumping procedures.
-
-   * Mike Clarkson wrote `edt.el', an emulation of DEC's EDT editor.
-
-   * Glynn Clements provided `gamegrid.el' and a couple of games that
-     use it, Snake and Tetris.
-
-   * Andrew Csillag wrote M4 mode (`m4-mode.el').
-
-   * Doug Cutting and Jamie Zawinski wrote `disass.el', a disassembler
-     for compiled Emacs Lisp code.
-
-   * Michael DeCorte wrote `emacs.csh', a C-shell script that starts a
-     new Emacs job, or restarts a paused Emacs if one exists.
-
-   * Gary Delp wrote `mailpost.el', an interface between RMAIL and the
-     `/usr/uci/post' mailer.
-
-   * Matthieu Devin wrote `delsel.el', a package to make newly-typed
-     text replace the current selection.
-
-   * Eric Ding contributed `goto-addr.el',
-
-   * Carsten Dominik wrote `reftex.el', a package for setting up labels
-     and cross-references for LaTeX.
-
-   * Scott Draves wrote `tq.el', help functions for maintaining
-     transaction queues between Emacs and its subprocesses.
-
-   * Viktor Dukhovni wrote support for dumping under SunOS version 4.
-
-   * John Eaton co-wrote Octave mode (`octave.el' and related files).
-
-   * Rolf Ebert co-wrote Ada mode (`ada-mode.el').
-
-   * Stephen Eglen implemented `mspools.el', for use with Procmail,
-     which tells you which mail folders have mail waiting in them, and
-     `iswitchb.el', a feature for incremental reading and completion of
-     buffer names.
-
-   * Torbjo"rn Einarsson contributed F90 mode (`f90.el').
-
-   * Tsugutomo Enami co-wrote the support for international character
-     sets.
-
-   * Hans Henrik Eriksen wrote `simula.el', a mode for editing SIMULA 87
-     code.
-
-   * Michael Ernst wrote `reposition.el', a command for recentering a
-     function's source code and preceding comment on the screen.
-
-   * Ata Etemadi wrote `cdl.el', functions for working with Common Data
-     Language source code.
-
-   * Frederick Farnback implemented `morse.el', which converts text to
-     morse code.
-
-   * Fred Fish wrote the support for dumping COFF executable files.
-
-   * Karl Fogel wrote:
-        * `bookmark.el', for creating named placeholders, saving them
-          and jumping to them later,
-
-        * `mail-hist.el', a history mechanism for outgoing mail
-          messages, and
-
-        * `saveplace.el', for preserving point's location in files
-          between editing sessions.
-
-   * Gary Foster wrote the emulation for CRiSP: `crisp.el' and
-     `scroll-lock.el'.
-
-   * Noah Friedman wrote `rlogin.el', an interface to Rlogin, and
-     `type-break.el', which reminds you to take periodic breaks from
-     typing.  With Roland McGrath, he wrote `rsz-mini.el', a minor mode
-     to automatically resize the minibuffer to fit the text it contains.
-
-   * Keith Gabryelski wrote `hexl.el', a mode for editing binary files.
-
-   * Kevin Gallagher rewrote and enhanced the EDT emulation, and wrote
-     `flow-ctrl.el', a package for coping with unsuppressible XON/XOFF
-     flow control.
-
-   * Kevin Gallo added multiple-frame support for Windows NT.
-
-   * Howard Gayle wrote:
-        * the C and lisp code for display tables and case tables,
-
-        * `rot13.el', a command to display the plaintext form of a
-          buffer encoded with the Caesar cipher,
-
-        * much of the support for the ISO-8859 European character set
-          (which includes `iso-ascii.el', `iso-insert.el',
-          `iso-swed.el', `iso-syntax.el', `iso-transl.el', and
-          `swedish.el'), and
-
-        * `vt100-led.el', a package for controlling the LED's on
-          VT100-compatible terminals.
-
-   * Stephen Gildea made the Emacs quick reference card.
-
-   * David Gillespie wrote:
-        * Emacs 19's Common Lisp compatibility packages, replacing the
-          old package by Cesar Augusto Quiroz Gonzalez,
-
-        * `complete.el', a partial completion mechanism, and
-
-        * `edmacro.el', a package for editing keyboard macros.
-
-   * Bob Glickstein contributed the `sregex.el' feature.
-
-   * Boris Goldowsky wrote `avoid.el', a package to keep the mouse
-     cursor out of the way of the text cursor; `shadowfile.el', a
-     package for keeping identical copies of files in more than one
-     place; `enriched.el', a package for saving text properties in
-     files; and `facemenu.el', a package for specifying faces.
-
-   * Michelangelo Grigni wrote `ffap.el' which visits a file, taking
-     the file name from the buffer.
-
-   * Odd Gripenstam wrote `dcl-mode.el'.
-
-   * Michael Gschwind wrote `iso-cvt.el', a package to convert between
-     the ISO 8859-1 character set and the notations for non-`ASCII'
-     characters used by TeX and net tradition.
-
-   * Henry Guillaume wrote `find-file.el', a package to visit files
-     related to the currently visited file.
-
-   * Doug Gwyn wrote the portable `alloca' implementation.
-
-   * Ken'ichi Handa implemented most of the support for international
-     character sets.
-
-   * Chris Hanson wrote `netuname.el', a package to use HP-UX's Remote
-     File Access facility from Emacs.
-
-   * K. Shane Hartman wrote:
-        * `chistory.el' and `echistory.el', packages for browsing
-          command history lists,
-
-        * `electric.el' and `helper.el', providing an alternative
-          command loop and appropriate help facilities,
-
-        * `emacsbug.el', a package for reporting Emacs bugs,
-
-        * `picture.el', a mode for editing ASCII pictures, and
-
-        * `view.el', a package for perusing files and buffers without
-          editing them.
-
-   * John Heidemann wrote `mouse-copy.el' and `mouse-drag.el', which
-     provide alternative mouse-based editing and scrolling features.
-
-   * Markus Heritsch co-wrote Ada mode (`ada-mode.el').
-
-   * Karl Heuer wrote the original blessmail script, implemented the
-     `intangible' text property, and rearranged the structure of the
-     `Lisp_Object' type to allow for more data bits.
-
-   * Manabu Higashida ported Emacs to the MS-DOS operating system.
-
-   * Anders Holst wrote `hippie-exp.el', a versatile completion and
-     expansion package.
-
-   * Kurt Hornik co-wrote Octave mode (`octave.el' and related files).
-
-   * Tom Houlder wrote `mantemp.el', which generates manual C++ template
-     instantiations.
-
-   * Lars Ingebrigtsen did a major redesign of the GNUS newsreader.
-
-   * Andrew Innes contributed extensively to the Windows NT support.
-
-   * Kyle Jones wrote `life.el', a package to play Conway's "life" game,
-     and `mldrag.el', a package which allows the user to resize windows
-     by dragging mode lines and vertical window separators with the
-     mouse.
-
-   * Tomoji Kagatani implemented `smtpmail.el', used for sending out
-     mail with SMTP.
-
-   * David Kaufman wrote `yow.c', an essential utility program for the
-     hopelessly pinheaded.
-
-   * Henry Kautz wrote `bib-mode.el', a mode for maintaining
-     bibliography databases compatible with `refer' (the `troff'
-     version) and `lookbib', and `refbib.el', a package to convert
-     those databases to the format used by the LaTeX text formatting
+`ORGANIZATION'
+     The name of the organization to which you belong.  Used for
+     setting the `Organization:' header in your posts from the Gnus
      package.
 
-   * Howard Kaye wrote `sort.el', commands to sort text in Emacs
-     buffers.
+`PATH'
+     A colon-separated list of directories in which executables reside.
+     This is used to initialize the Emacs Lisp variable `exec-path'.
+
+`PWD'
+     If set, this should be the default directory when Emacs was
+     started.
+
+`REPLYTO'
+     If set, this specifies an initial value for the variable
+     `mail-default-reply-to'.  *Note Mail Headers::.
+
+`SAVEDIR'
+     The name of a directory in which news articles are saved by
+     default.  Used by the Gnus package.
+
+`SHELL'
+     The name of an interpreter used to parse and execute programs run
+     from inside Emacs.
+
+`TERM'
+     The type of the terminal that Emacs is using.  This variable must
+     be set unless Emacs is run in batch mode.  On MS-DOS, it defaults
+     to `internal', which specifies a built-in terminal emulation that
+     handles the machine's own display.  If the value of `TERM'
+     indicates that Emacs runs in non-windowed mode from `xterm' or a
+     similar terminal emulator, the background mode defaults to
+     `light', and Emacs will choose colors that are appropriate for a
+     light background.
+
+`TERMCAP'
+     The name of the termcap library file describing how to program the
+     terminal specified by the `TERM' variable.  This defaults to
+     `/etc/termcap'.
+
+`TMPDIR'
+     Used by the Emerge package as a prefix for temporary files.
+
+`TZ'
+     This specifies the current time zone and possibly also daylight
+     saving time information.  On MS-DOS, if `TZ' is not set in the
+     environment when Emacs starts, Emacs defines a default value as
+     appropriate for the country code returned by DOS.  On MS-Windows,
+     Emacs does not use `TZ' at all.
+
+`USER'
+     The user's login name.  See also `LOGNAME'.  On MS-DOS, this
+     defaults to `root'.
+
+`VERSION_CONTROL'
+     Used to initialize the `version-control' variable (*note Backup
+     Names::).
+
+   ---------- Footnotes ----------
+
+   (1) Here and below, whenever we say "colon-separated list of
+directories", it pertains to Unix and GNU/Linux systems.  On MS-DOS and
+MS-Windows, the directories are separated by semi-colons instead, since
+DOS/Windows file names might include a colon after a drive letter.
+
+
+File: emacs,  Node: Misc Variables,  Prev: General Variables,  Up: Environment
+
+Miscellaneous Variables
+-----------------------
+
+   These variables are used only on particular configurations:
+
+`COMSPEC'
+     On MS-DOS and MS-Windows, the name of the command interpreter to
+     use when invoking batch files and commands internal to the shell.
+     On MS-DOS this is also used to make a default value for the
+     `SHELL' environment variable.
+
+`NAME'
+     On MS-DOS, this variable defaults to the value of the `USER'
+     variable.
+
+`TEMP'
+`TMP'
+     On MS-DOS and MS-Windows, these specify the name of the directory
+     for storing temporary files in.
+
+`EMACSTEST'
+     On MS-DOS, this specifies a file to use to log the operation of the
+     internal terminal emulator.  This feature is useful for submitting
+     bug reports.
+
+`EMACSCOLORS'
+     On MS-DOS, this specifies the screen colors.  It is useful to set
+     them this way, since otherwise Emacs would display the default
+     colors momentarily when it starts up.
+
+     The value of this variable should be the two-character encoding of
+     the foreground (the first character) and the background (the second
+     character) colors of the default face.  Each character should be
+     the hexadecimal code for the desired color on a standard PC
+     text-mode display.  For example, to get blue text on a light gray
+     background, specify `EMACSCOLORS=17', since 1 is the code of the
+     blue color and 7 is the code of the light gray color.
+
+     The PC display usually supports only eight background colors.
+     However, Emacs switches the DOS display to a mode where all 16
+     colors can be used for the background, so all four bits of the
+     background color are actually used.
 
-   * Michael Kifer wrote `ediff.el', an interactive interface to the
-     `diff' and `patch' programs, and Viper, the newest emulation for
-     VI.
+`WINDOW_GFX'
+     Used when initializing the Sun windows system.
 
-   * Richard King wrote the first version of `userlock.el' and
-     `filelock.c', which provide simple support for multiple users
-     editing the same file.
+
+File: emacs,  Node: Display X,  Next: Font X,  Prev: Environment,  Up: Command Arguments
 
-   * Larry K. Kolodney wrote `cvtmail.c', a program to convert the mail
-     directories used by Gosling Emacs into RMAIL format.
+Specifying the Display Name
+===========================
 
-   * Robert Krawitz wrote the original `xmenu.c', part of Emacs's pop-up
-     menu support.
+   The environment variable `DISPLAY' tells all X clients, including
+Emacs, where to display their windows.  Its value is set by default in
+ordinary circumstances, when you start an X server and run jobs
+locally.  Occasionally you may need to specify the display yourself; for
+example, if you do a remote login and want to run a client program
+remotely, displaying on your local screen.
 
-   * Sebastian Kremer wrote Emacs 19's `dired-mode', with contributions
-     by Lawrence R. Dodd.
+   With Emacs, the main reason people change the default display is to
+let them log into another system, run Emacs on that system, but have the
+window displayed at their local terminal.  You might need to log in to
+another system because the files you want to edit are there, or because
+the Emacs executable file you want to run is there.
 
-   * Geoff Kuenning wrote Emacs 19's `ispell.el', based on work by Ken
-     Stevens and others.
+   The syntax of the `DISPLAY' environment variable is
+`HOST:DISPLAY.SCREEN', where HOST is the host name of the X Window
+System server machine, DISPLAY is an arbitrarily-assigned number that
+distinguishes your server (X terminal) from other servers on the same
+machine, and SCREEN is a rarely-used field that allows an X server to
+control multiple terminal screens.  The period and the SCREEN field are
+optional.  If included, SCREEN is usually zero.
 
-   * David Ka*gedal wrote `tempo.el', providing support for easy
-     insertion of boilerplate text and other common constructions.
+   For example, if your host is named `glasperle' and your server is
+the first (or perhaps the only) server listed in the configuration, your
+`DISPLAY' is `glasperle:0.0'.
 
-   * Daniel LaLiberte wrote:
-        * `edebug.el', a source-level debugger for Emacs Lisp,
+   You can specify the display name explicitly when you run Emacs,
+either by changing the `DISPLAY' variable, or with the option `-d
+DISPLAY' or `--display=DISPLAY'.  Here is an example:
 
-        * `cl-specs.el', specifications to help `edebug' debug code
-          written using David Gillespie's Common Lisp support,
+     emacs --display=glasperle:0 &
 
-        * `cust-print.el', a customizable package for printing lisp
-          objects,
+   You can inhibit the direct use of the window system and GUI with the
+`-nw' option.  It tells Emacs to display using ordinary ASCII on its
+controlling terminal.  This is also an initial option.
 
-        * `eval-reg.el', a re-implementation of `eval-region' in Emacs
-          Lisp, and
+   Sometimes, security arrangements prevent a program on a remote system
+from displaying on your local system.  In this case, trying to run Emacs
+produces messages like this:
 
-        * `isearch.el', Emacs 19's incremental search minor mode.
+     Xlib:  connection to "glasperle:0.0" refused by server
 
-   * James R. Larus wrote `mh-e.el', an interface to the MH mail system.
+You might be able to overcome this problem by using the `xhost' command
+on the local system to give permission for access from your remote
+machine.
 
-   * Frederic Lepied contributed `expand.el', which uses the abbrev
-     mechanism for inserting programming constructs.
+
+File: emacs,  Node: Font X,  Next: Colors X,  Prev: Display X,  Up: Command Arguments
 
-   * Lars Lindberg wrote `msb.el', which provides more flexible menus
-     for buffer selection, and rewrote `dabbrev.el'.
+Font Specification Options
+==========================
 
-   * Eric Ludlam wrote the Speedbar package and `checkdoc.el'.
+   By default, Emacs displays text in the font named `9x15', which
+makes each character nine pixels wide and fifteen pixels high.  You can
+specify a different font on your command line through the option `-fn
+NAME' (or `--font', which is an alias for `-fn').
 
-   * Neil M. Mager wrote `appt.el', functions to notify users of their
-     appointments.  It finds appointments recorded in the diary files
-     generated by Edward M. Reingold's `calendar' package.
+`-fn NAME'
+`--font=NAME'
+     Use font NAME as the default font.
 
-   * Ken Manheimer wrote `allout.el', a mode for manipulating and
-     formatting outlines, and `icomplete.el', which provides incremental
-     completion feedback in the minibuffer.
+   Under X, each font has a long name which consists of eleven words or
+numbers, separated by dashes.  Some fonts also have shorter
+nicknames--`9x15' is such a nickname.  You can use either kind of name.
+You can use wildcard patterns for the font name; then Emacs lets X
+choose one of the fonts that match the pattern.  Here is an example,
+which happens to specify the font whose nickname is `6x13':
 
-   * Bill Mann wrote `perl-mode.el', a mode for editing Perl code.
+     emacs -fn "-misc-fixed-medium-r-semicondensed--13-*-*-*-c-60-iso8859-1" &
 
-   * Brian Marick and Daniel LaLiberte wrote `hideif.el', support for
-     hiding selected code within C `#ifdef' clauses.
+You can also specify the font in your `.Xdefaults' file:
 
-   * Simon Marshall wrote:
-        * `fast-lock.el', which caches the face data computed by Font
-          Lock mode,
+     emacs.font: -misc-fixed-medium-r-semicondensed--13-*-*-*-c-60-iso8859-1
 
-        * `lazy-lock.el', which delays fontification in Font Lock mode
-          until text is actually displayed, and
+   A long font name has the following form:
 
-        * `regexp-opt.el', which generates a regular expression from a
-          list of strings.
+     -MAKER-FAMILY-WEIGHT-SLANT-WIDTHTYPE-STYLE...
+     ...-PIXELS-HEIGHT-HORIZ-VERT-SPACING-WIDTH-CHARSET
 
-   * Bengt Martensson, Mark Shapiro, Mike Newton, Aaron Larson, and
-     Stefan Schoef, wrote `bibtex.el', a mode for editing BibTeX
-     bibliography files.
+MAKER
+     This is the name of the font manufacturer.
 
-   * Charlie Martin wrote `autoinsert.el', which provides automatic
-     mode-sensitive insertion of text into new files.
+FAMILY
+     This is the name of the font family--for example, `courier'.
 
-   * Thomas May wrote `blackbox.el', a version of the traditional
-     blackbox game.
+WEIGHT
+     This is normally `bold', `medium' or `light'.  Other words may
+     appear here in some font names.
 
-   * Roland McGrath wrote:
-        * `compile.el', a package for running compilations in a buffer,
-          and then visiting the locations reported in error messages,
+SLANT
+     This is `r' (roman), `i' (italic), `o' (oblique), `ri' (reverse
+     italic), or `ot' (other).
 
-        * `etags.el', a package for jumping to function definitions and
-          searching or replacing in all the files mentioned in a `TAGS'
-          file,
+WIDTHTYPE
+     This is normally `condensed', `extended', `semicondensed' or
+     `normal'.  Other words may appear here in some font names.
 
-        * `find-dired.el', for using `dired' commands on output from the
-          `find' program, with Sebastian Kremer,
+STYLE
+     This is an optional additional style name.  Usually it is
+     empty--most long font names have two hyphens in a row at this
+     point.
 
-        * `map-ynp.el', a general purpose boolean question-asker,
+PIXELS
+     This is the font height, in pixels.
 
-        * `autoload.el', providing semi-automatic maintenance of
-          autoload files, and
+HEIGHT
+     This is the font height on the screen, measured in tenths of a
+     printer's point--approximately 1/720 of an inch.  In other words,
+     it is the point size of the font, times ten.  For a given vertical
+     resolution, HEIGHT and PIXELS are proportional; therefore, it is
+     common to specify just one of them and use `*' for the other.
 
-        * `upd-copyr.el', providing semi-automatic maintenance of
-          copyright notices in source code.
+HORIZ
+     This is the horizontal resolution, in pixels per inch, of the
+     screen for which the font is intended.
 
-   * David Megginson wrote `derived.el', which allows one to define new
-     major modes by inheriting key bindings and commands from existing
-     major modes.
+VERT
+     This is the vertical resolution, in pixels per inch, of the screen
+     for which the font is intended.  Normally the resolution of the
+     fonts on your system is the right value for your screen;
+     therefore, you normally specify `*' for this and HORIZ.
 
-   * Wayne Mesard wrote `hscroll.el' which does horizontal scrolling
-     automatically.
+SPACING
+     This is `m' (monospace), `p' (proportional) or `c' (character
+     cell).
 
-   * Richard Mlynarik wrote:
-        * `cl-indent.el', a package for indenting Common Lisp code,
+WIDTH
+     This is the average character width, in pixels, multiplied by ten.
 
-        * `ebuff-menu.el', an "electric" browser for buffer listings,
+CHARSET
+     This is the character set that the font depicts.  Normally you
+     should use `iso8859-1'.
 
-        * `ehelp.el', bindings for browsing help screens,
+   You will probably want to use a fixed-width default font--that is, a
+font in which all characters have the same width.  Any font with `m' or
+`c' in the SPACING field of the long name is a fixed-width font.
+Here's how to use the `xlsfonts' program to list all the fixed-width
+fonts available on your system:
 
-        * `rfc822.el', a parser for E-mail addresses in the RFC-822
-          format, used in mail messages and news articles,
+     xlsfonts -fn '*x*' | egrep "^[0-9]+x[0-9]+"
+     xlsfonts -fn '*-*-*-*-*-*-*-*-*-*-*-m*'
+     xlsfonts -fn '*-*-*-*-*-*-*-*-*-*-*-c*'
 
-        * `terminal.el', a terminal emulator for Emacs subprocesses, and
+To see what a particular font looks like, use the `xfd' command.  For
+example:
 
-        * `yow.el', an essential utility (try `M-x yow').
+     xfd -fn 6x13
+
+displays the entire font `6x13'.
+
+   While running Emacs, you can set the font of the current frame
+(*note Frame Parameters::) or for a specific kind of text (*note
+Faces::).
+
+
+File: emacs,  Node: Colors X,  Next: Window Size X,  Prev: Font X,  Up: Command Arguments
+
+Window Color Options
+====================
+
+   On a color display, you can specify which color to use for various
+parts of the Emacs display.  To find out what colors are available on
+your system, type `M-x list-colors-display', or press `C-Mouse-2' and
+select `Display Colors' from the pop-up menu.  If you do not specify
+colors, on windowed displays the default for the background is white
+and the default for all other colors is black.  On a monochrome
+display, the foreground is black, the background is white, and the
+border is gray if the display supports that.  On terminals, the
+background is usually black and the foreground is white.
+
+   Here is a list of the command-line options for specifying colors:
+
+`-fg COLOR'
+`--foreground-color=COLOR'
+     Specify the foreground color.  COLOR should be a standard color
+     name, or a numeric specification of the color's red, green, and
+     blue components as in `#4682B4' or `RGB:46/82/B4'.
+
+`-bg COLOR'
+`--background-color=COLOR'
+     Specify the background color.
+
+`-bd COLOR'
+`--border-color=COLOR'
+     Specify the color of the border of the X window.
+
+`-cr COLOR'
+`--cursor-color=COLOR'
+     Specify the color of the Emacs cursor which indicates where point
+     is.
+
+`-ms COLOR'
+`--mouse-color=COLOR'
+     Specify the color for the mouse cursor when the mouse is in the
+     Emacs window.
+
+`-r'
+`-rv'
+`--reverse-video'
+     Reverse video--swap the foreground and background colors.
+
+   For example, to use a coral mouse cursor and a slate blue text
+cursor, enter:
+
+     emacs -ms coral -cr 'slate blue' &
+
+   You can reverse the foreground and background colors through the
+`-rv' option or with the X resource `reverseVideo'.
+
+   The `-fg', `-bg', and `-rv' options function on text-only terminals
+as well as on window systems.
+
+
+File: emacs,  Node: Window Size X,  Next: Borders X,  Prev: Colors X,  Up: Command Arguments
+
+Options for Window Geometry
+===========================
+
+   The `--geometry' option controls the size and position of the
+initial Emacs frame.  Here is the format for specifying the window
+geometry:
+
+`-g WIDTHxHEIGHT[{+-}XOFFSET{+-}YOFFSET]]'
+     Specify window size WIDTH and HEIGHT (measured in character
+     columns and lines), and positions XOFFSET and YOFFSET (measured in
+     pixels).
+
+`--geometry=WIDTHxHEIGHT[{+-}XOFFSET{+-}YOFFSET]]'
+     This is another way of writing the same thing.
+
+`{+-}' means either a plus sign or a minus sign.  A plus sign before
+XOFFSET means it is the distance from the left side of the screen; a
+minus sign means it counts from the right side.  A plus sign before
+YOFFSET means it is the distance from the top of the screen, and a
+minus sign there indicates the distance from the bottom.  The values
+XOFFSET and YOFFSET may themselves be positive or negative, but that
+doesn't change their meaning, only their direction.
+
+   Emacs uses the same units as `xterm' does to interpret the geometry.
+The WIDTH and HEIGHT are measured in characters, so a large font
+creates a larger frame than a small font.  (If you specify a
+proportional font, Emacs uses its maximum bounds width as the width
+unit.)  The XOFFSET and YOFFSET are measured in pixels.
+
+   Since the mode line and the echo area occupy the last 2 lines of the
+frame, the height of the initial text window is 2 less than the height
+specified in your geometry.  In non-X-toolkit versions of Emacs, the
+menu bar also takes one line of the specified number.  But in the X
+toolkit version, the menu bar is additional and does not count against
+the specified height.  The tool bar, if present, is also additional.
+
+   You do not have to specify all of the fields in the geometry
+specification.
+
+   If you omit both XOFFSET and YOFFSET, the window manager decides
+where to put the Emacs frame, possibly by letting you place it with the
+mouse.  For example, `164x55' specifies a window 164 columns wide,
+enough for two ordinary width windows side by side, and 55 lines tall.
+
+   The default width for Emacs is 80 characters and the default height
+is 40 lines.  You can omit either the width or the height or both.  If
+you start the geometry with an integer, Emacs interprets it as the
+width.  If you start with an `x' followed by an integer, Emacs
+interprets it as the height.  Thus, `81' specifies just the width;
+`x45' specifies just the height.
+
+   If you start with `+' or `-', that introduces an offset, which means
+both sizes are omitted.  Thus, `-3' specifies the XOFFSET only.  (If
+you give just one offset, it is always XOFFSET.)  `+3-3' specifies both
+the XOFFSET and the YOFFSET, placing the frame near the bottom left of
+the screen.
+
+   You can specify a default for any or all of the fields in
+`.Xdefaults' file, and then override selected fields with a
+`--geometry' option.
+
+
+File: emacs,  Node: Borders X,  Next: Title X,  Prev: Window Size X,  Up: Command Arguments
+
+Internal and External Borders
+=============================
+
+   An Emacs frame has an internal border and an external border.  The
+internal border is an extra strip of the background color around the
+text portion of the frame.  Emacs itself draws the internal border.
+The external border is added by the window manager outside the frame;
+depending on the window manager you use, it may contain various boxes
+you can click on to move or iconify the window.
+
+`-ib WIDTH'
+`--internal-border=WIDTH'
+     Specify WIDTH as the width of the internal border, in pixels.
+
+`-bw WIDTH'
+`--border-width=WIDTH'
+     Specify WIDTH as the width of the main border, in pixels.
+
+   When you specify the size of the frame, that does not count the
+borders.  The frame's position is measured from the outside edge of the
+external border.
+
+   Use the `-ib N' option to specify an internal border N pixels wide.
+The default is 1.  Use `-bw N' to specify the width of the external
+border (though the window manager may not pay attention to what you
+specify).  The default width of the external border is 2.
+
+
+File: emacs,  Node: Title X,  Next: Icons X,  Prev: Borders X,  Up: Command Arguments
+
+Frame Titles
+============
+
+   An Emacs frame may or may not have a specified title.  The frame
+title, if specified, appears in window decorations and icons as the
+name of the frame.  If an Emacs frame has no specified title, the
+default title has the form `INVOCATION-NAME@MACHINE' (if there is only
+one frame) or the selected window's buffer name (if there is more than
+one frame).
+
+   You can specify a title for the initial Emacs frame with a command
+line option:
+
+`-title TITLE'
+`--title=TITLE'
+`-T TITLE'
+     Specify TITLE as the title for the initial Emacs frame.
+
+   The `--name' option (*note Resources X::) also specifies the title
+for the initial Emacs frame.
+
+
+File: emacs,  Node: Icons X,  Next: Resources X,  Prev: Title X,  Up: Command Arguments
+
+Icons
+=====
+
+   Most window managers allow the user to "iconify" a frame, removing
+it from sight, and leaving a small, distinctive "icon" window in its
+place.  Clicking on the icon window makes the frame itself appear again.
+If you have many clients running at once, you can avoid cluttering up
+the screen by iconifying most of the clients.
+
+`-i'
+`--icon-type'
+     Use a picture of a gnu as the Emacs icon.
+
+`-iconic'
+`--iconic'
+     Start Emacs in iconified state.
+
+   The `-i' or `--icon-type' option tells Emacs to use an icon window
+containing a picture of the GNU gnu.  If omitted, Emacs lets the window
+manager choose what sort of icon to use--usually just a small rectangle
+containing the frame's title.
+
+   The `-iconic' option tells Emacs to begin running as an icon, rather
+than showing a frame right away.  In this situation, the icon is the
+only indication that Emacs has started; the text frame doesn't appear
+until you deiconify it.
+
+
+File: emacs,  Node: Resources X,  Next: Lucid Resources,  Prev: Icons X,  Up: Command Arguments
+
+X Resources
+===========
+
+   Programs running under the X Window System organize their user
+options under a hierarchy of classes and resources.  You can specify
+default values for these options in your X resources file, usually named
+`~/.Xdefaults'.
+
+   Each line in the file specifies a value for one option or for a
+collection of related options, for one program or for several programs
+(optionally even for all programs).
+
+   MS-Windows systems don't support `~/.Xdefaults' files, but Emacs
+compiled for Windows looks for X resources in the Windows Registry,
+under the keys `HKEY_CURRENT_USER\SOFTWARE\GNU\Emacs' and
+`HKEY_LOCAL_MACHINE\SOFTWARE\GNU\Emacs'.
+
+   Programs define named resources with particular meanings.  They also
+define how to group resources into named classes.  For instance, in
+Emacs, the `internalBorder' resource controls the width of the internal
+border, and the `borderWidth' resource controls the width of the
+external border.  Both of these resources are part of the `BorderWidth'
+class.  Case distinctions are significant in these names.
+
+   In `~/.Xdefaults', you can specify a value for a single resource on
+one line, like this:
+
+     emacs.borderWidth: 2
+
+Or you can use a class name to specify the same value for all resources
+in that class.  Here's an example:
+
+     emacs.BorderWidth: 2
+
+   If you specify a value for a class, it becomes the default for all
+resources in that class.  You can specify values for individual
+resources as well; these override the class value, for those particular
+resources.  Thus, this example specifies 2 as the default width for all
+borders, but overrides this value with 4 for the external border:
+
+     emacs.BorderWidth: 2
+     emacs.borderWidth: 4
+
+   The order in which the lines appear in the file does not matter.
+Also, command-line options always override the X resources file.
+
+   The string `emacs' in the examples above is also a resource name.
+It actually represents the name of the executable file that you invoke
+to run Emacs.  If Emacs is installed under a different name, it looks
+for resources under that name instead of `emacs'.
+
+`-name NAME'
+`--name=NAME'
+     Use NAME as the resource name (and the title) for the initial
+     Emacs frame.  This option does not affect subsequent frames, but
+     Lisp programs can specify frame names when they create frames.
+
+     If you don't specify this option, the default is to use the Emacs
+     executable's name as the resource name.
+
+`-xrm RESOURCE-VALUES'
+`--xrm=RESOURCE-VALUES'
+     Specify X resource values for this Emacs job (see below).
+
+   For consistency, `-name' also specifies the name to use for other
+resource values that do not belong to any particular frame.
+
+   The resources that name Emacs invocations also belong to a class; its
+name is `Emacs'.  If you write `Emacs' instead of `emacs', the resource
+applies to all frames in all Emacs jobs, regardless of frame titles and
+regardless of the name of the executable file.  Here is an example:
+
+     Emacs.BorderWidth: 2
+     Emacs.borderWidth: 4
+
+   You can specify a string of additional resource values for Emacs to
+use with the command line option `-xrm RESOURCES'.  The text RESOURCES
+should have the same format that you would use inside a file of X
+resources.  To include multiple resource specifications in RESOURCES,
+put a newline between them, just as you would in a file.  You can also
+use `#include "FILENAME"' to include a file full of resource
+specifications.  Resource values specified with `-xrm' take precedence
+over all other resource specifications.
 
-   * Keith Moore wrote `aixcc.lex', a pre-processor designed to help
-     Emacs parse the error messages produced by the AIX C compiler.
+   The following table lists the resource names that designate options
+for Emacs, each with the class that it belongs to:
 
-   * Erik Naggum wrote the time-conversion functions, and has tested the
-     latest source code daily.
+`background' (class `Background')
+     Background color name.
 
-   * Thomas Neumann and Eric Raymond wrote `makefile.el', a mode for
-     editing makefiles.
+`bitmapIcon' (class `BitmapIcon')
+     Use a bitmap icon (a picture of a gnu) if `on', let the window
+     manager choose an icon if `off'.
+
+`borderColor' (class `BorderColor')
+     Color name for the external border.
+
+`borderWidth' (class `BorderWidth')
+     Width in pixels of the external border.
+
+`cursorColor' (class `Foreground')
+     Color name for text cursor (point).
+
+`font' (class `Font')
+     Font name for text (or fontset name, *note Fontsets::).
+
+`foreground' (class `Foreground')
+     Color name for text.
+
+`geometry' (class `Geometry')
+     Window size and position.  Be careful not to specify this resource
+     as `emacs*geometry', because that may affect individual menus as
+     well as the Emacs frame itself.
+
+     If this resource specifies a position, that position applies only
+     to the initial Emacs frame (or, in the case of a resource for a
+     specific frame name, only that frame).  However, the size, if
+     specified here, applies to all frames.
+
+`iconName' (class `Title')
+     Name to display in the icon.
+
+`internalBorder' (class `BorderWidth')
+     Width in pixels of the internal border.
+
+`lineSpacing' (class `LineSpacing')
+     Additional space ("leading") between lines, in pixels.
+
+`menuBar' (class `MenuBar')
+     Give frames menu bars if `on'; don't have menu bars if `off'.
+
+`toolBar' (class `ToolBar')
+     Number of lines to reserve for the tool bar.  A zero value
+     suppresses the tool bar.  If the value is non-zero and
+     `auto-resize-tool-bars' is non-`nil', the tool bar's size will be
+     changed automatically so that all tool bar items are visible.
+
+`minibuffer' (class `Minibuffer')
+     If `none', don't make a minibuffer in this frame.  It will use a
+     separate minibuffer frame instead.
+
+`paneFont' (class `Font')
+     Font name for menu pane titles, in non-toolkit versions of Emacs.
 
-   * Jurgen Nickelsen wrote `ws-mode.el', providing WordStar emulation.
+`pointerColor' (class `Foreground')
+     Color of the mouse cursor.
 
-   * Jeff Norden wrote `kermit.el', a package to help the Kermit dialup
-     communications program run comfortably in an Emacs shell buffer.
+`reverseVideo' (class `ReverseVideo')
+     Switch foreground and background default colors if `on', use
+     colors as specified if `off'.
 
-   * Andrew Norman wrote `ange-ftp.el', providing transparent FTP
-     support.
+`screenGamma' (class `ScreenGamma')
+     Gamma correction for colors, equivalent to the frame parameter
+     `screen-gamma'.
 
-   * Jeff Peck wrote:
-        * `emacstool.c', support for running Emacs under SunView/Sun
-          Windows,
+`selectionFont' (class `Font')
+     Font name for pop-up menu items, in non-toolkit versions of Emacs.
+     (For toolkit versions, see *Note Lucid Resources::, also see
+     *Note LessTif Resources::.)
 
-        * `sun-curs.el', cursor definitions for Sun Windows, and
+`synchronous' (class `Synchronous')
+     Run Emacs in synchronous mode if `on'.  Synchronous mode is useful
+     for debugging X problems.
 
-        * `sun-fns.el', providing mouse support for Sun Windows.
+`title' (class `Title')
+     Name to display in the title bar of the initial Emacs frame.
 
-   * Damon Anton Permezel wrote `hanoi.el', an animated demonstration of
-     the "Towers of Hanoi" puzzle.
+`verticalScrollBars' (class `ScrollBars')
+     Give frames scroll bars if `on'; don't have scroll bars if `off'.
 
-   * Jens Petersen wrote `find-func.el', which makes it easy to find
-     the source code for an Emacs Lisp function or variable.
+   Here are resources for controlling the appearance of particular faces
+(*note Faces::):
 
-   * Daniel Pfeiffer wrote:
-        * `executable.el'
+`FACE.attributeFont'
+     Font for face FACE.
 
-        * `sh-script.el', a mode for editing shell scripts,
+`FACE.attributeForeground'
+     Foreground color for face FACE.
 
-        * `skeleton.el', implementing a concise language for writing
-          statement skeletons, and
+`FACE.attributeBackground'
+     Background color for face FACE.
 
-        * `two-column.el', a minor mode for simultaneous two-column
-          editing.
+`FACE.attributeUnderline'
+     Underline flag for face FACE.  Use `on' or `true' for yes.
 
-   * Fred Pierresteguy and Paul Reilly made Emacs work with X Toolkit
-     widgets.
+`FACE.attributeFamily'
+     Font family for face FACE.
 
-   * Christian Plaunt wrote `soundex.el', an implementation of the
-     Soundex algorithm for comparing English words by their
-     pronunciation.
+`FACE.attributeWidth'
+     Relative proportional width of the font to use for face FACE.  It
+     should be one of `ultra-condensed', `extra-condensed',
+     `condensed', `semi-condensed', `normal', `semi-expanded',
+     `expanded', `extra-expanded', or `ultra-expanded'.
 
-   * Francesco A. Potorti wrote `cmacexp.el', providing a command which
-     runs the C preprocessor on a region of a file and displays the
-     results.
+`FACE.attributeHeight'
+     Height of the font to use for face FACE: either an integer
+     specifying the height in units of 1/10pt, or a floating point
+     number that specifies a scale factor to scale the underlying face's
+     default font, or a function to be called with the default height
+     which will return a new height.
 
-   * Michael D. Prange and Steven A. Wood wrote `fortran.el', a mode for
-     editing FORTRAN code.
+`FACE.attributeWeight'
+     A weight to use for the face FACE.  It must be one of
+     `ultra-bold', `extra-bold', `bold', `semi-bold', `normal',
+     `semi-light', `light', `extra-light', `ultra-light'.
 
-   * Ashwin Ram wrote `refer.el', commands to look up references in
-     bibliography files by keyword.
+`FACE.attributeSlant'
+     The slant to use for the font of face FACE.  It must be one of
+     `italic', `oblique', `normal', `reverse-italic', or
+     `reverse-oblique'.
 
-   * Eric S. Raymond wrote:
-        * `vc.el', an interface to the RCS and SCCS source code version
-          control systems, with Paul Eggert,
+`FACE.attributeStrikeThrough'
+     Whether the face FACE should be drawn with a line striking through
+     the characters.
 
-        * `gud.el', a package for running source-level debuggers like
-          GDB and SDB in Emacs,
+`FACE.attributeOverline'
+     Whether the characters in the face FACE should be overlined.
 
-        * `asm-mode.el', a mode for editing assembly language code,
+`FACE.attributeBox'
+     Whether to draw a box around the characters in face FACE.
 
-        * `cookie1.el', support for "fortune-cookie" programs like
-          `yow.el' and `spook.el',
+`FACE.attributeInverse'
+     Whether to display the characters in face FACE in inverse video.
 
-        * `finder.el', a package for finding Emacs Lisp packages by
-          keyword and topic,
+`FACE.attributeStipple'
+     The name of a pixmap data file to use for the stipple pattern, or
+     `false' to not use stipple for the face FACE.
 
-        * `lisp-mnt.el', functions for working with the special headers
-          used in Emacs Lisp library files, and
+`FACE.attributeBackgroundPixmap'
+     The background pixmap for the face FACE.  Should be a name of a
+     pixmap file or `false'.
 
-        * code to set and make use of the `load-history' lisp variable,
-          which records the source file from which each lisp function
-          loaded into Emacs came.
+`FACE.attributeBold'
+     Whether to draw the characters in the face FACE as bold.
 
-   * Edward M. Reingold wrote the extensive calendar and diary support
-     (try `M-x calendar'), with contributions from Stewart Clamen, Paul
-     Eggert, and Lara Rios.  Andy Oram contributed to its documentation.
-     Reingold has also contributed to `tex-mode.el', a mode for editing
-     TeX files, as have William F. Schelter, Dick King, Stephen Gildea,
-     Michael Prange, and Jacob Gore.
+`FACE.attributeItalic'
+     Whether to draw the characters in the face FACE as italic.
 
-   * Rob Riepel contributed `tpu-edt.el' and its associated files,
-     providing an emulation of the VMS TPU text editor emulating the
-     VMS EDT editor, and `vt-control.el', providing some control
-     functions for the DEC VT line of terminals.
+
+File: emacs,  Node: Lucid Resources,  Next: LessTif Resources,  Prev: Resources X,  Up: Command Arguments
 
-   * Roland B. Roberts contributed much of the VMS support distributed
-     with Emacs 19, along with Joseph M. Kelsey, and `vms-pmail.el',
-     support for using Emacs within VMS MAIL.
+Lucid Menu X Resources
+======================
 
-   * John Robinson wrote `bg-mouse.el', support for the mouse on the BBN
-     Bitgraph terminal.
+   If the Emacs installed at your site was built to use the X toolkit
+with the Lucid menu widgets, then the menu bar is a separate widget and
+has its own resources.  The resource names contain `pane.menubar'
+(following, as always, the name of the Emacs invocation, or `Emacs',
+which stands for all Emacs invocations).  Specify them like this:
 
-   * Danny Roozendaal implemented `handwrite.el', which converts text
-     into "handwriting."
+     Emacs.pane.menubar.RESOURCE:  VALUE
 
-   * William Rosenblatt wrote `float.el', implementing a floating-point
-     numeric type using Lisp cons cells and integers.
+For example, to specify the font `8x16' for the menu-bar items, write
+this:
 
-   * Guillermo J. Rozas wrote `scheme.el', a mode for editing Scheme
-     code, and `fakemail.c', an interface to the System V mailer.
+     Emacs.pane.menubar.font:  8x16
 
-   * Ivar Rummelhoff provided `winner.el', which records recent window
-     configurations so you can move back to them.
+Resources for _non-menubar_ toolkit pop-up menus have `menu*', in like
+fashion.  For example, to specify the font `8x16' for the pop-up menu
+items, write this:
 
-   * Wolfgang Rupprecht contributed Emacs 19's floating-point support
-     (including `float-sup.el' and `floatfns.c'), and `sup-mouse.el',
-     support for the Supdup mouse on lisp machines.
+     Emacs.menu*.font:	8x16
 
-   * James B. Salem and Brewster Kahle wrote `completion.el', providing
-     dynamic word completion.
+For dialog boxes, use `dialog' instead of `menu':
 
-   * Masahiko Sato wrote `vip.el', an emulation of the VI editor.
+     Emacs.dialog*.font:	8x16
 
-   * William Schelter wrote `telnet.el', support for `telnet' sessions
-     within Emacs.
+Experience shows that on some systems you may need to add `shell.'
+before the `pane.menubar' or `menu*'.  On some other systems, you must
+not add `shell.'.
 
-   * Ralph Schleicher contributed `battery.el', a package for displaying
-     laptop computer battery status, and `info-look.el', a package for
-     looking up Info documentation for symbols in the buffer.
+   Here is a list of the specific resources for menu bars and pop-up
+menus:
 
-   * Gregor Schmid wrote `tcl.el', a mode for editing Tcl/Tk scripts.
+`font'
+     Font for menu item text.
 
-   * Michael Schmidt and Tom Perrine wrote `modula2.el', a mode for
-     editing Modula-2 code, based on work by Mick Jordan and Peter
-     Robinson.
+`foreground'
+     Color of the foreground.
 
-   * Ronald S. Schnell wrote `dunnet.el', a text adventure game.
+`background'
+     Color of the background.
 
-   * Philippe Schnoebelen wrote `gomoku.el', a Go Moku game played
-     against Emacs, and `mpuz.el', a multiplication puzzle.
+`buttonForeground'
+     In the menu bar, the color of the foreground for a selected item.
 
-   * Randal Schwartz wrote `pp.el', a pretty-printer for lisp objects.
+`horizontalSpacing'
+     Horizontal spacing in pixels between items.  Default is 3.
 
-   * Manuel Serrano contributed the Flyspell package that does spell
-     checking as you type.
+`verticalSpacing'
+     Vertical spacing in pixels between items.  Default is 1.
 
-   * Stanislav Shalunov wrote `uce.el', for responding to unsolicited
-     commercial email.
+`arrowSpacing'
+     Horizontal spacing between the arrow (which indicates a submenu)
+     and the associated text.  Default is 10.
 
-   * Richard Sharman contributed `hilit-chg.el', which uses colors to
-     inclidate recent editing changes.
+`shadowThickness'
+     Thickness of shadow line around the widget.
 
-   * Olin Shivers wrote:
-        * `comint.el', a library for modes running interactive
-          command-line- oriented subprocesses,
+`margin'
+     The margin of the menu bar, in characters.  The default of 4 makes
+     the menu bar appear like the LessTif/Motif one.
 
-        * `cmuscheme.el', for running inferior Scheme processes,
+
+File: emacs,  Node: LessTif Resources,  Prev: Lucid Resources,  Up: Command Arguments
 
-        * `inf-lisp.el', for running inferior Lisp process, and
+LessTif Menu X Resources
+========================
 
-        * `shell.el', for running inferior shells.
+   If the Emacs installed at your site was built to use the X toolkit
+with the LessTif or Motif widgets, then the menu bar, the dialog boxes,
+the pop-up menus, and the file-selection box are separate widgets and
+have their own resources.
 
-   * Sam Shteingold wrote `gulp.el'.
+   The resource names for the menu bar contain `pane.menubar'
+(following, as always, the name of the Emacs invocation, or `Emacs',
+which stands for all Emacs invocations).  Specify them like this:
 
-   * Espen Skoglund wrote `pascal.el', a mode for editing Pascal code.
+     Emacs.pane.menubar.SUBWIDGET.RESOURCE:  VALUE
 
-   * Rick Sladkey wrote `backquote.el', a lisp macro for creating
-     mostly-constant data.
+   Each individual string in the menu bar is a subwidget; the
+subwidget's name is the same as the menu item string.  For example, the
+word `File' in the menu bar is part of a subwidget named
+`emacs.pane.menubar.File'.  Most likely, you want to specify the same
+resources for the whole menu bar.  To do this, use `*' instead of a
+specific subwidget name.  For example, to specify the font `8x16' for
+the menu-bar items, write this:
 
-   * Lynn Slater wrote `help-macro.el', a macro for writing interactive
-     help for key bindings.
+     Emacs.pane.menubar.*.fontList:  8x16
 
-   * Chris Smith wrote `icon.el', a mode for editing Icon code.
+This also specifies the resource value for submenus.
 
-   * David Smith wrote `ielm.el', a mode for interacting with the Emacs
-     Lisp interpreter as a subprocess.
+   Each item in a submenu in the menu bar also has its own name for X
+resources; for example, the `File' submenu has an item named `Save
+(current buffer)'.  A resource specification for a submenu item looks
+like this:
 
-   * Paul D. Smith wrote `snmp-mode.el'.
+     Emacs.pane.menubar.popup_*.MENU.ITEM.RESOURCE: VALUE
 
-   * William Sommerfeld wrote `scribe.el', a mode for editing Scribe
-     files, and `server.el', a package allowing programs to send files
-     to an extant Emacs job to be edited.
+For example, here's how to specify the font for the `Save (current
+buffer)' item:
 
-   * Michael Staats wrote `pc-select.el', which rebinds keys for
-     selecting regions to follow many other systems.
+     Emacs.pane.menubar.popup_*.File.Save (current buffer).fontList: 8x16
 
-   * Ake Stenhoff and Lars Lindberg wrote `imenu.el', a framework for
-     browsing indices made from buffer contents.
+For an item in a second-level submenu, such as `Complete Word' under
+`Spell Checking' under `Tools', the resource fits this template:
 
-   * Peter Stephenson contributed `vcursor.el', which implements a
-     "virtual cursor" that you can move with the keyboard and use for
-     copying text.
+     Emacs.pane.menubar.popup_*.popup_*.MENU.RESOURCE: VALUE
 
-   * Sam Steingold wrote `midnight.el'.
+For example,
 
-   * Jonathan Stigelman wrote `hilit19.el', a package providing
-     automatic highlighting in source code buffers, mail readers, and
-     other contexts.
+     Emacs.pane.menubar.popup_*.popup_*.Spell Checking.Complete Word: VALUE
 
-   * Steve Strassman did not write `spook.el', and even if he did, he
-     really didn't mean for you to use it in an anarchistic way.
+(This should be one long line.)
 
-   * Jens T. Berger Thielemann wrote `word-help.el', which is part of
-     the basis for `info-look.el'.
+   It's impossible to specify a resource for all the menu-bar items
+without also specifying it for the submenus as well.  So if you want the
+submenu items to look different from the menu bar itself, you must ask
+for that in two steps.  First, specify the resource for all of them;
+then, override the value for submenus alone.  Here is an example:
 
-   * Spencer Thomas wrote the original `dabbrev.el', providing a command
-     which completes the partial word before point, based on other
-     nearby words for which it is a prefix.  He also wrote the original
-     dumping support.
+     Emacs.pane.menubar.*.fontList:  8x16
+     Emacs.pane.menubar.popup_*.fontList: 8x16
 
-   * Jim Thompson wrote `ps-print.el', which converts Emacs text to
-     Postscript.
+For LessTif pop-up menus, use `menu*' instead of `pane.menubar'.  For
+example, to specify the font `8x16' for the pop-up menu items, write
+this:
 
-   * Masanobu Umeda wrote:
-        * GNUS, a featureful reader for Usenet news,
+     Emacs.menu*.fontList:  8x16
 
-        * `prolog.el', a mode for editing Prolog code,
+For LessTif dialog boxes, use `dialog' instead of `menu':
 
-        * `rmailsort.el', a package for sorting messages in RMAIL
-          folders,
+     Emacs.dialog*.fontList: 8x16
+     Emacs.dialog*.foreground: hotpink
 
-        * `metamail.el', an interface to the Metamail program,
+   To specify resources for the LessTif file-selection box, use `fsb*',
+like this:
 
-        * `tcp.el', emulation of the `open-network-stream' function for
-          some Emacs configurations which lack it, and
+     Emacs.fsb*.fontList: 8x16
 
-        * `timezone.el', providing functions for dealing with time
-          zones.
+   Here is a list of the specific resources for LessTif menu bars and
+pop-up menus:
 
-   * Neil W. Van Dyke wrote `webjump.el', a "hot links" package.
+`armColor'
+     The color to show in an armed button.
 
-   * Ulrik Vieth implemented `meta-mode.el', for editing MetaFont code.
+`fontList'
+     The font to use.
 
-   * Geoffrey Voelker wrote the Windows NT support.
+`marginBottom'
+`marginHeight'
+`marginLeft'
+`marginRight'
+`marginTop'
+`marginWidth'
+     Amount of space to leave around the item, within the border.
 
-   * Johan Vromans wrote `forms.el' and its associated files, defining a
-     mode for filling in forms, and `iso-acc.el', a minor mode providing
-     electric accent keys for text using the ISO-8859 character set.
+`borderWidth'
+     The width of the border around the menu item, on all sides.
 
-   * Barry Warsaw wrote:
-        * `assoc.el', a set of utility functions for working with
-          association lists,
+`shadowThickness'
+     The width of the border shadow.
 
-        * `cc-mode.el', a major mode for editing C and C++ code, based
-          on earlier work by Dave Detlefs, Stewart Clamen, and Richard
-          Stallman,
+`bottomShadowColor'
+     The color for the border shadow, on the bottom and the right.
 
-        * `elp.el', a new profiler for Emacs Lisp programs.
+`topShadowColor'
+     The color for the border shadow, on the top and the left.
 
-        * `man.el', a mode for reading UNIX manual pages,
+
+File: emacs,  Node: Antinews,  Next: Mac OS,  Prev: Command Arguments,  Up: Top
 
-        * `regi.el', providing an AWK-like control structure for use in
-          lisp programs, and
+Emacs 20 Antinews
+*****************
 
-        * `reporter.el', providing customizable bug reporting for lisp
-          packages.
+   For those users who live backwards in time, here is information about
+downgrading to Emacs version 20.  We hope you will enjoy the greater
+simplicity that results from the absence of many Emacs 21 features.
 
-        * `supercite.el', a minor mode for quoting sections of mail
-          messages and news articles,
+   * The display engine has been greatly simplified by eliminating
+     support for variable-size characters and other non-text display
+     features.  This avoids the complexity of display layout in Emacs
+     21.  To wit:
 
-   * Morten Welinder wrote:
-        * `desktop.el', facilities for saving some of Emacs's state
-          between sessions,
+        - Variable-size characters are not supported in Emacs 20.  You
+          cannot use fonts which contain oversized characters, and
+          using italic fonts can result in illegible display.  However,
+          text which uses variable-size fonts is unreadable anyway.
+          With all characters in a frame laid out on a regular grid,
+          each character having the same height and width, text is much
+          easier to read.
 
-        * `s-region.el', commands for setting the region using the
-          shift key and motion commands, and
+        - Emacs does not display images, or play sounds.  It just
+          displays text, as you would expect from a *text* editor.
 
-        * `dos-fns.el', functions for use under MS-DOS.
+        - Specification of the font for a face now uses an XLFD font
+          name, for compatibility with other X applications.  This
+          means that font attributes cannot be merged when combining
+          faces; however, experience shows that mergers are bad
+          economics.  Face inheritance has also been removed, so no one
+          can accumulate "too much face."
 
-     He also helped port Emacs to MS-DOS.
+        - Several face appearance attributes, including 3D,
+          strike-through, and overline, have been eliminated.
 
-   * Joseph Brian Wells wrote:
-        * `apropos.el', a command to find commands, functions, and
-          variables whose names contain matches for a regular
-          expression,
+        - Emacs now provides its own "lean and mean" scroll bars
+          instead of using those from the X toolkit.  Toggle buttons
+          and radio buttons in menus now look just like any other menu
+          item, which simplifies them, and prevents them from standing
+          out and distracting your attention from the other menu items.
 
-        * `resume.el', support for processing command-line arguments
-          after resuming a suspended Emacs job, and
+        - There are no toolbars and no tooltips; in particular, GUD
+          mode cannot display variable values in a tooltip when you
+          click on that variable's name.  Instead, Emacs 20 provides a
+          direct interface to the debugger, so that you can type
+          appropriate debugger commands, such as `display foo' and
+          `print bar'.  As these commands use explicit words, their
+          meaning is more self-evident.
 
-        * `mail-extr.el', a package for extracting names and addresses
-          from mail headers, with contributions from Jamie Zawinski.
+        - Colors are not available on text-only terminals.  If you
+          _must_ have colors, but cannot afford to run X, you can now
+          use the MS-DOG version of Emacs inside a DOS emulator.
 
-   * Rodney Whitby and Reto Zimmermann wrote `vhdl-mode.el'.
+        - The mode line is not mouse-sensitive, since it is meant only
+          to display information.  Use keyboard commands to switch
+          between buffers, toggle read-only and modified status, switch
+          minor modes on and off, etc.
 
-   * Ed Wilkinson wrote `b2m.c', a program to convert mail files from
-     RMAIL format to Unix `mbox' format.
+        - The support for "wheeled" mice under X has been removed,
+          because of their slow scroll rate, and because you will find
+          fewer and fewer of these mice as you go back in time.
+          Instead Emacs 20 provides the `C-v' and `M-v' keys for
+          scrolling.  (You can also use the scroll bar, but be advised
+          that it, too, may be absent in yet earlier Emacs versions.)
 
-   * Mike Williams wrote `mouse-sel.el', providing enhanced mouse
-     selection, and `thingatpt.el', a library of functions for finding
-     the "thing" (word, line, s-expression) containing point.
+        - Busy-cursor display is gone, as it was found to be too hard
+          to draw on displays whose resolution is getting lower and
+          lower.  This means that you get the standard kind of cursor
+          blinking that your terminal provides.
 
-   * Dale R. Worley wrote `emerge.el', a package for interactively
-     merging two versions of a file.
+        - Some aspects of Emacs appearance, such as the colors of the
+          scroll bar and the menus, can only be controlled via X
+          resources.  Since colors aren't supported except on X, it
+          doesn't make any sense to do this in any way but the X way.
+          For those users who aren't privy to X arcana, we've provided
+          good default colors that should make everybody happy.
 
-   * Tom Wurgler wrote `emacs-lock.el', which makes it harder to exit
-     with valuable buffers unsaved.
+        - Emacs 20 adds new lines to the buffer when you move down from
+          the last line with `C-n' or a down-arrow.
 
-   * Eli Zaretskii made many standard Emacs features work on MS-DOS.
+        - The variable `show-trailing-whitespace' has no special
+          meaning, so trailing whitespace on a line is now always
+          displayed correctly: as empty space.  To see if a line ends
+          with spaces or tabs, type `C-e' on that line.  Likewise,
+          empty lines at the end of the buffer are not marked in any
+          way; use `M->' to see where the end of the buffer is.
 
-   * Jamie Zawinski wrote:
-        * Emacs 19's optimizing byte compiler, with Hallvard Furuseth,
+        - The spacing between text lines on the display now always
+          follows the font design and the rules of your window manager.
+          This provides for predictable appearance of the displayed
+          text.
 
-        * much of the support for faces and X selections,
+   * Emacs 20 has simpler support for multi-lingual editing.  While not
+     as radical a simplification as Emacs 19 will be, it goes a long
+     way toward eliminating some of the annoying features:
 
-        * `mailabbrev.el', a package providing automatic expansion of
-          mail aliases, and
+        - Translations of the Emacs reference cards to other languages
+          are no longer part of the distribution, because in the past
+          we expect computer users to speak English.
 
-        * `tar-mode.el', providing simple viewing and editing commands
-          for tar files.
-
-   * Ian T. Zimmerman wrote `gametree.el'.
-
-   * Neal Ziring and Felix S. T. Wu wrote `vi.el', an emulation of the
-     VI text editor.
-
-   Others too numerous to mention have reported and fixed bugs, and
-added features to many parts of Emacs.  We thank them for their
-generosity as well.
-
-   This list intended to mention every contributor of a major package or
-feature we currently distribute; if you know of someone we have omitted,
-please report that as a manual bug.
+        - To avoid extra confusion, many language environments have been
+          eliminated.  For example, `Polish' and `Celtic' (Latin-8)
+          environments are not supported.  The Latin-9 environment is
+          gone, too, because you won't need the Euro sign in the past.
+
+        - Emacs 20 always asks you which coding system to use when
+          saving a buffer, unless it can use the same one that it used
+          to read the buffer.  It does not try to see if the preferred
+          coding system is suitable.
+
+        - Commands which provide detailed information about character
+          sets and coding systems, such as `list-charset-chars',
+          `describe-character-set', and the `C-u C-x =' key-sequence,
+          no longer exist.  The less said about non-ASCII characters,
+          the better.
+
+        - The terminal coding system cannot be set to something
+          CCL-based, so keyboards which produce `KOI8' and DOS/Windows
+          codepage codes cannot be supported directly.  Instead, you
+          should use one of the input methods provided in the Leim
+          package.
+
+   * As you move back through time, some systems will become
+     unimportant or enter the vaporware phase, so Emacs 20 does not
+     support them:
+
+        - Emacs 20 cannot be built on GNU/Linux systems running on IA64
+          machines, and you cannot build a 64-bit Emacs on Solaris or
+          Irix even though there are still 64-bit versions of those
+          OSes.
+
+        - LynxOS is also not supported, and neither is the Macintosh,
+          though they still exist.
+
+   * The arrangement of menu bar items differs from most other GUI
+     programs.  We think that uniformity of look-and-feel is boring,
+     and that Emacs' unique features require its unique menu-bar
+     configuration.
+
+   * You cannot save the options that you set from the `Options'
+     menu-bar menu; instead, you need to set all the options again each
+     time you start a new session.  However, if you follow the
+     recommended practice and keep a single Emacs session running until
+     you log out, you won't have to set the options very often.
+
+   * Emacs 20 does not pop up a buffer with error messages when an
+     error is signaled during loading of the user's init file.
+     Instead, it simply announces the fact that an error happened.  To
+     know where in the init file that was, insert `(message "foo")'
+     lines judiciously into the file and look for those messages in the
+     `*Messages*' buffer.
+
+   * Some commands no longer treat Transient Mark mode specially.  For
+     example, `ispell' doesn't spell-check the region when Transient
+     Mark mode is in effect and the mark is active; instead, it checks
+     the current buffer.  (Transient Mark mode is alien to the spirit
+     of Emacs, so we are planning to remove it altogether in an earlier
+     version.)
+
+   * `C-Down-Mouse-3' does not show what would be in the menu bar when
+     the menu bar is not displayed.
+
+   * For uniformity, the <delete> function key in Emacs 20 works
+     exactly like the <DEL> key, on both text-only terminals and window
+     systems--it always deletes backward.  This eliminates the
+     inconsistency of Emacs 21, where the key labeled <delete> deletes
+     forward when you are using a window system, and backward on a
+     text-only terminals.
+
+   * The ability to place backup files in special subdirectories
+     (controlled by `backup-directory-alist') has been eliminated.
+     This makes finding your backup files much easier: they are always
+     in the same directory as the original files.
+
+   * Emacs no longer refuses to load Lisp files compiled by incompatible
+     versions of Emacs, which may contain invalid byte-code.  Instead,
+     Emacs now dumps core when it encounters such byte-code.  However,
+     this is a rare occurrence, and it won't happen at all when all
+     Emacs versions merge together, in the distant past.
+
+   * The `C-x 5 1' command has been eliminated.  If you want to delete
+     all the frames but the current one, delete them one by one instead.
+
+   * CC Mode now enforces identical values for some customizable
+     options, such as indentation style, for better consistency.  In
+     particular, if you select an indentation style for Java, the same
+     style is used for C and C++ buffers as well.
+
+   * Isearch does not highlight other possible matches; it shows only
+     the current match, to avoid distracting your attention.  `Mouse-2'
+     in the echo area during incremental search now signals an error,
+     instead of inserting the current selection into the search string.
+     But you can accomplish more or less the same job by typing `M-y'.
+
+   * The ability to specify a port number when editing remote files with
+     `ange-ftp' was removed.  Instead, Emacs 20 provides undocumented
+     features in the function `ange-ftp-normal-login' (`Use the source,
+     Luke!') to specify the port.
+
+   * Emacs 20 does not check for changing time stamps of remote files,
+     since the old FTP programs you will encounter in the past could
+     not provide the time stamp anyway.  Windows-style FTP clients
+     which output the `^M' character at the end of each line get
+     special handling from `ange-ftp' in Emacs 20, with unexpected
+     results that should make your life more interesting.
+
+   * Many complicated display features, including highlighting of
+     mouse-sensitive text regions and popping up help strings for menu
+     items, don't work in the MS-DOS version.  Spelling doesn't work on
+     MS-DOS, and Eshell doesn't exist, so there's no workable
+     shell-mode, either.  This fits the spirit of MS-DOS, which
+     resembles a dumb character terminal.
+
+   * The `woman' package has been removed, so Emacs users on non-Posix
+     systems will need _a real man_ to read manual pages.  (Users who
+     are not macho can read the Info documentation instead.)
+
+   * `recentf' has been removed, because we figure that you can remember
+     the names of the files you edit frequently.  With decreasing disk
+     size, you should have fewer files anyway, so you won't notice the
+     absence of this feature.
+
+   * The `field' property does not exist in Emacs 20, so various
+     packages that run subsidiary programs in Emacs buffers cannot in
+     general distinguish which text was user input and which was output
+     from the subprocess.  If you need to try to do this nonetheless,
+     Emacs 20 provides a variable `comint-prompt-regexp', which lets
+     you try to distinguish input by recognizing prompt strings.
+
+   * We have eliminated the special major modes for Delphi sources,
+     PostScript files, context diffs, and `TODO' files.  Use Fundamental
+     Mode instead.
+
+   * Many additional packages that unnecessarily complicate your life in
+     Emacs 21 are absent in Emacs 20.  You cannot browse C++ classes
+     with Ebrowse, access SQL data bases, access LDAP and other
+     directory servers, or mix shell commands and Lisp functions using
+     Eshell.
+
+   * To keep up with decreasing computer memory capacity and disk
+     space, many other functions and files have been eliminated in
+     Emacs 20.
+
+
+File: emacs,  Node: Mac OS,  Next: MS-DOS,  Prev: Antinews,  Up: Top
+
+Emacs and the Mac OS
+********************
+
+   Emacs built on the Mac OS supports many of its major features:
+multiple frames, colors, scroll bars, menu bars, use of the mouse,
+fontsets, international characters, input methods, coding systems, and
+synchronous subprocesses (`call-process').  Much of this works in the
+same way as on other platforms and is therefore documented in the rest
+of this manual.  This section describes the peculiarities of using
+Emacs under the Mac OS.
+
+   The following features of Emacs are not yet supported on the Mac:
+unexec (`dump-emacs'), asynchronous subprocesses (`start-process'), and
+networking (`open-network-stream').  As a result, packages such as
+Gnus, GUD, and Comint do not work.
+
+   Since external programs to handle commands such as `print-buffer'
+and `diff' are not available on the Mac OS, they are not supported in
+the Mac OS version.
+
+* Menu:
+
+* Input: Mac Input.                Keyboard input on the Mac.
+* Intl: Mac International.         International character sets on the Mac.
+* Env: Mac Environment Variables.  Setting environment variables for Emacs.
+* Directories: Mac Directories.    Volumes and directories on the Mac.
+* Font: Mac Font Specs.            Specifying fonts on the Mac.
+* Functions: Mac Functions.        Mac-specific Lisp functions.
 

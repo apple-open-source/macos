@@ -80,10 +80,8 @@
 #include "digests.h"
 #endif
 
-#ifdef	_APPLE_CDSA_
 #ifndef	_APPLE_GLUE_H_
 #include "appleGlue.h"
-#endif
 #endif
 
 #include <string.h>
@@ -107,6 +105,7 @@ SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx)
         case SSL_Version_2_0:
             break;
         case SSL_Version_3_0:           /* We've negotiated a 3.0 session; we can send an alert */
+		case TLS_Version_1_0:
             SSLFatalSessionAlert(alert_unexpected_message, ctx);
             return SSLProtocolErr;
         case SSL_Version_3_0_Only:      /* We haven't yet negotiated, but we don't want to support 2.0; just die without an alert */
@@ -131,12 +130,8 @@ SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx)
     {   readData.length = 3 - ctx->amountRead;
         readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
         len = readData.length;
-        #ifdef	_APPLE_CDSA_
         err = sslIoRead(readData, &len, ctx);
         if(err != 0)
-		#else
-        if (ERR(err = ctx->ioCtx.read(readData, &len, ctx->ioCtx.ioRef)) != 0)
-		#endif
         {   if (err == SSLWouldBlockErr)
                 ctx->amountRead += len;
             if (err == SSLIOErr && ctx->amountRead == 0)    /* If the session closes on a record boundary, it's graceful */
@@ -164,7 +159,6 @@ SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx)
         padding = progress[2];
     }
     
-    #ifdef	__APPLE__
     /* 
      * FIXME - what's the max record size?
      * and why doesn't SSLReadRecord parse the 2 or 3 byte header?
@@ -174,7 +168,6 @@ SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx)
     if((contentLen == 0) || (contentLen > 0xffff)) {
     	return SSLProtocolErr;
     }
-    #endif
     
     progress += headerSize;
     
@@ -187,12 +180,8 @@ SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx)
     {   readData.length = headerSize + contentLen - ctx->amountRead;
         readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
         len = readData.length;
-        #ifdef	_APPLE_CDSA_
         err = sslIoRead(readData, &len, ctx);
         if(err != 0)
-		#else
-        if (ERR(err = ctx->ioCtx.read(readData, &len, ctx->ioCtx.ioRef)) != 0)
-		#endif
         {   if (err == SSLWouldBlockErr)
                 ctx->amountRead += len;
             return err;
@@ -238,17 +227,12 @@ SSL2WriteRecord(SSLRecord rec, SSLContext *ctx)
     out->next = 0;
     out->sent = 0;
         
-    payloadSize = (UInt16) (rec.contents.length + ctx->writeCipher.hash->digestSize);
+    payloadSize = (UInt16) 
+		(rec.contents.length + ctx->writeCipher.macRef->hash->digestSize);
     blockSize = ctx->writeCipher.symCipher->blockSize;
     if (blockSize > 0)
     {   
-		#ifdef	_APPLE_CDSA_
-		/* HEY! this netscape code could never work with a block cipher... */
 		padding = blockSize - (payloadSize % blockSize);
-		#else
-		/* bogon */
-		padding = blockSize - (payloadSize % blockSize) - 1;
-		#endif
         if (padding == blockSize)
             padding = 0;
         payloadSize += padding;
@@ -274,7 +258,7 @@ SSL2WriteRecord(SSLRecord rec, SSLContext *ctx)
     payload.length = payloadSize;
     
     mac.data = progress;
-    mac.length = ctx->writeCipher.hash->digestSize;
+    mac.length = ctx->writeCipher.macRef->hash->digestSize;
     progress += mac.length;
     
     content.data = progress;
@@ -290,8 +274,9 @@ SSL2WriteRecord(SSLRecord rec, SSLContext *ctx)
     secret.data = ctx->writeCipher.macSecret;
     secret.length = ctx->writeCipher.symCipher->keySize;
     if (mac.length > 0)
-        if (ERR(err = SSL2CalculateMAC(secret, content, ctx->writeCipher.sequenceNum.low,
-                                    ctx->writeCipher.hash, mac, ctx)) != 0)
+        if (ERR(err = SSL2CalculateMAC(secret, content, 
+				ctx->writeCipher.sequenceNum.low,
+                ctx->writeCipher.macRef->hash, mac, ctx)) != 0)
             goto fail;
     
     /* APPLE_CDSA change...*/
@@ -341,9 +326,9 @@ SSL2DecryptRecord(SSLBuffer *payload, SSLContext *ctx)
     		ctx)) != 0)
         return err;
     
-    if (ctx->readCipher.hash->digestSize > 0)       /* Optimize away MAC for null case */
-    {   content.data = payload->data + ctx->readCipher.hash->digestSize;        /* Data is after MAC */
-        content.length = payload->length - ctx->readCipher.hash->digestSize;
+    if (ctx->readCipher.macRef->hash->digestSize > 0)       /* Optimize away MAC for null case */
+    {   content.data = payload->data + ctx->readCipher.macRef->hash->digestSize;        /* Data is after MAC */
+        content.length = payload->length - ctx->readCipher.macRef->hash->digestSize;
         if (ERR(err = SSL2VerifyMAC(content, payload->data, ctx)) != 0)
             return err;
     /* Adjust payload to remove MAC; caller is still responsible for removing padding [if any] */
@@ -364,9 +349,9 @@ SSL2VerifyMAC(SSLBuffer content, UInt8 *compareMAC, SSLContext *ctx)
     secret.data = ctx->readCipher.macSecret;
     secret.length = ctx->readCipher.symCipher->keySize;
     mac.data = calculatedMAC;
-    mac.length = ctx->readCipher.hash->digestSize;
+    mac.length = ctx->readCipher.macRef->hash->digestSize;
     if (ERR(err = SSL2CalculateMAC(secret, content, ctx->readCipher.sequenceNum.low,
-                                ctx->readCipher.hash, mac, ctx)) != 0)
+                                ctx->readCipher.macRef->hash, mac, ctx)) != 0)
         return err;
     if (memcmp(mac.data, compareMAC, mac.length) != 0) {
 		#if	IGNORE_MAC_FAILURE

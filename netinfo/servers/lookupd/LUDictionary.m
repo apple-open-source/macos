@@ -48,6 +48,58 @@ typedef struct {
 	unsigned int hits;
 } _private_data;
 
+dsrecord *
+dictToDSRecord(LUDictionary *dict)
+{
+	dsrecord *r;
+	int i, j, len;
+	char *key, *sk;
+	char **vals;
+	dsdata *d;
+	dsattribute *a;
+	int asel;
+
+	if (dict == nil) return NULL;
+
+	len = [dict count];
+	if (len == 0) return NULL;
+
+	r = dsrecord_new();
+	for (i = 0; i < len; i++)
+	{
+		key = [dict keyAtIndex:i];
+		if (key == NULL) continue;
+
+		asel = SELECT_ATTRIBUTE;
+		sk = key;
+
+		if (key[0] == '_')
+		{
+			sk = key + 1;
+			asel = SELECT_META_ATTRIBUTE;
+		}
+
+		d = cstring_to_dsdata(sk);
+		a = dsattribute_new(d);
+		dsdata_release(d);
+	
+		vals = [dict valuesAtIndex:i];
+		if (vals == NULL) continue;
+
+		for (j = 0; vals[j] != NULL; j++)
+		{
+			d = cstring_to_dsdata(vals[j]);
+			dsattribute_append(a, d);
+			dsdata_release(d);
+		}
+
+		dsrecord_append_attribute(r, a, asel);
+		dsattribute_release(a);
+	}
+
+	return r;
+}
+
 @implementation LUDictionary
 
 - (LUDictionary *)init
@@ -57,7 +109,6 @@ typedef struct {
 	[super init];
 	count = 0;
 	prop = (lu_property *)malloc(sizeof(lu_property) * (count + 1));
-	agent = nil;
 
 	_data = (void *)malloc(sizeof(_private_data));
 
@@ -163,22 +214,9 @@ typedef struct {
 	if (prop != NULL) free(prop);
 	prop = NULL;
 
-	[agent release];
 	free(_data);
 
 	[super dealloc];
-}
-
-- (void)setAgent:(id)source
-{
-	if (source == nil) return;
-	if (agent != nil) [agent release];
-	agent = [source retain];
-}
-
-- (id)agent
-{
-	return agent;
 }
 
 - (unsigned int)indexForKey:(char *)key
@@ -264,6 +302,8 @@ typedef struct {
 - (void)mergeKey:(char *)key from:(LUDictionary *)dict
 {
 	char **p;
+
+	if (dict == nil) return;
 
 	p = [dict valuesForKey:key];
 	if (p != NULL) [self mergeValues:p forKey:key];
@@ -864,14 +904,7 @@ typedef struct {
 		return;
 	}
 
-	if (agent == nil)
-	{
-		if (pvt->cat < NCATEGORIES)
-			fprintf(f, "+ Category: %u\n", (unsigned int)pvt->cat);
-		else
-			fprintf(f, "+ Category: ?\n");
-	}
-	else fprintf(f, "+ Category: %s\n", [LUAgent categoryName:pvt->cat]);
+	fprintf(f, "+ Category: %s\n", [LUAgent categoryName:pvt->cat]);
 
 	age = [self age];
 	if (pvt->ttl == (time_t)-1)
@@ -938,5 +971,19 @@ typedef struct {
 	return YES;
 }
 
+- (unsigned int)memorySize
+{
+	unsigned int size, i, j;
+
+	size = [super memorySize];
+	size += 20;
+	size += sizeof(_private_data);
+	for (i = 0; i < count; i++)
+	{
+		size += (strlen(prop[i].key) + 1);
+		for (j = 0; j < prop[i].len; j++) size += (strlen(prop[i].val[j]) + 1);
+	}
+	return size;
+}
 
 @end

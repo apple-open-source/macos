@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1176 +11,1100 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Remote Files,  Next: Quoted File Names,  Prev: Compressed Files,  Up: Files
+File: emacs,  Node: Auto Save Control,  Next: Recover,  Prev: Auto Save Files,  Up: Auto Save
 
-Remote Files
-============
+Controlling Auto-Saving
+-----------------------
 
-   You can refer to files on other machines using a special file name
-syntax:
+   Each time you visit a file, auto-saving is turned on for that file's
+buffer if the variable `auto-save-default' is non-`nil' (but not in
+batch mode; *note Entering Emacs::).  The default for this variable is
+`t', so auto-saving is the usual practice for file-visiting buffers.
+Auto-saving can be turned on or off for any existing buffer with the
+command `M-x auto-save-mode'.  Like other minor mode commands, `M-x
+auto-save-mode' turns auto-saving on with a positive argument, off with
+a zero or negative argument; with no argument, it toggles.
 
-     /HOST:FILENAME
-     /USER@HOST:FILENAME
+   Emacs does auto-saving periodically based on counting how many
+characters you have typed since the last time auto-saving was done.
+The variable `auto-save-interval' specifies how many characters there
+are between auto-saves.  By default, it is 300.
 
-When you do this, Emacs uses the FTP program to read and write files on
-the specified host.  It logs in through FTP using your user name or the
-name USER.  It may ask you for a password from time to time; this is
-used for logging in on HOST.
+   Auto-saving also takes place when you stop typing for a while.  The
+variable `auto-save-timeout' says how many seconds Emacs should wait
+before it does an auto save (and perhaps also a garbage collection).
+(The actual time period is longer if the current buffer is long; this
+is a heuristic which aims to keep out of your way when you are editing
+long buffers, in which auto-save takes an appreciable amount of time.)
+Auto-saving during idle periods accomplishes two things: first, it
+makes sure all your work is saved if you go away from the terminal for
+a while; second, it may avoid some auto-saving while you are actually
+typing.
 
-   Normally, if you do not specify a user name in a remote file name,
-that means to use your own user name.  But if you set the variable
-`ange-ftp-default-user' to a string, that string is used instead.  (The
-Emacs package that implements FTP file access is called `ange-ftp'.)
+   Emacs also does auto-saving whenever it gets a fatal error.  This
+includes killing the Emacs job with a shell command such as `kill
+%emacs', or disconnecting a phone line or network connection.
 
-   You can entirely turn off the FTP file name feature by setting the
-variable `file-name-handler-alist' to `nil'.
+   You can request an auto-save explicitly with the command `M-x
+do-auto-save'.
 
 
-File: emacs,  Node: Quoted File Names,  Prev: Remote Files,  Up: Files
+File: emacs,  Node: Recover,  Prev: Auto Save Control,  Up: Auto Save
 
-Quoted File Names
+Recovering Data from Auto-Saves
+-------------------------------
+
+   You can use the contents of an auto-save file to recover from a loss
+of data with the command `M-x recover-file <RET> FILE <RET>'.  This
+visits FILE and then (after your confirmation) restores the contents
+from its auto-save file `#FILE#'.  You can then save with `C-x C-s' to
+put the recovered text into FILE itself.  For example, to recover file
+`foo.c' from its auto-save file `#foo.c#', do:
+
+     M-x recover-file <RET> foo.c <RET>
+     yes <RET>
+     C-x C-s
+
+   Before asking for confirmation, `M-x recover-file' displays a
+directory listing describing the specified file and the auto-save file,
+so you can compare their sizes and dates.  If the auto-save file is
+older, `M-x recover-file' does not offer to read it.
+
+   If Emacs or the computer crashes, you can recover all the files you
+were editing from their auto save files with the command `M-x
+recover-session'.  This first shows you a list of recorded interrupted
+sessions.  Move point to the one you choose, and type `C-c C-c'.
+
+   Then `recover-session' asks about each of the files that were being
+edited during that session, asking whether to recover that file.  If
+you answer `y', it calls `recover-file', which works in its normal
+fashion.  It shows the dates of the original file and its auto-save
+file, and asks once again whether to recover that file.
+
+   When `recover-session' is done, the files you've chosen to recover
+are present in Emacs buffers.  You should then save them.  Only
+this--saving them--updates the files themselves.
+
+   Emacs records interrupted sessions for later recovery in files named
+`~/.emacs.d/auto-save-list/.saves-PID-HOSTNAME'.  The
+`~/.emacs.d/auto-save-list/.saves-' portion of these names comes from
+the value of `auto-save-list-file-prefix'.  You can record sessions in
+a different place by customizing that variable.  If you set
+`auto-save-list-file-prefix' to `nil' in your `.emacs' file, sessions
+are not recorded for recovery.
+
+
+File: emacs,  Node: File Aliases,  Next: Version Control,  Prev: Auto Save,  Up: Files
+
+File Name Aliases
 =================
 
-   You can "quote" an absolute file name to prevent special characters
-and syntax in it from having their special effects.  The way to do this
-is to add `/:' at the beginning.
+   Symbolic links and hard links both make it possible for several file
+names to refer to the same file.  Hard links are alternate names that
+refer directly to the file; all the names are equally valid, and no one
+of them is preferred.  By contrast, a symbolic link is a kind of defined
+alias: when `foo' is a symbolic link to `bar', you can use either name
+to refer to the file, but `bar' is the real name, while `foo' is just
+an alias.  More complex cases occur when symbolic links point to
+directories.
 
-   For example, you can quote a local file name which appears remote, to
-prevent it from being treated as a remote file name.  Thus, if you have
-a directory named `/foo:' and a file named `bar' in it, you can refer
-to that file in Emacs as `/:/foo:/bar'.
+   If you visit two names for the same file, normally Emacs makes two
+different buffers, but it warns you about the situation.
 
-   `/:' can also prevent `~' from being treated as a special character
-for a user's home directory.  For example, `/:/tmp/~hack' refers to a
-file whose name is `~hack' in directory `/tmp'.
+   Normally, if you visit a file which Emacs is already visiting under
+a different name, Emacs displays a message in the echo area and uses
+the existing buffer visiting that file.  This can happen on systems
+that support symbolic links, or if you use a long file name on a system
+that truncates long file names.  You can suppress the message by
+setting the variable `find-file-suppress-same-file-warnings' to a
+non-`nil' value.  You can disable this feature entirely by setting the
+variable `find-file-existing-other-name' to `nil': then if you visit
+the same file under two different names, you get a separate buffer for
+each file name.
 
-   Likewise, quoting with `/:' is one way to enter in the minibuffer a
-file name that contains `$'.  However, the `/:' must be at the
-beginning of the buffer in order to quote `$'.
-
-   You can also quote wildcard characters with `/:', for visiting.  For
-example, `/:/tmp/foo*bar' visits the file `/tmp/foo*bar'.  However, in
-most cases you can simply type the wildcard characters for themselves.
-For example, if the only file name in `/tmp' that starts with `foo' and
-ends with `bar' is `foo*bar', then specifying `/tmp/foo*bar' will visit
-just `/tmp/foo*bar'.
+   If the variable `find-file-visit-truename' is non-`nil', then the
+file name recorded for a buffer is the file's "truename" (made by
+replacing all symbolic links with their target names), rather than the
+name you specify.  Setting `find-file-visit-truename' also implies the
+effect of `find-file-existing-other-name'.
 
 
-File: emacs,  Node: Buffers,  Next: Windows,  Prev: Files,  Up: Top
+File: emacs,  Node: Version Control,  Next: Directories,  Prev: File Aliases,  Up: Files
 
-Using Multiple Buffers
-**********************
+Version Control
+===============
 
-   The text you are editing in Emacs resides in an object called a
-"buffer".  Each time you visit a file, a buffer is created to hold the
-file's text.  Each time you invoke Dired, a buffer is created to hold
-the directory listing.  If you send a message with `C-x m', a buffer
-named `*mail*' is used to hold the text of the message.  When you ask
-for a command's documentation, that appears in a buffer called `*Help*'.
+   "Version control systems" are packages that can record multiple
+versions of a source file, usually storing the unchanged parts of the
+file just once.  Version control systems also record history information
+such as the creation time of each version, who created it, and a
+description of what was changed in that version.
 
-   At any time, one and only one buffer is "selected".  It is also
-called the "current buffer".  Often we say that a command operates on
-"the buffer" as if there were only one; but really this means that the
-command operates on the selected buffer (most commands do).
-
-   When Emacs has multiple windows, each window has a chosen buffer
-which is displayed there, but at any time only one of the windows is
-selected and its chosen buffer is the selected buffer.  Each window's
-mode line displays the name of the buffer that the window is displaying
-(*note Windows::).
-
-   Each buffer has a name, which can be of any length, and you can
-select any buffer by giving its name.  Most buffers are made by
-visiting files, and their names are derived from the files' names.  But
-you can also create an empty buffer with any name you want.  A newly
-started Emacs has a buffer named `*scratch*' which can be used for
-evaluating Lisp expressions in Emacs.  The distinction between upper
-and lower case matters in buffer names.
-
-   Each buffer records individually what file it is visiting, whether
-it is modified, and what major mode and minor modes are in effect in it
-(*note Major Modes::).  Any Emacs variable can be made "local to" a
-particular buffer, meaning its value in that buffer can be different
-from the value in other buffers.  *Note Locals::.
+   The Emacs version control interface is called VC.  Its commands work
+with three version control systems--RCS, CVS, and SCCS.  The GNU
+project recommends RCS and CVS, which are free software and available
+from the Free Software Foundation.  We also have free software to
+replace SCCS, known as CSSC; if you are using SCCS and don't want to
+make the incompatible change to RCS or CVS, you can switch to CSSC.
 
 * Menu:
 
-* Select Buffer::       Creating a new buffer or reselecting an old one.
-* List Buffers::        Getting a list of buffers that exist.
-* Misc Buffer::	        Renaming; changing read-onlyness; copying text.
-* Kill Buffer::	        Killing buffers you no longer need.
-* Several Buffers::     How to go through the list of all buffers
-			  and operate variously on several of them.
-* Indirect Buffers::    An indirect buffer shares the text of another buffer.
+* Introduction to VC::  How version control works in general.
+* VC Mode Line::     How the mode line shows version control status.
+* Basic VC Editing::    How to edit a file under version control.
+* Old Versions::        Examining and comparing old versions.
+* Secondary VC Commands::    The commands used a little less frequently.
+* Branches::            Multiple lines of development.
+* Remote Repositories:: Efficient access to remote CVS servers.
+* Snapshots::           Sets of file versions treated as a unit.
+* Miscellaneous VC::    Various other commands and features of VC.
+* Customizing VC::      Variables that change VC's behavior.
 
 
-File: emacs,  Node: Select Buffer,  Next: List Buffers,  Up: Buffers
+File: emacs,  Node: Introduction to VC,  Next: VC Mode Line,  Up: Version Control
 
-Creating and Selecting Buffers
-==============================
+Introduction to Version Control
+-------------------------------
 
-`C-x b BUFFER <RET>'
-     Select or create a buffer named BUFFER (`switch-to-buffer').
+   VC allows you to use a version control system from within Emacs,
+integrating the version control operations smoothly with editing.  VC
+provides a uniform interface to version control, so that regardless of
+which version control system is in use, you can use it the same way.
 
-`C-x 4 b BUFFER <RET>'
-     Similar, but select BUFFER in another window
-     (`switch-to-buffer-other-window').
+   This section provides a general overview of version control, and
+describes the version control systems that VC supports.  You can skip
+this section if you are already familiar with the version control system
+you want to use.
 
-`C-x 5 b BUFFER <RET>'
-     Similar, but select BUFFER in a separate frame
-     (`switch-to-buffer-other-frame').
+* Menu:
 
-   To select the buffer named BUFNAME, type `C-x b BUFNAME <RET>'.
-This runs the command `switch-to-buffer' with argument BUFNAME.  You
-can use completion on an abbreviation for the buffer name you want
-(*note Completion::).  An empty argument to `C-x b' specifies the most
-recently selected buffer that is not displayed in any window.
-
-   Most buffers are created by visiting files, or by Emacs commands that
-want to display some text, but you can also create a buffer explicitly
-by typing `C-x b BUFNAME <RET>'.  This makes a new, empty buffer that
-is not visiting any file, and selects it for editing.  Such buffers are
-used for making notes to yourself.  If you try to save one, you are
-asked for the file name to use.  The new buffer's major mode is
-determined by the value of `default-major-mode' (*note Major Modes::).
-
-   Note that `C-x C-f', and any other command for visiting a file, can
-also be used to switch to an existing file-visiting buffer.  *Note
-Visiting::.
-
-   Emacs uses buffer names that start with a space for internal
-purposes.  It treats these buffers specially in minor ways--for
-example, by default they do not record undo information.  It is best to
-avoid using such buffer names yourself.
+* Version Systems::  Supported version control back-end systems.
+* VC Concepts::      Words and concepts related to version control.
 
 
-File: emacs,  Node: List Buffers,  Next: Misc Buffer,  Prev: Select Buffer,  Up: Buffers
+File: emacs,  Node: Version Systems,  Next: VC Concepts,  Up: Introduction to VC
 
-Listing Existing Buffers
-========================
+Supported Version Control Systems
+.................................
 
-`C-x C-b'
-     List the existing buffers (`list-buffers').
+   VC currently works with three different version control systems or
+"back ends": RCS, CVS, and SCCS.
 
-   To display a list of all the buffers that exist, type `C-x C-b'.
-Each line in the list shows one buffer's name, major mode and visited
-file.  The buffers are listed in the order that they were current; the
-buffers that were current most recently come first.
+   RCS is a free version control system that is available from the Free
+Software Foundation.  It is perhaps the most mature of the supported
+back ends, and the VC commands are conceptually closest to RCS.  Almost
+everything you can do with RCS can be done through VC.
 
-   `*' at the beginning of a line indicates the buffer is "modified."
-If several buffers are modified, it may be time to save some with `C-x
-s' (*note Saving::).  `%' indicates a read-only buffer.  `.' marks the
-selected buffer.  Here is an example of a buffer list:
+   CVS is built on top of RCS, and extends the features of RCS, allowing
+for more sophisticated release management, and concurrent multi-user
+development.  VC supports basic editing operations under CVS, but for
+some less common tasks you still need to call CVS from the command line.
+Note also that before using CVS you must set up a repository, which is a
+subject too complex to treat here.
 
-      MR Buffer         Size  Mode           File
-      -- ------         ----  ----           ----
-     .*  emacs.tex      383402 Texinfo       /u2/emacs/man/emacs.tex
-         *Help*         1287  Fundamental
-         files.el       23076 Emacs-Lisp     /u2/emacs/lisp/files.el
-       % RMAIL          64042 RMAIL          /u/rms/RMAIL
-      *% man            747   Dired          /u2/emacs/man/
-         net.emacs      343885 Fundamental   /u/rms/net.emacs
-         fileio.c       27691 C              /u2/emacs/src/fileio.c
-         NEWS           67340 Text           /u2/emacs/etc/NEWS
-         *scratch*	   0	 Lisp Interaction
-
-Note that the buffer `*Help*' was made by a help request; it is not
-visiting any file.  The buffer `man' was made by Dired on the directory
-`/u2/emacs/man/'.
+   SCCS is a proprietary but widely used version control system.  In
+terms of capabilities, it is the weakest of the three that VC supports.
+VC compensates for certain features missing in SCCS (snapshots, for
+example) by implementing them itself, but some other VC features, such
+as multiple branches, are not available with SCCS.  You should use SCCS
+only if for some reason you cannot use RCS.
 
 
-File: emacs,  Node: Misc Buffer,  Next: Kill Buffer,  Prev: List Buffers,  Up: Buffers
+File: emacs,  Node: VC Concepts,  Prev: Version Systems,  Up: Introduction to VC
 
-Miscellaneous Buffer Operations
-===============================
+Concepts of Version Control
+...........................
 
-`C-x C-q'
-     Toggle read-only status of buffer (`vc-toggle-read-only').
+   When a file is under version control, we also say that it is
+"registered" in the version control system.  Each registered file has a
+corresponding "master file" which represents the file's present state
+plus its change history--enough to reconstruct the current version or
+any earlier version.  Usually the master file also records a "log
+entry" for each version, describing in words what was changed in that
+version.
 
-`M-x rename-buffer <RET> NAME <RET>'
-     Change the name of the current buffer.
-
-`M-x rename-uniquely'
-     Rename the current buffer by adding `<NUMBER>' to the end.
-
-`M-x view-buffer <RET> BUFFER <RET>'
-     Scroll through buffer BUFFER.
-
-   A buffer can be "read-only", which means that commands to change its
-contents are not allowed.  The mode line indicates read-only buffers
-with `%%' or `%*' near the left margin.  Read-only buffers are usually
-made by subsystems such as Dired and Rmail that have special commands
-to operate on the text; also by visiting a file whose access control
-says you cannot write it.
-
-   If you wish to make changes in a read-only buffer, use the command
-`C-x C-q' (`vc-toggle-read-only').  It makes a read-only buffer
-writable, and makes a writable buffer read-only.  In most cases, this
-works by setting the variable `buffer-read-only', which has a local
-value in each buffer and makes the buffer read-only if its value is
-non-`nil'.  If the file is maintained with version control, `C-x C-q'
-works through the version control system to change the read-only status
-of the file as well as the buffer.  *Note Version Control::.
-
-   `M-x rename-buffer' changes the name of the current buffer.  Specify
-the new name as a minibuffer argument.  There is no default.  If you
-specify a name that is in use for some other buffer, an error happens
-and no renaming is done.
-
-   `M-x rename-uniquely' renames the current buffer to a similar name
-with a numeric suffix added to make it both different and unique.  This
-command does not need an argument.  It is useful for creating multiple
-shell buffers: if you rename the `*Shell*' buffer, then do `M-x shell'
-again, it makes a new shell buffer named `*Shell*'; meanwhile, the old
-shell buffer continues to exist under its new name.  This method is
-also good for mail buffers, compilation buffers, and most Emacs
-features that create special buffers with particular names.
-
-   `M-x view-buffer' is much like `M-x view-file' (*note Misc File
-Ops::) except that it examines an already existing Emacs buffer.  View
-mode provides commands for scrolling through the buffer conveniently
-but not for changing it.  When you exit View mode with `q', that
-switches back to the buffer (and the position) which was previously
-displayed in the window.  Alternatively, if you exit View mode with
-`e', the buffer and the value of point that resulted from your perusal
-remain in effect.
-
-   The commands `M-x append-to-buffer' and `M-x insert-buffer' can be
-used to copy text from one buffer to another.  *Note Accumulating
-Text::.
-
-
-File: emacs,  Node: Kill Buffer,  Next: Several Buffers,  Prev: Misc Buffer,  Up: Buffers
-
-Killing Buffers
-===============
-
-   If you continue an Emacs session for a while, you may accumulate a
-large number of buffers.  You may then find it convenient to "kill" the
-buffers you no longer need.  On most operating systems, killing a
-buffer releases its space back to the operating system so that other
-programs can use it.  Here are some commands for killing buffers:
-
-`C-x k BUFNAME <RET>'
-     Kill buffer BUFNAME (`kill-buffer').
-
-`M-x kill-some-buffers'
-     Offer to kill each buffer, one by one.
-
-   `C-x k' (`kill-buffer') kills one buffer, whose name you specify in
-the minibuffer.  The default, used if you type just <RET> in the
-minibuffer, is to kill the current buffer.  If you kill the current
-buffer, another buffer is selected; one that has been selected recently
-but does not appear in any window now.  If you ask to kill a
-file-visiting buffer that is modified (has unsaved editing), then you
-must confirm with `yes' before the buffer is killed.
-
-   The command `M-x kill-some-buffers' asks about each buffer, one by
-one.  An answer of `y' means to kill the buffer.  Killing the current
-buffer or a buffer containing unsaved changes selects a new buffer or
-asks for confirmation just like `kill-buffer'.
-
-   The buffer menu feature (*note Several Buffers::) is also convenient
-for killing various buffers.
-
-   If you want to do something special every time a buffer is killed,
-you can add hook functions to the hook `kill-buffer-hook' (*note
-Hooks::).
-
-   If you run one Emacs session for a period of days, as many people do,
-it can fill up with buffers that you used several days ago.  The command
-`M-x clean-buffer-list' is a convenient way to purge them; it kills all
-the unmodified buffers that you have not used for a long time.  An
-ordinary buffer is killed if it has not been displayed for three days;
-however, you can specify certain buffers that should never be killed
-automatically, and others that should be killed if they have been unused
-for a mere hour.
-
-   You can also have this buffer purging done for you, every day at
-midnight, by enabling Midnight mode.  Midnight mode operates each day at
-midnight; at that time, it runs `clean-buffer-list', or whichever
-functions you have placed in the normal hook `midnight-hook' (*note
-Hooks::).
-
-   To enable Midnight mode, use the Customization buffer to set the
-variable `midnight-mode' to `t'.  *Note Easy Customization::.
-
-
-File: emacs,  Node: Several Buffers,  Next: Indirect Buffers,  Prev: Kill Buffer,  Up: Buffers
-
-Operating on Several Buffers
-============================
-
-   The "buffer-menu" facility is like a "Dired for buffers"; it allows
-you to request operations on various Emacs buffers by editing an Emacs
-buffer containing a list of them.  You can save buffers, kill them
-(here called "deleting" them, for consistency with Dired), or display
+   The file that is maintained under version control is sometimes called
+the "work file" corresponding to its master file.  You edit the work
+file and make changes in it, as you would with an ordinary file.  (With
+SCCS and RCS, you must "lock" the file before you start to edit it.)
+After you are done with a set of changes, you "check the file in",
+which records the changes in the master file, along with a log entry for
 them.
 
-`M-x buffer-menu'
-     Begin editing a buffer listing all Emacs buffers.
+   With CVS, there are usually multiple work files corresponding to a
+single master file--often each user has his own copy.  It is also
+possible to use RCS in this way, but this is not the usual way to use
+RCS.
 
-   The command `buffer-menu' writes a list of all Emacs buffers into
-the buffer `*Buffer List*', and selects that buffer in Buffer Menu
-mode.  The buffer is read-only, and can be changed only through the
-special commands described in this section.  The usual Emacs cursor
-motion commands can be used in the `*Buffer List*' buffer.  The
-following commands apply to the buffer described on the current line.
+   A version control system typically has some mechanism to coordinate
+between users who want to change the same file.  One method is
+"locking" (analogous to the locking that Emacs uses to detect
+simultaneous editing of a file, but distinct from it).  The other method
+is to merge your changes with other people's changes when you check them
+in.
 
-`d'
-     Request to delete (kill) the buffer, then move down.  The request
-     shows as a `D' on the line, before the buffer name.  Requested
-     deletions take place when you type the `x' command.
+   With version control locking, work files are normally read-only so
+that you cannot change them.  You ask the version control system to make
+a work file writable for you by locking it; only one user can do this
+at any given time.  When you check in your changes, that unlocks the
+file, making the work file read-only again.  This allows other users to
+lock the file to make further changes.  SCCS always uses locking, and
+RCS normally does.
 
-`C-d'
-     Like `d' but move up afterwards instead of down.
+   The other alternative for RCS is to let each user modify the work
+file at any time.  In this mode, locking is not required, but it is
+permitted; check-in is still the way to record a new version.
 
-`s'
-     Request to save the buffer.  The request shows as an `S' on the
-     line.  Requested saves take place when you type the `x' command.
-     You may request both saving and deletion for the same buffer.
-
-`x'
-     Perform previously requested deletions and saves.
-
-`u'
-     Remove any request made for the current line, and move down.
-
-`<DEL>'
-     Move to previous line and remove any request made for that line.
-
-   The `d', `C-d', `s' and `u' commands to add or remove flags also
-move down (or up) one line.  They accept a numeric argument as a repeat
-count.
-
-   These commands operate immediately on the buffer listed on the
-current line:
-
-`~'
-     Mark the buffer "unmodified."  The command `~' does this
-     immediately when you type it.
-
-`%'
-     Toggle the buffer's read-only flag.  The command `%' does this
-     immediately when you type it.
-
-`t'
-     Visit the buffer as a tags table.  *Note Select Tags Table::.
-
-   There are also commands to select another buffer or buffers:
-
-`q'
-     Quit the buffer menu--immediately display the most recent formerly
-     visible buffer in its place.
-
-`<RET>'
-`f'
-     Immediately select this line's buffer in place of the `*Buffer
-     List*' buffer.
-
-`o'
-     Immediately select this line's buffer in another window as if by
-     `C-x 4 b', leaving `*Buffer List*' visible.
-
-`C-o'
-     Immediately display this line's buffer in another window, but don't
-     select the window.
-
-`1'
-     Immediately select this line's buffer in a full-screen window.
-
-`2'
-     Immediately set up two windows, with this line's buffer in one,
-     and the previously selected buffer (aside from the buffer `*Buffer
-     List*') in the other.
-
-`b'
-     Bury the buffer listed on this line.
-
-`m'
-     Mark this line's buffer to be displayed in another window if you
-     exit with the `v' command.  The request shows as a `>' at the
-     beginning of the line.  (A single buffer may not have both a delete
-     request and a display request.)
-
-`v'
-     Immediately select this line's buffer, and also display in other
-     windows any buffers previously marked with the `m' command.  If
-     you have not marked any buffers, this command is equivalent to `1'.
-
-   All that `buffer-menu' does directly is create and switch to a
-suitable buffer, and turn on Buffer Menu mode.  Everything else
-described above is implemented by the special commands provided in
-Buffer Menu mode.  One consequence of this is that you can switch from
-the `*Buffer List*' buffer to another Emacs buffer, and edit there.
-You can reselect the `*Buffer List*' buffer later, to perform the
-operations already requested, or you can kill it, or pay no further
-attention to it.
-
-   The only difference between `buffer-menu' and `list-buffers' is that
-`buffer-menu' switches to the `*Buffer List*' buffer in the selected
-window; `list-buffers' displays it in another window.  If you run
-`list-buffers' (that is, type `C-x C-b') and select the buffer list
-manually, you can use all of the commands described here.
-
-   The buffer `*Buffer List*' is not updated automatically when buffers
-are created and killed; its contents are just text.  If you have
-created, deleted or renamed buffers, the way to update `*Buffer List*'
-to show what you have done is to type `g' (`revert-buffer') or repeat
-the `buffer-menu' command.
+   CVS normally allows each user to modify his own copy of the work file
+at any time, but requires merging with changes from other users at
+check-in time.  However, CVS can also be set up to require locking.
+(*note CVS Options::).
 
 
-File: emacs,  Node: Indirect Buffers,  Prev: Several Buffers,  Up: Buffers
+File: emacs,  Node: VC Mode Line,  Next: Basic VC Editing,  Prev: Introduction to VC,  Up: Version Control
 
-Indirect Buffers
-================
+Version Control and the Mode Line
+---------------------------------
 
-   An "indirect buffer" shares the text of some other buffer, which is
-called the "base buffer" of the indirect buffer.  In some ways it is
-the analogue, for buffers, of a symbolic link between files.
+   When you visit a file that is under version control, Emacs indicates
+this on the mode line.  For example, `RCS-1.3' says that RCS is used
+for that file, and the current version is 1.3.
 
-`M-x make-indirect-buffer BASE-BUFFER <RET> INDIRECT-NAME <RET>'
-     Create an indirect buffer named INDIRECT-NAME whose base buffer is
-     BASE-BUFFER.
-
-   The text of the indirect buffer is always identical to the text of
-its base buffer; changes made by editing either one are visible
-immediately in the other.  But in all other respects, the indirect
-buffer and its base buffer are completely separate.  They have
-different names, different values of point, different narrowing,
-different markers, different major modes, and different local variables.
-
-   An indirect buffer cannot visit a file, but its base buffer can.  If
-you try to save the indirect buffer, that actually works by saving the
-base buffer.  Killing the base buffer effectively kills the indirect
-buffer, but killing an indirect buffer has no effect on its base buffer.
-
-   One way to use indirect buffers is to display multiple views of an
-outline.  *Note Outline Views::.
+   The character between the back-end name and the version number
+indicates the version control status of the file.  `-' means that the
+work file is not locked (if locking is in use), or not modified (if
+locking is not in use).  `:' indicates that the file is locked, or that
+it is modified.  If the file is locked by some other user (for
+instance, `jim'), that is displayed as `RCS:jim:1.3'.
 
 
-File: emacs,  Node: Windows,  Next: Frames,  Prev: Buffers,  Up: Top
+File: emacs,  Node: Basic VC Editing,  Next: Old Versions,  Prev: VC Mode Line,  Up: Version Control
 
-Multiple Windows
-****************
+Basic Editing under Version Control
+-----------------------------------
 
-   Emacs can split a frame into two or many windows.  Multiple windows
-can display parts of different buffers, or different parts of one
-buffer.  Multiple frames always imply multiple windows, because each
-frame has its own set of windows.  Each window belongs to one and only
-one frame.
+   The principal VC command is an all-purpose command that performs
+either locking or check-in, depending on the situation.
+
+`C-x C-q'
+`C-x v v'
+     Perform the next logical version control operation on this file.
+
+   Strictly speaking, the command for this job is `vc-next-action',
+bound to `C-x v v'.  However, the normal meaning of `C-x C-q' is to
+make a read-only buffer writable, or vice versa; we have extended it to
+do the same job properly for files managed by version control, by
+performing the appropriate version control operations.  When you type
+`C-x C-q' on a registered file, it acts like `C-x v v'.
+
+   The precise action of this command depends on the state of the file,
+and whether the version control system uses locking or not.  SCCS and
+RCS normally use locking; CVS normally does not use locking.
 
 * Menu:
 
-* Basic Window::        Introduction to Emacs windows.
-* Split Window::        New windows are made by splitting existing windows.
-* Other Window::        Moving to another window or doing something to it.
-* Pop Up Window::       Finding a file or buffer in another window.
-* Force Same Window::   Forcing certain buffers to appear in the selected
-                          window rather than in another window.
-* Change Window::       Deleting windows and changing their sizes.
+* VC with Locking::     RCS in its default mode, SCCS, and optionally CVS.
+* Without Locking::     Without locking: default mode for CVS.
+* Advanced C-x C-q::    Advanced features available with a prefix argument.
+* Log Buffer::          Features available in log entry buffers.
 
 
-File: emacs,  Node: Basic Window,  Next: Split Window,  Up: Windows
+File: emacs,  Node: VC with Locking,  Next: Without Locking,  Up: Basic VC Editing
 
-Concepts of Emacs Windows
-=========================
+Basic Version Control with Locking
+..................................
 
-   Each Emacs window displays one Emacs buffer at any time.  A single
-buffer may appear in more than one window; if it does, any changes in
-its text are displayed in all the windows where it appears.  But the
-windows showing the same buffer can show different parts of it, because
-each window has its own value of point.
+   If locking is used for the file (as with SCCS, and RCS in its default
+mode), `C-x C-q' can either lock a file or check it in:
 
-   At any time, one of the windows is the "selected window"; the buffer
-this window is displaying is the current buffer.  The terminal's cursor
-shows the location of point in this window.  Each other window has a
-location of point as well, but since the terminal has only one cursor
-there is no way to show where those locations are.  When multiple
-frames are visible in X Windows, each frame has a cursor which appears
-in the frame's selected window.  The cursor in the selected frame is
-solid; the cursor in other frames is a hollow box.
+   * If the file is not locked, `C-x C-q' locks it, and makes it
+     writable so that you can change it.
 
-   Commands to move point affect the value of point for the selected
-Emacs window only.  They do not change the value of point in any other
-Emacs window, even one showing the same buffer.  The same is true for
-commands such as `C-x b' to change the selected buffer in the selected
-window; they do not affect other windows at all.  However, there are
-other commands such as `C-x 4 b' that select a different window and
-switch buffers in it.  Also, all commands that display information in a
-window, including (for example) `C-h f' (`describe-function') and `C-x
-C-b' (`list-buffers'), work by switching buffers in a nonselected window
-without affecting the selected window.
+   * If the file is locked by you, and contains changes, `C-x C-q'
+     checks in the changes.  In order to do this, it first reads the
+     log entry for the new version.  *Note Log Buffer::.
 
-   When multiple windows show the same buffer, they can have different
-regions, because they can have different values of point.  However,
-they all have the same value for the mark, because each buffer has only
-one mark position.
+   * If the file is locked by you, but you have not changed it since you
+     locked it, `C-x C-q' releases the lock and makes the file read-only
+     again.
 
-   Each window has its own mode line, which displays the buffer name,
-modification status and major and minor modes of the buffer that is
-displayed in the window.  *Note Mode Line::, for full details on the
-mode line.
+   * If the file is locked by some other user, `C-x C-q' asks you
+     whether you want to "steal the lock" from that user.  If you say
+     yes, the file becomes locked by you, but a message is sent to the
+     person who had formerly locked the file, to inform him of what has
+     happened.
+
+   These rules also apply when you use CVS in locking mode, except that
+there is no such thing as stealing a lock.
 
 
-File: emacs,  Node: Split Window,  Next: Other Window,  Prev: Basic Window,  Up: Windows
+File: emacs,  Node: Without Locking,  Next: Advanced C-x C-q,  Prev: VC with Locking,  Up: Basic VC Editing
 
-Splitting Windows
-=================
+Basic Version Control without Locking
+.....................................
 
-`C-x 2'
-     Split the selected window into two windows, one above the other
-     (`split-window-vertically').
+   When there is no locking--the default for CVS--work files are always
+writable; you do not need to do anything before you begin to edit a
+file.  The status indicator on the mode line is `-' if the file is
+unmodified; it flips to `:' as soon as you save any changes in the work
+file.
 
-`C-x 3'
-     Split the selected window into two windows positioned side by side
-     (`split-window-horizontally').
+   Here is what `C-x C-q' does when using CVS:
 
-`C-Mouse-2'
-     In the mode line or scroll bar of a window, split that window.
+   * If some other user has checked in changes into the master file,
+     Emacs asks you whether you want to merge those changes into your
+     own work file.  You must do this before you can check in your own
+     changes.  (To pick up any recent changes from the master file
+     _without_ trying to commit your own changes, type `C-x v m <RET>'.)
+     *Note Merging::.
 
-   The command `C-x 2' (`split-window-vertically') breaks the selected
-window into two windows, one above the other.  Both windows start out
-displaying the same buffer, with the same value of point.  By default
-the two windows each get half the height of the window that was split; a
-numeric argument specifies how many lines to give to the top window.
+   * If there are no new changes in the master file, but you have made
+     modifications in your work file, `C-x C-q' checks in your changes.
+     In order to do this, it first reads the log entry for the new
+     version.  *Note Log Buffer::.
 
-   `C-x 3' (`split-window-horizontally') breaks the selected window
-into two side-by-side windows.  A numeric argument specifies how many
-columns to give the one on the left.  A line of vertical bars separates
-the two windows.  Windows that are not the full width of the screen
-have mode lines, but they are truncated.  On terminals where Emacs does
-not support highlighting, truncated mode lines sometimes do not appear
-in inverse video.
+   * If the file is not modified, the `C-x C-q' does nothing.
 
-   You can split a window horizontally or vertically by clicking
-`C-Mouse-2' in the mode line or the scroll bar.  The line of splitting
-goes through the place where you click: if you click on the mode line,
-the new scroll bar goes above the spot; if you click in the scroll bar,
-the mode line of the split window is side by side with your click.
+   These rules also apply when you use RCS in the mode that does not
+require locking, except that automatic merging of changes from the
+master file is not implemented.  Unfortunately, this means that nothing
+informs you if another user has checked in changes in the same file
+since you began editing it, and when this happens, his changes will be
+effectively removed when you check in your version (though they will
+remain in the master file, so they will not be entirely lost).  You must
+therefore verify the current version is unchanged, before you check in
+your changes.  We hope to eliminate this risk and provide automatic
+merging with RCS in a future Emacs version.
 
-   When a window is less than the full width, text lines too long to
-fit are frequent.  Continuing all those lines might be confusing.  The
-variable `truncate-partial-width-windows' can be set non-`nil' to force
-truncation in all windows less than the full width of the screen,
-independent of the buffer being displayed and its value for
-`truncate-lines'.  *Note Continuation Lines::.
-
-   Horizontal scrolling is often used in side-by-side windows.  *Note
-Display::.
-
-   If `split-window-keep-point' is non-`nil', the default, both of the
-windows resulting from `C-x 2' inherit the value of point from the
-window that was split.  This means that scrolling is inevitable.  If
-this variable is `nil', then `C-x 2' tries to avoid shifting any text
-the screen, by putting point in each window at a position already
-visible in the window.  It also selects whichever window contain the
-screen line that the cursor was previously on.  Some users prefer the
-latter mode on slow terminals.
+   In addition, locking is possible with RCS even in this mode, although
+it is not required; `C-x C-q' with an unmodified file locks the file,
+just as it does with RCS in its normal (locking) mode.
 
 
-File: emacs,  Node: Other Window,  Next: Pop Up Window,  Prev: Split Window,  Up: Windows
+File: emacs,  Node: Advanced C-x C-q,  Next: Log Buffer,  Prev: Without Locking,  Up: Basic VC Editing
 
-Using Other Windows
-===================
+Advanced Control in `C-x C-q'
+.............................
 
-`C-x o'
-     Select another window (`other-window').  That is `o', not zero.
+   When you give a prefix argument to `vc-next-action' (`C-u C-x C-q'),
+it still performs the next logical version control operation, but
+accepts additional arguments to specify precisely how to do the
+operation.
 
-`C-M-v'
-     Scroll the next window (`scroll-other-window').
+   * If the file is modified (or locked), you can specify the version
+     number to use for the new version that you check in.  This is one
+     way to create a new branch (*note Branches::).
 
-`M-x compare-windows'
-     Find next place where the text in the selected window does not
-     match the text in the next window.
+   * If the file is not modified (and unlocked), you can specify the
+     version to select; this lets you start working from an older
+     version, or on another branch.  If you do not enter any version,
+     that takes you to the highest version on the current branch;
+     therefore `C-u C-x C-q <RET>' is a convenient way to get the
+     latest version of a file from the repository.
 
-`Mouse-1'
-     `Mouse-1', in a window's mode line, selects that window but does
-     not move point in it (`mouse-select-window').
-
-   To select a different window, click with `Mouse-1' on its mode line.
-With the keyboard, you can switch windows by typing `C-x o'
-(`other-window').  That is an `o', for `other', not a zero.  When there
-are more than two windows, this command moves through all the windows
-in a cyclic order, generally top to bottom and left to right.  After
-the rightmost and bottommost window, it goes back to the one at the
-upper left corner.  A numeric argument means to move several steps in
-the cyclic order of windows.  A negative argument moves around the
-cycle in the opposite order.  When the minibuffer is active, the
-minibuffer is the last window in the cycle; you can switch from the
-minibuffer window to one of the other windows, and later switch back and
-finish supplying the minibuffer argument that is requested.  *Note
-Minibuffer Edit::.
-
-   The usual scrolling commands (*note Display::) apply to the selected
-window only, but there is one command to scroll the next window.
-`C-M-v' (`scroll-other-window') scrolls the window that `C-x o' would
-select.  It takes arguments, positive and negative, like `C-v'.  (In
-the minibuffer, `C-M-v' scrolls the window that contains the minibuffer
-help display, if any, rather than the next window in the standard
-cyclic order.)
-
-   The command `M-x compare-windows' lets you compare two files or
-buffers visible in two windows, by moving through them to the next
-mismatch.  *Note Comparing Files::, for details.
+   * Instead of the version number, you can also specify the name of a
+     version control system.  This is useful when one file is being
+     managed with two version control systems at the same time (*note
+     Local Version Control::).
 
 
-File: emacs,  Node: Pop Up Window,  Next: Force Same Window,  Prev: Other Window,  Up: Windows
+File: emacs,  Node: Log Buffer,  Prev: Advanced C-x C-q,  Up: Basic VC Editing
 
-Displaying in Another Window
-============================
+Features of the Log Entry Buffer
+................................
 
-   `C-x 4' is a prefix key for commands that select another window
-(splitting the window if there is only one) and select a buffer in that
-window.  Different `C-x 4' commands have different ways of finding the
-buffer to select.
+   When you check in changes, `C-x C-q' first reads a log entry.  It
+pops up a buffer called `*VC-Log*' for you to enter the log entry.
+When you are finished, type `C-c C-c' in the `*VC-Log*' buffer.  That
+is when check-in really happens.
 
-`C-x 4 b BUFNAME <RET>'
-     Select buffer BUFNAME in another window.  This runs
-     `switch-to-buffer-other-window'.
+   To abort check-in, just *don't* type `C-c C-c' in that buffer.  You
+can switch buffers and do other editing.  As long as you don't try to
+check in another file, the entry you were editing remains in the
+`*VC-Log*' buffer, and you can go back to that buffer at any time to
+complete the check-in.
 
-`C-x 4 C-o BUFNAME <RET>'
-     Display buffer BUFNAME in another window, but don't select that
-     buffer or that window.  This runs `display-buffer'.
+   If you change several source files for the same reason, it is often
+convenient to specify the same log entry for many of the files.  To do
+this, use the history of previous log entries.  The commands `M-n',
+`M-p', `M-s' and `M-r' for doing this work just like the minibuffer
+history commands (except that these versions are used outside the
+minibuffer).
 
-`C-x 4 f FILENAME <RET>'
-     Visit file FILENAME and select its buffer in another window.  This
-     runs `find-file-other-window'.  *Note Visiting::.
-
-`C-x 4 d DIRECTORY <RET>'
-     Select a Dired buffer for directory DIRECTORY in another window.
-     This runs `dired-other-window'.  *Note Dired::.
-
-`C-x 4 m'
-     Start composing a mail message in another window.  This runs
-     `mail-other-window'; its same-window analogue is `C-x m' (*note
-     Sending Mail::).
-
-`C-x 4 .'
-     Find a tag in the current tags table, in another window.  This runs
-     `find-tag-other-window', the multiple-window variant of `M-.'
-     (*note Tags::).
-
-`C-x 4 r FILENAME <RET>'
-     Visit file FILENAME read-only, and select its buffer in another
-     window.  This runs `find-file-read-only-other-window'.  *Note
-     Visiting::.
+   Each time you check in a file, the log entry buffer is put into VC
+Log mode, which involves running two hooks: `text-mode-hook' and
+`vc-log-mode-hook'.  *Note Hooks::.
 
 
-File: emacs,  Node: Force Same Window,  Next: Change Window,  Prev: Pop Up Window,  Up: Windows
+File: emacs,  Node: Old Versions,  Next: Secondary VC Commands,  Prev: Basic VC Editing,  Up: Version Control
 
-Forcing Display in the Same Window
-==================================
+Examining And Comparing Old Versions
+------------------------------------
 
-   Certain Emacs commands switch to a specific buffer with special
-contents.  For example, `M-x shell' switches to a buffer named
-`*Shell*'.  By convention, all these commands are written to pop up the
-buffer in a separate window.  But you can specify that certain of these
-buffers should appear in the selected window.
+   One of the convenient features of version control is the ability to
+examine any version of a file, or compare two versions.
 
-   If you add a buffer name to the list `same-window-buffer-names', the
-effect is that such commands display that particular buffer by
-switching to it in the selected window.  For example, if you add the
-element `"*grep*"' to the list, the `grep' command will display its
-output buffer in the selected window.
+`C-x v ~ VERSION <RET>'
+     Examine version VERSION of the visited file, in a buffer of its
+     own.
 
-   The default value of `same-window-buffer-names' is not `nil': it
-specifies buffer names `*info*', `*mail*' and `*shell*' (as well as
-others used by more obscure Emacs packages).  This is why `M-x shell'
-normally switches to the `*shell*' buffer in the selected window.  If
-you delete this element from the value of `same-window-buffer-names',
-the behavior of `M-x shell' will change--it will pop up the buffer in
-another window instead.
+`C-x v ='
+     Compare the current buffer contents with the latest checked-in
+     version of the file.
 
-   You can specify these buffers more generally with the variable
-`same-window-regexps'.  Set it to a list of regular expressions; then
-any buffer whose name matches one of those regular expressions is
-displayed by switching to it in the selected window.  (Once again, this
-applies only to buffers that normally get displayed for you in a
-separate window.)  The default value of this variable specifies Telnet
-and rlogin buffers.
+`C-u C-x v = FILE <RET> OLDVERS <RET> NEWVERS <RET>'
+     Compare the specified two versions of FILE.
 
-   An analogous feature lets you specify buffers which should be
-displayed in their own individual frames.  *Note Special Buffer
-Frames::.
+`C-x v g'
+     Display the result of the CVS annotate command using colors.
 
-
-File: emacs,  Node: Change Window,  Prev: Force Same Window,  Up: Windows
+   To examine an old version in its entirety, visit the file and then
+type `C-x v ~ VERSION <RET>' (`vc-version-other-window').  This puts
+the text of version VERSION in a file named `FILENAME.~VERSION~', and
+visits it in its own buffer in a separate window.  (In RCS, you can
+also select an old version and create a branch from it.  *Note
+Branches::.)
 
-Deleting and Rearranging Windows
-================================
+   It is usually more convenient to compare two versions of the file,
+with the command `C-x v =' (`vc-diff').  Plain `C-x v =' compares the
+current buffer contents (saving them in the file if necessary) with the
+last checked-in version of the file.  `C-u C-x v =', with a numeric
+argument, reads a file name and two version numbers, then compares
+those versions of the specified file.  Both forms display the output in
+a special buffer in another window.
 
-`C-x 0'
-     Delete the selected window (`delete-window').  The last character
-     in this key sequence is a zero.
+   You can specify a checked-in version by its number; an empty input
+specifies the current contents of the work file (which may be different
+from all the checked-in versions).  You can also specify a snapshot name
+(*note Snapshots::) instead of one or both version numbers.
 
-`C-x 1'
-     Delete all windows in the selected frame except the selected window
-     (`delete-other-windows').
+   If you supply a directory name instead of the name of a registered
+file, this command compares the two specified versions of all registered
+files in that directory and its subdirectories.
 
-`C-x 4 0'
-     Delete the selected window and kill the buffer that was showing in
-     it (`kill-buffer-and-window').  The last character in this key
-     sequence is a zero.
+   `C-x v =' works by running a variant of the `diff' utility designed
+to work with the version control system in use.  When you invoke `diff'
+this way, in addition to the options specified by `diff-switches'
+(*note Comparing Files::), it receives those specified by
+`vc-diff-switches', plus those specified for the specific back end by
+`vc-BACKEND-diff-switches'.  For instance, when the version control
+back end is RCS, `diff' uses the options in `vc-rcs-diff-switches'.  The
+`vc...diff-switches' variables are `nil' by default.
 
-`C-x ^'
-     Make selected window taller (`enlarge-window').
+   Unlike the `M-x diff' command, `C-x v =' does not try to locate the
+changes in the old and new versions.  This is because normally one or
+both versions do not exist as files when you compare them; they exist
+only in the records of the master file.  *Note Comparing Files::, for
+more information about `M-x diff'.
 
-`C-x }'
-     Make selected window wider (`enlarge-window-horizontally').
+   For CVS-controlled files, you can display the result of the CVS
+annotate command, using colors to enhance the visual appearance.  Use
+the command `M-x vc-annotate' to do this.  It creates a new buffer to
+display file's text, colored to show how old each part is.  Text
+colored red is new, blue means old, and intermediate colors indicate
+intermediate ages.  By default, the time scale is 360 days, so that
+everything more than one year old is shown in blue.
 
-`C-x {'
-     Make selected window narrower (`shrink-window-horizontally').
-
-`C-x -'
-     Shrink this window if its buffer doesn't need so many lines
-     (`shrink-window-if-larger-than-buffer').
-
-`C-x +'
-     Make all windows the same height (`balance-windows').
-
-`Drag-Mouse-1'
-     Dragging a window's mode line up or down with `Mouse-1' changes
-     window heights.
-
-`Mouse-2'
-     `Mouse-2' in a window's mode line deletes all other windows in the
-     frame (`mouse-delete-other-windows').
-
-`Mouse-3'
-     `Mouse-3' in a window's mode line deletes that window
-     (`mouse-delete-window').
-
-   To delete a window, type `C-x 0' (`delete-window').  (That is a
-zero.)  The space occupied by the deleted window is given to an
-adjacent window (but not the minibuffer window, even if that is active
-at the time).  Once a window is deleted, its attributes are forgotten;
-only restoring a window configuration can bring it back.  Deleting the
-window has no effect on the buffer it used to display; the buffer
-continues to exist, and you can select it in any window with `C-x b'.
-
-   `C-x 4 0' (`kill-buffer-and-window') is a stronger command than `C-x
-0'; it kills the current buffer and then deletes the selected window.
-
-   `C-x 1' (`delete-other-windows') is more powerful in a different
-way; it deletes all the windows except the selected one (and the
-minibuffer); the selected window expands to use the whole frame except
-for the echo area.
-
-   You can also delete a window by clicking on its mode line with
-`Mouse-2', and delete all the windows in a frame except one window by
-clicking on that window's mode line with `Mouse-3'.
-
-   The easiest way to adjust window heights is with a mouse.  If you
-press `Mouse-1' on a mode line, you can drag that mode line up or down,
-changing the heights of the windows above and below it.
-
-   To readjust the division of space among vertically adjacent windows,
-use `C-x ^' (`enlarge-window').  It makes the currently selected window
-get one line bigger, or as many lines as is specified with a numeric
-argument.  With a negative argument, it makes the selected window
-smaller.  `C-x }' (`enlarge-window-horizontally') makes the selected
-window wider by the specified number of columns.  `C-x {'
-(`shrink-window-horizontally') makes the selected window narrower by
-the specified number of columns.
-
-   When you make a window bigger, the space comes from one of its
-neighbors.  If this makes any window too small, it is deleted and its
-space is given to an adjacent window.  The minimum size is specified by
-the variables `window-min-height' and `window-min-width'.
-
-   The command `C-x -' (`shrink-window-if-larger-than-buffer') reduces
-the height of the selected window, if it is taller than necessary to
-show the whole text of the buffer it is displaying.  It gives the extra
-lines to other windows in the frame.
-
-   You can also use `C-x +' (`balance-windows') to even out the heights
-of all the windows in the selected frame.
-
-   *Note Minibuffer Edit::, for information about the Resize-Minibuffer
-mode, which automatically changes the size of the minibuffer window to
-fit the text in the minibuffer.
+   When you give a prefix argument to this command, it uses the
+minibuffer to read two arguments: which version number to display and
+annotate (instead of the current file contents), and a stretch factor
+for the time scale.  A stretch factor of 0.1 means that the color range
+from red to blue spans the past 36 days instead of 360 days.  A stretch
+factor greater than 1 means the color range spans more than a year.
 
 
-File: emacs,  Node: Frames,  Next: International,  Prev: Windows,  Up: Top
+File: emacs,  Node: Secondary VC Commands,  Next: Branches,  Prev: Old Versions,  Up: Version Control
 
-Frames and X Windows
-********************
+The Secondary Commands of VC
+----------------------------
 
-   When using the X Window System, you can create multiple windows at
-the X level in a single Emacs session.  Each X window that belongs to
-Emacs displays a "frame" which can contain one or several Emacs windows.
-A frame initially contains a single general-purpose Emacs window which
-you can subdivide vertically or horizontally into smaller windows.  A
-frame normally contains its own echo area and minibuffer, but you can
-make frames that don't have these--they use the echo area and
-minibuffer of another frame.
-
-   Editing you do in one frame also affects the other frames.  For
-instance, if you put text in the kill ring in one frame, you can yank it
-in another frame.  If you exit Emacs through `C-x C-c' in one frame, it
-terminates all the frames.  To delete just one frame, use `C-x 5 0'.
-
-   To avoid confusion, we reserve the word "window" for the
-subdivisions that Emacs implements, and never use it to refer to a
-frame.
-
-   Emacs compiled for MS-DOS emulates some aspects of the window system
-so that you can use many of the features described in this chapter.
-*Note MS-DOS Input::, for more information.
+   This section explains the secondary commands of VC; those that you
+might use once a day.
 
 * Menu:
 
-* Mouse Commands::      Moving, cutting, and pasting, with the mouse.
-* Secondary Selection:: Cutting without altering point and mark.
-* Mouse References::    Using the mouse to select an item from a list.
-* Menu Mouse Clicks::   Mouse clicks that bring up menus.
-* Mode Line Mouse::     Mouse clicks on the mode line.
-* Speedbar::            How to make and use a speedbar frame.
-* Creating Frames::     Creating additional Emacs frames with various contents.
-* Multiple Displays::   How one Emacs job can talk to several displays.
-* Special Buffer Frames::  You can make certain buffers have their own frames.
-* Frame Parameters::    Changing the colors and other modes of frames.
-* Scroll Bars::	        How to enable and disable scroll bars; how to use them.
-* Menu Bars::	        Enabling and disabling the menu bar.
-* Faces::	        How to change the display style using faces.
-* Font Lock::           Minor mode for syntactic highlighting using faces.
-* Support Modes::       Font Lock support modes make Font Lock faster.
-* Highlight Changes::   Using colors to show where you changed the buffer.
-* Misc X::	        Iconifying and deleting frames. Region highlighting.
-* Non-Window Terminals::  Multiple frames on terminals that show only one.
+* Registering::         Putting a file under version control.
+* VC Status::           Viewing the VC status of files.
+* VC Undo::             Cancelling changes before or after check-in.
+* VC Dired Mode::       Listing files managed by version control.
+* VC Dired Commands::   Commands to use in a VC Dired buffer.
 
 
-File: emacs,  Node: Mouse Commands,  Next: Secondary Selection,  Up: Frames
+File: emacs,  Node: Registering,  Next: VC Status,  Up: Secondary VC Commands
 
-Mouse Commands for Editing
-==========================
+Registering a File for Version Control
+......................................
 
-   The mouse commands for selecting and copying a region are mostly
-compatible with the `xterm' program.  You can use the same mouse
-commands for copying between Emacs and other X client programs.
+   You can put any file under version control by simply visiting it, and
+then typing `C-x v i' (`vc-register').
 
-   If you select a region with any of these mouse commands, and then
-immediately afterward type the <DELETE> function key, it deletes the
-region that you selected.  The <BACKSPACE> function key and the ASCII
-character <DEL> do not do this; if you type any other key in between
-the mouse command and <DELETE>, it does not do this.
+`C-x v i'
+     Register the visited file for version control.
 
-`Mouse-1'
-     Move point to where you click (`mouse-set-point').  This is
-     normally the left button.
+   To register the file, Emacs must choose which version control system
+to use for it.  If the file's directory already contains files
+registered in a version control system, Emacs uses that system.  If
+there is more than one system in use for a directory, Emacs uses the one
+that appears first in `vc-handled-backends' (*note Customizing VC::).
+On the other hand, if there are no files already registered, Emacs uses
+the first system from `vc-handled-backends' that could register the
+file--for example, you cannot register a file under CVS if its
+directory is not already part of a CVS tree.
 
-`Drag-Mouse-1'
-     Set the region to the text you select by dragging, and copy it to
-     the kill ring (`mouse-set-region').  You can specify both ends of
-     the region with this single command.
+   With the default value of `vc-handled-backends', this means that
+Emacs uses RCS if there are any files under RCS control, CVS if there
+are any files under CVS, SCCS if any files are under SCCS, or RCS as
+the ultimate default.
 
-     If you move the mouse off the top or bottom of the window while
-     dragging, the window scrolls at a steady rate until you move the
-     mouse back into the window.  This way, you can select regions that
-     don't fit entirely on the screen.  The number of lines scrolled
-     per step depends on how far away from the window edge the mouse
-     has gone; the variable `mouse-scroll-min-lines' specifies a
-     minimum step size.
+   If locking is in use, `C-x v i' leaves the file unlocked and
+read-only.  Type `C-x C-q' if you wish to start editing it.  After
+registering a file with CVS, you must subsequently commit the initial
+version by typing `C-x C-q'.
 
-`Mouse-2'
-     Yank the last killed text, where you click (`mouse-yank-at-click').
-     This is normally the middle button.
+   The initial version number for a newly registered file is 1.1, by
+default.  You can specify a different default by setting the variable
+`vc-default-init-version', or you can give `C-x v i' a numeric
+argument; then it reads the initial version number for this particular
+file using the minibuffer.
 
-`Mouse-3'
-     This command, `mouse-save-then-kill', has several functions
-     depending on where you click and the status of the region.
-
-     The most basic case is when you click `Mouse-1' in one place and
-     then `Mouse-3' in another.  This selects the text between those two
-     positions as the region.  It also copies the new region to the kill
-     ring, so that you can copy it to someplace else.
-
-     If you click `Mouse-1' in the text, scroll with the scroll bar, and
-     then click `Mouse-3', it remembers where point was before scrolling
-     (where you put it with `Mouse-1'), and uses that position as the
-     other end of the region.  This is so that you can select a region
-     that doesn't fit entirely on the screen.
-
-     More generally, if you do not have a highlighted region, `Mouse-3'
-     selects the text between point and the click position as the
-     region.  It does this by setting the mark where point was, and
-     moving point to where you click.
-
-     If you have a highlighted region, or if the region was set just
-     before by dragging button 1, `Mouse-3' adjusts the nearer end of
-     the region by moving it to where you click.  The adjusted region's
-     text also replaces the old region's text in the kill ring.
-
-     If you originally specified the region using a double or triple
-     `Mouse-1', so that the region is defined to consist of entire words
-     or lines, then adjusting the region with `Mouse-3' also proceeds by
-     entire words or lines.
-
-     If you use `Mouse-3' a second time consecutively, at the same
-     place, that kills the region already selected.
-
-`Double-Mouse-1'
-     This key sets the region around the word which you click on.  If
-     you click on a character with "symbol" syntax (such as underscore,
-     in C mode), it sets the region around the symbol surrounding that
-     character.
-
-     If you click on a character with open-parenthesis or
-     close-parenthesis syntax, it sets the region around the
-     parenthetical grouping (sexp) which that character starts or ends.
-     If you click on a character with string-delimiter syntax (such as
-     a singlequote or doublequote in C), it sets the region around the
-     string constant (using heuristics to figure out whether that
-     character is the beginning or the end of it).
-
-`Double-Drag-Mouse-1'
-     This key selects a region made up of the words you drag across.
-
-`Triple-Mouse-1'
-     This key sets the region around the line you click on.
-
-`Triple-Drag-Mouse-1'
-     This key selects a region made up of the lines you drag across.
-
-   The simplest way to kill text with the mouse is to press `Mouse-1'
-at one end, then press `Mouse-3' twice at the other end.  *Note
-Killing::.  To copy the text into the kill ring without deleting it
-from the buffer, press `Mouse-3' just once--or just drag across the
-text with `Mouse-1'.  Then you can copy it elsewhere by yanking it.
-
-   To yank the killed or copied text somewhere else, move the mouse
-there and press `Mouse-2'.  *Note Yanking::.  However, if
-`mouse-yank-at-point' is non-`nil', `Mouse-2' yanks at point.  Then it
-does not matter where you click, or even which of the frame's windows
-you click on.  The default value is `nil'.  This variable also affects
-yanking the secondary selection.
-
-   To copy text to another X window, kill it or save it in the kill
-ring.  Under X, this also sets the "primary selection".  Then use the
-"paste" or "yank" command of the program operating the other window to
-insert the text from the selection.
-
-   To copy text from another X window, use the "cut" or "copy" command
-of the program operating the other window, to select the text you want.
-Then yank it in Emacs with `C-y' or `Mouse-2'.
-
-   These cutting and pasting commands also work on MS-Windows.
-
-   When Emacs puts text into the kill ring, or rotates text to the front
-of the kill ring, it sets the "primary selection" in the X server.
-This is how other X clients can access the text.  Emacs also stores the
-text in the cut buffer, but only if the text is short enough
-(`x-cut-buffer-max' specifies the maximum number of characters);
-putting long strings in the cut buffer can be slow.
-
-   The commands to yank the first entry in the kill ring actually check
-first for a primary selection in another program; after that, they check
-for text in the cut buffer.  If neither of those sources provides text
-to yank, the kill ring contents are used.
+   If `vc-initial-comment' is non-`nil', `C-x v i' reads an initial
+comment to describe the purpose of this source file.  Reading the
+initial comment works like reading a log entry (*note Log Buffer::).
 
 
-File: emacs,  Node: Secondary Selection,  Next: Mouse References,  Prev: Mouse Commands,  Up: Frames
+File: emacs,  Node: VC Status,  Next: VC Undo,  Prev: Registering,  Up: Secondary VC Commands
 
-Secondary Selection
-===================
+VC Status Commands
+..................
 
-   The "secondary selection" is another way of selecting text using X.
-It does not use point or the mark, so you can use it to kill text
-without setting point or the mark.
+`C-x v l'
+     Display version control state and change history.
 
-`M-Drag-Mouse-1'
-     Set the secondary selection, with one end at the place where you
-     press down the button, and the other end at the place where you
-     release it (`mouse-set-secondary').  The highlighting appears and
-     changes as you drag.
-
-     If you move the mouse off the top or bottom of the window while
-     dragging, the window scrolls at a steady rate until you move the
-     mouse back into the window.  This way, you can mark regions that
-     don't fit entirely on the screen.
-
-`M-Mouse-1'
-     Set one endpoint for the "secondary selection"
-     (`mouse-start-secondary').
-
-`M-Mouse-3'
-     Make a secondary selection, using the place specified with
-     `M-Mouse-1' as the other end (`mouse-secondary-save-then-kill').
-     A second click at the same place kills the secondary selection
-     just made.
-
-`M-Mouse-2'
-     Insert the secondary selection where you click
-     (`mouse-yank-secondary').  This places point at the end of the
-     yanked text.
-
-   Double or triple clicking of `M-Mouse-1' operates on words and
-lines, much like `Mouse-1'.
-
-   If `mouse-yank-at-point' is non-`nil', `M-Mouse-2' yanks at point.
-Then it does not matter precisely where you click; all that matters is
-which window you click on.  *Note Mouse Commands::.
+   To view the detailed version control status and history of a file,
+type `C-x v l' (`vc-print-log').  It displays the history of changes to
+the current file, including the text of the log entries.  The output
+appears in a separate window.
 
 
-File: emacs,  Node: Mouse References,  Next: Menu Mouse Clicks,  Prev: Secondary Selection,  Up: Frames
+File: emacs,  Node: VC Undo,  Next: VC Dired Mode,  Prev: VC Status,  Up: Secondary VC Commands
 
-Following References with the Mouse
-===================================
+Undoing Version Control Actions
+...............................
 
-   Some Emacs buffers display lists of various sorts.  These include
-lists of files, of buffers, of possible completions, of matches for a
-pattern, and so on.
+`C-x v u'
+     Revert the buffer and the file to the last checked-in version.
 
-   Since yanking text into these buffers is not very useful, most of
-them define `Mouse-2' specially, as a command to use or view the item
-you click on.
+`C-x v c'
+     Remove the last-entered change from the master for the visited
+     file.  This undoes your last check-in.
 
-   For example, if you click `Mouse-2' on a file name in a Dired
-buffer, you visit that file.  If you click `Mouse-2' on an error
-message in the `*Compilation*' buffer, you go to the source code for
-that error message.  If you click `Mouse-2' on a completion in the
-`*Completions*' buffer, you choose that completion.
+   If you want to discard your current set of changes and revert to the
+last version checked in, use `C-x v u' (`vc-revert-buffer').  This
+leaves the file unlocked; if locking is in use, you must first lock the
+file again before you change it again.  `C-x v u' requires
+confirmation, unless it sees that you haven't made any changes since the
+last checked-in version.
 
-   You can usually tell when `Mouse-2' has this special sort of meaning
-because the sensitive text highlights when you move the mouse over it.
+   `C-x v u' is also the command to unlock a file if you lock it and
+then decide not to change it.
 
-
-File: emacs,  Node: Menu Mouse Clicks,  Next: Mode Line Mouse,  Prev: Mouse References,  Up: Frames
+   To cancel a change that you already checked in, use `C-x v c'
+(`vc-cancel-version').  This command discards all record of the most
+recent checked-in version.  `C-x v c' also offers to revert your work
+file and buffer to the previous version (the one that precedes the
+version that is deleted).
 
-Mouse Clicks for Menus
-======================
+   If you answer `no', VC keeps your changes in the buffer, and locks
+the file.  The no-revert option is useful when you have checked in a
+change and then discover a trivial error in it; you can cancel the
+erroneous check-in, fix the error, and check the file in again.
 
-   Mouse clicks modified with the <CTRL> and <SHIFT> keys bring up
-menus.
+   When `C-x v c' does not revert the buffer, it unexpands all version
+control headers in the buffer instead (*note Version Headers::).  This
+is because the buffer no longer corresponds to any existing version.
+If you check it in again, the check-in process will expand the headers
+properly for the new version number.
 
-`C-Mouse-1'
-     This menu is for selecting a buffer.
+   However, it is impossible to unexpand the RCS `$Log: emacs-9,v $
+   However, it is impossible to unexpand the RCS `Revision 1.1.1.4  2001/10/31 18:00:31  jevans
+   However, it is impossible to unexpand the RCS `Import emacs 21.1 onto the vendor branch.
+   However, it is impossible to unexpand the RCS `' header
+automatically.  If you use that header feature, you have to unexpand it
+by hand--by deleting the entry for the version that you just canceled.
 
-`C-Mouse-2'
-     This menu is for specifying faces and other text properties for
-     editing formatted text.  *Note Formatted Text::.
-
-`C-Mouse-3'
-     This menu is mode-specific.  For most modes, this menu has the same
-     items as all the mode-specific menu-bar menus put together.  Some
-     modes may specify a different menu for this button.(1)
-
-`S-mouse-1'
-     This menu is for specifying the frame's principal font.
-
-   ---------- Footnotes ----------
-
-   (1) Some systems use `Mouse-3' for a mode-specific menu.  We took a
-survey of users, and found they preferred to keep `Mouse-3' for
-selecting and killing regions.  Hence the decision to use `C-Mouse-3'
-for this menu.
-
-
-File: emacs,  Node: Mode Line Mouse,  Next: Speedbar,  Prev: Menu Mouse Clicks,  Up: Frames
-
-Mode Line Mouse Commands
-========================
-
-   You can use mouse clicks on window mode lines to select and
-manipulate windows.
-
-`Mouse-1'
-     `Mouse-1' on a mode line selects the window above.  By dragging
-     `Mouse-1' on the mode line, you can move it, thus changing the
-     height of the windows above and below.
-
-`Mouse-2'
-     `Mouse-2' on a mode line expands that window to fill its frame.
-
-`Mouse-3'
-     `Mouse-3' on a mode line deletes the window above.
-
-`C-Mouse-2'
-     `C-Mouse-2' on a mode line splits the window above horizontally,
-     above the place in the mode line where you click.
-
-   `C-Mouse-2' on a scroll bar splits the corresponding window
-vertically.  *Note Split Window::.
+   Be careful when invoking `C-x v c', as it is easy to lose a lot of
+work with it.  To help you be careful, this command always requires
+confirmation with `yes'.  Note also that this command is disabled under
+CVS, because canceling versions is very dangerous and discouraged with
+CVS.
 
 
-File: emacs,  Node: Creating Frames,  Next: Multiple Displays,  Prev: Speedbar,  Up: Frames
+File: emacs,  Node: VC Dired Mode,  Next: VC Dired Commands,  Prev: VC Undo,  Up: Secondary VC Commands
 
-Creating Frames
-===============
+Dired under VC
+..............
 
-   The prefix key `C-x 5' is analogous to `C-x 4', with parallel
-subcommands.  The difference is that `C-x 5' commands create a new
-frame rather than just a new window in the selected frame (*note Pop Up
-Window::).  If an existing visible or iconified frame already displays
-the requested material, these commands use the existing frame, after
-raising or deiconifying as necessary.
+   The VC Dired Mode described here works with all the version control
+systems that VC supports.  Another more powerful facility, designed
+specifically for CVS, is called PCL-CVS.  *Note About PCL-CVS:
+(pcl-cvs)Top.
 
-   The various `C-x 5' commands differ in how they find or create the
-buffer to select:
+   When you are working on a large program, it is often useful to find
+out which files have changed within an entire directory tree, or to view
+the status of all files under version control at once, and to perform
+version control operations on collections of files.  You can use the
+command `C-x v d' (`vc-directory') to make a directory listing that
+includes only files relevant for version control.
 
-`C-x 5 2'
-     Create a new frame (`make-frame-command').
+   `C-x v d' creates a buffer which uses VC Dired Mode.  This looks
+much like an ordinary Dired buffer (*note Dired::); however, normally it
+shows only the noteworthy files (those locked or not up-to-date).  This
+is called "terse display".  If you set the variable
+`vc-dired-terse-display' to `nil', then VC Dired shows all relevant
+files--those managed under version control, plus all subdirectories
+("full display").  The command `v t' in a VC Dired buffer toggles
+between terse display and full display (*note VC Dired Commands::).
 
-`C-x 5 b BUFNAME <RET>'
-     Select buffer BUFNAME in another frame.  This runs
-     `switch-to-buffer-other-frame'.
+   By default, VC Dired produces a recursive listing of noteworthy or
+relevant files at or below the given directory.  You can change this by
+setting the variable `vc-dired-recurse' to `nil'; then VC Dired shows
+only the files in the given directory.
 
-`C-x 5 f FILENAME <RET>'
-     Visit file FILENAME and select its buffer in another frame.  This
-     runs `find-file-other-frame'.  *Note Visiting::.
+   The line for an individual file shows the version control state in
+the place of the hard link count, owner, group, and size of the file.
+If the file is unmodified, in sync with the master file, the version
+control state shown is blank.  Otherwise it consists of text in
+parentheses.  Under RCS and SCCS, the name of the user locking the file
+is shown; under CVS, an abbreviated version of the `cvs status' output
+is used.  Here is an example using RCS:
 
-`C-x 5 d DIRECTORY <RET>'
-     Select a Dired buffer for directory DIRECTORY in another frame.
-     This runs `dired-other-frame'.  *Note Dired::.
+       /home/jim/project:
+     
+       -rw-r--r-- (jim)      Apr  2 23:39 file1
+       -r--r--r--            Apr  5 20:21 file2
 
-`C-x 5 m'
-     Start composing a mail message in another frame.  This runs
-     `mail-other-frame'.  It is the other-frame variant of `C-x m'.
-     *Note Sending Mail::.
+The files `file1' and `file2' are under version control, `file1' is
+locked by user jim, and `file2' is unlocked.
 
-`C-x 5 .'
-     Find a tag in the current tag table in another frame.  This runs
-     `find-tag-other-frame', the multiple-frame variant of `M-.'.
-     *Note Tags::.
+   Here is an example using CVS:
 
-`C-x 5 r FILENAME <RET>'
-     Visit file FILENAME read-only, and select its buffer in another
-     frame.  This runs `find-file-read-only-other-frame'.  *Note
-     Visiting::.
+       /home/joe/develop:
+     
+       -rw-r--r-- (modified) Aug  2  1997 file1.c
+       -rw-r--r--            Apr  4 20:09 file2.c
+       -rw-r--r-- (merge)    Sep 13  1996 file3.c
 
-   You can control the appearance of new frames you create by setting
-the frame parameters in `default-frame-alist'.  You can use the
-variable `initial-frame-alist' to specify parameters that affect only
-the initial frame.  *Note Initial Parameters: (elisp)Initial
-Parameters, for more information.
+   Here `file1.c' is modified with respect to the repository, and
+`file2.c' is not.  `file3.c' is modified, but other changes have also
+been checked in to the repository--you need to merge them with the work
+file before you can check it in.
 
-   The easiest way to specify the principal font for all your Emacs
-frames is with an X resource (*note Font X::), but you can also do it by
-modifying `default-frame-alist' to specify the `font' parameter, as
-shown here:
+   When VC Dired displays subdirectories (in the "full" display mode),
+it omits some that should never contain any files under version control.
+By default, this includes Version Control subdirectories such as `RCS'
+and `CVS'; you can customize this by setting the variable
+`vc-directory-exclusion-list'.
 
-     (add-to-list 'default-frame-alist '(font . "10x20"))
+   You can fine-tune VC Dired's format by typing `C-u C-x v d'--as in
+ordinary Dired, that allows you to specify additional switches for the
+`ls' command.
+
+
+File: emacs,  Node: VC Dired Commands,  Prev: VC Dired Mode,  Up: Secondary VC Commands
+
+VC Dired Commands
+.................
+
+   All the usual Dired commands work normally in VC Dired mode, except
+for `v', which is redefined as the version control prefix.  You can
+invoke VC commands such as `vc-diff' and `vc-print-log' by typing `v
+=', or `v l', and so on.  Most of these commands apply to the file name
+on the current line.
+
+   The command `v v' (`vc-next-action') operates on all the marked
+files, so that you can lock or check in several files at once.  If it
+operates on more than one file, it handles each file according to its
+current state; thus, it might lock one file, but check in another file.
+This could be confusing; it is up to you to avoid confusing behavior
+by marking a set of files that are in a similar state.
+
+   If any files call for check-in, `v v' reads a single log entry, then
+uses it for all the files being checked in.  This is convenient for
+registering or checking in several files at once, as part of the same
+change.
+
+   You can toggle between terse display (only locked files, or files not
+up-to-date) and full display at any time by typing `v t'
+(`vc-dired-toggle-terse-mode').  There is also a special command `* l'
+(`vc-dired-mark-locked'), which marks all files currently locked (or,
+with CVS, all files not up-to-date).  Thus, typing `* l t k' is another
+way to delete from the buffer all files except those currently locked.
+
+
+File: emacs,  Node: Branches,  Next: Remote Repositories,  Prev: Secondary VC Commands,  Up: Version Control
+
+Multiple Branches of a File
+---------------------------
+
+   One use of version control is to maintain multiple "current"
+versions of a file.  For example, you might have different versions of a
+program in which you are gradually adding various unfinished new
+features.  Each such independent line of development is called a
+"branch".  VC allows you to create branches, switch between different
+branches, and merge changes from one branch to another.  Please note,
+however, that branches are only supported for RCS at the moment.
+
+   A file's main line of development is usually called the "trunk".
+The versions on the trunk are normally numbered 1.1, 1.2, 1.3, etc.  At
+any such version, you can start an independent branch.  A branch
+starting at version 1.2 would have version number 1.2.1.1, and
+consecutive versions on this branch would have numbers 1.2.1.2,
+1.2.1.3, 1.2.1.4, and so on.  If there is a second branch also starting
+at version 1.2, it would consist of versions 1.2.2.1, 1.2.2.2, 1.2.2.3,
+etc.
+
+   If you omit the final component of a version number, that is called a
+"branch number".  It refers to the highest existing version on that
+branch--the "head version" of that branch.  The branches in the example
+above have branch numbers 1.2.1 and 1.2.2.
+
+* Menu:
+
+* Switching Branches::    How to get to another existing branch.
+* Creating Branches::     How to start a new branch.
+* Merging::               Transferring changes between branches.
+* Multi-User Branching::  Multiple users working at multiple branches
+                            in parallel.
+
+
+File: emacs,  Node: Switching Branches,  Next: Creating Branches,  Up: Branches
+
+Switching between Branches
+..........................
+
+   To switch between branches, type `C-u C-x C-q' and specify the
+version number you want to select.  This version is then visited
+_unlocked_ (write-protected), so you can examine it before locking it.
+Switching branches in this way is allowed only when the file is not
+locked.
+
+   You can omit the minor version number, thus giving only the branch
+number; this takes you to the head version on the chosen branch.  If you
+only type <RET>, Emacs goes to the highest version on the trunk.
+
+   After you have switched to any branch (including the main branch),
+you stay on it for subsequent VC commands, until you explicitly select
+some other branch.
+
+
+File: emacs,  Node: Creating Branches,  Next: Merging,  Prev: Switching Branches,  Up: Branches
+
+Creating New Branches
+.....................
+
+   To create a new branch from a head version (one that is the latest in
+the branch that contains it), first select that version if necessary,
+lock it with `C-x C-q', and make whatever changes you want.  Then, when
+you check in the changes, use `C-u C-x C-q'.  This lets you specify the
+version number for the new version.  You should specify a suitable
+branch number for a branch starting at the current version.  For
+example, if the current version is 2.5, the branch number should be
+2.5.1, 2.5.2, and so on, depending on the number of existing branches at
+that point.
+
+   To create a new branch at an older version (one that is no longer the
+head of a branch), first select that version (*note Switching
+Branches::), then lock it with `C-x C-q'.  You'll be asked to confirm,
+when you lock the old version, that you really mean to create a new
+branch--if you say no, you'll be offered a chance to lock the latest
+version instead.
+
+   Then make your changes and type `C-x C-q' again to check in a new
+version.  This automatically creates a new branch starting from the
+selected version.  You need not specially request a new branch, because
+that's the only way to add a new version at a point that is not the head
+of a branch.
+
+   After the branch is created, you "stay" on it.  That means that
+subsequent check-ins create new versions on that branch.  To leave the
+branch, you must explicitly select a different version with `C-u C-x
+C-q'.  To transfer changes from one branch to another, use the merge
+command, described in the next section.
+
+
+File: emacs,  Node: Merging,  Next: Multi-User Branching,  Prev: Creating Branches,  Up: Branches
+
+Merging Branches
+................
+
+   When you have finished the changes on a certain branch, you will
+often want to incorporate them into the file's main line of development
+(the trunk).  This is not a trivial operation, because development might
+also have proceeded on the trunk, so that you must "merge" the changes
+into a file that has already been changed otherwise.  VC allows you to
+do this (and other things) with the `vc-merge' command.
+
+`C-x v m (vc-merge)'
+     Merge changes into the work file.
+
+   `C-x v m' (`vc-merge') takes a set of changes and merges it into the
+current version of the work file.  It firsts asks you in the minibuffer
+where the changes should come from.  If you just type <RET>, Emacs
+merges any changes that were made on the same branch since you checked
+the file out (we call this "merging the news").  This is the common way
+to pick up recent changes from the repository, regardless of whether
+you have already changed the file yourself.
+
+   You can also enter a branch number or a pair of version numbers in
+the minibuffer.  Then `C-x v m' finds the changes from that branch, or
+the differences between the two versions you specified, and merges them
+into the current version of the current file.
+
+   As an example, suppose that you have finished a certain feature on
+branch 1.3.1.  In the meantime, development on the trunk has proceeded
+to version 1.5.  To merge the changes from the branch to the trunk,
+first go to the head version of the trunk, by typing `C-u C-x C-q
+<RET>'.  Version 1.5 is now current.  If locking is used for the file,
+type `C-x C-q' to lock version 1.5 so that you can change it.  Next,
+type `C-x v m 1.3.1 <RET>'.  This takes the entire set of changes on
+branch 1.3.1 (relative to version 1.3, where the branch started, up to
+the last version on the branch) and merges it into the current version
+of the work file.  You can now check in the changed file, thus creating
+version 1.6 containing the changes from the branch.
+
+   It is possible to do further editing after merging the branch, before
+the next check-in.  But it is usually wiser to check in the merged
+version, then lock it and make the further changes.  This will keep a
+better record of the history of changes.
+
+   When you merge changes into a file that has itself been modified, the
+changes might overlap.  We call this situation a "conflict", and
+reconciling the conflicting changes is called "resolving a conflict".
+
+   Whenever conflicts occur during merging, VC detects them, tells you
+about them in the echo area, and asks whether you want help in merging.
+If you say yes, it starts an Ediff session (*note Ediff: (ediff)Top.).
+
+   If you say no, the conflicting changes are both inserted into the
+file, surrounded by "conflict markers".  The example below shows how a
+conflict region looks; the file is called `name' and the current master
+file version with user B's changes in it is 1.11.
+
+     <<<<<<< name
+       USER A'S VERSION
+     =======
+       USER B'S VERSION
+     >>>>>>> 1.11
+
+   Then you can resolve the conflicts by editing the file manually.  Or
+you can type `M-x vc-resolve-conflicts' after visiting the file.  This
+starts an Ediff session, as described above.  Don't forget to check in
+the merged version afterwards.
+
+
+File: emacs,  Node: Multi-User Branching,  Prev: Merging,  Up: Branches
+
+Multi-User Branching
+....................
+
+   It is often useful for multiple developers to work simultaneously on
+different branches of a file.  CVS allows this by default; for RCS, it
+is possible if you create multiple source directories.  Each source
+directory should have a link named `RCS' which points to a common
+directory of RCS master files.  Then each source directory can have its
+own choice of selected versions, but all share the same common RCS
+records.
+
+   This technique works reliably and automatically, provided that the
+source files contain RCS version headers (*note Version Headers::).  The
+headers enable Emacs to be sure, at all times, which version number is
+present in the work file.
+
+   If the files do not have version headers, you must instead tell Emacs
+explicitly in each session which branch you are working on.  To do this,
+first find the file, then type `C-u C-x C-q' and specify the correct
+branch number.  This ensures that Emacs knows which branch it is using
+during this particular editing session.
+
+
+File: emacs,  Node: Remote Repositories,  Next: Snapshots,  Prev: Branches,  Up: Version Control
+
+Remote Repositories
+-------------------
+
+   A common way of using CVS is to set up a central CVS repository on
+some Internet host, then have each developer check out a personal
+working copy of the files on his local machine.  Committing changes to
+the repository, and picking up changes from other users into one's own
+working area, then works by direct interactions with the CVS server.
+
+   One difficulty is that access to the CVS server is often slow, and
+that developers might need to work off-line as well.  VC is designed to
+reduce the amount of network interaction necessary.
+
+* Menu:
+
+* Version Backups::        Keeping local copies of repository versions.
+* Local Version Control::  Using another version system for local editing.
+
+
+File: emacs,  Node: Version Backups,  Next: Local Version Control,  Up: Remote Repositories
+
+Version Backups
+...............
+
+   When VC sees that the CVS repository for a file is on a remote
+machine, it automatically makes local backups of unmodified versions of
+the file--"automatic version backups".  This means that you can compare
+the file to the repository version (`C-x v ='), or revert to that
+version (`C-x v u'), without any network interactions.
+
+   The local copy of the unmodified file is called a "version backup"
+to indicate that it corresponds exactly to a version that is stored in
+the repository.  Note that version backups are not the same as ordinary
+Emacs backup files (*note Backup::).  But they follow a similar naming
+convention.
+
+   For a file that comes from a remote CVS repository, VC makes a
+version backup whenever you save the first changes to the file, and
+removes it after you have committed your modified version to the
+repository. You can disable the making of automatic version backups by
+setting `vc-cvs-stay-local' to `nil' (*note CVS Options::).
+
+   The name of the automatic version backup for version VERSION of file
+FILE is `FILE.~VERSION.~'.  This is almost the same as the name used by
+`C-x v ~' (*note Old Versions::), the only difference being the
+additional dot (`.') after the version number.  This similarity is
+intentional, because both kinds of files store the same kind of
+information.  The file made by `C-x v ~' acts as a "manual version
+backup".
+
+   All the VC commands that operate on old versions of a file can use
+both kinds of version backups.  For instance, `C-x v ~' uses either an
+automatic or a manual version backup, if possible, to get the contents
+of the version you request.  Likewise, `C-x v =' and `C-x v u' use
+either an automatic or a manual version backup, if one of them exists,
+to get the contents of a version to compare or revert to.  If you
+changed a file outside of Emacs, so that no automatic version backup
+was created for the previous text, you can create a manual backup of
+that version using `C-x v ~', and thus obtain the benefit of the local
+copy for Emacs commands.
+
+   The only difference in Emacs's handling of manual and automatic
+version backups, once they exist, is that Emacs deletes automatic
+version backups when you commit to the repository.  By contrast, manual
+version backups remain until you delete them.
+
+
+File: emacs,  Node: Local Version Control,  Prev: Version Backups,  Up: Remote Repositories
+
+Local Version Control
+.....................
+
+   When you make many changes to a file that comes from a remote
+repository, it can be convenient to have version control on your local
+machine as well.  You can then record intermediate versions, revert to
+a previous state, etc., before you actually commit your changes to the
+remote server.
+
+   VC lets you do this by putting a file under a second, local version
+control system, so that the file is effectively registered in two
+systems at the same time.  For the description here, we will assume
+that the remote system is CVS, and you use RCS locally, although the
+mechanism works with any combination of version control systems ("back
+ends").
+
+   To make it work with other back ends, you must make sure that the
+"more local" back end comes before the "more remote" back end in the
+setting of `vc-handled-backends' (*note Customizing VC::).  By default,
+this variable is set up so that you can use remote CVS and local RCS as
+described here.
+
+   To start using local RCS for a file that comes from a remote CVS
+server, you must _register the file in RCS_, by typing `C-u C-x v v rcs
+<RET>'.  (In other words, use `vc-next-action' with a prefix argument,
+and specify RCS as the back end.)
+
+   You can do this at any time; it does not matter whether you have
+already modified the file with respect to the version in the CVS
+repository.  If possible, VC tries to make the RCS master start with
+the unmodified repository version, then checks in any local changes as
+a new version.  This works if you have not made any changes yet, or if
+the unmodified repository version exists locally as a version backup
+(*note Version Backups::).  If the unmodified version is not available
+locally, the RCS master starts with the modified version; the only
+drawback to this is that you cannot compare your changes locally to
+what is stored in the repository.
+
+   The version number of the RCS master is derived from the current CVS
+version, starting a branch from it.  For example, if the current CVS
+version is 1.23, the local RCS branch will be 1.23.1.  Version 1.23 in
+the RCS master will be identical to version 1.23 under CVS; your first
+changes are checked in as 1.23.1.1.  (If the unmodified file is not
+available locally, VC will check in the modified file twice, both as
+1.23 and 1.23.1.1, to make the revision numbers consistent.)
+
+   If you do not use locking under CVS (the default), locking is also
+disabled for RCS, so that editing under RCS works exactly as under CVS.
+
+   When you are done with local editing, you can commit the final
+version back to the CVS repository by typing `C-u C-x v v cvs <RET>'.
+This initializes the log entry buffer (*note Log Buffer::) to contain
+all the log entries you have recorded in the RCS master; you can edit
+them as you wish, and then commit in CVS by typing `C-c C-c'.  If the
+commit is successful, VC removes the RCS master, so that the file is
+once again registered under CVS only.  (The RCS master is not actually
+deleted, just renamed by appending `~' to the name, so that you can
+refer to it later if you wish.)
+
+   While using local RCS, you can pick up recent changes from the CVS
+repository into your local file, or commit some of your changes back to
+CVS, without terminating local RCS version control.  To do this, switch
+to the CVS back end temporarily, with the `C-x v b' command:
+
+`C-x v b'
+     Switch to another back end that the current file is registered
+     under (`vc-switch-backend').
+
+`C-u C-x v b BACKEND <RET>'
+     Switch to BACKEND for the current file.
+
+   `C-x v b' does not change the buffer contents, or any files; it only
+changes VC's perspective on how to handle the file.  Any subsequent VC
+commands for that file will operate on the back end that is currently
+selected.
+
+   If the current file is registered in more than one back end, typing
+`C-x v b' "cycles" through all of these back ends.  With a prefix
+argument, it asks for the back end to use in the minibuffer.
+
+   Thus, if you are using local RCS, and you want to pick up some recent
+changes in the file from remote CVS, first visit the file, then type
+`C-x v b' to switch to CVS, and finally use `C-x v m <RET>' to merge
+the news (*note Merging::).  You can then switch back to RCS by typing
+`C-x v b' again, and continue to edit locally.
+
+   But if you do this, the revision numbers in the RCS master no longer
+correspond to those of CVS.  Technically, this is not a problem, but it
+can become difficult to keep track of what is in the CVS repository and
+what is not.  So we suggest that you return from time to time to
+CVS-only operation, using `C-u C-x v v cvs <RET>'.
 

@@ -2,8 +2,7 @@
 
 ;; Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 
-;; Author: Gary D. Foster <gfoster@suzieq.ml.org>
-;; Maintainer: FSF (unless Foster can be recontacted)
+;; Author: Gary D. Foster <Gary.Foster@Corp.Sun.COM>
 ;; Keywords: emulations brief crisp
 
 ;; This file is part of GNU Emacs.
@@ -352,7 +351,7 @@ normal CRiSP binding) and when it is nil M-x will run
 
 ;;;###autoload
 (defun crisp-mode (&optional arg)
-  "Toggle CRiSP emulation minor mode.
+  "Toggle CRiSP/Brief emulation minor mode.
 With ARG, turn CRiSP mode on if ARG is positive, off otherwise."
   (interactive "P")
   (setq crisp-mode (if (null arg)
@@ -371,6 +370,10 @@ With ARG, turn CRiSP mode on if ARG is positive, off otherwise."
     (if (featurep 'scroll-all)
 	(define-key crisp-mode-map [(meta f1)] 'scroll-all-mode))
     (run-hooks 'crisp-mode-hook)))
+
+;; People might use Apropos on `brief'.
+;;;###autoload
+(defalias 'brief-mode 'crisp-mode)
 
 (if (fboundp 'add-minor-mode)
     (add-minor-mode 'crisp-mode 'crisp-mode-modeline-string

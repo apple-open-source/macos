@@ -1,4 +1,0 @@
-PROFILE_CFLAGS = $(filter-out -DPROFILE, $(filter-out -pg, $(ALL_CFLAGS)))
-$(OFILE_DIR)/gmon.i386.o $(OFILE_DIR)/gmon.ppc.o: gmon.c
-	$(CC) -arch $(CURRENT_ARCH) $(PROFILE_CFLAGS) $(LOCAL_DIR_INCLUDE_DIRECTIVE) -c gmon.c -o $@
-

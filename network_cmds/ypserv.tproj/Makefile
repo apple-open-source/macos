@@ -18,7 +18,7 @@ CFILES = acl.c ypdb.c yplog.c ypserv.c ypserv_db.c ypserv_proc.c\
          ypserv_xdr.c ypserv_xdr_v1.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble securenet\
-            securenet.5 ypserv.acl ypserv.acl.5
+            securenet.5 ypserv.acl ypserv.acl.5 ypserv.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

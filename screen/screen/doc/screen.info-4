@@ -1,0 +1,1323 @@
+This is screen.info, produced by makeinfo version 4.0 from
+./screen.texinfo.
+
+START-INFO-DIR-ENTRY
+* Screen: (screen).             Full-screen window manager.
+END-INFO-DIR-ENTRY
+
+   This file documents the `Screen' virtual terminal manager.
+
+   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: screen.info,  Node: Character Translation,  Prev: Obuflimit,  Up: Termcap
+
+Character Translation
+=====================
+
+   `Screen' has a powerful mechanism to translate characters to
+arbitrary strings depending on the current font and terminal type.  Use
+this feature if you want to work with a common standard character set
+(say ISO8851-latin1) even on terminals that scatter the more unusual
+characters over several national language font pages.
+
+   Syntax:
+
+         XC=<CHARSET-MAPPING>{,,<CHARSET-MAPPING>}
+         <CHARSET-MAPPING> := <DESIGNATOR><TEMPLATE>{,<MAPPING>}
+         <MAPPING> := <CHAR-TO-BE-MAPPED><TEMPLATE-ARG>
+
+   The things in braces may be repeated any number of times.
+
+   A <CHARSET-MAPPING> tells screen how to map characters in font
+<DESIGNATOR> (`B': Ascii, `A': UK, `K': german, etc.)  to strings.
+Every <MAPPING> describes to what string a single character will be
+translated. A template mechanism is used, as most of the time the codes
+have a lot in common (for example strings to switch to and from another
+charset). Each occurrence of `%' in <TEMPLATE> gets substituted with the
+TEMPLATE-ARG specified together with the character. If your strings are
+not similar at all, then use `%' as a template and place the full
+string in <TEMPLATE-ARG>. A quoting mechanism was added to make it
+possible to use a real `%'. The `\' character quotes the special
+characters `\', `%', and `,'.
+
+   Here is an example:
+
+         termcap hp700 'XC=B\E(K%\E(B,\304[,\326\\\\,\334]'
+
+   This tells `screen', how to translate ISOlatin1 (charset `B') upper
+case umlaut characters on a `hp700' terminal that has a german charset.
+`\304' gets translated to `\E(K[\E(B' and so on.  Note that this line
+gets parsed *three* times before the internal lookup table is built,
+therefore a lot of quoting is needed to create a single `\'.
+
+   Another extension was added to allow more emulation: If a mapping
+translates the unquoted `%' char, it will be sent to the terminal
+whenever screen switches to the corresponding <DESIGNATOR>.  In this
+special case the template is assumed to be just `%' because the charset
+switch sequence and the character mappings normally haven't much in
+common.
+
+   This example shows one use of the extension:
+         termcap xterm 'XC=K%,%\E(B,[\304,\\\\\326,]\334'
+
+   Here, a part of the german (`K') charset is emulated on an xterm.
+If screen has to change to the `K' charset, `\E(B' will be sent to the
+terminal, i.e. the ASCII charset is used instead. The template is just
+`%', so the mapping is straightforward: `[' to `\304', `\' to `\326',
+and `]' to `\334'.
+
+
+File: screen.info,  Node: Message Line,  Next: Logging,  Prev: Termcap,  Up: Top
+
+The Message Line
+****************
+
+   `screen' displays informational messages and other diagnostics in a
+"message line" at the bottom of the screen.  If your terminal has a
+status line defined in its termcap, screen will use this for displaying
+its messages, otherwise the last line of the screen will be temporarily
+overwritten and output will be momentarily interrupted.  The message
+line is automatically removed after a few seconds delay, but it can also
+be removed early (on terminals without a status line) by beginning to
+type.
+
+* Menu:
+
+* Privacy Message::             Using the message line from your program.
+* Hardware Status Line::        Use the terminal's hardware status line.
+* Last Message::                Redisplay the last message.
+* Message Wait::                Control how long messages are displayed.
+
+
+File: screen.info,  Node: Privacy Message,  Next: Hardware Status Line,  Up: Message Line
+
+Using the message line from your program
+========================================
+
+   The message line facility can be used by an application running in
+the current window by means of the ANSI "Privacy message" control
+sequence.  For instance, from within the shell, try something like:
+
+     echo "^Hello world from window $WINDOW\"
+
+   where `' is ASCII ESC and `^' is a literal caret or up-arrow.
+
+
+File: screen.info,  Node: Hardware Status Line,  Next: Last Message,  Prev: Privacy Message,  Up: Message Line
+
+Hardware Status Line
+====================
+
+ - Command: hardstatus [state]
+ - Command: hardstatus [`always']`lastline'|`message'|`ignore' [string]
+ - Command: hardstatus `string' [string]
+     (none)
+     This command configures the use and emulation of the terminal's
+     hardstatus line. The first form toggles whether `screen' will use
+     the hardware status line to display messages. If the flag is set
+     to `off', these messages are overlaid in reverse video mode at the
+     display line. The default setting is `on'.
+
+     The second form tells screen what to do if the terminal doesn't
+     have a hardstatus line (i.e. the termcap/terminfo capabilities
+     "hs", "ts", "fs" and "ds" are not set). If the type `lastline' is
+     used, screen will reserve the last line of the display for the
+     hardstatus. `message' uses `screen''s message mechanism and
+     `ignore' tells `screen' never to display the hardstatus.  If you
+     prepend the word `always' to the type, `screen' will use the type
+     even if the terminal supports a hardstatus line.
+
+     The third form specifies the contents of the hardstatus line.
+     `%h' is used as default string, i.e. the stored hardstatus of the
+     current window (settable via `ESC]0;^G' or `ESC_\\') is displayed.
+     You can customize this to any string you like including string
+     escapes (*note String Escapes::).  If you leave out the argument
+     STRING, the current string is displayed.
+
+     You can mix the second and third form by providing the string as
+     additional argument.
+
+
+File: screen.info,  Node: Last Message,  Next: Message Wait,  Prev: Hardware Status Line,  Up: Message Line
+
+Display Last Message
+====================
+
+ - Command: lastmsg
+     (`C-a m', `C-a C-m')
+     Repeat the last message displayed in the message line.  Useful if
+     you're typing when a message appears, because (unless your
+     terminal has a hardware status line) the message goes away when
+     you press a key.
+
+
+File: screen.info,  Node: Message Wait,  Prev: Last Message,  Up: Message Line
+
+Message Wait
+============
+
+ - Command: msgminwait sec
+     (none)
+     Defines the time `screen' delays a new message when another is
+     currently displayed.  Defaults to 1 second.
+
+ - Command: msgwait sec
+     (none)
+     Defines the time a message is displayed, if `screen' is not
+     disturbed by other activity.  Defaults to 5 seconds.
+
+
+File: screen.info,  Node: Logging,  Next: Startup,  Prev: Message Line,  Up: Top
+
+Logging
+*******
+
+   This section describes the commands for keeping a record of your
+session.
+
+* Menu:
+
+* Hardcopy::                    Dump the current screen to a file
+* Log::                         Log the output of a window to a file
+
+
+File: screen.info,  Node: Hardcopy,  Next: Log,  Up: Logging
+
+hardcopy
+========
+
+ - Command: hardcopy
+     (`C-a h', `C-a C-h')
+     Writes out the current display contents to the file `hardcopy.N'
+     in the window's default directory, where N is the number of the
+     current window.  This either appends or overwrites the file if it
+     exists, as determined by the `hardcopy_append' command.
+
+ - Command: hardcopy_append state
+     (none)
+     If set to `on', `screen' will append to the `hardcopy.N' files
+     created by the command `hardcopy'; otherwise, these files are
+     overwritten each time.
+
+ - Command: hardcopydir directory
+     (none)
+     Defines a directory where hardcopy files will be placed.  If unset
+     hardcopys are dumped in screen's current working directory.
+
+
+File: screen.info,  Node: Log,  Prev: Hardcopy,  Up: Logging
+
+log
+===
+
+ - Command: log [state]
+     (`C-a H')
+     Begins/ends logging of the current window to the file
+     `screenlog.N' in the window's default directory, where N is the
+     number of the current window.  This filename can be changed with
+     the `logfile' command.  If no parameter is given, the logging
+     state is toggled.  The session log is appended to the previous
+     contents of the file if it already exists.  The current contents
+     and the contents of the scrollback history are not included in the
+     session log.  Default is `off'.
+
+ - Command: logfile filename
+ - Command: logfile flush secs
+     (none)
+     Defines the name the logfiles will get. The default is
+     `screenlog.%n'.  The second form changes the number of seconds
+     `screen' will wait before flushing the logfile buffer to the
+     file-system. The default value is 10 seconds.
+
+ - Command: logtstamp [state]
+ - Command: logtstamp `after' secs
+ - Command: logtstamp `string' string
+     (none)
+     This command controls logfile time-stamp mechanism of screen. If
+     time-stamps are turned `on', screen adds a string containing the
+     current time to the logfile after two minutes of inactivity.  When
+     output continues and more than another two minutes have passed, a
+     second time-stamp is added to document the restart of the output.
+     You can change this timeout with the second form of the command.
+     The third form is used for customizing the time-stamp string (`--
+     %n:%t -- time-stamp -- %M/%d/%y %c:%s --\n' by default).
+
+
+File: screen.info,  Node: Startup,  Next: Miscellaneous,  Prev: Logging,  Up: Top
+
+Startup
+*******
+
+   This section describes commands which are only useful in the
+`.screenrc' file, for use at startup.
+
+* Menu:
+
+* echo::                        Display a message.
+* sleep::                       Pause execution of the `.screenrc'.
+* Startup Message::             Control display of the copyright notice.
+
+
+File: screen.info,  Node: echo,  Next: sleep,  Up: Startup
+
+echo
+====
+
+ - Command: echo [`-n'] message
+     (none)
+     The echo command may be used to annoy `screen' users with a
+     'message of the day'. Typically installed in a global screenrc.
+     The option `-n' may be used to suppress the line feed.  See also
+     `sleep'.  Echo is also useful for online checking of environment
+     variables.
+
+
+File: screen.info,  Node: sleep,  Next: Startup Message,  Prev: echo,  Up: Startup
+
+sleep
+=====
+
+ - Command: sleep num
+     (none)
+     This command will pause the execution of a .screenrc file for NUM
+     seconds.  Keyboard activity will end the sleep.  It may be used to
+     give users a chance to read the messages output by `echo'.
+
+
+File: screen.info,  Node: Startup Message,  Prev: sleep,  Up: Startup
+
+Startup Message
+===============
+
+ - Command: startup_message state
+     (none)
+     Select whether you want to see the copyright notice during startup.
+     Default is `on', as you probably noticed.
+
+
+File: screen.info,  Node: Miscellaneous,  Next: String Escapes,  Prev: Startup,  Up: Top
+
+Miscellaneous commands
+**********************
+
+   The commands described here do not fit well under any of the other
+categories.
+
+* Menu:
+
+* At::                          Execute a command at other displays or windows.
+* Break::                       Send a break signal to the window.
+* Debug::                       Suppress/allow debugging output.
+* License::                     Display the disclaimer page.
+* Nethack::                     Use `nethack'-like error messages.
+* Nonblock::			Disable flow-control to a display.
+* Number::                      Change the current window's number.
+* Silence::			Notify on inactivity.
+* Time::                        Display the time and load average.
+* Verbose::                     Display window creation commands.
+* Version::                     Display the version of `screen'.
+* Zombie::                      Keep dead windows.
+* Printcmd::                    Set command for VT100 printer port emulation.
+* Sorendition::			Change the text highlighting method.
+* Attrcolor::			Map attributes to colors.
+
+
+File: screen.info,  Node: At,  Next: Break,  Up: Miscellaneous
+
+At
+==
+
+ - Command: at [identifier][#|*|%] command [args]
+     (none)
+     Execute a command at other displays or windows as if it had been
+     entered there.  `At' changes the context (the `current window' or
+     `current display' setting) of the command. If the first parameter
+     describes a non-unique context, the command will be executed
+     multiple times. If the first parameter is of the form
+     `IDENTIFIER*' then identifier is matched against user names.  The
+     command is executed once for each display of the selected user(s).
+     If the first parameter is of the form `IDENTIFIER%' identifier is
+     matched against displays. Displays are named after the ttys they
+     attach. The prefix `/dev/' or `/dev/tty' may be omitted from the
+     identifier.  If IDENTIFIER has a `#' or nothing appended it is
+     matched against window numbers and titles. Omitting an identifier
+     in front of the `#', `*' or `%' character selects all users,
+     displays or windows because a prefix-match is performed. Note that
+     on the affected display(s) a short message will describe what
+     happened.  Note that the `#' character works as a comment
+     introducer when it is preceded by whitespace. This can be escaped
+     by prefixing `#' with a `\'.  Permission is checked for the
+     initiator of the `at' command, not for the owners of the affected
+     display(s).  Caveat: When matching against windows, the command is
+     executed at least once per window. Commands that change the
+     internal arrangement of windows (like `other') may be called
+     again. In shared windows the command will be repeated for each
+     attached display. Beware, when issuing toggle commands like
+     `login'!  Some commands (e.g. `stuff', `\*Qprocess' or `paste')
+     require that a display is associated with the target windows.
+     These commands may not work correctly under `at' looping over
+     windows.
+
+
+File: screen.info,  Node: Break,  Next: Debug,  Prev: At,  Up: Miscellaneous
+
+Break
+=====
+
+ - Command: break [duration]
+     (none)
+     Send a break signal for DURATION*0.25 seconds to this window.  For
+     non-Posix systems the time interval is rounded up to full seconds.
+     Most useful if a character device is attached to the window rather
+     than a shell process (*note Window Types::). The maximum duration
+     of a break signal is limited to 15 seconds.
+
+ - Command: pow_break
+     (none)
+     Reopen the window's terminal line and send a break condition.
+
+ - Command: breaktype [tcsendbreak|TIOCSBRK|TCSBRK]
+     (none)
+     Choose one of the available methods of generating a break signal
+     for terminal devices. This command should affect the current
+     window only.  But it still behaves identical to `defbreaktype'.
+     This will be changed in the future.  Calling `breaktype' with no
+     parameter displays the break setting for the current window.
+
+ - Command: defbreaktype [tcsendbreak|TIOCSBRK|TCSBRK]
+     (none)
+     Choose one of the available methods of generating a break signal
+     for terminal devices opened afterwards. The preferred methods are
+     `tcsendbreak' and `TIOCSBRK'. The third, `TCSBRK', blocks the
+     complete `screen' session for the duration of the break, but it
+     may be the only way to generate long breaks. `tcsendbreak' and
+     `TIOCSBRK' may or may not produce long breaks with spikes (e.g. 4
+     per second). This is not only system dependant, this also differs
+     between serial board drivers.  Calling `defbreaktype' with no
+     parameter displays the current setting.
+
+
+File: screen.info,  Node: Debug,  Next: License,  Prev: Break,  Up: Miscellaneous
+
+Debug
+=====
+
+ - Command: debug [on|off]
+     (none)
+     Turns runtime debugging on or off. If `screen' has been compiled
+     with option `-DDEBUG' debugging is available and is turned on per
+     default.  Note that this command only affects debugging output
+     from the main `SCREEN' process correctly. Debug output from
+     attacher processes can only be turned off once and forever.
+
+
+File: screen.info,  Node: License,  Next: Nethack,  Prev: Debug,  Up: Miscellaneous
+
+License
+=======
+
+ - Command: license
+     (none)
+     Display the disclaimer page. This is done whenever `screen' is
+     started without options, which should be often enough.
+
+
+File: screen.info,  Node: Nethack,  Next: Nonblock,  Prev: License,  Up: Miscellaneous
+
+Nethack
+=======
+
+ - Command: nethack state
+     (none)
+     Changes the kind of error messages used by `screen'.  When you are
+     familiar with the game `nethack', you may enjoy the nethack-style
+     messages which will often blur the facts a little, but are much
+     funnier to read. Anyway, standard messages often tend to be
+     unclear as well.
+
+     This option is only available if `screen' was compiled with the
+     NETHACK flag defined (*note Installation::). The default setting
+     is then determined by the presence of the environment variable
+     `$NETHACKOPTIONS'.
+
+
+File: screen.info,  Node: Nonblock,  Next: Number,  Prev: Nethack,  Up: Miscellaneous
+
+Nonblock
+========
+
+ - Command: nonblock STATE
+     Enable or disable flow control for the current  user  interface
+     (display). It is used to prevent a slow display from slowing down
+     the processing of data output by a window. This command may be
+     helpful when multiple displays show the same window.  `Nonblock'
+     is initially off for all displays.
+
+
+File: screen.info,  Node: Number,  Next: Silence,  Prev: Nonblock,  Up: Miscellaneous
+
+Number
+======
+
+ - Command: number [N]
+     (`C-a N')
+     Change the current window's number. If the given number N is
+     already used by another window, both windows exchange their
+     numbers. If no argument is specified, the current window number
+     (and title) is shown.
+
+
+File: screen.info,  Node: Silence,  Next: Time,  Prev: Number,  Up: Miscellaneous
+
+Silence
+=======
+
+ - Command: silence [STATE|SEC]
+     (none)
+     Toggles silence monitoring of windows. When silence is turned on
+     and an affected window is switched into the background, you will
+     receive the silence notification message in the status line after
+     a specified period of inactivity (silence). The default timeout
+     can be changed with the `silencewait' command or by specifying a
+     number of seconds instead of `on' or `off'. Silence is initially
+     off for all windows.
+
+ - Command: defsilence state
+     (none)
+     Same as the `silence' command except that the default setting for
+     new windows is changed.  Initial setting is `off'.
+
+ - Command: silencewait SECONDS
+     (none)
+     Define the time that all windows monitored for silence should wait
+     before displaying a message. Default is 30 seconds.
+
+
+File: screen.info,  Node: Time,  Next: Verbose,  Prev: Silence,  Up: Miscellaneous
+
+Time
+====
+
+ - Command: time
+     (`C-a t', `C-a C-t')
+     Uses the message line to display the time of day, the host name,
+     and the load averages over 1, 5, and 15 minutes (if this is
+     available on your system).  For window-specific information use
+     `info' (*note Info::).
+
+
+File: screen.info,  Node: Verbose,  Next: Version,  Prev: Time,  Up: Miscellaneous
+
+Verbose
+=======
+
+ - Command: verbose [on|off]
+     If verbose is switched on, the command name is echoed, whenever a
+     window is created (or resurrected from zombie state). Default is
+     off.  Without parameter, the current setting is shown.
+
+
+File: screen.info,  Node: Version,  Next: Zombie,  Prev: Verbose,  Up: Miscellaneous
+
+Version
+=======
+
+ - Command: version
+     (`C-a v')
+     Display the version and modification date in the message line.
+
+
+File: screen.info,  Node: Zombie,  Next: Printcmd,  Prev: Version,  Up: Miscellaneous
+
+Zombie
+======
+
+ - Command: zombie [KEYS]
+ - Command: defzombie [KEYS]
+     (none)
+     Per default windows are removed from the window list as soon as the
+     windows process (e.g. shell) exits. When a string of two keys is
+     specified to the zombie command, `dead' windows will remain in the
+     list.  The `kill' command may be used to remove the window.
+     Pressing the first key in the dead window has the same effect.
+     Pressing the second key, however, screen will attempt to resurrect
+     the window. The process that was initially running in the window
+     will be launched again. Calling `zombie' without parameters will
+     clear the zombie setting, thus making windows disappear when the
+     process terminates.
+
+     As the zombie setting is affected globally for all windows, this
+     command should only be called `defzombie'. Until we need this as a
+     per window setting, the commands `zombie' and `defzombie' are
+     synonymous.
+
+
+File: screen.info,  Node: Printcmd,  Next: Sorendition,  Prev: Zombie,  Up: Miscellaneous
+
+Printcmd
+========
+
+ - Command: printcmd [CMD]
+     (none)
+     If CMD is not an empty string, screen will not use the terminal
+     capabilities `po/pf' for printing if it detects an ansi print
+     sequence `ESC [ 5 i', but pipe the output into CMD.  This should
+     normally be a command like `lpr' or `cat > /tmp/scrprint'.
+     `Printcmd' without an argument displays the current setting.  The
+     ansi sequence `ESC \' ends printing and closes the pipe.
+
+     Warning: Be careful with this command! If other user have write
+     access to your terminal, they will be able to fire off print
+     commands.
+
+
+File: screen.info,  Node: Sorendition,  Next: Attrcolor,  Prev: Printcmd,  Up: Miscellaneous
+
+Sorendition
+===========
+
+ - Command: sorendition [ATTR [COLOR]]
+     (none)
+     Change the way screen does highlighting for text marking and
+     printing messages.  See the chapter about string escapes (*note
+     String Escapes::) for the syntax of the modifiers. The default is
+     currently `=s dd' (standout, default colors).
+
+
+File: screen.info,  Node: Attrcolor,  Prev: Sorendition,  Up: Miscellaneous
+
+Attrcolor
+=========
+
+ - Command: attrcolor ATTRIB [ATTRIBUTE/COLOR-MODIFIER]
+     (none)
+     This command can be used to highlight attributes by changing the
+     color of the text. If the attribute ATTRIB is in use, the
+     specified attribute/color modifier is also applied. If no modifier
+     is given, the current one is deleted. See the chapter about string
+     escapes (*note String Escapes::) for the syntax of the modifier.
+
+     Examples:
+    `attrcolor b "R"'
+          Change the color to bright red if bold text is to be printed
+
+    `attrcolor u "-u b"'
+          Use blue text instead of underline
+
+    `attrcolor b "I"'
+          Use bright colors for bold text. Most terminal emulators do
+          this already
+
+
+File: screen.info,  Node: String Escapes,  Next: Environment,  Prev: Miscellaneous,  Up: Top
+
+String Escapes
+**************
+
+   Screen provides an escape mechanism to insert information like the
+current time into messages or file names. The escape character is `%'
+with one exception: inside of a window's hardstatus `^%' (`^E') is used
+instead.
+
+   Here is the full list of supported escapes:
+
+`%'
+     the escape character itself
+
+`a'
+     either `am' or `pm'
+
+`A'
+     either `AM' or `PM'
+
+`c'
+     current time `HH:MM' in 24h format
+
+`C'
+     current time `HH:MM' in 12h format
+
+`d'
+     day number
+
+`D'
+     weekday name
+
+`h'
+     hardstatus of the window
+
+`l'
+     current load of the system
+
+`m'
+     month number
+
+`M'
+     month name
+
+`n'
+     window number
+
+`s'
+     seconds
+
+`t'
+     window title
+
+`u'
+     all other users on this window
+
+`w'
+     all window numbers and names
+
+`W'
+     all window numbers and names except the current one
+
+`y'
+     last two digits of the year number
+
+`Y'
+     full year number
+
+`?'
+     the part to the next `%?' is displayed only if an escape expands
+     to an nonempty string
+
+`:'
+     else part of `%?'
+
+`{'
+     attribute/color modifier string terminated by the next `}' The `c'
+and `C' escape may be qualified with a `0' to make screen use zero
+instead of space as fill character. The `n' escape understands a length
+qualifier (e.g. `%3n').
+
+   An attribute/color modifier is is used to change the attributes or
+the color settings. Its format is `[attribute modifier] [color
+description]'. The attribute modifier must be prefixed by a change type
+indicator if it can be confused with a color desciption. The following
+change types are known:
+`+'
+     add the specified set to the current attributes
+
+`-'
+     remove the set from the current attributes
+
+`!'
+     invert the set in the current attributes
+
+`='
+     change the current attributes to the specified set The attribute
+set can either be specified as a hexadecimal number or a combination of
+the following letters:
+`u'
+     underline
+
+`b'
+     bold
+
+`r'
+     reverse
+
+`s'
+     standout
+
+`B'
+     blinking Colors are coded either as a hexadecimal number or two
+letters specifying the desired background and foreground color (in that
+order). The following colors are known:
+`k'
+     black
+
+`r'
+     red
+
+`g'
+     green
+
+`y'
+     yellow
+
+`b'
+     blue
+
+`m'
+     magenta
+
+`c'
+     cyan
+
+`w'
+     white
+
+`d'
+     default color
+
+`.'
+     leave color unchanged The capitalized versions of the letter
+specify bright colors. You can also use the pseudo-color `i' to set
+just the brightness and leave the color unchanged.
+
+   A one digit/letter color description is treated as foreground or
+background color dependant on the current attributes: if reverse mode is
+set, the background color is changed instead of the foreground color.
+If you don't like this, prefix the color with a `.'. If you want the
+same behaviour for two-letter color descriptions, also prefix them with
+a `.'.
+
+Examples:
+`G'
+     set color to bright green
+
+`+b r'
+     use bold red
+
+`= yd'
+     clear all attributes, write in default color on yellow background.
+
+
+File: screen.info,  Node: Environment,  Next: Files,  Prev: String Escapes,  Up: Top
+
+Environment Variables
+*********************
+
+`COLUMNS'
+     Number of columns on the terminal (overrides termcap entry).
+
+`HOME'
+     Directory in which to look for .screenrc.
+
+`LINES'
+     Number of lines on the terminal (overrides termcap entry).
+
+`LOCKPRG'
+     Screen lock program.
+
+`NETHACKOPTIONS'
+     Turns on `nethack' option.
+
+`PATH'
+     Used for locating programs to run.
+
+`SCREENCAP'
+     For customizing a terminal's `TERMCAP' value.
+
+`SCREENDIR'
+     Alternate socket directory.
+
+`SCREENRC'
+     Alternate user screenrc file.
+
+`SHELL'
+     Default shell program for opening windows (default `/bin/sh').
+
+`STY'
+     Alternate socket name. If `screen' is invoked, and the environment
+     variable `STY' is set, then it creates only a window in the
+     running `screen' session rather than starting a new session.
+
+`SYSSCREENRC'
+     Alternate system screenrc file.
+
+`TERM'
+     Terminal name.
+
+`TERMCAP'
+     Terminal description.
+
+
+File: screen.info,  Node: Files,  Next: Credits,  Prev: Environment,  Up: Top
+
+Files Referenced
+****************
+
+`.../screen-3.?.??/etc/screenrc'
+`.../screen-3.?.??/etc/etcscreenrc'
+     Examples in the `screen' distribution package for private and
+     global initialization files.
+
+``$SYSSCREENRC''
+`/local/etc/screenrc'
+     `screen' initialization commands
+
+``$SCREENRC''
+``$HOME'/.iscreenrc'
+``$HOME'/.screenrc'
+     Read in after /local/etc/screenrc
+
+``$SCREENDIR'/S-LOGIN'
+
+`/local/screens/S-LOGIN'
+     Socket directories (default)
+
+`/usr/tmp/screens/S-LOGIN'
+     Alternate socket directories.
+
+`SOCKET DIRECTORY/.termcap'
+     Written by the `dumptermcap' command
+
+`/usr/tmp/screens/screen-exchange or'
+`/tmp/screen-exchange'
+     `screen' interprocess communication buffer
+
+`hardcopy.[0-9]'
+     Screen images created by the hardcopy command
+
+`screenlog.[0-9]'
+     Output log files created by the log command
+
+`/usr/lib/terminfo/?/* or'
+`/etc/termcap'
+     Terminal capability databases
+
+`/etc/utmp'
+     Login records
+
+``$LOCKPRG''
+     Program for locking the terminal.
+
+
+File: screen.info,  Node: Credits,  Next: Bugs,  Prev: Files,  Up: Top
+
+Credits
+*******
+
+Authors
+=======
+
+   Originally created by Oliver Laumann, this latest version was
+produced by Wayne Davison, Juergen Weigert and Michael Schroeder.
+
+Contributors
+============
+
+          Ken Beal (kbeal@amber.ssd.csd.harris.com),
+          Rudolf Koenig (rfkoenig@informatik.uni-erlangen.de),
+          Toerless Eckert (eckert@informatik.uni-erlangen.de),
+          Wayne Davison (davison@borland.com),
+          Patrick Wolfe (pat@kai.com, kailand!pat),
+          Bart Schaefer (schaefer@cse.ogi.edu),
+          Nathan Glasser (nathan@brokaw.lcs.mit.edu),
+          Larry W. Virden (lvirden@cas.org),
+          Howard Chu (hyc@hanauma.jpl.nasa.gov),
+          Tim MacKenzie (tym@dibbler.cs.monash.edu.au),
+          Markku Jarvinen (mta@{cc,cs,ee}.tut.fi),
+          Marc Boucher (marc@CAM.ORG),
+          Doug Siebert (dsiebert@isca.uiowa.edu),
+          Ken Stillson (stillson@tsfsrv.mitre.org),
+          Ian Frechett (frechett@spot.Colorado.EDU),
+          Brian Koehmstedt (bpk@gnu.ai.mit.edu),
+          Don Smith (djs6015@ultb.isc.rit.edu),
+          Frank van der Linden (vdlinden@fwi.uva.nl),
+          Martin Schweikert (schweik@cpp.ob.open.de),
+          David Vrona (dave@sashimi.lcu.com),
+          E. Tye McQueen (tye%spillman.UUCP@uunet.uu.net),
+          Matthew Green (mrg@mame.mu.oz.au),
+          Christopher Williams (cgw@unt.edu),
+          Matt Mosley (mattm@access.digex.net),
+          Gregory Neil Shapiro (gshapiro@wpi.WPI.EDU),
+          Jason Merrill (jason@jarthur.Claremont.EDU).
+
+Version
+=======
+
+   This manual describes version 3.9.9 of the `screen' program. Its
+roots are a merge of a custom version 2.3PR7 by Wayne Davison and
+several enhancements to Oliver Laumann's version 2.0.  Note that all
+versions numbered 2.x are copyright by Oliver Laumann.
+
+   See also *Note Availability::.
+
+
+File: screen.info,  Node: Bugs,  Next: Installation,  Prev: Credits,  Up: Top
+
+Bugs
+****
+
+   Just like any other significant piece of software, `screen' has a
+few bugs and missing features.  Please send in a bug report if you have
+found a bug not mentioned here.
+
+* Menu:
+
+* Known Bugs::                  Problems we know about.
+* Reporting Bugs::              How to contact the maintainers.
+* Availability::                Where to find the lastest screen version.
+
+
+File: screen.info,  Node: Known Bugs,  Next: Reporting Bugs,  Up: Bugs
+
+Known Bugs
+==========
+
+   * `dm' (delete mode) and `xs' are not handled correctly (they are
+     ignored).  `xn' is treated as a magic-margin indicator.
+
+   * `screen' has no clue about double-high or double-wide characters.
+     But this is the only area where `vttest' is allowed to fail.
+
+   * It is not possible to change the environment variable `$TERMCAP'
+     when reattaching under a different terminal type.
+
+   * The support of terminfo based systems is very limited. Adding extra
+     capabilities to `$TERMCAP' may not have any effects.
+
+   * `screen' does not make use of hardware tabs.
+
+   * `screen' must be installed setuid root on most systems in order to
+     be able to correctly change the owner of the tty device file for
+     each window.  Special permission may also be required to write the
+     file `/etc/utmp'.
+
+   * Entries in `/etc/utmp' are not removed when `screen' is killed
+     with SIGKILL.  This will cause some programs (like "w" or "rwho")
+     to advertise that a user is logged on who really isn't.
+
+   * `screen' may give a strange warning when your tty has no utmp
+     entry.
+
+   * When the modem line was hung up, `screen' may not automatically
+     detach (or quit) unless the device driver sends a HANGUP signal.
+     To detach such a `screen' session use the -D or -d command line
+     option.
+
+   * If a password is set, the command line options -d and -D still
+     detach a session without asking.
+
+   * Both `breaktype' and `defbreaktype' change the break generating
+     method used by all terminal devices. The first should change a
+     window specific setting, where the latter should change only the
+     default for new windows.
+
+   * When attaching to a multiuser session, the user's `.screenrc' file
+     is not sourced. Each users personal settings have to be included
+     in the `.screenrc' file from which the session is booted, or have
+     to be changed manually.
+
+   * A weird imagination is most useful to gain full advantage of all
+     the features.
+
+
+File: screen.info,  Node: Reporting Bugs,  Next: Availability,  Prev: Known Bugs,  Up: Bugs
+
+Reporting Bugs
+==============
+
+   If you find a bug in `Screen', please send electronic mail to
+`screen@uni-erlangen.de', and also to `bug-gnu-utils@prep.ai.mit.edu'.
+Include the version number of `Screen' which you are using.  Also
+include in your message the hardware and operating system, the compiler
+used to compile, a description of the bug behavior, and the conditions
+that triggered the bug. Please recompile `screen' with the `-DDEBUG'
+options enabled, reproduce the bug, and have a look at the debug output
+written to the directory `/tmp/debug'. If necessary quote suspect
+passages from the debug output and show the contents of your `config.h'
+if it matters.
+
+
+File: screen.info,  Node: Availability,  Prev: Reporting Bugs,  Up: Bugs
+
+Availability
+============
+
+   `Screen' is available under the `GNU' copyleft.
+
+   The latest official release of `screen' available via anonymous ftp
+from `prep.ai.mit.edu', `nic.funet.fi' or any other `GNU' distribution
+site.  The home site of `screen' is `ftp.uni-erlangen.de
+(131.188.3.71)', in the directory `pub/utilities/screen'.  The
+subdirectory `private' contains the latest beta testing release.  If
+you want to help, send a note to screen@uni-erlangen.de.
+
+
+File: screen.info,  Node: Installation,  Next: Concept Index,  Prev: Bugs,  Up: Top
+
+Installation
+************
+
+   Since `screen' uses pseudo-ttys, the select system call, and
+UNIX-domain sockets/named pipes, it will not run under a system that
+does not include these features of 4.2 and 4.3 BSD UNIX.
+
+* Menu:
+
+* Socket Directory::		Where screen stores its handle.
+* Compiling Screen::
+
+
+File: screen.info,  Node: Socket Directory,  Next: Compiling Screen,  Up: Installation
+
+Socket Directory
+================
+
+   The socket directory defaults either to `$HOME/.screen' or simply to
+`/tmp/screens' or preferably to `/usr/local/screens' chosen at
+compile-time. If `screen' is installed setuid root, then the
+administrator should compile screen with an adequate (not NFS mounted)
+`SOCKDIR'. If `screen' is not running setuid-root, the user can specify
+any mode 700 directory in the environment variable `$SCREENDIR'.
+
+
+File: screen.info,  Node: Compiling Screen,  Prev: Socket Directory,  Up: Installation
+
+Compiling Screen
+================
+
+   To compile and install screen:
+
+   The `screen' package comes with a `GNU Autoconf' configuration
+script. Before you compile the package run
+
+                           `sh ./configure'
+
+   This will create a `config.h' and `Makefile' for your machine.  If
+`configure' fails for some reason, then look at the examples and
+comments found in the `Makefile.in' and `config.h.in' templates.
+Rename `config.status' to `config.status.MACHINE' when you want to keep
+configuration data for multiple architectures. Running `sh
+./config.status.MACHINE' recreates your configuration significantly
+faster than rerunning `configure'.
+Read through the "User Configuration" section of `config.h', and verify
+that it suits your needs.  A comment near the top of this section
+explains why it's best to install screen setuid to root.  Check for the
+place for the global `screenrc'-file and for the socket directory.
+Check the compiler used in `Makefile', the prefix path where to install
+`screen'. Then run
+
+                                `make'
+
+   If `make' fails to produce one of the files `term.h', `comm.h' or
+`tty.c', then use `FILENAME.X.dist' instead.  For additional
+information about installation of `screen' refer to the file
+`INSTALLATION', coming with this package.
+
+
+File: screen.info,  Node: Concept Index,  Next: Command Index,  Prev: Installation,  Up: Top
+
+Concept Index
+*************
+
+* Menu:
+
+* .screenrc:                             Startup Files.
+* availability:                          Availability.
+* binding:                               Key Binding.
+* bug report:                            Reporting Bugs.
+* bugs:                                  Bugs.
+* capabilities:                          Special Capabilities.
+* command character:                     Command Character.
+* command line options:                  Invoking Screen.
+* command summary:                       Command Summary.
+* compiling screen:                      Compiling Screen.
+* control sequences:                     Control Sequences.
+* copy and paste:                        Copy and Paste.
+* customization:                         Customization.
+* environment:                           Environment.
+* escape character:                      Command Character.
+* files:                                 Files.
+* flow control:                          Flow Control.
+* input translation:                     Input Translation.
+* installation:                          Installation.
+* introduction:                          Getting Started.
+* invoking:                              Invoking Screen.
+* key binding:                           Key Binding.
+* marking:                               Copy.
+* message line:                          Message Line.
+* multiuser session:                     Multiuser Session.
+* options:                               Invoking Screen.
+* overview:                              Overview.
+* regions:                               Regions.
+* screenrc:                              Startup Files.
+* scrollback:                            Copy.
+* socket directory:                      Socket Directory.
+* string escapes:                        String Escapes.
+* terminal capabilities:                 Special Capabilities.
+* title:                                 Naming Windows.
+* window types:                          Window Types.
+
+
+File: screen.info,  Node: Command Index,  Next: Keystroke Index,  Prev: Concept Index,  Up: Top
+
+Command Index
+*************
+
+   This is a list of all the commands supported by `screen'.
+
+* Menu:
+
+* acladd:                                Acladd.
+* aclchg:                                Aclchg.
+* acldel:                                Acldel.
+* aclgrp:                                Aclgrp.
+* aclumask:                              Umask.
+* activity:                              Monitor.
+* addacl:                                Acladd.
+* allpartial:                            Redisplay.
+* at:                                    At.
+* attrcolor:                             Attrcolor.
+* autodetach:                            Detach.
+* autonuke:                              Autonuke.
+* bce:                                   Character Processing.
+* bell_msg:                              Bell.
+* bind:                                  Bind.
+* bindkey:                               Bindkey.
+* break:                                 Break.
+* breaktype:                             Break.
+* bufferfile:                            Screen-Exchange.
+* c1:                                    Character Processing.
+* caption:                               Caption.
+* chacl:                                 Aclchg.
+* charset:                               Character Processing.
+* chdir:                                 Chdir.
+* clear:                                 Clear.
+* colon:                                 Colon.
+* command:                               Command Character.
+* compacthist:                           Scrollback.
+* console:                               Console.
+* copy:                                  Copy.
+* copy_reg:                              Registers.
+* crlf:                                  Line Termination.
+* debug:                                 Debug.
+* defautonuke:                           Autonuke.
+* defbce:                                Character Processing.
+* defbreaktype:                          Break.
+* defc1:                                 Character Processing.
+* defcharset:                            Character Processing.
+* defescape:                             Command Character.
+* defflow:                               Flow.
+* defgr:                                 Character Processing.
+* defhstatus:                            Hardstatus.
+* defkanji:                              Character Processing.
+* deflogin:                              Login.
+* defmode:                               Mode.
+* defmonitor:                            Monitor.
+* defobuflimit:                          Obuflimit.
+* defscrollback:                         Scrollback.
+* defshell:                              Shell.
+* defsilence:                            Silence.
+* defslowpaste:                          Paste.
+* defutf8:                               Character Processing.
+* defwrap:                               Wrap.
+* defwritelock:                          Writelock.
+* defzombie:                             Zombie.
+* detach:                                Detach.
+* digraph:                               Digraph.
+* dinfo:                                 Info.
+* displays:                              Displays.
+* dumptermcap:                           Dump Termcap.
+* echo:                                  echo.
+* escape:                                Command Character.
+* exec:                                  Exec.
+* fit:                                   Fit.
+* flow:                                  Flow.
+* focus:                                 Focus.
+* gr:                                    Character Processing.
+* hardcopy:                              Hardcopy.
+* hardcopy_append:                       Hardcopy.
+* hardcopydir:                           Hardcopy.
+* hardstatus:                            Hardware Status Line.
+* height:                                Window Size.
+* help:                                  Help.
+* history:                               History.
+* hstatus:                               Hardstatus.
+* info:                                  Info.
+* ins_reg:                               Registers.
+* kanji:                                 Character Processing.
+* kill:                                  Kill.
+* lastmsg:                               Last Message.
+* license:                               License.
+* lockscreen:                            Lock.
+* log:                                   Log.
+* logfile:                               Log.
+* login:                                 Login.
+* logtstamp:                             Log.
+* mapdefault:                            Bindkey Control.
+* mapnotnext:                            Bindkey Control.
+* maptimeout:                            Bindkey Control.
+* markkeys:                              Copy Mode Keys.
+* meta:                                  Command Character.
+* monitor:                               Monitor.
+* msgminwait:                            Message Wait.
+* msgwait:                               Message Wait.
+* multiuser:                             Multiuser.
+* nethack:                               Nethack.
+* next:                                  Next and Previous.
+* nonblock:                              Nonblock.
+* number:                                Number.
+* obuflimit:                             Obuflimit.
+* only:                                  Only.
+* other:                                 Other Window.
+* partial:                               Redisplay.
+* password:                              Detach.
+* paste:                                 Paste.
+* pastefont:                             Paste.
+* pow_break:                             Break.
+* pow_detach:                            Power Detach.
+* pow_detach_msg:                        Power Detach.
+* prev:                                  Next and Previous.
+* printcmd:                              Printcmd.
+* process:                               Registers.
+* quit:                                  Quit.
+* readbuf:                               Screen-Exchange.
+* readreg:                               Paste.
+* redisplay:                             Redisplay.
+* register:                              Registers.
+* remove:                                Remove.
+* removebuf:                             Screen-Exchange.
+* reset:                                 Reset.
+* resize:                                Resize.
+* screen:                                Screen Command.
+* scrollback:                            Scrollback.
+* select:                                Select.
+* sessionname:                           Session Name.
+* setenv:                                Setenv.
+* shell:                                 Shell.
+* shelltitle:                            Shell.
+* silence:                               Silence.
+* silencewait:                           Silence.
+* sleep:                                 sleep.
+* slowpaste:                             Paste.
+* sorendition:                           Sorendition.
+* split:                                 Split.
+* startup_message:                       Startup Message.
+* stuff:                                 Registers.
+* su:                                    Su.
+* suspend:                               Suspend.
+* term:                                  Term.
+* termcap:                               Termcap Syntax.
+* termcapinfo:                           Termcap Syntax.
+* terminfo:                              Termcap Syntax.
+* time:                                  Time.
+* title:                                 Title Command.
+* umask:                                 Umask.
+* unsetenv:                              Setenv.
+* utf8:                                  Character Processing.
+* vbell:                                 Bell.
+* vbell_msg:                             Bell.
+* vbellwait:                             Bell.
+* verbose:                               Verbose.
+* version:                               Version.
+* wall:                                  Wall.
+* width:                                 Window Size.
+* windows:                               Windows.
+* wrap:                                  Wrap.
+* writebuf:                              Screen-Exchange.
+* writelock:                             Writelock.
+* xoff:                                  XON/XOFF.
+* xon:                                   XON/XOFF.
+* zombie:                                Zombie.
+

@@ -21,6 +21,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef _STUFF_ARCH_H_
+#define _STUFF_ARCH_H_
+
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
 #endif
@@ -138,3 +141,5 @@ __private_extern__ unsigned long get_stack_size_from_flag(
  */
 __private_extern__ unsigned long get_segalign_from_flag(
     const struct arch_flag *flag);
+
+#endif /* _STUFF_ARCH_H_ */

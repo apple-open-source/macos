@@ -22,7 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #ifndef lint
-static char rcsid[] = "$Header: /cvs/Darwin/System/boot/i386/util/tif_packbits.c,v 1.1.1.2 1999/08/04 21:17:19 wsanchez Exp $";
+static char rcsid[] = "$Header: /cvs/Darwin/boot/i386/util/tif_packbits.c,v 1.1.1.2 1999/08/04 21:17:19 wsanchez Exp $";
 #endif
 
 /*

@@ -36,6 +36,9 @@
 #include "IOATABlockStorageDevice.h"
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/IOKitKeys.h>
+
+#define ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL 0
 
 #if ( ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)			IOPanic x
@@ -108,7 +111,7 @@ IOATABlockStorageDriver::start ( IOService * provider )
 	fATAUnitID					= kATAInvalidDeviceID;
 	fATADeviceType				= kUnknownATADeviceType;
 	fATASocketType				= kUnknownSocket;
-	fAPMLevel					= 0x80;
+	fAPMLevel					= 0xFF;
 	
 	// First call start() in our superclass
 	if ( super::start ( provider ) == false )
@@ -197,9 +200,9 @@ IOATABlockStorageDriver::start ( IOService * provider )
 	// and to initialize its state
 	PMinit ( );								// initialize power management variables
 	provider->joinPMtree ( this );  		// join power management tree
-	fPowerManagementInitialized = true;
 	setIdleTimerPeriod ( k5Minutes );		// 5 minute inactivity timer
 	makeUsable ( );
+	fPowerManagementInitialized = true;
 	
 	if ( fSupportedFeatures & kIOATAFeaturePowerManagement )
 		initForPM ( );
@@ -217,30 +220,30 @@ bool
 IOATABlockStorageDriver::finalize ( IOOptionBits options )
 {
 	
-	STATUS_LOG ( ( "IOATABlockStorageDriver::finalize this = %p\n", this ) );
-
     if ( fPowerManagementInitialized )
     {
         
-        if ( fPowerTransitionInProgress )
+        while ( fPowerTransitionInProgress )
         {
             
-            // We have a race here where the thread_call could still fire!!!
-            thread_call_cancel ( fPowerManagementThread );
-            
-            if ( fPowerTransitionInProgress )
-            {
-            
-                acknowledgeSetPowerState ( );
-                
-            }
+            IOSleep ( 1 );
             
         }
-
+		
+		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
+		
         PMstop ( );
-        fPowerTransitionInProgress 	= false;  
+        
+		if ( fPowerManagementThread != NULL )
+		{
+			
+			// If the power management thread is scheduled, unschedule it.
+			thread_call_cancel ( fPowerManagementThread );
+			
+		}
+		
         fPowerManagementInitialized = false;
-
+		
     }
     
     return super::finalize ( options );
@@ -315,7 +318,15 @@ IOATABlockStorageDriver::free ( void )
 		reserved = NULL;
 		
 	}
-
+	
+	if ( fDeviceIdentifyBuffer != NULL )
+	{
+		
+		fDeviceIdentifyBuffer->release ( );
+		fDeviceIdentifyBuffer = NULL;
+		
+	}
+	
 	super::free ( );
 	
 }
@@ -331,7 +342,6 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 	
 	OSString *		string			= NULL;
 	IOReturn		theErr			= kIOReturnSuccess;
-	UInt16			tempWord		= 0;
 	
 	// Fetch ATA device information from the nub.
 	string = OSDynamicCast ( 	OSString,
@@ -357,7 +367,6 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 	}
 	
 	theErr = identifyAndConfigureATADevice ( );
-	
 	if ( theErr != kIOReturnSuccess )
 	{
 		
@@ -365,31 +374,6 @@ IOATABlockStorageDriver::inspectDevice ( IOATADevice * ataDevice )
 		return false;
 		
 	}	
-	
-	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported];
-	
-	if ( ( tempWord & kATASupportsPowerManagementMask ) == kATASupportsPowerManagementMask )
-		fSupportedFeatures |= kIOATAFeaturePowerManagement;
-	
-	if ( ( tempWord & kATASupportsWriteCacheMask ) == kATASupportsWriteCacheMask )
-		fSupportedFeatures |= kIOATAFeatureWriteCache;
-	
-	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported2];
-	if ( ( tempWord & kATADataIsValidMask ) == 0x4000 )
-	{
-		
-		if ( ( tempWord & kATASupportsAdvancedPowerManagementMask ) == kATASupportsAdvancedPowerManagementMask )
-			fSupportedFeatures |= kIOATAFeatureAdvancedPowerManagement;
-		
-		if ( ( tempWord & kATASupportsCompactFlashMask ) == kATASupportsCompactFlashMask )
-			fSupportedFeatures |= kIOATAFeatureCompactFlash;
-		
-	}
-	
-	if ( fDeviceIdentifyData[kATAIdentifyDriveCapabilities] & kLBASupportedMask )
-		fUseLBAAddressing = true;
-	
-	fUseExtendedLBA = IOATADevConfig::sDriveSupports48BitLBA ( fDeviceIdentifyData );
 	
 	// Add an OSNumber property indicating the supported features.
 	setProperty ( 	kIOATASupportedFeaturesKey,
@@ -867,9 +851,19 @@ IOReturn
 IOATABlockStorageDriver::reportMaxReadTransfer ( UInt64 blocksize, UInt64 * max )
 {
 	
+	OSNumber *		size;
+	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::reportMaxReadTransfer called.\n" ) );
 	
-	*max = blocksize * kIOATAMaxBlocksPerXfer;
+	*max = blocksize * kIOATAMaximumBlockCount8Bit;
+	
+	size = OSDynamicCast ( OSNumber, getProperty ( kIOMaximumBlockCountReadKey ) );
+	if ( size != NULL )
+	{
+		
+		*max = size->unsigned64BitValue ( ) * blocksize;
+		
+	}
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::reportMaxReadTransfer max = %ld.\n", *max ) );
 	
@@ -887,10 +881,21 @@ IOReturn
 IOATABlockStorageDriver::reportMaxWriteTransfer ( UInt64 blocksize, UInt64 * max )
 {
 	
-	STATUS_LOG ( ( "IOATABlockStorageDriver::reportMaxWriteTransfer called.\n" ) );
+	OSNumber *		size;
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::reportMaxWriteTransfer called.\n" ) );	
 	
-	// Same as read transfer limits.
-	return reportMaxReadTransfer ( blocksize, max );
+	*max = blocksize * kIOATAMaximumBlockCount8Bit;
+	
+	size = OSDynamicCast ( OSNumber, getProperty ( kIOMaximumBlockCountWriteKey ) );
+	if ( size != NULL )
+	{
+		
+		*max = size->unsigned64BitValue ( ) * blocksize;
+		
+	}
+	
+	return kIOReturnSuccess;
 	
 }
 
@@ -968,6 +973,42 @@ IOATABlockStorageDriver::reportWriteProtection ( bool * isWriteProtected )
 
 	*isWriteProtected = false;
 	return kIOReturnSuccess;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	¥ sendSMARTCommand	-	Sends a SMART command to the device
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::sendSMARTCommand ( IOATACommand * command )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	if ( activityTickle ( kIOPMSuperclassPolicy1, ( UInt32 ) kIOATAPowerStateActive ) )
+	{
+		
+		command->setUnit ( fATAUnitID );
+		command->setDevice_Head ( fATAUnitID << 4 );
+		
+		status = fATADevice->executeCommand ( command );
+		if ( status == kATANoErr )
+			status = kIOReturnSuccess;
+		else
+			status = kIOReturnIOError;
+		
+	}
+	
+	else
+	{
+		
+		status = kIOReturnNotResponding;
+		
+	}
+	
+	return status;
 	
 }
 
@@ -1088,7 +1129,8 @@ IOATABlockStorageDriver::sConvertHighestBitToNumber ( UInt16 bitField )
 
 
 // binary compatibility reserved method space
-OSMetaClassDefineReservedUnused ( IOATABlockStorageDriver, 1 );
+OSMetaClassDefineReservedUsed ( IOATABlockStorageDriver, 1 );	/* sendSMARTCommand */
+
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDriver, 2 );
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDriver, 3 );
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDriver, 4 );

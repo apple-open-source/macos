@@ -12,6 +12,8 @@
 .Pp
 options:
 .Bl -tag -width "-P password" -compact -offset indent
+.It Fl c
+create new datasource  
 .It Fl ro
 read-only  
 .It Fl p
@@ -41,6 +43,9 @@ commands:
 .Op Ar key val
 .Li "..."
 .It Fl path Ar dir
+.It Fl load
+.Op Ar delim key val Li "..."
+.Li "..."
 .It Fl create
 .Oo
 .Ar path
@@ -58,6 +63,8 @@ commands:
 .Oc
 .It Fl copy Ar dir new_parent
 .It Fl move Ar dir new_parent
+.It Fl source Ar file
+.It Fl echo Ar string
 .It Fl history
 .Op <=>
 .Op Ar version
@@ -65,6 +72,7 @@ commands:
 .It Fl domainname
 .It Fl rparent
 .It Fl resync
+.It Fl flush
 .El
 .Pp
 available only in interactive mode:
@@ -100,11 +108,7 @@ must have sufficient file-system permissions to read the database files.
 .Pp
 In "raw" mode,
 .Nm
-operates directly on the database without communicating with a server for that database.  This is intended for use in single-user mode, or in other operations where a server is not running.
-.Pp
-WARNING - Do not use
-.Nm
-to modify a database when a NetInfo server is running.  Modifying a database in raw mode when a NetInfo server is present can cause database corruption.
+operates directly on the database without communicating with a server for that database.
 .Pp
 .Sh DIRECTORY SPECIFICATION
 Many commands take a directory as an option.  Directories may be specified as a directory ID number or as a path.  NetInfo paths are specified by a list of slash-separated components.  Each component is of the form:
@@ -113,7 +117,7 @@ Many commands take a directory as an option.  Directories may be specified as a 
 or
 .Dl key=value
 .Pp
-In the first form, the key defaults to "name".  Thus the following two paths are equivalant:
+In the first form, the key defaults to "name".  Thus the following two paths are equivalent:
 .Pp
 .Dl /users/alice
 .Dl /name=users/name=alice
@@ -142,7 +146,7 @@ was developed using an internal datastore "engine" with operations supporting bo
 .Nm
 commands have been written for use in "X.500" mode, invoked by use of the
 .Fl x500
-flag.  Support for X.500-style data organization, naming, and access is still experimantal and under active development.
+flag.  Support for X.500-style data organization, naming, and access is still experimental and under active development.
 .Sh COMMANDS
 The action of each command is described below.  Some commands have aliases.  For example, "cat" and "." are aliases for "read".  Command aliases are listed in parentheses.
 .Ss read (cat .)
@@ -180,6 +184,19 @@ Usage: path
 .Ar path
 .Pp
 Prints the directories from the given directory to the root directory.
+.Ss load
+Usage: load
+.Op Ar delim key val Li "..."
+.Li "..."
+.Pp
+Creates a child directory of the current directory.  This command allows a directory to be created with a number of properties.  The first character given in the input is subsequently used as a delimiter to separate 
+.Ar key val
+.Li "..."
+sets.  For example, to create a directory with the name "foo", and a property "bar" with the values "a", "b", and "c", and a property "baz" with the values "abc" and "def":
+.Pp
+.Dl "load + name foo + bar a b c + baz abc def"
+.Pp
+Any single character may be used as a delimiter.
 .Ss create (mk)
 Usage: create
 .Oo
@@ -209,7 +226,9 @@ command will create a new database.  For example, to create a new database "/tmp
 .Pp
 .Dl Nm Li " " Fl raw Li /tmp/test_db Fl create
 .Pp
-The "mk" alias is not available for creating a new database.
+The "mk" alias is not available for creating a new database.  Note that a new database may also be created by using the
+.Fl c
+option on the command line.
 .Ss append
 Usage: append
 .Ar path key val Li "..."
@@ -258,7 +277,7 @@ Usage: history
 .Op <=>
 .Op Ar version
 .Pp
-Locates directories by reference to the database version number.  When a new database is created, it starts with a version number of zero.  Each modificifation of the database causes the version number to be incremented.  The database version number is saved with the directory that was modified at that time.  When a directory is added or removed, the parent directory is modified, and thus the parent directory carries the version number for that modificifation.  
+Locates directories by reference to the database version number.  When a new database is created, it starts with a version number of zero.  Each modification of the database causes the version number to be incremented.  The database version number is saved with the directory that was modified at that time.  When a directory is added or removed, the parent directory is modified, and thus the parent directory carries the version number for that modification.  
 .Pp
 The
 .Sx history
@@ -289,6 +308,20 @@ Prints the IP address and tag of the server's parent domain server.  No output i
 Usage: resync
 .Pp
 If connected to a NetInfo clone server, this command causes the clone to check its database and re-synchronize with the master if necessary.  If connected to a master server, this command causes the master to send a message to all clones, causing them all to re-synchronize.  Not available in raw mode.
+.Ss flush
+Usage: flush
+.Pp
+Flushes the directory cache.
+.Ss echo
+Usage: echo
+.Ar string
+.Pp
+Prints the string to standard output.  This is handy when executing a script.
+.Ss source (<)
+Usage: source
+.Ar file
+.Pp
+Redirects standard input to read commands from the named file.  After the commands in the file have been processed, control returns to the command line (if invoked interactively).
 .Sh INTERACTIVE COMMANDS
 .Ss cd
 Usage: cd dir
@@ -304,7 +337,7 @@ Usage: auth
 .Op Ar user Op Ar password
 .Pp
 Authenticate as the named user, or as "root" if no user is specified.  If a password is supplied, then that password is used for authentication, otherwise the command prompts for a password.
-.Ss quit (q)
+.Ss quit (q exit)
 Usage: quit
 Ends processing of interactive commands and terminates the program.
 .Sh X.500 MODE COMMANDS
@@ -325,7 +358,7 @@ as the value of the "rdn" meta-attribute.  When
 .Nm
 is invoked with the
 .Fl x500
-flag, X.500-style naming is used.  The "rdn" meta-attribute of a directory specifies which key will be used for the relative distingushed name (RDN).  By default, the "name" property is used to form the RDN.
+flag, X.500-style naming is used.  The "rdn" meta-attribute of a directory specifies which key will be used for the relative distinguished name (RDN).  By default, the "name" property is used to form the RDN.
 .Sh FILES
 /var/db/netinfo/*.nidb
 .Sh SEE ALSO

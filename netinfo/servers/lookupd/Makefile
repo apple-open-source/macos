@@ -12,41 +12,21 @@ NAME = lookupd
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CLASSES = CacheAgent.m Config.m Controller.m DNSAgent.m DSAgent.m\
-          FFAgent.m FFParser.m LDAPAgent_FixedSchema.m\
-          LDAPAgent_Parsing.m LDAPAgent.m LUAgent.m LUArray_LDAP.m\
-          LUArray.m LUCache.m LUDictionary.m LULDAPDictionary.m\
-          LUServer.m MachRPC.m MemoryWatchdog.m NIAgent.m NILAgent.m\
-          Root.m Thread.m XDRSerializer.m YPAgent.m
+CLASSES = CacheAgent.m Config.m Controller.m DNSAgent.m Dyna.m LUAgent.m\
+          LUArray.m LUCache.m LUDictionary.m LUServer.m MachRPC.m\
+          MemoryWatchdog.m NILAgent.m Root.m Thread.m
 
-HFILES = CacheAgent.h Config.h Controller.h DNSAgent.h DSAgent.h\
-         FFAgent.h FFParser.h LDAPAgent_FixedSchema.h\
-         LDAPAgent_Parsing.h LDAPAgent.h LDAPAttributes.h LUAgent.h\
-         LUArray.h LUArray_LDAP.h LUCache.h LUCachedDictionary.h\
-         LUDictionary.h LUGlobal.h LULDAPDictionary.h LUPrivate.h\
-         LUServer.h MachRPC.h MemoryWatchdog.h NIAgent.h NILAgent.h\
-         Root.h Thread.h XDRSerializer.h YPAgent.h lber.h ldap.h\
-         ldap_disptmpl.h ldap_ldap-int.h ldap_ldapconfig.h\
-         ldap_portable.h ldap_regex.h ldap_srchpref.h sys.h
+HFILES = CacheAgent.h Config.h Controller.h DNSAgent.h Dyna.h LUAgent.h\
+         LUArray.h LUCache.h LUCachedDictionary.h LUDictionary.h\
+         LUGlobal.h LUPrivate.h LUServer.h MachRPC.h MemoryWatchdog.h\
+		 NILAgent.h Root.h Thread.h lu_xdr.h sys.h
 
 MFILES = Interactive.m lookup_proc.m lookupd.m
 
-CFILES = ldap_abandon.c ldap_add.c ldap_addentry.c ldap_bind.c\
-         ldap_bprint.c ldap_cache.c ldap_charset.c ldap_cldap.c\
-         ldap_compare.c ldap_decode.c ldap_delete.c ldap_disptmpl.c\
-         ldap_dsparse.c ldap_encode.c ldap_error.c ldap_free.c\
-         ldap_friendly.c ldap_getattr.c ldap_getdn.c ldap_getdxbyname.c\
-         ldap_getentry.c ldap_getfilter.c ldap_getvalues.c ldap_io.c\
-         ldap_kbind.c ldap_ldapnew.c ldap_modify.c ldap_modrdn.c\
-         ldap_open.c ldap_os-ip.c ldap_regex.c ldap_request.c\
-         ldap_result.c ldap_sbind.c ldap_search.c ldap_sort.c\
-         ldap_srchpref.c ldap_tmplout.c ldap_ufn.c ldap_unbind.c\
-         ldap_url.c ldap_v3compat.c nettoa.c strdup.c sys.c\
-         sys_address.c
+CFILES = lu_xdr.c nettoa.c sys.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble lookup.defs\
             lookupd.8 _lu_types.x
-
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -58,10 +38,8 @@ LIBS = -lobjc
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
 FRAMEWORK_PATHS = -F$(DSTROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
-FRAMEWORKS = -framework DirectoryService -framework NetInfo
-
+FRAMEWORKS = -framework NetInfo
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

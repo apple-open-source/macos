@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -89,6 +89,23 @@ void CssmClient::Context::algorithm(CSSM_ALGORITHMS alg)
 
 
 //
+// Query context operation output sizes.
+//    
+uint32 CssmClient::Context::getOutputSize(uint32 inputSize, bool encrypt = true)
+{
+    CSSM_QUERY_SIZE_DATA data;
+    data.SizeInputBlock = inputSize;
+    getOutputSize(data, 1, encrypt);
+    return data.SizeOutputBlock;
+}
+
+void CssmClient::Context::getOutputSize(CSSM_QUERY_SIZE_DATA &sizes, uint32 count, bool encrypt = true)
+{
+    check(CSSM_QuerySize(handle(), encrypt, count, &sizes));
+}
+
+
+//
 // The override() method of Context is an expert feature. It replaces the entire
 // context with a context object provided. It is up to the caller to keep this context
 // consistent with the purpose of the Context subclass he is (mis)using.
@@ -103,6 +120,28 @@ void CssmClient::Context::override(const Security::Context &ctx)
 	// now replace everything with the context data provided
 	check(CSSM_SetContext(mHandle, &ctx));
 	mActive = true;		// now active
+}
+
+
+//
+// Manage PassThrough contexts
+//
+
+//
+// Invoke passThrough
+//
+void
+PassThrough::operator() (uint32 passThroughId, const void *inData, void **outData)
+{
+    check(CSSM_CSP_PassThrough(handle(), passThroughId, inData, outData));
+}
+
+void PassThrough::activate()
+{
+	if (!mActive) {
+		check(CSSM_CSP_CreatePassThroughContext(attachment()->handle(), mKey, &mHandle));
+		mActive = true;
+	}
 }
 
 

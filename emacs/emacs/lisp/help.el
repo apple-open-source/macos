@@ -1,6 +1,7 @@
 ;;; help.el --- help commands for Emacs
 
-;; Copyright (C) 1985, 1986, 1993, 1994, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1993, 1994, 1998, 1999, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: help, internal
@@ -25,13 +26,14 @@
 ;;; Commentary:
 
 ;; This code implements GNU Emacs' on-line help system, the one invoked by
-;;`M-x help-for-help'.
+;; `M-x help-for-help'.
 
 ;;; Code:
 
 ;; Get the macro make-help-screen when this is compiled,
 ;; or run interpreted, but not when the compiled code is loaded.
 (eval-when-compile (require 'help-macro))
+(eval-when-compile (require 'view))
 
 (defvar help-map (make-sparse-keymap)
   "Keymap for characters following the Help key.")
@@ -74,6 +76,7 @@
 (define-key help-map "l" 'view-lossage)
 
 (define-key help-map "m" 'describe-mode)
+(define-key help-map "\C-m" 'view-order-manuals)
 
 (define-key help-map "\C-n" 'view-emacs-news)
 (define-key help-map "n" 'view-emacs-news)
@@ -81,6 +84,8 @@
 (define-key help-map "p" 'finder-by-keyword)
 (autoload 'finder-by-keyword "finder"
   "Find packages matching a given keyword." t)
+
+(define-key help-map "P" 'view-emacs-problems)
 
 (define-key help-map "s" 'describe-syntax)
 
@@ -101,31 +106,13 @@
 ;; Documentation only, since we use minor-mode-overriding-map-alist.
 (define-key help-mode-map "\r" 'help-follow)
 
-;; Font-locking is incompatible with the new xref stuff.
-;(defvar help-font-lock-keywords
-;  (eval-when-compile
-;    (let ((name-char "[-+a-zA-Z0-9_*]") (sym-char "[-+a-zA-Z0-9_:*]"))
-;      (list
-;       ;;
-;       ;; The symbol itself.
-;       (list (concat "\\`\\(" name-char "+\\)\\(\\(:\\)\\|\\('\\)\\)")
-;	     '(1 (if (match-beginning 3)
-;		     font-lock-function-name-face
-;		   font-lock-variable-name-face)))
-;       ;;
-;       ;; Words inside `' which tend to be symbol names.
-;       (list (concat "`\\(" sym-char sym-char "+\\)'")
-;	     1 'font-lock-constant-face t)
-;       ;;
-;       ;; CLisp `:' keywords as references.
-;       (list (concat "\\<:" sym-char "+\\>") 0 'font-lock-builtin-face t))))
-;  "Default expressions to highlight in Help mode.")
-
 (defvar help-xref-stack nil
   "A stack of ways by which to return to help buffers after following xrefs.
 Used by `help-follow' and `help-xref-go-back'.
-An element looks like (POSITION FUNCTION ARGS...).
-To use the element, do (apply FUNCTION ARGS) then (goto-char POSITION).")
+An element looks like (POSITION FUNCTION ARGS...), where POSITION is
+`(POINT . BUFFER-NAME)'.
+To use the element, do (apply FUNCTION ARGS) then goto the point in
+the named buffer.")
 (put 'help-xref-stack 'permanent-local t)
 
 (defvar help-xref-stack-item nil
@@ -134,6 +121,11 @@ The format is (FUNCTION ARGS...).")
 (put 'help-xref-stack-item 'permanent-local t)
 
 (setq-default help-xref-stack nil help-xref-stack-item nil)
+
+(defcustom help-mode-hook nil
+  "Hook run by `help-mode'."
+  :type 'hook
+  :group 'help)
 
 (defun help-mode ()
   "Major mode for viewing help text and navigating references in it.
@@ -150,8 +142,6 @@ Commands:
   (view-mode)
   (make-local-variable 'view-no-disable-on-exit)
   (setq view-no-disable-on-exit t)
-  ;; `help-make-xrefs' would be run here if not invoked from
-  ;; `help-mode-maybe'.
   (run-hooks 'help-mode-hook))
 
 (defun help-mode-setup ()
@@ -161,7 +151,7 @@ Commands:
 (add-hook 'temp-buffer-setup-hook 'help-mode-setup)
 
 (defun help-mode-finish ()
-  (when (eq major-mode 'help-mode) 
+  (when (eq major-mode 'help-mode)
     ;; View mode's read-only status of existing *Help* buffer is lost
     ;; by with-output-to-temp-buffer.
     (toggle-read-only 1)
@@ -216,6 +206,27 @@ With arg, you are asked to choose which language."
       (goto-char (point-min))
       (set-buffer-modified-p nil))))
 
+(defun string-key-binding (key)
+  "Value is the binding of KEY in a string.
+If KEY is an event on a string, and that string has a `local-map'
+or `keymap' property, return the binding of KEY in the string's keymap."
+  (let* ((defn nil)
+	 (start (when (vectorp key)
+		  (if (memq (aref key 0) '(mode-line header-line))
+		      (event-start (aref key 1))
+		    (and (consp (aref key 0)) 
+			 (event-start (aref key 0))))))
+	 (string-info (and (consp start) (nth 4 start))))
+    (when string-info
+      (let* ((string (car string-info))
+	     (pos (cdr string-info))
+	     (local-map (and (> pos 0)
+			     (< pos (length string))
+			     (or (get-text-property pos 'local-map string)
+				 (get-text-property pos 'keymap string)))))
+	(setq defn (and local-map (lookup-key local-map key)))))
+    defn))
+
 (defun describe-key-briefly (key &optional insert)
   "Print the name of the function KEY invokes.  KEY is a string.
 If INSERT (the prefix arg) is non-nil, insert the message in the buffer."
@@ -236,7 +247,8 @@ If INSERT (the prefix arg) is non-nil, insert the message in the buffer."
 	    (set-buffer (window-buffer window))
 	    (goto-char position)))
       ;; Ok, now look up the key and name the command.
-      (let ((defn (key-binding key))
+      (let ((defn (or (string-key-binding key)
+		      (key-binding key)))
 	    (key-desc (key-description key)))
 	(if (or (null defn) (integerp defn))
 	    (princ (format "%s is undefined" key-desc))
@@ -270,6 +282,10 @@ If FUNCTION is nil, applies `message' to it, thus printing it."
 		     ;; Secondly, the buffer has not been displayed yet,
 		     ;; so we don't know whether its frame will be selected.
 		     nil)
+		    (display-buffer-reuse-frames
+		     (setq help-return-method (cons (selected-window)
+						    'quit-window))
+		     nil)
 		    ((not (one-window-p t))
 		     (setq help-return-method
 			   (cons (selected-window) 'quit-window))
@@ -285,9 +301,8 @@ If FUNCTION is nil, applies `message' to it, thus printing it."
 	 (funcall (or function 'message)
 		  (concat
 		   (if first-message
-		       (substitute-command-keys first-message)
-		     "")
-		   (if first-message "  " "")
+		       (substitute-command-keys first-message))
+		   (if first-message "  ")
 		   ;; If the help buffer will go in a separate frame,
 		   ;; it's no use mentioning a command to scroll, so don't.
 		   (if (special-display-p (buffer-name standard-output))
@@ -317,7 +332,7 @@ If FUNCTION is nil, applies `message' to it, thus printing it."
 	  (progn
 	    (set-buffer (window-buffer window))
 	    (goto-char position)))
-      (let ((defn (key-binding key)))
+      (let ((defn (or (string-key-binding key) (key-binding key))))
 	(if (or (null defn) (integerp defn))
 	    (message "%s is undefined" (key-description key))
 	  (with-output-to-temp-buffer "*Help*"
@@ -354,7 +369,8 @@ For minor modes, see following pages.\n\n"))
 	  ;; Document a minor mode if it is listed in minor-mode-alist,
 	  ;; bound locally in this buffer, non-nil, and has a function
 	  ;; definition.
-	  (if (and (symbol-value minor-mode)
+	  (if (and (boundp minor-mode)
+		   (symbol-value minor-mode)
 		   (fboundp minor-mode))
 	      (let ((pretty-minor-mode minor-mode))
 		(if (string-match "-mode$" (symbol-name minor-mode))
@@ -396,7 +412,7 @@ For minor modes, see following pages.\n\n"))
   "Display info on the GNU project."
   (interactive)
   (find-file-read-only
-   (expand-file-name "GNU" data-directory))
+   (expand-file-name "THE-GNU-PROJECT" data-directory))
   (goto-char (point-min)))
 
 (defun describe-no-warranty ()
@@ -428,20 +444,41 @@ of the key sequence that ran this command."
 
 (defun view-emacs-news (&optional arg)
   "Display info on recent changes to Emacs.
-With numeric argument display information on correspondingly older changes."
+With numeric argument, display information on correspondingly older changes."
   (interactive "P")
-  (let* ((arg (if arg (prefix-numeric-value arg) 0)))
-    (find-file-read-only
-     (expand-file-name (concat (make-string arg ?O) "NEWS")
-		       data-directory))))
+  (let* ((arg (if arg (prefix-numeric-value arg) 0))
+	 (file (cond ((eq arg 0) "NEWS")
+		     ((eq arg 1) "ONEWS")
+		     (t
+		      (nth (- arg 2)
+			   (nreverse (directory-files data-directory
+						      nil "^ONEWS\\.[0-9]+$"
+						      nil)))))))
+    (if file
+	(find-file-read-only (expand-file-name file data-directory))
+      (error "No such old news"))))
+
+(defun view-order-manuals ()
+  "Display the Emacs ORDERS file."
+  (interactive)
+  (find-file-read-only (expand-file-name "ORDERS" data-directory))
+  (goto-address))
 
 (defun view-emacs-FAQ ()
   "Display the Emacs Frequently Asked Questions (FAQ) file."
   (interactive)
-  (find-file-read-only (expand-file-name "FAQ" data-directory)))
+;;;  (find-file-read-only (expand-file-name "FAQ" data-directory))
+  (info "(efaq)"))
+
+(defun view-emacs-problems ()
+  "Display info on known problems with Emacs and possible workarounds."
+  (interactive)
+  (view-file (expand-file-name "PROBLEMS" data-directory)))
 
 (defun view-lossage ()
-  "Display last 100 input keystrokes."
+  "Display last 100 input keystrokes.
+
+To record all your input on a file, use `open-dribble-file'."
   (interactive)
   (with-output-to-temp-buffer "*Help*"
     (princ (mapconcat (function (lambda (key)
@@ -490,14 +527,14 @@ k  describe-key.  Type a command key sequence;
 C-k Info-goto-emacs-key-command-node.  Type a command key sequence;
 	it takes you to the Info node for the command bound to that key.
 l  view-lossage.  Show last 100 characters you typed.
-L  describe-language-environment.  This describes either the a
+L  describe-language-environment.  This describes either a
 	specific language environment (if you type its name)
 	or the current language environment (if you type just RET).
 m  describe-mode.  Print documentation of current minor modes,
 	and the current major mode, including their special commands.
 n  view-emacs-news.  Display news of recent Emacs changes.
 p  finder-by-keyword. Find packages matching a given topic keyword.
-s  describe-syntax.  Display contents of syntax table, plus explanations
+s  describe-syntax.  Display contents of syntax table, plus explanations.
 t  help-with-tutorial.  Select the Emacs learn-by-doing tutorial.
 v  describe-variable.  Type name of a variable;
 	it displays the variable's documentation and value.
@@ -516,47 +553,42 @@ C-w Display information on absence of warranty for GNU Emacs."
 (defun function-called-at-point ()
   "Return a function around point or else called by the list containing point.
 If that doesn't give a function, return nil."
-  (let ((stab (syntax-table)))
-    (set-syntax-table emacs-lisp-mode-syntax-table)
-    (unwind-protect
-	(or (condition-case ()
-		(save-excursion
-		  (or (not (zerop (skip-syntax-backward "_w")))
-		      (eq (char-syntax (following-char)) ?w)
-		      (eq (char-syntax (following-char)) ?_)
-		      (forward-sexp -1))
-		  (skip-chars-forward "'")
-		  (let ((obj (read (current-buffer))))
-		    (and (symbolp obj) (fboundp obj) obj)))
-	      (error nil))
-	    (condition-case ()
-		(save-excursion
-		  (save-restriction
-		    (narrow-to-region (max (point-min) (- (point) 1000)) (point-max))
-		    ;; Move up to surrounding paren, then after the open.
-		    (backward-up-list 1)
-		    (forward-char 1)
-		    ;; If there is space here, this is probably something
-		    ;; other than a real Lisp function call, so ignore it.
-		    (if (looking-at "[ \t]")
-			(error "Probably not a Lisp function call"))
-		    (let (obj)
-		      (setq obj (read (current-buffer)))
-		      (and (symbolp obj) (fboundp obj) obj))))
-	      (error nil)))
-      (set-syntax-table stab))))
+  (with-syntax-table emacs-lisp-mode-syntax-table
+    (or (condition-case ()
+	    (save-excursion
+	      (or (not (zerop (skip-syntax-backward "_w")))
+		  (eq (char-syntax (following-char)) ?w)
+		  (eq (char-syntax (following-char)) ?_)
+		  (forward-sexp -1))
+	      (skip-chars-forward "'")
+	      (let ((obj (read (current-buffer))))
+		(and (symbolp obj) (fboundp obj) obj)))
+	  (error nil))
+	(condition-case ()
+	    (save-excursion
+	      (save-restriction
+		(narrow-to-region (max (point-min)
+				       (- (point) 1000)) (point-max))
+		;; Move up to surrounding paren, then after the open.
+		(backward-up-list 1)
+		(forward-char 1)
+		;; If there is space here, this is probably something
+		;; other than a real Lisp function call, so ignore it.
+		(if (looking-at "[ \t]")
+		    (error "Probably not a Lisp function call"))
+		(let ((obj (read (current-buffer))))
+		  (and (symbolp obj) (fboundp obj) obj))))
+	  (error nil)))))
 
 (defvar symbol-file-load-history-loaded nil
   "Non-nil means we have loaded the file `fns-VERSION.el' in `exec-directory'.
 That file records the part of `load-history' for preloaded files,
 which is cleared out before dumping to make Emacs smaller.")
 
-(defun symbol-file (function)
-  "Return the input source from which FUNCTION was loaded.
-The value is normally a string that was passed to `load':
-either an absolute file name, or a library name
-\(with no directory name and no `.el' or `.elc' at the end).
-It can also be nil, if the definition is not associated with any file."
+(defun load-symbol-file-load-history ()
+  "Load the file `fns-VERSION.el' in `exec-directory' if not already done.
+That file records the part of `load-history' for preloaded files,
+which is cleared out before dumping to make Emacs smaller."
   (unless symbol-file-load-history-loaded
     (load (expand-file-name
 	   ;; fns-XX.YY.ZZ.el does not work on DOS filesystem.
@@ -566,7 +598,15 @@ It can also be nil, if the definition is not associated with any file."
 	   exec-directory)
 	  ;; The file name fns-%s.el already has a .el extension.
 	  nil nil t)
-    (setq symbol-file-load-history-loaded t))
+    (setq symbol-file-load-history-loaded t)))
+
+(defun symbol-file (function)
+  "Return the input source from which FUNCTION was loaded.
+The value is normally a string that was passed to `load':
+either an absolute file name, or a library name
+\(with no directory name and no `.el' or `.elc' at the end).
+It can also be nil, if the definition is not associated with any file."
+  (load-symbol-file-load-history)
   (let ((files load-history)
 	file functions)
     (while files
@@ -612,7 +652,9 @@ It can also be nil, if the definition is not associated with any file."
 		     (vectorp def))
 		 "a keyboard macro")
 		((subrp def)
-		 (concat beg "built-in function"))
+		 (if (eq 'unevalled (cdr (subr-arity def)))
+		     (concat beg "special form")
+		   (concat beg "built-in function")))
 		((byte-code-function-p def)
 		 (concat beg "compiled Lisp function"))
 		((symbolp def)
@@ -632,6 +674,18 @@ It can also be nil, if the definition is not associated with any file."
 			 (if (eq (nth 4 def) 'keymap) "keymap"
 			   (if (nth 4 def) "Lisp macro" "Lisp function"))
 			 ))
+                ;; perhaps use keymapp here instead
+                ((eq (car-safe def) 'keymap)
+                 (let ((is-full nil)
+                       (elts (cdr-safe def)))
+                   (while elts
+                     (if (char-table-p (car-safe elts))
+                         (setq is-full t
+                               elts nil))
+                     (setq elts (cdr-safe elts)))
+                   (if is-full
+                       "a full keymap"
+                     "a sparse keymap")))
 		(t "")))
     (when (and parens (not (equal string "")))
       (setq need-close t)
@@ -641,7 +695,8 @@ It can also be nil, if the definition is not associated with any file."
       (save-excursion
 	(save-match-data
 	  (if (re-search-backward "alias for `\\([^`']+\\)'" nil t)
-	      (help-xref-button 1 #'describe-function def)))))
+	      (help-xref-button 1 #'describe-function def
+				"mouse-2, RET: describe this function")))))
     (or file-name
 	(setq file-name (symbol-file function)))
     (if file-name
@@ -655,12 +710,18 @@ It can also be nil, if the definition is not associated with any file."
 	  (with-current-buffer "*Help*"
 	    (save-excursion
 	      (re-search-backward "`\\([^`']+\\)'" nil t)
-	      (help-xref-button 1 #'(lambda (arg)
-				      (let ((location
-					     (find-function-noselect arg)))
-					(pop-to-buffer (car location))
-					(goto-char (cdr location))))
-				function)))))
+	      (help-xref-button
+	       1
+	       #'(lambda (fun file)
+		   (require 'find-func)
+		   ;; Don't use find-function-noselect because it follows
+		   ;; aliases (which fails for built-in functions).
+		   (let* ((location (find-function-search-for-symbol
+				     fun nil file)))
+		     (pop-to-buffer (car location))
+		     (goto-char (cdr location))))
+	       (list function file-name)
+	       "mouse-2, RET: find function's definition")))))
     (if need-close (princ ")"))
     (princ ".")
     (terpri)
@@ -673,97 +734,185 @@ It can also be nil, if the definition is not associated with any file."
 			  (car (append def nil)))
 			 ((eq (car-safe def) 'lambda)
 			  (nth 1 def))
+			 ((and (eq (car-safe def) 'autoload)
+			       (not (eq (nth 4 def) 'keymap)))
+			  (concat "[Arg list not available until "
+				  "function definition is loaded.]"))
 			 (t t))))
-      (if (listp arglist)
-	  (progn
-	    (princ (cons (if (symbolp function) function "anonymous")
-			 (mapcar (lambda (arg)
-				   (if (memq arg '(&optional &rest))
-				       arg
-				     (intern (upcase (symbol-name arg)))))
-				 arglist)))
-	    (terpri))))
+      (cond ((listp arglist)
+	     (princ (cons (if (symbolp function) function "anonymous")
+			  (mapcar (lambda (arg)
+				    (if (memq arg '(&optional &rest))
+					arg
+				      (intern (upcase (symbol-name arg)))))
+				  arglist)))
+	     (terpri))
+	    ((stringp arglist)
+	     (princ arglist)
+	     (terpri))))
     (let ((doc (documentation function)))
       (if doc
 	  (progn (terpri)
 		 (princ doc)
-		 (help-setup-xref (list #'describe-function function) interactive-p))
+		 (if (subrp def)
+		     (with-current-buffer standard-output
+		       (beginning-of-line)
+		       ;; Builtins get the calling sequence at the end of
+		       ;; the doc string.  Move it to the same place as
+		       ;; for other functions.
+
+		       ;; In cases where `function' has been fset to a
+		       ;; subr we can't search for function's name in
+		       ;; the doc string.  Kluge round that using the
+		       ;; printed representation.  The arg list then
+		       ;; shows the wrong function name, but that
+		       ;; might be a useful hint.
+		       (let* ((rep (prin1-to-string def))
+			      (name (progn
+				      (string-match " \\([^ ]+\\)>$" rep)
+				      (match-string 1 rep))))
+			 (if (looking-at (format "(%s[ )]" (regexp-quote name)))
+			     (let ((start (point-marker)))
+			       (goto-char (point-min))
+			       (forward-paragraph)
+			       (insert-buffer-substring (current-buffer) start)
+			       (insert ?\n)
+			       (delete-region (1- start) (point-max)))
+			   (goto-char (point-min))
+			   (forward-paragraph)
+			   (insert
+			    "[Missing arglist.  Please make a bug report.]\n")))
+		       (goto-char (point-max))))
+		 (help-setup-xref (list #'describe-function function)
+				  interactive-p))
 	(princ "not documented")))))
 
 (defun variable-at-point ()
   "Return the bound variable symbol found around point.
 Return 0 if there is no such symbol."
   (condition-case ()
-      (let ((stab (syntax-table)))
-	(unwind-protect
-	    (save-excursion
-	      (set-syntax-table emacs-lisp-mode-syntax-table)
-	      (or (not (zerop (skip-syntax-backward "_w")))
-		  (eq (char-syntax (following-char)) ?w)
-		  (eq (char-syntax (following-char)) ?_)
-		  (forward-sexp -1))
-	      (skip-chars-forward "'")
-	      (let ((obj (read (current-buffer))))
-		(or (and (symbolp obj) (boundp obj) obj)
-		    0)))
-	  (set-syntax-table stab)))
+      (with-syntax-table emacs-lisp-mode-syntax-table
+	(save-excursion
+	  (or (not (zerop (skip-syntax-backward "_w")))
+	      (eq (char-syntax (following-char)) ?w)
+	      (eq (char-syntax (following-char)) ?_)
+	      (forward-sexp -1))
+	  (skip-chars-forward "'")
+	  (let ((obj (read (current-buffer))))
+	    (or (and (symbolp obj) (boundp obj) obj)
+		0))))
     (error 0)))
 
-(defun describe-variable (variable)
+(defun help-xref-on-pp (from to)
+  "Add xrefs for symbols in `pp's output between FROM and TO."
+  (let ((ost (syntax-table)))
+    (unwind-protect
+	(save-excursion
+	  (save-restriction
+	    (set-syntax-table emacs-lisp-mode-syntax-table)
+	    (narrow-to-region from to)
+	    (goto-char (point-min))
+	    (while (not (eobp))
+	      (cond
+	       ((looking-at "\"") (forward-sexp 1))
+	       ((looking-at "#<") (search-forward ">" nil 'move))
+	       ((looking-at "\\(\\(\\sw\\|\\s_\\)+\\)")
+		(let* ((sym (intern-soft (match-string 1)))
+		       (fn (cond ((fboundp sym) #'describe-function)
+				 ((or (memq sym '(t nil))
+				      (keywordp sym))
+				  nil)
+				 ((and sym (boundp sym))
+				  #'describe-variable))))
+		  (when fn (help-xref-button 1 fn sym)))
+		(goto-char (match-end 1)))
+	       (t (forward-char 1))))))
+      (set-syntax-table ost))))
+
+(defun describe-variable (variable &optional buffer)
   "Display the full documentation of VARIABLE (a symbol).
-Returns the documentation as a string, also."
-  (interactive 
+Returns the documentation as a string, also.
+If VARIABLE has a buffer-local value in BUFFER (default to the current buffer),
+it is displayed along with the global value."
+  (interactive
    (let ((v (variable-at-point))
 	 (enable-recursive-minibuffers t)
 	 val)
      (setq val (completing-read (if (symbolp v)
-				    (format "Describe variable (default %s): " v)
+				    (format
+				     "Describe variable (default %s): " v)
 				  "Describe variable: ")
 				obarray 'boundp t nil nil
 				(if (symbolp v) (symbol-name v))))
      (list (if (equal val "")
 	       v (intern val)))))
-  (if (symbolp variable)
-      (let (valvoid)
+  (unless (bufferp buffer) (setq buffer (current-buffer)))
+  (if (not (symbolp variable))
+      (message "You did not specify a variable")
+    (let (valvoid)
+      (with-current-buffer buffer
 	(with-output-to-temp-buffer "*Help*"
 	  (prin1 variable)
 	  (if (not (boundp variable))
 	      (progn
 		(princ " is void")
-		(terpri)
 		(setq valvoid t))
-	    (princ "'s value is ")
-	    (terpri)
-	    (pp (symbol-value variable))
-	    (terpri))
+	    (let ((val (symbol-value variable)))
+	      (with-current-buffer standard-output
+		(princ "'s value is ")
+		(terpri)
+		(let ((from (point)))
+		  (pp val)
+		  (help-xref-on-pp from (point))
+		  (if (< (point) (+ from 20))
+		      (save-excursion
+			(goto-char from)
+			(delete-char -1)))))))
+	  (terpri)
 	  (if (local-variable-p variable)
 	      (progn
 		(princ (format "Local in buffer %s; " (buffer-name)))
 		(if (not (default-boundp variable))
 		    (princ "globally void")
-		  (princ "global value is ")
-		  (terpri)
-		  (pp (default-value variable)))
+		  (let ((val (default-value variable)))
+		    (with-current-buffer standard-output
+		      (princ "global value is ")
+		      (terpri)
+		      ;; Fixme: pp can take an age if you happen to
+		      ;; ask for a very large expression.  We should
+		      ;; probably print it raw once and check it's a
+		      ;; sensible size before prettyprinting.  -- fx
+		      (let ((from (point)))
+			(pp val)
+			(help-xref-on-pp from (point))
+			(if (< (point) (+ from 20))
+			    (save-excursion
+			      (goto-char from)
+			      (delete-char -1)))))))
 		(terpri)))
 	  (terpri)
-	  (save-current-buffer
-	    (set-buffer standard-output)
+	  (with-current-buffer standard-output
 	    (if (> (count-lines (point-min) (point-max)) 10)
 		(progn
+		  ;; Note that setting the syntax table like below
+		  ;; makes forward-sexp move over a `'s' at the end
+		  ;; of a symbol.
+		  (set-syntax-table emacs-lisp-mode-syntax-table)
 		  (goto-char (point-min))
 		  (if valvoid
 		      (forward-line 1)
 		    (forward-sexp 1)
 		    (delete-region (point) (progn (end-of-line) (point)))
-		    (insert "'s value is shown below.\n\n")
+		    (insert " value is shown below.\n\n")
 		    (save-excursion
 		      (insert "\n\nValue:"))))))
 	  (princ "Documentation:")
 	  (terpri)
 	  (let ((doc (documentation-property variable 'variable-documentation)))
 	    (princ (or doc "not documented as a variable.")))
-          (help-setup-xref (list #'describe-variable variable) (interactive-p))
-
+          (help-setup-xref (list #'describe-variable variable (current-buffer))
+			   (interactive-p))
+	  
 	  ;; Make a link to customize if this variable can be customized.
 	  ;; Note, it is not reliable to test only for a custom-type property
 	  ;; because those are only present after the var's definition
@@ -777,11 +926,14 @@ Returns the documentation as a string, also."
 		(princ (concat "You can " customize-label " this variable."))
 		(with-current-buffer "*Help*"
 		  (save-excursion
-		    (re-search-backward 
+		    (re-search-backward
 		     (concat "\\(" customize-label "\\)") nil t)
-		    (help-xref-button 1 #'(lambda (v)
-					    (customize-variable v)) variable)
-		    ))))
+		    (help-xref-button 1 (lambda (v)
+					  (if help-xref-stack
+					      (pop help-xref-stack))
+					  (customize-variable v))
+				      variable
+				      "mouse-2, RET: customize variable")))))
 	  ;; Make a hyperlink to the library if appropriate.  (Don't
 	  ;; change the format of the buffer's initial line in case
 	  ;; anything expects the current format.)
@@ -793,19 +945,19 @@ Returns the documentation as a string, also."
 	      (with-current-buffer "*Help*"
 		(save-excursion
 		  (re-search-backward "`\\([^`']+\\)'" nil t)
-		  (help-xref-button 1 (lambda (arg)
-					(let ((location
-					       (find-variable-noselect arg)))
-					  (pop-to-buffer (car location))
-					  (goto-char (cdr location))))
-				    variable)))))
+		  (help-xref-button
+		   1 (lambda (arg)
+		       (let ((location
+			      (find-variable-noselect arg)))
+			 (pop-to-buffer (car location))
+			 (goto-char (cdr location))))
+		   variable "mouse-2, RET: find variable's definition")))))
 
 	  (print-help-return-message)
 	  (save-excursion
 	    (set-buffer standard-output)
 	    ;; Return the text we displayed.
-	    (buffer-string))))
-    (message "You did not specify a variable")))
+	    (buffer-string)))))))
 
 (defun describe-bindings (&optional prefix buffer)
   "Show a list of all defined keys, and their definitions.
@@ -834,7 +986,7 @@ If INSERT (the prefix arg) is non-nil, insert the message in the buffer."
      (setq val (completing-read (if fn
 				    (format "Where is command (default %s): " fn)
 				  "Where is command: ")
-				obarray 'fboundp t))
+				obarray 'commandp t))
      (list (if (equal val "")
 	       fn (intern val))
 	   current-prefix-arg)))
@@ -868,9 +1020,9 @@ and the file name is displayed in the echo area."
 		     t))
   (let (result)
     (catch 'answer
-      (mapcar
+      (mapc
        (lambda (dir)
-	 (mapcar
+	 (mapc
 	  (lambda (suf)
 	    (let ((try (expand-file-name (concat library suf) dir)))
 	      (and (file-readable-p try)
@@ -881,21 +1033,19 @@ and the file name is displayed in the echo area."
 	  (if nosuffix
 	      '("")
 	    '(".elc" ".el" "")
-;;; load doesn't handle this yet.
-;;;	    (let ((basic '(".elc" ".el" ""))
-;;;		  (compressed '(".Z" ".gz" "")))
-;;;	      ;; If autocompression mode is on,
-;;;	      ;; consider all combinations of library suffixes
-;;;	      ;; and compression suffixes.
-;;;	      (if (rassq 'jka-compr-handler file-name-handler-alist)
-;;;		  (apply 'nconc
-;;;			 (mapcar (lambda (compelt)
-;;;				   (mapcar (lambda (baselt)
-;;;					     (concat baselt compelt))
-;;;					   basic))
-;;;				 compressed))
-;;;		basic))
-	    )))
+	    (let ((basic '(".elc" ".el" ""))
+		  (compressed '(".Z" ".gz" "")))
+	      ;; If autocompression mode is on,
+	      ;; consider all combinations of library suffixes
+	      ;; and compression suffixes.
+	      (if (rassq 'jka-compr-handler file-name-handler-alist)
+		  (apply 'nconc
+			 (mapcar (lambda (compelt)
+				   (mapcar (lambda (baselt)
+					     (concat baselt compelt))
+					   basic))
+				 compressed))
+		basic)))))
        (or path load-path)))
     (and interactive-call
 	 (if result
@@ -914,8 +1064,7 @@ and the file name is displayed in the echo area."
 (defcustom help-highlight-p t
   "*If non-nil, `help-make-xrefs' highlight cross-references.
 Under a window system it highlights them with face defined by
-`help-highlight-face'.  On a character terminal highlighted
-references look like cross-references in info mode."
+`help-highlight-face'."
  :group 'help
  :version "20.3"
  :type 'boolean)
@@ -927,22 +1076,32 @@ Must be previously-defined."
   :version "20.3"
   :type 'face)
 
-(defvar help-back-label "[back]"
+(defvar help-back-label (purecopy "[back]")
   "Label to use by `help-make-xrefs' for the go-back reference.")
 
-(defvar help-xref-symbol-regexp
-  (concat "\\(\\<\\(\\(variable\\|option\\)\\|"
-          "\\(function\\|command\\)\\|"
-          "\\(symbol\\)\\)\\s-+\\)?"
-          ;; Note starting with word-syntax character:
-          "`\\(\\sw\\(\\sw\\|\\s_\\)+\\)'")
+(defconst help-xref-symbol-regexp
+  (purecopy (concat "\\(\\<\\(\\(variable\\|option\\)\\|"
+		    "\\(function\\|command\\)\\|"
+		    "\\(face\\)\\|"
+		    "\\(symbol\\)\\|"
+		    "\\(source \\(?:code \\)?\\(?:of\\|for\\)\\)\\)\\s-+\\)?"
+		    ;; Note starting with word-syntax character:
+		    "`\\(\\sw\\(\\sw\\|\\s_\\)+\\)'"))
   "Regexp matching doc string references to symbols.
 
 The words preceding the quoted symbol can be used in doc strings to
 distinguish references to variables, functions and symbols.")
 
-(defvar help-xref-info-regexp
-  "\\<[Ii]nfo[ \t\n]+node[ \t\n]+`\\([^']+\\)'"
+(defconst help-xref-mule-regexp nil
+  "Regexp matching doc string references to MULE-related keywords.
+
+It is usually nil, and is temporarily bound to an appropriate regexp
+when help commands related to multilingual environment (e.g.,
+`describe-coding-system') are invoked.")
+
+
+(defconst help-xref-info-regexp
+  (purecopy "\\<[Ii]nfo[ \t\n]+node[ \t\n]+`\\([^']+\\)'")
   "Regexp matching doc string references to an Info node.")
 
 (defun help-setup-xref (item interactive-p)
@@ -956,6 +1115,9 @@ items for help buffer \"back\" buttons is cleared."
       (setq help-xref-stack nil))
   (setq help-xref-stack-item item))
 
+(defvar help-xref-following nil
+  "Non-nil when following a help cross-reference.")
+
 (defun help-make-xrefs (&optional buffer)
   "Parse and hyperlink documentation cross-references in the given BUFFER.
 
@@ -965,6 +1127,11 @@ Find cross-reference information in a buffer and, if
 with `help-follow'.  Cross-references have the canonical form `...'
 and the type of reference may be disambiguated by the preceding
 word(s) used in `help-xref-symbol-regexp'.
+
+If the variable `help-xref-mule-regexp' is non-nil, find also
+cross-reference information related to multilingual environment
+\(e.g., coding-systems).  This variable is also used to disambiguate
+the type of reference as the same way as `help-xref-symbol-regexp'.
 
 A special reference `back' is made to return back through a stack of
 help buffers.  Variable `help-back-label' specifies the text for
@@ -991,46 +1158,112 @@ that."
 		    (save-match-data
 		      (unless (string-match "^([^)]+)" data)
 			(setq data (concat "(emacs)" data))))
-		    (help-xref-button 1 #'info data))))
+		    (help-xref-button 1 #'info data
+				      "mouse-2, RET: read this Info node"))))
+	      ;; Mule related keywords.  Do this before trying
+	      ;; `help-xref-symbol-regexp' because some of Mule
+	      ;; keywords have variable or function definitions.
+	      (if help-xref-mule-regexp
+		  (save-excursion
+		    (while (re-search-forward help-xref-mule-regexp nil t)
+		      (let* ((data (match-string 7))
+			     (sym (intern-soft data)))
+			(cond
+			 ((match-string 3) ; coding system
+			  (and sym (coding-system-p sym)
+			       (help-xref-button
+				7 #'describe-coding-system sym
+				"mouse-2, RET: describe this coding system")))
+			 ((match-string 4) ; input method
+			  (and (assoc data input-method-alist)
+			       (help-xref-button
+				7 #'describe-input-method data
+				"mouse-2, RET: describe this input method")))
+			 ((or (match-string 5) (match-string 6)) ; charset
+			  (and sym (charsetp sym)
+			       (help-xref-button
+				7 #'describe-character-set sym
+				"mouse-2, RET: describe this character set")))
+			 ((assoc data input-method-alist)
+			  (help-xref-button
+			   7 #'describe-input-method data
+			   "mouse-2, RET: describe this input method"))
+			 ((and sym (coding-system-p sym))
+			  (help-xref-button
+			   7 #'describe-coding-system sym
+			   "mouse-2, RET: describe this coding system"))
+			 ((and sym (charsetp sym))
+			  (help-xref-button
+			   7 #'describe-character-set sym
+			   "mouse-2, RET: describe this character set")))))))
               ;; Quoted symbols
               (save-excursion
                 (while (re-search-forward help-xref-symbol-regexp nil t)
-                  (let* ((data (match-string 6))
+                  (let* ((data (match-string 8))
                          (sym (intern-soft data)))
                     (if sym
                         (cond
                          ((match-string 3) ; `variable' &c
                           (and (boundp sym) ; `variable' doesn't ensure
                                         ; it's actually bound
-                               (help-xref-button 6 #'describe-variable sym)))
+                               (help-xref-button
+				8 #'describe-variable sym
+				"mouse-2, RET: describe this variable")))
                          ((match-string 4) ; `function' &c
                           (and (fboundp sym) ; similarly
-                               (help-xref-button 6 #'describe-function sym)))
-                         ((match-string 5)) ; nothing for symbol
+                               (help-xref-button
+				8 #'describe-function sym
+				"mouse-2, RET: describe this function")))
+			 ((match-string 5) ; `face'
+			  (and (facep sym)
+			       (help-xref-button 8 #'describe-face sym
+				"mouse-2, RET: describe this face")))
+                         ((match-string 6)) ; nothing for `symbol'
+			 ((match-string 7)
+			  (help-xref-button
+			   8
+			   #'(lambda (arg)
+			       (let ((location
+				      (find-function-noselect arg)))
+				 (pop-to-buffer (car location))
+				 (goto-char (cdr location))))
+			   sym
+			   "mouse-2, RET: find function's definition"))
                          ((and (boundp sym) (fboundp sym))
                           ;; We can't intuit whether to use the
                           ;; variable or function doc -- supply both.
-                          (help-xref-button 6 #'help-xref-interned sym))
+                          (help-xref-button
+			   8 #'help-xref-interned sym
+			   "mouse-2, RET: describe this symbol"))
                          ((boundp sym)
-                          (help-xref-button 6 #'describe-variable sym))
-                         ((fboundp sym)
-                          (help-xref-button 6 #'describe-function sym)))))))
+			  (help-xref-button
+			   8 #'describe-variable sym
+			   "mouse-2, RET: describe this variable"))
+			 ((fboundp sym)
+			  (help-xref-button
+			   8 #'describe-function sym
+			   "mouse-2, RET: describe this function"))
+			 ((facep sym)
+			  (help-xref-button
+			   8 #'describe-face sym)))))))
               ;; An obvious case of a key substitution:
-              (save-excursion              
+              (save-excursion
                 (while (re-search-forward
 			;; Assume command name is only word characters
 			;; and dashes to get things like `use M-x foo.'.
                         "\\<M-x\\s-+\\(\\sw\\(\\sw\\|-\\)+\\)" nil t)
                   (let ((sym (intern-soft (match-string 1))))
                     (if (fboundp sym)
-                        (help-xref-button 1 #'describe-function sym)))))
+                        (help-xref-button
+			 1 #'describe-function sym
+			 "mouse-2, RET: describe this command")))))
               ;; Look for commands in whole keymap substitutions:
               (save-excursion
 		;; Make sure to find the first keymap.
 		(goto-char (point-min))
                 ;; Find a header and the column at which the command
                 ;; name will be found.
-                (while (re-search-forward "^key +binding\n\\(-+ +\\)-+\n\n" 
+                (while (re-search-forward "^key +binding\n\\(-+ +\\)-+\n\n"
                                           nil t)
                   (let ((col (- (match-end 1) (match-beginning 1))))
                     (while
@@ -1045,13 +1278,17 @@ that."
 					(looking-at "\\(\\sw\\|-\\)+$"))
                                    (let ((sym (intern-soft (match-string 0))))
                                      (if (fboundp sym)
-                                         (help-xref-button 
-                                          0 #'describe-function sym))))
+                                         (help-xref-button
+                                          0 #'describe-function sym
+					  "mouse-2, RET: describe this function"))))
 			       (zerop (forward-line)))))))))
           (set-syntax-table stab))
+	;; Delete extraneous newlines at the end of the docstring
+	(goto-char (point-max))
+	(while (and (not (bobp)) (bolp))
+	  (delete-char -1))
         ;; Make a back-reference in this buffer if appropriate.
-        (when help-xref-stack
-          (goto-char (point-max))
+        (when (and help-xref-following help-xref-stack)
           (save-excursion
             (insert "\n\n" help-back-label))
           ;; Just to provide the match data:
@@ -1066,13 +1303,14 @@ that."
                          map))))
       (set-buffer-modified-p old-modified))))
 
-(defun help-xref-button (match-number function data)
+(defun help-xref-button (match-number function data &optional help-echo)
   "Make a hyperlink for cross-reference text previously matched.
 
 MATCH-NUMBER is the subexpression of interest in the last matched
 regexp.  FUNCTION is a function to invoke when the button is
 activated, applied to DATA.  DATA may be a single value or a list.
-See `help-make-xrefs'."
+See `help-make-xrefs'.
+If optional arg HELP-ECHO is supplied, it is used as a help string."
   ;; Don't mung properties we've added specially in some instances.
   (unless (get-text-property (match-beginning match-number) 'help-xref)
     (add-text-properties (match-beginning match-number)
@@ -1082,10 +1320,27 @@ See `help-make-xrefs'."
 						(if (listp data)
 						    data
 						  (list data)))))
+    (if help-echo
+	(put-text-property (match-beginning match-number)
+			   (match-end match-number)
+			   'help-echo help-echo))
     (if help-highlight-p
 	(put-text-property (match-beginning match-number)
 			   (match-end match-number)
 			   'face help-highlight-face))))
+
+(defun help-insert-xref-button (string function data &optional help-echo)
+  "Insert STRING and make a hyperlink from cross-reference text on it.
+
+FUNCTION is a function to invoke when the button is activated, applied
+to DATA.  DATA may be a single value or a list.  See `help-make-xrefs'.
+If optional arg HELP-ECHO is supplied, it is used as a help string."
+  (let ((pos (point)))
+    (insert string)
+    (goto-char pos)
+    (search-forward string)
+    (help-xref-button 0 function data help-echo)))
+
 
 
 ;; Additional functions for (re-)creating types of help buffers.
@@ -1094,15 +1349,24 @@ See `help-make-xrefs'."
 
 Both variable and function documentation are extracted into a single
 help buffer."
-  (let ((fdoc (describe-function symbol)))
-    (describe-variable symbol)
-    ;; We now have a help buffer on the variable.  Insert the function
-    ;; text before it.
-    (with-current-buffer "*Help*"
-      (goto-char (point-min))
-      (let ((inhibit-read-only t))
-	(insert fdoc "\n\n" (symbol-name symbol) " is also a variable.\n\n"))
-      (help-setup-xref (list #'help-xref-interned symbol) nil))))
+  (let ((fdoc (when (fboundp symbol) (describe-function symbol)))
+	(facedoc (when (facep symbol) (describe-face symbol))))
+    (when (or (boundp symbol) (not fdoc))
+      (describe-variable symbol)
+      ;; We now have a help buffer on the variable.  Insert the function
+      ;; text before it.
+      (when (or fdoc facedoc)
+	(with-current-buffer "*Help*"
+	  (goto-char (point-min))
+	  (let ((inhibit-read-only t))
+	    (when fdoc
+	      (insert fdoc "\n\n"))
+	    (when facedoc
+	      (insert (make-string 30 ?-) "\n\n" (symbol-name symbol)
+		      " is also a " "face." "\n\n" facedoc "\n\n"))
+	    (insert (make-string 30 ?-) "\n\n" (symbol-name symbol)
+		    " is also a " "variable." "\n\n"))
+	  (help-setup-xref (list #'help-xref-interned symbol) nil))))))
 
 (defun help-xref-mode (buffer)
   "Do a `describe-mode' for the specified BUFFER."
@@ -1127,13 +1391,16 @@ help buffer."
     (with-current-buffer buffer
       (when help-xref-stack
 	(setq help-xref-stack (cdr help-xref-stack)) ; due to help-follow
-	(setq item (car help-xref-stack)
+	(setq item (pop help-xref-stack)
 	      position (car item)
 	      method (cadr item)
-	      args (cddr item))
-	(setq help-xref-stack (cdr help-xref-stack))))
+	      args (cddr item))))
     (apply method args)
-    (goto-char position)))
+    ;; We assume that the buffer we just recreated has the saved name,
+    ;; which might not always be true.
+    (when (get-buffer (cdr position))
+      (with-current-buffer (cdr position)
+	(goto-char (car position))))))
 
 (defun help-go-back ()
   "Invoke the [back] button (if any) in the Help mode buffer."
@@ -1145,18 +1412,33 @@ help buffer."
 
 For the cross-reference format, see `help-make-xrefs'."
   (interactive "d")
-  (let* ((help-data (or (and (not (= pos (point-max)))
-			     (get-text-property pos 'help-xref))
-			(and (not (= pos (point-min)))
-			     (get-text-property (1- pos) 'help-xref))))
+  (unless pos
+    (setq pos (point)))
+  (let* ((help-data
+	  (or (and (not (= pos (point-max)))
+		   (get-text-property pos 'help-xref))
+	      (and (not (= pos (point-min)))
+		   (get-text-property (1- pos) 'help-xref))
+	      ;; check if the symbol under point is a function or variable
+	      (let ((sym
+		     (intern
+		      (save-excursion
+			(goto-char pos) (skip-syntax-backward "w_")
+			(buffer-substring (point)
+					  (progn (skip-syntax-forward "w_")
+						 (point)))))))
+		(when (or (boundp sym) (fboundp sym))
+		  (list #'help-xref-interned sym)))))
          (method (car help-data))
          (args (cdr help-data)))
-    (setq help-xref-stack (cons (cons (point) help-xref-stack-item)
-				help-xref-stack))
-    (setq help-xref-stack-item nil)
     (when help-data
+      (setq help-xref-stack (cons (cons (cons pos (buffer-name))
+					help-xref-stack-item)
+				  help-xref-stack))
+      (setq help-xref-stack-item nil)
       ;; There is a reference at point.  Follow it.
-      (apply method args))))
+      (let ((help-xref-following t))
+	(apply method args)))))
 
 ;; For tabbing through buffer.
 (defun help-next-ref ()
@@ -1194,23 +1476,6 @@ For the cross-reference format, see `help-make-xrefs'."
 
 ;;; Automatic resizing of temporary buffers.
 
-(defcustom temp-buffer-resize-mode nil
-  "Non-nil means resize windows displaying temporary buffers.
-This makes the window the right height for its contents, but never
-more than `temp-buffer-max-height' nor less than `window-min-height'.
-This applies to `help', `apropos' and `completion' buffers, and some others.
-
-Setting this variable directly does not take effect;
-use either \\[customize] or the function `temp-buffer-resize-mode'."
-  :get (lambda (symbol)
-         (and (memq 'resize-temp-buffer-window temp-buffer-show-hook) t))
-  :set (lambda (symbol value)
-         (temp-buffer-resize-mode (if value 1 -1)))
-  :initialize 'custom-initialize-default
-  :type 'boolean
-  :group 'help
-  :version "20.4")
-
 (defcustom temp-buffer-max-height (lambda (buffer) (/ (- (frame-height) 2) 2))
   "*Maximum height of a window displaying a temporary buffer.
 This is the maximum height (in text lines) which `resize-temp-buffer-window'
@@ -1222,25 +1487,19 @@ positive number."
   :group 'help
   :version "20.4")
 
-(defun temp-buffer-resize-mode (arg)
-  "Toggle the mode which that makes windows smaller for temporary buffers.
+(define-minor-mode temp-buffer-resize-mode
+  "Toggle the mode which makes windows smaller for temporary buffers.
 With prefix argument ARG, turn the resizing of windows displaying temporary
 buffers on if ARG is positive or off otherwise.
-See the documentation of the variable `temp-buffer-resize-mode' for
-more information."
-  (interactive "P")
-  (let ((turn-it-on
-         (if (null arg)
-             (not (memq 'resize-temp-buffer-window temp-buffer-show-hook))
-           (> (prefix-numeric-value arg) 0))))
-    (if turn-it-on
-        (progn
-          ;; `help-mode-maybe' may add a `back' button and thus increase the
-          ;; text size, so `resize-temp-buffer-window' must be run *after* it.
-          (add-hook 'temp-buffer-show-hook 'resize-temp-buffer-window 'append)
-          (setq temp-buffer-resize-mode t))
-      (remove-hook 'temp-buffer-show-hook 'resize-temp-buffer-window)
-      (setq temp-buffer-resize-mode nil))))
+This makes the window the right height for its contents, but never
+more than `temp-buffer-max-height' nor less than `window-min-height'.
+This applies to `help', `apropos' and `completion' buffers, and some others."
+  nil nil nil :global t :group 'help
+  (if temp-buffer-resize-mode
+      ;; `help-make-xrefs' may add a `back' button and thus increase the
+      ;; text size, so `resize-temp-buffer-window' must be run *after* it.
+      (add-hook 'temp-buffer-show-hook 'resize-temp-buffer-window 'append)
+    (remove-hook 'temp-buffer-show-hook 'resize-temp-buffer-window)))
 
 (defun resize-temp-buffer-window ()
   "Resize the current window to fit its contents.
@@ -1251,13 +1510,111 @@ out of view."
   (unless (or (one-window-p 'nomini)
               (not (pos-visible-in-window-p (point-min)))
               (/=  (frame-width) (window-width)))
-    (let* ((max-height (if (functionp temp-buffer-max-height)
-                           (funcall temp-buffer-max-height (current-buffer))
-                         temp-buffer-max-height))
-           (win-height (1- (window-height)))
-           (min-height (1- window-min-height))
-           (text-height (window-buffer-height(selected-window)))
-           (new-height (max (min text-height max-height) min-height)))
-      (enlarge-window (- new-height win-height)))))
+    (fit-window-to-buffer
+     (selected-window)
+     (if (functionp temp-buffer-max-height)
+	 (funcall temp-buffer-max-height (current-buffer))
+       temp-buffer-max-height))))
+
+;; `help-manyarg-func-alist' is defined primitively (in doc.c).
+;; New primitives with `MANY' or `UNEVALLED' arglists should be added
+;; to this alist.
+;; The parens and function name are redundant, but it's messy to add
+;; them in `documentation'.
+
+;; This will find any missing items:
+;; (let (l)
+;;   (mapatoms (lambda (x)
+;; 	      (if (and (fboundp x)
+;; 		       (subrp (symbol-function x))
+;; 		       (not (numberp (cdr (subr-arity (symbol-function x)))))
+;; 		       (not (assq x help-manyarg-func-alist)))
+;; 		  (push x l))))
+;;   l)
+(defconst help-manyarg-func-alist
+  (purecopy
+   '((list . "(list &rest OBJECTS)")
+     (vector . "(vector &rest OBJECTS)")
+     (make-byte-code . "(make-byte-code &rest ELEMENTS)")
+     (call-process
+      . "(call-process PROGRAM &optional INFILE BUFFER DISPLAY &rest ARGS)")
+     (call-process-region
+      . "(call-process-region START END PROGRAM &optional DELETE BUFFER DISPLAY &rest ARGS)")
+     (string . "(string &rest CHARACTERS)")
+     (+ . "(+ &rest NUMBERS-OR-MARKERS)")
+     (- . "(- &optional NUMBER-OR-MARKER &rest MORE-NUMBERS-OR-MARKERS)")
+     (* . "(* &rest NUMBERS-OR-MARKERS)")
+     (/ . "(/ DIVIDEND DIVISOR &rest DIVISORS)")
+     (max . "(max NUMBER-OR-MARKER &rest NUMBERS-OR-MARKERS)")
+     (min . "(min NUMBER-OR-MARKER &rest NUMBERS-OR-MARKERS)")
+     (logand . "(logand &rest INTS-OR-MARKERS)")
+     (logior . "(logior &rest INTS-OR-MARKERS)")
+     (logxor . "(logxor &rest INTS-OR-MARKERS)")
+     (encode-time
+      . "(encode-time SECOND MINUTE HOUR DAY MONTH YEAR &optional ZONE)")
+     (insert . "(insert &rest ARGS)")
+     (insert-and-inherit . "(insert-and-inherit &rest ARGS)")
+     (insert-before-markers . "(insert-before-markers &rest ARGS)")
+     (message . "(message STRING &rest ARGUMENTS)")
+     (message-box . "(message-box STRING &rest ARGUMENTS)")
+     (message-or-box . "(message-or-box STRING &rest ARGUMENTS)")
+     (propertize . "(propertize STRING &rest PROPERTIES)")
+     (format . "(format STRING &rest OBJECTS)")
+     (apply . "(apply FUNCTION &rest ARGUMENTS)")
+     (run-hooks . "(run-hooks &rest HOOKS)")
+     (run-hook-with-args . "(run-hook-with-args HOOK &rest ARGS)")
+     (run-hook-with-args-until-failure
+      . "(run-hook-with-args-until-failure HOOK &rest ARGS)")
+     (run-hook-with-args-until-success
+      . "(run-hook-with-args-until-success HOOK &rest ARGS)")
+     (funcall . "(funcall FUNCTION &rest ARGUMENTS)")
+     (append . "(append &rest SEQUENCES)")
+     (concat . "(concat &rest SEQUENCES)")
+     (vconcat . "(vconcat &rest SEQUENCES)")
+     (nconc . "(nconc &rest LISTS)")
+     (widget-apply . "(widget-apply WIDGET PROPERTY &rest ARGS)")
+     (make-hash-table . "(make-hash-table &rest KEYWORD-ARGS)")
+     (insert-string . "(insert-string &rest ARGS)")
+     (start-process . "(start-process NAME BUFFER PROGRAM &rest PROGRAM-ARGS)")
+     (setq-default . "(setq-default SYMBOL VALUE [SYMBOL VALUE...])")
+     (save-excursion . "(save-excursion &rest BODY)")
+     (save-current-buffer . "(save-current-buffer &rest BODY)")
+     (save-restriction . "(save-restriction &rest BODY)")
+     (or . "(or CONDITIONS ...)")
+     (and . "(and CONDITIONS ...)")
+     (if . "(if COND THEN ELSE...)")
+     (cond . "(cond CLAUSES...)")
+     (progn . "(progn BODY ...)")
+     (prog1 . "(prog1 FIRST BODY...)")
+     (prog2 . "(prog2 X Y BODY...)")
+     (setq . "(setq SYM VAL SYM VAL ...)")
+     (quote . "(quote ARG)")
+     (function . "(function ARG)")
+     (defun . "(defun NAME ARGLIST [DOCSTRING] BODY...)")
+     (defmacro . "(defmacro NAME ARGLIST [DOCSTRING] BODY...)")
+     (defvar . "(defvar SYMBOL [INITVALUE DOCSTRING])")
+     (defconst . "(defconst SYMBOL INITVALUE [DOCSTRING])")
+     (let* . "(let* VARLIST BODY...)")
+     (let . "(let VARLIST BODY...)")
+     (while . "(while TEST BODY...)")
+     (catch . "(catch TAG BODY...)")
+     (unwind-protect . "(unwind-protect BODYFORM UNWINDFORMS...)")
+     (condition-case . "(condition-case VAR BODYFORM HANDLERS...)")
+     (track-mouse . "(track-mouse BODY ...)")
+     (ml-if . "(ml-if COND THEN ELSE...)")
+     (ml-provide-prefix-argument . "(ml-provide-prefix-argument ARG1 ARG2)")
+     (ml-prefix-argument-loop . "(ml-prefix-argument-loop ...)")
+     (with-output-to-temp-buffer
+	 . "(with-output-to-temp-buffer BUFFNAME BODY ...)")
+     (save-window-excursion . "(save-window-excursion BODY ...)")
+     (find-operation-coding-system
+      . "(find-operation-coding-system OPERATION ARGUMENTS ...)")
+     (insert-before-markers-and-inherit
+      . "(insert-before-markers-and-inherit &rest ARGS)"))))
+
+;; Provide this for the sake of define-minor-mode which generates
+;; defcustoms which require 'help'.
+
+(provide 'help)
 
 ;;; help.el ends here

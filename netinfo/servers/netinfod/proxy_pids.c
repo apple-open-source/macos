@@ -34,6 +34,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <NetInfo/system_log.h>
 #include "ni_globals.h"
 

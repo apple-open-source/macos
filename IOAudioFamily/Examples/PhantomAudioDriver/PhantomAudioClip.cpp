@@ -43,6 +43,12 @@ LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUC
 #include "PhantomAudioEngine.h"
 #include <IOKit/IOLib.h>
 
+#define	Use_Optimized	1
+
+#if	Use_Optimized
+	#include "PCMBlitterLibPPC.h"
+#endif
+
 // The function clipOutputSamples() is called to clip and convert samples from the float mix buffer into the actual
 // hardware sample buffer.  The samples to be clipped, are guaranteed not to wrap from the end of the buffer to the
 // beginning.
@@ -68,13 +74,85 @@ extern "C" {
 
 IOReturn clip24BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("clip24BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+	if (streamFormat->fIsMixable) {
+	#if	Use_Optimized
+		Float32ToNativeInt32(&(((float *)mixBuf)[firstSampleFrame]), &(((long *)sampleBuf)[firstSampleFrame]), numSampleFrames * streamFormat->fNumChannels);
+	#else
+		float *floatMixBuf;
+		SInt32 *outputBuf;    
+		UInt32 sampleIndex;
+		UInt32 maxSampleIndex;
+		float mixSample;
+		
+		IOLog( "clip24(%x,%x)\n", firstSampleFrame, numSampleFrames );
+		
+		floatMixBuf = &(((float *)mixBuf)[firstSampleFrame]);
+		outputBuf = (SInt32 *)sampleBuf;
+		
+		maxSampleIndex = firstSampleFrame + numSampleFrames;
+		
+		for ( sampleIndex = firstSampleFrame; sampleIndex < maxSampleIndex; sampleIndex++ ) {
+			mixSample = *floatMixBuf++;
+			mixSample *= 2147483648.0;
+			if (mixSample > 2147483392.0) {
+				mixSample = 2147483392.0;
+			} else if (mixSample < -2147483648.0) {
+				mixSample = -2147483648.0;
+			}
+		
+			outputBuf[sampleIndex] = (SInt32)(mixSample);
+		}
+	#endif
+	} else {
+		UInt32			offset;
+
+		offset = firstSampleFrame * streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
+
+		memcpy ((UInt8 *)sampleBuf + offset, (UInt8 *)mixBuf, numSampleFrames * streamFormat->fNumChannels * (streamFormat->fBitWidth / 8));
+	}
+
     return kIOReturnSuccess;
 }
 
 IOReturn clip16BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    //IOLog("clip16BitSamples(%lx,%lx)\n", firstSampleFrame, numSampleFrames);
+	if (streamFormat->fIsMixable) {
+	#if	Use_Optimized
+		Float32ToNativeInt16(&(((float *)mixBuf)[firstSampleFrame]), &(((int16_t *)sampleBuf)[firstSampleFrame]), numSampleFrames * streamFormat->fNumChannels);
+	#else
+		float *floatMixBuf;
+		SInt32 *outputBuf;    
+		UInt32 sampleIndex;
+		UInt32 maxSampleIndex;
+		float mixSample;
+		
+		floatMixBuf = &(((float *)mixBuf)[firstSampleFrame]);
+		outputBuf = &(((SInt32 *)sampleBuf)[firstSampleFrame]);
+		
+		maxSampleIndex = firstSampleFrame + numSampleFrames;
+		
+		for ( sampleIndex = firstSampleFrame; sampleIndex < maxSampleIndex; sampleIndex++ ) {
+			mixSample = *floatMixBuf++;
+			mixSample *= 2147483648.0;
+			if (mixSample > 2147483392.0) {
+				mixSample = 2147483392.0;
+			} else if (mixSample < -2147483648.0) {
+				mixSample = -2147483648.0;
+			}
+	
+		outputBuf[sampleIndex] = (SInt32)(mixSample);
+	
+			++outputBuf;
+		}
+	#endif
+	} else {
+		UInt32			offset;
+
+		offset = firstSampleFrame * streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
+
+		memcpy ((UInt8 *)sampleBuf + offset, (UInt8 *)mixBuf, numSampleFrames * streamFormat->fNumChannels * (streamFormat->fBitWidth / 8));
+	}
+
     return kIOReturnSuccess;
 }
 
@@ -110,5 +188,25 @@ IOReturn process16BitSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSa
 //		audioStream - the audio stream this function is operating on
 IOReturn PhantomAudioEngine::convertInputSamples(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
+#if	Use_Optimized
+	NativeInt32ToFloat32(&(((long *)sampleBuf)[firstSampleFrame]), &(((float *)sampleBuf)[firstSampleFrame]), numSampleFrames * streamFormat->fNumChannels, 32);
+#else
+    SInt32	*inputBuf;
+    float	*floatDestBuf;
+    SInt32 inputSample;
+    
+    IOLog( "conv24(%x,%x)\n", firstSampleFrame, numSampleFrames );
+    
+    floatDestBuf = (float *)destBuf;
+    inputBuf = &(((SInt32 *)sampleBuf)[firstSampleFrame]);
+    
+    while ( numSampleFrames > 0 )
+    {
+        inputSample = *inputBuf;
+        *floatDestBuf++ = (float)(inputSample) * 4.656612873077392578125e-10;
+        inputBuf++;
+        --numSampleFrames;
+    }
+#endif
     return kIOReturnSuccess;
 }

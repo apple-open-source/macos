@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -925,7 +925,7 @@ API_EXPORT(request_rec *) ap_sub_req_lookup_file(const char *new_file,
 	     */
             if (errno == ENAMETOOLONG) {
                 ap_log_rerror(APLOG_MARK, APLOG_CRIT, r,
-                              "Possible DoS attempt? URL=%s", r->filename);
+                              "Possible DoS attempt? Path=%s", r->filename);
                 rnew->status = HTTP_FORBIDDEN;
                 return rnew;
             }

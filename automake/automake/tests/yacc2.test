@@ -1,0 +1,70 @@
+#! /bin/sh
+
+# Test to make sure intermediate .h file is not generated nor removed
+# if (AM_)?YFLAGS do not contain -d.  Requested by Jim Meyering.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_YACC
+END
+
+cat > Makefile.am <<'END'
+bin_PROGRAMS = zardoz
+zardoz_SOURCES = zardoz.y
+END
+
+# Don't redefine several times the same variable.
+cp Makefile.am Makefile.src
+
+
+
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# If zardoz.h IS mentioned, fail
+grep 'zardoz.h' Makefile.in > /dev/null && exit 1
+
+
+
+cp Makefile.src Makefile.am
+echo 'AM_YFLAGS = -d' >> Makefile.am
+
+$AUTOMAKE || exit 1
+
+# If zardoz.h is NOT mentioned, fail
+grep 'zardoz.h' Makefile.in > /dev/null || exit 1
+
+
+
+cp Makefile.src Makefile.am
+echo 'AM_YFLAGS = ' >> Makefile.am
+
+$AUTOMAKE || exit 1
+
+# If zardoz.h IS mentioned, fail
+grep 'zardoz.h' Makefile.in > /dev/null && exit 1
+
+
+
+cp Makefile.src Makefile.am
+echo 'YFLAGS = -d' >> Makefile.am
+
+$AUTOMAKE || exit 1
+
+# If zardoz.h is NOT mentioned, fail
+grep 'zardoz.h' Makefile.in > /dev/null || exit 1
+
+
+
+cp Makefile.src Makefile.am
+echo 'YFLAGS = ' >> Makefile.am
+
+$AUTOMAKE || exit 1
+
+# If zardoz.h IS mentioned, fail
+grep 'zardoz.h' Makefile.in > /dev/null && exit 1
+
+exit 0

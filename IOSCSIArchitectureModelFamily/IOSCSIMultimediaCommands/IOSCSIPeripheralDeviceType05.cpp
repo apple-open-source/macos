@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,28 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include "IOSCSIPeripheralDeviceType05.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"PDT 05"
+
+#if DEBUG
+#define SCSI_PDT_05_DEBUGGING_LEVEL				0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_PDT_05_DEBUGGING_LEVEL >= 1 )
@@ -46,65 +67,84 @@
 OSDefineMetaClassAndStructors ( IOSCSIPeripheralDeviceType05, IOSCSIMultimediaCommandsDevice );
 
 
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods - Methods used by this class and subclasses
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ init - Called at initialization time							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPeripheralDeviceType05::init ( OSDictionary * propTable )
 {
 	
-	STATUS_LOG ( ( "IOSCSIPeripheralDeviceType05::init called\n" ) );
+	bool	result = false;
 	
-	if ( super::init ( propTable ) == false )
-	{
-		
-		STATUS_LOG ( ( "IOSCSIPeripheralDeviceType05::init exiting false\n" ) );
-		return false;
-		
-	}
+	require ( super::init ( propTable ), ErrorExit );
+	result = true;
 	
-	STATUS_LOG ( ( "IOSCSIPeripheralDeviceType05::init exiting true\n" ) );
 	
-	return true;
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Called at services start time	(after successful matching)
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPeripheralDeviceType05::start ( IOService * provider )
 {
 	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
-		
-	// Call our super class' start routine so that all inherited
-	// behavior is initialized.    
-	if ( !super::start ( provider ) )
-    {
-		
-		return false;
+	bool	result = false;
 	
-	}
+	require ( super::start ( provider ), ErrorExit );
+	result = true;
 	
-	return true;
+	
+ErrorExit:
+	
+		
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ stop - Called at stop start time								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPeripheralDeviceType05::stop ( IOService * provider )
 {
 	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
-	
 	super::stop ( provider );
-	
-	STATUS_LOG ( ( "%s::%s exiting\n", getName ( ), __FUNCTION__ ) );
 	
 }
 
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 6 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType05, 8 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 1 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 2 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 3 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 4 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 5 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 6 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 7 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType05, 8 );

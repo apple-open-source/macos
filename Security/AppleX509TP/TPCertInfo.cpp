@@ -34,6 +34,7 @@
 #include <Security/threading.h>	/* for Mutex */
 #include <Security/globalizer.h>
 #include <Security/debugging.h>
+#include <Security/cssmapple.h>
 
 #define tpTimeDbg(args...)	debug("tpTime", ## args) 
 
@@ -45,15 +46,25 @@
 TPCertInfo::TPCertInfo(
 	const CSSM_DATA		*certData,
 	CSSM_CL_HANDLE		clHand,
+	const char 			*cssmTimeStr,		// = NULL
 	bool				copyCertData) :		// true: we copy, we free
 											// false - caller owns
 		mClHand(clHand),
 		mCacheHand(CSSM_INVALID_HANDLE),
 		mSubjectName(NULL),
-		mIssuerName(NULL)
+		mIssuerName(NULL),
+		mIndex(0),
+		mIsAnchor(false),
+		mIsFromDb(false),
+		mNumStatusCodes(0),
+		mStatusCodes(NULL),
+		mUniqueRecord(NULL)
 {
 	CSSM_RETURN	crtn;
 
+	mDlDbHandle.DBHandle = 0;
+	mDlDbHandle.DLHandle = 0;
+	
 	if(copyCertData) {
 		mCertData = tpMallocCopyCssmData(CssmAllocator::standard(), certData);
 	}
@@ -85,6 +96,10 @@ TPCertInfo::TPCertInfo(
 		releaseResources();
 		CssmError::throwMe(crtn);
 	}
+	
+	/* calculate other commonly used fields */
+	mIsRoot = tpCompareCssmData(mSubjectName, mIssuerName) ? true : false;
+	calculateCurrent(cssmTimeStr);
 }
 	
 /* frees mSubjectName, mIssuerName, mCacheHand via mClHand */
@@ -106,6 +121,9 @@ void TPCertInfo::releaseResources()
 	}
 	if(mCacheHand != CSSM_INVALID_HANDLE) {
 		CSSM_CL_CertAbortCache(mClHand, mCacheHand);
+	}
+	if(mStatusCodes) {
+		free(mStatusCodes);
 	}
 }
 
@@ -176,41 +194,43 @@ const CSSM_DATA *TPCertInfo::issuerName()
 	return mIssuerName;
 }
 
-bool TPCertInfo::isSelfSigned()		// i.e., subject == issuer
-{
-	return tpCompareCssmData(mSubjectName, mIssuerName) ? true : false;
-}
-
 /* 
- * Verify validity (not before/after). Returns 
- * 		CSSMERR_TP_CERT_NOT_VALID_YET
- *		CSSMERR_TP_CERT_EXPIRED
- *		CSSM_OK
- *		CSSMERR_TP_INVALID_CERT_POINTER, other "bogus cert" errors
+ * Verify validity (not before/after). Only throws on gross error
+ * (CSSMERR_TP_INVALID_CERT_POINTER, etc.).
  *
  * We use some stdlib time calls over in tpTime.c; the stdlib function
  * gmtime() is not thread-safe, so we do the protection here. Note that
  * this makes *our* calls to gmtime() thread-safe, but if the app has
  * other threads which are also calling gmtime, we're out of luck.
  */
-static ModuleNexus<Mutex> tpTimeLock;
+ModuleNexus<Mutex> tpTimeLock;
 
-CSSM_RETURN TPCertInfo::isCurrent(
-	CSSM_BOOL		allowExpired)
+void TPCertInfo::calculateCurrent(
+	const char *cssmTimeStr /* = NULL */)
 {
 	CSSM_DATA_PTR	notBeforeField = NULL;
 	CSSM_DATA_PTR	notAfterField = NULL;
 	CSSM_RETURN		crtn = CSSM_OK;
+	CSSM_X509_TIME 	*xNotAfter;
 	
 	CASSERT(mCacheHand != CSSM_INVALID_HANDLE);
 	crtn = fetchField(&CSSMOID_X509V1ValidityNotBefore, &notBeforeField);
 	if(crtn) {
-		errorLog0("TPCertInfo::isCurrent: GetField error");
-		return crtn;
+		errorLog0("TPCertInfo::calculateCurrent: GetField error");
+		CssmError::throwMe(crtn);
 	}
 	
+	/* subsequent errors to errOut */
 	struct tm now;
-	{
+	if(cssmTimeStr != NULL) {
+		/* caller specifies verification time base */
+		if(timeStringToTm(cssmTimeStr, strlen(cssmTimeStr), &now)) {
+			errorLog0("TPCertInfo::calculateCurrent: timeStringToTm error");
+			CssmError::throwMe(CSSMERR_TP_INVALID_TIMESTRING);
+		}
+	}
+	else {
+		/* time base = right now */
 		StLock<Mutex> _(tpTimeLock());
 		nowTime(&now);
 	}
@@ -219,68 +239,52 @@ CSSM_RETURN TPCertInfo::isCurrent(
 
 	if(timeStringToTm((char *)xNotBefore->time.Data, xNotBefore->time.Length, 
 			&notBefore)) {
-		errorLog0("TPCertInfo::isCurrent: malformed notBefore time\n");
+		errorLog0("TPCertInfo::calculateCurrent: malformed notBefore time\n");
 		crtn = CSSMERR_TP_INVALID_CERT_POINTER;
 		goto errOut;
 	}
 	if(compareTimes(&now, &notBefore) < 0) {
-		crtn = CSSMERR_TP_CERT_NOT_VALID_YET;
+		mNotValidYet = true;
 		tpTimeDbg("\nTP_CERT_NOT_VALID_YET:\n   now y:%d m:%d d:%d h:%d m:%d",
 			now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, 
 			now.tm_min);
 		tpTimeDbg(" notBefore y:%d m:%d d:%d h:%d m:%d",
 			notBefore.tm_year, notBefore.tm_mon, notBefore.tm_mday, 
 			notBefore.tm_hour, notBefore.tm_min);
-		struct tm now2;
-		{
-			StLock<Mutex> _(tpTimeLock());
-			nowTime(&now2);
-		}
-		tpTimeDbg(" now2      y:%d m:%d d:%d h:%d m:%d",
-			now2.tm_year, now2.tm_mon, now2.tm_mday, now2.tm_hour, 
-			now2.tm_min);
+	}
+	else {
+		mNotValidYet = false;
+	}
+	
+	struct tm notAfter;
+	crtn = fetchField(&CSSMOID_X509V1ValidityNotAfter, &notAfterField);
+	if(crtn) {
+		errorLog0("TPCertInfo::calculateCurrent: GetField error");
 		goto errOut;
 	}
 
-	if(!allowExpired) {
-		struct tm notAfter;
-		crtn = fetchField(&CSSMOID_X509V1ValidityNotAfter, &notAfterField);
-		if(crtn) {
-			errorLog0("TPCertInfo::isCurrent: GetField error");
-			goto errOut;
-		}
-	
-		CSSM_X509_TIME *xNotAfter = (CSSM_X509_TIME *)notAfterField->Data;
-		if(timeStringToTm((char *)xNotAfter->time.Data, xNotAfter->time.Length, 
-				&notAfter)) {
-			errorLog0("TPCertInfo::isCurrent: malformed notAfter time\n");
-			crtn = CSSMERR_TP_INVALID_CERT_POINTER;
-		}
-		else if(compareTimes(&now, &notAfter) > 0) {
-			crtn = CSSMERR_TP_CERT_EXPIRED;
-			tpTimeDbg("\nTP_CERT_EXPIRED: \n   now y:%d m:%d d:%d "
-					"h:%d m:%d",
-				now.tm_year, now.tm_mon, now.tm_mday, 
-				now.tm_hour, now.tm_min);
-			tpTimeDbg(" notAfter y:%d m:%d d:%d h:%d m:%d",
-				notAfter.tm_year, notAfter.tm_mon, notAfter.tm_mday, 
-				notAfter.tm_hour, notAfter.tm_min);
-			struct tm now2;
-			{
-				StLock<Mutex> _(tpTimeLock());
-				nowTime(&now2);
-			}
-			tpTimeDbg(" now2      y:%d m:%d d:%d h:%d m:%d",
-				now2.tm_year, now2.tm_mon, now2.tm_mday, now2.tm_hour, 
-				now2.tm_min);
-		}
-		else {
-			crtn = CSSM_OK;
-		}
+	xNotAfter = (CSSM_X509_TIME *)notAfterField->Data;
+	if(timeStringToTm((char *)xNotAfter->time.Data, xNotAfter->time.Length, 
+			&notAfter)) {
+		errorLog0("TPCertInfo::calculateCurrent: malformed notAfter time\n");
+		crtn = CSSMERR_TP_INVALID_CERT_POINTER;
+		goto errOut;
+	}
+	else if(compareTimes(&now, &notAfter) > 0) {
+		crtn = CSSMERR_TP_CERT_EXPIRED;
+		tpTimeDbg("\nTP_CERT_EXPIRED: \n   now y:%d m:%d d:%d "
+				"h:%d m:%d",
+			now.tm_year, now.tm_mon, now.tm_mday, 
+			now.tm_hour, now.tm_min);
+		tpTimeDbg(" notAfter y:%d m:%d d:%d h:%d m:%d",
+			notAfter.tm_year, notAfter.tm_mon, notAfter.tm_mday, 
+			notAfter.tm_hour, notAfter.tm_min);
+		mExpired = true;
 	}
 	else {
-		crtn = CSSM_OK;
+		mExpired = false;
 	}
+	crtn = CSSM_OK;
 errOut:
 	if(notAfterField) {
 		freeField(&CSSMOID_X509V1ValidityNotAfter, notAfterField);
@@ -288,7 +292,31 @@ errOut:
 	if(notBeforeField) {
 		freeField(&CSSMOID_X509V1ValidityNotBefore, notBeforeField);
 	}
-	return crtn;
+	if(crtn != CSSM_OK) {
+		CssmError::throwMe(crtn);
+	}
+}
+
+CSSM_RETURN TPCertInfo::isCurrent(
+	CSSM_BOOL		allowExpired)
+{
+	if(mNotValidYet) {
+		return CSSMERR_TP_CERT_NOT_VALID_YET;
+	}
+	if(allowExpired || !mExpired) {
+		return CSSM_OK;
+	}
+	else {
+		return CSSMERR_TP_CERT_EXPIRED;
+	}
+}
+
+void TPCertInfo::addStatusCode(CSSM_RETURN code)
+{
+	mNumStatusCodes++;
+	mStatusCodes = (CSSM_RETURN *)realloc(mStatusCodes, 
+		mNumStatusCodes * sizeof(CSSM_RETURN));
+	mStatusCodes[mNumStatusCodes - 1] = code;
 }
 
 /***
@@ -389,7 +417,7 @@ CSSM_CERTGROUP_PTR TPCertGroup::buildCssmCertGroup()
 	CSSM_CERTGROUP_PTR cgrp = 
 		(CSSM_CERTGROUP_PTR)mAlloc.malloc(sizeof(CSSM_CERTGROUP));
 	cgrp->NumCerts = mNumCerts;
-	cgrp->CertGroupType = CSSM_CERTGROUP_ENCODED_CERT;
+	cgrp->CertGroupType = CSSM_CERTGROUP_DATA;
 	cgrp->CertType = CSSM_CERT_X_509v3;
 	cgrp->CertEncoding = CSSM_CERT_ENCODING_DER; 
 	if(mNumCerts == 0) {
@@ -404,4 +432,86 @@ CSSM_CERTGROUP_PTR TPCertGroup::buildCssmCertGroup()
 			&cgrp->GroupList.CertList[i]);
 	}
 	return cgrp;
+}
+
+/* build a CSSM_TP_APPLE_EVIDENCE_INFO array */
+CSSM_TP_APPLE_EVIDENCE_INFO *TPCertGroup::buildCssmEvidenceInfo()
+{
+	CSSM_TP_APPLE_EVIDENCE_INFO *infoArray;
+	
+	infoArray = (CSSM_TP_APPLE_EVIDENCE_INFO *)mAlloc.calloc(mNumCerts,
+		sizeof(CSSM_TP_APPLE_EVIDENCE_INFO));
+	for(unsigned i=0; i<mNumCerts; i++) {
+		TPCertInfo *certInfo = mCertInfo[i];
+		CSSM_TP_APPLE_EVIDENCE_INFO *evInfo = &infoArray[i];
+		
+		/* first the booleans */
+		if(certInfo->isExpired()) {
+			evInfo->StatusBits |= CSSM_CERT_STATUS_EXPIRED;
+		}
+		if(certInfo->isNotValidYet()) {
+			evInfo->StatusBits |= CSSM_CERT_STATUS_NOT_VALID_YET;
+		}
+		if(certInfo->dlDbHandle().DLHandle == 0) {
+			if(certInfo->isAnchor()) {
+				evInfo->StatusBits |= CSSM_CERT_STATUS_IS_IN_ANCHORS;
+			}
+			else {
+				evInfo->StatusBits |= CSSM_CERT_STATUS_IS_IN_INPUT_CERTS;
+			}
+		}
+		if(certInfo->isSelfSigned()) {
+			evInfo->StatusBits |= CSSM_CERT_STATUS_IS_ROOT;
+		}
+		
+		unsigned numCodes = certInfo->numStatusCodes();
+		if(numCodes) {
+			evInfo->NumStatusCodes = numCodes;
+			evInfo->StatusCodes = (CSSM_RETURN *)mAlloc.calloc(numCodes,
+				sizeof(CSSM_RETURN));
+			for(unsigned j=0; j<numCodes; j++) {
+				evInfo->StatusCodes[j] = (certInfo->statusCodes())[j];
+			}
+		}
+		
+		evInfo->Index = certInfo->index();
+		evInfo->DlDbHandle = certInfo->dlDbHandle();
+		evInfo->UniqueRecord = certInfo->uniqueRecord();
+	}
+	return infoArray;
+}
+		
+/* Given a status for basic construction of a cert group and a status
+ * of (optional) policy verification, plus the implicit notBefore/notAfter
+ * status in the certs, calculate a global return code. This just 
+ * encapsulates a policy for CertGroupeConstruct and CertGroupVerify.
+ */
+CSSM_RETURN TPCertGroup::getReturnCode(
+	CSSM_RETURN constructStatus,
+	CSSM_BOOL	allowExpired,
+	CSSM_RETURN policyStatus /* = CSSM_OK */)
+{
+	if(constructStatus) {
+		/* CSSMERR_TP_NOT_TRUSTED, CSSMERR_TP_INVALID_ANCHOR_CERT, gross errors */
+		return constructStatus;
+	}
+	
+	/* check for expired, not valid yet */
+	bool expired = false;
+	bool notValid = false;
+	for(unsigned i=0; i<mNumCerts; i++) {
+		if(mCertInfo[i]->isExpired()) {
+			expired = true;
+		}
+		if(mCertInfo[i]->isNotValidYet()) {
+			notValid = true;
+		}
+	}
+	if(expired && !allowExpired) {
+		return CSSMERR_TP_CERT_EXPIRED;
+	}
+	if(notValid) {
+		return CSSMERR_TP_CERT_NOT_VALID_YET;
+	}
+	return policyStatus;
 }

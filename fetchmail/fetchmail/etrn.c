@@ -40,15 +40,17 @@ static int etrn_getrange(int sock, struct query *ctl, const char *id,
     char buf [MSGBUFSIZE+1];
     struct idlist *qnp;		/* pointer to Q names */
 
-    if ((ok = SMTP_ehlo(sock, fetchmailhost, &opts)))
+    if ((ok = SMTP_ehlo(sock, fetchmailhost, 
+			ctl->server.esmtp_name, ctl->server.esmtp_password,
+			&opts)))
     {
-	report(stderr, _("%s's SMTP listener does not support ESMTP\n"),
+	report(stderr, GT_("%s's SMTP listener does not support ESMTP\n"),
 	      ctl->server.pollname);
 	return(ok);
     }
     else if (!(opts & ESMTP_ETRN))
     {
-	report(stderr, _("%s's SMTP listener does not support ETRN\n"),
+	report(stderr, GT_("%s's SMTP listener does not support ETRN\n"),
 	      ctl->server.pollname);
 	return(PS_PROTOCOL);
     }
@@ -71,39 +73,39 @@ static int etrn_getrange(int sock, struct query *ctl, const char *id,
 	switch(atoi(buf))
 	{
 	case 250:	/* OK, queuing for node <x> started */
-	    if (outlevel >= O_SILENT)
-		report(stdout, _("Queuing for %s started\n"), qnp->id);
+	    if (outlevel > O_SILENT)
+		report(stdout, GT_("Queuing for %s started\n"), qnp->id);
 	    break;
 
 	case 251:	/* OK, no messages waiting for node <x> */
-	    if (outlevel >= O_SILENT)
-		report(stdout, _("No messages waiting for %s\n"), qnp->id);
+	    if (outlevel > O_SILENT)
+		report(stdout, GT_("No messages waiting for %s\n"), qnp->id);
 	    return(PS_NOMAIL);
 
 	case 252:	/* OK, pending messages for node <x> started */
 	case 253:	/* OK, <n> pending messages for node <x> started */
-	    if (outlevel >= O_SILENT)
-		report(stdout, _("Pending messages for %s started\n"), qnp->id);
+	    if (outlevel > O_SILENT)
+		report(stdout, GT_("Pending messages for %s started\n"), qnp->id);
 	    break;
 
 	case 458:	/* Unable to queue messages for node <x> */
-	    report(stderr, _("Unable to queue messages for node %s\n"),qnp->id);
+	    report(stderr, GT_("Unable to queue messages for node %s\n"),qnp->id);
 	    return(PS_PROTOCOL);
 
 	case 459:	/* Node <x> not allowed: <reason> */
-	    report(stderr, _("Node %s not allowed: %s\n"), qnp->id, buf);
+	    report(stderr, GT_("Node %s not allowed: %s\n"), qnp->id, buf);
 	    return(PS_AUTHFAIL);
 
 	case 500:	/* Syntax Error */
-	    report(stderr, _("ETRN syntax error\n"));
+	    report(stderr, GT_("ETRN syntax error\n"));
 	    return(PS_PROTOCOL);
 
 	case 501:	/* Syntax Error in Parameters */
-	    report(stderr, _("ETRN syntax error in parameters\n"));
+	    report(stderr, GT_("ETRN syntax error in parameters\n"));
 	    return(PS_PROTOCOL);
 
 	default:
-	    report(stderr, _("Unknown ETRN error %d\n"), atoi(buf));
+	    report(stderr, GT_("Unknown ETRN error %d\n"), atoi(buf));
 	    return(PS_PROTOCOL);
 	}
     }
@@ -148,19 +150,19 @@ int doETRN (struct query *ctl)
     int status;
 
     if (ctl->keep) {
-	fprintf(stderr, _("Option --keep is not supported with ETRN\n"));
+	fprintf(stderr, GT_("Option --keep is not supported with ETRN\n"));
 	return(PS_SYNTAX);
     }
     if (ctl->flush) {
-	fprintf(stderr, _("Option --flush is not supported with ETRN\n"));
+	fprintf(stderr, GT_("Option --flush is not supported with ETRN\n"));
 	return(PS_SYNTAX);
     }
     if (ctl->mailboxes->id) {
-	fprintf(stderr, _("Option --remote is not supported with ETRN\n"));
+	fprintf(stderr, GT_("Option --remote is not supported with ETRN\n"));
 	return(PS_SYNTAX);
     }
     if (check_only) {
-	fprintf(stderr, _("Option --check is not supported with ETRN\n"));
+	fprintf(stderr, GT_("Option --check is not supported with ETRN\n"));
 	return(PS_SYNTAX);
     }
     peek_capable = FALSE;

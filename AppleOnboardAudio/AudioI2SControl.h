@@ -34,15 +34,12 @@
 #include "AudioHardwareUtilities.h"
 #include "AppleOnboardAudio.h"
 
-
 // In debug mode we may wish to step trough the INLINEd methods, so:
 #ifdef DEBUGMODE
 #define INLINE
 #else
 #define INLINE	inline
 #endif
-
-
 
 // Sound Formats:
 typedef enum SoundFormat 
@@ -64,9 +61,9 @@ typedef enum TicksPerFrame
 
 typedef enum ClockSource 
 {
-        kClock49MHz				= 49152000,		// 49 MHz clock source
-        kClock45MHz				= 45158400,		// 45 MHz clock source
-        kClock18MHz				= 18432000		 // 18 MHz clock source
+	kClock49MHz				= 49152000,		// 49 MHz clock source
+	kClock45MHz				= 45158400,		// 45 MHz clock source
+	kClock18MHz				= 18432000		 // 18 MHz clock source
 } ClockSource;
 
 // this struct type is used as a param block for passing info about the i2s object
@@ -76,7 +73,6 @@ typedef struct _s_AudioI2SInfo
     SoundFormat i2sSerialFormat;
     IOMemoryMap *map ;
 } AudioI2SInfo ;
-
 
 // AudioI2SControl is essentially a class for setting the state of the I2S registers
 class AudioI2SControl : public OSObject 

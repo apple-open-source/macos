@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.help.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tw.help.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
 /* tw.help.c: actually look up and print documentation on a file.
  *	      Look down the path for an appropriate file, then print it.
  *	      Note that the printing is NOT PAGED.  This is because the

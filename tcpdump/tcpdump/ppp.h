@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/ppp.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ppp.h,v 1.1.1.2 2002/05/29 00:05:33 landonf Exp $ (LBL) */
 /*
  * Point to Point Protocol (PPP) RFC1331
  *
@@ -33,6 +33,7 @@
 #define PPP_STII	0x0033	/* Stream Protocol (ST-II) */
 #define PPP_VINES	0x0035	/* Banyan Vines */
 #define PPP_IPV6	0x0057	/* IPv6 */
+#define	PPP_COMP	0x00fd	/* Compressed Datagram */
 
 #define PPP_HELLO	0x0201	/* 802.1d Hello Packets */
 #define PPP_LUXCOM	0x0231	/* Luxcom */

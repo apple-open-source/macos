@@ -1,0 +1,103 @@
+! First a few trivial cases...
+3V	 ALL    1   0  OK   1
+3V	 ALL    4   0  OK   2
+3V	 ALL    9   0  OK   3
+3V	 ALL    1p8	  0	 OK	  1p4
+3V	 ALL    1m8	  0	 OK	  1m4
+3V	 ALL    4p6	  0	 OK	  2p3
+3V	 ALL    4m6	  0	 OK	  2m3
+3V	 ALL    9p8	  0	 OK	  3p4
+3V	 ALL    9m8	  0	 OK	  3m4
+3V	 ALL    9p9p9   0  OK   3p9
+3V	 ALL    9m9m9   0  OK   3m9
+! And the usual zero business.
+3V	 ALL    +0	 0  OK	 +0
+3V	 ALL    -0	 0  OK	 -0
+! And tests for infinity.
+3V	 ALL    +H	 0  OK	 +H
+3V	 ALL    -H	 0  i   Q
+! Case: 2^EVEN * (1 + Nulp+) -->
+! 2^(EVEN/2) * (1 + (1/2)Nulp+ - (1/8)(Nulp+)^2 + tiny)
+! 1 + 1ulp --> 1 + 0.5ulp - tiny.
+3V	 =0<    1i1	  0	 x	 1
+3V	 >	  1i1   0  x   1i1
+! 1 + 2ulp --> 1 + 1ulp - tiny.
+3V	 =>	   1i2	 0  x   1i1
+3V	 0<	   1i2	 0  x   1
+! 1 + 3ulp --> 1 + 1.5ulp - tiny.
+3V	 =0<    1i3	  0	 x	 1i1
+3V	 >	  1i3   0  x   1i2
+! 1 + 4ulp --> 1 + 2ulp - tiny.
+3V	 =>	   1i4	 0  x   1i2
+3V	 0<	   1i4	 0  x   1i1
+! (1 + 5ulp) --> 1 + 2.5ulp - ...
+3V	 =0<    1i5	  0	 x	 1i2
+3V	 >	  1i5   0  x   1i3
+! (1 + 6ulp) --> 1 + 3ulp - ...
+3V	 =>	   1i6	 0  x   1i3
+3V	 0<	   1i6	 0  x   1i2
+! (1+7ulp) --> 1 + 3.5ulp - ... 
+3V	 =0<    1i7	  0	 x	 1i3
+3V	 >	  1i7   0  x   1i4
+! sqrt(1 - Nulp-) -->
+! 1 - (1/2)Nulp- - (1/8)(Nulp-)^2 - tiny
+! 1 - 1ulp-	 --> 1 - 0.5ulp- - tiny.
+3V	 =0<    1d1	  0	 x	 1d1
+3V	 >	  1d1   0  x   1
+! 1 - 2ulp-	 --> 1 - 1ulp- - tiny.
+3V	 =>	   1d2	 0  x   1d1
+3V	 0<	   1d2	 0  x   1d2
+! 1 - 3ulp-	 --> 1 - 1.5ulp- - tiny.
+3V	 =0<    1d3	  0	 x	 1d2
+3V	 >	  1d3   0  x   1d1
+! 1 - 4ulp-	 --> 1 - 2ulp- - tiny.
+3V	 =>	   1d4	 0  x   1d2
+3V	 0<	   1d4	 0  x   1d3
+! 1 - 5ulp-	 --> 1 - 2.5ulp- - tiny.
+3V	 =0<    1d5	  0	 x	 1d3
+3V	 >	  1d5   0  x   1d2
+! 1 - 6ulp-	 --> 1 - 3ulp- - tiny.
+3V	 =>	   1d6	 0  x   1d3
+3V	 0<	   1d6	 0  x   1d4
+! 1 - 7ulp-	 --> 1 - 3.5ulp- - tiny.
+3V	 =0<    1d7	  0	 x	 1d4
+3V	 >	  1d7   0  x   1d3
+! 1 - 8ulp-	 --> 1 - 4ulp- - tiny.
+3V	 =>	   1d8	 0  x   1d4
+3V	 0<	   1d8	 0  x   1d5
+! 1 - 9ulp-	 --> 1 - 4.5ulp- - tiny.
+3V	 =0<    1d9	  0	 x	 1d5
+3V	 >	  1d9   0  x   1d4
+! Invalid negative cases.
+3V	 ALL    -1	 0  i   Q
+3V	 ALL    -2i2   0  i	  Q
+3V	 ALL    -3i4   0  i	  Q
+3V	 ALL    -4d5   0  i	  Q
+3V	 ALL    -1u1   0  i	  Q
+3V	 ALL    -1u2   0  i	  Q
+3V	 ALL    -1u3   0  i	  Q
+3V	 ALL    -Hm1i2	 0  i   Q
+3V	 ALL    -Hm2i2	 0  i   Q
+3V	 ALL    -Hm1d1	 0  i   Q
+3V	 ALL    -Hm2d4	 0  i   Q
+3V	 ALL    -Ep1i1	 0  i   Q
+3V	 ALL    -Ep1d3	 0  i   Q
+3V	 ALL    -Ep1   0  i	  Q
+3V	 ALL    -Ep1   0  i	  Q
+3V	 ALL    -Ed4   0  i	  Q
+3V	 ALL    -Ed3   0  i	  Q
+3V	 ALL    -Ed2   0  i	  Q
+3V	 ALL    -Ed1   0  i	  Q
+3V	 ALL    -Ed4   0  i	  Q
+3V	 ALL    -Ed3   0  i	  Q
+3V	 ALL    -Ed7   0  i	  Q
+3V	 ALL    -Ed9   0  i	  Q
+3V	 ALL    -0i1   0  i	  Q
+3V	 ALL    -0i1   0  i	  Q
+3V	 ALL    -0i9   0  i	  Q
+3V	 ALL    -0i7   0  i	  Q
+3V	 ALL    -0i5   0  i	  Q
+3V	 ALL    -0i2   0  i	  Q
+! NaN operand.  Signaling NaN case commented out <JPO, 4/30/93>.
+3V	    ALL	    Q	    0	    OK	    Q
+!3V	    ALL	    S	    0	    i	    Q

@@ -276,22 +276,27 @@ BSafe::BSafeKeyInfoProvider::BSafeKeyInfoProvider(
 	const CssmKey &cssmKey) :
 		CSPKeyInfoProvider(cssmKey)
 {
-	switch(mKey.keyClass()) {
+}
+
+CSPKeyInfoProvider *BSafe::BSafeKeyInfoProvider::provider(
+	const CssmKey &cssmKey)
+{
+	switch(cssmKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			return NULL;
 	}
 	switch(mKey.algorithm()) {
 		case CSSM_ALGID_RSA:
 		case CSSM_ALGID_DSA:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return;
+	return new BSafeKeyInfoProvider(cssmKey);
 }
 
 /* cook up a Binary key */

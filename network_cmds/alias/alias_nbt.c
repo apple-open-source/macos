@@ -1,21 +1,52 @@
 /*
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*-
  * Written by Atsushi Murai <amurai@spec.co.jp>
+ * Copyright (c) 1998, System Planning and Engineering Co.
+ * All rights reserved.
  *
- * Copyright (C) 1998, System Planning and Engineering Co. All rights reserverd.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by the System Planning and Engineering Co.  The name of the
- * SPEC may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * $Id: alias_nbt.c,v 1.1.1.1 2000/01/11 01:48:42 wsanchez Exp $
+ * Based upon:
+ * $FreeBSD: src/lib/libalias/alias_nbt.c,v 1.4.2.3 2001/08/01 09:52:26 obrien Exp $
  *
  *  TODO:
  *       oClean up. 
@@ -43,23 +74,6 @@
 #include <netinet/tcp.h>
 
 #include "alias_local.h"
-
-#define ADJUST_CHECKSUM(acc, cksum) { \
-    acc += cksum; \
-    if (acc < 0) \
-    { \
-        acc = -acc; \
-        acc = (acc >> 16) + (acc & 0xffff); \
-        acc += acc >> 16; \
-        cksum = (u_short) ~acc; \
-    } \
-    else \
-    { \
-        acc = (acc >> 16) + (acc & 0xffff); \
-        acc += acc >> 16; \
-        cksum = (u_short) acc; \
-    } \
-}
 
 typedef struct {
 	struct in_addr		oldaddr;
@@ -258,7 +272,7 @@ int AliasHandleUdpNbt(
 		sptr = (u_short *) alias_address;
 		acc -= *sptr++;
 		acc -= *sptr;
-		ADJUST_CHECKSUM(acc, uh->uh_sum)
+		ADJUST_CHECKSUM(acc, uh->uh_sum);
 	}
     ndh->source_ip = *alias_address;
     ndh->source_port = alias_port;
@@ -375,7 +389,7 @@ AliasHandleResourceNB(
             	sptr = (u_short *) &(nbtarg->newaddr);
             	acc -= *sptr++;
             	acc -= *sptr;
-            	ADJUST_CHECKSUM(acc, *nbtarg->uh_sum)
+            	ADJUST_CHECKSUM(acc, *nbtarg->uh_sum);
 			}
 
 			nb->addr = nbtarg->newaddr;
@@ -443,7 +457,7 @@ AliasHandleResourceA(
             	sptr = (u_short *) &nbtarg->newaddr; /* New */
             	acc -= *sptr++;
             	acc -= *sptr;
-            	ADJUST_CHECKSUM(acc, *nbtarg->uh_sum)
+            	ADJUST_CHECKSUM(acc, *nbtarg->uh_sum);
 			}
 
 			a->addr = nbtarg->newaddr;

@@ -24,6 +24,8 @@
 
 #include <Security/CSPsession.h>
 #include <Security/SecurityServerClient.h>
+#include <Security/digestobject.h>
+#include <Security/utilities.h>
 
 //
 // Parent class for all CSPContexts implemented in this CSP.  Currently the
@@ -36,35 +38,63 @@ class SSContext : public CSPFullPluginSession::CSPContext
 {
 public:
 	SSContext(SSCSPSession &session);
+	~SSContext() { clearOutBuf(); }
 	virtual void init(const Context &context, bool encoding);
 
 protected:
 	SecurityServer::ClientSession &clientSession();
 	SSCSPSession &mSession;
-
-	// We remeber a pointer to the passed in context and assume it will
+	
+	// mOutBuf provides a holding tank for implied final() operations
+	// resulting from an outputSize(true, 0). This form of outputSize()
+	// is understood to only occur just prior to the final() call. To avoid
+	// an extra RPC (just to perform the outputSize(), most subclasses of
+	// SSContext actually perform the final() operation at this time,
+	// storing the result in mOutBuf. At final(), mOutBuf() is just copied
+	// to the caller's supplied output buffer. 
+	CssmData mOutBuf;		
+	
+	// We remember a pointer to the passed in context and assume it will
 	// remain a valid from init(), update() all the way though the call to
 	// final().
 	const Context *mContext;
+	
+	void clearOutBuf();
+	void copyOutBuf(CssmData &out);
 };
 
-// SSSignContext -- Context for Sign, and GenerateMac operations
-class SSSignContext : public SSContext
+// context for signature (sign and verify)
+class SSSignatureContext : public SSContext
 {
 public:
-	SSSignContext(SSCSPSession &session);
+	SSSignatureContext(SSCSPSession &session);
+	~SSSignatureContext();
+	virtual void init(const Context &context, bool signing);
 	virtual void update(const CssmData &data);
 	virtual size_t outputSize(bool final, size_t inSize);
+	
+	/* sign */
+	void sign(CssmData &sig);
 	virtual void final(CssmData &out);
-};
-
-// SSVerifyContext -- Context for Verify, and VerifyMac operations
-class SSVerifyContext : public SSContext
-{
-public:
-	SSVerifyContext(SSCSPSession &session);
-	virtual void update(const CssmData &data);
+	
+	/* verify */
 	virtual void final(const CssmData &in);
+	
+	/* for raw sign/verify - optionally called after init */ 
+	virtual void setDigestAlgorithm(CSSM_ALGORITHMS digestAlg);
+
+private:
+	/* stash the context's key for final sign/verify */
+	SecurityServer::KeyHandle mKeyHandle;	
+	
+	/* alg-dependent, calculated at init time */
+	CSSM_ALGORITHMS	mSigAlg;		// raw signature alg
+	CSSM_ALGORITHMS mDigestAlg;		// digest
+	CSSM_ALGORITHMS mOrigAlg;		// caller's context alg
+	
+	/* exactly one of these is used to collect updates */
+	NullDigest 			*mNullDigest;
+	CssmClient::Digest 	*mDigest;
 };
 
 // Context for GenerateRandom operations
@@ -75,9 +105,9 @@ public:
 	virtual void init(const Context &context, bool);
 	virtual size_t outputSize(bool final, size_t inSize);
 	virtual void final(CssmData &out);
-
+	
 private:
-	uint32 mOutSize;
+	uint32 mOutSize;		// spec'd in context at init() time 
 };
 
 // Context for Encrypt and Decrypt operations
@@ -95,43 +125,44 @@ public:
 	virtual void final(CssmData &out);
 
 private:
-	void freeBuffer();
-
 	SecurityServer::KeyHandle mKeyHandle;
-	uint32 mCurrent;
-	uint32 mCapacity;
-	void *mBuffer;
+	NullDigest mNullDigest;						// accumulator
 };
 
-#if 0
-// Context for key (pair) generation
-class SSKeyGenContext : public SSContext
+// Digest, using raw CSP
+class SSDigestContext : public SSContext
 {
 public:
-	SSKeyGenContext(SSCSPSession &session);
+	SSDigestContext(SSCSPSession &session);
+	~SSDigestContext();
+	virtual void init(const Context &context, bool);
+	virtual void update(const CssmData &data);
+	virtual void final(CssmData &out);
+	virtual size_t outputSize(bool final, size_t inSize);
 
-	// Subclass implements generate(const Context &, CssmKey &,
-	// CssmKey &). That method allocates two subclass-specific 
-	// SSKeys and calls this method. This will call down to 
-	// generate(const Context &, SSKey &, SSKey &)
-	// and optionally to SSKey::generateKeyBlob.
-	void generate(const Context &context, 
-				  CssmKey &pubKey,
-				  SSKey *pubBinKey,
-				  CssmKey &privKey,
-				  SSKey *privBinKey);
-
-protected:
-	// @@@ Subclasses must implement this. It cooks up a key pair.
-	virtual void generate(const Context &context,
-						  SSKey &pubBinKey,		// valid on successful return
-						  SSKey &privBinKey, 	// ditto
-						  uint32 &keySize);	// ditto
-
-public:
-	void generateSymKey(const Context &context, CssmKey &outCssmKey); 
+private:
+	CssmClient::Digest *mDigest;
 };
-#endif // 0
+
+// common class for MAC generate, verify
+class SSMACContext : public SSContext
+{
+public:
+	SSMACContext(SSCSPSession &session);
+	virtual void init(const Context &context, bool);
+	virtual void update(const CssmData &data);
+	virtual size_t outputSize(bool final, size_t inSize);
+	
+	/* sign */
+	void genMac(CssmData &mac);
+	virtual void final(CssmData &out);
+	/* verify */
+	virtual void final(const CssmData &in);
+	
+private:
+	SecurityServer::KeyHandle mKeyHandle;
+	NullDigest mNullDigest;					// accumulator
+};
 
 
 #endif // _H_SS_CONTEXT

@@ -78,7 +78,7 @@
 
 /*
  *	@(#)inet.h	8.1 (Berkeley) 6/2/93
- *	$Id: inet.h,v 1.2 1999/10/14 21:56:45 wsanchez Exp $
+ *	$Id: inet.h,v 1.3 2002/04/19 20:38:01 majka Exp $
  */
 
 #ifndef _INET_H_
@@ -102,6 +102,9 @@ struct in_addr	 inet_makeaddr __P((u_long , u_long));
 unsigned long	 inet_netof __P((struct in_addr));
 unsigned long	 inet_network __P((const char *));
 char		*inet_ntoa __P((struct in_addr));
+int		 inet_pton __P((int, const char *, void *));
+const char	*inet_ntop __P((int, const void *, char *, size_t));
+
 
 u_int	 inet_nsap_addr __P((const char *, u_char *, int maxlen));
 char	*inet_nsap_ntoa __P((int, const u_char *, char *ascii));

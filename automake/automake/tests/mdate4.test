@@ -1,0 +1,31 @@
+#! /bin/sh
+
+# Test to make sure that mdate-sh is added to the right directory.
+# Report from Kevin Dalley
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile sub/Makefile)
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = sub
+END
+
+mkdir sub
+
+cat > sub/Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+END
+
+cat > sub/textutils.texi << 'END'
+@include version.texi
+@setfilename textutils.info
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE -a || exit 1
+test -f sub/mdate-sh

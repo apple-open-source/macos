@@ -39,9 +39,10 @@ namespace Network {
 // The Protocol object for the FTP protocol
 //
 class FTPProtocol : public Protocol {
-    class FTPTransfer;
+protected:
     class FTPConnection;
 public:
+    class FTPTransfer;
     static const IPPort defaultFtpPort = 21;
 
     FTPProtocol(Manager &mgr);
@@ -91,6 +92,7 @@ private:
         bool mConnectionDone;			// our Connection is ready to finish()
     }; 
 
+protected:
     //
     // This is the persistent connection object.
     //
@@ -158,7 +160,8 @@ private:
         FTPDataConnection mDataPath; // subsidiary (data transfer) connection
         TCPServerSocket mReceiver;	// incoming listen socket for active mode transfers
     };
-    
+
+public:
     //
     //  The official Transfer object (for all kinds of transfers)
     //
@@ -168,11 +171,19 @@ private:
         
         ResultClass resultClass() const;
         
+        string &ftpResponse()		{ return mPrimaryResponseString; }
+        unsigned int &ftpResponseCode() { return mPrimaryResponseCode; }
+        unsigned int ftpResponseCode() const { return mPrimaryResponseCode; }
+                
     protected:
         void start();					// start me up
         void abort();					// abort this Transfer
         
         string mFailedReply;			// reply string that triggered failure
+        
+    private:
+        string mPrimaryResponseString;		//FTP protocol first response line.
+        unsigned int mPrimaryResponseCode;	// numeric response code.
     };
     
 private:

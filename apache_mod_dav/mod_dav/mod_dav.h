@@ -26,7 +26,7 @@ extern "C" {
 #include "httpd.h"
 
 
-#define DAV_VERSION		"1.0.2"
+#define DAV_VERSION		"1.0.3"
 
 #define DAV_XML_HEADER		"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
 #define DAV_XML_CONTENT_TYPE	"text/xml; charset=\"utf-8\""

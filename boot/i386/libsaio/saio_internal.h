@@ -28,138 +28,123 @@
 #include "saio_types.h"
 
 /* asm.s */
-extern void  real_to_prot(void);
-extern void  prot_to_real(void);
-extern void  halt(void);
-extern void  startprog(unsigned int address);
+extern void   real_to_prot(void);
+extern void   prot_to_real(void);
+extern void   halt(void);
+extern void   startprog(unsigned int address);
+extern void   loader(UInt32 code, UInt32 cmdptr);
 
 /* bios.s */
-extern void  bios(biosBuf_t *bb);
-extern void  get_memsize(biosBuf_t *bb);
+extern void   bios(biosBuf_t *bb);
+extern void   get_memsize(biosBuf_t *bb);
 
 /* biosfn.c */
 #ifdef EISA_SUPPORT
-extern BOOL eisa_present(void);
+extern BOOL   eisa_present(void);
 #endif
-extern int  bgetc(void);
-extern int  biosread(int dev, int cyl, int head, int sec, int num);
-extern int  ebiosread(int dev, long sec, int count);
-extern void putc(int ch);
-extern int  getc(void);
-extern int  readKeyboardStatus(void);
-extern unsigned int  time18(void);
-extern unsigned int  get_diskinfo(int dev);
-extern int  APMPresent(void);
-extern int  APMConnect32(void);
-extern int  memsize(int i);
-extern void video_mode(int mode);
-extern void setCursorPosition(int x, int y);
+extern int    bgetc(void);
+extern int    biosread(int dev, int cyl, int head, int sec, int num);
+extern int    ebiosread(int dev, long sec, int count);
+extern void   putc(int ch);
+extern void   putca(int ch, int attr, int repeat);
+extern int    getc(void);
+extern int    readKeyboardStatus(void);
+extern unsigned int time18(void);
+extern unsigned int get_diskinfo(int dev);
+extern int    APMPresent(void);
+extern int    APMConnect32(void);
+extern int    memsize(int i);
+extern void   video_mode(int mode);
+extern void   setCursorPosition(int x, int y, int page);
+extern void   setCursorType(int type);
+extern void   getCursorPositionAndType(int *x, int *y, int *type);
+extern void   scollPage(int x1, int y1, int x2, int y2, int attr, int rows, int dir);
+extern void   clearScreenRows(int y1, int y2);
+extern void   setActiveDisplayPage( int page );
 
 /* bootstruct.c */
-extern void initKernBootStruct(void);
+extern void   initKernBootStruct(int biosdev);
+
+/* cache.c */
+extern void   CacheInit(CICell ih, long blockSize);
+extern long   CacheRead(CICell ih, char *buffer, long long offset,
+                        long length, long cache);
 
 /* console.c */
-extern BOOL gVerboseMode;
-extern void putchar(int ch);
-extern int  getchar(void);
-extern int  printf(const char *format, ...);
-extern int  error(const char *format, ...);
-extern int  verbose(const char *format, ...);
+extern BOOL   gVerboseMode;
+extern BOOL   gErrors;
+extern void   putchar(int ch);
+extern int    getchar(void);
+extern int    printf(const char *format, ...);
+extern int    error(const char *format, ...);
+extern int    verbose(const char *format, ...);
 
 /* disk.c */
-extern void devopen(char *name, struct iob *io);
-extern int devread(struct iob *io);
-extern void devflush(void);
-
-/* gets.c */
-extern int  gets(char *buf, int len);
-extern int  Gets(
-    char *buf,
-    int len,
-    int timeout,
-    char *prompt,
-    char *message
-);
+extern BVRef  diskScanBootVolumes(int biosdev, int *count);
+extern void   diskSeek(BVRef bvr, long long position);
+extern int    diskRead(BVRef bvr, long addr, long length);
+extern int    readBootSector(int biosdev, unsigned int secno, void *buffer);
 
 /* load.c */
-extern int openfile(char *filename, int ignored);
-
-extern int  loadmacho(
-    struct mach_header *head,
-    int dev,
-    int io,
-    entry_t *entry,
-    char **addr,
-    int *size,
-    int file_offset
-);
-extern int  loadprog(
-    int dev,
-    int fd,
-    struct mach_header *headOut,
-    entry_t *entry,
-    char **addr,
-    int *size
-);
+extern int    openfile(const char *filename, int ignored);
+extern int    loadprog(int dev, int fd, struct mach_header *headOut,
+                       entry_t *entry, char **addr, int *size);
 
 /* misc.c */
-extern void  sleep(int n);
-extern void  enableA20(void);
-extern void  turnOffFloppy(void);
-extern char *newString(char *oldString);
+extern void   sleep(int n);
+extern void   enableA20(void);
+extern void   turnOffFloppy(void);
+extern char * newString(const char *oldString);
+extern void   stop(const char *message);
+
+/* nbp.c */
+extern UInt32 nbpUnloadBaseCode();
+extern BVRef  nbpScanBootVolumes(int biosdev, int *count);
 
 /* stringTable.c */
 extern char * newStringFromList(char **list, int *size);
-extern int    stringLength(char *table, int compress);
-extern BOOL   getValueForStringTableKey(char *table, char *key, char **val, int *size);
+extern int    stringLength(const char *table, int compress);
+extern BOOL   getValueForStringTableKey(const char *table, const char *key, const char **val, int *size);
 extern BOOL   removeKeyFromTable(const char *key, char *table);
 extern char * newStringForStringTableKey(char *table, char *key);
 extern char * newStringForKey(char *key);
-extern BOOL   getValueForBootKey(char *line, char *match, char **matchval, int *len);
-extern BOOL   getValueForKey(char *key, char **val, int *size);
-extern BOOL   getBoolForKey(char *key);
-extern BOOL   getIntForKey(char *key, int *val);
+extern BOOL   getValueForBootKey(const char *line, const char *match, const char **matchval, int *len);
+extern BOOL   getValueForKey(const char *key, const char **val, int *size);
+extern BOOL   getBoolForKey(const char *key);
+extern BOOL   getIntForKey(const char *key, int *val);
 #if 0
 extern char * loadLocalizableStrings(char *name, char *tableName);
 extern char * bundleLongName(char *bundleName, char *tableName);
 extern int    loadOtherConfigs(int useDefault);
 #endif
-extern int    loadConfigFile( char *configFile, char **table, BOOL allocTable);
-extern int    loadConfigDir(char *bundleName, BOOL useDefault, char **table,
+extern int    loadConfigFile(const char *configFile, const char **table, BOOL allocTable);
+extern int    loadConfigDir(const char *bundleName, BOOL useDefault, const char **table,
                             BOOL allocTable);
-extern int    loadSystemConfig(char *which, int size);
-extern void   addConfig(char *config);
+extern int    loadSystemConfig(const char *which, int size);
+extern void   addConfig(const char *config);
 
 /* sys.c */
-extern void stop(char *message);
-extern int  openmem(char * buf, int len);
-extern int  open(char *str, int how);
-extern int  close(int fdesc);
-extern int  file_size(int fdesc);
-extern int  read(int fdesc, char *buf, int count);
-extern int  b_lseek(int fdesc, unsigned int addr, int ptr);
-extern int  tell(int fdesc);
-extern void  flushdev(void);
-extern char *usrDevices(void);
-extern struct dirstuff * opendir(char *path);
-extern int  closedir(struct dirstuff *dirp);
-extern struct direct * readdir(struct dirstuff *dirp);
-extern int  currentdev(void);
-extern int  switchdev(int dev);
-
-/* ufs_byteorder.c */
-extern void byte_swap_superblock(struct fs *sb);
-extern void byte_swap_inode_in(struct dinode *dc, struct dinode *ic);
-extern void byte_swap_dir_block_in(char *addr, int count);
-
-/*
- * vbe.c
- */
-extern int  set_linear_video_mode(unsigned short mode);
-
-/*
- * vga.c
- */
-extern void set_video_mode(unsigned int mode);
+extern long   LoadFile(const char *fileSpec);
+extern long   GetDirEntry(const char *dirSpec, long *dirIndex, const char **name,
+                          long *flags, long *time);
+extern long   GetFileInfo(const char *dirSpec, const char *name,
+                          long *flags, long *time);
+extern int    openmem(char *buf, int len);
+extern int    open(const char *str, int how);
+extern int    close(int fdesc);
+extern int    file_size(int fdesc);
+extern int    read(int fdesc, char *buf, int count);
+extern int    b_lseek(int fdesc, int addr, int ptr);
+extern int    tell(int fdesc);
+extern const char * usrDevices(void);
+extern struct dirstuff * opendir(const char *path);
+extern int    closedir(struct dirstuff *dirp);
+extern int    readdir(struct dirstuff *dirp, const char **name, long *flags, long *time);
+extern void   flushdev(void);
+extern int    currentdev(void);
+extern int    switchdev(int dev);
+extern BVRef  scanBootVolumes(int biosdev, int *count);
+extern BVRef  selectBootVolume(BVRef chain);
+extern void   getBootVolumeDescription(BVRef bvr, char *str, long strMaxLen);
 
 #endif /* !__LIBSAIO_SAIO_INTERNAL_H */

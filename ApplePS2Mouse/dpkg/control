@@ -1,0 +1,4 @@
+Package: appleps2mouse
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: PS2 Mouse Driver
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, text-cmds, shell-cmds, system-cmds, grep, jam, xnu, appleps2controller, iohidsystem, iographics

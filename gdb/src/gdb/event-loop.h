@@ -1,5 +1,5 @@
 /* Definitions used by the GDB event loop.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000 Free Software Foundation, Inc.
    Written by Elena Zannoni <ezannoni@cygnus.com> of Cygnus Solutions.
 
    This file is part of GDB.
@@ -57,7 +57,6 @@
 
    Corollary tasks are the creation and deletion of event sources. */
 
-typedef void *gdb_client_data;
 struct async_signal_handler;
 typedef void (handler_func) (int, gdb_client_data);
 typedef void (sig_handler_func) (gdb_client_data);
@@ -82,6 +81,8 @@ queue_position;
 #define GDB_WRITABLE	(1<<2)
 #define GDB_EXCEPTION	(1<<3)
 
+typedef void (event_handler_func) (void *);
+
 /* Exported functions from event-loop.c */
 
 extern void start_event_loop (void);
@@ -93,3 +94,4 @@ extern struct async_signal_handler *
 extern void delete_async_signal_handler (struct async_signal_handler **async_handler_ptr);
 extern int create_timer (int milliseconds, timer_handler_func * proc, gdb_client_data client_data);
 extern void delete_timer (int id);
+extern void gdb_queue_event (event_handler_func proc, void *data, queue_position position);

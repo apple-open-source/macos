@@ -242,12 +242,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     bufferReadAt = 0;
 
-///m:2333367:workaround:commented:start
-//  status = media->read(this, bufferReadAt, buffer);
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-    status = media->IOStorage::read(this, bufferReadAt, buffer);
-///m:2333367:workaround:added:stop
+    status = media->read(this, bufferReadAt, buffer);
     if ( status != kIOReturnSuccess )  goto scanErr;
 
     driverMap = (Block0 *) buffer->getBytesNoCopy();
@@ -256,9 +251,9 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     dpmeBlockSize = mediaBlockSize;                      // (natural block size)
 
-    if ( driverMap->sbSig == BLOCK0_SIGNATURE )
+    if ( OSSwapBigToHostInt16(driverMap->sbSig) == BLOCK0_SIGNATURE )
     {
-        dpmeBlockSize = driverMap->sbBlkSize;         // (driver map block size)
+        dpmeBlockSize = OSSwapBigToHostInt16(driverMap->sbBlkSize);
 
         // Increase the probe score when a driver map is detected, since we are
         // more confident in the match when it is present.  This will eliminate
@@ -283,12 +278,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
             bufferReadAt = sizeof(dpme);
 
-///m:2333367:workaround:commented:start
-//          status = media->read(this, bufferReadAt, buffer);
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-            status = media->IOStorage::read(this, bufferReadAt, buffer);
-///m:2333367:workaround:added:stop
+            status = media->read(this, bufferReadAt, buffer);
             if ( status != kIOReturnSuccess )  goto scanErr;
 
             dpmeMap = (dpme *) buffer->getBytesNoCopy();
@@ -298,7 +288,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
         if (OSSwapBigToHostInt16(dpmeMap->dpme_signature) == DPME_SIGNATURE)
         {
-            dpmeBlockSize = sizeof(dpme);         // (old school block size)
+            dpmeBlockSize = sizeof(dpme);             // (old school block size)
             dpmeOldSchool = true;
         }
     }
@@ -317,12 +307,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
             bufferReadAt = dpmeID * dpmeBlockSize;
 
-///m:2333367:workaround:commented:start
-//          status = media->read(this, bufferReadAt, buffer);
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-            status = media->IOStorage::read(this, bufferReadAt, buffer);
-///m:2333367:workaround:added:stop
+            status = media->read(this, bufferReadAt, buffer);
             if ( status != kIOReturnSuccess )  goto scanErr;
         }
 
@@ -535,11 +520,11 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
     // Note that we treat the misspelt Apple_patition_map entries as equivalent
     // to Apple_partition_map entries due to the messed up CDs noted in 2513960.
 
-    if ( !strcmp(partition->dpme_type, "Apple_partition_map")      ||
-         !strcmp(partition->dpme_type, "Apple_Partition_Map")      ||
-         !strcmp(partition->dpme_type, "Apple_patition_map" )      ||
-         ( ((partition->dpme_flags & DPME_FLAGS_WRITABLE) == 0) &&
-           ((partition->dpme_flags & DPME_FLAGS_VALID   ) != 0) )  )
+    if ( !strcmp(partition->dpme_type, "Apple_partition_map")                ||
+         !strcmp(partition->dpme_type, "Apple_Partition_Map")                ||
+         !strcmp(partition->dpme_type, "Apple_patition_map" )                ||
+         ( OSSwapBigToHostInt32(partition->dpme_flags) &
+           ( DPME_FLAGS_WRITABLE | DPME_FLAGS_VALID )  ) == DPME_FLAGS_VALID )
     {
         partitionIsWritable = false;
     }
@@ -557,7 +542,7 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
                 /* base               */ partitionBase,
                 /* size               */ partitionSize,
                 /* preferredBlockSize */ mediaBlockSize,
-                /* isEjectable        */ media->isEjectable(),
+                /* attributes         */ media->getAttributes(),
                 /* isWhole            */ false,
                 /* isWritable         */ partitionIsWritable,
                 /* contentHint        */ partitionHint ) )

@@ -19,7 +19,7 @@
 #undef HAVE_CATGETS
 
 /* Define if you have GNU's getopt family of functions.  */
-#undef HAVE_GETOPTLONG
+#undef HAVE_GETOPT_LONG
 
 /* Define as 1 if you have gettext and don't want to use GNU gettext.  */
 #undef HAVE_GETTEXT

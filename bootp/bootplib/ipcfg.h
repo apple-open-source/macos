@@ -1,3 +1,6 @@
+
+#ifndef _S_IPCFG_H
+#define _S_IPCFG_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -64,3 +67,5 @@ void		ipcfg_entry_print(ipcfg_t * ipcfg);
 void		ipcfg_print(ipcfg_table_t * t);
 ipcfg_t *	ipcfg_element(ipcfg_table_t * t, int i);
 int		ipcfg_count(ipcfg_table_t * t);
+
+#endif _S_IPCFG_H

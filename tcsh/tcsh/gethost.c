@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/gethost.c,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/gethost.c,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $ */
 /*
  * gethost.c: Create version file from prototype
  */

@@ -34,11 +34,9 @@ dynarray_init(dynarray_t * list, dynarray_free_func_t * free_func,
 void
 dynarray_free(dynarray_t * list)
 {
-    int i;
+    void *	element;
 
-    for (i = 0; i < ptrlist_count(&list->list); i++) {
-	void *	element = ptrlist_element(&list->list, i);
-
+    while (ptrlist_remove(&list->list, 0, &element)) {
 	if (element && list->free_func) {
 	    (list->free_func)(element);
 	}

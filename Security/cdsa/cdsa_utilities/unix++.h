@@ -75,7 +75,11 @@ public:
     size_t read(void *addr, size_t length);
     size_t write(const void *addr, size_t length);
     bool atEnd() const			{ return mAtEnd; }	// valid after zero-length read only
-
+    
+    // more convenient I/O
+    template <class T> size_t read(T &obj) { return read(&obj, sizeof(obj)); }
+    template <class T> size_t write(const T &obj) { return write(&obj, sizeof(obj)); }
+    
     // seeking
     off_t seek(off_t position, int whence = SEEK_SET);
     
@@ -90,6 +94,10 @@ public:
     void flags(int flags) const;
     void setFlag(int flag, bool on = true) const;
     void clearFlag(int flag) const	{ setFlag(flag, false); }
+    
+    int openMode() const	{ return flags() & O_ACCMODE; }
+    bool isWritable() const	{ return openMode() != O_RDONLY; }
+    bool isReadable() const	{ return openMode() != O_WRONLY; }
     
     // ioctl support
     int ioctl(int cmd, void *arg) const;
@@ -113,6 +121,21 @@ private:
     
 protected:
     bool mAtEnd;			// end-of-data indicator (after zero read)
+};
+
+
+//
+// A (plain) FileDesc that auto-closes
+//
+class AutoFileDesc : public FileDesc {
+public:
+    AutoFileDesc() { }
+    AutoFileDesc(int fd) : FileDesc(fd) { }
+    
+    AutoFileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666)
+        : FileDesc(path, flag, mode) { }
+
+    ~AutoFileDesc()		{ close(); }
 };
 
 

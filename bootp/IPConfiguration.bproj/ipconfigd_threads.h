@@ -1,3 +1,6 @@
+
+#ifndef _S_IPCONFIGD_THREADS_H
+#define _S_IPCONFIGD_THREADS_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -31,13 +34,13 @@
  * - created
  */
 
-#import <mach/boolean.h>
-#import "ipconfig_types.h"
-#import "ipconfigd_globals.h"
-#import "bootp_session.h"
-#import "arp_session.h"
-#import "timer.h"
-#import "interfaces.h"
+#include <mach/boolean.h>
+#include "ipconfig_types.h"
+#include "ipconfigd_globals.h"
+#include "bootp_session.h"
+#include "arp_session.h"
+#include "timer.h"
+#include "interfaces.h"
 
 typedef enum {
     IFEventID_start_e = 0,		/* start the configuration method */
@@ -88,15 +91,16 @@ typedef struct {
 } link_status_t;
 
 struct ServiceState {
-    Service_t *			child_service_p;
-    Service_t *			parent_service_p;
     IFState_t *			ifstate;
     ipconfig_method_t		method;
     void *			serviceID;
+    void *			parent_serviceID;
+    void *			child_serviceID;
     void *			user_notification;
     void *			user_rls;
     struct completion_results	published;
     inet_addrinfo_t		info;
+    boolean_t			free_in_progress;
     void * 			private;
 };
 
@@ -106,6 +110,8 @@ struct IFState {
     link_status_t		link;
     dynarray_t			services;
     boolean_t			startup_ready;
+    boolean_t			free_in_progress;
+    boolean_t			netboot;
 };
 
 struct saved_pkt {
@@ -177,6 +183,12 @@ extern unsigned	count_params(dhcpol_t * options, u_char * tags, int size);
 
 extern char *	computer_name();
 
+static __inline__ IFState_t *
+service_ifstate(Service_t * service_p)
+{
+    return (service_p->ifstate);
+}
+
 int
 service_enable_autoaddr(Service_t * service_p);
 
@@ -203,6 +215,10 @@ service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
 
 
 void
+service_report_conflict(Service_t * service_p, struct in_addr * ip,
+			void * hwaddr, struct in_addr * server);
+
+void
 service_tell_user(Service_t * service_p, char * msg);
 
 static __inline__ interface_t *
@@ -218,10 +234,10 @@ service_link_status(Service_t * service_p)
 }
 
 Service_t *
-linklocal_service_start(Service_t * parent_service_p);
+service_parent_service(Service_t * service_p);
 
 void
-linklocal_service_stop(Service_t * parent_service_p);
+linklocal_service_change(Service_t * parent_service_p, boolean_t no_allocate);
 
 /* 
  * interface configuration "threads" 
@@ -241,7 +257,6 @@ inform_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
 ipconfig_status_t
 linklocal_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
 
-
 /*
  * DHCP lease information
  */
@@ -254,6 +269,9 @@ dhcp_lease_write(char * idstr, struct in_addr ip);
 void
 dhcp_lease_clear(char * idstr);
 
+void
+netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);
+
 /*
  * in dhcp.c
  */
@@ -263,7 +281,22 @@ dhcp_set_default_parameters(u_char * params, int n_params);
 void
 dhcp_set_additional_parameters(u_char * params, int n_params);
 
+/* 
+ * routing table
+ */
+boolean_t
+subnet_route_add(struct in_addr gateway, struct in_addr netaddr, 
+		 struct in_addr netmask, char * ifname);
 
+boolean_t
+subnet_route_delete(struct in_addr gateway, struct in_addr netaddr, 
+		    struct in_addr netmask, char * ifname);
+
+/*
+ * more globals
+ */
 extern bootp_session_t *	G_bootp_session;
 extern arp_session_t *		G_arp_session;
 
+
+#endif _S_IPCONFIGD_THREADS_H

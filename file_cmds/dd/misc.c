@@ -1,5 +1,3 @@
-/*	$NetBSD: misc.c,v 1.8 1998/07/28 05:31:23 mycroft Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -37,72 +35,73 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)misc.c	8.3 (Berkeley) 4/2/94";
-#else
-__RCSID("$NetBSD: misc.c,v 1.8 1998/07/28 05:31:23 mycroft Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/bin/dd/misc.c,v 1.23 2002/02/02 06:24:12 imp Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
+#include <sys/time.h>
 
-#include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "dd.h"
 #include "extern.h"
 
 void
-summary()
+summary(void)
 {
-	time_t secs;
+	struct timeval tv;
+	double secs;
 	char buf[100];
 
-	(void)time(&secs);
-	if ((secs -= st.start) == 0)
-		secs = 1;
+	(void)gettimeofday(&tv, (struct timezone *)NULL);
+	secs = tv.tv_sec + tv.tv_usec * 1e-6 - st.start;
+	if (secs < 1e-6)
+		secs = 1e-6;
 	/* Use snprintf(3) so that we don't reenter stdio(3). */
 	(void)snprintf(buf, sizeof(buf),
-	    "%lu+%lu records in\n%lu+%lu records out\n",
+	    "%qu+%qu records in\n%qu+%qu records out\n",
 	    st.in_full, st.in_part, st.out_full, st.out_part);
 	(void)write(STDERR_FILENO, buf, strlen(buf));
 	if (st.swab) {
-		(void)snprintf(buf, sizeof(buf), "%lu odd length swab %s\n",
+		(void)snprintf(buf, sizeof(buf), "%qu odd length swab %s\n",
 		     st.swab, (st.swab == 1) ? "block" : "blocks");
 		(void)write(STDERR_FILENO, buf, strlen(buf));
 	}
 	if (st.trunc) {
-		(void)snprintf(buf, sizeof(buf), "%lu truncated %s\n",
+		(void)snprintf(buf, sizeof(buf), "%qu truncated %s\n",
 		     st.trunc, (st.trunc == 1) ? "block" : "blocks");
 		(void)write(STDERR_FILENO, buf, strlen(buf));
 	}
 	(void)snprintf(buf, sizeof(buf),
-	    "%qu bytes transferred in %lu secs (%qu bytes/sec)\n",
-	    (long long) st.bytes, (long) secs, (long long) (st.bytes / secs));
+	    "%qu bytes transferred in %.6f secs (%.0f bytes/sec)\n",
+	    st.bytes, secs, st.bytes / secs);
 	(void)write(STDERR_FILENO, buf, strlen(buf));
 }
 
 /* ARGSUSED */
 void
-summaryx(notused)
-	int notused;
+summaryx(int notused)
 {
+	int save_errno = errno;
 
 	summary();
+	errno = save_errno;
 }
 
 /* ARGSUSED */
 void
-terminate(notused)
-	int notused;
+terminate(int sig)
 {
 
-	exit(0);
-	/* NOTREACHED */
+	summary();
+	_exit(sig == 0 ? 0 : 1);
 }

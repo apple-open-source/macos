@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/fddi.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/fddi.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
  */
 
 /*

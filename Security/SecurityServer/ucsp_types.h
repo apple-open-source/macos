@@ -39,9 +39,11 @@ typedef void *ContextAttributes;
 typedef Context::Attr *ContextAttributesPointer;
 
 typedef AclEntryPrototype *AclEntryPrototypePtr;
+typedef AclEntryInput *AclEntryInputPtr;
 typedef AclEntryInfo *AclEntryInfoPtr;
 typedef AclOwnerPrototype *AclOwnerPrototypePtr;
 typedef AccessCredentials *AccessCredentialsPtr;
+typedef void *VoidPtr;
 
 typedef DataWalkers::DLDbFlatIdentifier DLDbIdentBlob;
 typedef DataWalkers::DLDbFlatIdentifier *DLDbIdentPtr;
@@ -57,10 +59,6 @@ typedef const char *ExecutablePath;
 inline Context &inTrans(CSSM_CONTEXT &arg) { return Context::overlay(arg); }
 inline CssmKey &inTrans(CSSM_KEY &arg) { return CssmKey::overlay(arg); }
 inline CSSM_KEY &outTrans(CssmKey &key) { return key; }
-
-// fix const-blindless in MIG's internals
-inline int mig_strncpy(char *dest, const char *src, int length)
-{ return ::mig_strncpy(dest, const_cast<char *>(src), length); }
 
 
 //

@@ -1,5 +1,6 @@
 #
 #  Top level makefile for building GNU Emacs on Windows NT
+#  Copyright (c) 1993-2000 Free Software Foundation, Inc.
 #
 #  This file is part of GNU Emacs.
 #  
@@ -82,7 +83,7 @@ $(BLD)\runemacs.exe: $(BLD)\runemacs.obj $(TRES)
 #
 # Build emacs
 #
-BUILD_CMD	= $(MAKE) -f makefile.nt all
+BUILD_CMD	= $(MAKE) $(MFLAGS) -f makefile.nt all
 all:		$(BLD) $(ALL)
 		cd ..\lib-src
 		$(BUILD_CMD)
@@ -93,6 +94,22 @@ all:		$(BLD) $(ALL)
 		cd ..\leim
 		if exist makefile.nt $(BUILD_CMD)
 		cd ..\nt
+
+BOOTSTRAP_CMD	= $(MAKE) $(MFLAGS) -f makefile.nt bootstrap
+bootstrap:	$(BLD) $(ALL)
+		cd ..\src
+		$(BOOTSTRAP_CMD)
+		$(BOOTCLEAN_CMD)
+		cd ..\lisp
+		$(BOOTSTRAP_CMD)
+		cd ..\nt
+
+BOOTCLEAN_CMD	= $(MAKE) $(MFLAGS) -f makefile.nt bootstrap-clean
+bootstrap-clean:
+		cd ..\src
+		$(BOOTCLEAN_CMD)
+		cd ..\lisp
+		$(BOOTCLEAN_CMD)
 
 $(INSTALL_DIR):
 		- mkdir $(INSTALL_DIR)
@@ -172,14 +189,14 @@ real_install:
 # Maintenance
 # 
 CLEAN_CMD	= $(MAKE) -f makefile.nt clean
-clean:;		- $(DEL) *~ *.pdb
+clean:
+		- $(DEL) *~ *.pdb
 		- $(DEL) *.orig
 		- $(DEL) *.rej
 		- $(DEL) *.crlf
 		- $(DEL_TREE) deleted
 		- $(DEL_TREE) obj
 		- $(DEL_TREE) obj-spd
-		- $(DEL_TREE) ..\bin
 		- $(DEL) ..\etc\DOC ..\etc\DOC-X
 		cd ..\lib-src
 		$(CLEAN_CMD)
@@ -190,3 +207,6 @@ clean:;		- $(DEL) *~ *.pdb
 		cd ..\leim
 		if exist makefile.nt $(CLEAN_CMD)
 		cd ..\nt
+
+realclean: clean
+		- $(DEL_TREE) ..\bin

@@ -98,3 +98,7 @@
 # owned by the top-level Makefile API and no context has been set up for where
 # derived files should go.
 #
+SYSCONFIG_PREFS_DIR = /private/var/db/SystemConfiguration
+install_extra:
+	$(MKDIRS) $(DSTROOT)$(SYSCONFIG_PREFS_DIR)
+	install -c -m 644 preferences.xml $(DSTROOT)$(SYSCONFIG_PREFS_DIR)/preferences.xml

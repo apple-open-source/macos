@@ -154,13 +154,6 @@ SSLErr SSLCalculateFinishedMessage(SSLBuffer finished, SSLBuffer shaMsgState, SS
 /** hdskkeys.c **/
 SSLErr SSLEncodeRSAPremasterSecret(SSLContext *ctx);
 SSLErr SSLEncodeDHPremasterSecret(SSLContext *ctx);
-SSLErr SSLCalculateMasterSecret(SSLContext *ctx);
 SSLErr SSLInitPendingCiphers(SSLContext *ctx);
-#ifdef	_APPLE_CDSA_
-/* FIXME - TBD */
-SSLErr ReadyRandom(void *randCtx, SSLContext *ctx);
-#else
-SSLErr ReadyRandom(SSLRandomCtx *rsaRandom, SSLContext *ctx);
-#endif
 
 #endif /* _SSLHDSHK_H_ */

@@ -71,6 +71,11 @@ typedef struct
 #define DEFAULT_BUFFER_SIZE 4096
 
 SSLErr  SSLReadRecord(SSLRecord *rec, SSLContext *ctx);
-SSLErr  SSLWriteRecord(SSLRecord rec, SSLContext *ctx);
+
+SSLErr 	SSLVerifyMac(
+	UInt8 type, 
+	SSLBuffer data, 
+	UInt8 *compareMAC, 
+	SSLContext *ctx);
 
 #endif /* _SSLREC_H_ */

@@ -64,7 +64,10 @@ void TransferEngine::remove(Client *client)
         debug("xferengine", "xfer %p(%d) HAD %ld BYTES WRITE LEFT",
             client, client->fileDesc(), client->mWriteBuffer.length());
 #endif //NDEBUG
-    Selector::remove(client->io);
+    if (client->io.fd () != -1) { // did we have a live socket?
+        Selector::remove(client->io);
+    }
+
     client->io = FileDesc();	// invalidate
 }
 
@@ -337,7 +340,7 @@ void TransferEngine::Client::notify(int fd, Type type)
             //@@@ feed back for more output here? But also see comments above...
             //@@@ probably better to take the trip through the Selector
         }
-    } catch (CssmCommonError &err) {
+    } catch (const CssmCommonError &err) {
         transitError(err);
     } catch (...) {
         transitError(UnixError::make(EIO));		// best guess (could be anything)

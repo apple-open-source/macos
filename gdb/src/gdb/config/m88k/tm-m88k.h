@@ -1,5 +1,6 @@
 /* Target machine description for generic Motorola 88000, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1993
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1993, 1994, 1996, 1998,
+   1999, 2000
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -19,10 +20,10 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* g++ support is not yet included.  */
+#include "doublest.h"
+#include "regcache.h"
 
-/* Define the bit, byte, and word ordering of the machine.  */
-#define TARGET_BYTE_ORDER BIG_ENDIAN
+/* g++ support is not yet included.  */
 
 /* We cache information about saved registers in the frame structure,
    to save us from having to re-scan function prologues every time
@@ -42,8 +43,6 @@
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fi) \
 	init_extra_frame_info (fromleaf, fi)
 extern void init_extra_frame_info ();
-
-#define IEEE_FLOAT (1)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -376,40 +375,11 @@ if (!target_is_m88110) \
 
 #define MAX_REGISTER_VIRTUAL_SIZE (REGISTER_RAW_SIZE(XFP_REGNUM))
 
-  /* Nonzero if register N requires conversion
-     from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) ((N) >= XFP_REGNUM)
-
-#include "floatformat.h"
-
-/* Convert data from raw format for register REGNUM in buffer FROM
-   to virtual format with type TYPE in buffer TO.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO) \
-{ \
-  double val; \
-  floatformat_to_double (&floatformat_m88110_ext, (FROM), &val); \
-  store_floating ((TO), TYPE_LENGTH (TYPE), val); \
-}
-
-/* Convert data from virtual format with type TYPE in buffer FROM
-   to raw format for register REGNUM in buffer TO.  */
-
-#define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
-{ \
-  double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
-  floatformat_from_double (&floatformat_m88110_ext, &val, (TO)); \
-}
-
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N) \
-((N) >= XFP_REGNUM \
- ? builtin_type_double \
- : ((N) == PC_REGNUM || (N) == FP_REGNUM || (N) == SP_REGNUM \
-    ? lookup_pointer_type (builtin_type_void) : builtin_type_int))
+struct type *m88k_register_type (int regnum);
+#define REGISTER_VIRTUAL_TYPE(N) m88k_register_type (N)
 
 /* The 88k call/return conventions call for "small" values to be returned
    into consecutive registers starting from r2.  */
@@ -582,7 +552,6 @@ extern void m88k_push_dummy_frame ();
 	(((unsigned long) (fun)) >> 16);				\
   *(unsigned long *)((char *) (dummy) + 0xa4) |=			\
 	(((unsigned long) (fun)) & 0xffff);				\
-  pc = text_end;							\
 }
 
 /* Stack must be aligned on 64-bit boundaries when synthesizing

@@ -2,7 +2,7 @@
 # Generated automatically by configure.
 # Run this file to recreate the current configuration.
 # This directory was configured as follows,
-# on host dougsx:
+# on host localhost:
 #
 # ./configure 
 #
@@ -60,8 +60,7 @@ s%@infodir@%${prefix}/info%g
 s%@mandir@%${prefix}/man%g
 s%@SET_MAKE@%%g
 s%@CC@%cc%g
-s%@MKDEP_CCINC@%-I/usr/local/include -I/usr/libexec/ppc/2.95.2
-/usr/libexec/ppc/include -F/System/Library/PrivateFrameworks%g
+s%@MKDEP_CCINC@%-I/usr/local/include -I/usr/libexec/gcc/darwin/ppc/2.95.2/include -F/System/Library/PrivateFrameworks%g
 s%@CPP@%cc -E -traditional-cpp%g
 s%@CXX@%c++%g
 s%@SNACC_NOVOLAT@%%g
@@ -81,7 +80,7 @@ s%@X_CFLAGS@%%g
 s%@X_PRE_LIBS@%%g
 s%@X_LIBS@%%g
 s%@X_EXTRA_LIBS@%%g
-s%@TCLSH@%false%g
+s%@TCLSH@%tclsh%g
 s%@TCLLIBS@%%g
 s%@TREELIBS@%%g
 s%@LATEX@%false%g

@@ -252,11 +252,15 @@ CryptKit::FEEKeyInfoProvider::FEEKeyInfoProvider(
 	const CssmKey &cssmKey) :
 		CSPKeyInfoProvider(cssmKey)
 {
+}
+CSPKeyInfoProvider *FEEKeyInfoProvider::provider(
+		const CssmKey &cssmKey)
+{
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_FEE:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+			return NULL;
 	}
 	switch(cssmKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
@@ -264,10 +268,10 @@ CryptKit::FEEKeyInfoProvider::FEEKeyInfoProvider(
 			/* FIXME - verify proper CSSM_KEYBLOB_RAW_FORMAT_xx */
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return;
+	return new FEEKeyInfoProvider(cssmKey);
 }
 
 /* Given a raw key, cook up a Binary key */

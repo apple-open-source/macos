@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,217 +33,401 @@
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <aliasdb.h>
+#include <pthread.h>
 
-#include "lookup.h"
 #include "_lu_types.h"
+#include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-static lookup_state alias_state = LOOKUP_CACHE;
-static struct aliasent global_aliasent;
-static int global_free = 1;
-static char *alias_data = NULL;
-static unsigned alias_datalen;
-static int alias_nentries = 0;
-static int alias_start = 1;
-static XDR alias_xdr;
+static pthread_mutex_t _alias_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void 
-freeold(void)
+free_alias_data(struct aliasent *a)
 {
-	int i, len;
+	int i;
 
-	if (global_free == 1) return;
+	if (a == NULL) return;
 
-	free(global_aliasent.alias_name);
+	if (a->alias_name != NULL) free(a->alias_name);
+	for (i = 0; i < a->alias_members_len; i++) free(a->alias_members[i]);
+	if (a->alias_members != NULL) free(a->alias_members);
+}
 
-	len = global_aliasent.alias_members_len;
-	for (i = 0; i < len; i++)
-		free(global_aliasent.alias_members[i]);
-
-	free(global_aliasent.alias_members);
-
-	global_free = 1;
+static void 
+free_alias(struct aliasent *a)
+{
+	if (a == NULL) return;
+	free_alias_data(a);
+	free(a);
 }
 
 static void
-convert_aliasent(_lu_aliasent *lu_aliasent)
+free_lu_thread_info_alias(void *x)
 {
-	int i, len;
+	struct lu_thread_info *tdata;
 
-	freeold();
+	if (x == NULL) return;
 
-	global_aliasent.alias_name = strdup(lu_aliasent->alias_name);
-
-	len = lu_aliasent->alias_members.alias_members_len;
-	global_aliasent.alias_members_len = len;
-	global_aliasent.alias_members = (char **)malloc(len * sizeof(char *));
-
-	for (i = 0; i < len; i++)
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
 	{
-		global_aliasent.alias_members[i] =
-			strdup(lu_aliasent->alias_members.alias_members_val[i]);
+		free_alias((struct aliasent *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
 	}
 
-	global_aliasent.alias_local = lu_aliasent->alias_local;
+	_lu_data_free_vm_xdr(tdata);
 
-	global_free = 0;
+	free(tdata);
+}
+
+static struct aliasent *
+extract_alias(XDR *xdr)
+{
+	int i, j, nkeys, nvals, status;
+	char *key, **vals;
+	struct aliasent *a;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	a = (struct aliasent *)calloc(1, sizeof(struct aliasent));
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_alias(a);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((a->alias_name == NULL) && (!strcmp("name", key)))
+		{
+			a->alias_name = vals[0];
+			j = 1;
+		}
+		else if (!strcmp("alias_local", key))
+		{
+			a->alias_local = atoi(vals[0]);
+		}
+		else if ((a->alias_members == NULL) && (!strcmp("members", key)))
+		{
+			a->alias_members_len = nvals;
+			a->alias_members = vals;
+			j = nvals;
+			vals = NULL;
+		}
+
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (a->alias_name == NULL) a->alias_name = strdup("");
+	if (a->alias_members == NULL) a->alias_members = (char **)calloc(1, sizeof(char *));
+
+	return a;
+}
+
+static struct aliasent *
+copy_alias(struct aliasent *in)
+{
+	int i;
+	struct aliasent *a;
+
+	if (in == NULL) return NULL;
+
+	a = (struct aliasent *)calloc(1, sizeof(struct aliasent));
+
+	a->alias_name = LU_COPY_STRING(in->alias_name);
+
+	a->alias_members_len = in->alias_members_len;
+
+	if (a->alias_members_len == 0)
+	{
+		a->alias_members = (char **)calloc(1, sizeof(char *));
+	}
+	else
+	{
+		a->alias_members = (char **)calloc(a->alias_members_len, sizeof(char *));
+	}
+
+	for (i = 0; i < a->alias_members_len; i++)
+	{
+		a->alias_members[i] = strdup(in->alias_members[i]);
+	}
+
+	a->alias_local = in->alias_local;
+
+	return a;
+}
+
+static void
+recycle_alias(struct lu_thread_info *tdata, struct aliasent *in)
+{
+	struct aliasent *a;
+
+	if (tdata == NULL) return;
+	a = (struct aliasent *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_alias(a);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_alias_data(a);
+
+	a->alias_name = in->alias_name;
+	a->alias_members_len = in->alias_members_len;
+	a->alias_members = in->alias_members;
+	a->alias_local = in->alias_local;
+
+	free(in);
 }
 
 static struct aliasent *
 lu_alias_getbyname(const char *name)
 {
-	unsigned datalen;
+	struct aliasent *a;
+	unsigned int datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
 	XDR outxdr;
 	XDR inxdr;
-	_lu_aliasent_ptr lu_aliasent;
 	static int proc = -1;
+	int count;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "alias_getbyname", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 	
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+	
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
+		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
-	lu_aliasent = NULL;
-	if (!xdr__lu_aliasent_ptr(&inxdr, &lu_aliasent) || (lu_aliasent == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&inxdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_aliasent(lu_aliasent);
-	xdr_free(xdr__lu_aliasent_ptr, &lu_aliasent);
-	return (&global_aliasent);
+	a = extract_alias(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return a;
 }
 
 static void
 lu_alias_endent(void)
 {
-	alias_nentries = 0;
-	if (alias_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)alias_data, alias_datalen);
-		alias_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_alias, free_lu_thread_info_alias);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static void
 lu_alias_setent(void)
 {
 	lu_alias_endent();
-	alias_start = 1;
 }
 
 static struct aliasent *
 lu_alias_getent(void)
 {
 	static int proc = -1;
-	_lu_aliasent lu_aliasent;
+	struct lu_thread_info *tdata;
+	struct aliasent *a;
 
-	if (alias_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_alias, free_lu_thread_info_alias);
+	if (tdata == NULL)
 	{
-		alias_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_alias, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
 			if (_lookup_link(_lu_port, "alias_getent", &proc) != KERN_SUCCESS)
 			{
 				lu_alias_endent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &alias_data, &alias_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_alias_endent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-		alias_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-		xdrmem_create(&alias_xdr, alias_data,
-			alias_datalen, XDR_DECODE);
-		if (!xdr_int(&alias_xdr, &alias_nentries))
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
+
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&alias_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_alias_endent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (alias_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&alias_xdr);
 		lu_alias_endent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_aliasent, sizeof(lu_aliasent));
-	if (!xdr__lu_aliasent(&alias_xdr, &lu_aliasent))
+
+	a = extract_alias(tdata->lu_xdr);
+	if (a == NULL)
 	{
-		xdr_destroy(&alias_xdr);
 		lu_alias_endent();
-		return (NULL);
+		return NULL;
 	}
 
-	alias_nentries--;
-	convert_aliasent(&lu_aliasent);
-	xdr_free(xdr__lu_aliasent, &lu_aliasent);
-	return (&global_aliasent);
+	tdata->lu_vm_cursor--;
+	
+	return a;
 }
 
 struct aliasent *
 alias_getbyname(const char *name)
 {
-	LOOKUP1(lu_alias_getbyname, _old_alias_getbyname, name, struct aliasent);
+	struct aliasent *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_alias, free_lu_thread_info_alias);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_alias, tdata);
+	}
+
+	if (_lu_running())
+	{
+		res = lu_alias_getbyname(name);
+	}
+	else
+	{
+		pthread_mutex_lock(&_alias_lock);
+		res = copy_alias(_old_alias_getbyname(name));
+		pthread_mutex_unlock(&_alias_lock);
+	}
+
+	recycle_alias(tdata, res);
+	return (struct aliasent *)tdata->lu_entry;
+
 }
 
 struct aliasent *
 alias_getent(void)
 {
-	GETENT(lu_alias_getent, _old_alias_getent, &alias_state, struct aliasent);
+	struct aliasent *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_alias, free_lu_thread_info_alias);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_alias, tdata);
+	}
+
+	if (_lu_running())
+	{
+		res = lu_alias_getent();
+	}
+	else
+	{
+		pthread_mutex_lock(&_alias_lock);
+		res = copy_alias(_old_alias_getent());
+		pthread_mutex_unlock(&_alias_lock);
+	}
+
+	recycle_alias(tdata, res);
+	return (struct aliasent *)tdata->lu_entry;
+
 }
 
 void
 alias_setent(void)
 {
-	SETSTATEVOID(lu_alias_setent, _old_alias_setent, &alias_state);
+	if (_lu_running()) lu_alias_setent();
+	else _old_alias_setent();
 }
 
 void
 alias_endent(void)
 {
-	UNSETSTATE(lu_alias_endent, _old_alias_endent, &alias_state);
+	if (_lu_running()) lu_alias_endent();
+	else _old_alias_endent();
 }

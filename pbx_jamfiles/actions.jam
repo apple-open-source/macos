@@ -1,4 +1,4 @@
-# Copyright (c) 1999,2000 Apple Computer, Inc.
+# Copyright (c) 1999-2002 Apple Computer, Inc.
 # All rights reserved.
 
 # High level rules for build actions on targets
@@ -8,22 +8,39 @@
 rule Actions
 {
     Clean clean : $(1) ;
-    Build build : $(1) ;
-    Install install : $(1) ;
-    InstallHeaders installhdrs : $(1) ;
-    NOTFILE installhdrs ;
-    InstallSource installsrc : $(1) ;
+    BuildAction build : $(1) ;
+    BuildAction copysrc : $(1) ;
+    NOTFILE copysrc ;
+    BuildAction copyhdrs : $(1) ;
+    NOTFILE copyhdrs ;
+    BuildAction copyrsrcs : $(1) ;
+    NOTFILE copyrsrcs ;
+    BuildAction install : $(1) ;
+    BuildAction installdebugonly : $(1) ;
+    NOTFILE installdebug ;
+    BuildAction installprofileonly : $(1) ;
+    NOTFILE installprofile ;
+    BuildAction installdebugprofileonly : $(1) ;
+    NOTFILE installdebugprofile ;
+    BuildAction installsrc : $(1) ;
     NOTFILE installsrc ;
+    BuildAction installhdrs : $(1) ;
+    NOTFILE installhdrs ;
+    BuildAction installrsrcs : $(1) ;
+    NOTFILE installrsrcs ;
 }
 
 # Clean clean : <product>
 # Deletes the product and the files associated with building it
 rule Clean
 {
-    # invoke clean action to remove target temporary directories
-    Clean.Remove $(2:G=clean) : $(2) $(TEMP_DIR) ;
-    Clean.Remove $(PRODUCT_NAME:G=clean) : $(2) $(TEMP_DIR) ;
-    Clean.Remove clean : $(2) $(TEMP_DIR) ;
+    # locate built product and remove
+    local BUILT_PRODUCT = $(2:G=) ;
+    LOCATE on $(BUILT_PRODUCT) = $(TARGET_BUILD_DIR) ;
+    Clean.Remove clean : $(BUILT_PRODUCT) ;
+
+    # remove temporary directories
+    Clean.Remove clean : $(TEMP_DIR) ;
 
     # Removal of archive in case of tools that are class archives,
     # this is which don't necessarily end with TOOL_SUFFIX.
@@ -37,19 +54,17 @@ rule Clean
     }
     ARCHIVE_SUFFIX default = "" ;
     ARCHIVE_TARGET = $(2:G=)$(ARCHIVE_SUFFIX) ;
-    LOCATE on $(ARCHIVE_TARGET) = $(BUILD_DIR) ;
+    LOCATE on $(ARCHIVE_TARGET) = $(TARGET_BUILD_DIR) ;
     Clean.RemoveArchive clean : $(ARCHIVE_TARGET) ;
-
-    # whole project content to remove on full clean
-    Clean.Remove clean : $(2) $(PRECOMP_TRUSTFILE) ;
-    # mferris:20010310 Do not remove whole shared ProjectHeaders dir. Just remove the specific subdirs for this target.
-    # Clean.Remove clean : $(2) $(BASE_PROJECT_HEADER_DIR) ;
+    # remove project header clones for this target
     if $(PROJECT_HEADER_DIR) {
-        Clean.Remove clean : $(2) $(PROJECT_HEADER_DIR) ;
+        Clean.Remove clean : $(PROJECT_HEADER_DIR) ;
     }
     if $(WRAPPER_CLONE_DIR) {
-        Clean.Remove clean : $(2) $(WRAPPER_CLONE_DIR) ;
+        Clean.Remove clean : $(WRAPPER_CLONE_DIR) ;
     }
+    # whole project content to remove on full clean
+    Clean.Remove clean : $(PRECOMP_TRUSTFILE) ;
 }
 
 actions quietly piecemeal together existing Clean.Remove 
@@ -64,165 +79,26 @@ actions Clean.RemoveArchive
     fi
 }
 
-# Build build : <product>
-# Builds <product>
-rule Build
+rule BuildAction
 {
-    local BUILD_TARGET = $(2:G=build) ;
-    DEPENDS $(1) : $(BUILD_TARGET) ;
-    NOTFILE $(BUILD_TARGET) ;
-    DEPENDS $(BUILD_TARGET) : $(2) ;
-}
-
-# Install <product>
-# Installs <product> in INSTALL_DIR by copying, stripping,
-# and setting file mode and ownership
-rule Install
-{
-    if $(SKIP_INSTALL) != "YES" {
-        # The installed product has Install grist.
-        # As a convenience the target is also set with grist.
-        local INSTALLED_PRODUCT = $(2:G=install) ;
-        # always perform the installation
-        DEPENDS $(1) : $(INSTALLED_PRODUCT) ;
-        ALWAYS $(INSTALLED_PRODUCT) ;
-        # installation directory must exist prior to copy
-        Mkdir $(INSTALL_DIR) ;
-        LOCATE on $(INSTALLED_PRODUCT) = $(INSTALL_DIR) ;
-        DEPENDS $(INSTALLED_PRODUCT) : $(INSTALL_DIR) ;
-        # recursive copy of product (does not preserve resource forks)
-        BulkCopy $(INSTALLED_PRODUCT) : $(2) ;
-        # additional resource preserving copies for special files
-        for SPECIAL_FILE in $(PRESERVE_RESOURCES) {
-            SPECIAL_FILE_INSTALLED_PATH default = $(INSTALL_DIR)$(/)$(SPECIAL_FILE:G=) ;
-            # preserved copies are differentiated by "<Preserve>" grist
-            # and depend on full installed path of the primary tar copy
-            INSTALLED_PRODUCT_PATH default = $(INSTALL_DIR)$(/)$(INSTALLED_PRODUCT:G=) ;
-            DEPENDS $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) : $(INSTALLED_PRODUCT_PATH) ;
-            DEPENDS $(1) : $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) ;
-            ResourcePreservingCp $(SPECIAL_FILE_INSTALLED_PATH:G=Preserve) : $(SPECIAL_FILE) ;
-        }
-        # remove development property list
-        if $(DEVELOPMENT_PLIST_FILE) {
-            DEVELOPMENT_PLIST_FILE_REMOVE = $(DEVELOPMENT_PLIST_FILE:G=Remove) ;
-            NOTFILE $(DEVELOPMENT_PLIST_FILE_REMOVE) ;
-            DEPENDS $(1) : $(DEVELOPMENT_PLIST_FILE_REMOVE) ;
-            DEPENDS $(DEVELOPMENT_PLIST_FILE_REMOVE) : $(INSTALLED_PRODUCT) ;
-            RelativeRm $(DEVELOPMENT_PLIST_FILE_REMOVE) : $(INSTALL_DIR) ;
-        }
-        # strip the installed product, unless UNSTRIPPED_PRODUCT nonempty
-        if $(STRIPPED_PRODUCT) && ( $(STRIP_INSTALLED_PRODUCT) = YES ) && $(UNSTRIPPED_PRODUCT) = "" {
-            INSTALLED_STRIPPED_PRODUCT default = $(INSTALL_DIR)$(/)$(STRIPPED_PRODUCT:G=) ;
-            LOCATE on $(INSTALLED_STRIPPED_PRODUCT) = $(INSTALL_DIR) ;
-            DEPENDS $(INSTALLED_STRIPPED_PRODUCT) : $(INSTALL_DIR) ;
-            if $(PRODUCT_TYPE) != Tool && $(PRODUCT_TYPE) != Application {
-                STRIPFLAGS default = -S ;
-            }
-            STRIPFLAGS on $(INSTALLED_PRODUCT) = $(STRIPFLAGS) ;
-            Strip $(INSTALLED_PRODUCT) : $(INSTALLED_STRIPPED_PRODUCT) ;
-        }
-        # set standard file mode and ownership
-        INSTALL_MODE_FLAG on $(INSTALLED_PRODUCT) = $(INSTALL_MODE_FLAG) ;
-        ChangeMode $(INSTALLED_PRODUCT) ;
-        INSTALL_OWNER on $(INSTALLED_PRODUCT) = $(INSTALL_OWNER) ;
-        INSTALL_GROUP on $(INSTALLED_PRODUCT) = $(INSTALL_GROUP) ;
-        ChangeOwnerAndGroup $(INSTALLED_PRODUCT) ;
-        # do any special owner, group, or mode setting
-        if $(ALTERNATE_PERMISSIONS_FILES) {
-            ALTERNATE_PERMISSIONS_FILES = /$(ALTERNATE_PERMISSIONS_FILES) ;
-            ALTERNATE_PERMISSIONS_FILES = $(INSTALL_DIR)$(ALTERNATE_PERMISSIONS_FILES) ;
-            ALTERNATE_PERMISSIONS_FILES = $(ALTERNATE_PERMISSIONS_FILES:G=AlternatePermissions) ;
-            DEPENDS $(ALTERNATE_PERMISSIONS_FILES) : $(INSTALLED_PRODUCT) ;
-            DEPENDS $(1) : $(ALTERNATE_PERMISSIONS_FILES) ;
-            if $(ALTERNATE_MODE) {
-                INSTALL_MODE_FLAG = $(ALTERNATE_MODE) ;
-                INSTALL_MODE_FLAG on $(ALTERNATE_PERMISSIONS_FILES) = $(INSTALL_MODE_FLAG) ;
-                ChangeMode $(ALTERNATE_PERMISSIONS_FILES) ;
-            }
-            if $(ALTERNATE_OWNER) {
-                INSTALL_OWNER = $(ALTERNATE_OWNER) ;
-                INSTALL_OWNER on $(ALTERNATE_PERMISSIONS_FILES) = $(INSTALL_OWNER) ;
-            }
-            if $(ALTERNATE_GROUP) {
-                INSTALL_GROUP = $(ALTERNATE_GROUP) ;
-                INSTALL_GROUP on $(ALTERNATE_PERMISSIONS_FILES) = $(INSTALL_GROUP) ;
-            }
-            if $(ALTERNATE_OWNER) || $(ALTERNATE_GROUP) {
-                ChangeOwnerAndGroup $(ALTERNATE_PERMISSIONS_FILES) ;
-            }
-        }
-    } else {
-        DEPENDS $(1) : $(2) ;
-    }
-}
-
-# InstallHeaders <product>
-# Installs headers for the product in INSTALL_DIR by copying
-# and setting file mode and ownership
-rule InstallHeaders
-{
-    if $(SKIP_INSTALL) != YES {
-        # define installhdrs target and dependencies
-        local ACTION_TARGET = $(2:G=installhdrs) ;
-        ACTION on $(2) = $(ACTION) ;
-        DEPENDS $(1) : $(ACTION_TARGET) ;
-        DEPENDS $(ACTION_TARGET) : $(2) ;
-        NOTFILE $(ACTION_TARGET) ;
-        ALWAYS $(ACTION_TARGET) ;
-        # installation directory must exist prior to copy
-        Mkdir $(INSTALL_DIR) ;
-        DEPENDS $(ACTION_TARGET) : $(INSTALL_DIR) ;
-        LOCATE on $(ACTION_TARGET) = $(INSTALL_DIR) ;
-        # target with full path needed for copy and preen
-        local QUALIFIED_ACTION_TARGET = $(INSTALL_DIR)$(/)$(ACTION_TARGET:G=) ;
-        DEPENDS $(ACTION_TARGET) : $(QUALIFIED_ACTION_TARGET) ;
-        # recursive copy of product
-        BulkCopy $(QUALIFIED_ACTION_TARGET) : $(2) ;
-        # set standard file mode and ownership
-        INSTALL_MODE_FLAG on $(QUALIFIED_ACTION_TARGET) = $(INSTALL_MODE_FLAG) ;
-        ChangeMode $(QUALIFIED_ACTION_TARGET) ;
-        INSTALL_OWNER on $(QUALIFIED_ACTION_TARGET) = $(INSTALL_OWNER) ;
-        INSTALL_GROUP on $(QUALIFIED_ACTION_TARGET) = $(INSTALL_GROUP) ;
-        ChangeOwnerAndGroup $(QUALIFIED_ACTION_TARGET) ;
-    }
-}
-
-# InstallSource <product>
-# Installs source for the product in SOURCE_ROOT by copying
-# and setting file mode and ownership
-rule InstallSource
-{
-    local ACTION_TARGET = $(2:G=installsrc) ;
+    local ACTION_TARGET = $(2:G=$(1)BuildAction) ;
     ACTION on $(2) = $(ACTION) ;
     DEPENDS $(1) : $(ACTION_TARGET) ;
-    NOTFILE $(ACTION_TARGET) ;
     DEPENDS $(ACTION_TARGET) : $(2) ;
+    NOTFILE $(ACTION_TARGET) ;
 }
-
-# Sv sv
-# Displays the value of the variable stored in V
-rule Sv
-{
-}
-actions Sv
-{
-    $(ECHO) $(V) "=" $($(V))
-}
-Sv sv ;
 
 # RunVariantHackScript varianthack : <product>
-# Runs /AppleInternal/Developer/Tools/AppleInternalDebugAndProfileBuild.sh
+# Runs /AppleInternal/Developer/Tools/AppleInternalDebugAndProfileBuild.sh,
 rule RunVariantHackScript
 {
-    if $(RC_JASPER) || $(BUILD_VARIANTS_ONLY_IN_JASPER) != YES {
-        local VARIANT_HACK_TARGET = $(2:G=varianthack) ;
+    if $(RC_JASPER) || $(INTERNAL_BUILD_VARIANTS_ONLY_IN_JASPER) != YES {
+        local VARIANT_HACK_TARGET = $(1:G=varianthack) ;
         DEPENDS $(1) : $(VARIANT_HACK_TARGET) ;
         NOTFILE $(VARIANT_HACK_TARGET) ;
-        DEPENDS $(VARIANT_HACK_TARGET) : $(2) ;
-        DEPENDS install : $(1) ;
     }
 }
 actions exportvars RunVariantHackScript
 {
-    /bin/sh /AppleInternal/Developer/Tools/AppleInternalDebugAndProfileBuilder.sh $(BUILD_VARIANTS)
+    /bin/sh /AppleInternal/Developer/Tools/AppleInternalDebugAndProfileBuilder.sh $(INTERNAL_BUILD_VARIANTS)
 }

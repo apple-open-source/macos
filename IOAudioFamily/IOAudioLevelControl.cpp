@@ -44,6 +44,29 @@ OSMetaClassDefineReservedUnused(IOAudioLevelControl, 13);
 OSMetaClassDefineReservedUnused(IOAudioLevelControl, 14);
 OSMetaClassDefineReservedUnused(IOAudioLevelControl, 15);
 
+// New code added here
+IOAudioLevelControl *IOAudioLevelControl::createPassThruVolumeControl (SInt32 initialValue,
+                                                                SInt32 minValue,
+                                                                SInt32 maxValue,
+                                                                IOFixed minDB,
+                                                                IOFixed maxDB,
+                                                                UInt32 channelID,
+                                                                const char *channelName,
+                                                                UInt32 cntrlID)
+{
+    return IOAudioLevelControl::create(initialValue,
+                                        minValue,
+                                        maxValue,
+                                        minDB,
+                                        maxDB,
+                                        channelID,
+                                        channelName,
+                                        cntrlID,
+                                        kIOAudioLevelControlSubTypeVolume,
+                                        kIOAudioControlUsagePassThru);
+}
+
+// Original code...
 IOAudioLevelControl *IOAudioLevelControl::create(SInt32 initialValue,
                                                  SInt32 minValue,
                                                  SInt32 maxValue,
@@ -115,10 +138,6 @@ bool IOAudioLevelControl::init(SInt32 initialValue,
     bool result = true;
     OSNumber *number;
     
-    if (subType == NULL) {
-        subType = kIOAudioLevelControlSubTypeVolume;
-    }
-    
     number = OSNumber::withNumber(initialValue, sizeof(SInt32)*8);
     
     if ((number == NULL) || !super::init(kIOAudioControlTypeLevel, number, channelID, channelName, cntrlID, subType, usage, properties)) {
@@ -153,6 +172,7 @@ void IOAudioLevelControl::setMinValue(SInt32 newMinValue)
 {
     minValue = newMinValue;
     setProperty(kIOAudioLevelControlMinValueKey, newMinValue, sizeof(SInt32)*8);
+	sendChangeNotification(kIOAudioControlRangeChangeNotification);
 }
 
 SInt32 IOAudioLevelControl::getMinValue()
@@ -164,6 +184,7 @@ void IOAudioLevelControl::setMaxValue(SInt32 newMaxValue)
 {
     maxValue = newMaxValue;
     setProperty(kIOAudioLevelControlMaxValueKey, newMaxValue, sizeof(SInt32)*8);
+	sendChangeNotification(kIOAudioControlRangeChangeNotification);
 }
 
 SInt32 IOAudioLevelControl::getMaxValue()
@@ -175,6 +196,7 @@ void IOAudioLevelControl::setMinDB(IOFixed newMinDB)
 {
     minDB = newMinDB;
     setProperty(kIOAudioLevelControlMinDBKey, newMinDB, sizeof(IOFixed)*8);
+	sendChangeNotification(kIOAudioControlRangeChangeNotification);
 }
 
 IOFixed IOAudioLevelControl::getMinDB()
@@ -185,6 +207,7 @@ IOFixed IOAudioLevelControl::getMinDB()
 void IOAudioLevelControl::setMaxDB(IOFixed newMaxDB)
 {
     setProperty(kIOAudioLevelControlMaxDBKey, newMaxDB, sizeof(IOFixed)*8);
+	sendChangeNotification(kIOAudioControlRangeChangeNotification);
 }
 
 IOFixed IOAudioLevelControl::getMaxDB()

@@ -1,6 +1,7 @@
 ;;; tmm.el --- text mode access to menu-bar
 
-;; Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Author: Ilya Zakharevich <ilya@math.mps.ohio-state.edu>
 ;; Maintainer: FSF
@@ -164,10 +165,10 @@ Its value should be an event that has a binding in MENU."
     ;; tmm-km-list is an alist of (STRING . MEANING).
     ;; It has no other elements.
     ;; The order of elements in tmm-km-list is the order of the menu bar.
-    (mapcar (function (lambda (elt)
-			(if (stringp elt)
-			    (setq gl-str elt)
-			  (and (listp elt) (tmm-get-keymap elt not-menu)))))
+    (mapc (lambda (elt)
+	    (if (stringp elt)
+		(setq gl-str elt)
+	      (and (listp elt) (tmm-get-keymap elt not-menu))))
 	    menu)
     ;; Choose an element of tmm-km-list; put it in choice.
     (if (and not-menu (= 1 (length tmm-km-list)))
@@ -299,15 +300,14 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 (defun tmm-define-keys (minibuffer)
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map t)
-    (mapcar
-     (function
-      (lambda (c)
-        (if (listp tmm-shortcut-style)
-            (define-key map (char-to-string c) 'tmm-shortcut)
-          ;; only one kind of letters are shortcuts, so map both upcase and
-          ;; downcase input to the same
-          (define-key map (char-to-string (downcase c)) 'tmm-shortcut)
-          (define-key map (char-to-string (upcase c)) 'tmm-shortcut))))
+    (mapc
+     (lambda (c)
+       (if (listp tmm-shortcut-style)
+	   (define-key map (char-to-string c) 'tmm-shortcut)
+	 ;; only one kind of letters are shortcuts, so map both upcase and
+	 ;; downcase input to the same
+	 (define-key map (char-to-string (downcase c)) 'tmm-shortcut)
+	 (define-key map (char-to-string (upcase c)) 'tmm-shortcut)))
      tmm-short-cuts)
     (if minibuffer
 	(progn
@@ -340,12 +340,11 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 	(with-output-to-temp-buffer "*Completions*"
 	  (display-completion-list completions))
         (remove-hook 'completion-setup-hook 'tmm-completion-delete-prompt))
-      (if tmm-completion-prompt
-          (progn
-	    (set-buffer "*Completions*")
-	    (goto-char 1)
-            (insert tmm-completion-prompt)))
-      )
+      (when tmm-completion-prompt
+	(set-buffer "*Completions*")
+	(let ((buffer-read-only nil))
+	  (goto-char (point-min))
+	  (insert tmm-completion-prompt))))
     (save-selected-window
       (other-window 1)			; Electric-pop-up-window does
 					; not work in minibuffer
@@ -373,22 +372,24 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 	      (re-search-forward
 	       (concat "\\(^\\|[ \t]\\)" (char-to-string c) tmm-mid-prompt))
 	      (choose-completion))
-	  (erase-buffer)		; In minibuffer
-	  (mapcar (lambda (elt)
-		    (if (string=
-			 (substring (car elt) 0 
-				    (min (1+ (length tmm-mid-prompt))
-					 (length (car elt))))
-			 (concat (char-to-string c) tmm-mid-prompt))
-			(setq s (car elt))))
+	  ;; In minibuffer
+	  (delete-region (minibuffer-prompt-end) (point-max))
+	  (mapc (lambda (elt)
+		  (if (string=
+		       (substring (car elt) 0 
+				  (min (1+ (length tmm-mid-prompt))
+				       (length (car elt))))
+		       (concat (char-to-string c) tmm-mid-prompt))
+		      (setq s (car elt))))
 		  tmm-km-list)
 	  (insert s)
 	  (exit-minibuffer)))))
 
 (defun tmm-goto-completions ()
   (interactive)
-  (setq tmm-c-prompt (buffer-string))
-  (erase-buffer)
+  (let ((prompt-end (minibuffer-prompt-end)))
+    (setq tmm-c-prompt (buffer-substring prompt-end (point-max)))
+    (delete-region prompt-end (point-max)))
   (switch-to-buffer-other-window "*Completions*")
   (search-forward tmm-c-prompt)
   (search-backward tmm-c-prompt))
@@ -409,12 +410,14 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 		   (or (keymapp elt) (eq (car elt) 'lambda))
 		 (fboundp elt))
 	       (setq km elt))
+
 	      ((if (listp (cdr-safe elt))
 		   (or (keymapp (cdr-safe elt))
 		       (eq (car (cdr-safe elt)) 'lambda))
 		 (fboundp (cdr-safe elt)))
 	       (setq km (cdr elt))
 	       (and (stringp (car elt)) (setq str (car elt))))
+
 	      ((if (listp (cdr-safe (cdr-safe elt)))
 		   (or (keymapp (cdr-safe (cdr-safe elt)))
 		       (eq (car (cdr-safe (cdr-safe elt))) 'lambda))
@@ -425,10 +428,14 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 		    (stringp (cdr (car (cdr elt)))) ; keyseq cache
 		    (setq cache (cdr (car (cdr elt))))
 		    cache (setq str (concat str cache))))
+
 	      ((eq (car-safe elt) 'menu-item)
+	       ;; (menu-item TITLE COMMAND KEY ...)
 	       (setq plist (cdr-safe (cdr-safe (cdr-safe elt))))
+	       (when (consp (car-safe plist))
+		 (setq plist (cdr-safe plist)))
 	       (setq km (nth 2 elt))
-	       (setq str (nth 1 elt))
+	       (setq str (eval (nth 1 elt)))
 	       (setq filter (plist-get plist :filter))
 	       (if filter
 		   (setq km (funcall filter km)))
@@ -438,6 +445,7 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 		    (setq cache (cdr (nth 3 elt)))
 		    cache
 		    (setq str (concat str cache))))
+
 	      ((if (listp (cdr-safe (cdr-safe (cdr-safe elt))))
 		   (or (keymapp (cdr-safe (cdr-safe (cdr-safe elt))))
 		       (eq (car (cdr-safe (cdr-safe (cdr-safe elt)))) 'lambda))
@@ -449,6 +457,7 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 		    (stringp (cdr (car (cdr (cdr elt))))) ; keyseq cache
 		    (setq cache (cdr (car (cdr (cdr elt)))))
 		    cache (setq str (concat str cache))))
+
 	      ((stringp event)		; x-popup or x-popup element
 	       (if (or in-x-menu (stringp (car-safe elt)))
 		   (setq str event event nil km elt)
@@ -462,9 +471,7 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 	  (setq km nil)))
       (and km str
 	   (or (assoc str tmm-km-list)
-	       (setq tmm-km-list 
-		     (cons (cons str (cons event km)) tmm-km-list)))
-	   ))))
+	       (push (cons str (cons event km)) tmm-km-list))))))
 
 (defun tmm-get-keybind (keyseq)
   "Return the current binding of KEYSEQ, merging prefix definitions.
@@ -487,13 +494,13 @@ of `menu-bar-final-items'."
 	  (setq allbind (cons (local-key-binding keyseq) allbind))
 	  (setq allbind (cons (global-key-binding keyseq) allbind))
 	  ;; Merge all the elements of ALLBIND into one keymap.
-	  (mapcar (lambda (in)
-		    (if (and (symbolp in) (keymapp in))
-			(setq in (symbol-function in)))
-		    (and in (keymapp in)
-			 (if (keymapp bind)
-			     (setq bind (nconc bind (copy-sequence (cdr in))))
-			   (setq bind (copy-sequence in)))))
+	  (mapc (lambda (in)
+		  (if (and (symbolp in) (keymapp in))
+		      (setq in (symbol-function in)))
+		  (and in (keymapp in)
+		       (if (keymapp bind)
+			   (setq bind (nconc bind (copy-sequence (cdr in))))
+			 (setq bind (copy-sequence in)))))
 		  allbind)
 	  ;; Return that keymap.
 	  bind))))

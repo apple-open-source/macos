@@ -28,22 +28,6 @@
 
 #define DEFAULT_BLOCK_SIZE		(MIN_AES_BLOCK_BITS / 8)
 
-#define DEBUG_ED		0		/* general encrypt/decrypt debug */
-#if		DEBUG_ED
-#define dprint(s) 	printf s
-#else
-#define dprint(s)
-#endif
-
-#define DEBUG_SIZES		0
-#if		DEBUG_SIZES
-#define logSize(s, final, encr, ibs, in, out) \
-	printf("%s final %d encr %d inbufsz %d inSize %d outSize %d\n",	\
-	s, final, encr, ibs, in, out)
-#else
-#define logSize(s, final, encr, ibs, in, out)
-#endif
-
 /*
  * AES symmetric key generation.
  * This algorithm has key size restrictions which don't fit with the 
@@ -153,11 +137,13 @@ void AESContext::init(
 	}
 	
 	int opt128 = 0;
+#if		!GLADMAN_AES_128_ENABLE
 	if((mBlockSize == (MIN_AES_BLOCK_BITS/8)) &&
 	   (keyLen == (MIN_AES_KEY_BITS/8)) &&
 	   doAES128) {
 		opt128 = 1;
 	}
+#endif	/* !GLADMAN_AES_128_ENABLE */
 	
 	/* create new key if needed */
 	if(mAesKey == NULL) {
@@ -180,6 +166,7 @@ void AESContext::init(
 		mRawKeySize = keyLen;
 	}
 
+#if		!GLADMAN_AES_128_ENABLE
 	if(opt128) {
 		/* optimized path */
 		mEncryptFcn = rijndaelBlockEncrypt128;
@@ -190,6 +177,11 @@ void AESContext::init(
 		mEncryptFcn = rijndaelBlockEncrypt;
 		mDecryptFcn = rijndaelBlockDecrypt;
 	}
+#else
+	/* common standard path */
+	mEncryptFcn = rijndaelBlockEncrypt;
+	mDecryptFcn = rijndaelBlockDecrypt;
+#endif		!GLADMAN_AES_128_ENABLE
 	
 	/* Finally, have BlockCryptor do its setup */
 	setup(mBlockSize, context);

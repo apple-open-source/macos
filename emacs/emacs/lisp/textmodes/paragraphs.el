@@ -1,6 +1,6 @@
-;;; paragraphs.el --- paragraph and sentence parsing.
+;;; paragraphs.el --- paragraph and sentence parsing
 
-;; Copyright (C) 1985, 86, 87, 91, 94, 95, 96, 1997
+;; Copyright (C) 1985, 86, 87, 91, 94, 95, 96, 1997, 1999, 2000, 2001
 ;;    Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -106,7 +106,7 @@ of text indented by a margin setting.
 The variable `paragraph-separate' specifies how to distinguish
 lines that start paragraphs from lines that separate them.
 
-If the variable `use-hard-newlines' is nonnil, then only lines following a
+If the variable `use-hard-newlines' is non-nil, then only lines following a
 hard newline are considered to match."
   :group 'paragraphs
   :type 'regexp)
@@ -130,6 +130,7 @@ text indented by a margin setting."
 
 (defcustom sentence-end (purecopy "[.?!][]\"')}]*\\($\\| $\\|\t\\|  \\)[ \t\n]*")
   "*Regexp describing the end of a sentence.
+The value includes the whitespace following the sentence.
 All paragraph boundaries also end sentences, regardless.
 
 The default value specifies that in order to be recognized as the end
@@ -137,7 +138,8 @@ of a sentence, the ending period, question mark, or exclamation point
 must be followed by two spaces, unless it's inside some sort of quotes
 or parenthesis.
 
-See also the variable `sentence-end-double-space' and Info node `Sentences'."
+See also the variable `sentence-end-double-space', the variable
+`sentence-end-without-period' and Info node `Sentences'."
   :group 'paragraphs
   :type 'regexp)
 
@@ -163,7 +165,8 @@ A paragraph end is the beginning of a line which is not part of the paragraph
 to which the end of the previous line belongs, or the end of the buffer."
   (interactive "p")
   (or arg (setq arg 1))
-  (let* ((fill-prefix-regexp
+  (let* ((opoint (point))
+	 (fill-prefix-regexp
 	  (and fill-prefix (not (equal fill-prefix ""))
 	       (not paragraph-ignore-fill-prefix)
 	       (regexp-quote fill-prefix)))
@@ -199,7 +202,7 @@ to which the end of the previous line belongs, or the end of the buffer."
 	(while (and (not (bobp))
 		    (progn (move-to-left-margin)
 			   (looking-at paragraph-separate)))
-	  (forward-line -1)) 
+	  (forward-line -1))
 	(if (bobp)
 	    nil
 	  ;; Go to end of the previous (non-separating) line.
@@ -212,8 +215,8 @@ to which the end of the previous line belongs, or the end of the buffer."
 				(progn (move-to-left-margin)
 				       (not (looking-at paragraph-separate)))
 				(looking-at fill-prefix-regexp))
-		      (if (not (= (point) start))
-			  (setq multiple-lines t))
+		      (unless (= (point) start)
+			(setq multiple-lines t))
 		      (forward-line -1))
 		    (move-to-left-margin)
 ;;; This deleted code caused a long hanging-indent line
@@ -285,7 +288,8 @@ to which the end of the previous line belongs, or the end of the buffer."
 	  (forward-char 1))
 	(if (< (point) (point-max))
 	    (goto-char start)))
-      (setq arg (1- arg)))))
+      (setq arg (1- arg)))
+    (constrain-to-field nil opoint t)))
 
 (defun backward-paragraph (&optional arg)
   "Move backward to start of paragraph.
@@ -363,18 +367,23 @@ The variable `sentence-end' is a regular expression that matches ends of
 sentences.  Also, every paragraph boundary terminates sentences as well."
   (interactive "p")
   (or arg (setq arg 1))
-  (while (< arg 0)
-    (let ((par-beg (save-excursion (start-of-paragraph-text) (point))))
-      (if (re-search-backward (concat sentence-end "[^ \t\n]") par-beg t)
-	  (goto-char (1- (match-end 0)))
-	(goto-char par-beg)))
-    (setq arg (1+ arg)))
-  (while (> arg 0)
-    (let ((par-end (save-excursion (end-of-paragraph-text) (point))))
-      (if (re-search-forward sentence-end par-end t)
-	  (skip-chars-backward " \t\n")
-	(goto-char par-end)))
-    (setq arg (1- arg))))
+  (let ((opoint (point)))
+    (while (< arg 0)
+      (let ((pos (point))
+	    (par-beg (save-excursion (start-of-paragraph-text) (point))))
+       (if (and (re-search-backward sentence-end par-beg t)
+		(or (< (match-end 0) pos)
+		    (re-search-backward sentence-end par-beg t)))
+	   (goto-char (match-end 0))
+	 (goto-char par-beg)))
+      (setq arg (1+ arg)))
+    (while (> arg 0)
+      (let ((par-end (save-excursion (end-of-paragraph-text) (point))))
+       (if (re-search-forward sentence-end par-end t)
+	   (skip-chars-backward " \t\n")
+	 (goto-char par-end)))
+      (setq arg (1- arg)))
+    (constrain-to-field nil opoint t)))
 
 (defun backward-sentence (&optional arg)
   "Move backward to start of sentence.  With arg, do it arg times.

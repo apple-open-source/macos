@@ -96,6 +96,11 @@ local.9600|CLOCAL tty @ 9600 Bd:\
 	:l0#0x000005cf:l1#0x00000000:l2#0x000005cf:\
 	:sp#9600:
 
+# For XServe
+serial.9600|serial db9 port:\
+	:c2#0x00004b00:i2#0x00000704:l2#0x000005cf:o2#0x00000007:\
+	:np:sp#9600:
+
 #
 # Dial in rotary tables, speed selection via 'break'
 #

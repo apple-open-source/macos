@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,6 +44,8 @@ __BEGIN_DECLS
 
 	Note: In order to commit these changes to permanent storage a call
 	must be made to SCPreferencesCommitChanges().
+	A call to SCPreferencesApplyChanges() is also required for the new
+	name to become active.
 	@param prefs An SCPreferencesRef that should be used for all API calls.
 	@param name The computer/host name to be set.
 	@param nameEncoding The encoding associated with the computer/host name.
@@ -54,6 +56,27 @@ SCPreferencesSetComputerName		(
 					SCPreferencesRef	prefs,
 					CFStringRef		name,
 					CFStringEncoding	nameEncoding
+					);
+
+/*!
+	@function SCPreferencesSetLocalHostName
+	@discussion Updates the local host name in the system preferences.
+
+	Note: In order to commit these changes to permanent storage a call
+	must be made to SCPreferencesCommitChanges().
+	A call to SCPreferencesApplyChanges() is also required for the new
+	name to become active.
+	@param prefs An SCPreferencesRef that should be used for all API calls.
+	@param name The local host name to be set.
+
+	Note: the string must conform to the naming conventions of a DNS host
+		name as specified in RFC 1034 (section 3.5).
+	@result A boolean indicating the success (or failure) of the call.
+ */
+Boolean
+SCPreferencesSetLocalHostName		(
+					SCPreferencesRef	prefs,
+					CFStringRef		name
 					);
 
 __END_DECLS

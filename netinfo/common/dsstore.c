@@ -334,6 +334,8 @@ dsstore_sync(dsstore *s)
 	dscache_free(s->cache);
 	s->cache_enabled = 0;
 
+	if (s->sync_delegate != NULL) (s->sync_delegate)(s->sync_private);
+
 	return dsstore_init(s);
 }
 
@@ -1244,17 +1246,20 @@ dsstore_init(dsstore *s)
 		if (where == IndexNull) return DSStatusNoRootRecord;
 	}
 
-	/*
-	 * Set cache size to be 10% of the store size, but
-	 * not less than the minimum (MIN_CACHE_SIZE), and
-	 * not greater than the maximum (MAX_CACHE_SIZE).
-	 */
-	size = s->index_count / 10;
-	if (size < MIN_CACHE_SIZE) size = MIN_CACHE_SIZE;
-	if (size > MAX_CACHE_SIZE) size = MAX_CACHE_SIZE;
+	if ((s->flags & DSSTORE_FLAGS_CACHE_MASK) == DSSTORE_FLAGS_CACHE_ENABLED)
+	{
+		/*
+		 * Set cache size to be 10% of the store size, but
+		 * not less than the minimum (MIN_CACHE_SIZE), and
+		 * not greater than the maximum (MAX_CACHE_SIZE).
+		 */
+		size = s->index_count / 10;
+		if (size < MIN_CACHE_SIZE) size = MIN_CACHE_SIZE;
+		if (size > MAX_CACHE_SIZE) size = MAX_CACHE_SIZE;
 
-	s->cache_enabled = 1;
-	s->cache = dscache_new(size);
+		s->cache_enabled = 1;
+		s->cache = dscache_new(size);
+	}
 
 	return DSStatusOK;
 }
@@ -1284,6 +1289,9 @@ dsstore_open(dsstore **s, char *dirname, u_int32_t flags)
 
 	(*s)->flags = flags;
 
+	(*s)->sync_delegate = NULL;
+	(*s)->sync_private = NULL;
+
 	sprintf(path, "%s/%s", dirname, ConfigFileName);
 	(*s)->store_lock = open(path, O_RDONLY, 0);
 
@@ -1309,12 +1317,24 @@ dsstore_close(dsstore *s)
 
 	dsstore_lock(s, 1);
 
-	if (dsstore_stat(s, ConfigFileName, &sb) != 0) return DSStatusInvalidStore;
+	if (dsstore_stat(s, ConfigFileName, &sb) != 0)
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidStore;
+	}
 
 #ifdef _UNIX_BSD_43_
-	if (s->last_sec != sb.st_mtime) return DSStatusInvalidStore;
+	if (s->last_sec != sb.st_mtime)
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidStore;
+	}
 #else
-	if ((s->last_sec != sb.st_mtimespec.tv_sec) || (s->last_nsec != sb.st_mtimespec.tv_nsec)) return DSStatusInvalidStore;
+	if ((s->last_sec != sb.st_mtimespec.tv_sec) || (s->last_nsec != sb.st_mtimespec.tv_nsec))
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidStore;
+	}
 #endif
 
 	/*
@@ -1682,6 +1702,108 @@ dsstore_save_internal(dsstore *s, dsrecord *r, u_int32_t lock)
 
 	/* Remove Create file */
 	dsstore_unlink(s, CreateFileName);
+	if (lock != 0) dsstore_unlock(s);
+	return DSStatusOK;
+}
+
+/*
+ * 1: Delete existing record from store
+ * 2: Write new record to store
+ */
+dsstatus
+dsstore_save_fast(dsstore *s, dsrecord *r, u_int32_t lock)
+{
+	dsdata *d;
+	dsstatus status;
+	dsrecord *curr;
+	u_int32_t serial;
+
+	if (s == NULL) return DSStatusInvalidStore;
+
+	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
+		return nistore_save(s, r);
+
+	if (!dsstore_access_readwrite(s)) return DSStatusWriteFailed;
+	if (r == NULL) return DSStatusOK;
+
+	if (lock != 0)
+	{
+		dsstore_lock(s, 1);
+		dsstore_sync(s);
+	}
+
+	/*  dsid == IndexNull means a new record */
+	if (r->dsid == IndexNull)
+	{
+		/* Set record ID if it is a new record */
+		r->dsid = dsstore_create_dsid(s);
+	}
+	else
+	{
+		/* Check if the record is stale */
+		curr = dsstore_fetch_internal(s, r->dsid, 0);
+		if (curr == NULL)
+		{
+			if (lock != 0) dsstore_unlock(s);
+			return DSStatusInvalidStore;
+		}
+
+		serial = curr->serial;
+		dsrecord_release(curr);
+		if (r->serial != serial)
+		{
+			if (lock != 0) dsstore_unlock(s);
+			return DSStatusStaleRecord;
+		}
+	}
+
+	s->save_count++;
+
+	/* Update version numbers */
+	s->max_vers++;
+	r->vers = s->max_vers;
+	r->serial++;
+
+	/* Update nichecksum */
+	s->nichecksum += ((r->dsid + 1) * r->serial);
+
+	d = dsrecord_to_dsdata(r);
+	if (d == NULL)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return DSStatusInvalidRecord;
+	}
+
+	dsstore_touch(s);
+
+	/* Remove the Clean file when we dirty the store */
+	if (s->dirty == 0)
+	{
+		s->dirty = 1;
+		dsstore_unlink(s, CleanFileName);
+	}
+
+	/* Delete record from store */
+	status = dsstore_remove_internal(s, r->dsid, 0);
+	if (status == DSStatusInvalidPath)
+	{
+	}
+	else if (status != DSStatusOK)
+	{
+		dsdata_release(d);
+		if (lock != 0) dsstore_unlock(s);
+		return status;
+	}
+
+	/* Write data to store */
+	status = store_save_data(s, r, d);
+	dsdata_release(d);
+	if (status != DSStatusOK)
+	{
+		if (lock != 0) dsstore_unlock(s);
+		return status;
+	}
+
 	if (lock != 0) dsstore_unlock(s);
 	return DSStatusOK;
 }
@@ -2064,6 +2186,110 @@ dsstore_vital_statistics(dsstore *s, u_int32_t dsid, u_int32_t *vers, u_int32_t 
 }
 
 /*
+ * List child records values for a single key.
+ */
+dsstatus
+dsstore_list(dsstore *s, u_int32_t dsid, dsdata *key, u_int32_t asel, dsrecord **list)
+{
+	dsrecord *r, *p;
+	dsdata *d, *skey, *name, *rdn;
+	dsattribute *a;
+	u_int32_t i, j, k;
+
+	if (s == NULL) return DSStatusInvalidStore;
+	if (list == NULL) return DSStatusFailed;
+
+	*list = NULL;
+
+	if (s->flags & DSSTORE_FLAGS_REMOTE_NETINFO)
+	{
+		return nistore_list(s, dsid, key, asel, list);
+	}
+
+	dsstore_lock(s, 1);
+	dsstore_sync(s);
+
+	r = dsstore_fetch_internal(s, dsid, 0);
+	if (r == NULL)
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidPath;
+	}
+
+	if (r->sub_count == 0)
+	{
+		dsrecord_release(r);
+		dsstore_unlock(s);
+		return DSStatusOK;
+	}
+
+	rdn = cstring_to_dsdata("rdn");
+	name = cstring_to_dsdata("name");
+
+	*list = dsrecord_new();
+	if (key != NULL)
+	{
+		d = cstring_to_dsdata("key");
+		a = dsattribute_new(d);
+		dsattribute_append(a, key);
+		dsrecord_append_attribute(*list, a, SELECT_META_ATTRIBUTE);
+		dsdata_release(d);
+		dsattribute_release(a);
+	}
+
+	for (i = 0; i < r->sub_count; i++)
+	{
+		p = dsstore_fetch_internal(s, r->sub[i], 0);
+		if (p == NULL)
+		{
+			dsdata_release(name);
+			dsdata_release(rdn);
+			dsrecord_release(r);
+			dsstore_unlock(s);
+			return DSStatusInvalidPath;
+		}
+
+		skey = key;
+		if (skey == NULL)
+		{
+			/* Use record's rdn meta-attribute for a key */
+			a = dsrecord_attribute(p, rdn, SELECT_META_ATTRIBUTE);
+			if ((a != NULL) && (a->count > 0)) skey = a->value[0];
+			else skey = name;
+		}
+
+		for (j = 0; j < p->count; j++)
+		{
+			if (dsdata_equal(skey, p->attribute[j]->key))
+			{
+				d = int32_to_dsdata(r->sub[i]);
+				a = dsattribute_new(d);
+				dsdata_release(d);
+				dsrecord_append_attribute(*list, a, SELECT_ATTRIBUTE);
+
+				a->count = p->attribute[j]->count;
+				if (a->count > 0)
+					a->value = (dsdata **)malloc(a->count * sizeof(dsdata *));
+
+				for (k = 0; k < a->count; k++)
+					a->value[k] = dsdata_retain(p->attribute[j]->value[k]);
+
+				dsattribute_release(a);
+			}
+		}
+
+		dsrecord_release(p);
+	}
+
+	dsrecord_release(r);
+	dsstore_unlock(s);
+	dsdata_release(rdn);
+	dsdata_release(name);
+
+	return DSStatusOK;
+}
+
+/*
  * Find a child record with the specified key (or meta-key) and value.
  * Input parameters: dsid is the ID of the parent record. key is the
  * attribute key or meta-key (as determined by asel), and val is the 
@@ -2091,7 +2317,12 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 	dsstore_sync(s);
 
 	r = dsstore_fetch_internal(s, dsid, 0);
-	if (r == NULL) return DSStatusInvalidPath;
+	if (r == NULL)
+	{
+		dsstore_unlock(s);
+		return DSStatusInvalidPath;
+	}
+
 	if (r->sub_count == 0)
 	{
 		dsrecord_release(r);
@@ -2139,6 +2370,9 @@ dsstore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t as
 		k = dsstore_fetch_internal(s, r->sub[i], 0);
 		if (k == NULL)
 		{
+			dsattribute_release(a_index_key);
+			dsdata_release(d_name);
+			dsrecord_release(r);
 			dsstore_unlock(s);
 			return DSStatusInvalidPath;
 		}
@@ -2264,7 +2498,7 @@ dsstore_reset(dsstore *s)
 
 	ce = s->cache_enabled;
 	s->cache_enabled = 0;
-	dscache_flush(s->cache);
+	if (ce == 1) dscache_flush(s->cache);
 
 	for (i = 0; i < s->index_count; i++)
 	{
@@ -2361,4 +2595,12 @@ dsstore_statistics(dsstore *s)
 	dsstore_unlock(s);
 
 	return r;
-}	
+}
+
+void
+dsstore_set_sync_delegate(dsstore *s, void (*delegate)(void *), void *private)
+{
+	if (s == NULL) return;
+	s->sync_delegate = delegate;
+	s->sync_private = private;
+}

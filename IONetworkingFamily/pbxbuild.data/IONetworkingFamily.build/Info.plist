@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.1, Copyright 2000-2001 Apple Computer, Inc.</string>
+	<string>Version 1.2, Copyright 2000-2001 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IONetworkingFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,45 +17,13 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>IOKernelDebuggerDriver</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IONetworkingFamily</string>
-			<key>IOClass</key>
-			<string>IOKDP</string>
-			<key>IODriverMatchI386</key>
-			<dict/>
-			<key>IODriverMatchPPC</key>
-			<dict>
-				<key>IOClass</key>
-				<array>
-					<string>BMacEnet</string>
-					<string>UniNEnet</string>
-					<string>MaceEnet</string>
-				</array>
-			</dict>
-			<key>IODriverNubMatchI386</key>
-			<dict/>
-			<key>IODriverNubMatchPPC</key>
-			<dict>
-				<key>built-in</key>
-				<data>
-				</data>
-			</dict>
-			<key>IOEnableKDP</key>
-			<true/>
-			<key>IOMatchCategory</key>
-			<string>IOKDP</string>
-			<key>IOProviderClass</key>
-			<string>IOKernelDebugger</string>
-		</dict>
 		<key>IONetworkStack</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -69,12 +37,34 @@
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
 		</dict>
+		<key>Kernel Debugging Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONetworkingFamily</string>
+			<key>IOClass</key>
+			<string>IOKDP</string>
+			<key>IOMatchCategory</key>
+			<string>IOKDP</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>IOPrimaryDebugPort</key>
+				<true/>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOKernelDebugger</string>
+		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel</key>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
 		<string>1.1</string>
 	</dict>
 	<key>OSBundleRequired</key>

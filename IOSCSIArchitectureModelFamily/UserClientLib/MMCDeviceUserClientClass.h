@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,176 +23,273 @@
 #ifndef __MMC_DEVICE_USER_CLIENT_CLASS_H__
 #define __MMC_DEVICE_USER_CLIENT_CLASS_H__
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
 #include <IOKit/IOCFPlugIn.h>
+
+// Private includes
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
+#include "SCSITaskIUnknown.h"
 
-class MMCDeviceUserClientClass
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declarations
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
+class MMCDeviceUserClientClass : public SCSITaskIUnknown
 {
 	
 	public:
 	
-		struct InterfaceMap 
-		{
-			IUnknownVTbl *	pseudoVTable;
-			MMCDeviceUserClientClass *	obj;
-		};
-
 		MMCDeviceUserClientClass ( void );
 		virtual ~MMCDeviceUserClientClass ( void );
-					
+		
+		static IOCFPlugInInterface ** alloc ( void );
+		
 	protected:
-		//////////////////////////////////////
-		// cf plugin interfaces
 		
-		static IOCFPlugInInterface 				sIOCFPlugInInterface;
-		InterfaceMap 			   				fIOCFPlugInInterface;
+		static IOCFPlugInInterface				sIOCFPlugInInterface;
 		static MMCDeviceInterface				sMMCDeviceInterface;
-		InterfaceMap							fMMCDeviceInterfaceMap;
-	
-		//////////////////////////////////////
-		// CFPlugIn refcounting
-		
-		CFUUIDRef 	fFactoryId;	
-		UInt32 		fRefCount;
-	
-		//////////////////////////////////////	
-		// user client connection
+		struct InterfaceMap						fMMCDeviceInterfaceMap;
 		
 		io_service_t 	fService;
 		io_connect_t 	fConnection;
-				
+		
 		// utility function to get "this" pointer from interface
 		static inline MMCDeviceUserClientClass * getThis ( void * self )
-			{ return ( MMCDeviceUserClientClass * ) ( ( InterfaceMap * ) self)->obj; };
+			{ return ( MMCDeviceUserClientClass * ) ( ( InterfaceMap * ) self )->obj; };
+		
+		
+		// CFPlugIn/IOCFPlugIn stuff
+		virtual HRESULT 	QueryInterface ( REFIID iid, void ** ppv );
+		
+		virtual IOReturn 	Probe (	CFDictionaryRef propertyTable,
+									io_service_t	service,
+									SInt32 *		order );
+		
+		virtual IOReturn 	Start (	CFDictionaryRef		propertyTable,
+									io_service_t		service );
+		
+		virtual IOReturn 	Stop ( void );
+		
+		
+		// MMC stuff
+		virtual IOReturn 	Inquiry ( 	SCSICmd_INQUIRY_StandardData * 	inquiryBuffer,
+										SCSICmdField1Byte				bufferSize,
+										SCSITaskStatus *				taskStatus,
+										SCSI_Sense_Data *				senseDataBuffer );
+		
+		virtual IOReturn 	TestUnitReady (		SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual IOReturn 	GetPerformance ( 	SCSICmdField5Bit 	DATA_TYPE,
+												SCSICmdField4Byte	STARTING_LBA,
+												SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+												SCSICmdField1Byte	TYPE,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual IOReturn 	GetConfiguration (	SCSICmdField1Byte	RT,
+												SCSICmdField2Byte	STARTING_FEATURE_NUMBER,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual IOReturn 	ModeSense10 ( 	SCSICmdField1Bit	LLBAA,
+											SCSICmdField1Bit	DBD,
+											SCSICmdField2Bit	PC,
+											SCSICmdField6Bit	PAGE_CODE,
+											void *				buffer,
+											SCSICmdField2Byte	bufferSize,
+											SCSITaskStatus * 	taskStatus,
+											SCSI_Sense_Data * 	senseDataBuffer );
+
+		virtual IOReturn 	SetWriteParametersModePage ( 	void *				buffer,
+															SCSICmdField2Byte	bufferSize,
+															SCSITaskStatus * 	taskStatus,
+															SCSI_Sense_Data *	senseDataBuffer );
+
+		
+		virtual IOReturn	GetTrayState ( UInt8 * trayState );
+		
+		virtual IOReturn	SetTrayState ( UInt8 trayState );
+		
+		virtual IOReturn	ReadTableOfContents ( 	SCSICmdField1Bit 	MSF,
+													SCSICmdField4Bit 	FORMAT,
+													SCSICmdField1Byte	TRACK_SESSION_NUMBER,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual IOReturn	ReadDiscInformation ( 	void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual IOReturn	ReadTrackInformation ( 	SCSICmdField2Bit	ADDRESS_NUMBER_TYPE,
+													SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+												 		   
+		virtual IOReturn	ReadDVDStructure ( 	SCSICmdField4Byte	ADDRESS,
+												SCSICmdField1Byte	LAYER_NUMBER,
+												SCSICmdField1Byte	FORMAT,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		virtual SCSITaskDeviceInterface ** GetSCSITaskDeviceInterface ( void );
+
+		
+		
+		// Static functions (C->C++ glue code)
+		
+		static IOReturn 	sProbe ( 	void *			self,
+										CFDictionaryRef propertyTable,
+										io_service_t	service,
+										SInt32 *		order );
+		
+		static IOReturn 	sStart ( 	void *			self,
+										CFDictionaryRef propertyTable,
+										io_service_t	service );
+
+		static IOReturn 	sStop ( void * self );
+
+		static IOReturn 	sInquiry ( 	void * 							self,
+										SCSICmd_INQUIRY_StandardData * 	inquiryBuffer,
+										UInt32 							inqBufferSize,
+										SCSITaskStatus *				taskStatus,
+										SCSI_Sense_Data *				senseDataBuffer );
+		
+		static IOReturn 	sTestUnitReady ( 	void * 				self,
+											  	SCSITaskStatus * 	taskStatus,
+											  	SCSI_Sense_Data *	senseDataBuffer );
+
+		static IOReturn 	sGetPerformance ( 	void * 				self,
+												SCSICmdField2Bit	TOLERANCE,
+												SCSICmdField1Bit	WRITE,
+												SCSICmdField2Bit	EXCEPT,
+												SCSICmdField4Byte	STARTING_LBA,
+												SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus * 	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		static IOReturn 	sGetConfiguration ( void *				self,
+												SCSICmdField1Byte	RT,
+												SCSICmdField2Byte	STARTING_FEATURE_NUMBER,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		
+		static IOReturn 	sModeSense10 ( 	void *				self,
+											SCSICmdField1Bit	LLBAA,
+											SCSICmdField1Bit	DBD,
+											SCSICmdField2Bit	PC,
+											SCSICmdField6Bit	PAGE_CODE,
+											void *				buffer,
+											SCSICmdField2Byte	bufferSize,
+											SCSITaskStatus * 	taskStatus,
+											SCSI_Sense_Data * 	senseDataBuffer );
+		
+		static IOReturn 	sSetWriteParametersModePage ( 	void *				self,
+															void *				buffer,
+															SCSICmdField1Byte	bufferSize,
+															SCSITaskStatus *	taskStatus,
+															SCSI_Sense_Data *	senseDataBuffer );		
+		
+		static IOReturn 	sGetTrayState ( void * self, UInt8 * trayState );
+		
+		static IOReturn 	sSetTrayState ( void * self, UInt8 trayState );
+		
+		static IOReturn 	sReadTableOfContents ( 	void *				self,
+													SCSICmdField1Bit 	MSF,
+													SCSICmdField4Bit 	FORMAT,
+													SCSICmdField1Byte	TRACK_SESSION_NUMBER,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+		
+		static IOReturn 	sReadDiscInformation ( 	void *				self,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+
+		static IOReturn 	sReadTrackInformation ( void *				self,
+													SCSICmdField2Bit	ADDRESS_NUMBER_TYPE,
+													SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+
+		static IOReturn 	sReadDVDStructure ( void *				self,
+												SCSICmdField4Byte	ADDRESS,
+												SCSICmdField1Byte	LAYER_NUMBER,
+												SCSICmdField1Byte	FORMAT,
+												void *				buffer,
+												SCSICmdField2Byte	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+		
+		static SCSITaskDeviceInterface ** 	sGetSCSITaskDeviceInterface ( void * self );
+		
+		
+		static IOReturn sGetPerformanceV2 ( void * 				self,
+											SCSICmdField5Bit 	DATA_TYPE,
+											SCSICmdField4Byte	STARTING_LBA,
+											SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+											SCSICmdField1Byte	TYPE,
+											void *				buffer,
+											SCSICmdField2Byte	bufferSize,
+											SCSITaskStatus *	taskStatus,
+											SCSI_Sense_Data *	senseDataBuffer );
+		
+		
+	public:
+		
+		// IsParameterValid are used to validate that the parameter passed into
+		// the command methods are of the correct value.
+		
+		// Validate Parameter used for 1 bit to 1 byte paramaters
+		inline bool 	IsParameterValid ( 
+								SCSICmdField1Byte 			param,
+								SCSICmdField1Byte 			mask );
+		
+		// Validate Parameter used for 9 bit to 2 byte paramaters
+		inline bool 	IsParameterValid ( 
+								SCSICmdField2Byte 			param,
+								SCSICmdField2Byte 			mask );
+		
+		// Validate Parameter used for 17 bit to 4 byte paramaters
+		inline bool 	IsParameterValid ( 
+								SCSICmdField4Byte 			param,
+								SCSICmdField4Byte 			mask );
 	
-		//////////////////////////////////////	
-		// IUnknown static methods
-		
-		static HRESULT staticQueryInterface ( void * self, REFIID iid, void **ppv );
-		virtual HRESULT QueryInterface ( REFIID iid, void **ppv );
-	
-		static UInt32 staticAddRef ( void * self );
-		virtual UInt32 AddRef ( void );
-	
-		static UInt32 staticRelease ( void * self );
-		virtual UInt32 Release ( void );
-		
-		//////////////////////////////////////
-		// CFPlugin methods
-		
-		static IOReturn staticProbe ( void * self, CFDictionaryRef propertyTable, 
-									io_service_t service, SInt32 * order );
-		virtual IOReturn Probe ( CFDictionaryRef propertyTable, io_service_t service, SInt32 * order );
-	
-		static IOReturn staticStart ( void * self, CFDictionaryRef propertyTable, io_service_t service );
-		virtual IOReturn Start ( CFDictionaryRef propertyTable, io_service_t service );
-	
-		static IOReturn staticStop ( void * self );
-		virtual IOReturn Stop ( void );
-		
-		//////////////////////////////////////
-		// MMCDeviceInterface methods
-	
-		static IOReturn staticInquiry ( void * self, SCSICmd_INQUIRY_StandardData * inquiryBuffer,
-										UInt32 inqBufferSize, SCSITaskStatus * outTaskStatus,
-										SCSI_Sense_Data * senseDataBuffer );
-		IOReturn Inquiry ( SCSICmd_INQUIRY_StandardData * inquiryBuffer, UInt32 bufferSize,
-						   SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer );
-
-		static IOReturn staticTestUnitReady ( void * self,
-											  SCSITaskStatus * outTaskStatus,
-											  SCSI_Sense_Data * senseDataBuffer );
-		IOReturn TestUnitReady ( SCSITaskStatus * outTaskStatus,
-								 SCSI_Sense_Data * senseDataBuffer );
-
-		static IOReturn staticGetPerformance ( void * self, UInt8 TOLERANCE, UInt8 WRITE, UInt8 EXCEPT,
-											   UInt32 STARTING_LBA, UInt16 MAXIMUM_NUMBER_OF_DESCRIPTORS,
-											   void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-											   SCSI_Sense_Data * senseDataBuffer );
-		
-		virtual IOReturn GetPerformance ( UInt8 TOLERANCE, UInt8 WRITE, UInt8 EXCEPT, UInt32 STARTING_LBA,
-										  UInt16 MAXIMUM_NUMBER_OF_DESCRIPTORS, void * buffer, UInt16 bufferSize,
-										  SCSITaskStatus * taskStatus, SCSI_Sense_Data * senseDataBuffer );
-		
-		static IOReturn staticGetConfiguration ( void * self, UInt8 RT, UInt16 STARTING_FEATURE_NUMBER,
-												 void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-												 SCSI_Sense_Data * senseDataBuffer );
-		
-		virtual IOReturn GetConfiguration ( UInt8 RT, UInt16 STARTING_FEATURE_NUMBER,
-											void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-											SCSI_Sense_Data * senseDataBuffer );
-				
-		static IOReturn staticModeSense10 ( void * self, UInt8 LLBAA, UInt8 DBD, UInt8 PC,
-											UInt8 PAGE_CODE, void * buffer, UInt16 bufferSize,
-											SCSITaskStatus * outTaskStatus,
-											SCSI_Sense_Data * senseDataBuffer );
-		
-		virtual IOReturn ModeSense10 ( UInt8 LLBAA, UInt8 DBD, UInt8 PC, UInt8 PAGE_CODE,
-									   void * buffer, UInt16 bufferSize,
-									   SCSITaskStatus * outTaskStatus,
-									   SCSI_Sense_Data * senseDataBuffer );
-		
-		static IOReturn staticSetWriteParametersModePage ( void * self, void * buffer, UInt8 bufferSize,
-														   SCSITaskStatus * taskStatus,
-														   SCSI_Sense_Data * senseDataBuffer );
-		
-		virtual IOReturn SetWriteParametersModePage ( void * buffer, UInt8 bufferSize,
-													  SCSITaskStatus * taskStatus,
-													  SCSI_Sense_Data * senseDataBuffer );
-		
-		static IOReturn staticGetTrayState ( void * self, UInt8 * trayState );
-		IOReturn GetTrayState ( UInt8 * trayState );
-
-		static IOReturn staticSetTrayState ( void * self, UInt8 trayState );
-		IOReturn SetTrayState ( UInt8 trayState );
-
-		static IOReturn staticReadTableOfContents ( void * self, UInt8 MSF, UInt8 format,
-													UInt8 trackSessionNumber,
-													void * buffer, UInt16 bufferSize,
-													SCSITaskStatus * outTaskStatus,
-													SCSI_Sense_Data * senseDataBuffer );
-		IOReturn ReadTableOfContents ( UInt8 MSF, UInt8 format, UInt8 trackSessionNumber,
-									   void * buffer, UInt16 bufferSize,
-									   SCSITaskStatus * outTaskStatus,
-									   SCSI_Sense_Data * senseDataBuffer );
-
-		static IOReturn staticReadDiscInformation ( void * self, void * buffer, UInt16 bufferSize,
-													SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer);
-		IOReturn ReadDiscInformation ( void * buffer, UInt16 bufferSize,
-									   SCSITaskStatus * outTaskStatus,
-									   SCSI_Sense_Data * senseDataBuffer );
-
-		static IOReturn staticReadTrackInformation ( void * self, UInt8 addressNumberType,
-													 UInt32 lbaTrackSessionNumber,
-													 void * buffer, UInt16 bufferSize,
-													 SCSITaskStatus * outTaskStatus,
-													 SCSI_Sense_Data * senseDataBuffer );
-		IOReturn ReadTrackInformation ( UInt8 addressNumberType, UInt32 lbaTrackSessionNumber,
-										void * buffer, UInt16 bufferSize, SCSITaskStatus * outTaskStatus,
-									    SCSI_Sense_Data * senseDataBuffer );
-
-		static IOReturn staticReadDVDStructure ( void * self, UInt32 logicalBlockAddress, UInt8 layerNumber,
-										 		 UInt8 format, void * buffer, UInt16 bufferSize,
-												 SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer );
-										 		   
-		IOReturn ReadDVDStructure ( UInt32 logicalBlockAddress, UInt8 layerNumber,
-									UInt8 format, void * buffer, UInt16 bufferSize,
-									SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer );
-
-		static SCSITaskDeviceInterface ** 	staticGetSCSITaskDeviceInterface ( void * self );
-		SCSITaskDeviceInterface ** 			GetSCSITaskDeviceInterface ( void );
-		
 	private:
 		
 		// Disable Copying
 		MMCDeviceUserClientClass ( MMCDeviceUserClientClass &src );
 		void operator = ( MMCDeviceUserClientClass &src );
-	
-	public:
-	
-		static IOCFPlugInInterface ** alloc ( void );
-	
+		
 };
 
 

@@ -89,6 +89,7 @@
 #endif
 
 #include <string.h>
+#include <assert.h>
 
 SSLErr
 SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
@@ -107,25 +108,37 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     progress = msg.data;
     
     version = (SSLProtocolVersion)SSLDecodeInt(progress, 2);
-    /* FIXME - ensure client isn't slipping under a SSL_Version_3_0_Only spec... */
+	if (version > ctx->maxProtocolVersion) {
+		version = ctx->maxProtocolVersion;
+	}
+    /* FIXME - I think this needs work for a SSL_Version_2_0 server, to ensure that
+	 * the client isn't establishing a v3 session. */
     if (ctx->negProtocolVersion == SSL_Version_Undetermined)
-    {   if (version > SSL_Version_3_0)
-            version = SSL_Version_3_0;
+    {   
         #if LOG_NEGOTIATE
         dprintf1("===SSL2 server: negVersion was undetermined; is %s\n",
         	protocolVersStr(version));
         #endif
         ctx->negProtocolVersion = version;
+		if(version >= TLS_Version_1_0) {
+			ctx->sslTslCalls = &Tls1Callouts;
+		}
+		else {
+			/* default from context init */
+			assert(ctx->sslTslCalls == &Ssl3Callouts);
+		}
     }
     else if (ctx->negProtocolVersion == SSL_Version_3_0_With_2_0_Hello)
     {   if (version < SSL_Version_3_0) {
 			errorLog0("SSL2ProcessClientHello: version error\n");
             return ERR(SSLProtocolErr);
         }
+		/* FIXME - I don't think path is ever taken - we NEVER set any
+		 * protocol var to 	SSL_Version_3_0_With_2_0_Hello... */
         #if LOG_NEGOTIATE
         dprintf0("===SSL2 server: negVersion was 3_0_With_2_0_Hello; is 3_0\n");
         #endif
-        ctx->negProtocolVersion = SSL_Version_3_0;
+        ctx->negProtocolVersion = version;
     }
     
     progress += 2;
@@ -150,46 +163,79 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     cipherList = progress;
     selectedCipher = SSL_NO_SUCH_CIPHERSUITE;
 
-    if (ctx->negProtocolVersion == SSL_Version_3_0)        /* If we're negotiating an SSL 3.0 session, use SSL 3.0 suites first */
-    {   for (i = 0; i < cipherKindCount; i++)
-        {   cipherKind = (SSL2CipherKind)SSLDecodeInt(progress, 3);
+    if (ctx->negProtocolVersion >= SSL_Version_3_0) {
+		/* If we're negotiating an SSL 3.0 session, use SSL 3.0 suites first */
+        for (i = 0; i < cipherKindCount; i++) {
+            cipherKind = (SSL2CipherKind)SSLDecodeInt(progress, 3);
             progress += 3;
             if (selectedCipher != SSL_NO_SUCH_CIPHERSUITE)
                 continue;
             if ((((UInt32)cipherKind) & 0xFF0000) != 0)
                 continue;       /* Skip SSL 2 suites */
             matchingCipher = (SSLCipherSuite)((UInt32)cipherKind & 0x00FFFF);
-            for (j = 0; j<ctx->numValidCipherSpecs; j++)
-                if (ctx->validCipherSpecs[j].cipherSpec == matchingCipher)
-                {   selectedCipher = matchingCipher;
+            for (j = 0; j<ctx->numValidCipherSpecs; j++) {
+                if (ctx->validCipherSpecs[j].cipherSpec == matchingCipher) {
+                    selectedCipher = matchingCipher;
                     break;
                 }
-        }
-    }
+			}	/* searching thru all our valid ciphers */
+        }	/* for each client cipher */
+    }	/* v3 or greater */
     
-    progress = cipherList;
-    for (i = 0; i < cipherKindCount; i++)
-    {   cipherKind = (SSL2CipherKind)SSLDecodeInt(progress, 3);
-        progress += 3;
-        if (selectedCipher == SSL_NO_SUCH_CIPHERSUITE)  /* After we find one, just keep advancing progress past the unused ones */
-        {   if ((((UInt32)cipherKind) & 0xFF0000) != 0) /* If it's a real SSL2 spec, look for it in the list */
-            {   matchingCipher = SSL_NO_SUCH_CIPHERSUITE;
-                for (j = 0; j < SSL2CipherMapCount; j++)
-                    if (cipherKind == SSL2CipherMap[j].cipherKind)
-                    {   matchingCipher = SSL2CipherMap[j].cipherSuite;
-                        break;
-                    }
-            }
-            else    /* if the first byte is zero, it's an encoded SSL 3 CipherSuite */
-                matchingCipher = (SSLCipherSuite)((UInt32)cipherKind & 0x00FFFF);
-            if (matchingCipher != SSL_NO_SUCH_CIPHERSUITE)
-                for (j = 0; j < ctx->numValidCipherSpecs; j++)   
-                    if (ctx->validCipherSpecs[j].cipherSpec == matchingCipher)
-                    {   selectedCipher = matchingCipher;
-                        break;
-                    }
-        }
-    }
+	if(selectedCipher == SSL_NO_SUCH_CIPHERSUITE) {
+		/* try again using SSL2 ciphers only */
+	    progress = cipherList;
+		for (i = 0; i < cipherKindCount; i++) {
+			cipherKind = (SSL2CipherKind)SSLDecodeInt(progress, 3);
+			progress += 3;
+			if (selectedCipher == SSL_NO_SUCH_CIPHERSUITE) {
+				/* After we find one, just keep advancing progress past 
+				 * the unused ones */
+				if ((((UInt32)cipherKind) & 0xFF0000) != 0) {
+					/* If it's a real SSL2 spec, look for it in the list */
+					matchingCipher = SSL_NO_SUCH_CIPHERSUITE;
+					for (j = 0; j < SSL2CipherMapCount; j++) {
+						if (cipherKind == SSL2CipherMap[j].cipherKind) {
+							matchingCipher = SSL2CipherMap[j].cipherSuite;
+							break;
+						}
+					}
+				}	/* real 3-byte SSL2 suite */
+				else {
+					/* if the first byte is zero, it's an encoded SSL 3 CipherSuite */
+					matchingCipher = (SSLCipherSuite)((UInt32)cipherKind & 0x00FFFF);
+					/* 
+					* One more restriction - if we've negotiated a v2 session,
+					* ignore this matching cipher if it's not in the SSL2 map.
+					*/
+					if(ctx->negProtocolVersion < SSL_Version_3_0) {
+						int isInMap = 0;
+						for (j = 0; j < SSL2CipherMapCount; j++) {
+							if (matchingCipher == SSL2CipherMap[j].cipherSuite) {
+								isInMap = 1;
+								break;
+							}
+						}
+						if(!isInMap) {
+							/* Sorry, no can do */
+							matchingCipher = SSL_NO_SUCH_CIPHERSUITE;
+						}
+					}	/* SSL2 check */
+				}	/* two-byte suite */
+				
+				/* now see if we are enabled for this cipher */
+				if (matchingCipher != SSL_NO_SUCH_CIPHERSUITE) {
+					for (j = 0; j < ctx->numValidCipherSpecs; j++) {
+						if (ctx->validCipherSpecs[j].cipherSpec == matchingCipher) {
+							selectedCipher = matchingCipher;
+							break;
+						}
+					}
+				}
+			}	/* not ignoring this suite */
+		}	/* for each suite in the hello msg */
+	}		/* not found in SSL3 ciphersuites */
+	
     if (selectedCipher == SSL_NO_SUCH_CIPHERSUITE)
         return ERR(SSLNegotiationErr);
     
@@ -207,13 +253,26 @@ SSL2ProcessClientHello(SSLBuffer msg, SSLContext *ctx)
     progress += sessionIDLen;
     
     ctx->ssl2ChallengeLength = challengeLen;
-    memset(ctx->clientRandom, 0, 32);
-    memcpy(ctx->clientRandom+32 - challengeLen, progress, challengeLen);
+    memset(ctx->clientRandom, 0, SSL_CLIENT_SRVR_RAND_SIZE);
+    memcpy(ctx->clientRandom + SSL_CLIENT_SRVR_RAND_SIZE - challengeLen, 
+		progress, challengeLen);
     progress += challengeLen;
     CASSERT(progress == msg.data + msg.length);
     
     return SSLNoErr;
 }
+
+/*
+ * The SSL v2 spec says that the challenge string sent by the client can be
+ * between 16 and 32 bytes. However all Netscape enterprise servers actually
+ * require a 16 byte challenge. Q.v. cdnow.com, store.apple.com. 
+ * Unfortunately this means that when we're trying to do a 
+ * SSL_Version_3_0_With_2_0_Hello negotiation, we have to limit ourself to 
+ * a 16-byte clientRandom, which we have to concatenate to 16 bytes of 
+ * zeroes if we end up with a 3.0 or 3.1 connection. Thus we lose 16 bytes
+ * of entropy.
+ */
+#define SSL2_CHALLENGE_LEN	16
 
 SSLErr
 SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
@@ -229,7 +288,8 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
         case SSL_Version_3_0_With_2_0_Hello:
         	/* go for it, see if server can handle upgrading */
            	useSSL3Ciphers = 1;
-            version = SSL_Version_3_0;
+			/* could be SSLv3 or TLSv1 */
+            version = ctx->maxProtocolVersion;
             break;
         case SSL_Version_2_0:
             useSSL3Ciphers = 0;
@@ -237,6 +297,8 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
             break;
         case SSL_Version_3_0_Only:
         case SSL_Version_3_0:
+        case TLS_Version_1_0_Only:
+        case TLS_Version_1_0:
         default:
             ASSERTMSG("Bad protocol version for sending SSL 2 Client Hello");
             break;
@@ -261,16 +323,17 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
     sessionIDLen = 0;
     sessionIdentifier.data = 0;
     if (ctx->resumableSession.data != 0)
-    {   if (ERR(err = SSLRetrieveSessionIDIdentifier(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
+    {   if (ERR(err = SSLRetrieveSessionID(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
             return err;
         sessionIDLen = sessionIdentifier.length;
     }
     
-/* msg length = 9 + 3 * totalCipherCount + sessionIDLen + 16 bytes of challenge
- *  Use exactly 16 bytes of challenge because Netscape products have a bug
- *  that requires this length
- */ 
-    if (ERR(err = SSLAllocBuffer(msg, 9 + (3*totalCipherCount) + sessionIDLen + 16, &ctx->sysCtx)) != 0)
+	/* msg length = 9 + 3 * totalCipherCount + sessionIDLen + 16 bytes of challenge
+	 *  Use exactly 16 bytes of challenge because Netscape products have a bug
+	 *  that requires this length
+	 */ 
+    if (ERR(err = SSLAllocBuffer(msg, 9 + (3*totalCipherCount) + sessionIDLen + 
+			SSL2_CHALLENGE_LEN, &ctx->sysCtx)) != 0)
     {   ERR(SSLFreeBuffer(&sessionIdentifier, &ctx->sysCtx));
         return err;
     }
@@ -280,16 +343,16 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
     progress = SSLEncodeInt(progress, version, 2);
     progress = SSLEncodeInt(progress, 3*totalCipherCount, 2);
     progress = SSLEncodeInt(progress, sessionIDLen, 2);
-    progress = SSLEncodeInt(progress, 16, 2);
+    progress = SSLEncodeInt(progress, SSL2_CHALLENGE_LEN, 2);
     
-/* If we can send SSL3 ciphers, encode the two-byte cipher specs into three-byte
- *  CipherKinds which have a leading 0.
- */
+	/* If we can send SSL3 ciphers, encode the two-byte cipher specs into three-byte
+	 *  CipherKinds which have a leading 0.
+	 */
     if (useSSL3Ciphers != 0)
         for (i = 0; i < ctx->numValidCipherSpecs; i++)
             progress = SSLEncodeInt(progress, ctx->validCipherSpecs[i].cipherSpec, 3);
     
-/* Now send those SSL2 specs for which we have implementations */
+	/* Now send those SSL2 specs for which we have implementations */
     for (i = 0; i < SSL2CipherMapCount; i++)
         for (j = 0; j < ctx->numValidCipherSpecs; j++)
             if (ctx->validCipherSpecs[j].cipherSpec == SSL2CipherMap[i].cipherSuite)
@@ -304,22 +367,24 @@ SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx)
     }
     
     randomData.data = progress;
-    randomData.length = 16;
-    #ifdef	_APPLE_CDSA_
+    randomData.length = SSL2_CHALLENGE_LEN;
     if ((err = sslRand(ctx, &randomData)) != 0)
-    #else
-    if (ERR(err = ctx->sysCtx.random(randomData, ctx->sysCtx.randomRef)) != 0)
-    #endif
     {   ERR(SSLFreeBuffer(msg, &ctx->sysCtx));
         return err;
     }
-    progress += 16;
+    progress += SSL2_CHALLENGE_LEN;
     
-/* Zero out the first 16 bytes of clientRandom, and store the challenge in the
-    second 16 bytes */
-    memset(ctx->clientRandom, 0, 16);
-    memcpy(ctx->clientRandom+16, randomData.data, 16);
-    ctx->ssl2ChallengeLength = 16;
+	/* Zero out the first 16 bytes of clientRandom, and store 
+	 * the challenge in the second 16 bytes */
+	#if (SSL2_CHALLENGE_LEN == SSL_CLIENT_SRVR_RAND_SIZE)
+	/* this path verified to fail with Netscape Enterprise servers 1/16/02 */
+    memcpy(ctx->clientRandom, randomData.data, SSL2_CHALLENGE_LEN);
+	#else
+    memset(ctx->clientRandom, 0, SSL_CLIENT_SRVR_RAND_SIZE - SSL2_CHALLENGE_LEN);
+    memcpy(ctx->clientRandom + SSL_CLIENT_SRVR_RAND_SIZE - SSL2_CHALLENGE_LEN, 
+			randomData.data, SSL2_CHALLENGE_LEN);
+	#endif
+    ctx->ssl2ChallengeLength = SSL2_CHALLENGE_LEN;
     
     CASSERT(progress == msg->data + msg->length);
     
@@ -334,7 +399,9 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
     int             clearLength, encryptedLength, keyArgLength;
     UInt32    		secretLength, localKeyModulusLen;
     UInt8           *progress;
-    
+    const CSSM_KEY	*decryptKey;
+	CSSM_CSP_HANDLE	decryptCspHand;
+	
     if (msg.length < 9) {
 		errorLog0("SSL2ProcessClientMasterKey: msg.length error 1\n");
         return ERR(SSLProtocolErr);
@@ -356,74 +423,43 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
         return ERR(SSLProtocolErr);
     }
     
-/* Master key == CLEAR_DATA || SECRET_DATA */
+	/* Master key == CLEAR_DATA || SECRET_DATA */
     memcpy(ctx->masterSecret, progress, clearLength);
     progress += clearLength;
 
-#if RSAREF
-    localKeyModulusLen = (ctx->localKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->localKey, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        localKeyModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
-	CASSERT(ctx->encryptPrivKey != NULL);
-	localKeyModulusLen = sslKeyLengthInBytes(ctx->encryptPrivKey);
-#else
-#error No Asymmetric crypto
-#endif /* RSAREF / BSAFE */
+	/* 
+	 * Just as in SSL2EncodeServerHello, which key we use depends on the
+	 * app's config.
+	 */ 
+	if(ctx->encryptPrivKey) {
+		decryptKey = ctx->encryptPrivKey;
+		CASSERT(ctx->encryptKeyCsp != 0);
+		decryptCspHand = ctx->encryptKeyCsp;
+	}
+	else if(ctx->signingPrivKey) {
+		decryptKey = ctx->signingPrivKey;
+		CASSERT(ctx->signingKeyCsp != 0);
+		decryptCspHand = ctx->signingKeyCsp;
+	}
+	else {
+		/* really should not happen... */
+		errorLog0("SSL2ProcessClientMasterKey: No server key!\n");
+		return SSLBadStateErr;
+	}
+	localKeyModulusLen = sslKeyLengthInBytes(decryptKey);
 
     if (encryptedLength != localKeyModulusLen) {
 		errorLog0("SSL2ProcessClientMasterKey: encryptedLength error 1\n");
         return ERR(SSLProtocolErr);
 	}
 	
-/* Allocate enough room to hold any decrypted value */
+	/* Allocate enough room to hold any decrypted value */
     if (ERR(err = SSLAllocBuffer(&secretData, encryptedLength, &ctx->sysCtx)) != 0)
         return err;
     
-#if RSAREF
-/* Replace this with code to do decryption at lower level & check PKCS1 padding
-    for rollback attack */
-    if ((RSAPrivateDecrypt(secretData.data, &secretLength, progress, encryptedLength, &ctx->localKey)) != 0)
-    {   ERR(err = SSLFreeBuffer(&secretData, &ctx->sysCtx));
-        return ERR(SSLUnknownErr);
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_CRT_DECRYPT, 0 };
-        int                 rsaResult;
-        unsigned int        decryptLen;
-        
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPrivate, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptInit(rsa, ctx->localKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptUpdate(rsa, secretData.data, &decryptLen, encryptedLength,
-                    progress, encryptedLength, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        secretLength = decryptLen;
-        if ((rsaResult = B_DecryptFinal(rsa, secretData.data+secretLength,
-                    &decryptLen, encryptedLength-secretLength, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        secretLength += decryptLen;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
-	/* 
-	 * note we use encryptPrivKey, not signingPrivKey - this really is 
-	 * a decrypt op. Servers have to be configured with valid encryption cert
-	 * chain to work with SSL2.
-	 */
 	err = sslRsaDecrypt(ctx,
-		ctx->encryptPrivKey,
-		ctx->encryptKeyCsp,
+		decryptKey,
+		decryptCspHand,
 		progress, 
 		encryptedLength,
 		secretData.data,
@@ -433,7 +469,6 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
 		SSLFreeBuffer(&secretData, &ctx->sysCtx);
 		return err;
 	}
-#endif /* RSAREF / BSAFE */
     
     progress += encryptedLength;
     
@@ -450,7 +485,7 @@ SSL2ProcessClientMasterKey(SSLBuffer msg, SSLContext *ctx)
         return ERR(SSLProtocolErr);
     }
     
-/* Stash the IV after the master key in master secret storage */
+	/* Stash the IV after the master key in master secret storage */
     memcpy(ctx->masterSecret + ctx->selectedCipherSpec->cipher->keySize, progress, keyArgLength);
     progress += keyArgLength;
     CASSERT(progress = msg.data + msg.length);
@@ -465,26 +500,10 @@ SSL2EncodeClientMasterKey(SSLBuffer *msg, SSLContext *ctx)
     UInt32        		outputLen, peerKeyModulusLen;
     SSLBuffer           keyData;
     UInt8               *progress;
-    #ifndef	_APPLE_CDSA_
-    SSLRandomCtx        rsaRandom;
-    int                 rsaResult;
-	#endif
 	
-#if RSAREF
-    peerKeyModulusLen = (ctx->peerKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->peerKey, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        peerKeyModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	peerKeyModulusLen = sslKeyLengthInBytes(ctx->peerPubKey);
-#endif /* RSAREF / BSAFE */
 
-/* Length is 10 + clear key size + encrypted output size + iv size */
+	/* Length is 10 + clear key size + encrypted output size + iv size */
     length = 10;
     clearLen = ctx->selectedCipherSpec->cipher->keySize - ctx->selectedCipherSpec->cipher->secretKeySize;
     length += clearLen;
@@ -512,55 +531,15 @@ SSL2EncodeClientMasterKey(SSLBuffer *msg, SSLContext *ctx)
     keyData.data = ctx->masterSecret;
     keyData.length = ctx->selectedCipherSpec->cipher->keySize + ctx->selectedCipherSpec->cipher->ivSize;
     CASSERT(keyData.length <= 48);   /* Must be able to store it in the masterSecret array */
-    #ifdef	_APPLE_CDSA_
     if ((err = sslRand(ctx, &keyData)) != 0)
-    #else
-    if (ERR(err = ctx->sysCtx.random(keyData, ctx->sysCtx.randomRef)) != 0)
-    #endif
         return err;
     
     memcpy(progress, ctx->masterSecret, clearLen);
     progress += clearLen;
     
-    #ifndef	_APPLE_CDSA_
-    if (ERR(err = ReadyRandom(&rsaRandom, ctx)) != 0)
-        return err;
-    #endif
-    
-/* Replace this with code to do encryption at lower level & set PKCS1 padding
+	/* Replace this with code to do encryption at lower level & set PKCS1 padding
     for rollback attack */
-#if RSAREF
-    if ((rsaResult = RSAPublicEncrypt(progress, &outputLen,
-                                ctx->masterSecret + clearLen,
-                                ctx->selectedCipherSpec->cipher->keySize - clearLen,
-                                &ctx->peerKey,&rsaRandom)) != 0)
-    {   R_RandomFinal(&rsaRandom);
-        return ERR(SSLUnknownErr);
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_ENCRYPT, 0 };
-        unsigned int        encryptedOut;
-        
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPublic, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptInit(rsa, ctx->peerKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptUpdate(rsa, progress,
-                    &encryptedOut, peerKeyModulusLen, ctx->masterSecret + clearLen,
-                    ctx->selectedCipherSpec->cipher->keySize - clearLen,
-                    rsaRandom, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = encryptedOut;
-        if ((rsaResult = B_EncryptFinal(rsa, progress+outputLen,
-                    &encryptedOut, peerKeyModulusLen-outputLen, rsaRandom, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += encryptedOut;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
+
 	/* 
 	 * encrypt only the secret key portion of masterSecret, starting at
 	 * clearLen bytes
@@ -576,15 +555,8 @@ SSL2EncodeClientMasterKey(SSLBuffer *msg, SSLContext *ctx)
 	if(err) {
 		return err;
 	}
-#endif
 
     progress += outputLen;
-    
-#if RSAREF
-    R_RandomFinal(&rsaRandom);
-#elif BSAFE
-    B_DestroyAlgorithmObject(&rsaRandom);
-#endif
         
     /* copy clear IV to msg buf */
     memcpy(progress, ctx->masterSecret + ctx->selectedCipherSpec->cipher->keySize,
@@ -627,9 +599,6 @@ SSL2ProcessServerHello(SSLBuffer msg, SSLContext *ctx)
     int                 sessionIDMatch, certLen, cipherSpecsLen, connectionIDLen;
     int                 i, j;
     SSL2CipherKind      cipherKind;
-	#ifndef	__APPLE__
-    SSLBuffer           certBuf;
-	#endif
     SSLCertificate      *cert;
     SSLCipherSuite      matchingCipher = 0;		// avoid compiler warning
     SSLCipherSuite      selectedCipher;
@@ -678,38 +647,19 @@ SSL2ProcessServerHello(SSLBuffer msg, SSLContext *ctx)
             return ERR(SSLNegotiationErr);
         cipherSpecsLen /= 3;
         
-		#ifdef	__APPLE__
  		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 		if(cert == NULL) {
 			return SSLMemoryErr;
 		}
-		#else
-        if (ERR(err = SSLAllocBuffer(&certBuf, sizeof(SSLCertificate), &ctx->sysCtx)) != 0)
-            return err;
-        cert = (SSLCertificate*)certBuf.data;
-		#endif
         cert->next = 0;
         if (ERR(err = SSLAllocBuffer(&cert->derCert, certLen, &ctx->sysCtx)) != 0)
         {   
-			#ifdef	__APPLE__
 			sslFree(cert);
-			#else
-			ERR(SSLFreeBuffer(&certBuf, &ctx->sysCtx));
-			#endif
             return err;
         }
         memcpy(cert->derCert.data, progress, certLen);
         progress += certLen;
-        #ifndef	_APPLE_CDSA_
-        /* not necessary */
-        if (ERR(err = ASNParseX509Certificate(cert->derCert, &cert->cert, ctx)) != 0)
-        {   ERR(SSLFreeBuffer(&cert->derCert, &ctx->sysCtx));
-            ERR(SSLFreeBuffer(&certBuf, &ctx->sysCtx));
-            return err;
-        }
-        #endif
         ctx->peerCert = cert;
-        #ifdef	_APPLE_CDSA_
         /* This cert never gets verified in original SSLRef3 code... */
     	if((err = sslVerifyCertChain(ctx, ctx->peerCert)) != 0) {
     		return err;
@@ -718,9 +668,6 @@ SSL2ProcessServerHello(SSLBuffer msg, SSLContext *ctx)
         	&cert->derCert, 
         	&ctx->peerPubKey,
         	&ctx->peerPubKeyCsp)) != 0)
-        #else
-        if (ERR(err = X509ExtractPublicKey(&cert->cert.pubKey, &ctx->peerKey)) != 0)
-        #endif
             return err;
         
         selectedCipher = SSL_NO_SUCH_CIPHERSUITE;
@@ -745,7 +692,7 @@ SSL2ProcessServerHello(SSLBuffer msg, SSLContext *ctx)
             return ERR(SSLNegotiationErr);
 		#if LOG_NEGOTIATE
 		dprintf1("===SSL2 client: selectedCipher 0x%x\n", 
-			selectedCipher);
+			(unsigned)selectedCipher);
 		#endif
         
         ctx->selectedCipher = selectedCipher;
@@ -774,11 +721,7 @@ SSL2EncodeServerHello(SSLBuffer *msg, SSLContext *ctx)
     ctx->ssl2ConnectionIDLength = SSL2_CONNECTION_ID_LENGTH;
     randomData.data = ctx->serverRandom;
     randomData.length = ctx->ssl2ConnectionIDLength;
-    #ifdef	_APPLE_CDSA_
     if ((err = sslRand(ctx, &randomData)) != 0)
-    #else
-    if (ERR(err = ctx->sysCtx.random(randomData, ctx->sysCtx.randomRef)) != 0)
-    #endif
         return err;
         
     if (ctx->ssl2SessionMatch != 0)
@@ -798,20 +741,21 @@ SSL2EncodeServerHello(SSLBuffer *msg, SSLContext *ctx)
     else
     {   /* First, find the last cert in the chain; it's the one we'll send */
     
-    	#if	_APPLE_CDSA_
     	/*
-    	 * For Apple, we require an encryptCert here - we'll be encrypting
-    	 * with it, after all.
+    	 * Use encryptCert if we have it, but allow for the case of app 
+		 * specifying one cert which can encrypt and sign.
     	 */
-    	if(ctx->encryptCert == NULL) {
-    		errorLog0("SSL2EncodeServerHello: No encryptCert!\n");
+    	if(ctx->encryptCert != NULL) {
+			cert = ctx->encryptCert;
+		}
+		else if(ctx->localCert != NULL) {
+			cert = ctx->localCert;
+		}
+		else {
+			/* really should not happen... */
+    		errorLog0("SSL2EncodeServerHello: No server cert!\n");
     		return SSLBadStateErr;
     	}
-    	cert = ctx->encryptCert;
-    	#else
-        CASSERT(ctx->localCert != 0);
-        cert = ctx->localCert;
-        #endif	_APPLE_CDSA_
         
         while (cert->next != 0)
             cert = cert->next;
@@ -852,8 +796,8 @@ SSL2ProcessServerVerify(SSLBuffer msg, SSLContext *ctx)
 {   if (msg.length != ctx->ssl2ChallengeLength)
         return ERR(SSLProtocolErr);
     
-    if (memcmp(msg.data, ctx->clientRandom + 32 - ctx->ssl2ChallengeLength,
-                    ctx->ssl2ChallengeLength) != 0)
+    if (memcmp(msg.data, ctx->clientRandom + SSL_CLIENT_SRVR_RAND_SIZE - 
+			ctx->ssl2ChallengeLength, ctx->ssl2ChallengeLength) != 0)
         return ERR(SSLProtocolErr);
     
     return SSLNoErr;
@@ -867,8 +811,8 @@ SSL2EncodeServerVerify(SSLBuffer *msg, SSLContext *ctx)
         return err;
     
     msg->data[0] = ssl2_mt_server_verify;
-    memcpy(msg->data+1, ctx->clientRandom + 32 - ctx->ssl2ChallengeLength,
-                    ctx->ssl2ChallengeLength);
+    memcpy(msg->data+1, ctx->clientRandom + SSL_CLIENT_SRVR_RAND_SIZE - 
+			ctx->ssl2ChallengeLength, ctx->ssl2ChallengeLength);
     
     return SSLNoErr;
 }

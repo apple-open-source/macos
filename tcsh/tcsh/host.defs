@@ -1,5 +1,5 @@
 newcode	:
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/host.defs,v 1.2 2001/08/01 08:26:48 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/host.defs,v 1.2 2001/08/01 08:26:48 wsanchez Exp $ */
 /*
  * host.defs: Hosttype/Machtype etc.
  */

@@ -1,7 +1,7 @@
 #
 # Makefile for Src subdirectory
 #
-# Copyright (c) 1996 Richard Coleman
+# Copyright (c) 1995-1997 Richard Coleman
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -24,239 +24,216 @@
 # support, updates, enhancements, or modifications.
 #
 
-# zsh version
-VERSION = @VERSION@
+subdir = Src
+dir_top = ..
+SUBDIRS =
 
-SHELL = /bin/sh
+@VERSION_MK@
 
-top_srcdir = @top_srcdir@
-srcdir     = @srcdir@
-VPATH      = @srcdir@
-
-prefix      = @prefix@
-exec_prefix = @exec_prefix@
-bindir      = @bindir@
-
-CC       = @CC@
-CPPFLAGS = @CPPFLAGS@
-DEFS     = @DEFS@
-CFLAGS   = @CFLAGS@
-LDFLAGS  = @LDFLAGS@
-LIBS     = @LIBS@
-
-INCLUDES = -I.. -I. -I$(srcdir)
-
-COMPILE = $(CC) -c $(INCLUDES) $(CPPFLAGS) $(DEFS) $(CFLAGS)
-LINK    = $(CC) $(LDFLAGS) -o $@
-
+# source/build directories
+VPATH           = @srcdir@
+sdir            = @srcdir@
+sdir_top        = @top_srcdir@
 INSTALL         = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
+LN		= @LN@
 
-AWK = @AWK@
-SED = sed
+@DEFS_MK@
 
-.SUFFIXES:
-.SUFFIXES: .c .o .pro
-
-.c.o:
-	$(COMPILE) $<
-
-.c.pro:
-	$(SED) -n -f $(srcdir)/makepro.sed $< > $@
-
-# this is for ansi2krn conversion
-U = @U@
-
-# this header file is parsed to generate signal names (signames.h)
-SIGNAL_H = @SIGNAL_H@
-
-# this header file is parsed to generate limits, if available
-RLIMITS_INC_H = @RLIMITS_INC_H@
-
-# headers included in distribution
-DIST_HDRS = version.h globals.h hashtable.h prototypes.h signals.h \
-system.h zle.h zsh.h ztype.h
-
-# generated headers
-GEN_HDRS = signames.h ../config.h @RLIMITS_SRC_H@
-
-# zsh headers necessary for compilation
-HDRS = $(DIST_HDRS) $(GEN_HDRS)
-
-# zsh C source
-SRCS = builtin.c compat.c cond.c exec.c glob.c hashtable.c hist.c init.c \
-input.c jobs.c lex.c linklist.c loop.c math.c mem.c params.c parse.c \
-signals.c subst.c text.c utils.c watch.c zle_bindings.c zle_hist.c \
-zle_main.c zle_misc.c zle_move.c zle_refresh.c zle_tricky.c zle_utils.c \
-zle_vi.c zle_word.c
-
-# generated prototypes
-PROTO = builtin.pro compat.pro cond.pro exec.pro glob.pro hashtable.pro \
-hist.pro init.pro input.pro jobs.pro lex.pro linklist.pro loop.pro \
-math.pro mem.pro params.pro parse.pro signals.pro subst.pro text.pro \
-utils.pro watch.pro zle_hist.pro zle_main.pro \
-zle_misc.pro zle_move.pro zle_refresh.pro zle_tricky.pro zle_utils.pro \
-zle_vi.pro zle_word.pro
-
-# object files
-OBJS = $Ubuiltin.o $Ucompat.o $Ucond.o $Uexec.o $Uglob.o $Uhashtable.o \
-$Uhist.o $Uinit.o $Uinput.o $Ujobs.o $Ulex.o $Ulinklist.o $Uloop.o \
-$Umath.o $Umem.o $Uparams.o $Uparse.o $Usignals.o $Usubst.o $Utext.o \
-$Uutils.o $Uwatch.o $Uzle_bindings.o $Uzle_hist.o $Uzle_main.o \
-$Uzle_misc.o $Uzle_move.o $Uzle_refresh.o $Uzle_tricky.o $Uzle_utils.o \
-$Uzle_vi.o $Uzle_word.o
-
-# auxiliary files
-AUX = Makefile.in .indent.pro signames.awk rlimits.awk makepro.sed \
-      ansi2knr.c
-
-# all files in this directory included in the distribution
-DIST = $(DIST_HDRS) $(SRCS) $(AUX)
+sdir_src      = $(sdir)
+dir_src       = .
 
 # ========= DEPENDENCIES FOR BUILDING ==========
 
-# default target
-all: zsh
+LINK        = $(CC) $(LDFLAGS) $(EXELDFLAGS) $(EXTRA_LDFLAGS) -o $@
+DLLINK      = $(DLLD) $(LDFLAGS) $(LIBLDFLAGS) $(DLLDFLAGS) -o $@
 
-zsh: $(OBJS)
-	$(LINK) $(OBJS) $(LIBS)
+all: bin modules
+.PHONY: all
+
+bin: zsh$(EXEEXT)
+.PHONY: bin
+
+modules: headers
+.PHONY: modules
+
+MAIN_OBJS = main.o
+
+L = @L@
+
+LSTMP =
+LLIST =
+NSTMP = stamp-modobjs
+NLIST = `cat stamp-modobjs`
+
+LIBZSH = libzsh-$(VERSION).$(DL_EXT)
+NIBZSH =
+INSTLIB = @INSTLIB@
+UNINSTLIB = @UNINSTLIB@
+
+ZSH_EXPORT = $(EXPOPT)zsh.export
+ZSH_NXPORT =
+ENTRYOBJ   = modentry..o
+NNTRYOBJ   =
+
+LDRUNPATH = LD_RUN_PATH=$(libdir)/$(tzsh)
+NDRUNPATH =
+
+EXTRAZSHOBJS = @EXTRAZSHOBJS@
+
+zsh$(EXEEXT): $(@L@IBZSH) $(@L@STMP) $(MAIN_OBJS) zsh.export $(EXTRAZSHOBJS)
+	rm -f $@
+	$(@L@DRUNPATH) $(LINK) $(MAIN_OBJS) $(EXTRAZSHOBJS) $(@L@LIST) $(ZSH_@E@XPORT) $(@L@IBZSH) $(LIBS)
+
+$(LIBZSH): $(LIBOBJS) $(NSTMP)
+	rm -f $@
+	$(DLLINK) $(LIBOBJS) $(NLIST) $(LIBS)
+
+zsh.res.o: $(sdir)/zsh.rc $(sdir)/zsh.ico
+	windres -O coff --include-dir $(sdir) -i $(sdir)/zsh.rc -o zsh.res.o
+
+stamp-modobjs: modobjs
+	@if cmp -s stamp-modobjs.tmp stamp-modobjs; then \
+	    rm -f stamp-modobjs.tmp; \
+	    echo "\`stamp-modobjs' is up to date."; \
+	else \
+	    mv -f stamp-modobjs.tmp stamp-modobjs; \
+	    echo "Updated \`stamp-modobjs'."; \
+	fi
+
+modobjs: headers rm-modobjs-tmp
+.PHONY: modobjs
+
+rm-modobjs-tmp:
+	rm -f stamp-modobjs.tmp
+.PHONY: rm-modobjs-tmp
+
+@CONFIG_MK@
+
+Makemod prep: $(CONFIG_INCS) $(dir_top)/config.modules
+	@case $(sdir_top) in \
+	    /*) top_srcdir=$(sdir_top) ;; \
+	    *) top_srcdir=$(subdir)/$(sdir_top) ;; \
+	esac; \
+	export top_srcdir; \
+	echo 'cd $(dir_top) && $(SHELL)' \
+	    '$$top_srcdir/$(subdir)/mkmakemod.sh $(subdir) Makemod'; \
+	cd $(dir_top) && \
+	    $(SHELL) $$top_srcdir/$(subdir)/mkmakemod.sh $(subdir) Makemod
+	@$(MAKE) -f Makemod $(MAKEDEFS) prep || rm -f Makemod
+.PHONY: prep
+
+FORCE:
+.PHONY: FORCE
+
+# ========== LINKING IN MODULES ==========
+
+mymods.conf:
+	@echo Linking with the standard modules.
+
+modules: $(@E@NTRYOBJ)
+
+$(ENTRYOBJ): FORCE
+	@$(MAKE) -f Makemod $(MAKEDEFS) $@
+
+# ========== ANSI TO K&R CONVERSION ==========
+
+ANSI_KNR = ansi2knr
+ANSIKNR  =
+
+Makemod: $(ANSI@U@KNR)
+
+ansi2knr.o: ansi2knr.c
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(sdir)/ansi2knr.c
 
 ansi2knr: ansi2knr.o
-	$(LINK) ansi2knr.o
-
-signames.h: signames.awk
-	$(AWK) -f $(srcdir)/signames.awk $(SIGNAL_H) > signames.h
-
-prototypes.h: $(PROTO)
-
-# this file will not be made if limits are unavailable:
-# silent so the warning doesn't appear unless necessary
-rlimits.h: rlimits.awk $(RLIMITS_INC_H)
-	@echo '$(AWK) -f $(srcdir)/rlimits.awk $(RLIMITS_INC_H) > rlimits.h'; \
-	$(AWK) -f $(srcdir)/rlimits.awk $(RLIMITS_INC_H) > rlimits.h
-
-$(OBJS): $(HDRS)
-
-$(PROTO): makepro.sed
+	rm -f $@
+	$(CC) $(LDFLAGS) $(EXELDFLAGS) -o $@ ansi2knr.o
 
 # ========== DEPENDENCIES FOR INSTALLING ==========
 
-install: install.bin
+install: install.bin install.modules
+uninstall: uninstall.bin uninstall.modules
+.PHONY: install uninstall
 
-uninstall: uninstall.bin
+install.bin: install.bin-here
+uninstall.bin: uninstall.bin-here
+.PHONY: install.bin uninstall.bin
 
 # install binary, creating install directory if necessary
-install.bin: zsh
-	$(top_srcdir)/mkinstalldirs $(bindir)
-	-if [ -f $(bindir)/zsh ]; then mv $(bindir)/zsh $(bindir)/zsh.old; fi
-	$(INSTALL_PROGRAM) $(STRIPFLAGS) zsh $(bindir)/zsh
+install.bin-here: zsh$(EXEEXT) $(INSTLIB)
+	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(STRIPFLAGS) zsh$(EXEEXT) $(DESTDIR)$(bindir)/$(tzsh)-$(VERSION)$(EXEEXT)
+	if test -f $(DESTDIR)$(bindir)/$(tzsh)$(EXEEXT); then \
+	    rm -f $(DESTDIR)$(bindir)/$(tzsh).old; \
+	    $(LN) $(DESTDIR)$(bindir)/$(tzsh)$(EXEEXT) $(DESTDIR)$(bindir)/$(tzsh).old; \
+	else :; fi
+	rm -f $(DESTDIR)$(bindir)/$(tzsh).new
+	$(LN) $(DESTDIR)$(bindir)/$(tzsh)-$(VERSION)$(EXEEXT) $(DESTDIR)$(bindir)/$(tzsh).new
+	mv $(DESTDIR)$(bindir)/$(tzsh).new $(DESTDIR)$(bindir)/$(tzsh)$(EXEEXT)
+.PHONY: install.bin-here
+
+install.bin-N:
+install.bin-L: $(LIBZSH)
+	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(libdir)/$(tzsh)
+	$(INSTALL_PROGRAM) $(LIBZSH) $(DESTDIR)$(libdir)/$(tzsh)/$(LIBZSH)
+install.cygwin-lib: $(LIBZSH)
+	$(INSTALL_PROGRAM) $(LIBZSH) $(DESTDIR)$(bindir)/$(LIBZSH)
+.PHONY: install.bin-N install.bin-L install.cygwin-lib
 
 # uninstall binary
-uninstall.bin:
-	-if [ -f $(bindir)/zsh ]; then rm -f $(bindir)/zsh; fi
-	-if [ -f $(bindir)/zsh-$(VERSION) ]; then rm -f $(bindir)/zsh-$(VERSION); fi
+uninstall.bin-here: $(UNINSTLIB)
+	rm -f $(DESTDIR)$(bindir)/$(tzsh)-$(VERSION) $(DESTDIR)$(bindir)/$(tzsh)$(EXEEXT)
+.PHONY: uninstall.bin-here uninstall.bin-@L@
 
-# ========== DEPENDENCIES FOR ANSI TO KNR CONVERSION ==========
-
-_builtin.c: builtin.c ansi2knr
-	./ansi2knr $(srcdir)/builtin.c > _builtin.c
-_compat.c: compat.c ansi2knr
-	./ansi2knr $(srcdir)/compat.c > _compat.c
-_cond.c: cond.c ansi2knr
-	./ansi2knr $(srcdir)/cond.c > _cond.c
-_exec.c: exec.c ansi2knr
-	./ansi2knr $(srcdir)/exec.c > _exec.c
-_glob.c: glob.c ansi2knr
-	./ansi2knr $(srcdir)/glob.c > _glob.c
-_hashtable.c: hashtable.c ansi2knr
-	./ansi2knr $(srcdir)/hashtable.c > _hashtable.c
-_hist.c: hist.c ansi2knr
-	./ansi2knr $(srcdir)/hist.c > _hist.c
-_init.c: init.c ansi2knr
-	./ansi2knr $(srcdir)/init.c > _init.c
-_input.c: input.c ansi2knr
-	./ansi2knr $(srcdir)/input.c > _input.c
-_jobs.c: jobs.c ansi2knr
-	./ansi2knr $(srcdir)/jobs.c > _jobs.c
-_lex.c: lex.c ansi2knr
-	./ansi2knr $(srcdir)/lex.c > _lex.c
-_linklist.c: linklist.c ansi2knr
-	./ansi2knr $(srcdir)/linklist.c > _linklist.c
-_loop.c: loop.c ansi2knr
-	./ansi2knr $(srcdir)/loop.c > _loop.c
-_math.c: math.c ansi2knr
-	./ansi2knr $(srcdir)/math.c > _math.c
-_mem.c: mem.c ansi2knr
-	./ansi2knr $(srcdir)/mem.c > _mem.c
-_params.c: params.c ansi2knr
-	./ansi2knr $(srcdir)/params.c > _params.c
-_parse.c: parse.c ansi2knr
-	./ansi2knr $(srcdir)/parse.c > _parse.c
-_signals.c: signals.c ansi2knr
-	./ansi2knr $(srcdir)/signals.c > _signals.c
-_subst.c: subst.c ansi2knr
-	./ansi2knr $(srcdir)/subst.c > _subst.c
-_text.c: text.c ansi2knr
-	./ansi2knr $(srcdir)/text.c > _text.c
-_utils.c: utils.c ansi2knr
-	./ansi2knr $(srcdir)/utils.c > _utils.c
-_watch.c: watch.c ansi2knr
-	./ansi2knr $(srcdir)/watch.c > _watch.c
-_zle_bindings.c: zle_bindings.c ansi2knr
-	./ansi2knr $(srcdir)/zle_bindings.c > _zle_bindings.c
-_zle_hist.c: zle_hist.c ansi2knr
-	./ansi2knr $(srcdir)/zle_hist.c > _zle_hist.c
-_zle_main.c: zle_main.c ansi2knr
-	./ansi2knr $(srcdir)/zle_main.c > _zle_main.c
-_zle_misc.c: zle_misc.c ansi2knr
-	./ansi2knr $(srcdir)/zle_misc.c > _zle_misc.c
-_zle_move.c: zle_move.c ansi2knr
-	./ansi2knr $(srcdir)/zle_move.c > _zle_move.c
-_zle_refresh.c: zle_refresh.c ansi2knr
-	./ansi2knr $(srcdir)/zle_refresh.c > _zle_refresh.c
-_zle_tricky.c: zle_tricky.c ansi2knr
-	./ansi2knr $(srcdir)/zle_tricky.c > _zle_tricky.c
-_zle_utils.c: zle_utils.c ansi2knr
-	./ansi2knr $(srcdir)/zle_utils.c > _zle_utils.c
-_zle_vi.c: zle_vi.c ansi2knr
-	./ansi2knr $(srcdir)/zle_vi.c > _zle_vi.c
-_zle_word.c: zle_word.c ansi2knr
-	./ansi2knr $(srcdir)/zle_word.c > _zle_word.c
+uninstall.bin-N:
+uninstall.bin-L:
+	rm -f $(DESTDIR)$(libdir)/$(tzsh)/$(LIBZSH)
+uninstall.cygwin-lib:
+	rm -f $(DESTDIR)$(bindir)/$(LIBZSH)
+.PHONY: uninstall.bin-N uninstall.bin-L uninstall.cygwin-lib
 
 # ========== DEPENDENCIES FOR CLEANUP ==========
 
-mostlyclean:
-	rm -f core *.o *~
+# Since module cleanup rules depend on Makemod, they come first.  This
+# forces module stuff to get cleaned before Makemod itself gets
+# deleted.
 
-clean: mostlyclean
-	rm -f zsh ansi2knr signames.h rlimits.h _*.c *.pro
+mostlyclean-here:
+	rm -f stamp-modobjs stamp-modobjs.tmp
+.PHONY: mostlyclean-here
 
-distclean: clean
-	rm -f Makefile
+clean-here:
+	rm -f modules.stamp zsh$(EXEEXT) ansi2knr.o ansi2knr
+	rm -f libzsh-*.$(DL_EXT)
+.PHONY: clean-here
 
-realclean: distclean
+distclean-here:
 	rm -f TAGS tags
+	rm -f Makefile
+.PHONY: distclean-here
 
-superclean: realclean
+mostlyclean: mostlyclean-modules
+clean: clean-modules
+distclean: distclean-modules
+realclean: realclean-modules
+.PHONY: mostlyclean clean distclean realclean
 
-# ========== DEPENDENCIES FOR MAINTENANCE ==========
+# Don't remake Makemod just to delete things, even if it doesn't exist.
+mostlyclean-modules clean-modules distclean-modules realclean-modules:
+	if test -f Makemod; then \
+	  $(MAKE) -f Makemod $(MAKEDEFS) `echo $@ | sed 's/-modules//'`; \
+	fi; \
+	exit 0
+.PHONY: mostlyclean-modules clean-modules distclean-modules \
+	realclean-modules
 
-subdir = Src
+@CLEAN_MK@
 
-Makefile: Makefile.in ../config.status
-	cd .. && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= ./config.status
+# ========== RECURSIVE MAKES ==========
 
-# tag file for vi
-tags: TAGS
-	cd $(srcdir) && ctags -w $(SRCS) $(DIST_HDRS)
+install.modules uninstall.modules \
+modobjs modules headers proto $(MAIN_OBJS) zsh.export: Makemod
+	@$(MAKE) -f Makemod $(MAKEDEFS) $@
+.PHONY: install.modules uninstall.modules
 
-# tag file for emacs
-TAGS: $(SRCS) $(DIST_HDRS)
-	cd $(srcdir) && etags $(SRCS) $(DIST_HDRS)
-
-distdir = ../`cat ../distname`/$(subdir)
-dist: $(DIST)
-	@echo "Copying distribution files in $(subdir)"
-	for file in $(DIST); do    \
-	  cp -p $$file $(distdir); \
-	done
+$(MAIN_OBJS): $(sdir)/zsh.h

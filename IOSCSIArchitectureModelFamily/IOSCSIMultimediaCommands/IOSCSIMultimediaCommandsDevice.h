@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IO_SCSI_MULTIMEDIA_COMMANDS_DEVICE_H_
 #define _IOKIT_IO_SCSI_MULTIMEDIA_COMMANDS_DEVICE_H_
 
@@ -30,6 +31,24 @@
 #endif
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
+// Message constants
+#define kIOMessageTrayStateHasChanged		0x69000035
+#define kIOMessageMediaAccessChange			0x69000036
+
+// Message values for kIOMessageMediaAccessChange
+enum
+{
+	kMessageDeterminingMediaPresence	= 0,
+	kMessageFoundMedia					= 1,
+	kMessageMediaTypeDetermined			= 2
+};
+
+// IOKit property keys and constants
 #define	kIOPropertySupportedCDFeatures		"CD Features"
 #define	kIOPropertySupportedDVDFeatures		"DVD Features"
 #define kIOPropertyLowPowerPolling			"Low Power Polling"
@@ -37,11 +56,17 @@
 typedef UInt32 CDFeatures;
 enum
 {
-	kCDFeaturesAnalogAudioBit			= 0,
-	kCDFeaturesReadStructuresBit		= 1,
-	kCDFeaturesWriteOnceBit				= 2,
-	kCDFeaturesReWriteableBit			= 3,
-	kCDFeaturesCDDAStreamAccurateBit	= 4	
+	kCDFeaturesAnalogAudioBit					= 0,	// Analog Audio playback
+	kCDFeaturesReadStructuresBit				= 1,	// CD-ROM
+	kCDFeaturesWriteOnceBit						= 2,	// CD-R
+	kCDFeaturesReWriteableBit					= 3,	// CD-R/W
+	kCDFeaturesCDDAStreamAccurateBit			= 4,	// CD-DA stream accurate
+	kCDFeaturesPacketWriteBit					= 5,	// Packet Writing
+	kCDFeaturesTAOWriteBit						= 6,	// CD Track At Once
+	kCDFeaturesSAOWriteBit						= 7,	// CD Mastering - Session At Once
+	kCDFeaturesRawWriteBit						= 8,	// CD Mastering - Raw
+	kCDFeaturesTestWriteBit						= 9,	// CD Mastering/TAO - Test Write
+	kCDFeaturesBUFWriteBit						= 10	// CD Mastering/TAO - Buffer Underrun Free
 };
 
 enum
@@ -50,25 +75,36 @@ enum
 	kCDFeaturesReadStructuresMask		= (1 << kCDFeaturesReadStructuresBit),
 	kCDFeaturesWriteOnceMask			= (1 << kCDFeaturesWriteOnceBit),
 	kCDFeaturesReWriteableMask			= (1 << kCDFeaturesReWriteableBit),
-	kCDFeaturesCDDAStreamAccurateMask	= (1 << kCDFeaturesCDDAStreamAccurateBit)
+	kCDFeaturesCDDAStreamAccurateMask	= (1 << kCDFeaturesCDDAStreamAccurateBit),
+	kCDFeaturesPacketWriteMask			= (1 << kCDFeaturesPacketWriteBit),
+	kCDFeaturesTAOWriteMask				= (1 << kCDFeaturesTAOWriteBit),
+	kCDFeaturesSAOWriteMask				= (1 << kCDFeaturesSAOWriteBit),
+	kCDFeaturesRawWriteMask				= (1 << kCDFeaturesRawWriteBit),
+	kCDFeaturesTestWriteMask			= (1 << kCDFeaturesTestWriteBit),
+	kCDFeaturesBUFWriteMask				= (1 << kCDFeaturesBUFWriteBit)
 };
 
 typedef	UInt32 DVDFeatures;
 enum
 {
-	kDVDFeaturesCSSBit 				= 0,
-	kDVDFeaturesReadStructuresBit 	= 1,
-	kDVDFeaturesWriteOnceBit		= 2,
-	kDVDFeaturesRandomWriteableBit	= 3,
-	kDVDFeaturesReWriteableBit		= 4
+	kDVDFeaturesCSSBit 				= 0,	// DVD-CSS
+	kDVDFeaturesReadStructuresBit 	= 1,	// DVD-ROM
+	kDVDFeaturesWriteOnceBit		= 2,	// DVD-R
+	kDVDFeaturesRandomWriteableBit	= 3,	// DVD-RAM
+	kDVDFeaturesReWriteableBit		= 4,	// DVD-RW
+	kDVDFeaturesTestWriteBit		= 5,	// DVD-R Write - Test Write
+	kDVDFeaturesBUFWriteBit			= 6		// DVD-R Write - Buffer Underrun Free
 };
+
 enum
 {
 	kDVDFeaturesCSSMask 			= (1 << kDVDFeaturesCSSBit),
 	kDVDFeaturesReadStructuresMask 	= (1 << kDVDFeaturesReadStructuresBit),
 	kDVDFeaturesWriteOnceMask		= (1 << kDVDFeaturesWriteOnceBit),
 	kDVDFeaturesRandomWriteableMask	= (1 << kDVDFeaturesRandomWriteableBit),
-	kDVDFeaturesReWriteableMask		= (1 << kDVDFeaturesReWriteableBit)
+	kDVDFeaturesReWriteableMask		= (1 << kDVDFeaturesReWriteableBit),
+	kDVDFeaturesTestWriteMask		= (1 << kDVDFeaturesTestWriteBit),
+	kDVDFeaturesBUFWriteMask		= (1 << kDVDFeaturesBUFWriteBit)
 };
 
 enum
@@ -77,7 +113,8 @@ enum
 	kDiscStatusIncomplete			= 1,
 	kDiscStatusComplete				= 2,
 	kDiscStatusOther				= 3,
-	kDiscStatusMask					= 0x03
+	kDiscStatusMask					= 0x03,
+	kDiscStatusErasableMask			= 0x10
 };
 
 
@@ -95,23 +132,35 @@ enum
 	kMMCNumPowerStates			= 5
 };
 
+enum
+{
+	kMediaStateUnlocked	= 0,
+	kMediaStateLocked 	= 1
+};
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
-
 
 // Generic IOKit storage related headers
 #include <IOKit/storage/IOStorage.h>
 #include <IOKit/storage/IOCDTypes.h>
 #include <IOKit/storage/IODVDTypes.h>
 
-
-// SCSI Command set related IOKit headers
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSIMultimediaCommands.h>
 #include <IOKit/scsi-commands/SCSIBlockCommands.h>
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOSCSIMultimediaCommandsDevice : public IOSCSIPrimaryCommandsDevice
 {
@@ -121,23 +170,28 @@ class IOSCSIMultimediaCommandsDevice : public IOSCSIPrimaryCommandsDevice
 private:
 
     SCSIMultimediaCommands *	fSCSIMultimediaCommandObject;
-    SCSIMultimediaCommands *	GetSCSIMultimediaCommandObject( void );
+    SCSIMultimediaCommands *	GetSCSIMultimediaCommandObject ( void );
 	
     SCSIBlockCommands *			fSCSIBlockCommandObject;
-    SCSIBlockCommands *			GetSCSIBlockCommandObject( void );
+    SCSIBlockCommands *			GetSCSIBlockCommandObject ( void );
 
 	static void		AsyncReadWriteComplete ( SCSITaskIdentifier completedTask );
 	
 protected:
 	
     // Reserve space for future expansion.
-    struct IOSCSIMultimediaCommandsDeviceExpansionData { };
+    struct IOSCSIMultimediaCommandsDeviceExpansionData
+	{
+		IONotifier *		fPowerDownNotifier;
+	};
     IOSCSIMultimediaCommandsDeviceExpansionData * fIOSCSIMultimediaCommandsDeviceReserved;
-		
+	
+	#define fPowerDownNotifier 	fIOSCSIMultimediaCommandsDeviceReserved->fPowerDownNotifier
+	
 	// This method will retreive the SCSI Primary Command Set object for
 	// the class.  For subclasses, this will be overridden using a
 	// dynamic cast on the subclasses base command set object.
-	virtual SCSIPrimaryCommands *	GetSCSIPrimaryCommandObject( void );
+	virtual SCSIPrimaryCommands *	GetSCSIPrimaryCommandObject ( void );
 
 	CDFeatures						fSupportedCDFeatures;
 	DVDFeatures						fSupportedDVDFeatures;
@@ -777,10 +831,19 @@ public:
 										CDTrackInfoAddressType	addressType,
 										UInt16 *				actualByteCount );
 	
+	/* Added with 10.2 */
+	OSMetaClassDeclareReservedUsed ( IOSCSIMultimediaCommandsDevice, 4 );
+	
+	virtual IOReturn	PowerDownHandler ( void * 		refCon,
+										   UInt32 		messageType,
+										   IOService * 	provider,
+										   void * 		messageArgument,
+										   vm_size_t 	argSize );
+	
+	
 private:
 	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	4 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	5 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	6 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	7 );

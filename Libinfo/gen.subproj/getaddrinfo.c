@@ -39,15 +39,23 @@
 #include <servers/bootstrap.h>
 #include <nameser.h>
 #include <resolv.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
 
+#define WANT_A4_ONLY 1
+#define WANT_A6_ONLY 2
+#define WANT_A6_PLUS_MAPPED_A4 3
+#define WANT_A6_OR_MAPPED4_IF_NO_A6 4
+
 #define LONG_STRING_LENGTH 8192
 #define _LU_MAXLUSTRLEN 256
 
-static char *LOOKUPD_NAME = "lookup daemon";
-
+extern int _lu_running(void);
+extern mach_port_t _lookupd_port();
 extern int _lookup_link();
 extern int _lookup_one();
 extern int _lookup_all();
@@ -90,31 +98,38 @@ static int supported_family_count = 3;
 
 static int supported_socket[] =
 {
+	SOCK_RAW,
 	SOCK_UNSPEC,
 	SOCK_DGRAM,
 	SOCK_STREAM
 };
-static int supported_socket_count = 3;
+static int supported_socket_count = 4;
 
 static int supported_protocol[] =
 {
 	IPPROTO_UNSPEC,
+	IPPROTO_ICMPV6,
 	IPPROTO_UDP,
 	IPPROTO_TCP
 };
-static int supported_protocol_count = 3;
+static int supported_protocol_count = 4;
 
 static int supported_socket_protocol_pair[] =
 {
-	SOCK_UNSPEC,	IPPROTO_UNSPEC,
-	SOCK_UNSPEC,	IPPROTO_UDP,
-	SOCK_UNSPEC,	IPPROTO_TCP,
-	SOCK_DGRAM,  	IPPROTO_UNSPEC,
-	SOCK_DGRAM,  	IPPROTO_UDP,
-	SOCK_STREAM,	IPPROTO_UNSPEC,
-	SOCK_STREAM,	IPPROTO_TCP
+	SOCK_RAW,    IPPROTO_UNSPEC,
+	SOCK_RAW,    IPPROTO_UDP,
+	SOCK_RAW,    IPPROTO_TCP,
+	SOCK_RAW,    IPPROTO_ICMPV6,
+	SOCK_UNSPEC, IPPROTO_UNSPEC,
+	SOCK_UNSPEC, IPPROTO_UDP,
+	SOCK_UNSPEC, IPPROTO_TCP,
+	SOCK_UNSPEC, IPPROTO_ICMPV6,
+	SOCK_DGRAM,  IPPROTO_UNSPEC,
+	SOCK_DGRAM,  IPPROTO_UDP,
+	SOCK_STREAM, IPPROTO_UNSPEC,
+	SOCK_STREAM, IPPROTO_TCP
 };
-static int supported_socket_protocol_pair_count = 7;
+static int supported_socket_protocol_pair_count = 12;
 
 static int
 gai_family_type_check(int f)
@@ -173,70 +188,9 @@ gai_socket_protocol_type_check(int s, int p)
 static int
 gai_inet_pton(const char *s, struct in6_addr *a6)
 {
-	int run, ncolon;
-	unsigned short x[8];
-	char *p, buf[4];
-
 	if (s == NULL) return 0;
 	if (a6 == NULL) return 0;
-
-	for (ncolon = 0; ncolon < 8; ncolon++) x[ncolon] = 0;
-	memset(buf, 0, 4);
-
-	ncolon = 0;
-	run = 0;
-	for (p = (char *)s; *p != '\0'; p++)
-	{
-		if (*p == ':')
-		{
-			if (run > 0) sscanf(buf, "%hx", &(x[ncolon]));
-			ncolon++;
-			if (ncolon > 7) return 0;
-			run = 0;
-			memset(buf, 0, 4);
-		}
-		else if (((*p >= '0') && (*p <= '9')) || ((*p >= 'a') && (*p <= 'f')) || ((*p >= 'A') && (*p <= 'F')))
-		{
-			buf[run] = *p;
-			run++;
-			if (run > 4) return 0;
-		}
-	}
-	
-	if (ncolon != 7) return 0;
-
-	if (run > 0) sscanf(buf, "%hx", &(x[7]));
-
-	a6->__u6_addr.__u6_addr32[0] = (x[0] << 16) + x[1];
-	a6->__u6_addr.__u6_addr32[1] = (x[2] << 16) + x[3];
-	a6->__u6_addr.__u6_addr32[2] = (x[4] << 16) + x[5];
-	a6->__u6_addr.__u6_addr32[3] = (x[6] << 16) + x[7];
-
-	return 1;
-}
-
-static char *
-gai_inet_ntop(struct in6_addr a)
-{
-	static char buf[128];
-	char t[32];
-	unsigned short x;
-	char *p;
-	int i;
-
-	memset(buf, 0, 128);
-
-	p = (char *)&a.__u6_addr.__u6_addr32;
-	for (i = 0; i < 8; i++, x += 1)
-	{
-		memmove(&x, p, 2);
-		p += 2;
-		sprintf(t, "%hx", x);
-		strcat(buf, t);
-		if (i < 7) strcat(buf, ":");
-	}
-
-	return buf;
+	return inet_pton(AF_INET6, s, (void *)&a6->__u6_addr.__u6_addr32[0]);
 }
 
 char *
@@ -295,8 +249,26 @@ append_addrinfo(struct addrinfo **l, struct addrinfo *a)
 	}
 
 	x = *l;
-	while (x->ai_next != NULL) x = x->ai_next;
-	x->ai_next = a;
+
+	if (a->ai_family == PF_INET6)
+	{
+		if (x->ai_family == PF_INET)
+		{
+			*l = a;
+			a->ai_next = x;
+			return;
+		}
+
+		while ((x->ai_next != NULL) && (x->ai_next->ai_family != PF_INET)) x = x->ai_next;
+		a->ai_next = x->ai_next;
+		x->ai_next = a;
+	}
+	else
+	{
+		while (x->ai_next != NULL) x = x->ai_next;
+		a->ai_next = NULL;
+		x->ai_next = a;
+	}
 }
 
 static void
@@ -324,10 +296,50 @@ free_lu_dict(struct lu_dict *d)
 	}
 }
 
-static void
-append_lu_dict(struct lu_dict **l, struct lu_dict *d)
+static int
+_lu_str_equal(char *a, char *b)
 {
-	struct lu_dict *x;
+	if (a == NULL)
+	{
+		if (b == NULL) return 1;
+		return 0;
+	}
+
+	if (b == NULL) return 0;
+
+	if (!strcmp(a, b)) return 1;
+	return 0;
+}
+
+static int
+lu_dict_equal(struct lu_dict *a, struct lu_dict *b)
+{
+	if (a == NULL) return 0;
+	if (b == NULL) return 0;
+
+	if (_lu_str_equal(a->type, b->type) == 0) return 0;
+	if (_lu_str_equal(a->name, b->name) == 0) return 0;
+	if (_lu_str_equal(a->cname, b->cname) == 0) return 0;
+	if (_lu_str_equal(a->mx, b->mx) == 0) return 0;
+	if (_lu_str_equal(a->ipv4, b->ipv4) == 0) return 0;
+	if (_lu_str_equal(a->ipv6, b->ipv6) == 0) return 0;
+	if (_lu_str_equal(a->service, b->service) == 0) return 0;
+	if (_lu_str_equal(a->port, b->port) == 0) return 0;
+	if (_lu_str_equal(a->protocol, b->protocol) == 0) return 0;
+	if (_lu_str_equal(a->target, b->target) == 0) return 0;
+	if (_lu_str_equal(a->priority, b->priority) == 0) return 0;
+	if (_lu_str_equal(a->weight, b->weight) == 0) return 0;
+	return 1;
+}
+
+/*
+ * Append a single dictionary to a list if it is unique.
+ * Free it if it is not appended.
+ */
+static void
+merge_lu_dict(struct lu_dict **l, struct lu_dict *d)
+{
+	struct lu_dict *x, *e;
 
 	if (l == NULL) return;
 	if (d == NULL) return;
@@ -338,9 +350,43 @@ append_lu_dict(struct lu_dict **l, struct lu_dict *d)
 		return;
 	}
 
-	x = *l;
-	while (x->lu_next != NULL) x = x->lu_next;
-	x->lu_next = d;
+	e = *l;
+	for (x = *l; x != NULL; x = x->lu_next)
+	{
+		e = x;
+		if (lu_dict_equal(x, d))
+		{
+			free_lu_dict(d);
+			return;
+		}
+	}
+
+	e->lu_next = d;
+}
+
+static void
+append_lu_dict(struct lu_dict **l, struct lu_dict *d)
+{
+	struct lu_dict *x, *next;
+
+	if (l == NULL) return;
+	if (d == NULL) return;
+
+	if (*l == NULL)
+	{
+		*l = d;
+		return;
+	}
+
+	x = d;
+
+	while (x != NULL)
+	{
+		next = x->lu_next;
+		x->lu_next = NULL;
+		merge_lu_dict(l, x);
+		x = next;
+	}
 }
 
 /*
@@ -424,18 +470,7 @@ lookupd_process_dictionary(XDR *inxdr, struct lu_dict **l)
 		}
 	}
 
-	append_lu_dict(l, d);
-}
-
-static mach_port_t
-lookupd_port(char *name)
-{
-	mach_port_t p;
-	kern_return_t status;
-
-	status = bootstrap_look_up(bootstrap_port, name, &p);
-	if (status == KERN_SUCCESS) return p;
-	return MACH_PORT_NULL;
+	merge_lu_dict(l, d);
 }
 
 static int
@@ -457,7 +492,7 @@ gai_files(struct lu_dict *q, struct lu_dict **list)
 	struct servent *s;
 	struct hostent *h;
 	struct lu_dict *d;
-	char str[64];
+	char str[64], portstr[64];
 	struct in_addr a4;
 
 	if (!strcmp(q->type, "service"))
@@ -482,12 +517,26 @@ gai_files(struct lu_dict *q, struct lu_dict **list)
 		d->port = strdup(str);
 		if (s->s_proto != NULL) d->protocol = strdup(s->s_proto);
 
-		append_lu_dict(list, d);
+		merge_lu_dict(list, d);
 		return 1;
 	}
 
-	else if (!strcmp(q->type, "host"))
+	if (!strcmp(q->type, "host"))
 	{
+		s = NULL;
+		if (q->service != NULL)
+		{
+			s = getservbyname(q->service, q->protocol);
+		}
+		else if (q->port != NULL)
+		{
+			port = atoi(q->port);
+			s = getservbyport(port, q->protocol);
+		}
+
+		sprintf(portstr, "0");
+		if (s != NULL) sprintf(portstr, "%u", ntohl(s->s_port));
+
 		h = NULL;
 		if (q->name != NULL)
 		{
@@ -511,13 +560,23 @@ gai_files(struct lu_dict *q, struct lu_dict **list)
 			d = (struct lu_dict *)malloc(sizeof(struct lu_dict));
 			memset(d, 0, sizeof(struct lu_dict));
 
-			if (h->h_name != NULL) d->name = strdup(h->h_name);
+			if (h->h_name != NULL)
+			{
+				d->name = strdup(h->h_name);
+				d->target = strdup(h->h_name);
+			}
 			memmove((void *)&a4.s_addr, h->h_addr_list[i], h->h_length);
 
 			sprintf(str, "%s", inet_ntoa(a4));
 			d->ipv4 = strdup(str);
 
-			append_lu_dict(list, d);
+			if (s != NULL)
+			{
+				if (s->s_name != NULL) d->service = strdup(s->s_name);
+				d->port = strdup(portstr);
+			}
+
+			merge_lu_dict(list, d);
 		}
 		return i;
 	}
@@ -543,9 +602,11 @@ gai_lookupd(struct lu_dict *q, struct lu_dict **list)
 	if (q->type == NULL) return 0;
 	
 	if (list == NULL) return -1;
-	
-	server_port = lookupd_port(LOOKUPD_NAME);
-	if (server_port == NULL) return gai_files(q, list);
+
+	server_port = MACH_PORT_NULL;
+	if (_lu_running()) server_port = _lookupd_port(0);
+
+	if (server_port == MACH_PORT_NULL) return gai_files(q, list);
 
 	status = _lookup_link(server_port, "query", &proc);
 	if (status != KERN_SUCCESS) return gai_files(q, list);
@@ -633,10 +694,8 @@ gai_lookupd(struct lu_dict *q, struct lu_dict **list)
 
 	xdr_destroy(&outxdr);
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
 	datalen *= BYTES_PER_XDR_UNIT;
-#endif
+
 	xdrmem_create(&inxdr, listbuf, datalen, XDR_DECODE);
 
 	if (!xdr_int(&inxdr, &n))
@@ -777,8 +836,7 @@ grok_service(const char *servname, struct lu_dict *q)
 		if (!isdigit(*p)) port = -1;
 	}
 
-	if (port == 0) port = atoi(servname);
-	if ((port > 0) && (port < 0xffff)) q->port = (char *)servname;
+	if (port == 0) q->port = (char *)servname;
 	else q->service = (char *)servname;
 }
 
@@ -798,7 +856,7 @@ gai_numerichost(struct lu_dict *h, struct lu_dict **list)
 		a = (struct lu_dict *)malloc(sizeof(struct lu_dict));
 		memset(a, 0, sizeof(struct lu_dict));
 		a->ipv4 = strdup(h->ipv4);
-		append_lu_dict(list, a);
+		merge_lu_dict(list, a);
 		n++;
 	}
 
@@ -807,7 +865,7 @@ gai_numerichost(struct lu_dict *h, struct lu_dict **list)
 		a = (struct lu_dict *)malloc(sizeof(struct lu_dict));
 		memset(a, 0, sizeof(struct lu_dict));
 		a->ipv6 = strdup(h->ipv6);
-		append_lu_dict(list, a);
+		merge_lu_dict(list, a);
 		n++;
 	}
 
@@ -826,7 +884,7 @@ gai_numericserv(struct lu_dict *s, struct lu_dict **list)
 	a = (struct lu_dict *)malloc(sizeof(struct lu_dict));
 	memset(a, 0, sizeof(struct lu_dict));
 	a->port = strdup(s->port);
-	append_lu_dict(list, a);
+	merge_lu_dict(list, a);
 	return 1;	
 }
 
@@ -1358,7 +1416,7 @@ gai_node_pp(const char *nodename, unsigned short port, int proto, int family, in
 	{
 		if (d->cname != NULL)
 		{
-			cname = strdup(d->cname);
+			if (cname == NULL) cname = strdup(d->cname);
 			gai_node_lookupd(d->cname, family, 0, &list);
 		}
 	}
@@ -1597,15 +1655,22 @@ getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *h
 	if (nodename == NULL)
 	{
 		/* If node is NULL, find service */
-		return gai_serv(servname, hints, res);
+		status = gai_serv(servname, hints, res);
+		if ((status == 0) && (*res == NULL)) status = EAI_NODATA;
+		return status;
 	}
 
 	if (servname == NULL)
 	{
 		/* If service is NULL, find node */
-		return gai_node(nodename, hints, res);
+		status = gai_node(nodename, hints, res);
+		if ((status == 0) && (*res == NULL)) status = EAI_NODATA;
+		return status;
 	}
 
 	/* Find node + service */
-	return gai_nodeserv(nodename, servname, hints, res);
+	status = gai_nodeserv(nodename, servname, hints, res);
+	if ((status == 0) && (*res == NULL)) status = EAI_NODATA;
+	return status;
 }
+

@@ -1,0 +1,1235 @@
+This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* Emacs FAQ: (efaq).	Frequently Asked Questions about Emacs.
+END-INFO-DIR-ENTRY
+
+   Copyright 1994,1995,1996,1997,1998,1999,2000 Reuven M. Lerner
+Copyright 1992,1993 Steven Byrnes
+Copyright 1990,1991,1992 Joseph Brian Wells
+This list of frequently asked questions about GNU Emacs with answers
+("FAQ") may be translated into other languages, transformed into other
+formats (e.g. Texinfo, Info, WWW, WAIS), and updated with new
+information.
+
+   The same conditions apply to any derivative of the FAQ as apply to
+the FAQ itself.  Every copy of the FAQ must include this notice or an
+approved translation, information on who is currently maintaining the
+FAQ and how to contact them (including their e-mail address), and
+information on where the latest version of the FAQ is archived
+(including FTP information).
+
+   The FAQ may be copied and redistributed under these conditions,
+except that the FAQ may not be embedded in a larger literary work
+unless that work itself allows free copying and redistribution.
+
+   [This version has been somewhat edited from the last-posted version
+(as of August 1999) for inclusion in the Emacs distribution.]
+
+
+File: efaq,  Node: Wrapping words automatically,  Next: Spell-checkers,  Prev: Controlling case sensitivity,  Up: Common requests
+
+How do I make Emacs wrap words for me?
+======================================
+
+   Use `auto-fill-mode', activated by typing `M-x auto-fill-mode'.  The
+default maximum line width is 70, determined by the variable
+`fill-column'.  To learn how to turn this on automatically, see *Note
+Turning on auto-fill by default::.
+
+
+File: efaq,  Node: Spell-checkers,  Next: Checking TeX and *roff documents,  Prev: Wrapping words automatically,  Up: Common requests
+
+Where can I get a better spelling checker for Emacs?
+====================================================
+
+   Use Ispell.  *Note Ispell::.
+
+
+File: efaq,  Node: Checking TeX and *roff documents,  Next: Changing load-path,  Prev: Spell-checkers,  Up: Common requests
+
+How can I spell-check TeX or *roff documents?
+=============================================
+
+   Use Ispell.  Ispell can handle TeX and *roff documents.  *Note
+Ispell::.
+
+
+File: efaq,  Node: Changing load-path,  Next: Using an already running Emacs process,  Prev: Checking TeX and *roff documents,  Up: Common requests
+
+How do I change `load-path'?
+============================
+
+   In general, you should only add to the `load-path'.  You can add
+directory /DIR/SUBDIR to the load path like this:
+
+     (setq load-path (cons "/dir/subdir/" load-path))
+
+   To do this relative to your home directory:
+
+     (setq load-path (cons "~/mysubdir/" load-path)
+
+
+File: efaq,  Node: Using an already running Emacs process,  Next: Compiler error messages,  Prev: Changing load-path,  Up: Common requests
+
+How do I use an already running Emacs from another window?
+==========================================================
+
+   `emacsclient', which comes with Emacs, is for editing a file using
+an already running Emacs rather than starting up a new Emacs.  It does
+this by sending a request to the already running Emacs, which must be
+expecting the request.
+
+   * Setup:
+
+     Emacs must have executed the `server-start' function for
+     `emacsclient' to work.  This can be done either by a command line
+     option:
+
+          emacs -f server-start
+
+     or by invoking `server-start' from `.emacs':
+
+          (if (SOME CONDITIONS ARE MET) (server-start))
+
+     When this is done, Emacs starts a subprocess running a program
+     called `emacsserver'.  `emacsserver' creates a Unix domain socket.
+     The socket is either named `.emacs_server', in the user's home
+     directory, or `esrv-USERID-SYSTEMNAME', in the `/tmp' directory,
+     depending on how `emacsserver' was compiled.
+
+     To get your news reader, mail reader, etc., to invoke
+     `emacsclient', try setting the environment variable `EDITOR' (or
+     sometimes `VISUAL') to the value `emacsclient'.  You may have to
+     specify the full pathname of the `emacsclient' program instead.
+     Examples:
+
+          # csh commands:
+          setenv EDITOR emacsclient
+          
+          # using full pathname
+          setenv EDITOR /usr/local/emacs/etc/emacsclient
+          
+          # sh command:
+          EDITOR=emacsclient ; export EDITOR
+
+   * Normal use:
+
+     When `emacsclient' is run, it connects to the `.emacs_server'
+     socket and passes its command line options to `server'.  When
+     `server' receives these requests, it sends this information to the
+     the Emacs process, which at the next opportunity will visit the
+     files specified.  (Line numbers can be specified just like with
+     Emacs.)  The user will have to switch to the Emacs window by hand.
+     When the user is done editing a file, the user can type `C-x #'
+     (or `M-x server-edit') to indicate this.  If there is another
+     buffer requested by `emacsclient', Emacs will switch to it;
+     otherwise `emacsclient' will exit, signaling the calling program
+     to continue.
+
+     `emacsclient' and `server' must be running on machines which share
+     the same filesystem for this to work.  The pathnames that
+     `emacsclient' specifies should be correct for the filesystem that
+     the Emacs process sees.  The Emacs process should not be suspended
+     at the time `emacsclient' is invoked.  On Unix and GNU/Linux
+     systems, `emacsclient' should either be invoked from another X
+     window, or from a shell window inside Emacs itself, or from
+     another interactive session, e.g., by means of a `screen' program.
+
+     There is an enhanced version of `emacsclient'/server called
+     `gnuserv', written by Andy Norman <ange@hplb.hpl.hp.com> which is
+     available in the Emacs Lisp Archive (*note Packages that do not
+     come with Emacs::).  `gnuserv' uses Internet domain sockets, so it
+     can work across most network connections.  It also supports the
+     execution of arbitrary Emacs Lisp forms and does not require the
+     client program to wait for completion.
+
+     The alpha version of an enhanced `gnuserv' is available at
+
+     `ftp://ftp.wellfleet.com/netman/psmith/emacs/gnuserv-2.1alpha.tar.gz'
+
+
+
+File: efaq,  Node: Compiler error messages,  Next: Indenting switch statements,  Prev: Using an already running Emacs process,  Up: Common requests
+
+How do I make Emacs recognize my compiler's funny error messages?
+=================================================================
+
+   The variable `compilation-error-regexp-alist' helps control how
+Emacs parses your compiler output.  It is a list of triplets of the
+form: `(REGEXP FILE-IDX LINE-IDX)', where REGEXP, FILE-IDX and LINE-IDX
+are strings.  To help determine what the constituent elements should
+be, load `compile.el' and then type `C-h v
+compilation-error-regexp-alist <RET>' to see the current value.  A good
+idea is to look at `compile.el' itself as the comments included for
+this variable are quite useful--the regular expressions required for
+your compiler's output may be very close to one already provided.  Once
+you have determined the proper regexps, use the following to inform
+Emacs of your changes:
+
+     (setq compilation-error-regexp-alist
+           (cons '(REGEXP FILE-IDX LINE-IDX)
+              compilation-error-regexp-alist))
+
+
+File: efaq,  Node: Indenting switch statements,  Next: Customizing C and C++ indentation,  Prev: Compiler error messages,  Up: Common requests
+
+How do I change the indentation for `switch'?
+=============================================
+
+   Many people want to indent their `switch' statements like this:
+
+     f()
+     {
+       switch(x) {
+         case A:
+           x1;
+           break;
+         case B:
+           x2;
+           break;
+         default:
+           x3;
+       }
+     }
+
+   The solution at first appears to be: set `c-indent-level' to 4 and
+`c-label-offset' to -2.  However, this will give you an indentation
+spacing of four instead of two.
+
+   The _real_ solution is to use `cc-mode' (the default mode for C
+programming in Emacs 20 and later) and add the following line to yoyr
+`.emacs':
+
+     (c-set-offset 'case-label '+)
+
+   There appears to be no way to do this with the old `c-mode'.
+
+
+File: efaq,  Node: Customizing C and C++ indentation,  Next: Horizontal scrolling,  Prev: Indenting switch statements,  Up: Common requests
+
+How to customize indentation in C, C++, and Java buffers?
+=========================================================
+
+   The Emacs `cc-mode' features an interactive procedure for
+customizing the indentation style, which is fully explained in the `CC
+Mode' manual that is part of the Emacs distribution, see *Note
+Customization Indentation: (ccmode)Customizing Indentation.  Here's a
+short summary of the procedure:
+
+  1. Go to the beginning of the first line where you don't like the
+     indentation and type `C-c C-o'.  Emacs will prompt you for the
+     syntactic symbol; type <RET> to accept the default it suggests.
+
+  2. Emacs now prompts for the offset of this syntactic symbol, showing
+     the default (the current definition) inside parentheses.  You can
+     choose one of these:
+
+    `0'
+          No extra indentation.
+
+    `+'
+          Indent one basic offset.
+
+    `-'
+          Outdent one basic offset.
+
+    `++'
+          Indent two basic offsets
+
+    `--'
+          Outdent two basic offsets.
+
+    `*'
+          Indent half basic offset.
+
+    `/'
+          Outdent half basic offset.
+
+  3. After choosing one of these symbols, type `C-c C-q' to reindent
+     the line or the block according to what you just specified.
+
+  4. If you don't like the result, go back to step 1.  Otherwise, add
+     the following line to your `.emacs':
+
+          (c-set-offset 'SYNTACTIC-SYMBOL OFFSET)
+
+     where SYNTACTIC-SYMBOL is the name Emacs shows in the minibuffer
+     when you type `C-c C-o' at the beginning of the line, and OFFSET
+     is one of the indentation symbols listed above (`+', `/', `0',
+     etc.) that you've chosen during the interactive procedure.
+
+  5. Go to the next line whose indentation is not to your liking and
+     repeat the process there.
+
+   It is recommended to put all the resulting `(c-set-offset ...)'
+customizations inside a C mode hook, like this:
+
+     (defun my-c-mode-hook ()
+       (c-set-offset ...)
+       (c-set-offset ...))
+     (add-hook 'c-mode-hook 'my-c-mode-hook)
+
+Using `c-mode-hook' avoids the need to put a `(require 'cc-mode)' into
+your `.emacs' file, because `c-set-offset' might be unavailable when
+`cc-mode' is not loaded.
+
+   Note that `c-mode-hook' runs for C source files only; use
+`c++-mode-hook' for C++ sources, `java-mode-hook' for Java sources,
+etc.  If you want the same customizations to be in effect in _all_
+languages supported by `cc-mode', use `c-mode-common-hook'.
+
+
+File: efaq,  Node: Horizontal scrolling,  Next: Overwrite mode,  Prev: Customizing C and C++ indentation,  Up: Common requests
+
+How can I make Emacs automatically scroll horizontally?
+=======================================================
+
+   In Emacs 21 and later, this is on by default: if the variable
+`truncate-lines' is non-`nil' in the current buffer, Emacs
+automatically scrolls the display horizontally when point moves off the
+left or right edge of the window.
+
+   In Emacs 20, use the `hscroll-mode'.  Here is some information from
+the documentation, available by typing `C-h f hscroll-mode <RET>':
+
+   Automatically scroll horizontally when the point moves off the left
+or right edge of the window.
+
+   - Type `M-x hscroll-mode' to enable it in the current buffer.
+
+   - Type `M-x hscroll-global-mode' to enable it in every buffer.
+
+   - `turn-on-hscroll' is useful in mode hooks as in:
+
+          (add-hook 'text-mode-hook 'turn-on-hscroll)
+
+   - `hscroll-margin' controls how close the cursor can get to the edge
+     of the window.
+
+   - `hscroll-step-percent' controls how far to jump once we decide to
+     do so.
+
+
+File: efaq,  Node: Overwrite mode,  Next: Turning off beeping,  Prev: Horizontal scrolling,  Up: Common requests
+
+How do I make Emacs "typeover" or "overwrite" instead of inserting?
+===================================================================
+
+   `M-x overwrite-mode' (a minor mode).  This toggles `overwrite-mode'
+on and off, so exiting from `overwrite-mode' is as easy as another `M-x
+overwrite-mode'.
+
+   On some systems, <Insert> toggles `overwrite-mode' on and off.
+
+
+File: efaq,  Node: Turning off beeping,  Next: Turning the volume down,  Prev: Overwrite mode,  Up: Common requests
+
+How do I stop Emacs from beeping on a terminal?
+===============================================
+
+   Martin R. Frank <martin@cc.gatech.edu> writes:
+
+   Tell Emacs to use the "visible bell" instead of the audible bell,
+and set the visible bell to nothing.
+
+   That is, put the following in your `TERMCAP' environment variable
+(assuming you have one):
+
+     ... :vb=: ...
+
+   And evaluate the following Lisp form:
+
+     (setq visible-bell t)
+
+
+File: efaq,  Node: Turning the volume down,  Next: Automatic indentation,  Prev: Turning off beeping,  Up: Common requests
+
+How do I turn down the bell volume in Emacs running under X?
+============================================================
+
+   On X Window system, you can adjust the bell volume and duration for
+all programs with the shell command `xset'.
+
+   Invoking `xset' without any arguments produces some basic
+information, including the following:
+
+     usage:  xset [-display host:dpy] option ...
+       To turn bell off:
+           -b                b off               b 0
+       To set bell volume, pitch and duration:
+            b [vol [pitch [dur]]]          b on
+
+
+File: efaq,  Node: Automatic indentation,  Next: Matching parentheses,  Prev: Turning the volume down,  Up: Common requests
+
+How do I tell Emacs to automatically indent a new line to the indentation of the previous line?
+===============================================================================================
+
+   Such behavior is automatic in Emacs 20 and later.  From the
+`etc/NEWS' file for Emacs 20.2:
+
+     ** In Text mode, now only blank lines separate paragraphs.  This makes
+     it possible to get the full benefit of Adaptive Fill mode in Text mode,
+     and other modes derived from it (such as Mail mode).  <TAB> in Text
+     mode now runs the command `indent-relative'; this makes a practical
+     difference only when you use indented paragraphs.
+     
+     As a result, the old Indented Text mode is now identical to Text mode,
+     and is an alias for it.
+     
+     If you want spaces at the beginning of a line to start a paragraph, use
+     the new mode, Paragraph Indent Text mode.
+
+   If you have `auto-fill-mode' turned on (*note Turning on auto-fill
+by default::), you can tell Emacs to prefix every line with a certain
+character sequence, the "fill prefix".  Type the prefix at the
+beginning of a line, position point after it, and then type `C-x .'
+(`set-fill-prefix') to set the fill prefix.  Thereafter, auto-filling
+will automatically put the fill prefix at the beginning of new lines,
+and `M-q' (`fill-paragraph') will maintain any fill prefix when
+refilling the paragraph.
+
+   If you have paragraphs with different levels of indentation, you will
+have to set the fill prefix to the correct value each time you move to a
+new paragraph.  To avoid this hassle, try one of the many packages
+available from the Emacs Lisp Archive (*note Packages that do not come
+with Emacs::.)  Look up "fill" and "indent" in the Lisp Code Directory
+for guidance.
+
+
+File: efaq,  Node: Matching parentheses,  Next: Hiding #ifdef lines,  Prev: Automatic indentation,  Up: Common requests
+
+How do I show which parenthesis matches the one I'm looking at?
+===============================================================
+
+   As of version 19, Emacs comes with `paren.el', which (when loaded)
+will automatically highlight matching parentheses whenever point (i.e.,
+the cursor) is located over one.  To load `paren.el' automatically,
+include the line
+
+     (require 'paren)
+
+   in your `.emacs' file.  Alan Shutko <shutkoa@ugsolutions.com>
+reports that as of version 20.1, you must also call `show-paren-mode' in
+your `.emacs' file:
+
+     (show-paren-mode 1)
+
+   Customize will let you turn on `show-paren-mode'.  Use `M-x
+customize-group <RET> paren-showing <RET>'.  From within Customize, you
+can also go directly to the "paren-showing" group.
+
+   Alternatives to paren include:
+
+   * If you're looking at a right parenthesis (or brace or bracket) you
+     can delete it and reinsert it.  Emacs will momentarily move the
+     cursor to the matching parenthesis.
+
+   * `M-C-f' (`forward-sexp') and `M-C-b' (`backward-sexp') will skip
+     over one set of balanced parentheses, so you can see which
+     parentheses match.  (You can train it to skip over balanced
+     brackets and braces at the same time by modifying the syntax
+     table.)
+
+   * Here is some Emacs Lisp that will make the <%> key show the
+     matching parenthesis, like in `vi'.  In addition, if the cursor
+     isn't over a parenthesis, it simply inserts a % like normal.
+
+          ;; By an unknown contributor
+          
+          (global-set-key "%" 'match-paren)
+          
+          (defun match-paren (arg)
+            "Go to the matching paren if on a paren; otherwise insert %."
+            (interactive "p")
+            (cond ((looking-at "\\s\(") (forward-list 1) (backward-char 1))
+                  ((looking-at "\\s\)") (forward-char 1) (backward-list 1))
+                  (t (self-insert-command (or arg 1)))))
+
+
+
+File: efaq,  Node: Hiding #ifdef lines,  Next: Repeating commands,  Prev: Matching parentheses,  Up: Common requests
+
+In C mode, can I show just the lines that will be left after `#ifdef' commands are handled by the compiler?
+===========================================================================================================
+
+   `M-x hide-ifdef-mode'.  (This is a minor mode.)  You might also want
+to try `cpp.el', available at the Emacs Lisp Archive (*note Packages
+that do not come with Emacs::).
+
+
+File: efaq,  Node: Repeating commands,  Next: Valid X resources,  Prev: Hiding #ifdef lines,  Up: Common requests
+
+Is there an equivalent to the `.' (dot) command of vi?
+======================================================
+
+   (`.' is the redo command in `vi'.  It redoes the last
+insertion/deletion.)
+
+   As of Emacs 20.3, there is indeed a `repeat' command (`C-x z') that
+repeats the last command.  If you preface it with a prefix argument,
+the prefix arg is applied to the command.
+
+   You can also type `C-x <ESC> <ESC>' (`repeat-complex-command') to
+reinvoke commands that used the minibuffer to get arguments.  In
+`repeat-complex-command' you can type `M-p' and `M-n' (and also
+up-arrow and down-arrow, if your keyboard has these keys) to scan
+through all the different complex commands you've typed.
+
+   To repeat a set of commands, use keyboard macros.  (*note Keyboard
+Macros: (emacs)Keyboard Macros.)
+
+   If you're really desperate for the `.' command, use VIPER, a `vi'
+emulation mode which comes with Emacs, and which appears to support it.
+(*Note VIPER::.)
+
+
+File: efaq,  Node: Valid X resources,  Next: Evaluating Emacs Lisp code,  Prev: Repeating commands,  Up: Common requests
+
+What are the valid X resource settings (i.e., stuff in .Xdefaults)?
+===================================================================
+
+   *note Resources X: (emacs)Resources X.
+
+   You can also use a resource editor, such as editres (for X11R5 and
+onwards), to look at the resource names for the menu bar, assuming Emacs
+was compiled with the X toolkit.
+
+
+File: efaq,  Node: Evaluating Emacs Lisp code,  Next: Changing the length of a Tab,  Prev: Valid X resources,  Up: Common requests
+
+How do I execute ("evaluate") a piece of Emacs Lisp code?
+=========================================================
+
+   There are a number of ways to execute ("evaluate", in Lisp lingo) an
+Emacs Lisp "form":
+
+   * If you want it evaluated every time you run Emacs, put it in a file
+     named `.emacs' in your home directory.  This is known as "your
+     `.emacs' file," and contains all of your personal customizations.
+
+   * You can type the form in the `*scratch*' buffer, and then type
+     <LFD> (or `C-j') after it.  The result of evaluating the form will
+     be inserted in the buffer.
+
+   * In `emacs-lisp-mode', typing `M-C-x' evaluates a top-level form
+     before or around point.
+
+   * Typing `C-x C-e' in any buffer evaluates the Lisp form immediately
+     before point and prints its value in the echo area.
+
+   * Typing `M-:' or `M-x eval-expression' allows you to type a Lisp
+     form in the minibuffer which will be evaluated once you press
+     <RET>.
+
+   * You can use `M-x load-file' to have Emacs evaluate all the Lisp
+     forms in a file.  (To do this from Lisp use the function `load'
+     instead.)
+
+     The functions `load-library', `eval-region',
+     `eval-current-buffer', `require', and `autoload' are also useful;
+     see *Note Emacs Lisp documentation::, if you want to learn more
+     about them.
+
+
+
+File: efaq,  Node: Changing the length of a Tab,  Next: Inserting > at the beginning of each line,  Prev: Evaluating Emacs Lisp code,  Up: Common requests
+
+How do I change Emacs's idea of the <TAB> character's length?
+=============================================================
+
+   Set the variable `default-tab-width'.  For example, to set <TAB>
+stops every 10 characters, insert the following in your `.emacs' file:
+
+     (setq default-tab-width 10)
+
+   Do not confuse variable `tab-width' with variable `tab-stop-list'.
+The former is used for the display of literal <TAB> characters.  The
+latter controls what characters are inserted when you press the <TAB>
+character in certain modes.
+
+
+File: efaq,  Node: Inserting > at the beginning of each line,  Next: Underlining paragraphs,  Prev: Changing the length of a Tab,  Up: Common requests
+
+How do I insert `>' at the beginning of every line?
+===================================================
+
+   To do this to an entire buffer, type `M-< M-x replace-regexp <RET> ^
+<RET> > <RET>'.
+
+   To do this to a region, use `string-insert-rectangle'.  Set the mark
+(`C-<SPC>') at the beginning of the first line you want to prefix, move
+the cursor to last line to be prefixed, and type `M-x
+string-insert-rectangle <RET>'.  To do this for the whole buffer, type
+`C-x h M-x string-insert-rectangle <RET>'.
+
+   If you are trying to prefix a yanked mail message with `>', you
+might want to set the variable `mail-yank-prefix'.  Better yet, use the
+Supercite package (*note Supercite::), which provides flexible citation
+for yanked mail and news messages; it is included in Emacs since
+version 19.20.  *Note Changing the included text prefix::, for
+additional information.
+
+
+File: efaq,  Node: Underlining paragraphs,  Next: Repeating a command as many times as possible,  Prev: Inserting > at the beginning of each line,  Up: Common requests
+
+How do I insert "_^H" before each character in a region to get an underlined paragraph?
+=======================================================================================
+
+   Mark the region and then type `M-x underline-region <RET>'.
+
+
+File: efaq,  Node: Repeating a command as many times as possible,  Next: Forcing the cursor to remain in the same column,  Prev: Underlining paragraphs,  Up: Common requests
+
+How do I repeat a command as many times as possible?
+====================================================
+
+   Use `C-x (' and `C-x )' to make a keyboard macro that invokes the
+command and then type `M-0 C-x e'.
+
+   Any messages your command prints in the echo area will be suppressed.
+
+   If you need to repeat a command a small number of times, you can use
+`C-x z', see *Note Repeating commands::.
+
+
+File: efaq,  Node: Forcing the cursor to remain in the same column,  Next: Forcing Emacs to iconify itself,  Prev: Repeating a command as many times as possible,  Up: Common requests
+
+How do I make Emacs behave like this: when I go up or down, the cursor should stay in the same column even if the line is too short?
+====================================================================================================================================
+
+   `M-x picture-mode'.
+
+
+File: efaq,  Node: Forcing Emacs to iconify itself,  Next: Using regular expressions,  Prev: Forcing the cursor to remain in the same column,  Up: Common requests
+
+How do I tell Emacs to iconify itself?
+======================================
+
+   `C-z' iconifies Emacs when running under X and suspends Emacs
+otherwise.  *note Misc X: (emacs)Misc X.
+
+
+File: efaq,  Node: Using regular expressions,  Next: Replacing text across multiple files,  Prev: Forcing Emacs to iconify itself,  Up: Common requests
+
+How do I use regexps (regular expressions) in Emacs?
+====================================================
+
+   *note Regexps: (emacs)Regexps.
+
+   The `or' operator is `\|', not `|', and the grouping operators are
+`\(' and `\)'.  Also, the string syntax for a backslash is `\\'.  To
+specify a regular expression like `xxx\(foo\|bar\)' in a Lisp string,
+use `xxx\\(foo\\|bar\\)'.
+
+   Note the doubled backslashes!
+
+   * Unlike in Unix `grep', `sed', etc., a complement character set
+     (`[^...]')  can match a newline character (<LFD> a.k.a.  `C-j'
+     a.k.a. `\n'), unless newline is mentioned as one of the characters
+     not to match.
+
+   * The character syntax regexps (e.g., `\sw') are not meaningful
+     inside character set regexps (e.g., `[aeiou]').  (This is actually
+     typical for regexp syntax.)
+
+
+
+File: efaq,  Node: Replacing text across multiple files,  Next: Documentation for etags,  Prev: Using regular expressions,  Up: Common requests
+
+How do I perform a replace operation across more than one file?
+===============================================================
+
+   The "tags" feature of Emacs includes the command
+`tags-query-replace' which performs a query-replace across all the
+files mentioned in the `TAGS' file.  *note Tags Search: (emacs)Tags
+Search.
+
+   As of Emacs 19.29, Dired mode (`M-x dired <RET>', or `C-x d')
+supports the command `dired-do-query-replace', which allows users to
+replace regular expressions in multiple files.
+
+
+File: efaq,  Node: Documentation for etags,  Next: Disabling backups,  Prev: Replacing text across multiple files,  Up: Common requests
+
+Where is the documentation for `etags'?
+=======================================
+
+   The `etags' man page should be in the same place as the `emacs' man
+page.
+
+   Quick command-line switch descriptions are also available.  For
+example, `etags -H'.
+
+
+File: efaq,  Node: Disabling backups,  Next: Disabling auto-save-mode,  Prev: Documentation for etags,  Up: Common requests
+
+How do I disable backup files?
+==============================
+
+   You probably don't want to do this, since backups are useful,
+especially when something goes wrong.
+
+   To avoid seeing backup files (and other "uninteresting" files) in
+Dired, load `dired-x' by adding the following to your `.emacs' file:
+
+     (add-hook 'dired-load-hook
+               (lambda ()
+                (load "dired-x")))
+
+   With `dired-x' loaded, `M-o' toggles omitting in each dired buffer.
+You can make omitting the default for new dired buffers by putting the
+following in your `.emacs':
+
+     (add-hook 'dired-mode-hook 'dired-omit-toggle)
+
+   If you're tired of seeing backup files whenever you do an `ls' at
+the Unix shell, try GNU `ls' with the `-B' option.  GNU `ls' is part of
+the GNU Fileutils package, available from `ftp.gnu.org' and its mirrors
+(*note Current GNU distributions::).
+
+   To disable or change the way backups are made, *note (emacs)Backup
+Names::.
+
+   Beginning with Emacs 21.1, you can control where Emacs puts backup
+files by customizing the variable `backup-directory-alist'.  This
+variable's value specifies that files whose names match specific patters
+should have their backups put in certain directories.  A typical use is
+to add the element `("." . DIR)' to force Emacs to put *all* backup
+files in the directory `dir'.
+
+
+File: efaq,  Node: Disabling auto-save-mode,  Next: Going to a line by number,  Prev: Disabling backups,  Up: Common requests
+
+How do I disable `auto-save-mode'?
+==================================
+
+   You probably don't want to do this, since auto-saving is useful,
+especially when Emacs or your computer crashes while you are editing a
+document.
+
+   Instead, you might want to change the variable `auto-save-interval',
+which specifies how many keystrokes Emacs waits before auto-saving.
+Increasing this value forces Emacs to wait longer between auto-saves,
+which might annoy you less.
+
+   You might also want to look into Sebastian Kremer's `auto-save'
+package, available from the Lisp Code Archive (*note Packages that do
+not come with Emacs::).  This package also allows you to place all
+auto-save files in one directory, such as `/tmp'.
+
+   To disable or change how `auto-save-mode' works, *note (emacs)Auto
+Save::.
+
+
+File: efaq,  Node: Going to a line by number,  Next: Modifying pull-down menus,  Prev: Disabling auto-save-mode,  Up: Common requests
+
+How can I go to a certain line given its number?
+================================================
+
+   Are you sure you indeed need to go to a line by its number?  Perhaps
+all you want is to display a line in your source file for which a
+compiler printed an error message?  If so, compiling from within Emacs
+using the `M-x compile' and `M-x recompile' commands is a much more
+effective way of doing that.  Emacs automatically intercepts the compile
+error messages, inserts them into a special buffer called
+`*compilation*', and lets you visit the locus of each message in the
+source.  Type `C-x `' to step through the offending lines one by one.
+Click `Mouse-2' or press <RET> on a message text in the `*compilation*'
+buffer to go to the line whose number is mentioned in that message.
+
+   But if you indeed need to go to a certain text line, type `M-x
+goto-line <RET>'.  Emacs will prompt you for the number of the line and
+go to that line.
+
+   You can do this faster by invoking `goto-line' with a numeric
+argument that is the line's number.  For example, `C-u 286 M-x
+goto-line <RET>' will jump to line number 286 in the current buffer.
+
+   If you need to use this command frequently, you might consider
+binding it to a key.  The following snippet, if added to your `~/.emacs'
+file, will bind the sequence `C-x g' to `goto-line':
+
+      (global-set-key "\C-xg" 'goto-line)
+
+
+File: efaq,  Node: Modifying pull-down menus,  Next: Deleting menus and menu options,  Prev: Going to a line by number,  Up: Common requests
+
+How can I create or modify new pull-down menu options?
+======================================================
+
+   Each menu title (e.g., `File', `Edit', `Buffers') represents a local
+or global keymap.  Selecting a menu title with the mouse displays that
+keymap's non-nil contents in the form of a menu.
+
+   So to add a menu option to an existing menu, all you have to do is
+add a new definition to the appropriate keymap.  Adding a `Forward Word'
+item to the `Edit' menu thus requires the following Lisp code:
+
+     (define-key global-map
+       [menu-bar edit forward]
+       '("Forward word" . forward-word))
+
+The first line adds the entry to the global keymap, which includes
+global menu bar entries.  Replacing the reference to `global-map' with
+a local keymap would add this menu option only within a particular mode.
+
+   The second line describes the path from the menu-bar to the new
+entry.  Placing this menu entry underneath the `File' menu would mean
+changing the word `edit' in the second line to `file'.
+
+   The third line is a cons cell whose first element is the title that
+will be displayed, and whose second element is the function that will be
+called when that menu option is invoked.
+
+   To add a new menu, rather than a new option to an existing menu, we
+must define an entirely new keymap:
+
+     (define-key global-map [menu-bar words]
+       (cons "Words" (make-sparse-keymap "Words")))
+
+   The above code creates a new sparse keymap, gives it the name
+`Words', and attaches it to the global menu bar.  Adding the `Forward
+Word' item to this new menu would thus require the following code:
+
+     (define-key global-map
+       [menu-bar words forward]
+       '("Forward word" . forward-word))
+
+Note that because of the way keymaps work, menu options are displayed
+with the more recently defined items at the top.  Thus if you were to
+define menu options `foo', `bar', and `baz' (in that order), the menu
+option `baz' would appear at the top, and `foo' would be at the bottom.
+
+   One way to avoid this problem is to use the function
+`define-key-after', which works the same as `define-key', but lets you
+modify where items appear.  The following Lisp code would insert the
+`Forward Word' item in the `Edit' menu immediately following the `Undo'
+item:
+
+     (define-key-after
+       (lookup-key global-map [menu-bar edit])
+       [forward]
+       '("Forward word" . forward-word)
+       'undo)
+
+   Note how the second and third arguments to `define-key-after' are
+different from those of `define-key', and that we have added a new
+(final) argument, the function after which our new key should be
+defined.
+
+   To move a menu option from one position to another, simply evaluate
+`define-key-after' with the appropriate final argument.
+
+   More detailed information--and more examples of how to create and
+modify menu options--are in the `Emacs Lisp Reference Manual', under
+"Menu Keymaps".  (*Note Emacs Lisp documentation::, for information on
+this manual.)
+
+
+File: efaq,  Node: Deleting menus and menu options,  Next: Turning on syntax highlighting,  Prev: Modifying pull-down menus,  Up: Common requests
+
+How do I delete menus and menu options?
+=======================================
+
+   The simplest way to remove a menu is to set its keymap to `nil'.
+For example, to delete the `Words' menu (*note Modifying pull-down
+menus::), use:
+
+     (define-key global-map [menu-bar words] nil)
+
+   Similarly, removing a menu option requires redefining a keymap entry
+to `nil'.  For example, to delete the `Forward word' menu option from
+the `Edit' menu (we added it in *Note Modifying pull-down menus::), use:
+
+     (define-key global-map [menu-bar edit forward] nil)
+
+
+File: efaq,  Node: Turning on syntax highlighting,  Next: Scrolling only one line,  Prev: Deleting menus and menu options,  Up: Common requests
+
+How do I turn on syntax highlighting?
+=====================================
+
+   `font-lock-mode' is the standard way to have Emacs perform syntax
+highlighting in the current buffer.  With `font-lock-mode' turned on,
+different types of text will appear in different colors.  For instance,
+if you turn on `font-lock-mode' in a programming mode, variables will
+appear in one face, keywords in a second, and comments in a third.
+
+   Earlier versions of Emacs supported hilit19, a similar package.  Use
+of hilit19 is now considered non-standard, although `hilit19.el' comes
+with the stock Emacs distribution.  It is no longer maintained.
+
+   To turn `font-lock-mode' on within an existing buffer, use `M-x
+font-lock-mode <RET>'.
+
+   To automatically invoke `font-lock-mode' when a particular major
+mode is invoked, set the major mode's hook.  For example, to fontify all
+`c-mode' buffers, add the following to your `.emacs' file:
+
+     (add-hook 'c-mode-hook 'turn-on-font-lock)
+
+   To automatically invoke `font-lock-mode' for all major modes, you
+can turn on `global-font-lock-mode' by including the following line in
+your `.emacs' file:
+
+     (global-font-lock-mode 1)
+
+This instructs Emacs to turn on font-lock mode in those buffers for
+which a font-lock mode definition has been provided (in the variable
+`font-lock-global-modes').  If you edit a file in `pie-ala-mode', and
+no font-lock definitions have been provided for `pie-ala' files, then
+the above setting will have no effect on that particular buffer.
+
+   Highlighting a buffer with `font-lock-mode' can take quite a while,
+and cause an annoying delay in display, so several features exist to
+work around this.
+
+   In Emacs 21 and later, turning on `font-lock-mode' automatically
+activates the new "Just-In-Time fontification" provided by
+`jit-lock-mode'.  `jit-lock-mode' defers the fontification of portions
+of buffer until you actually need to see them, and can also fontify
+while Emacs is idle.  This makes display of the visible portion of a
+buffer almost instantaneous.  For details about customizing
+`jit-lock-mode', type `C-h f jit-lock-mode <RET>'.
+
+   In versions of Emacs before 21, different levels of decoration are
+available, from slight to gaudy.  More decoration means you need to wait
+more time for a buffer to be fontified (or a faster machine).  To
+control how decorated your buffers should become, set the value of
+`font-lock-maximum-decoration' in your `.emacs' file, with a `nil'
+value indicating default (usually minimum) decoration, and a `t' value
+indicating the maximum decoration.  For the gaudiest possible look,
+then, include the line
+
+     (setq font-lock-maximum-decoration t)
+
+in your `.emacs' file.  You can also set this variable such that
+different modes are highlighted in a different ways; for more
+information, see the documentation for `font-lock-maximum-decoration'
+with `C-h v' (or `M-x describe-variable <RET>').
+
+   You might also want to investigate `fast-lock-mode' and
+`lazy-lock-mode', versions of `font-lock-mode' that speed up
+highlighting.  These are the alternatives for `jit-lock-mode' in
+versions of Emacs before 21.1.  The advantage of `lazy-lock-mode' is
+that it only fontifies buffers when certain conditions are met, such as
+after a certain amount of idle time, or after you have finished
+scrolling through text.  See the documentation for `lazy-lock-mode' by
+typing `C-h f `lazy-lock-mode'' (`M-x describe-function <RET>
+lazy-lock-mode <RET>').
+
+   Also see the documentation for the function `font-lock-mode',
+available by typing `C-h f font-lock-mode' (`M-x describe-function
+<RET> font-lock-mode <RET>').
+
+   For more information on font-lock mode, take a look at the
+`font-lock-mode' FAQ, maintained by Jari Aalto
+<jari.aalto@ntc.nokia.com> at
+
+   `ftp://cs.uta.fi/pub/ssjaaa/ema-font.gui'
+
+   To print buffers with the faces (i.e., colors and fonts) intact, use
+`M-x ps-print-buffer-with-faces' or `M-x ps-print-region-with-faces'.
+You will need a way to send text to a PostScript printer, or a
+PostScript interpreter such as Ghostscript; consult the documentation
+of the variables `ps-printer-name', `ps-lpr-command', and
+`ps-lpr-switches' for more details.
+
+
+File: efaq,  Node: Scrolling only one line,  Next: Replacing highlighted text,  Prev: Turning on syntax highlighting,  Up: Common requests
+
+How can I force Emacs to scroll only one line when I move past the bottom of the screen?
+========================================================================================
+
+   Place the following Lisp form in your `.emacs' file:
+
+     (setq scroll-step 1)
+
+   *note Scrolling: (emacs)Scrolling.
+
+
+File: efaq,  Node: Replacing highlighted text,  Next: Editing MS-DOS files,  Prev: Scrolling only one line,  Up: Common requests
+
+How can I replace highlighted text with what I type?
+====================================================
+
+   Use `delete-selection-mode', which you can start automatically by
+placing the following Lisp form in your `.emacs' file:
+
+     (delete-selection-mode t)
+
+   According to the documentation string for `delete-selection-mode'
+(which you can read using `M-x describe-function <RET>
+delete-selection-mode <RET>'):
+
+     When ON, typed text replaces the selection if the selection is
+     active.  When OFF, typed text is just inserted at point.
+
+   This mode also allows you to delete (not kill) the highlighted
+region by pressing <DEL>.
+
+
+File: efaq,  Node: Editing MS-DOS files,  Next: Filling paragraphs with a single space,  Prev: Replacing highlighted text,  Up: Common requests
+
+How can I edit MS-DOS files using Emacs?
+========================================
+
+   As of Emacs 20, detection and handling of MS-DOS (and Windows) files
+is performed transparently.  You can open MS-DOS files on a Unix system,
+edit it, and save it without having to worry about the file format.
+
+   When editing an MS-DOS style file, the mode line will indicate that
+it is a DOS file.  On Unix and GNU/Linux systems, and also on a
+Macintosh, the string `(DOS)' will appear near the left edge of the
+mode line; on DOS and Windows, where the DOS end-of-line (EOL) format
+is the default, a backslash (`\') will appear in the mode line.
+
+   If you are running a version of Emacs before 20.1, get `crypt++'
+from the Emacs Lisp Archive (*note Packages that do not come with
+Emacs::).  Among other things, `crypt++' transparently modifies MS-DOS
+files as they are loaded and saved, allowing you to ignore the
+different conventions that Unix and MS-DOS have for delineating the end
+of a line.
+
+
+File: efaq,  Node: Filling paragraphs with a single space,  Next: Escape sequences in shell output,  Prev: Editing MS-DOS files,  Up: Common requests
+
+How can I tell Emacs to fill paragraphs with a single space after each period?
+==============================================================================
+
+   Ulrich Mueller <ulm@vsnhd1.cern.ch> suggests adding the following
+two lines to your `.emacs' file:
+
+     (setq sentence-end "[.?!][]\"')}]*\\($\\|[ \t]\\)[ \t\n]*")
+     (setq sentence-end-double-space nil)
+
+
+File: efaq,  Node: Escape sequences in shell output,  Prev: Filling paragraphs with a single space,  Up: Common requests
+
+Why do I get these strange escape sequences when I run
+======================================================
+
+   `ls' from the Shell mode?
+
+   This happens because `ls' is aliased to `ls --color' in your shell
+init file.  You have two alternatives to solve this:
+
+   * Make the alias conditioned on the `EMACS' variable in the
+     environment.  When Emacs runs a subsidiary shell, it exports the
+     `EMACS' variable with the value `t' to that shell.  You can
+     unalias `ls' when that happens, thus limiting the alias to your
+     interactive sessions.
+
+   * Install the `ansi-color' package (bundled with Emacs 21.1 and
+     later), which converts these ANSI escape sequences into colors.
+
+
+File: efaq,  Node: Bugs and problems,  Next: Compiling and installing Emacs,  Prev: Common requests,  Up: Top
+
+Bugs and problems
+*****************
+
+   The Emacs manual lists some common kinds of trouble users could get
+into, see *Note Dealing with Emacs Trouble: (emacs)Lossage, so you
+might look there if the problem you encounter isn't described in this
+chapter.  If you decide you've discovered a bug, see *Note Reporting
+Bugs: (emacs)Bugs, for instructions how to do that.
+
+   The file `etc/PROBLEMS' in the Emacs distribution lists various
+known problems with building and using Emacs on specific platforms;
+type `C-h P' to read it.
+
+* Menu:
+
+* Problems with very large files::
+* ^M in the shell buffer::
+* Shell process exits abnormally::
+* Problems with Shell Mode on MS-Windows::
+* Termcap/Terminfo entries for Emacs::
+* Spontaneous entry into isearch-mode::
+* Problems talking to certain hosts::
+* Errors with init files::
+* Emacs ignores X resources::
+* Emacs ignores frame parameters::
+* Emacs takes a long time to visit files::
+* Editing files with $ in the name::
+* Shell mode loses the current directory::
+* Security risks with Emacs::
+* Dired claims that no file is on this line::
+
+
+File: efaq,  Node: Problems with very large files,  Next: ^M in the shell buffer,  Prev: Bugs and problems,  Up: Bugs and problems
+
+Does Emacs have problems with files larger than 8 megabytes?
+============================================================
+
+   Old versions (i.e., anything before 19.29) of Emacs had problems
+editing files larger than 8 megabytes.  As of version 19.29, the
+maximum buffer size is at least 2^27-1, or 134,217,727 bytes, or 132
+MBytes.  Emacs 20 can be compiled on some 64-bit systems in a way that
+enlarges the buffer size up to 576,460,752,303,423,487 bytes, or
+549,755,813 GBytes.
+
+   If you are using a version of Emacs older than 19.29 and cannot
+upgrade, you will have to recompile. Leonard N. Zubkoff <lnz@lucid.com>
+suggests putting the following two lines in `src/config.h' before
+compiling Emacs to allow for 26-bit integers and pointers (and thus file
+sizes of up to 33,554,431 bytes):
+
+     #define VALBITS 26
+     #define GCTYPEBITS 5
+
+This method may result in "ILLEGAL DATATYPE" and other random errors on
+some machines.
+
+   David Gillespie <daveg@csvax.cs.caltech.edu> explains how this
+problems crops up; while his numbers are true only for pre-19.29
+versions of Emacs, the theory remains the same with current versions.
+
+     Emacs is largely written in a dialect of Lisp; Lisp is a
+     freely-typed language in the sense that you can put any value of
+     any type into any variable, or return it from a function, and so
+     on.  So each value must carry a "tag" along with it identifying
+     what kind of thing it is, e.g., integer, pointer to a list,
+     pointer to an editing buffer, and so on.  Emacs uses standard
+     32-bit integers for data objects, taking the top 8 bits for the
+     tag and the bottom 24 bits for the value.  So integers (and
+     pointers) are somewhat restricted compared to true C integers and
+     pointers.
+
+
+File: efaq,  Node: ^M in the shell buffer,  Next: Shell process exits abnormally,  Prev: Problems with very large files,  Up: Bugs and problems
+
+How do I get rid of `^M' or echoed commands in my shell buffer?
+===============================================================
+
+   Try typing `M-x shell-strip-ctrl-m <RET>' while in `shell-mode' to
+make them go away.  If that doesn't work, you have several options:
+
+   For `tcsh', put this in your `.cshrc' (or `.tcshrc') file:
+
+     if ($?EMACS) then
+         if ("$EMACS" == t) then
+             if ($?tcsh) unset edit
+             stty nl
+         endif
+     endif
+
+   Or put this in your `.emacs_tcsh' file:
+
+     unset edit
+     stty nl
+
+   Alternatively, use `csh' in your shell buffers instead of `tcsh'.
+One way is:
+
+     (setq explicit-shell-file-name "/bin/csh")
+
+and another is to do this in your `.cshrc' (or `.tcshrc') file:
+
+     setenv ESHELL /bin/csh
+
+(You must start Emacs over again with the environment variable properly
+set for this to take effect.)
+
+   You can also set the `ESHELL' environment variable in Emacs Lisp
+with the following Lisp form,
+
+     (setenv "ESHELL" "/bin/csh")
+
+   The above solutions try to prevent the shell from producing the `^M'
+characters in the first place.  If this is not possible (e.g., if you
+use a Windows shell), you can get Emacs to remove these characters from
+the buffer by adding this to your `.emacs' init file:
+
+     (add-hook 'comint-output-filter-functions 'shell-strip-ctrl-m)
+
+   On a related note: If your shell is echoing your input line in the
+shell buffer, you might want to try the following command in your shell
+start-up file:
+
+     stty -icrnl -onlcr -echo susp ^Z
+
+
+File: efaq,  Node: Shell process exits abnormally,  Next: Problems with Shell Mode on MS-Windows,  Prev: ^M in the shell buffer,  Up: Bugs and problems
+
+Why do I get "Process shell exited abnormally with code 1"?
+===========================================================
+
+   The most likely reason for this message is that the `env' program is
+not properly installed.  Compile this program for your architecture,
+and install it with `a+x' permission in the architecture-dependent
+Emacs program directory.  (You can find what this directory is at your
+site by inspecting the value of the variable `exec-directory' by typing
+`C-h v exec-directory <RET>'.)
+
+   You should also check for other programs named `env' in your path
+(e.g., SunOS has a program named `/usr/bin/env').  We don't understand
+why this can cause a failure and don't know a general solution for
+working around the problem in this case.
+
+   The `make clean' command will remove `env' and other vital programs,
+so be careful when using it.
+
+   It has been reported that this sometimes happened when Emacs was
+started as an X client from an xterm window (i.e., had a controlling
+tty) but the xterm was later terminated.
+
+   See also `PROBLEMS' (in the `etc' subdirectory of the top-level
+directory when you unpack the Emacs source) for other possible causes
+of this message.
+
+
+File: efaq,  Node: Problems with Shell Mode on MS-Windows,  Next: Termcap/Terminfo entries for Emacs,  Prev: Shell process exits abnormally,  Up: Bugs and problems
+
+Why do I get an error message when I try to run `M-x shell'?
+============================================================
+
+   On MS-Windows, this might happen because Emacs tries to look for the
+shell in a wrong place.  The default file name `/bin/sh' is usually
+incorrect for non-Unix systems.  If you know where your shell
+executable is, set the variable `explicit-shell-file-name' in your
+`.emacs' file to point to its full file name, like this:
+
+     (setq explicit-shell-file-name "d:/shells/bash.exe")
+
+   If you don't know what shell does Emacs use, try the `M-!' command;
+if that works, put the following line into your `.emacs':
+
+     (setq explicit-shell-file-name shell-file-name)
+
+   Some people have trouble with Shell Mode because of intrusive
+antivirus software; disabling the resident antivirus program solves the
+problems in those cases.
+
+
+File: efaq,  Node: Termcap/Terminfo entries for Emacs,  Next: Spontaneous entry into isearch-mode,  Prev: Problems with Shell Mode on MS-Windows,  Up: Bugs and problems
+
+Where is the termcap/terminfo entry for terminal type "emacs"?
+==============================================================
+
+   The termcap entry for terminal type `emacs' is ordinarily put in the
+`TERMCAP' environment variable of subshells.  It may help in certain
+situations (e.g., using rlogin from shell buffer) to add an entry for
+`emacs' to the system-wide termcap file.  Here is a correct termcap
+entry for `emacs':
+
+     emacs:tc=unknown:
+
+   To make a terminfo entry for `emacs', use `tic' or `captoinfo'.  You
+need to generate `/usr/lib/terminfo/e/emacs'.  It may work to simply
+copy `/usr/lib/terminfo/d/dumb' to `/usr/lib/terminfo/e/emacs'.
+
+   Having a termcap/terminfo entry will not enable the use of full
+screen programs in shell buffers.  Use `M-x terminal-emulator' for that
+instead.
+
+   A workaround to the problem of missing termcap/terminfo entries is to
+change terminal type `emacs' to type `dumb' or `unknown' in your shell
+start up file.  `csh' users could put this in their `.cshrc' files:
+
+     if ("$term" == emacs) set term=dumb
+

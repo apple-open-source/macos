@@ -1,6 +1,6 @@
 ;;; find-func.el --- find the definition of the Emacs Lisp function near point
 
-;; Copyright (C) 1997, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999, 2001 Free Software Foundation, Inc.
 
 ;; Author: Jens Petersen <petersen@kurims.kyoto-u.ac.jp>
 ;; Maintainer: petersen@kurims.kyoto-u.ac.jp
@@ -43,7 +43,7 @@
 ;; ("help.el") and `fff-find-loaded-emacs-lisp-function' (Noah Friedman's
 ;; "fff.el").
 
-;;;; Code:
+;;; Code:
 
 (require 'loadhist)
 
@@ -57,10 +57,11 @@
 (defcustom find-function-regexp
   ;; Match things like (defun foo ...), (defmacro foo ...),
   ;; (define-skeleton foo ...), (define-generic-mode 'foo ...),
-  ;;  (define-derived-mode foo ...), (easy-mmode-define-minor-mode foo)
+  ;;  (define-derived-mode foo ...), (define-minor-mode foo)
   "^\\s-*(\\(def\\(ine-skeleton\\|ine-generic-mode\\|ine-derived-mode\\|\
-\[^cgv\W]\\w+\\*?\\)\\|easy-mmode-define-minor-mode\\)\\s-+'?\
-%s\\(\\s-\\|$\\)"
+\[^cgv\W]\\w+\\*?\\)\\|define-minor-mode\
+\\|easy-mmode-define-global-mode\\)\\(\\s-\\|\n\\)+'?\
+%s\\(\\s-\\|$\\|\(\\|\)\\)"
   "The regexp used by `find-function' to search for a function definition.
 Note it must contain a `%s' at the place where `format'
 should insert the function name.  The default value avoids `defconst',
@@ -69,18 +70,18 @@ should insert the function name.  The default value avoids `defconst',
 Please send improvements and fixes to the maintainer."
   :type 'regexp
   :group 'find-function
-  :version "20.3")
+  :version "21.1")
 
 (defcustom find-variable-regexp
-  "^\\s-*(def[^uma\W]\\w+\\*?\\s-+%s\\(\\s-\\|$\\)"
+  "^\\s-*(def[^umag]\\(\\w\\|\\s_\\)+\\*?\\s-+%s\\(\\s-\\|$\\)"
   "The regexp used by `find-variable' to search for a variable definition.
 It should match right up to the variable name.  The default value
-avoids `defun', `defmacro', `defalias', `defadvice'.
+avoids `defun', `defmacro', `defalias', `defadvice', `defgroup'.
 
 Please send improvements and fixes to the maintainer."
   :type 'regexp
   :group 'find-function
-  :version "20.3")
+  :version "21.1")
 
 (defcustom find-function-source-path nil
   "The default list of directories where `find-function' searches.
@@ -186,31 +187,7 @@ in `load-path'."
 		 ((symbol-file function)))))
       (find-function-search-for-symbol function nil library))))
 
-(defun function-at-point ()
-  (or (condition-case ()
-	  (let ((stab (syntax-table)))
-	    (unwind-protect
-		(save-excursion
-		  (set-syntax-table emacs-lisp-mode-syntax-table)
-		  (or (not (zerop (skip-syntax-backward "_w")))
-		      (eq (char-syntax (char-after (point))) ?w)
-		      (eq (char-syntax (char-after (point))) ?_)
-		      (forward-sexp -1))
-		  (skip-chars-forward "`'")
-		  (let ((obj (read (current-buffer))))
-		    (and (symbolp obj) (fboundp obj) obj)))
-	      (set-syntax-table stab)))
-	(error nil))
-      (condition-case ()
-	  (save-excursion
-	    (save-restriction
-	      (narrow-to-region (max (point-min) (- (point) 1000)) (point-max))
-	      (backward-up-list 1)
-	      (forward-char 1)
-	      (let (obj)
-		(setq obj (read (current-buffer)))
-		(and (symbolp obj) (fboundp obj) obj))))
-	(error nil))))
+(defalias 'function-at-point 'function-called-at-point)
 
 (defun find-function-read (&optional variable-p)
   "Read and return an interned symbol, defaulting to the one near point.
@@ -267,7 +244,7 @@ Point is saved in the buffer if it is one of the current buffers."
       (funcall switch-fn new-buf)
       (goto-char new-point)
       (recenter find-function-recenter-line)
-      (run-hooks find-function-after-hook))))
+      (run-hooks 'find-function-after-hook))))
 
 ;;;###autoload
 (defun find-function (function)

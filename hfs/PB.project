@@ -3,7 +3,7 @@
     FILESTABLE = {
         H_FILES = (HFSVolumes.h); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
-        SUBPROJECTS = (hfs_util, hfs_japanese); 
+        SUBPROJECTS = (hfs_util); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

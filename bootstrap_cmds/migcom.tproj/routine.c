@@ -660,7 +660,6 @@ rtProcessRetCodeFlag(thisarg)
 {
     register ipc_type_t *it = thisarg->argType;
     register ipc_flags_t flags = thisarg->argFlags;
-    register arg_kind_t kind = thisarg->argKind;
     string_t name = thisarg->argVarName;
     routine_t *thisrout = thisarg->argRoutine;
 
@@ -724,8 +723,7 @@ rtDetectKPDArg(arg)
              string = "mach_msg_ool_descriptor_t";
 	     arg->argKPD_Type = MACH_MSG_OOL_DESCRIPTOR;
  	}
-        it->itUserKPDType = string;
-        it->itServerKPDType = string;
+        it->itKPDType = string;
     }
 }
 
@@ -1499,7 +1497,7 @@ rtCheckOverwrite(rt)
     register routine_t *rt;
 {
     register argument_t *arg;
-    register howmany = rt->rtOverwrite;
+    register int howmany = rt->rtOverwrite;
 
     for (arg = rt->rtArgs; arg != argNULL; arg = arg->argNext) {
 	register ipc_type_t *it = arg->argType;
@@ -1629,7 +1627,11 @@ rtAddByReference(rt)
 		    arg->argCInOut->argByReferenceUser = TRUE;
 	}
 
-	if (akCheck(arg->argKind, akbReturnSnd) && it->itStruct) {
+	if ((akCheck(arg->argKind, akbReturnSnd) ||
+	     (akCheck(arg->argKind, akbServerImplicit) &&
+              akCheck(arg->argKind, akbReturnRcv) &&
+              akCheck(arg->argKind, akbSendRcv)))
+	    && it->itStruct) {
 		arg->argByReferenceServer = TRUE;
 	}
     }
@@ -1740,8 +1742,8 @@ rtCheckRoutine(rt)
        that is only used in code generation anyway.  Therefore,
        the following functions don't have to worry about null types. */
 
-    if (errors > 0) 
-        fatal("%d errors found. Abort.\n", errors);
+    if (mig_errors > 0) 
+        fatal("%d errors found. Abort.\n", mig_errors);
 
     rt->rtServerImpl  = rtCountMask(rt->rtArgs, akbServerImplicit);
     rt->rtUserImpl = rtCountMask(rt->rtArgs, akbUserImplicit);

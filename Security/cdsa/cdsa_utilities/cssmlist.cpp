@@ -24,6 +24,7 @@
 #endif
 
 #include <Security/cssmlist.h>
+#include <Security/cssmdata.h>
 
 
 //
@@ -51,12 +52,18 @@ ListElement::ListElement(const CssmData &data)
 	Element.Word = data;
 }
 
-ListElement::ListElement(CssmAllocator &alloc, string s)
+ListElement::ListElement(CssmAllocator &alloc, const CssmData &data)
+{
+	ElementType = CSSM_LIST_ELEMENT_DATUM;
+	WordID = 0;
+	Element.Word = CssmAutoData(alloc, data).release();
+}
+
+ListElement::ListElement(CssmAllocator &alloc, const string &s)
 {
     ElementType = CSSM_LIST_ELEMENT_DATUM;
     WordID = 0;
-    size_t length = s.size();
-    Element.Word = CssmData(memcpy(alloc.alloc<char>(length), s.data(), length), length);
+	Element.Word = CssmAutoData(alloc, s.data(), s.size()).release();
 }
 
 ListElement::ListElement(const CssmList &list)
@@ -236,6 +243,23 @@ TypedList::TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *e
 	append(new(alloc) ListElement(type));
 	append(elem1);
 	append(elem2);
+}
+
+TypedList::TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1, ListElement *elem2, ListElement *elem3)
+{
+	append(new(alloc) ListElement(type));
+	append(elem1);
+	append(elem2);
+	append(elem3);
+}
+
+TypedList::TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1, ListElement *elem2, ListElement *elem3, ListElement *elem4)
+{
+	append(new(alloc) ListElement(type));
+	append(elem1);
+	append(elem2);
+	append(elem3);
+	append(elem4);
 }
 
 

@@ -1,6 +1,6 @@
 %{ /* defparse.y - parser for .def files */
 
-/*   Copyright (C) 1995, 1997, 1998, 1999 Free Software Foundation, Inc.
+/*   Copyright 1995, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Binutils.
 
@@ -149,6 +149,12 @@ opt_ordinal:
 
 opt_equal_name:
           '=' ID	{ $$ = $2; }
+	| '=' ID '.' ID	
+	  { 
+	    char *name = xmalloc (strlen ($2) + 1 + strlen ($4) + 1);
+	    sprintf (name, "%s.%s", $2, $4);
+	    $$ = name;
+	  }
         | 		{ $$ =  0; }			 
 	;
 

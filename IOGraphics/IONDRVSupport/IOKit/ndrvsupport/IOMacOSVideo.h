@@ -327,12 +327,16 @@ enum {
     kPowerStateSleepCanPowerOffBit = 3,                         /* supports power down sleep (ie PCI power off)*/
     kPowerStateSleepNoDPMSBit   = 4,                            /* Bug #2425210.  Do not use DPMS with this display.*/
     kPowerStateSleepWaketoDozeBit = 5,                          /* Supports Wake to Doze */
+    kPowerStateSleepWakeNeedsProbeBit = 6,                      /* Does not sense connection changes on wake */
+
     kPowerStateNeedsRefreshMask = (1L << kPowerStateNeedsRefresh),
     kPowerStateSleepAwareMask   = (1L << kPowerStateSleepAwareBit),
     kPowerStateSleepForbiddenMask = (1L << kPowerStateSleepForbiddenBit),
     kPowerStateSleepCanPowerOffMask = (1L << kPowerStateSleepCanPowerOffBit),
     kPowerStateSleepNoDPMSMask  = (1L << kPowerStateSleepNoDPMSBit),
     kPowerStateSleepWaketoDozeMask = (1L << kPowerStateSleepWaketoDozeBit),
+    kPowerStateSleepWakeNeedsProbeMask = (1L << kPowerStateSleepWakeNeedsProbeBit),
+
     kPowerStateSupportsReducedPower1Bit = 10,
     kPowerStateSupportsReducedPower2Bit = 11,
     kPowerStateSupportsReducedPower3Bit = 12,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@
 #undef DLOG
 #endif
 
-#define ATA_DEBUG 1
+//#define ATA_DEBUG 1
 
 #ifdef  ATA_DEBUG
 #define DLOG(fmt, args...)  IOLog(fmt, ## args)
@@ -80,7 +80,7 @@ CMD646Root::probe(IOService* provider,	SInt32*	score)
 
     OSData		*compatibleEntry;
 	
-	IOLog("CMD646Root starting probe\n");
+	DLOG("CMD646Root starting probe\n");
 
 
 	compatibleEntry  = OSDynamicCast( OSData, provider->getProperty( "name" ) );
@@ -112,7 +112,7 @@ CMD646Root::probe(IOService* provider,	SInt32*	score)
 bool 
 CMD646Root::start( IOService * provider )
 {
-	IOLog("CMD646Root: starting\n");
+	DLOG("CMD646Root: starting\n");
 
     IOPCIDevice *pciNub = (IOPCIDevice *)provider;
 
@@ -139,7 +139,7 @@ CMD646Root::start( IOService * provider )
 	
 	publishBelow(provider);
 
-	IOLog("CMD646Root: started\n");
+	DLOG("CMD646Root: started\n");
 //    PMinit();		// initialize for power management
 //    temporaryPowerClampOn();	// hold power on till we get children
     return( true);
@@ -169,7 +169,7 @@ CMD646Root::processNub(IOService * /*nub*/)
 void 
 CMD646Root::publishBelow( IORegistryEntry * root )
 {
-	IOLog("CMD646Root publish below\n");
+	DLOG("CMD646Root publish below\n");
 
     OSCollectionIterator *	kids = 0;
     IORegistryEntry *		next;
@@ -181,7 +181,7 @@ CMD646Root::publishBelow( IORegistryEntry * root )
     
     if( kids) {
     
-    IOLog("CMD646Root found kids\n");
+    DLOG("CMD646Root found kids\n");
     
 	while( (next = (IORegistryEntry *)kids->getNextObject())) {
 

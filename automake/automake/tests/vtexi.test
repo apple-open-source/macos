@@ -1,0 +1,49 @@
+#!/bin/sh
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+END
+
+cat > textutils.texi << 'END'
+@include version.texi
+@setfilename textutils.info
+END
+
+# Required when using Texinfo.
+: > mdate-sh
+: > texinfo.tex
+
+set -e
+
+$ACLOCAL || exit 1
+$AUTOMAKE
+
+# Test for bug reported by Jim Meyering:
+# When I ran automake-0.29 on textutils,
+# I noticed that doc/Makefile.in had
+#   textutils.info: textutils.texi
+# instead of
+#   textutils.info: textutils.texi version.texi
+
+grep '^textutils\.info: textutils\.texi .*version\.texi$' Makefile.in
+
+
+# Test for bug reported by Lars Hecking:
+# When running the first version of configure.ac aware automake,
+# @CONFIGURE_AC@ was not properly substitued.
+
+egrep '^\$\(srcdir\)/stamp-vti:.*textutils\.texi( .*)?$' Makefile.in
+egrep '^\$\(srcdir\)/stamp-vti:.*\$\(top_srcdir\)/configure\.in( .*)?$' Makefile.in
+
+
+# Check that the path to mdate-sh is correct.  Over escaping of `$'
+# etc. once led to `\$\(srcdir\)/mdate-sh'.
+
+# Filter out '$(srcdir)/mdate-sh'; output occurrences of `SOMETHING/mdate-sh'
+sed -n 's,\$(srcdir)/mdate-sh,,g;s,.* \([^ ]*/mdate-sh\) .*,\1,gp' Makefile.in|
+# There must remain nothing.
+ grep . && exit 1
+
+exit 0

@@ -1,5 +1,5 @@
 /* Native support for GNU/Linux, for GDB, the GNU debugger.
-   Copyright (C) 1999
+   Copyright 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -63,16 +63,17 @@ extern int ia64_register_u_addr(int, int);
 #define HAVE_STEPPABLE_WATCHPOINT 1
 
 #define STOPPED_BY_WATCHPOINT(W) \
-  ia64_linux_stopped_by_watchpoint (inferior_pid)
-extern CORE_ADDR ia64_linux_stopped_by_watchpoint (int);
+  ia64_linux_stopped_by_watchpoint (inferior_ptid)
+extern CORE_ADDR ia64_linux_stopped_by_watchpoint (ptid_t ptid);
 
 #define target_insert_watchpoint(addr, len, type) \
-  ia64_linux_insert_watchpoint (inferior_pid, addr, len, type)
-extern int ia64_linux_insert_watchpoint (int pid, CORE_ADDR addr,
+  ia64_linux_insert_watchpoint (inferior_ptid, addr, len, type)
+extern int ia64_linux_insert_watchpoint (ptid_t ptid, CORE_ADDR addr,
                                          int len, int rw);
 
 #define target_remove_watchpoint(addr, len, type) \
-  ia64_linux_remove_watchpoint (inferior_pid, addr, len)
-extern int ia64_linux_remove_watchpoint (int pid, CORE_ADDR addr, int len);
+  ia64_linux_remove_watchpoint (inferior_ptid, addr, len)
+extern int ia64_linux_remove_watchpoint (ptid_t ptid, CORE_ADDR addr,
+                                         int len);
 
 #endif /* #ifndef NM_LINUX_H */

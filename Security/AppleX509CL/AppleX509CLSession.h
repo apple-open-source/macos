@@ -27,6 +27,7 @@
 #include "DecodedCert.h"
 #include "LockedMap.h"
 #include <Security/threading.h>
+#include <Security/cssmapple.h>
 
 class AppleX509CLSession : public CLPluginSession {
 
@@ -296,8 +297,16 @@ private:
 	void verifyData(
 		CSSM_CC_HANDLE		ccHand,
 		const CssmData		&tbs,
-		const CssmData		&sig);
-	
+		const CssmData		&sig);	
+		
+	/* routines in Session_CSR.cpp */
+	void generateCsr(
+		CSSM_CC_HANDLE 		CCHandle,
+		const CSSM_APPLE_CL_CSR_REQUEST *csrReq,
+		CSSM_DATA_PTR		&csrPtr);
+	void verifyCsr(
+		const CSSM_DATA		*csrPtr);
+
 	/*
 	 * Maps of cached certs, CRLs, and active queries
 	 * This one holds cached certs and CRLs.

@@ -124,7 +124,7 @@ struct tt_tab {
 	int tt_len;
 	int (*tt_func) __P((void));
 };
-EXTERN struct tt_tab tt_tab[];
+extern struct tt_tab tt_tab[11];
 
 /*
  * Clean interface to termcap routines.

@@ -1,5 +1,6 @@
 /* Interface to bare machine for GDB running as kernel debugger.
-   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992, 1993, 1995, 1996, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,7 +31,7 @@
 #endif /* SIGTSTP and SIGIO defined (must be 4.2) */
 
 #include "defs.h"
-#include "signals.h"
+#include <signal.h>
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
@@ -145,7 +146,7 @@ open (char *filename, int modes)
 
   for (next = files_start; *(int *) next; next += *(int *) next)
     {
-      if (!STRCMP (next + 4, filename))
+      if (!strcmp (next + 4, filename))
 	{
 	  sourcebeg = next + 4 + strlen (next + 4) + 1;
 	  sourcebeg = (char *) (((int) sourcebeg + 3) & (-4));
@@ -335,7 +336,7 @@ have_core_file_p (void)
 
 kill_command (void)
 {
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 }
 
 terminal_inferior (void)
@@ -530,7 +531,7 @@ int
 wait (WAITTYPE *w)
 {
   WSETSTOP (*w, fault_table[fault_code / FAULT_CODE_UNITS]);
-  return inferior_pid;
+  return PIDGET (inferior_ptid);
 }
 
 /* Allocate a big space in which files for kdb to read will be stored.

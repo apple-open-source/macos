@@ -3,7 +3,44 @@
 ##
 ##  implementation of the "build" target of top level gcc makefile
 ##
+## MANUAL BUILDS -- to build gcc "by hand", as it were:
+##
+##  cd <this directory>
+##  rm -rf dst obj
+##  export SRCROOT=`pwd`          # or setenv, or whatever
+##  export OBJROOT=$SRCROOT/obj	  # or whereever
+##  export DSTROOT=$SRCROOT/dst
+##  gnumake RC_OS=macos RC_ARCHS=ppc BOOTSTRAP=  TARGETS=ppc \
+##	SRCROOT=$SRCROOT OBJROOT=$OBJROOT DSTROOT=$DSTROOT
+##  ... everything is in the DSTROOT directory
 ######################################################################
+
+# COEXIST_WITH_GCC3, when set to non-null, modifies the original gcc2
+# installation in the following ways:
+#
+#  1. libcc.a is installed in /usr/lib/gcc/darwin/default instead
+#     of /usr/lib and a sym link is placed in /usr/lib to the new
+#     location.
+#
+#  2. libcc_noc++.a is installed in /usr/lib/gcc/darwin/default instead
+#     of /usr/local/lib and a sym link is placed in /usr/local/lib
+#     to its new location.
+#
+#  3. /usr/bin/cc, /usr/bin/c++, and /usr/bin/c++filt become sym links
+#     to /usr/bin/gcc2, /usr/bin/g++2, and /usr/bin/c++filt2 respectively.
+#
+#  4. A /usr/bin/gcc and /usr/bin/cc are installed as a sym links to
+#     /usr/bin/gcc2.
+#
+#  5. A /usr/bin/g++ and /usr/bin/c++ are installed as sym links to
+#     /usr/bin/g++2.
+#
+# By making the sym links instead of having the actual files in 
+# those locations makes it easier to coexist with gcc3 (hence the
+# name for the switch) and also makes it easier to switch between the
+# two compilers.
+
+COEXIST_WITH_GCC3=1
 
 MKDIRS=mkdirs
 if [ -f /usr/bin/arch ]; then	# otherwise, OS is probably not NEXTSTEP-like
@@ -71,6 +108,9 @@ BOOTSTRAP=
 # command for invoking bison
 BISON=
 
+# generate $usr/lib and $usr/bin sym links
+DO_SYMLINKS=no
+
 result=fats
 
 for arg
@@ -120,6 +160,13 @@ do
 	BISON=$arg
 	next_arg=
 	;;
+  --symlink*)
+	DO_SYMLINKS=$arg
+	next_arg=
+	;;
+  --coexist_with_gcc3)
+  	COEXIST_WITH_GCC3=$arg
+  	;;
   *)
 	case $arg in
 	--srcroot=*)
@@ -176,6 +223,14 @@ do
 
 	--bison=*)
 		BISON=`echo $arg | sed 's/-*b[a-z]*=//'`
+		;;
+
+	--symlinks=* | --symlink=*)
+		DO_SYMLINKS=`echo $arg | sed 's/-*s[a-z]*=//'`
+		;;
+
+	--coexist_with_gcc3)
+		COEXIST_WITH_GCC3=`echo $arg | sed 's/-*c[a-z_]*=//'`
 		;;
 
 	--fat|--fats)
@@ -294,6 +349,13 @@ case "$HOSTS" in
 	       echo $HOSTS | sed "s/$arch//"`
 	;;
 esac
+    
+# Make sure of the -symlinks option...
+DO_SYMLINKS="${DO_SYMLINKS:-yes}"
+if [ "$DO_SYMLINKS" != "yes" -a "$DO_SYMLINKS" != "no" ]; then
+  echo "Invalid -symlinks option ($DO_SYMLINKS) -- must be 'yes' or 'no'"
+  exit 1
+fi
 
 # get the version
 CCVERS=`cd $SRCROOT; vers_string -f gcc`
@@ -356,18 +418,20 @@ if [ ! "$BISON" ]; then
 fi
 
 echo ===========================================================
-echo == 'Building NeXT Objective C compiler(s) **' $result '**'
+echo == 'Building Apple Objective C compiler(s) **' $result '**'
 echo ===========================================================
-echo == 'BUILDHOST :' `hostname` -- a $arch
-echo == 'HOSTS     :' $HOSTS
-echo == 'TARGETS   :' $TARGETS
-echo == 'TARGET_OS :' $TARGET_OS
-echo == 'OBJROOT   :' $OBJROOT
-echo == 'SYMROOT   :' $SYMROOT
-echo == 'SRCROOT   :' $SRCROOT
-echo == 'DSTROOT   :' $DSTROOT
-echo == 'VERSION   :' $CCVERS
-echo == 'CFLAGS    :' $OPTIMIZE $CFLAGS
+echo == 'BUILDHOST        :' `hostname` -- a $arch
+echo == 'HOSTS            :' $HOSTS
+echo == 'TARGETS          :' $TARGETS
+echo == 'TARGET_OS        :' $TARGET_OS
+echo == 'OBJROOT          :' $OBJROOT
+echo == 'SYMROOT          :' $SYMROOT
+echo == 'SRCROOT          :' $SRCROOT
+echo == 'DSTROOT          :' $DSTROOT
+echo == 'VERSION          :' $CCVERS
+echo == 'CFLAGS           :' $OPTIMIZE $CFLAGS
+echo == 'DO_SYMLINKS      :' $DO_SYMLINKS
+echo == 'COEXIST_WITH_GCC3:' $COEXIST_WITH_GCC3
 echo ===========================================================
 
 
@@ -412,7 +476,7 @@ safe_exec () {
 
 clean_gcc () {
 echo ===========================================================
-echo == 'Cleaning NeXT Objective C compiler(s)'
+echo == 'Cleaning Apple Objective C compiler(s)'
 echo ===========================================================
 
 for target in $TARGETS; do
@@ -626,28 +690,43 @@ for host in $HOSTS; do
   done
 
   if echo $TARGETS | grep $host >$null; then
-    install_newer \
-	$OBJROOT/cc-$host-on-$host/xgcc$exe \
-	$bindir/`if [ $TARGET_OS = nextstep ]; then \
-		   echo cc; \
-		 else \
-		   echo gcc; \
-		 fi`$exe \
-	"-m 555"
-    install_newer \
-	$OBJROOT/cc-$host-on-$host/g++$exe \
-	$bindir/`if [ $TARGET_OS = nextstep ]; then \
-		   echo c++; \
-		 else \
-		   echo g++; \
-		 fi`$exe \
-	"-m 555"
-    install_newer \
-	$OBJROOT/cc-$host-on-$host/c++filt$exe \
-	$bindir/c++filt$exe \
-	"-m 555"
-  fi    
-
+    if [ "$COEXIST_WITH_GCC3" ]; then
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/xgcc \
+	  $bindir/gcc2 \
+	  "-m 555"
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/g++ \
+	  $bindir/g++2 \
+	  "-m 555"
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/c++filt \
+	  $bindir/c++filt2 \
+	  "-m 555"
+    else
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/xgcc$exe \
+	  $bindir/`if [ $TARGET_OS = nextstep ]; then \
+		     echo cc; \
+		   else \
+		     echo gcc; \
+		   fi`$exe \
+	  "-m 555"
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/g++$exe \
+	  $bindir/`if [ $TARGET_OS = nextstep ]; then \
+		     echo c++; \
+		   else \
+		     echo g++; \
+		   fi`$exe \
+	  "-m 555"
+      install_newer \
+	  $OBJROOT/cc-$host-on-$host/c++filt$exe \
+	  $bindir/c++filt$exe \
+	  "-m 555"
+    fi
+  fi
+  
 done
 }
 
@@ -732,7 +811,10 @@ for target in $TARGETS; do
 	AR_FOR_TARGET=ar \
 	CC="cc -arch $host -traditional-cpp" \
 	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
-	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -mlong-branch -force_cpusubtype_ALL; fi` -fno-exceptions -fno-rtti -DAPPLE_KERNEL_EXTENSION -Dinhibit_libc -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"; \
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std \
+	`if [ $target = ppc ]; then echo -mlong-branch -force_cpusubtype_ALL; fi` \
+	-fno-exceptions -fno-rtti -DAPPLE_KERNEL_EXTENSION -Dinhibit_libc -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ \
+	-DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"; \
 	then echo '== ok'; else exit 1; fi
 
     mv -f libgcc.a libgcc_kext.a
@@ -756,7 +838,8 @@ for target in $TARGETS; do
 	AR_FOR_TARGET=ar \
 	CC="cc -arch $host -traditional-cpp" \
 	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
-	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` \
+	-DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" -static"
 	then echo '== ok'; else exit 1; fi
 
     mv -f libgcc.a libgcc_static.a
@@ -946,7 +1029,7 @@ for target in $TARGETS; do
 install_newer $sym/$host/lib/$target/specs \
 	$fat/$libexec/$target`if [ "$RHAPSODY" ]; then echo /$gcc_version; fi`/specs \
 	"-m 444"
-  if [ "$RHAPSODY" -a ! "$MAC_OS" ]; then
+  if [ "$RHAPSODY" -a ! "$MAC_OS" -a "$DO_SYMLINKS" = "yes" ]; then
     # Make this symbolic link so cpp-precomp can find the specs file.
     (cd $fat/$libexec/$target && ln -s $gcc_version/specs .)
   fi
@@ -969,18 +1052,40 @@ if [ ! "$NEXT_ROOT" ]; then
     echo "	chmod 444 $fat/$lib/$file"		>>$TEMP/make.$$
     safe_exec $make -f $TEMP/make.$$
     $RM -f $TEMP/make.$$
-    ln -s gcc/darwin/default/$file $fat/` \
-      if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`/$file
+    if [ "$DO_SYMLINKS" = "yes" ]; then
+      if [ ! "$COEXIST_WITH_GCC3" -o "$file" != "libcc_noc++.a" ]; then
+        $RM -f $fat/`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`/$file
+	ln -s gcc/darwin/default/$file $fat/` \
+	  if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`/$file
+      elif [ "$RHAPSODY" ]; then
+      	$RM -f $fat/usr/local/lib/libcc_noc++.a
+	ln -s ../../lib/gcc/darwin/default/libcc_noc++.a \
+	      $fat/usr/local/lib/libcc_noc++.a
+      else
+        $RM -f $fat/usr/local/lib/libcc_noc++.a
+	ln -s /usr/lib/gcc/darwin/default/libcc_noc++.a \
+	      $fat/usr/local/lib/libcc_noc++.a
+      fi
+    fi
   done
-  $MKDIRS $fat/usr/local/lib
-  $RM -f  $fat/usr/local/lib/libcc*.a
-  mv  -f  $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a $fat/usr/local/lib
-  lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`
-  $RM -f $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a
-  mv  -f $fat/usr/local/lib/libcc.a $fat/$lib
+  if [ ! "$COEXIST_WITH_GCC3" ]; then
+    $MKDIRS $fat/usr/local/lib
+    $RM -f  $fat/usr/local/lib/libcc*.a
+    mv  -f  $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a $fat/usr/local/lib
+    lib=`if [ "$RHAPSODY" ]; then echo usr/lib; else echo lib; fi`
+    $RM -f $fat/$lib/libcc.a $fat/$lib/libcc_noc++.a
+    mv  -f $fat/usr/local/lib/libcc.a $fat/$lib
+  fi
 fi
 
-for file in ${RHAPSODY:+usr/}bin/cc ${RHAPSODY:+usr/bin/c++} ${RHAPSODY:+usr/}bin/c++filt; do
+if [ "$COEXIST_WITH_GCC3" ]; then
+  list="gcc2 g++2 c++filt2"
+else
+  list="cc c++ c++filt"
+fi
+
+for tool in $list; do
+  file=${RHAPSODY:+usr/}bin/$tool
   thin_files=""
   for host in $HOSTS; do
     if echo $TARGETS | grep $host >$null; then
@@ -1003,6 +1108,15 @@ for file in ${RHAPSODY:+usr/}bin/cc ${RHAPSODY:+usr/bin/c++} ${RHAPSODY:+usr/}bi
   echo "	chmod 555 $fat/$file"			      >> $TEMP/make.$$
   safe_exec $make -f $TEMP/make.$$
   $RM -f $TEMP/make.$$
+  
+  if [ "$COEXIST_WITH_GCC3" -a "$DO_SYMLINKS" = "yes" ]; then
+    ln -s $tool $fat/usr/bin/"`echo $tool | sed -e 's/\(.*\)2$/\1/'`"
+    if [ "$tool" = "gcc2" ]; then
+      ln -s gcc2 $fat/usr/bin/cc
+    elif [ "$tool" = "g++2" ]; then
+      ln -s g++2 $fat/usr/bin/c++
+    fi
+  fi
 done
 }
 
@@ -1036,7 +1150,9 @@ for library in libcc.a libcc_kext.a libcc_dynamic.a libcc_noc++.a; do
 	GCC_PASSES="" \
 	AR_FOR_TARGET="ar" \
 	LIBGCC2_INCLUDES=-I$SRCROOT/gcc/cp/inc \
-	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std `if [ $library = libcc_kext.a ]; then echo $kext_cflags; fi; if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` -DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" $extra_cflags"
+	TARGET_LIBGCC2_CFLAGS="-fnew-abi -fno-honor-std \
+	`if [ $library = libcc_kext.a ]; then echo $kext_cflags; fi; if [ $target = ppc ]; then echo -force_cpusubtype_ALL; fi` \
+	-DIN_GCC -DPRIVATE_EXTERN=__private_extern__ -DPRIVATE_EXTERN_ASM_OP=\\\".private_extern\\\" $extra_cflags"
 	then echo '== ok'; else exit 1; fi
     if [ $library = libcc_noc++.a ]; then
 	# Remove modules written in C++.

@@ -43,50 +43,53 @@
 #import "error_log.h"
 
 static pthread_mutex_t errlog_lock = PTHREAD_MUTEX_INITIALIZER;
+static boolean_t stderr_open = FALSE;
+static boolean_t log_stopped = FALSE;
 
 void
-init_errlog(boolean_t is_init)
+init_errlog(boolean_t daemon)
 {
 	int nfds, fd;
 
-	if (is_init) {
-		close(0);
-		freopen("/dev/console", "r", stdin);
-		setbuf(stdin, NULL);
-		close(1);
-		freopen("/dev/console", "w", stdout);
-		setbuf(stdout, NULL);
-		close(2);
-		freopen("/dev/console", "w", stderr);
-		setbuf(stderr, NULL);
+	if (!daemon) {
+		stderr_open = TRUE; 
+		nfds = getdtablesize();
+		for (fd = 3; fd < nfds; fd++)
+			close(fd);
+	} else {
+		openlog((char *)program_name, LOG_PID|LOG_CONS, LOG_DAEMON);
+		setlogmask(LOG_UPTO(LOG_DEBUG)); /* we'll do our own filtering */
 	}
+}
 
-	nfds = getdtablesize();
-	for (fd = 3; fd < nfds; fd++)
-		close(fd);
-	openlog((char *)program_name, LOG_PID, LOG_DAEMON);
-	setlogmask(LOG_UPTO(LOG_INFO));
+void
+stop_errlog(void)
+{
+	log_stopped = TRUE;
 }
 
 void
 close_errlog(void)
 {
+	stop_errlog();
 	closelog();
 }
 
 static void do_log(const int level, const char *format, va_list ap)
 {
-	pthread_mutex_lock(&errlog_lock);
-	if (debugging) {
-		fprintf(stderr, "%s[%d]%s: ",
-			level == LOG_ALERT ? " FATAL" : "",
-			getpid(), program_name);
-		vfprintf(stderr, format, ap);
-		fprintf(stderr, "\n");
-	} else {
-		vsyslog(level, format, ap);
+	if (!log_stopped && (debugging || level <= LOG_NOTICE)) {
+		pthread_mutex_lock(&errlog_lock);
+		if (stderr_open) {
+			fprintf(stderr, "%s[%d]%s: ",
+				level == LOG_ALERT ? " FATAL" : "",
+				getpid(), program_name);
+			vfprintf(stderr, format, ap);
+			fprintf(stderr, "\n");
+		} else {
+			vsyslog(level, format, ap);
+		}
+		pthread_mutex_unlock(&errlog_lock);
 	}
-	pthread_mutex_unlock(&errlog_lock);
 }
 
 void debug(const char *format, ...)

@@ -7,7 +7,6 @@ Project               = tcl
 UserType              = Developer
 ToolType              = Commands
 Configure             = $(Sources)/unix/configure
-Extra_Configure_Flags = --includedir="$(USRDIR)/local/include"
 Extra_Environment     = TCL_LIBRARY="$(NSLIBRARYDIR)/Tcl/$(Version)"	\
 			TCL_EXE="$(Tclsh)"
 GnuAfterInstall       = links

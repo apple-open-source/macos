@@ -440,6 +440,45 @@ void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
 	}
 }
 
+kern_return_t IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration )
+{
+    kern_return_t	kr;
+    unsigned int	fixed;
+    IOByteCount	rsize;
+
+    kr = IOHIDGetParameter( handle, CFSTR(kIOHIDScrollAccelerationKey),
+                            sizeof( fixed), (unsigned char *) &fixed, &rsize );
+
+    if( kr == kIOReturnSuccess)
+        *acceleration = ((double) fixed) / 65536.0;
+
+    return( kr );
+}
+
+kern_return_t IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration )
+{
+    unsigned int	fixed;
+
+    fixed = (unsigned int) (acceleration * 65536.0);
+
+    return( IOHIDSetParameter(handle, CFSTR(kIOHIDScrollAccelerationKey),
+                            (unsigned char *) &fixed, sizeof(fixed)) );
+}
+
+kern_return_t IOHIDGetMouseButtonMode( io_connect_t handle, int * mode )
+{
+    IOByteCount	rsize;
+
+    return( IOHIDGetParameter( handle, CFSTR(kIOHIDPointerButtonMode),
+                            sizeof( *mode), (unsigned char *) mode, &rsize ));
+}
+
+kern_return_t IOHIDSetMouseButtonMode( io_connect_t handle, int mode )
+{
+    return( IOHIDSetParameter(handle, CFSTR(kIOHIDPointerButtonMode),
+                            (unsigned char *) &mode, sizeof(mode)) );
+}
+
 kern_return_t IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration )
 {
 	kern_return_t	kr;

@@ -1,5 +1,5 @@
 /* Macro definitions for GDB on an Intel i386 running Solaris 2.
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,6 +23,11 @@
 
 #define HAVE_I387_REGS
 #include "i386/tm-i386v4.h"
+
+/* We use stabs-in-ELF with the DWARF register numbering scheme.  */
+
+#undef STAB_REG_TO_REGNUM
+#define STAB_REG_TO_REGNUM(reg) i386_dwarf_reg_to_regnum ((reg))
 
 /* If the current gcc for for this target does not produce correct
    debugging information for float parameters, both prototyped and
@@ -50,12 +55,5 @@ extern char *sunpro_static_transform_name (char *);
 #define IS_STATIC_TRANSFORM_NAME(name) ((name)[0] == '.')
 
 #define FAULTED_USE_SIGINFO
-
-/* Macros to extract process id and thread id from a composite pid/tid.
-   Allocate lower 16 bits for process id, next 15 bits for thread id, and
-   one bit for a flag to indicate a user thread vs. a kernel thread.  */
-#define PIDGET(PID)		(((PID) & 0xffff))
-#define TIDGET(PID)		(((PID) & 0x7fffffff) >> 16)
-#define MERGEPID(PID, TID)	(((PID) & 0xffff) | ((TID) << 16))
 
 #endif /* ifndef TM_I386SOL2_H */

@@ -34,6 +34,7 @@ extern enum bool aflag; /* print the archive header */
 extern enum bool hflag; /* print the exec or mach header */
 extern enum bool lflag; /* print the load commands */
 extern enum bool Lflag; /* print the shared library names */
+extern enum bool Dflag; /* print the shared library id name */
 extern enum bool tflag; /* print the text */
 extern enum bool dflag; /* print the data */
 extern enum bool oflag; /* print the objctive-C info */

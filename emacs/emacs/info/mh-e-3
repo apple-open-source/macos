@@ -1,111 +1,31 @@
 This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * MH-E: (mh-e).		Emacs interface to the MH mail system.
 END-INFO-DIR-ENTRY
 
-   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+   This is Edition 1.3, last updated 18 February 2001, of `mh-e, The
 Emacs Interface to MH', for mh-e, Version 5.0.2.
 
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "Copying" is included exactly as in the
-original, and provided that the entire resulting derived work is
-distributed under the terms of a permission notice identical to this
-one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that this permission notice may be stated in a
-translation approved by the Free Software Foundation.
-
-
-File: mh-e,  Node: Customizing Organizing,  Next: Customizing Printing,  Prev: Customizing Deleting,  Up: Customizing Moving Mail
-
-Organizing Your Mail with Folders
----------------------------------
-
-   By default, operations on folders work only one level at a time.  Set
-`mh-recursive-folders' to non-`nil' to operate on all folders.  This
-mostly means that you'll be able to see all your folders when you press
-<TAB> when prompted for a folder name.  The variable
-`mh-auto-folder-collect' is normally turned on to generate a list of
-folder names in the background as soon as mh-e is loaded.  Otherwise,
-the list is generated when you need a folder name the first time (as
-with `o' (`mh-refile-msg')).  If you have a lot of folders and you have
-`mh-recursive-folders' set, this could take a while, which is why it's
-nice to do the folder collection in the background.
-
-   The function `mh-default-folder-for-message-function' is used by `o'
-(`mh-refile-msg') and `C-c C-f C-f' (`mh-to-fcc') to generate a default
-folder.  The generated folder name should be a string with a `+' before
-it.  For each of my correspondents, I use the same name for both an
-alias and a folder.  So, I wrote a function that takes the address in
-the `From:' header field, finds it in my alias file, and returns the
-alias, which is used as a default folder name.  This is the most
-complicated example given here, and it demonstrates several features of
-Emacs Lisp programming.  You should be able to drop this into
-`~/.emacs', however.  If you use this to store messages in a subfolder
-of your Mail directory, you can modify the line that starts `(format
-+%s...'  and insert your subfolder after the folder symbol `+'.
-
-     Creating useful default folder for refiling via mh-default-folder-for-message-function
-     
-     (defun my-mh-folder-from-address ()
-       "Determine folder name from address.
-     Takes the address in the From: header field, and returns its corresponding
-     alias from the user's personal aliases file. Returns `nil' if the address
-     was not found."
-       (require 'rfc822)                         ; for the rfc822 functions
-       (search-forward-regexp "^From: \\(.*\\)") ; grab header field contents
-       (save-excursion                     ; save state
-         (let ((addr (car (rfc822-addresses  ; get address
-                           (buffer-substring (match-beginning 1)
-                                             (match-end 1)))))
-               (buffer (get-buffer-create " *temp*")) ; set local variables
-               folder)
-           (set-buffer buffer)             ; jump to temporary buffer
-           (unwind-protect                 ; run kill-buffer when done
-               (progn                      ; function grouping construct
-                 (insert-file-contents (expand-file-name "aliases"
-                                                         mh-user-path))
-                 (goto-char (point-min))   ; grab aliases file and go to start
-                 (setq folder
-                       ;; Search for the given address, even commented-out
-                       ;; addresses are found!
-                       ;; The function search-forward-regexp sets values that are
-                       ;; later used by match-beginning and match-end.
-                       (if (search-forward-regexp (format "^;*\\(.*\\):.*%s"
-                                                          addr) nil t)
-                           ;; NOTE WELL: this is what the return value looks like.
-                           ;; You can modify the format string to match your own
-                           ;; Mail hierarchy.
-                           (format "+%s" (buffer-substring (match-beginning 1)
-                                                           (match-end 1))))))
-             (kill-buffer buffer))          ; get rid of our temporary buffer
-           folder)))                        ; function's return value
-     
-     (setq mh-default-folder-for-message-function 'my-mh-folder-from-address)
-
-   The hook `mh-refile-msg-hook' is called after a message is marked to
-be refiled.
-
-   The variable `mh-sortm-args' holds extra arguments to pass on to the
-`sortm' command.  Note: this variable is only consulted when a prefix
-argument is given to `M-x mh-sort-folder'.  It is used to override any
-arguments given in a `sortm:' entry in your MH profile
-(`~/.mh_profile').
-
-* Menu:
-
-* Customizing Scan Line Formats::
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: mh-e,  Node: Customizing Scan Line Formats,  Prev: Customizing Organizing,  Up: Customizing Organizing
@@ -292,10 +212,11 @@ File: mh-e,  Node: Bug Reports,  Next: Mailing List,  Prev: Odds and Ends,  Up: 
 Bug Reports
 ===========
 
-   The current maintainer of mh-e is Stephen Gildea
-<gildea@lcs.mit.edu>.  Please mail bug reports directly to him, as well
-as any praise or suggestions.  Please include the output of `M-x
-mh-version' (*note Miscellaneous::) in any bug report you send.
+   The current maintainer of mh-e is Bill Wohler <wohler@newt.com>. Bug
+reports should be filed at SourceForge
+(https://sourceforge.net/bugs/?group_id=13357).  Please include the
+output of `M-x mh-version' (*note Miscellaneous::) in any bug report
+you send.
 
 
 File: mh-e,  Node: Mailing List,  Next: MH FAQ,  Prev: Bug Reports,  Up: Odds and Ends
@@ -303,10 +224,12 @@ File: mh-e,  Node: Mailing List,  Next: MH FAQ,  Prev: Bug Reports,  Up: Odds an
 mh-e Mailing List
 =================
 
-   There is a mailing list, mh-e@x.org, for discussion of mh-e and
-announcements of new versions.  Send a "subscribe" message to
-mh-e-request@x.org to be added.  Do not report bugs on this list; mail
-them directly to the maintainer (*note Bug Reports::).
+   There are actually several mailing lists for mh-e. They are
+mh-e-users@lists.sourceforge.net, mh-e-announce@lists.sourceforge.net,
+and mh-e-devel@lists.sourceforge.net. You can subscribe or view the
+archives at SourceForge (https://sourceforge.net/mail/?group_id=13357).
+Do not report bugs on these lists; please submit them via SourceForge
+(*note Bug Reports::).
 
 
 File: mh-e,  Node: MH FAQ,  Next: Getting mh-e,  Prev: Mailing List,  Up: Odds and Ends
@@ -320,16 +243,8 @@ incredible wealth of material about MH itself which you will find
 useful.  The subject of the FAQ is `MH Frequently Asked Questions (FAQ)
 with Answers'.
 
-   The FAQ can be also obtained by anonymous `ftp' or via the World
-Wide Web (WWW).  It is located at:
-
-     ftp://rtfm.mit.edu/pub/usenet/news.answers/mail/mh-faq/part1
-     http://www.cis.ohio-state.edu/hypertext/faq/usenet/mail/mh-faq/part1/faq.html
-
-   Otherwise, you can use mail.  Send mail to mail-server@rtfm.mit.edu
-containing the following:
-
-     send usenet/news.answers/mail/mh-faq/part1
+   The FAQ is available via the World Wide Web (WWW) at faqs.org
+(http://www.faqs.org/faqs/mail/mh-faq/part1/preamble.html).
 
 
 File: mh-e,  Node: Getting mh-e,  Prev: MH FAQ,  Up: Odds and Ends
@@ -337,22 +252,24 @@ File: mh-e,  Node: Getting mh-e,  Prev: MH FAQ,  Up: Odds and Ends
 Getting mh-e
 ============
 
-   If you're running a pre-4.0 version of mh-e, please consider
-upgrading.  You can either have your system administrator upgrade your
-Emacs, or just the files for mh-e.
+   The version of mh-e in the current version of Emacs should be up to
+date. It is most likely to be more up to date than the copy that comes
+with the MH distribution in `miscellany/mh-e'.
 
-   The MH distribution contains a copy of mh-e in `miscellany/mh-e'.
-Make sure it is at least Version 4.0.
+   New mh-e releases are always available for downloading at
+SourceForge
+(https://sourceforge.net/project/showfiles.php?group_id=13357) before
+they appear in an Emacs release. You can read the release notes on that
+page to determine if the given release of mh-e is already installed in
+your version of Emacs.
 
-   The latest version of mh-e can be obtained via anonymous `ftp' from
-`ftp.x.org'.  The file containing mh-e is currently
-`/misc/mh-e/mh-e-5.0.2.tar.Z'.  I suggest that you extract the files
-from `mh-e-5.0.2.tar.Z' in the following fashion:
+   If you go this route, I suggest that you extract the files from
+`mh-e-M.N.tgz' in the following fashion:
 
      % cd                                  # Start in your home directory
      % mkdir lib lib/emacs                 # Create directory for mh-e
      % cd lib/emacs
-     % zcat PATH/TO/mh-e-5.0.2.tar.Z | tar xvf -    # Extract files
+     % zcat PATH/TO/mh-e-M.N.tgz | tar xvf -    # Extract files
 
    To use these new files, add the following to `~/.emacs':
 
@@ -365,16 +282,17 @@ command.  The distribution comes with a file called `MH-E-NEWS' so you
 can see what's new.
 
 
-File: mh-e,  Node: History,  Next: Changes to mh-e,  Prev: Odds and Ends,  Up: Top
+File: mh-e,  Node: History,  Next: Copying,  Prev: Odds and Ends,  Up: Top
 
 History of mh-e
 ***************
 
    mh-e was originally written by Brian Reid in 1983 and has changed
-hands twice since then.  Jim Larus wanted to do something similar for
-GNU Emacs, and ended up completely rewriting it that same year.  In
-1989, Stephen Gildea picked it up and is now currently improving and
-maintaining it.
+hands several times since then. Jim Larus wanted to do something
+similar for GNU Emacs, and ended up completely rewriting it that same
+year. In 1989, Stephen Gildea picked it up and added many improvements.
+Bill Wohler then took over in 2000 and moved its development to
+SourceForge (http://sourceforge.net/).
 
 * Menu:
 
@@ -503,89 +421,7 @@ inconsistencies that required a new major version to fix, and so version
    Stephen Gildea, June 1994
 
 
-File: mh-e,  Node: Changes to mh-e,  Next: Copying,  Prev: History,  Up: Top
-
-Changes to mh-e
-***************
-
-   mh-e had a fairly major facelift between Versions 3 and 4.  The
-differences between Versions 4 and 5 from the user's viewpoint are
-relatively minor.  The prompting order for the folder and message number
-in a couple of functions had been switched inadvertently in Version 4.
-Version 5 switches the order back.  The `+inbox' folder is no longer
-hard-coded, but rather uses the `Inbox' MH Profile entry.  See the file
-`etc/MH-E-NEWS' in the Emacs distribution for more details on the
-changes.
-
-   This section documents the changes between Version 3 and newer
-versions so that you'll know which commands to use (or which commands
-you won't have) in case you're stuck with an old version.
-
-   The following tables summarize the changes to buffer names, commands
-and variables.
-
-Buffer Mode Names
-=================
-
-     Version 3           Version 4
-     
-     mh-e folder        MH-Folder
-     mh-e scan          MH-Folder
-     mh-e show          MH-Folder Show
-     Fundamental        MH-Show
-     mh-e letter        MH-Letter
-     mh-e letter        MH-Pick
-
-Commands
-========
-
-                Version 3                        Version 4
-     
-     Function               Command   Command          Function
-     
-     mh-first-msg           <          M-<               mh-first-msg
-     -                      -          M->               mh-last-msg
-     mh-show                .          RET               mh-show
-     -                      -          ,                 mh-header-display
-     mh-reply               a          r                 mh-reply
-     mh-redistribute        r          M-d               mh-redistribute
-     mh-unshar-msg          -          M-n               mh-store-msg
-     mh-write-msg-to-file   M-o        C-o               mh-write-msg-to-file
-     mh-delete-msg-from-seq C-u M-%    M-#               mh-delete-seq
-     -                      -          M-q               mh-list-sequences
-     mh-quit                b          q                 mh-quit
-     -                      -          C-C C-f C-r       mh-to-field (`From:')
-     -                      -          C-C C-f C-d       mh-to-field (`Dcc:')
-
-Variables
-=========
-
-               Version 3                           Version 4
-     
-     Variable              Value             Value           Variable
-     
-     mh-show-buffer-      "{%%b}  %s/%d"    "{show-%s} %d"  mh-show-buffer-
-     mode-line-buffer-id                                    mode-line-buffer-id
-     mh-unshar-default-   ""                nil             mh-store-default-
-     directory                                              directory
-
-New Variables
-=============
-
-     mail-citation-hook                           mh-new-draft-cleaned-headers
-     mail-header-separator                        mh-pick-mode-hook
-     mh-auto-folder-collect                       mh-refile-msg-hook
-     mh-comp-formfile                             mh-scan-prog
-     mh-repl-formfile                             mh-send-prog
-     mh-delete-msg-hook                           mh-show-hook
-     mh-forward-subject-format                    mh-show-mode-hook
-     mh-inc-prog                                  mh-signature-file-name
-     mh-mime-content-types                        mh-sortm-args
-     mh-default-folder-for-message-function       mh-repl-formfile
-     mh-mhn-args
-
-
-File: mh-e,  Node: Copying,  Next: Command Index,  Prev: Changes to mh-e,  Up: Top
+File: mh-e,  Node: Copying,  Next: Command Index,  Prev: History,  Up: Top
 
 GNU GENERAL PUBLIC LICENSE
 **************************
@@ -653,14 +489,14 @@ modification follow.
 
   0. This License applies to any program or other work which contains a
      notice placed by the copyright holder saying it may be distributed
-     under the terms of this General Public License.  The "Program",
+     under the terms of this General Public License.  The "Program,"
      below, refers to any such program or work, and a "work based on
      the Program" means either the Program or any derivative work under
      copyright law: that is to say, a work containing the Program or a
      portion of it, either verbatim or with modifications and/or
      translated into another language.  (Hereinafter, translation is
-     included without limitation in the term "modification".)  Each
-     licensee is addressed as "you".
+     included without limitation in the term "modification.")  Each
+     licensee is addressed as "you."
 
      Activities other than copying, distribution and modification are
      not covered by this License; they are outside its scope.  The act
@@ -841,7 +677,7 @@ modification follow.
 
      Each version is given a distinguishing version number.  If the
      Program specifies a version number of this License which applies
-     to it and "any later version", you have the option of following
+     to it and "any later version," you have the option of following
      the terms and conditions either of that version or of any later
      version published by the Free Software Foundation.  If the Program
      does not specify a version number of this License, you may choose
@@ -896,7 +732,7 @@ convey the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
      ONE LINE TO GIVE THE PROGRAM'S NAME AND AN IDEA OF WHAT IT DOES.
-     Copyright (C) 19YY  NAME OF AUTHOR
+     Copyright (C) 20YY  NAME OF AUTHOR
      
      This program is free software; you can redistribute it and/or
      modify it under the terms of the GNU General Public License
@@ -918,7 +754,7 @@ mail.
    If the program is interactive, make it output a short notice like
 this when it starts in an interactive mode:
 
-     Gnomovision version 69, Copyright (C) 19YY NAME OF AUTHOR
+     Gnomovision version 69, Copyright (C) 20YY NAME OF AUTHOR
      Gnomovision comes with ABSOLUTELY NO WARRANTY; for details
      type `show w'.  This is free software, and you are welcome
      to redistribute it under certain conditions; type `show c'
@@ -967,18 +803,21 @@ Command Index
 * mh-do-pick-search:                     Searching.
 * mh-edit-again:                         Old Drafts.
 * mh-edit-mhn:                           Sending MIME.
-* mh-execute-commands <1>:               Customizing Finishing Up.
+* mh-execute-commands <1>:               Customizing Incorporating.
 * mh-execute-commands <2>:               Finishing Up.
-* mh-execute-commands:                   Customizing Incorporating.
+* mh-execute-commands:                   Customizing Finishing Up.
 * mh-extract-rejected-mail:              Old Drafts.
 * mh-first-msg:                          Moving Around.
 * mh-forward:                            Forwarding.
 * mh-fully-kill-draft:                   Killing Draft.
 * mh-goto-msg:                           Moving Around.
+* mh-header-display:                     Viewing.
 * mh-inc-folder:                         Incorporating.
 * mh-insert-letter:                      Inserting Messages.
 * mh-insert-signature:                   Signature.
 * mh-insert-signature, example:          Customizing Sending.
+* mh-kill-folder <1>:                    Organizing.
+* mh-kill-folder:                        Customizing Reading.
 * mh-last-msg:                           Moving Around.
 * mh-list-folders:                       Organizing.
 * mh-list-sequences:                     Sequences.
@@ -1000,16 +839,16 @@ Command Index
 * mh-put-msg-in-seq:                     Sequences.
 * mh-quit:                               Finishing Up.
 * mh-redistribute:                       Redistributing.
-* mh-refile-msg <1>:                     Customizing Organizing.
-* mh-refile-msg:                         Organizing.
+* mh-refile-msg <1>:                     Organizing.
+* mh-refile-msg:                         Customizing Organizing.
 * mh-refile-or-write-again:              Organizing.
 * mh-reply:                              Replying.
 * mh-rescan-folder:                      Organizing.
 * mh-rescan-folder, example:             Customizing Incorporating.
 * mh-revert-mhn-edit:                    Sending MIME.
 * mh-rmail <1>:                          Finishing Up.
-* mh-rmail <2>:                          Reading Mail.
-* mh-rmail:                              Reading Mail Tour.
+* mh-rmail <2>:                          Reading Mail Tour.
+* mh-rmail:                              Reading Mail.
 * mh-rmail, example:                     Customizing Reading.
 * mh-search-folder:                      Searching.
 * mh-send:                               Sending Mail.
@@ -1023,8 +862,8 @@ Command Index
 * mh-sort-folder <1>:                    Organizing.
 * mh-sort-folder:                        Customizing Organizing.
 * mh-store-buffer:                       Customizing Files and Pipes.
-* mh-store-msg <1>:                      Customizing Files and Pipes.
-* mh-store-msg:                          Files and Pipes.
+* mh-store-msg <1>:                      Files and Pipes.
+* mh-store-msg:                          Customizing Files and Pipes.
 * mh-to-fcc <1>:                         Customizing Organizing.
 * mh-to-fcc:                             Header.
 * mh-to-field <1>:                       Searching.
@@ -1038,4 +877,94 @@ Command Index
 * mh-widen:                              Sequences.
 * mh-write-msg-to-file:                  Files and Pipes.
 * mh-yank-cur-msg:                       Inserting Letter.
+
+
+File: mh-e,  Node: Variable Index,  Next: Concept Index,  Prev: Command Index,  Up: Top
+
+Variable Index
+**************
+
+* Menu:
+
+* mail-citation-hook:                    Customizing Inserting Letter.
+* mh-auto-folder-collect:                Customizing Organizing.
+* mh-before-quit-hook:                   Customizing Finishing Up.
+* mh-before-send-letter-hook:            Customizing Sending Message.
+* mh-before-send-letter-hook, example:   Customizing Sending Message.
+* mh-bury-show-buffer:                   Customizing Reading.
+* mh-bury-show-buffer, example:          Customizing mh-e.
+* mh-clean-message-header:               Customizing Viewing.
+* mh-cmd-note:                           Customizing Scan Line Formats.
+* mh-comp-formfile:                      Customizing Sending.
+* mh-compose-letter-function:            Customizing Sending.
+* mh-cur-scan-msg-regexp:                Customizing Scan Line Formats.
+* mh-default-folder-for-message-function: Customizing Organizing.
+* mh-default-folder-for-message-function, example: Customizing Organizing.
+* mh-delete-msg-hook:                    Customizing Deleting.
+* mh-delete-yanked-msg-window:           Customizing Inserting Letter.
+* mh-deleted-msg-regexp:                 Customizing Scan Line Formats.
+* mh-do-not-confirm:                     Customizing Reading.
+* mh-folder-mode-hook:                   Customizing Reading.
+* mh-folder-mode-hook, example:          Customizing Reading.
+* mh-forward-subject-format:             Customizing Forwarding.
+* mh-good-msg-regexp:                    Customizing Scan Line Formats.
+* mh-inc-folder-hook:                    Customizing Incorporating.
+* mh-inc-folder-hook, example:           Customizing Incorporating.
+* mh-inc-prog:                           Customizing Incorporating.
+* mh-ins-buf-prefix:                     Customizing Inserting Letter.
+* mh-invisible-headers:                  Customizing Viewing.
+* mh-letter-mode-hook:                   Customizing Sending.
+* mh-lib:                                Customizing Reading.
+* mh-lib, example:                       Getting Started.
+* mh-lpr-command-format:                 Customizing Printing.
+* mh-lpr-command-format, example:        Customizing mh-e.
+* mh-mhn-args:                           Customizing Sending MIME.
+* mh-mime-content-types:                 Customizing Editing MIME.
+* mh-mime-content-types, example:        Customizing Editing MIME.
+* mh-msg-number-regexp:                  Customizing Scan Line Formats.
+* mh-msg-search-regexp:                  Customizing Scan Line Formats.
+* mh-new-draft-cleaned-headers:          Customizing Old Drafts.
+* mh-new-draft-cleaned-headers, example: Customizing Old Drafts.
+* mh-note-copied:                        Customizing Scan Line Formats.
+* mh-note-cur:                           Customizing Scan Line Formats.
+* mh-note-deleted:                       Customizing Scan Line Formats.
+* mh-note-dist:                          Customizing Scan Line Formats.
+* mh-note-forw:                          Customizing Scan Line Formats.
+* mh-note-printed:                       Customizing Scan Line Formats.
+* mh-note-refiled:                       Customizing Scan Line Formats.
+* mh-note-repl:                          Customizing Scan Line Formats.
+* mh-note-seq:                           Customizing Scan Line Formats.
+* mh-partial-folder-mode-line-annotation: Customizing Searching.
+* mh-pick-mode-hook:                     Customizing Searching.
+* mh-print-background:                   Customizing Printing.
+* mh-progs <1>:                          Customizing Incorporating.
+* mh-progs <2>:                          Customizing Reading.
+* mh-progs:                              Customizing Scan Line Formats.
+* mh-progs, example:                     Getting Started.
+* mh-quit-hook:                          Customizing Finishing Up.
+* mh-recenter-summary-p:                 Customizing Moving Around.
+* mh-recursive-folders:                  Customizing Organizing.
+* mh-redist-full-contents:               Customizing Redistributing.
+* mh-refile-msg-hook:                    Customizing Organizing.
+* mh-refiled-msg-regexp:                 Customizing Scan Line Formats.
+* mh-repl-formfile:                      Customizing Sending.
+* mh-reply-default-reply-to:             Customizing Replying.
+* mh-scan-prog <1>:                      Customizing Incorporating.
+* mh-scan-prog:                          Customizing Scan Line Formats.
+* mh-send-prog:                          Customizing Sending Message.
+* mh-show-buffer-mode-line-buffer-id:    Customizing Viewing.
+* mh-show-hook:                          Customizing Viewing.
+* mh-show-hook, example:                 Customizing Viewing.
+* mh-show-mode-hook:                     Customizing Viewing.
+* mh-show-mode-hook, example:            Customizing Viewing.
+* mh-signature-file-name:                Customizing Signature.
+* mh-sortm-args:                         Customizing Organizing.
+* mh-store-default-directory:            Customizing Files and Pipes.
+* mh-store-default-directory, example:   Customizing Files and Pipes.
+* mh-summary-height:                     Customizing Reading.
+* mh-user-path, example:                 Customizing Organizing.
+* mh-valid-scan-line:                    Customizing Scan Line Formats.
+* mh-visible-headers:                    Customizing Viewing.
+* mh-yank-from-start-of-msg:             Customizing Inserting Letter.
+* mhl-formfile:                          Customizing Viewing.
 

@@ -1,5 +1,6 @@
 /* Machine independent variables that describe the core file under GDB.
-   Copyright 1986, 1987, 1989, 1990, 1992, 1995 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -54,6 +55,7 @@ extern void read_memory (CORE_ADDR memaddr, char *myaddr, int len);
    bytes.  */
 
 extern LONGEST read_memory_integer (CORE_ADDR memaddr, int len);
+extern int safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value);
 
 /* Read an unsigned integer from debugged memory, given address and
    number of bytes.  */
@@ -70,6 +72,14 @@ extern void read_memory_string (CORE_ADDR, char *, int);
    etc.  */
 
 extern void write_memory (CORE_ADDR memaddr, char *myaddr, int len);
+
+/* Store VALUE at ADDR in the inferior as a LEN-byte unsigned integer.  */
+extern void write_memory_unsigned_integer (CORE_ADDR addr, int len,
+                                           ULONGEST value);
+
+/* Store VALUE at ADDR in the inferior as a LEN-byte unsigned integer.  */
+extern void write_memory_signed_integer (CORE_ADDR addr, int len,
+                                         LONGEST value);
 
 extern void generic_search (int len, char *data, char *mask,
 			    CORE_ADDR startaddr, int increment,
@@ -98,15 +108,15 @@ extern int write_files;
 
 extern void core_file_command (char *filename, int from_tty);
 
+extern void exec_open (char *filename, int from_tty);
+
 extern void exec_file_attach (char *filename, int from_tty);
 
-extern void exec_file_command (char *filename, int from_tty);
+extern void exec_file_clear (int from_tty);
 
 extern void validate_files (void);
 
 extern CORE_ADDR register_addr (int regno, CORE_ADDR blockend);
-
-extern void registers_fetched (void);
 
 #if !defined (KERNEL_U_ADDR)
 extern CORE_ADDR kernel_u_addr;

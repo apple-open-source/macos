@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Make sure `compile' is included when subdir-objects is used in a subdir.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AC_CONFIG_AUX_DIR(tools)
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AM_PROG_CC_C_O
+AC_OUTPUT(Makefile foo/Makefile)
+END
+
+mkdir tools foo foo/bar
+
+cat > Makefile.am << 'END'
+SUBDIRS = foo
+END
+
+cat > foo/Makefile.am << 'EOF'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = mumble
+mumble_SOURCES = bar/a.c
+EOF
+
+$ACLOCAL || exit 1
+$AUTOMAKE --add-missing || exit 1
+test -f tools/compile || exit 1

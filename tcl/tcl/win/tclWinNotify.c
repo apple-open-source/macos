@@ -10,17 +10,10 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinNotify.c,v 1.1.1.3 2000/04/12 02:02:34 wsanchez Exp $
+ * RCS: @(#) $Id: tclWinNotify.c,v 1.1.1.4 2002/04/05 16:14:15 jevans Exp $
  */
 
 #include "tclWinInt.h"
-#include <winsock.h>
-
-/*
- * The follwing static indicates whether this module has been initialized.
- */
-
-static int initialized = 0;
 
 #define INTERVAL_TIMER 1	/* Handle of interval timer. */
 
@@ -468,7 +461,7 @@ Tcl_WaitForEvent(
 	     * propagate the quit message and start unwinding.
 	     */
 
-	    PostQuitMessage(msg.wParam);
+	    PostQuitMessage((int) msg.wParam);
 	    status = -1;
 	} else if (result == -1) {
 	    /*

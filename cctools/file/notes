@@ -1,3 +1,12 @@
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+- Added -I$(SRCROOT)/../include to the CFLAGS in the Makefile to pick up
+  the headers in cctools so that the headers with guards are used.
+
 Changes for the MacOS X bring up (the cctools-282 release):
 - Changed the Makefile to allow for RC_OS=macos for MacOS X builds.
 - Added a cast in process() in file.c on to get it to compile with the

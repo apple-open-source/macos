@@ -44,7 +44,6 @@
  * All rights reserved.
  */
 
-#include "io_inline.h"
 #include "libsaio.h"
 
 /*
@@ -74,48 +73,54 @@
 
 void enableA20()
 {
-	/* make sure that the input buffer is empty */
-	while (inb(PORT_B) & KB_INFULL);
+    /* make sure that the input buffer is empty */
+    while (inb(PORT_B) & KB_INFULL);
 
-	/* make sure that the output buffer is empty */
-	if (inb(PORT_B) & KB_OUTFULL)
-		(void)inb(PORT_A);
+    /* make sure that the output buffer is empty */
+    if (inb(PORT_B) & KB_OUTFULL)
+        (void)inb(PORT_A);
 
-	/* make sure that the input buffer is empty */
-	while (inb(PORT_B) & KB_INFULL);
+    /* make sure that the input buffer is empty */
+    while (inb(PORT_B) & KB_INFULL);
 
-	/* write output port */
-	outb(PORT_B, CMD_WOUT);
+    /* write output port */
+    outb(PORT_B, CMD_WOUT);
 
-	/* wait until command is accepted */
-	while (inb(PORT_B) & KB_INFULL);
+    /* wait until command is accepted */
+    while (inb(PORT_B) & KB_INFULL);
 
-	outb(PORT_A, KB_A20);
+    outb(PORT_A, KB_A20);
 
-	while (inb(PORT_B) & KB_INFULL);	/* wait until done */
+    while (inb(PORT_B) & KB_INFULL);   /* wait until done */
 }
 
 void sleep(int n)
 {
-	int	endtime = (time18() + 18*n);
-	while (time18() < endtime);
+    int endtime = (time18() + 18*n);
+    while (time18() < endtime);
 }
 
 void turnOffFloppy(void)
 {
-	/*
-	 * Disable floppy:
-	 * Hold controller in reset,
-	 * disable DMA and IRQ,
-	 * turn off floppy motors.
-	 */
-	outb(0x3F2, 0x00);
+    /*
+     * Disable floppy:
+     * Hold controller in reset,
+     * disable DMA and IRQ,
+     * turn off floppy motors.
+     */
+    outb(0x3F2, 0x00);
 }
 
-char * newString(char * oldString)
+char * newString(const char * oldString)
 {
     if ( oldString )
         return strcpy(malloc(strlen(oldString)+1), oldString);
     else
         return NULL;
+}
+
+void stop(const char * msg)
+{
+    error("\n%s\n", msg);
+    halt();
 }

@@ -55,7 +55,7 @@ void DatabaseCryptoCore::generateNewSecrets()
     
     // create a random 20 byte HMAC1/SHA1 signing "key"
     GenerateKey signGenerator(Server::csp(), CSSM_ALGID_SHA1HMAC,
-        sizeof(DbBlob::PrivateBlob::signingKey) * 8);
+        sizeof(DbBlob::PrivateBlob::SigningKey) * 8);
     signingKey = signGenerator(KeySpec(CSSM_KEYUSE_SIGN | CSSM_KEYUSE_VERIFY,
         CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE));
     

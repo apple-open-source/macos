@@ -24,6 +24,7 @@
  */
  
 #include "SnaccUtils.h"
+#include "CSPAttacher.h"
 #include "cldebugging.h"
 #include <Security/pkcs1oids.h>
 #include <Security/cdsaUtils.h>
@@ -113,9 +114,8 @@ CL_certDecodeComponents(
 	AsnLen totalLen;		// including tag and ASN length 
 	char *elemStart;		// ptr to start of element, including tag
 	
-	int  rtn;
     ENV_TYPE env;
-    if ((rtn = setjmp (env)) == 0) {
+	try {
 		tag = BDecTag (buf, bytesDecoded, env);
 		if (tag != MAKE_TAG_ID (UNIV, CONS, SEQ_TAG_CODE)) {
 			errorLog1("CL_CertDecodeComponents: bad first-level tag (0x%x)\n", tag);
@@ -186,8 +186,8 @@ CL_certDecodeComponents(
 		 * of indefinte-length data.
 		 */
 	}
-	else {
-		errorLog0("CL_CertDecodeComponents: longjmp during decode\n");
+	catch(...) {
+		errorLog0("CL_CertDecodeComponents: throw during decode\n");
 		TBSCert.reset();
 		algId.reset();
 		rawSig.reset();
@@ -366,7 +366,7 @@ void CL_cssmAlgToSnaccOid(
 			oid.ReSet(md2WithRSAEncryption_arc);
 			break;
 		case CSSM_ALGID_MD5WithRSA:
-			oid.ReSet(md2WithRSAEncryption_arc);
+			oid.ReSet(md5WithRSAEncryption_arc);
 			break;
 		case CSSM_ALGID_SHA1WithRSA:
 			oid.ReSet(sha1withRSAEncryption_arc);
@@ -452,6 +452,7 @@ void CL_snaccGeneralNamesToCdsa(
 		char *src = NULL;
 		unsigned len = 0;
 		AsnType *toBeEncoded = NULL;
+		bool freeSrc = false;
 		switch(currSnaccName->choiceId) {
 			case GeneralName::otherNameCid:
 				/* OTHER_NAME, AsnOid */
@@ -517,6 +518,7 @@ void CL_snaccGeneralNamesToCdsa(
 			src = aData;
 			len = aData.length();
 			aData.release();
+			freeSrc = true;
 			currCdsaName->berEncoded = CSSM_TRUE;
 		}
 		else {
@@ -528,7 +530,9 @@ void CL_snaccGeneralNamesToCdsa(
 		currCdsaName->name.Data = (uint8 *)alloc.malloc(len);
 		currCdsaName->name.Length = len;
 		memmove(currCdsaName->name.Data, src, len);
-		
+		if(freeSrc) {
+			alloc.free(src);
+		}
 		snaccObj.GoNext();
 	}
 }
@@ -699,7 +703,8 @@ void CL_normalizeString(
 
 	/* upper case */
 	while(pCh < pEos) {
-		*pCh++ = toupper(*pCh);
+		*pCh = toupper(*pCh);
+		pCh++;
 	}
 	
 	/* clean out whitespace */
@@ -831,4 +836,99 @@ void CL_normalizeX509Name(
 	}		/* for each RDN */
 }
 
+/*
+ * Obtain a CSSM_KEY from a SubjectPublicKeyInfo, inferring as much as we can
+ * from required fields (subjectPublicKeyInfo) and extensions (for 
+ * KeyUse, obtained from the optional DecodedCert).
+ */
+CSSM_KEY_PTR CL_extractCSSMKey(
+	SubjectPublicKeyInfo	&snaccKeyInfo,
+	CssmAllocator			&alloc,
+	const DecodedCert		*decodedCert)			// optional
+{
+	CSSM_KEY_PTR cssmKey = (CSSM_KEY_PTR) alloc.malloc(sizeof(CSSM_KEY));
+	memset(cssmKey, 0, sizeof(CSSM_KEY));
+	CSSM_KEYHEADER &hdr = cssmKey->KeyHeader;
+	CssmRemoteData keyData(alloc, cssmKey->KeyData);
+	try {
+		hdr.HeaderVersion = CSSM_KEYHEADER_VERSION;
+		/* CspId blank */
+		hdr.BlobType = CSSM_KEYBLOB_RAW;
+		hdr.AlgorithmId = CL_snaccOidToCssmAlg(snaccKeyInfo.algorithm->algorithm);
+			
+		/* 
+		 * Format inferred from AlgorithmId. I have never seen these defined
+		 * anywhere, e.g., whart's the format of an RSA public key in a cert?
+		 * X509 certainly doesn't say. However. the following two cases are known
+		 * to be correct. 
+		 */
+		switch(hdr.AlgorithmId) {
+			case CSSM_ALGID_RSA:
+				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
+				break;
+			case CSSM_ALGID_DSA:
+				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
+				break;
+			case CSSM_ALGID_FEE:
+				/* CSSM_KEYBLOB_RAW_FORMAT_NONE --> DER encoded */
+				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+				break;
+			default:
+				/* punt */
+				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+		}
+		hdr.KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
+		
+		/* KeyUsage inferred from extensions */
+		if(decodedCert) {
+			hdr.KeyUsage = decodedCert->inferKeyUsage();
+		}
+		else {
+			hdr.KeyUsage = CSSM_KEYUSE_ANY;
+		}
+		
+		/* start/end date unknown, leave zero */
+		hdr.WrapAlgorithmId = CSSM_ALGID_NONE;
+		hdr.WrapMode = CSSM_ALGMODE_NONE;
+		
+		/*
+		 * subjectPublicKeyInfo.subjectPublicKey (AsnBits) ==> KeyData
+		 */
+		SC_asnBitsToCssmData(snaccKeyInfo.subjectPublicKey, keyData);
+		keyData.release();
+
+		/*
+		 * LogicalKeySizeInBits - ask the CSP
+		 */
+		CSSM_CSP_HANDLE cspHand = getGlobalCspHand(true);
+		CSSM_KEY_SIZE keySize;
+		CSSM_RETURN crtn;
+		crtn = CSSM_QueryKeySizeInBits(cspHand, CSSM_INVALID_HANDLE, cssmKey, &keySize);
+		if(crtn) {
+			CssmError::throwMe(crtn);
+		}
+		cssmKey->KeyHeader.LogicalKeySizeInBits = 
+			keySize.LogicalKeySizeInBits;
+	}
+	catch (...) {
+		alloc.free(cssmKey);
+		throw;
+	}
+	return cssmKey;
+}
+
+void CL_freeCSSMKey(
+	CSSM_KEY_PTR		cssmKey,
+	CssmAllocator		&alloc,
+	bool				freeTop)
+{
+	if(cssmKey == NULL) {
+		return;
+	}
+	alloc.free(cssmKey->KeyData.Data);
+	memset(cssmKey, 0, sizeof(CSSM_KEY));
+	if(freeTop) {
+		alloc.free(cssmKey);
+	}
+}
 

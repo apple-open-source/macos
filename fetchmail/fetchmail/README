@@ -35,6 +35,9 @@ mode and forwarding via SMTP to sendmail).  It will probably undergo
 substantial change only if and when support for a new retrieval
 protocol or authentication mode is added.
 
+If you want to hack on this code, a list of known bugs and to-do items
+can be found in the file todo.html.
+
 You can easily fetch the latest version of fetchmail via FTP from the
 following FTP directory:
 

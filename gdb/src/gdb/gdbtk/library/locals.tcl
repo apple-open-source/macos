@@ -1,5 +1,5 @@
-# Local variable window for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Local variable window for Insight.
+# Copyright 1997, 1998, 1999, 2001 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -19,7 +19,7 @@ class LocalsWin {
     #  CONSTRUCTOR - create new locals window
     # ------------------------------------------------------------------
     constructor {args} {
-	update
+	update dummy
     }
 
     # ------------------------------------------------------------------
@@ -60,12 +60,12 @@ class LocalsWin {
     # ------------------------------------------------------------------
     method getVariablesBlankPath {} {
 	global Update
-	debug "LocalsWin::getVariablesBlankPath"
+	debug
 
 	return [$_frame variables]
     }
 
-    method update {} {
+    method update {event} {
 	global Update Display
 
 	debug "START LOCALS UPDATE CALLBACK"
@@ -115,7 +115,7 @@ class LocalsWin {
 	}
 
 	# Update variables in window
-	VariableWin::update
+	VariableWin::update dummy
 
 	debug "END LOCALS UPDATE CALLBACK"
     }

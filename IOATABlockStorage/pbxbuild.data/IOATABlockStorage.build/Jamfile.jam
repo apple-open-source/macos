@@ -1,29 +1,37 @@
-# Jamfile for target IOATABlockStorage of project IOATABlockStorage
+# Jamfile for target "IOATABlockStorage" of project "IOATABlockStorage"
 
-
-PROJECT = IOATABlockStorage ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# IOATABlockStorage target
-export deferred TARGET_NAME = IOATABlockStorage ;
-export deferred PRODUCT_NAME = IOATABlockStorage ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOATABlockStorage ;
+export deferred SRCROOT = /Volumes/Projects/IOATABlockStorage ;
 
-export deferred PKGINFO_FILE_CONTENTS = "KEXT????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/pbdevelopment.plist" ;
+# User-defined project-wide settings for project
 
+# Target "IOATABlockStorage"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOATABlockStorage.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOATABlockStorage"
 export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOATABlockStorage ;
+
+# User-defined build settings for target "IOATABlockStorage"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALLHDRS_COPY_PHASE = YES ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOATABlockStorage ;
-export deferred MODULE_VERSION = 1.1.2 ;
+export deferred MODULE_VERSION = 1.2.0 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -44,6 +52,8 @@ if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
@@ -60,26 +70,18 @@ IOATAStorageDefines.h_ATTRIBUTES = ;
 HEADERS =
 	IOATABlockStorageDriver.h
 	IOATABlockStorageDevice.h
-	IOATAStorageDefines.h ;
+	IOATAStorageDefines.h
+	UserClient/ATASMARTUserClient.h
+	UserClientLib/ATASMARTLib.h
+	UserClientLib/ATASMARTLibPriv.h ;
 ProcessHeaders "<IOATABlockStorage>IOATABlockStorage.kext" : "$(HEADERS)" : BPTag000 : BPTag001 ;
-
-# Copy Files
-COPY_FILES =
-	IOATABlockStorageDriver.h
-	IOATABlockStorageDevice.h
-	IOATAStorageDefines.h ;
-COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage/ata" ;
-if $(ACTION) in install installhdrs {
-	ProcessCopyFiles "<IOATABlockStorage>IOATABlockStorage.kext" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
-}
-else {
-	NoOp "<IOATABlockStorage>IOATABlockStorage.kext" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
-}
 
 # Resources
 English.lproj/InfoPlist.strings_REGION = English ;
-RESOURCES = English.lproj/InfoPlist.strings ;
-ProcessResources "<IOATABlockStorage>IOATABlockStorage.kext" : "$(RESOURCES)" : BPTag002 : BPTag003 ;
+RESOURCES =
+	English.lproj/InfoPlist.strings
+	Icons/PCCard.icns ;
+ProcessResources "<IOATABlockStorage>IOATABlockStorage.kext" : "$(RESOURCES)" : BPTag001 : BPTag002 ;
 
 # Sources
 IOATABlockStorageCommands.cpp_ATTRIBUTES = ;
@@ -90,12 +92,19 @@ SOURCES =
 	IOATABlockStorageCommands.cpp
 	IOATABlockStorageDriver.cpp
 	IOATABlockStorageDevice.cpp
-	IOATABlockStorageDriverPM.cpp ;
-ProcessSources "<IOATABlockStorage>IOATABlockStorage.kext" : "$(SOURCES)" : BPTag003 : BPTag004 ;
+	IOATABlockStorageDriverPM.cpp
+	UserClient/ATASMARTUserClient.cpp ;
+ProcessSources "<IOATABlockStorage>IOATABlockStorage.kext" : "$(SOURCES)" : BPTag002 : BPTag003 ;
 
 # Frameworks & Libraries
 FRAMEWORKS_AND_LIBRARIES = ;
-ProcessFrameworksAndLibraries "<IOATABlockStorage>IOATABlockStorage.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag004 : BPTag005 ;
+ProcessFrameworksAndLibraries "<IOATABlockStorage>IOATABlockStorage.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
+
+# Copy Files
+"$(BUILT_PRODUCTS_DIR)/ATASMARTLib.plugin_ATTRIBUTES" = AbsolutePath ;
+COPY_FILES = "$(BUILT_PRODUCTS_DIR)/ATASMARTLib.plugin" ;
+COPYFILES_DESTINATION_PATH = "$(TARGET_BUILD_DIR)/IOATABlockStorage.kext/Contents/PlugIns" ;
+ProcessCopyFiles "<IOATABlockStorage>IOATABlockStorage.kext" : "$(COPY_FILES)" : BPTag004 : BPTag005 ;
 
 # Rez Files
 REZ_FILES = ;

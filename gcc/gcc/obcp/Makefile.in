@@ -215,7 +215,7 @@ RTL_H = $(srcdir)/../rtl.h $(srcdir)/../rtl.def \
 	$(srcdir)/../machmode.h $(srcdir)/../machmode.def
 TREE_H = $(srcdir)/../tree.h $(srcdir)/../real.h $(srcdir)/../tree.def \
 	$(srcdir)/../machmode.h $(srcdir)/../machmode.def
-CXX_TREE_H = $(TREE_H) cp-tree.h cp-tree.def objc-act.h
+CXX_TREE_H = $(TREE_H) cp-tree.h cp-tree.def objc-act.h objc-tree.def
 PARSE_H = parse.h
 PARSE_C = parse.c
 EXPR_H = $(srcdir)/../expr.h ../insn-codes.h
@@ -320,8 +320,8 @@ repo.o : repo.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../system.h \
   $(srcdir)/../toplev.h
 semantics.o: semantics.c $(CONFIG_H) $(CXX_TREE_H) lex.h \
   $(srcdir)/../except.h $(srcdir)/../system.h $(srcdir)/../toplev.h
-cp-internal_debug.o: cp-internal_debug.c $(CONFIG_H) $(CXX_TREE_H)
-
+cp-internal_debug.o: cp-internal_debug.c $(CONFIG_H) $(CXX_TREE_H) \
+  $(srcdir)/../rtl.h $(srcdir)/objc-act.h
 
 #
 # These exist for maintenance purposes.

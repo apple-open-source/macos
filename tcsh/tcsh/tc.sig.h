@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sig.h,v 1.2 2001/07/13 18:49:11 mwatson Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tc.sig.h,v 1.2 2001/07/13 18:49:11 mwatson Exp $ */
 /*
  * tc.sig.h: Signal handling
  *

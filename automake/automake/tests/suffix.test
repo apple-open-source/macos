@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Make sure a suffix rule for C compilation is produced.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+noinst_PROGRAMS = foo
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE -i || exit 1
+
+grep '^\.c\.o' Makefile.in > /dev/null || exit 1
+
+$AUTOMAKE || exit 1
+grep '^\.c\.o' Makefile.in > /dev/null || exit 1

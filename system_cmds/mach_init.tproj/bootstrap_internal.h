@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-1999 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,23 +31,26 @@
 
 #import <mach/mach.h>
 #import <mach/boolean.h>
+#import <mach/notify.h>
 
-#define BASEPRI_USER	10	/* AOF Thu Feb 16 14:42:57 PST 1995 */
+#define BASEPRI_USER	31	/* AOF 20/02/2002 */
 
 #define	BITS_PER_BYTE	8	/* this SHOULD be a well defined constant */
 #define	ANYWHERE	TRUE	/* For use with vm_allocate() */
 
+#define DEMAND_REQUEST	MACH_NOTIFY_LAST	/* demand service messaged */
+
+#define DELAYED_BOOTSTRAP_DESTROY TRUE		/* destroyed on last reference */
+
 extern const char *program_name;
-extern const char *conf_file;
-extern const char *default_conf;
 extern mach_port_t lookup_only_port;
 extern mach_port_t inherited_bootstrap_port;
 extern mach_port_t self_port;		/* Compatability hack */
 extern boolean_t forward_ok;
 extern boolean_t debugging;
 extern mach_port_t bootstrap_port_set;
-extern int init_priority;
+extern mach_port_t demand_port_set;
+extern mach_port_t notify_port;
+extern mach_port_t backup_port;
 extern boolean_t canReceive(mach_port_t port);
 extern boolean_t canSend(mach_port_t port);
-
-extern void msg_destroy_port(mach_port_t p);

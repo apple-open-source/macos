@@ -1,5 +1,5 @@
 /* UI_FILE - a generic STDIO like output stream.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,20 +21,11 @@
 #include "defs.h"
 #include "ui-file.h"
 #include "tui/tui-file.h"
+#include "tui/tuiIO.h"
 
-#ifdef TUI
 #include "tui.h"
-#include "tuiData.h"
-#include "tuiIO.h"
-#include "tuiCommand.h"
-#endif
 
 #include <string.h>
-
-/* Called instead of fputs for all TUI_FILE output.  */
-
-void (*fputs_unfiltered_hook) (const char *linebuffer,
-			       struct ui_file * stream);
 
 /* A ``struct ui_file'' that is compatible with all the legacy
    code. */
@@ -85,13 +76,14 @@ tui_file_delete (struct ui_file *file)
 {
   struct tui_stream *tmpstream = ui_file_data (file);
   if (tmpstream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_delete: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_delete: bad magic number");
   if ((tmpstream->ts_streamtype == astring) &&
       (tmpstream->ts_strbuf != NULL))
     {
-      free (tmpstream->ts_strbuf);
+      xfree (tmpstream->ts_strbuf);
     }
-  free (tmpstream);
+  xfree (tmpstream);
 }
 
 struct ui_file *
@@ -131,7 +123,8 @@ tui_file_isatty (struct ui_file *file)
 {
   struct tui_stream *stream = ui_file_data (file);
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_isatty: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_isatty: bad magic number");
   if (stream->ts_streamtype == afile)
     return (isatty (fileno (stream->ts_filestream)));
   else
@@ -143,7 +136,8 @@ tui_file_rewind (struct ui_file *file)
 {
   struct tui_stream *stream = ui_file_data (file);
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_rewind: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_rewind: bad magic number");
   stream->ts_strbuf[0] = '\0';
 }
 
@@ -154,7 +148,8 @@ tui_file_put (struct ui_file *file,
 {
   struct tui_stream *stream = ui_file_data (file);
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_put: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_put: bad magic number");
   if (stream->ts_streamtype == astring)
     write (dest, stream->ts_strbuf, strlen (stream->ts_strbuf));
 }
@@ -172,66 +167,15 @@ void
 tui_file_fputs (const char *linebuffer, struct ui_file *file)
 {
   struct tui_stream *stream = ui_file_data (file);
-#if defined(TUI)
-  extern int tui_owns_terminal;
-#endif
-  /* NOTE: cagney/1999-10-13: The use of fputs_unfiltered_hook is
-     seriously discouraged.  Those wanting to hook output should
-     instead implement their own ui_file object and install that. See
-     also tui_file_flush(). */
-  if (fputs_unfiltered_hook
-      && (file == gdb_stdout
-	  || file == gdb_stderr))
-    fputs_unfiltered_hook (linebuffer, file);
+
+  if (stream->ts_streamtype == astring)
+    {
+      tui_file_adjust_strbuf (strlen (linebuffer), file);
+      strcat (stream->ts_strbuf, linebuffer);
+    }
   else
     {
-#if defined(TUI)
-      if (tui_version && tui_owns_terminal)
-	{
-	  /* If we get here somehow while updating the TUI (from
-	   * within a tuiDo(), then we need to temporarily 
-	   * set up the terminal for GDB output. This probably just
-	   * happens on error output.
-	   */
-
-	  if (stream->ts_streamtype == astring)
-	    {
-	      tui_file_adjust_strbuf (strlen (linebuffer), file);
-	      strcat (stream->ts_strbuf, linebuffer);
-	    }
-	  else
-	    {
-	      tuiTermUnsetup (0, (tui_version) ? cmdWin->detail.commandInfo.curch : 0);
-	      fputs (linebuffer, stream->ts_filestream);
-	      tuiTermSetup (0);
-	      if (linebuffer[strlen (linebuffer) - 1] == '\n')
-		tuiClearCommandCharCount ();
-	      else
-		tuiIncrCommandCharCountBy (strlen (linebuffer));
-	    }
-	}
-      else
-	{
-	  /* The normal case - just do a fputs() */
-	  if (stream->ts_streamtype == astring)
-	    {
-	      tui_file_adjust_strbuf (strlen (linebuffer), file);
-	      strcat (stream->ts_strbuf, linebuffer);
-	    }
-	  else
-	    fputs (linebuffer, stream->ts_filestream);
-	}
-
-
-#else
-      if (stream->ts_streamtype == astring)
-	{
-	  tui_file_adjust_strbuf (strlen (linebuffer), file);
-	  strcat (stream->ts_strbuf, linebuffer);
-	}
-      else
-	fputs (linebuffer, stream->ts_filestream);
-#endif
+      tui_puts (linebuffer);
     }
 }
 
@@ -240,7 +184,8 @@ tui_file_get_strbuf (struct ui_file *file)
 {
   struct tui_stream *stream = ui_file_data (file);
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_get_strbuf: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_get_strbuf: bad magic number");
   return (stream->ts_strbuf);
 }
 
@@ -252,7 +197,8 @@ tui_file_adjust_strbuf (int n, struct ui_file *file)
   struct tui_stream *stream = ui_file_data (file);
   int non_null_chars;
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_adjust_strbuf: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_adjust_strbuf: bad magic number");
 
   if (stream->ts_streamtype != astring)
     return;
@@ -278,14 +224,8 @@ tui_file_flush (struct ui_file *file)
 {
   struct tui_stream *stream = ui_file_data (file);
   if (stream->ts_magic != &tui_file_magic)
-    internal_error ("tui_file_flush: bad magic number");
-
-  /* NOTE: cagney/1999-10-12: If we've been linked with code that uses
-     fputs_unfiltered_hook then we assume that it doesn't need to know
-     about flushes.  Code that does need to know about flushes can
-     implement a proper ui_file object. */
-  if (fputs_unfiltered_hook)
-    return;
+    internal_error (__FILE__, __LINE__,
+		    "tui_file_flush: bad magic number");
 
   switch (stream->ts_streamtype)
     {

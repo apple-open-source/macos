@@ -1,0 +1,397 @@
+
+			    Lsof Credits
+
+I owe an enormous debt to the users of lsof who have contributed
+to its steady growth.  The size of the list of people who have
+helped me, while it has grown too large to include in the lsof man
+page any more, is a testimonial to their generosity.
+
+First I acknowledge a debt to the work of Dan Bernstein, Michael
+``Ford'' Ditto, Tom Dunigan, Alexander Dupuy, Vik Lall, Ray Moody,
+C. Spencer, Michael Spitzer and those who wrote Berkeley's fstat
+program, all contributors to lsof's predecessors.
+
+I thank Doug McKenzie for his HP-UX proctor program and Rich Kulawiec
+for pointing it out.
+
+Finally I thank all the following people who have used lsof, pointed
+out its flaws, described its shortcomings, offered suggestions for
+improving it, supplied code for it, gave me technical advice, and
+provided test systems where I was able to do development work.
+
+	Szilveszter Adam
+	David Addison
+	Elias Halldor Agustsson
+	Jim Ankenbrandt
+	Richard Allen
+	Thomas Anders
+	Marc Auslander
+	Tigran Aivazian
+	Jos Backus
+	David Bacon
+	Scott Ballew
+	Ade Barkah
+	Anthony Baxter
+	John Beacom
+	Bruce Beare
+	M. Jay Beck
+	Michael Beirne
+	Steve Bellenot
+	Ulrich Bernhard
+	Dave Bianchi
+	Mark Bixby
+	Allan Black
+	Achim Bohnet
+	Mark Bonsack
+	Volker Borchert
+	Bill Bormann
+	Heddy Boubaker
+	Kieran Broadfoot
+	Dean Brock
+	Andrew Brown
+	Jim Brown
+	Michael Bryan
+	Matthew Burt
+	Pierfrancesco Caci
+	Bill Campbell
+	David Capshaw
+	John Caruso
+	Jon Champlin
+	Kris Chandrasekhar
+	Albert Chin-A-Young
+	Bernt Christandl
+	Marc Christensen
+	Hans Petter Christiansen
+	Tom Christiansen
+	Yves Christophe
+	Richard Chycoski
+	A. Channing Clark
+	Axel Clauberg
+	John Clear
+	Richard Coley
+	John Colgrave
+	Lionel Cons
+	Bob Cook
+	Patrick Connor
+	Jim Cooper
+	Doug Crabill
+	Dave Curry
+	Robert Dahlem
+	Guy Dallaire
+	D. Chris Daniels
+	Ian Darwin
+	Carl E. Davidson
+	Will Day
+	Steve Dibbell
+	Hugh Dickins
+	David DiGiacomo
+	Casper Dik
+	John DiMarco
+	Don Draper
+	Eric Dumazet
+	Marc Duponcheel
+	Jan Dvorak
+	Calle Dybedahl
+	John Dzubera
+	Jeff Earickson
+	Greg Earle
+	Bernd Eckenfels
+	Niklas Edmundsson
+	Philip Edwards
+	Robert Ehrlich
+	Doug Eldred
+	Scott Ellentuch
+	Tom Endo
+	Craig Everhart
+	Chris Evert
+	Bob Farmer
+	Sami Farin
+	Mike Feldman
+	Quentin Fennessy
+	Ian Fitchet
+	Toralf Foerster
+	Bob Foertsch
+	Ralph Forsythe
+	Mike Fraser
+	Curt Freeland
+	Terry Friedrichsen
+	Stuart D. Gathman
+	Dave Gilbert
+	Kurt Gollhardt
+	Roman Gollent
+	Julian Gordon
+	Henry Grebler
+	Richard Green
+	Chaskiel Grundman
+	Robert Hall
+	Garner Halloran
+	Adam Hammer
+	Charles Hannum
+	Vlad Harchev
+	Michael Haro
+	Steinar Haug
+	Sheldon Hearn
+	Wolfgang Hecht
+	Michael Hennecke
+	Randolph J. Herber
+	Andrew Hill
+	Kurt Hillig
+	Paul Hite
+	Billy Ho
+	Brett Hogden
+	Gaylord Holder
+	Kjetil Torgrim Homme
+	Jeffrey C. Honig
+	Heidi Hornstein
+	Michael A. Hovan III
+	Barbara Howe
+	J. Nelson Howell
+	Jeff Howie
+	Louis Huemiller
+	John Hughes
+	Gerrit Huizenga
+	Peter Ilieve
+	Mayer Ilovitz
+	John Jackson
+	Kurt Jaeger
+	Bruce Jerrick
+	Carl Johnson
+	Dion Johnson
+	Jeff Johnson
+	LaMont Jones
+	Peter Jordan
+	Arne H. Juul
+	Pasi Kaara
+	Frank Kaefer
+	Keith Kalet
+	Claus Kalle
+	Henri Karrenbeld
+	Amir Katz
+	Henry Katz
+	Terry Kennedy
+	Shane Kenney
+	Andrew Kephart
+	Robert Kiessling
+	Don Kirouac
+	Steve Kirsch
+	Philip Kizer
+	Thomas Klausner
+	Roger Klorese
+	Peter Klosky
+	Przemek Klosowski
+	Angelos D. Keromytis
+	Valdis Kletnieks
+	Chris Kordish
+	Joseph Kowalski
+	Christian Krackowizer
+	Paul Kranenburg
+	Troyan Krastev
+	Brad Krebs
+	Alex Kreis
+	Johannes Kroeger
+	Vincent Kujala
+	Shirley Lam
+	Ken Laing
+	Victoria H. Lau
+	Markus Lautenbacher
+	Steve Lacey
+	Chad R. Larson
+	Steve Laubscher
+	Loc Le
+	Tin Le
+	Diane Lebel
+	Francis Le Bourse
+	Michael Bracewell
+	Marty Leisner
+	Maciej Lesniewski
+	Stuart Levy
+	Michael Lewis
+	Angel Li
+	Ambrose Li
+	Wendy Lin
+	Carl E. Lindberg
+	Onno van der Linden
+	Jason Lingohr
+	Robert Lipe
+	Gabor Liptak
+	Friedel Loinger
+	Michael Long
+	Pete Lord
+	Steve Logue
+	Bela Lubkin
+	Horst Luehrsen
+	Andreas Luik
+	Timothy J. Luoma
+	Michael Mackenzie
+	Lawrence MacIntyre
+	Benson Margulies
+	Claude Marinier
+	Eberhard Mater
+	James Mathiesen
+	Fletcher Mattox
+	David Mazieres
+	Brian McAllister
+	Scott McClung
+	Dale McCluskey
+	Terry McCoy
+	Sean McDermott
+	Duncan McEwan
+	Dwight McKay
+	William McVey
+	Eric McWhorter
+	Dan Mercer
+	Bill Melvin
+	Andrew Merril
+	Richard van Meurs
+	Jim Mewes
+	Gary Millen
+	Timothy Miller
+	Davin Milun
+	Jim Mintha
+	Arkadiusz Miskiewicz
+	Nasser Momtaheni
+	Laurent Montaron
+	Phillip Moore
+	John Paul Morrison
+	John Gardiner Myers
+	Jeffrey Mogul
+	Dave Morrison
+	Pat Myrto
+	Allan Nathanson
+	Chance Neale
+	Dan Nelson
+	Bjorn S. Nilsson
+	Joseph J. Nuspl Jr.
+	David O'Brien
+	Alexandre Oliva
+	Craig B. Olofson
+	Dave Olson
+	Rainer Orth
+	Keith Parks
+	Will Partain
+	Vasco Pedro
+	Mark Peek
+	Ezra Peisach
+	Bill Pemberton
+	Lee Penn
+	Gildas Perrot
+	Jesse Perry
+	Nathan Peterson
+	Dominique Petitpierre
+	Hung Pham
+	Ray Phillips
+	Francois Pinard
+	Alex Podlecki
+	John Polstra
+	Scott Presnell
+	Mark Price
+	Philippe-Andre Prindeville
+	David Putz
+	Kurtis Rader
+	Peter Radig
+	Jean-Pierre Radley
+	Tim Ramsey
+	Dewan Rashid
+	Richard J. Rauenzahn
+	Louis Rayman
+	Brian Redman
+	Aaron Rhodes
+	Jim Reid
+	Jean-Luc Richier
+	Ingimar Robertson
+	Sylvain Robitaille
+	Larry Rogers
+	Malgorzata Roos
+	Larry Rosenman
+	Stephan Rossi
+	Kevin Ruderman
+	Wolfgang Rupprecht
+	Klaus Saggerer
+	Chris Schanzle
+	Igor Schein
+	Michael Schmitz
+	Larry Schwimmer
+	Hendrik G. Seliger
+	Igor V. Semenyuk
+	Jonathan Sergent
+	Berkley Shands
+	Eyal Shaynis
+	Michael Shields
+	Gregory Neil Shapiro
+	Anthony Shortland
+	Dave Sill
+	John Silva
+	Gerry Singleton
+	Leonard Sitongia
+	Kevin Smallwood
+	Curt Smith
+	Ben Smithurst
+	Douglas R. Smith
+	Kevin Smith
+	Chang Song
+	John Speno
+	Kenneth Stailey
+	Charles Stephens
+	Chip Stettler
+	Dave Stevens
+	Jeff Stewart
+	Andreas Stolcke
+	Sushila Subramanian
+	Jan Ole Suhr
+	Mike Sullivan
+	Patrick D. Sullivan
+	Peter Svensson
+	Chris Sylvain
+	Dale Talcott
+	Jon A. Tankersley
+	Jan Tax
+	Andy Thomas
+	Matthew Thurmaier
+	Chris Timmons
+	R. Lindsay Todd
+	Zdenko Tomasic
+	Michael Townsend
+	Linus Torvalds
+	Mike Tracy
+	Dan Trinkle
+	Lars Tunkrans
+	Lenny Turetsky
+	Kevin Vajk
+	John R. Vanderpool
+	Peter Van Epp
+	Peter C. Vernam
+	Bob Ward
+	Jules van Weerden
+	Tom Weaver
+	Fernando A.B. Whitaker
+	Carson Wilson
+	David J. Wilson
+	Frank Winkler
+	Marc Winkler
+	Mark Vasoll
+	Robert Vernon
+	Larry Virden
+	Jos Vos
+	Jun Biao Wang
+	Bill Watson
+	Joel White
+	Paul Wickman
+	Steve Williams
+	Erich Wimmer
+	Wally Winzer, Jr.
+	Patrick Wolfe
+	Stephen Woods
+	James Woodward
+	Sailu Yallapragada
+	Donna Yobs
+	Ron Young
+	Blair Zajac
+	Malcom Zung
+	and Waldemar Zurowski
+
+If I have omitted a contributor's name, the fault is wholly mine,
+and I apologize for the error.
+
+
+Vic Abell <abe@purdue.edu>
+November 1, 2001

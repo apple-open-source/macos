@@ -1,1 +1,46 @@
-                     SecureTransport notes                       8 Nov 1999 dmitch                       Current status of this project:Note "Version" refers to SSL2 vs. SSL3. "Mode" refers to client vs. server.-- All modes require domestic CSP. -- Both modes require post-Sonata CSP mods which allow    specification of raw symmetric key bits. These CSP changes    have been checked in prior to 8 Nov 1999.-- Server mode requires post-Sonata CSP mods which allow    asymmetric keys to have multiple KeyUsage flags set -    specifically, private keys must be able to sign and    decrypt; public keys must be able to verify and encrypt.   These CSP changes have NOT been checked in as of 8 Nov 1999;   final implementation pending input from A. Perez. -- Client mode works in both versions, both domestic and export. -- Server mode works with Netscape client 4.6.1 on Mac.    Operation with IE on Mac is flaky - sometimes it works,   sometimes not. Server untested with Windows clients. -- Client authentication is not tested. -- No support for session resumption. This needs a thread-safe   database, to be implemented in appleSession.c.
+                     SecureTransport notes
+                       14 Feb 2002 dmitch
+
+-- Server-side cert usage and configuration is highly application dependent. 
+
+   -- Although the use of server-initiated key exchange is optional under
+      the SSL3 spec, Netscape browsers (4.61 through 4.75) will not tolerate
+	  this operation unless an exportable cipher is selected. The current 
+	  configuration of the library will attempt to perform server-initiated
+	  key exchange if and only if the app has specified an encryption 
+	  certificate via SSLSetEncryptionCertificate(). Thus, in a config
+	  which is required to work with Netscape browsers, if non-export
+	  (i.e., strong) ciphers are to be supported, encryption certs
+	  must NOT be specified, and the server cert specified in SSLSetCertificate()
+	  must be capable of both signing and encryption. This applies to the underlying
+	  keys as well. 
+	  
+   -- On top of that, even in a situation where Netscape will allow a server-
+      initiated key exchange (export cipher, app specifies both kinds of certs),
+	  Netscape will abort if the *signing-only* cert (specified in 
+	  SSLSetCertificate()) is not capable of encryption! In this case that cert
+	  is never even used for encryption. But that is the real world. 
+	
+	  Thus, to work with Netscape browsers with export-grade ciphers, the main
+	  signing cert still has to be capable of encryption, even if the app specifies
+	  a separate encryption cert. 
+	  
+   -- The SSL_SERVER_KEYEXCH_HACK flag, in sslBuildFlags.h, was previously used
+      to work around the above-mentioned Netscape bug; when this flag is true,
+	  server-initiated key exchange is only performed if an encrypting cert is
+	  specified AND an export-grade cipher is selected. The current config has
+	  this flag set false. 
+	  
+   -- SSL2 server-side operation requires the presence of a cert and key which is 
+      capable of encryption (not signing). One cert, specified in SSLSetCertificate(),
+	  can support both SSL2 and SSL3 if and only if it is capable of both signing
+	  and encryption.
+	  
+-- Server mode operation with IE is fully functional and reliable. There is a 
+   bug in IE which is worked around in SSLEncodeServerHello(), in hdskhelo.c.
+   See comments there. Tested with IE 5.0 on OS 9 and 5.1.3 on OS X.  
+   
+-- Server untested with Windows clients. 
+
+-- Client authentication is not tested. 
+

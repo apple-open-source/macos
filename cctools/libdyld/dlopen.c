@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "stuff/bool.h"
 #include "mach-o/dyld.h"
 #include "ofi.h"
 #include "dlfcn.h"
@@ -86,6 +87,9 @@ int mode)
     NSObjectFileImage objectFileImage;
     NSObjectFileImageReturnCode ofile_result_code;
     NSModule module;
+    NSLinkEditErrors NSLinkEditError_errorClass;
+    int NSLinkEditError_errorNumber;
+    char *NSLinkEditError_fileName, *NSLinkEditError_errorString;
     struct dlopen_handle *p;
     unsigned long options;
     NSSymbol NSSymbol;
@@ -183,13 +187,20 @@ int mode)
 	}
 
 	/* try to link in this object file image */
-	options = NSLINKMODULE_OPTION_PRIVATE;
+	options = NSLINKMODULE_OPTION_PRIVATE |
+		  NSLINKMODULE_OPTION_RETURN_ON_ERROR;
 	if((mode & RTLD_NOW) == RTLD_NOW)
 	    options |= NSLINKMODULE_OPTION_BINDNOW;
 	module = NSLinkModule(objectFileImage, path, options);
-	NSDestroyObjectFileImage(objectFileImage) ;
+	NSDestroyObjectFileImage(objectFileImage);
 	if(module == NULL){
-	    dlerror_pointer = "NSLinkModule() failed for dlopen()";
+	    NSLinkEditError(&NSLinkEditError_errorClass,
+			    &NSLinkEditError_errorNumber,
+    			    &NSLinkEditError_fileName,
+			    &NSLinkEditError_errorString);
+	    if(NSLinkEditError_errorClass == NSLinkEditUnixResourceError)
+		errno = NSLinkEditError_errorNumber;
+	    dlerror_pointer = NSLinkEditError_errorString;
 	    return(NULL);
 	}
 
@@ -250,21 +261,32 @@ const char *symbol)
     struct dlopen_handle *dlopen_handle, *p;
     NSSymbol NSSymbol;
     void *address;
+    char *_symbol;
+
+	_symbol = malloc(strlen(symbol) + 2);
+	if(_symbol == NULL){
+	    dlerror_pointer = "can't allocate memory for symbol name with "
+			      "leading underbar";
+	    return(NULL);
+	}
+	strcpy(_symbol, "_");
+	strcat(_symbol, symbol);
 
 	dlopen_handle = (struct dlopen_handle *)handle;
-
 	/*
 	 * If this is the handle for the main program do a global lookup.
 	 */
 	if(dlopen_handle == (struct dlopen_handle *)&main_program_handle){
-	    if(NSIsSymbolNameDefined(symbol) == TRUE){
-		NSSymbol = NSLookupAndBindSymbol(symbol);
+	    if(NSIsSymbolNameDefined(_symbol) == TRUE){
+		NSSymbol = NSLookupAndBindSymbol(_symbol);
 		address = NSAddressOfSymbol(NSSymbol);
 		dlerror_pointer = NULL;
+		free(_symbol);
 		return(address);
 	    }
 	    else{
 		dlerror_pointer = "symbol not found";
+		free(_symbol);
 		return(NULL);
 	    }
 	}
@@ -275,14 +297,16 @@ const char *symbol)
 	p = dlopen_handles;
 	while(p != NULL){
 	    if(dlopen_handle == p){
-		NSSymbol = NSLookupSymbolInModule(p->module, symbol);
+		NSSymbol = NSLookupSymbolInModule(p->module, _symbol);
 		if(NSSymbol != NULL){
 		    address = NSAddressOfSymbol(NSSymbol);
 		    dlerror_pointer = NULL;
+		    free(_symbol);
 		    return(address);
 		}
 		else{
 		    dlerror_pointer = "symbol not found";
+		    free(_symbol);
 		    return(NULL);
 		}
 	    }
@@ -290,6 +314,7 @@ const char *symbol)
 	}
 
 	dlerror_pointer = "bad handle passed to dlsym()";
+	free(_symbol);
 	return(NULL);
 }
 

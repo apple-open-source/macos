@@ -86,6 +86,7 @@ struct cmd_flags {
     enum bool a;	/* don't sort the table of contents (original form) */
     enum bool c;	/* include commmon symbols in the table of contents */
     enum bool t;	/* just "touch" the archives to get the date right */
+    enum bool f;	/* warn if the output archive is fat,used by ar(1) -s */
     char *output;	/* the output file specified by -o */
     enum bool final_output_specified; /* if -final_output is specified */
     enum bool dynamic;	/* create a dynamic shared library, static by default */
@@ -96,6 +97,8 @@ struct cmd_flags {
     char *segs_read_only_addr;	/* segs_read_only_addr if specified, or NULL */
     char *segs_read_write_addr;	/* segs_read_write_addr if specified, or NULL */
     char *seg_addr_table;	/* seg_addr_table if specified, or NULL */
+    char *seg_addr_table_filename;
+			/* seg_addr_table_filename if specified, or NULL */
     char **Ldirs;	/* array of -Ldir arguments */
     unsigned long
 	nLdirs;		/* number of -Ldir arguments */
@@ -558,6 +561,22 @@ char **envp)
 		    cmd_flags.seg_addr_table = argv[i+1];
 		    i++;
 		}
+		else if(strcmp(argv[i], "-seg_addr_table_filename") == 0){
+		    if(cmd_flags.ranlib == TRUE){
+			error("unknown option: %s", argv[i]);
+			usage();
+		    }
+		    if(i + 1 == argc){
+			error("missing argument to: %s option", argv[i]);
+			usage();
+		    }
+		    if(cmd_flags.seg_addr_table_filename != NULL){
+			error("more than one: %s option specified", argv[i]);
+			usage();
+		    }
+		    cmd_flags.seg_addr_table_filename = argv[i+1];
+		    i++;
+		}
 		else if(strcmp(argv[i], "-sectcreate") == 0 ||
 		        strcmp(argv[i], "-segcreate") == 0 ||
 		        strcmp(argv[i], "-sectorder") == 0 ||
@@ -585,6 +604,7 @@ char **envp)
 		else if(strcmp(argv[i], "-segalign") == 0 ||
 		        strcmp(argv[i], "-undefined") == 0 ||
 		        strcmp(argv[i], "-multiply_defined") == 0 ||
+		        strcmp(argv[i], "-multiply_defined_unused") == 0 ||
 		        strcmp(argv[i], "-umbrella") == 0 ||
 			strcmp(argv[i], "-sub_umbrella") == 0 ||
 			strcmp(argv[i], "-sub_library") == 0 ||
@@ -594,7 +614,9 @@ char **envp)
 		        strcmp(argv[i], "-U") == 0 ||
 		        strcmp(argv[i], "-Y") == 0 ||
 		        strcmp(argv[i], "-dylib_file") == 0 ||
-		        strcmp(argv[i], "-final_output") == 0){
+		        strcmp(argv[i], "-final_output") == 0 ||
+		        strcmp(argv[i], "-headerpad") == 0 ||
+		        strcmp(argv[i], "-weak_reference_mismatches") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -623,7 +645,11 @@ char **envp)
 			strcmp(argv[i], "-twolevel_namespace") == 0 ||
 			strcmp(argv[i], "-twolevel_namespace_hints") == 0 ||
 			strcmp(argv[i], "-flat_namespace") == 0 ||
-			strcmp(argv[i], "-nomultidefs") == 0){
+			strcmp(argv[i], "-nomultidefs") == 0 ||
+			strcmp(argv[i], "-headerpad_max_install_names") == 0 ||
+			strcmp(argv[i], "-prebind_all_twolevel_modules") == 0 ||
+			strcmp(argv[i], "-ObjC") == 0 ||
+			strcmp(argv[i], "-M") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -808,6 +834,16 @@ char **envp)
 				      argv[i][j], argv[i]);
 				usage();
 			    }
+			case 'f':
+			    if(cmd_flags.ranlib == TRUE){
+				cmd_flags.f = TRUE;
+				break;
+			    }
+			    else {
+				error("unknown option character `%c' in: %s",
+				      argv[i][j], argv[i]);
+				usage();
+			    }
 			default:
 			    error("unknown option character `%c' in: %s",
 				  argv[i][j], argv[i]);
@@ -896,6 +932,10 @@ char **envp)
 		warning("-dynamic not specified, -seg_addr_table %s "
 			"invalid", cmd_flags.seg_addr_table);
 	    }
+	    if(cmd_flags.seg_addr_table_filename != NULL){
+		warning("-dynamic not specified, -seg_addr_table_filename %s "
+			"invalid", cmd_flags.seg_addr_table_filename);
+	    }
 	    if(cmd_flags.all_load_flag_specified == TRUE){
 		if(cmd_flags.all_load == TRUE)
 		    warning("-dynamic not specified, -all_load invalid");
@@ -980,17 +1020,19 @@ usage(
 void)
 {
 	if(cmd_flags.ranlib)
-	    fprintf(stderr, "Usage: %s [-sact] [-] archive [...]\n", progname);
+	    fprintf(stderr, "Usage: %s [-sactfLT] [-] archive [...]\n",
+		    progname);
 	else{
 	    fprintf(stderr, "Usage: %s -static [-] file [...] "
 		    "[-filelist listfile[,dirname]] [-arch_only arch] "
-		    "[-sac]\n", progname);
+		    "[-sacLT]\n", progname);
 	    fprintf(stderr, "Usage: %s -dynamic [-] file [...] "
 		    "[-filelist listfile[,dirname]] [-arch_only arch] "
 		    "[-o output] [-install_name name] "
 		    "[-compatibility_version #] [-current_version #] "
 		    "[-seg1addr 0x#] [-segs_read_only_addr 0x#] "
 		    "[-segs_read_write_addr 0x#] [-seg_addr_table <filename>] "
+		    "[-seg_addr_table_filename <file_system_path>] "
 		    "[-all_load] [-noall_load]\n",
 		    progname);
 	}
@@ -1351,9 +1393,26 @@ struct ofile *ofile)
 	     * library to be created fat unless there are object going into
 	     * the library that are fat.
 	     */
-	    if(cmd_flags.dynamic == TRUE &&
-	       ofile->mh->filetype == MH_DYLIB)
+	    if(ofile->mh->filetype == MH_DYLIB){
+		/*
+		 * If we are building a static library we should not put a
+		 * dynamic library Mach-O file into the static library.  This
+		 * can happen if a libx.a file is really a dynamic library and
+		 * someone is using -lx when creating a static library.
+		 */
+		if(cmd_flags.dynamic != TRUE){
+		    if(ofile->member_ar_hdr != NULL){
+			warning("file: %s(%.*s) is a dynamic library, not "
+				"added to the static library", 
+			        ofile->file_name, (int)ofile->member_name_size,
+			        ofile->member_name);
+		    }
+		    else
+			warning("file: %s is a dynamic library, not added to "
+				"the static library", ofile->file_name);
+		}
 		return;
+	    }
 	    /*
 	     * If -arch_only is specified then only add this file if it matches
 	     * the architecture specified.
@@ -1674,9 +1733,13 @@ char *output)
 	 * Calculate the total size of the library and the final size of each
 	 * architecture.
 	 */
-	if(narchs > 1)
+	if(narchs > 1){
 	    library_size = sizeof(struct fat_header) +
 			   sizeof(struct fat_arch) * narchs;
+	    if(cmd_flags.f == TRUE)
+		warning("archive library: %s will be fat and ar(1) will not "
+			"be able to operate on it", output);
+	}
 	else
 	    library_size = 0;
 	for(i = 0; i < narchs; i++){
@@ -2070,6 +2133,10 @@ char *output)
 	    if(cmd_flags.seg_addr_table != NULL){
 		add_execute_list("-seg_addr_table");
 		add_execute_list(cmd_flags.seg_addr_table);
+	    }
+	    if(cmd_flags.seg_addr_table_filename != NULL){
+		add_execute_list("-seg_addr_table_filename");
+		add_execute_list(cmd_flags.seg_addr_table_filename);
 	    }
 	    if(cmd_flags.compatibility != NULL){
 		add_execute_list("-dylib_compatibility_version");

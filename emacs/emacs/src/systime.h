@@ -18,6 +18,9 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef EMACS_SYSTIME_H
+#define EMACS_SYSTIME_H
+
 #ifdef TIME_WITH_SYS_TIME
 #include <sys/time.h>
 #include <time.h>
@@ -37,7 +40,7 @@ extern char *tzname[];	/* RS6000 and others want it this way.  */
 
 /* SVr4 doesn't actually declare this in its #include files.  */
 #ifdef USG5_4
-extern long timezone;
+extern time_t timezone;
 #endif
 
 #ifdef VMS
@@ -95,33 +98,35 @@ extern long timezone;
 
 /* On SVR4, the compiler may complain if given this extra BSD arg.  */
 #ifdef GETTIMEOFDAY_ONE_ARGUMENT
-#define EMACS_GET_TIME(time)                                  \
-{                                                             \
-  gettimeofday (&(time));                                     \
-}
+#define EMACS_GET_TIME(time) gettimeofday (&(time))
 #else /* not GETTIMEOFDAY_ONE_ARGUMENT */
-#define EMACS_GET_TIME(time)					\
-{								\
-  struct timezone dummy;					\
-  gettimeofday (&(time), &dummy);				\
-}
+#ifdef HAVE_STRUCT_TIMEZONE
+#define EMACS_GET_TIME(time)			\
+  do {						\
+    struct timezone dummy;			\
+    gettimeofday (&(time), &dummy);		\
+  } while (0)
+#else
+/* Presumably the second arg is ignored.  */
+#define EMACS_GET_TIME(time) gettimeofday (&(time), NULL)
+#endif /* HAVE_STRUCT_TIMEZONE */
 #endif /* not GETTIMEOFDAY_ONE_ARGUMENT */
 
-#define EMACS_ADD_TIME(dest, src1, src2)			\
-{								\
-  (dest).tv_sec  = (src1).tv_sec  + (src2).tv_sec;		\
-  (dest).tv_usec = (src1).tv_usec + (src2).tv_usec;		\
-  if ((dest).tv_usec > 1000000)					\
-    (dest).tv_usec -= 1000000, (dest).tv_sec++;			\
-}
+#define EMACS_ADD_TIME(dest, src1, src2)		\
+  do {							\
+    (dest).tv_sec  = (src1).tv_sec  + (src2).tv_sec;	\
+    (dest).tv_usec = (src1).tv_usec + (src2).tv_usec;	\
+    if ((dest).tv_usec > 1000000)			\
+      (dest).tv_usec -= 1000000, (dest).tv_sec++;	\
+  } while (0)
 
-#define EMACS_SUB_TIME(dest, src1, src2)			\
-{								\
-  (dest).tv_sec  = (src1).tv_sec  - (src2).tv_sec;		\
-  (dest).tv_usec = (src1).tv_usec - (src2).tv_usec;		\
-  if ((dest).tv_usec < 0)					\
-    (dest).tv_usec += 1000000, (dest).tv_sec--;			\
-}
+#define EMACS_SUB_TIME(dest, src1, src2)		\
+  do {							\
+    (dest).tv_sec  = (src1).tv_sec  - (src2).tv_sec;	\
+    (dest).tv_usec = (src1).tv_usec - (src2).tv_usec;	\
+    if ((dest).tv_usec < 0)				\
+      (dest).tv_usec += 1000000, (dest).tv_sec--;	\
+  } while (0)
 
 #define EMACS_TIME_NEG_P(time)					\
   ((long)(time).tv_sec < 0					\
@@ -146,4 +151,24 @@ extern long timezone;
 #define EMACS_SET_SECS_USECS(time, secs, usecs) 		\
   (EMACS_SET_SECS (time, secs), EMACS_SET_USECS (time, usecs))
 
-extern int set_file_times ();
+extern int set_file_times __P ((char *, EMACS_TIME, EMACS_TIME));
+
+/* Compare times T1 and T2.  Value is 0 if T1 and T2 are the same.
+   Value is < 0 if T1 is less than T2.  Value is > 0 otherwise.  */
+
+#define EMACS_TIME_CMP(T1, T2)			\
+  (EMACS_SECS (T1) - EMACS_SECS (T2)		\
+   + (EMACS_SECS (T1) == EMACS_SECS (T2)	\
+      ? EMACS_USECS (T1) - EMACS_USECS (T2)	\
+      : 0))
+
+/* Compare times T1 and T2 for equality, inequality etc.  */
+
+#define EMACS_TIME_EQ(T1, T2) (EMACS_TIME_CMP (T1, T2) == 0)
+#define EMACS_TIME_NE(T1, T2) (EMACS_TIME_CMP (T1, T2) != 0)
+#define EMACS_TIME_GT(T1, T2) (EMACS_TIME_CMP (T1, T2) > 0)
+#define EMACS_TIME_GE(T1, T2) (EMACS_TIME_CMP (T1, T2) >= 0)
+#define EMACS_TIME_LT(T1, T2) (EMACS_TIME_CMP (T1, T2) < 0)
+#define EMACS_TIME_LE(T1, T2) (EMACS_TIME_CMP (T1, T2) <= 0)
+
+#endif /* EMACS_SYSTIME_H */

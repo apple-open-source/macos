@@ -1,5 +1,6 @@
 /* Support for printing Fortran values for GDB, the GNU debugger.
-   Copyright 1993-1995, 2000 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Motorola.  Adapted from the C definitions by Farooq Butt
    (fmbutt@engage.sps.mot.com), additionally worked over by Stan Shebs.
 
@@ -26,7 +27,6 @@
 #include "gdbtypes.h"
 #include "expression.h"
 #include "value.h"
-#include "demangle.h"
 #include "valprint.h"
 #include "language.h"
 #include "f-lang.h"

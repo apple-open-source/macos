@@ -137,7 +137,6 @@ catch_sighup(void)
 {
 	system_log(LOG_DEBUG, "Caught SIGHUP - unbinding");
 	set_binding_status(NI_FAILED);
-	sys_interfaces_release();
 }
 
 int
@@ -273,7 +272,10 @@ main(int argc, char *argv[])
 	if (debug == 0)
 	{
 		signal(SIGINT, (void *)dblock_catcher);
-		if (setsid() < 0) syslog(LOG_WARNING, "setsid failed: %m");
+		if (standalone == 0)
+		{
+			if (setsid() < 0) syslog(LOG_WARNING, "setsid failed: %m");
+		}
 	}
 
 	writepid(db_tag);
@@ -299,6 +301,7 @@ main(int argc, char *argv[])
 	else
 	{
 		system_log(LOG_DEBUG, "setting up master server");
+		promote_admins = get_promote_admins(db_ni);
 		get_readall_info(db_ni, &max_readall_proxies, &strict_proxies);
 		max_subthreads = get_max_subthreads(db_ni);
 		update_latency_secs = get_update_latency(db_ni);

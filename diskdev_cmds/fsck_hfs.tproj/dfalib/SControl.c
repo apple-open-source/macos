@@ -33,6 +33,13 @@
 	Copyright:	© 1985, 1986, 1992-1999 by Apple Computer, Inc., all rights reserved.
 */
 
+#define SHOW_ELAPSED_TIMES  0
+
+
+#if SHOW_ELAPSED_TIMES
+#include <sys/time.h>
+#endif
+
 #include "Scavenger.h"
 
 #define	DisplayTimeRemaining 0
@@ -44,6 +51,7 @@ int gGUIControl;
 
 // Static function prototypes
 
+static void printVerifyStatus( SGlobPtr GPtr );
 static Boolean IsBlueBoxSharedDrive ( DrvQElPtr dqPtr );
 static int ScavSetUp( SGlobPtr GPtr );
 static int ScavTerm( SGlobPtr GPtr );
@@ -74,41 +82,34 @@ CheckHFS(int fsReadRef, int fsWriteRef, int checkLevel, int repairLevel, int log
 {
 	SGlob				dataArea;	// Allocate the scav globals
 	short				temp; 	
-//	short				vRefNum = 0;
 	FileIdentifierTable	*fileIdentifierTable	= nil;
 	OSErr				err = noErr;
-//	OSErr				mountErr = noErr;
 	OSErr				scavError = 0;
 	OSErr				unmountResult = nsvErr;
-	Boolean autoRepair;
+	int					didRebuild = 0;
+	Boolean 			autoRepair;
 
 	autoRepair = (fsWriteRef != -1 && repairLevel != kNeverRepair);
 
+DoAgain:
 	ClearMemory( &dataArea, sizeof(SGlob) );
 
 	//	Initialize some scavanger globals
-//	dataArea.DrvNum			= driveNumber;
-//	dataArea.fileSharingOn		= FileSharingIsOn();
-//	dataArea.usersAreConnected	= UsersAreConnected();
-//	dataArea.userCancelProc		= userCancelProc;
-//	dataArea.userMessageProc	= userMessageProc;
-//	dataArea.userContext		= context;
 	dataArea.itemsProcessed		= 0;	//	Initialize to 0% complete
 	dataArea.itemsToProcess		= 1;
-	dataArea.chkLevel		= checkLevel;
-	dataArea.logLevel		= logLevel;
+	dataArea.chkLevel			= checkLevel;
+	dataArea.logLevel			= logLevel;
 
-	dataArea.DrvNum			= fsReadRef;
+	dataArea.DrvNum				= fsReadRef;
 
-        if (guiControl) {
+	if (guiControl) {
 	    dataArea.guiControl = true;
-            dataArea.userCancelProc = cancelProc;
+    	dataArea.userCancelProc = cancelProc;
 	}
 	//
 	//	Initialize the scavenger
 	//
 	ScavCtrl( &dataArea, scavInitialize, &scavError );
-//	*volumeType = dataArea.volumeType;
 	dataArea.calculatedVCB->vcbDriveNumber = fsReadRef;
 	dataArea.calculatedVCB->vcbDriverWriteRef = fsWriteRef;
 	
@@ -116,14 +117,14 @@ CheckHFS(int fsReadRef, int fsWriteRef, int checkLevel, int repairLevel, int log
 		goto termScav;
 	}
 
-//	if ( (scavError == R_Modified) && (dataArea.fileSharingOn) )
-//		*repairInfo = *repairInfo | kFileSharingEnabled;	//	FileSharing may be writing to the disk
-	
 	//
 	//	Now verify the volume
 	//
 	if ( scavError == noErr )
 		ScavCtrl( &dataArea, scavVerify, &scavError );
+        	
+	if (scavError == noErr && logLevel >= kDebugLog)
+			printVerifyStatus(&dataArea);
 
 	if (scavError == noErr && !dataArea.cleanUnmount && fsWriteRef != -1)
 		CheckForClean(&dataArea, true);		/* mark volume clean */
@@ -131,37 +132,43 @@ CheckHFS(int fsReadRef, int fsWriteRef, int checkLevel, int repairLevel, int log
 	if ( dataArea.RepLevel == repairLevelUnrepairable )
 		err = cdUnrepairableErr;
 
-	if (!autoRepair &&
-	    (dataArea.RepLevel == repairLevelVolumeRecoverable ||
-	     dataArea.RepLevel == repairLevelUnrepairable))
+	if ( !autoRepair &&
+	     (dataArea.RepLevel == repairLevelVolumeRecoverable ||
+	      dataArea.RepLevel == repairLevelCatalogBtreeRebuild  ||
+	      dataArea.RepLevel == repairLevelUnrepairable) )
 		PrintStatus(&dataArea, M_NeedsRepair, 1, dataArea.volumeName);
 
-	if (dataArea.volumeName[0] && 
-	    dataArea.RepLevel == repairLevelNoProblemsFound)
+	if ( dataArea.volumeName[0] && 
+	     dataArea.RepLevel == repairLevelNoProblemsFound )
 		PrintStatus(&dataArea, M_AllOK, 1, dataArea.volumeName);
 
 	//
 	//	Repair the volume if it needs repairs, its repairable and we were able to unmount it
 	//
-	if ( (scavError == noErr)	&&
+	if ( dataArea.RepLevel == repairLevelNoProblemsFound && repairLevel == kForceRepairs )
+	{
+		dataArea.CBTStat |= S_RebuildBTree;
+		dataArea.RepLevel = repairLevelCatalogBtreeRebuild;
+	}
+		
+	if ( ((scavError == noErr) || (scavError == errRebuildBtree))  &&
 		 (autoRepair == true)	&&
 		 (dataArea.RepLevel != repairLevelUnrepairable)	&&
 		 (dataArea.RepLevel != repairLevelNoProblemsFound) )
-	{
-		//	If other processes are running and the ignore mask is not set
-	//	if ( (unmountResult != noErr)							&&
-	//		 (unmountResult != nsvErr)							&&
-	//		 ((inputFlags & ignoreRunningProcessesMask) == 0)	&&
-	//		 (AreUnknownAppsRunning() == true) )
-	//	{
-	//		err = cdUnknownProcessesErr;
-	//		goto exit;
-	//	}
-	
+	{	
 		ScavCtrl( &dataArea, scavRepair, &scavError );
 		
 		if ( scavError == noErr )
+		{
 			*modified = 1;	/* Report back that we made repairs */
+			if ( dataArea.RepLevel == repairLevelCatalogBtreeRebuild && didRebuild++ == 0 )
+			{
+				ScavCtrl( &dataArea, scavTerminate, &temp );
+				repairLevel = kMajorRepairs;
+				checkLevel = kAlwaysCheck;
+				goto DoAgain;
+			}
+		}
 	}
 	//	We allow CheckDisk to return noErr if very minor errors wre found and the volume cannot be unmounted
 	else if ( (dataArea.RepLevel == repairLevelVeryMinorErrors) &&
@@ -256,6 +263,12 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 {
 	OSErr			result;
 	short			stat;
+#if SHOW_ELAPSED_TIMES
+	struct timeval 	myStartTime;
+	struct timeval 	myEndTime;
+	struct timeval 	myElapsedTime;
+	struct timezone zone;
+#endif
 
 	//
 	//	initialize some stuff
@@ -300,13 +313,30 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			break;
 	
 		case scavVerify:								//	VERIFY
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+
 			if ( BitMapCheckBegin(GPtr) != 0)
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - BitMapCheck elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
 
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
 			if ( result = CheckForStop( GPtr ) )
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
 
 			if ( result = CreateExtentsBTreeControlBlock( GPtr ) )	//	Create the calculated BTree structures
 				break;
@@ -316,6 +346,14 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				break;
 			if ( result = CreateExtendedAllocationsFCB( GPtr ) )
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - create control blocks elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
 
 			//	Now that preflight of the BTree structures is calculated, compute the CheckDisk items
 			CalculateItemCount( GPtr, &GPtr->itemsToProcess, &GPtr->onePercent );
@@ -328,8 +366,22 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			
 			if ( ! IsWrapperVolume( GPtr->volumeType, GPtr->inputFlags ) )
 				WriteMsg( GPtr, M_ExtBTChk, kStatusMessage );
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+				
 			if (result = ExtBTChk(GPtr))
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - ExtBTChk elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
+				
 			if (result = CheckForStop(GPtr))
 				break;
 			
@@ -345,14 +397,52 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 
 			if ( ! IsWrapperVolume( GPtr->volumeType, GPtr->inputFlags ) )
 				WriteMsg( GPtr, M_CatBTChk, kStatusMessage );
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+				
+			if ( GPtr->chkLevel == kPartialCheck )
+			{
+				/* skip the rest of the verify code path the first time */
+				/* through when we are rebuilding the catalog B-Tree file. */
+				/* we will be back here after the rebuild.  */
+				GPtr->CBTStat |= S_RebuildBTree;
+				result = errRebuildBtree;
+				break;
+			}
+			
 			if (result = CheckCatalogBTree(GPtr))
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - CheckCatalogBTree elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
+
 			if (result = CheckForStop(GPtr))
 				break;
 			if ( ! IsWrapperVolume( GPtr->volumeType, GPtr->inputFlags ) )
 				WriteMsg( GPtr, M_CatHChk, kStatusMessage );
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+				
 			if (result = CatHChk(GPtr))
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - CatHChk elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
+
 			if (result = CheckForStop(GPtr))
 				break;
 			
@@ -364,16 +454,42 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			if ( ! IsWrapperVolume( GPtr->volumeType, GPtr->inputFlags ) )
 				WriteMsg( GPtr, M_VolumeBitMapChk, kStatusMessage );
 
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+				
 			if (result = CheckVolumeBitMap(GPtr, false))
 				break;
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - CheckVolumeBitMap elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif 
+
 			if (result = CheckForStop(GPtr))
 				break;
 
 			if ( ! IsWrapperVolume( GPtr->volumeType, GPtr->inputFlags ) )
 				WriteMsg( GPtr, M_VInfoChk, kStatusMessage );
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myStartTime, &zone );
+#endif
+				
 			if (result = VInfoChk(GPtr))
 				break;
-	
+
+#if SHOW_ELAPSED_TIMES
+			gettimeofday( &myEndTime, &zone );
+			timersub( &myEndTime, &myStartTime, &myElapsedTime );
+			printf( "\n%s - VInfoChk elapsed time \n", __FUNCTION__ );
+			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+#endif
+
 			stat =	GPtr->VIStat  | GPtr->ABTStat | GPtr->EBTStat | GPtr->CBTStat | 
 					GPtr->CatStat;
 			
@@ -411,7 +527,10 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				break;
 			if ( result = CheckForStop(GPtr) )
 				break;
-			WriteMsg( GPtr, M_Repair, kTitleMessage );
+			if ( GPtr->CBTStat & S_RebuildBTree )
+				WriteMsg( GPtr, M_RebuildingCatalogBTree, kTitleMessage );
+			else
+				WriteMsg( GPtr, M_Repair, kTitleMessage );
 			result = RepairVolume( GPtr );
 			break;
 		
@@ -433,6 +552,11 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			case scavVerify:
 				if ( result == ioErr )
 					result = R_RdErr;
+				else if ( result == errRebuildBtree )
+				{
+					GPtr->RepLevel = repairLevelCatalogBtreeRebuild;
+					break;
+				}
 				else
 					result = R_VFail;
 				GPtr->RepLevel = repairLevelUnrepairable;
@@ -542,9 +666,8 @@ Output:		ScavSetUp	-	function result:
 
 struct ScavStaticStructures {
 	SVCB				vcb;
-	FCBArray			fcbList;			// contains one FCB
-	SFCB				fcb[5];				//   plus 5 more FCB's
-	BTreeControlBlock		btcb[4];			// 4 btcb's
+	SFCB				fcbList[6];		
+	BTreeControlBlock	btcb[4];			// 4 btcb's
 	SDPT				dirPath;			// scavenger directory path table
 	SBTPT				btreePath;			// scavenger BTree path table
 };
@@ -578,17 +701,17 @@ static int ScavSetUp( SGlob *GPtr)
 	
 		GPtr->calculatedVCB = vcb	= &pointer->vcb;
 		
-		GPtr->FCBAPtr			= (Ptr) &pointer->fcbList;
-		GPtr->calculatedExtentsFCB	= &pointer->fcbList.fcb[0];
-		GPtr->calculatedCatalogFCB	= &pointer->fcbList.fcb[1];
-		GPtr->calculatedAllocationsFCB	= &pointer->fcbList.fcb[2];
-		GPtr->calculatedAttributesFCB	= &pointer->fcbList.fcb[3];
-		GPtr->calculatedStartupFCB	= &pointer->fcbList.fcb[4];
-		GPtr->calculatedRepairFCB	= &pointer->fcbList.fcb[5];
+		GPtr->FCBAPtr				= (Ptr) &pointer->fcbList;
+		GPtr->calculatedExtentsFCB		= &pointer->fcbList[0];
+		GPtr->calculatedCatalogFCB		= &pointer->fcbList[1];
+		GPtr->calculatedAllocationsFCB	= &pointer->fcbList[2];
+		GPtr->calculatedAttributesFCB	= &pointer->fcbList[3];
+		GPtr->calculatedStartupFCB		= &pointer->fcbList[4];
+		GPtr->calculatedRepairFCB		= &pointer->fcbList[5];
 		
-		GPtr->calculatedExtentsBTCB	= &pointer->btcb[0];
-		GPtr->calculatedCatalogBTCB	= &pointer->btcb[1];
-		GPtr->calculatedRepairBTCB	= &pointer->btcb[2];
+		GPtr->calculatedExtentsBTCB		= &pointer->btcb[0];
+		GPtr->calculatedCatalogBTCB		= &pointer->btcb[1];
+		GPtr->calculatedRepairBTCB		= &pointer->btcb[2];
 		GPtr->calculatedAttributesBTCB	= &pointer->btcb[3];
 		
 		GPtr->BTPTPtr					= (SBTPT*) &pointer->btreePath;
@@ -608,7 +731,7 @@ static int ScavSetUp( SGlob *GPtr)
 	//
 	//	Set up Real structures
 	//
-#if !BSD
+#if !BSD 
 	err = FindDrive( &ioRefNum, &(GPtr->DrvPtr), GPtr->DrvNum );
 #endif	
 	if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
@@ -917,4 +1040,32 @@ Boolean IsBlueBoxSharedDrive ( DrvQElPtr dqPtr )
 #endif
 	
 	return false;
+}
+
+		
+
+
+/*------------------------------------------------------------------------------
+
+Function:	printVerifyStatus - (Print Verify Status)
+
+Function:	Prints out the Verify Status words.
+			
+Input:		GPtr	-	pointer to scavenger global area
+
+Output:		None.
+------------------------------------------------------------------------------*/
+static 
+void printVerifyStatus(SGlobPtr GPtr)
+{
+    UInt16 stat;
+                    
+    stat = GPtr->VIStat | GPtr->ABTStat | GPtr->EBTStat | GPtr->CBTStat | GPtr->CatStat;
+                    
+    if ( stat != 0 ) {
+        printf("   Verify Status: VIStat = 0x%04x, ABTStat = 0x%04x EBTStat = 0x%04x\n", 
+                GPtr->VIStat, GPtr->ABTStat, GPtr->EBTStat);     
+        printf("                  CBTStat = 0x%04x CatStat = 0x%04x\n", 
+                GPtr->CBTStat, GPtr->CatStat);
+    }
 }

@@ -32,20 +32,20 @@
  * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
  * and contains the constants for the possible values of these types.
  */
-#import <mach/machine.h>
+#include <mach/machine.h>
 
 /*
  * <mach/vm_prot.h> is needed here for the vm_prot_t type and contains the 
  * constants that are or'ed together for the possible values of this type.
  */
-#import <mach/vm_prot.h>
+#include <mach/vm_prot.h>
 
 /*
  * <machine/thread_status.h> is expected to define the flavors of the thread
  * states and the structures of those flavors for each machine.
  */
-#import <mach/machine/thread_status.h>
-#import <architecture/byte_order.h>
+#include <mach/machine/thread_status.h>
+#include <architecture/byte_order.h>
 
 /*
  * The mach header appears at the very beginning of the object file.
@@ -98,7 +98,7 @@ struct mach_header {
 
 /* Constants for the flags field of the mach_header */
 #define	MH_NOUNDEFS	0x1		/* the object file has no undefined
-					   references, can be executed */
+					   references */
 #define	MH_INCRLINK	0x2		/* the object file is the output of an
 					   incremental link against a base file
 					   and can't be link edited again */
@@ -114,7 +114,8 @@ struct mach_header {
 					   read-write segments split */
 #define MH_LAZY_INIT	0x40		/* the shared library init routine is
 					   to be run lazily via catching memory
-					   faults to its writeable segments */
+					   faults to its writeable segments
+					   (obsolete) */
 #define MH_TWOLEVEL	0x80		/* the image is using two-level name
 					   space bindings */
 #define MH_FORCE_FLAT	0x100		/* the executable is forcing all images
@@ -123,6 +124,9 @@ struct mach_header {
 					   defintions of symbols in its
 					   sub-images so the two-level namespace
 					   hints can alwasys be used. */
+#define MH_NOFIXPREBINDING 0x400	/* do not have dyld notify the
+					   prebinding agent about this
+					   executable */
 /*
  * The load commands directly follow the mach_header.  The total size of all
  * of the commands is given by the sizeofcmds field in the mach_header.  All
@@ -133,7 +137,7 @@ struct mach_header {
  * is a part of the load command (i.e. section structures, strings, etc.).  To
  * advance to the next load command the cmdsize can be added to the offset or
  * pointer of the current load command.  The cmdsize MUST be a multiple of
- * sizeof(long) (this is forever the maximum alignment of any load commands).
+ * 4 bytes (this is forever the maximum alignment of any load commands).
  * The padded bytes must be zero.  All tables in the object file must also
  * follow these rules so the file can be memory mapped.  Otherwise the pointers
  * to these tables will not work well or at all on some machines.  With all
@@ -179,6 +183,9 @@ struct load_command {
 #define	LC_SUB_CLIENT	0x14	/* sub client */
 #define	LC_SUB_LIBRARY  0x15	/* sub library */
 #define	LC_TWOLEVEL_HINTS 0x16	/* two-level namespace lookup hints */
+#define	LC_PREBIND_CKSUM  0x17	/* prebind checksum */
+/* load a dynamicly linked shared library that is allowed to be missing (weak)*/
+#define	LC_LOAD_WEAK_DYLIB (0x18 | LC_REQ_DYLD)
 
 /*
  * A variable length string in a load command is represented by an lc_str
@@ -186,7 +193,7 @@ struct load_command {
  * the offset is from the start of the load command structure.  The size
  * of the string is reflected in the cmdsize field of the load command.
  * Once again any padded bytes to bring the cmdsize field to a multiple
- * of sizeof(long) must be zero.
+ * of 4 bytes must be zero.
  */
 union lc_str {
 	unsigned long	offset;	/* offset to the string */
@@ -322,6 +329,9 @@ struct section {
 						   symbols that are not to be
 						   in a ranlib table of
 						   contents */
+#define S_ATTR_STRIP_STATIC_SYMS 0x20000000	/* ok to strip static symbols
+						   in this section in files
+						   with the MH_DYLDLINK flag */
 #define SECTION_ATTRIBUTES_SYS	 0x00ffff00	/* system setable attributes */
 #define S_ATTR_SOME_INSTRUCTIONS 0x00000400	/* section contains some
 						   machine instructions */
@@ -431,10 +441,11 @@ struct dylib {
  * A dynamicly linked shared library (filetype == MH_DYLIB in the mach header)
  * contains a dylib_command (cmd == LC_ID_DYLIB) to identify the library.
  * An object that uses a dynamicly linked shared library also contains a
- * dylib_command (cmd == LC_LOAD_DYLIB) for each library it uses.
+ * dylib_command (cmd == LC_LOAD_DYLIB or cmd == LC_LOAD_WEAK_DYLIB) for each
+ * library it uses.
  */
 struct dylib_command {
-	unsigned long	cmd;		/* LC_ID_DYLIB or LC_LOAD_DYLIB */
+	unsigned long	cmd;		/* LC_ID_DYLIB, LC_LOAD_{,WEAK_}DYLIB */
 	unsigned long	cmdsize;	/* includes pathname string */
 	struct dylib	dylib;		/* the library identification */
 };
@@ -550,7 +561,7 @@ struct dylinker_command {
  * flavors.  The constants for the flavors, counts and state data structure
  * definitions are expected to be in the header file <machine/thread_status.h>.
  * These machine specific data structures sizes must be multiples of
- * sizeof(long).  The cmdsize reflects the total size of the thread_command
+ * 4 bytes  The cmdsize reflects the total size of the thread_command
  * and all of the sizes of the constants for the flavors, counts and state
  * data structures.
  *
@@ -615,7 +626,9 @@ struct symtab_command {
  * into three groups of symbols:
  *	local symbols (static and debugging symbols) - grouped by module
  *	defined external symbols - grouped by module (sorted by name if not lib)
- *	undefined external symbols (sorted by name if MH_BINDATLOAD is not set)
+ *	undefined external symbols (sorted by name if MH_BINDATLOAD is not set,
+ *	     			    and in order the were seen by the static
+ *				    linker if MH_BINDATLOAD is set)
  * In this load command there are offsets and counts to each of the three groups
  * of symbols.
  *
@@ -852,11 +865,27 @@ struct twolevel_hint {
 };
 
 /*
+ * The prebind_cksum_command contains the value of the original check sum for
+ * prebound files or zero.  When a prebound file is first created or modified
+ * for other than updating its prebinding information the value of the check sum
+ * is set to zero.  When the file has it prebinding re-done and if the value of
+ * the check sum is zero the original check sum is calculated and stored in
+ * cksum field of this load command in the output file.  If when the prebinding
+ * is re-done and the cksum field is non-zero it is left unchanged from the
+ * input file.
+ */
+struct prebind_cksum_command {
+    unsigned long cmd;		/* LC_PREBIND_CKSUM */
+    unsigned long cmdsize;	/* sizeof(struct prebind_cksum_command) */
+    unsigned long cksum;	/* the check sum or zero */
+};
+
+/*
  * The symseg_command contains the offset and size of the GNU style
  * symbol table information as described in the header file <symseg.h>.
  * The symbol roots of the symbol segments must also be aligned properly
  * in the file.  So the requirement of keeping the offsets aligned to a
- * multiple of a sizeof(long) translates to the length field of the symbol
+ * multiple of a 4 bytes translates to the length field of the symbol
  * roots also being a multiple of a long.  Also the padding must again be
  * zeroed. (THIS IS OBSOLETE and no longer supported).
  */
@@ -870,7 +899,7 @@ struct symseg_command {
 /*
  * The ident_command contains a free format string table following the
  * ident_command structure.  The strings are null terminated and the size of
- * the command is padded out with zero bytes to a multiple of sizeof(long).
+ * the command is padded out with zero bytes to a multiple of 4 bytes/
  * (THIS IS OBSOLETE and no longer supported).
  */
 struct ident_command {

@@ -1,0 +1,1083 @@
+1999-12-15  Fernando Nasser  <fnasser@rtl.cygnus.com>
+
+	* variables.tcl: UnEdit any fields open to edit before colapsing
+	a tree branch (it was generating a Tcl exception and stack dump).
+
+1999-09-29  James Ingham  <jingham@leda.cygnus.com>
+
+	* prefs.tcl (pref_read): Convert env(HOME) to a win32 path BEFORE
+	handing it to file join, so we won't look for a network drive.
+
+1999-09-23  James Ingham  <jingham@leda.cygnus.com>
+
+	* toolbar.tcl (GDBToolBar): Typo.
+	(new_menu): Changed this to allow menus to be altered as well as
+	added.
+	(menu_exists): New method.
+	(clear_menu): New method.
+	(_load_src_images): Moved here from srcbar.tcl.  Added Attach &
+	Detach classes.  This is all still kind of ill-factored.
+	(In instance data): Made menu data arrays rather than dynamically
+	constructed variables.
+
+	* srcwin.itb (SrcWin::set_execution_status): Let gdb print the PC, 
+	since Tcl's conversion may not be wide enough.
+
+	* srctextwin.ith: initialize the Cname variable.
+
+	* srctextwin.itb (SrcTextWin::location):
+	(SrcTextWin::location): Change address compare to a string
+ 	compare.  These are always both hex in the same format, but on a
+ 	64 bit host the conversion would fail.
+	(SrcTextWin::showBalloon): Catch all errors in the balloon help
+ 	but also report them to the debug window.
+	(SrcTextWin::LoadFromCache): Erase and reload dirty cached windows.
+
+	* srcbar.tcl (create_run_menu): Add "Attach", "Detach" and "Kill"
+	for native targets.
+	(do_attach): Attach to a native target.
+	(do_detach): Detach from a native target.
+	(do_kill): Kill a native target.
+
+	* memwin.itb (MemWin::toggle_enabled): Toggle the state of the
+	widget, as well as the color, so people can't edit when the window 
+	doesn't contain valid memory.
+	(MemWin::update_address): Set the state to normal if we have
+	loaded valid memory.
+	(MemWin::BadExpr): Set the state to disabled on error.
+	(MemWin::incr_addr): Set the state to normal if a step succeeds.
+
+	* managedwin.itb (ManagedWin::open_dlg): New function.  Preferred
+ 	function when you know you are opening a dialog.
+	(ManagedWin::_open): new function, contains the common bits of
+	opening windows & dialogs.
+	(ManagedWin::open): Use the _open function.
+	(ManagedWin::_create): Don't use Icon windows with modal dialogs.
+
+	* interface.tcl (gdbtk_cleanup): Set a shutting_down flag.
+	(gdbtk_tcl_fputs): Restore the fputs hook.  This is trivial to do, 
+	and ensures that no one will delete the hook behind our backs.
+	(gdbtk_tcl_fputs_error): ditto.
+	(_open_file): Make file parameter optional, and don't query if it
+	is provided.
+	(gdbtk_attached): New function.  Called from attach hook.
+	(gdbtk_detached): New function.  Called from detach hook.
+
+	* helpviewer.ith (HtmlViewer): Add the attach dialog to the list
+	of topics.
+
+	* srcbar.tcl (do_kill): Added the Kill menu item for killing the
+	inferior on native targets.
+
+1999-09-16  James Ingham  <jingham@leda.cygnus.com>
+
+	* prefs.tcl (pref_set_defaults): define the wrap preference for
+	the console window.
+
+	* console.itb (Console::_paste): Add the "delete selection"
+	semantics so we can use this for all the Paste events.
+	(Console::_delete): New method, centralize delete handling so we
+	can protect against things like delete deleting a selection up in
+	the history region of the window.
+	(Console::_build_win): Change bindings to use _paste & _delete.
+	(Console::_build_win): wrap if told to by the wrap parameter.
+
+	* console.ith: Declare _delete.
+
+1999-09-16  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* targetselection.itb (TargetSelection::init_target_db): Remove
+ 	references to D10V target, use only standard remote for D10V.
+
+1999-09-15  James Ingham  <jingham@leda.cygnus.com>
+
+	* console.itb (Console::_paste): Fix another "set foo [catch ...]"
+	idiom.
+	(Console::_build_win): Remove the extraneous posting of the
+	<<Paste>> event in handling B2-Release.  Just call _paste.
+
+1999-09-10  James Ingham <jingham@leda.cygnus.com>
+        From Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * prefs.tcl (pref_set_defaults): Add main_names preference.
+        * interface.tcl (gdbtk_locate_main): New proc.
+        (run_executable): Use.
+        * srcwin.itb (SrcWin::_build_win): Use.
+        (SrcWin::location): Likewise.
+        (SrcWin::point_to_main): Likewise.
+
+1999-08-27  James Ingham  <jingham@leda.cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::FillAssembly): Use the new
+	gdb_load_disassembly.  
+	(SrcTextWin::FillMixed): Use the new gdb_load_disassembly.
+
+	* interface.tcl (gdbtk_idle): Call gdbtk_restore_fputs at idle
+	time.  This puts the gdbtk_fputs hook back in place, just in case
+	an error left it pointing to null.
+
+1999-08-11  Tom Tromey  <tromey@cygnus.com>
+
+	* kod.itb (KodWin::build_win): Don't use Tix.
+	(Various): Changed as a result of build_win change.
+	(KodWin::destructor): Unset new globals.  Also unset
+	kodActivePane.
+
+	* kod.ith (labh): Removed variable.
+
+	* kod.ith (set_os): Declare.
+	* kod.itb (KodWin::build_win): Don't use Tix labelled frame
+	widget or Tix paned widget.  Removed size boxes from Windows
+	code.
+	(KodWin::constructor): Add `$this set' to gdb_set_hook.
+	(KodWin::destructor): Remove from hook.
+	(KodWin::set_os): New method.
+
+	* toolbar.tcl (GDBToolBar::destructor): Remove from gdb_set_hook.
+	(GDBToolBar::constructor): Add to gdb_set_hook.
+	(set_hook): New method.
+	(create_view_menu): Don't put kod onto menu.
+
+	* kod.itb (KodWin::display_object): Don't put `Details' message in
+	label; this messes up resize and doesn't really add anything.
+
+	* images/kod.gif, images2/kod.gif: Removed.
+	* toolbar.tcl (create_window_buttons): Removed kod button.
+	(add_menu_command): Don't load kod image.
+
+	* kod.itb: Renamed from kod.tcl.  Restructured to follow new itcl
+	conventions.
+	* kod.ith: New file.
+
+	* toolbar.tcl (create_window_buttons): Use gdb_kod_cmd, not
+	gdb_kod_name.
+	(create_view_menu): Likewise.
+	* interface.tcl (initialize_gdbtk): Don't mention gdb_kod_name.
+
+	* targetselection.itb (TargetSelection::init_target_db): Added
+	Cisco targets.  From Martin Hunt.
+
+	* kod.tcl (build_win): Use correct capitalization for buttons.
+
+1999-08-10  James Ingham  <jingham@leda.cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::constructor): Add the disassembly
+	flavor hook.
+	(SrcTextWin::disassembly_changed): New method, fix up all the
+	windows when the disassembly flavor changes.
+	(SrcTextWin::_mtime_changed): We were setting the filename:dirty
+	to 1 regardless of the result of the mtime check...  Doh!
+	(SrcTextWin::reconfig): The setTabs call was assuming ALL windows
+	were source windows.
+	(SrcTextWin::do_tag_popup): Remove the balloon when the breakpoint 
+	popups are posted as well.
+	(SrcTextWin::do_source_popup): Also handle the case where there is 
+	a selection, but the point is not over it.
+
+	* srctextwin.itb (SrcTextWin::destructor): Remove it when the
+	object goes away. 
+
+	* regwin.itb (RegWin::constructor): Add the disassembly_flavor_hook.
+	(RegWin::destructor): Remove it when the widget is destroyed.
+	(RegWin::disassembly_changed): New method, tell the widget it
+	needs to redisplay itself with the new register names.
+	(RegWin::reconfig): Actually do the reconstruction if the register 
+	set names have changed.
+	* regwin.ith: Add declarations for the new methods.
+
+	* interface.tcl (gdbtk_tcl_disassembly_hook): New hook to support
+	changing the disassembly flavor.
+
+	* srctextwin.itb (SrcTextWin::getVariable): Use a selection in
+	preference to the word around the hit point, if there is one.
+	(SrcTextWin::do_source_popup): Really dismiss the balloon when you 
+	popup a menu...
+
+1999-08-05  James Ingham  <jingham@leda.cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::showBalloon): Fix ShowBalloon.  We
+	can't use "info line" to tell us whether we should post a balloon
+	over the current line, since gdb only considers the first line of
+	a statement executible, not the continuation lines.  Instead, show 
+	any line in the currently selected function.  Sigh...
+
+1999-08-06  Tom Tromey  <tromey@cygnus.com>
+
+	* interface.tcl (gdb_set_hook): New hook.
+
+1999-08-02  Tom Tromey  <tromey@cygnus.com>
+
+	* managedwin.ith (window_name): Removed extraneous comma.
+
+1999-07-27  Keith Seitz  <keiths@cygnus.com>
+
+	* variables.tcl: Rewrite to use new variable rewrite.
+	* locals.tcl: Ditto.
+	* watch.tcl: Ditto.
+	* srctextwin.itb (updateBalloon): Use new variable rewrite.
+	* blockframe.ith, blockframe.itb: New block and frame classes.
+	* data.ith, data,itb: New stack and queue classes (data structures).
+	* tclIndex: Rebuilt.
+
+1999-07-20  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* prefs.tcl (pref_set_defaults): Set tab_size to the univeral
+	standard of 8, not 4.
+
+1999-07-16  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* All files (*.tcl, *.itb, *.ith): Add GPL notices, regularize
+	copyright and header comments.
+
+1999-06-29  James Ingham  <jingham@leda.cygnus.com>
+
+	* bpwin.itb (BpWin::bp_store): New proc, store away the current
+	breakpoint list into a gdb command file.
+	(BpWin::bp_restore): restore a breakpoint list from a command file.
+	(BpWin::build_win): Add menu items for store & restore breakpoints.
+
+1999-06-24  Keith Seitz  <keiths@cygnus.com>
+
+        * srcwin.itb (SrcWin::destructor): Its "gdb_clear_file_hook",
+        not "gdb_clear_file".
+
+1999-06-23  James Ingham  <jingham@leda.cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::_mtime_changed): Catch the call to
+	mtime.  This will fail when you are in assembly mode, and the file 
+	is actually a function address.
+	(SrcTextWin::motion): Catch the call to showBalloon.  There are
+	various things that can go wrong here, and we certainly don't want 
+	the user to hear about them.
+
+1999-06-15  Keith Seitz  <keiths@cygnus.com>
+
+	* interface.tcl (gdbtk_stop_idle_callback): Catch calls to
+	remove hook, since it could already be gone if we got a signal.
+
+	* srcwin.itb (busy): If there is no target and the
+	debugger is native, we should also let the user know
+	that his program is running.
+
+1999-06-11  James Ingham  <jingham@leda.cygnus.com>
+
+	* interface.tcl (gdbtk_tcl_exec_file_display): Only call clear
+	file if there is a file loaded in the source window.  This avoids
+	some flashing at startup.
+
+1999-06-10  Keith Seitz  <keiths@cygnus.com>
+
+	* srctextwin.itb (do_source_popup): Clear the varBalloon tag
+	before mapping a popup onto the screen.
+	(showBalloon): The "-pc" option was removed from gdb_variable.
+	Provide equivalent functionality, and display popups again.
+	
+	* interface.tcl (set_target): Don't call the target dialog
+	if there gdb_target_cmd is empty and we are a native debugger.
+	Don't set a default target -- force the gui to ask the first
+	time!
+	(run_executable): Set options after we have a target, not before.
+
+	* watch.tcl (destructor): Don't call no_inferior -- the window's
+	already been destroyed. Instead, run through our list of variables
+	and delete them.
+
+1999-06-10  James Ingham  <jingham@leda.cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::clear_file): Don't try to set the
+	text view back to the gdbtk_scratch_widget, this is very fragile. 
+	(SrcTextWin::LoadFromCache): initialize the mtime correctly when
+	you add a window to the cache.
+	(SrcTextWin::LoadFromCache): don't add the ,asm,lib to the scratch 
+	widget pane name.
+
+	* interface.tcl (gdbtk_tcl_exec_file_display): Only run
+	gdbtk_clear_file if the filename is not null.  This avoids source
+	window flashing.
+
+	* srctextwin.itb (SrcTextWin::_mtime_changed): Set a dirty flag
+	when the mtime has changed so that you can know to reload the
+	source. 
+	(SrcTextWin::LoadFromCache): Look at the dirty flag, and reload
+	from disk if it is set.
+
+1999-06-10  Keith Seitz  <keiths@cygnus.com>
+
+	* watch.tcl (clear_file): New method.
+	* variables.tcl (constructor): Register gdb_clear_file hook.
+	(destructor): Unregister gdb_clear_file hook.
+	(clear_file): New method.
+	* targetselection.itb (init_target_db): Add Picobug monitor.
+	(fill_targets): Don't explicitly list every TCP target: deduce
+	it from the target database.
+	(native_debugging): Compare host and target triples.
+	* srcwin.ith (clear_file): Add declaration.
+	* srcwin.itb (constructor): Register gdb_clear_file hook.
+	(destructor): Unregister gdb_clear_file hook.
+	(clear_file): New method.
+	* srctextwin.ith (LoadFile): Add arg "mtime_changed".
+	(clear_file): Add declaration.
+	(_mtime_changed): Add declaration.
+	(_initialize_srctextwin): Add declaration.
+	(_clear_cache): Add declaration.
+	* srctextwin.itb (constructor): Move all initialization
+	to _intialize_srctextwin so that we can easily re-initialize.
+	(Stwc): Change layout to explicitly list panes
+	and mtimes.
+	(ClearTags): Catch calls removing tags. Needed when
+	loading new executables.
+	(_mtime_changed): New method.
+	(FillSource): Immitate command line gdb, checking
+	if a file has changed since it was last used. If it has, load
+	it into the cache.
+	(LoadFile): Add parameter to inform whether a file's
+	mtime has changed. Reload the cache if it has.
+	(clear_file): New method.
+	(_initialize_srctextwin): New method.
+	(_clear_cache): New method. Stubbed.
+	* main.tcl: Move initialization of state to initialize_gdbtk in
+	interface.tcl
+	* interface.tcl (gdbtk_tcl_exec_file_display): Don't reset source
+	windows or globals here -- the clear file hook will do that.
+	(set_exe_name): Always say the exe has changed, in case
+	the user reloads the same exe (which he's recompiled).
+	(set_exe): Don't call gdb_clear_file.
+	(set_target): Return string result codes.
+	(clear_file_hook): New hook.
+	(gdbtk_clear_file): New proc.
+	(initialize_gdbtk): New proc. Moved initialization of
+	globals (yich) here from main.tcl
+	* download.itb (download_it): When running set_target,
+	use new string return codes.
+
+	* interface.tcl (gdbtk_attach_target): New proc. Moved
+	contents of run_executable dealing with attaching to
+	a target here.
+	(run_executable): Use gdbtk_attach_target.
+	(connect): Remove and merge with gdbtk_attach_target.
+	* srcbar.tcl (do_connect): Use gdbtk_attach_target to
+	attach to the target.
+
+	* tclIndex: Regenerate.
+
+1999-06-07  James Ingham  <jingham@leda.cygnus.com>
+
+	* memwin.ith (numbytes): Change the default to 0, which means
+	"depends on window size".  This is really the useful value.
+
+	* memwin.itb (MemWin::newsize): Move getting the rheight to AFTER
+	the update idletasks.  Otherwise the bbox call will return "" when
+	the window is being constructed.
+	(MemWin::reconfig): Set rheight back to "" to force it to be
+	recomputed.  Both font changes and switch to "depends on window
+	size" could invalidate this.
+
+1999-06-08  Keith Seitz  <keiths@cygnus.com>
+
+	* srcwin.itb (set_execution_status): Do not try to second
+	guess gdb_target_has_execution with gdb_running. Make
+	gdb_running follow it. We'll have to fix those targets
+	that do not set inferior_pid as they crawl out of the woodwork.
+
+1999-06-07  James Ingham  <jingham@leda.cygnus.com>
+
+	* prefs.tcl (pref_set_defaults): Set the initial height and with
+	of the browser to 0 so the packer & gridder can get this right on
+	systems with different fonts.  Fixes CR 100619.
+
+	* browserwin.itb (BrowserWin::_build_win): Don't set the height
+	and width of the file_box and func_box.  This keeps them from
+	floating correctly when there is not stored default.
+
+1999-06-04  James Ingham  <jingham@leda.cygnus.com>
+
+	* regwin.itb (RegWin::acceptEdit): Call gdbtk_update after
+	changing the register value so that the locals and watch window
+	will get updated if any of these variables are in registers. Fixes
+	CR 100670.
+
+1999-05-25  Keith Seitz  <keiths@cygnus.com>
+
+	* variables.tcl (getLocals): Don't pass any args to 
+	gdb_get_{locals, args} so that the currently selected frame is used.
+	(context_switch): New method.
+	* locals.tcl (getVariablesBlankPath): Don't catch call to getLocals.
+	getLocals will do it and return {} if an error occurs.
+	Always pass the frame of the variable to the variable backend,
+	assuming that the selected frame is the proper frame to use.
+	(update): Recognize context switches a little better.
+
+	* variables.tcl (cursor): New method.
+	(enable_ui): Use "cursor".
+	(disable_ui): Ditto.
+	(no_inferior): Ditto.
+	(open): Change toplevel's cursor when opening variables.
+
+1999-05-03  Martin Hunt  <hunt@cygnus.com>
+
+	* toolbar.tcl (create_help_menu): Open About window as transient.
+
+	* main.tcl: Open About window as transient.
+
+	* about.tcl (About): Set window title.
+
+1999-04-27  James Ingham  <jingham@cygnus.com>
+
+	* srcpref.itb (build_win): Pack the frame containing the
+	disassembly flavor chooser.  Redid some of the other packing to
+	look a bit nicer too.
+
+	* srcpref.itb (save): Call apply and then close rather than
+	duplicating the apply code.
+	
+1999-04-26  James Ingham  <jingham@cygnus.com>
+
+	* modal.tcl (ModalDialog): Add the "expire" variable, and cancel
+	the dialog after the given time if set.
+
+	* managedwin.ith (destructor): Use the new quit_if_last method to
+	decide whether to quit the app or not.  This way you can manage
+	create a splash screen and not quit the app when you take it down.
+	(quit_if_last): Add default implementation - returns 1.
+
+	* about.tcl (quit_if_last): Add the quit_if_last to the About box, 
+	returning 0.
+
+	* main.tcl: Added a line to open a splash screen, but commented it
+	out for devo.
+
+1999-04-22  Keith Seitz  <keiths@cygnus.com>
+
+	* targetselection.itb (port_list): ManagedWin has a proc named
+	"open". We really want the tcl command "::open" to open a port.
+
+1999-04-15  Martin Hunt  <hunt@cygnus.com>
+
+	* prefs.tcl (pref_set_defaults): New pref, gdb/use_icons.
+	This is set if Unix should use gdbtk_icon.gif as an icon.  Some
+	window managers, such as olvwm, have problems with it.
+	* managedwin.itb (ManagedWin::_create): Don't create icon
+	for Unix, unless gdb/use_icons is set.
+	* globalpref.itb (GlobalPref::build_win): Add a checkbutton to set
+	pref gdb/use_icons.
+
+	* managedwin.itb (ManagedWin::window_name): If iconname is
+	not specified, use window name.
+	(ManagedWin::_create): For Unix, call make_icon_window.
+	(ManagedWin::make_icon_window): New function.  Makes a unix
+	icon.
+
+	* main.tcl: Set initial target to "exec" if running in
+	test mode.
+
+	* bpwin.itb (BpWin::constructor): Set icon name to "BPs".
+	* regwin.itb (BpWin::build_win): Set icon name to "Regs".
+	* srcwin.itb (SrcWin::_update_title): Set icon name to basename 
+	of filename.
+	* variables.tcl (VariableWin::build_win): Set icon name to "Locals".
+
+1999-04-12  Keith Seitz  <keiths@cygnus.com>
+
+	* variables.tcl (populate): Update the value of the parent variable's
+	children before stuffing them into the window. This makes sure
+	that the value of the variable is always current.
+
+1999-04-09  James Ingham  <jingham@cygnus.com>
+
+	* memwin.itb (MemWin::incr_addr): Fix the increment-decrement
+	control.  It would allow you to scroll into negative addresses,
+	which causes some simulators to crash.  It would also increment
+	improperly in cases where the address value in hex corresponded to 
+	a negative signed int.
+
+1999-04-07  Martin Hunt  <hunt@cygnus.com>
+
+	* interface.tcl (gdbtk_signal): Don't set gdb_running to 0.
+
+1999-04-06  Martin Hunt  <hunt@cygnus.com>
+
+	* targetselection.itb (TargetSelection::getname): Call init_target_db.
+	(TargetSelection::init_target_db): Add target mon2000. Set
+	most remote targets to default to downloading. Add new
+	baudrates for remote target. Other misc target fixes.
+	(save) Use "pref setd" in case pref is not created yet.
+	(TargetSelection::config_dialog): Gray out port number when
+	in exec mode.
+
+	* targetselection.ith: Add public proc init_target_db.
+	
+	* srcwin.itb (SrcWin::set_execution_status): Don't print anything
+	if gdb_running is 0.
+
+	* srctextwin.itb (SrcTextWin::motion): Show variable values
+	even when not debugging. Needed so users can examine values after
+	a segfault.
+
+	* interface.tcl (set_target): If the target name is "",
+	use the default target name.
+	(run_executable): Set gdb_running correctly. Don't
+	allow downloading to "exec".
+	(gdbtk_signal): New function called from gdbtk_annotate_signal.
+	Sets gdb_running to 0 and pops up a dialog with the
+	signal name and description.
+
+	* main.tcl: Set initial target name to "". Set gdb_target_changed
+	so a dialog will always be forced the first time.
+	
+	* download.itb (Download::download_it): Set gdb_loaded before
+	notifying src windows the download is done. Catch the notifications
+	in case the dialog has been closed.
+
+	* console.itb (Console::destructor): Set gdbtk_state(console)
+	to "" instead of unsetting it.
+
+1999-04-02  James Ingham  <jingham@cygnus.com>
+
+	* memwin.itb (MemWin::build_win): Remove the -validate option from 
+	the memory spinner.  It was not appropriate, since you can type
+	expressions into the window.
+
+1999-04-02  Keith Seitz  <keiths@cygnus.com>
+
+	* tclIndex: Rebuilt.
+	* toolbar.tcl (create_control_buttons): Use SrcWin's
+	inferior method to centralize control of inferior state.
+	(create_control_buttons): Ditto.
+	(source): Move SrcBar's public variable "source" here,
+	so that the toolbar can use that info, too.
+	* srcwin.itb (SrcWin::inferior): New public method
+	to consildate inferior control and dispatch to proper
+	handlers.
+	* srcwin.ith (SrcWin::inferior): Add declaration.
+	* srctextwin.itb (SrcTextWin::do_key): Use parent SrcWin's inferior
+	method to handle inferior state changes (run, step, next, etc).
+	* interface.tcl: Add procs to centralize inferior control:
+ 	gdbtk_step, gdbtk_next, gdbtk_stepi, gdbtk_nexti, gdbtk_run,
+	gdbtk_continue, gdbtk_finish, gdbtk_stop.
+	New stop button code (see comments before gdbtk_stop):
+	(gdbtk_stop_idle_callback): Idle callback for stop button.
+	(gdbtk_detach): New proc to forcibly detach from target.
+	* main.tcl: Initialize data used by stop button.
+	* srcbar.tcl (create_run_menu): Call SrcWin's inferior
+	method with button commands.
+	(source): Move "source" to Toolbar class.
+
+1999-03-29  Keith Seitz  <keiths@cygnus.com>
+
+	* browserwin.itb (BrowserWin::do_all_bp): Fix quoting of break
+	command.
+	(BrowserWin::_toggle_bp): Ditto.
+
+1999-03-19  Keith Seitz  <keiths@cygnus.com>
+
+	* download.itb (Download::download_it): Configure SrcWin's toolbar,
+	too, to a downloading state.
+	* srcbar.tcl (runstop): Change states from numbers to
+	strings to avoid confusion.
+	(_set_runstop): Change states from numbers to strings to
+	avoid confusion.
+	* srcwin.ith (toolbar): New public method.
+	* srcwin.itb: Change all references of runstop to use new strings
+	introduced into GDBSrcBar::_set_runstop.
+	(SrcWin::toolbar): New public method to configure the state of the toolbar.
+	* tclIndex: Regenerate.
+
+1999-03-18  Martin Hunt  <hunt@cygnus.com>
+
+	* interface.tcl (set_target_name): Remove first argument.
+	If prompt is not set, still update gdb_target_cmd.
+	(set_target): Call set_target_name with prompt argument
+	set correctly.
+	(run_executable): Check for no exe name. Catch problems
+	with bad target names and prompt for new one.
+
+	* main.tcl: Set target name from prefs.  If it is "",
+	the set "gdb_target_changed" to force it to be changed
+	later.
+
+	* prefs.tcl (pref_set_defaults): Don't set target default
+	to "exec".  Leave the default unset.
+	
+	* srcbar.tcl (create_menu_items): Update args to
+	set_target_name.
+	
+1999-03-18  Keith Seitz  <keiths@cygnus.com>
+
+	* prefs.tcl (pref_read): Change unix preference filename
+	to ".gdbtkinit". This bogosity has been around long enough.
+
+1999-03-16  Martin Hunt  <hunt@cygnus.com>
+
+	* managedwin.itb (ManagedWin::_create): When running under
+	testsuite, don't resize.
+
+1999-03-13  James Ingham  <jingham@cygnus.com>
+
+	* browserwin.itb (BrowserWin::search): If all the files are
+	selected in the file box, then don't pass the files argument.
+	This makes the function browser a little quicker.  The main
+	slowdown, however, is sorting the resultant list.  Maybe do this
+	in C to get this quicker?
+
+	* memwin.itb (MemWin::edit): Comment out the line that reads back
+	in the newly set memory value.  Because of the chain of calls,
+	on Windows this causes some evil race that results in GDBTk
+	filling all the visible cells with the new value.  I don't
+	understand it yet, so this is just a temporary fix.
+
+1999-03-12  James Ingham  <jingham@cygnus.com>
+
+	* memwin.ith (MemWin): Add saved_addr to the class.  This is where 
+	we store the old address before we change addresses, so that we
+	can get back to a good state in case of errors.
+
+	* memwin.itb (MemWin::update_addr): gdb_get_mem does not always
+	return an error code when it hits an error.  Catch that here.
+	(MemWin::update_address): Store away the old address, so we can
+	restore it if there is an error.
+	(MemWin::BadExpr): Restore the saved address in case of errors.
+	
+
+1999-03-09  James Ingham  <jingham@cygnus.com>
+
+	* Rebuilt tclIndex.
+
+1999-03-08  James Ingham  <jingham@cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::constructor): pc(funcname) was
+	changed to pc(func), but the initialization was not changed...
+
+	* download.ith (dont_remember_size): Download window should not
+	remember its size.
+
+	* interface.tcl (connect): Handle the case where set_target
+	returns 3...
+
+	* debugwin.itb (DebugWinDOpts::build_win): Replace $this delete
+	with delete object $this.
+	* tfind_args.tcl (build_win): Ditto...
+	* helpviewer.itb (HtmlViewer::_buildwin): Ditto...	
+
+	* srcbar.tcl (GDBSrcBar): Reorder the Source & the page setup &
+	print menus...
+
+1999-03-04  Martin Hunt  <hunt@cygnus.com>
+
+	* download.ith: New file.
+	* download.itb: New file.  Implements itcl3 class and replaces
+	download.tcl.
+	
+	* srcbar.tcl (create_menu_items): Call create_run_menu
+	without arguments.
+	(create_run_menu): Add Disconnect and Connect to Run menu
+	instead of file menu. Change download_it to Download::download_it.
+
+	* srctextwin.itb (do_key): Change binding to call 
+	Download::download_it.
+	
+	* debugwin.itb (DebugWinDOpts::build_win): Add ProcessWIn to list
+	of classes for filter.
+
+	* interface.tcl (set_target): No need to set window title.
+	(run_executable): Change download_it to Download::download_it
+
+1999-03-04  James Ingham  <jingham@cygnus.com>
+
+	* modal.tcl (ModalDialog): Handle WM_DELETE_WINDOW by calling the
+	cancel method.  Also set unpost_notification to different values
+	in unpost & the destructor, so if the object dies irregularly, you 
+	know not to try to double destruct it.
+
+1999-03-03  James Ingham  <jingham@cygnus.com>
+
+	* warning.tcl (WarningDlg::constructor):Destroy with unpost.
+
+	* util.tcl (get_disassembly_flavor, set_disassembly_flavor,
+ 	init_disassembly_flavor): Added these functions for the Intel P2
+ 	disassembly flavors.
+	(list_element_strcmp): New function for lsort -command on lists.
+
+	* tracedlg.tcl (TraceDlg): Change combobox callback to reflect new 
+	after behavior.
+
+	* targetselction.itb (TargetSelection::save): If the target
+	is not valid, tell the user rather than simple refusing to go
+	away.
+ 	Also move stuff around to isolate the instance dependant stuff as
+	much as possible
+	Also replace delete with unpost.
+
+	* targetselection.ith (TargetSelection): Make as much of the
+	initialization stuff Class functions as possible.  Then only
+	initialize it once.
+
+	* srcwin.ith (_update_title): initialize need_files.
+
+	* srcwin.itb (SrcWin::_build_win): I changed the combobox so it
+	ran its code in an idle handler, so we can take out all the after
+	idle... cruft here.
+
+	* srctextwin.ith (SrcTextWin): Added textheight variable so you
+	can adjust the height of the text display.
+
+	* srctextwin.itb (SrcTextWin::build_win): Don't hardcode the size
+	of the text window, set it with the textheight option instead.  
+	Also replace childsite with "component text" wherever required.
+
+	* srcpref.itb (SrcPref::build_win, set_flavor): Added the Intel
+ 	disassembly flavor combobox.  Added set_flavor method to support
+	this.
+	* srcpref.ith: Added declaration for set_flavor, and
+	disassembly_flavor instance variable.
+
+	* modal.tcl (ModalDialog::post, unpost): Added unpost method to
+	provide a more regular way to dismiss the dialogs.  Just
+	destroying them was leading to funny destruction order bugs.
+	Added cancel method, which is what client code should call to
+	"force close" the dialog, so child classes can override, and do
+	some cleanup.
+
+	* memwin.itb (MemWin::destructor): Call the cancel method of the
+	Preferences dialog (if it is posted) rather than just destroying
+	it.
+
+	* mempref.itb (MemPref::ok): call unpost, since this is a modal
+	dialog.
+
+	* managedwin.itb (ManagedWin::reveal): Used to be called raise.
+	Don't reuse Tcl or Tk commands unless there is a really good
+	reason to...
+	(ManagedWin::destroy_toplevel): renamed from delete, which
+	conflicts both with the Itcl1.5 delete method, and the Itcl3.0
+	delete command...  Also, don't use this as the way to destroy
+	ManagedWins, rather destroy the object and let the object take
+	care of removing its toplevel.
+	(ManagedWin::_create): Group all the windows with 
+	. for WindowManagers that properly handle this.
+	(ManagedWin::_create): Use dont_remember_size
+	rather than the instance variable.  Also, windows which don't
+	remember size are not necessarily transient.
+	(ManagedWin::_create): Only call post if the
+	ManagedWin also isa ModalDialog.  It is clearer what is going on.
+	* managedwin.ith: Carry through the name changes.
+	
+	* main.tcl: call init_disassembly_flavor for Intel assembly
+	flavors.
+
+	*main.tcl: Group . with .  This is half of the work required to
+	play nice with WindowMaker.  The other half waits till we can get
+	gdb to pass the command-line arguments to Tcl.
+
+	* interface.tcl: Add file_changed_hook to the hooks.  The browser
+	window watches this and refreshes the file box if it changes.
+
+	* globalpref.ith (GlobalPref): This should be a modal dialog.
+	* globalpref.itb (GlobalPref::build_win): call update idletasks,
+	not update.  Since we are calling update, there is no reason to
+	delay calling resize_font_item_height.
+	* globalpref.itb: Replace destroy toplevel with unpost.
+
+	* debugwin.itb (DebugWin::build_win): Replace childsite with
+	"component text"
+
+	* console.itb (Console::_build_win): Replace childsite with
+	"component text"
+
+	* browserwin.itb: Rewritten pretty completely.
+	* prefs.tcl (pref_set_defaults): add the browser preferences.
+
+	* prefs.tcl (pref_set_defaults): add the intel disassembly flavor
+	preference.
+
+	* about.tcl (About): This should be a modal dialog.
+
+1999-03-02  James Ingham  <jingham@cygnus.com>
+
+	* globalpref.itb (GlobalPref::make_font_item): Don't do the
+ 	resize_font_item_height here, since an update can cause the resize
+ 	before all the windows are built.  Delay to the end of build_win
+ 	instead.
+
+1999-02-24  James Ingham  <jingham@cygnus.com>
+
+	* toolbar.tcl (remove_button): Specify the row in the toolbar from 
+	which you are removing the item.  On Windows, there are two rows
+	in the standard toolbar...
+
+1999-02-22  Martin Hunt  <hunt@cygnus.com>
+
+	* warning.tcl (WarningDlg::constructor): Remove extra quote
+	that was causing loading of this module to fail.
+
+	* managedwin.itb (ManagedWin::_create): If the pack fails
+	(for example because the warning dialog reliazed it should
+	ignore the warning) print a warning debug message and return.
+	Also, while testing, tell the window manager to position
+	the window without asking the user for the position.
+
+1999-02-18  Martin Hunt  <hunt@cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::FillAssembly): As a last resort, 
+	if the disassembly fails for some reason, switch to the scratch
+	pane and write in a message about not being able to disassemble.
+
+1999-02-18  Martin Hunt  <hunt@cygnus.com>
+	
+	* helpviewer.ith (HtmlViewer): Add thread and function
+	browser windows to help index.
+
+	* help/index.toc: Removed.
+
+1999-02-18  Martin Hunt  <hunt@cygnus.com>
+	
+	* help/thread.html: New file.  Thread window online help.
+	* help/index.html: Add thread.html, and alphabetize list.	
+	* help/source.html: Add index for thread_bp.
+	
+1999-02-17  Martin Hunt  <hunt@cygnus.com>
+
+	* globalpref.itb (GlobalPref::build_win): Add a checkbutton to 
+	allow use of an internet browser to read help files.
+	
+	* prefs.tcl (pref_set_defaults): Add preference gdb/help/browser.
+	Default is to use builtin html help.
+
+	* helpviewer.itb (HtmlViewer::open_help): New public proc.
+	Depending on preferences, opens help in external browser or
+	internal htmlviewer.
+
+	* toolbar.tcl (create_help_menu): Use HtmlViewer::open_help.
+
+1999-02-17  Martin Hunt  <hunt@cygnus.com>
+	
+	* managedwin.itb (ManagedWin::_create): Restore some lines that
+	were accidently checked in commented out.
+
+1999-02-17  Keith Seitz  <keiths@cygnus.com>
+
+	* help/index.html: Add function browser.
+	* help/browser.html: New help file.
+
+1999-02-12  Martin Hunt  <hunt@cygnus.com>
+
+	* managedwin.itb (ManagedWin::_create): If a window class defines a
+	public variable "nosize" the size will not be set, only the position.
+	* browserwin.ith (toggle_all_bp): Add public variable "nosize".	
+
+1999-02-12  Martin Hunt  <hunt@cygnus.com>
+	
+	* process.ith: New file.
+	* process.itb: New file. Converted process.tcl to new itcl class.
+	* process.tcl: Deleted.
+	
+	* warning.tcl (WarningDlg::constructor): Set the window name.
+
+1999-02-11  Martin Hunt  <hunt@cygnus.com>
+	
+	* variables.tcl (editEntry): Check that $variable is not empty.
+
+	* warning.tcl (WarningDlg::constructor): Put focus on the
+	"OK" button and bind it to <Return>.
+
+	* watch.tcl (add): If the user attempts to add a non-existent
+	variable to the watch-window, display an ignorable warning.
+
+	* interface.tcl (gdbtk_tcl_ignorable_warning): -transient
+	should not take an argument.
+	(set_target_name): Ditto.
+	* srcbar.tcl (create_menu_items): Ditto.
+	* memwin.itb (MemWin::create_prefs): Ditto.
+	* managedwin.itb (ManagedWin::_create): Ditto.	
+
+1999-02-11  James Ingham  <jingham@cygnus.com>
+
+	Move the Intel disassembly mode changes into devo.
+	
+	* main.tcl: Init the disassembly flavor bits.
+ 	* prefs.tcl: Define disassembly-flavor
+	* srcpref.ith: Add current_disassembly_flavor instance variable
+	and set_flavor method.
+	* srcpref.itb (build_win): Add the disassembly_flavor combobox.
+	              (apply): set the flavor, if applicable.
+	              (set_flavor): New method.
+	* util.tcl: Add 3 new functions - get_disassembly_flavor,
+	list_disassembly_flavor and init_disassembly_flavor.
+
+1999-02-10  Martin Hunt  <hunt@cygnus.com>
+
+	* srcwin.itb, download.tcl, main.tcl, srcbar.tcl: Removed old 
+	IDE stuff.
+
+	* toolbar.tcl (create_help_menu): Updated Cygnus URL and
+	removed old IDE stuff.
+	(create_ide_buttons): Removed. 
+
+1999-02-10  Martin Hunt  <hunt@cygnus.com>
+	
+	* managedwin.itb (ManagedWin::_create): Bind Alt-F4 to
+	always close the window.
+
+1999-02-10  Martin Hunt  <hunt@cygnus.com>
+	
+	* main.tcl: Removed old debugging preferences.
+	* prefs.tcl (pref_set_defaults): Ditto.
+	
+1999-02-09  Martin Hunt  <hunt@cygnus.com>
+
+	* managedwin.itb (ManagedWin::_create): Simplify raise
+	and post now that all windows use new manager.
+
+	* warning.tcl (WarningDlg): Rewrite of entire class to use
+	new itcl 3.0 class. Also now uses a "class name" to keep
+	track of which messages should be ignored. Uses tk_messageBox
+	of the message doesn't have -ignorable set.
+
+	* interface.tcl: Removed IDE stuff.
+	(gdbtk_tcl_ignorable_warning): Accept "class" argument and
+	use it when creating a WarningDlg.  Use new ManagedWin::open.
+	
+	* srctextwin.itb (SrcTextWin::set_tp_at_line): Fix TraceDlg
+	open command to use ManagedWin::open.
+
+	* srcpref.itb (SrcPref::build_win): Comment out line number
+	option.  It wasn't very useful and did not become effective
+	until GDBtk was restarted.
+
+1999-02-09  James Ingham  <jingham@cygnus.com>
+
+	* srctextwin.itb (build_win): Set the paned window background to
+	white so it looks better when you switch windows.
+
+	* mempref.itb (build_win): Use the libgui combobox for the bytes per
+	line field.
+	
+	* mempref.itb: remove some global declarations that I missed when
+	I converted all the variables to instance data.
+
+	* variables.tcl (change_value): Catch one more place where $this
+	was being passed as a window name.
+
+	* TODO: Added some more items, and removed some that had been fixed.
+
+Mon Feb  8 12:27:16 1999  Keith Seitz  <keiths@cygnus.com>
+
+	* interface.tcl (set_target_name): Fix switch syntax
+	error and getd the options preference in case it's not set.
+
+
+Thu Feb  4 11:55:43 1999  Keith Seitz  <keiths@cygnus.com>
+
+	* targetselection.itb (_init_db): Add MIPS target.
+	(fill_targets): Ditto.
+
+Thu Feb  4 07:56:12 1999  Keith Seitz  <keiths@cygnus.com>
+
+	* targetselection.itb: Set "TargetSelection::target_trace"
+	as the correct trace for gdb_loaded.
+	* targetselection.ith: Make "target_trace" a public proc.
+
+1999-02-03  Martin Hunt  <hunt@cygnus.com>
+
+	* help/console.html: Cleaned up and added history and editing 
+	commands.
+
+	* stackwin.itb (StackWin::build_win): Remove balloon help.
+
+	* console.itb (Console::_search_history): New function.
+	Does a pattern match on history buffer.
+	(Console::_rsearch_history): New function. Does a pattern
+	match on history buffer in the reverse direction.
+	(Console::_build_win): Bind Control-Up, Control-Down,
+	Shift-Up, and Shift-Down to search history instead of mess
+	up the console window. Bind Control-o to break to disable it.
+
+	* help/stack.html: Cleanup.
+
+	* help/source.html: Add a bunch of missing quotation marks.
+
+1999-02-03  Martin Hunt  <hunt@cygnus.com>
+	
+	* memwin.itb: Change from tixControl widget to iwidgets::spinint.
+	Fix problems with error dialogs.
+
+1999-02-02  Martin Hunt  <hunt@cygnus.com>
+
+	* srctextwin.itb (SrcTextWin::do_source_popup): Even after fixing the
+	obvious syntax errors in this function, it didn't work. So I
+	simplified the logic. Now it will attempt to use whatever is selected.
+	If multiple lines are selected and tracing is enabled, it will set
+	tracepoints, otherwise it will try to extract a variable name from single
+	lines only.
+
+	* main.tcl: Only open debugwin if GDBTK_DEBUG > 1.
+
+	* toolbar.tcl (create_view_menu): Only add "Debug WIndow" menu
+	item if GDBTK_DEBUG is set.
+	
+1999-02-02  Martin Hunt  <hunt@cygnus.com>
+	
+	* browserwin.itb (BrowserWin::_fill_source): Add lib argument
+	from gdb_loc to the call to $Source location.
+	(BrowserWin::_goto_func): Ditto.
+
+1999-02-01  James Ingham  <jingham@cygnus.com>
+
+	* browserwin.itb (BrowserWin::_fill_source): Add a null lib
+	argument to the call to $Source location.
+
+1999-02-01  Martin Hunt  <hunt@cygnus.com>
+
+	* prefs.tcl (pref_save): Change the list of sections back into
+	a list.
+
+1999-02-01  Martin Hunt  <hunt@cygnus.com>	
+
+	* srctextwin.itb (SrcTextWin::FillMixed): Simplify line formatting.
+	(SrcTextWin::continue_to_here): Call gdb_set_bp with new type arg.
+	(SrcTextWin::set_bp_at_line): Call gdb_set_bp with new type arg.
+	Use "catch" command and display error if there is one.
+
+1999-02-01  Martin Hunt  <hunt@cygnus.com>
+	
+	* srcwin.itb (SrcWin::goto_func): Dont attach filename if
+        there isn't a valid one.
+
+Fri Jan 29 20:01:30 1999  Fernando Nasser  <fnasser@rtl.cygnus.com>
+
+	* main.tcl: Restored kod code lost with merge
+	* prefs.tcl: Ditto.
+	* srctextwin.tcl: Ditto.
+	* toolbar.tcl: Ditto
+	* kod.tcl: Adapted to the new branch.
+	
+1999-01-28  Martin Hunt  <hunt@cygnus.com>
+
+        * srcwin.itb (SrcWin::_build_win): Only call gdb_loc once.
+        (SrcWin::location): Update linespec for gdb_loc to include
+        the "lib" arg.
+
+        * srctextwin.itb (SrcTextWin::LoadFromCache): Add "lib"
+        argument. This is used to create a unique cache key so
+        we don't confuse the disassembly of a function in a shared
+        lib with the disassembly of its trampoline. Also updated 
+        UnLoadFromCache, LoadFIle, FillSource, FillMixed, and FillAssembly
+        to pass this argument around.
+
+        * helpviewer.ith (HtmlViewer::constructor): Declare we have a 
+        constructor.
+        (PageStack::constructor): Delete this declaration.
+        
+        * helpviewer.itb (HtmlViewer::constructor): initialize args before 
+        calling _buildwin
+        
+        * main.tcl: Only open initial debug window if GDBTK_DEBUG
+        is set.
+        
+        * help/debug.html: Add help for GDBTK_DEBUG
+
+Wed Jan 27 07:18:05 1999  Keith Seitz  <keiths@cygnus.com>
+
+        * interface.tcl (gdbtk_pc_changed): Removed.
+        (gdbtk_register_changed): New procedure.
+        (gdbtk_memory_changed): New procedure.
+

@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "toplev.h"
 #include "output.h"
+#include "genindex.h"
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -2695,6 +2696,12 @@ linenum:
 	      input_file_stack->line = old_lineno;
 	      p->next = input_file_stack;
 	      p->name = input_filename;
+
+	      /* Find out if index is already generated or not.
+	         If generated than turn off index generation for this file.  */
+	      if (flag_gen_index_original)
+	        process_header_indexing (p->name, PB_INDEX_BEGIN);
+
 	      input_file_stack = p;
 	      input_file_stack_tick++;
 	      debug_start_source_file (input_filename);
@@ -2724,9 +2731,16 @@ linenum:
 
 		  p = input_file_stack;
 		  input_file_stack = p->next;
-		  free (p);
+
 		  input_file_stack_tick++;
 		  debug_end_source_file (input_file_stack->line);
+
+	    /* Find out if we need to turn on or off index generation.  */
+	    if (flag_gen_index_original)
+	      process_header_indexing (p->name, PB_INDEX_END);
+
+		  free (p);
+
 		}
 	      else
 		error ("#-lines for entering and leaving files don't match");

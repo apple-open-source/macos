@@ -1,0 +1,7 @@
+name=zsh/zpty
+link=dynamic
+load=no
+
+autobins="zpty"
+
+objects="zpty.o"

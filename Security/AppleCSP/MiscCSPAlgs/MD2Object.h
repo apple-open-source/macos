@@ -24,7 +24,7 @@
 #define _MD2_OBJECT_H_
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <AppleCSP/DigestObject.h>
+#include <Security/digestobject.h>
 #include <openssl/md2.h>
 
 class MD2Object : public DigestObject
@@ -38,6 +38,7 @@ public:
 		size_t 		len);
 	virtual void digestFinal(
 		void 		*digest);
+	virtual DigestObject *digestClone() const;
 	virtual size_t digestSizeInBytes() const;
 private:
 	MD2_CTX 		mCtx;

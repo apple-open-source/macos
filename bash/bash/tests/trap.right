@@ -1,0 +1,66 @@
+subshell exit
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGHUP
+trap -- 'echo aborting' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+debug line
+[20] debug
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGHUP
+trap -- 'echo aborting' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+trap -- 'echo [$LINENO] debug' DEBUG
+[22] debug
+funcdebug line
+[2] funcdebug
+[24] debug
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGHUP
+trap -- 'echo aborting' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+trap -- 'echo [$LINENO] debug' DEBUG
+[26] debug
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGHUP
+trap -- 'echo aborting' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+trap -- '' DEBUG
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGHUP
+trap -- 'echo aborting' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+trap -- 'echo exiting' EXIT
+trap -- '' SIGINT
+trap -- 'echo aborting' SIGQUIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo aborting' SIGTERM
+0
+ERRTRAP
+ERRTRAP
+ERRTRAP
+after falses
+if negation ok
+after negation
+after while
+before false in trap2a.sub
+after false in trap2a.sub
+command substitution
+caught a child death
+caught a child death
+caught a child death
+trap -- 'echo caught a child death' SIGCHLD
+trap -- 'echo exiting' EXIT
+trap -- 'echo aborting' SIGABRT
+trap -- 'echo caught a child death' SIGCHLD
+trap -- '' SIGUSR2
+exiting

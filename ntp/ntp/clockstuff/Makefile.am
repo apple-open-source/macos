@@ -5,13 +5,12 @@ EXTRA_PROGRAMS = propdelay chutest clktest
 
 INCLUDES = -I$(top_srcdir)/include
 # We need -lm (and perhaps $(COMPAT) for propdelay, -lntp for {chu,clk}test
-LIBMATH = -lm
-propdelay_LDADD = $(LIBMATH)
+propdelay_LDADD = -lm
 chutest_LDADD = ../libntp/libntp.a
 clktest_LDADD = ../libntp/libntp.a
 ETAGS_ARGS = Makefile.am
 #EXTRA_DIST = TAGS
 
-chutest: ../libntp/libntp.a
+chutest$(EXEEXT): ../libntp/libntp.a
 
-clktest: ../libntp/libntp.a
+clktest$(EXEEXT): ../libntp/libntp.a

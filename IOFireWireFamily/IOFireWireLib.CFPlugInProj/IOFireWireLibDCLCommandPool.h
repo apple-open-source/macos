@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,259 +23,242 @@
  *  IOFireWireLibDCLPool.h
  *  IOFireWireFamily
  *
- *  Created by NWG on Mon Mar 12 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Created on Mon Mar 12 2001.
+ *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  */
 
-#ifndef __IOFireWireLibDCLCommandPool_H__
-#define __IOFireWireLibDCLCommandPool_H__
+#import "IOFireWireLibPriv.h"
+#import "IOFireWireLibIsoch.h"
+#import "IOFWIsoch.h"
 
-#include "IOFireWireLibPriv.h"
-#include <IOKit/firewire/IOFireWireLibIsoch.h>
-#include <IOKit/firewire/IOFWIsoch.h>
+namespace IOFireWireLib {
 
-class IOFireWireLibDCLCommandPoolImp: public IOFireWireIUnknown
-{
- public:
-								IOFireWireLibDCLCommandPoolImp(
-										IOFireWireDeviceInterfaceImp& 	inUserClient,
-										IOByteCount						inSize) ;
-	virtual						~IOFireWireLibDCLCommandPoolImp() ;
-	virtual Boolean				Init() 
-										{ return true; }
+	class DCLCommandPool: public IOFireWireIUnknown
+	{
+		public:
+										DCLCommandPool( IUnknownVTbl* interface, Device& inUserClient, IOByteCount inSize ) ;
+			virtual						~DCLCommandPool() ;
+			Boolean				Init() 
+												{ return true; }
+			
+			DCLCommandStruct*	Allocate(
+												IOByteCount 			inSize ) ;
+			IOReturn			AllocateWithOpcode(
+												DCLCommandStruct* 		inDCL, 
+												DCLCommandStruct** 		outDCL, 
+												UInt32 					opcode, ... ) ;
+			DCLCommandStruct*	AllocateTransferPacketDCL(
+												DCLCommandStruct*		inDCL,
+												UInt32					inOpcode,
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateTransferBufferDCL(
+												DCLCommandStruct* 		inDCL, 
+												UInt32 					inOpcode, 
+												void* 					inBuffer, 
+												IOByteCount 			inSize, 
+												IOByteCount 			inPacketSize, 
+												UInt32 					inBufferOffset) ;
+			DCLCommandStruct*	AllocateSendPacketStartDCL(
+												DCLCommandStruct* 		inDCL, 
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateSendPacketWithHeaderStartDCL(
+												DCLCommandStruct* 		inDCL, 
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateSendBufferDCL(		// currently does nothing
+												DCLCommandStruct* 		inDCL, 
+												void*					inBuffer,
+												IOByteCount				inSize,
+												IOByteCount				inPacketSize,
+												UInt32					inBufferOffset) ;
+			DCLCommandStruct*	AllocateSendPacketDCL(
+												DCLCommandStruct* 		inDCL,
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateReceivePacketStartDCL(
+												DCLCommandStruct* 		inDCL, 
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateReceivePacketDCL(
+												DCLCommandStruct* 		inDCL,
+												void*					inBuffer,
+												IOByteCount				inSize) ;
+			DCLCommandStruct*	AllocateReceiveBufferDCL(	// currently does nothing
+												DCLCommandStruct* 		inDCL, 
+												void*					inBuffer,
+												IOByteCount				inSize,
+												IOByteCount				inPacketSize,
+												UInt32					inBufferOffset) ;
+			DCLCommandStruct*	AllocateCallProcDCL(
+												DCLCommandStruct* 		inDCL, 
+												DCLCallCommandProcPtr	inProc,
+												UInt32					inProcData) ;
+			DCLCommandStruct*	AllocateLabelDCL(
+												DCLCommandStruct* 		inDCL) ;
+			DCLCommandStruct*	AllocateJumpDCL(
+												DCLCommandStruct* 		inDCL, 
+												DCLLabelPtr				pInJumpDCLLabel) ;
+			DCLCommandStruct*	AllocateSetTagSyncBitsDCL(
+												DCLCommandStruct* 		inDCL, 
+												UInt16					inTagBits,
+												UInt16					inSyncBits) ;
+			DCLCommandStruct*	AllocateUpdateDCLListDCL(
+												DCLCommandStruct* 		inDCL, 
+												DCLCommandPtr*			inDCLCommandList,
+												UInt32					inNumCommands) ;
+			DCLCommandStruct*	AllocatePtrTimeStampDCL(
+												DCLCommandStruct* 		inDCL, 
+												UInt32*					inTimeStampPtr) ;
+		
+			void 				Free(
+												DCLCommandStruct*		inDCL ) ;
+			IOByteCount			GetSize() ;
+			Boolean				SetSize(
+												IOByteCount 					inSize ) ;
+			IOByteCount			GetBytesRemaining() ;
+
+		protected:
+			void				Lock() ;
+			void				Unlock() ;
+			void				CoalesceFreeBlocks() ;
+
+		protected:
+			Device&				mUserClient ;
+			CFMutableArrayRef	mFreeBlocks ;
+			CFMutableArrayRef	mFreeBlockSizes ;
+			CFMutableArrayRef	mAllocatedBlocks ;
+			CFMutableArrayRef	mAllocatedBlockSizes ;	
+			UInt8*				mStorage ;
+			IOByteCount			mStorageSize ;
+			IOByteCount			mBytesRemaining ;
+			pthread_mutex_t		mMutex ;
+		
+	} ;
 	
-	virtual DCLCommandStruct*	Allocate(
-										IOByteCount 			inSize ) ;
-	virtual IOReturn			AllocateWithOpcode(
-										DCLCommandStruct* 		inDCL, 
-										DCLCommandStruct** 		outDCL, 
-										UInt32 					opcode, ... ) ;
-	virtual DCLCommandStruct*	AllocateTransferPacketDCL(
-										DCLCommandStruct*		inDCL,
-										UInt32					inOpcode,
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateTransferBufferDCL(
-										DCLCommandStruct* 		inDCL, 
-										UInt32 					inOpcode, 
-										void* 					inBuffer, 
-										IOByteCount 			inSize, 
-										IOByteCount 			inPacketSize, 
-										UInt32 					inBufferOffset) ;
-	virtual DCLCommandStruct*	AllocateSendPacketStartDCL(
-										DCLCommandStruct* 		inDCL, 
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateSendPacketWithHeaderStartDCL(
-										DCLCommandStruct* 		inDCL, 
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateSendBufferDCL(		// currently does nothing
-										DCLCommandStruct* 		inDCL, 
-										void*					inBuffer,
-										IOByteCount				inSize,
-										IOByteCount				inPacketSize,
-										UInt32					inBufferOffset) ;
-	virtual DCLCommandStruct*	AllocateSendPacketDCL(
-										DCLCommandStruct* 		inDCL,
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateReceivePacketStartDCL(
-										DCLCommandStruct* 		inDCL, 
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateReceivePacketDCL(
-										DCLCommandStruct* 		inDCL,
-										void*					inBuffer,
-										IOByteCount				inSize) ;
-	virtual DCLCommandStruct*	AllocateReceiveBufferDCL(	// currently does nothing
-										DCLCommandStruct* 		inDCL, 
-										void*					inBuffer,
-										IOByteCount				inSize,
-										IOByteCount				inPacketSize,
-										UInt32					inBufferOffset) ;
-	virtual	DCLCommandStruct*	AllocateCallProcDCL(
-										DCLCommandStruct* 		inDCL, 
-										DCLCallCommandProcPtr	inProc,
-										UInt32					inProcData) ;
-	virtual DCLCommandStruct*	AllocateLabelDCL(
-										DCLCommandStruct* 		inDCL) ;
-	virtual DCLCommandStruct*	AllocateJumpDCL(
-										DCLCommandStruct* 		inDCL, 
-										DCLLabelPtr				pInJumpDCLLabel) ;
-	virtual DCLCommandStruct*	AllocateSetTagSyncBitsDCL(
-										DCLCommandStruct* 		inDCL, 
-										UInt16					inTagBits,
-										UInt16					inSyncBits) ;
-	virtual DCLCommandStruct*	AllocateUpdateDCLListDCL(
-										DCLCommandStruct* 		inDCL, 
-										DCLCommandPtr*			inDCLCommandList,
-										UInt32					inNumCommands) ;
-	virtual DCLCommandStruct*	AllocatePtrTimeStampDCL(
-										DCLCommandStruct* 		inDCL, 
-										UInt32*					inTimeStampPtr) ;
+	class DCLCommandPoolCOM: public DCLCommandPool
+	{
+		typedef IOFireWireLibDCLCommandPoolRef 		Ref ;
+		typedef IOFireWireDCLCommandPoolInterface	Interface ;
 
-	virtual void 				Free(
-										DCLCommandStruct*		inDCL ) ;
-	virtual IOByteCount			GetSize() ;
-	virtual Boolean				SetSize(
-										IOByteCount 					inSize ) ;
-	virtual IOByteCount			GetBytesRemaining() ;
-
- protected:
-	IOFireWireDeviceInterfaceImp&	mUserClient ;
- 
-	CFMutableArrayRef	mFreeBlocks ;
-	CFMutableArrayRef	mFreeBlockSizes ;
-	CFMutableArrayRef	mAllocatedBlocks ;
-	CFMutableArrayRef	mAllocatedBlockSizes ;	
-	UInt8*				mStorage ;
-	IOByteCount			mStorageSize ;
-	IOByteCount			mBytesRemaining ;
- 
-	virtual void				Lock() ;
-	virtual void				Unlock() ;
-	virtual void				CoalesceFreeBlocks() ;
-} ;
-
-class IOFireWireLibDCLCommandPoolCOM: public IOFireWireLibDCLCommandPoolImp
-{
- public:
-	//
-	// --- ctor/dtor
-	//
-							IOFireWireLibDCLCommandPoolCOM(
-									IOFireWireDeviceInterfaceImp&	inUserClient, 
-									IOByteCount						inSize) ;
-	virtual 				~IOFireWireLibDCLCommandPoolCOM() ;
-
-	//
-	// --- COM ---------------
-	//
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*					pseudoVTable ;
- 		IOFireWireLibDCLCommandPoolCOM*	obj ;
- 	} ;
- 
-	static IOFireWireDCLCommandPoolInterface	sInterface ;
- 	InterfaceMap								mInterface ;
-
-	//
- 	// GetThis()
-	//
- 	inline static IOFireWireLibDCLCommandPoolCOM* GetThis(IOFireWireLibDCLCommandPoolRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
-
-	//
-	// --- IUNKNOWN support ----------------
-	//
-	static IUnknownVTbl**		Alloc(
-										IOFireWireDeviceInterfaceImp&	inUserClient, 
-										IOByteCount						inSize) ;
-	virtual HRESULT				QueryInterface(REFIID iid, void ** ppv ) ;
-
-	//
-	// --- static methods ------------------
-	//
-	static DCLCommandStruct*	SAllocate(
-										IOFireWireLibDCLCommandPoolRef	self, 
-										IOByteCount 					inSize ) ;
-	static IOReturn				SAllocateWithOpcode(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct*				inDCL,
-										DCLCommandStruct**				outDCL,
-										UInt32			 				opcode, ... ) ;
-	static DCLCommandStruct*	SAllocateTransferPacketDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct*				inDCL,
-										UInt32							inOpcode,
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateTransferBufferDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										UInt32 							inOpcode, 
-										void* 							inBuffer, 
-										IOByteCount 					inSize, 
-										IOByteCount 					inPacketSize, 
-										UInt32 							inBufferOffset) ;
-	static DCLCommandStruct*	SAllocateSendPacketStartDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateSendPacketWithHeaderStartDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateSendBufferDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										void*							inBuffer,
-										IOByteCount						inSize,
-										IOByteCount						inPacketSize,
-										UInt32							inBufferOffset) ;
-	static DCLCommandStruct*	SAllocateSendPacketDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL,
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateReceivePacketStartDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateReceivePacketDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL,
-										void*							inBuffer,
-										IOByteCount						inSize) ;
-	static DCLCommandStruct*	SAllocateReceiveBufferDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										void*							inBuffer,
-										IOByteCount						inSize,
-										IOByteCount						inPacketSize,
-										UInt32							inBufferOffset) ;
-	static	DCLCommandStruct*	SAllocateCallProcDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										DCLCallCommandProcPtr			inProc,
-										UInt32							inProcData) ;
-	static DCLCommandStruct*	SAllocateLabelDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL) ;
-	static DCLCommandStruct*	SAllocateJumpDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										DCLLabelPtr						pInJumpDCLLabel) ;
-	static DCLCommandStruct*	SAllocateSetTagSyncBitsDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										UInt16							inTagBits,
-										UInt16							inSyncBits) ;
-	static DCLCommandStruct*	SAllocateUpdateDCLListDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										DCLCommandPtr*					inDCLCommandList,
-										UInt32							inNumCommands) ;
-	static DCLCommandStruct*	SAllocatePtrTimeStampDCL(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL, 
-										UInt32*							inTimeStampPtr) ;
-	static void 				SFree(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										DCLCommandStruct* 				inDCL ) ;
-	static IOByteCount			SGetSize(
-										IOFireWireLibDCLCommandPoolRef 	self ) ;
-	static Boolean				SSetSize(
-										IOFireWireLibDCLCommandPoolRef 	self, 
-										IOByteCount 					inSize ) ;
-	static IOByteCount			SGetBytesRemaining(
-										IOFireWireLibDCLCommandPoolRef 	self ) ;
-} ;
-
-#endif //__IOFireWireLibDCLCommandPool_H__
+		public:
+			DCLCommandPoolCOM( Device& inUserClient, IOByteCount inSize ) ;
+			virtual ~DCLCommandPoolCOM() ;
+		
+			//
+			// --- COM ---------------
+			//		
+			static Interface			sInterface ;
+		
+			//
+			// --- IUNKNOWN support ----------------
+			//
+			static IUnknownVTbl**		Alloc(
+												Device&	inUserClient, 
+												IOByteCount						inSize) ;
+			virtual HRESULT				QueryInterface(REFIID iid, void ** ppv ) ;
+		
+			//
+			// --- static methods ------------------
+			//
+			static DCLCommandStruct*	SAllocate(
+												IOFireWireLibDCLCommandPoolRef	self, 
+												IOByteCount 					inSize ) ;
+			static IOReturn				SAllocateWithOpcode(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct*				inDCL,
+												DCLCommandStruct**				outDCL,
+												UInt32			 				opcode, ... ) ;
+			static DCLCommandStruct*	SAllocateTransferPacketDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct*				inDCL,
+												UInt32							inOpcode,
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateTransferBufferDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												UInt32 							inOpcode, 
+												void* 							inBuffer, 
+												IOByteCount 					inSize, 
+												IOByteCount 					inPacketSize, 
+												UInt32 							inBufferOffset) ;
+			static DCLCommandStruct*	SAllocateSendPacketStartDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateSendPacketWithHeaderStartDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateSendBufferDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												void*							inBuffer,
+												IOByteCount						inSize,
+												IOByteCount						inPacketSize,
+												UInt32							inBufferOffset) ;
+			static DCLCommandStruct*	SAllocateSendPacketDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL,
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateReceivePacketStartDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateReceivePacketDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL,
+												void*							inBuffer,
+												IOByteCount						inSize) ;
+			static DCLCommandStruct*	SAllocateReceiveBufferDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												void*							inBuffer,
+												IOByteCount						inSize,
+												IOByteCount						inPacketSize,
+												UInt32							inBufferOffset) ;
+			static	DCLCommandStruct*	SAllocateCallProcDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												DCLCallCommandProcPtr			inProc,
+												UInt32							inProcData) ;
+			static DCLCommandStruct*	SAllocateLabelDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL) ;
+			static DCLCommandStruct*	SAllocateJumpDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												DCLLabelPtr						pInJumpDCLLabel) ;
+			static DCLCommandStruct*	SAllocateSetTagSyncBitsDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												UInt16							inTagBits,
+												UInt16							inSyncBits) ;
+			static DCLCommandStruct*	SAllocateUpdateDCLListDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												DCLCommandPtr*					inDCLCommandList,
+												UInt32							inNumCommands) ;
+			static DCLCommandStruct*	SAllocatePtrTimeStampDCL(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL, 
+												UInt32*							inTimeStampPtr) ;
+			static void 				SFree(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												DCLCommandStruct* 				inDCL ) ;
+			static IOByteCount			SGetSize(
+												IOFireWireLibDCLCommandPoolRef 	self ) ;
+			static Boolean				SSetSize(
+												IOFireWireLibDCLCommandPoolRef 	self, 
+												IOByteCount 					inSize ) ;
+			static IOByteCount			SGetBytesRemaining(
+												IOFireWireLibDCLCommandPoolRef 	self ) ;
+	} ;
+}

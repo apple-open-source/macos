@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Make sure aclocal searches includes in the right order.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE
+END
+
+mkdir zoo
+cat > zoo/zoo.m4 << 'END'
+AC_DEFUN([AM_INIT_AUTOMAKE], zardoz)
+END
+
+# Strip all options from ACLOCAL, especially -I's.
+ACLOCAL="`echo $ACLOCAL | sed -e 's/ -.*$//'` --acdir=$testsrcdir/../m4"
+$ACLOCAL -I zoo || exit 1
+fgrep zardoz aclocal.m4

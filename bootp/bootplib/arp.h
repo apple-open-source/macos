@@ -1,3 +1,6 @@
+
+#ifndef _S_ARP_H
+#define _S_ARP_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -55,3 +58,5 @@ int 		arp_delete(int s, struct in_addr iaddr, int export);
 int		arp_flush(int s, int all);
 
 int		arp_get_routing_socket();
+
+#endif _S_ARP_H

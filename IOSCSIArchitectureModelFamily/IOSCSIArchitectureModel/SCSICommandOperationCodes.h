@@ -139,12 +139,14 @@ enum
     kSCSICmd_READ_DVD_STRUCTURE             = 0xAD,
     kSCSICmd_READ_ELEMENT_STATUS_ATTACHED   = 0xB4,
     kSCSICmd_READ_FORMAT_CAPACITIES         = 0x23,
+    kSCSICmd_READ_GENERATION				= 0x29,
     kSCSICmd_READ_HEADER                    = 0x44,
     kSCSICmd_READ_LONG                      = 0x3E,
     kSCSICmd_READ_MASTER_CUE                = 0x59,
     kSCSICmd_READ_SUB_CHANNEL               = 0x42,
     kSCSICmd_READ_TOC_PMA_ATIP              = 0x43,
     kSCSICmd_READ_TRACK_INFORMATION         = 0x52,
+    kSCSICmd_READ_UPDATED_BLOCK_10			= 0x2D,
     kSCSICmd_REASSIGN_BLOCKS                = 0x07,
     kSCSICmd_REBUILD                        = 0x81,
     kSCSICmd_RECEIVE                        = 0x08,
@@ -188,12 +190,14 @@ enum
     kSCSICmd_STOP_PLAY_SCAN                 = 0x4E,
     kSCSICmd_SYNCHRONIZE_CACHE              = 0x35,
     kSCSICmd_TEST_UNIT_READY                = 0x00,
+	kSCSICmd_UPDATE_BLOCK					= 0x3D,
     kSCSICmd_VERIFY_10                      = 0x2F,
     kSCSICmd_VERIFY_12                      = 0xAF,
     kSCSICmd_WRITE_6                        = 0x0A,
     kSCSICmd_WRITE_10                       = 0x2A,
     kSCSICmd_WRITE_12                       = 0xAA,
     kSCSICmd_WRITE_AND_VERIFY_10            = 0x2E,
+	kSCSICmd_WRITE_AND_VERIFY_12            = 0xAE,
     kSCSICmd_WRITE_BUFFER                   = 0x3B,
     kSCSICmd_WRITE_LONG                     = 0x3F,
     kSCSICmd_WRITE_SAME                     = 0x41,
@@ -202,6 +206,15 @@ enum
     kSCSICmd_XDWRITE_EXTENDED               = 0x80,
     kSCSICmd_XPWRITE                        = 0x51
 };
+
+
+#pragma mark -
+#pragma mark Command Definitions by Number
+#if 0
+enum 
+{
+};
+#endif
 
 
 #pragma mark -
@@ -297,7 +310,9 @@ enum
     kSCSICmd_READ_DEFECT_DATA_10            = 0x37, /* Sec. 6.1.7: Optional */
     kSCSICmd_READ_DEFECT_DATA_12            = 0xB7, /* Sec. 6.2.5: Optional */
     kSCSICmd_READ_ELEMENT_STATUS_ATTACHED   = 0xB4, /* SMC: Optional */
+    kSCSICmd_READ_GENERATION				= 0x29,	/* Sec. 6.2.6: Optional */
     kSCSICmd_READ_LONG                      = 0x3E, /* Sec. 6.1.8: Optional */
+    kSCSICmd_READ_UPDATED_BLOCK_10			= 0x2D, /* Sec. 6.2.7: Optional */
     kSCSICmd_REASSIGN_BLOCKS                = 0x07, /* Sec. 6.1.9: Optional */
     kSCSICmd_REBUILD                        = 0x81, /* Sec. 6.1.10: Optional */
     kSCSICmd_RECEIVE_DIAGNOSTICS_RESULTS    = 0x1C, /* SPC: Optional */
@@ -320,11 +335,13 @@ enum
     kSCSICmd_START_STOP_UNIT                = 0x1B, /* Sec. 6.1.14: Optional */
     kSCSICmd_SYNCHRONIZE_CACHE              = 0x35, /* Sec. 6.1.15: Optional */
     kSCSICmd_TEST_UNIT_READY                = 0x00, /* SPC: Mandatory */
+	kSCSICmd_UPDATE_BLOCK					= 0x3D,	/* Sec. 6.2.9: Optional */
     kSCSICmd_VERIFY_10                      = 0x2F, /* Sec. 6.1.16: Optional */
     kSCSICmd_WRITE_6                        = 0x0A, /* Sec. 6.1.17: Optional */
     kSCSICmd_WRITE_10                       = 0x2A, /* Sec. 6.1.18: Optional */
     kSCSICmd_WRITE_12                       = 0xAA, /* Sec. 6.2.13: Optional */
     kSCSICmd_WRITE_AND_VERIFY_10            = 0x2E, /* Sec. 6.1.19: Optional */
+    kSCSICmd_WRITE_AND_VERIFY_12            = 0xAE, /* Sec. 6.2.15: Optional */
     kSCSICmd_WRITE_BUFFER                   = 0x3B, /* SPC: Optional */
     kSCSICmd_WRITE_LONG                     = 0x3F, /* Sec. 6.1.20: Optional */
     kSCSICmd_WRITE_SAME                     = 0x41, /* Sec. 6.1.21: Optional */
@@ -847,4 +864,4 @@ enum
 };
 #endif
 
-#endif _SCSI_COMMAND_OPERATION_CODES_H
+#endif	/* _SCSI_COMMAND_OPERATION_CODES_H */

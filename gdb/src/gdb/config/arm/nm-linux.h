@@ -1,5 +1,5 @@
 /* Definitions to make GDB run on an ARM based machine under GNU/Linux.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,6 +22,15 @@
 #define NM_ARMLINUX_H
 
 #include "nm-linux.h"
+
+/* ptrace register ``addresses'' are absolute.  */
+
+#define U_REGS_OFFSET 0
+
+#ifdef GDBSERVER
+#define REGISTER_U_ADDR(addr,blockend,regno) \
+	 (addr) = arm_register_u_addr ((blockend),(regno))
+#endif /* GDBSERVER */
 
 /* Return sizeof user struct to callers in less machine dependent routines */
 extern int kernel_u_size (void);

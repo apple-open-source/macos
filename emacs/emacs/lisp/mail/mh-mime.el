@@ -1,9 +1,9 @@
-;;; mh-mime --- mh-e support for composing MIME messages
-;; Time-stamp: <95/08/19 16:45:17 gildea>
+;;; mh-mime.el --- mh-e support for composing MIME messages
+;; Time-stamp: <2001-07-15 09:52:45 pavel>
 
 ;; Copyright (C) 1993, 1995 Free Software Foundation, Inc.
 
-;; This file is part of mh-e, part of GNU Emacs.
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 
 ;;; Change Log:
 
-;; $Id: mh-mime.el,v 1.1.1.2 2000/06/30 17:52:40 wsanchez Exp $
+;; $Id: mh-mime.el,v 1.1.1.3 2001/10/31 17:57:16 jevans Exp $
 
 ;;; Code:
 
@@ -234,8 +234,10 @@ Optional non-nil argument means don't ask for confirmation."
     (or noconfirm
 	(yes-or-no-p (format "Revert buffer from file %s? "
 			     backup-file))
-	(error "mhn edit revert not confirmed."))
+	(error "mhn edit revert not confirmed"))
     (let ((buffer-read-only nil))
       (erase-buffer)
       (insert-file-contents backup-file))
     (after-find-file nil)))
+
+;;; mh-mime.el ends here

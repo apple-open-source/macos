@@ -9,4 +9,13 @@ clean:
 	echo === Cleaning snacc source via Makefile ===
 	(cd $(SRCROOT); make clean srcdir=$(SRCROOT))
 
+#
+# used very infrequently to recompile asn-useful.asn
+#
+asn-useful:
+	(cd c++-lib; \
+	rm -f inc/asn-useful src/asn-useful.cpp c++/asn-useful.cpp stamp-useful; \
+	make stamp-useful; \
+	cp src/asn-useful.cpp c++)
+
 # FIXME - install?

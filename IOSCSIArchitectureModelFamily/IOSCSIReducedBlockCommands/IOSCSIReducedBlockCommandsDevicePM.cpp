@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,10 +20,31 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
+ 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSITask.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include "IOSCSIReducedBlockCommandsDevice.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"RBCPower"
+
+#if DEBUG
+#define SCSI_RBC_DEVICE_DEBUGGING_LEVEL			0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_RBC_DEVICE_DEBUGGING_LEVEL >= 1 )
@@ -47,19 +68,30 @@
 
 #define super IOSCSIPrimaryCommandsDevice
 
-//---------------------------------------------------------------------------
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 // We have 4 default power states. ACTIVE, IDLE, STANDBY, and SLEEP in order
 // of most power to least power. In SLEEP, the Vcc can be removed, so we must
 // trap for that in our power management code.
-//---------------------------------------------------------------------------
 
 static IOPMPowerState sPowerStates[kRBCNumPowerStates] =
 {
-	{ kIOPMPowerStateVersion1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },			/* never entered voluntarily */
+	{ kIOPMPowerStateVersion1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },		/* never entered voluntarily */
 	{ kIOPMPowerStateVersion1, 0, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ kIOPMPowerStateVersion1, (IOPMDeviceUsable | IOPMMaxPerformance | kIOPMPreventIdleSleep), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+};
+
+enum
+{
+	kRBCPowerConditionsActive	= 0x01,
+	kRBCPowerConditionsIdle		= 0x02,
+	kRBCPowerConditionsStandby	= 0x03,
+	kRBCPowerConditionsSleep 	= 0x05
 };
 
 
@@ -73,10 +105,12 @@ IOSCSIReducedBlockCommandsDevicePowerDownHandler ( void * 			target,
 												   vm_size_t 		argSize );
 
 
-//---------------------------------------------------------------------------
-// ¥ IOSCSIReducedBlockCommandsDevicePowerDownHandler -
-// C->C++ Glue code for Power Down Notifications.
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ IOSCSIReducedBlockCommandsDevicePowerDownHandler - C->C++ Glue code for
+//														Power Down
+//														Notifications.
+//																	   [STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 
 static IOReturn
@@ -98,9 +132,10 @@ IOSCSIReducedBlockCommandsDevicePowerDownHandler ( void * 			target,
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ PowerDownHandler - Method called at sleep/restart/shutdown time.
-//---------------------------------------------------------------------------
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIReducedBlockCommandsDevice::PowerDownHandler ( void * 		refCon,
@@ -157,11 +192,12 @@ IOSCSIReducedBlockCommandsDevice::PowerDownHandler ( void * 		refCon,
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ GetInitialPowerState - Asks the driver which power state the device is
 //							in at startup time. This function is only called
 //							once, right after InitializePowerManagement().
-//---------------------------------------------------------------------------
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt32
 IOSCSIReducedBlockCommandsDevice::GetInitialPowerState ( void )
@@ -172,32 +208,31 @@ IOSCSIReducedBlockCommandsDevice::GetInitialPowerState ( void )
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ GetNumberOfPowerStateTransitions - Asks the driver for the number of state
-//					transitions between sleep state and
-//					the highest power state.
-//---------------------------------------------------------------------------
+//										transitions between sleep state and
+//										the highest power state.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt32
 IOSCSIReducedBlockCommandsDevice::GetNumberOfPowerStateTransitions ( void )
 {
-    return ( kRBCPowerStateActive - kRBCPowerStateSleep );
+	return ( kRBCPowerStateActive - kRBCPowerStateSleep );
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ InitializePowerManagement - 	Register the driver with our policy-maker
-//									(also in the same class).
-//---------------------------------------------------------------------------
+//									(also in the same class).		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
-IOSCSIReducedBlockCommandsDevice::InitializePowerManagement ( IOService * provider )
+IOSCSIReducedBlockCommandsDevice::InitializePowerManagement (
+											IOService * provider )
 {
 	
-	STATUS_LOG ( ( "IOSCSIReducedBlockCommandsDevice::initForPM called\n" ) );	
-	
 	fCurrentPowerState = kRBCPowerStateActive;
-
+	
 	// Call our super to get us into the power management tree
 	super::InitializePowerManagement ( provider );
 	
@@ -214,18 +249,19 @@ IOSCSIReducedBlockCommandsDevice::InitializePowerManagement ( IOService * provid
 	// into is state kRBCPowerStateSleep. We only enter kRBCPowerStateSystemSleep
 	// if told by the power manager during a system sleep.
     changePowerStateTo ( kRBCPowerStateSleep );
-
+	
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ HandleCheckPowerState - 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleCheckPowerState - 	Checks to see if the power state is
+//								kRBCPowerStateActive				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIReducedBlockCommandsDevice::HandleCheckPowerState ( void )
 {
-
+	
 	if ( IsDeviceAccessEnabled ( ) )
 	{
 		
@@ -236,10 +272,11 @@ IOSCSIReducedBlockCommandsDevice::HandleCheckPowerState ( void )
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ TicklePowerManager - 	Calls activityTickle to tell the power manager we
 //							need to be in a certain state to fulfill I/O
-//---------------------------------------------------------------------------
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIReducedBlockCommandsDevice::TicklePowerManager ( void )
@@ -257,9 +294,10 @@ IOSCSIReducedBlockCommandsDevice::TicklePowerManager ( void )
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ HandlePowerChange - Handles the state machine for power management
-//---------------------------------------------------------------------------
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
@@ -272,13 +310,15 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 	
 	request = GetSCSITask ( );
 	
-	while ( ( fProposedPowerState != fCurrentPowerState ) && ( isInactive ( ) == false ) )
+	while ( ( fProposedPowerState != fCurrentPowerState ) &&
+			( isInactive ( ) == false ) )
 	{
 		
 		STATUS_LOG ( ( "fProposedPowerState = %ld, fCurrentPowerState = %ld\n",
 						fProposedPowerState, fCurrentPowerState ) );
 		
-		if ( ( fCurrentPowerState <= kRBCPowerStateSleep ) && ( fProposedPowerState > kRBCPowerStateSleep ) )
+		if ( ( fCurrentPowerState <= kRBCPowerStateSleep ) &&
+			 ( fProposedPowerState > kRBCPowerStateSleep ) )
 		{
 			
 			STATUS_LOG ( ( "We think we're in sleep\n" ) );
@@ -308,7 +348,22 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				if ( fMediaPresent == true )
 				{
 					
-					bool mediaPresent = CheckMediaPresence ( );
+					bool	mediaPresent = false;
+					
+					// Give the driver some lee-way in waking up because we think
+					// media is actually there!
+					for ( UInt32 index = 0; index < 100; index++ )
+					{
+						
+						STATUS_LOG ( ( "Calling CheckMediaPresence\n" ) );
+						
+						mediaPresent = CheckMediaPresence ( );
+						if ( mediaPresent )
+							break;
+						
+						IOSleep ( 200 );
+						
+					}
 					
 					if ( mediaPresent != fMediaPresent )
 					{
@@ -319,28 +374,39 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 					{
 						
 						// Media is present, so lock it down
-						if ( PREVENT_ALLOW_MEDIUM_REMOVAL ( request, 1 ) == true )
+						if ( PREVENT_ALLOW_MEDIUM_REMOVAL ( request, kMediaStateLocked ) == true )
 					    {
-					    	// The command was successfully built, now send it
-					    	serviceResponse = SendCommand ( request, 0 );
+							
+							// The command was successfully built, now send it
+					    	serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+							
+						}
 						
-						}
-						else
+						if ( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
+							 ( GetTaskStatus ( request ) != kSCSITaskStatus_GOOD ) )
 						{
-							PANIC_NOW ( ( "IOSCSIBlockCommandsDevice::PollForMedia malformed command" ) );
+							
+							// Media is not locked into the drive, so this is most likely
+							// a manually ejectable device, start polling for media removal.
+							fPollingMode = kPollingMode_MediaRemoval;
+							EnablePolling ( );
+							
 						}
-					
+						
 					}
 					
 				}
 				
 				else
 				{
+					
+					fPollingMode = kPollingMode_NewMedia;
 					EnablePolling ( );
+					
 				}
 			
 			}
-		
+			
 		}
 		
 		switch ( fProposedPowerState )
@@ -355,8 +421,10 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				
 				if ( fMediaPresent == false )
 				{
+					
 					STATUS_LOG ( ( "Disabling polling\n" ) );
 					DisablePolling ( );
+					
 				}
 		
 				// let outstanding commands complete
@@ -380,10 +448,8 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 					
 					if ( fDeviceSupportsPowerConditions )
 					{
-						
-						STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to turn it off\n" ) );
-						
-						if ( START_STOP_UNIT ( request, 1, 0x05, 0, 0 ) == true )
+												
+						if ( START_STOP_UNIT ( request, 1, kRBCPowerConditionsSleep, 0, 0 ) == true )
 						{
 							
 							( void ) SendCommand ( request, 0 );
@@ -394,9 +460,7 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 					
 					else
 					{
-						
-						STATUS_LOG ( ( "Power conditions not supported, make sure drive is spun down\n" ) );
-						
+												
 						// At a minimum, make sure the drive is spun down
 						if ( START_STOP_UNIT ( request, 1, 0, 0, 0 ) == true )
 						{
@@ -421,8 +485,6 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				
 				if ( fCurrentPowerState > kRBCPowerStateSleep )
 				{
-
-					STATUS_LOG ( ( "At minimum, make sure drive is spun down.\n" ) );
 					
 					// At a minimum, make sure the drive is spun down
 					if ( START_STOP_UNIT ( request, 1, 0, 0, 0 ) == true )
@@ -446,10 +508,8 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				
 				if ( fDeviceSupportsPowerConditions )
 				{
-
-					STATUS_LOG ( ( "Sending START_STOP_UNIT to put drive in standby mode\n" ) );
 					
-					if ( START_STOP_UNIT ( request, 1, 0x03, 0, 0 ) == true )
+					if ( START_STOP_UNIT ( request, 1, kRBCPowerConditionsStandby, 0, 0 ) == true )
 					{
 						
 						serviceResponse = SendCommand ( request, 0 );
@@ -471,7 +531,7 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				if ( fDeviceSupportsPowerConditions )
 				{
 					
-					if ( START_STOP_UNIT ( request, 1, 0x02, 0, 0 ) == true )
+					if ( START_STOP_UNIT ( request, 1, kRBCPowerConditionsIdle, 0, 0 ) == true )
 					{
 						
 						serviceResponse = SendCommand ( request, 0 );
@@ -493,9 +553,7 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 				if ( fDeviceSupportsPowerConditions )
 				{
 					
-					STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to put it in active mode\n" ) );
-					
-					if ( START_STOP_UNIT ( request, 1, 0x01, 0, 0 ) == true )
+					if ( START_STOP_UNIT ( request, 1, kRBCPowerConditionsActive, 0, 0 ) == true )
 					{
 						
 						serviceResponse = SendCommand ( request, 0 );
@@ -531,58 +589,60 @@ IOSCSIReducedBlockCommandsDevice::HandlePowerChange ( void )
 		}
 		
 	}
-
+	
+	if ( isInactive ( ) )
+	{
+		
+		fCurrentPowerState = fProposedPowerState;
+		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
+		
+	}
+	
 	ReleaseSCSITask ( request );
 	
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ CheckMediaPresence - 	Checks if media is present. If so, it locks it down
 //							again, else it requests a dialog to be displayed
-//							and tears the stack down
-//---------------------------------------------------------------------------
+//							and tears the stack down				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 {
 	
-	SCSI_Sense_Data				senseBuffer;
-	IOMemoryDescriptor *		bufferDesc;
-	SCSITaskIdentifier			request;
+	SCSI_Sense_Data				senseBuffer		= { 0 };
+	IOMemoryDescriptor *		bufferDesc		= NULL;
+	SCSITaskIdentifier			request			= NULL;
 	bool						mediaPresent 	= false;
 	bool						driveReady 		= false;
 	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-
+	
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	bufferDesc = IOMemoryDescriptor::withAddress ( ( void * ) &senseBuffer,
 													kSenseDefaultSize,
 													kIODirectionIn );
+	require_nonzero ( bufferDesc, ErrorExit );
 	
 	request = GetSCSITask ( );
+	require_nonzero ( request, ReleaseDescriptor );
 	
 	do
 	{
-				
+		
 		if ( TEST_UNIT_READY ( request ) == true )
 	    {
 			
-			STATUS_LOG ( ( "sending TUR.\n" ) );
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand ( request, 0 );
+	    	serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 	    	
-		}
-		
-		else
-		{
-			PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
 		}
 		
 		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 		{
-			
-			STATUS_LOG ( ( "TUR completed.\n" ) );
 			
 			bool validSense = false;
 			
@@ -596,25 +656,18 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize ) == true )
 				    {
 				    	
-				    	STATUS_LOG ( ( "sending REQ_SENSE.\n" ) );
 				    	// The command was successfully built, now send it
-				    	serviceResponse = SendCommand ( request, 0 );
+				    	serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 				    	
-					}
-					
-					else
-					{
-						PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
 					}
 					
 					if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 					{
 						
-						STATUS_LOG ( ( "validSense data.\n" ) );
 						validSense = true;
 						
 					}
-						
+					
 				}
 				
 				if ( validSense == true )
@@ -642,13 +695,8 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 							{
 								
 								STATUS_LOG ( ( "Sending START_STOP_UNIT.\n" ) );
-								serviceResponse = SendCommand ( request, 0 );
+								( void ) SendCommand ( request, kTenSecondTimeoutInMS );
 								
-							}
-							
-							else
-							{
-								PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
 							}
 							
 							STATUS_LOG ( ( "%s::drive NOT READY\n", getName ( ) ) );
@@ -709,18 +757,28 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 		else
 		{
 			
-			// the command failed - perhaps the device was hot unplugged
-			// give other threads some time to run.
+			// The command failed, so let's try again...
 			IOSleep ( 200 );
 			
 		}
-		
+	
 	// check isInactive in case device was hot unplugged during sleep
 	// and we are in an infinite loop here
 	} while ( ( driveReady == false ) && ( isInactive ( ) == false ) );
 	
-	bufferDesc->release ( );
 	ReleaseSCSITask ( request );
+	
+	
+ReleaseDescriptor:
+	
+	
+	require_nonzero ( bufferDesc, ErrorExit );
+	bufferDesc->release ( );	
+	bufferDesc = NULL;
+	
+	
+ErrorExit:
+	
 	
 	return mediaPresent;
 	

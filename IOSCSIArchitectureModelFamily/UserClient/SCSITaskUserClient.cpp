@@ -20,22 +20,43 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Private includes
 #include "SCSITaskUserClient.h"
+#include "SCSITaskLib.h"
+
+// IOKit includes
+#include <IOKit/IOCommandGate.h>
+#include <IOKit/IOWorkLoop.h>
+
+// IOKit storage includes
+#include <IOKit/storage/IOBlockStorageDriver.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
 #include <IOKit/scsi-commands/IOSCSIMultimediaCommandsDevice.h>
 #include <IOKit/scsi-commands/SCSICmds_REQUEST_SENSE_Defs.h>
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
-#include <IOKit/IOSyncer.h>
-#include <IOKit/storage/IOBlockStorageDriver.h>
 
-// For debugging, set SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL to one
-// of the following values:
-//		0	No debugging 	(GM release level)
-// 		1 	PANIC_NOW only
-//		2	PANIC_NOW and ERROR_LOG
-//		3	PANIC_NOW, ERROR_LOG and STATUS_LOG
-#define SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL 0
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SCSITaskUserClient"
+
+#if DEBUG
+#define SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL	0
+#endif
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
 
 #if ( SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)		IOPanic x
@@ -58,6 +79,17 @@
 
 #define super IOUserClient
 OSDefineMetaClassAndStructors ( SCSITaskUserClient, IOUserClient );
+
+
+#if 0
+#pragma mark -
+#pragma mark Constants
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOExternalMethod
 SCSITaskUserClient::sMethods[kSCSITaskUserClientMethodCount] =
@@ -111,175 +143,71 @@ SCSITaskUserClient::sMethods[kSCSITaskUserClientMethodCount] =
 		0
 	},
 	{
-		// Method #6 ExecuteTaskAsync
+		// Method #6 ExecuteTask
 		0,
-		( IOMethod ) &SCSITaskUserClient::ExecuteTaskAsync,
-		kIOUCScalarIScalarO,
-		1,
-		0
-	},
-	{
-		// Method #7 ExecuteTaskSync
-		0,
-		( IOMethod ) &SCSITaskUserClient::ExecuteTaskSync,
-		kIOUCScalarIScalarO,
-		2,
-		3
-	},
-	{
-		// Method #8 IsTaskActive
-		0,
-		( IOMethod ) &SCSITaskUserClient::IsTaskActive,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #9 SetTransferDirection
-		0,
-		( IOMethod ) &SCSITaskUserClient::SetTransferDirection,
-		kIOUCScalarIScalarO,
-		2,
-		0
-	},
-	{
-		// Method #10 SetTaskAttribute
-		0,
-		( IOMethod ) &SCSITaskUserClient::SetTaskAttribute,
-		kIOUCScalarIScalarO,
-		2,
-		0
-	},
-	{
-		// Method #11 GetTaskAttribute
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetTaskAttribute,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #12 SetCommandDescriptorBlock
-		0,
-		( IOMethod ) &SCSITaskUserClient::SetCommandDescriptorBlock,
+		( IOMethod ) &SCSITaskUserClient::ExecuteTask,
 		kIOUCScalarIStructI,
-		2,
-		sizeof ( SCSICommandDescriptorBlock )
-	},
-	{
-		// Method #13 SetScatterGatherList
 		0,
-		( IOMethod ) &SCSITaskUserClient::SetScatterGatherList,
-		kIOUCScalarIStructI,
-		5,
 		0xFFFFFFFF
 	},
 	{
-		// Method #14 SetSenseDataBuffer
+		// Method #7 SetBuffers
 		0,
-		( IOMethod ) &SCSITaskUserClient::SetSenseDataBuffer,
+		( IOMethod ) &SCSITaskUserClient::SetBuffers,
 		kIOUCScalarIScalarO,
-		3,
+		4,
 		0
 	},
 	{
-		// Method #15 SetTimeoutDuration
-		0,
-		( IOMethod ) &SCSITaskUserClient::SetTimeoutDuration,
-		kIOUCScalarIScalarO,
-		2,
-		0
-	},
-	{
-		// Method #16 GetTimeoutDuration
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetTimeoutDuration,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #17 GetTaskStatus
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetTaskStatus,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #18 GetSCSIServiceResponse
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetSCSIServiceResponse,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #19 GetTaskState
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetTaskState,
-		kIOUCScalarIScalarO,
-		1,
-		1
-	},
-	{
-		// Method #20 GetAutoSenseData
-		0,
-		( IOMethod ) &SCSITaskUserClient::GetAutoSenseData,
-		kIOUCScalarIStructO,
-		1,
-		sizeof ( SCSI_Sense_Data )
-	},
-	{
-		// Method #21 Inquiry
+		// Method #8 Inquiry
 		0,
 		( IOMethod ) &SCSITaskUserClient::Inquiry,
-		kIOUCScalarIScalarO,
-		3,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleInquiryStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #22 TestUnitReady
+		// Method #9 TestUnitReady
 		0,
 		( IOMethod ) &SCSITaskUserClient::TestUnitReady,
-		kIOUCScalarIScalarO,
+		kIOUCScalarIStructO,
 		1,
-		1
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #23 GetPerformance
+		// Method #10 GetPerformance
 		0,
 		( IOMethod ) &SCSITaskUserClient::GetPerformance,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleGetPerformanceStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #24 GetConfiguration
+		// Method #11 GetConfiguration
 		0,
 		( IOMethod ) &SCSITaskUserClient::GetConfiguration,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleGetConfigurationStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #25 ModeSense10
+		// Method #12 ModeSense10
 		0,
 		( IOMethod ) &SCSITaskUserClient::ModeSense10,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleModeSense10Struct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #26 SetWriteParametersModePage
+		// Method #13 SetWriteParametersModePage
 		0,
 		( IOMethod ) &SCSITaskUserClient::SetWriteParametersModePage,
-		kIOUCScalarIScalarO,
-		3,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleWriteParametersModePageStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #27 GetTrayState
+		// Method #14 GetTrayState
 		0,
 		( IOMethod ) &SCSITaskUserClient::GetTrayState,
 		kIOUCScalarIScalarO,
@@ -287,7 +215,7 @@ SCSITaskUserClient::sMethods[kSCSITaskUserClientMethodCount] =
 		1
 	},
 	{
-		// Method #28 SetTrayState
+		// Method #15 SetTrayState
 		0,
 		( IOMethod ) &SCSITaskUserClient::SetTrayState,
 		kIOUCScalarIScalarO,
@@ -295,36 +223,36 @@ SCSITaskUserClient::sMethods[kSCSITaskUserClientMethodCount] =
 		0
 	},
 	{
-		// Method #29 ReadTableOfContents
+		// Method #16 ReadTableOfContents
 		0,
 		( IOMethod ) &SCSITaskUserClient::ReadTableOfContents,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleReadTableOfContentsStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #30 ReadDiscInformation
+		// Method #17 ReadDiscInformation
 		0,
 		( IOMethod ) &SCSITaskUserClient::ReadDiscInformation,
-		kIOUCScalarIScalarO,
-		3,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleReadDiscInfoStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #31 ReadTrackInformation
+		// Method #18 ReadTrackInformation
 		0,
 		( IOMethod ) &SCSITaskUserClient::ReadTrackInformation,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleReadTrackInfoStruct ),
+		sizeof ( SCSITaskStatus )
 	},
 	{
-		// Method #32 ReadDVDStructure
+		// Method #19 ReadDVDStructure
 		0,
 		( IOMethod ) &SCSITaskUserClient::ReadDVDStructure,
-		kIOUCScalarIScalarO,
-		5,
-		1
+		kIOUCStructIStructO,
+		sizeof ( AppleReadDVDStructureStruct ),
+		sizeof ( SCSITaskStatus )
 	}
 };
 
@@ -341,49 +269,73 @@ IOExternalAsyncMethod SCSITaskUserClient::sAsyncMethods[kSCSITaskUserClientAsync
 };
 
 
+#if 0
+#pragma mark -
+#pragma mark Public Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ initWithTask - Save task_t and validate the connection type	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-SCSITaskUserClient::init ( OSDictionary * dictionary )
+SCSITaskUserClient::initWithTask ( task_t owningTask,
+								   void * securityToken,
+								   UInt32 type )
 {
 	
-	STATUS_LOG ( ( "SCSITaskUserClient::init\n" ) );
+	bool	result	= false;
 	
-	if ( !IOService::init ( dictionary ) )
-		return false;
+	STATUS_LOG ( ( "SCSITaskUserClient::initWithTask called\n" ) );
 	
-	fTask 				= NULL;
-	fProvider 			= NULL;
-	fProtocolInterface 	= NULL;
-	fSetOfSCSITasks		= NULL;
+	result = super::initWithTask ( owningTask, securityToken, type );
+	require ( result, BAD_CONNECTION_TYPE );
+	require_action ( ( type == kSCSITaskLibConnection ), BAD_CONNECTION_TYPE, result = false );
 	
-	return true;
+	fTask = owningTask;
+	result = true;
+	
+	
+BAD_CONNECTION_TYPE:
+	
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Start providing services								[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSITaskUserClient::start ( IOService * provider )
 {
 	
+	bool			result		= false;
+	OSIterator *	iterator	= NULL;
+	OSObject *		object		= NULL;
+	IOWorkLoop *	workLoop	= NULL;
+	
 	STATUS_LOG ( ( "SCSITaskUserClient::start\n" ) );
 	
-	OSIterator *	iterator;
-	OSObject *		object;
+	require ( ( fProvider == 0 ), GENERAL_ERR );
+	require ( super::start ( provider ), GENERAL_ERR );
 	
-	if ( fProvider != NULL )
-		return false;
-
-	if ( !IOUserClient::start ( provider ) )
-         return false;
-
-	STATUS_LOG ( ( "assigning fProvider\n" ) );
+	// Zero our array for tasks.
+	bzero ( fArray, sizeof ( SCSITask * ) * kMaxSCSITaskArraySize );
 	
+	// Save the provider
 	fProvider = provider;
 	
+	// See if this object exports the IOSCSIProtocolInterface
 	fProtocolInterface = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	if ( fProtocolInterface == NULL )
 	{
-
-		STATUS_LOG ( ( "provider not IOSCSIProtocolInterface\n" ) );
+		
+		ERROR_LOG ( ( "Provider not IOSCSIProtocolInterface\n" ) );
 		
 		// This provider doesn't have the interface we need, so walk the
 		// parents until we get one which does (usually only one object)
@@ -392,7 +344,7 @@ SCSITaskUserClient::start ( IOService * provider )
 		if ( iterator != NULL )
 		{
 			
-			STATUS_LOG ( ( "got parent iterator\n" ) );
+			STATUS_LOG ( ( "Got parent iterator\n" ) );
 			
 			while ( object = iterator->getNextObject ( ) )
 			{
@@ -406,7 +358,7 @@ SCSITaskUserClient::start ( IOService * provider )
 				if ( fProtocolInterface != NULL )
 				{
 					
-					STATUS_LOG ( ( "found IOSCSIProtocolInterface\n" ) );
+					STATUS_LOG ( ( "Found IOSCSIProtocolInterface\n" ) );
 					break;
 				
 				}
@@ -417,160 +369,150 @@ SCSITaskUserClient::start ( IOService * provider )
 			iterator->release ( );
 			
 			// Did we find one?
-			if ( fProtocolInterface == NULL )
-			{
-
-				STATUS_LOG ( ( "didn't find IOSCSIProtocolInterface\n" ) );
-				
-				// Nope, make sure we null the provider and
-				// return false
-				fProvider = NULL;
-				return false;
-				
-			}
+			require_nonzero ( fProtocolInterface, GENERAL_ERR );
 			
 		}
 		
 	}
 	
-	STATUS_LOG ( ( "Opening provider\n" ) );
+	STATUS_LOG ( ( "Creating command gate\n" ) );
+	fCommandGate = IOCommandGate::commandGate ( this );
+	require_nonzero ( fCommandGate, GENERAL_ERR );
 	
-	if ( !fProvider->open ( this, kIOSCSITaskUserClientAccessMask, 0 ) )
-	{
-		
-		STATUS_LOG ( ( "Open failed\n" ) );
-		return false;
-		
-	}
-
-	STATUS_LOG ( ( "start done\n" ) );
+	workLoop = getWorkLoop ( );
+	require_nonzero_action ( workLoop,
+							 GENERAL_ERR,
+							 fCommandGate->release ( ) );
 	
-	fSetOfSCSITasks = OSSet::withCapacity ( 1 );
+	workLoop->addEventSource ( fCommandGate );
 	
-	// Yes, we found an object to use as our interface
-	return true;
+	result = fProvider->open ( this, kIOSCSITaskUserClientAccessMask, 0 );
+	require_action ( result,
+					 GENERAL_ERR,
+					 workLoop->removeEventSource ( fCommandGate );
+					 fCommandGate->release ( );
+					 fCommandGate = NULL );
 	
-}
-
-
-bool
-SCSITaskUserClient::initWithTask ( task_t owningTask,
-								   void * securityToken,
-								   UInt32 type )
-{
 	
-	STATUS_LOG ( ( "SCSITaskUserClient::initWithTask called\n" ) );
+GENERAL_ERR:
 	
-	if ( type != kSCSITaskLibConnection )
-		return false;
 	
-	fTask = owningTask;
-	return true;
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ clientClose - Close down services.							[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 SCSITaskUserClient::clientClose ( void )
 {
 	
-	STATUS_LOG ( ( "clientClose called\n" ) );
+	require_nonzero ( fProvider, GENERAL_ERR );
+	HandleTerminate ( fProvider );
 	
-	HandleTermination ( fProvider );
-		
-	STATUS_LOG ( ( "Done\n" ) );
 	
-	return kIOReturnSuccess;
+GENERAL_ERR:
+	
+	
+	return super::clientClose ( );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Releases any items we need to release.					[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+SCSITaskUserClient::free ( void )
+{
+	
+	if ( fCommandGate != NULL )
+	{
+		
+		fCommandGate->release ( );
+		fCommandGate = NULL;
+		
+	}
+	
+	super::free ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ message - Handles termination messages.						[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-SCSITaskUserClient::clientDied ( void )
+SCSITaskUserClient::message ( UInt32 type, IOService * provider, void * arg )
 {
 	
-	STATUS_LOG ( ( "SCSITaskUserClient::clientDied called\n" ) );
+	IOReturn	status = kIOReturnSuccess;
 	
-	if ( fProvider != NULL )
+	STATUS_LOG ( ( "%s::%s type = %ld, provider = %p\n",
+				 getName ( ), __FUNCTION__, type, provider ) );
+	
+	switch ( type )
 	{
-		return clientClose ( );
+		
+		case kIOMessageServiceIsTerminated:
+		{	
+			
+			STATUS_LOG ( ( "kIOMessageServiceIsTerminated called\n" ) );
+			status = HandleTerminate ( provider );
+			
+		}
+		break;
+		
+		default:
+		{
+			
+			status = super::message ( type, provider, arg );
+			
+		}
+		break;
+		
 	}
 	
-	return kIOReturnSuccess;
+	return status;
 	
 }
 
 
-IOExternalMethod *
-SCSITaskUserClient::getTargetAndMethodForIndex ( IOService ** target, UInt32 index )
-{
-	
-	if ( index >= kSCSITaskUserClientMethodCount )
-		return NULL;
-	
-	if ( fProtocolInterface == NULL )
-		return NULL;
-	
-	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
-	{
-		fProtocolInterface->CheckPowerState ( );
-	}
-	
-	*target = this;
-	
-	return &sMethods[index];
-	
-}
-
-
-
-IOExternalAsyncMethod *
-SCSITaskUserClient::getAsyncTargetAndMethodForIndex ( IOService ** target, UInt32 index )
-{
-	
-	if ( index >= kSCSITaskUserClientAsyncMethodCount )
-		return NULL;
-
-	if ( fProtocolInterface == NULL )
-		return NULL;
-	
-	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
-	{
-		fProtocolInterface->CheckPowerState ( );
-	}
-	
-	*target = this;
-	
-	return &sAsyncMethods[index];
-	
-}
-
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsExclusiveAccessAvailable - 	Determines if exclusive acces is available
+//									for this client.				[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 SCSITaskUserClient::IsExclusiveAccessAvailable ( void )
 {
 	
-	IOReturn	status = kIOReturnExclusiveAccess;
+	IOReturn	status = kIOReturnNoDevice;
 	bool		state = true;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
 	
 	STATUS_LOG ( ( "IsExclusiveAccessAvailable called\n" ) );
+	
+	require ( isInactive ( ) == false, GENERAL_ERR );
 	
 	// First get the state. If there is no exclusive client, then
 	// we attempt to set the state (which may fail but shouldn't
 	// under normal circumstances).
 	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == false )
-	{
+	require_action ( ( state == false ), GENERAL_ERR, status = kIOReturnExclusiveAccess );
+	
+	STATUS_LOG ( ( "No current exclusive client\n" ) );
 		
-		STATUS_LOG ( ( "No current exclusive client\n" ) );
-		
-		// Ok. There is no exclusive client.
-		status = kIOReturnSuccess;
-		
-	}
+	// Ok. There is no exclusive client.
+	status = kIOReturnSuccess;
+	
+	
+GENERAL_ERR:
+	
 	
 	STATUS_LOG ( ( "IsExclusiveAccessAvailable: status = %d\n", status ) );
 	
@@ -579,96 +521,103 @@ SCSITaskUserClient::IsExclusiveAccessAvailable ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ObtainExclusiveAccess - 	Obtains exclusive access for this client.
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
 SCSITaskUserClient::ObtainExclusiveAccess ( void )
 {
 	
-	IOReturn	status = kIOReturnExclusiveAccess;
-	bool		state = true;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
+	IOReturn	status	= kIOReturnNoDevice;
+	bool		state 	= true;
 	
 	STATUS_LOG ( ( "ObtainExclusiveAccess called\n" ) );
+	
+	require ( isInactive ( ) == false, GENERAL_ERR );
 	
 	// First get the state. If there is no exclusive client, then
 	// we attempt to set the state (which may fail but shouldn't
 	// under normal circumstances).
 	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == false )
+	require_action ( ( state == false ), GENERAL_ERR, status = kIOReturnExclusiveAccess );
+		
+	STATUS_LOG ( ( "No current exclusive client\n" ) );
+	
+	// Ok. There is no exclusive client. Try to become the
+	// exclusive client. This would only fail if two clients
+	// are competing for the same exclusive access at the exact
+	// same time.
+	status = fProtocolInterface->SetUserClientExclusivityState ( this, true );
+	require_success ( status, GENERAL_ERR );
+	
+	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
 	{
 		
-		STATUS_LOG ( ( "No current exclusive client\n" ) );
+		UInt32	minutes = 0;
 		
-		// Ok. There is no exclusive client. Try to become the
-		// exclusive client. This would only fail if two clients
-		// are competing for the same exclusive access at the exact
-		// same time.
-		status = fProtocolInterface->SetUserClientExclusivityState ( this, true );
-		if ( status == kIOReturnSuccess )
-		{
-			
-			if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
-			{
-				
-				UInt32	minutes = 0;
-				
-				// Make sure the idle timer for the in-kernel driver is set to
-				// never change power state.
-				fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
-				fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
-				
-			}
-			
-		}
+		// Make sure the idle timer for the in-kernel driver is set to
+		// never change power state.
+		fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
+		fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
 		
 	}
 	
+	
+GENERAL_ERR:
+	
+	
 	STATUS_LOG ( ( "ObtainExclusiveAccess: status = %d\n", status ) );
-
+	
 	return status;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReleaseExclusiveAccess - 	Releases exclusive access for this client.
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
 SCSITaskUserClient::ReleaseExclusiveAccess ( void )
 {
 	
-	IOReturn	status = kIOReturnExclusiveAccess;
-	bool		state = true;
+	IOReturn	status	= kIOReturnNoDevice;
+	bool		state	= true;
 	
 	STATUS_LOG ( ( "ReleaseExclusiveAccess called\n" ) );
+	
+	require ( isInactive ( ) == false, GENERAL_ERR );
 	
 	// Get the user client state. We don't need to release exclusive
 	// access if we don't have exclusive access (just to prevent
 	// faulty user-land code from doing something bad).
 	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
+	require_action_quiet ( state, GENERAL_ERR, status = kIOReturnNotPermitted );
+	
+	STATUS_LOG ( ( "There is a current exclusive client\n" ) );
+	
+	// Release our exclusive connection.
+	status = fProtocolInterface->SetUserClientExclusivityState ( this, false );
+	require_success ( status, GENERAL_ERR );
+	
+	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
 	{
 		
-		STATUS_LOG ( ( "There is a current exclusive client\n" ) );
+		UInt32	minutes = 0;
 		
-		// Release our exclusive connection.
-		status = fProtocolInterface->SetUserClientExclusivityState ( this, false );
-		if ( status == kIOReturnSuccess )
-		{
-			
-			if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
-			{
-				
-				UInt32	minutes = 0;
-				
-				// Make sure the idle timer for the in-kernel driver is set to
-				// what the setting is now.
-				fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
-				fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
-			
-			}
-			
-		}
-		
+		// Make sure the idle timer for the in-kernel driver is set to
+		// what the setting is now.
+		fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
+		fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
+	
 	}
+	
+	
+GENERAL_ERR:
+	
 	
 	STATUS_LOG ( ( "ReleaseExclusiveAccess: status = %d\n", status ) );
 	
@@ -677,146 +626,1566 @@ SCSITaskUserClient::ReleaseExclusiveAccess ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CreateTask - 	Creates a SCSITask.								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
-SCSITaskUserClient::CreateTask ( SCSITask ** outSCSITask, void *, void *, void *, void *, void * )
+SCSITaskUserClient::CreateTask ( SInt32 * taskReference )
 {
 	
-	IOReturn	status = kIOReturnSuccess;
-    SCSITask *	task;
-	UInt8 *		internalRefCon;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-
+	IOReturn			status 	= kIOReturnNoDevice;
+    SInt32				taskRef	= -1;
+    SCSITask *			task	= NULL;
+	SCSITaskRefCon *	refCon	= NULL;
+	
 	STATUS_LOG ( ( "CreateTask called\n" ) );
 	
-	// Creat the new task.
-	task = new SCSITask;
-	if ( task == NULL )
-	{
-		
-		status = kIOReturnNoMemory;
-		goto TASK_ALLOCATION_FAILURE;
-		
-	}
+	require ( isInactive ( ) == false, GENERAL_ERR );
 	
-	STATUS_LOG ( ( "Initializing task\n" ) );
+	check ( taskReference );
+	
+	task = new SCSITask;
+	require_nonzero_action_string ( task,
+									ALLOCATION_FAILED_ERR,
+									status = kIOReturnNoResources,
+									"task == NULL, memory allocation failed\n" );
 	
 	// Initialize the task.
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		
-		status = kIOReturnNoMemory;
-		goto INIT_FAILURE;
-		
-	}
-
-	STATUS_LOG ( ( "Allocating refcon storage\n" ) );
+	require_string ( task->ResetForNewTask ( ), INIT_FAILED_ERR,
+					 "task->ResetForNewTask ( ) == false, memory allocation failed\n" );
 	
-	// Create the async refcon and set it in the task.
-	internalRefCon = ( UInt8 * ) IOMalloc ( sizeof ( OSAsyncReference ) );
-	if ( internalRefCon == NULL )
-	{
+	refCon = ( SCSITaskRefCon * ) IOMalloc ( sizeof ( SCSITaskRefCon ) );
+	require_nonzero_string ( refCon, INIT_FAILED_ERR,
+							 "refCon == NULL, memory allocation failed\n" );
+	
+	bzero ( refCon, sizeof ( SCSITaskRefCon ) );
+	task->SetApplicationLayerReference ( refCon );
+	
+	// Run the action to add it to the array of tasks
+	status = fCommandGate->runAction ( ( IOCommandGate::Action ) &SCSITaskUserClient::sCreateTask,
+									   ( void * ) task,
+									   ( void * ) &taskRef );
+	
+	require_success ( status, ACTION_ERR );
+	
+	STATUS_LOG ( ( "taskRef = %ld\n", taskRef ) );
+	
+	*taskReference = taskRef;
 		
-		status = kIOReturnNoMemory;
-		goto INIT_FAILURE;
-		
-	}
-	
-	task->SetApplicationLayerReference ( internalRefCon );
-	*outSCSITask = task;
-	
-	// Add the task to the OSSet.
-	fSetOfSCSITasks->setObject ( task );
-	
 	return status;
 	
 	
-INIT_FAILURE:
+ACTION_ERR:	
 	
-	if ( task != NULL )
+	
+	require_nonzero ( refCon, INIT_FAILED_ERR );
+	IOFree ( refCon, sizeof ( SCSITaskRefCon ) );
+	refCon = NULL;
+	
+	
+INIT_FAILED_ERR:
+	
+	
+	require_nonzero ( task, ALLOCATION_FAILED_ERR );
+	task->release ( );
+	task = NULL;
+	
+	
+ALLOCATION_FAILED_ERR:
+GENERAL_ERR:
+	
+		
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReleaseTask - Releases a SCSITask.							[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ReleaseTask ( SInt32 taskReference )
+{
+	
+	IOReturn				status 	= kIOReturnBadArgument;
+	SCSITask *				task	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	SCSITaskRefCon *		refCon	= NULL;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::ReleaseTask\n" ) );
+
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	require ( ( taskReference >= 0 ) && ( taskReference < kMaxSCSITaskArraySize ),
+			  GENERAL_ERR );
+	
+	status = fCommandGate->runAction ( ( IOCommandGate::Action ) &SCSITaskUserClient::sReleaseTask,
+									   ( void * ) taskReference,
+									   ( void * ) &task );
+	
+	require_success ( status, GENERAL_ERR );
+	
+	refCon = ( SCSITaskRefCon * ) task->GetApplicationLayerReference ( );
+	if ( refCon != NULL )
 	{
-		task->release ( );
+		
+		buffer = refCon->taskResultsBuffer;
+		if ( buffer != NULL )
+		{
+			
+			buffer->release ( );
+			
+		}
+		
+		IOFree ( refCon, sizeof ( SCSITaskRefCon ) );
+		task->SetApplicationLayerReference ( NULL );
+		
 	}
 	
+	task->release ( );
 	
-TASK_ALLOCATION_FAILURE:
+	
+GENERAL_ERR:
+	
 	
 	return status;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ExecuteTask - Executes a task passed in from user space.		[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
-SCSITaskUserClient::ReleaseTask ( SCSITask * inSCSITask, void *, void *, void *, void *, void * )
+SCSITaskUserClient::ExecuteTask ( SCSITaskData * args, UInt32 argSize )
 {
 	
-	IOMemoryDescriptor *	buffer;
-	SCSITask * 				task = OSDynamicCast ( SCSITask, inSCSITask );
+	SCSITask *				request				= NULL;
+	SCSITaskRefCon *		refCon				= NULL;
+	IOReturn				status				= kIOReturnBadArgument;
+	bool					userBufPrepared 	= false;
+	bool					resultsBufPrepared 	= false;
+	bool					senseBufPrepared 	= false;
+	IOMemoryDescriptor *	buffer				= NULL;
 	
-	STATUS_LOG ( ( "SCSITaskUserClient::ReleaseTask\n" ) );
+	STATUS_LOG ( ( "SCSITaskUserClient::ExecuteTask called\n" ) );
+	STATUS_LOG ( ( "argSize = %ld\n", argSize ) );
 	
-	if ( task != NULL )
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	check ( args );
+	
+	require ( ( args->taskReference >= 0 ) && ( args->taskReference < kMaxSCSITaskArraySize ),
+			  GENERAL_ERR );
+	
+	request = fArray[args->taskReference];
+	require_nonzero ( request, GENERAL_ERR );
+	
+	nrequire_action ( request->IsTaskActive ( ), GENERAL_ERR, status = kIOReturnNotPermitted );
+	
+	refCon = ( SCSITaskRefCon * ) request->GetApplicationLayerReference ( );
+	
+	refCon->commandType = args->isSync ? kCommandTypeExecuteSync : kCommandTypeExecuteAsync;
+	refCon->self		= this;
+	
+	request->ResetForNewTask ( );
+	
+	request->SetApplicationLayerReference ( ( void * ) refCon );
+	
+	status = fCommandGate->runAction ( ( IOCommandGate::Action ) &SCSITaskUserClient::sValidateTask,
+									   ( void * ) request,
+									   ( void * ) args,
+									   ( void * ) argSize );
+	
+	require_success ( status, ACTION_FAILED_ERR );
+	
+	STATUS_LOG ( ( "Task is valid\n" ) );
+	
+	request->SetTimeoutDuration ( args->timeoutDuration );
+	
+	if ( ( args->scatterGatherEntries > 0 ) && ( args->requestedTransferCount > 0 ) )
 	{
 		
-		if ( task->IsTaskActive ( ) )
-		{
-			
-			// The task is still active. It cannot be released while
-			// it is still active.
-			return kIOReturnNotPermitted;
-			
-		}
+		IODirection		ioDirection;
 		
-		fSetOfSCSITasks->removeObject ( task );
-		STATUS_LOG ( ( "Removed object from OSSet\n" ) );
+		STATUS_LOG ( ( "Preparing buffers\n" ) );
 		
-		buffer = task->GetDataBuffer ( );
-		if ( buffer != NULL )
-		{	
-			
-			buffer->release ( );
-			STATUS_LOG ( ( "Released buffer\n" ) );	
+		ioDirection = ( args->transferDirection == kSCSIDataTransfer_FromTargetToInitiator ) ? kIODirectionIn : kIODirectionOut;
 		
-		}
+		buffer = IOMemoryDescriptor::withRanges ( args->scatterGatherList,
+												  args->scatterGatherEntries,
+												  ioDirection,
+												  fTask );
 		
-		task->release ( );
-		STATUS_LOG ( ( "Released task\n" ) );	
+		require_nonzero_action_string ( buffer,
+										BUFFER_CREATE_FAILED_ERR,
+										status = kIOReturnNoResources,
+										"Error creating memory descriptor\n" );
+		
+		status = buffer->prepare ( );
+		require_success_string ( status,
+								 BUFFER_PREPARE_FAILED_ERR,
+								 "Error preparing user memory descriptor\n" );
+		
+		userBufPrepared = true;
+		
+		request->SetDataBuffer ( buffer );
+		request->SetRequestedDataTransferCount ( args->requestedTransferCount );
 		
 	}
+	
+	status = refCon->taskResultsBuffer->prepare ( );
+	require_success_string ( status,
+							 BUFFER_PREPARE_FAILED_ERR,
+							 "Error preparing results memory descriptor\n" );
+	
+	resultsBufPrepared = true;
+	
+	status = request->GetAutosenseDataBuffer ( )->prepare ( );
+	require_success_string ( status,
+							 BUFFER_PREPARE_FAILED_ERR,
+							 "Error preparing sense data memory descriptor\n" );
+	
+	senseBufPrepared = true;
+	
+	// Retain the task, results buffer, and sense data buffer. They will be released by sTaskCallback method.
+	request->retain ( );
+	refCon->taskResultsBuffer->retain ( );
+	
+	request->SetTaskCompletionCallback ( &SCSITaskUserClient::sTaskCallback );
+	request->SetAutosenseCommand ( kSCSICmd_REQUEST_SENSE, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
+	fProtocolInterface->ExecuteCommand ( request );
+	
+	if ( refCon->commandType == kCommandTypeExecuteSync )
+	{
+		
+		retain ( );
+		
+		status = fCommandGate->runAction ( 	( IOCommandGate::Action ) &SCSITaskUserClient::sWaitForTask,
+									   		( void * ) request );
+		
+		if ( buffer != NULL )
+		{
+			
+			// Make sure to complete any data buffers from client
+			status = CompleteBuffers ( buffer );
+		
+		}
+		
+		release ( );
+		
+	}
+	
+	
+	return status;
+	
+	
+BUFFER_PREPARE_FAILED_ERR:
+	
+	
+	if ( userBufPrepared )
+		CompleteBuffers ( buffer );
+		
+	if ( resultsBufPrepared )
+		refCon->taskResultsBuffer->complete ( );
+		
+	if ( senseBufPrepared )
+		request->GetAutosenseDataBuffer ( )->complete ( );
+	
+	
+BUFFER_CREATE_FAILED_ERR:	
+ACTION_FAILED_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortTask - Aborts a task passed in from user space (if possible).
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::AbortTask ( SInt32 taskReference )
+{
+	
+	SCSITask * 	task	= NULL;
+	IOReturn	status	= kIOReturnBadArgument;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::AbortTask called\n" ) );
+
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );	
+	require ( ( taskReference >= 0 ) && ( taskReference < kMaxSCSITaskArraySize ), GENERAL_ERR );
+	
+	task = fArray[taskReference];
+	require_nonzero ( task, GENERAL_ERR );
+	
+	// Can't abort an inactive task
+	require_action ( task->IsTaskActive ( ), GENERAL_ERR, status = kIOReturnNotPermitted );
+	
+	// Make sure we can send the command
+	require_nonzero_action ( fProtocolInterface, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	fProtocolInterface->AbortCommand ( task );
+	
+	
+GENERAL_ERR:
+	
 	
 	return kIOReturnSuccess;
 	
 }
-	
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAsyncCallback - 	Sets an async callback reference so a method is
+//							called for asynchronous notifications.
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-SCSITaskUserClient::ExecuteTaskAsync ( SCSITask * inSCSITask, void *, void *, void *, void *, void * )
+SCSITaskUserClient::SetAsyncCallback ( OSAsyncReference	asyncRef,
+									   SInt32			taskReference,
+									   void *			callback,
+									   void *			userRefCon )
 {
 	
-	IOMemoryDescriptor *	buffer;
-	SCSITask * 				task = OSDynamicCast ( SCSITask, inSCSITask );
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-
-	if ( task == NULL )
-		return kIOReturnBadArgument;
+	SCSITask *			task		= NULL;
+	mach_port_t			wakePort 	= MACH_PORT_NULL;
+	SCSITaskRefCon *	refCon		= NULL;
+	IOReturn			status		= kIOReturnBadArgument;
 	
-	if ( task->IsTaskActive ( ) )
+	check ( callback );
+	check ( userRefCon );
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::SetAsyncCallback called\n" ) );
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	require ( ( taskReference >= 0 ) && ( taskReference < kMaxSCSITaskArraySize ), GENERAL_ERR );
+	
+	task = fArray[taskReference];
+	require_nonzero ( task, GENERAL_ERR );
+	
+	// Can't touch an active task
+	nrequire_action ( task->IsTaskActive ( ), GENERAL_ERR, status = kIOReturnNotPermitted );
+	
+	STATUS_LOG ( ( "asyncRef[0] = %d\n", asyncRef[0] ) );
+	
+	wakePort = ( mach_port_t ) asyncRef[0];
+	
+	super::setAsyncReference ( asyncRef, wakePort, callback, userRefCon );
+	
+	refCon = ( SCSITaskRefCon * ) task->GetApplicationLayerReference ( );
+	require_nonzero_action ( refCon, GENERAL_ERR, status = kIOReturnError );
+	
+	bcopy ( asyncRef, refCon->asyncReference, kOSAsyncRefSize );
+	
+	STATUS_LOG ( ( "refCon->asyncReference[0] = %d\n", refCon->asyncReference[0] ) );
+	status = kIOReturnSuccess;
+	
+	
+GENERAL_ERR:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetBuffers - 	Sets the results buffer and sense data buffer for the
+//					specified task.									[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::SetBuffers ( SInt32			taskReference,
+								 vm_address_t	results,
+								 vm_address_t	senseData,
+								 UInt32			senseBufferSize )
+{
+	
+	IOReturn				status	= kIOReturnBadArgument;
+	SCSITask *				task	= NULL;
+	SCSITaskRefCon *		refCon	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					result	= false;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::SetBuffers called\n" ) );
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );	
+	require ( ( taskReference >= 0 ), GENERAL_ERR );
+	require ( ( taskReference < kMaxSCSITaskArraySize ), GENERAL_ERR );
+	
+	task = fArray[taskReference];
+	require ( task, GENERAL_ERR );
+	
+	// Can't touch an active task
+	require_action ( ( task->IsTaskActive ( ) == false ),
+					 GENERAL_ERR,
+					 status = kIOReturnNotPermitted );
+	
+	refCon = ( SCSITaskRefCon * ) task->GetApplicationLayerReference ( );
+	require_nonzero_action ( refCon, GENERAL_ERR, status = kIOReturnError );
+	
+	buffer = IOMemoryDescriptor::withAddress ( results,
+											   sizeof ( SCSITaskResults ),
+											   kIODirectionIn,
+											   fTask );
+	
+	require_nonzero_action ( buffer, GENERAL_ERR, status = kIOReturnNoResources );
+	
+	if ( refCon->taskResultsBuffer != NULL )
 	{
-		return kIOReturnNotPermitted;
+		
+		refCon->taskResultsBuffer->release ( );
+		
 	}
 	
-	task->SetAutosenseIsValid ( false );
+	refCon->taskResultsBuffer = buffer;
+	
+	result = task->SetAutoSenseDataBuffer ( ( SCSI_Sense_Data * ) senseData,
+											senseBufferSize,
+											fTask );
+	
+	require_action ( result, GENERAL_ERR, status = kIOReturnNoResources );
+	
+	status = kIOReturnSuccess;
+	
+	
+GENERAL_ERR:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ Inquiry - Issues an INQUIRY command to the drive as defined by SPC-2.	
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::Inquiry ( AppleInquiryStruct * 	inquiryData,
+							  SCSITaskStatus * 		taskStatus,
+							  UInt32				inStructSize,
+							  UInt32 *				outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( inquiryData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, inquiryData->buffer, inquiryData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	// Prepare the task
+	task->SetCommandDescriptorBlock ( kSCSICmd_INQUIRY,
+									  0x00,
+									  0x00,
+									  0x00,
+									  inquiryData->bufferSize,
+									  0x00 );
+	
+	task->SetTimeoutDuration ( kTenSecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( inquiryData->bufferSize );
+	
+	status	= SendCommand ( task, inquiryData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TestUnitReady - 	Issues a TEST_UNIT_READY command to the drive as
+//						defined by SPC-2.							[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::TestUnitReady ( vm_address_t 		senseDataBuffer,
+									SCSITaskStatus * 	taskStatus,
+									UInt32 *			outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	bool					state 	= true;
+	
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_TEST_UNIT_READY,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00 );
+	
+	task->SetTimeoutDuration ( kTenSecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_NoDataTransfer );
+	
+	status = SendCommand ( task, ( void * ) senseDataBuffer, taskStatus );
+	
+	task->release ( );
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetPerformance - 	Issues a GET_PERFORMANCE command to the drive as
+//						defined by Mt. Fuji/SFF-8090i revision 5.0.	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GetPerformance ( AppleGetPerformanceStruct * 	performanceData,
+									 SCSITaskStatus * 				taskStatus,
+									 UInt32 						inStructSize,
+									 UInt32 * 						outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( performanceData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, performanceData->buffer, performanceData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );	
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_GET_PERFORMANCE,
+									  performanceData->DATA_TYPE,
+									  ( performanceData->STARTING_LBA >> 24 ) 	& 0xFF,
+									  ( performanceData->STARTING_LBA >> 16 ) 	& 0xFF,
+									  ( performanceData->STARTING_LBA >>  8 ) 	& 0xFF,
+									  performanceData->STARTING_LBA         	& 0xFF,
+									  0x00,
+									  0x00,
+									  ( performanceData->MAXIMUM_NUMBER_OF_DESCRIPTORS >> 8 )	& 0xFF,
+									    performanceData->MAXIMUM_NUMBER_OF_DESCRIPTORS			& 0xFF,
+									  0x00,
+									  0x00 );
+	
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( performanceData->bufferSize );
+	
+	status	= SendCommand ( task, performanceData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetConfiguration - 	Issues a GET_CONFIGURATION command to the drive as
+//							defined by MMC-2.						[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GetConfiguration ( AppleGetConfigurationStruct * 	configData,
+									   SCSITaskStatus * 				taskStatus,
+									   UInt32 							inStructSize,
+									   UInt32 * 						outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( configData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, configData->buffer, configData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock ( 	kSCSICmd_GET_CONFIGURATION,
+										configData->RT,
+										( configData->STARTING_FEATURE_NUMBER >> 8 ) & 0xFF,
+										  configData->STARTING_FEATURE_NUMBER        & 0xFF,
+										0x00,
+										0x00,
+										0x00,
+										( configData->bufferSize >> 8 ) 	& 0xFF,
+										  configData->bufferSize        	& 0xFF,
+										0x00 );
+	
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( configData->bufferSize );
+	
+	status	= SendCommand ( task, configData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ModeSense10 - Issues a MODE_SENSE_10 command to the drive as
+//					defined by SPC-2.								[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ModeSense10 ( AppleModeSense10Struct * 	modeSenseData,
+								  SCSITaskStatus * 			taskStatus,
+								  UInt32 					inStructSize,
+								  UInt32 * 					outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( modeSenseData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, modeSenseData->buffer, modeSenseData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_MODE_SENSE_10,
+									  ( modeSenseData->LLBAA << 4 ) | ( modeSenseData->DBD << 3 ),
+									  ( modeSenseData->PC << 6 ) | modeSenseData->PAGE_CODE,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00,
+									  ( modeSenseData->bufferSize >> 8 & 0xFF ),
+									  ( modeSenseData->bufferSize & 0xFF ),
+									  0x00 );
+	
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( modeSenseData->bufferSize );
+	
+	status	= SendCommand ( task, modeSenseData->senseDataBuffer, taskStatus );	
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetWriteParametersModePage - 	Issues a MODE_SELECT_10 command to the drive
+//									with the Write Parameters Mode Page set as
+//									defined by MMC-2.				[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::SetWriteParametersModePage ( AppleWriteParametersModePageStruct * paramsData,
+												 SCSITaskStatus * 	taskStatus,
+												 UInt32 			inStructSize,
+												 UInt32 * 			outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	SCSICmdField1Bit		PF 		= 1;
+
+	check ( paramsData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	*outStructSize = 0;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, paramsData->buffer, paramsData->bufferSize, kIODirectionOut );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock (	kSCSICmd_MODE_SELECT_10,
+										( PF << 4),
+										0x00,
+										0x00,
+										0x00,
+										0x00,
+										0x00,
+										( paramsData->bufferSize >> 8 ) & 0xFF,
+										  paramsData->bufferSize 		& 0xFF,
+										0x00 );
+	
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromInitiatorToTarget );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( paramsData->bufferSize );
+	
+	status	= SendCommand ( task, paramsData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTrayState - Returns the current tray state of the drive.	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GetTrayState ( UInt32 * trayState )
+{
+	
+	IOReturn		status 			= kIOReturnExclusiveAccess;
+	UInt8			actualTrayState	= 0;
+	bool			state			= false;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	status = ( ( IOSCSIMultimediaCommandsDevice * ) fProtocolInterface )->GetTrayState ( &actualTrayState );
+	require_success ( status, COMMAND_FAILED_ERR );
+	*trayState = actualTrayState;
+	
+	
+COMMAND_FAILED_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTrayState - Sets the driveÕs tray state to the proposed state.
+//																	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::SetTrayState ( UInt32 trayState )
+{
+	
+	IOReturn		status 				= kIOReturnExclusiveAccess;
+	UInt8			desiredTrayState	= 0;
+	bool			state				= false;
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	desiredTrayState = trayState & kMMCDeviceTrayMask;
+	status = ( ( IOSCSIMultimediaCommandsDevice * ) fProtocolInterface )->SetTrayState ( desiredTrayState );
+	
+	
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReadTableOfContents - Issues a READ_TOC_PMA_ATIP command to the drive as
+//							defined in MMC-2.						[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ReadTableOfContents ( AppleReadTableOfContentsStruct * 	readTOCData,
+										  SCSITaskStatus * 					taskStatus,
+										  UInt32 							inStructSize,
+										  UInt32 * 							outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2	= kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( readTOCData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, readTOCData->buffer, readTOCData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	if ( readTOCData->FORMAT & 0x04 )
+	{
+		
+		// Use new style from MMC-2
+		task->SetCommandDescriptorBlock ( kSCSICmd_READ_TOC_PMA_ATIP,
+										  readTOCData->MSF << 1,
+										  readTOCData->FORMAT,
+										  0x00,
+										  0x00,
+										  0x00,
+										  readTOCData->TRACK_SESSION_NUMBER,
+										  ( readTOCData->bufferSize >> 8 ) & 0xFF,
+										    readTOCData->bufferSize        & 0xFF,
+										  0x00 );
+
+	
+	}
+	
+	else
+	{
+
+		// Use old style from SFF-8020i
+		task->SetCommandDescriptorBlock ( kSCSICmd_READ_TOC_PMA_ATIP,
+										  readTOCData->MSF << 1,
+										  0x00,
+										  0x00,
+										  0x00,
+										  0x00,
+										  readTOCData->TRACK_SESSION_NUMBER,
+										  ( readTOCData->bufferSize >> 8 ) & 0xFF,
+										    readTOCData->bufferSize        & 0xFF,
+										  ( readTOCData->FORMAT & 0x03 ) << 6 );
+		
+	}
+	
+	// set timeout to 30 seconds
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( readTOCData->bufferSize );
+	
+	status	= SendCommand ( task, readTOCData->senseDataBuffer, taskStatus );
+	status2 = CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReadDiscInformation - Issues a READ_DISC_INFORMATION command to the
+//							drive as defined in MMC-2.				[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ReadDiscInformation ( AppleReadDiscInfoStruct * 	discInfoData,
+										  SCSITaskStatus * 				taskStatus,
+										  UInt32 						inStructSize,
+										  UInt32 * 						outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2	= kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+		
+	check ( discInfoData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, discInfoData->buffer, discInfoData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_READ_DISC_INFORMATION,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00,
+									  0x00,
+									  ( discInfoData->bufferSize >> 8 ) & 0xFF,
+									    discInfoData->bufferSize        & 0xFF,
+									  0x00 );
+	
+	// set timeout to 30 seconds
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( discInfoData->bufferSize );
+	
+	status 	= SendCommand ( task, discInfoData->senseDataBuffer, taskStatus );
+	status2 = CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReadTrackInformation - 	Issues a READ_TRACK/RZONE_INFORMATION command
+//								to the drive as defined in MMC-2.	[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ReadTrackInformation ( AppleReadTrackInfoStruct * 	trackInfoData,
+										   SCSITaskStatus * 			taskStatus,
+										   UInt32 						inStructSize,
+										   UInt32 * 					outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( trackInfoData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, trackInfoData->buffer, trackInfoData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_READ_TRACK_INFORMATION,
+									  trackInfoData->ADDRESS_NUMBER_TYPE & 0x03,
+									  ( trackInfoData->LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >> 24 ) & 0xFF,
+									  ( trackInfoData->LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >> 16 ) & 0xFF,
+									  ( trackInfoData->LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >>  8 ) & 0xFF,
+								 	    trackInfoData->LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER         & 0xFF,
+									  0x00,
+									  ( trackInfoData->bufferSize >>  8 ) & 0xFF,
+								  	    trackInfoData->bufferSize         & 0xFF,
+									  0x00 );
+	
+	// set timeout to 30 seconds
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( trackInfoData->bufferSize );
+	
+	status	= SendCommand ( task, trackInfoData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReadDVDStructure - 	Issues a READ_DVD_STRUCTURE command to the drive as
+//							defined in MMC-2.						[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::ReadDVDStructure ( AppleReadDVDStructureStruct * 	dvdStructData,
+									   SCSITaskStatus * 				taskStatus,
+									   UInt32 							inStructSize,
+									   UInt32 * 						outStructSize )
+{
+	
+	IOReturn				status 	= kIOReturnExclusiveAccess;
+	IOReturn				status2 = kIOReturnExclusiveAccess;
+	SCSITask * 				task 	= NULL;
+	IOMemoryDescriptor *	buffer	= NULL;
+	bool					state 	= true;
+	
+	check ( dvdStructData );
+	check ( taskStatus );
+	check ( outStructSize );
+	
+	fOutstandingCommands++;
+	
+	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
+	
+	state = fProtocolInterface->GetUserClientExclusivityState ( );
+	nrequire ( state, EXCLUSIVE_ACCESS_ERR );
+	
+	// Create and initialize a task
+	status = SetupTask ( &task );
+	require_success ( status, TASK_SETUP_ERR );
+	
+	// Prepare the buffers
+	status = PrepareBuffers ( &buffer, dvdStructData->buffer, dvdStructData->bufferSize, kIODirectionIn );
+	require_success ( status, BUFFER_PREPARATION_ERR );
+	
+	task->SetCommandDescriptorBlock ( kSCSICmd_READ_DVD_STRUCTURE,
+									  0x00,
+									  ( dvdStructData->ADDRESS >> 24 ) & 0xFF,
+									  ( dvdStructData->ADDRESS >> 16 ) & 0xFF,
+									  ( dvdStructData->ADDRESS >> 8  ) & 0xFF,
+									    dvdStructData->ADDRESS		   & 0xFF,
+									    dvdStructData->LAYER_NUMBER,
+									    dvdStructData->FORMAT,
+									  ( dvdStructData->bufferSize >> 8 ) & 0xFF,
+									    dvdStructData->bufferSize        & 0xFF,
+									  ( dvdStructData->AGID << 6 ),
+									  0x00 );
+	
+	// set timeout to 30 seconds
+	task->SetTimeoutDuration ( kThirtySecondTimeoutInMS );
+	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
+	task->SetDataBuffer ( buffer );
+	task->SetRequestedDataTransferCount ( dvdStructData->bufferSize );
+	
+	status	= SendCommand ( task, dvdStructData->senseDataBuffer, taskStatus );
+	status2	= CompleteBuffers ( buffer );
+	
+	if ( ( status == kIOReturnSuccess ) && ( status2 != kIOReturnSuccess ) )
+	{
+		status = status2;
+	}
+	
+	*outStructSize = sizeof ( SCSITaskStatus );
+	
+	
+BUFFER_PREPARATION_ERR:
+	
+	
+	task->release ( );
+	
+	
+TASK_SETUP_ERR:
+EXCLUSIVE_ACCESS_ERR:
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return status;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark Protected Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getTargetAndMethodForIndex - 	Returns a pointer to the target of the
+//									method call and the method vector itself
+//									based on the provided index.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOExternalMethod *
+SCSITaskUserClient::getTargetAndMethodForIndex (
+							IOService **	target,
+							UInt32			index )
+{
+	
+	IOExternalMethod *	method = NULL;
+	
+	check ( target );
+	require ( index < kSCSITaskUserClientMethodCount, GENERAL_ERR );
+	
+	fOutstandingCommands++;
+	
+	require ( isInactive ( ) == false, GENERAL_ERR );
+	
+	fProtocolInterface->retain ( );
+	
+	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
+	{
+		fProtocolInterface->CheckPowerState ( );
+	}
+	
+	fProtocolInterface->release ( );
+	
+	*target = this;
+	method 	= &sMethods[index];
+	
+	
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return method;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ getAsyncTargetAndMethodForIndex - Returns a pointer to the target of the
+//										async method call and the method
+//										vector itself based on the provided
+//										index.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOExternalAsyncMethod *
+SCSITaskUserClient::getAsyncTargetAndMethodForIndex (
+							IOService **	target,
+							UInt32			index )
+{
+	
+	
+	IOExternalAsyncMethod *	method = NULL;
+	
+	check ( target );
+	require ( index < kSCSITaskUserClientAsyncMethodCount, GENERAL_ERR );
+	
+	fOutstandingCommands++;
+	
+	require ( isInactive ( ) == false, GENERAL_ERR );
+	
+	fProtocolInterface->retain ( );
+	
+	if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
+	{
+		fProtocolInterface->CheckPowerState ( );
+	}
+	
+	fProtocolInterface->release ( );
+	
+	*target = this;
+	method 	= &sAsyncMethods[index];
+	
+	
+GENERAL_ERR:
+	
+	
+	fOutstandingCommands--;
+	
+	return method;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GatedCreateTask -	Safely obtains a taskReference for the newly created
+//						task if one is available. It is called while holding
+//						the workloop lock.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GatedCreateTask ( SCSITask * task, SInt32 * taskReference )
+{
+	
+	IOReturn		status 	= kIOReturnNoResources;
+	UInt32			index	= 0;
+	
+	check ( task );
+	check ( taskReference );
+	
+	for ( index = 0; index < kMaxSCSITaskArraySize; index++ )
+	{
+		
+		if ( fArray[index] == NULL )
+			break;
+		
+	}
+	
+	require_action ( index < kMaxSCSITaskArraySize, ARRAY_INDEX_ERR, *taskReference = -1 );
+	
+	fArray[index]	= task;
+	*taskReference 	= index;
+	status			= kIOReturnSuccess;
+	
+	
+ARRAY_INDEX_ERR:	
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GatedReleaseTask -	Safely obtains a taskReference for the newly
+//							created task if one is available. It is called
+//							while holding the workloop lock.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GatedReleaseTask ( SInt32 taskReference, SCSITask ** task )
+{
+	
+	IOReturn	status 	= kIOReturnSuccess;
+	SCSITask *	victim	= NULL;
+	
+	check ( task != NULL );
+	
+	// Sanity check
+	victim = fArray[taskReference];
+	require_nonzero_action ( victim, GENERAL_ERR, status = kIOReturnBadArgument );
+	
+	// If the task is still active, it cannot be released.
+	require_action ( ( victim->IsTaskActive ( ) == false ), GENERAL_ERR, status = kIOReturnNotPermitted );
+	
+	// Remove it now.
+	fArray[taskReference] = 0;
+	
+	STATUS_LOG ( ( "Removed object from array\n" ) );
+	
+	// Pass back the pointer to the object so it can be safely destroyed.
+	*task = victim;	
+	
+	
+GENERAL_ERR:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GatedValidateTask -	Safely validates a task. It is called while
+//							holding the workloop lock.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::GatedValidateTask ( SCSITask * 		request,
+										SCSITaskData * 	args,
+										UInt32 			argSize )
+{
+	
+	IOReturn	status = kIOReturnBadArgument;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::GatedValidateTask called\n" ) );
+	
+	check ( request );
+	check ( args );
+	
+	require ( ( args->taskAttribute >= kSCSITask_SIMPLE ) &&
+			  ( args->taskAttribute <= kSCSITask_ACA ),
+			  INVALID_ARGUMENT );
+	
+	request->SetTaskAttribute ( args->taskAttribute );
 	
 	#if ( SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL >= 3 )
 	{
+		
 		SCSICommandDescriptorBlock	cdb;
 		UInt8						commandLength;
 		
-		task->GetCommandDescriptorBlock ( &cdb );
-		commandLength = task->GetCommandDescriptorBlockSize ( );
+		request->GetCommandDescriptorBlock ( &cdb );
+		commandLength = request->GetCommandDescriptorBlockSize ( );
 		
 		if ( commandLength == kSCSICDBSize_6Byte )
 		{
@@ -856,1947 +2225,538 @@ SCSITaskUserClient::ExecuteTaskAsync ( SCSITask * inSCSITask, void *, void *, vo
 	}
 	#endif /* ( SCSI_TASK_USER_CLIENT_DEBUGGING_LEVEL >= 3 ) */
 	
-	buffer = task->GetDataBuffer ( );
-	if ( buffer != NULL )
-		buffer->prepare ( );
-	
-	task->SetTaskCompletionCallback ( sAsyncTaskCallback );
-	task->SetAutosenseCommand ( kSCSICmd_REQUEST_SENSE, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
-	fProtocolInterface->ExecuteCommand ( task );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::ExecuteTaskSync ( SCSITask * inSCSITask, vm_address_t senseDataBuffer,
-									  SCSITaskStatus * taskStatus, UInt32 * tranferCountHi,
-									  UInt32 * tranferCountLo, void * )
-{
-	
-	SCSI_Sense_Data			senseDataBytes;
-	SCSIServiceResponse		serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOMemoryDescriptor *	senseBuffer 	= NULL;
-	IOMemoryDescriptor *	dataBuffer 		= NULL;
-	IOReturn				status 			= kIOReturnSuccess;
-	SCSITask * 				task			= NULL;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	task->SetAutosenseIsValid ( false );
-	
-	senseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-											   sizeof ( SCSI_Sense_Data ),
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( senseBuffer == NULL )
-	{
-		return kIOReturnNoMemory;
-	}
-
-	dataBuffer = task->GetDataBuffer ( );
-	if ( dataBuffer != NULL )
-		dataBuffer->prepare ( );
-	
-	serviceResponse = SendCommand ( task );
-	
-	*taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+	switch ( args->cdbSize )
 	{
 		
-		UInt64	transferCount = 0;
-		
-		transferCount = task->GetRealizedDataTransferCount ( );
-			
-		*tranferCountHi = ( transferCount >> 32 ) & 0xFFFFFFFF;
-		*tranferCountLo = transferCount & 0xFFFFFFFF;
-		
-		if ( *taskStatus == kSCSITaskStatus_CHECK_CONDITION )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseDataBytes ) )
-			{
-				
-				senseBuffer->prepare ( );
-				senseBuffer->writeBytes ( 0, &senseDataBytes, sizeof ( SCSI_Sense_Data ) );
-				senseBuffer->complete ( );
-				
-			}
-			
-		}
-		
-	}
-	
-	senseBuffer->release ( );
-
-	if ( dataBuffer != NULL )
-		dataBuffer->complete ( );
-	
-	return status;
-	
-}
-	
-
-IOReturn
-SCSITaskUserClient::AbortTask ( SCSITask * inSCSITask, void *, void *, void *, void *, void * )
-{
-	
-	SCSITask * task = OSDynamicCast ( SCSITask, inSCSITask );
-	
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	// Can't abort an inactive task
-	if ( task->IsTaskActive ( ) == false )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	fProtocolInterface->AbortCommand ( inSCSITask );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetAsyncCallback ( OSAsyncReference asyncRef,
-									   SCSITask * inTask,
-									   void * callback, void * refCon,
-									   void *, void * )
-{
-	
-	SCSITask *		task;
-	UInt8 *			internalRefCon;
-	mach_port_t		wakePort;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	task = OSDynamicCast ( SCSITask, inTask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	STATUS_LOG ( ( "asyncRef[0] = %d\n", asyncRef[0] ) );
-	
-	wakePort = ( mach_port_t ) asyncRef[0];
-	IOUserClient::setAsyncReference ( asyncRef, wakePort, callback, refCon );
-	internalRefCon = ( UInt8 * ) task->GetApplicationLayerReference ( );
-	bcopy ( asyncRef, internalRefCon, sizeof ( OSAsyncReference ) );
-	
-	STATUS_LOG ( ( "internalRefCon[0] = %d\n", internalRefCon[0] ) );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::IsTaskActive ( SCSITask * inSCSITask, UInt32 * active, void *, void *, void *, void * )
-{
-	
-	SCSITask * 	task = OSDynamicCast ( SCSITask, inSCSITask );
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*active = task->IsTaskActive ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetTransferDirection ( SCSITask * inSCSITask, UInt32 transferDirection, void *, void *, void *, void * )
-{
-	
-	UInt8			direction;
-	SCSITask * 		task = OSDynamicCast ( SCSITask, inSCSITask );
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	switch ( transferDirection )
-	{
-		
-		case kSCSIDataTransfer_NoDataTransfer:
-		case kSCSIDataTransfer_FromInitiatorToTarget:
-		case kSCSIDataTransfer_FromTargetToInitiator:
-			break;
-		default:
-			return kIOReturnBadArgument;
+		case kSCSICDBSize_6Byte:
+			request->SetCommandDescriptorBlock ( args->cdbData[0],
+												 args->cdbData[1],
+												 args->cdbData[2],
+												 args->cdbData[3],
+												 args->cdbData[4],
+												 args->cdbData[5] );
 			break;
 		
-	}
-	
-	direction = transferDirection & 0xFF;
-	
-	if ( task->SetDataTransferDirection ( direction ) == false )
-		return kIOReturnError;
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetTaskAttribute ( SCSITask * inSCSITask, UInt32 attribute, void *, void *, void *, void * )
-{
-	
-	SCSITask * 			task = OSDynamicCast ( SCSITask, inSCSITask );
-	SCSITaskAttribute	taskAttribute = ( SCSITaskAttribute ) attribute;
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	if ( task->SetTaskAttribute ( taskAttribute ) == false )
-		return kIOReturnError;
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetTaskAttribute ( SCSITask * inSCSITask, UInt32 * attribute, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task = OSDynamicCast ( SCSITask, inSCSITask );
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*attribute = ( UInt32 ) task->GetTaskAttribute ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetCommandDescriptorBlock ( SCSITask * inSCSITask, UInt32 size, UInt8 * cdb, UInt32 inDataSize, void *, void * )
-{
-	
-	SCSITask * 		task = OSDynamicCast ( SCSITask, inSCSITask );
-	bool			result;
-	
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	switch ( size )
-	{
-		
-		case 6:
-			result = task->SetCommandDescriptorBlock ( cdb[0], cdb[1], cdb[2], cdb[3], cdb[4], cdb[5] );
+		case kSCSICDBSize_10Byte:
+			request->SetCommandDescriptorBlock ( args->cdbData[0],
+												 args->cdbData[1],
+												 args->cdbData[2],
+												 args->cdbData[3],
+												 args->cdbData[4],
+												 args->cdbData[5],
+												 args->cdbData[6],
+												 args->cdbData[7],
+												 args->cdbData[8],
+												 args->cdbData[9] );
 			break;
 		
-		case 10:
-			result = task->SetCommandDescriptorBlock ( cdb[0], cdb[1], cdb[2], cdb[3], cdb[4], cdb[5],
-													   cdb[6], cdb[7], cdb[8], cdb[9] );
+		case kSCSICDBSize_12Byte:
+			request->SetCommandDescriptorBlock ( args->cdbData[0],
+												 args->cdbData[1],
+												 args->cdbData[2],
+												 args->cdbData[3],
+												 args->cdbData[4],
+												 args->cdbData[5],
+												 args->cdbData[6],
+												 args->cdbData[7],
+												 args->cdbData[8],
+												 args->cdbData[9],
+												 args->cdbData[10],
+												 args->cdbData[11] );
 			break;
 		
-		case 12:
-			result = task->SetCommandDescriptorBlock ( cdb[0], cdb[1], cdb[2], cdb[3], cdb[4], cdb[5],
-													   cdb[6], cdb[7], cdb[8], cdb[9], cdb[10], cdb[11] );
-			break;
-		
-		case 16:
-			result = task->SetCommandDescriptorBlock ( cdb[0], cdb[1], cdb[2], cdb[3], cdb[4], cdb[5],
-													   cdb[6], cdb[7], cdb[8], cdb[9], cdb[10], cdb[11],
-													   cdb[12], cdb[13], cdb[14], cdb[15] );
+		case kSCSICDBSize_16Byte:
+			request->SetCommandDescriptorBlock ( args->cdbData[0],
+												 args->cdbData[1],
+												 args->cdbData[2],
+												 args->cdbData[3],
+												 args->cdbData[4],
+												 args->cdbData[5],
+												 args->cdbData[6],
+												 args->cdbData[7],
+												 args->cdbData[8],
+												 args->cdbData[9],
+												 args->cdbData[10],
+												 args->cdbData[11],
+												 args->cdbData[12],
+												 args->cdbData[13],
+												 args->cdbData[14],
+												 args->cdbData[15] );
 			break;
 		
 		default:
-			return kIOReturnBadArgument;
-			break;
+			ERROR_LOG ( ( "Invalid command length size\n" ) );
+			goto INVALID_ARGUMENT;
 		
 	}
 	
-	if ( result == false )
-		return kIOReturnError;
+	require ( ( args->transferDirection <= kSCSIDataTransfer_FromTargetToInitiator ),
+			  INVALID_ARGUMENT );
 	
-	return kIOReturnSuccess;
+	request->SetDataTransferDirection ( args->transferDirection );
 	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetScatterGatherList ( SCSITask * inSCSITask, UInt32 inScatterGatherEntries,
-										   UInt32 inTransferCountHi, UInt32 inTransferCountLo,
-										   UInt32 inTransferDirection,
-										   IOVirtualRange * inScatterGatherList )
-{
-	
-	IOReturn				status = kIOReturnSuccess;
- 	IOMemoryDescriptor * 	buffer = NULL;
-	SCSITask * 				task = NULL;
-	UInt64					transferCount;
-	UInt8					direction;
-	
-	STATUS_LOG ( ( "SCSITaskUserClient::SetScatterGatherList\n" ) );
-
-	STATUS_LOG ( ( "inScatterGatherEntries = %ld\n", inScatterGatherEntries ) );
-	STATUS_LOG ( ( "inTransferCountHi = %ld\n", inTransferCountHi ) );
-	STATUS_LOG ( ( "inTransferCountLo = %ld\n", inTransferCountLo ) );
-	STATUS_LOG ( ( "inTransferDirection = %ld\n", inTransferDirection ) );
-		
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->IsTaskActive ( ) )
+	if ( args->scatterGatherEntries > 0 )
 	{
-		return kIOReturnNotPermitted;
+		
+		UInt32		structSizeWithoutList = sizeof ( SCSITaskData ) - sizeof ( IOVirtualRange );
+		UInt32		sgListSize = 0;
+		
+		sgListSize = argSize - structSizeWithoutList;
+		
+		require_string ( ( sgListSize / sizeof ( IOVirtualRange ) ) == args->scatterGatherEntries,
+						 INVALID_ARGUMENT,
+						 "Invalid scatter-gather list" );
+		
 	}
 	
-	transferCount = inTransferCountHi;
-	transferCount = ( transferCount << 32 ) | inTransferCountLo;
+	status = kIOReturnSuccess;
 	
-	if ( inTransferDirection == kSCSIDataTransfer_NoDataTransfer )
-		direction = kIODirectionNone;
-	else if ( inTransferDirection == kSCSIDataTransfer_FromTargetToInitiator )
-		direction = kIODirectionIn;
-	else if ( inTransferDirection == kSCSIDataTransfer_FromInitiatorToTarget )
-		direction = kIODirectionOut;
-	else
-		return kIOReturnBadArgument;
 	
-	buffer = task->GetDataBuffer ( );
-	if ( buffer != NULL )
-		buffer->release ( );
+INVALID_ARGUMENT:
 	
-	buffer = IOMemoryDescriptor::withRanges ( inScatterGatherList,
-											  inScatterGatherEntries,
-											  ( IODirection ) direction,
-											  fTask,
-											  false /* asReference */ );  
-	
-	if ( buffer == NULL )
-		return kIOReturnNoMemory;
-	
-	task->SetDataTransferDirection ( inTransferDirection );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( transferCount );
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskUserClient::SetSenseDataBuffer ( SCSITask * inSCSITask, vm_address_t buffer, UInt32 bufferSize, void *, void *, void * )
-{
-
-#if 0
-	
-	IOMemoryDescriptor * 	senseBuffer = NULL;
-	SCSITask * 				task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	senseBuffer = IOMemoryDescriptor::withAddress ( buffer, 
-													bufferSize,
-													kIODirectionOut,
-													fTask );
-													
-	senseBuffer->prepare ( );
-	
-#endif
-	
-	// Setting the autosense data buffer in the SCSITask is not yet supported,
-	// but is planned for later. This method is a stub for when that
-	// functionality is added.
-	return kIOReturnUnsupported;
-	
-}
-	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GatedWaitForTask -	Waits for signal to wake up. It must hold the
+//							workloop lock in order to call commandSleep()
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-SCSITaskUserClient::SetTimeoutDuration ( SCSITask * inSCSITask, UInt32 timeoutMS, void *, void *, void *, void * )
+SCSITaskUserClient::GatedWaitForTask ( SCSITask * request )
 {
 	
-	SCSITask * 		task 		= NULL;
+	IOReturn			status	= kIOReturnSuccess;
+	SCSITaskRefCon *	refCon	= NULL;
 	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
+	check ( request );
+	refCon = ( SCSITaskRefCon * ) request->GetApplicationLayerReference ( );
+	check ( refCon );
 	
-	if ( task->IsTaskActive ( ) )
-	{
-		return kIOReturnNotPermitted;
-	}
-	
-	if ( task->SetTimeoutDuration ( timeoutMS ) == false )
-		return kIOReturnError;
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetTimeoutDuration ( SCSITask * inSCSITask, UInt32 * timeoutMS, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*timeoutMS = task->GetTimeoutDuration ( );
-	
-	return kIOReturnSuccess;
-	
-}
-	
-
-IOReturn
-SCSITaskUserClient::GetTaskStatus ( SCSITask * inSCSITask, SCSITaskStatus * taskStatus, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*taskStatus = task->GetTaskStatus ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetSCSIServiceResponse ( SCSITask * inSCSITask, SCSIServiceResponse * serviceResponse, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*serviceResponse = task->GetServiceResponse ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetTaskState ( SCSITask * inSCSITask, SCSITaskState * taskState, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*taskState = task->GetTaskState ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetRealizedDataTransferCount ( SCSITask * inSCSITask, UInt64 * transferCount, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	*transferCount = task->GetRealizedDataTransferCount ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetAutoSenseData ( SCSITask * inSCSITask, SCSI_Sense_Data * senseDataBuffer, void *, void *, void *, void * )
-{
-	
-	SCSITask * 		task 		= NULL;
-	
-	task = OSDynamicCast ( SCSITask, inSCSITask );
-	if ( task == NULL )
-		return kIOReturnBadArgument;
-	
-	if ( task->GetAutoSenseData ( senseDataBuffer ) == false )
-		return kIOReturnError;
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::Inquiry ( UInt32 inqBufferSize,
-							  vm_address_t inqBuffer,
-							  vm_address_t senseBuffer,
-							  UInt32 * outTaskStatus,
-							  void *, void * )
-{
-	
-	SCSITask * 				task = NULL;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	IOReturn				status = kIOReturnSuccess;
-	SCSI_Sense_Data			senseData;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	if ( inqBufferSize > 0xFF )
-		return kIOReturnBadArgument;
-	
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-	
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-		
-	buffer = IOMemoryDescriptor::withAddress ( inqBuffer,
-											   inqBufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-		
-	task->SetCommandDescriptorBlock ( kSCSICmd_INQUIRY,
-									  0x00,
-									  0x00,
-									  0x00,
-									  inqBufferSize & 0xFF,
-									  0x00 );
-	
-	task->SetTimeoutDuration ( 10 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( inqBufferSize );
-	
-	buffer->prepare ( );
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+	while ( request->GetTaskState ( ) != kSCSITaskState_ENDED )
 	{
 		
-		if ( taskStatus != kSCSITaskStatus_GOOD )
-		{
-			
-
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
+		status = fCommandGate->commandSleep ( &refCon->commandType, THREAD_UNINT );
 		
 	}
 	
-	*outTaskStatus = ( UInt32 ) taskStatus;
-
-	buffer->complete ( );
-
-	buffer->release ( );
-	task->release ( );
+	status = kIOReturnSuccess;
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskUserClient::TestUnitReady ( vm_address_t senseDataBuffer,
-									UInt32 * outTaskStatus,
-									void *, void *, void *, void * )
-{
-	
-	SCSITask * 				task = NULL;
-	SCSITaskStatus			taskStatus;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSI_Sense_Data			senseData;
-	IOMemoryDescriptor *	buffer;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-		
-	task->SetCommandDescriptorBlock ( kSCSICmd_TEST_UNIT_READY,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00 );
-
-	task->SetTimeoutDuration ( 10 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_NoDataTransfer );
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		if ( taskStatus == kSCSITaskStatus_CHECK_CONDITION )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				buffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( buffer != NULL )
-				{
-					buffer->prepare ( );
-					buffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					buffer->complete ( );
-					buffer->release ( );
-				}
-				
-			}
-			
-		}
-		
-	}
-	
-	*outTaskStatus = ( UInt32 ) taskStatus;
-	task->release ( );
-	
-	return kIOReturnSuccess;
-	
-}
-
-
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandleTerminate -	Handles terminating our object and any resources it
+//						allocated.									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-SCSITaskUserClient::GetPerformance ( UInt32 TOLERANCE_WRITE_EXCEPT, UInt32 STARTING_LBA,
-									 UInt32 MAXIMUM_NUMBER_OF_DESCRIPTORS_AND_BUFFER_SIZE,
-									 vm_address_t performanceBuffer, vm_address_t senseDataBuffer,
-									 UInt32 * outTaskStatus )
+SCSITaskUserClient::HandleTerminate ( IOService * provider )
 {
 	
-	SCSITask * 				task = NULL;
-	IOReturn				status = kIOReturnSuccess;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	SCSICmdField2Bit 		TOLERANCE;
-	SCSICmdField1Bit 		WRITE;
-	SCSICmdField2Bit 		EXCEPT;
-	SCSICmdField2Byte 		MAXIMUM_NUMBER_OF_DESCRIPTORS;
-	UInt16					bufferSize;	
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
+	IOReturn		status 		= kIOReturnSuccess;
+	IOWorkLoop *	workLoop	= NULL;
 	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
+	check ( provider );
+	
+	while ( fOutstandingCommands != 0 )
 	{
-		return kIOReturnExclusiveAccess;
+		IOSleep ( 10 );
 	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	TOLERANCE 	= ( TOLERANCE_WRITE_EXCEPT >> 16 ) & 0x03;
-	WRITE 		= ( TOLERANCE_WRITE_EXCEPT >> 8 ) & 0x01;
-	EXCEPT 		= ( TOLERANCE_WRITE_EXCEPT & 0x03 );
-	
-	MAXIMUM_NUMBER_OF_DESCRIPTORS = ( MAXIMUM_NUMBER_OF_DESCRIPTORS_AND_BUFFER_SIZE >> 16 ) & 0xFFFF;
-	bufferSize = MAXIMUM_NUMBER_OF_DESCRIPTORS_AND_BUFFER_SIZE & 0xFFFF;
-	
-	buffer = IOMemoryDescriptor::withAddress ( performanceBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	task->SetCommandDescriptorBlock ( kSCSICmd_GET_PERFORMANCE,
-									( TOLERANCE << 3 ) | ( WRITE << 2 ) | EXCEPT,
-									( STARTING_LBA >> 24 ) 	& 0xFF,
-									( STARTING_LBA >> 16 ) 	& 0xFF,
-									( STARTING_LBA >>  8 ) 	& 0xFF,
-									  STARTING_LBA         	& 0xFF,
-									0x00,
-									0x00,
-									( MAXIMUM_NUMBER_OF_DESCRIPTORS >> 8 )	& 0xFF,
-									MAXIMUM_NUMBER_OF_DESCRIPTORS			& 0xFF,
-									0x00,
-									0x00 );
-	
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		if ( taskStatus != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-		
-	}
-
-	*outTaskStatus = ( UInt32 ) taskStatus;
-	
-	buffer->complete ( );
-	buffer->release ( );
-	task->release ( );
-		
-	return status;
-	
-}
-
-IOReturn
-SCSITaskUserClient::GetConfiguration ( UInt32 RT, UInt32 STARTING_FEATURE_NUMBER, vm_address_t configBuffer,
-									   UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus )
-{
-	
-	SCSITask * 				task = NULL;
-	IOReturn				status = kIOReturnSuccess;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	buffer = IOMemoryDescriptor::withAddress ( configBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	task->SetCommandDescriptorBlock ( 	kSCSICmd_GET_CONFIGURATION,
-										RT,
-										( STARTING_FEATURE_NUMBER >> 8 ) & 0xFF,
-										  STARTING_FEATURE_NUMBER        & 0xFF,
-										0x00,
-										0x00,
-										0x00,
-										( bufferSize >> 8 ) 	& 0xFF,
-										  bufferSize        	& 0xFF,
-										0x00 );
-	
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		if ( taskStatus != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-		
-	}
-
-	*outTaskStatus = ( UInt32 ) taskStatus;
-	
-	buffer->complete ( );
-	buffer->release ( );
-	task->release ( );
-		
-	return status;
-	
-}
-
-IOReturn
-SCSITaskUserClient::ModeSense10 ( UInt32 LLBAAandDBD, UInt32 PCandPageCode, vm_address_t pageBuffer,
-								  UInt32 bufferSize, vm_address_t senseDataBuffer, UInt32 * outTaskStatus )
-{
-	
-	SCSITask * 				task = NULL;
-	IOReturn				status = kIOReturnSuccess;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	UInt8					byte1, byte2;
-	UInt16					ALLOCATION_LENGTH;
-	SCSI_Sense_Data			senseData;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	ALLOCATION_LENGTH = ( bufferSize & 0xFFFF );
-	byte1 = LLBAAandDBD & 0xFF;
-	byte2 = PCandPageCode & 0xFF;
-	
-	buffer = IOMemoryDescriptor::withAddress ( pageBuffer,
-											   ALLOCATION_LENGTH,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	task->SetCommandDescriptorBlock ( kSCSICmd_MODE_SENSE_10,
-									  byte1,
-									  byte2,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00,
-									  ( ALLOCATION_LENGTH >> 8 & 0xFF ),
-									  ( ALLOCATION_LENGTH & 0xFF ),
-									  0x00 );
-	
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( ALLOCATION_LENGTH );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		if ( taskStatus != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-		
-	}
-
-	*outTaskStatus = ( UInt32 ) taskStatus;
-	
-	buffer->complete ( );
-	buffer->release ( );
-	task->release ( );
-		
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetWriteParametersModePage ( vm_address_t paramBuffer,
-												 UInt32 bufferSize,
-												 vm_address_t senseDataBuffer,
-												 UInt32 * outTaskStatus )
-{
-	
-	SCSITask * 				task = NULL;
-	IOReturn				status = kIOReturnSuccess;
-	bool					state = true;
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	UInt16					pageSize = ( bufferSize & 0xFF );
-	SCSICmdField1Bit		PF = 1;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-		
-	buffer = IOMemoryDescriptor::withAddress ( paramBuffer,
-											   pageSize,
-											   kIODirectionOut,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	task->SetCommandDescriptorBlock (	kSCSICmd_MODE_SELECT_10,
-										( PF << 4),
-										0x00,
-										0x00,
-										0x00,
-										0x00,
-										0x00,
-										( pageSize >> 8 ) & 0xFF,
-										  pageSize 		  & 0xFF,
-										0x00 );
-	
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromInitiatorToTarget );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( pageSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	taskStatus = task->GetTaskStatus ( );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		if ( taskStatus != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-		
-	}
-
-	*outTaskStatus = ( UInt32 ) taskStatus;
-	
-	buffer->complete ( );
-	buffer->release ( );
-	task->release ( );
-		
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::GetTrayState ( UInt32 * trayState )
-{
-	
-	IOReturn		status 			= kIOReturnSuccess;
-	UInt8			actualTrayState	= 0;
-	bool			state			= false;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	status = ( ( IOSCSIMultimediaCommandsDevice * ) fProtocolInterface )->GetTrayState ( &actualTrayState );
-	if ( status == kIOReturnSuccess )
-	{
-		*trayState = actualTrayState;
-	}
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::SetTrayState ( UInt32 trayState )
-{
-	
-	IOReturn		status 				= kIOReturnSuccess;
-	UInt8			desiredTrayState	= 0;
-	bool			state				= false;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	desiredTrayState = trayState & 0x01;
-	status = ( ( IOSCSIMultimediaCommandsDevice * ) fProtocolInterface )->SetTrayState ( desiredTrayState );
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::ReadTableOfContents ( UInt32 MSF_FORMAT,
-										  UInt32 TRACK_SESSION_NUMBER,
-										  vm_address_t tocBuffer,
-										  UInt32 bufferSize,
-										  vm_address_t senseDataBuffer,
-										  UInt32 * outTaskStatus )
-{
-	
-	IOReturn				status = kIOReturnSuccess;
-	SCSITask * 				task = NULL;
-	SCSIServiceResponse		serviceResponse;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	bool					state = true;
-	UInt8					MSF = ( ( MSF_FORMAT >> 8 ) & 0x01 );
-	UInt8					FORMAT = ( MSF_FORMAT & 0xFF );
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	// Validate the parameters
-	if ( bufferSize > 0xFFFF ) 
-	{
-		return kIOReturnBadArgument;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-	
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	buffer = IOMemoryDescriptor::withAddress ( tocBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	if ( FORMAT & 0x04 )
-	{
-		
-		// Use new style from MMC-2
-		task->SetCommandDescriptorBlock ( kSCSICmd_READ_TOC_PMA_ATIP,
-										  MSF << 1,
-										  FORMAT,
-										  0x00,
-										  0x00,
-										  0x00,
-										  TRACK_SESSION_NUMBER,
-										  ( bufferSize >> 8 ) & 0xFF,
-										    bufferSize        & 0xFF,
-										  0x00 );
-
-	
-	}
-	
-	else
-	{
-
-		// Use old style from SFF-8020i
-		task->SetCommandDescriptorBlock ( kSCSICmd_READ_TOC_PMA_ATIP,
-										  MSF << 1,
-										  0x00,
-										  0x00,
-										  0x00,
-										  0x00,
-										  TRACK_SESSION_NUMBER,
-										  ( bufferSize >> 8 ) & 0xFF,
-										    bufferSize        & 0xFF,
-										  ( FORMAT & 0x03 ) << 6 );
-		
-	}
-	
-	// set timeout to 30 seconds
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-				
-		if ( task->GetTaskStatus ( ) != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-
-		
-	}
-	
-	*outTaskStatus = ( UInt32 ) task->GetTaskStatus ( );
-	
-	buffer->complete ( );
-	
-	buffer->release ( );
-	task->release ( );
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::ReadDiscInformation ( vm_address_t discInfoBuffer, UInt32 bufferSize,
-										  vm_address_t senseDataBuffer, UInt32 * outTaskStatus,
-										  void *, void * )
-{
-	
-	IOReturn				status = kIOReturnSuccess;
-	SCSITask * 				task = NULL;
-	SCSIServiceResponse		serviceResponse;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	bool					state = true;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	// Validate the parameters
-	if ( bufferSize > 0xFFFF ) 
-	{
-		return kIOReturnBadArgument;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-	
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	buffer = IOMemoryDescriptor::withAddress ( discInfoBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	// Use new style from MMC-2
-	task->SetCommandDescriptorBlock ( kSCSICmd_READ_DISC_INFORMATION,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00,
-									  0x00,
-									  ( bufferSize >> 8 ) & 0xFF,
-									    bufferSize        & 0xFF,
-									  0x00 );
-	
-	// set timeout to 30 seconds
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-				
-		if ( task->GetTaskStatus ( ) != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-			
-		}
-				
-	}
-
-	*outTaskStatus = ( UInt32 ) task->GetTaskStatus ( );
-	
-	buffer->complete ( );
-	
-	buffer->release ( );
-	task->release ( );
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::ReadTrackInformation ( UInt32 ADDRESS_NUMBER_TYPE,
-										   UInt32 LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
-										   vm_address_t trackInfoBuffer,
-										   UInt32 bufferSize, vm_address_t senseDataBuffer,
-										   UInt32 * outTaskStatus )
-{
-	
-	IOReturn				status = kIOReturnSuccess;
-	SCSITask * 				task = NULL;
-	SCSIServiceResponse		serviceResponse;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	bool					state = true;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	// Validate the parameters
-	if ( bufferSize > 0xFFFF ) 
-	{
-		return kIOReturnBadArgument;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-	
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	buffer = IOMemoryDescriptor::withAddress ( trackInfoBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	// Use new style from MMC-2
-	task->SetCommandDescriptorBlock ( kSCSICmd_READ_TRACK_INFORMATION,
-									  ADDRESS_NUMBER_TYPE & 0x03,
-									  ( LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >> 24 ) & 0xFF,
-									  ( LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >> 16 ) & 0xFF,
-									  ( LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER >>  8 ) & 0xFF,
-								 	    LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER         & 0xFF,
-									  0x00,
-									  ( bufferSize >>  8 ) & 0xFF,
-								  	    bufferSize         & 0xFF,
-									  0x00 );
-	
-	// set timeout to 30 seconds
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-				
-		if ( task->GetTaskStatus ( ) != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-				
-	}
-
-	*outTaskStatus = ( UInt32 ) task->GetTaskStatus ( );
-	
-	buffer->complete ( );
-	
-	buffer->release ( );
-	task->release ( );
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::ReadDVDStructure ( UInt32 LBA,
-									   UInt32 LAYER_FORMAT,
-									   vm_address_t dvdBuffer,
-									   UInt32 bufferSize,
-									   vm_address_t senseDataBuffer,
-									   UInt32 * outTaskStatus )
-{
-	
-	IOReturn				status = kIOReturnSuccess;
-	SCSITask * 				task = NULL;
-	SCSIServiceResponse		serviceResponse;
-	IOMemoryDescriptor *	buffer;
-	IOMemoryDescriptor *	reqSenseBuffer;
-	SCSI_Sense_Data			senseData;
-	bool					state = true;
-	UInt8					LAYER = ( LAYER_FORMAT >> 8 ) & 0xFF;
-	UInt8					FORMAT = LAYER_FORMAT & 0xFF;
-
-	if ( fProtocolInterface == NULL )
-		return kIOReturnNoDevice;
-	
-	state = fProtocolInterface->GetUserClientExclusivityState ( );
-	if ( state == true )
-	{
-		return kIOReturnExclusiveAccess;
-	}
-	
-	// Validate the parameters
-	if ( bufferSize > 0xFFFF ) 
-	{
-		return kIOReturnBadArgument;
-	}
-
-	task = new SCSITask;
-	if ( task == NULL )
-		return kIOReturnNoMemory;
-	
-	if ( task->ResetForNewTask ( ) == false )
-	{
-		task->release ( );
-		task = NULL;
-		return kIOReturnNoMemory;
-	}
-	
-	buffer = IOMemoryDescriptor::withAddress ( dvdBuffer,
-											   bufferSize,
-											   kIODirectionIn,
-											   fTask );
-	
-	if ( buffer == NULL )
-	{
-		task->release ( );
-		return kIOReturnNoMemory;
-	}
-	
-	task->SetCommandDescriptorBlock ( kSCSICmd_READ_DVD_STRUCTURE,
-									  0x00,
-									  ( LBA >> 24 ) & 0xFF,
-									  ( LBA >> 16 ) & 0xFF,
-									  ( LBA >> 8  ) & 0xFF,
-									    LBA		    & 0xFF,
-									  LAYER,
-									  FORMAT,
-									  ( bufferSize >> 8 ) & 0xFF,
-									    bufferSize        & 0xFF,
-									  0x00,
-									  0x00 );
-	
-	// set timeout to 30 seconds
-	task->SetTimeoutDuration ( 30 * 1000 );
-	task->SetDataTransferDirection ( kSCSIDataTransfer_FromTargetToInitiator );
-	task->SetDataBuffer ( buffer );
-	task->SetRequestedDataTransferCount ( bufferSize );
-	
-	IOReturn bufErr = buffer->prepare ( );
-	if ( bufErr != kIOReturnSuccess )
-	{
-		STATUS_LOG ( ( "Error preparing buffer" ) );
-	}
-	
-	serviceResponse = SendCommand ( task );
-	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-				
-		if ( task->GetTaskStatus ( ) != kSCSITaskStatus_GOOD )
-		{
-			
-			if ( task->GetAutoSenseData ( &senseData ) )
-			{
-				
-				reqSenseBuffer = IOMemoryDescriptor::withAddress ( senseDataBuffer,
-														   sizeof ( SCSI_Sense_Data ),
-														   kIODirectionIn,
-														   fTask );
-				
-				if ( reqSenseBuffer != NULL )
-				{
-					reqSenseBuffer->prepare ( );
-					reqSenseBuffer->writeBytes ( 0, &senseData, sizeof ( SCSI_Sense_Data ) );
-					reqSenseBuffer->complete ( );
-					reqSenseBuffer->release ( );
-				}
-				
-			}
-						
-		}
-				
-	}
-
-	*outTaskStatus = ( UInt32 ) task->GetTaskStatus ( );
-	
-	buffer->complete ( );
-	
-	buffer->release ( );
-	task->release ( );
-	
-	return status;
-	
-}
-
-
-SCSIServiceResponse
-SCSITaskUserClient::SendCommand ( SCSITask * request )
-{
-	
-	SCSIServiceResponse 	serviceResponse;
-    IOSyncer *				fSyncLock;
-	
-	fSyncLock = IOSyncer::create ( false );
-	if ( fSyncLock == NULL )
-    {
-		PANIC_NOW ( ( "SCSITaskUserClient::SendCommand Allocate fSyncLock failed.") );
-	}
-	
-	fSyncLock->signal ( kIOReturnSuccess, false );
-	
-	request->SetTaskCompletionCallback ( &SCSITaskUserClient::sTaskCallback );
-	request->SetApplicationLayerReference ( ( void * ) fSyncLock );
-	
-	// Should use the Request Sense constant, but hard code to limit changes.
-	request->SetAutosenseCommand ( 0x03, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
-	
-    fSyncLock->reinit ( );
-	fProtocolInterface->ExecuteCommand ( request );
-	
-	// Wait for the completion routine to get called
-	serviceResponse = ( SCSIServiceResponse ) fSyncLock->wait ( false );
-    fSyncLock->release ( );
-		
-	return serviceResponse;
-	
-}
-
-
-void 
-SCSITaskUserClient::sTaskCallback ( SCSITaskIdentifier completedTask )
-{
-	
-	IOSyncer *				fSyncLock;
-	SCSIServiceResponse 	serviceResponse;
-	SCSITask *				scsiRequest;
-
-	STATUS_LOG ( ( "SCSITaskUserClient::sTaskCallback called.\n") );
-		
-	scsiRequest = OSDynamicCast( SCSITask, completedTask );
-	if ( scsiRequest == NULL )
-	{
-		PANIC_NOW(( "SCSITaskUserClient::sAsyncTaskCallback scsiRequest==NULL." ));
-	}
-	
-	fSyncLock = ( IOSyncer * ) scsiRequest->GetApplicationLayerReference ( );
-	serviceResponse = scsiRequest->GetServiceResponse ( );
-	fSyncLock->signal ( serviceResponse, false );
-	
-}
-
-
-void 
-SCSITaskUserClient::sAsyncTaskCallback ( SCSITaskIdentifier completedTask )
-{
-	
-	OSAsyncReference		asyncRef;
-	IOMemoryDescriptor *	buffer;
-	UInt8 *					internalRefCon;
-	IOReturn				status;
-	SCSITask *				scsiRequest;
-		
-	STATUS_LOG ( ( "SCSITaskUserClient::sAsyncTaskCallback called.\n") );
-	
-	scsiRequest = OSDynamicCast( SCSITask, completedTask );
-	if ( scsiRequest == NULL )
-	{
-		PANIC_NOW(( "SCSITaskUserClient::sAsyncTaskCallback scsiRequest==NULL." ));
-	}
-	
-	buffer = scsiRequest->GetDataBuffer ( );
-	if ( buffer != NULL )
-		buffer->complete ( );
-
-	internalRefCon = ( UInt8 * ) scsiRequest->GetApplicationLayerReference ( );
-	bcopy ( internalRefCon, asyncRef, sizeof ( OSAsyncReference ) );
-
-	STATUS_LOG ( ( "asyncRef[0] = %d\n", asyncRef[0] ) );
-	
-	if ( asyncRef[0] != 0 )
-	{
-		
-		void * 	args[16];
-		UInt64	actualTransferCount;
-		
-		STATUS_LOG ( ( "serviceResponse = %d\n", scsiRequest->GetServiceResponse ( ) ) );
-		STATUS_LOG ( ( "taskStatus = %d\n", scsiRequest->GetTaskStatus ( ) ) );
-		
-		// Get the service response and task status.
-		args[0] = ( void * ) scsiRequest->GetServiceResponse ( );
-		args[1] = ( void * ) scsiRequest->GetTaskStatus ( );
-		
-		// Get the number of bytes transferred
-		actualTransferCount = scsiRequest->GetRealizedDataTransferCount ( );
-		
-		STATUS_LOG ( ( "actualTransferCount = %ld\n", ( UInt32 ) actualTransferCount ) );
-		
-		args[2] = ( void * )( ( actualTransferCount >> 32 ) & 0xFFFFFFFF );
-		args[3]	= ( void * )( actualTransferCount & 0xFFFFFFFF );
-		
-		// Send the result
-        status = sendAsyncResult ( asyncRef, kIOReturnSuccess, ( void ** ) &args, 4 );
-		
-		STATUS_LOG ( ( "sendAsyncResult status = 0x%08x\n", status ) );
-		
-	}
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::message ( UInt32 type, IOService * provider, void * arg )
-{
-	
-	IOReturn	status = kIOReturnSuccess;
-
-	STATUS_LOG ( ( "message called\n" ) );
-	
-	STATUS_LOG ( ( "type = %ld, provider = %p\n", type, provider ) );
-	
-	switch ( type )
-	{
-		
-		case kIOMessageServiceIsRequestingClose:
-			break;
-		
-		case kIOMessageServiceIsTerminated:
-			
-			STATUS_LOG ( ( "kIOMessageServiceIsTerminated called\n" ) );
-			status = HandleTermination ( provider );
-			break;
-			
-		default:
-			status = super::message ( type, provider, arg );
-			break;
-		
-	}
-	
-	return status;
-	
-}
-
-
-IOReturn
-SCSITaskUserClient::HandleTermination ( IOService * provider )
-{
-	
-	IOReturn	status = kIOReturnSuccess;
 	
 	if ( provider->isOpen ( this ) )
 	{
 		
 		STATUS_LOG ( ( "Closing provider\n" ) );
-		provider->close ( this );
-		
-		STATUS_LOG ( ( "Closed provider\n" ) );
+		provider->close ( this, kIOSCSITaskUserClientAccessMask );
 		
 	}
-	
-	STATUS_LOG ( ( "Detaching provider\n" ) );
 	
 	detach ( provider );
 	fProvider = NULL;
 	
-	STATUS_LOG ( ( "Detached provider\n" ) );
+	ReleaseExclusiveAccess ( );
 	
-	if ( fProtocolInterface != NULL )
+	for ( UInt32 index = 0; index < kMaxSCSITaskArraySize; index++ )
 	{
 		
-		STATUS_LOG ( ( "Releasing exclusive access\n" ) );
+		SCSITask *	task = NULL;
 		
-		( void ) ReleaseExclusiveAccess ( );
-		fProtocolInterface = NULL;
+		task = ( SCSITask * ) fArray[index];
+		if ( task == NULL )
+			continue;
+		
+		ReleaseTask ( index );
 		
 	}
 	
-	if ( fSetOfSCSITasks != NULL )
+	workLoop = getWorkLoop ( );
+	if ( workLoop != NULL )
+		workLoop->removeEventSource ( fCommandGate );
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendCommand -	Sends a command to the hardware synchronously. This is a
+//					helper method for all our non-exclusive methods.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::SendCommand ( SCSITask * 		request,
+								  void * 			senseBuffer,
+								  SCSITaskStatus *	taskStatus )
+{
+	
+	SCSITaskRefCon			refCon	= { 0 };
+	IOReturn				status	= kIOReturnNoResources;
+	bool					result  = false;
+	
+	check ( request );
+	check ( senseBuffer );
+	check ( taskStatus );
+	
+	*taskStatus = kSCSITaskStatus_No_Status;
+	
+	refCon.commandType 	= kCommandTypeNonExclusive;
+	refCon.self			= this;
+	
+	request->SetTaskCompletionCallback ( &SCSITaskUserClient::sTaskCallback );
+	request->SetApplicationLayerReference ( ( void * ) &refCon );
+	request->SetAutosenseCommand ( kSCSICmd_REQUEST_SENSE,
+								   0x00,
+								   0x00,
+								   0x00,
+								   sizeof ( SCSI_Sense_Data ),
+								   0x00 );
+	
+	result = request->SetAutoSenseDataBuffer (
+								( SCSI_Sense_Data * ) senseBuffer,
+								sizeof ( SCSI_Sense_Data ),
+								fTask );
+	
+	require ( result, ErrorExit );
+	
+	status = request->GetAutosenseDataBuffer ( )->prepare ( );
+	require_success ( status, ErrorExit );
+	
+	// Retain the task. It will be released by sTaskCallback method.
+	request->retain ( );
+	
+	fProtocolInterface->ExecuteCommand ( request );
+	fCommandGate->runAction ( ( IOCommandGate::Action ) &SCSITaskUserClient::sWaitForTask,
+							  ( void * ) request );
+	
+	*taskStatus = request->GetTaskStatus ( );
+	status = kIOReturnSuccess;
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TaskCallback - 	This method is called by sTaskCallback as the
+//						completion routine for all SCSITasks.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+SCSITaskUserClient::TaskCallback ( SCSITask * task, SCSITaskRefCon * refCon )
+{
+	
+	IOMemoryDescriptor *	buffer = NULL;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::TaskCallback called.\n") );
+	
+	check ( task );
+	check ( refCon );
+	
+	buffer = refCon->taskResultsBuffer;	
+	if ( buffer != NULL )
 	{
 		
-		STATUS_LOG ( ( "Releasing any leftover SCSITasks...\n" ) );
+		SCSITaskResults		results;
+		UInt32				numBytes = 0;
 		
-		for ( UInt32 index = 0; index < fSetOfSCSITasks->getCount ( ); index ++ )
+		results.serviceResponse			= task->GetServiceResponse ( );
+		results.taskStatus				= task->GetTaskStatus ( );
+		results.realizedTransferCount	= task->GetRealizedDataTransferCount ( );
+		
+		numBytes = sizeof ( SCSITaskResults );
+		
+		buffer->writeBytes ( 0, ( void * ) &results, numBytes );
+		buffer->complete ( );
+		
+		// Make sure to release since it was retained by ExecuteTask
+		buffer->release ( );
+		buffer = NULL;
+		
+	}
+	
+	buffer = task->GetAutosenseDataBuffer ( );
+	if ( buffer != NULL )
+	{
+		buffer->complete ( );
+	}
+	
+	// Release the task as it was retained in ExecuteTask or SendCommand
+	task->release ( );
+	
+	if ( refCon->commandType == kCommandTypeNonExclusive )
+	{
+		
+		fCommandGate->commandWakeup ( &refCon->commandType );
+		
+	}
+	
+	else if ( refCon->commandType == kCommandTypeExecuteSync )
+	{
+		
+		// We've executed the task, so decrement the count now.
+		fOutstandingCommands--;
+		fCommandGate->commandWakeup ( &refCon->commandType );
+		
+	}
+		
+	else
+	{
+		
+		OSAsyncReference	asyncRef;
+		
+		asyncRef = refCon->asyncReference;
+		
+		STATUS_LOG ( ( "asyncRef[0] = %d\n", asyncRef[0] ) );
+		
+		buffer = task->GetDataBuffer ( );
+		if ( buffer != NULL )
 		{
 			
-			SCSITask *	task = NULL;
-			
-			task = ( SCSITask * ) fSetOfSCSITasks->getAnyObject ( );
-			if ( task == NULL )
-				break;
-			
-			STATUS_LOG ( ( "Releasing task = %p\n", task ) );
-			
-			ReleaseTask ( task, ( void * ) NULL, ( void * ) NULL,
-							( void * ) NULL, ( void * ) NULL, ( void * ) NULL );
+			// Make sure to complete any data buffers from client
+			CompleteBuffers ( buffer );
 			
 		}
 		
-		fSetOfSCSITasks = NULL;
+		// Send the result
+        ( void ) sendAsyncResult ( asyncRef, kIOReturnSuccess, NULL, 0 );
+		
+		// We've executed asynchronously, so decrement the count now.
+		fOutstandingCommands--;
 		
 	}
 	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetupTask - 	Creates and initializes a new SCSITask.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::SetupTask ( SCSITask ** task )
+{
+	
+	SCSITask *		newTask = NULL;
+	IOReturn		status	= kIOReturnNoMemory;
+	
+	check ( task );
+	
+	newTask = new SCSITask;
+	require_nonzero ( newTask, TASK_CREATE_ERR );
+	require_action ( newTask->ResetForNewTask ( ),
+					 TASK_CREATE_ERR,
+					 newTask->release ( ) );
+	
+	*task 	= newTask;
+	status	= kIOReturnSuccess;
+	
+	
+TASK_CREATE_ERR:
+	
+	
+	return status;	
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PrepareBuffers - 	Prepares any user space buffers.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::PrepareBuffers ( IOMemoryDescriptor **	buffer,
+									 void *					userBuffer,
+									 IOByteCount			bufferSize,
+									 IODirection			direction )
+{
+	
+	IOReturn	status = kIOReturnNoMemory;
+	
+	check ( buffer );
+	check ( userBuffer );
+	
+	*buffer = IOMemoryDescriptor::withAddress ( ( vm_address_t ) userBuffer,
+											    bufferSize,
+											    direction,
+											    fTask );
+	
+	require_nonzero ( *buffer, BUFFER_CREATE_ERR );
+	
+	status = ( *buffer )->prepare ( );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		( *buffer )->release ( );
+		( *buffer ) = NULL;
+		
+	}
+	
+	
+BUFFER_CREATE_ERR:
+	
+	
 	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CompleteBuffers - Completes any user space buffers.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::CompleteBuffers ( IOMemoryDescriptor * buffer )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	check ( buffer );
+	
+	buffer->complete ( );
+	buffer->release ( );
+	
+	return status;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sCreateTask - Called by runAction and holds the workloop lock.
+//																	[STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::sCreateTask ( void *		self,
+								  SCSITask *	task,
+								  SInt32 *		taskReference )
+{
+	
+	check ( self );
+	return ( ( SCSITaskUserClient * ) self )->GatedCreateTask ( task, taskReference );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sReleaseTask - Called by runAction and holds the workloop lock.
+//																	[STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::sReleaseTask ( void * self, SInt32 taskReference, void * task )
+{
+	
+	check ( self );
+	return ( ( SCSITaskUserClient * ) self )->GatedReleaseTask ( taskReference,
+																 ( SCSITask ** ) task );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sWaitForTask - Called by runAction and holds the workloop lock.
+//																	[STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::sWaitForTask ( void *		userClient,
+								   SCSITask *	request )
+{
+	
+	check ( userClient );
+	return ( ( SCSITaskUserClient * ) userClient )->GatedWaitForTask ( request );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sValidateTask - Called by runAction and holds the workloop lock.
+//																	[STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+SCSITaskUserClient::sValidateTask ( void *			userClient,
+									SCSITask *		request,
+									SCSITaskData *	args,
+									UInt32			argSize )
+{
+	
+	check ( userClient );
+	return ( ( SCSITaskUserClient * ) userClient )->GatedValidateTask ( request, args, argSize );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sTaskCallback - 	Static completion routine. Calls TaskCallback. It holds
+//						the workloop lock as well since it is on the completion
+//						chain from the controller.
+//																	[STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+SCSITaskUserClient::sTaskCallback ( SCSITaskIdentifier completedTask )
+{
+	
+	SCSITaskRefCon *		refCon	= NULL;
+	SCSITask *				task	= NULL;
+	
+	STATUS_LOG ( ( "SCSITaskUserClient::sTaskCallback called.\n") );
+	
+	task = OSDynamicCast ( SCSITask, completedTask );
+	require_nonzero_string ( task, GENERAL_ERR,
+							 "SCSITaskUserClient::sTaskCallback task == NULL." );
+	
+	refCon = ( SCSITaskRefCon * ) task->GetApplicationLayerReference ( );
+	require_nonzero_string ( task, GENERAL_ERR,
+							 "SCSITaskUserClient::sTaskCallback refCon == NULL." );
+	
+	refCon->self->TaskCallback ( task, refCon );
+	
+	
+GENERAL_ERR:
+	
+	
+	return;
 	
 }

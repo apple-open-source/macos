@@ -46,6 +46,7 @@
 #define kIOUSBMassStorageCharacteristics	"USB Mass Storage Characteristics"
 #define kIOUSBMassStoragePreferredSubclass	"Preferred Subclass"
 #define kIOUSBMassStoragePreferredProtocol	"Preferred Protocol"
+#define kIOUSBMassStorageResetOnResume		"Reset On Resume"
 
 #pragma mark -
 #pragma mark CBI Protocol Strutures
@@ -123,15 +124,7 @@ private:
 	IOUSBDevRequest				fUSBDeviceRequest;
 	UInt8						fPreferredSubclass;
 	UInt8						fPreferredProtocol;
-
-	// The manufacturer and product name strings that are retrieved from
-	// the device's string descriptors.
-	// Currently, the driver only supports English.  At a later time
-	// support for other languages should be added and these should be
-	// changed to support Unicode.    
-  	//char						fManufacturerString[255];
-  	//char						fProductString[255];
-  	
+	
   	// The maximum Logical Unit Number.  This is the highest valid LUN
   	// that the USB device supports, so if the device only supports one
   	// LUN, such as CBI and CB, this number will be zero.
@@ -155,15 +148,18 @@ private:
 
 protected:
     // Reserve space for future expansion.
-    struct ExpansionData { };
+    struct ExpansionData
+	{
+		bool	fResetInProgress;
+		OSSet *	fClients;
+	};
     ExpansionData *				reserved;
+	
+	#define fResetInProgress	reserved->fResetInProgress
+	#define fClients			reserved->fClients
 
 	// Enumerated constants used to control various aspects of this
 	// driver.
-	enum
-	{
-		kUSBMaxBulkTransfer		= 0x200000	// Max transfer is 2MB
-	};
 	
 	// Enumerations for Mass Storage Class Subclass types
 	enum
@@ -205,17 +201,17 @@ protected:
 										void * 					serviceValue );
  
 	// Methods for retrieving and setting the object for the Interface
-	inline IOUSBInterface *	GetInterfaceReference( void );
-	inline void				SetInterfaceReference( IOUSBInterface * newInterface );
+	IOUSBInterface *		GetInterfaceReference( void );
+	void					SetInterfaceReference( IOUSBInterface * newInterface );
 	
-	inline UInt8			GetInterfaceSubclass( void );
-	inline UInt8			GetInterfaceProtocol( void );
+	UInt8					GetInterfaceSubclass( void );
+	UInt8					GetInterfaceProtocol( void );
 	
 	// Methods for retrieving an object for a Pipe.
-	inline IOUSBPipe *		GetControlPipe( void );
-	inline IOUSBPipe *		GetBulkInPipe( void );
-	inline IOUSBPipe *		GetBulkOutPipe( void );
-	inline IOUSBPipe *		GetInterruptPipe( void );
+	IOUSBPipe *				GetControlPipe( void );
+	IOUSBPipe *				GetBulkInPipe( void );
+	IOUSBPipe *				GetBulkOutPipe( void );
+	IOUSBPipe *				GetInterruptPipe( void );
 
 	virtual void 			CompleteSCSICommand( 
 								SCSITaskIdentifier request, 
@@ -367,13 +363,41 @@ public:
     bool				init( OSDictionary * 	propTable );
     virtual bool		start( IOService *	 	provider );
     virtual void 		stop( IOService * 		provider );
+	virtual void		free( void );
 	virtual	IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 );
-
+	
+	virtual bool		handleOpen( IOService *		client,
+									IOOptionBits	options,
+									void *			arg );
+	
+	virtual void		handleClose( IOService *	client,
+									 IOOptionBits	options );
+	
+	virtual bool		handleIsOpen(  const IOService * client ) const;
+	
 	virtual IOReturn	HandlePowerOn( void );
+	
+protected:
+
+	static IOReturn		sWaitForReset( void * refcon );
+	
+	IOReturn			GatedWaitForReset( void );
+	
+	static void			sResetDevice( void * refcon );
+	
+    OSMetaClassDeclareReservedUsed( IOUSBMassStorageClass, 1 );
+	virtual IOReturn	StartDeviceRecovery( void );
+
+    OSMetaClassDeclareReservedUsed( IOUSBMassStorageClass, 2 );
+	virtual void		FinishDeviceRecovery( IOReturn	status );
+
+	static void			DeviceRecoveryCompletionAction (
+		                	void *			target,
+		                	void *			parameter,
+		                	IOReturn		status,
+		                	UInt32			bufferSizeRemaining );
 
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 1 );
-    OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 2 );
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 3 );
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 4 );
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 5 );

@@ -40,6 +40,7 @@ int really_quiet = 0;
 int quiet = 0;
 int trace = 0;
 int noexec = 0;
+int readonlyfs = 0;
 int logoff = 0;
 
 /* Set if we should be writing CVSADM directories at top level.  At
@@ -456,6 +457,10 @@ main (argc, argv)
     }
     if (getenv (CVSREAD_ENV) != NULL)
 	cvswrite = 0;
+    if (getenv (CVSREADONLYFS_ENV) != NULL) {
+	readonlyfs = 1;
+	logoff = 1;
+    }
 
     /* Set this to 0 to force getopt initialization.  getopt() sets
        this to 1 internally.  */
@@ -485,7 +490,7 @@ main (argc, argv)
     opterr = 1;
 
     while ((c = getopt_long
-            (argc, argv, "+Qqrwtnlvb:T:e:d:Hfz:s:xa", long_options, &option_index))
+            (argc, argv, "+QqrwtnRlvb:T:e:d:Hfz:s:xa", long_options, &option_index))
            != EOF)
     {
 	switch (c)
@@ -520,6 +525,10 @@ main (argc, argv)
 		break;
 	    case 't':
 		trace = 1;
+		break;
+	    case 'R':
+		readonlyfs = 1;
+		logoff = 1;
 		break;
 	    case 'n':
 		noexec = 1;

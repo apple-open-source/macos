@@ -2,9 +2,9 @@
 
 ;; (C) Copyright 1996 Free Software Foundation, Inc.
 
-;; Author: Danny Roozendaal <danny@tvs.kun.nl>
+;; Author: Danny Roozendaal (was: <danny@tvs.kun.nl>)
 ;; Created: October 21 1996
-;; Keywords: cursive writing
+;; Keywords: wp, print, postscript, cursive writing
 
 ;; This file is part of GNU Emacs.
 
@@ -159,7 +159,7 @@ Variables: handwrite-linespace     (default 12)
     (setq next-line-add-newlines t)
     (switch-to-buffer ps-buf-name)
     (handwrite-insert-header buf-name)
-    (insert "\n(\\nCreated by Gnu Emacs' handwrite version "
+    (insert "\n(\\nCreated by GNU Emacs' handwrite version "
 	    emacs-version  "\\n\\n)=print flush\n")
     (handwrite-insert-preamble)
     (handwrite-insert-info)

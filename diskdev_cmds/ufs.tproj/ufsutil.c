@@ -104,7 +104,7 @@ main(int argc, const char *argv[])
 	exit(FSUR_INVAL);
     }
     opt = argv[1][1];
-    if (opt != FSUC_PROBE && opt != 'n') {
+    if (opt != FSUC_PROBE && opt != 's' && opt != 'k' && opt != 'n') {
 	usage(argv[0]);
 	exit(FSUR_INVAL);
     }
@@ -118,10 +118,11 @@ main(int argc, const char *argv[])
     switch (opt) {
     case FSUC_PROBE: {
 	FILE *		f;
-	char		filename[MAXPATHLEN];
+	char		filename[MAXPATHLEN + 1];
 	int 		fd;
 	int		len;
 	u_char		name[UFS_MAX_LABEL_NAME + 1];
+	struct ufslabel	ul;
 
 	sprintf(filename, "%s/ufs%s/ufs.label", FS_DIR_LOCATION,
 		FS_DIR_SUFFIX);
@@ -140,42 +141,39 @@ main(int argc, const char *argv[])
 	    exit(FSUR_UNRECOGNIZED);
 	}
 	len = sizeof(name) - 1;
-	if (ufslabel_get(fd, name, &len) == FALSE) {
-	    fprintf(stderr, "%s: couldn't read the label\n",
-		    argv[0]);
+	if (ufslabel_get(fd, &ul) == FALSE) {
 	    exit(FSUR_RECOGNIZED);
 	}
+	ufslabel_get_name(&ul, name, &len);
 	name[len] = '\0';
 	close(fd);
 
 	/* write the ufs.label file */
-	sprintf(filename, "%s/ufs%s/ufs.label", FS_DIR_LOCATION,
+	sprintf(filename, "%s/ufs%s/ufs" FS_LABEL_SUFFIX, FS_DIR_LOCATION,
 		FS_DIR_SUFFIX);
 	f = fopen(filename, "w");
-	if (f == NULL) {
-	    fprintf(stderr, "%s: fopen %s failed, %s\n", argv[0], filename,
-		    strerror(errno));
-	    exit (FSUR_RECOGNIZED);
+	if (f != NULL) {
+	    fprintf(f, "%s", name);
+	    fclose(f);
 	}
-	fprintf(f, "%s", name);
-	fclose(f);
+
+	/* dump the name to stdout */
+	write(1, name, strlen(name));
 
 	/* write the ufs.name file */
 	sprintf(filename, "%s/ufs%s/ufs.name", FS_DIR_LOCATION,
 		FS_DIR_SUFFIX);
 	f = fopen(filename, "w");
-	if (f == NULL) {
-	    fprintf(stderr, "%s: fopen %s failed, %s\n", argv[0], filename,
-		    strerror(errno));
-	    exit (FSUR_RECOGNIZED);
+	if (f != NULL) {
+	    fprintf(f, UFS_FS_NAME_FILE);
+	    fclose(f);
 	}
-	fprintf(f, UFS_FS_NAME_FILE);
-	fclose(f);
 	break;
     }
     case 'n': {
-	int 	fd;
-	char * 	name;
+	int		fd;
+	char *		name;
+	struct ufslabel ul;
 
 	if (argc < 4) {
 	    usage(argv[0]);
@@ -197,11 +195,76 @@ main(int argc, const char *argv[])
 	if (read_superblock(fd, dev) == FALSE) {
 	    exit(FSUR_UNRECOGNIZED);
 	}
-	if (ufslabel_set(fd, (char *)argv[3], strlen(argv[3])) == FALSE) {
-	    fprintf(stderr, "%s: couldn't update the name\n", 
+	if(ufslabel_get(fd, &ul) == FALSE)
+	    ufslabel_init(&ul);
+	if (ufslabel_set_name(&ul, (char *)argv[3], strlen(argv[3])) == FALSE) {
+	    fprintf(stderr, "%s: couldn't update the name\n",
 		    argv[0]);
 	    exit(FSUR_IO_FAIL);
 	}
+	if (ufslabel_set(fd, &ul) == FALSE) {
+	    fprintf(stderr, "%s: couldn't update the name\n",
+		    argv[0]);
+	    exit(FSUR_IO_FAIL);
+	}
+	break;
+    }
+    case 's': {
+	int		fd;
+	struct ufslabel ul;
+
+	if (argc < 3) {
+	    usage(argv[0]);
+	    exit(FSUR_INVAL);
+	}
+
+	fd = open(dev, O_RDWR, 0);
+	if (fd <= 0) {
+	    fprintf(stderr, "%s: open %s failed, %s\n", argv[0], dev,
+		    strerror(errno));
+	    exit(FSUR_UNRECOGNIZED);
+	}
+	if (read_superblock(fd, dev) == FALSE) {
+	    exit(FSUR_UNRECOGNIZED);
+	}
+	if(ufslabel_get(fd, &ul) == FALSE)
+	    ufslabel_init(&ul);
+	ufslabel_set_uuid(&ul);
+	if (ufslabel_set(fd, &ul) == FALSE) {
+	    fprintf(stderr, "%s: couldn't update the uuid\n",
+		    argv[0]);
+	    exit(FSUR_IO_FAIL);
+	}
+
+	exit (FSUR_IO_SUCCESS);
+	break;
+    }
+    case 'k': {
+	int 		fd;
+	char		uuid[UFS_MAX_LABEL_UUID + 1];
+	struct ufslabel	ul;
+
+	fd = open(dev, O_RDONLY, 0);
+	if (fd <= 0) {
+	    fprintf(stderr, "%s: open %s failed, %s\n", argv[0], dev,
+		    strerror(errno));
+	    exit(FSUR_UNRECOGNIZED);
+	}
+	if (read_superblock(fd, dev) == FALSE) {
+	    exit(FSUR_UNRECOGNIZED);
+	}
+	if (ufslabel_get(fd, &ul) == FALSE) {
+	    fprintf(stderr, "%s: couldn't read the uuid\n",
+		    argv[0]);
+	    exit(FSUR_IO_FAIL);
+	}
+	close(fd);
+	ufslabel_get_uuid(&ul, uuid);
+
+	/* dump the uuid to stdout */
+	write(1, uuid, strlen(uuid));
+
+	exit (FSUR_IO_SUCCESS);
 	break;
     }
     default:

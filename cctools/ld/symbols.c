@@ -46,6 +46,7 @@
 #include <ar.h>
 #include "stuff/bool.h"
 #include "stuff/bytesex.h"
+#include "stuff/macosx_deployment_target.h"
 
 #include "ld.h"
 #include "specs.h"
@@ -164,10 +165,9 @@ static struct undefined_block {
 __private_extern__ struct common_load_map common_load_map = { 0 };
 
 /*
- * These symbols, undefined_symbol, indr_symbol and pbud_symbol are used by the
- * routines command_line_symbol(), command_line_indr_symbol() and
- * merge_dylib_symbols() to create symbols from the command line options (-u
- * and -i) and from dylibs.
+ * These symbols are used by the routines command_line_symbol(),
+ * command_line_indr_symbol() and merge_dylib_symbols() to create symbols from
+ * the command line options (-u and -i) and from dylibs.
  */
 static struct nlist undefined_symbol = {
     {0},		/* n_un.n_strx */
@@ -188,6 +188,13 @@ static struct nlist pbud_symbol = {
     N_PBUD | N_EXT,	/* n_type */
     NO_SECT,		/* n_sect */
     REFERENCE_FLAG_UNDEFINED_LAZY, /* n_desc */
+    0			/* n_value */
+};
+static struct nlist pbud_weak_def_symbol = {
+    {0},		/* n_un.n_strx */
+    N_PBUD | N_EXT,	/* n_type */
+    NO_SECT,		/* n_sect */
+    REFERENCE_FLAG_UNDEFINED_LAZY | N_WEAK_DEF, /* n_desc */
     0			/* n_value */
 };
 
@@ -541,10 +548,52 @@ unsigned long index)
 			   & SECTION_TYPE;
 	    if(section_type == S_NON_LAZY_SYMBOL_POINTERS ||
 	       section_type == S_LAZY_SYMBOL_POINTERS ||
-	       section_type == S_SYMBOL_STUBS)
+	       section_type == S_SYMBOL_STUBS){
 		error_with_cur_obj("external symbol %lu (%s) not allowed in an "
 		    "indirect section", index, symbol->n_un.n_strx == 0 ?
 		    "NULL name" : strings + symbol->n_un.n_strx);
+		return;
+	    }
+	}
+
+	/*
+	 * Check to see that any symbol that is marked as a weak_definition
+	 * is a global symbol defined in a coalesced section.
+	 */
+	if((symbol->n_type & N_STAB) == 0 &&
+	   (symbol->n_desc & N_WEAK_DEF) == N_WEAK_DEF){
+		if((symbol->n_type & N_EXT) == 0 &&
+		   (symbol->n_type & N_PEXT) != N_PEXT){
+		    error_with_cur_obj("non-external symbol %lu (%s) can't be a"
+			" weak definition", index, symbol->n_un.n_strx == 0 ?
+			"NULL name" : strings + symbol->n_un.n_strx);
+		    return;
+		}
+		if((symbol->n_type & N_TYPE) == N_UNDF ||
+		   (symbol->n_type & N_TYPE) == N_PBUD){
+		    error_with_cur_obj("undefined symbol %lu (%s) can't be a "
+			"weak definition", index, symbol->n_un.n_strx == 0 ?
+			"NULL name" : strings + symbol->n_un.n_strx);
+		    return;
+		}
+		if((symbol->n_type & N_TYPE) != N_SECT){
+		    error_with_cur_obj("symbol %lu (%s) can't be a weak "
+			"definition (currently only supported in section of "
+			"type S_COALESCED)", index, symbol->n_un.n_strx == 0 ?
+			"NULL name" : strings + symbol->n_un.n_strx);
+		    return;
+		}
+		else{
+		    section_type = (cur_obj->section_maps[symbol->n_sect - 1].
+				    s->flags) & SECTION_TYPE;
+		    if(section_type != S_COALESCED){
+			error_with_cur_obj("symbol %lu (%s) can't be a weak "
+			    "definition (currently only supported in section "
+			    "of type S_COALESCED)", index, symbol->n_un.n_strx
+			    == 0 ? "NULL name" : strings + symbol->n_un.n_strx);
+			return;
+		    }
+		}
 	}
 }
 
@@ -761,6 +810,7 @@ merge_symbols(void)
     char *object_strings;
     struct merged_symbol **hash_pointer, *merged_symbol;
     enum bool discarded_coalesced_symbol;
+    unsigned short n_desc;
 
 #ifndef RLD
     unsigned long nest, sum, k;
@@ -843,7 +893,7 @@ merge_symbols(void)
 	 * to build the reference table, is allocated.
 	 */
 	if(filetype == MH_DYLIB){
-/* TODO coalesce symbols that are discared need to be accounted for as
+/* TODO coalesce symbols that are discarded need to be accounted for as
    undefined references */
 	    for(i = 0; i < cur_obj->symtab->nsyms; i++){
 		if((object_symbols[i].n_type & N_EXT) == N_EXT &&
@@ -961,6 +1011,8 @@ merge_symbols(void)
 					         &(object_symbols[i]),
 						 object_strings, cur_obj);
 			merged_symbol->referenced_in_non_dylib = TRUE;
+			if(merged_symbol->non_dylib_referenced_obj == NULL)
+			    merged_symbol->non_dylib_referenced_obj = cur_obj;
 		    }
 		}
 		/* the symbol has been seen so merge it */
@@ -977,6 +1029,8 @@ merge_symbols(void)
 			    enter_string(object_strings +
 					 object_symbols[i].n_un.n_strx);
 			merged_symbol->referenced_in_non_dylib = TRUE;
+			if(merged_symbol->non_dylib_referenced_obj == NULL)
+			    merged_symbol->non_dylib_referenced_obj = cur_obj;
 		    }
 		    /*
 		     * If the object's symbol was undefined ignore it and just
@@ -1006,6 +1060,35 @@ merge_symbols(void)
 			 */
 			merged_symbol->nlist.n_desc |=
 			   (object_symbols[i].n_desc & REFERENCED_DYNAMICALLY);
+
+			/*
+			 * If the merged symbol is also an undefined deal with
+			 * weak reference mismatches if any.
+			 */
+			if((merged_symbol->nlist.n_type == (N_EXT | N_UNDF) &&
+			    merged_symbol->nlist.n_value == 0) ||
+			    merged_symbol->nlist.n_type == (N_EXT | N_PBUD)){
+			    if(((merged_symbol->nlist.n_desc & N_WEAK_REF) ==
+				 N_WEAK_REF &&
+				(object_symbols[i].n_desc & N_WEAK_REF) !=
+				 N_WEAK_REF) ||
+			       ((merged_symbol->nlist.n_desc & N_WEAK_REF) !=
+				 N_WEAK_REF &&
+				(object_symbols[i].n_desc & N_WEAK_REF) ==
+				 N_WEAK_REF)){
+				if(weak_reference_mismatches ==
+				   WEAK_REFS_MISMATCH_ERROR)
+				    merged_symbol->weak_reference_mismatch =
+					TRUE;
+				else if(weak_reference_mismatches ==
+					WEAK_REFS_MISMATCH_WEAK)
+				    merged_symbol->nlist.n_desc |= N_WEAK_REF;
+				else if(weak_reference_mismatches ==
+					WEAK_REFS_MISMATCH_NON_WEAK)
+				    merged_symbol->nlist.n_desc &=
+					~(N_WEAK_REF);
+			    }
+			}
 		    }
 		    /*
 		     * See if the object's symbol is a common.
@@ -1055,9 +1138,113 @@ merge_symbols(void)
 			 */
 			merged_symbol->nlist.n_type = object_symbols[i].n_type;
 			merged_symbol->nlist.n_sect = object_symbols[i].n_sect;
+			n_desc = 0;
 			/*
 			 * If this symbol was previously referenced dynamically
 			 * then keep this information.
+			 */
+			n_desc |= (merged_symbol->nlist.n_desc &
+				   REFERENCED_DYNAMICALLY);
+			/*
+			 * If the object symbol is a weak definition it may be
+			 * later discarded for a non-weak symbol from a dylib so
+			 * if the undefined symbol is a weak reference keep that
+			 * information.
+			 */
+			if((object_symbols[i].n_desc & N_WEAK_DEF) ==
+			   N_WEAK_DEF)
+			    n_desc |= (merged_symbol->nlist.n_desc &
+				       N_WEAK_REF);
+			merged_symbol->nlist.n_desc =
+			    object_symbols[i].n_desc | n_desc;
+			if(merged_symbol->nlist.n_type == (N_EXT | N_INDR))
+			    enter_indr_symbol(merged_symbol,
+					      &(object_symbols[i]),
+					      object_strings, cur_obj);
+			else
+			    merged_symbol->nlist.n_value =
+						      object_symbols[i].n_value;
+			merged_symbol->definition_object = cur_obj;
+		    }
+		    /*
+		     * If the object symbol is a weak definition then it is
+		     * discarded and the merged symbol is kept.  Note currently
+		     * only symbols in coalesced sections can have this set and
+		     * it is checked for in check_symbol() so it is assumed it
+		     * is a coalesced symbol here.
+		     */
+		    else if((object_symbols[i].n_desc & N_WEAK_DEF) ==
+			    N_WEAK_DEF){
+			discarded_coalesced_symbol = TRUE;
+			if((object_symbols[i].n_type & N_EXT) &&
+			   (object_symbols[i].n_type & N_PEXT)){
+			    cur_obj->nprivatesym--;
+			    nmerged_private_symbols--;
+			}
+			else{
+			    cur_obj->nextdefsym--;
+			}
+		    }
+		    /*
+		     * If the merged symbol is a weak definition then it is
+		     * discarded and the object symbol is used.
+		     */
+		    else if((merged_symbol->nlist.n_desc & N_WEAK_DEF) ==
+			    N_WEAK_DEF ||
+			    (merged_symbol->defined_in_dylib == TRUE &&
+			     merged_symbol->weak_def_in_dylib)){
+			if(merged_symbol->defined_in_dylib == FALSE){
+			    if((merged_symbol->nlist.n_type & N_EXT) &&
+			       (merged_symbol->nlist.n_type & N_PEXT)){
+				merged_symbol->definition_object->nprivatesym--;
+				nmerged_private_symbols--;
+			    }
+			    else{
+				merged_symbol->definition_object->nextdefsym--;
+			    }
+			}
+#ifndef RLD
+			/*
+			 * If the output file is a MH_DYLIB type reset the
+			 * reference map for the merged external symbol that
+			 * is being discarded.
+			 */
+			if(filetype == MH_DYLIB &&
+			   merged_symbol->defined_in_dylib == FALSE){
+			    /*
+			     * Discared coalesced symbols are referenced as
+			     * undefined. TODO: to determine if the reference is
+			     * lazy or non-lazy we would have to look at all the
+			     * relocation entries in this object.  For now just
+			     * assume non-lazy to be safe.
+			     */
+			    for(j = 0;
+				j < merged_symbol->definition_object->nrefsym;
+				j++){
+				if(merged_symbol->definition_object->
+			           reference_maps[j].merged_symbol ==
+								merged_symbol){
+				    if(object_symbols[i].n_type & N_PEXT)
+					merged_symbol->definition_object->
+					reference_maps[j].flags =
+				      REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY;
+				    else
+					merged_symbol->definition_object->
+					reference_maps[j].flags =
+					    REFERENCE_FLAG_UNDEFINED_NON_LAZY;
+				    break;
+				}
+			    }
+			}
+#endif /* RLD */
+			merged_symbol->defined_in_dylib = FALSE;
+			merged_symbol->coalesced_defined_in_dylib = FALSE;
+			merged_symbol->weak_def_in_dylib = FALSE;
+			merged_symbol->nlist.n_type = object_symbols[i].n_type;
+			merged_symbol->nlist.n_sect = object_symbols[i].n_sect;
+			/*
+			 * If this symbol was previously referenced
+			 * dynamically then keep this information.
 			 */
 			if(merged_symbol->nlist.n_desc &
 			   REFERENCED_DYNAMICALLY)
@@ -1498,7 +1685,6 @@ printf("symbol: %s is coalesced\n", merged_symbol->nlist.n_un.n_name);
 
 }
 
-
 #ifndef RLD
 /*
  * command_line_symbol() looks up a symbol name that comes from a command line
@@ -1568,6 +1754,8 @@ char *symbol_name)
 		merged_symbol->nlist.n_un.n_name = enter_string(symbol_name);
 	}
 	merged_symbol->referenced_in_non_dylib = TRUE;
+	if(merged_symbol->non_dylib_referenced_obj == NULL)
+	    merged_symbol->non_dylib_referenced_obj = command_line_object;
 	return(merged_symbol);
 }
 
@@ -1618,6 +1806,8 @@ char *indr_symbol_name)
 	    merged_symbol = enter_symbol(hash_pointer, &(undefined_symbol),
 					 symbol_name, command_line_object);
 	    merged_symbol->referenced_in_non_dylib = TRUE;
+	    if(merged_symbol->non_dylib_referenced_obj == NULL)
+		merged_symbol->non_dylib_referenced_obj = command_line_object;
 	}
 	else{
 	    /*
@@ -1633,6 +1823,8 @@ char *indr_symbol_name)
 	    if(merged_symbol->referenced_in_non_dylib == FALSE)
 		merged_symbol->nlist.n_un.n_name = enter_string(symbol_name);
 	    merged_symbol->referenced_in_non_dylib = TRUE;
+	    if(merged_symbol->non_dylib_referenced_obj == NULL)
+		merged_symbol->non_dylib_referenced_obj = command_line_object;
 	    if(merged_symbol->nlist.n_type != (N_UNDF | N_EXT)){
 		/*
 		 * It is multiply defined so the logic of the routine
@@ -1697,6 +1889,9 @@ char *indr_symbol_name)
 	    merged_indr_symbol = enter_symbol(hash_pointer, &(undefined_symbol),
 				      indr_symbol_name, command_line_object);
 	    merged_indr_symbol->referenced_in_non_dylib = TRUE;
+	    if(merged_indr_symbol->non_dylib_referenced_obj == NULL)
+		merged_indr_symbol->non_dylib_referenced_obj =
+							    command_line_object;
 	}
 	else{
 	    merged_indr_symbol = *hash_pointer;
@@ -1709,6 +1904,9 @@ char *indr_symbol_name)
 		merged_indr_symbol->nlist.n_un.n_name =
 		    enter_string(indr_symbol_name);
 	    merged_indr_symbol->referenced_in_non_dylib = TRUE;
+	    if(merged_indr_symbol->non_dylib_referenced_obj == NULL)
+		merged_indr_symbol->non_dylib_referenced_obj =
+							    command_line_object;
 	}
 	merged_symbol->nlist.n_value = (unsigned long)merged_indr_symbol;
 
@@ -1750,7 +1948,7 @@ struct dynamic_library *dynamic_library)
 {
     unsigned long i, j, k, l, nundefineds, module_index, library_ordinal;
     char *strings, *symbol_name, *name;
-    struct nlist *symbols;
+    struct nlist *symbols, *fake_trace_symbol;
     struct dylib_reference *refs;
     unsigned long flags;
     enum bool was_traced;
@@ -1775,11 +1973,15 @@ struct dynamic_library *dynamic_library)
 	    /*
 	     * Do the trace of the symbol_name if specified.
 	     */
+	    if((symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		fake_trace_symbol = &pbud_weak_def_symbol;
+	    else
+		fake_trace_symbol = &pbud_symbol;
 	    was_traced = FALSE;
 	    if(ntrace_syms != 0){
 		for(k = 0; k < ntrace_syms; k++){
 		    if(strcmp(trace_syms[k], symbol_name) == 0){
-			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+			trace_symbol(symbol_name, fake_trace_symbol, cur_obj,
 			    "error in trace_symbol()");
 			was_traced = TRUE;
 			break;
@@ -1799,6 +2001,72 @@ struct dynamic_library *dynamic_library)
 	    else{
 		merged_symbol = *hash_pointer;
 		/*
+		 * If the merged symbol is not undefined and if this symbol is
+		 * a weak definition then it is simply ignored and the merged
+		 * symbol is used.  Note currently only coalesced sections can
+		 * have this attribute and this is checked for in
+		 * check_symbol() so it is assumed it is a coalesced symbol
+		 * here.
+		 */
+		if((merged_symbol->nlist.n_type != (N_UNDF | N_EXT) ||
+		    merged_symbol->nlist.n_value != 0) &&
+		   (symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF){
+		    continue;
+		}
+		/*
+		 * If the merged symbol is a weak definition then it is
+		 * discarded and this symbol definition from this dylib is used.
+		 */
+		if((merged_symbol->nlist.n_desc & N_WEAK_DEF) == N_WEAK_DEF ||
+			(merged_symbol->defined_in_dylib == TRUE &&
+			 merged_symbol->weak_def_in_dylib)){
+		    if(merged_symbol->defined_in_dylib == FALSE){
+			if((merged_symbol->nlist.n_type & N_EXT) &&
+			   (merged_symbol->nlist.n_type & N_PEXT)){
+			    merged_symbol->definition_object->nprivatesym--;
+			    nmerged_private_symbols--;
+			}
+			else{
+			    merged_symbol->definition_object->nextdefsym--;
+			}
+		    }
+		    /*
+		     * If the output file is a MH_DYLIB type reset the
+		     * reference map for the merged external symbol that
+		     * is being discarded.
+		     */
+		    if(filetype == MH_DYLIB &&
+		       merged_symbol->defined_in_dylib == FALSE){
+			/*
+			 * Discared coalesced symbols are referenced as
+			 * undefined. TODO: to determine if the reference is
+			 * lazy or non-lazy we would have to look at all the
+			 * relocation entries in this object.  For now just
+			 * assume non-lazy to be safe.
+			 */
+			for(k = 0;
+			    k < merged_symbol->definition_object->nrefsym;
+			    k++){
+			    if(merged_symbol->definition_object->
+			       reference_maps[k].merged_symbol ==
+							    merged_symbol){
+				if(symbols[k].n_type & N_PEXT)
+				    merged_symbol->definition_object->
+				    reference_maps[k].flags =
+				  REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY;
+				else
+				    merged_symbol->definition_object->
+				    reference_maps[k].flags =
+					REFERENCE_FLAG_UNDEFINED_NON_LAZY;
+				break;
+			    }
+			}
+		    }
+		    merged_symbol->coalesced_defined_in_dylib = FALSE;
+		    merged_symbol->weak_def_in_dylib = FALSE;
+		    goto use_symbol_definition_from_this_dylib;
+		}
+		/*
 		 * If both symbols are coalesced symbols then the this
 		 * symbol is simply ignored.
 		 */
@@ -1813,11 +2081,19 @@ struct dynamic_library *dynamic_library)
 		    continue;
 		}
 		/*
-		 * The symbol exist and both are not coalesced symbols.  So if
+		 * The symbol exists and both are not coalesced symbols.  So if
 		 * the merged symbol is anything but a common or undefined then
 		 * it is multiply defined.
 		 */
 		if(merged_symbol->nlist.n_type != (N_UNDF | N_EXT)){
+		    /*
+		     * If this is a two-level namespace link and this library is
+		     * referenced indirectly then don't issue a multiply
+		     * defined error or warning about symbols from it.
+		     */
+		    if(twolevel_namespace == TRUE &&
+		       dynamic_library->definition_obj->library_ordinal == 0)
+			continue;
 		    /*
 		     * It is multiply defined so the logic of the routine
 		     * multiply_defined() is copied here so that tracing a
@@ -1880,18 +2156,22 @@ struct dynamic_library *dynamic_library)
 			if(l == ntrace_syms)
 			    trace_merged_symbol(merged_symbol);
 		    }
-		    if(was_traced == FALSE)
-			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+		    if(was_traced == FALSE){
+			trace_symbol(symbol_name, fake_trace_symbol, cur_obj,
 			    "error in trace_symbol()");
+		    }
 		    continue;
 		}
 	    }
+use_symbol_definition_from_this_dylib:
 	    merged_symbol->nlist.n_type = N_PBUD | N_EXT;
 	    merged_symbol->nlist.n_sect = NO_SECT;
 	    if((symbols[j].n_type & N_TYPE) == N_SECT &&
 		((cur_obj->section_maps[symbols[j].n_sect - 1].
 		  s->flags) & SECTION_TYPE) == S_COALESCED){
 		merged_symbol->coalesced_defined_in_dylib = TRUE;
+		if((symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		    merged_symbol->weak_def_in_dylib = TRUE;
 #ifdef COALESCE_DEBUG
 printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 #endif
@@ -1905,7 +2185,8 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 	     * flag this as an illegal reference to an indirect dynamic library
 	     * if this library was not flagged already.
 	     */
-	    if(twolevel_namespace == TRUE &&
+	    if(save_reloc == FALSE &&
+	       twolevel_namespace == TRUE &&
 	       merged_symbol->referenced_in_non_dylib == TRUE &&
 	       dynamic_library->definition_obj->library_ordinal == 0 &&
 	       dynamic_library->indirect_twolevel_ref_flagged == FALSE){
@@ -1925,6 +2206,14 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 	    merged_symbol->nlist.n_value = symbols[j].n_value;
 	    merged_symbol->definition_object = cur_obj;
 	    merged_symbol->defined_in_dylib = TRUE;
+	    merged_symbol->definition_library = dynamic_library;
+	    /*
+	     * If the merged symbol we are resolving is not a weak reference
+	     * then set some_non_weak_refs to TRUE.
+	     */
+	    if((merged_symbol->nlist.n_desc & N_WEAK_REF) == 0)
+		dynamic_library->some_non_weak_refs = TRUE;
+	    dynamic_library->some_symbols_referenced = TRUE;
 	    if((symbols[j].n_type & N_TYPE) == N_INDR){
 		merged_symbol->nlist.n_type = N_INDR | N_EXT;
 		enter_indr_symbol(merged_symbol, symbols + j, strings, cur_obj);
@@ -2139,7 +2428,7 @@ struct dynamic_library *dynamic_library)
 {
     unsigned long i, j, k, l;
     char *strings, *symbol_name;
-    struct nlist *symbols;
+    struct nlist *symbols, *fake_trace_symbol;
     enum bool was_traced;
     struct merged_symbol **hash_pointer, *merged_symbol;
 
@@ -2156,11 +2445,15 @@ struct dynamic_library *dynamic_library)
 	    /*
 	     * Do the trace of the symbol_name if specified.
 	     */
+	    if((symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		fake_trace_symbol = &pbud_weak_def_symbol;
+	    else
+		fake_trace_symbol = &pbud_symbol;
 	    was_traced = FALSE;
 	    if(ntrace_syms != 0){
 		for(k = 0; k < ntrace_syms; k++){
 		    if(strcmp(trace_syms[k], symbol_name) == 0){
-			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+			trace_symbol(symbol_name, fake_trace_symbol, cur_obj,
 			    "error in trace_symbol()");
 			was_traced = TRUE;
 			break;
@@ -2179,6 +2472,72 @@ struct dynamic_library *dynamic_library)
 	    }
 	    else{
 		merged_symbol = *hash_pointer;
+		/*
+		 * If the merged symbol is not undefined and if this symbol is
+		 * a weak definition then it is simply ignored and the merged
+		 * symbol is used.  Note currently only coalesced sections can
+		 * have this attribute and this is checked for in check_symbol()
+		 * so it is assumed it is a coalesced symbol here.
+		 */
+		if((merged_symbol->nlist.n_type != (N_UNDF | N_EXT) ||
+		    merged_symbol->nlist.n_value != 0) &&
+		   (symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF){
+		    continue;
+		}
+		/*
+		 * If the merged symbol is a weak definition then it is
+		 * discarded and this symbol definition from this bundle
+		 * loader is used.
+		 */
+		if(((merged_symbol->nlist.n_desc & N_WEAK_DEF) == N_WEAK_DEF) ||
+			(merged_symbol->defined_in_dylib == TRUE &&
+			 merged_symbol->weak_def_in_dylib)){
+		    if(merged_symbol->defined_in_dylib == FALSE){
+			if((merged_symbol->nlist.n_type & N_EXT) &&
+			   (merged_symbol->nlist.n_type & N_PEXT)){
+			    merged_symbol->definition_object->nprivatesym--;
+			    nmerged_private_symbols--;
+			}
+			else{
+			    merged_symbol->definition_object->nextdefsym--;
+			}
+		    }
+		    /*
+		     * If the output file is a MH_DYLIB type reset the
+		     * reference map for the merged external symbol that
+		     * is being discarded.
+		     */
+		    if(filetype == MH_DYLIB &&
+		       merged_symbol->defined_in_dylib == FALSE){
+			/*
+			 * Discared coalesced symbols are referenced as
+			 * undefined. TODO: to determine if the reference is
+			 * lazy or non-lazy we would have to look at all the
+			 * relocation entries in this object.  For now just
+			 * assume non-lazy to be safe.
+			 */
+			for(k = 0;
+			    k < merged_symbol->definition_object->nrefsym;
+			    k++){
+			    if(merged_symbol->definition_object->
+			       reference_maps[k].merged_symbol ==
+							    merged_symbol){
+				if(symbols[k].n_type & N_PEXT)
+				    merged_symbol->definition_object->
+				    reference_maps[k].flags =
+				  REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY;
+				else
+				    merged_symbol->definition_object->
+				    reference_maps[k].flags =
+					REFERENCE_FLAG_UNDEFINED_NON_LAZY;
+				break;
+			    }
+			}
+		    }
+		    merged_symbol->coalesced_defined_in_dylib = FALSE;
+		    merged_symbol->weak_def_in_dylib = FALSE;
+		    goto use_symbol_definition_from_this_bundle_loader;
+		}
 		/*
 		 * If both symbols are coalesced symbols then the this
 		 * symbol is simply ignored.
@@ -2268,17 +2627,20 @@ struct dynamic_library *dynamic_library)
 			    trace_merged_symbol(merged_symbol);
 		    }
 		    if(was_traced == FALSE)
-			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+			trace_symbol(symbol_name, fake_trace_symbol, cur_obj,
 			    "error in trace_symbol()");
 		    continue;
 		}
 	    }
+use_symbol_definition_from_this_bundle_loader:
 	    merged_symbol->nlist.n_type = N_PBUD | N_EXT;
 	    merged_symbol->nlist.n_sect = NO_SECT;
 	    if((symbols[j].n_type & N_TYPE) == N_SECT &&
 		((cur_obj->section_maps[symbols[j].n_sect - 1].
 		  s->flags) & SECTION_TYPE) == S_COALESCED){
 		merged_symbol->coalesced_defined_in_dylib = TRUE;
+		if((symbols[j].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		    merged_symbol->weak_def_in_dylib = TRUE;
 #ifdef COALESCE_DEBUG
 printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 #endif
@@ -2297,6 +2659,7 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 	    merged_symbol->nlist.n_value = symbols[j].n_value;
 	    merged_symbol->definition_object = cur_obj;
 	    merged_symbol->defined_in_dylib = TRUE;
+	    merged_symbol->definition_library = dynamic_library;
 	    if((symbols[j].n_type & N_TYPE) == N_INDR){
 		merged_symbol->nlist.n_type = N_INDR | N_EXT;
 		enter_indr_symbol(merged_symbol, symbols + j, strings, cur_obj);
@@ -2747,22 +3110,25 @@ char *indr_symbol_name)
 	switch(nlist->n_type & N_TYPE){
 	case N_UNDF:
 	    if(nlist->n_value == 0)
-		print("reference to undefined %s\n", symbol_name);
+		print("%sreference to undefined %s\n", 
+		      nlist->n_desc & N_WEAK_REF ? "weak " : "", symbol_name);
 	    else
 		print("definition of common %s (size %lu)\n", symbol_name,
 		       nlist->n_value);
 	    break;
 	case N_PBUD:
-	    print("definition of %s\n", symbol_name);
+	    print("%sdefinition of %s\n",
+		  nlist->n_desc & N_WEAK_DEF ? "weak " : "", symbol_name);
 	    break;
 	case N_ABS:
 	    print("definition of absolute %s (value 0x%x)\n", symbol_name,
 		   (unsigned int)(nlist->n_value));
 	    break;
 	case N_SECT:
-	    print("definition of %s in section (%.16s,%.16s)\n", symbol_name,
-		   object_file->section_maps[nlist->n_sect - 1].s->segname,
-		   object_file->section_maps[nlist->n_sect - 1].s->sectname);
+	    print("%sdefinition of %s in section (%.16s,%.16s)\n",
+		  nlist->n_desc & N_WEAK_DEF ? "weak " : "", symbol_name,
+		  object_file->section_maps[nlist->n_sect - 1].s->segname,
+		  object_file->section_maps[nlist->n_sect - 1].s->sectname);
 	    break;
 	case N_INDR:
 	    print("definition of %s as indirect for %s\n", symbol_name,
@@ -4302,6 +4668,11 @@ output_merged_symbols(void)
 			nlist = (struct nlist *)(output_addr +
 						 flush_symbol_offset);
 			*nlist = merged_symbol->nlist;
+			/*
+			 * Since this is a symbol definition make sure the
+			 * weak reference bit is off.
+			 */
+			nlist->n_desc = nlist->n_desc & ~(N_WEAK_REF);
 			nlist->n_un.n_strx = output_symtab_info.
 					     output_merged_strsize +
 					     merged_symbol_string_index(
@@ -4343,6 +4714,11 @@ output_merged_symbols(void)
 	for(i = 0; i < output_dysymtab_info.dysymtab_command.nextdefsym; i++){
 	    merged_symbol = extdefsyms_order[i];
 	    *nlist = merged_symbol->nlist;
+	    /*
+	     * Since this is a symbol definition make sure the weak reference
+	     * bit is off.
+	     */
+	    nlist->n_desc = nlist->n_desc & ~(N_WEAK_REF);
 	    nlist->n_un.n_strx = output_symtab_info.output_merged_strsize +
 				 merged_symbol_string_index(
 				    merged_symbol->nlist.n_un.n_name);
@@ -4388,6 +4764,11 @@ output_merged_symbols(void)
 	for(i = 0; i < output_dysymtab_info.dysymtab_command.nundefsym; i++){
 	    merged_symbol = undefsyms_order[i];
 	    *nlist = merged_symbol->nlist;
+	    /*
+	     * Since this is an undefined symbol make sure the weak definition
+	     * bit is off.
+	     */
+	    nlist->n_desc = nlist->n_desc & ~(N_WEAK_DEF);
 	    nlist->n_un.n_strx = output_symtab_info.output_merged_strsize +
 				 merged_symbol_string_index(
 				    merged_symbol->nlist.n_un.n_name);
@@ -4584,12 +4965,14 @@ process_undefineds(
 void)
 {
 
-    unsigned long i, j, Ycount, errors_save;
+    unsigned long i, j, k, Ycount, errors_save;
     struct merged_symbol_list **p, *merged_symbol_list;
     struct merged_symbol *merged_symbol;
-    enum bool printed_undef, allowed_undef, prebound_undef;
+    struct nlist *object_symbols;
+    enum bool printed_undef, allowed_undef, prebound_undef, weak_ref_warning;
     struct object_list *object_list, **q;
 #ifndef RLD
+    struct object_file *obj;
     struct undefined_list *undefined, *prevs;
     char *short_name;
     struct dynamic_library *dep, *lib, *prev_lib;
@@ -4604,7 +4987,6 @@ void)
 	    merged_symbol_list = *p;
 	    for(i = 0; i < merged_symbol_list->used; i++){
 		merged_symbol = &(merged_symbol_list->merged_symbols[i]);
-
 		/*
 		 * If the output file is not relocatable check to see if this
 		 * symbol is undefined.  If it is and it is not on the allowed
@@ -4661,6 +5043,131 @@ void)
 				errors = 1;
 			    }
 			    print("%s\n", merged_symbol->nlist.n_un.n_name);
+			}
+		    }
+		}
+#ifndef RLD
+		else {
+		    /*
+		     * The merged symbol is not an undefined symbol.  But could
+		     * be defined in a dynamic library as a coalesed symbol or
+		     * a weak symbol.  Where a later symbol was discarded from a
+		     * non_dylib.  If -twolevel_namespace is in effect this
+		     * symbol, now a reference from an object, is going into
+		     * the image and will need the library ordinal recorded.
+		     * We need to see that this dynamic library has been
+		     * assigned an ordinal (that is it was listed on the link
+		     * line or is a sub-framework or sub-umbrella of
+		     * something listed).  If not flag this as an illegal
+		     * reference to an indirect dynamic library if this library 
+		     * was not flagged already.
+		     */
+		    if(save_reloc == FALSE &&
+		       twolevel_namespace == TRUE &&
+		       merged_symbol->defined_in_dylib == TRUE &&
+		       merged_symbol->referenced_in_non_dylib == TRUE &&
+		       merged_symbol->definition_library->
+			   definition_obj->library_ordinal == 0 &&
+		       merged_symbol->definition_library->
+			   indirect_twolevel_ref_flagged == FALSE){
+			obj = cur_obj;
+			cur_obj = merged_symbol->non_dylib_referenced_obj;
+			error_with_cur_obj("illegal reference to symbol: %s "
+			    "defined in indirectly referenced dynamic library "
+			    "%s", merged_symbol->nlist.n_un.n_name,
+			    merged_symbol->definition_library->dylib_file
+				!= NULL ?
+			    merged_symbol->definition_library->file_name :
+			    merged_symbol->definition_library->dylib_name);
+			cur_obj = obj;
+			merged_symbol->definition_library->
+			    indirect_twolevel_ref_flagged = TRUE;
+		    }
+		}
+#endif /* !defined(RLD) */
+	    }
+	}
+
+	/*
+	 * Deal with weak references.  If we have them and the target deployment
+	 * does not support them generate a warning can clear the weak reference
+	 * bit.
+	 */
+	if(macosx_deployment_target <= MACOSX_DEPLOYMENT_TARGET_10_1){
+	    weak_ref_warning = FALSE;
+	    for(p = &merged_symbol_lists; *p; p = &(merged_symbol_list->next)){
+		merged_symbol_list = *p;
+		for(i = 0; i < merged_symbol_list->used; i++){
+		    merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		    if(((merged_symbol->nlist.n_type == (N_EXT | N_UNDF) &&
+			 merged_symbol->nlist.n_value == 0) ||
+		       (merged_symbol->nlist.n_type & N_TYPE) == N_PBUD) &&
+			(merged_symbol->nlist.n_desc & N_WEAK_REF) ==
+			 N_WEAK_REF){
+			if(weak_ref_warning == FALSE){
+			    warning("weak symbol references not set in output "
+				    "with MACOSX_DEPLOYMENT_TARGET environment "
+				    "variable set to: %s",
+				    macosx_deployment_target_name);
+			    warning("weak referenced symbols:");
+			    weak_ref_warning = TRUE;
+			}
+			merged_symbol->nlist.n_desc &= ~(N_WEAK_REF);
+			print("%s\n", merged_symbol->nlist.n_un.n_name);
+		    }
+		}
+	    }
+	}
+	/*
+	 * The target deployment does support weak references.
+	 */
+	else{
+	    /*
+	     * If there have been some weak reference mismatches when symbols
+	     * were merged make a pass through merged symbols and for any
+	     * symbols that had a weak reference mismatch that is still
+	     * undefined print the error for it.
+	     */
+	    for(p = &merged_symbol_lists; *p; p = &(merged_symbol_list->next)){
+		merged_symbol_list = *p;
+		for(i = 0; i < merged_symbol_list->used; i++){
+		    merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		    if(merged_symbol->weak_reference_mismatch == TRUE &&
+		       ((merged_symbol->nlist.n_type == (N_EXT | N_UNDF) &&
+			 merged_symbol->nlist.n_value == 0) ||
+		       (merged_symbol->nlist.n_type & N_TYPE) == N_PBUD)){
+			error("mismatching weak references for symbol: %s",
+			      merged_symbol->nlist.n_un.n_name);
+			for(q = &objects; *q; q = &(object_list->next)){
+			    object_list = *q;
+			    for(j = 0; j < object_list->used; j++){
+				cur_obj = &(object_list->object_files[j]);
+				if(cur_obj->dylib && cur_obj->dylib_module ==
+						     NULL)
+				    continue;
+				if(cur_obj->bundle_loader)
+				    continue;
+				if(cur_obj->dylinker)
+				    continue;
+				for(k = 0; k < cur_obj->nundefineds; k++){
+				    if(merged_symbol == cur_obj->
+				       undefined_maps[k].merged_symbol){
+					print_obj_name(cur_obj);
+					object_symbols = (struct nlist *)
+					    (cur_obj->obj_addr +
+					     cur_obj->symtab->symoff);
+					if((object_symbols[
+					    cur_obj->undefined_maps[
+					    k].index].n_desc & N_WEAK_REF) ==
+					    N_WEAK_REF)
+					    print("reference to weak %s\n",
+					      merged_symbol->nlist.n_un.n_name);
+					else
+					    print("reference to non-weak %s\n",
+					      merged_symbol->nlist.n_un.n_name);
+				    }
+				}
+			    }
 			}
 		    }
 		}
@@ -4763,7 +5270,9 @@ void)
 				goto done;
 			    }
 			    print_obj_name(cur_obj);
-			    print("reference to undefined %s",
+			    print("%sreference to undefined %s",
+				  merged_symbol->nlist.n_desc & N_WEAK_REF ?
+				  "weak " : "",
 				  merged_symbol->nlist.n_un.n_name);
 #ifndef RLD
 			    if(merged_symbol->twolevel_reference == TRUE){
@@ -4813,6 +5322,7 @@ done:
 	}
 }
 
+#ifndef RLD
 /*
  * reset_prebound_undefines() resets the prebound undefined symbols back to
  * undefined symbols if prebinding is not to be done.
@@ -4883,6 +5393,7 @@ void)
 	    }
 	}
 }
+#endif !defined(RLD)
 
 /*
  * assign_output_symbol_indexes() assigns the symbol indexes to all symbols in
@@ -5217,6 +5728,21 @@ void)
 			else if(flags == REFERENCE_FLAG_UNDEFINED_LAZY)
 			    cur_obj->reference_maps[j].flags =
 				REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY;
+		    }
+		    else{
+			/*
+			 * The merged symbol is not a private extern. So it
+			 * might be a non-weak symbol that is being used and
+			 * some weak private externs refs were discarded.  If
+			 * so we need to make the refs non-weak.
+			 */
+			flags = cur_obj->reference_maps[j].flags;
+			if(flags == REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY)
+			    cur_obj->reference_maps[j].flags =
+				REFERENCE_FLAG_UNDEFINED_NON_LAZY;
+			else if(flags == REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY)
+			    cur_obj->reference_maps[j].flags =
+				REFERENCE_FLAG_UNDEFINED_LAZY;
 		    }
 		}
 	    }
@@ -5708,6 +6234,7 @@ enum bool input_based)
 	}
 }
 
+#endif /* DEBUG */
 /*
  * get_output_section() returns a pointer to the output section structure for
  * the section number passed to it.  It returns NULL for section numbers that
@@ -5742,6 +6269,8 @@ unsigned long sect)
 	}
 	return(NULL);
 }
+
+#ifdef DEBUG
 
 #ifndef RLD
 /*

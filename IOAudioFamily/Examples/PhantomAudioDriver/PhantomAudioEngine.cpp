@@ -75,6 +75,8 @@ bool PhantomAudioEngine::init(OSDictionary *properties)
         blockSize = BLOCK_SIZE;
     }
     
+    duringHardwareInit = FALSE;
+    
     result = true;
     
 Done:
@@ -93,6 +95,8 @@ bool PhantomAudioEngine::initHardware(IOService *provider)
     IOWorkLoop *wl;
     
     IOLog("PhantomAudioEngine[%p]::initHardware(%p)\n", this, provider);
+    
+    duringHardwareInit = TRUE;
     
     if (!super::initHardware(provider)) {
         goto Done;
@@ -133,6 +137,8 @@ bool PhantomAudioEngine::initHardware(IOService *provider)
     
 Done:
 
+    duringHardwareInit = FALSE;
+    
     return result;
 }
 
@@ -149,6 +155,8 @@ bool PhantomAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
     UInt32 startingChannelID = 1;
     IOAudioControl *control;
     OSString *desc;
+    OSBoolean *boolean;
+    bool separateStreamBuffers = FALSE, separateInputBuffers = FALSE;
     
     desc = OSDynamicCast(OSString, getProperty(DESCRIPTION_KEY));
     if (desc) {
@@ -172,6 +180,28 @@ bool PhantomAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
         goto Done;
     }
     
+    boolean = OSDynamicCast(OSBoolean, getProperty(SEPARATE_STREAM_BUFFERS_KEY));
+    if (boolean != NULL) {
+        separateStreamBuffers = boolean->getValue();
+    }
+    
+    boolean = OSDynamicCast(OSBoolean, getProperty(SEPARATE_INPUT_BUFFERS_KEY));
+    if (boolean != NULL) {
+        separateInputBuffers = boolean->getValue();
+    }
+    
+    if (separateStreamBuffers) {
+        IOLog("PhantomAudioEngine::createAudioStreams() - Creating a separate buffer for each stream.\n");
+    } else {
+        IOLog("PhantomAudioEngine::createAudioStreams() - Sharing one buffer among all streams.\n");
+    }
+    
+    if (separateInputBuffers) {
+        IOLog("PhantomAudioEngine::createAudioStreams() - Creating separate buffers for input and output.\n");
+    } else {
+        IOLog("PhantomAudioEngine::createAudioStreams() - Sharing input and output buffers.\n");
+    }
+    
     for (streamNum = 0; streamNum < numStreams; streamNum++) {
         IOAudioStream *inputStream = NULL, *outputStream = NULL;
         UInt32 maxBitWidth = 0;
@@ -183,6 +213,7 @@ bool PhantomAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
         bool initialFormatSet;
         UInt32 channelID;
         char outputStreamName[20], inputStreamName[20];
+        UInt32 streamBufferSize;
         
         initialFormatSet = false;
         
@@ -246,16 +277,28 @@ bool PhantomAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
                     IOAudioStream::AudioIOFunction functions[2];
                     functions[0] = process24BitSamples;
                     functions[1] = clip24BitSamples;
-                    outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, functions, 2);
-                    //outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip24BitSamples);
+                    //outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, functions, 2);
+                    outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip24BitSamples);
+					if (format.fNumericRepresentation == kIOAudioStreamSampleFormatLinearPCM && format.fIsMixable == TRUE) {
+						format.fIsMixable = FALSE;
+						outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip24BitSamples);
+					}
                 } else if (format.fBitDepth == 16) {
                     IOAudioStream::AudioIOFunction functions[2];
                     functions[0] = process16BitSamples;
                     functions[1] = clip16BitSamples;
-                    outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, functions, 2);
-                    //outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip16BitSamples);
+                    //outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, functions, 2);
+                    outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip16BitSamples);
+					if (format.fNumericRepresentation == kIOAudioStreamSampleFormatLinearPCM && format.fIsMixable == TRUE) {
+						format.fIsMixable = FALSE;
+						outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip24BitSamples);
+					}
                 } else {
                     outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate);
+					if (format.fNumericRepresentation == kIOAudioStreamSampleFormatLinearPCM && format.fIsMixable == TRUE) {
+						format.fIsMixable = FALSE;
+						outputStream->addAvailableFormat(&format, &sampleRate, &sampleRate, (IOAudioStream::AudioIOFunction)clip24BitSamples);
+					}
                 }
                 
                 if (format.fNumChannels > maxNumChannels) {
@@ -272,22 +315,44 @@ bool PhantomAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
             }
         }
         
-        if (commonBuffer == NULL) {
-            bufSize = blockSize * numBlocks * maxNumChannels * maxBitWidth / 8;
+        streamBufferSize = blockSize * numBlocks * maxNumChannels * maxBitWidth / 8;
         
-            commonBuffer = (void *)IOMalloc(bufSize);
-            if (!commonBuffer) {
-                IOLog("Error allocating buffer - %lu bytes.\n", bufSize);
+        if (outputBuffer == NULL) {
+            if (separateStreamBuffers) {
+                outputBufferSize = streamBufferSize * numStreams;
+            } else {
+                outputBufferSize = streamBufferSize;
+            }
+
+            outputBuffer = (void *)IOMalloc(outputBufferSize);
+            if (!outputBuffer) {
+                IOLog("Error allocating output buffer - %lu bytes.\n", outputBufferSize);
                 goto Error;
+            }
+            
+            inputBufferSize = outputBufferSize;
+            
+            if (separateInputBuffers) {
+                inputBuffer = (void *)IOMalloc(inputBufferSize);
+                if (!inputBuffer) {
+                    IOLog("Error allocating input buffer - %lu bytes.\n", inputBufferSize);
+                    goto Error;
+                }
+            } else {
+                inputBuffer = outputBuffer;
             }
         }
         
         inputStream->setFormat(&initialFormat);
         outputStream->setFormat(&initialFormat);
         
-        inputStream->setSampleBuffer(commonBuffer, bufSize);
-        outputStream->setSampleBuffer(commonBuffer, bufSize);
-        
+        if (separateStreamBuffers) {
+            inputStream->setSampleBuffer(&((UInt8 *)inputBuffer)[streamBufferSize * streamNum], streamBufferSize);
+            outputStream->setSampleBuffer(&((UInt8 *)outputBuffer)[streamBufferSize * streamNum], streamBufferSize);
+        } else {
+            inputStream->setSampleBuffer(inputBuffer, streamBufferSize);
+            outputStream->setSampleBuffer(outputBuffer, streamBufferSize);
+        }
         addAudioStream(inputStream);
         inputStream->release();
         
@@ -497,9 +562,18 @@ void PhantomAudioEngine::free()
     
     // We need to free our resources when we're going away
     
-    if (commonBuffer) {
-        IOFree(commonBuffer, bufSize);
-        commonBuffer = NULL;
+    if (inputBuffer != NULL) {
+        // We only need to free the input buffer buffer if it was allocated independently of the output buffer
+        if (inputBuffer != outputBuffer) {
+            IOFree(inputBuffer, inputBufferSize);
+        }
+        
+        inputBuffer = NULL;
+    }
+
+    if (outputBuffer != NULL) {
+        IOFree(outputBuffer, outputBufferSize);
+        outputBuffer = NULL;
     }
     
     super::free();
@@ -584,16 +658,22 @@ UInt32 PhantomAudioEngine::getCurrentSampleFrame()
  
 IOReturn PhantomAudioEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate)
 {
-    IOLog("PhantomAudioEngine[%p]::peformFormatChange(%p, %p, %p)\n", this, audioStream, newFormat, newSampleRate);
-    
+    if (!duringHardwareInit) {
+        IOLog("PhantomAudioEngine[%p]::peformFormatChange(%p, %p, %p)\n", this, audioStream, newFormat, newSampleRate);
+    }
+
     // It is possible that this function will be called with only a format or only a sample rate
     // We need to check for NULL for each of the parameters
     if (newFormat) {
-        IOLog("  -> %d bits per sample selected.\n", newFormat->fBitDepth);
+        if (!duringHardwareInit) {
+            IOLog("  -> %d bits per sample.\n", newFormat->fBitDepth);
+        }
     }
     
     if (newSampleRate) {
-        IOLog("  -> %ld Hz selected.\n", newSampleRate->whole);
+        if (!duringHardwareInit) {
+            IOLog("  -> %ld Hz.\n", newSampleRate->whole);
+        }
     }
     
     return kIOReturnSuccess;

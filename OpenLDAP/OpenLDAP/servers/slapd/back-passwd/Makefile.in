@@ -1,0 +1,28 @@
+# $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/Makefile.in,v 1.12 2001/12/07 03:03:40 hyc Exp $
+
+SRCS	= search.c config.c init.c
+OBJS	= search.lo config.lo init.lo
+
+LDAP_INCDIR= ../../../include       
+LDAP_LIBDIR= ../../../libraries
+
+BUILD_OPT = "--enable-passwd"
+BUILD_MOD = @BUILD_PASSWD@
+BUILD_MOD_DYNAMIC = @BUILD_PASSWD_DYNAMIC@
+
+mod_DEFS = -DSLAPD_IMPORT
+MOD_DEFS = $(@BUILD_PASSWD@_DEFS)
+
+shared_LDAP_LIBS = $(LDAP_LIBPATH) -lldap_r -llber
+NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
+
+LIBBASE = back_passwd
+
+XINCPATH = -I.. -I$(srcdir)/..
+XDEFS = $(MODULES_CPPFLAGS)
+
+all-local-lib:	../.backend
+
+../.backend: lib$(LIBBASE).a
+	@touch $@
+

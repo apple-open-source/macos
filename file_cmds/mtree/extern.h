@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.3 1995/03/07 21:12:07 cgd Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,20 +31,20 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.sbin/mtree/extern.h,v 1.3.2.2 2000/06/28 02:33:17 joe Exp $
  */
 
-#include "mtree.h"
-
-#ifdef __APPLE__
-#include <fts.h>
-#endif
-
 int	 compare __P((char *, NODE *, FTSENT *));
-int	 crc __P((int, u_int32_t *, u_int32_t *));
+int	 crc __P((int, u_long *, u_long *));
 void	 cwalk __P((void));
-void	 mtree_err __P((const char *, ...));
+char	*flags_to_string __P((u_long));
+
 char	*inotype __P((u_int));
 u_int	 parsekey __P((char *, int *));
 char	*rlink __P((char *));
 NODE	*spec __P((void));
 int	 verify __P((void));
+
+int	 check_excludes __P((const char *, const char *));
+void	 init_excludes __P((void));
+void	 read_excludes_file __P((const char *));

@@ -19,6 +19,9 @@
 //
 // ssclient - SecurityServer client interface library
 //
+// This interface is private to the Security system. It is not a public interface,
+// and it may change at any time. You have been warned.
+//
 #ifndef _H_SSCLIENT
 #define _H_SSCLIENT
 
@@ -36,15 +39,12 @@
 #include <Security/AuthSession.h>
 
 
-namespace Security
-{
+namespace Security {
+namespace SecurityServer {
 
 using MachPlusPlus::Port;
 using MachPlusPlus::ReceivePort;
 
-
-namespace SecurityServer
-{
 
 //
 // Common data types
@@ -100,6 +100,17 @@ public:
 	
 public:
 	typedef CSSM_DB_ACCESS_TYPE DBAccessType;
+
+    typedef uint32 NotifyEvent;
+    typedef uint32 NotifyEvents;
+    enum {
+        allEvents = uint32(-1)
+    };
+    
+    typedef uint32 NotifyDomain;
+    enum {
+        databaseNotifications = 1
+    };
 	
 public:
 	void activate();
@@ -130,6 +141,10 @@ public:
     { return encodeKey(key, blob, uid, returnAllocator); }
 	KeyHandle decodeKey(DbHandle db, const CssmData &blob, CssmKey::Header &header);
 	void releaseKey(KeyHandle key);
+
+	CssmKeySize queryKeySizeInBits(KeyHandle key);
+    uint32 getOutputSize(const Context &context, KeyHandle key,
+        uint32 inputSize, bool encrypt = true);
 
 public:
     // key wrapping and unwrapping
@@ -163,7 +178,15 @@ public:
 		const AccessCredentials *cred, const AclEntryInput *owner,
 		KeyHandle &pubKey, CssmKey::Header &pubHeader,
         KeyHandle &privKey, CssmKey::Header &privHeader);
-	void deriveKey(DbHandle db, KeyHandle &newKey, CssmKey::Header &newHeader);
+	void deriveKey(DbHandle db, const Context &context, KeyHandle baseKey,
+        uint32 keyUsage, uint32 keyAttr, CssmData &param,
+		const AccessCredentials *cred, const AclEntryInput *owner,
+        KeyHandle &newKey, CssmKey::Header &newHeader, CssmAllocator &alloc);
+	void deriveKey(DbHandle db, const Context &context, KeyHandle baseKey,
+        uint32 keyUsage, uint32 keyAttr, CssmData &param,
+		const AccessCredentials *cred, const AclEntryInput *owner,
+        KeyHandle &newKey, CssmKey::Header &newHeader)
+    { return deriveKey(db, context, baseKey, keyUsage, keyAttr, param, cred, owner, newKey, newHeader, returnAllocator); }
 	//void generateAlgorithmParameters();	// not implemented
 
 	void generateRandom(CssmData &data);
@@ -180,12 +203,14 @@ public:
 
     // signatures
 	void generateSignature(const Context &context, KeyHandle key,
-		const CssmData &data, CssmData &signature, CssmAllocator &alloc);
+        const CssmData &data, CssmData &signature, CssmAllocator &alloc,
+        CSSM_ALGORITHMS signOnlyAlgorithm = CSSM_ALGID_NONE);
 	void generateSignature(const Context &context, KeyHandle key,
-		const CssmData &data, CssmData &signature)
-    { return generateSignature(context, key, data, signature, returnAllocator); }
+		const CssmData &data, CssmData &signature, CSSM_ALGORITHMS signOnlyAlgorithm = CSSM_ALGID_NONE)
+    { return generateSignature(context, key, data, signature, returnAllocator, signOnlyAlgorithm); }
 	void verifySignature(const Context &context, KeyHandle key,
-		const CssmData &data, const CssmData &signature);
+		const CssmData &data, const CssmData &signature,
+        CSSM_ALGORITHMS verifyOnlyAlgorithm = CSSM_ALGID_NONE);
 		
     // MACs
 	void generateMac(const Context &context, KeyHandle key,
@@ -195,7 +220,6 @@ public:
     { return generateMac(context, key, data, mac, returnAllocator); }
 	void verifyMac(const Context &context, KeyHandle key,
 		const CssmData &data, const CssmData &mac);
-	uint32 queryKeySizeInBits(KeyHandle key);
 	
     // key ACL management
 	void getKeyAcl(KeyHandle key, const char *tag,
@@ -239,7 +263,18 @@ public:
     // Session API support
     void getSessionInfo(SecuritySessionId &sessionId, SessionAttributeBits &attrs);
     void setupSession(SessionCreationFlags flags, SessionAttributeBits attrs);
-	
+    
+public:
+    // Notification core support
+    void requestNotification(Port receiver, NotifyDomain domain, NotifyEvents events);
+    void stopNotification(Port receiver);
+    void postNotification(NotifyDomain domain, NotifyEvent event, const CssmData &data);
+    
+    typedef OSStatus ConsumeNotification(NotifyDomain domain, NotifyEvent event,
+        const void *data, size_t dataLength, void *context);
+    OSStatus dispatchNotification(const mach_msg_header_t *message,
+        ConsumeNotification *consumer, void *context);
+        	
 private:
 	void getAcl(AclKind kind, KeyHandle key, const char *tag,
 		uint32 &count, AclEntryInfo * &info, CssmAllocator &alloc);
@@ -251,26 +286,26 @@ private:
 
 private:
 	struct Thread {
-		Thread() : replyPort(mig_get_reply_port()), registered(false) { }
+		Thread() : registered(false) { }
 		operator bool() const { return registered; }
 		
-		Port replyPort;			// cached mig_get_reply_port
+		ReceivePort replyPort;	// dedicated reply port (send right held by SecurityServer)
         bool registered;		// has been registered with SecurityServer
 	};
 
 	struct Global {
         Global();
 		Port serverPort;
-		CodeSigning::OSXCode *myself;
+		RefPointer<CodeSigning::OSXCode> myself;
 		ThreadNexus<Thread> thread;
 	};
 
 	static ModuleNexus<Global> mGlobal;
+	static bool mSetupSession;
 };
 
 
 } // end namespace SecurityServer
-
 } // end namespace Security
 
 

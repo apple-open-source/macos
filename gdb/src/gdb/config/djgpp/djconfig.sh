@@ -1,14 +1,38 @@
 #!/bin/sh
-# 
+#
 # This shell script is a wrapper to the main configure script when
 # configuring GDB for DJGPP.  99% of it can also be used when
 # configuring other GNU programs for DJGPP.
 #
-# Originally written by Robert Hoehne, revised by Eli Zaretskii.
+#=====================================================================
+# Copyright 1997, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 #
-# Call it like the main configure script with one exception.  If you
+# Originally written by Robert Hoehne, revised by Eli Zaretskii.
+#  This file is part of GDB.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.  */
+#=====================================================================
+#
+# Call this script like the main configure script with one exception.  If you
 # want to pass parameters to configure, you have to pass as the first
 # argument the srcdir, even when it is `.' !!!!!
+#
+# First, undo any CDPATH settings; they will get in our way when we
+# chdir to directories.
+unset CDPATH
 
 # Where are the sources? If you are used to having the sources
 # in a separate directory and the objects in another, then set
@@ -59,8 +83,11 @@ else
   SKIPDIR=`pwd | sed -e "s|${srcdir}|.|"`
   SKIPFILES="${SKIPDIR}/*"
 fi
+
+# We use explicit /dev/env/DJDIR/bin/find to avoid catching
+# an incompatible DOS/Windows version that might be on their PATH.
 for fix_dir in \
-  `cd $srcdir && find . -type d ! -ipath "${SKIPDIR}" ! -ipath "${SKIPFILES}"`
+  `cd $srcdir && /dev/env/DJDIR/bin/find . -type d ! -ipath "${SKIPDIR}" ! -ipath "${SKIPFILES}"`
 do
   if test ! -f ${fix_dir}/configure.orig ; then
     if test -f ${srcdir}/${fix_dir}/configure ; then
@@ -95,7 +122,9 @@ utod $srcdir/ltmain.sh
 
 # Give the configure script some hints:
 export LD=ld
+export NM=nm
 export CC=gcc
+export CFLAGS="-O2 -g"
 export RANLIB=ranlib
 export DEFAULT_YACC="bison -y"
 export YACC="bison -y"
@@ -103,6 +132,12 @@ export DEFAULT_LEX=flex
 # Define explicitly the .exe extension because on W95 with LFN=y
 # the check might fail
 export am_cv_exeext=.exe
+# ltconfig wants to compute the maximum command-line length, but
+# Bash 2.04 doesn't like that (it doesn't have any limit ;-), and
+# reboots the system.  We know our limit in advance, so we don't
+# need all that crap.  Assuming that the environment size is less
+# than 4KB, we can afford 12KB of command-line arguments.
+export lt_cv_sys_max_cmd_len=12288
 
 # The configure script needs to see the `install-sh' script, otherwise
 # it decides the source installation is broken.  But "make install" will

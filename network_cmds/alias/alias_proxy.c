@@ -1,3 +1,53 @@
+/*
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*-
+ * Copyright (c) 2001 Charles Mott <cmott@scientech.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * Based upon:
+ * $FreeBSD: src/lib/libalias/alias_proxy.c,v 1.4.2.4 2001/08/01 09:52:27 obrien Exp $
+ */
+
 /* file: alias_proxy.c
 
     This file encapsulates special operations related to transparent
@@ -518,6 +568,7 @@ PacketAliasProxyRule(const char *cmd)
     char buffer[256];
     char str_port[sizeof(buffer)];
     char str_server_port[sizeof(buffer)];
+    char *res = buffer;
 
     int rule_index;
     int proto;
@@ -530,6 +581,7 @@ PacketAliasProxyRule(const char *cmd)
     struct proxy_entry *proxy_entry;
 
 /* Copy command line into a buffer */
+    cmd += strspn(cmd, " \t");
     cmd_len = strlen(cmd);
     if (cmd_len > (sizeof(buffer) - 1))
         return -1;
@@ -538,7 +590,7 @@ PacketAliasProxyRule(const char *cmd)
 /* Convert to lower case */
     len = strlen(buffer);
     for (i=0; i<len; i++)
-        buffer[i] = tolower(buffer[i]);
+	buffer[i] = tolower((unsigned char)buffer[i]);
 
 /* Set default proxy type */
 
@@ -568,7 +620,7 @@ PacketAliasProxyRule(const char *cmd)
 #define STATE_READ_SRC        7
 #define STATE_READ_DST        8
     state = STATE_READ_KEYWORD;
-    token = strtok(buffer, " \t");
+    token = strsep(&res, " \t");
     token_count = 0;
     while (token != NULL)
     {
@@ -700,7 +752,6 @@ PacketAliasProxyRule(const char *cmd)
                 }
                 else
                 {
-                    int n;
                     int nbits;
                     char s[sizeof(buffer)];
 
@@ -737,7 +788,9 @@ PacketAliasProxyRule(const char *cmd)
             break;
         }
 
-        token = strtok(NULL, " \t");
+	do {
+		token = strsep(&res, " \t");
+	} while (token != NULL && !*token);
     }
 #undef STATE_READ_KEYWORD
 #undef STATE_READ_TYPE

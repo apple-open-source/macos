@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: random.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $";
+static char rcsid[] = "$Id: random.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	Random routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: random.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -67,7 +67,7 @@ int f, n;
     register int s;
 
     sprintf(numbuf,"%d",fillcol);
-    s = mlreplyd("Set fill column to : ", numbuf, 4, QDEFLT);
+    s = mlreplyd("Set fill column to : ", numbuf, 4, QDEFLT, NULL);
     fillcol = atoi(numbuf);
     return(s);
 }
@@ -172,8 +172,7 @@ tab(f, n)
 
 
 /*
- * Insert a newline. Bound to "C-M". If we are in CMODE, do automatic
- * indentation as specified.
+ * Insert a newline. Bound to "C-M".
  */
 newline(f, n)
 {

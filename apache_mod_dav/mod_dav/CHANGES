@@ -1,3 +1,33 @@
+Version 1.0.3-1.3.6 (released 05-Nov-2001)
+
+  * fix structure alignment problem which caused crashes in UNLOCK on
+    some architectures (Jean-Frederic Clere, Dave Kristol)
+  * ignore Depth: Infinity for non-collection resources in a PROPFIND; 
+    this prevents a bogus error when someone has not used the
+    "DAVDepthInfinity On" directive
+  * fix for Web Folders not recognizing the last-modified date in
+    PROPFIND responses (Joe Orton)
+  * tweak to also allow recognition of the creationdate
+  * fix copying of collection properties during a Depth:0 operation
+    (Keith Wannamaker)
+  * return 507 (Insufficient Space) for quota errors (on Linux, at
+    least) (Joe)
+  * fix moving/copying of a collection over a non-collection (found by
+    Joe's interop testing tool)
+  * LOCK with a missing intermediate collection now returns a standard 
+    409 (Conflict) response rather than 500 (Internal Server Error)
+    (Keith, reported by Dan Brotsky)
+  * Windows build updates for more recent Apache layouts (Keith)
+  * fix problem with MOVE/COPY to a destination that is a locknull
+    resource. (reported by Patrick Collins)
+  * fix problems with empty URIs in xmlns attributes (fixes from Joe
+    and Greg, reported by Julian Reschke)
+  * removed generated files from CVS; added autogen.sh
+  * build/config changes: look for shared Expat; AIX build tweaks
+    (Joe, Matt Sergeant, Greg)
+  * fix moving of a collection over a non-collection (reported by
+    Joe's interop tool)
+
 Version 1.0.2-1.3.6 (released 19-Oct-2000)
 
   * ./configure and build updates:
@@ -394,7 +424,6 @@ Version 0.9.2-1.3.3 (released 16-Nov-1998)
   * add Makefile.apxs to distribution
   * fixed crasher with DAV:resourcetype request
 
-
 Version 0.9.1-1.3.3 (released 06-Nov-1998)
 
   * fixed: return live props even when no dead props exist
@@ -402,7 +431,6 @@ Version 0.9.1-1.3.3 (released 06-Nov-1998)
   * add INSTALL, mod_dav.module, and expanded README (Rasmus Lerdorf)
   * register the module/version with Apache (Rasmus Lerdorf)
   * update to Apache 1.3.3
-
 
 Version 0.9.0-1.3.2 (released 05-Nov-1998)
 

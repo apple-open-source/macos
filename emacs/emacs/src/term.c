@@ -1,5 +1,6 @@
-/* terminal control module for terminals described by TERMCAP
-   Copyright (C) 1985, 86, 87, 93, 94, 95 Free Software Foundation, Inc.
+/* Terminal control module for terminals described by TERMCAP
+   Copyright (C) 1985, 86, 87, 93, 94, 95, 98, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,36 +19,69 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* New redisplay, TTY faces by Gerd Moellmann <gerd@gnu.org>.  */
 
 #include <config.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 #include "termchar.h"
 #include "termopts.h"
-#undef NULL
 #include "lisp.h"
 #include "charset.h"
 #include "coding.h"
+#include "keyboard.h"
 #include "frame.h"
 #include "disptab.h"
 #include "termhooks.h"
-#include "keyboard.h"
 #include "dispextern.h"
+#include "window.h"
+
+/* For now, don't try to include termcap.h.  On some systems,
+   configure finds a non-standard termcap.h that the main build
+   won't find.  */
+
+#if defined HAVE_TERMCAP_H && 0
+#include <termcap.h>
+#else
+extern void tputs P_ ((const char *, int, int (*)(int)));
+extern int tgetent P_ ((char *, const char *));
+extern int tgetflag P_ ((char *id));
+extern int tgetnum P_ ((char *id));
+#endif
+
 #include "cm.h"
 #ifdef HAVE_X_WINDOWS
 #include "xterm.h"
 #endif
+#ifdef macintosh
+#include "macterm.h"
+#endif
+
+static void turn_on_face P_ ((struct frame *, int face_id));
+static void turn_off_face P_ ((struct frame *, int face_id));
+static void tty_show_cursor P_ ((void));
+static void tty_hide_cursor P_ ((void));
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-#define OUTPUT(a) tputs (a, (int) (FRAME_HEIGHT (selected_frame) - curY), cmputc)
+#define OUTPUT(a) \
+     tputs (a, (int) (FRAME_HEIGHT (XFRAME (selected_frame)) - curY), cmputc)
 #define OUTPUT1(a) tputs (a, 1, cmputc)
 #define OUTPUTL(a, lines) tputs (a, lines, cmputc)
-#define OUTPUT_IF(a) { if (a) tputs (a, (int) (FRAME_HEIGHT (selected_frame) - curY), cmputc); }
-#define OUTPUT1_IF(a) { if (a) tputs (a, 1, cmputc); }
+
+#define OUTPUT_IF(a)							\
+     do {								\
+       if (a)								\
+         tputs (a, (int) (FRAME_HEIGHT (XFRAME (selected_frame))	\
+			  - curY), cmputc);				\
+     } while (0)
+     
+#define OUTPUT1_IF(a) do { if (a) tputs (a, 1, cmputc); } while (0)
 
 /* Function to use to ring the bell.  */
+
 Lisp_Object Vring_bell_function;
 
 /* Terminal characteristics that higher levels want to look at.
@@ -71,6 +105,7 @@ int fast_clear_end_of_line;	/* Terminal has a `ce' string */
 /* Nonzero means no need to redraw the entire frame on resuming
    a suspended Emacs.  This is useful on terminals with multiple pages,
    where one page is used for Emacs and another for all else. */
+
 int no_redraw_on_reenter;
 
 /* Hook functions that you can set to snap out the functions in this file.
@@ -78,18 +113,15 @@ int no_redraw_on_reenter;
 
 void (*cursor_to_hook) P_ ((int, int));
 void (*raw_cursor_to_hook) P_ ((int, int));
-
 void (*clear_to_end_hook) P_ ((void));
 void (*clear_frame_hook) P_ ((void));
 void (*clear_end_of_line_hook) P_ ((int));
 
 void (*ins_del_lines_hook) P_ ((int, int));
 
-void (*change_line_highlight_hook) P_ ((int, int, int));
+void (*change_line_highlight_hook) P_ ((int, int, int, int));
 void (*reassert_line_highlight_hook) P_ ((int, int));
 
-void (*insert_glyphs_hook) P_ ((GLYPH *, int));
-void (*write_glyphs_hook) P_ ((GLYPH *, int));
 void (*delete_glyphs_hook) P_ ((int));
 
 void (*ring_bell_hook) P_ ((void));
@@ -99,6 +131,9 @@ void (*set_terminal_modes_hook) P_ ((void));
 void (*update_begin_hook) P_ ((struct frame *));
 void (*update_end_hook) P_ ((struct frame *));
 void (*set_terminal_window_hook) P_ ((int));
+void (*insert_glyphs_hook) P_ ((struct glyph *, int));
+void (*write_glyphs_hook) P_ ((struct glyph *, int));
+void (*delete_glyphs_hook) P_ ((int));
 
 int (*read_socket_hook) P_ ((int, struct input_event *, int, int));
 
@@ -122,6 +157,7 @@ void (*frame_up_to_date_hook) P_ ((struct frame *));
 
    This should clear mouse_moved until the next motion
    event arrives.  */
+
 void (*mouse_position_hook) P_ ((FRAME_PTR *f, int insist,
 				 Lisp_Object *bar_window,
 				 enum scroll_bar_part *part,
@@ -130,10 +166,11 @@ void (*mouse_position_hook) P_ ((FRAME_PTR *f, int insist,
 				 unsigned long *time));
 
 /* When reading from a minibuffer in a different frame, Emacs wants
-   to shift the highlight from the selected frame to the minibuffer's
+   to shift the highlight from the selected frame to the mini-buffer's
    frame; under X, this means it lies about where the focus is.
    This hook tells the window system code to re-decide where to put
    the highlight.  */
+
 void (*frame_rehighlight_hook) P_ ((FRAME_PTR f));
 
 /* If we're displaying frames using a window system that can stack
@@ -146,6 +183,7 @@ void (*frame_rehighlight_hook) P_ ((FRAME_PTR f));
    If RAISE is non-zero, F is brought to the front, before all other
    windows.  If RAISE is zero, F is sent to the back, behind all other
    windows.  */
+
 void (*frame_raise_lower_hook) P_ ((FRAME_PTR f, int raise));
 
 /* Set the vertical scroll bar for WINDOW to have its upper left corner
@@ -153,6 +191,7 @@ void (*frame_raise_lower_hook) P_ ((FRAME_PTR f, int raise));
    indicate that we are displaying PORTION characters out of a total
    of WHOLE characters, starting at POSITION.  If WINDOW doesn't yet
    have a scroll bar, create one for it.  */
+
 void (*set_vertical_scroll_bar_hook)
      P_ ((struct window *window,
 	  int portion, int whole, int position));
@@ -168,7 +207,7 @@ void (*set_vertical_scroll_bar_hook)
 
 /* Arrange for all scroll bars on FRAME to be removed at the next call
    to `*judge_scroll_bars_hook'.  A scroll bar may be spared if
-   `*redeem_scroll_bar_hook' is applied to its window before the judgement. 
+   `*redeem_scroll_bar_hook' is applied to its window before the judgment. 
 
    This should be applied to each frame each time its window tree is
    redisplayed, even if it is not displaying scroll bars at the moment;
@@ -178,10 +217,12 @@ void (*set_vertical_scroll_bar_hook)
    If non-zero, this hook should be safe to apply to any frame,
    whether or not it can support scroll bars, and whether or not it is
    currently displaying them.  */
+
 void (*condemn_scroll_bars_hook) P_ ((FRAME_PTR frame));
 
 /* Unmark WINDOW's scroll bar for deletion in this judgement cycle.
    Note that it's okay to redeem a scroll bar that is not condemned.  */
+
 void (*redeem_scroll_bar_hook) P_ ((struct window *window));
 
 /* Remove all scroll bars on FRAME that haven't been saved since the
@@ -195,14 +236,17 @@ void (*redeem_scroll_bar_hook) P_ ((struct window *window));
    If non-zero, this hook should be safe to apply to any frame,
    whether or not it can support scroll bars, and whether or not it is
    currently displaying them.  */
+
 void (*judge_scroll_bars_hook) P_ ((FRAME_PTR FRAME));
+
+/* Hook to call in estimate_mode_line_height, if any.  */
+
+int (* estimate_mode_line_height_hook) P_ ((struct frame *f, enum face_id));
 
 
 /* Strings, numbers and flags taken from the termcap entry.  */
 
-char *TS_end_italic_mode;	/* termcap "ae" */
 char *TS_ins_line;		/* "al" */
-char *TS_italic_mode;		/* "as" */
 char *TS_ins_multi_lines;	/* "AL" (one parameter, # lines to insert) */
 char *TS_bell;			/* "bl" */
 char *TS_clr_to_bottom;		/* "cd" */
@@ -225,8 +269,6 @@ char *TS_insert_mode;		/* "im", enter character-insert mode */
 char *TS_pad_inserted_char;	/* "ip".  Just padding, no commands.  */
 char *TS_end_keypad_mode;	/* "ke" */
 char *TS_keypad_mode;		/* "ks" */
-char *TS_bold_mode;		/* "md" */
-char *TS_end_bold_mode;		/* "me" */
 char *TS_pad_char;		/* "pc", char to use as padding */
 char *TS_repeat;		/* "rp" (2 params, # times to repeat
 				   and character to be repeated) */
@@ -236,19 +278,90 @@ char *TS_standout_mode;		/* "so" */
 char *TS_rev_scroll;		/* "sr" */
 char *TS_end_termcap_modes;	/* "te" */
 char *TS_termcap_modes;		/* "ti" */
-char *TS_end_underscore_mode;	/* "ue" */
-char *TS_underscore_mode;	/* "us" */
 char *TS_visible_bell;		/* "vb" */
-char *TS_end_visual_mode;	/* "ve" */
-char *TS_visual_mode;		/* "vi" */
+char *TS_cursor_normal;		/* "ve" */
+char *TS_cursor_visible;	/* "vs" */
+char *TS_cursor_invisible;	/* "vi" */
 char *TS_set_window;		/* "wi" (4 params, start and end of window,
 				   each as vpos and hpos) */
+
+/* Value of the "NC" (no_color_video) capability, or 0 if not
+   present.  */
+
+static int TN_no_color_video;
+
+/* Meaning of bits in no_color_video.  Each bit set means that the
+   corresponding attribute cannot be combined with colors.  */
+
+enum no_color_bit
+{
+  NC_STANDOUT	 = 1 << 0,
+  NC_UNDERLINE	 = 1 << 1,
+  NC_REVERSE	 = 1 << 2,
+  NC_BLINK	 = 1 << 3,
+  NC_DIM	 = 1 << 4,
+  NC_BOLD	 = 1 << 5,
+  NC_INVIS	 = 1 << 6,
+  NC_PROTECT	 = 1 << 7,
+  NC_ALT_CHARSET = 1 << 8
+};
+
+/* "md" -- turn on bold (extra bright mode).  */
+
+char *TS_enter_bold_mode;
+
+/* "mh" -- turn on half-bright mode.  */
+
+char *TS_enter_dim_mode;
+
+/* "mb" -- enter blinking mode.  */
+
+char *TS_enter_blink_mode;
+
+/* "mr" -- enter reverse video mode.  */
+
+char *TS_enter_reverse_mode;
+
+/* "us"/"ue" -- start/end underlining.  */
+
+char *TS_exit_underline_mode, *TS_enter_underline_mode;
+
+/* "ug" -- number of blanks left by underline.  */
+
+int TN_magic_cookie_glitch_ul;
+
+/* "as"/"ae" -- start/end alternate character set.  Not really
+   supported, yet.  */
+
+char *TS_enter_alt_charset_mode, *TS_exit_alt_charset_mode;
+
+/* "me" -- switch appearances off.  */
+
+char *TS_exit_attribute_mode;
+
+/* "Co" -- number of colors.  */
+
+int TN_max_colors;
+
+/* "pa" -- max. number of color pairs on screen.  Not handled yet.
+   Could be a problem if not equal to TN_max_colors * TN_max_colors.  */
+
+int TN_max_pairs;
+
+/* "op" -- SVr4 set default pair to its original value.  */
+
+char *TS_orig_pair;
+
+/* "AF"/"AB" or "Sf"/"Sb"-- set ANSI or SVr4 foreground/background color.
+   1 param, the color index.  */
+
+char *TS_set_foreground, *TS_set_background;
 
 int TF_hazeltine;	/* termcap hz flag. */
 int TF_insmode_motion;	/* termcap mi flag: can move while in insert mode. */
 int TF_standout_motion;	/* termcap mi flag: can move while in standout mode. */
-int TF_underscore;	/* termcap ul flag: _ underlines if overstruck on
-			   nonblank position.  Must clear before writing _.  */
+int TF_underscore;	/* termcap ul flag: _ underlines if over-struck on
+			   non-blank position.  Must clear before writing _.  */
 int TF_teleray;		/* termcap xt flag: many weird consequences.
 			   For t1061. */
 
@@ -269,8 +382,11 @@ static int se_is_so;	/* 1 if same string both enters and leaves
 /* internal state */
 
 /* The largest frame width in any call to calculate_costs.  */
+
 int max_frame_width;
+
 /* The largest frame height in any call to calculate_costs.  */
+
 int max_frame_height;
 
 /* Number of chars of space used for standout marker at beginning of line,
@@ -283,6 +399,7 @@ static char *chars_wasted;
 static char *copybuf;
 
 /* nonzero means supposed to write text in standout mode.  */
+
 int standout_requested;
 
 int insert_mode;			/* Nonzero when in insert mode.  */
@@ -303,7 +420,12 @@ int specified_window;
 FRAME_PTR updating_frame;
 
 /* Provided for lisp packages.  */
+
 static int system_uses_terminfo;
+
+/* Flag used in tty_show/hide_cursor.  */
+
+static int tty_cursor_hidden;
 
 char *tparam ();
 
@@ -324,7 +446,7 @@ extern char *tgetstr ();
 void
 ring_bell ()
 {
-  if (! NILP (Vring_bell_function))
+  if (!NILP (Vring_bell_function))
     {
       Lisp_Object function;
 
@@ -335,98 +457,97 @@ ring_bell ()
 	 We don't specbind it, because that would carefully
 	 restore the bad value if there's an error
 	 and make the loop of errors happen anyway.  */
+      
       function = Vring_bell_function;
       Vring_bell_function = Qnil;
 
       call0 (function);
 
       Vring_bell_function = function;
-      return;
     }
-
-  if (! FRAME_TERMCAP_P (selected_frame))
-    {
-      (*ring_bell_hook) ();
-      return;
-    }
-  OUTPUT (TS_visible_bell && visible_bell ? TS_visible_bell : TS_bell);
+  else if (!FRAME_TERMCAP_P (XFRAME (selected_frame)))
+    (*ring_bell_hook) ();
+  else
+    OUTPUT (TS_visible_bell && visible_bell ? TS_visible_bell : TS_bell);
 }
 
 void
 set_terminal_modes ()
 {
-  if (! FRAME_TERMCAP_P (selected_frame))
+  if (FRAME_TERMCAP_P (XFRAME (selected_frame)))
     {
-      (*set_terminal_modes_hook) ();
-      return;
+      OUTPUT_IF (TS_termcap_modes);
+      OUTPUT_IF (TS_cursor_visible);
+      OUTPUT_IF (TS_keypad_mode);
+      losecursor ();
     }
-  OUTPUT_IF (TS_termcap_modes);
-  OUTPUT_IF (TS_visual_mode);
-  OUTPUT_IF (TS_keypad_mode);
-  losecursor ();
+  else
+    (*set_terminal_modes_hook) ();
 }
 
 void
 reset_terminal_modes ()
 {
-  if (! FRAME_TERMCAP_P (selected_frame))
+  if (FRAME_TERMCAP_P (XFRAME (selected_frame)))
     {
-      if (reset_terminal_modes_hook)
-	(*reset_terminal_modes_hook) ();
-      return;
+      if (TN_standout_width < 0)
+	turn_off_highlight ();
+      turn_off_insert ();
+      OUTPUT_IF (TS_end_keypad_mode);
+      OUTPUT_IF (TS_cursor_normal);
+      OUTPUT_IF (TS_end_termcap_modes);
+      OUTPUT_IF (TS_orig_pair);
+      /* Output raw CR so kernel can track the cursor hpos.  */
+      /* But on magic-cookie terminals this can erase an end-standout
+	 marker and cause the rest of the frame to be in standout, so
+	 move down first.  */
+      if (TN_standout_width >= 0)
+	cmputc ('\n');
+      cmputc ('\r');
     }
-  if (TN_standout_width < 0)
-    turn_off_highlight ();
-  turn_off_insert ();
-  OUTPUT_IF (TS_end_keypad_mode);
-  OUTPUT_IF (TS_end_visual_mode);
-  OUTPUT_IF (TS_end_termcap_modes);
-  /* Output raw CR so kernel can track the cursor hpos.  */
-  /* But on magic-cookie terminals this can erase an end-standout marker and
-     cause the rest of the frame to be in standout, so move down first.  */
-  if (TN_standout_width >= 0)
-    cmputc ('\n');
-  cmputc ('\r');
+  else if (reset_terminal_modes_hook)
+    (*reset_terminal_modes_hook) ();
 }
 
 void
 update_begin (f)
-     FRAME_PTR f;
+     struct frame *f;
 {
   updating_frame = f;
-  if (! FRAME_TERMCAP_P (updating_frame))
-    (*update_begin_hook) (f);
+  if (!FRAME_TERMCAP_P (f))
+    update_begin_hook (f);
 }
 
 void
 update_end (f)
-     FRAME_PTR f;
+     struct frame *f;
 {
-  if (! FRAME_TERMCAP_P (updating_frame))
+  if (FRAME_TERMCAP_P (f))
     {
-      (*update_end_hook) (f);
-      updating_frame = 0;
-      return;
+      if (!XWINDOW (selected_window)->cursor_off_p)
+	tty_show_cursor ();
+      turn_off_insert ();
+      background_highlight ();
+      standout_requested = 0;
     }
-  turn_off_insert ();
-  background_highlight ();
-  standout_requested = 0;
-  updating_frame = 0;
+  else
+    update_end_hook (f);
+  
+  updating_frame = NULL;
 }
 
 void
 set_terminal_window (size)
      int size;
 {
-  if (! FRAME_TERMCAP_P (updating_frame))
+  if (FRAME_TERMCAP_P (updating_frame))
     {
-      (*set_terminal_window_hook) (size);
-      return;
+      specified_window = size ? size : FRAME_HEIGHT (updating_frame);
+      if (scroll_region_ok)
+	set_scroll_region (0, specified_window);
     }
-  specified_window = size ? size : FRAME_HEIGHT (selected_frame);
-  if (!scroll_region_ok)
-    return;
-  set_scroll_region (0, specified_window);
+  else
+    set_terminal_window_hook (size);
 }
 
 void
@@ -434,27 +555,25 @@ set_scroll_region (start, stop)
      int start, stop;
 {
   char *buf;
+  struct frame *sf = XFRAME (selected_frame);
+  
   if (TS_set_scroll_region)
-    {
-      buf = tparam (TS_set_scroll_region, 0, 0, start, stop - 1);
-    }
+    buf = tparam (TS_set_scroll_region, 0, 0, start, stop - 1);
   else if (TS_set_scroll_region_1)
-    {
-      buf = tparam (TS_set_scroll_region_1, 0, 0,
-		    FRAME_HEIGHT (selected_frame), start,
-		    FRAME_HEIGHT (selected_frame) - stop,
-		    FRAME_HEIGHT (selected_frame));
-    }
+    buf = tparam (TS_set_scroll_region_1, 0, 0,
+		  FRAME_HEIGHT (sf), start,
+		  FRAME_HEIGHT (sf) - stop,
+		  FRAME_HEIGHT (sf));
   else
-    {
-      buf = tparam (TS_set_window, 0, 0, start, 0, stop, FRAME_WIDTH (selected_frame));
-    }
+    buf = tparam (TS_set_window, 0, 0, start, 0, stop, FRAME_WIDTH (sf));
+  
   OUTPUT (buf);
   xfree (buf);
   losecursor ();
 }
+
 
-void
+static void
 turn_on_insert ()
 {
   if (!insert_mode)
@@ -488,7 +607,7 @@ turn_off_highlight ()
     }
 }
 
-void
+static void
 turn_on_highlight ()
 {
   if (TN_standout_width < 0)
@@ -498,6 +617,43 @@ turn_on_highlight ()
       standout_mode = 1;
     }
 }
+
+static void
+toggle_highlight ()
+{
+  if (standout_mode)
+    turn_off_highlight ();
+  else
+    turn_on_highlight ();
+}
+
+
+/* Make cursor invisible.  */
+
+static void
+tty_hide_cursor ()
+{
+  if (tty_cursor_hidden == 0)
+    {
+      tty_cursor_hidden = 1;
+      OUTPUT_IF (TS_cursor_invisible);
+    }
+}
+
+
+/* Ensure that cursor is visible.  */
+
+static void
+tty_show_cursor ()
+{
+  if (tty_cursor_hidden)
+    {
+      tty_cursor_hidden = 0;
+      OUTPUT_IF (TS_cursor_normal);
+      OUTPUT_IF (TS_cursor_visible);
+    }
+}
+
 
 /* Set standout mode to the state it should be in for
    empty space inside windows.  What this is,
@@ -538,12 +694,13 @@ highlight_if_desired ()
 /* Write a standout marker or end-standout marker at the front of the line
    at vertical position vpos.  */
 
-void
+static void
 write_standout_marker (flag, vpos)
      int flag, vpos;
 {
-  if (flag || (TS_end_standout_mode && !TF_teleray && !se_is_so
-	       && !(TF_xs && TN_standout_width == 0)))
+  if (flag
+      || (TS_end_standout_mode && !TF_teleray && !se_is_so
+	  && !(TF_xs && TN_standout_width == 0)))
     {
       cmgoto (vpos, 0);
       cmplus (TN_standout_width);
@@ -561,7 +718,8 @@ reassert_line_highlight (highlight, vpos)
      int highlight;
      int vpos;
 {
-  if (! FRAME_TERMCAP_P ((updating_frame ? updating_frame : selected_frame)))
+  struct frame *f = updating_frame ? updating_frame : XFRAME (selected_frame);
+  if (! FRAME_TERMCAP_P (f))
     {
       (*reassert_line_highlight_hook) (highlight, vpos);
       return;
@@ -569,23 +727,23 @@ reassert_line_highlight (highlight, vpos)
   if (TN_standout_width < 0)
     /* Handle terminals where standout takes affect at output time */
     standout_requested = highlight;
-  else if (chars_wasted[vpos] == 0)
+  else if (chars_wasted && chars_wasted[vpos] == 0)
     /* For terminals with standout markers, write one on this line
        if there isn't one already.  */
-    write_standout_marker (highlight, vpos);
+    write_standout_marker (inverse_video ? !highlight : highlight, vpos);
 }
 
 /* Call this when about to modify line at position VPOS
    and change whether it is highlighted.  */
 
 void
-change_line_highlight (new_highlight, vpos, first_unused_hpos)
-     int new_highlight, vpos, first_unused_hpos;
+change_line_highlight (new_highlight, vpos, y, first_unused_hpos)
+     int new_highlight, vpos, y, first_unused_hpos;
 {
   standout_requested = new_highlight;
   if (! FRAME_TERMCAP_P (updating_frame))
     {
-      (*change_line_highlight_hook) (new_highlight, vpos, first_unused_hpos);
+      (*change_line_highlight_hook) (new_highlight, vpos, y, first_unused_hpos);
       return;
     }
 
@@ -600,7 +758,7 @@ change_line_highlight (new_highlight, vpos, first_unused_hpos)
       /* On Teleray, make sure to erase the SO marker.  */
       if (TF_teleray)
 	{
-	  cmgoto (curY - 1, FRAME_WIDTH (selected_frame) - 4);
+	  cmgoto (curY - 1, FRAME_WIDTH (XFRAME (selected_frame)) - 4);
 	  OUTPUT ("\033S");
 	  curY++;		/* ESC S moves to next line where the TS_standout_mode was */
 	  curX = 0;
@@ -613,18 +771,18 @@ change_line_highlight (new_highlight, vpos, first_unused_hpos)
 }
 
 
-/* Move to absolute position, specified origin 0 */
+/* Move cursor to row/column position VPOS/HPOS.  HPOS/VPOS are
+   frame-relative coordinates.  */
 
 void
-cursor_to (row, col)
-     int row, col;
+cursor_to (vpos, hpos)
+     int vpos, hpos;
 {
-  if (! FRAME_TERMCAP_P ((updating_frame
-			    ? updating_frame
-			    : selected_frame))
-      && cursor_to_hook)
+  struct frame *f = updating_frame ? updating_frame : XFRAME (selected_frame);
+  
+  if (! FRAME_TERMCAP_P (f) && cursor_to_hook)
     {
-      (*cursor_to_hook) (row, col);
+      (*cursor_to_hook) (vpos, hpos);
       return;
     }
 
@@ -633,14 +791,14 @@ cursor_to (row, col)
   if (chars_wasted == 0)
     return;
 
-  col += chars_wasted[row] & 077;
-  if (curY == row && curX == col)
+  hpos += chars_wasted[vpos] & 077;
+  if (curY == vpos && curX == hpos)
     return;
   if (!TF_standout_motion)
     background_highlight ();
   if (!TF_insmode_motion)
     turn_off_insert ();
-  cmgoto (row, col);
+  cmgoto (vpos, hpos);
 }
 
 /* Similar but don't take any account of the wasted characters.  */
@@ -649,7 +807,8 @@ void
 raw_cursor_to (row, col)
      int row, col;
 {
-  if (! FRAME_TERMCAP_P ((updating_frame ? updating_frame : selected_frame)))
+  struct frame *f = updating_frame ? updating_frame : XFRAME (selected_frame);
+  if (! FRAME_TERMCAP_P (f))
     {
       (*raw_cursor_to_hook) (row, col);
       return;
@@ -680,14 +839,15 @@ clear_to_end ()
     {
       background_highlight ();
       OUTPUT (TS_clr_to_bottom);
-      bzero (chars_wasted + curY, FRAME_HEIGHT (selected_frame) - curY);
+      bzero (chars_wasted + curY,
+	     FRAME_HEIGHT (XFRAME (selected_frame)) - curY);
     }
   else
     {
-      for (i = curY; i < FRAME_HEIGHT (selected_frame); i++)
+      for (i = curY; i < FRAME_HEIGHT (XFRAME (selected_frame)); i++)
 	{
 	  cursor_to (i, 0);
-	  clear_end_of_line_raw (FRAME_WIDTH (selected_frame));
+	  clear_end_of_line_raw (FRAME_WIDTH (XFRAME (selected_frame)));
 	}
     }
 }
@@ -697,8 +857,10 @@ clear_to_end ()
 void
 clear_frame ()
 {
+  struct frame *sf = XFRAME (selected_frame);
+  
   if (clear_frame_hook
-      && ! FRAME_TERMCAP_P ((updating_frame ? updating_frame : selected_frame)))
+      && ! FRAME_TERMCAP_P ((updating_frame ? updating_frame : sf)))
     {
       (*clear_frame_hook) ();
       return;
@@ -707,7 +869,7 @@ clear_frame ()
     {
       background_highlight ();
       OUTPUT (TS_clr_frame);
-      bzero (chars_wasted, FRAME_HEIGHT (selected_frame));
+      bzero (chars_wasted, FRAME_HEIGHT (sf));
       cmat (0, 0);
     }
   else
@@ -728,11 +890,10 @@ void
 clear_end_of_line (first_unused_hpos)
      int first_unused_hpos;
 {
-  static GLYPH buf = SPACEGLYPH;
-  if (FRAME_TERMCAP_P (selected_frame)
+  if (FRAME_TERMCAP_P (XFRAME (selected_frame))
       && chars_wasted != 0
       && TN_standout_width == 0 && curX == 0 && chars_wasted[curY] != 0)
-    write_glyphs (&buf, 1);
+    write_glyphs (&space_glyph, 1);
   clear_end_of_line_raw (first_unused_hpos);
 }
 
@@ -751,7 +912,7 @@ clear_end_of_line_raw (first_unused_hpos)
   if (clear_end_of_line_hook
       && ! FRAME_TERMCAP_P ((updating_frame
 			       ? updating_frame
-			       : selected_frame)))
+			     : XFRAME (selected_frame))))
     {
       (*clear_end_of_line_hook) (first_unused_hpos);
       return;
@@ -775,11 +936,12 @@ clear_end_of_line_raw (first_unused_hpos)
     }
   else
     {			/* have to do it the hard way */
+      struct frame *sf = XFRAME (selected_frame);
       turn_off_insert ();
 
-      /* Do not write in last row last col with Autowrap on. */
-      if (AutoWrap && curY == FRAME_HEIGHT (selected_frame) - 1
-	  && first_unused_hpos == FRAME_WIDTH (selected_frame))
+      /* Do not write in last row last col with Auto-wrap on. */
+      if (AutoWrap && curY == FRAME_HEIGHT (sf) - 1
+	  && first_unused_hpos == FRAME_WIDTH (sf))
 	first_unused_hpos--;
 
       for (i = curX; i < first_unused_hpos; i++)
@@ -802,60 +964,74 @@ clear_end_of_line_raw (first_unused_hpos)
 
 int
 encode_terminal_code (src, dst, src_len, dst_len, consumed)
-     GLYPH *src;
+     struct glyph *src;
      int src_len;
      unsigned char *dst;
      int dst_len, *consumed;
 {
-  GLYPH *src_start = src, *src_end = src + src_len;
+  struct glyph *src_start = src, *src_end = src + src_len;
   unsigned char *dst_start = dst, *dst_end = dst + dst_len;
   register GLYPH g;
-  unsigned int c;
-  unsigned char workbuf[4], *buf;
+  unsigned char workbuf[MAX_MULTIBYTE_LENGTH], *buf;
   int len;
   register int tlen = GLYPH_TABLE_LENGTH;
   register Lisp_Object *tbase = GLYPH_TABLE_BASE;
   int result;
   struct coding_system *coding;
 
-  coding = (CODING_REQUIRE_ENCODING (&terminal_coding)
+  /* If terminal_coding does any conversion, use it, otherwise use
+     safe_terminal_coding.  We can't use CODING_REQUIRE_ENCODING here
+     because it always return 1 if the member src_multibyte is 1.  */
+  coding = (terminal_coding.common_flags & CODING_REQUIRE_ENCODING_MASK
 	    ? &terminal_coding
 	    : &safe_terminal_coding);
 
   while (src < src_end)
     {
-      g = *src;
       /* We must skip glyphs to be padded for a wide character.  */
-      if (! (g & GLYPH_MASK_PADDING))
+      if (! CHAR_GLYPH_PADDING_P (*src))
 	{
-	  if ((c = GLYPH_CHAR (selected_frame, g)) > MAX_CHAR)
+	  g = GLYPH_FROM_CHAR_GLYPH (src[0]);
+
+	  if (g < 0 || g >= tlen)
 	    {
-	      c = ' ';
-	      g = MAKE_GLYPH (selected_frame, c,
-			      GLYPH_FACE (selected_frame, g));
+	      /* This glyph doesn't has an entry in Vglyph_table.  */
+	      if (! CHAR_VALID_P (src->u.ch, 0))
+		{
+		  len = 1;
+		  buf = " ";
+		  coding->src_multibyte = 0;
+		}
+	      else
+		{
+		  len = CHAR_STRING (src->u.ch, workbuf);
+		  buf = workbuf;
+		  coding->src_multibyte = 1;
+		}
 	    }
-	  if (COMPOSITE_CHAR_P (c))
-	    {
-	      /* If C is a composite character, we can display
-		 only the first component.  */
-	      g = cmpchar_table[COMPOSITE_CHAR_ID (c)]->glyph[0],
-	      c = GLYPH_CHAR (selected_frame, g);
-	    }
-	  if (c < tlen)
-	    {
-	      /* G has an entry in Vglyph_table,
-		 so process any alias before testing for simpleness.  */
-	      GLYPH_FOLLOW_ALIASES (tbase, tlen, g);
-	      c = GLYPH_CHAR (selected_frame, g);
-	    }
-	  if (GLYPH_SIMPLE_P (tbase, tlen, g))
-	    /* We set the multi-byte form of C at BUF.  */
-	    len = CHAR_STRING (c, workbuf, buf);
 	  else
 	    {
-	      /* We have a string in Vglyph_table.  */
-	      len = GLYPH_LENGTH (tbase, g);
-	      buf = GLYPH_STRING (tbase, g);
+	      /* This glyph has an entry in Vglyph_table,
+		 so process any alias before testing for simpleness.  */
+	      GLYPH_FOLLOW_ALIASES (tbase, tlen, g);
+
+	      if (GLYPH_SIMPLE_P (tbase, tlen, g))
+		{
+		  /* We set the multi-byte form of a character in G
+		     (that should be an ASCII character) at
+		     WORKBUF.  */
+		  workbuf[0] = FAST_GLYPH_CHAR (g);
+		  len = 1;
+		  buf = workbuf;
+		  coding->src_multibyte = 0;
+		}
+	      else
+		{
+		  /* We have a string in Vglyph_table.  */
+		  len = GLYPH_LENGTH (tbase, g);
+		  buf = GLYPH_STRING (tbase, g);
+		  coding->src_multibyte = STRING_MULTIBYTE (tbase[g]);
+		}
 	    }
 	  
 	  result = encode_coding (coding, buf, dst, len, dst_end - dst);
@@ -880,6 +1056,7 @@ encode_terminal_code (src, dst, src_len, dst_len, consumed)
 	}
       src++;
     }
+  
   *consumed = src - src_start;
   return (dst - dst_start);
 }
@@ -887,57 +1064,81 @@ encode_terminal_code (src, dst, src_len, dst_len, consumed)
 
 void
 write_glyphs (string, len)
-     register GLYPH *string;
+     register struct glyph *string;
      register int len;
 {
-  register GLYPH g;
-  register int tlen = GLYPH_TABLE_LENGTH;
-  register Lisp_Object *tbase = GLYPH_TABLE_BASE;
   int produced, consumed;
+  struct frame *sf = XFRAME (selected_frame);
+  struct frame *f = updating_frame ? updating_frame : sf;
+  unsigned char conversion_buffer[1024];
+  int conversion_buffer_size = sizeof conversion_buffer;
 
   if (write_glyphs_hook
-      && ! FRAME_TERMCAP_P ((updating_frame ? updating_frame : selected_frame)))
+      && ! FRAME_TERMCAP_P (f))
     {
       (*write_glyphs_hook) (string, len);
       return;
     }
 
-  highlight_if_desired ();
   turn_off_insert ();
+  tty_hide_cursor ();
 
-  /* Don't dare write in last column of bottom line, if AutoWrap,
+  /* Don't dare write in last column of bottom line, if Auto-Wrap,
      since that would scroll the whole frame on some terminals.  */
 
   if (AutoWrap
-      && curY + 1 == FRAME_HEIGHT (selected_frame)
-      && (curX + len - (chars_wasted[curY] & 077)
-	  == FRAME_WIDTH (selected_frame)))
+      && curY + 1 == FRAME_HEIGHT (sf)
+      && (curX + len - (chars_wasted[curY] & 077) == FRAME_WIDTH (sf)))
     len --;
   if (len <= 0)
     return;
 
   cmplus (len);
+  
   /* The mode bit CODING_MODE_LAST_BLOCK should be set to 1 only at
      the tail.  */
   terminal_coding.mode &= ~CODING_MODE_LAST_BLOCK;
+  
   while (len > 0)
     {
-      /* We use shared conversion buffer of the current size (1024
-	 bytes at least).  Usually it is sufficient, but if not, we
-	 just repeat the loop.  */
-      produced = encode_terminal_code (string, conversion_buffer,
-				       len, conversion_buffer_size, &consumed);
-      if (produced > 0)
+      /* Identify a run of glyphs with the same face.  */
+      int face_id = string->face_id;
+      int n;
+      
+      for (n = 1; n < len; ++n)
+	if (string[n].face_id != face_id)
+	  break;
+
+      /* Turn appearance modes of the face of the run on.  */
+      highlight_if_desired ();
+      turn_on_face (f, face_id);
+
+      while (n > 0)
 	{
-	  fwrite (conversion_buffer, 1, produced, stdout);
-	  if (ferror (stdout))
-	    clearerr (stdout);
-	  if (termscript)
-	    fwrite (conversion_buffer, 1, produced, termscript);
+	  /* We use a fixed size (1024 bytes) of conversion buffer.
+	     Usually it is sufficient, but if not, we just repeat the
+	     loop.  */
+	  produced = encode_terminal_code (string, conversion_buffer,
+					   n, conversion_buffer_size,
+					   &consumed);
+	  if (produced > 0)
+	    {
+	      fwrite (conversion_buffer, 1, produced, stdout);
+	      if (ferror (stdout))
+		clearerr (stdout);
+	      if (termscript)
+		fwrite (conversion_buffer, 1, produced, termscript);
+	    }
+	  len -= consumed;
+	  n -= consumed;
+	  string += consumed;
 	}
-      len -= consumed;
-      string += consumed;
+
+      /* Turn appearance modes off.  */
+      turn_off_face (f, face_id);
+      turn_off_highlight ();
     }
+  
   /* We may have to output some codes to terminate the writing.  */
   if (CODING_REQUIRE_FLUSHING (&terminal_coding))
     {
@@ -954,6 +1155,7 @@ write_glyphs (string, len)
 		    termscript);
 	}
     }
+  
   cmcheckmagic ();
 }
 
@@ -961,23 +1163,24 @@ write_glyphs (string, len)
  
 void
 insert_glyphs (start, len)
-     register GLYPH *start;
+     register struct glyph *start;
      register int len;
 {
   char *buf;
-  GLYPH g;
-  register int tlen = GLYPH_TABLE_LENGTH;
-  register Lisp_Object *tbase = GLYPH_TABLE_BASE;
+  struct glyph *glyph = NULL;
+  struct frame *f, *sf;
 
   if (len <= 0)
     return;
 
-  if (insert_glyphs_hook && ! FRAME_TERMCAP_P (updating_frame))
+  if (insert_glyphs_hook)
     {
       (*insert_glyphs_hook) (start, len);
       return;
     }
-  highlight_if_desired ();
+
+  sf = XFRAME (selected_frame);
+  f = updating_frame ? updating_frame : sf;
 
   if (TS_ins_multi_chars)
     {
@@ -996,30 +1199,39 @@ insert_glyphs (start, len)
   while (len-- > 0)
     {
       int produced, consumed;
+      unsigned char conversion_buffer[1024];
+      int conversion_buffer_size = sizeof conversion_buffer;
 
       OUTPUT1_IF (TS_ins_char);
       if (!start)
-	g = SPACEGLYPH;
+	{
+	  conversion_buffer[0] = SPACEGLYPH;
+	  produced = 1;
+	}
       else
 	{
-	  g = *start++;
+	  highlight_if_desired ();
+	  turn_on_face (f, start->face_id);
+	  glyph = start;
+	  ++start;
 	  /* We must open sufficient space for a character which
 	     occupies more than one column.  */
-	  while (*start & GLYPH_MASK_PADDING)
+	  while (len && CHAR_GLYPH_PADDING_P (*start))
 	    {
 	      OUTPUT1_IF (TS_ins_char);
 	      start++, len--;
 	    }
+
+	  if (len <= 0)
+	    /* This is the last glyph.  */
+	    terminal_coding.mode |= CODING_MODE_LAST_BLOCK;
+
+	  /* The size of conversion buffer (1024 bytes) is surely
+	     sufficient for just one glyph.  */
+	  produced = encode_terminal_code (glyph, conversion_buffer, 1,
+					   conversion_buffer_size, &consumed);
 	}
 
-      if (len <= 0)
-	/* This is the last glyph.  */
-	terminal_coding.mode |= CODING_MODE_LAST_BLOCK;
-
-      /* We use shared conversion buffer of the current size (1024
-	 bytes at least).  It is surely sufficient for just one glyph.  */
-      produced = encode_terminal_code (&g, conversion_buffer,
-				       1, conversion_buffer_size, &consumed);
       if (produced > 0)
 	{
 	  fwrite (conversion_buffer, 1, produced, stdout);
@@ -1030,7 +1242,13 @@ insert_glyphs (start, len)
 	}
 
       OUTPUT1_IF (TS_pad_inserted_char);
+      if (start)
+	{
+	  turn_off_face (f, glyph->face_id);
+	  turn_off_highlight ();
+	}
     }
+  
   cmcheckmagic ();
 }
 
@@ -1079,6 +1297,7 @@ ins_del_lines (vpos, n)
   char *multi = n > 0 ? TS_ins_multi_lines : TS_del_multi_lines;
   char *single = n > 0 ? TS_ins_line : TS_del_line;
   char *scroll = n > 0 ? TS_rev_scroll : TS_fwd_scroll;
+  struct frame *sf;
 
   register int i = n > 0 ? n : -n;
   register char *buf;
@@ -1089,6 +1308,8 @@ ins_del_lines (vpos, n)
       return;
     }
 
+  sf = XFRAME (selected_frame);
+  
   /* If the lines below the insertion are being pushed
      into the end of the window, this is the same as clearing;
      and we know the lines are already clear, since the matching
@@ -1098,7 +1319,7 @@ ins_del_lines (vpos, n)
      as there will be a matching inslines later that will flush them. */
   if (scroll_region_ok && vpos + i >= specified_window)
     return;
-  if (!memory_below_frame && vpos + i >= FRAME_HEIGHT (selected_frame))
+  if (!memory_below_frame && vpos + i >= FRAME_HEIGHT (sf))
     return;
 
   if (multi)
@@ -1136,7 +1357,7 @@ ins_del_lines (vpos, n)
       register int lower_limit
 	= (scroll_region_ok
 	   ? specified_window
-	   : FRAME_HEIGHT (selected_frame));
+	   : FRAME_HEIGHT (sf));
 
       if (n < 0)
 	{
@@ -1154,7 +1375,7 @@ ins_del_lines (vpos, n)
     }
   if (!scroll_region_ok && memory_below_frame && n < 0)
     {
-      cursor_to (FRAME_HEIGHT (selected_frame) + n, 0);
+      cursor_to (FRAME_HEIGHT (sf) + n, 0);
       clear_to_end ();
     }
 }
@@ -1284,16 +1505,6 @@ calculate_costs (frame)
   FRAME_COST_BAUD_RATE (frame) = baud_rate;
 
   scroll_region_cost = string_cost (f);
-#ifdef HAVE_X_WINDOWS
-  if (FRAME_X_P (frame))
-    {
-      do_line_insertion_deletion_costs (frame, 0, ".5*", 0, ".5*",
-					0, 0,
-					x_screen_planes (frame));
-      scroll_region_cost = 0;
-      return;
-    }
-#endif
 
   /* These variables are only used for terminal stuff.  They are allocated
      once for the terminal frame of X-windows emacs, but not used afterwards.
@@ -1365,7 +1576,8 @@ struct fkey_table {
      other keys (as on the IBM PC keyboard) they get overridden.
   */
 
-static struct fkey_table keys[] = {
+static struct fkey_table keys[] =
+{
   "kh", "home",		/* termcap */
   "kl", "left",		/* termcap */
   "ku", "up",		/* termcap */
@@ -1570,13 +1782,414 @@ term_get_fkeys_1 ()
       CONDITIONAL_REASSIGN ("*6", "kU", "select");
 #undef CONDITIONAL_REASSIGN
   }
+
+  return Qnil;
 }
 
 
-#if defined(__APPLE_CC__)
-__private_extern__ char _emacs_PC;
-#define PC _emacs_PC
-#endif
+/***********************************************************************
+		       Character Display Information
+ ***********************************************************************/
+
+static void append_glyph P_ ((struct it *));
+
+
+/* Append glyphs to IT's glyph_row.  Called from produce_glyphs for
+   terminal frames if IT->glyph_row != NULL.  IT->c is the character
+   for which to produce glyphs; IT->face_id contains the character's
+   face.  Padding glyphs are appended if IT->c has a IT->pixel_width >
+   1.  */
+   
+static void
+append_glyph (it)
+     struct it *it;
+{
+  struct glyph *glyph, *end;
+  int i;
+
+  xassert (it->glyph_row);
+  glyph = (it->glyph_row->glyphs[it->area]
+	   + it->glyph_row->used[it->area]);
+  end = it->glyph_row->glyphs[1 + it->area];
+
+  for (i = 0; 
+       i < it->pixel_width && glyph < end; 
+       ++i)
+    {
+      glyph->type = CHAR_GLYPH;
+      glyph->pixel_width = 1;
+      glyph->u.ch = it->c;
+      glyph->face_id = it->face_id;
+      glyph->padding_p = i > 0;
+      glyph->charpos = CHARPOS (it->position);
+      glyph->object = it->object;
+      
+      ++it->glyph_row->used[it->area];
+      ++glyph;
+    }
+}
+
+
+/* Produce glyphs for the display element described by IT.  The
+   function fills output fields of IT with pixel information like the
+   pixel width and height of a character, and maybe produces glyphs at
+   the same time if IT->glyph_row is non-null.  See the explanation of
+   struct display_iterator in dispextern.h for an overview.  */
+
+void 
+produce_glyphs (it)
+     struct it *it;
+{
+  /* If a hook is installed, let it do the work.  */
+  xassert (it->what == IT_CHARACTER
+	   || it->what == IT_COMPOSITION
+	   || it->what == IT_IMAGE
+	   || it->what == IT_STRETCH);
+  
+  /* Nothing but characters are supported on terminal frames.  For a
+     composition sequence, it->c is the first character of the
+     sequence.  */
+  xassert (it->what == IT_CHARACTER
+	   || it->what == IT_COMPOSITION);
+
+  if (it->c >= 040 && it->c < 0177)
+    {
+      it->pixel_width = it->nglyphs = 1;
+      if (it->glyph_row)
+	append_glyph (it);
+    }
+  else if (it->c == '\n')
+    it->pixel_width = it->nglyphs = 0;
+  else if (it->c == '\t')
+    {
+      int absolute_x = (it->current_x
+			+ it->continuation_lines_width);
+      int next_tab_x 
+	= (((1 + absolute_x + it->tab_width - 1) 
+	    / it->tab_width)
+	   * it->tab_width);
+      int nspaces;
+
+      /* If part of the TAB has been displayed on the previous line
+	 which is continued now, continuation_lines_width will have
+	 been incremented already by the part that fitted on the
+	 continued line.  So, we will get the right number of spaces
+	 here.  */
+      nspaces = next_tab_x - absolute_x;
+      
+      if (it->glyph_row)
+	{
+	  int n = nspaces;
+	  
+	  it->c = ' ';
+	  it->pixel_width = it->len = 1;
+	  
+	  while (n--)
+	    append_glyph (it);
+	  
+	  it->c = '\t';
+	}
+
+      it->pixel_width = nspaces;
+      it->nglyphs = nspaces;
+    }
+  else if (SINGLE_BYTE_CHAR_P (it->c))
+    {
+      /* Coming here means that it->c is from display table, thus we
+	 must send the code as is to the terminal.  Although there's
+	 no way to know how many columns it occupies on a screen, it
+	 is a good assumption that a single byte code has 1-column
+	 width.  */
+      it->pixel_width = it->nglyphs = 1;
+      if (it->glyph_row)
+	append_glyph (it);
+    }
+  else
+    {
+      /* A multi-byte character.  The display width is fixed for all
+	 characters of the set.  Some of the glyphs may have to be
+	 ignored because they are already displayed in a continued
+	 line.  */
+      int charset = CHAR_CHARSET (it->c);
+
+      it->pixel_width = CHARSET_WIDTH (charset);
+      it->nglyphs = it->pixel_width;
+      
+      if (it->glyph_row)
+	append_glyph (it);
+    }
+
+  /* Advance current_x by the pixel width as a convenience for 
+     the caller.  */
+  if (it->area == TEXT_AREA)
+    it->current_x += it->pixel_width;
+  it->ascent = it->max_ascent = it->phys_ascent = it->max_phys_ascent = 0;
+  it->descent = it->max_descent = it->phys_descent = it->max_phys_descent = 1;
+}
+
+
+/* Get information about special display element WHAT in an
+   environment described by IT.  WHAT is one of IT_TRUNCATION or
+   IT_CONTINUATION.  Maybe produce glyphs for WHAT if IT has a
+   non-null glyph_row member.  This function ensures that fields like
+   face_id, c, len of IT are left untouched.  */
+
+void
+produce_special_glyphs (it, what)
+     struct it *it;
+     enum display_element_type what;
+{
+  struct it temp_it;
+  
+  temp_it = *it;
+  temp_it.dp = NULL;
+  temp_it.what = IT_CHARACTER;
+  temp_it.len = 1;
+  temp_it.object = make_number (0);
+  bzero (&temp_it.current, sizeof temp_it.current);
+
+  if (what == IT_CONTINUATION)
+    {
+      /* Continuation glyph.  */
+      if (it->dp
+	  && INTEGERP (DISP_CONTINUE_GLYPH (it->dp))
+	  && GLYPH_CHAR_VALID_P (XINT (DISP_CONTINUE_GLYPH (it->dp))))
+	{
+	  temp_it.c = FAST_GLYPH_CHAR (XINT (DISP_CONTINUE_GLYPH (it->dp)));
+	  temp_it.len = CHAR_BYTES (temp_it.c);
+	}
+      else
+	temp_it.c = '\\';
+      
+      produce_glyphs (&temp_it);
+      it->pixel_width = temp_it.pixel_width;
+      it->nglyphs = temp_it.pixel_width;
+    }
+  else if (what == IT_TRUNCATION)
+    {
+      /* Truncation glyph.  */
+      if (it->dp
+	  && INTEGERP (DISP_TRUNC_GLYPH (it->dp))
+	  && GLYPH_CHAR_VALID_P (XINT (DISP_TRUNC_GLYPH (it->dp))))
+	{
+	  temp_it.c = FAST_GLYPH_CHAR (XINT (DISP_TRUNC_GLYPH (it->dp)));
+	  temp_it.len = CHAR_BYTES (temp_it.c);
+	}
+      else
+	temp_it.c = '$';
+      
+      produce_glyphs (&temp_it);
+      it->pixel_width = temp_it.pixel_width;
+      it->nglyphs = temp_it.pixel_width;
+    }
+  else
+    abort ();
+}
+
+
+/* Return an estimation of the pixel height of mode or top lines on
+   frame F.  FACE_ID specifies what line's height to estimate.  */
+
+int
+estimate_mode_line_height (f, face_id)
+     struct frame *f;
+     enum face_id face_id;
+{
+  if (estimate_mode_line_height_hook)
+    return estimate_mode_line_height_hook (f, face_id);
+  else
+    return 1;
+}
+
+
+
+/***********************************************************************
+				Faces
+ ***********************************************************************/
+
+/* Value is non-zero if attribute ATTR may be used.  ATTR should be
+   one of the enumerators from enum no_color_bit, or a bit set built
+   from them.  Some display attributes may not be used together with
+   color; the termcap capability `NC' specifies which ones.  */
+
+#define MAY_USE_WITH_COLORS_P(ATTR)		\
+     (TN_max_colors > 0				\
+      ? (TN_no_color_video & (ATTR)) == 0	\
+      : 1)
+
+/* Turn appearances of face FACE_ID on tty frame F on.  */
+
+static void
+turn_on_face (f, face_id)
+     struct frame *f;
+     int face_id;
+{
+  struct face *face = FACE_FROM_ID (f, face_id);
+  long fg = face->foreground;
+  long bg = face->background;
+
+  /* Do this first because TS_end_standout_mode may be the same
+     as TS_exit_attribute_mode, which turns all appearances off. */
+  if (MAY_USE_WITH_COLORS_P (NC_REVERSE))
+    {
+      if (TN_max_colors > 0)
+	{
+	  if (fg >= 0 && bg >= 0)
+	    {
+	      /* If the terminal supports colors, we can set them
+		 below without using reverse video.  The face's fg
+		 and bg colors are set as they should appear on
+		 the screen, i.e. they take the inverse-video'ness
+		 of the face already into account.  */
+	    }
+	  else if (inverse_video)
+	    {
+	      if (fg == FACE_TTY_DEFAULT_FG_COLOR
+		  || bg == FACE_TTY_DEFAULT_BG_COLOR)
+		toggle_highlight ();
+	    }
+	  else
+	    {
+	      if (fg == FACE_TTY_DEFAULT_BG_COLOR
+		  || bg == FACE_TTY_DEFAULT_FG_COLOR)
+		toggle_highlight ();
+	    }
+	}
+      else
+	{
+	  /* If we can't display colors, use reverse video
+	     if the face specifies that.  */
+	  if (inverse_video)
+	    {
+	      if (fg == FACE_TTY_DEFAULT_FG_COLOR
+		  || bg == FACE_TTY_DEFAULT_BG_COLOR)
+		toggle_highlight ();
+	    }
+	  else
+	    {
+	      if (fg == FACE_TTY_DEFAULT_BG_COLOR
+		  || bg == FACE_TTY_DEFAULT_FG_COLOR)
+		toggle_highlight ();
+	    }
+	}
+    }
+
+  if (face->tty_bold_p)
+    {
+      if (MAY_USE_WITH_COLORS_P (NC_BOLD))
+	OUTPUT1_IF (TS_enter_bold_mode);
+    }
+  else if (face->tty_dim_p)
+    if (MAY_USE_WITH_COLORS_P (NC_DIM))
+      OUTPUT1_IF (TS_enter_dim_mode);
+
+  /* Alternate charset and blinking not yet used.  */
+  if (face->tty_alt_charset_p
+      && MAY_USE_WITH_COLORS_P (NC_ALT_CHARSET))
+    OUTPUT1_IF (TS_enter_alt_charset_mode);
+
+  if (face->tty_blinking_p
+      && MAY_USE_WITH_COLORS_P (NC_BLINK))
+    OUTPUT1_IF (TS_enter_blink_mode);
+
+  if (face->tty_underline_p
+      /* Don't underline if that's difficult.  */
+      && TN_magic_cookie_glitch_ul <= 0
+      && MAY_USE_WITH_COLORS_P (NC_UNDERLINE))
+    OUTPUT1_IF (TS_enter_underline_mode);
+
+  if (TN_max_colors > 0)
+    {
+      char *p;
+      
+      if (fg >= 0 && TS_set_foreground)
+	{
+	  p = tparam (TS_set_foreground, NULL, 0, (int) fg);
+	  OUTPUT (p);
+	  xfree (p);
+	}
+
+      if (bg >= 0 && TS_set_background)
+	{
+	  p = tparam (TS_set_background, NULL, 0, (int) bg);
+	  OUTPUT (p);
+	  xfree (p);
+	}
+    }
+}
+  
+
+/* Turn off appearances of face FACE_ID on tty frame F.  */
+
+static void
+turn_off_face (f, face_id)
+     struct frame *f;
+     int face_id;
+{
+  struct face *face = FACE_FROM_ID (f, face_id);
+
+  xassert (face != NULL);
+
+  if (TS_exit_attribute_mode)
+    {
+      /* Capability "me" will turn off appearance modes double-bright,
+	 half-bright, reverse-video, standout, underline.  It may or
+	 may not turn off alt-char-mode.  */
+      if (face->tty_bold_p
+	  || face->tty_dim_p
+	  || face->tty_reverse_p
+	  || face->tty_alt_charset_p
+	  || face->tty_blinking_p
+	  || face->tty_underline_p)
+	{
+	  OUTPUT1_IF (TS_exit_attribute_mode);
+	  if (strcmp (TS_exit_attribute_mode, TS_end_standout_mode) == 0)
+	    standout_mode = 0;
+	}
+
+      if (face->tty_alt_charset_p)
+	OUTPUT_IF (TS_exit_alt_charset_mode);
+    }
+  else
+    {
+      /* If we don't have "me" we can only have those appearances
+	 that have exit sequences defined.  */
+      if (face->tty_alt_charset_p)
+	OUTPUT_IF (TS_exit_alt_charset_mode);
+
+      if (face->tty_underline_p
+	  /* We don't underline if that's difficult.  */
+	  && TN_magic_cookie_glitch_ul <= 0)
+	OUTPUT_IF (TS_exit_underline_mode);
+    }
+
+  /* Switch back to default colors.  */
+  if (TN_max_colors > 0
+      && ((face->foreground != FACE_TTY_DEFAULT_COLOR
+	   && face->foreground != FACE_TTY_DEFAULT_FG_COLOR)
+	  || (face->background != FACE_TTY_DEFAULT_COLOR
+	      && face->background != FACE_TTY_DEFAULT_BG_COLOR)))
+    OUTPUT1_IF (TS_orig_pair);
+}
+  
+    
+/* Return non-zero if the terminal is capable to display colors.  */
+
+DEFUN ("tty-display-color-p", Ftty_display_color_p, Stty_display_color_p,
+       0, 1, 0,
+  "Return non-nil if TTY can display colors on FRAME.")
+     (frame)
+     Lisp_Object frame;
+{
+  return TN_max_colors > 0 ? Qt : Qnil;
+}
+
+
+
+
+/***********************************************************************
+			    Initialization
+ ***********************************************************************/
 
 void
 term_init (terminal_type)
@@ -1587,6 +2200,7 @@ term_init (terminal_type)
   char buffer[2044];
   register char *p;
   int status;
+  struct frame *sf = XFRAME (selected_frame);
 
 #ifdef WINDOWSNT
   initialize_w32_display ();
@@ -1598,9 +2212,9 @@ term_init (terminal_type)
   if (area == 0)
     abort ();
 
-  FrameRows = FRAME_HEIGHT (selected_frame);
-  FrameCols = FRAME_WIDTH (selected_frame);
-  specified_window = FRAME_HEIGHT (selected_frame);
+  FrameRows = FRAME_HEIGHT (sf);
+  FrameCols = FRAME_WIDTH (sf);
+  specified_window = FRAME_HEIGHT (sf);
 
   delete_in_insert_mode = 1;
 
@@ -1617,8 +2231,9 @@ term_init (terminal_type)
 
   baud_rate = 19200;
 
-  FRAME_CAN_HAVE_SCROLL_BARS (selected_frame) = 0;
-  FRAME_VERTICAL_SCROLL_BAR_TYPE (selected_frame) = vertical_scroll_bar_none;
+  FRAME_CAN_HAVE_SCROLL_BARS (sf) = 0;
+  FRAME_VERTICAL_SCROLL_BAR_TYPE (sf) = vertical_scroll_bar_none;
+  TN_max_colors = 16;  /* Required to be non-zero for tty-display-color-p */
 
   return;
 #else  /* not WINDOWSNT */
@@ -1667,7 +2282,7 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
   TS_clr_to_bottom = tgetstr ("cd", address);
   TS_clr_line = tgetstr ("ce", address);
   TS_clr_frame = tgetstr ("cl", address);
-  ColPosition = tgetstr ("ch", address);
+  ColPosition = NULL; /* tgetstr ("ch", address); */
   AbsPosition = tgetstr ("cm", address);
   CR = tgetstr ("cr", address);
   TS_set_scroll_region = tgetstr ("cs", address);
@@ -1713,19 +2328,51 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
   Wcm.cm_tab = tgetstr ("ta", address);
   TS_end_termcap_modes = tgetstr ("te", address);
   TS_termcap_modes = tgetstr ("ti", address);
-  TS_bold_mode = tgetstr ("md", address);
-  TS_end_bold_mode = tgetstr ("me", address);
-  TS_underscore_mode = tgetstr ("us", address);
-  TS_end_underscore_mode = tgetstr ("ue", address);
   Up = tgetstr ("up", address);
   TS_visible_bell = tgetstr ("vb", address);
-  TS_end_visual_mode = tgetstr ("ve", address);
-  TS_visual_mode = tgetstr ("vs", address);
+  TS_cursor_normal = tgetstr ("ve", address);
+  TS_cursor_visible = tgetstr ("vs", address);
+  TS_cursor_invisible = tgetstr ("vi", address);
   TS_set_window = tgetstr ("wi", address);
+  
+  TS_enter_underline_mode = tgetstr ("us", address);
+  TS_exit_underline_mode = tgetstr ("ue", address);
+  TN_magic_cookie_glitch_ul = tgetnum ("ug");
+  TS_enter_bold_mode = tgetstr ("md", address);
+  TS_enter_dim_mode = tgetstr ("mh", address);
+  TS_enter_blink_mode = tgetstr ("mb", address);
+  TS_enter_reverse_mode = tgetstr ("mr", address);
+  TS_enter_alt_charset_mode = tgetstr ("as", address);
+  TS_exit_alt_charset_mode = tgetstr ("ae", address);
+  TS_exit_attribute_mode = tgetstr ("me", address);
+  
   MultiUp = tgetstr ("UP", address);
   MultiDown = tgetstr ("DO", address);
   MultiLeft = tgetstr ("LE", address);
   MultiRight = tgetstr ("RI", address);
+
+  /* SVr4/ANSI color suppert.  If "op" isn't available, don't support
+     color because we can't switch back to the default foreground and
+     background.  */
+  TS_orig_pair = tgetstr ("op", address);
+  if (TS_orig_pair)
+    {
+      TS_set_foreground = tgetstr ("AF", address);
+      TS_set_background = tgetstr ("AB", address);
+      if (!TS_set_foreground)
+	{
+	  /* SVr4.  */
+	  TS_set_foreground = tgetstr ("Sf", address);
+	  TS_set_background = tgetstr ("Sb", address);
+	}
+      
+      TN_max_colors = tgetnum ("Co");
+      TN_max_pairs = tgetnum ("pa");
+      
+      TN_no_color_video = tgetnum ("NC");
+      if (TN_no_color_video == -1)
+	TN_no_color_video = 0;
+    }
 
   MagicWrap = tgetflag ("xn");
   /* Since we make MagicWrap terminals look like AutoWrap, we need to have
@@ -1747,22 +2394,21 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
   {
     int height, width;
     get_frame_size (&width, &height);
-    FRAME_WIDTH (selected_frame) = width;
-    FRAME_HEIGHT (selected_frame) = height;
+    FRAME_WIDTH (sf) = width;
+    FRAME_HEIGHT (sf) = height;
   }
 
-  if (FRAME_WIDTH (selected_frame) <= 0)
-    SET_FRAME_WIDTH (selected_frame, tgetnum ("co"));
+  if (FRAME_WIDTH (sf) <= 0)
+    SET_FRAME_WIDTH (sf, tgetnum ("co"));
   else
     /* Keep width and external_width consistent */
-    SET_FRAME_WIDTH (selected_frame, FRAME_WIDTH (selected_frame));
-  if (FRAME_HEIGHT (selected_frame) <= 0)
-    FRAME_HEIGHT (selected_frame) = tgetnum ("li");
+    SET_FRAME_WIDTH (sf, FRAME_WIDTH (sf));
+  if (FRAME_HEIGHT (sf) <= 0)
+    FRAME_HEIGHT (sf) = tgetnum ("li");
   
-  if (FRAME_HEIGHT (selected_frame) < 3
-      || FRAME_WIDTH (selected_frame) < 3)
+  if (FRAME_HEIGHT (sf) < 3 || FRAME_WIDTH (sf) < 3)
     fatal ("Screen size %dx%d is too small",
-	   FRAME_HEIGHT (selected_frame), FRAME_WIDTH (selected_frame));
+	   FRAME_HEIGHT (sf), FRAME_WIDTH (sf));
 
   min_padding_speed = tgetnum ("pb");
   TN_standout_width = tgetnum ("sg");
@@ -1875,9 +2521,9 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
 	}
     }
 
-  FrameRows = FRAME_HEIGHT (selected_frame);
-  FrameCols = FRAME_WIDTH (selected_frame);
-  specified_window = FRAME_HEIGHT (selected_frame);
+  FrameRows = FRAME_HEIGHT (sf);
+  FrameCols = FRAME_WIDTH (sf);
+  specified_window = FRAME_HEIGHT (sf);
 
   if (Wcm_init () == -1)	/* can't do cursor motion */
 #ifdef VMS
@@ -1906,8 +2552,8 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
 	   terminal_type);
 # endif /* TERMINFO */
 #endif /*VMS */
-  if (FRAME_HEIGHT (selected_frame) <= 0
-      || FRAME_WIDTH (selected_frame) <= 0)
+  if (FRAME_HEIGHT (sf) <= 0
+      || FRAME_WIDTH (sf) <= 0)
     fatal ("The frame size has not been specified");
 
   delete_in_insert_mode
@@ -1920,8 +2566,7 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
 
   /* Remove width of standout marker from usable width of line */
   if (TN_standout_width > 0)
-    SET_FRAME_WIDTH (selected_frame,
-		     FRAME_WIDTH (selected_frame) - TN_standout_width);
+    SET_FRAME_WIDTH (sf, FRAME_WIDTH (sf) - TN_standout_width);
 
   UseTabs = tabs_safe_p () && TabWidth == 8;
 
@@ -1944,8 +2589,8 @@ to do `unset TERMCAP' (C-shell: `unsetenv TERMCAP') as well.",
 				/* meaningless in this case */
     baud_rate = 9600;
 
-  FRAME_CAN_HAVE_SCROLL_BARS (selected_frame) = 0;
-  FRAME_VERTICAL_SCROLL_BAR_TYPE (selected_frame) = vertical_scroll_bar_none;
+  FRAME_CAN_HAVE_SCROLL_BARS (sf) = 0;
+  FRAME_VERTICAL_SCROLL_BAR_TYPE (sf) = vertical_scroll_bar_none;
 #endif /* WINDOWSNT */
 }
 
@@ -1977,4 +2622,7 @@ This variable can be used by terminal emulator packages.");
     "Non-nil means call this function to ring the bell.\n\
 The function should accept no arguments.");
   Vring_bell_function = Qnil;
+
+  defsubr (&Stty_display_color_p);
 }
+

@@ -1,4 +1,28 @@
 
+#ifndef _S_DHCP_OPTIONS_H
+#define _S_DHCP_OPTIONS_H
+/*
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 /*
  * dhcp_options.h
  * - routines to parse and access dhcp options
@@ -11,11 +35,11 @@
  * November 23, 1999	Dieter Siegmund (dieter@apple)
  * - created
  */
-#import <mach/boolean.h>
-#import "ptrlist.h"
-#import "dhcp.h"
-#import "gen_dhcp_tags.h"
-#import "gen_dhcp_types.h"
+#include <mach/boolean.h>
+#include "ptrlist.h"
+#include "dhcp.h"
+#include "gen_dhcp_tags.h"
+#include "gen_dhcp_types.h"
 
 /*
  * DHCP_OPTION_SIZE_MAX
@@ -35,12 +59,11 @@
  */
 
 /*
- * Type: dhcpoa_t
- *
+ * Struct: dhcpoa_s
  * Purpose:
  *   To record information about a dhcp option data area.
  */
-typedef struct {
+struct dhcpoa_s {
     u_long	oa_magic;	/* magic number to ensure it's been init'd */
     void *	oa_buffer;	/* data area to hold options */
     int		oa_size;	/* size of buffer */
@@ -50,9 +73,16 @@ typedef struct {
     int		oa_prev_last;	/* the offset of the option previous to last */
     int		oa_option_count;/* number of options present */
     char	oa_err[256];	/* error string */
-} dhcpoa_t;
+    int		oa_reserve; 	/* space to reserve, either 0 or 1 */
+};
 
-#define DHCPOA_MAGIC	0x11223344
+/*
+ * Type: dhcpoa_t
+ *
+ * Purpose:
+ *   To record information about a dhcp option data area.
+ */
+typedef struct dhcpoa_s dhcpoa_t;
 
 /* 
  * Type:dhcpoa_ret_t
@@ -69,29 +99,37 @@ typedef enum {
 void
 dhcpoa_init(dhcpoa_t * opt, void * buffer, int size);
 
-dhcpoa_ret_t
-dhcpoa_add(dhcpoa_t * buf, dhcptag_t tag, int len, void * option);
+void
+dhcpoa_init_no_end(dhcpoa_t * opt, void * buffer, int size);
 
 dhcpoa_ret_t
-dhcpoa_add_from_strlist(dhcpoa_t * buf, dhcptag_t tag, 
+dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option);
+
+dhcpoa_ret_t
+dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag, 
 			unsigned char * * strlist, int strlist_len);
 
 dhcpoa_ret_t
-dhcpoa_add_from_str(dhcpoa_t * buf, dhcptag_t tag, 
+dhcpoa_add_from_str(dhcpoa_t * oa_p, dhcptag_t tag, 
 		    unsigned char * str);
 
 dhcpoa_ret_t
-dhcpoa_add_dhcpmsg(dhcpoa_t * buf, dhcp_msgtype_t msgtype);
+dhcpoa_add_dhcpmsg(dhcpoa_t * oa_p, dhcp_msgtype_t msgtype);
 
 unsigned char *
-dhcpoa_err(dhcpoa_t * buf);
+dhcpoa_err(dhcpoa_t * oa_p);
 
 int
-dhcpoa_used(dhcpoa_t * buf);
+dhcpoa_used(dhcpoa_t * oa_p);
 
 int
-dhcpoa_count(dhcpoa_t * buf);
+dhcpoa_count(dhcpoa_t * oa_p);
 
+void *
+dhcpoa_buffer(dhcpoa_t * oa_p);
+
+int
+dhcpoa_freespace(dhcpoa_t * oa_p);
 
 /*
  * Module: dhcpol (dhcp options list)
@@ -152,3 +190,4 @@ boolean_t		dhcptag_to_str(unsigned char * tmp, int tag,
 				       unsigned char * err);
 boolean_t		dhcptag_print(void * vopt);
 
+#endif _S_DHCP_OPTIONS_H

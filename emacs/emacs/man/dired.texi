@@ -1,18 +1,30 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985,86,87,93,94,95,97,2000,2001
+@c   Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Dired, Calendar/Diary, Rmail, Top
 @chapter Dired, the Directory Editor
 @cindex Dired
+@cindex file management
 
   Dired makes an Emacs buffer containing a listing of a directory, and
 optionally some of its subdirectories as well.  You can use the normal
 Emacs commands to move around in this buffer, and special Dired commands
 to operate on the files listed.
 
+    The Dired buffer is ``read-only,'' and inserting text in it is not
+useful, so ordinary printing characters such as @kbd{d} and @kbd{x} are
+used for special Dired commands.  Some Dired commands @dfn{mark} or
+@dfn{flag} the @dfn{current file} (that is, the file on the current
+line); other commands operate on the marked files or on the flagged
+files.
+
+  The Dired-X package provides various extra features for Dired mode.
+@xref{Dired-X,,,dired-x, Dired Extra Version 2 User's Manual}.
+
 @menu
 * Enter: Dired Enter.         How to invoke Dired.
-* Commands: Dired Commands.   Commands in the Dired buffer.
+* Navigation: Dired Navigation.   Special motion commands in the Dired buffer.
 * Deletion: Dired Deletion.   Deleting files with Dired.
 * Flagging Many Files::       Flagging files based on their names.
 * Visit: Dired Visiting.      Other file operations through Dired.
@@ -56,15 +68,8 @@ selected window, use @kbd{C-x 4 d} (@code{dired-other-window}) instead
 of @kbd{C-x d}.  @kbd{C-x 5 d} (@code{dired-other-frame}) uses a
 separate frame to display the Dired buffer.
 
-@node Dired Commands
-@section Commands in the Dired Buffer
-
-    The Dired buffer is ``read-only,'' and inserting text in it is not
-useful, so ordinary printing characters such as @kbd{d} and @kbd{x} are
-used for special Dired commands.  Some Dired commands @dfn{mark} or
-@dfn{flag} the @dfn{current file} (that is, the file on the current
-line); other commands operate on the marked files or on the flagged
-files.
+@node Dired Navigation
+@section Navigation in the Dired Buffer
 
 @kindex C-n @r{(Dired)}
 @kindex C-p @r{(Dired)}
@@ -80,13 +85,16 @@ to @kbd{C-n}.  @kbd{p} is equivalent to @kbd{C-p}.  (Moving by lines is
 so common in Dired that it deserves to be easy to type.)  @key{DEL}
 (move up and unflag) is often useful simply for moving up.
 
+  Some additional navigation commands are available when the Dired
+buffer includes several directories.  @xref{Subdirectory Motion}.
+
 @node Dired Deletion
 @section Deleting Files with Dired
 @cindex flagging files (in Dired)
 @cindex deleting files (in Dired)
 
-  The primary use of Dired is to @dfn{flag} files for deletion and then
-delete the files previously flagged.
+  One of the most frequent uses of Dired is to first @dfn{flag} files for
+deletion, then delete the files that were flagged.
 
 @table @kbd
 @item d
@@ -107,20 +115,26 @@ the beginning of the line.  This command moves point to the next line,
 so that repeated @kbd{d} commands flag successive files.  A numeric
 argument serves as a repeat count.
 
+@vindex dired-recursive-deletes
+  The variable @code{dired-recursive-deletes} controls whether the
+delete command will delete non-empty directories (including their
+contents).  The default is to delete only empty directories.
+
 @kindex u @r{(Dired deletion)}
 @kindex DEL @r{(Dired)}
   The files are flagged for deletion rather than deleted immediately to
 reduce the danger of deleting a file accidentally.  Until you direct
-Dired to expunge the flagged files, you can remove deletion flags using
+Dired to delete the flagged files, you can remove deletion flags using
 the commands @kbd{u} and @key{DEL}.  @kbd{u} (@code{dired-unmark}) works
 just like @kbd{d}, but removes flags rather than making flags.
 @key{DEL} (@code{dired-unmark-backward}) moves upward, removing flags;
 it is like @kbd{u} with argument @minus{}1.
 
 @kindex x @r{(Dired)}
-@findex dired-expunge
+@findex dired-do-flagged-delete
 @cindex expunging (Dired)
-  To delete the flagged files, type @kbd{x} (@code{dired-expunge}).
+  To delete the flagged files, type @kbd{x} (@code{dired-do-flagged-delete}).
+(This is also known as @dfn{expunging}.)
 This command first displays a list of all the file names flagged for
 deletion, and requests confirmation with @kbd{yes}.  If you confirm,
 Dired deletes the flagged files, then deletes their lines from the text
@@ -132,6 +146,7 @@ the buffer, and no files actually deleted.
 
 @node Flagging Many Files
 @section Flagging Many Files at Once
+@cindex flagging many files for deletion (in Dired)
 
 @table @kbd
 @item #
@@ -165,22 +180,25 @@ keep.@refill
 @kindex & @r{(Dired)}
 @findex dired-flag-garbage-files
 @vindex dired-garbage-files-regexp
+@cindex deleting some backup files
   @kbd{&} (@code{dired-flag-garbage-files}) flags files whose names
 match the regular expression specified by the variable
 @code{dired-garbage-files-regexp}.  By default, this matches certain
-files produced by @TeX{}, and the @samp{.orig} and @samp{.rej} files
-produced by @code{patch}.
+files produced by @TeX{}, @samp{.bak} files, and the @samp{.orig} and
+@samp{.rej} files produced by @code{patch}.
 
 @kindex # @r{(Dired)}
-@kindex ~ @r{(Dired)}
 @findex dired-flag-auto-save-files
-@findex dired-flag-backup-files
+@cindex deleting auto-save files
   @kbd{#} (@code{dired-flag-auto-save-files}) flags for deletion all
 files whose names look like auto-save files (@pxref{Auto Save})---that
-is, files whose names begin and end with @samp{#}.  @kbd{~}
-(@code{dired-flag-backup-files}) flags for deletion all files whose
-names say they are backup files (@pxref{Backup})---that is, whose names
-end in @samp{~}.
+is, files whose names begin and end with @samp{#}.
+
+@kindex ~ @r{(Dired)}
+@findex dired-flag-backup-files
+  @kbd{~} (@code{dired-flag-backup-files}) flags for deletion all files
+whose names say they are backup files (@pxref{Backup})---that is, files
+whose names end in @samp{~}.
 
 @kindex . @r{(Dired)}
 @vindex dired-kept-versions
@@ -223,8 +241,16 @@ Visit the file described on the current line, like typing @kbd{C-x C-f}
 and supplying that file name (@code{dired-find-file}).  @xref{Visiting}.
 
 @item @key{RET}
+@itemx e
 @kindex RET @r{(Dired)}
+@kindex e @r{(Dired)}
 Equivalent to @kbd{f}.
+
+@item a
+@kindex a @r{(Dired)}
+@findex dired-find-alternate-file
+Like @kbd{f}, but replaces the contents of the Dired buffer with
+that of an alternate file or directory (@code{dired-find-alternate-file}).
 
 @item o
 @kindex o @r{(Dired)}
@@ -254,17 +280,24 @@ View the file described on the current line, using @kbd{M-x view-file}
 
 Viewing a file is like visiting it, but is slanted toward moving around
 in the file conveniently and does not allow changing the file.
-@xref{Misc File Ops,View File}.
+@xref{Misc File Ops,View File, Miscellaneous File Operations}.
+
+@item ^
+@kindex ^ @r{(Dired)}
+@findex dired-up-directory
+Visit the parent directory of the current directory
+(@code{dired-up-directory}).  This is more convenient than moving to
+the parent directory's line and typing @kbd{f} there.
 @end table
 
 @node Marks vs Flags
 @section Dired Marks vs. Flags
 
-@cindex marking in Dired
-  Instead of flagging a file with @samp{D}, you can @dfn{mark} the file
-with some other character (usually @samp{*}).  Most Dired commands to
-operate on files, aside from ``expunge'' (@kbd{x}), look for files
-marked with @samp{*}.
+@cindex marking many files (in Dired)
+  Instead of flagging a file with @samp{D}, you can @dfn{mark} the
+file with some other character (usually @samp{*}).  Most Dired
+commands to operate on files use the files marked with @samp{*}, the
+exception being @kbd{x} which deletes the flagged files.
 
   Here are some commands for marking with @samp{*}, or for unmarking or
 operating on marks.  (@xref{Dired Deletion}, for commands to flag and
@@ -284,6 +317,7 @@ files.)
 @item * *
 @kindex * * @r{(Dired)}
 @findex dired-mark-executables
+@cindex marking executable files (in Dired)
 Mark all executable files with @samp{*}
 (@code{dired-mark-executables}).  With a numeric argument, unmark all
 those files.
@@ -291,12 +325,14 @@ those files.
 @item * @@
 @kindex * @@ @r{(Dired)}
 @findex dired-mark-symlinks
+@cindex marking symlinks (in Dired)
 Mark all symbolic links with @samp{*} (@code{dired-mark-symlinks}).
 With a numeric argument, unmark all those files.
 
 @item * /
 @kindex * / @r{(Dired)}
 @findex dired-mark-directories
+@cindex marking subdirectories (in Dired)
 Mark with @samp{*} all files which are actually directories, except for
 @file{.} and @file{..} (@code{dired-mark-directories}).  With a numeric
 argument, unmark all those files.
@@ -318,21 +354,24 @@ Remove any mark on this line (@code{dired-unmark}).
 @itemx * @key{DEL}
 @kindex * DEL @r{(Dired)}
 @findex dired-unmark-backward
+@cindex unmarking files (in Dired)
 Move point to previous line and remove any mark on that line
 (@code{dired-unmark-backward}).
 
 @item * !
 @kindex * ! @r{(Dired)}
-@findex dired-unmark-all-files-no-query
+@findex dired-unmark-all-marks
 Remove all marks from all the files in this Dired buffer
-(@code{dired-unmark-all-files-no-query}).
+(@code{dired-unmark-all-marks}).
 
 @item * ? @var{markchar}
 @kindex * ? @r{(Dired)}
 @findex dired-unmark-all-files
 Remove all marks that use the character @var{markchar}
 (@code{dired-unmark-all-files}).  The argument is a single
-character---do not use @key{RET} to terminate it.
+character---do not use @key{RET} to terminate it.  See the description
+of the @kbd{* c} command below, which lets you replace one mark
+character with another.
 
 With a numeric argument, this command queries about each marked file,
 asking whether to remove its mark.  You can answer @kbd{y} meaning yes,
@@ -353,23 +392,25 @@ Move up to the previous marked file (@code{dired-prev-marked-file})
 @item * t
 @kindex * t @r{(Dired)}
 @findex dired-do-toggle
+@cindex toggling marks (in Dired)
 Toggle all marks (@code{dired-do-toggle}): files marked with @samp{*}
 become unmarked, and unmarked files are marked with @samp{*}.  Files
 marked in any other way are not affected.
 
-@item * c @var{old} @var{new}
+@item * c @var{old-markchar} @var{new-markchar}
 @kindex * c @r{(Dired)}
 @findex dired-change-marks
-Replace all marks that use the character @var{old} with marks that use
-the character @var{new} (@code{dired-change-marks}).  This command is
-the primary way to create or use marks other than @samp{*} or @samp{D}.
-The arguments are single characters---do not use @key{RET} to terminate
-them.
+Replace all marks that use the character @var{old-markchar} with marks
+that use the character @var{new-markchar} (@code{dired-change-marks}).
+This command is the primary way to create or use marks other than
+@samp{*} or @samp{D}.  The arguments are single characters---do not use
+@key{RET} to terminate them.
 
 You can use almost any character as a mark character by means of this
-command, to distinguish various classes of files.  If @var{old} is a
-space (@samp{ }), then the command operates on all unmarked files; if
-@var{new} is a space, then the command unmarks the files it acts on.
+command, to distinguish various classes of files.  If @var{old-markchar}
+is a space (@samp{ }), then the command operates on all unmarked files;
+if @var{new-markchar} is a space, then the command unmarks the files it
+acts on.
 
 To illustrate the power of this command, here is how to put @samp{D}
 flags on all the files that have no marks, while unflagging all those
@@ -379,7 +420,7 @@ that already have @samp{D} flags:
 * c D t  * c SPC D  * c t SPC
 @end example
 
-This assumes that no files are marked with @samp{t}.
+This assumes that no files were already marked with @samp{t}.
 
 @item % m @var{regexp} @key{RET}
 @itemx * % @var{regexp} @key{RET}
@@ -397,7 +438,8 @@ hiding them (@pxref{Hiding Subdirectories}).
 
 @item % g @var{regexp} @key{RET}
 @findex dired-mark-files-containing-regexp
-@kindex % m @r{(Dired)}
+@kindex % g @r{(Dired)}
+@cindex finding files containing regexp matches (in Dired)
 Mark (with @samp{*}) all files whose @emph{contents} contain a match for
 the regular expression @var{regexp}
 (@code{dired-mark-files-containing-regexp}).  This command is like
@@ -408,7 +450,12 @@ name.
 @kindex C-_ @r{(Dired)}
 @findex dired-undo
 Undo changes in the Dired buffer, such as adding or removing
-marks (@code{dired-undo}).
+marks (@code{dired-undo}).  @emph{This command does not revert the
+actual file operations, nor recover lost files!}  It just undoes
+changes in the buffer itself.  For example, if used after renaming one
+or more files, @code{dired-undo} restores the original names, which
+will get the Dired buffer out of sync with the actual contents of the
+directory.
 @end table
 
 @node Operating on Files
@@ -436,6 +483,15 @@ on all those files.
 Otherwise, the command operates on the current file only.
 @end itemize
 
+@vindex dired-dwim-target
+@cindex two directories (in Dired)
+  Commands which ask for a destination directory, such as those which
+copy and rename files or create links for them, try to guess the default
+target directory for the operation.  Normally, they suggest the Dired
+buffer's default directory, but if the variable @code{dired-dwim-target}
+is non-@code{nil}, and if there is another Dired buffer displayed in the
+next window, that other buffer's directory is suggested instead.
+
   Here are the file-manipulating commands that operate on files in this
 way.  (Some other Dired commands, such as @kbd{!} and the @samp{%}
 commands, also use these conventions to decide which files to work on.)
@@ -443,6 +499,7 @@ commands, also use these conventions to decide which files to work on.)
 @table @kbd
 @findex dired-do-copy
 @kindex C @r{(Dired)}
+@cindex copying files (in Dired)
 @item C @var{new} @key{RET}
 Copy the specified files (@code{dired-do-copy}).  The argument @var{new}
 is the directory to copy into, or (if copying a single file) the new
@@ -453,16 +510,22 @@ If @code{dired-copy-preserve-time} is non-@code{nil}, then copying with
 this command sets the modification time of the new file to be the same
 as that of the old file.
 
+@vindex dired-recursive-copies
+The variable @code{dired-recursive-copies} controls whether
+directories are copied recursively.  The default is to not copy
+recursively, which means that directories cannot be copied.
+
 @item D
 @findex dired-do-delete
 @kindex D @r{(Dired)}
 Delete the specified files (@code{dired-do-delete}).  Like the other
 commands in this section, this command operates on the @emph{marked}
 files, or the next @var{n} files.  By contrast, @kbd{x}
-(@code{dired-expunge}) deletes all @dfn{flagged} files.
+(@code{dired-do-flagged-delete}) deletes all @dfn{flagged} files.
 
 @findex dired-do-rename
 @kindex R @r{(Dired)}
+@cindex renaming files (in Dired)
 @item R @var{new} @key{RET}
 Rename the specified files (@code{dired-do-rename}).  The argument
 @var{new} is the directory to rename into, or (if renaming a single
@@ -473,6 +536,7 @@ with renamed files so that they refer to the new names.
 
 @findex dired-do-hardlink
 @kindex H @r{(Dired)}
+@cindex hard links (in Dired)
 @item H @var{new} @key{RET}
 Make hard links to the specified files (@code{dired-do-hardlink}).  The
 argument @var{new} is the directory to make the links in, or (if making
@@ -480,6 +544,7 @@ just one link) the name to give the link.
 
 @findex dired-do-symlink
 @kindex S @r{(Dired)}
+@cindex symlinks (in Dired)
 @item S @var{new} @key{RET}
 Make symbolic links to the specified files (@code{dired-do-symlink}).
 The argument @var{new} is the directory to make the links in, or (if
@@ -487,6 +552,7 @@ making just one link) the name to give the link.
 
 @findex dired-do-chmod
 @kindex M @r{(Dired)}
+@cindex changing file permissions (in Dired)
 @item M @var{modespec} @key{RET}
 Change the mode (also called ``permission bits'') of the specified files
 (@code{dired-do-chmod}).  This uses the @code{chmod} program, so
@@ -494,12 +560,14 @@ Change the mode (also called ``permission bits'') of the specified files
 
 @findex dired-do-chgrp
 @kindex G @r{(Dired)}
+@cindex changing file group (in Dired)
 @item G @var{newgroup} @key{RET}
 Change the group of the specified files to @var{newgroup}
 (@code{dired-do-chgrp}).
 
 @findex dired-do-chown
 @kindex O @r{(Dired)}
+@cindex changing file owner (in Dired)
 @item O @var{newowner} @key{RET}
 Change the owner of the specified files to @var{newowner}
 (@code{dired-do-chown}).  (On most systems, only the superuser can do
@@ -512,6 +580,7 @@ different places).
 
 @findex dired-do-print
 @kindex P @r{(Dired)}
+@cindex printing files (in Dired)
 @item P @var{command} @key{RET}
 Print the specified files (@code{dired-do-print}).  You must specify the
 command to print them with, but the minibuffer starts out with a
@@ -521,18 +590,21 @@ suitable guess made using the variables @code{lpr-command} and
 
 @findex dired-do-compress
 @kindex Z @r{(Dired)}
+@cindex compressing files (in Dired)
 @item Z
 Compress the specified files (@code{dired-do-compress}).  If the file
 appears to be a compressed file already, it is uncompressed instead.
 
 @findex dired-do-load
 @kindex L @r{(Dired)}
+@cindex loading several files (in Dired)
 @item L
 Load the specified Emacs Lisp files (@code{dired-do-load}).
 @xref{Lisp Libraries}.
 
 @findex dired-do-byte-compile
 @kindex B @r{(Dired)}
+@cindex byte-compiling several files (in Dired)
 @item B
 Byte compile the specified Emacs Lisp files
 (@code{dired-do-byte-compile}).  @xref{Byte Compilation,, Byte
@@ -540,6 +612,7 @@ Compilation, elisp, The Emacs Lisp Reference Manual}.
 
 @kindex A @r{(Dired)}
 @findex dired-do-search
+@cindex search multiple files (in Dired)
 @item A @var{regexp} @key{RET}
 Search all the specified files for the regular expression @var{regexp}
 (@code{dired-do-search}).
@@ -549,11 +622,12 @@ the first match it finds; use @kbd{M-,} to resume the search and find
 the next match.  @xref{Tags Search}.
 
 @kindex Q @r{(Dired)}
-@findex dired-do-query-replace
-@item Q @var{from} @key{RET} @var{to} @key{RET}
+@findex dired-do-query-replace-regexp
+@cindex search and replace in multiple files (in Dired)
+@item Q @var{regexp} @key{RET} @var{to} @key{RET}
 Perform @code{query-replace-regexp} on each of the specified files,
-replacing matches for @var{from} (a regular expression) with the string
-@var{to} (@code{dired-do-query-replace}).
+replacing matches for @var{regexp} with the string
+@var{to} (@code{dired-do-query-replace-regexp}).
 
 This command is a variant of @code{tags-query-replace}.  If you exit the
 query replace loop, you can use @kbd{M-,} to resume the scan and replace
@@ -572,11 +646,13 @@ creates the directory if it does not already exist.
 
 @findex dired-do-shell-command
 @kindex ! @r{(Dired)}
-The dired command @kbd{!} (@code{dired-do-shell-command}) reads a shell
+@kindex X @r{(Dired)}
+The Dired command @kbd{!} (@code{dired-do-shell-command}) reads a shell
 command string in the minibuffer and runs that shell command on all the
-specified files.  You can specify the files to operate on in the usual
-ways for Dired commands (@pxref{Operating on Files}).  There are two
-ways of applying a shell command to multiple files:
+specified files.  @kbd{X} is a synonym for @kbd{!}.  You can specify the
+files to operate on in the usual ways for Dired commands
+(@pxref{Operating on Files}).  There are two ways of applying a shell
+command to multiple files:
 
 @itemize @bullet
 @item
@@ -595,14 +671,23 @@ For example, @kbd{! uudecode @key{RET}} runs @code{uudecode} on each
 file.
 @end itemize
 
-What if you want to run the shell command once for each file but with
-the file name inserted in the middle?  Or if you want to use the file
-names in a more complicated fashion?  Use a shell loop.  For example,
-this shell command would run @code{uuencode} on each of the specified
-files, writing the output into a corresponding @file{.uu} file:
+What if you want to run the shell command once for each file, with the
+file name inserted in the middle?  You can use @samp{?} in the command
+instead of @samp{*}.  The current file name is substituted for
+@samp{?}.  You can use @samp{?} more than once.  For instance, here is
+how to uuencode each file, making the output file name by appending
+@samp{.uu} to the input file name:
 
 @example
-for file in *; do uuencode $file $file >$file.uu; done
+uuencode ? ? > ?.uu
+@end example
+
+To use the file names in a more complicated fashion, you can use a
+shell loop.  For example, this shell command is another way to
+uuencode each file:
+
+@example
+for file in *; do uuencode "$file" "$file" >"$file".uu; done
 @end example
 
 The working directory for the shell command is the top-level directory
@@ -617,11 +702,26 @@ Updating}).
 @node Transforming File Names
 @section Transforming File Names in Dired
 
-  Here are commands that alter file names in a systematic way:
+  This section describes Dired commands which alter file names in a
+systematic way.
+
+  Like the basic Dired file-manipulation commands (@pxref{Operating on
+Files}), the commands described here operate either on the next
+@var{n} files, or on all files marked with @samp{*}, or on the current
+file.  (To mark files, use the commands described in @ref{Marks vs
+Flags}.)
+
+  All of the commands described in this section work
+@emph{interactively}: they ask you to confirm the operation for each
+candidate file.  Thus, you can select more files than you actually
+need to operate on (e.g., with a regexp that matches many files), and
+then refine the selection by typing @kbd{y} or @kbd{n} when the
+command prompts for confirmation.
 
 @table @kbd
 @findex dired-upcase
 @kindex % u @r{(Dired)}
+@cindex upcase file names
 @item % u
 Rename each of the selected files to an upper-case name
 (@code{dired-upcase}).  If the old file names are @file{Foo}
@@ -630,6 +730,7 @@ and @file{bar}, the new names are @file{FOO} and @file{BAR}.
 @item % l
 @findex dired-downcase
 @kindex % l @r{(Dired)}
+@cindex downcase file names
 Rename each of the selected files to a lower-case name
 (@code{dired-downcase}).  If the old file names are @file{Foo} and
 @file{bar}, the new names are @file{foo} and @file{bar}.
@@ -673,7 +774,8 @@ matches that should span the whole filename.)
   Normally, the replacement process does not consider the files'
 directory names; it operates on the file name within the directory.  If
 you specify a numeric argument of zero, then replacement affects the
-entire absolute file name including directory name.
+entire absolute file name including directory name.  (Non-zero
+argument specifies the number of files to operate on.)
 
   Often you will want to select the set of files to operate on using the
 same @var{regexp} that you will use to operate on them.  To do this,
@@ -684,6 +786,8 @@ regular expression specified in any @kbd{%} command as a default.
 
 @node Comparison in Dired
 @section File Comparison with Dired
+@cindex file comparison (in Dired)
+@cindex compare files (in Dired)
 
   Here are two Dired commands that compare specified files using
 @code{diff}.
@@ -695,7 +799,10 @@ regular expression specified in any @kbd{%} command as a default.
 Compare the current file (the file at point) with another file (the file
 at the mark) using the @code{diff} program (@code{dired-diff}).  The
 file at the mark is the first argument of @code{diff}, and the file at
-point is the second argument.
+point is the second argument.  Use @kbd{C-@key{SPC}}
+(@code{set-mark-command}) to set the mark at the first file's line
+(@pxref{Setting Mark}), since @code{dired-diff} ignores the files marked
+with the Dired's @kbd{m} command.
 
 @findex dired-backup-diff
 @kindex M-= @r{(Dired)}
@@ -749,14 +856,15 @@ C-@key{SPC}} takes you back to the old position in the buffer (the line
 describing that subdirectory).
 
 Use the @kbd{l} command (@code{dired-do-redisplay}) to update the
-subdirectory's contents.  Use @kbd{k} to delete the subdirectory.
-@xref{Dired Updating}.
+subdirectory's contents.  Use @kbd{C-u k} on the subdirectory header
+line to delete the subdirectory.  @xref{Dired Updating}.
 
 @node Subdirectory Motion
 @section Moving Over Subdirectories
 
   When a Dired buffer lists subdirectories, you can use the page motion
-commands @kbd{C-x [} and @kbd{C-x ]} to move by entire directories.
+commands @kbd{C-x [} and @kbd{C-x ]} to move by entire directories
+(@pxref{Pages}).
 
 @cindex header line (Dired)
 @cindex directory header lines
@@ -838,6 +946,8 @@ visible, and show what was hidden.
 
 @node Dired Updating
 @section Updating the Dired Buffer
+@cindex updating Dired buffer
+@cindex refreshing displayed files
 
   This section describes commands to update the Dired buffer to reflect
 outside (non-Dired) changes in the directories and files, and to delete
@@ -873,20 +983,22 @@ Hidden subdirectories are updated but remain hidden.
 @kindex l @r{(Dired)}
 @findex dired-do-redisplay
   To update only some of the files, type @kbd{l}
-(@code{dired-do-redisplay}).  This command applies to the next @var{n}
-files, or to the marked files if any, or to the current file.  Updating
-them means reading their current status from the file system and
-changing the buffer to reflect it properly.
+(@code{dired-do-redisplay}).  Like the Dired file-operating commands,
+this command operates on the next @var{n} files (or previous
+@minus{}@var{n} files), or on the marked files if any, or on the
+current file.  Updating the files means reading their current status,
+then updating their lines in the buffer to indicate that status.
 
   If you use @kbd{l} on a subdirectory header line, it updates the
 contents of the corresponding subdirectory.
 
 @kindex k @r{(Dired)}
 @findex dired-do-kill-lines
-  To delete the specified @emph{file lines}---not the files, just the
-lines---type @kbd{k} (@code{dired-do-kill-lines}).  With a numeric
-argument @var{n}, this command applies to the next @var{n} files;
-otherwise, it applies to the marked files.
+  To delete the specified @emph{file lines} from the buffer---not
+delete the files---type @kbd{k} (@code{dired-do-kill-lines}).  Like
+the file-operating commands, this command operates on the next @var{n}
+files, or on the marked files if any; but it does not operate on the
+current file as a last resort.
 
   If you kill the line for a file that is a directory, the directory's
 contents are also deleted from the buffer.  Typing @kbd{C-u k} on the
@@ -895,7 +1007,7 @@ from the Dired buffer.
 
   The @kbd{g} command brings back any individual lines that you have
 killed in this way, but not subdirectories---you must use @kbd{i} to
-reinsert each subdirectory.
+reinsert a subdirectory.
 
 @cindex Dired sorting
 @cindex sorting Dired buffer
@@ -934,6 +1046,8 @@ arguments, @var{directory} and @var{regexp}; it chooses all the files in
 @var{regexp}.  It works by running the programs @code{find} and
 @code{grep}.  See also @kbd{M-x grep-find}, in @ref{Compilation}.
 Remember to write the regular expression for @code{grep}, not for Emacs.
+(An alternative method of showing files whose contents match a given
+regexp is the @kbd{% g @var{regexp}} command, see @ref{Marks vs Flags}.)
 
 @findex find-dired
   The most general command in this series is @kbd{M-x find-dired}, which
@@ -942,6 +1056,14 @@ minibuffer arguments, @var{directory} and @var{find-args}; it runs
 @code{find} in @var{directory}, passing @var{find-args} to tell
 @code{find} what condition to test.  To use this command, you need to
 know how to use @code{find}.
+
+@findex locate
+@findex locate-with-filter
+@cindex file database (locate)
+@vindex locate-command
+  @kbd{M-x locate} provides a similar interface to the @code{locate}
+program.  @kbd{M-x locate-with-filter} is similar, but keeps only lines
+matching a given regular expression.
 
 @vindex find-ls-option
   The format of listing produced by these commands is controlled by the

@@ -1,5 +1,5 @@
 /* Target-dependent code for the Fujitsu FR30.
-   Copyright 1999, Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,6 +28,7 @@
 #include "gdb_string.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "regcache.h"
 
 /* An expression that tells us whether the function invocation represented
    by FI does not have a frame on the stack associated with it.  */
@@ -158,7 +159,7 @@ fr30_skip_prologue (CORE_ADDR pc)
  */
 
 CORE_ADDR
-fr30_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+fr30_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     int struct_return, CORE_ADDR struct_addr)
 {
   int argreg;
@@ -187,7 +188,7 @@ fr30_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   for (argnum = 0; argnum < nargs; argnum++)
     {
       char *val;
-      value_ptr arg = args[argnum];
+      struct value *arg = args[argnum];
       struct type *arg_type = check_typedef (VALUE_TYPE (arg));
       struct type *target_type = TYPE_TARGET_TYPE (arg_type);
       int len = TYPE_LENGTH (arg_type);
@@ -476,10 +477,11 @@ fr30_init_extra_frame_info (struct frame_info *fi)
     fi->frame = read_register (fi->framereg);
   else
     /* not the innermost frame */
-    /* If we have an FP,  the callee saved it. */ if (fi->framereg == FP_REGNUM)
-    if (fi->next->fsr.regs[fi->framereg] != 0)
-      fi->frame = read_memory_integer (fi->next->fsr.regs[fi->framereg],
-				       4);
+    /* If we have an FP,  the callee saved it. */
+    if (fi->framereg == FP_REGNUM)
+      if (fi->next->fsr.regs[fi->framereg] != 0)
+	fi->frame = read_memory_integer (fi->next->fsr.regs[fi->framereg], 4);
+
   /* Calculate actual addresses of saved registers using offsets determined
      by fr30_scan_prologue.  */
   for (reg = 0; reg < NUM_REGS; reg++)
@@ -585,7 +587,7 @@ fr30_frame_saved_pc (struct frame_info *fi)
 
 int
 fr30_fix_call_dummy (char *dummy, CORE_ADDR sp, CORE_ADDR fun, int nargs,
-		     value_ptr *args, struct type *type, int gcc_p)
+		     struct value **args, struct type *type, int gcc_p)
 {
   long offset24;
 

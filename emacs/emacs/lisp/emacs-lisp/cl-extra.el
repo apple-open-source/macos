@@ -1,9 +1,8 @@
 ;;; cl-extra.el --- Common Lisp features, part 2 -*-byte-compile-dynamic: t;-*-
 
-;; Copyright (C) 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1993,2000  Free Software Foundation, Inc.
 
 ;; Author: Dave Gillespie <daveg@synaptics.com>
-;; Version: 2.02
 ;; Keywords: extensions
 
 ;; This file is part of GNU Emacs.
@@ -32,15 +31,10 @@
 ;; This package was written by Dave Gillespie; it is a complete
 ;; rewrite of Cesar Quiroz's original cl.el package of December 1986.
 ;;
-;; This package works with Emacs 18, Emacs 19, and Lucid Emacs 19.
-;;
 ;; Bug reports, comments, and suggestions are welcome!
 
 ;; This file contains portions of the Common Lisp extensions
 ;; package which are autoloaded since they are relatively obscure.
-
-;; See cl.el for Change Log.
-
 
 ;;; Code:
 
@@ -54,9 +48,6 @@
 (defmacro cl-push (x place) (list 'setq place (list 'cons x place)))
 (defmacro cl-pop (place)
   (list 'car (list 'prog1 place (list 'setq place (list 'cdr place)))))
-
-(defvar cl-emacs-type)
-
 
 ;;; Type coercion.
 
@@ -161,12 +152,12 @@ the elements themselves."
 	(setq cl-list (cdr cl-list)))
       (nreverse cl-res))))
 
-(defun mapc (cl-func cl-seq &rest cl-rest)
+(defun cl-mapc (cl-func cl-seq &rest cl-rest)
   "Like `mapcar', but does not accumulate values returned by the function."
   (if cl-rest
-      (apply 'map nil cl-func cl-seq cl-rest)
-    (mapcar cl-func cl-seq))
-  cl-seq)
+      (progn (apply 'map nil cl-func cl-seq cl-rest)
+	     cl-seq)
+    (mapc cl-func cl-seq)))
 
 (defun mapl (cl-func cl-list &rest cl-rest)
   "Like `maplist', but does not accumulate values returned by the function."
@@ -221,24 +212,23 @@ If so, return the true (non-nil) value returned by PREDICATE."
 ;;; Support for `loop'.
 (defun cl-map-keymap (cl-func cl-map)
   (while (symbolp cl-map) (setq cl-map (symbol-function cl-map)))
-  (if (eq cl-emacs-type 'lucid) (funcall 'map-keymap cl-func cl-map)
-    (if (listp cl-map)
-	(let ((cl-p cl-map))
-	  (while (consp (setq cl-p (cdr cl-p)))
-	    (cond ((consp (car cl-p))
-		   (funcall cl-func (car (car cl-p)) (cdr (car cl-p))))
-		  ((vectorp (car cl-p))
-		   (cl-map-keymap cl-func (car cl-p)))
-		  ((eq (car cl-p) 'keymap)
-		   (setq cl-p nil)))))
-      (let ((cl-i -1))
-	(while (< (setq cl-i (1+ cl-i)) (length cl-map))
-	  (if (aref cl-map cl-i)
-	      (funcall cl-func cl-i (aref cl-map cl-i))))))))
+  (if (listp cl-map)
+      (let ((cl-p cl-map))
+	(while (consp (setq cl-p (cdr cl-p)))
+	  (cond ((consp (car cl-p))
+		 (funcall cl-func (car (car cl-p)) (cdr (car cl-p))))
+		((or (vectorp (car cl-p)) (char-table-p (car cl-p)))
+		 (cl-map-keymap cl-func (car cl-p)))
+		((eq (car cl-p) 'keymap)
+		 (setq cl-p nil)))))
+    (let ((cl-i -1))
+      (while (< (setq cl-i (1+ cl-i)) (length cl-map))
+	(if (aref cl-map cl-i)
+	    (funcall cl-func cl-i (aref cl-map cl-i)))))))
 
 (defun cl-map-keymap-recursively (cl-func-rec cl-map &optional cl-base)
   (or cl-base
-      (setq cl-base (copy-sequence (if (eq cl-emacs-type 18) "0" [0]))))
+      (setq cl-base (copy-sequence [0])))
   (cl-map-keymap
    (function
     (lambda (cl-key cl-bind)
@@ -246,8 +236,7 @@ If so, return the true (non-nil) value returned by PREDICATE."
       (if (keymapp cl-bind)
 	  (cl-map-keymap-recursively
 	   cl-func-rec cl-bind
-	   (funcall (if (eq cl-emacs-type 18) 'concat 'vconcat)
-		    cl-base (list 0)))
+	   (vconcat cl-base (list 0)))
 	(funcall cl-func-rec cl-base cl-bind))))
    cl-map))
 
@@ -255,17 +244,15 @@ If so, return the true (non-nil) value returned by PREDICATE."
   (or cl-what (setq cl-what (current-buffer)))
   (if (bufferp cl-what)
       (let (cl-mark cl-mark2 (cl-next t) cl-next2)
-	(save-excursion
-	  (set-buffer cl-what)
+	(with-current-buffer cl-what
 	  (setq cl-mark (copy-marker (or cl-start (point-min))))
 	  (setq cl-mark2 (and cl-end (copy-marker cl-end))))
 	(while (and cl-next (or (not cl-mark2) (< cl-mark cl-mark2)))
-	  (setq cl-next (and (fboundp 'next-property-change)
-			     (if cl-prop (next-single-property-change
-					  cl-mark cl-prop cl-what)
-			       (next-property-change cl-mark cl-what)))
-		cl-next2 (or cl-next (save-excursion
-				       (set-buffer cl-what) (point-max))))
+	  (setq cl-next (if cl-prop (next-single-property-change
+				     cl-mark cl-prop cl-what)
+			  (next-property-change cl-mark cl-what))
+		cl-next2 (or cl-next (with-current-buffer cl-what
+				       (point-max))))
 	  (funcall cl-func (prog1 (marker-position cl-mark)
 			     (set-marker cl-mark cl-next2))
 		   (if cl-mark2 (min cl-next2 cl-mark2) cl-next2)))
@@ -273,10 +260,9 @@ If so, return the true (non-nil) value returned by PREDICATE."
     (or cl-start (setq cl-start 0))
     (or cl-end (setq cl-end (length cl-what)))
     (while (< cl-start cl-end)
-      (let ((cl-next (or (and (fboundp 'next-property-change)
-			      (if cl-prop (next-single-property-change
-					   cl-start cl-prop cl-what)
-				(next-property-change cl-start cl-what)))
+      (let ((cl-next (or (if cl-prop (next-single-property-change
+				      cl-start cl-prop cl-what)
+			   (next-property-change cl-start cl-what))
 			 cl-end)))
 	(funcall cl-func cl-start (min cl-next cl-end))
 	(setq cl-start cl-next)))))
@@ -287,8 +273,7 @@ If so, return the true (non-nil) value returned by PREDICATE."
 
       ;; This is the preferred algorithm, though overlay-lists is undocumented.
       (let (cl-ovl)
-	(save-excursion
-	  (set-buffer cl-buffer)
+	(with-current-buffer cl-buffer
 	  (setq cl-ovl (overlay-lists))
 	  (if cl-start (setq cl-start (copy-marker cl-start)))
 	  (if cl-end (setq cl-end (copy-marker cl-end))))
@@ -303,10 +288,10 @@ If so, return the true (non-nil) value returned by PREDICATE."
 	(if cl-end (set-marker cl-end nil)))
 
     ;; This alternate algorithm fails to find zero-length overlays.
-    (let ((cl-mark (save-excursion (set-buffer cl-buffer)
-				   (copy-marker (or cl-start (point-min)))))
-	  (cl-mark2 (and cl-end (save-excursion (set-buffer cl-buffer)
-						(copy-marker cl-end))))
+    (let ((cl-mark (with-current-buffer cl-buffer
+		     (copy-marker (or cl-start (point-min)))))
+	  (cl-mark2 (and cl-end (with-current-buffer cl-buffer
+				  (copy-marker cl-end))))
 	  cl-pos cl-ovl)
       (while (save-excursion
 	       (and (setq cl-pos (marker-position cl-mark))
@@ -378,13 +363,6 @@ If so, return the true (non-nil) value returned by PREDICATE."
 	  (setq g g2))
 	g)
     (if (eq a 0) 0 (signal 'arith-error nil))))
-
-(defun cl-expt (x y)
-  "Return X raised to the power of Y.  Works only for integer arguments."
-  (if (<= y 0) (if (= y 0) 1 (if (memq x '(-1 1)) (cl-expt x (- y)) 0))
-    (* (if (= (% y 2) 0) 1 x) (cl-expt (* x x) (/ y 2)))))
-(or (and (fboundp 'expt) (subrp (symbol-function 'expt)))
-    (defalias 'expt 'cl-expt))
 
 (defun floor* (x &optional y)
   "Return a list of the floor of X and the fractional part of X.
@@ -604,8 +582,7 @@ argument VECP, this copies vectors as well as conses."
 	  (while (>= (setq i (1- i)) 0)
 	    (aset tree i (cl-copy-tree (aref tree i) vecp))))))
   tree)
-(or (and (fboundp 'copy-tree) (subrp (symbol-function 'copy-tree)))
-    (defalias 'copy-tree 'cl-copy-tree))
+(defalias 'copy-tree 'cl-copy-tree)
 
 
 ;;; Property lists.
@@ -648,40 +625,27 @@ PROPLIST is a list of the sort returned by `symbol-plist'."
     (if (and plist (eq tag (car plist)))
 	(progn (setplist sym (cdr (cdr plist))) t)
       (cl-do-remf plist tag))))
-(or (and (fboundp 'remprop) (subrp (symbol-function 'remprop)))
-    (defalias 'remprop 'cl-remprop))
+(defalias 'remprop 'cl-remprop)
 
 
 
 ;;; Hash tables.
 
-(defun make-hash-table (&rest cl-keys)
+(defun cl-make-hash-table (&rest cl-keys)
   "Make an empty Common Lisp-style hash-table.
-If :test is `eq', this can use Lucid Emacs built-in hash-tables.
-In non-Lucid Emacs, or with non-`eq' test, this internally uses a-lists.
 Keywords supported:  :test :size
 The Common Lisp keywords :rehash-size and :rehash-threshold are ignored."
-  (let ((cl-test (or (car (cdr (memq ':test cl-keys))) 'eql))
-	(cl-size (or (car (cdr (memq ':size cl-keys))) 20)))
-    (if (and (eq cl-test 'eq) (fboundp 'make-hashtable))
-	(funcall 'make-hashtable cl-size)
-      (list 'cl-hash-table-tag cl-test
-	    (if (> cl-size 1) (make-vector cl-size 0)
-	      (let ((sym (make-symbol "--hashsym--"))) (set sym nil) sym))
-	    0))))
+  (let ((cl-test (or (car (cdr (memq :test cl-keys))) 'eql))
+	(cl-size (or (car (cdr (memq :size cl-keys))) 20)))
+    (make-hash-table :size cl-size :test cl-size)))
 
-(defvar cl-lucid-hash-tag
-  (if (and (fboundp 'make-hashtable) (vectorp (make-hashtable 1)))
-      (aref (make-hashtable 1) 0) (make-symbol "--cl-hash-tag--")))
-
-(defun hash-table-p (x)
+(defun cl-hash-table-p (x)
   "Return t if OBJECT is a hash table."
-  (or (eq (car-safe x) 'cl-hash-table-tag)
-      (and (vectorp x) (= (length x) 4) (eq (aref x 0) cl-lucid-hash-tag))
-      (and (fboundp 'hashtablep) (funcall 'hashtablep x))))
+  (or (hash-table-p x)
+      (eq (car-safe x) 'cl-hash-table-tag)))
 
 (defun cl-not-hash-table (x &optional y &rest z)
-  (signal 'wrong-type-argument (list 'hash-table-p (or y x))))
+  (signal 'wrong-type-argument (list 'cl-hash-table-p (or y x))))
 
 (defun cl-hash-lookup (key table)
   (or (eq (car-safe table) 'cl-hash-table-tag) (cl-not-hash-table table))
@@ -701,29 +665,22 @@ The Common Lisp keywords :rehash-size and :rehash-threshold are ignored."
 			      (and (eq test 'eql) (not (numberp key))))
 			  (assq key sym))
 			 ((memq test '(eql equal)) (assoc key sym))
-			 (t (assoc* key sym ':test test))))
+			 (t (assoc* key sym :test test))))
 	  sym str)))
 
-(defvar cl-builtin-gethash
-  (if (and (fboundp 'gethash) (subrp (symbol-function 'gethash)))
-      (symbol-function 'gethash) 'cl-not-hash-table))
-(defvar cl-builtin-remhash
-  (if (and (fboundp 'remhash) (subrp (symbol-function 'remhash)))
-      (symbol-function 'remhash) 'cl-not-hash-table))
-(defvar cl-builtin-clrhash
-  (if (and (fboundp 'clrhash) (subrp (symbol-function 'clrhash)))
-      (symbol-function 'clrhash) 'cl-not-hash-table))
-(defvar cl-builtin-maphash
-  (if (and (fboundp 'maphash) (subrp (symbol-function 'maphash)))
-      (symbol-function 'maphash) 'cl-not-hash-table))
+;; These variables are just kept for compatibility with code
+;; byte-compiled by Emacs-20.
+(defvar cl-builtin-gethash (symbol-function 'gethash))
+(defvar cl-builtin-remhash (symbol-function 'remhash))
+(defvar cl-builtin-clrhash (symbol-function 'clrhash))
+(defvar cl-builtin-maphash (symbol-function 'maphash))
 
 (defun cl-gethash (key table &optional def)
   "Look up KEY in HASH-TABLE; return corresponding value, or DEFAULT."
   (if (consp table)
       (let ((found (cl-hash-lookup key table)))
 	(if (car found) (cdr (car found)) def))
-    (funcall cl-builtin-gethash key table def)))
-(defalias 'gethash 'cl-gethash)
+    (gethash key table def)))
 
 (defun cl-puthash (key val table)
   (if (consp table)
@@ -754,25 +711,23 @@ The Common Lisp keywords :rehash-size and :rehash-threshold are ignored."
 	       (setcar (cdr (cdr (cdr table))) (1- (nth 3 table)))
 	       (if (nth 2 found) (set (intern (nth 2 found) (nth 2 table)) del)
 		 (set (nth 2 table) del)) t)))
-    (prog1 (not (eq (funcall cl-builtin-gethash key table '--cl--) '--cl--))
-      (funcall cl-builtin-remhash key table))))
-(defalias 'remhash 'cl-remhash)
+    (prog1 (not (eq (gethash key table '--cl--) '--cl--))
+      (remhash key table))))
 
 (defun cl-clrhash (table)
   "Clear HASH-TABLE."
   (if (consp table)
       (progn
-	(or (hash-table-p table) (cl-not-hash-table table))
+	(or (cl-hash-table-p table) (cl-not-hash-table table))
 	(if (symbolp (nth 2 table)) (set (nth 2 table) nil)
 	  (setcar (cdr (cdr table)) (make-vector (length (nth 2 table)) 0)))
 	(setcar (cdr (cdr (cdr table))) 0))
-    (funcall cl-builtin-clrhash table))
+    (clrhash table))
   nil)
-(defalias 'clrhash 'cl-clrhash)
 
 (defun cl-maphash (cl-func cl-table)
   "Call FUNCTION on keys and values from HASH-TABLE."
-  (or (hash-table-p cl-table) (cl-not-hash-table cl-table))
+  (or (cl-hash-table-p cl-table) (cl-not-hash-table cl-table))
   (if (consp cl-table)
       (mapatoms (function (lambda (cl-x)
 			    (setq cl-x (symbol-value cl-x))
@@ -782,13 +737,14 @@ The Common Lisp keywords :rehash-size and :rehash-threshold are ignored."
 			      (setq cl-x (cdr cl-x)))))
 		(if (symbolp (nth 2 cl-table))
 		    (vector (nth 2 cl-table)) (nth 2 cl-table)))
-    (funcall cl-builtin-maphash cl-func cl-table)))
-(defalias 'maphash 'cl-maphash)
+    (maphash cl-func cl-table)))
 
-(defun hash-table-count (table)
+(defun cl-hash-table-count (table)
   "Return the number of entries in HASH-TABLE."
-  (or (hash-table-p table) (cl-not-hash-table table))
-  (if (consp table) (nth 3 table) (funcall 'hashtable-fullness table)))
+  (or (cl-hash-table-p table) (cl-not-hash-table table))
+  (if (consp table)
+      (nth 3 table)
+    (hash-table-count table)))
 
 
 ;;; Some debugging aids.

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: bind.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: bind.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Key binding routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: bind.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -158,6 +158,14 @@ whelp(f, n)
         sgarbf = TRUE;
 }
 
+static KEYMENU menu_scroll[] = {
+    {NULL, NULL},		{NULL, NULL},	{NULL, NULL},
+    {NULL, NULL},		{NULL, NULL},	{NULL, NULL},
+    {"^X", "Exit Help"},	{NULL, NULL},	{NULL, NULL},
+    {NULL, NULL},		{NULL, NULL},	{NULL, NULL}
+};
+#define	PREV_KEY	3
+#define	NEXT_KEY	9
 
 
 #define	OVERLAP	2		/* displayed page overlap */
@@ -211,17 +219,20 @@ int	textlen;
             movecursor(begrow + dlines, 0);
             cont = (loffset+dlines < textlen);
             if(cont){                               /* continue ? */
-		if(loffset == 0)
-		    wkeyhelp("000000X00V00","Exit Help,Next Pg");
-		else
-		    wkeyhelp("000Y00X00V00","Prev Pg,Exit Help,Next Pg");
-            }
-            else{
-		if(loffset == 0)
-		  wkeyhelp("000000X00000","Exit Help");
-		else
-		  wkeyhelp("000Y00X00000","Prev Pg,Exit Help");
-            }
+		menu_scroll[NEXT_KEY].name  = "^V";
+		menu_scroll[NEXT_KEY].label = "Next Pg";
+	    }
+	    else
+	      menu_scroll[NEXT_KEY].name = NULL;
+
+	    if(loffset){
+		menu_scroll[PREV_KEY].name  = "^Y";
+		menu_scroll[PREV_KEY].label = "Prev Pg";
+	    }
+	    else
+	      menu_scroll[PREV_KEY].name = NULL;
+
+	    wkeyhelp(menu_scroll);
 	}
 
 	(*term.t_flush)();

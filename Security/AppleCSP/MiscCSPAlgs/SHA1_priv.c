@@ -28,7 +28,6 @@
 
 
 #include "SHA1_priv.h"
-#include "platform.h"
 #include <string.h>
 
 /* The SHS f()-functions */

@@ -45,6 +45,8 @@ public:
 				SSCSPDLSession &ssCSPDLSession);
 	~SSDLSession();
 
+	SecurityServer::ClientSession &clientSession()
+	{ return mClientSession; }
     void GetDbNames(CSSM_NAME_LIST_PTR &NameList);
     void FreeNameList(CSSM_NAME_LIST &NameList);
     void DbDelete(const char *DbName,
@@ -151,6 +153,7 @@ protected:
 	SSUniqueRecordMap mSSUniqueRecordMap;
 
 	CssmClient::DL mDL;
+	SecurityServer::ClientSession mClientSession;
 };
 
 

@@ -14,8 +14,8 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = locate
 
-TOOLS = apply basename chroot date dirname echo env expr false\
-        find getopt hostname id jot kill lastcomm logname nice\
+TOOLS = killall apply basename chroot date dirname echo env expr false\
+        find getopt hostname id jot kill lastcomm logname mktemp nice\
         nohup printenv printf pwd renice script shlock sleep su\
         tee test time true uname users w whereis which who\
         window xargs yes
@@ -30,7 +30,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -Wall 
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

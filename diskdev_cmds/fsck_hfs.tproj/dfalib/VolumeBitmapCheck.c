@@ -42,6 +42,7 @@ enum {
 	kBMS_PoolMax		= 2000
 };
 
+
 #define kAllBitsSetInWord	0xFFFFFFFFul
 
 enum {
@@ -587,7 +588,10 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	vbmBlockP = (UInt8 *)NULL;
 	block.buffer = (void *)NULL;
 	relOpt = kReleaseBlock;
-	bitsWithinFileBlkMask = (fcb->fcbBlockSize * 8) - 1;
+	if ( g->isHFSPlus )
+		bitsWithinFileBlkMask = (fcb->fcbBlockSize * 8) - 1;
+	else
+		bitsWithinFileBlkMask = (kHFSBlockSize * 8) - 1;
 	fileBlk = (g->isHFSPlus ? 0 : vcb->vcbVBMSt);
 
 	/* 
@@ -624,7 +628,7 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 
 		if (memcmp(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment) == 0)
 			continue;
-			
+						
 		if (repair) {
 			bcopy(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment);
 			relOpt = kForceWriteBlock;

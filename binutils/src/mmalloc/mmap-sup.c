@@ -57,6 +57,13 @@ extern int getpagesize PARAMS ((void));
 
 #define PAGE_ALIGN(addr) (caddr_t) (((long)(addr) + pagesize - 1) & ~(pagesize - 1))
 
+/* Return MAP_PRIVATE if MDP represents /dev/zero.  Otherwise, return
+   MAP_SHARED.  */
+
+#define MAP_PRIVATE_OR_SHARED(MDP) ((MDP -> flags & MMALLOC_SHARED) \
+                                    ? MAP_PRIVATE \
+                                    : MAP_SHARED)
+
 /*  Get core for the memory region specified by MDP, using SIZE as the
     amount to either add to or subtract from the existing region.  Works
     like sbrk(), but using mmap(). */
@@ -152,9 +159,6 @@ __mmalloc_mmap_morecore (mdp, size)
      to extend a file. */
 
   moveto = PAGE_ALIGN (mdp -> breakval + size);
-  if ((moveto - mdp -> base) < 128 * 1024 * 1024)
-    moveto = mdp -> base + (128 * 1024 * 1024);
-
   mapbytes = moveto - mdp -> top;
   foffset = mdp -> top - mdp -> base;
 
@@ -172,9 +176,9 @@ __mmalloc_mmap_morecore (mdp, size)
       write (mdp -> fd, &buf, 1);
 
 #ifdef MAP_FILE
-      flags = MAP_SHARED | MAP_FILE;
+      flags = MAP_PRIVATE_OR_SHARED (mdp) | MAP_FILE;
 #else 
-      flags = MAP_SHARED;
+      flags = MAP_PRIVATE_OR_SHARED (mdp)
 #endif
     }
 
@@ -215,14 +219,14 @@ __mmalloc_remap_core (mdp)
   /* FIXME:  Quick hack, needs error checking and other attention. */
 
   base = mmap (mdp -> base, mdp -> top - mdp -> base,
-	       PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
+	       PROT_READ | PROT_WRITE, MAP_PRIVATE_OR_SHARED (mdp) | MAP_FIXED,
 	       mdp -> fd, 0);
   return ((PTR) base);
 }
 
 PTR
 mmalloc_findbase (size)
-  int size;
+  size_t size;
 {
   int fd;
   int flags;
@@ -268,7 +272,7 @@ mmalloc_findbase (size)
   }
 #endif
 
-  size = PAGE_ALIGN (size);
+  size = (size_t) PAGE_ALIGN ((PTR) size);
   base = mmap (0, size, PROT_READ | PROT_WRITE, flags, fd, 0);
   if (base != (caddr_t) -1)
     {
@@ -296,6 +300,16 @@ mmalloc_findbase (size)
       base = NULL;
     }
   return ((PTR) base);
+}
+
+void mmalloc_endpoints (md, start, end)
+     PTR md;
+     size_t *start;
+     size_t *end;
+{
+  struct mdesc *mdp = MD_TO_MDP (md);
+  *start = mdp->base;
+  *end = PAGE_ALIGN (mdp->breakval);
 }
 
 #else	/* defined(HAVE_MMAP) */

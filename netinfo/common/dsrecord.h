@@ -103,6 +103,7 @@ void dsrecord_append_sub(dsrecord *, u_int32_t);
 void dsrecord_remove_sub(dsrecord *, u_int32_t);
 
 int dsrecord_match(dsrecord *, dsrecord *);
+int dsrecord_match_select(dsrecord *, dsrecord *, u_int32_t);
 int dsrecord_equal(dsrecord *, dsrecord *);
 
 u_int32_t dsrecord_attribute_index(dsrecord *, dsdata *, u_int32_t);

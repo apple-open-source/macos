@@ -8,7 +8,7 @@
  *    License or the Artistic License, as specified in the README file.
  *
  * $Date: 2000/03/31 05:11:15 $
- * $Source: /cvs/Darwin/Scripting/perl/perl/ext/DynaLoader/dl_dld.xs,v $
+ * $Source: /cvs/Darwin/src/live/perl/perl/ext/DynaLoader/dl_dld.xs,v $
  * $Revision: 1.1.1.3 $
  * $State: Exp $
  *

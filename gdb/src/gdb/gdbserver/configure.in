@@ -1,5 +1,5 @@
 dnl Autoconf configure script for GDB server.
-dnl Copyright 2000 Free Software Foundation, Inc.
+dnl Copyright 2000, 2002 Free Software Foundation, Inc.
 dnl
 dnl This file is part of GDB.
 dnl
@@ -20,71 +20,50 @@ dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(server.c)
+AC_CONFIG_HEADER(config.h:config.in)
+
+AC_PROG_CC
 
 AC_CANONICAL_SYSTEM
+
 AC_PROG_INSTALL
 
-. ${srcdir}/../configure.host
+AC_HEADER_STDC
 
-. ${srcdir}/../configure.tgt
+AC_CHECK_HEADERS(sgtty.h termio.h termios.h sys/reg.h)
 
-frags=
-host_makefile_frag=${srcdir}/../config/${gdb_host_cpu}/${gdb_host}.mh
-if test ! -f ${host_makefile_frag}; then
-	AC_MSG_ERROR("*** GDB remote does not support host ${host}")
+. ${srcdir}/configure.srv
+
+if test "${srv_linux_usrregs}" = "yes"; then
+  AC_DEFINE(HAVE_LINUX_USRREGS)
 fi
-frags="$frags $host_makefile_frag"
 
-target_makefile_frag=${srcdir}/../config/${gdb_target_cpu}/${gdb_target}.mt
-if test ! -f ${target_makefile_frag}; then
-	AC_MSG_ERROR("*** GDB remote does not support target ${target}")
+if test "${srv_linux_regsets}" = "yes"; then
+  AC_MSG_CHECKING(for PTRACE_GETREGS)
+  AC_CACHE_VAL(gdbsrv_cv_have_ptrace_getregs,
+  [AC_TRY_COMPILE([#include <sys/ptrace.h>],
+		  [PTRACE_GETREGS;],
+		  [gdbsrv_cv_have_ptrace_getregs=yes],
+		  [gdbsrv_cv_have_ptrace_getregs=no])])
+  AC_MSG_RESULT($gdbsrv_cv_have_ptrace_getregs)
+  if test "${gdbsrv_cv_have_ptrace_getregs}" = "yes"; then
+    AC_DEFINE(HAVE_LINUX_REGSETS)
+  fi
+
+  AC_MSG_CHECKING(for PTRACE_GETFPXREGS)
+  AC_CACHE_VAL(gdbsrv_cv_have_ptrace_getfpxregs,
+  [AC_TRY_COMPILE([#include <sys/ptrace.h>],
+		  [PTRACE_GETFPXREGS;],
+		  [gdbsrv_cv_have_ptrace_getfpxregs=yes],
+		  [gdbsrv_cv_have_ptrace_getfpxregs=no])])
+  AC_MSG_RESULT($gdbsrv_cv_have_ptrace_getfpxregs)
+  if test "${gdbsrv_cv_have_ptrace_getfpxregs}" = "yes"; then
+    AC_DEFINE(HAVE_PTRACE_GETFPXREGS)
+  fi
 fi
-frags="$frags $target_makefile_frag"
 
-AC_SUBST_FILE(host_makefile_frag)
-AC_SUBST_FILE(target_makefile_frag)
-AC_SUBST(frags)
+GDBSERVER_DEPFILES="$srv_regobj $srv_tgtobj"
 
-changequote(,)dnl
-hostfile=`sed -n '
-s/XM_FILE[	 ]*=[	 ]*\([^	 ]*\)/\1/p
-' ${host_makefile_frag}`
-
-targetfile=`sed -n '
-s/TM_FILE[	 ]*=[	 ]*\([^	 ]*\)/\1/p
-' ${target_makefile_frag}`
-
-if test "${target}" = "${host}"; then
-nativefile=`sed -n '
-s/NAT_FILE[	 ]*=[	 ]*\([^	 ]*\)/\1/p
-' ${host_makefile_frag}`
-fi
-changequote([,])dnl
-
-# If hostfile (XM_FILE) and/or targetfile (TM_FILE) and/or nativefile
-# (NAT_FILE) is not set in the ?config/* file, we don't make the
-# corresponding links.  But we have to remove the xm.h files and tm.h
-# files anyway, e.g. when switching from "configure host" to
-# "configure none".
-
-files=
-links=
-rm -f xm.h
-rm -f ser-hardwire.c
-if test "${hostfile}" != ""; then
-	files="${files} ../config/${gdb_host_cpu}/${hostfile}"
-	links="${links} xm.h"
-fi
-rm -f tm.h
-if test "${targetfile}" != ""; then
-	files="${files} ../config/${gdb_target_cpu}/${targetfile}"
-	links="${links} tm.h"
-fi
-rm -f nm.h
-if test "${nativefile}" != ""; then
-	files="${files} ../config/${gdb_host_cpu}/${nativefile}"
-	links="${links} nm.h"
-fi
-AC_LINK_FILES($files, $links)
+AC_SUBST(GDBSERVER_DEPFILES)
 
 AC_OUTPUT(Makefile)

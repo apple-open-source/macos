@@ -1,0 +1,341 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*******************************************************************************
+*                                                                              *
+*     File:  fpmacros.c                                                        *
+*                                                                              *
+*     Contains:  C source code for PowerPC implementations of the inquiry      *
+*     macros, as defined in C99.                                               *
+*                                                                              *
+*     Copyright © 1992-2001 Apple Computer, Inc.  All rights reserved.         *
+*                                                                              *
+*     Written by A. Sazegari and Jon Okada, started on November 29 1992.       *
+*     Modified and ported by Robert A. Murley (ram) for Mac OS X.              *
+*                                                                              *
+*     fpmacros is a new file that brings all of C99 macros together.           *
+*                                                                              *
+*     A MathLib v4 file.                                                       *
+*                                                                              *
+*     Macros __isnormald, __isfinited, __isnand and __inf were previously      *
+*     in fp.c.                                                                 *
+*     Macros __fpclassifyf, __isnormalf, __isfinitef, __isnanf and             *
+*     __signbitf were previously in fpfloatfunc.c.                             *
+*     Macro __fpclassifyd was in classify.c.                                   *
+*     Macro __signbitd was in sign.c.                                          *
+*                                                                              *
+*     Change History (most recent first):                                      *
+*                                                                              *
+*     06 Nov 01   ram   commented out warning about Intel architectures.       *
+*                       changed i386 stubs to call abort().                    *
+*     02 Nov 01   ram   added stubs for i386 routines.                         *
+*     08 Oct 01   ram   removed <CoreServices/CoreServices.h>.                 *
+*                       changed compiler errors to warnings.                   *
+*     24 Sep 01   ram   corrected mantissa mask in fpclassifyf and isnanf.     *
+*     18 Sep 01   ali   added <CoreServices/CoreServices.h> to get to <fp.h>.  *
+*     10 Sep 01   ali   added macros to detect PowerPC and correct compiler.   *
+*     09 Sep 01   ali   added more comments.                                   *
+*     05 Sep 01   ram   added __inf routine.                                   *
+*                       added #ifdef __ppc__.                                  *
+*     07 Jul 01   ram   first created from fpfloatfunc.c, fp.c,                *
+*                       classify.c and sign.c in MathLib v3 Mac OS9.           *
+*                       replaced DblInHex typedef with hexdouble.              *
+*                                                                              *
+*     W A R N I N G:                                                           *
+*     These routines require a 64-bit double precision IEEE-754 model.         *
+*     They are written for PowerPC only and are expecting the compiler         *
+*     to generate the correct sequence of multiply-add fused instructions.     *
+*                                                                              *
+*     These routines are not intended for 32-bit Intel architectures.          *
+*                                                                              *
+*     A version of gcc higher than 932 is required.                            *
+*                                                                              *
+*      GCC compiler options:                                                   *
+*            optimization level 3 (-O3)                                        *
+*            -fschedule-insns -finline-functions -funroll-all-loops            *
+*                                                                              *
+*******************************************************************************/
+
+#ifdef      __APPLE_CC__
+#if         __APPLE_CC__ > 930
+
+#include      "math.h"
+#include      "fp_private.h"
+#include      "fenv.h"
+
+#if !defined(BUILDING_FOR_CARBONCORE_LEGACY)
+
+/******************************************************************************
+*     No other functions are called by these routines outside of fpmacros.c.  *
+******************************************************************************/
+
+unsigned int __math_errhandling ( void )
+{
+    return (MATH_ERREXCEPT); // return the bitmask indicating the error discipline(s) in use.
+}
+
+/**************************************************************************
+   Function __fpclassifyf
+   Returns the classification code of the argument float x, as defined in 
+   C99.
+**************************************************************************/
+
+long int __fpclassifyf ( float x )
+{
+   unsigned long int iexp;
+   hexsingle      z;
+   
+   z.fval = x;
+   iexp = z.lval & 0x7f800000;             // isolate float exponent
+   
+   if (iexp == 0x7f800000) {               // NaN or INF case
+      if ((z.lval & 0x007fffff) == 0)
+         return (long int) FP_INFINITE;
+      else if ((z.lval & fQuietNan) != 0)
+         return (long int) FP_QNAN;
+      else
+         return (long int) FP_SNAN;
+   }
+   
+   if (iexp != 0)                             // normal float
+      return (long int) FP_NORMAL;
+      
+   if ((z.lval & 0x007fffff) == 0)
+      return (long int) FP_ZERO;             // zero
+   else
+      return (long int) FP_SUBNORMAL;        //must be subnormal
+}
+   
+
+/*************************************************************************
+      Function __fpclassifyd                                               
+      Returns the classification code of the argument double x, as 
+      defined in C99.
+*************************************************************************/
+
+long int __fpclassifyd ( double arg )
+{
+      register unsigned long int exponent;
+      hexdouble      x;
+            
+      x.d = arg;
+      
+      exponent = x.i.hi & 0x7ff00000;
+      if ( exponent == 0x7ff00000 )
+      {
+            if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
+                  return (long int) FP_INFINITE;
+            else
+                  return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
+      }
+      else if ( exponent != 0)
+            return (long int) FP_NORMAL;
+      else
+      {
+            if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
+                  return (long int) FP_ZERO;
+            else
+                  return (long int) FP_SUBNORMAL;
+      }
+}
+
+/***********************************************************************
+   Function __isnormalf
+   Returns nonzero if and only if x is a normalized float number and 
+   zero otherwise.
+***********************************************************************/
+
+long int __isnormalf ( float x )
+{
+   unsigned long int iexp;
+   hexsingle      z;
+   
+   z.fval = x;
+   iexp = z.lval & 0x7f800000;                 /* isolate float exponent */
+   return ((iexp != 0x7f800000) && (iexp != 0));
+}
+   
+
+/***********************************************************************
+   Function __isnormald
+   Returns nonzero if and only if x is a normalized double number and 
+   zero otherwise.
+***********************************************************************/
+
+long int __isnormald ( double x )
+{
+   unsigned long int iexp;
+   hexdouble      z;
+   
+   z.d = x;
+   iexp = z.i.hi & 0x7ff00000;                 /* isolate float exponent */
+   return ((iexp != 0x7ff00000) && (iexp != 0));
+}
+
+
+/***********************************************************************
+   Function __isfinitef
+   Returns nonzero if and only if x is a finite (normal, subnormal, 
+   or zero) float number and zero otherwise.
+***********************************************************************/
+
+long int __isfinitef ( float x )
+{   
+   hexsingle      z;
+   
+   z.fval = x;
+   return ((z.lval & 0x7f800000) != 0x7f800000);
+}
+   
+
+/***********************************************************************
+   Function __isfinited
+   Returns nonzero if and only if x is a finite (normal, subnormal, 
+   or zero) double number and zero otherwise.
+***********************************************************************/
+long int __isfinited ( double x )
+{
+   hexdouble      z;
+   
+   z.d = x;
+   return ((z.i.hi & 0x7ff00000) != 0x7ff00000);
+}
+
+
+/***********************************************************************
+   Function __isinff
+   Returns nonzero if and only if x is an infinite float number and zero 
+   otherwise.
+***********************************************************************/
+
+long int __isinff ( float x )
+{   
+   hexsingle      z;
+   
+   z.fval = x;
+   return (((z.lval&0x7f800000) == 0x7f800000) && ((z.lval&0x007fffff) == 0));
+}
+   
+
+/***********************************************************************
+   Function __isinfd
+   Returns nonzero if and only if x is an infinite double number and zero 
+   otherwise.
+***********************************************************************/
+long int __isinfd ( double x )
+{
+   hexdouble      z;
+   
+   z.d = x;
+   return (((z.i.hi&0x7ff00000) == 0x7ff00000) && (((z.i.hi&0x000fffff) | z.i.lo) == 0));
+}
+
+
+/***********************************************************************
+   Function __isnanf
+   Returns nonzero if and only if x is a float NaN and zero otherwise.
+***********************************************************************/
+
+long int __isnanf ( float x )
+{   
+   hexsingle      z;
+   
+   z.fval = x;
+   return (((z.lval&0x7f800000) == 0x7f800000) && ((z.lval&0x007fffff) != 0));
+}
+
+
+/***********************************************************************
+   Function __isnand
+   Returns nonzero if and only if x is a double NaN and zero otherwise.
+***********************************************************************/
+long int __isnand ( double x )
+{
+   hexdouble      z;
+   
+   z.d = x;
+   return (((z.i.hi&0x7ff00000) == 0x7ff00000) && (((z.i.hi&0x000fffff) | z.i.lo) != 0));
+}
+
+
+/***********************************************************************
+   Function __signbitf
+   Returns nonzero if and only if the sign bit of the float number x is 
+   set and zero otherwise.
+***********************************************************************/
+
+long int __signbitf ( float x )
+{   
+   hexsingle      z;
+   
+   z.fval = x;
+   return (((signed long int)z.lval) < 0);
+}
+
+
+/***********************************************************************
+   Function __signbitd
+   Returns nonzero if and only if the sign bit of the double number x is 
+   set and zero otherwise.
+***********************************************************************/
+
+long int __signbitd ( double arg )
+{
+      hexdouble z;
+
+      z.d = arg;
+      return (((signed long int)z.i.hi) < 0);
+}
+
+float __nan ( void )
+{
+      static const hexsingle aQuietNAN  = { 0x7fc00000 };
+      return ( aQuietNAN.fval );
+}
+
+/***********************************************************************
+   Function __inf
+   Returns the value of positive infinity for a double.
+***********************************************************************/
+
+float __inff ( void )
+{
+      static const hexsingle PosINF  = { 0x7f800000 };
+      return ( PosINF.fval );
+}
+
+#else /* BUILDING_FOR_CARBONCORE_LEGACY */
+ 
+double __inf ( void )
+{
+      static const hexdouble PosINF  = HEXDOUBLE(0x7ff00000, 0x00000000);
+      return ( PosINF.d );
+}
+
+#endif /* BUILDING_FOR_CARBONCORE_LEGACY */
+
+#else       /* __APPLE_CC__ version */
+#warning A higher version than gcc-932 is required.
+#endif      /* __APPLE_CC__ version */
+#endif      /* __APPLE_CC__ */

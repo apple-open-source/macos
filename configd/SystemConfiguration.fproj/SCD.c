@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,6 +53,7 @@ static const struct sc_errmsg {
 	{ kSCStatusInvalidArgument,	"Invalid argument" },
 	{ kSCStatusKeyExists,		"Key already defined" },
 	{ kSCStatusLocked,		"Lock already held" },
+	{ kSCStatusMaxLink,		"Maximum link count exceeded" },
 	{ kSCStatusNeedLock,		"Lock required for this operation" },
 	{ kSCStatusNoStoreServer,	"Configuration daemon not (no longer) available" },
 	{ kSCStatusNoStoreSession,	"Configuration daemon session not active" },
@@ -84,7 +85,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	CFTypeID		type	= CFGetTypeID(info);
 
 	if (!formatOptions ||
-	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX1"), (void **)&prefix1)) {
+	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX1"), (const void **)&prefix1)) {
 		prefix1 = CFSTR("");
 	}
 
@@ -153,7 +154,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (!formatOptions ||
-	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX2"), (void **)&prefix2)) {
+	    !CFDictionaryGetValueIfPresent(formatOptions, CFSTR("PREFIX2"), (const void **)&prefix2)) {
 		prefix2 = CFStringCreateCopy(NULL, prefix1);
 	}
 
@@ -167,7 +168,7 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFArrayGetTypeID()) {
-		void			**elements;
+		const void		**elements;
 		CFIndex			i;
 		CFIndex			nElements;
 		CFMutableStringRef	str;
@@ -176,42 +177,44 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<array> {"), prefix1);
 
 		nElements = CFArrayGetCount(info);
-		elements  = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-		CFArrayGetValues(info, CFRangeMake(0, nElements), elements);
-		for (i=0; i<nElements; i++) {
-			CFMutableStringRef	nPrefix1;
-			CFMutableStringRef	nPrefix2;
-			CFStringRef		nStr;
-			CFStringRef		vStr;
+		if (nElements > 0) {
+			elements  = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			CFArrayGetValues(info, CFRangeMake(0, nElements), elements);
+			for (i=0; i<nElements; i++) {
+				CFMutableStringRef	nPrefix1;
+				CFMutableStringRef	nPrefix2;
+				CFStringRef		nStr;
+				CFStringRef		vStr;
 
-			nStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%u"), i);
+				nStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%u"), i);
 
-			nPrefix1 = CFStringCreateMutable(NULL, 0);
-			CFStringAppendFormat(nPrefix1,
-					     formatOptions,
-					     CFSTR("%@  %@ : "),
-					     prefix2,
-					     nStr);
-			nPrefix2 = CFStringCreateMutable(NULL, 0);
-			CFStringAppendFormat(nPrefix2,
-					     formatOptions,
-					     CFSTR("%@  "),
-					     prefix2);
+				nPrefix1 = CFStringCreateMutable(NULL, 0);
+				CFStringAppendFormat(nPrefix1,
+						     formatOptions,
+						     CFSTR("%@  %@ : "),
+						     prefix2,
+						     nStr);
+				nPrefix2 = CFStringCreateMutable(NULL, 0);
+				CFStringAppendFormat(nPrefix2,
+						     formatOptions,
+						     CFSTR("%@  "),
+						     prefix2);
 
-			CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX1"), nPrefix1);
-			CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX2"), nPrefix2);
-			CFRelease(nPrefix1);
-			CFRelease(nPrefix2);
-			CFRelease(nStr);
+				CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX1"), nPrefix1);
+				CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX2"), nPrefix2);
+				CFRelease(nPrefix1);
+				CFRelease(nPrefix2);
+				CFRelease(nStr);
 
-			vStr = _SCCopyDescription(elements[i], nFormatOptions);
-			CFStringAppendFormat(str,
-					     formatOptions,
-					     CFSTR("\n%@"),
-					     vStr);
-			CFRelease(vStr);
+				vStr = _SCCopyDescription((void *)elements[i], nFormatOptions);
+				CFStringAppendFormat(str,
+						     formatOptions,
+						     CFSTR("\n%@"),
+						     vStr);
+				CFRelease(vStr);
+			}
+			CFAllocatorDeallocate(NULL, elements);
 		}
-		CFAllocatorDeallocate(NULL, elements);
 		CFStringAppendFormat(str, formatOptions, CFSTR("\n%@}"), prefix2);
 
 		CFRelease(nFormatOptions);
@@ -219,54 +222,56 @@ _SCCopyDescription(void *info, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFDictionaryGetTypeID()) {
-		void			**keys;
+		const void		**keys;
 		CFIndex			i;
 		CFIndex			nElements;
 		CFMutableStringRef	nPrefix1;
 		CFMutableStringRef	nPrefix2;
 		CFMutableStringRef	str;
-		void			**values;
+		const void		**values;
 
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<dictionary> {"), prefix1);
 
 		nElements = CFDictionaryGetCount(info);
-		keys      = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-		values    = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-		CFDictionaryGetKeysAndValues(info, keys, values);
-		for (i=0; i<nElements; i++) {
-			CFStringRef		kStr;
-			CFStringRef		vStr;
+		if (nElements > 0) {
+			keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			CFDictionaryGetKeysAndValues(info, keys, values);
+			for (i=0; i<nElements; i++) {
+				CFStringRef		kStr;
+				CFStringRef		vStr;
 
-			kStr = _SCCopyDescription(keys[i], NULL);
+				kStr = _SCCopyDescription((void *)keys[i], NULL);
 
-			nPrefix1 = CFStringCreateMutable(NULL, 0);
-			CFStringAppendFormat(nPrefix1,
-					     formatOptions,
-					     CFSTR("%@  %@ : "),
-					     prefix2,
-					     kStr);
-			nPrefix2 = CFStringCreateMutable(NULL, 0);
-			CFStringAppendFormat(nPrefix2,
-					     formatOptions,
-					     CFSTR("%@  "),
-					     prefix2);
+				nPrefix1 = CFStringCreateMutable(NULL, 0);
+				CFStringAppendFormat(nPrefix1,
+						     formatOptions,
+						     CFSTR("%@  %@ : "),
+						     prefix2,
+						     kStr);
+				nPrefix2 = CFStringCreateMutable(NULL, 0);
+				CFStringAppendFormat(nPrefix2,
+						     formatOptions,
+						     CFSTR("%@  "),
+						     prefix2);
 
-			CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX1"), nPrefix1);
-			CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX2"), nPrefix2);
-			CFRelease(nPrefix1);
-			CFRelease(nPrefix2);
-			CFRelease(kStr);
+				CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX1"), nPrefix1);
+				CFDictionarySetValue(nFormatOptions, CFSTR("PREFIX2"), nPrefix2);
+				CFRelease(nPrefix1);
+				CFRelease(nPrefix2);
+				CFRelease(kStr);
 
-			vStr = _SCCopyDescription(values[i], nFormatOptions);
-			CFStringAppendFormat(str,
-					     formatOptions,
-					     CFSTR("\n%@"),
-					     vStr);
-			CFRelease(vStr);
+				vStr = _SCCopyDescription((void *)values[i], nFormatOptions);
+				CFStringAppendFormat(str,
+						     formatOptions,
+						     CFSTR("\n%@"),
+						     vStr);
+				CFRelease(vStr);
+			}
+			CFAllocatorDeallocate(NULL, keys);
+			CFAllocatorDeallocate(NULL, values);
 		}
-		CFAllocatorDeallocate(NULL, keys);
-		CFAllocatorDeallocate(NULL, values);
 		CFStringAppendFormat(str, formatOptions, CFSTR("\n%@}"), prefix2);
 
 		CFRelease(nFormatOptions);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,13 +17,10 @@
 
 
 /*
-
 	Based on code donated by Perry Kiehtreiber
-
  */
-
-#ifndef _H_REFCOUNT
-#define _H_REFCOUNT
+#ifndef _SECURITY_REFCOUNT_H_
+#define _SECURITY_REFCOUNT_H_
 
 #include <Security/threading.h>
 
@@ -81,6 +78,7 @@ public:
  	RefPointer& operator = (T * p)					{ setPointer(p); return *this; }
 
 	// dereference operations
+    T* get () const				{ return ptr; }	// mimic auto_ptr
 	operator T * () const		{ return ptr; }
 	T * operator -> () const	{ return ptr; }
 	T & operator * () const		{ return *ptr; }
@@ -92,7 +90,27 @@ protected:
 	T *ptr;
 };
 
+template <class T>
+bool operator <(const RefPointer<T> &r1, const RefPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 < *p2 : p1 < p2;
+}
+
+template <class T>
+bool operator ==(const RefPointer<T> &r1, const RefPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 == *p2 : p1 == p2;
+}
+
+template <class T>
+bool operator !=(const RefPointer<T> &r1, const RefPointer<T> &r2)
+{
+	T *p1 = r1.get(), *p2 = r2.get();
+	return p1 && p2 ? *p1 != *p2 : p1 != p2;
+}
+
 } // end namespace Security
 
-
-#endif //_H_REFCOUNT
+#endif // !_SECURITY_REFCOUNT_H_

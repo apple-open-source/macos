@@ -11,15 +11,15 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: fetchmail 5.6.8\n"
+"Project-Id-Version: fetchmail 5.9.8\n"
 "POT-Creation-Date: 2000-04-21 00:22-0400\n"
-"PO-Revision-Date: 2001-07-17 14:40+0200\n"
+"PO-Revision-Date: 2002-02-26 00:29+0100\n"
 "Last-Translator: Thierry Vignaud <tvignaud@mandrakesoft.com>\n"
 "Language-Team: fr <fr@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=ISO-8859-1\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Emacs-21.0.103.1\n"
+"X-Generator: Emacs-21.1\n"
 
 #: checkalias.c:171
 #, c-format
@@ -65,6 +65,10 @@ msgid ""
 "\r\n"
 "The following oversized messages remain on the mail server %s:"
 msgstr ""
+"Subject: Alerte de Fetchmail: messages trop grands.\r\n"
+"\r\n"
+"Les messages suivants, qui sont trop grands, restent sur le serveur\n"
+"de mail %s:"
 
 #: driver.c:316
 #, c-format
@@ -484,16 +488,16 @@ msgstr "%s: impossible de déterminer le nom de votre hôte !"
 msgid "gethostbyname failed for %s\n"
 msgstr "«gethostbyname» a échoué pour %s\n"
 
-#: error.c:101
+#: report.c:101
 msgid "Unknown system error"
 msgstr "Erreur système inconnue"
 
-#: error.c:128
+#: report.c:128
 #, c-format
 msgid "%s (log message incomplete)"
 msgstr "%s (message de trace incomplet)"
 
-#: error.c:286 error.c:314 error.c:386 error.c:414
+#: report.c:286 report.c:314 report.c:386 report.c:414
 msgid "partial error message buffer overflow"
 msgstr "erreur partielle de surcharge du tampon de message"
 
@@ -747,7 +751,6 @@ msgid "Query status=12 (BSMTP)\n"
 msgstr "État de la requête=12 (BSMTP)\n"
 
 #: fetchmail.c:667
-#, fuzzy
 msgid "Query status=13 (MAXFETCH)\n"
 msgstr "État de la requête=13 (NOMBRE MAXIMUM DE MESSAGES ATTEINT)\n"
 
@@ -1059,7 +1062,7 @@ msgstr "  Les sessions encryptée SSL sont supportées.\n"
 
 #: fetchmail.c:1606
 msgid "  SSL server certificate checking enabled.\n"
-msgstr ""
+msgstr "  Activation de la vérification des certificats du serveur SSL.\n"
 
 #: fetchmail.c:1608
 #, c-format
@@ -1069,7 +1072,7 @@ msgstr "  Répertoire des certificats SSL surs: %s\n"
 #: fetchmail.c:1611
 #, c-format
 msgid "  SSL key fingerprint (checked against the server key): %s\n"
-msgstr ""
+msgstr "  Signature de la clé SSL (vérifié via le serveur de clés): %s\n"
 
 #: fetchmail.c:1614
 #, c-format
@@ -1167,9 +1170,9 @@ msgid "kept"
 msgstr "conservé"
 
 #: fetchmail.c:1663
-#, fuzzy, c-format
+#, c-format
 msgid "  Delivered-To lines will be %s (dropdelivered %s)\n"
-msgstr "  Les lignes «Status» non vides seront %ses (dropstatus %s).\n"
+msgstr "  Les lignes «Delivered-To» non vides seront %ses (dropdelivered %s).\n"
 
 #: fetchmail.c:1669
 #, c-format
@@ -1396,13 +1399,13 @@ msgstr "  %d UIDs enregistrés.\n"
 
 #: fetchmail.c:1877
 msgid "  Poll trace information will be added to the Received header.\n"
-msgstr ""
+msgstr "  Information de traçage de la réception ajoutée aux en-tetes Received.\n"
 
 #: fetchmail.c:1879
 msgid ""
 "  No poll trace information will be added to the Received header.\n"
 ".\n"
-msgstr ""
+msgstr "  Aucune ajout d'information de traçage de la réception aux en-tetes Received.\n"
 
 #: fetchmail.c:1882
 #, c-format
@@ -1500,17 +1503,15 @@ msgstr "Protocole identifié comme étant IMAP2 ou IMAP2BIS\n"
 
 #: imap.c:283
 msgid "will idle after poll\n"
-msgstr ""
+msgstr "attendra après la réception\n"
 
 #: imap.c:372
-#, fuzzy
 msgid "Required OTP capability not compiled into fetchmail\n"
-msgstr "La fonction LOGIN requise n'est pas supportée par le serveur\n"
+msgstr "La fonctionnalité OTP requise n'est pas supportée par fetchmail\n"
 
 #: imap.c:394
-#, fuzzy
 msgid "Required NTLM capability not compiled into fetchmail\n"
-msgstr "La fonction LOGIN requise n'est pas supportée par le serveur\n"
+msgstr "La fonctionnalité NTLM requise n'est pas supportée par fetchmail.\n"
 
 #: imap.c:403
 msgid "Required LOGIN capability not supported by server\n"
@@ -1521,7 +1522,7 @@ msgid "re-poll failed\n"
 msgstr "échec durant la re-réception\n"
 
 #: imap.c:499
-#, fuzzy, c-format
+#, c-format
 msgid "%d messages waiting after re-poll\n"
 msgstr "%d messages en attente après le nouveau poll\n"
 
@@ -1552,7 +1553,7 @@ msgstr ""
 #: interface.c:400
 #, c-format
 msgid "Unable to parse interface name from %s"
-msgstr ""
+msgstr "Impossible d'interpréter le nom de l'interface depuis %s"
 
 #: interface.c:422
 msgid "get_ifinfo: sysctl (iflist estimate) failed"
@@ -1685,7 +1686,7 @@ msgstr "requête ATRN refusée.\n"
 #. Unable to process ATRN request now
 #: odmr.c:106
 msgid "Unable to process ATRN request now\n"
-msgstr ""
+msgstr "Impossible de traiter la requete ATRN maintenant\n"
 
 #. You have no mail
 #: odmr.c:110
@@ -1911,6 +1912,8 @@ msgstr "      --principal   principal service mail\n"
 #: options.c:685
 msgid "      --tracepolls  add poll-tracing information to Received header\n"
 msgstr ""
+"      --tracepolls  ajoute des informations de tracage de la réception\n"
+"                    aux en-testes Received\n"
 
 #: options.c:687
 msgid "  -u, --username    specify users's login on server\n"
@@ -1957,9 +1960,8 @@ msgid "  -S, --smtphost    set SMTP forwarding host\n"
 msgstr "  -S, --smtphost    spécifier l'hôte SMTP pour la réexpédition\n"
 
 #: options.c:700
-#, fuzzy
 msgid "      --fetchdomains fetch mail for specified domains\n"
-msgstr "limit"
+msgstr "      --fetchdomains récupère le mail pour les domaines indiqués\n"
 
 #: options.c:701
 msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
@@ -2234,18 +2236,18 @@ msgstr "réexpédition vers %s\n"
 
 #: sink.c:310
 msgid "SMTP: (bounce-message body)\n"
-msgstr ""
+msgstr "SMTP: (corps du message ayant rebondi)\n"
 
 #. this will usually go to sylog...
 #: sink.c:313
 #, c-format
 msgid "mail from %s bounced to %s\n"
-msgstr ""
+msgstr "message depuis %s ayant rebondi sur %s\n"
 
 #: sink.c:414
 #, c-format
 msgid "Saved error is still %d\n"
-msgstr ""
+msgstr "L'erreur mémorisée est toujours %d\n"
 
 #: sink.c:459
 #, c-format
@@ -2388,9 +2390,9 @@ msgid "Unknown Issuer CommonName\n"
 msgstr ""
 
 #: socket.c:700
-#, fuzzy, c-format
+#, c-format
 msgid "Server CommonName: %s\n"
-msgstr "Horodatage du service %s\n"
+msgstr "Nom commun du serveur: %s\n"
 
 #. Possible truncation. In this case, this is a DNS name, so this
 #. * is really bad. We do not tolerate this even in the non-strict case.
@@ -2430,7 +2432,7 @@ msgstr "Le tampon résumé est trop court!\n"
 #: socket.c:764
 #, c-format
 msgid "%s key fingerprint: %s\n"
-msgstr ""
+msgstr "signature de la clé %s: %s\n"
 
 #: socket.c:767
 #, c-format
@@ -2566,7 +2568,7 @@ msgstr "Nouvelle liste d'UID à partir de %s:"
 
 #: uid.c:479
 msgid "swapping UID lists\n"
-msgstr ""
+msgstr "inversion des listes d'UIDs\n"
 
 #: uid.c:485
 msgid "not swapping UID lists, no UIDs seen this query\n"

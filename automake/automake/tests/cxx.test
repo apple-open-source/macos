@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test that `.c++' extension works.
+# From Ralf Corsepius.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CXX
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = hello
+hello_SOURCES = hello.c++
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^\.SUFFIXES:.*c[+][+]' Makefile.in

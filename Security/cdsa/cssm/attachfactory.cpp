@@ -65,7 +65,7 @@ public:
     }
 
 private:
-    typedef StandardAttachment<type, Table>::NameMap NameMap;
+    typedef typename StandardAttachment<type, Table>::NameMap NameMap;
     NameMap nameMap;
 };
 
@@ -79,7 +79,7 @@ StandardAttachmentMaker<type, Table, nameTable>::StandardAttachmentMaker()
 : AttachmentMaker(type)
 {
     for (unsigned n = 0; n < sizeof(nameTable) / sizeof(nameTable[0]); n++)
-        nameMap.insert(NameMap::value_type(nameTable[n], n));
+        nameMap.insert(typename NameMap::value_type(nameTable[n], n));
 }
 
 //

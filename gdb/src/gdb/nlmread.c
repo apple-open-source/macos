@@ -1,5 +1,6 @@
 /* Read NLM (NetWare Loadable Module) format executable files for GDB.
-   Copyright 1993, 1994, 1998 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support (fnf@cygnus.com).
 
    This file is part of GDB.
@@ -20,12 +21,10 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include "gdb_string.h"
 #include "bfd.h"
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "gdb-stabs.h"
 #include "buildsym.h"
 #include "stabsread.h"
 
@@ -108,7 +107,7 @@ nlm_symtab_read (bfd *abfd, CORE_ADDR addr, struct objfile *objfile)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (free, symbol_table);
+      back_to = make_cleanup (xfree, symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table);
       if (number_of_symbols < 0)
 	error ("Can't read symbols from %s: %s", bfd_get_filename (abfd),
@@ -194,7 +193,7 @@ nlm_symfile_read (struct objfile *objfile, int mainline)
   stabsect_build_psymtabs (objfile, mainline, ".stab",
 			   ".stabstr", ".text", ".data", ".bss");
 
-  mainsym = lookup_symbol ("main", NULL, VAR_NAMESPACE, NULL, NULL);
+  mainsym = lookup_symbol (main_name (), NULL, VAR_NAMESPACE, NULL, NULL);
 
   if (mainsym
       && SYMBOL_CLASS (mainsym) == LOC_BLOCK)
@@ -225,7 +224,7 @@ nlm_symfile_finish (struct objfile *objfile)
 {
   if (objfile->sym_private != NULL)
     {
-      mfree (objfile->md, objfile->sym_private);
+      xmfree (objfile->md, objfile->sym_private);
     }
 }
 

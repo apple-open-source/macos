@@ -23,6 +23,7 @@
 #define _OSXSIGNING
 
 #include <Security/codesigning.h>
+#include <Security/refcount.h>
 #include <Security/cspclient.h>
 #include <limits.h>
 #include <string>
@@ -33,16 +34,14 @@
 #endif
 
 
-namespace Security
-{
+namespace Security {
+namespace CodeSigning {
 
-namespace CodeSigning
-{
 
 //
 // A Signable with OS X support calls added
 //
-class OSXCode : public Signable {
+class OSXCode : public RefCount, public Signable {
 public:
 	// encoding and decoding as a UTF-8 string
 	virtual string encode() const = 0;

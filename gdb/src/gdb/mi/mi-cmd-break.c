@@ -1,5 +1,5 @@
 /* MI Command Set - breakpoint and watchpoint commands.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -28,14 +28,10 @@
 #include "mi-getopt.h"
 #include "gdb-events.h"
 #include "interpreter.h"
+#include "gdb.h"
 
 /* There really ought to be a global mi .h file for this stuff... */
 extern struct gdb_interpreter *mi_interp;
-
-/* Convenience macro for allocting typesafe memory. */
-
-#undef XMALLOC
-#define XMALLOC(TYPE) (TYPE*) xmalloc (sizeof (TYPE))
 
 enum
   {
@@ -47,7 +43,7 @@ enum
 static void
 breakpoint_notify (int b)
 {
-  gdb_breakpoint_query (b);
+  gdb_breakpoint_query (uiout, b);
 }
 
 
@@ -154,17 +150,17 @@ mi_cmd_break_insert (char *command, char **argv, int argc)
     case REG_BP:
       rc = gdb_breakpoint (address, condition,
 			   0 /*hardwareflag */ , temp_p,
-			   thread, ignore_count, 0);
+			   0 /* futureflag */, thread, ignore_count);
       break;
     case HW_BP:
       rc = gdb_breakpoint (address, condition,
 			   1 /*hardwareflag */ , temp_p,
-			   thread, ignore_count, 0);
+			   0 /* futureflag */, thread, ignore_count);
       break;
     case FUT_BP:
       rc = gdb_breakpoint (address, condition,
 			   0, temp_p,
-			   thread, ignore_count, 1);
+			   1 /* futureflag */, thread, ignore_count);
       break;
 
 #if 0
@@ -177,7 +173,8 @@ mi_cmd_break_insert (char *command, char **argv, int argc)
       break;
 #endif
     default:
-      internal_error ("mi_cmd_break_insert: Bad switch.");
+      internal_error (__FILE__, __LINE__,
+		      "mi_cmd_break_insert: Bad switch.");
     }
   set_gdb_event_hooks (old_hooks);
 
@@ -244,19 +241,13 @@ mi_cmd_break_watch (char *command, char **argv, int argc)
   switch (type)
     {
     case REG_WP:
-#ifdef UI_OUT
       watch_command_wrapper (expr, FROM_TTY);
-#endif
       break;
     case READ_WP:
-#ifdef UI_OUT
       rwatch_command_wrapper (expr, FROM_TTY);
-#endif
       break;
     case ACCESS_WP:
-#ifdef UI_OUT
       awatch_command_wrapper (expr, FROM_TTY);
-#endif
       break;
     default:
       error ("mi_cmd_break_watch: Unknown watchpoint type.");
@@ -278,7 +269,7 @@ mi_interp_create_breakpoint_hook (struct breakpoint *bpt)
 
   ui_out_list_begin (uiout, "MI_HOOK_RESULT");
   ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_create");
-  gdb_breakpoint_query (bpt->number);
+  gdb_breakpoint_query (uiout, bpt->number);
   ui_out_list_end (uiout);
   uiout = saved_ui_out; 
 }
@@ -298,7 +289,7 @@ mi_interp_modify_breakpoint_hook (struct breakpoint *bpt)
 
   ui_out_list_begin (uiout, "MI_HOOK_RESULT");
   ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_modify");
-  gdb_breakpoint_query (bpt->number);
+  gdb_breakpoint_query (uiout, bpt->number);
   ui_out_list_end (uiout);
   uiout = saved_ui_out; 
 }

@@ -1,5 +1,7 @@
 /* Tracing functionality for remote targets in custom GDB protocol
-   Copyright 1997, 1998 Free Software Foundation, Inc.
+
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -31,6 +33,10 @@
 #include "inferior.h"
 #include "tracepoint.h"
 #include "remote.h"
+#include "linespec.h"
+#include "regcache.h"
+#include "completer.h"
+#include "gdb-events.h"
 
 #include "ax.h"
 #include "ax-gdb.h"
@@ -57,7 +63,6 @@
 #define MAX_AGENT_EXPR_LEN	184
 
 
-extern int info_verbose;
 extern void (*readline_begin_hook) (char *, ...);
 extern char *(*readline_hook) (char *);
 extern void (*readline_end_hook) (void);
@@ -185,7 +190,7 @@ trace_error (char *buf)
       if (*++buf == '0')	/*   general case: */
 	error ("tracepoint.c: error in outgoing packet.");
       else
-	error ("tracepoint.c: error in outgoing packet at field #%d.",
+	error ("tracepoint.c: error in outgoing packet at field #%ld.",
 	       strtol (buf, NULL, 16));
     case '2':
       error ("trace API error 0x%s.", ++buf);
@@ -251,7 +256,8 @@ set_traceframe_context (CORE_ADDR trace_pc)
 {
   static struct type *func_string, *file_string;
   static struct type *func_range, *file_range;
-  static value_ptr func_val, file_val;
+  struct value *func_val;
+  struct value *file_val;
   static struct type *charstar;
   int len;
 
@@ -340,7 +346,7 @@ set_raw_tracepoint (struct symtab_and_line sal)
   struct cleanup *old_chain;
 
   t = (struct tracepoint *) xmalloc (sizeof (struct tracepoint));
-  old_chain = make_cleanup (free, t);
+  old_chain = make_cleanup (xfree, t);
   memset (t, 0, sizeof (*t));
   t->address = sal.pc;
   if (sal.symtab == NULL)
@@ -353,7 +359,7 @@ set_raw_tracepoint (struct symtab_and_line sal)
   t->language = current_language->la_language;
   t->input_radix = input_radix;
   t->line_number = sal.line;
-  t->enabled = enabled;
+  t->enabled_p = 1;
   t->next = 0;
   t->step_count = 0;
   t->pass_count = 0;
@@ -420,10 +426,6 @@ trace_command (char *arg, int from_tty)
 	t->addr_string = savestring (addr_start, addr_end - addr_start);
 
       trace_mention (t);
-
-      /* Let the UI know of any additions */
-      if (create_tracepoint_hook)
-	create_tracepoint_hook (t);
     }
 
   if (sals.nelts > 1)
@@ -476,19 +478,38 @@ tracepoints_info (char *tpnum_exp, int from_tty)
 	{
 	  printf_filtered ("Num Enb ");
 	  if (addressprint)
-	    printf_filtered ("Address    ");
+	    {
+	      if (TARGET_ADDR_BIT <= 32)
+		printf_filtered ("Address    ");
+	      else
+		printf_filtered ("Address            ");
+	    }
 	  printf_filtered ("PassC StepC What\n");
 	}
       strcpy (wrap_indent, "                           ");
       if (addressprint)
-	strcat (wrap_indent, "           ");
+	{
+	  if (TARGET_ADDR_BIT <= 32)
+	    strcat (wrap_indent, "           ");
+	  else
+	    strcat (wrap_indent, "                   ");
+	}
 
       printf_filtered ("%-3d %-3s ", t->number,
-		       t->enabled == enabled ? "y" : "n");
+		       t->enabled_p ? "y" : "n");
       if (addressprint)
-	printf_filtered ("%s ",
-			 local_hex_string_custom ((unsigned long) t->address,
-						  "08l"));
+	{
+	  char *tmp;
+
+	  if (TARGET_ADDR_BIT <= 32)
+	    tmp = longest_local_hex_string_custom (t->address
+						   & (CORE_ADDR) 0xffffffff, 
+						   "08l");
+	  else
+	    tmp = longest_local_hex_string_custom (t->address, "016l");
+
+	  printf_filtered ("%s ", tmp);
+	}
       printf_filtered ("%-5d %-5ld ", t->pass_count, t->step_count);
 
       if (t->source_file)
@@ -550,14 +571,12 @@ tracepoint_operation (struct tracepoint *t, int from_tty,
   switch (opcode)
     {
     case enable_op:
-      t->enabled = enabled;
-      if (modify_tracepoint_hook)
-	modify_tracepoint_hook (t);
+      t->enabled_p = 1;
+      tracepoint_modify_event (t->number);
       break;
     case disable_op:
-      t->enabled = disabled;
-      if (modify_tracepoint_hook)
-	modify_tracepoint_hook (t);
+      t->enabled_p = 0;
+      tracepoint_modify_event (t->number);
       break;
     case delete_op:
       if (tracepoint_chain == t)
@@ -566,22 +585,19 @@ tracepoint_operation (struct tracepoint *t, int from_tty,
       ALL_TRACEPOINTS (t2)
 	if (t2->next == t)
 	{
+	  tracepoint_delete_event (t2->number);
 	  t2->next = t->next;
 	  break;
 	}
 
-      /* Let the UI know of any deletions */
-      if (delete_tracepoint_hook)
-	delete_tracepoint_hook (t);
-
       if (t->addr_string)
-	free (t->addr_string);
+	xfree (t->addr_string);
       if (t->source_file)
-	free (t->source_file);
+	xfree (t->source_file);
       if (t->actions)
 	free_actions (t);
 
-      free (t);
+      xfree (t);
       break;
     }
 }
@@ -719,8 +735,7 @@ trace_pass_command (char *args, int from_tty)
 	    if (t1 == (struct tracepoint *) -1 || t1 == t2)
 	      {
 		t2->pass_count = count;
-		if (modify_tracepoint_hook)
-		  modify_tracepoint_hook (t2);
+		tracepoint_modify_event (t2->number);
 		if (from_tty)
 		  printf_filtered ("Setting tracepoint %d's passcount to %d\n",
 				   t2->number, count);
@@ -812,6 +827,11 @@ read_actions (struct tracepoint *t)
   /* Control-C quits instantly if typed while in this loop
      since it should not wait until the user types a newline.  */
   immediate_quit++;
+  /* FIXME: kettenis/20010823: Something is wrong here.  In this file
+     STOP_SIGNAL is never defined.  So this code has been left out, at
+     least for quite a while now.  Replacing STOP_SIGNAL with SIGTSTP
+     leads to compilation failures since the variable job_control
+     isn't declared.  Leave this alone for now.  */
 #ifdef STOP_SIGNAL
   if (job_control)
     {
@@ -919,7 +939,7 @@ validate_actionline (char **line, struct tracepoint *t)
       return BADLINE;
     }
 
-  if (c->function.cfunc == collect_pseudocommand)
+  if (cmd_cfunc_eq (c, collect_pseudocommand))
     {
       struct agent_expr *aexpr;
       struct agent_reqs areqs;
@@ -970,7 +990,7 @@ validate_actionline (char **line, struct tracepoint *t)
 	    error ("expression too complicated, try simplifying");
 
 	  ax_reqs (aexpr, &areqs);
-	  (void) make_cleanup (free, areqs.reg_mask);
+	  (void) make_cleanup (xfree, areqs.reg_mask);
 
 	  if (areqs.flaw != agent_flaw_none)
 	    error ("malformed expression");
@@ -986,7 +1006,7 @@ validate_actionline (char **line, struct tracepoint *t)
       while (p && *p++ == ',');
       return GENERIC;
     }
-  else if (c->function.cfunc == while_stepping_pseudocommand)
+  else if (cmd_cfunc_eq (c, while_stepping_pseudocommand))
     {
       char *steparg;		/* in case warning is necessary */
 
@@ -1002,7 +1022,7 @@ validate_actionline (char **line, struct tracepoint *t)
 	}
       return STEPPING;
     }
-  else if (c->function.cfunc == end_actions_pseudocommand)
+  else if (cmd_cfunc_eq (c, end_actions_pseudocommand))
     return END;
   else
     {
@@ -1021,8 +1041,8 @@ free_actions (struct tracepoint *t)
     {
       next = line->next;
       if (line->action)
-	free (line->action);
-      free (line);
+	xfree (line->action);
+      xfree (line);
     }
   t->actions = NULL;
 }
@@ -1278,16 +1298,14 @@ add_local_symbols (struct collection_list *collect, CORE_ADDR pc,
 {
   struct symbol *sym;
   struct block *block;
-  int i, nsyms, count = 0;
+  int i, count = 0;
 
   block = block_for_pc (pc);
   while (block != 0)
     {
       QUIT;			/* allow user to bail out with ^C */
-      nsyms = BLOCK_NSYMS (block);
-      for (i = 0; i < nsyms; i++)
+      ALL_BLOCK_SYMBOLS (block, i, sym)
 	{
-	  sym = BLOCK_SYM (block, i);
 	  switch (SYMBOL_CLASS (sym))
 	    {
 	    default:
@@ -1456,9 +1474,9 @@ free_actions_list (char **actions_list)
     return;
 
   for (ndx = 0; actions_list[ndx]; ndx++)
-    free (actions_list[ndx]);
+    xfree (actions_list[ndx]);
 
-  free (actions_list);
+  xfree (actions_list);
 }
 
 /* render all actions into gdb protocol */
@@ -1471,11 +1489,12 @@ encode_actions (struct tracepoint *t, char ***tdp_actions,
   struct expression *exp = NULL;
   struct action_line *action;
   int i;
-  value_ptr tempval;
+  struct value *tempval;
   struct collection_list *collect;
   struct cmd_list_element *cmd;
   struct agent_expr *aexpr;
-  long frame_reg, frame_offset;
+  int frame_reg;
+  LONGEST frame_offset;
 
 
   clear_collection_list (&tracepoint_list);
@@ -1501,7 +1520,7 @@ encode_actions (struct tracepoint *t, char ***tdp_actions,
       if (cmd == 0)
 	error ("Bad action list item: %s", action_exp);
 
-      if (cmd->function.cfunc == collect_pseudocommand)
+      if (cmd_cfunc_eq (cmd, collect_pseudocommand))
 	{
 	  do
 	    {			/* repeat over a comma-separated list */
@@ -1540,7 +1559,8 @@ encode_actions (struct tracepoint *t, char ***tdp_actions,
 		  struct cleanup *old_chain1 = NULL;
 		  struct agent_reqs areqs;
 
-		  exp = parse_exp_1 (&action_exp, block_for_pc (t->address), 1);
+		  exp = parse_exp_1 (&action_exp, 
+				     block_for_pc (t->address), 1);
 		  old_chain = make_cleanup (free_current_contents, &exp);
 
 		  switch (exp->elts[0].opcode)
@@ -1610,11 +1630,11 @@ encode_actions (struct tracepoint *t, char ***tdp_actions,
 	    }
 	  while (action_exp && *action_exp++ == ',');
 	}			/* if */
-      else if (cmd->function.cfunc == while_stepping_pseudocommand)
+      else if (cmd_cfunc_eq (cmd, while_stepping_pseudocommand))
 	{
 	  collect = &stepping_list;
 	}
-      else if (cmd->function.cfunc == end_actions_pseudocommand)
+      else if (cmd_cfunc_eq (cmd, end_actions_pseudocommand))
 	{
 	  if (collect == &stepping_list)	/* end stepping actions */
 	    collect = &tracepoint_list;
@@ -1721,7 +1741,7 @@ trace_start_command (char *args, int from_tty)
 
 	sprintf_vma (tmp, t->address);
 	sprintf (buf, "QTDP:%x:%s:%c:%lx:%x", t->number, tmp, /* address */
-		 t->enabled == enabled ? 'E' : 'D',
+		 t->enabled_p ? 'E' : 'D',
 		 t->step_count, t->pass_count);
 
 	if (t->actions)
@@ -2055,7 +2075,7 @@ trace_find_tracepoint_command (char *args, int from_tty)
 	else
 	  tdp = tracepoint_number;	/* default is current TDP */
       else
-	tdp = parse_and_eval_address (args);
+	tdp = parse_and_eval_long (args);
 
       sprintf (target_buf, "QTFrame:tdp:%x", tdp);
       finish_tfind_command (target_buf, sizeof (target_buf), from_tty);
@@ -2097,7 +2117,7 @@ trace_find_line_command (char *args, int from_tty)
 	  sal = sals.sals[0];
 	}
 
-      old_chain = make_cleanup (free, sals.sals);
+      old_chain = make_cleanup (xfree, sals.sals);
       if (sal.symtab == 0)
 	{
 	  printf_filtered ("TFIND: No line number information available");
@@ -2257,11 +2277,12 @@ tracepoint_save_command (char *args, int from_tty)
       return;
     }
 
-  if ((fp = fopen ((pathname = tilde_expand (args)), "w")) == NULL)
-     error ("Unable to open file '%s' for saving tracepoints (%s)",
-            args, strerror (errno));
+  pathname = tilde_expand (args);
+  if (!(fp = fopen (pathname, "w")))
+    error ("Unable to open file '%s' for saving tracepoints (%s)",
+	   args, safe_strerror (errno));
   xfree (pathname);
-
+  
   ALL_TRACEPOINTS (tp)
   {
     if (tp->addr_string)
@@ -2294,9 +2315,9 @@ tracepoint_save_command (char *args, int from_tty)
 		cmd = lookup_cmd (&actionline, cmdlist, "", -1, 1);
 		if (cmd == 0)
 		  error ("Bad action list item: %s", actionline);
-		if (cmd->function.cfunc == while_stepping_pseudocommand)
+		if (cmd_cfunc_eq (cmd, while_stepping_pseudocommand))
 		  indent = i2;
-		else if (cmd->function.cfunc == end_actions_pseudocommand)
+		else if (cmd_cfunc_eq (cmd, end_actions_pseudocommand))
 		  indent = i1;
 	      }
 	  }
@@ -2317,7 +2338,7 @@ scope_info (char *args, int from_tty)
   struct minimal_symbol *msym;
   struct block *block;
   char **canonical, *symname, *save_args = args;
-  int i, j, nsyms, count = 0;
+  int i, j, count = 0;
 
   if (args == 0 || *args == 0)
     error ("requires an argument (function, line or *addr) to define a scope");
@@ -2333,14 +2354,13 @@ scope_info (char *args, int from_tty)
   while (block != 0)
     {
       QUIT;			/* allow user to bail out with ^C */
-      nsyms = BLOCK_NSYMS (block);
-      for (i = 0; i < nsyms; i++)
+      ALL_BLOCK_SYMBOLS (block, i, sym)
 	{
 	  QUIT;			/* allow user to bail out with ^C */
 	  if (count == 0)
 	    printf_filtered ("Scope for %s:\n", save_args);
 	  count++;
-	  sym = BLOCK_SYM (block, i);
+
 	  symname = SYMBOL_NAME (sym);
 	  if (symname == NULL || *symname == '\0')
 	    continue;		/* probably botched, certainly useless */
@@ -2514,11 +2534,11 @@ trace_dump_command (char *args, int from_tty)
       if (cmd == 0)
 	error ("Bad action list item: %s", action_exp);
 
-      if (cmd->function.cfunc == while_stepping_pseudocommand)
+      if (cmd_cfunc_eq (cmd, while_stepping_pseudocommand))
 	stepping_actions = 1;
-      else if (cmd->function.cfunc == end_actions_pseudocommand)
+      else if (cmd_cfunc_eq (cmd, end_actions_pseudocommand))
 	stepping_actions = 0;
-      else if (cmd->function.cfunc == collect_pseudocommand)
+      else if (cmd_cfunc_eq (cmd, collect_pseudocommand))
 	{
 	  /* Display the collected data.
 	     For the trap frame, display only what was collected at the trap.
@@ -2601,6 +2621,8 @@ get_traceframe_number (void)
 void
 _initialize_tracepoint (void)
 {
+  struct cmd_list_element *c;
+
   tracepoint_chain = 0;
   tracepoint_count = 0;
   traceframe_number = -1;
@@ -2641,7 +2663,7 @@ _initialize_tracepoint (void)
   add_info ("scope", scope_info,
 	    "List the variables local to a scope");
 
-  add_cmd ("tracepoints", class_trace, NO_FUNCTION,
+  add_cmd ("tracepoints", class_trace, NULL,
 	   "Tracing of program execution without stopping the program.",
 	   &cmdlist);
 
@@ -2652,9 +2674,10 @@ last tracepoint set.");
 
   add_info_alias ("tp", "tracepoints", 1);
 
-  add_com ("save-tracepoints", class_trace, tracepoint_save_command,
-	   "Save current tracepoint definitions as a script.\n\
+  c = add_com ("save-tracepoints", class_trace, tracepoint_save_command,
+	       "Save current tracepoint definitions as a script.\n\
 Use the 'source' command in another debug session to restore them.");
+  set_cmd_completer (c, filename_completer);
 
   add_com ("tdump", class_trace, trace_dump_command,
 	   "Print everything collected at the current tracepoint.");
@@ -2771,12 +2794,13 @@ Arguments are tracepoint numbers, separated by spaces.\n\
 No argument means enable all tracepoints.",
 	   &enablelist);
 
-  add_com ("trace", class_trace, trace_command,
-	   "Set a tracepoint at a specified line or function or address.\n\
+  c = add_com ("trace", class_trace, trace_command,
+	       "Set a tracepoint at a specified line or function or address.\n\
 Argument may be a line number, function name, or '*' plus an address.\n\
 For a line number or function, trace at the start of its code.\n\
 If an address is specified, trace at that exact address.\n\n\
 Do \"help tracepoints\" for info on other tracepoint commands.");
+  set_cmd_completer (c, location_completer);
 
   add_com_alias ("tp", "trace", class_alias, 0);
   add_com_alias ("tr", "trace", class_alias, 1);

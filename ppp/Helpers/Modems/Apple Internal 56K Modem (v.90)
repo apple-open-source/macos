@@ -1,4 +1,4 @@
-! Apple Internal 56K Modem (V.90)   Version 1.3   Date: Oct/18/01  Time: 2:00pm
+! Apple Internal 56K Modem (V.90)   Version 1.4   Date: June/06/02  Time: 10:00am
 @ORIGINATE
 @ANSWER
 ifstr 5 1 "0"
@@ -85,7 +85,7 @@ flush
 matchclr
 matchstr 1 7   "OK\13\10"
 matchstr 2 101 "ERROR\13\10"
-write "AT&FL3E0Q0V1X4&C1&K3S95=0&D2S7=75S0=0W2\13"
+write "AT&FL3E0Q0V1X4&C1&K3S95=0&D2S7=75S0=0W2+MS=V90,1\13"
 pause 5
 matchread 90
 inctries
@@ -189,6 +189,9 @@ jump 101
 !
 !
 @LABEL 19
+! 
+! if there is no number, reports EMPTY error
+ifstr 1 109 "" 
 ! 
 ! This is where we break up long dialstrings
 ! 
@@ -764,6 +767,14 @@ matchread 30
 @LABEL 108
 exit -6008
 !
+! Empty phone number
+@LABEL 109
+matchstr 1 125 "OK\13\10"
+write "AT&F\13"
+matchread 30
+@LABEL 125
+exit -6027
+! 
 ! 
 ! ---- DELAYED and BLACKLISTED functions ----
 ! 

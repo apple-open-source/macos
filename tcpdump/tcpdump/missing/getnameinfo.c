@@ -43,7 +43,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-     "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/missing/getnameinfo.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $";
+     "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/missing/getnameinfo.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $";
 #endif
 
 #include <sys/types.h>

@@ -31,6 +31,19 @@
 #define _IOKIT_MACRISC2_H
 
 #include <IOKit/platform/ApplePlatformExpert.h>
+#include <IOKit/pci/IOPCIDevice.h>
+
+#include "PlatformFunctions.h"
+
+// Indices for accessing the init, term, sleep and wake platform command lists
+enum {
+	kListOnInit		= 0,
+	kListOnTerm		= 1,
+	// sleep and wake will be implemented in a later release
+	//#define kListOnSleep	2
+	//#define kListOnWake		3
+	kListNumLists	= kListOnTerm + 1
+};
 
 enum
 {
@@ -67,6 +80,7 @@ private:
 		UInt32 bitsMask;
 	};
 	
+    const char 				*provider_name;
     unsigned long			*uniNBaseAddress;
     unsigned long			uniNVersion;
     IOService				*usb1;
@@ -88,21 +102,37 @@ private:
     PlatformPowerBits		powerMonClamshellClosed;
 	// Possible power state we might set
     PlatformPowerBits		powerMonForceLowPower;
+	OSDictionary *fOnDemand;	// on-demand services are stored as pairs of
+    								// func-name:cmd-data in this dict
+	OSSet *fFuncList[kListNumLists];	// lists of services to perform for events
 	
-    virtual unsigned long readUniNReg(unsigned long offest);
-    virtual void writeUniNReg(unsigned long offest, unsigned long data);
+    virtual unsigned long readUniNReg(unsigned long offset);
+    virtual void writeUniNReg(unsigned long offset, unsigned long data);
   
     void getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList);
-    void enableUniNEthernetClock(bool enable);
-    void enableUniNFireWireClock(bool enable);
+    void enableUniNEthernetClock(bool enable, IOService *nub);
+    void enableUniNFireWireClock(bool enable, IOService *nub);
     void enableUniNFireWireCablePower(bool enable);
+	void configureUniNPCIDevice (IOService *nub);
     IOReturn accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data);
     IOReturn platformPowerMonitor(UInt32 *powerFlags);
   
     void PMInstantiatePowerDomains ( void );
     void PMRegisterDevice(IOService * theNub, IOService * theDevice);
     IORegistryEntry * retrievePowerMgtEntry (void);
-  
+
+	// helper functions
+	void publishStrings(OSCollection *strings);
+	void releaseResources(void);
+	
+	bool performFunction(const OSData *cmd, void *param1,
+			void *param2, void *param3, void *param4);
+			
+	bool performFunctionList(const OSSet *funcList);
+
+	SInt32 parseProvidedFunction(OSString *key,	OSData *value);
+	IOPCIDevice *findNubForPHandle( UInt32 pHandleValue );
+	
 public:
     virtual bool start(IOService *provider);
     virtual bool platformAdjustService(IOService *service);
@@ -134,7 +164,9 @@ enum {
 #define kUniNVersion               (0x0000)
 #define kUniNVersion107            (0x0003)
 #define kUniNVersion10A            (0x0007)
-#define kUniNVersion150            (0x0010)
+#define kUniNVersion150            (0x0011)
+#define kUniNVersion200            (0x0024)
+#define kUniNVersionPangea         (0x00C0)
 
 #define kUniNClockControl          (0x0020)
 #define kUniNFirewireClockEnable   (1 << 2)
@@ -156,6 +188,10 @@ enum {
 #define kUniNHWInitStateSleeping   (0x01)
 #define kUniNHWInitStateRunning    (0x02)
 
+#define kUniNMPCIMemTimeout	   (0x2160)
+#define kUniNMPCIMemTimeoutMask    (0xFF000000)
+#define kUniNMPCIMemGrantTime      (0x0 << 28)
+
 // Uni-N 1.5 Performance Monitoring Registers
 #define kUniNMMCR                  (0x0F00)
 #define kUniNMCMDR                 (0x0F10)
@@ -163,5 +199,9 @@ enum {
 #define kUniNMPMC2                 (0x0F30)
 #define kUniNMPMC3                 (0x0F40)
 #define kUniNMPMC4                 (0x0F50)	
+
+#define kIOPCICacheLineSize 	"IOPCICacheLineSize"
+#define kIOPCITimerLatency		"IOPCITimerLatency"
+#define kAAPLSuspendablePorts	"AAPL,SuspendablePorts"
 
 #endif /* ! _IOKIT_MACRISC2_H */

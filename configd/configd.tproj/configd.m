@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,8 +44,8 @@
 #include "configd_server.h"
 #include "plugin_support.h"
 
-Boolean	_configd_fork		= TRUE;		/* TRUE if process should be run in the background */
-Boolean	_configd_verbose	= FALSE;	/* TRUE if verbose logging enabled */
+Boolean	_configd_fork			= TRUE;		/* TRUE if process should be run in the background */
+Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
 CFMutableSetRef	_plugins_exclude	= NULL;		/* bundle identifiers to exclude from loading */
 CFMutableSetRef	_plugins_verbose	= NULL;		/* bundle identifiers to enable verbose logging */
 
@@ -139,19 +139,47 @@ fork_child()
 
 	(void) chdir("/");
 
-	if ((fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
+	fd = open(_PATH_DEVNULL, O_RDWR, 0);
+	if (fd != -1) {
+		int	ofd;
+
+		// stdin
 		(void) dup2(fd, STDIN_FILENO);
+
+		// stdout, stderr
+		ofd = open("/var/log/configd.log", O_WRONLY|O_APPEND, 0);
+		if (ofd != -1) {
+			if (fd > STDIN_FILENO) {
+				(void) close(fd);
+			}
+			fd = ofd;
+		}
 		(void) dup2(fd, STDOUT_FILENO);
 		(void) dup2(fd, STDERR_FILENO);
-		if (fd > 2)
+		if (fd > STDERR_FILENO) {
 			(void) close(fd);
+		}
 	}
 
 	return 0;
 }
 
+
+static void
+writepid(void)
+{
+	FILE *fp;
+
+	fp = fopen("/var/run/configd.pid", "w");
+	if (fp != NULL) {
+		fprintf(fp, "%d\n", getpid());
+		fclose(fp);
+	}
+}
+
+
 int
-main(int argc, const char *argv[])
+main(int argc, char * const argv[])
 {
 	Boolean			loadBundles = TRUE;
 	struct sigaction	nact;
@@ -222,6 +250,11 @@ main(int argc, const char *argv[])
 			exit (1);
 		}
 		/* now the child process, parent waits in fork_child */
+	}
+
+	/* record process id */
+	if (testBundle == NULL) {
+		writepid();
 	}
 
 	/* open syslog() facility */

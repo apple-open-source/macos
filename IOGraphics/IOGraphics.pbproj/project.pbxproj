@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 34;
 	objects = {
 		015488CC00BAFF6C11CA2A5F = {
 			buildStyles = (
@@ -95,7 +95,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
-				MODULE_VERSION = 1.1.7;
+				MODULE_VERSION = 1.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -120,7 +120,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOGraphicsFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.7, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -132,11 +132,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.7</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.7</string>
+	<string>1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBacklightDisplay</key>
@@ -198,6 +198,7 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -224,10 +225,9 @@
 				0154892E00BB054811CA2A5F,
 				16E5BDFE00BEE42611CA2A5F,
 				16E5BDFF00BEE42611CA2A5F,
-				03BF532F01C55C1A03CA2A5F,
-				03BF533001C55C1A03CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
+			name = Headers;
 		};
 		015488D600BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -240,21 +240,24 @@
 				015488FA00BB00FE11CA2A5F,
 				015488FB00BB00FE11CA2A5F,
 				015488FC00BB00FE11CA2A5F,
-				03BF532901C55B9A03CA2A5F,
+				03F3AC4901BD482403CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
+			name = Sources;
 		};
 		015488D700BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
 		};
 		015488D800BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
 		};
 		015488D900BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -263,6 +266,7 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -289,13 +293,12 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
-				MODULE_VERSION = 1.1.7;
+				MODULE_VERSION = 1.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IONDRVSupport;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -315,7 +318,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONDRVSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.7, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -327,11 +330,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.7</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.7</string>
+	<string>1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>1</key>
@@ -405,6 +408,7 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -421,9 +425,10 @@
 				221BC4FA00BB072011CA2A5F,
 				221BC4FB00BB072011CA2A5F,
 				221BC4FC00BB072011CA2A5F,
-				03BF532A01C55B9A03CA2A5F,
+				03F3AC4A01BD482403CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
+			name = Headers;
 		};
 		015488DE00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -433,21 +438,24 @@
 				221BC4FF00BB072011CA2A5F,
 				221BC50000BB072011CA2A5F,
 				221BC50100BB072011CA2A5F,
-				03BF532B01C55B9A03CA2A5F,
+				03F3AC4B01BD482403CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
+			name = Sources;
 		};
 		015488DF00BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
 		};
 		015488E000BB003811CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
 		};
 		015488E100BB003811CA2A5F = {
 			buildActionMask = 2147483647;
@@ -456,6 +464,7 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -477,7 +486,7 @@
 				015488ED00BB00FE11CA2A5F,
 				015488EE00BB00FE11CA2A5F,
 				015488EF00BB00FE11CA2A5F,
-				03BF532601C55B9A03CA2A5F,
+				03F3AC4601BD482403CA2A5F,
 			);
 			isa = PBXGroup;
 			path = IOGraphicsFamily;
@@ -629,7 +638,7 @@
 		0154891600BB054811CA2A5F = {
 			children = (
 				0154891700BB054811CA2A5F,
-				03BF532C01C55C1A03CA2A5F,
+				03E63E0201BD474F03CA2A5F,
 			);
 			isa = PBXGroup;
 			path = IOKit;
@@ -650,6 +659,7 @@
 				0154892200BB054811CA2A5F,
 				16E5BDFC00BEE42611CA2A5F,
 				16E5BDFD00BEE42611CA2A5F,
+				0347EDA701BC52A103CA2A5F,
 			);
 			isa = PBXGroup;
 			path = graphics;
@@ -786,78 +796,122 @@
 //032
 //033
 //034
-		03BF532601C55B9A03CA2A5F = {
-			isa = PBXFileReference;
-			path = IOI2CInterface.cpp;
-			refType = 4;
+		03308FB301C181EE03CA2A5F = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/i2c";
+			dstSubfolderSpec = 0;
+			files = (
+				03308FB401C181FF03CA2A5F,
+				03308FB501C181FF03CA2A5F,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
-		03BF532701C55B9A03CA2A5F = {
-			isa = PBXFileReference;
-			path = IONDRVI2CInterface.cpp;
-			refType = 4;
-		};
-		03BF532801C55B9A03CA2A5F = {
-			isa = PBXFileReference;
-			path = IONDRVI2CInterface.h;
-			refType = 4;
-		};
-		03BF532901C55B9A03CA2A5F = {
-			fileRef = 03BF532601C55B9A03CA2A5F;
+		03308FB401C181FF03CA2A5F = {
+			fileRef = 03E63E0301BD474F03CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF532A01C55B9A03CA2A5F = {
-			fileRef = 03BF532801C55B9A03CA2A5F;
+		03308FB501C181FF03CA2A5F = {
+			fileRef = 03E63E0401BD474F03CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF532B01C55B9A03CA2A5F = {
-			fileRef = 03BF532701C55B9A03CA2A5F;
+		0347EDA701BC52A103CA2A5F = {
+			isa = PBXFileReference;
+			path = IOGraphicsTypesPrivate.h;
+			refType = 4;
+		};
+		0347EDA801BC52A103CA2A5F = {
+			fileRef = 0347EDA701BC52A103CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF532C01C55C1A03CA2A5F = {
+		0347EDA901BC52DB03CA2A5F = {
+			fileRef = 0347EDA701BC52A103CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0347EDAA01BC52DB03CA2A5F = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
+			dstSubfolderSpec = 0;
+			files = (
+				0347EDAB01BC52DB03CA2A5F,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		0347EDAB01BC52DB03CA2A5F = {
+			fileRef = 0347EDA701BC52A103CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03E63E0201BD474F03CA2A5F = {
 			children = (
-				03BF532D01C55C1A03CA2A5F,
-				03BF532E01C55C1A03CA2A5F,
+				03E63E0301BD474F03CA2A5F,
+				03E63E0401BD474F03CA2A5F,
 			);
 			isa = PBXGroup;
 			path = i2c;
 			refType = 4;
 		};
-		03BF532D01C55C1A03CA2A5F = {
+		03E63E0301BD474F03CA2A5F = {
 			isa = PBXFileReference;
 			path = IOI2CInterface.h;
 			refType = 4;
 		};
-		03BF532E01C55C1A03CA2A5F = {
+		03E63E0401BD474F03CA2A5F = {
 			isa = PBXFileReference;
 			path = IOI2CInterfacePrivate.h;
 			refType = 4;
 		};
-		03BF532F01C55C1A03CA2A5F = {
-			fileRef = 03BF532D01C55C1A03CA2A5F;
+		03E63E0501BD474F03CA2A5F = {
+			fileRef = 03E63E0301BD474F03CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF533001C55C1A03CA2A5F = {
-			fileRef = 03BF532E01C55C1A03CA2A5F;
+		03E63E0601BD474F03CA2A5F = {
+			fileRef = 03E63E0401BD474F03CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF533101C55C9C03CA2A5F = {
-			fileRef = 03BF532D01C55C1A03CA2A5F;
+		03F3AC4601BD482403CA2A5F = {
+			isa = PBXFileReference;
+			path = IOI2CInterface.cpp;
+			refType = 4;
+		};
+		03F3AC4701BD482403CA2A5F = {
+			isa = PBXFileReference;
+			path = IONDRVI2CInterface.cpp;
+			refType = 4;
+		};
+		03F3AC4801BD482403CA2A5F = {
+			isa = PBXFileReference;
+			path = IONDRVI2CInterface.h;
+			refType = 4;
+		};
+		03F3AC4901BD482403CA2A5F = {
+			fileRef = 03F3AC4601BD482403CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		03BF533201C55C9C03CA2A5F = {
-			fileRef = 03BF532E01C55C1A03CA2A5F;
+		03F3AC4A01BD482403CA2A5F = {
+			fileRef = 03F3AC4801BD482403CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03F3AC4B01BD482403CA2A5F = {
+			fileRef = 03F3AC4701BD482403CA2A5F;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -953,8 +1007,8 @@
 				221BC4F200BB072011CA2A5F,
 				221BC4F300BB072011CA2A5F,
 				221BC4F400BB072011CA2A5F,
-				03BF532701C55B9A03CA2A5F,
-				03BF532801C55B9A03CA2A5F,
+				03F3AC4701BD482403CA2A5F,
+				03F3AC4801BD482403CA2A5F,
 			);
 			isa = PBXGroup;
 			path = IONDRVSupport;
@@ -1136,6 +1190,8 @@
 				221BC5B000BC8DAA11CA2A5F,
 				221BC5BC00BC8F2E11CA2A5F,
 				221BC5C800BC99AE11CA2A5F,
+				0347EDAA01BC52DB03CA2A5F,
+				03308FB301C181EE03CA2A5F,
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -1160,26 +1216,33 @@
 		221BC5AA00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
+				0347EDA801BC52A103CA2A5F,
+				03E63E0501BD474F03CA2A5F,
+				03E63E0601BD474F03CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
+			name = Headers;
 		};
 		221BC5AB00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			name = Sources;
 		};
 		221BC5AC00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
 		};
 		221BC5AD00BC8D3D11CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
 		};
 		221BC5AF00BC8D5211CA2A5F = {
 			isa = PBXTargetDependency;
@@ -1203,6 +1266,7 @@
 				16E5BE0200BEE46711CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
 		221BC5B100BC8ED611CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1279,6 +1343,7 @@
 				16E5BE0100BEE45C11CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
 		221BC5BD00BC98E311CA2A5F = {
 			fileRef = 0154891800BB054811CA2A5F;
@@ -1318,13 +1383,13 @@
 		};
 		221BC5C800BC99AE11CA2A5F = {
 			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/i2c";
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/graphics";
 			dstSubfolderSpec = 0;
 			files = (
-				03BF533101C55C9C03CA2A5F,
-				03BF533201C55C9C03CA2A5F,
+				0347EDA901BC52DB03CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
 		221BC5C900BC9B5611CA2A5F = {
 			isa = PBXExecutableFileReference;
@@ -1369,24 +1434,28 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			name = Headers;
 		};
 		221BC5CD00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			name = Sources;
 		};
 		221BC5CE00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
 		};
 		221BC5CF00BC9B5611CA2A5F = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
 		};
 		221BC5D000BC9B5611CA2A5F = {
 			buildActionMask = 8;
@@ -1399,6 +1468,7 @@
 				221BC5D500BC9BA811CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
 		221BC5D200BC9BA811CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;
@@ -1433,6 +1503,7 @@
 				221BC5D800BC9BC911CA2A5F,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
 		};
 		221BC5D700BC9BC911CA2A5F = {
 			fileRef = 221BC4E700BB072011CA2A5F;

@@ -3,13 +3,20 @@
     FILESTABLE = {
         FRAMEWORKSEARCH = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
-        SUBPROJECTS = (bootplib, bootpd.tproj, ipconfig.tproj, DHCPServer, IPConfiguration.bproj); 
+        SUBPROJECTS = (
+            bootplib, 
+            bootpd.tproj, 
+            ipconfig.tproj, 
+            DHCPServer, 
+            IPConfiguration.bproj, 
+            BSDPClient, 
+            bsdpc.tproj
+        ); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-I../bootplib"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 

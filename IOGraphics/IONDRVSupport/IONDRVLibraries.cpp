@@ -19,16 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 Jul 98 - start IOKit
- * sdouglas  14 Dec 98 - start cpp.
- */
 
 
 #include <IOKit/IOLib.h>
@@ -38,12 +28,15 @@
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/ndrvsupport/IONDRVSupport.h>
 #include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
 #include <IOKit/assert.h>
 
 #include <pexpert/pexpert.h>
+
+#if __ppc__
 
 #include "IOPEFLibraries.h"
 #include "IOPEFLoader.h"
@@ -54,9 +47,12 @@
 extern "C"
 {
 
+#include <kern/debug.h>
+
 extern void printf(const char *, ...);
 extern void *kern_os_malloc(size_t size);
 extern void kern_os_free(void * addr);
+
 
 #define LOG		if(1) IOLog
 
@@ -317,7 +313,7 @@ OSStatus _eRegistryPropertyGetSize( void *entryID, char *propertyName,
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
-    prop = (OSData *) regEntry->getProperty( propertyName); 
+    prop = OSDynamicCast( OSData, regEntry->getProperty( propertyName));
     if( prop)
 	*propertySize = prop->getLength();
     else
@@ -614,6 +610,22 @@ _eRegistryEntryIterateDispose( IORegistryIterator ** cookie)
 	return( nrIterationDone);
 }
 
+OSStatus _eRegistryEntryIterateSet( IORegistryIterator ** cookie,
+				    const RegEntryID *startEntryID)
+{
+    IORegistryEntry *	regEntry;
+
+    REG_ENTRY_TO_OBJ( startEntryID, regEntry)
+
+    if( *cookie)
+        (*cookie)->release();
+    *cookie = IORegistryIterator::iterateOver( regEntry, gIODTPlane );
+    if( *cookie)
+	return( noErr);
+    else
+	return( nrNotEnoughMemoryErr);
+}
+
 OSStatus
 _eRegistryEntryIterate( IORegistryIterator **	cookie,
 			UInt32		/* relationship */,
@@ -838,6 +850,15 @@ void _ePStrToCStr( char *to, const char *from )
     *(to + len) = 0;
 }
 
+void _eCStrToPStr( char *to, const char *from )
+{
+    UInt32	len;
+
+    len = strlen(from);
+    *to = len;
+    bcopy( from, to + 1, len);
+}
+
 LogicalAddress _ePoolAllocateResident(ByteCount byteSize, Boolean clear)
 {
     LogicalAddress  mem;
@@ -986,6 +1007,26 @@ Duration    _eAbsoluteDeltaToDuration( AbsoluteTime left, AbsoluteTime right )
     return( dur);
 }
 
+Duration    _eAbsoluteToDuration( AbsoluteTime result )
+{
+    Duration		dur;
+    UInt64		nano;
+    
+    absolutetime_to_nanoseconds( result, &nano);
+
+    if( nano >= ((1ULL << 31) * 1000ULL)) {
+        // +ve milliseconds
+        if( nano >= ((1ULL << 31) * 1000ULL * 1000ULL))
+	    dur = 0x7fffffff;
+        else
+            dur = nano / 1000000ULL;
+    } else {
+        // -ve microseconds
+        dur = -(nano / 1000ULL);
+    }
+
+    return( dur);
+}
 
 OSStatus    _eDelayForHardware( AbsoluteTime time )
 {
@@ -1054,8 +1095,22 @@ OSStatus    _eDelayFor( Duration theDuration )
 void _eSysDebugStr( const char * from )
 {
     char format[8];
+    static bool kprt = FALSE;
+    static bool parsed = FALSE;
+
     sprintf( format, "%%%ds", from[0]);
-    printf( format, from + 1);
+
+    if( !parsed) {
+	int	debugFlags;
+
+	kprt = PE_parse_boot_arg("debug", &debugFlags) && (DB_KPRT & debugFlags);
+	parsed = TRUE;
+    }
+
+    if( kprt)
+	kprintf( format, from + 1);
+    else
+	printf( format, from + 1);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1389,9 +1444,9 @@ static void IONDRVStdInterruptEnabler( IONDRVInterruptSetMember setMember,
     set->provider->enableInterrupt( setMember.member - 1 );
 }
 
-static IOTVector tvIONDRVStdInterruptHandler  = { IONDRVStdInterruptHandler,  0 };
-static IOTVector tvIONDRVStdInterruptEnabler  = { IONDRVStdInterruptEnabler,  0 };
-static IOTVector tvIONDRVStdInterruptDisabler = { IONDRVStdInterruptDisabler, 0 };
+static IOTVector tvIONDRVStdInterruptHandler  = { (void *) IONDRVStdInterruptHandler,  0 };
+static IOTVector tvIONDRVStdInterruptEnabler  = { (void *) IONDRVStdInterruptEnabler,  0 };
+static IOTVector tvIONDRVStdInterruptDisabler = { (void *) IONDRVStdInterruptDisabler, 0 };
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1516,7 +1571,7 @@ _eDeleteInterruptSet(	void *		setID )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define MAKEFUNC(s,e) { s, e, 0 }
+#define MAKEFUNC(s,e) { s, (void *) e, 0 }
 
 static FunctionEntry PCILibFuncs[] =
 {
@@ -1567,6 +1622,7 @@ static FunctionEntry NameRegistryLibFuncs[] =
     MAKEFUNC( "RegistryEntryIterateCreate", _eRegistryEntryIterateCreate),
     MAKEFUNC( "RegistryEntryIterateDispose", _eRegistryEntryIterateDispose),
     MAKEFUNC( "RegistryEntryIterate", _eRegistryEntryIterate),
+    MAKEFUNC( "RegistryEntryIterateSet", _eRegistryEntryIterateSet),
     MAKEFUNC( "RegistryCStrEntryToName", _eRegistryCStrEntryToName),
     MAKEFUNC( "RegistryCStrEntryLookup", _eRegistryCStrEntryLookup),
 
@@ -1577,8 +1633,6 @@ static FunctionEntry NameRegistryLibFuncs[] =
     MAKEFUNC( "RegistryPropertyDelete", _eRegistryPropertyDelete),
     MAKEFUNC( "RegistryPropertySet", _eRegistryPropertySet)
 };
-
-extern void bcopy_nc( void );
 
 static FunctionEntry DriverServicesLibFuncs[] =
 {
@@ -1591,8 +1645,8 @@ static FunctionEntry DriverServicesLibFuncs[] =
     MAKEFUNC( "BlockMoveDataUncached", bcopy_nc),
     MAKEFUNC( "BlockMoveUncached", bcopy_nc),
 
-    MAKEFUNC( "BlockZero", bzero),
-    MAKEFUNC( "BlockZeroUncached", bzero),	// bzero_nc
+    MAKEFUNC( "BlockZero", bzero_nc),
+    MAKEFUNC( "BlockZeroUncached", bzero_nc),
 
     MAKEFUNC( "CStrCopy", strcpy),
     MAKEFUNC( "CStrCmp", strcmp),
@@ -1603,6 +1657,7 @@ static FunctionEntry DriverServicesLibFuncs[] =
     MAKEFUNC( "CStrNCat", strncat),
     MAKEFUNC( "PStrCopy", _ePStrCopy),
     MAKEFUNC( "PStrToCStr", _ePStrToCStr),
+    MAKEFUNC( "CStrToPStr", _eCStrToPStr),
 
     MAKEFUNC( "PoolAllocateResident", _ePoolAllocateResident),
     MAKEFUNC( "MemAllocatePhysicallyContiguous", _ePoolAllocateResident),
@@ -1610,6 +1665,7 @@ static FunctionEntry DriverServicesLibFuncs[] =
 
     MAKEFUNC( "UpTime", _eUpTime),
     MAKEFUNC( "AbsoluteDeltaToDuration", _eAbsoluteDeltaToDuration),
+    MAKEFUNC( "AbsoluteToDuration", _eAbsoluteToDuration),
     MAKEFUNC( "AddAbsoluteToAbsolute", _eAddAbsoluteToAbsolute),
     MAKEFUNC( "SubAbsoluteFromAbsolute", _eSubAbsoluteFromAbsolute),
     MAKEFUNC( "AddDurationToAbsolute", _eAddDurationToAbsolute),
@@ -1649,6 +1705,8 @@ static FunctionEntry InterfaceLibFuncs[] =
     // Apple control : XPRam and EgretDispatch
     MAKEFUNC( "CallUniversalProc", _eFail),
     MAKEFUNC( "CallOSTrapUniversalProc", _eCallOSTrapUniversalProc),
+    MAKEFUNC( "BlockZero", bzero_nc),
+    MAKEFUNC( "BlockZeroUncached", bzero_nc),
 
     // Apple chips65550
 //    MAKEFUNC( "NewRoutineDescriptor", _eCallOSTrapUniversalProc),
@@ -1872,13 +1930,13 @@ IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 
     IOItemCount 	numMaps = provider->getDeviceMemoryCount();
     IOVirtualAddress	virtAddress;
+    PE_Video		bootDisplay;
+
+    IOService::getPlatform()->getConsoleInfo( &bootDisplay);
 
     for( i = 0; i < numMaps; i++) {
         IODeviceMemory * mem;
         IOMemoryMap *	 map;
-        bool		 consoleDevice;
-
-        consoleDevice = (0 != provider->getProperty("AAPL,boot-display"));
 
         mem = provider->getDeviceMemoryWithIndex( i );
         if( 0 == mem)
@@ -1886,10 +1944,14 @@ IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 
         // set up a 1-1 mapping for the BAT map of the console device
         // remove this soon
-        if( consoleDevice && (0 == mem->map( kIOMapReference)))
-            mem->setMapping( kernel_task, mem->getPhysicalAddress() );
-
-        map = mem->map();
+        if( (0 != provider->getProperty("AAPL,boot-display"))
+	&& ((0xf0000000 & mem->getPhysicalAddress()) == (0xf0000000 & bootDisplay.v_baseAddr))) {
+            if( (map = mem->map( kIOMapReference)))
+                map->release();
+            else
+                mem->setMapping( kernel_task, mem->getPhysicalAddress() );
+        }
+        map = mem->map( kIOMapInhibitCache );
         if( 0 == map) {
 //		IOLog("%s: map[%ld] failed\n", provider->getName(), i);
             continue;
@@ -1912,4 +1974,16 @@ IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 
     return( kIOReturnSuccess );
 }
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#else	/* __ppc__ */
+
+IOReturn _IONDRVLibrariesInitialize( IOService * provider )
+{
+    return( kIOReturnUnsupported );
+}
+
+#endif	/* !__ppc__ */
+
 

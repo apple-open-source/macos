@@ -1,0 +1,2581 @@
+This is ../info/idlwave, produced by makeinfo version 4.0 from
+idlwave.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* IDLWAVE: (idlwave).	Major mode and shell for IDL and WAVE/CL files.
+END-INFO-DIR-ENTRY
+
+   This file documents IDLWAVE, a major mode for editing IDL and
+WAVE/CL files with Emacs.  It also implements a shell for running IDL as
+a subprocess.
+
+   This is edition 4.7 of the IDLWAVE User Manual for IDLWAVE 4.7
+
+   Copyright (c) 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: idlwave,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
+
+   IDLWAVE is a package to support editing command files for the
+Interactive Data Language (IDL), and for running IDL as an inferior
+shell.
+
+* Menu:
+
+* Introduction::                What IDLWAVE is and what not
+* IDLWAVE in a Nutshell::       One page quick-start guide
+* Getting Started::             Tutorial
+* The IDLWAVE Major Mode::      The mode to edit IDL programs
+* The IDLWAVE Shell::           The mode to run IDL as inferior program
+* Installation::                How to Install or Upgrade
+* Acknowledgement::             Who helped
+* Sources of Routine Info::     How does IDLWAVE know about routine XYZ
+* Configuration Examples::      The user is king...
+* Index::                       Fast access
+
+
+The IDLWAVE Major Mode
+
+* Code Formatting::             Making code look nice
+* Routine Info::                Calling Sequence and Keyword List
+* Online Help::                 One key press from source to help
+* Completion::                  Completing routine names and Keywords
+* Routine Source::              How to visit the source file of routine XYZ
+* Resolving Routines::          Force the Shell to compile a routine
+* Code Templates::              Abbreviations for frequent constructs
+* Actions::                     Changing case, Padding, End checking
+* Doc Header::                  Inserting a standard header
+* Motion Commands::             Moving through the structure of a program
+* Misc Options::                Things that fit nowhere else
+
+Code Formatting
+
+* Code Indentation::            Reflecting the logical structure
+* Comment Indentation::         Special indentation for comment lines
+* Continuation Lines::          Splitting statements over lines
+* Syntax Highlighting::         Font-lock support
+
+Actions
+
+* Block Boundary Check::        Is the END correct
+* Padding Operators::           Enforcing space around `=' etc
+* Case Changes::                Enforcing upper case keywords
+
+The IDLWAVE Shell
+
+* Starting the Shell::          How to launch IDL as a subprocess
+* Using the Shell::             Interactively working with the Shell
+* Debugging IDL Programs::      Compilation/Debugging
+
+Debugging IDL Programs
+
+* Compiling Programs::          Compiling buffers under the shell
+* Breakpoints and Stepping::    Deciding where to stop and look
+* Examining Variables::         What is the value now?
+
+Installation
+
+* Installing IDLWAVE::          How to install the distribution
+* Installing Online Help::      Where to get the additional files needed
+* Upgrading from idl.el::       Necessary configuration changes
+
+Sources of Routine Info
+
+* Routine Definitions::         Where IDL Routines are defined.
+* Routine Information Sources::  So how does IDLWAVE know about...
+* Library Catalog::             Scanning the Libraries for Routine Info
+* Load-Path Shadows::           Routines defined in several places
+* Documentation Scan::          Scanning the IDL Manuals
+
+
+File: idlwave,  Node: Introduction,  Next: IDLWAVE in a Nutshell,  Prev: Top,  Up: Top
+
+Introduction
+************
+
+   IDLWAVE is a package to support editing command files for the
+Interactive Data Language (IDL), and for running IDL as an inferior
+shell.  It also can be used for WAVE/CL command files, but the support
+for these is limited.  Note that this package has nothing to do with the
+Interface Definition Language as part of the Common Object Request
+Broker Architecture (CORBA).
+
+   IDLWAVE is the successor to the `idl.el' and `idl-shell.el' files
+written by Chris Chase.  The modes and files had to be renamed because
+of a name space conflict with CORBAs `idl-mode', defined in Emacs in
+the file `cc-mode.el'.  If you have been using the old files, check
+*Note Upgrading from idl.el:: for information on how to switch.
+
+   IDLWAVE consists of two parts: A major mode for editing command files
+(`idlwave-mode') and a mode to allow running the IDL program as an
+inferior shell (`idlwave-shell-mode').  Both modes work closely
+together and form a complete development environment.
+
+   Here is a brief summary of what IDLWAVE does.
+
+   * Code indentation and formatting.
+
+   * Font-lock support on three levels.
+
+   * Display of calling sequence and keywords of more than 1000 IDL
+     routines and any routines in your local IDL library.
+
+   * Name space conflict search.
+
+   * Fast context-sensitive online help.
+
+   * Context sensitive completion of routine names and keywords.
+
+   * Insertion of code templates.
+
+   * Actions to enforce coding standards during typing.
+
+   * Block structure check.
+
+   * Support for `imenu' (Emacs) and `func-menu' (XEmacs).
+
+   * Documentation support.
+
+   * Running IDL as inferior process.
+
+   * Shell with history search, command line editing and completion.
+
+   * Compilation, execution and debugging of programs directly from the
+     source buffer.
+
+   * Examining expressions with a mouse click.
+
+   Here are a number of screenshots showing IDLWAVE in action.
+
+   * XEmacs 21.1 with formatted and fontified code
+     (http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave/font-lock.gif)
+
+   * XEmacs 21.1 displaying routine info
+     (http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave/rinfo.gif)
+
+   * XEmacs 21.1 completing a keyword
+     (http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave/complete.gif)
+
+   * XEmacs 21.1 with debugging toolbar; execution stopped at a
+     breakpoint
+     (http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave/shell.gif)
+
+   In this manual, each section contains a list of user options related
+to the subject.  Don't be confused by the shear number of options
+available - in most cases the default settings are just fine.  The
+variables are listed here to make sure you know where to look if you
+want to change things.  For a full description of what a particular
+variable does and how to configure it, see the documentation string of
+that variable.  Some configuration examples are also given in the
+appendix.
+
+
+File: idlwave,  Node: IDLWAVE in a Nutshell,  Next: Getting Started,  Prev: Introduction,  Up: Top
+
+IDLWAVE in a Nutshell
+*********************
+
+Editing IDL Programs
+--------------------
+
+<TAB>       Indent the current line relative to context.
+`M-C-\'     Re-indent all lines in the current region.
+`M-<RET>'   Start a continuation line.  Or split the current line at
+            point.
+`M-q'       Fill the current comment paragraph.
+`C-c ?'     Display calling sequence, keywords of the procedure/function
+            call at point.
+`M-?'       Context sensitive online help.
+`M-<TAB>'   Complete a procedure name, function name or keyword in the
+            buffer.
+`C-c C-i'   Update IDLWAVE's knowledge about functions and procedures.
+`C-c C-v'   Find the source code of a procedure/function.
+`C-c C-h'   Insert a standard documentation header.
+`C-c C-m'   Insert a new timestamp and history item in the documentation
+            header.
+
+Running the IDLWAVE Shell, Debugging Programs
+---------------------------------------------
+
+`C-c C-s'   Start IDL as a subprocess and/or switch to the interaction
+            buffer.
+`M-p'       Cycle back through IDL command history matching command line
+            input.
+`M-n'       Cycle forward.
+`M-<TAB>'   Complete a procedure name, function name or keyword in the
+            shell buffer.
+`C-c C-d    Save and compile the source file in the current buffer.
+C-c'        
+`C-c C-d    Goto next syntax error.
+C-x'        
+`C-c C-d    Set a breakpoint at the current source line.
+C-b'        
+`C-c C-d    Clear the current breakpoint.
+C-d'        
+`C-c C-d    Ask IDL to print the value of the expression near point.
+C-p'        
+
+Commonly used Settings in `.emacs'
+----------------------------------
+
+     ;; Change the indentation preferences
+     (setq idlwave-main-block-indent 2         ; default  0
+           idlwave-block-indent 2              ; default  4
+           idlwave-end-offset -2)              ; default -4
+     ;; Pad some operators with spaces
+     (setq idlwave-do-actions t
+           idlwave-surround-by-blank t)
+     ;; Syntax Highlighting
+     (add-hook 'idlwave-mode-hook 'turn-on-font-lock)
+     ;; Automatically start the shell when needed
+     (setq idlwave-shell-automatic-start t)
+     ;; Bind debugging commands with CONTROL and SHIFT modifiers
+     (setq idlwave-shell-debug-modifiers '(control shift))
+     ;; Where are the online help files?
+     (setq idlwave-help-directory "~/.idlwave")
+
+
+File: idlwave,  Node: Getting Started,  Next: The IDLWAVE Major Mode,  Prev: IDLWAVE in a Nutshell,  Up: Top
+
+Getting Started (Tutorial)
+**************************
+
+Lession I: Development Cycle
+============================
+
+   The purpose of this tutorial is to guide you through a very basic
+development cycle with IDLWAVE.  We will type a simple program into a
+buffer and use the shell to compile, debug and run this program.  On the
+way we will use the most important commands in IDLWAVE.  Note however
+that there is much more funtionality available in IDLWAVE than we cover
+here, and it will pay off greatly if eventually you go further and read
+the whole manual.
+
+   I assume that you have access to Emacs or XEmacs with the full
+IDLWAVE package including online help (*note Installation::).  I also
+assume that you are familiar with Emacs and can read the nomenclature
+of key presses in Emacs (in particular, `C' stands for <CONTROL> and
+`M' for <META> (often the <ALT> key carries this functionality)).
+
+   Open a new source file by typing
+
+     C-x C-f tutorial.pro <RET>
+
+   A buffer for this file will pop up, and it should be in IDLWAVE mode.
+You can see this by looking at the mode line, just below the editing
+window.  Also, the menu bar should contain entries `IDLWAVE' and
+`Debug'.
+
+   Now cut-and-paste the following program, also available as
+`tutorial.pro' in the IDLWAVE distribution.
+
+     function daynr,d,m,y
+       ;; compute a sequence number for a date
+       ;; works 1901-2099.
+       if y lt 100 then y = y+1900
+       if m le 2 then delta = 1 else delta = 0
+       m1 = m + delta*12 + 1
+       y1 = y * delta
+       return, d + floor(m1*30.6)+floor(y1*365.25)+5
+     end
+     
+     function weekday,day,month,year
+       ;; compute weekday number for date
+       nr = daynr(day,month,year)
+       return, nr mod 7
+     end
+     
+     pro plot_wday,day,month
+       ;; Plot the weekday of a date in the first 10 years of this century.
+       years = 2000,+indgen(10)
+       wdays = intarr(10)
+       for i=0,n_elements(wdays)-1 do begin
+          wdays[i] =  weekday(day,month,years[i])
+       end
+       plot,years,wdays,YS=2,YT="Wday (0=sunday)"
+     end
+
+   The indentation probably looks funny, since it's different from the
+settings you use, so use the <TAB> key in each line to automatically
+line it up (or more quickly _select_ the entire buffer with `C-x h'
+followed by `M-C-\').  Notice how different syntactical elements are
+highlighted in different colors, if you have set up support for
+font-lock.
+
+   Let's check out two particular editing features of IDLWAVE.  Place
+the cursor after the `end' statement of the `for' loop and press <SPC>.
+IDLWAVE blinks back to the beginning of the block and changes the
+generic `end' to the specific `endfor' automatically.  Now place the
+cursor in any line you would like to split into two and press
+`M-<RET>'.  The line is split at the cursor position, with the
+continuation `$' and indentation all taken care of.  Use `C-/' to undo
+the last change.
+
+   The procedure `plot_wday' is supposed to plot the weekday of a given
+date for the first 10 years of the 21st century.  I have put in a few
+bugs which we are going to fix now.
+
+   First, let's launch the IDLWAVE shell.  You do this with the command
+`C-c C-s'.  The Emacs window will split and display IDL running in a
+shell interaction buffer.  Type a few commands like `print,!PI' to
+convince yourself that you can work there like in an xterminal, or the
+IDLDE.  Use the arrow keys to cycle through your command history.  Are
+we having fun now?
+
+   Now go back to the source window and type `C-c C-d C-c' to compile
+the program.  If you watch the shell buffer, you see that IDLWAVE types
+`.run tutorial.pro' for you.  But the compilation fails because there
+is a comma in the line `years=...'.  The line with the error is
+highlighted and the cursor positioned at the error, so remove the comma
+(you should only need to hit Delete!).  Compile again, using the same
+keystrokes as before.  Notice that the file is saved for you.  This
+time everything should work fine, and you should see the three routines
+compile.
+
+   Now we want to use the command to plot the weekdays for January 1st.
+We could type the full command ourselves, but why do that?  Go back to
+the shell window, type `plot_' and hit <TAB>.  After a bit of a delay
+(while IDLWAVE initializes its routine info database), the window will
+split to show all procedures it knows starting with that string, and
+`plot_wday' should be one of them.  Saving the buffer was enough to
+tell IDLWAVE about this new routine.  Click with the middle mouse
+button on `plot_wday' and it will be copied to the shell buffer, or if
+you prefer, add `w' to `plot_' to make it unambiguous, hit <TAB>, and
+the full routine name will be completed.  Now provide the two arguments:
+
+     plot_wday,1,1
+
+   and press <RET>.  This fails with an error message telling you the
+`YT' keyword to plot is ambiguous.  What are the allowed keywords
+again?  Go back to the source window and put the cursor into the `plot'
+line, and press `C-c ?'.  This pops up the routine info window for the
+plot routine, which contains a list of keywords, and the argument list.
+Oh, we wanted `YTITLE'.  Fix that up.  Recompile with `C-c C-d C-c'.
+Jump back into the shell with `C-c C-s', press the <UP> arrow to recall
+the previous command and execute again.
+
+   This time we get a plot, but it is pretty ugly - the points are all
+connected with a line.  Hmm, isn't there a way for `plot' to use
+symbols instead?  What was that keyword?  Position the cursor on the
+plot line after a comma (where you'd normally type a keyword), and hit
+`M-<Tab>'.  A long list of plot's keywords appears.  Aha, there it is,
+`PSYM'.  Middle click to insert it.  An `=' sign is included for you
+too.  Now what were the values of `PSYM' supposed to be?  With the
+cursor on or after the keyword, press `M-?' for online help
+(alternatively, you could have right clicked on the colored keyword
+itself in the completion list).  The online help window will pop up
+showing the documentation for the `PYSM' keyword.  Ok, let's use
+diamonds=4.  Fix this, recompile (you know the command by now: `C-c C-d
+C-c', go back to the shell (if it's vanished, you know the command to
+recall it by now: `C-c C-s') and execute again.  Now things look pretty
+good.
+
+   Lets try a different day - how about April fool's day?
+
+     plot_wday,1,4
+
+   Oops, this looks very wrong.  All April fool's days cannot be
+Fridays!  We've got a bug in the program, perhaps in the `daynr'
+function.  Lets put a breakpoint on the last line there.  Position the
+cursor on the `return, d+...' line and press `C-c C-d C-b'.  IDL sets a
+breakpoint (as you see in the shell window), and the line is
+highlighted in some way.  Back to the shell buffer, re-execute the
+previous command.  IDL stops at the line with the breakpoint.  Now hold
+down the SHIFT key and click with the middle mouse button on a few
+variables there: `d', `y', `m', `y1', etc.  Maybe `d' isn't the correct
+type.  CONTROL-SHIFT middle-click on it for help.  Well, it's an
+integer, so that's not the problem.  Aha, `y1' is zero, but it should
+be the year, depending on delta.  Shift click `delta' to see that it's
+0.  Below, we see the offending line: `y1=y*delta...' the
+multiplication should have been a minus sign!  So fix the line to
+
+     y1 = y - delta
+
+   Now remove all breakpoints: `C-c C-d C-a'.  Recompile and rerun the
+command.  Everything should now work fine.  How about those leap years?
+Change the code to plot 100 years and see that every 28 years, the
+sequence of weekdays repeats.
+
+Lession II: Customization
+=========================
+
+   Emacs is probably the most customizable piece of software available,
+and it would be a shame if you did not make use of this and adapt
+IDLWAVE to your own preferences.  Customizing Emacs or IDLWAVE means
+that you have to set Lisp variables in the `.emacs' file in your home
+directory.  This looks scary to many people because of all the
+parenthesis.  However, you can just cut and paste the examples given
+here and work from there.
+
+   Lets first use a boolean variable.  These are variables which you
+turn on or off, much like a checkbox. A value of `t' means on, a value
+of `nil' means off.  Copy the following line into your `.emacs' file,
+exit and restart Emacs.
+
+     (setq idlwave-reserved-word-upcase t)
+
+   When this option is turned on, each reserved word you type into an
+IDL source buffer will be converted to upper case when you press <SPC>
+or <RET> right after the word.  Try it out!  `if' changes to `IF',
+`begin' to `BEGIN'.  If you don't like this behavior, remove the option
+again from your `.emacs' file.
+
+   Now I bet you have your own indentation preferences for IDL code.
+For example, I like to indent the main block of an IDL program a bit,
+different from the conventions used by RSI.  Also, I'd like to use only
+3 spaces as indentation between `BEGIN' and `END'.  Try the following
+lines in `.emacs'
+
+     (setq idlwave-main-block-indent 2)
+     (setq idlwave-block-indent 3)
+     (setq idlwave-end-offset -3)
+
+   Restart Emacs, take the program we developed in the first part of
+this tutorial and re-indent it with `C-c h' and `M-C-\'.  You probably
+want to keep these lines in `.emacs', with values adjusted to your
+likings.  If you want to get more information about any of these
+variables, type, e.g., `C-h v idlwave-main-block-indent <RET>'.  To
+find which variables can be customized, look for items marked `User
+Option:' in the manual.
+
+   If you cannot wrap your head around this Lisp stuff, there is
+another, more user-friendly way to customize all the IDLWAVE variables.
+You can access it through the IDLWAVE menu in one of the `.pro'
+buffers, option `Customize->Browse IDLWAVE Group'. Here you'll be
+presented with all the various variables grouped into categories.  You
+can navigate the hierarchy (e.g. Idlwave Code Formatting->Idlwave Main
+Block Indent), read about the variables, change them, and `Save for
+Future Sessions'.  Few of these variables need customization, but you
+can exercise considerable control over IDLWAVE's functionality with
+them.
+
+   Many people I talk to find the key bindings used for the debugging
+commands too long and complicated.  Do I always have to type `C-c C-d
+C-c' to get a single simple command?  Due to Emacs rules and
+conventions I cannot make better bindings by default, but you can.
+First, there is a way to assign all debugging commands in a single sweep
+to other combinations.  The only problem is that we have to use
+something which Emacs does not need for other important commands.  A
+good option is to execute debugging commands by holding down <CONTROL>
+and <SHIFT> while pressing a single character: `C-S-b' for setting a
+breakpoint, `C-S-c' for compiling the current source file, `C-S-a' for
+deleting all breakpoints.  You can have this with
+
+     (setq idlwave-shell-debug-modifiers '(shift control))
+
+   If you have a special keyboard with for example a <HYPER> key, you
+could use
+
+     (setq idlwave-shell-debug-modifiers '(hyper))
+
+   instead to get compilation on `H-c'.
+
+   You can also assign specific commands to function keys.  This you
+must do in the _mode-hook_, a special function which is run when a new
+buffer gets set up.  Keybindings can only be done when the buffer
+exists.  The possibilities for key customization are endless.  Here we
+set function keys f5-f8 to common debugging commands.
+
+     ;; First for the source buffer
+     (add-hook 'idlwave-mode-hook
+        (lambda ()
+         (local-set-key [f5] 'idlwave-shell-break-here)
+         (local-set-key [f6] 'idlwave-shell-clear-current-bp)
+         (local-set-key [f7] 'idlwave-shell-cont)
+         (local-set-key [f8] 'idlwave-shell-clear-all-bp)))
+     ;; Then for the shell buffer
+     (add-hook 'idlwave-shell-mode-hook
+        (lambda ()
+         (local-set-key [f5] 'idlwave-shell-break-here)
+         (local-set-key [f6] 'idlwave-shell-clear-current-bp)
+         (local-set-key [f7] 'idlwave-shell-cont)
+         (local-set-key [f8] 'idlwave-shell-clear-all-bp)))
+
+Lession III: Library Catalog
+============================
+
+   We have already used the routine info display in the first part of
+this tutorial.  This was the key `C-c ?' which displays information
+about the IDL routine near the cursor position.  Wouldn't it be nice to
+have the same available for your own library routines and for the huge
+amount of code in major extension libraries like JHUPL or the IDL-Astro
+library?  To do this, you must give IDLWAVE a chance to study these
+routines first.  We call this _Building the library catalog_.
+
+   From the IDLWAVE entry in the menu bar, select `Routine Info/Select
+Catalog Directories'.  If necessary, start the shell first with `C-c
+C-s' (*note Starting the Shell::).  IDLWAVE will find out about the IDL
+`!PATH' variable and offer a list of directories on the path.  Simply
+select them all (or whichever you want) and click on the `Scan&Save'
+button.  Then go for a cup of coffee while IDLWAVE collects information
+for each and every IDL routine on your search path.  All this
+information is written to the file `.idlcat' in your home directory and
+will from now one be automatically loaded whenever you use IDLWAVE.
+Try to use routine info (`C-c ?') or completion (`M-<TAB>') while on
+any routine or partial routine name you know to be located in the
+library.  E.g., if you have scanned the IDL-Astro library:
+
+         a=readf<M-<TAB>>
+
+   expands to `readfits('.  Then try
+
+         a=readfits(<C-c ?>
+
+   and you get:
+
+     Usage:    Result = READFITS(filename, header, heap)
+     ...
+
+   I hope you made it until here.  Now you are set to work with IDLWAVE.
+On the way you will want to change other things, and to learn more about
+the possibilities not discussed in this short tutorial.  Read the
+manual, look at the documentation strings of interesting variables (with
+`C-h v idlwave<-variable-name> <RET>') and ask the remaining questions
+on `comp.lang.idl-pvwave'.
+
+
+File: idlwave,  Node: The IDLWAVE Major Mode,  Next: The IDLWAVE Shell,  Prev: Getting Started,  Up: Top
+
+The IDLWAVE Major Mode
+**********************
+
+   The IDLWAVE major mode supports editing IDL and WAVE/CL command
+files.  In this chapter we describe the main features of the mode and
+how to customize them.
+
+* Menu:
+
+* Code Formatting::             Making code look nice
+* Routine Info::                Calling Sequence and Keyword List
+* Online Help::                 One key press from source to help
+* Completion::                  Completing routine names and Keywords
+* Routine Source::              How to visit the source file of routine XYZ
+* Resolving Routines::          Force the Shell to compile a routine
+* Code Templates::              Abbreviations for frequent constructs
+* Actions::                     Changing case, Padding, End checking
+* Doc Header::                  Inserting a standard header
+* Motion Commands::             Moving through the structure of a program
+* Misc Options::                Things that fit nowhere else
+
+
+File: idlwave,  Node: Code Formatting,  Next: Routine Info,  Prev: The IDLWAVE Major Mode,  Up: The IDLWAVE Major Mode
+
+Code Formatting
+===============
+
+* Menu:
+
+* Code Indentation::            Reflecting the logical structure
+* Comment Indentation::         Special indentation for comment lines
+* Continuation Lines::          Splitting statements over lines
+* Syntax Highlighting::         Font-lock support
+
+
+File: idlwave,  Node: Code Indentation,  Next: Comment Indentation,  Prev: Code Formatting,  Up: Code Formatting
+
+Code Indentation
+----------------
+
+   Like all Emacs programming modes, IDLWAVE performs code indentation.
+The <TAB> key indents the current line relative to context.  <LFD>
+insert a newline and indents the new line.  The indentation is governed
+by a number of variables.
+
+   To re-indent a larger portion of code (e.g. when working with
+foreign code written with different conventions), use `M-C-\'
+(`indent-region') after marking the relevant code.  Useful marking
+commands are `C-x h' (the entire file) or `M-C-h' (the current
+subprogram). *Note Actions::, for information how to impose additional
+formatting conventions on foreign code.
+
+ - User Option: idlwave-main-block-indent (`0')
+     Extra indentation for the main block of code.  That is the block
+     between the FUNCTION/PRO statement and the END statement for that
+     program unit.
+
+ - User Option: idlwave-block-indent (`5')
+     Extra indentation applied to block lines.  If you change this, you
+     probably also want to change `idlwave-end-offset'.
+
+ - User Option: idlwave-end-offset (`-4')
+     Extra indentation applied to block END lines.  A value equal to
+     negative `idlwave-block-indent' will make END lines line up with
+     the block BEGIN lines.
+
+ - User Option: idlwave-continuation-indent (`2')
+     Extra indentation applied to continuation lines and inside
+     unbalanced parenthesis.
+
+
+File: idlwave,  Node: Comment Indentation,  Next: Continuation Lines,  Prev: Code Indentation,  Up: Code Formatting
+
+Comment Indentation
+-------------------
+
+   In IDL, lines starting with a `;' are called _comment lines_.
+Comment lines are indented as follows:
+
+`;;;'   The indentation of lines starting with three semicolons remains
+        unchanged.
+`;;'    Lines starting with two semicolons are indented like the
+        surrounding code.
+`;'     Lines starting with a single semicolon are indent to a minimum
+        column.
+
+The indentation of comments starting in column 0 is never changed.
+
+ - User Option: idlwave-no-change-comment
+     The indentation of a comment starting with this regexp will not be
+     changed.
+
+ - User Option: idlwave-begin-line-comment
+     A comment anchored at the beginning of line.
+
+ - User Option: idlwave-code-comment
+     A comment that starts with this regexp is indented as if it is a
+     part of IDL code.
+
+
+File: idlwave,  Node: Continuation Lines,  Next: Syntax Highlighting,  Prev: Comment Indentation,  Up: Code Formatting
+
+Continuation Lines and Filling
+------------------------------
+
+   In IDL, a newline character terminates a statement unless preceded
+by a `$'.  If you would like to start a continuation line, use
+`M-<RET>' which calls the command `idlwave-split-line'.  It inserts a
+`$' to indicate that the following line is a continuation of the
+current line, terminates the line with a newline and indents the new
+line.  The command `M-<RET>' can also be used in the middle of a line
+to split the line at that point.  When used inside a long string
+constant, the string is split with the `+' concatenation operator.
+
+   When filling comment paragraphs, IDLWAVE overloads the normal filling
+functions and uses a function which creates hanging paragraphs as they
+are customary in the IDL routine headers.  When `auto-fill-mode' is
+turned on (toggle with `C-c C-a'), comments will be auto-filled.  If
+the first line of a paragraph is matched by
+`idlwave-hang-indent-regexp', subsequent lines are indented to after
+the position of this match, as in the following example.
+
+     ; INPUTS:
+     ; x - an array containing
+     ;     lots of interesting numbers.
+     ;
+     ; y - another variable where
+     ;     a hanging paragraph is used
+     ;     to describe it.
+
+   You also refill a comment paragraph with `M-q'.
+
+ - User Option: idlwave-fill-comment-line-only (`t')
+     Non-`nil' means auto fill will only operate on comment lines.
+
+ - User Option: idlwave-auto-fill-split-string (`t')
+     Non-`nil' means auto fill will split strings with the IDL `+'
+     operator.
+
+ - User Option: idlwave-split-line-string (`t')
+     Non-`nil' means `idlwave-split-line' will split strings with `+'.
+
+ - User Option: idlwave-hanging-indent (`t')
+     Non-`nil' means comment paragraphs are indented under the hanging
+     indent given by `idlwave-hang-indent-regexp' match in the first
+     line of the paragraph.
+
+ - User Option: idlwave-hang-indent-regexp
+     Regular expression matching the position of the hanging indent in
+     the first line of a comment paragraph.
+
+ - User Option: idlwave-use-last-hang-indent (`nil')
+     Non-`nil' means use last match on line for `idlwave-indent-regexp'.
+
+
+File: idlwave,  Node: Syntax Highlighting,  Prev: Continuation Lines,  Up: Code Formatting
+
+Syntax Highlighting
+-------------------
+
+   Highlighting of keywords, comments, strings etc. can be accomplished
+with `font-lock'.  If you are using `global-font-lock-mode' (on Emacs),
+or have `font-lock' turned on in any other buffer in XEmacs, it should
+also automatically work in IDLWAVE buffers.  If not, you can enforce it
+with the following line in your `.emacs'
+
+     (add-hook 'idlwave-mode-hook 'turn-on-font-lock)
+
+   IDLWAVE supports 3 levels of syntax highlighting.  The variable
+`font-lock-maximum-decoration' determines which level is selected.
+
+ - User Option: idlwave-default-font-lock-items
+     Items which should be fontified on the default fontification level
+     2.
+
+
+File: idlwave,  Node: Routine Info,  Next: Online Help,  Prev: Code Formatting,  Up: The IDLWAVE Major Mode
+
+Routine Info
+============
+
+   IDL defines more than one thousand procedures, functions and object
+methods.  This large command set makes it difficult to remember the
+calling sequence and keywords of a command.  IDLWAVE contains a list of
+all builtin routines with calling sequences and keywords(1).  It also
+scans Emacs buffers and library files for routine definitions and
+queries the IDLWAVE-Shell for the properties of modules currently
+compiled under the shell.  This information is updated automatically.
+If you think the information is not up-to-date, use `C-c C-i'
+(`idlwave-update-routine-info') to enforce a global update.
+
+   To display the information about a routine, press `C-c ?' which
+calls the command `idlwave-routine-info'.  When the current cursor
+position is on the name or in the argument list of a procedure or
+function, information will be displayed about the routine.  For example,
+consider the cursor positions in the following line
+
+     plot,x,alog(x+5*sin(x) + 2),
+       1  2   3   4   5  6  7    8
+
+   On positions 1,2 and 8, information about the `plot' procedure will
+be shown.  On positions 3,4, and 7, the `alog' function will be
+described, while positions 5 and 6 will select the `sin' function.
+When you ask for routine information about an object method, and the
+method exists in several classes, IDLWAVE queries for the class of the
+object.
+
+   The description displayed contains the calling sequence, the list of
+keywords and the source location of this routine.  It looks like this:
+
+     Usage:    XMANAGER, NAME, ID
+     Keywords: BACKGROUND CATCH CLEANUP EVENT_HANDLER GROUP_LEADER
+               JUST_REG MODAL NO_BLOCK
+     Source:   SystemLib   [CSB] /soft1/idl53/lib/xmanager.pro
+
+   If a definition of this routine exists in several files accessible to
+IDLWAVE, several `Source' lines will point to the different files.
+This may indicate that your routine is shadowing a library routine,
+which may or may not be what you want (*note Load-Path Shadows::).  The
+information about the calling sequence and the keywords is derived from
+the first source listed.  Library routines can only be supported if you
+have scanned the local IDL library (*note Library Catalog::).  The
+source entry consists of a _source category_, a set of _flags_ and the
+path to the _source file_.  The following categories exist:
+
+System      A system routine, but we do not know if it is Builtin or
+            SystemLib.  When the system library has bee scanned (*note
+            Library Catalog::), this category will automatically split
+            into the next two.
+Builtin     A builtin routine with no source code available.
+SystemLib   A library routine in the official lib directory `!DIR/lib'.
+Obsolete    A library routine in the official lib directory
+            `!DIR/lib/obsolete'.
+Library     A file on IDL's search path `!PATH'.
+Other       Any other file not known to be on the search path.
+Unresolved  The shell lists this routine as unresolved.
+
+   You can define additional categories based on the file name and path
+with the variable `idlwave-special-lib-alist'.
+
+   The flags `[CSB]' indicate if the file is known to IDLWAVE from the
+library catalog (`[C--]', *note Library Catalog::), from the Shell
+(`[-S-]') or from an Emacs buffer (`[--B]').  Combinations are
+possible.  If a file contains multiple definitions of the same routine,
+the file name will be prefixed with `(Nx)' where `N' is the number of
+definitions.
+
+   Some of the text in the `*Help*' buffer will be active (it
+highlights when you move the mouse over it).  Clicking on these items
+will have the following effects:
+
+Usage       If online help is installed, a click with the _right_ mouse
+            button on the Usage: line will access the help for the
+            routine (*note Online Help::).
+Keyword     Online help about keywords is also available with the
+            _right_ mouse button.  Clicking on a keyword with the
+            _middle_ mouse button will insert this keyword in the buffer
+            from where `idlwave-routine-info' was called.  Holding down
+            <SHIFT> while clicking also adds the initial `/'.
+Source      Clicking with the _middle_ mouse button on a `Source' line
+            finds the source file of the routine and visits it in
+            another window.  Another click on the same line switches
+            back to the buffer from which `C-c ?' was called.  If you
+            use the _right_ mouse button, the source will not be visited
+            by a buffer, but displayed in the online help window.
+Classes     The Classes line is only included in the routine info window
+            if the current class inherits from other classes.  You can
+            click with the _middle_ mouse button to display routine info
+            about the current method in other classes on the inheritance
+            chain.
+
+ - User Option: idlwave-resize-routine-help-window (`t')
+     Non-`nil' means, resize the Routine-info `*Help*' window to fit
+     the content.
+
+ - User Option: idlwave-special-lib-alist
+     Alist of regular expressions matching special library directories.
+
+ - User Option: idlwave-rinfo-max-source-lines (`5')
+     Maximum number of source files displayed in the Routine Info
+     window.
+
+   ---------- Footnotes ----------
+
+   (1) This list was created by scanning the IDL manual and might
+contain (very few) errors.  Please report any detected errors to the
+maintainer, so that they can be fixed.
+
+
+File: idlwave,  Node: Online Help,  Next: Completion,  Prev: Routine Info,  Up: The IDLWAVE Major Mode
+
+Online Help
+===========
+
+   For IDL system routines, RSI provides extensive documentation.
+IDLWAVE can access an ASCII version of this documentation very quickly
+and accurately.  This is _much_ faster than using the IDL online help
+application, also because usually IDLWAVE gets you to the right place in
+the docs directly, without additional browsing and scrolling.  For this
+online help to work, you need an ASCII version of the IDL documentation
+which is not part of the standard IDLWAVE distribution.  The required
+files can be downloaded from the maintainers webpage
+(http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave).  As the text is
+extracted from PDF files, the formatting of the help text is good for
+normal text, but graphics and multiline equations will not be well
+represented.  See also *Note Documentation Scan::.
+
+   For routines which are not documented in the IDL manual (for example
+your own routines), the source code is used as help text.  If the
+requested information can be found in a (more or less) standard DocLib
+file header, IDLWAVE shows the header.  Otherwise the routine definition
+statement (`pro'/`function') is shown.
+
+   In any IDL program, press `M-?' (`idlwave-context-help') or click
+with `S-Mouse-3' to access context sensitive online help.  The
+following locations are recognized as context:
+
+Routine name       The name of a routine (function, procedure, method).
+Keyword Parameter  Keyword parameter of a routine.
+System Variable    System variable like `!DPI'.
+IDL Statement      Like `PRO', `REPEAT', or `COMPILE_OPT'.
+Class name         Class name in `OBJ_NEW' call.
+Executive Command  Executive command like `.RUN'.  Mostly useful in the
+                   shell.
+Default            The routine that would be selected for routine info
+                   display.
+
+   Note that the `OBJ_NEW' function is special in that the help
+displayed depends on the cursor position: If the cursor is on the
+`OBJ_NEW', this function is described.  If it is on the class name
+inside the quotes, the documentation for the class is pulled up.  If the
+cursor is _after_ the class name, anywhere in the argument list, the
+documentation for the corresponding `Init' method and its keywords is
+targeted.
+
+Apart from source buffers, there are two more places from which online
+help can be accessed.
+
+   * Online help for routines and keywords can be accessed through the
+     Routine Info display.  Click with `Mouse-3' on an item to see the
+     corresponding help (*note Routine Info::).
+
+   * When using completion and Emacs pops up a window with possible
+     completions, clicking with `Mouse-3' on a completion item invokes
+     help on that item (*note Completion::).
+
+In both cases, a blue face indicates that the item is documented in the
+IDL manual.
+
+   The help window is normally displayed in a separate frame.  The
+following commands can be used to navigate inside the help system.
+
+`<SPACE>'   Scroll forward one page.
+`<RET>'     Scroll forward one line.
+`<DEL>'     Scroll back one page.
+`n, p'      Browse to the next or previous topic (in physical sequence).
+`b, f'      Move back and forward through the help topic history.
+`c'         Clear the history.
+`Mouse-2'   Follow a link.  Active links are displayed in a different
+            font.  Items under See Also are active, and classes have
+            links to their methods and back.
+`o'         Open a topic.  The topic can be selected with completion.
+`*'         Load the whole help file into Emacs, for global text
+            searches.
+`q'         Kill the help window.
+
+
+When the help text is a source file, the following commands are also
+available.
+`h'         Jump to DocLib Header of the routine whose source is
+            displayed as help.
+`H'         Jump to the first DocLib Header in the file.
+`.' (Dot)   Jump back and forth between the routine definition (the
+            `pro'/`function' statement) and the description of the help
+            item in the DocLib header.
+`F'         Fontify the buffer like source code.  See the variable
+            `idlwave-help-fontify-source-code'.
+
+ - User Option: idlwave-help-directory
+     The directory where idlw-help.txt and idlw-help.el are stored.
+
+ - User Option: idlwave-help-use-dedicated-frame (`t')
+     Non-nil means, use a separate frame for Online Help if possible.
+
+ - User Option: idlwave-help-frame-parameters
+     The frame parameters for the special Online Help frame.
+
+ - User Option: idlwave-max-popup-menu-items (`20')
+     Maximum number of items per pane in pop-up menus.
+
+ - User Option: idlwave-extra-help-function
+     Function to call for help if the normal help fails.
+
+ - User Option: idlwave-help-fontify-source-code (`nil')
+     Non-nil means, fontify source code displayed as help.
+
+ - User Option: idlwave-help-source-try-header (`t')
+     Non-nil means, try to find help in routine header when displaying
+     source file.
+
+ - User Option: idlwave-help-link-face
+     The face for links to IDLWAVE online help.
+
+ - User Option: idlwave-help-activate-links-agressively (`t')
+     Non-`nil' means, make all possible links in help window active.
+
+
+File: idlwave,  Node: Completion,  Next: Routine Source,  Prev: Online Help,  Up: The IDLWAVE Major Mode
+
+Completion
+==========
+
+   IDLWAVE offers completion for class names, routine names and
+keywords.  As in many programming modes, completion is bound to
+`M-<TAB>'.  Completion uses the same internal information as routine
+info, so when necessary it can be updated with `C-c C-i'
+(`idlwave-update-routine-info').
+
+   The completion function is context sensitive and figures out what to
+complete at point.  Here are example lines and what `M-<TAB>' would try
+to complete when the cursor is on the position marked with a `*'.
+
+     plo*                    Procedure
+     x = a*                  Function
+     plot,xra*               Keyword of `plot' procedure
+     plot,x,y,/x*            Keyword of `plot' procedure
+     plot,min(*              Keyword of `min' function
+     obj -> a*               Object method (procedure)
+     a(2,3) = obj -> a*      Object method (function)
+     x = obj_new('IDL*       Class name
+     x = obj_new('MyCl',a*   Keyword to `Init' method in class `MyCl'
+     pro A*                  Class name
+     pro *                   Fill in `Class::' of first method in this file
+     !v*                     System variable
+     !version.t*             Structure tag of system variable
+     self.g*                 Class structure tag in methods
+
+   If the list of completions is too long to fit in the `*Completions*'
+window, the window can be scrolled by pressing `M-<TAB>' repeatedly.
+Online help (if installed) for each possible completion is available by
+clicking with `Mouse-3' on the item.  Items for which system online
+help (from the IDL manual) is available will be displayed in a
+different font.  For other items, the corresponding source code or
+DocLib header is available as help text.
+
+   The case of the completed words is determined by what is already in
+the buffer.  When the partial word being completed is all lower case,
+the completion will be lower case as well.  If at least one character is
+upper case, the string will be completed in upper case or mixed case.
+The default is to use upper case for procedures, functions and keywords,
+and mixed case for object class names and methods, similar to the
+conventions in the IDL manuals.  These defaults can be changed with the
+variable `idlwave-completion-case'.
+
+ - User Option: idlwave-completion-case
+     Association list setting the case (UPPER/lower/Capitalized/...) of
+     completed words.
+
+ - User Option: idlwave-completion-force-default-case (`nil')
+     Non-`nil' means, completion will always honor the settings in
+     `idlwave-completion-case'.  When nil (the default), lower case
+     strings will be completed to lower case.
+
+ - User Option: idlwave-complete-empty-string-as-lower-case (`nil')
+     Non-`nil' means, the empty string is considered lower case for
+     completion.
+
+ - User Option: idlwave-keyword-completion-adds-equal (`t')
+     Non-`nil' means, completion automatically adds `=' after completed
+     keywords.
+
+ - User Option: idlwave-function-completion-adds-paren (`t')
+     Non-`nil' means, completion automatically adds `(' after completed
+     function.  A value of `2' means, also add the closing parenthesis
+     and position cursor between the two.
+
+ - User Option: idlwave-completion-restore-window-configuration (`t')
+     Non-`nil' means, restore window configuration after successful
+     completion.
+
+ - User Option: idlwave-highlight-help-links-in-completion (`t')
+     Non-nil means, highlight completions for which system help is
+     available.
+
+Object Method Completion and Class Ambiguity
+............................................
+
+   An object method is not uniquely determined without the object's
+class.  Since the class part is usually omitted in the source code,
+IDLWAVE considers all available methods in all classes as possible
+completions of an object method name.  For keywords, the combined
+keywords of the current method in all available classes will be
+considered.  In the `*Completions*' buffer, the classes allowed for
+each completion will be shown next to the item (see option
+`idlwave-completion-show-classes').  As a special case, the class of an
+object called `self' object is always the class of the current routine.
+All classes it inherits from are considered as well where appropriate.
+
+   You can also call `idlwave-complete' with a prefix arg: `C-u
+M-<TAB>'.  IDLWAVE will then prompt you for the class in order to
+narrow down the number of possible completions.  The variable
+`idlwave-query-class' can be configured to make this behavior the
+default (not recommended).  After you have specified the class for a
+particular statement (e.g. when completing the method), IDLWAVE can
+remember it for the rest of the editing session.  Subsequent
+completions in the same statement (e.g. keywords) can then reuse this
+class information.  Remembering the class works by placing a text
+property in the object operator `->'.  This is not enabled by default -
+the variable `idlwave-store-inquired-class' can be used to turn it on.
+
+ - User Option: idlwave-support-inheritance (`t')
+     Non-`nil' means, treat inheritance with completion, online help
+     etc.
+
+ - User Option: idlwave-completion-show-classes (`1')
+     Non-`nil' means, show classes in `*Completions*' buffer when
+     completing object methods and keywords.
+
+ - User Option: idlwave-completion-fontify-classes (`t')
+     Non-`nil' means, fontify the classes in completions buffer.
+
+ - User Option: idlwave-query-class (`nil')
+     Association list governing query for object classes during
+     completion.
+
+ - User Option: idlwave-store-inquired-class (`nil')
+     Non-`nil' means, store class of a method call as text property on
+     `->'.
+
+ - User Option: idlwave-class-arrow-face
+     Face to highlight object operator arrows `->' which carry a class
+     text property.
+
+
+File: idlwave,  Node: Routine Source,  Next: Resolving Routines,  Prev: Completion,  Up: The IDLWAVE Major Mode
+
+Routine Source
+==============
+
+   Apart from clicking on a Source: line in the routine info window,
+there is also another way to find the source file of a routine.  The
+command `C-c C-v' (`idlwave-find-module') asks for a module name,
+offering the same default as `idlwave-routine-info' would have used.
+In the minibuffer, specify a complete routine name (including the class
+part).  IDLWAVE will display the source file in another window.
+
+   Since getting the source of a routine into a buffer is so easy with
+IDLWAVE, too many buffers visiting different IDL source files are
+sometimes created.  The special command `C-c C-k'
+(`idlwave-kill-autoloaded-buffers') can be used to remove these buffers.
+
+
+File: idlwave,  Node: Resolving Routines,  Next: Code Templates,  Prev: Routine Source,  Up: The IDLWAVE Major Mode
+
+Resolving Routines
+==================
+
+   The key sequence `C-c =' calls the command `idlwave-resolve' and
+sends the line `RESOLVE_ROUTINE, 'ROUTINE_NAME'' to IDL in order to
+resolve (compile) it.  The default routine to be resolved is taken from
+context, but you get a chance to edit it.
+
+   `idlwave-resolve' is one way to get a library module within reach of
+IDLWAVE's routine info collecting functions.  A better way is to scan
+(parts of) the library (*note Library Catalog::).  Routine info on
+library modules will then be available without the need to compile the
+modules first, and even without a running shell.
+
+   *Note Sources of Routine Info::, for in-depth information where
+IDLWAVE collects data about routines, and how to update this
+information.
+
+
+File: idlwave,  Node: Code Templates,  Next: Actions,  Prev: Resolving Routines,  Up: The IDLWAVE Major Mode
+
+Code Templates
+==============
+
+   IDLWAVE can insert IDL code templates into the buffer.  For a few
+templates, this is done with direct key bindings:
+
+`C-c C-c'   `CASE' statement template
+`C-c C-f'   `FOR' loop template
+`C-c C-r'   `REPEAT' loop template
+`C-c C-w'   `WHILE' loop template
+
+   Otherwise, special abbreviations are used.  Emacs abbreviations are
+expanded by typing text into the buffer and pressing <SPC> or <RET>.
+The special abbreviations used to insert code templates all start with
+a `\' (the backslash).  Here are a few examples of predefined
+abbreviations.   For a full list, use `M-x idlwave-list-abbrevs'.
+
+`\pr'       `PROCEDURE' template
+`\fu'       `FUNCTION' template
+`\c'        `CASE' statement template
+`\f'        `FOR' loop template
+`\r'        `REPEAT' loop template
+`\w'        `WHILE' loop template
+`\i'        `IF' statement template
+`\elif'     `IF-ELSE' statement template
+`\b'        `BEGIN'
+
+   The templates are expanded in upper or lower case, depending upon the
+variables `idlwave-abbrev-change-case' and
+`idlwave-reserved-word-upcase'.
+
+ - User Option: idlwave-abbrev-start-char (`"\"')
+     A single character string used to start abbreviations in abbrev
+     mode.
+
+ - User Option: idlwave-abbrev-move (`t')
+     Non-`nil' means the abbrev hook can move point, e.g. to end up
+     between the parenthesis of a function call.
+
+
+File: idlwave,  Node: Actions,  Next: Doc Header,  Prev: Code Templates,  Up: The IDLWAVE Major Mode
+
+Actions
+=======
+
+   _Actions_ are special commands which are executed automatically
+while you write code in order to check the structure of the program or
+to enforce coding standards.  Most actions which have been implemented
+in IDLWAVE are turned off by default, assuming that the average user
+wants her code the way she writes it.  But if you are a lazy typist and
+want your code to adhere to certain standards, they can be helpful.
+
+   Action can be applied in three ways:
+
+   * Some actions are applied directly while typing.  For example,
+     pressing `=' can run a check to make sure that this operator is
+     surrounded by spaces and insert these spaces if necessary.
+     Pressing <SPC> after a reserved word can call a command to change
+     the word to upper case.
+
+   * When a line is re-indented with <TAB>, actions can be applied to
+     the entire line.  To enable this, the variable `idlwave-do-actions'
+     must be non-`nil'.
+
+   * Action can also be applied to a larger piece of code, e.g. in
+     order to convert foreign code to your own style.  To do this, mark
+     the relevant part of the code and execute `M-x
+     expand-region-abbrevs'.  Useful marking commands are `C-x h' (the
+     entire file) or `M-C-h' (the current subprogram). *Note Code
+     Indentation::, for information how to adjust the indentation of
+     the code.
+
+ - User Option: idlwave-do-actions (`nil')
+     Non-`nil' means performs actions when indenting.
+
+* Menu:
+
+* Block Boundary Check::        Is the END correct
+* Padding Operators::           Enforcing space around `=' etc
+* Case Changes::                Enforcing upper case keywords
+
+
+File: idlwave,  Node: Block Boundary Check,  Next: Padding Operators,  Prev: Actions,  Up: Actions
+
+Block Boundary Check
+--------------------
+
+   Whenever you type an `END' statement, IDLWAVE finds the
+corresponding start of the block and the cursor blinks back to that
+location for a second.  If you have typed a specific `END', like
+`ENDIF' or `ENDCASE', you get a warning if that kind of END does not
+match the type of block it terminates.
+
+   Set the variable `idlwave-expand-generic-end' in order to have all
+generic `END' statements automatically expanded to a specific type.
+You can also type `C-c ]' to close the current block by inserting the
+appropriate `END' statement.
+
+ - User Option: idlwave-show-block (`t')
+     Non-`nil' means point blinks to block beginning for
+     `idlwave-show-begin'.
+
+ - User Option: idlwave-expand-generic-end (`t')
+     Non-`nil' means expand generic END to ENDIF/ENDELSE/ENDWHILE etc.
+
+ - User Option: idlwave-reindent-end (`t')
+     Non-nil means re-indent line after END was typed.
+
+
+File: idlwave,  Node: Padding Operators,  Next: Case Changes,  Prev: Block Boundary Check,  Up: Actions
+
+Padding Operators
+-----------------
+
+   Some operators can be automatically surrounded by spaces.  This can
+happen when the operator is typed, or also later when the line is
+indented.  IDLWAVE contains this setting for the operators `&', `<',
+`>', `,', `=', and `->'(1), but the feature is turned off by default.
+If you want to turn it on, customize the variables
+`idlwave-surround-by-blank' and `idlwave-do-actions'.  You can also
+define similar actions for other operators by using the function
+`idlwave-action-and-binding' in the mode hook.  For example, to enforce
+space padding of the `+' and `*' operators, try this in `.emacs'
+
+     (add-hook 'idlwave-mode-hook
+       (lambda ()
+          (setq idlwave-surround-by-blank t)  ; Turn this type of actions on
+          (idlwave-action-and-binding "*" '(idlwave-surround 1 1))
+          (idlwave-action-and-binding "+" '(idlwave-surround 1 1))))
+
+ - User Option: idlwave-surround-by-blank (`nil')
+     Non-`nil' means, enable `idlwave-surround'.  If non-nil, `=', `<',
+     `>', `&', `,', `->' are surrounded with spaces by
+     `idlwave-surround'.
+
+ - User Option: idlwave-pad-keyword (`t')
+     Non-`nil' means pad `=' for keywords like assignments.
+
+   ---------- Footnotes ----------
+
+   (1) Operators longer than one character can only be padded during
+line indentation.
+
+
+File: idlwave,  Node: Case Changes,  Prev: Padding Operators,  Up: Actions
+
+Case Changes
+------------
+
+   Actions can be used to change the case of reserved words or expanded
+abbreviations by customizing the variables `idlwave-abbrev-change-case'
+and `idlwave-reserved-word-upcase'.  If you want to change the case of
+additional words automatically, put something like the following into
+your `.emacs' file:
+
+     (add-hook 'idlwave-mode-hook
+       (lambda ()
+          ;;  Capitalize system vars
+          (idlwave-action-and-binding idlwave-sysvar '(capitalize-word 1) t)
+          ;;  Capitalize procedure name
+          (idlwave-action-and-binding "\\<\\(pro\\|function\\)\\>[ \t]*\\<"
+                                      '(capitalize-word 1) t)
+          ;;  Capitalize common block name
+          (idlwave-action-and-binding "\\<common\\>[ \t]+\\<"
+                                      '(capitalize-word 1) t)))
+
+   For more information, see the documentation string for the function
+`idlwave-action-and-binding'.
+
+ - User Option: idlwave-abbrev-change-case (`nil')
+     Non-`nil' means all abbrevs will be forced to either upper or lower
+     case.  Legal values are `nil', `t', and `down'.
+
+ - User Option: idlwave-reserved-word-upcase (`nil')
+     Non-`nil' means, reserved words will be made upper case via abbrev
+     expansion.
+
+
+File: idlwave,  Node: Doc Header,  Next: Motion Commands,  Prev: Actions,  Up: The IDLWAVE Major Mode
+
+Documentation Header
+====================
+
+   The command `C-c C-h' inserts a standard routine header into the
+buffer, with the usual fields for documentation.  One of the keywords is
+`MODIFICATION HISTORY' under which the changes to a routine can be
+recorded.  The command `C-c C-m' jumps to the `MODIFICATION HISTORY' of
+the current routine or file and inserts the user name with a timestamp.
+
+ - User Option: idlwave-file-header
+     The doc-header template or a path to a file containing it.
+
+ - User Option: idlwave-timestamp-hook
+     The hook function used to update the timestamp of a function.
+
+ - User Option: idlwave-doc-modifications-keyword
+     The modifications keyword to use with the log documentation
+     commands.
+
+ - User Option: idlwave-doclib-start
+     Regexp matching the start of a document library header.
+
+ - User Option: idlwave-doclib-end
+     Regexp matching the start of a document library header.
+
+
+File: idlwave,  Node: Motion Commands,  Next: Misc Options,  Prev: Doc Header,  Up: The IDLWAVE Major Mode
+
+Motion Commands
+===============
+
+   IDLWAVE supports both `Imenu' and `Func-menu', two packages which
+make it easy to jump to the definitions of functions and procedures in
+the current file.
+
+   Several commands allow to move quickly through the structure of an
+IDL program.  These are
+
+`C-M-a'     Beginning of subprogram
+`C-M-e'     End of subprogram
+`C-c {'     Beginning of block (stay inside the block)
+`C-c }'     End of block (stay inside the block)
+`M-C-n'     Forward block (on same level)
+`M-C-p'     Backward block (on same level)
+`M-C-d'     Down block (enters a block)
+`M-C-u'     Backward up block (leaves a block)
+`C-c C-n'   Next Statement
+
+
+File: idlwave,  Node: Misc Options,  Prev: Motion Commands,  Up: The IDLWAVE Major Mode
+
+Miscellaneous Options
+=====================
+
+ - User Option: idlwave-help-application
+     The external application providing reference help for programming.
+
+ - User Option: idlwave-startup-message (`t')
+     Non-`nil' means display a startup message when `idlwave-mode'' is
+     first called.
+
+ - User Option: idlwave-mode-hook
+     Normal hook.  Executed when a buffer is put into `idlwave-mode'.
+
+ - User Option: idlwave-load-hook
+     Normal hook.  Executed when `idlwave.el' is loaded.
+
+
+File: idlwave,  Node: The IDLWAVE Shell,  Next: Installation,  Prev: The IDLWAVE Major Mode,  Up: Top
+
+The IDLWAVE Shell
+*****************
+
+   The IDLWAVE shell is an Emacs major mode which allows to run the IDL
+program as an inferior process of Emacs.  It can be used to work with
+IDL interactively, to compile and run IDL programs in Emacs buffers and
+to debug these programs.  The IDLWAVE shell uses `comint', an Emacs
+packages which handles the communication with the IDL program.
+Unfortunately IDL for Windows and MacOS does not allow the interaction
+with Emacs(1), so the IDLWAVE shell only works under GNU and Unix.
+
+* Menu:
+
+* Starting the Shell::          How to launch IDL as a subprocess
+* Using the Shell::             Interactively working with the Shell
+* Debugging IDL Programs::      Compilation/Debugging
+
+   ---------- Footnotes ----------
+
+   (1) Please inform the maintainer if you come up with a way to make
+the IDLWAVE shell work on these systems.
+
+
+File: idlwave,  Node: Starting the Shell,  Next: Using the Shell,  Prev: The IDLWAVE Shell,  Up: The IDLWAVE Shell
+
+Starting the Shell
+==================
+
+   The IDLWAVE shell can be started with the command `M-x
+idlwave-shell'.  In `idlwave-mode' the function is bound to `C-c C-s'.
+It creates a buffer `*idl*' which is used to interact with the shell.
+If the shell is already running, `C-c C-s' will simple switch to the
+shell buffer.  The command `C-c C-l'
+(`idlwave-shell-recenter-shell-window') displays the shell window
+without selecting it.
+
+   In order to create a separate frame for the IDLWAVE shell buffer,
+call `idlwave-shell' with a prefix argument: `C-u C-c C-s' or `C-u C-c
+C-l'.  If you always want a dedicated frame for the shell window,
+configure the variable `idlwave-shell-use-dedicated-frame'.
+
+   The shell can also be started automatically when another command
+tries to send a command to it.  To enable auto start, set the variable
+`idlwave-shell-automatic-start' to `t'.
+
+ - User Option: idlwave-shell-explicit-file-name
+     This is the command to run IDL.
+
+ - User Option: idlwave-shell-command-line-options
+     A list of command line options for calling the IDL program.
+
+ - User Option: idlwave-shell-prompt-pattern
+     Regexp to match IDL prompt at beginning of a line.
+
+ - User Option: idlwave-shell-process-name
+     Name to be associated with the IDL process.
+
+ - User Option: idlwave-shell-automatic-start
+     Non-`nil' means attempt to invoke idlwave-shell if not already
+     running.
+
+ - User Option: idlwave-shell-initial-commands
+     Initial commands, separated by newlines, to send to IDL.
+
+ - User Option: idlwave-shell-use-dedicated-frame (`nil')
+     Non-`nil' means, IDLWAVE should use a special frame to display
+     shell buffer.
+
+ - User Option: idlwave-shell-frame-parameters
+     The frame parameters for a dedicated idlwave-shell frame.
+
+ - User Option: idlwave-shell-temp-pro-prefix
+     The prefix for temporary IDL files used when compiling regions.
+
+ - User Option: idlwave-shell-mode-hook
+     Hook for customizing `idlwave-shell-mode'.
+
+
+File: idlwave,  Node: Using the Shell,  Next: Debugging IDL Programs,  Prev: Starting the Shell,  Up: The IDLWAVE Shell
+
+Using the Shell
+===============
+
+   The IDLWAVE shell works in the same fashion as other shell modes in
+Emacs.  It provides command history, command line editing and job
+control.  The <UP> and <DOWN> arrows cycle through the input history
+just like in an X terminal(1).  Here is a list of commonly used
+commands.
+
+<UP>      Cycle backwards in input history
+<DOWN>    Cycle forwards in input history
+`M-p'     Cycle backwards in input history _matching input_
+`M-n'     Cycle forwards in input history _matching input_
+`M-r'     Previous input matching a regexp
+`M-s'     Next input that matches a regexp
+`return'  Send input or copy line to current prompt
+`C-c C-a' Beginning of line; skip prompt
+`C-c C-u' Kill input to beginning of line
+`C-c C-w' Kill word before cursor
+`C-c C-c' Send ^C
+`C-c C-z' Send ^Z
+`C-c C-\' Send ^\
+`C-c C-o' Delete last batch of process output
+`C-c C-r' Show last batch of process output
+`C-c C-l' List input history
+
+   In addition to these standard `comint' commands,
+`idlwave-shell-mode' provides many of the commands which simplify
+writing IDL code, including abbreviations, online help, and completion.
+See *Note Routine Info:: and *Note Online Help:: and *Note Completion::
+for more information on these commands.
+
+`<TAB>'   Completion of file names, routine names and keywords
+          (`idlwave-shell-complete')
+`M-<TAB>' Same as <TAB>
+`C-c ?'   Routine Info display (`idlwave-routine-info')
+`M-?'     IDL online help on routine
+          (`idlwave-routine-info-from-idlhelp')
+`C-c C-i' Update routine info from buffers and shell
+          (`idlwave-update-routine-info')
+`C-c C-v' Find the source file of a routine (`idlwave-find-module')
+`C-c ='   Compile a library routine (`idlwave-resolve')
+
+ - User Option: idlwave-shell-arrows-do-history (`t')
+     Non-`nil' means <UP> and <DOWN> arrows move through command
+     history like xterm.
+
+ - User Option: idlwave-shell-file-name-chars
+     The characters allowed in file names, as a string.  Used for file
+     name completion.
+
+ - User Option: idlwave-shell-graphics-window-size
+     Size of IDL graphics windows popped up by special IDLWAVE command.
+
+   IDLWAVE works in line input mode: You compose a full command line,
+using all the power Emacs gives you to do this.  When you press <RET>,
+the whole line is sent to IDL.  Sometimes it is necessary to send single
+characters (without a newline), for example when an IDL program is
+waiting for single character input with the `GET_KBRD' function.  You
+can send a single character to IDL with the command `C-c C-x'
+(`idlwave-shell-send-char').  When you press `C-c C-y'
+(`idlwave-shell-char-mode-loop'), IDLWAVE runs a blocking loop which
+accepts characters and immediately sends them to IDL.  The loop can be
+exited with `C-g'.  It terminates also automatically when the current
+IDL command is finished.  Check the documentation of the two variables
+described below for a way to make IDL programs trigger automatic
+switches of the input mode.
+
+ - User Option: idlwave-shell-use-input-mode-magic (`nil')
+     Non-nil means, IDLWAVE should check for input mode spells in
+     output.
+
+ - User Option: idlwave-shell-input-mode-spells
+     The three regular expressions which match the magic spells for
+     input modes.
+
+   ---------- Footnotes ----------
+
+   (1) This is different from normal Emacs/Comint behavior, but more
+like an xterm.  If you prefer the default comint functionality, check
+the variable `idlwave-shell-arrows-do-history'.
+
+
+File: idlwave,  Node: Debugging IDL Programs,  Prev: Using the Shell,  Up: The IDLWAVE Shell
+
+Debugging IDL Programs
+======================
+
+   Programs can be compiled, run, and debugged directly from the source
+buffer in Emacs.  The IDLWAVE shell installs key bindings both in the
+shell buffer and in all IDL code buffers of the current Emacs session.
+On Emacs versions which support this, it also installs a debugging
+toolbar.  The display of the toolbar can be toggled with `C-c C-d C-t'
+(`idlwave-shell-toggle-toolbar').
+
+   The debugging key bindings are by default on the prefix key `C-c
+C-d', so for example setting a breakpoint is done with `C-c C-d C-b',
+compiling a source file with `C-c C-d C-c'.  If you find this too much
+work you can choose a combination of modifier keys which is not used by
+other commands.  For example, if you write in `.emacs'
+
+     (setq idlwave-shell-debug-modifiers '(control shift))
+
+   a breakpoint can be set by pressing `b' while holding down `shift'
+and `control' keys, i.e. `C-S-b'.  Compiling a source file will be on
+`C-S-c', deleting a breakpoint `C-S-d' etc.  In the remainder of this
+chapter we will assume that the `C-c C-d' bindings are active, but each
+of these bindings will have an equivalent single-keypress shortcut with
+the modifiers given in the `idlwave-shell-debug-modifiers' variable.
+
+ - User Option: idlwave-shell-prefix-key (`C-c C-d')
+     The prefix key for the debugging map
+     `idlwave-shell-mode-prefix-map'.
+
+ - User Option: idlwave-shell-activate-prefix-keybindings (`t')
+     Non-`nil' means, debug commands will be bound to the prefix key,
+     like `C-c C-d C-b'.
+
+ - User Option: idlwave-shell-debug-modifiers (`nil')
+     List of modifier keys to use for binding debugging commands in the
+     shell and in source buffers.
+
+ - User Option: idlwave-shell-use-toolbar (`t')
+     Non-`nil' means, use the debugging toolbar in all IDL related
+     buffers.
+
+* Menu:
+
+* Compiling Programs::          Compiling buffers under the shell
+* Breakpoints and Stepping::    Deciding where to stop and look
+* Examining Variables::         What is the value now?
+
+
+File: idlwave,  Node: Compiling Programs,  Next: Breakpoints and Stepping,  Prev: Debugging IDL Programs,  Up: Debugging IDL Programs
+
+Compiling Programs
+------------------
+
+   In order to compile the current buffer under the IDLWAVE shell, press
+`C-c C-d C-c' (`idlwave-save-and-run').  This first saves the current
+buffer and then send the command `.run path/to/file' to the shell.  You
+can also execute `C-c C-d C-c' from the shell buffer, in which case the
+most recently compiled buffer will be saved and re-compiled.
+
+   When developing or debugging a program, it is often necessary to
+execute the same command line many times.  A convenient way to do this
+is `C-c C-d C-y' (`idlwave-shell-execute-default-command-line').  This
+command first resets IDL from a state of interrupted execution by
+closing all files and returning to the main interpreter level.  Then a
+default command line is send to the shell.  To edit the default command
+line, call `idlwave-shell-execute-default-command-line' with a prefix
+argument: `C-u C-c C-d C-y'.
+
+ - User Option: idlwave-shell-mark-stop-line (`t')
+     Non-`nil' means, mark the source code line where IDL is currently
+     stopped.  The value decides about the preferred method.  Legal
+     values are `nil', `t', `arrow', and `face'.
+
+ - User Option: idlwave-shell-overlay-arrow (`">"')
+     The overlay arrow to display at source lines where execution halts.
+
+ - User Option: idlwave-shell-stop-line-face
+     The face which highlights the source line where IDL is stopped.
+
+
+File: idlwave,  Node: Breakpoints and Stepping,  Next: Examining Variables,  Prev: Compiling Programs,  Up: Debugging IDL Programs
+
+Breakpoints and Stepping
+------------------------
+
+   You can set breakpoints and step through a program with IDLWAVE.
+Setting a breakpoint in the current line of the source buffer is done
+with `C-c C-d C-b' (`idlwave-shell-break-here').  With a prefix arg of
+1, the breakpoint gets a `/ONCE' keyword, meaning that it will be
+deleted after first use.  With a numeric prefix greater than one, the
+breakpoint will only be active the `nth' time it is hit.  To clear the
+breakpoint in the current line, use `C-c C-d C-d'
+(`idlwave-clear-current-bp').  To clear all breakpoints, use `C-c C-d
+C-a' (`idlwave-clear-all-bp').  Breakpoint lines are highlighted in the
+source code.
+
+   Once the program has stopped somewhere, you can step through it.
+Here is a summary of the breakpoint and stepping commands:
+
+`C-c C-d C-b'     Set breakpoint (`idlwave-shell-break-here')
+`C-c C-d C-i'     Set breakpoint in function named here
+                  (`idlwave-shell-break-in')
+`C-c C-d C-d'     Clear current breakpoint
+                  (`idlwave-shell-clear-current-bp')
+`C-c C-d C-a'     Clear all breakpoints (`idlwave-shell-clear-all-bp')
+`C-c C-d C-s'     Step, into function calls (`idlwave-shell-step')
+`C-c C-d C-n'     Step, over function calls (`idlwave-shell-stepover')
+`C-c C-d C-k'     Skip one statement (`idlwave-shell-skip')
+`C-c C-d C-u'     Continue to end of block (`idlwave-shell-up')
+`C-c C-d C-m'     Continue to end of function (`idlwave-shell-return')
+`C-c C-d C-o'     Continue past end of function (`idlwave-shell-out')
+`C-c C-d C-h'     Continue to line at cursor position
+                  (`idlwave-shell-to-here')
+`C-c C-d C-r'     Continue execution to next breakpoint
+                  (`idlwave-shell-cont')
+`C-c C-d C-up'    Show higher level in calling stack
+                  (`idlwave-shell-stack-up')
+`C-c C-d C-down'  Show lower level in calling stack
+                  (`idlwave-shell-stack-down')
+
+ - User Option: idlwave-shell-mark-breakpoints (`t')
+     Non-`nil' means, mark breakpoints in the source file buffers.  The
+     value indicates the preferred method.  Legal values are `nil',
+     `t', `face', and `glyph'.
+
+ - User Option: idlwave-shell-breakpoint-face
+     The face for breakpoint lines in the source code if
+     `idlwave-shell-mark-breakpoints' has the value `face'.
+
+
+File: idlwave,  Node: Examining Variables,  Prev: Breakpoints and Stepping,  Up: Debugging IDL Programs
+
+Examining Variables
+-------------------
+
+   When execution is stopped you can examine the values of variables.
+The command `C-c C-d C-p' prints the expression at point, while `C-c
+C-d ?' shows help on this expression.  The expression at point is an
+array expression or a function call, or the contents of a pair of
+parenthesis.  The selected expression becomes highlighted in the source
+code for a short time.  Calling the above commands with a prefix
+argument will prompt for an expression instead of using the one at
+point.
+
+   It is very convenient to click with the mouse on expressions to
+retrieve their value.  Expression printing is also bound to `S-Mouse-2'
+and expression help to `C-S-Mouse-2'.  I.e. you need to hold down
+<SHIFT> and <CONTROL> while clicking with the mouse.
+
+   Printing of expressions also works on higher levels of the calling
+stack.  This means that you can examine the values of variables and
+expressions inside the routine which called the current routine etc.
+Use the commands `C-c C-d C-<UP>' (`idlwave-shell-stack-up') and `C-c
+C-d C-<DOWN>' (`idlwave-shell-stack-down') or the corresponding toolbar
+buttons to move through the calling stack.  The mode line of the shell
+window will indicate the routine and the calling stack level which
+define the context for printing expressions.  The following
+restrictions apply for all levels except the current:
+
+   * Array expressions must use the `[ ]' index delimiters.  Identifiers
+     with a `( )' will be interpreted as function calls.
+
+   * Printing values of expressions on higher levels of the calling
+     stack uses the _unsupported_ IDL routine `ROUTINE_NAMES', which may
+     or may not be available in future versions of IDL.
+
+ - User Option: idlwave-shell-expression-face
+     The face for `idlwave-shell-expression-overlay'.  Allows you to
+     choose the font, color and other properties for the expression
+     printed by IDL.
+
+ - User Option: idlwave-shell-print-expression-function (`nil')
+     A function to handle special display of evaluated expressions.
+
+
+File: idlwave,  Node: Installation,  Next: Acknowledgement,  Prev: The IDLWAVE Shell,  Up: Top
+
+Installation
+************
+
+* Menu:
+
+* Installing IDLWAVE::          How to install the distribution
+* Installing Online Help::      Where to get the additional files needed
+* Upgrading from idl.el::       Necessary configuration changes
+
+
+File: idlwave,  Node: Installing IDLWAVE,  Next: Installing Online Help,  Prev: Installation,  Up: Installation
+
+Installing IDLWAVE
+==================
+
+   IDLWAVE is part of Emacs 21.1 and later.  It is also an XEmacs
+package and can be installed from the XEmacs ftp site
+(ftp://ftp.xemacs.org/pub/xemacs/packages/) with the normal package
+management system on XEmacs 21.  These pre-installed versions should
+work out-of-the-box.  However, the files needed for online help are not
+distributed with XEmacs/Emacs and have to be installed separately(1)
+(*note Installing Online Help::).
+
+   You can also download IDLWAVE and install it yourself from the
+maintainers webpage
+(http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave).  Follow the
+instructions in the INSTALL file.
+
+   ---------- Footnotes ----------
+
+   (1) Due to copyright reasons, the ASCII version of the IDL manual
+cannot be distributed under the GPL.
+
+
+File: idlwave,  Node: Installing Online Help,  Next: Upgrading from idl.el,  Prev: Installing IDLWAVE,  Up: Installation
+
+Installing Online Help
+======================
+
+   If you want to use the online help display, two additional files (an
+ASCII version of the IDL documentation and a topics/code file) must be
+installed.  These files can also be downloaded from the maintainers
+webpage (http://www.strw.leidenuniv.nl/~dominik/Tools/idlwave).  You
+need to place the files somewhere on your system and tell IDLWAVE where
+they are with
+
+     (setq idlwave-help-directory "/path/to/help/files/")
+
+
+File: idlwave,  Node: Upgrading from idl.el,  Prev: Installing Online Help,  Up: Installation
+
+Upgrading from the old `idl.el' file
+====================================
+
+   If you have been using the old `idl.el' and `idl-shell.el' files and
+would like to use IDLWAVE, you need to update your customization in
+`.emacs'.
+
+  1. Change all variable and function prefixes from `idl-' to
+     `idlwave-'.
+
+  2. Remove the now invalid `autoload' and `auto-mode-alist' forms
+     pointing to the `idl.el' and `idl-shell.el' files.  Install the
+     new autoload forms.
+
+  3. If you have been using the hook function recommended in earlier
+     versions to get a separate frame for the IDL shell, remove that
+     command from your `idlwave-shell-mode-hook'.  Instead, set the
+     variable `idlwave-shell-use-dedicated-frame' with
+          (setq idlwave-shell-use-dedicated-frame t)
+
+  4. The key sequence `M-<TAB>' no longer inserts a TAB character.
+     Like in many other Emacs modes, `M-<TAB>' now does completion.
+     Inserting a TAB has therefore been moved to `C-<TAB>'.  On a
+     character based terminal you can also use `C-c <SPC>'.
+
+
+File: idlwave,  Node: Acknowledgement,  Next: Sources of Routine Info,  Prev: Installation,  Up: Top
+
+Acknowledgement
+***************
+
+The main contributors to the IDLWAVE package have been:
+
+   - Chris Chase (mailto:chase@att.com), the original author.  Chris
+     wrote `idl.el' and `idl-shell.el' and maintained them for several
+     years.
+
+   - Carsten Dominik (mailto:dominik@astro.uva.nl), current author and
+     maintainer.  I have been in charge of the package since version
+     3.0. I am also responsible for the manual.
+
+   - J.D. Smith (mailto:jdsmith@astrosun.tn.cornell.edu) has shaped
+     Object method completion and most new features in version 4.0 with
+     his ideas, bug reports, and patient explanations of IDL internals.
+
+The following people have also contributed to the development of IDLWAVE
+with patches, ideas, bug reports and suggestions.
+
+   - Ulrik Dickow <dickow@nbi.dk>
+
+   - Eric E. Dors <edors@lanl.gov>
+
+   - Stein Vidar H. Haugan <s.v.h.haugan@astro.uio.no>
+
+   - David Huenemoerder <dph@space.mit.edu>
+
+   - Kevin Ivory <Kevin.Ivory@linmpi.mpg.de>
+
+   - Xuyong Liu <liu@stsci.edu>
+
+   - Simon Marshall <Simon.Marshall@esrin.esa.it>
+
+   - Craig Markwardt <craigm@cow.physics.wisc.edu>
+
+   - Laurent Mugnier <mugnier@onera.fr>
+
+   - Lubos Pochman <lubos@rsinc.com>
+
+   - Patrick M. Ryan <pat@jaameri.gsfc.nasa.gov>
+
+   - Marty Ryba <ryba@ll.mit.edu>
+
+   - Phil Williams <williams@irc.chmcc.org>
+
+   - Phil Sterne <sterne@dublin.llnl.gov>
+
+Thanks to everyone!
+
+
+File: idlwave,  Node: Sources of Routine Info,  Next: Configuration Examples,  Prev: Acknowledgement,  Up: Top
+
+Sources of Routine Info
+***********************
+
+   In *Note Routine Info:: and *Note Completion:: it was shown how
+IDLWAVE displays the calling sequence and keywords of routines, and how
+it completes routine names and keywords.  For these features to work,
+IDLWAVE must know about the accessible routines.
+
+* Menu:
+
+* Routine Definitions::         Where IDL Routines are defined.
+* Routine Information Sources::  So how does IDLWAVE know about...
+* Library Catalog::             Scanning the Libraries for Routine Info
+* Load-Path Shadows::           Routines defined in several places
+* Documentation Scan::          Scanning the IDL Manuals
+
+
+File: idlwave,  Node: Routine Definitions,  Next: Routine Information Sources,  Prev: Sources of Routine Info,  Up: Sources of Routine Info
+
+Routine Definitions
+===================
+
+   Routines which can be used in an IDL program can be defined in
+several places:
+
+  1. _Builtin routines_ are defined inside IDL itself.  The source code
+     of such routines is not accessible to the user.
+
+  2. Routines _part of the current program_ are defined in a file which
+     is explicitly compiled by the user.  This file may or may not be
+     located on the IDL search path.
+
+  3. _Library routines_ are defined in special files which are located
+     somewhere on IDL's search path.  When a library routine is called
+     for the first time, IDL will find the source file and compile it
+     dynamically.
+
+  4. External routines written in other languages (like Fortran or C)
+     can be called with `CALL_EXTERNAL', linked into IDL via
+     `LINKIMAGE', or included as dynamically loaded modules (DLMs).
+     Currently IDLWAVE cannot provide routine info and completion for
+     external routines.
+
+
+File: idlwave,  Node: Routine Information Sources,  Next: Library Catalog,  Prev: Routine Definitions,  Up: Sources of Routine Info
+
+Routine Information Sources
+===========================
+
+   In oder to know about as many routines as possible, IDLWAVE will do
+the following to collect information:
+
+  1. It has a _builtin list_ with the properties of the builtin IDL
+     routines.  IDLWAVE 4.7 is distributed with a list of 1287 routines
+     and 5724 keywords, reflecting IDL version 5.4.  This list has been
+     created by scanning the IDL manuals and is stored in the file
+     `idlw-rinfo.el'.  *Note Documentation Scan::, for information how
+     to regenerate this file for new versions of IDL.
+
+  2. It _scans_ all _buffers_ of the current Emacs session for routine
+     definitions.  This is done automatically when routine information
+     or completion is first requested by the user.  Each new buffer and
+     each buffer which is saved after making changes is also scanned.
+     The command `C-c C-i' (`idlwave-update-routine-info') can be used
+     at any time to rescan all buffers.
+
+  3. If you have an IDLWAVE-Shell running as inferior process of the
+     current Emacs session, IDLWAVE will _query the shell_ for compiled
+     routines and their arguments.  This happens automatically when
+     routine information or completion is first requested by the user,
+     and each time an Emacs buffer is compiled with `C-c C-d C-c'.  The
+     command `C-c C-i' (`idlwave-update-routine-info') can be used to
+     ask the shell again at any time.
+
+  4. IDLWAVE can scan all or selected library files and store the
+     result in a file which will be automatically loaded just like
+     `idlw-rinfo.el'. *Note Library Catalog::, for information how to
+     scan library files.
+
+ - User Option: idlwave-scan-all-buffers-for-routine-info (`t')
+     Non-`nil' means, scan all buffers for IDL programs when updating
+     info.
+
+ - User Option: idlwave-query-shell-for-routine-info (`t')
+     Non-`nil' means query the shell for info about compiled routines.
+
+ - User Option: idlwave-auto-routine-info-updates
+     Controls under what circumstances routine info is updated
+     automatically.
+
+
+File: idlwave,  Node: Library Catalog,  Next: Load-Path Shadows,  Prev: Routine Information Sources,  Up: Sources of Routine Info
+
+Library Catalog
+===============
+
+   IDLWAVE can extract routine information from library modules and
+store that information in a file.  To do this, the variable
+`idlwave-libinfo-file' needs to contain the path to a file in an
+existing directory (the default is `"~/.idlcat.el"').  Since the file
+will contain lisp code, its name should end in `.el'.  Under Windows
+and MacOS, you also need to specify the search path for IDL library
+files in the variable `idlwave-library-path', and the location of the
+IDL directory (the value of the `!DIR' system variable) in the variable
+`idlwave-system-directory'.  Under Unix and GNU, these values will be
+automatically inferred from an IDLWAVE shell.
+
+   The command `M-x idlwave-create-libinfo-file' can then be used to
+scan library files.  It brings up a widget in which you can select some
+or all directories on the search path.  If you only want to have routine
+and completion info of some libraries, it is sufficient to scan those
+directories.  However, if you want IDLWAVE to detect possible name
+conflicts with routines defined in other libraries, the whole pass
+should be scanned.
+
+   After selecting directories, click on the `[Scan & Save]' button in
+the widget to scan all files in the selected directories and write the
+resulting routine information into the file `idlwave-libinfo-file'.  In
+order to update the library information from the same directories, call
+the command `idlwave-update-routine-info' with a double prefix argument:
+`C-u C-u C-c C-i'.  This will rescan files in the previously selected
+directories, write an updated version of the libinfo file and rebuild
+IDLWAVEs internal lists.
+
+   A note of caution:  Depending on your local installation, the IDL
+library can be very large.  Parsing it for routine information will take
+time and loading this information into Emacs can require a significant
+amount of memory.  However, having this information available will be a
+great help.
+
+ - User Option: idlwave-libinfo-file
+     File for routine information of the IDL library.
+
+ - User Option: idlwave-library-path
+     IDL library path for Windows and MacOS.  Not needed under GNU and
+     Unix.
+
+ - User Option: idlwave-system-directory
+     The IDL system directory for Windows and MacOS.  Not needed under
+     GNU and Unix.
+
+ - User Option: idlwave-special-lib-alist
+     Alist of regular expressions matching special library directories.
+
+
+File: idlwave,  Node: Load-Path Shadows,  Next: Documentation Scan,  Prev: Library Catalog,  Up: Sources of Routine Info
+
+Load-Path Shadows
+=================
+
+   IDLWAVE can compile a list of routines which are defined in several
+different files.  Since one definition will hide (shadow) the others
+depending on which file is compiled first, such multiple definitions are
+called "load-path shadows".  IDLWAVE has several routines to scan for
+load path shadows.  The output is placed into the special buffer
+`*Shadows*'.  The format of the output is identical to the source
+section of the routine info buffer (*note Routine Info::).  The
+different definitions of a routine are listed in the sequence of
+_likelyhood of use_.  So the first entry will be most likely the one
+you'll get if an unsuspecting command uses that routine.  Before
+listing shadows, you should make sure that routine info is up-to-date by
+pressing `C-c C-i'.  Here are the different routines:
+
+`M-x idlwave-list-buffer-load-path-shadows'
+     This commands checks the names of all routines defined in the
+     current buffer for shadowing conflicts with other routines
+     accessible to IDLWAVE.  The command also has a key binding: `C-c
+     C-b'
+
+`M-x idlwave-list-shell-load-path-shadows'.
+     Checks all routines compiled under the shell for shadowing.  This
+     is very useful when you have written a complete application.  Just
+     compile the application, use `RESOLVE_ALL' to compile any routines
+     used by your code, update the routine info inside IDLWAVE with
+     `C-c C-i' and then check for shadowing.
+
+`M-x idlwave-list-all-load-path-shadows'
+     This command checks all routines accessible to IDLWAVE for
+     conflicts.
+
+   For these commands to work properly you should have scanned the
+entire load path, not just selected directories.  Also, IDLWAVE should
+be able to distinguish between the system library files (normally
+installed in `/usr/local/rsi/idl/lib') and any site specific or user
+specific files.  Therefore, such local files should not be installed
+inside the `lib' directory of the IDL directory.  This is of course
+also advisable for many other reasons.
+
+   Users of Windows and MacOS also must set the variable
+`idlwave-system-directory' to the value of the `!DIR' system variable
+in IDL.  IDLWAVE appends `lib' to the value of this variable and
+assumes that all files found on that path are system routines.
+
+   Another way to find out if a specific routine has multiple
+definitions on the load path is routine info display (*note Routine
+Info::).
+
+
+File: idlwave,  Node: Documentation Scan,  Prev: Load-Path Shadows,  Up: Sources of Routine Info
+
+Documentation Scan
+==================
+
+   IDLWAVE derives it knowledge about system routines from the IDL
+manuals.  The file `idlw-rinfo.el' contains the routine information for
+the IDL system routines.  The Online Help feature of IDLWAVE requires
+ASCII versions of some IDL manuals to be available in a specific format
+(`idlw-help.txt'), along with an Emacs-Lisp file `idlw-help.el' with
+supporting code and pointers to the ASCII file.
+
+   All 3 files can be derived from the IDL documentation.  If you are
+lucky, the maintainer of IDLWAVE will always have access to the newest
+version of IDL and provide updates.  The IDLWAVE distribution also
+contains the Perl program `get_rinfo' which constructs these files by
+scanning selected files from the IDL documentation.  Instructions on
+how to use `get_rinfo' are in the program itself.
+
+
+File: idlwave,  Node: Configuration Examples,  Next: Index,  Prev: Sources of Routine Info,  Up: Top
+
+Configuration Examples
+**********************
+
+Question: So now you have all these complicated configuration options
+in your package, but which ones do _you_ as the maintainer actually set
+in your own configuration?
+
+Answer: Hardly any.  As the maintainer, I set the default of most
+options to what I think is best.  However, the default settings do not
+turn on features which
+
+   - are not self-evident (i.e. too magic) when used by an unsuspecting
+     user
+
+   - are too intrusive
+
+   - will not work properly on all Emacs installations out there
+
+   - break with widely used standards.
+
+To see what I mean, here is the _entire_ configuration I have in my
+`.emacs':
+
+     (setq idlwave-shell-debug-modifiers '(control shift)
+           idlwave-store-inquired-class t
+           idlwave-shell-automatic-start t
+           idlwave-main-block-indent 2
+           idlwave-help-dir "~/lib/emacs/idlwave"
+           idlwave-special-lib-alist '(("/idl-astro/" . "AstroLib")
+                                       ("/jhuapl/" . "JHUAPL-Lib")
+                                       ("/dominik/lib/idl/" . "MyLib")))
+
+   However, if you are an Emacs power-user and want IDLWAVE to work
+completely differently, the options allow you to change almost every
+aspect of it.  Here is an example of a much more extensive configuration
+of IDLWAVE.  To say it again - this is not what I recommend, but the
+user is King!
+
+     ;;; Settings for IDLWAVE mode
+     
+     (setq idlwave-block-indent 3)           ; Indentation settings
+     (setq idlwave-main-block-indent 3)
+     (setq idlwave-end-offset -3)
+     (setq idlwave-continuation-indent 1)
+     (setq idlwave-begin-line-comment "^;[^;]")  ; Leave ";" but not ";;"
+                                                 ; anchored at start of line.
+     (setq idlwave-surround-by-blank t)      ; Turn on padding ops =,<,>
+     (setq idlwave-pad-keyword nil)          ; Remove spaces for keyword '='
+     (setq idlwave-expand-generic-end t)     ; convert END to ENDIF etc...
+     (setq idlwave-reserved-word-upcase t)   ; Make reserved words upper case
+                                             ; (with abbrevs only)
+     (setq idlwave-abbrev-change-case nil)   ; Don't force case of expansions
+     (setq idlwave-hang-indent-regexp ": ")  ; Change from "- " for auto-fill
+     (setq idlwave-show-block nil)           ; Turn off blinking to begin
+     (setq idlwave-abbrev-move t)            ; Allow abbrevs to move point
+     
+     ;; Some setting can only be done from a mode hook.  Here is an example:
+     
+     (add-hook 'idlwave-mode-hook
+       (lambda ()
+         (setq abbrev-mode 1)                 ; Turn on abbrevs (-1 for off)
+         (setq case-fold-search nil)          ; Make searches case sensitive
+         ;; Run other functions here
+         (font-lock-mode 1)                   ; Turn on font-lock mode
+         (idlwave-auto-fill-mode 0)           ; Turn off auto filling
+         ;;
+         ;; Pad with 1 space (if -n is used then make the
+         ;; padding a minimum of n spaces.)  The defaults use -1
+         ;; instead of 1.
+         (idlwave-action-and-binding "=" '(idlwave-expand-equal 1 1))
+         (idlwave-action-and-binding "<" '(idlwave-surround 1 1))
+         (idlwave-action-and-binding ">" '(idlwave-surround 1 1 '(?-)))
+         (idlwave-action-and-binding "&" '(idlwave-surround 1 1))
+         ;;
+         ;; Only pad after comma and with exactly 1 space
+         (idlwave-action-and-binding "," '(idlwave-surround nil 1))
+         (idlwave-action-and-binding "&" '(idlwave-surround 1 1))
+         ;;
+         ;; Pad only after `->', remove any space before the arrow
+         (idlwave-action-and-binding "->"  '(idlwave-surround 0 -1 nil 2))
+         ;;;
+         ;; Set some personal bindings
+         ;; (In this case, makes `,' have the normal self-insert behavior.)
+         (local-set-key "," 'self-insert-command)
+         ;; Create a newline, indenting the original and new line.
+         ;; A similar function that does _not_ reindent the original
+         ;; line is on "\C-j" (The default for emacs programming modes).
+         (local-set-key "\n" 'idlwave-newline)
+         ;; (local-set-key "\C-j" 'idlwave-newline) ; My preference.
+         ))
+     
+     ;;; Settings for IDLWAVE SHELL mode
+     
+     (setq idlwave-shell-overlay-arrow "=>")        ; default is ">"
+     (setq idlwave-shell-use-dedicated-frame t)     ; Make a dedicated frame
+     (setq idlwave-shell-prompt-pattern "^WAVE> ")  ; default is "^IDL> "
+     (setq idlwave-shell-explicit-file-name "wave")
+     (setq idlwave-shell-process-name "wave")
+     (setq idlwave-shell-use-toolbar nil)           ; No toolbar
+
+
+File: idlwave,  Node: Index,  Prev: Configuration Examples,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* !DIR, IDL variable <1>:                Routine Info.
+* !DIR, IDL variable <2>:                Load-Path Shadows.
+* !DIR, IDL variable:                    Library Catalog.
+* !PATH, IDL variable <1>:               Routine Definitions.
+* !PATH, IDL variable:                   Routine Info.
+* .emacs:                                Configuration Examples.
+* Abbreviations:                         Code Templates.
+* Acknowledgement:                       Acknowledgement.
+* Actions:                               Actions.
+* Actions, applied to foreign code:      Actions.
+* Active text, in routine info:          Routine Info.
+* Application, testing for shadowing:    Load-Path Shadows.
+* Authors, of IDLWAVE:                   Acknowledgement.
+* auto-fill-mode:                        Continuation Lines.
+* Block boundary check:                  Block Boundary Check.
+* Block, closing:                        Block Boundary Check.
+* Breakpoints:                           Breakpoints and Stepping.
+* Buffer, testing for shadowing:         Load-Path Shadows.
+* Buffers, killing:                      Routine Source.
+* Buffers, scanning for routine info <1>: Routine Info.
+* Buffers, scanning for routine info:    Routine Information Sources.
+* Builtin list of routines:              Routine Information Sources.
+* C-c ?:                                 Routine Info.
+* C-c C-d:                               Debugging IDL Programs.
+* C-c C-d C-b:                           Breakpoints and Stepping.
+* C-c C-d C-c:                           Compiling Programs.
+* C-c C-d C-p:                           Examining Variables.
+* C-c C-h:                               Doc Header.
+* C-c C-i <1>:                           Completion.
+* C-c C-i:                               Routine Info.
+* C-c C-m:                               Doc Header.
+* C-c C-s:                               Starting the Shell.
+* C-c C-v:                               Routine Source.
+* CALL_EXTERNAL, IDL routine:            Routine Definitions.
+* Calling sequences:                     Routine Info.
+* Calling stack, motion:                 Examining Variables.
+* Case changes:                          Case Changes.
+* Case of completed words:               Completion.
+* Categories, of routines:               Routine Info.
+* cc-mode.el:                            Introduction.
+* Changelog, in doc header.:             Doc Header.
+* Character input mode (Shell):          Using the Shell.
+* Class ambiguity:                       Completion.
+* Class name completion:                 Completion.
+* Class query, forcing:                  Completion.
+* Closing a block:                       Block Boundary Check.
+* Code formatting:                       Code Formatting.
+* Code indentation:                      Code Indentation.
+* Code structure, moving through:        Motion Commands.
+* Code templates:                        Code Templates.
+* Coding standards, enforcing:           Actions.
+* Comint:                                Using the Shell.
+* Comint, Emacs package:                 The IDLWAVE Shell.
+* Comment indentation:                   Comment Indentation.
+* Compiling library modules:             Resolving Routines.
+* Compiling programs:                    Compiling Programs.
+* Completion:                            Completion.
+* Completion, in the shell:              Using the Shell.
+* Completion, Online Help:               Completion.
+* Completion, scrolling:                 Completion.
+* Configuration examples:                Configuration Examples.
+* Context, for online help:              Online Help.
+* Continuation lines:                    Continuation Lines.
+* Contributors, to IDLWAVE:              Acknowledgement.
+* Copyright, of IDL manual:              Installing IDLWAVE.
+* CORBA (Common Object Request Broker Architecture): Introduction.
+* Debugging:                             Debugging IDL Programs.
+* Dedicated frame, for shell buffer:     Starting the Shell.
+* Default command line, executing:       Compiling Programs.
+* Default routine, for info and help:    Routine Info.
+* Default settings, of options:          Configuration Examples.
+* DocLib header:                         Doc Header.
+* DocLib header, as online help:         Online Help.
+* Documentation header:                  Doc Header.
+* Downcase, enforcing for reserved words: Case Changes.
+* Duplicate routines <1>:                Load-Path Shadows.
+* Duplicate routines:                    Routine Info.
+* Emacs, distributed with IDLWAVE:       Installing IDLWAVE.
+* Email address, of Maintainer:          Acknowledgement.
+* END type checking:                     Block Boundary Check.
+* END, automatic insertion:              Block Boundary Check.
+* END, expanding:                        Block Boundary Check.
+* Example configuration:                 Configuration Examples.
+* Executing a default command line:      Compiling Programs.
+* Execution, controlled:                 Breakpoints and Stepping.
+* Expressions, help:                     Examining Variables.
+* Expressions, printing:                 Examining Variables.
+* External routines:                     Routine Definitions.
+* Feature overview:                      Introduction.
+* Filling:                               Continuation Lines.
+* Flags, in routine info:                Routine Info.
+* Font lock:                             Syntax Highlighting.
+* Forcing class query.:                  Completion.
+* Foreign code, adapting <1>:            Code Indentation.
+* Foreign code, adapting:                Actions.
+* Formatting, of code:                   Code Formatting.
+* Frame, for shell buffer:               Starting the Shell.
+* FTP site:                              Installing IDLWAVE.
+* Func-menu, XEmacs package:             Motion Commands.
+* Function definitions, jumping to:      Motion Commands.
+* Function name completion:              Completion.
+* get_rinfo:                             Documentation Scan.
+* Getting Started:                       Getting Started.
+* Hanging paragraphs <1>:                Comment Indentation.
+* Hanging paragraphs:                    Continuation Lines.
+* Header, for file documentation:        Doc Header.
+* Help application, key bindings:        Online Help.
+* HELP, on expressions:                  Examining Variables.
+* Highlighting of syntax:                Syntax Highlighting.
+* Homepage for IDLWAVE:                  Installing IDLWAVE.
+* Hooks <1>:                             Starting the Shell.
+* Hooks:                                 Misc Options.
+* IDL library routine info:              Library Catalog.
+* IDL manual, ASCII version:             Online Help.
+* IDL variable !DIR <1>:                 Load-Path Shadows.
+* IDL variable !DIR <2>:                 Routine Info.
+* IDL variable !DIR:                     Library Catalog.
+* IDL variable !PATH <1>:                Routine Info.
+* IDL variable !PATH:                    Routine Definitions.
+* IDL, as Emacs subprocess:              The IDLWAVE Shell.
+* idl-shell.el:                          Introduction.
+* idl.el:                                Introduction.
+* idlw-help.el <1>:                      Documentation Scan.
+* idlw-help.el:                          Online Help.
+* idlw-help.txt <1>:                     Online Help.
+* idlw-help.txt:                         Documentation Scan.
+* idlw-rinfo.el:                         Documentation Scan.
+* IDLWAVE in a Nutshell:                 IDLWAVE in a Nutshell.
+* IDLWAVE major mode:                    The IDLWAVE Major Mode.
+* IDLWAVE shell:                         The IDLWAVE Shell.
+* IDLWAVE, homepage:                     Installing IDLWAVE.
+* idlwave-abbrev-change-case:            Case Changes.
+* idlwave-abbrev-move:                   Code Templates.
+* idlwave-abbrev-start-char:             Code Templates.
+* idlwave-auto-fill-split-string:        Continuation Lines.
+* idlwave-auto-routine-info-updates:     Routine Information Sources.
+* idlwave-begin-line-comment:            Comment Indentation.
+* idlwave-block-indent:                  Code Indentation.
+* idlwave-class-arrow-face:              Completion.
+* idlwave-code-comment:                  Comment Indentation.
+* idlwave-complete-empty-string-as-lower-case: Completion.
+* idlwave-completion-case:               Completion.
+* idlwave-completion-fontify-classes:    Completion.
+* idlwave-completion-force-default-case: Completion.
+* idlwave-completion-restore-window-configuration: Completion.
+* idlwave-completion-show-classes:       Completion.
+* idlwave-continuation-indent:           Code Indentation.
+* idlwave-default-font-lock-items:       Syntax Highlighting.
+* idlwave-do-actions:                    Actions.
+* idlwave-doc-modifications-keyword:     Doc Header.
+* idlwave-doclib-end:                    Doc Header.
+* idlwave-doclib-start:                  Doc Header.
+* idlwave-end-offset:                    Code Indentation.
+* idlwave-expand-generic-end:            Block Boundary Check.
+* idlwave-extra-help-function:           Online Help.
+* idlwave-file-header:                   Doc Header.
+* idlwave-fill-comment-line-only:        Continuation Lines.
+* idlwave-function-completion-adds-paren: Completion.
+* idlwave-hang-indent-regexp:            Continuation Lines.
+* idlwave-hanging-indent:                Continuation Lines.
+* idlwave-help-activate-links-agressively: Online Help.
+* idlwave-help-application:              Misc Options.
+* idlwave-help-directory:                Online Help.
+* idlwave-help-fontify-source-code:      Online Help.
+* idlwave-help-frame-parameters:         Online Help.
+* idlwave-help-link-face:                Online Help.
+* idlwave-help-source-try-header:        Online Help.
+* idlwave-help-use-dedicated-frame:      Online Help.
+* idlwave-highlight-help-links-in-completion: Completion.
+* idlwave-keyword-completion-adds-equal: Completion.
+* idlwave-libinfo-file:                  Library Catalog.
+* idlwave-library-path:                  Library Catalog.
+* idlwave-load-hook:                     Misc Options.
+* idlwave-main-block-indent:             Code Indentation.
+* idlwave-max-popup-menu-items:          Online Help.
+* idlwave-mode-hook:                     Misc Options.
+* idlwave-no-change-comment:             Comment Indentation.
+* idlwave-pad-keyword:                   Padding Operators.
+* idlwave-query-class:                   Completion.
+* idlwave-query-shell-for-routine-info:  Routine Information Sources.
+* idlwave-reindent-end:                  Block Boundary Check.
+* idlwave-reserved-word-upcase:          Case Changes.
+* idlwave-resize-routine-help-window:    Routine Info.
+* idlwave-rinfo-max-source-lines:        Routine Info.
+* idlwave-scan-all-buffers-for-routine-info: Routine Information Sources.
+* idlwave-shell-activate-prefix-keybindings: Debugging IDL Programs.
+* idlwave-shell-arrows-do-history:       Using the Shell.
+* idlwave-shell-automatic-start:         Starting the Shell.
+* idlwave-shell-breakpoint-face:         Breakpoints and Stepping.
+* idlwave-shell-command-line-options:    Starting the Shell.
+* idlwave-shell-debug-modifiers:         Debugging IDL Programs.
+* idlwave-shell-explicit-file-name:      Starting the Shell.
+* idlwave-shell-expression-face:         Examining Variables.
+* idlwave-shell-file-name-chars:         Using the Shell.
+* idlwave-shell-frame-parameters:        Starting the Shell.
+* idlwave-shell-graphics-window-size:    Using the Shell.
+* idlwave-shell-initial-commands:        Starting the Shell.
+* idlwave-shell-input-mode-spells:       Using the Shell.
+* idlwave-shell-mark-breakpoints:        Breakpoints and Stepping.
+* idlwave-shell-mark-stop-line:          Compiling Programs.
+* idlwave-shell-mode-hook:               Starting the Shell.
+* idlwave-shell-overlay-arrow:           Compiling Programs.
+* idlwave-shell-prefix-key:              Debugging IDL Programs.
+* idlwave-shell-print-expression-function: Examining Variables.
+* idlwave-shell-process-name:            Starting the Shell.
+* idlwave-shell-prompt-pattern:          Starting the Shell.
+* idlwave-shell-stop-line-face:          Compiling Programs.
+* idlwave-shell-temp-pro-prefix:         Starting the Shell.
+* idlwave-shell-use-dedicated-frame:     Starting the Shell.
+* idlwave-shell-use-input-mode-magic:    Using the Shell.
+* idlwave-shell-use-toolbar:             Debugging IDL Programs.
+* idlwave-show-block:                    Block Boundary Check.
+* idlwave-special-lib-alist <1>:         Routine Info.
+* idlwave-special-lib-alist:             Library Catalog.
+* idlwave-split-line-string:             Continuation Lines.
+* idlwave-startup-message:               Misc Options.
+* idlwave-store-inquired-class:          Completion.
+* idlwave-support-inheritance:           Completion.
+* idlwave-surround-by-blank:             Padding Operators.
+* idlwave-system-directory:              Library Catalog.
+* idlwave-timestamp-hook:                Doc Header.
+* idlwave-use-last-hang-indent:          Continuation Lines.
+* Imenu, Emacs package:                  Motion Commands.
+* Indentation:                           Code Indentation.
+* Indentation, of foreign code:          Code Indentation.
+* Input mode:                            Using the Shell.
+* Inserting keywords, from routine info: Routine Info.
+* Installation:                          Installation.
+* Installing online help <1>:            Installing Online Help.
+* Installing online help:                Online Help.
+* Interactive Data Language:             Introduction.
+* Interface Definition Language:         Introduction.
+* Interview, with the maintainer:        Configuration Examples.
+* Introduction:                          Introduction.
+* Key bindings, in help application:     Online Help.
+* Keybindings for debugging:             Debugging IDL Programs.
+* Keyword completion:                    Completion.
+* Keywords of a routine:                 Routine Info.
+* Killing autoloaded buffers:            Routine Source.
+* Library catalog:                       Library Catalog.
+* Library scan:                          Library Catalog.
+* Line input mode (Shell):               Using the Shell.
+* Line splitting:                        Continuation Lines.
+* LINKIMAGE, IDL routine:                Routine Definitions.
+* Load-path shadows <1>:                 Load-Path Shadows.
+* Load-path shadows:                     Routine Info.
+* M-<RET>:                               Continuation Lines.
+* M-<TAB> <1>:                           Upgrading from idl.el.
+* M-<TAB>:                               Completion.
+* M-?:                                   Online Help.
+* M-C-\:                                 Code Indentation.
+* M-q:                                   Continuation Lines.
+* MacOS <1>:                             The IDLWAVE Shell.
+* MacOS <2>:                             Library Catalog.
+* MacOS:                                 Load-Path Shadows.
+* Magic spells, for input mode:          Using the Shell.
+* Maintainer, of IDLWAVE:                Acknowledgement.
+* Major mode, idlwave-mode:              The IDLWAVE Major Mode.
+* Major mode, idlwave-shell-mode:        The IDLWAVE Shell.
+* Method completion:                     Completion.
+* Mixed case completion:                 Completion.
+* Modification timestamp:                Doc Header.
+* Module source file:                    Routine Source.
+* Motion commands:                       Motion Commands.
+* Mouse binding to print expressions:    Examining Variables.
+* Multiply defined routines <1>:         Routine Info.
+* Multiply defined routines:             Load-Path Shadows.
+* Nutshell, IDLWAVE in a:                IDLWAVE in a Nutshell.
+* OBJ_NEW, special online help:          Online Help.
+* Object method completion:              Completion.
+* Object methods:                        Completion.
+* Old variables, renaming:               Upgrading from idl.el.
+* Online Help:                           Online Help.
+* Online Help from the routine info buffer: Routine Info.
+* Online Help in *Completions* buffer:   Completion.
+* Online Help, in the shell:             Using the Shell.
+* Online Help, Installation <1>:         Online Help.
+* Online Help, Installation:             Installing Online Help.
+* Operators, padding with spaces:        Padding Operators.
+* Padding operators with spaces:         Padding Operators.
+* Paragraphs, filling:                   Comment Indentation.
+* Paragraphs, hanging:                   Comment Indentation.
+* Perl program, to create idlw-rinfo.el: Documentation Scan.
+* PRINT expressions:                     Examining Variables.
+* Printing expressions, on calling stack: Examining Variables.
+* Procedure definitions, jumping to:     Motion Commands.
+* Procedure name completion:             Completion.
+* Program structure, moving through:     Motion Commands.
+* Programs, compiling:                   Compiling Programs.
+* Quick-Start:                           Getting Started.
+* Renaming old variables:                Upgrading from idl.el.
+* RESOLVE_ROUTINE:                       Resolving Routines.
+* Restrictions for expression printing:  Examining Variables.
+* Routine definitions:                   Routine Definitions.
+* Routine definitions, multiple <1>:     Load-Path Shadows.
+* Routine definitions, multiple:         Routine Info.
+* Routine info:                          Routine Info.
+* Routine info sources:                  Routine Information Sources.
+* Routine info, in the shell:            Using the Shell.
+* Routine source file:                   Routine Source.
+* Routine source information:            Routine Info.
+* ROUTINE_NAMES, IDL procedure:          Examining Variables.
+* Routines, resolving:                   Resolving Routines.
+* Scanning buffers for routine info <1>: Routine Information Sources.
+* Scanning buffers for routine info:     Routine Info.
+* Scanning the documentation:            Documentation Scan.
+* Screenshots:                           Introduction.
+* Scrolling the *Completions* window:    Completion.
+* self object, default class:            Completion.
+* Shadows, load-path <1>:                Routine Info.
+* Shadows, load-path:                    Load-Path Shadows.
+* Shell, basic commands:                 Using the Shell.
+* Shell, querying for routine info <1>:  Routine Information Sources.
+* Shell, querying for routine info:      Routine Info.
+* Shell, starting:                       Starting the Shell.
+* Source code, as online help:           Online Help.
+* Source file, access from routine info: Routine Info.
+* Source file, of a routine:             Routine Source.
+* Sources of routine information:        Sources of Routine Info.
+* Space, around operators:               Padding Operators.
+* Speed, of online help:                 Online Help.
+* Spells, magic:                         Using the Shell.
+* Splitting, of lines:                   Continuation Lines.
+* Starting the shell:                    Starting the Shell.
+* Stepping:                              Breakpoints and Stepping.
+* String splitting:                      Continuation Lines.
+* Subprocess of Emacs, IDL <1>:          The IDLWAVE Shell.
+* Subprocess of Emacs, IDL:              Starting the Shell.
+* Summary of important commands:         IDLWAVE in a Nutshell.
+* Syntax highlighting:                   Syntax Highlighting.
+* Templates:                             Code Templates.
+* Thanks:                                Acknowledgement.
+* Timestamp, in doc header.:             Doc Header.
+* Toolbar:                               Debugging IDL Programs.
+* Tutorial:                              Getting Started.
+* Upcase, enforcing for reserved words:  Case Changes.
+* Updating routine info <1>:             Routine Information Sources.
+* Updating routine info:                 Routine Info.
+* Upgrading from old idl.el:             Upgrading from idl.el.
+* URL, homepage for IDLWAVE:             Installing IDLWAVE.
+* Windows <1>:                           Load-Path Shadows.
+* Windows <2>:                           The IDLWAVE Shell.
+* Windows:                               Library Catalog.
+* XEmacs package IDLWAVE:                Installing IDLWAVE.
+
+
+
+Tag Table:
+Node: Top1409
+Node: Introduction4402
+Node: IDLWAVE in a Nutshell7408
+Node: Getting Started9888
+Node: The IDLWAVE Major Mode23952
+Node: Code Formatting25013
+Node: Code Indentation25427
+Node: Comment Indentation26920
+Node: Continuation Lines27877
+Node: Syntax Highlighting30177
+Node: Routine Info30960
+Ref: Routine Info-Footnote-136377
+Node: Online Help36552
+Node: Completion41795
+Node: Routine Source47709
+Node: Resolving Routines48526
+Node: Code Templates49407
+Node: Actions50892
+Node: Block Boundary Check52639
+Node: Padding Operators53669
+Ref: Padding Operators-Footnote-155019
+Node: Case Changes55107
+Node: Doc Header56454
+Node: Motion Commands57490
+Node: Misc Options58257
+Node: The IDLWAVE Shell58841
+Ref: The IDLWAVE Shell-Footnote-159702
+Node: Starting the Shell59814
+Node: Using the Shell61912
+Ref: Using the Shell-Footnote-165332
+Node: Debugging IDL Programs65520
+Node: Compiling Programs67650
+Node: Breakpoints and Stepping69175
+Node: Examining Variables71625
+Node: Installation73787
+Node: Installing IDLWAVE74123
+Ref: Installing IDLWAVE-Footnote-174935
+Node: Installing Online Help75042
+Node: Upgrading from idl.el75639
+Node: Acknowledgement76781
+Node: Sources of Routine Info78281
+Node: Routine Definitions79040
+Node: Routine Information Sources80138
+Node: Library Catalog82342
+Node: Load-Path Shadows84887
+Node: Documentation Scan87450
+Node: Configuration Examples88386
+Node: Index93165
+
+End Tag Table

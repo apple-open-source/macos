@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
 */
 static const char rcsid[] =
-	"$Id: inet.c,v 1.2 2001/07/31 05:54:11 wsanchez Exp $";
+	"$Id: inet.c,v 1.4 2002/06/06 00:18:13 laurent Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -50,6 +50,9 @@ static const char rcsid[] =
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
+#ifdef INET6
+#include <netinet/ip6.h>
+#endif /* INET6 */
 #include <netinet/in_pcb.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp_var.h>
@@ -76,8 +79,12 @@ static const char rcsid[] =
 #include <unistd.h>
 #include "netstat.h"
 
-char	*inetname __P((struct in_addr *));
-void	inetprint __P((struct in_addr *, int, char *, int));
+char	*inetname (struct in_addr *);
+void	inetprint (struct in_addr *, int, char *, int);
+#ifdef INET6
+extern void	inet6print (struct in6_addr *, int, char *, int);
+static int udp_done, tcp_done;
+#endif /* INET6 */
 
 /*
  * Print a summary of connections related to an Internet
@@ -86,15 +93,14 @@ void	inetprint __P((struct in_addr *, int, char *, int));
  * -a (all) flag is specified.
  */
 void
-protopr(proto, name)
-	u_long proto;		/* for sysctl version we pass proto # */
-	char *name;
+protopr(u_long proto,		/* for sysctl version we pass proto # */
+	char *name, int af)
 {
 	int istcp;
 	static int first = 1;
 	char *buf;
 	const char *mibvar;
-	struct tcpcb *tp;
+	struct tcpcb *tp = NULL;
 	struct inpcb *inp;
 	struct xinpgen *xig, *oxig;
 	struct xsocket *so;
@@ -103,10 +109,22 @@ protopr(proto, name)
 	istcp = 0;
 	switch (proto) {
 	case IPPROTO_TCP:
+#ifdef INET6
+		if (tcp_done != 0)
+			return;
+		else
+			tcp_done = 1;
+#endif
 		istcp = 1;
 		mibvar = "net.inet.tcp.pcblist";
 		break;
 	case IPPROTO_UDP:
+#ifdef INET6
+		if (udp_done != 0)
+			return;
+		else
+			udp_done = 1;
+#endif
 		mibvar = "net.inet.udp.pcblist";
 		break;
 	case IPPROTO_DIVERT:
@@ -121,7 +139,7 @@ protopr(proto, name)
 		if (errno != ENOENT)
 			warn("sysctl: %s", mibvar);
 		return;
-	}
+	}        
 	if ((buf = malloc(len)) == 0) {
 		warn("malloc %lu bytes", (u_long)len);
 		return;
@@ -131,7 +149,16 @@ protopr(proto, name)
 		free(buf);
 		return;
 	}
-
+        
+        /*
+         * Bail-out to avoid logic error in the loop below when
+         * there is in fact no more control block to process
+         */
+        if (len <= sizeof(struct xinpgen)) {
+            free(buf);
+            return;
+        }
+            
 	oxig = xig = (struct xinpgen *)buf;
 	for (xig = (struct xinpgen *)((char *)xig + xig->xig_len);
 	     xig->xig_len > sizeof(struct xinpgen);
@@ -146,28 +173,65 @@ protopr(proto, name)
 		}
 
 		/* Ignore sockets for protocols other than the desired one. */
-		if (so->xso_protocol != proto)
+		if (so->xso_protocol != (int)proto)
 			continue;
 
 		/* Ignore PCBs which were freed during copyout. */
 		if (inp->inp_gencnt > oxig->xig_gen)
 			continue;
 
-		if (!aflag && inet_lnaof(inp->inp_laddr) == INADDR_ANY)
+		if ((af == AF_INET && (inp->inp_vflag & INP_IPV4) == 0)
+#ifdef INET6
+		    || (af == AF_INET6 && (inp->inp_vflag & INP_IPV6) == 0)
+#endif /* INET6 */
+		    || (af == AF_UNSPEC && ((inp->inp_vflag & INP_IPV4) == 0
+#ifdef INET6
+					    && (inp->inp_vflag &
+						INP_IPV6) == 0
+#endif /* INET6 */
+			))
+		    )
+			continue;
+		if (!aflag &&
+		    (
+		     (af == AF_INET &&
+		      inet_lnaof(inp->inp_laddr) == INADDR_ANY)
+#ifdef INET6
+		     || (af == AF_INET6 &&
+			 IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_laddr))
+#endif /* INET6 */
+		     || (af == AF_UNSPEC &&
+			 (((inp->inp_vflag & INP_IPV4) != 0 &&
+			   inet_lnaof(inp->inp_laddr) == INADDR_ANY)
+#ifdef INET6
+			  || ((inp->inp_vflag & INP_IPV6) != 0 &&
+			      IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_laddr))
+#endif
+			  ))
+		     ))
 			continue;
 
 		if (first) {
-			printf("Active Internet connections");
-			if (aflag)
-				printf(" (including servers)");
+			if (!Lflag) {
+				printf("Active Internet connections");
+				if (aflag)
+					printf(" (including servers)");
+			} else
+				printf(
+	"Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
 			if (Aflag)
 				printf("%-8.8s ", "Socket");
-			printf(Aflag ?
-				"%-5.5s %-6.6s %-6.6s  %-18.18s %-18.18s %s\n" :
-				"%-5.5s %-6.6s %-6.6s  %-22.22s %-22.22s %s\n",
-				"Proto", "Recv-Q", "Send-Q",
-				"Local Address", "Foreign Address", "(state)");
+			if (Lflag)
+				printf("%-14.14s %-22.22s\n",
+					"Listen", "Local Address");
+			else
+				printf((Aflag && !Wflag) ?
+		"%-5.5s %-6.6s %-6.6s  %-18.18s %-18.18s %s\n" :
+		"%-5.5s %-6.6s %-6.6s  %-22.22s %-22.22s %s\n",
+					"Proto", "Recv-Q", "Send-Q",
+					"Local Address", "Foreign Address",
+					"(state)");
 			first = 0;
 		}
 		if (Aflag) {
@@ -176,29 +240,92 @@ protopr(proto, name)
 			else
 				printf("%8lx ", (u_long)so->so_pcb);
 		}
-		printf("%-5.5s %6ld %6ld ", name, so->so_rcv.sb_cc,
-			so->so_snd.sb_cc);
-		if (nflag) {
-			inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-			    name, 1);
-			inetprint(&inp->inp_faddr, (int)inp->inp_fport,
-			    name, 1);
-		} else if (inp->inp_flags & INP_ANONPORT) {
-			inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-			    name, 1);
-			inetprint(&inp->inp_faddr, (int)inp->inp_fport,
-			    name, 0);
-		} else {
-			inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-			    name, 0);
-			inetprint(&inp->inp_faddr, (int)inp->inp_fport,
-			    name, inp->inp_lport != inp->inp_fport);
+		if (Lflag)
+			if (so->so_qlimit) {
+				char buf[15];
+
+				snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
+					 so->so_incqlen, so->so_qlimit);
+				printf("%-14.14s ", buf);
+			} else
+				continue;
+		else {
+			const char *vchar;
+
+#ifdef INET6
+			if ((inp->inp_vflag & INP_IPV6) != 0)
+				vchar = ((inp->inp_vflag & INP_IPV4) != 0)
+					? "46" : "6 ";
+			else
+#endif
+			vchar = ((inp->inp_vflag & INP_IPV4) != 0)
+					? "4 " : "  ";
+
+			printf("%-3.3s%-2.2s %6ld %6ld  ", name, vchar,
+			       so->so_rcv.sb_cc,
+			       so->so_snd.sb_cc);
 		}
-		if (istcp) {
+		if (nflag) {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+					  name, 1);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+						  (int)inp->inp_fport, name, 1);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+					   (int)inp->inp_lport, name, 1);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+						   (int)inp->inp_fport, name, 1);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		} else if (inp->inp_flags & INP_ANONPORT) {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+					  name, 1);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+						  (int)inp->inp_fport, name, 0);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+					   (int)inp->inp_lport, name, 1);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+						   (int)inp->inp_fport, name, 0);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		} else {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+					  name, 0);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+						  (int)inp->inp_fport, name,
+						  inp->inp_lport !=
+							inp->inp_fport);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+					   (int)inp->inp_lport, name, 0);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+						   (int)inp->inp_fport, name,
+						   inp->inp_lport !=
+							inp->inp_fport);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		}
+		if (istcp && !Lflag) {
 			if (tp->t_state < 0 || tp->t_state >= TCP_NSTATES)
-				printf(" %d", tp->t_state);
+				printf("%d", tp->t_state);
                       else {
-				printf(" %s", tcpstates[tp->t_state]);
+				printf("%s", tcpstates[tp->t_state]);
 #if defined(TF_NEEDSYN) && defined(TF_NEEDFIN)
                               /* Show T/TCP `hidden state' */
                               if (tp->t_flags & (TF_NEEDSYN|TF_NEEDFIN))
@@ -216,7 +343,7 @@ protopr(proto, name)
 			printf("Some %s sockets may have been created.\n",
 			       name);
 		} else {
-			printf("Some %s sockets may have been created or deleted\n",
+			printf("Some %s sockets may have been created or deleted",
 			       name);
 		}
 	}
@@ -227,9 +354,7 @@ protopr(proto, name)
  * Dump TCP statistics structure.
  */
 void
-tcp_stats(off, name)
-	u_long off;
-	char *name;
+tcp_stats(u_long off , char *name, int af )
 {
 	struct tcpstat tcpstat;
 	size_t len = sizeof tcpstat;
@@ -238,6 +363,13 @@ tcp_stats(off, name)
 		warn("sysctl: net.inet.tcp.stats");
 		return;
 	}
+
+#ifdef INET6
+	if (tcp_done != 0)
+		return;
+	else
+		tcp_done = 1;
+#endif
 
 	printf ("%s:\n", name);
 
@@ -320,9 +452,7 @@ tcp_stats(off, name)
  * Dump UDP statistics structure.
  */
 void
-udp_stats(off, name)
-	u_long off;
-	char *name;
+udp_stats(u_long off , char *name, int af )
 {
 	struct udpstat udpstat;
 	size_t len = sizeof udpstat;
@@ -333,6 +463,13 @@ udp_stats(off, name)
 		return;
 	}
 
+#ifdef INET6
+	if (udp_done != 0)
+		return;
+	else
+		udp_done = 1;
+#endif
+
 	printf("%s:\n", name);
 #define	p(f, m) if (udpstat.f || sflag <= 1) \
     printf(m, udpstat.f, plural(udpstat.f))
@@ -342,6 +479,9 @@ udp_stats(off, name)
 	p1a(udps_hdrops, "\t%lu with incomplete header\n");
 	p1a(udps_badlen, "\t%lu with bad data length field\n");
 	p1a(udps_badsum, "\t%lu with bad checksum\n");
+#ifndef __APPLE__
+	p1a(udps_nosum, "\t%lu with no checksum\n");
+#endif
 	p1a(udps_noport, "\t%lu dropped due to no socket\n");
 	p(udps_noportbcast,
 	    "\t%lu broadcast/multicast datagram%s dropped due to no socket\n");
@@ -365,9 +505,7 @@ udp_stats(off, name)
  * Dump IP statistics structure.
  */
 void
-ip_stats(off, name)
-	u_long off;
-	char *name;
+ip_stats(u_long off , char *name, int af )
 {
 	struct ipstat ipstat;
 	size_t len = sizeof ipstat;
@@ -388,6 +526,7 @@ ip_stats(off, name)
 	p(ips_badsum, "\t%lu bad header checksum%s\n");
 	p1a(ips_toosmall, "\t%lu with size smaller than minimum\n");
 	p1a(ips_tooshort, "\t%lu with data size < data length\n");
+	p1a(ips_toolong, "\t%lu with ip length > max ip packet size\n");
 	p1a(ips_badhlen, "\t%lu with header length < data size\n");
 	p1a(ips_badlen, "\t%lu with data length < header length\n");
 	p1a(ips_badoptions, "\t%lu with bad options\n");
@@ -414,6 +553,8 @@ ip_stats(off, name)
 	p(ips_fragmented, "\t%lu output datagram%s fragmented\n");
 	p(ips_ofragments, "\t%lu fragment%s created\n");
 	p(ips_cantfrag, "\t%lu datagram%s that can't be fragmented\n");
+	p(ips_nogif, "\t%lu tunneling packet%s that can't find gif\n");
+	p(ips_badaddr, "\t%lu datagram%s with bad address in header\n");
 #undef p
 #undef p1a
 }
@@ -444,9 +585,7 @@ static	char *icmpnames[] = {
  * Dump ICMP statistics.
  */
 void
-icmp_stats(off, name)
-	u_long off;
-	char *name;
+icmp_stats(u_long off , char *name, int af )
 {
 	struct icmpstat icmpstat;
 	int i, first;
@@ -512,9 +651,7 @@ icmp_stats(off, name)
  * Dump IGMP statistics structure.
  */
 void
-igmp_stats(off, name)
-	u_long off;
-	char *name;
+igmp_stats(u_long off , char *name, int af )
 {
 	struct igmpstat igmpstat;
 	size_t len = sizeof igmpstat;
@@ -547,26 +684,28 @@ igmp_stats(off, name)
  * Pretty print an Internet address (net address + port).
  */
 void
-inetprint(in, port, proto,numeric)
-	register struct in_addr *in;
-	int port;
-	char *proto;
-	int numeric;
+inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 {
 	struct servent *sp = 0;
 	char line[80], *cp;
 	int width;
 
-	sprintf(line, "%.*s.", (Aflag && !numeric) ? 12 : 16, inetname(in));
+	if (Wflag)
+	    sprintf(line, "%s.", inetname(in));
+	else
+	    sprintf(line, "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
 	cp = index(line, '\0');
-	if (!numeric && port)
+	if (!numeric_port && port)
 		sp = getservbyport((int)port, proto);
 	if (sp || port == 0)
-		sprintf(cp, "%.15s", sp ? sp->s_name : "*");
+		sprintf(cp, "%.15s ", sp ? sp->s_name : "*");
 	else
-		sprintf(cp, "%d", ntohs((u_short)port));
-	width = Aflag ? 18 : 22;
-	printf(" %-*.*s", width, width, line);
+		sprintf(cp, "%d ", ntohs((u_short)port));
+	width = (Aflag && !Wflag) ? 18 : 22;
+	if (Wflag)
+	    printf("%-*s ", width, line);
+	else
+	    printf("%-*.*s ", width, width, line);
 }
 
 /*
@@ -575,11 +714,10 @@ inetprint(in, port, proto,numeric)
  * numeric value, otherwise try for symbolic name.
  */
 char *
-inetname(inp)
-	struct in_addr *inp;
+inetname(struct in_addr *inp)
 {
 	register char *cp;
-	static char line[MAXHOSTNAMELEN + 1];
+	static char line[MAXHOSTNAMELEN];
 	struct hostent *hp;
 	struct netent *np;
 
@@ -597,7 +735,7 @@ inetname(inp)
 			hp = gethostbyaddr((char *)inp, sizeof (*inp), AF_INET);
 			if (hp) {
 				cp = hp->h_name;
-				trimdomain(cp);
+				 //### trimdomain(cp, strlen(cp));
 			}
 		}
 	}

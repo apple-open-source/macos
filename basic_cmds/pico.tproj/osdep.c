@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: osdep.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: osdep.c,v 1.3 2002/02/20 17:51:54 bbraun Exp $";
 #endif
 /*
  * Program:	Operating system dependent routines - Ultrix 4.1
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: osdep.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -58,7 +58,9 @@ static char rcsid[] = "$Id: osdep.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
 #include 	<stdio.h>
 #include	<errno.h>
 #include	<setjmp.h>
+#ifndef s40
 #include	<time.h>
+#endif
 #include	<pwd.h>
 #if	defined(sv4) || defined(ptx)
 #include	<stropts.h>
@@ -74,6 +76,7 @@ static char rcsid[] = "$Id: osdep.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
 #include	<termio.h>
 #if	defined(isc)
 #include	<sys/sioctl.h>
+#include        <sys/bsdtypes.h>
 #endif
 #else
 #include	<sgtty.h>
@@ -341,10 +344,10 @@ ttgetc()
     int i;
 
     if((i = read(0, &c, 1)) <= 0){
-	if(i == 0 || errno == EINTR)
+	if(i == 0 && errno == EINTR)		/* only acceptable failure */
 	  return(NODATA);
 	else
-	  kill(getpid(), SIGHUP);
+	  kill(getpid(), SIGHUP);		/* fake a hup */
     }
     else
       return((int)c);
@@ -401,10 +404,13 @@ GetKey()
 	rv = select(1, &readfds, 0, &readfds, &ts); /* read stdin */
 #endif
 	if(rv < 0){
-	    if(errno == EINTR)		/* interrupted? */
-	      return(NODATA);		/* return like we timed out */
-	    else
-	      return(NODATA);		/* BUG: should bomb out? */
+	    if(errno == EINTR){		/* interrupted? */
+		return(NODATA);		/* return like we timed out */
+	    }
+	    else{
+		emlwrite("\007Problem reading from keyboard!", NULL);
+		kill(getpid(), SIGHUP);	/* Bomb out (saving our work)! */
+	    }
 	}
 	else if(rv == 0)
 	  return(NODATA);		/* we really did time out */
@@ -521,7 +527,7 @@ alt_editor(f, n)
     char   *writetmp();
     int	   child, pid, i, done = 0;
     long   l;
-#if	defined(POSIX) || defined(sv3) || defined(COHERENT) || defined(isc)
+#if	defined(POSIX) || defined(sv3) || defined(COHERENT) || defined(isc) || defined(neb)
     int    stat;
 #else
     union  wait stat;
@@ -530,17 +536,17 @@ alt_editor(f, n)
     SIGTYPE (*ohup)(), (*oint)(), (*osize)(), (*ostop)(), (*ostart)();
 
     if(Pmaster == NULL)
-      return;
+      return(-1);
 
     if(gmode&MDSCUR){
 	emlwrite("Alternate editor not available in restricted mode", NULL);
-	return;
+	return(-1);
     }
 
     if(Pmaster->alt_ed == NULL){
 	if(!(gmode&MDADVN)){
 	    emlwrite("\007Unknown Command",NULL);
-	    return;
+	    return(-1);
 	}
 
 	if(getenv("EDITOR"))
@@ -549,7 +555,7 @@ alt_editor(f, n)
 	  *eb = '\0';
 
 	while(!done){
-	    pid = mlreplyd("Which alternate editor ? ", eb, NLINE, QDEFLT);
+	    pid = mlreplyd("Which alternate editor ? ",eb,NLINE,QDEFLT,NULL);
 
 	    switch(pid){
 	      case ABORT:
@@ -622,6 +628,8 @@ alt_editor(f, n)
     if(Pmaster)
       (*Pmaster->raw_io)(0);			/* turn OFF raw mode */
 
+    emlwrite("Invoking alternate editor...", NULL);
+
     if(child=fork()){			/* wait for the child to finish */
 	ohup = signal(SIGHUP, SIG_IGN);	/* ignore signals for now */
 	oint = signal(SIGINT, SIG_IGN);
@@ -664,6 +672,7 @@ alt_editor(f, n)
     curbp->b_flag |= BFCHG;		/* mark dirty for packbuf() */
     ttopen();				/* reset the signals */
     refresh(0, 1);			/* redraw */
+    return(0);
 }
 
 
@@ -747,11 +756,11 @@ rtfrmshell()
 SIGTYPE
 do_hup_signal()
 {
+    signal(SIGHUP,  SIG_IGN);			/* ignore further SIGHUP's */
+    signal(SIGTERM, SIG_IGN);			/* ignore further SIGTERM's */
     if(Pmaster){
 	extern jmp_buf finstate;
 
-	signal(SIGHUP, SIG_IGN); 		/* don't bother us. */
-	signal(SIGTERM, SIG_IGN);
 	longjmp(finstate, COMP_GOTHUP);
     }
     else{
@@ -870,7 +879,6 @@ long *l;
 }
 
 
-#ifndef __APPLE__
 #if	defined(bsd) || defined(nxt) || defined(dyn)
 /*
  * getcwd - NeXT uses getwd()
@@ -885,7 +893,7 @@ int   len;
     return(getwd(pth));
 }
 #endif
-#endif
+
 
 /*
  * gethomedir - returns the users home directory
@@ -899,14 +907,16 @@ int *l;
     static short hlen = 0;
 
     if(home == NULL){
-	strcpy(s, "~");
-	fixpath(s, NLINE);		/* let fixpath do the work! */
-	hlen = strlen(s);
-	if((home=(char *)malloc((strlen(s) + 1) * sizeof(char))) == NULL){
+	char buf[NLINE];
+	strcpy(buf, "~");
+	fixpath(buf, NLINE);		/* let fixpath do the work! */
+	hlen = strlen(buf);
+	if((home = (char *)malloc((hlen + 1) * sizeof(char))) == NULL){
 	    emlwrite("Problem allocating space for home dir", NULL);
 	    return(0);
 	}
-	strcpy(home, s);
+
+	strcpy(home, buf);
     }
 
     if(l)
@@ -941,7 +951,12 @@ char *
 errstr(err)
 int err;
 {
+#if 0
+#ifndef	neb
+    extern char *sys_errlist[];
     extern int  sys_nerr;
+#endif
+#endif
 
     return((err >= 0 && err < sys_nerr) ? sys_errlist[err] : NULL);
 }
@@ -1005,8 +1020,9 @@ int  *n;
 
     errno = 0;
     if((dirp=opendir(dn)) == NULL){
-	sprintf(s,"\007Can't open \"%s\": %s", dn, errstr(errno));
-	emlwrite(s, NULL);
+	char buf[NLINE];
+	sprintf(buf,"\007Can't open \"%s\": %s", dn, errstr(errno));
+	emlwrite(buf, NULL);
 	free((char *)names);
 	return(NULL);
     }
@@ -1121,8 +1137,12 @@ int  len;
 {
     register char *shft;
 
-    if(*name != '/' && *name != '.'){		/* filenames relative to ~ */
-	if(Pmaster && (*name != '~' && strlen(name)+2 <= len)){
+    /* filenames relative to ~ */
+    if(!((name[0] == '/')
+          || (name[0] == '.'
+              && (name[1] == '/' || (name[1] == '.' && name[2] == '/'))))){
+	if(Pmaster && !(gmode&MDCURDIR)
+                   && (*name != '~' && strlen(name)+2 <= len)){
 
 	    for(shft = strchr(name, '\0'); shft >= name; shft--)
 	      shft[2] = *shft;
@@ -1153,41 +1173,43 @@ int  len;
     int  depth = 0;
     char *p;
     char *stack[32];
+    char  pathbuf[NLINE];
 
 #define PUSHD(X)  (stack[depth++] = X)
 #define POPD()    ((depth > 0) ? stack[--depth] : "")
 
     if(*path == '~'){
 	fixpath(path, len);
-	strcpy(s, path);
+	strcpy(pathbuf, path);
     }
     else if(*path != C_FILESEP)
-      sprintf(s, "%s%c%s", base, C_FILESEP, path);
+      sprintf(pathbuf, "%s%c%s", base, C_FILESEP, path);
     else
-      strcpy(s, path);
+      strcpy(pathbuf, path);
 
-    p = s;
-    for(i=0; s[i] != '\0'; i++){		/* pass thru path name */
-	if(s[i] == '/'){
-	    if(p != s)
+    p = &pathbuf[0];
+    for(i=0; pathbuf[i] != '\0'; i++){		/* pass thru path name */
+	if(pathbuf[i] == '/'){
+	    if(p != pathbuf)
 	      PUSHD(p);				/* push dir entry */
-	    p = &s[i+1];			/* advance p */
-	    s[i] = '\0';			/* cap old p off */
+
+	    p = &pathbuf[i+1];			/* advance p */
+	    pathbuf[i] = '\0';			/* cap old p off */
 	    continue;
 	}
 
-	if(s[i] == '.'){			/* special cases! */
-	    if(s[i+1] == '.'			/* parent */
-	       && (s[i+2] == '/' || s[i+2] == '\0')){
-		if(!strcmp(POPD(),""))		/* bad news! */
+	if(pathbuf[i] == '.'){			/* special cases! */
+	    if(pathbuf[i+1] == '.' 		/* parent */
+	       && (pathbuf[i+2] == '/' || pathbuf[i+2] == '\0')){
+		if(!strcmp(POPD(), ""))		/* bad news! */
 		  return(0);
 
 		i += 2;
-		p = (s[i] == '\0') ? "" : &s[i+1];
+		p = (pathbuf[i] == '\0') ? "" : &pathbuf[i+1];
 	    }
-	    else if(s[i+1] == '/' || s[i+1] == '\0'){		/* no op */
+	    else if(pathbuf[i+1] == '/' || pathbuf[i+1] == '\0'){
 		i++;
-		p = (s[i] == '\0') ? "" : &s[i+1];
+		p = (pathbuf[i] == '\0') ? "" : &pathbuf[i+1];
 	    }
 	}
     }

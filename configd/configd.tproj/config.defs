@@ -15,4 +15,4 @@
  *   As such... IF YOU CHANGE THE ".defs" FILE, MAKE CLEAN!
  */
 
-#import "../SystemConfiguration.fproj/config.defs"
+#include <SystemConfiguration/config.defs>

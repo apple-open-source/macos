@@ -92,9 +92,12 @@ public:
  */
 class RSAKeyInfoProvider : public CSPKeyInfoProvider 
 {
-public:
+private:
 	RSAKeyInfoProvider(
 		const CssmKey		&cssmKey);
+public:
+	static CSPKeyInfoProvider *provider(
+		const CssmKey &cssmKey);
 	~RSAKeyInfoProvider() { }
 	void CssmKeyToBinary(
 		BinaryKey			**binKey);	// RETURNED
@@ -177,9 +180,12 @@ private:
  */
 class DSAKeyInfoProvider : public CSPKeyInfoProvider 
 {
-public:
+private:
 	DSAKeyInfoProvider(
 		const CssmKey		&cssmKey);
+public:
+	static CSPKeyInfoProvider *provider(
+		const CssmKey &cssmKey);
 	~DSAKeyInfoProvider() { }
 	void CssmKeyToBinary(
 		BinaryKey			**binKey);	// RETURNED

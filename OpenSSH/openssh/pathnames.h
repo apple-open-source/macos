@@ -1,4 +1,4 @@
-/*	$OpenBSD: pathnames.h,v 1.11 2002/02/09 17:37:34 deraadt Exp $	*/
+/*	$OpenBSD: pathnames.h,v 1.13 2002/05/23 19:24:30 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -120,6 +120,11 @@
 #define _PATH_SSH_ASKPASS_DEFAULT	"/usr/X11R6/bin/ssh-askpass"
 #endif
 
+/* Location of ssh-keysign for hostbased authentication */
+#ifndef _PATH_SSH_KEY_SIGN
+#define _PATH_SSH_KEY_SIGN            "/usr/libexec/ssh-keysign"
+#endif
+
 /* xauth for X11 forwarding */
 #ifndef _PATH_XAUTH
 #define _PATH_XAUTH			"/usr/X11R6/bin/xauth"
@@ -139,6 +144,12 @@
 #ifndef _PATH_SFTP_SERVER
 #define _PATH_SFTP_SERVER		"/usr/libexec/sftp-server"
 #endif
+
+/* chroot directory for unprivileged user when UsePrivilegeSeparation=yes */
+#ifndef _PATH_PRIVSEP_CHROOT_DIR
+#define _PATH_PRIVSEP_CHROOT_DIR	"/var/empty"
+#endif
+
 #ifndef _PATH_LS
 #define _PATH_LS			"ls"
 #endif

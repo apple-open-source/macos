@@ -88,7 +88,6 @@ struct image {
       private:1,		/* global symbols are not used for linking */
       init_bound:1,		/* the image init routine has been bound */
       init_called:1,		/* the image init routine has been called */
-      lazy_init:1,		/* the image init routine to be called lazy */
       has_coalesced_sections:1, /* the image has coalesced sections */
       sub_images_setup:1,	/* the sub images have been set up */
       umbrella_images_setup:1,  /* the umbrella_images have been set up */
@@ -99,6 +98,12 @@ struct image {
       image_can_use_hints:1,	/* set when the hints are usable in this image*/
       subs_can_use_hints:1,	/* set when the hints are usable for images */
 				/*  that have this image as a sub image */
+      /*
+       * This is set for library images when the NSAddImage() option 
+       * NSADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME is used.
+       */
+      match_filename_by_installname:1,
+
       unused:16;
     /*
      * For two-level namespace images this is the array of pointers to the
@@ -241,6 +246,10 @@ struct library_images {
 };
 extern struct library_images library_images;
 
+extern const struct library_image some_weak_library_image;
+extern const struct nlist some_weak_symbol;
+extern const module_state some_weak_module;
+
 extern void (*dyld_monaddition)(char *lowpc, char *highpc);
 
 extern void load_executable_image(
@@ -255,6 +264,7 @@ extern enum bool load_library_image(
     struct dylib_command *dl,
     char *dylib_name,
     enum bool force_searching,
+    enum bool match_filename_by_installname,
     struct image **image_pointer);
 
 extern void unload_remove_on_error_libraries(

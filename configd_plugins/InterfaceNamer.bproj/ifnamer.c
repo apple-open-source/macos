@@ -25,7 +25,7 @@
  *
  * June 23, 2001		Allan Nathanson <ajn@apple.com>
  * - update to public SystemConfiguration.framework APIs
- * 
+ *
  * January 23, 2001		Dieter Siegmund <dieter@apple.com>
  * - initial revision
  */
@@ -488,6 +488,49 @@ lookupInterfaceByUnit(CFArrayRef list, CFDictionaryRef if_dict, int * where)
     return (NULL);
 }
 
+#define kAirPortDriverPath	CFSTR("AirPort")
+
+static __inline__ boolean_t
+pathIsAirPort(CFStringRef path)
+{
+    CFRange r;
+
+    r = CFStringFind(path, kAirPortDriverPath, 0);
+
+    if (r.location == kCFNotFound) {
+	return (FALSE);
+    }
+    return (TRUE);
+}
+
+CFDictionaryRef
+lookupAirPortInterface(CFArrayRef list, int * where)
+{
+    int 	i;
+
+    if (where) {
+	*where = INDEX_BAD;
+    }
+    if (list == NULL) {
+	return (NULL);
+    }
+    for (i = 0; i < CFArrayGetCount(list); i++) {
+	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
+	CFStringRef	path;
+
+	path = CFDictionaryGetValue(dict, CFSTR(kIOPathMatchKey));
+	if (path == NULL) {
+	    continue;
+	}
+	if (pathIsAirPort(path) == TRUE) {
+	    if (where)
+		*where = i;
+	    return (dict);
+	}
+    }
+    return (NULL);
+}
+
 static void
 insertInterface(CFMutableArrayRef list, CFDictionaryRef if_dict)
 {
@@ -664,10 +707,10 @@ printMacAddress(CFDataRef data)
 static CFDataRef
 getMacAddress(io_object_t if_obj)
 {
-    CFDictionaryRef	 dict = NULL;
-    CFDataRef        data = NULL;
-    kern_return_t	 kr;
-    io_object_t      parent_obj = NULL;
+    CFMutableDictionaryRef	dict = NULL;
+    CFDataRef			data = NULL;
+    kern_return_t		kr;
+    io_object_t			parent_obj = NULL;
 
     /* get the parent node */
     kr = IORegistryEntryGetParentEntry(if_obj, kIOServicePlane, &parent_obj);
@@ -712,7 +755,7 @@ getInterface(io_object_t if_obj)
     CFMutableDictionaryRef		new_if = NULL;
     io_string_t				path;
     CFBooleanRef			primary;
-    CFDictionaryRef			reginfo_if = NULL;
+    CFMutableDictionaryRef		reginfo_if = NULL;
     CFDictionaryRef			ret_dict = NULL;
     CFStringRef				string;
     CFNumberRef				type;
@@ -904,14 +947,20 @@ name_interfaces(CFArrayRef if_list)
 	    replaceInterface(if_dict);
 	}
 	else {
-	    CFDictionaryRef 		dbdict;
+	    CFDictionaryRef 		dbdict = NULL;
 	    kern_return_t		kr = KERN_SUCCESS;
 	    CFStringRef			path;
 	    CFNumberRef			unit = NULL;
 
+	    path = CFDictionaryGetValue(if_dict, CFSTR(kIOPathMatchKey));
 	    dbdict = lookupInterfaceByType(S_dblist, if_dict, NULL);
-	    if (dbdict) {
-		unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
+	    if (dbdict == NULL
+		&& pathIsAirPort(path) == TRUE) {
+		dbdict = lookupAirPortInterface(S_dblist, NULL);
+	    }
+	    if (dbdict != NULL) {
+		unit = CFDictionaryGetValue(dbdict,
+					    CFSTR(kIOInterfaceUnit));
 		CFRetain(unit);
 	    }
 	    else {
@@ -953,7 +1002,6 @@ name_interfaces(CFArrayRef if_list)
 		printf("Interface assigned unit %d %s\n", u,
 		       dbdict ? "(from database)" : "(next available)");
 	    }
-	    path = CFDictionaryGetValue(if_dict, CFSTR(kIOPathMatchKey));
 	    kr = registerInterface(S_connect, path, unit);
 	    if (kr != KERN_SUCCESS) {
 		SCLog(TRUE, LOG_INFO,
@@ -965,7 +1013,6 @@ name_interfaces(CFArrayRef if_list)
 		}
 	    }
 	    else {
-		CFStringRef	path;
 		CFDictionaryRef	new_dict;
 
 		path = CFDictionaryGetValue(if_dict,

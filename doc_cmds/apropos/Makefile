@@ -12,10 +12,9 @@ NAME = apropos
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = apropos.c
+OTHERLINKED = apropos.sh
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble apropos.1
-
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -25,8 +24,6 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-HEADER_PATHS = -I../man
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

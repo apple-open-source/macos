@@ -47,18 +47,18 @@ typedef enum _IOAudioEngineMemory {
  *  from the IOAudioFamily user client code.
  */
 typedef enum _IOAudioEngineCalls {
-    kIOAudioEngineCallRegisterClientBuffer		= 0,
-    kIOAudioEngineCallUnregisterClientBuffer	= 1,
-    kIOAudioEngineCallGetConnectionID			= 2,
-    kIOAudioEngineCallStart						= 3,
-    kIOAudioEngineCallStop						= 4
+    kIOAudioEngineCallRegisterClientBuffer			= 0,
+    kIOAudioEngineCallUnregisterClientBuffer		= 1,
+    kIOAudioEngineCallGetConnectionID				= 2,
+    kIOAudioEngineCallStart							= 3,
+    kIOAudioEngineCallStop							= 4
 } IOAudioEngineCalls;
 
 /*! @defined kIOAudioEngineNumCalls The number of elements in the IOAudioEngineCalls enum. */
 #define kIOAudioEngineNumCalls		5
 
 typedef enum _IOAudioEngineTraps {
-    kIOAudioEngineTrapPerformClientIO = 0
+    kIOAudioEngineTrapPerformClientIO				= 0
 } IOAudioEngineTraps;
 
 typedef enum _IOAudioEngineNotifications {
@@ -80,10 +80,10 @@ typedef enum _IOAudioEngineNotifications {
  */
 
 typedef enum _IOAudioEngineState {
-    kIOAudioEngineStopped	= 0,
-    kIOAudioEngineRunning	= 1,
-    kIOAudioEnginePaused	= 2,
-    kIOAudioEngineResumed	= 3
+    kIOAudioEngineStopped							= 0,
+    kIOAudioEngineRunning							= 1,
+    kIOAudioEnginePaused							= 2,
+    kIOAudioEngineResumed							= 3
 } IOAudioEngineState;
 
 
@@ -118,6 +118,30 @@ typedef struct _IOAudioStreamFormat {
     UInt8	fIsMixable;
     UInt32	fDriverTag;
 } IOAudioStreamFormat;
+
+#define kFormatExtensionInvalidVersion					0
+#define kFormatExtensionCurrentVersion					1
+
+typedef struct _IOAudioStreamFormatExtension {
+    UInt32	fVersion;
+    UInt32	fFlags;
+    UInt32	fFramesPerPacket;
+    UInt32	fBytesPerPacket;
+} IOAudioStreamFormatExtension;
+
+#define kStreamDataDescriptorInvalidVersion				0
+#define kStreamDataDescriptorCurrentVersion				1
+
+typedef struct _IOAudioStreamDataDescriptor {
+    UInt32	fVersion;
+    UInt32	fNumberOfStreams;
+    UInt32	fStreamLength[1];			// Array with fNumberOfStreams number of entries
+} IOAudioStreamDataDescriptor;
+
+typedef struct _IOAudioSampleIntervalDescriptor {
+	UInt32	sampleIntervalHi;
+	UInt32	sampleIntervalLo;
+} IOAudioSampleIntervalDescriptor;
 
 /*!
 * @enum IOAudioStreamDirection
@@ -159,9 +183,11 @@ typedef enum _IOAudioControlCalls {
  * @enum IOAudioControlNotifications
  * @abstract The set of constants passed in the type field of IOAudioControlUserClient::registerNotificaitonPort().
  * @constant kIOAudioControlValueChangeNotification Used to request value change notifications.
+ * @constant kIOAudioControlRangeChangeNotification Used to request range change notifications.
  */
 typedef enum _IOAudioControlNotifications {
-    kIOAudioControlValueChangeNotification = 0
+    kIOAudioControlValueChangeNotification = 0,
+	kIOAudioControlRangeChangeNotification = 1
 } IOAudioControlNotifications;
 
 /*!
@@ -182,6 +208,7 @@ typedef struct _IOAudioSampleRate {
     UInt32	fraction;
 } IOAudioSampleRate;
 
+#define kNoIdleAudioPowerDown		0xffffffffffffffffULL
 
 enum {
     kIOAudioPortTypeOutput		= 'outp',
@@ -208,14 +235,17 @@ enum {
 enum {
     kIOAudioControlTypeLevel			= 'levl',
     kIOAudioControlTypeToggle			= 'togl',
+	kIOAudioControlTypeJack				= 'jack',
     kIOAudioControlTypeSelector			= 'slct'
 };
 
 enum {
     kIOAudioLevelControlSubTypeVolume			= 'vlme',
-
+	kIOAudioLevelControlSubTypeLFEVolume		= 'subv',
+	kIOAudioLevelControlSubTypePRAMVolume		= 'pram',
     kIOAudioToggleControlSubTypeMute			= 'mute',
-
+	kIOAudioToggleControlSubTypeLFEMute			= 'subm',
+	kIOAudioToggleControlSubTypeiSubAttach		= 'atch',
     kIOAudioSelectorControlSubTypeOutput		= 'outp',
     kIOAudioSelectorControlSubTypeInput			= 'inpt',
     kIOAudioSelectorControlSubTypeClockSource	= 'clck'
@@ -258,7 +288,15 @@ enum {
 };
 
 enum {
-    kIOAudioStreamSampleFormatLinearPCM		= 'lpcm'
+    kIOAudioStreamSampleFormatLinearPCM		= 'lpcm',
+    kIOAudioStreamSampleFormatIEEEFloat		= 'ieee',
+    kIOAudioStreamSampleFormatALaw			= 'alaw',
+    kIOAudioStreamSampleFormatMuLaw			= 'ulaw',
+    kIOAudioStreamSampleFormatMPEG			= 'mpeg',
+    kIOAudioStreamSampleFormatAC3			= 'ac-3',
+    kIOAudioStreamSampleFormat1937AC3		= 'cac3',
+    kIOAudioStreamSampleFormat1937MPEG1		= 'mpg1',
+    kIOAudioStreamSampleFormat1937MPEG2		= 'mpg2'
 };
 
 enum {
@@ -279,6 +317,107 @@ enum {
 
 enum {
     kIOAudioLevelControlNegativeInfinity	= 0xffffffff
+};
+
+// Device connection types
+enum {
+	kIOAudioDeviceTransportTypeBuiltIn				= 'bltn',
+	kIOAudioDeviceTransportTypePCI					= 'pci ',
+	kIOAudioDeviceTransportTypeUSB					= 'usb ',
+	kIOAudioDeviceTransportTypeFireWire				= '1394',
+	kIOAudioDeviceTransportTypeNetwork				= 'ntwk',
+	kIOAudioDeviceTransportTypeWireless				= 'wrls',
+	kIOAudioDeviceTransportTypeOther				= 'othr'
+};
+
+// types that go nowhere
+enum {
+	OUTPUT_NULL										= 0x0100,
+	INPUT_NULL										= 0x0101
+};
+
+// Input terminal types
+enum {
+	INPUT_UNDEFINED									= 0x0200,
+	INPUT_MICROPHONE								= 0x0201,
+	INPUT_DESKTOP_MICROPHONE						= 0x0202,
+	INPUT_PERSONAL_MICROPHONE						= 0x0203,
+	INPUT_OMNIDIRECTIONAL_MICROPHONE				= 0x0204,
+	INPUT_MICROPHONE_ARRAY							= 0x0205,
+	INPUT_PROCESSING_MICROPHONE_ARRAY				= 0x0206,
+	INPUT_MODEM_AUDIO								= 0x207
+};
+
+// Output terminal types
+enum {
+	OUTPUT_UNDEFINED								= 0x0300,
+	OUTPUT_SPEAKER									= 0x0301,
+	OUTPUT_HEADPHONES								= 0x0302,
+	OUTPUT_HEAD_MOUNTED_DISPLAY_AUDIO				= 0x0303,
+	OUTPUT_DESKTOP_SPEAKER							= 0x0304,
+	OUTPUT_ROOM_SPEAKER								= 0x0305,
+	OUTPUT_COMMUNICATION_SPEAKER					= 0x0306,
+	OUTPUT_LOW_FREQUENCY_EFFECTS_SPEAKER			= 0x0307
+};
+
+// Bi-directional terminal types
+enum {
+	BIDIRECTIONAL_UNDEFINED							= 0x0400,
+	BIDIRECTIONAL_HANDSET							= 0x0401,
+	BIDIRECTIONAL_HEADSET							= 0x0402,
+	BIDIRECTIONAL_SPEAKERPHONE_NO_ECHO_REDX			= 0x0403,
+	BIDIRECTIONAL_ECHO_SUPPRESSING_SPEAKERPHONE		= 0x0404,
+	BIDIRECTIONAL_ECHO_CANCELING_SPEAKERPHONE		= 0x0405
+};
+
+// Telephony terminal types
+enum {
+	TELEPHONY_UNDEFINED								= 0x0500,
+	TELEPHONY_PHONE_LINE							= 0x0501,
+	TELEPHONY_TELEPHONE								= 0x0502,
+	TELEPHONY_DOWN_LINE_PHONE						= 0x0503
+};
+
+// External terminal types
+enum {
+	EXTERNAL_UNDEFINED								= 0x0600,
+	EXTERNAL_ANALOG_CONNECTOR						= 0x0601,
+	EXTERNAL_DIGITAL_AUDIO_INTERFACE				= 0x0602,
+	EXTERNAL_LINE_CONNECTOR							= 0x0603,
+	EXTERNAL_LEGACY_AUDIO_CONNECTOR					= 0x0604,
+	EXTERNAL_SPDIF_INTERFACE						= 0x0605,
+	EXTERNAL_1394_DA_STREAM							= 0x0606,
+	EXTERNAL_1394_DV_STREAM_SOUNDTRACK				= 0x0607
+};
+
+// Embedded terminal types
+enum {
+	EMBEDDED_UNDEFINED								= 0x0700,
+	EMBEDDED_LEVEL_CALIBRATION_NOISE_SOURCE			= 0x0701,
+	EMBEDDED_EQUALIZATION_NOISE						= 0x0702,
+	EMBEDDED_CD_PLAYER								= 0x0703,
+	EMBEDDED_DAT									= 0x0704,
+	EMBEDDED_DCC									= 0x0705,
+	EMBEDDED_MINIDISK								= 0x0706,
+	EMBEDDED_ANALOG_TAPE							= 0x0707,
+	EMBEDDED_PHONOGRAPH								= 0x0708,
+	EMBEDDED_VCR_AUDIO								= 0x0709,
+	EMBEDDED_VIDEO_DISC_AUDIO						= 0x070A,
+	EMBEDDED_DVD_AUDIO								= 0x070B,
+	EMBEDDED_TV_TUNER_AUDIO							= 0x070C,
+	EMBEDDED_SATELLITE_RECEIVER_AUDIO				= 0x070D,
+	EMBEDDED_CABLE_TUNER_AUDIO						= 0x070E,
+	EMBEDDED_DSS_AUDIO								= 0x070F,
+	EMBEDDED_RADIO_RECEIVER							= 0x0710,
+	EMBEDDED_RADIO_TRANSMITTER						= 0x0711,
+	EMBEDDED_MULTITRACK_RECORDER					= 0x0712,
+	EMBEDDED_SYNTHESIZER							= 0x0713
+};
+
+// Processing terminal types
+enum {
+	PROCESSOR_UNDEFINED								= 0x0800,
+	PROCESSOR_GENERAL								= 0x0801
 };
 
 #endif /* _IOKIT_IOAUDIOTYPES_H */

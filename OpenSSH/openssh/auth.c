@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth.c,v 1.35 2002/03/01 13:12:10 markus Exp $");
+RCSID("$OpenBSD: auth.c,v 1.43 2002/05/17 14:27:55 millert Exp $");
 
 #ifdef HAVE_LOGIN_H
 #include <login.h>
@@ -48,9 +48,16 @@ RCSID("$OpenBSD: auth.c,v 1.35 2002/03/01 13:12:10 markus Exp $");
 #include "bufaux.h"
 #include "uidswap.h"
 #include "tildexpand.h"
+#include "misc.h"
+#include "bufaux.h"
+#include "packet.h"
 
 /* import */
 extern ServerOptions options;
+
+/* Debugging messages */
+Buffer auth_debug;
+int auth_debug_init;
 
 /*
  * Check if the user is allowed to log in via ssh. If user is listed
@@ -79,18 +86,35 @@ allowed_user(struct passwd * pw)
 	if (!pw || !pw->pw_name)
 		return 0;
 
+#define	DAY		(24L * 60 * 60) /* 1 day in seconds */
 	spw = getspnam(pw->pw_name);
 	if (spw != NULL) {
-		int days = time(NULL) / 86400;
+		time_t today = time(NULL) / DAY;
+		debug3("allowed_user: today %d sp_expire %d sp_lstchg %d"
+		    " sp_max %d", (int)today, (int)spw->sp_expire,
+		    (int)spw->sp_lstchg, (int)spw->sp_max);
 
-		/* Check account expiry */
-		if ((spw->sp_expire >= 0) && (days > spw->sp_expire))
+		/*
+		 * We assume account and password expiration occurs the
+		 * day after the day specified.
+		 */
+		if (spw->sp_expire != -1 && today > spw->sp_expire) {
+			log("Account %.100s has expired", pw->pw_name);
 			return 0;
+		}
 
-		/* Check password expiry */
-		if ((spw->sp_lstchg >= 0) && (spw->sp_max >= 0) &&
-		    (days > (spw->sp_lstchg + spw->sp_max)))
+		if (spw->sp_lstchg == 0) {
+			log("User %.100s password has expired (root forced)",
+			    pw->pw_name);
 			return 0;
+		}
+
+		if (spw->sp_max != -1 &&
+		    today > spw->sp_lstchg + spw->sp_max) {
+			log("User %.100s password has expired (password aged)",
+			    pw->pw_name);
+			return 0;
+		}
 	}
 #else
 	/* Shouldn't be called if pw is NULL, but better safe than sorry... */
@@ -110,7 +134,8 @@ allowed_user(struct passwd * pw)
 		    pw->pw_name, shell);
 		return 0;
 	}
-	if (!((st.st_mode & S_IFREG) && (st.st_mode & (S_IXOTH|S_IXUSR|S_IXGRP)))) {
+	if (S_ISREG(st.st_mode) == 0 ||
+	    (st.st_mode & (S_IXOTH|S_IXUSR|S_IXGRP)) == 0) {
 		log("User %.100s not allowed because shell %.100s is not executable",
 		    pw->pw_name, shell);
 		return 0;
@@ -124,17 +149,17 @@ allowed_user(struct passwd * pw)
 	/* Return false if user is listed in DenyUsers */
 	if (options.num_deny_users > 0) {
 		for (i = 0; i < options.num_deny_users; i++)
- 			if (match_user(pw->pw_name, hostname, ipaddr,
+			if (match_user(pw->pw_name, hostname, ipaddr,
 			    options.deny_users[i])) {
- 				log("User %.100s not allowed because listed in DenyUsers",
- 				    pw->pw_name);
+				log("User %.100s not allowed because listed in DenyUsers",
+				    pw->pw_name);
 				return 0;
 			}
 	}
 	/* Return false if AllowUsers isn't empty and user isn't listed there */
 	if (options.num_allow_users > 0) {
 		for (i = 0; i < options.num_allow_users; i++)
- 			if (match_user(pw->pw_name, hostname, ipaddr,
+			if (match_user(pw->pw_name, hostname, ipaddr,
 			    options.allow_users[i]))
 				break;
 		/* i < options.num_allow_users iff we break for loop */
@@ -437,4 +462,78 @@ secure_filename(FILE *f, const char *file, struct passwd *pw,
 			break;
 	}
 	return 0;
+}
+
+struct passwd *
+getpwnamallow(const char *user)
+{
+#ifdef HAVE_LOGIN_CAP
+	extern login_cap_t *lc;
+#ifdef BSD_AUTH
+	auth_session_t *as;
+#endif
+#endif
+	struct passwd *pw;
+
+	pw = getpwnam(user);
+	if (pw == NULL || !allowed_user(pw))
+		return (NULL);
+#ifdef HAVE_LOGIN_CAP
+	if ((lc = login_getclass(pw->pw_class)) == NULL) {
+		debug("unable to get login class: %s", user);
+		return (NULL);
+	}
+#ifdef BSD_AUTH
+	if ((as = auth_open()) == NULL || auth_setpwd(as, pw) != 0 ||
+	    auth_approval(as, lc, pw->pw_name, "ssh") <= 0) {
+		debug("Approval failure for %s", user);
+		pw = NULL;
+	}
+	if (as != NULL)
+		auth_close(as);
+#endif
+#endif
+	if (pw != NULL)
+		return (pwcopy(pw));
+	return (NULL);
+}
+
+void
+auth_debug_add(const char *fmt,...)
+{
+	char buf[1024];
+	va_list args;
+
+	if (!auth_debug_init)
+		return;
+
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	buffer_put_cstring(&auth_debug, buf);
+}
+
+void
+auth_debug_send(void)
+{
+	char *msg;
+
+	if (!auth_debug_init)
+		return;
+	while (buffer_len(&auth_debug)) {
+		msg = buffer_get_string(&auth_debug, NULL);
+		packet_send_debug("%s", msg);
+		xfree(msg);
+	}
+}
+
+void
+auth_debug_reset(void)
+{
+	if (auth_debug_init)
+		buffer_clear(&auth_debug);
+	else {
+		buffer_init(&auth_debug);
+		auth_debug_init = 1;
+	}
 }

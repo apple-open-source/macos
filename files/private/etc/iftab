@@ -6,7 +6,7 @@
 # pattern followed by a protocol/address family and a set of
 # parameters supplied to ifconfig, or a command line to execute.
 # Each interface is matched against the patterns in this file and
-# the first one found for each unique protocol/address familiy will
+# the first one found for each unique protocol/address family will
 # be executed.  As shipped, this file will do automatic internet
 # (inet) configuration for all interfaces (*).
 #

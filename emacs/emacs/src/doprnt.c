@@ -29,6 +29,14 @@ Boston, MA 02111-1307, USA.  */
 #include <float.h>
 #endif
 
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+
 #include "lisp.h"
 
 #ifndef DBL_MAX_10_EXP
@@ -39,8 +47,6 @@ Boston, MA 02111-1307, USA.  */
    don't have to include others because CHAR_HEAD_P does not contains
    another macro.  */
 #include "charset.h"
-
-extern long *xmalloc (), *xrealloc ();
 
 static int doprnt1 ();
 
@@ -112,7 +118,6 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
   char fixed_buffer[20];	/* Default buffer for small formatting. */
   char *fmtcpy;
   int minlen;
-  int size;			/* Field width factor; e.g., %90d */
   unsigned char charbuf[5];	/* Used for %c.  */
 
   if (format_end == 0)
@@ -235,7 +240,7 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 	      if (lispstrings)
 		{
 		  string = ((struct Lisp_String *)args[cnt])->data;
-		  tem = ((struct Lisp_String *)args[cnt])->size;
+		  tem = STRING_BYTES ((struct Lisp_String *)args[cnt]);
 		  cnt++;
 		}
 	      else
@@ -293,7 +298,8 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 	    case 'c':
 	      if (cnt == nargs)
 		error ("not enough arguments for format string");
-	      tem = CHAR_STRING ((int) (EMACS_INT) args[cnt], charbuf, string);
+	      tem = CHAR_STRING ((int) (EMACS_INT) args[cnt], charbuf);
+	      string = charbuf;
 	      cnt++;
 	      string[tem] = 0;
 	      width = strwidth (string, tem);

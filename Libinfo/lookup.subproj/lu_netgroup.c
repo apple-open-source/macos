@@ -38,38 +38,130 @@
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-#define FIX(x) ((x == NULL) ? NULL : &(x))
+#define FIX(x) ((x == NULL) ? NULL : (_lu_string *)&(x))
 
-static struct netgrent global_netgr;
-static int global_free = 1;
-static char *netgr_data = NULL;
-static unsigned netgr_datalen;
-static int netgr_nentries = 0;
-static int netgr_start = 1;
-static XDR netgr_xdr;
-
-static void
-freeold(void)
+static void 
+free_netgroup_data(struct netgrent *ng)
 {
-	if (global_free == 1) return;
+	if (ng == NULL) return;
 
-	free(global_netgr.ng_host);
-	free(global_netgr.ng_user);
-	free(global_netgr.ng_domain);
-
-	global_free = 1;
+	if (ng->ng_host != NULL) free(ng->ng_host);
+	if (ng->ng_user != NULL) free(ng->ng_user);
+	if (ng->ng_domain != NULL) free(ng->ng_domain);
 }
 
-static void
-convert_netgr(_lu_netgrent *lu_netgr)
+static void 
+free_netgroup(struct netgrent *ng)
 {
-	freeold();
+	if (ng == NULL) return;
+	free_netgroup_data(ng);
+	free(ng);
+ }
 
-	global_netgr.ng_host = strdup(lu_netgr->ng_host);
-	global_netgr.ng_user = strdup(lu_netgr->ng_user);
-	global_netgr.ng_domain = strdup(lu_netgr->ng_domain);
+static void
+free_lu_thread_info_netgroup(void *x)
+{
+	struct lu_thread_info *tdata;
 
-	global_free = 0;
+	if (x == NULL) return;
+
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
+	{
+		free_netgroup((struct netgrent *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
+	}
+
+	_lu_data_free_vm_xdr(tdata);
+
+	free(tdata);
+}
+
+static struct netgrent *
+extract_netgroup(XDR *xdr)
+{
+	char *h, *u, *d;
+	struct netgrent *ng;
+
+	if (xdr == NULL) return NULL;
+
+	h = NULL;
+	u = NULL;
+	d = NULL;
+
+	if (!xdr_string(xdr, &h, LU_LONG_STRING_LENGTH))
+	{
+		return NULL;
+	}
+
+	if (!xdr_string(xdr, &u, LU_LONG_STRING_LENGTH))
+	{
+		free(h);
+		return NULL;
+	}
+
+	if (!xdr_string(xdr, &d, LU_LONG_STRING_LENGTH))
+	{
+		free(h);
+		free(u);
+		return NULL;
+	}
+
+	ng = (struct netgrent *)calloc(1, sizeof(struct netgrent));
+
+	ng->ng_host = h;
+	ng->ng_user = u;
+	ng->ng_domain = d;
+
+	return ng;
+}
+
+#ifdef NOTDEF
+static struct netgrent *
+copy_netgroup(struct netgrent *in)
+{
+	struct netgrent *ng;
+
+	if (in == NULL) return NULL;
+
+	ng = (struct group *)calloc(1, sizeof(struct netgrent));
+
+	ng->ng_host = LU_COPY_STRING(in->ng_host);
+	ng->ng_user = LU_COPY_STRING(in->ng_user);
+	ng->ng_domain = LU_COPY_STRING(in->ng_domain);
+
+	return ng;
+}
+#endif
+
+static void
+recycle_netgroup(struct lu_thread_info *tdata, struct netgrent *in)
+{
+	struct netgrent *ng;
+
+	if (tdata == NULL) return;
+	ng = (struct netgrent *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_netgroup(ng);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_netgroup_data(ng);
+
+	ng->ng_host = in->ng_host;
+	ng->ng_user = in->ng_user;
+	ng->ng_domain = in->ng_domain;
+
+	free(in);
 }
 
 
@@ -84,13 +176,13 @@ lu_innetgr(const char *group, const char *host, const char *user,
 	int size;
 	int res;
 	_lu_innetgr_args args;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "innetgr", &proc) != KERN_SUCCESS)
 		{
-			return (0);
+			return 0;
 		}
 	}
 
@@ -103,42 +195,46 @@ lu_innetgr(const char *group, const char *host, const char *user,
 	if (!xdr__lu_innetgr_args(&xdr, &args))
 	{
 		xdr_destroy(&xdr);
-		return (0);
+		return 0;
 	}
 
 	size = xdr_getpos(&xdr) / BYTES_PER_XDR_UNIT;
 	xdr_destroy(&xdr);
 
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf, size, lookup_buf, 
-		&datalen) != KERN_SUCCESS)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf, size, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
-		return (0);
+		return 0;
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
 	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
 	if (!xdr_int(&xdr, &res))
 	{
 		xdr_destroy(&xdr);
-		return (0);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return 0;
 	}
 
 	xdr_destroy(&xdr);
-	return (res);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return res;
 }
 
 static void
 lu_endnetgrent(void)
 {
-	netgr_nentries = 0;
-	if (netgr_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)netgr_data, netgr_datalen);
-		netgr_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
+	_lu_data_free_vm_xdr(tdata);
 }
+
 
 /* 
  * This is different than the other setXXXent routines
@@ -146,12 +242,20 @@ lu_endnetgrent(void)
  * getnetgrent().
  */ 
 static void
-lu_setnetgrent(const char *group)
+lu_setnetgrent(const char *name)
 {
 	unsigned datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	static int proc = -1;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_netgroup, tdata);
+	}
 
 	lu_endnetgrent();
 
@@ -165,64 +269,61 @@ lu_setnetgrent(const char *group)
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &group))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
 		lu_endnetgrent();
 		return;
 	}
 	
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT,
-		&netgr_data, &netgr_datalen) != KERN_SUCCESS)
+	datalen = xdr_getpos(&outxdr);
+	xdr_destroy(&outxdr);
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf, datalen / BYTES_PER_XDR_UNIT, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 	{
-		xdr_destroy(&outxdr);
 		lu_endnetgrent();
 		return;
 	}
 
-	xdr_destroy(&outxdr);
+	/* mig stubs measure size in words (4 bytes) */
+	tdata->lu_vm_length *= 4;
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-	netgr_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-
-	xdrmem_create(&netgr_xdr, netgr_data, 
-		netgr_datalen, XDR_DECODE);
-	if (!xdr_int(&netgr_xdr, &netgr_nentries))
-	{
-		xdr_destroy(&netgr_xdr);
-		lu_endnetgrent();
+	if (tdata->lu_xdr != NULL)
+	{	
+		xdr_destroy(tdata->lu_xdr);
+		free(tdata->lu_xdr);
 	}
+	tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+	xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+	if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor)) lu_endnetgrent();
 }
 
 
 struct netgrent *
 lu_getnetgrent(void)
 {
-	_lu_netgrent lu_netgr;
+	struct netgrent *ng;
+	struct lu_thread_info *tdata;
 
-	if (netgr_nentries == 0)
+	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
+	if (tdata == NULL) return NULL;
+
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&netgr_xdr);
 		lu_endnetgrent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_netgr, sizeof(lu_netgr));
-	if (!xdr__lu_netgrent(&netgr_xdr, &lu_netgr))
+	ng = extract_netgroup(tdata->lu_xdr);
+	if (ng == NULL)
 	{
-		xdr_destroy(&netgr_xdr);
 		lu_endnetgrent();
-		return (NULL);
+		return NULL;
 	}
 
-	netgr_nentries--;
-	convert_netgr(&lu_netgr);
-	xdr_free(xdr__lu_netgrent, &lu_netgr);
-	return (&global_netgr);
+	tdata->lu_vm_cursor--;
+	
+	return ng;
 }
 
 int 
@@ -230,28 +331,37 @@ innetgr(const char *group, const char *host, const char *user,
 	const char *domain)
 {
 	if (_lu_running()) return (lu_innetgr(group, host, user, domain));
-//	return (_old_innetgr(group, host, user, domain));
-	return (0);
+	return 0;
 }
 
 struct netgrent *
 getnetgrent(void)
 {
-	if (_lu_running()) return (lu_getnetgrent());
-//	return (_old_getnetgrent());
-	return (NULL);
+	struct netgrent *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_netgroup, tdata);
+	}
+
+	res = NULL;
+	if (_lu_running()) res = lu_getnetgrent();
+
+	recycle_netgroup(tdata, res);
+	return (struct netgrent *)tdata->lu_entry;
 }
 
 void
-setnetgrent(const char *group)
+setnetgrent(const char *name)
 {
-	if (_lu_running()) lu_setnetgrent(group);
-//	else _old_setnetgrent(group);
+	if (_lu_running()) lu_setnetgrent(name);
 }
 
 void
 endnetgrent(void)
 {
 	if (_lu_running()) lu_endnetgrent();
-//	else _old_endnetgrent();
 }

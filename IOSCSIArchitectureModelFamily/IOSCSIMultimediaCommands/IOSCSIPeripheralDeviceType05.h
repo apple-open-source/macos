@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,35 +25,48 @@
 
 #if defined(KERNEL) && defined(__cplusplus)
 
-// SCSI Command set related IOKit headers
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIMultimediaCommandsDevice.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOSCSIPeripheralDeviceType05 : public IOSCSIMultimediaCommandsDevice
 {
 	
 	OSDeclareDefaultStructors ( IOSCSIPeripheralDeviceType05 )
-
+	
 protected:
+    
     // Reserve space for future expansion.
     struct IOSCSIPeripheralDeviceType05ExpansionData { };
-    IOSCSIPeripheralDeviceType05ExpansionData *fIOSCSIPeripheralDeviceType05Reserved;
+    IOSCSIPeripheralDeviceType05ExpansionData * fIOSCSIPeripheralDeviceType05Reserved;
 	
 public:
     
     bool			init	( OSDictionary * propTable );
     virtual bool	start	( IOService * provider );
     virtual void 	stop	( IOService *  provider );
-		
+	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 1 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSIPeripheralDeviceType05, 8 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 1 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 2 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 3 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 4 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 5 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 6 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 7 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIPeripheralDeviceType05, 8 );
+    
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

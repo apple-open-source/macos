@@ -329,7 +329,7 @@ char *envp[])
 	    process_list(list_filename, nflag);
 
 	/* breakout the input file for processing */
-	breakout(input_file, &archs, &narchs);
+	breakout(input_file, &archs, &narchs, FALSE);
 	if(errors)
 	    exit(EXIT_FAILURE);
 
@@ -346,7 +346,7 @@ char *envp[])
 	if(stat(input_file, &stat_buf) == -1)
 	    system_error("can't stat input file: %s", input_file);
 	writeout(archs, narchs, output_file, stat_buf.st_mode & 0777, TRUE,
-		 FALSE, FALSE);
+		 FALSE, FALSE, NULL);
 
 	if(errors)
 	    return(EXIT_FAILURE);
@@ -632,6 +632,12 @@ struct object *object)
 	    object->input_sym_info_size +=
 		    object->dyst->nindirectsyms * sizeof(unsigned long);
 	}
+
+	/*
+	 * Always clear the prebind checksum if any when creating a new file.
+	 */
+	if(object->cs != NULL)
+	    object->cs->cksum = 0;
 
 	start_string_table();
 	nlistp = symbols;

@@ -21,6 +21,7 @@
 //
 
 #include "MetaRecord.h"
+#include <Security/trackingallocator.h>
 
 MetaRecord::MetaRecord(CSSM_DB_RECORDTYPE inRecordType) :
     mRecordType(inRecordType)
@@ -299,6 +300,10 @@ MetaRecord::unpackRecord(const ReadSection &inReadSection,
 
 // Return the index (0 though NumAttributes - 1) of the attribute
 // represented by inAttributeInfo
+
+#ifndef	NDEBUG
+#define LOG_NAME_AS_STRING_FAIL		
+#endif
 uint32
 MetaRecord::attributeIndex(const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const
 {
@@ -308,9 +313,20 @@ MetaRecord::attributeIndex(const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const
 	    case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
 		{
 			string aName(inAttributeInfo.Label.AttributeName);
+			assert(aName.size() < 500);		// MDS leak debug
 			NameStringMap::const_iterator it = mNameStringMap.find(aName);
-			if (it == mNameStringMap.end())
+			if (it == mNameStringMap.end()) {
+				#ifdef	LOG_NAME_AS_STRING_FAIL
+				printf("NAME_AS_STRING failure; attrName %s\n", 
+					inAttributeInfo.Label.AttributeName);
+				for(it = mNameStringMap.begin();
+				    it != mNameStringMap.end();
+					it++) {
+						printf("name %s val %ul\n", it->first.c_str(), it->second);
+				}
+				#endif
 				CssmError::throwMe(CSSMERR_DL_INVALID_FIELD_NAME);
+			}
 			anIndex = it->second;
 			break;
 		}

@@ -1,0 +1,43 @@
+#! /bin/sh
+# $OpenLDAP: pkg/ldap/tests/scripts/all,v 1.12 2002/02/10 22:49:57 kurt Exp $
+
+# disable LDAP initialization
+LDAPNOINIT=true; export LDAPNOINIT
+
+echo ">>>>> Executing all LDAP tests..."
+
+if test $# -eq 0 ; then
+	SRCDIR="."
+else
+	SRCDIR=$1; shift
+fi
+
+echo ">>>>> Test Directory: $SRCDIR"
+
+if test $# -eq 0 ; then
+	BACKEND=bdb
+else
+	BACKEND=$1; shift
+fi
+
+echo ">>>>> Backend: $BACKEND"
+
+SHTOOL="$SRCDIR/../build/shtool"
+
+TB=`$SHTOOL echo -e "%B"`
+TN=`$SHTOOL echo -e "%b"`
+
+for CMD in $SRCDIR/scripts/test*; do
+	echo ">>>>> Starting ${TB}`basename $CMD`${TN} ..."
+	$CMD $SRCDIR $BACKEND
+	RC=$?
+	if test $RC -eq 0 ; then
+		echo ">>>>> $CMD completed ${TB}OK${TN}."
+	else
+		echo ">>>>> $CMD ${TB}failed${TN} (exit $RC)"
+		exit $RC
+	fi
+	echo ">>>>> waiting 10 seconds for things to exit"
+	sleep 10
+	echo ""
+done

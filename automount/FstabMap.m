@@ -56,10 +56,8 @@ extern BOOL doServerMounts;
 
 	if ([[v server] isLocalHost])
 	{
-		x = [String uniqueString:"/"];
-		[v setLink:x];
-		[x release];
-		[v setMode:00777 | NFSMODE_LNK];
+		[v setLink:[v source]];
+		[v setMode:00755 | NFSMODE_LNK];
 		[v setMounted:YES];
 		[v setFakeMount:YES];
 		return;
@@ -84,6 +82,8 @@ extern BOOL doServerMounts;
 	BOOL pathOK, isAuto;
 	int i;
 
+	sys_msg(debug, LOG_DEBUG, "New (FstabMap) mount: %s on %s...", [src value], [dst value]);
+	
 	serversrc = [src postfix:':'];
 	if (serversrc == nil) return;
 
@@ -149,7 +149,7 @@ extern BOOL doServerMounts;
 		if (!strncmp([opt value], "url==", 5))
 		{
 			authOpts = [[opt postfix:'='] postfix:'='];
-			sys_msg(debug, LOG_DEBUG, "***** Found url string %s\n", [authOpts value]);
+			sys_msg(debug, LOG_DEBUG, "***** Found url string %s", [authOpts value]);
 		}
 	}
 
@@ -173,7 +173,7 @@ extern BOOL doServerMounts;
 	{
 		/* Top level directory for this server */
 		[v setType:NFLNK];
-		[v setMode:01777 | NFSMODE_LNK];
+		[v setMode:01755 | NFSMODE_LNK];
 		[self setupLink:v];
 		return;
 	}
@@ -287,9 +287,7 @@ extern BOOL doServerMounts;
 }
 #endif
 
-- (FstabMap *)initWithParent:(Vnode *)p
-	directory:(String *)dir
-	from:(String *)ds
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
 {
 	dataStore = nil;
 

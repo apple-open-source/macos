@@ -208,8 +208,7 @@ typedef struct ipc_type
     identifier_t itServerType;
     identifier_t itTransType;
 
-    identifier_t itUserKPDType; /* descriptors for KPD type of arguments */
-    identifier_t itServerKPDType; /* descriptors for KPD type of arguments */
+    identifier_t itKPDType; /* descriptors for KPD type of arguments */
 
     identifier_t itInTrans;	/* may be NULL */
     identifier_t itOutTrans;	/* may be NULL */

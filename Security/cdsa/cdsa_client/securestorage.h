@@ -94,17 +94,18 @@ public:
 	//template <class _Impl> _Impl &impl() const
 	//{ return CSP::impl<_Impl>(); }
 
+	Impl *get() const { return &CSP::impl<Impl>(); }
 	Impl *operator ->() const { return &CSP::impl<Impl>(); }
 	Impl &operator *() const { return CSP::impl<Impl>(); }
 
 	// Conversion operators must be here
-	bool operator !() const { return !&**this; }
-	operator bool() const { return &**this; }
+	bool operator !() const { return !get(); }
+	operator bool() const { return get(); }
 
 	bool operator <(const CSPDL &other) const
-	{ return *this && other ? **this < *other : &**this < &*other; }
+	{ return *this && other ? **this < *other : get() < other.get(); }
 	bool operator ==(const CSPDL &other) const
-	{ return *this && other ? **this == *other : &**this == &*other; }
+	{ return *this && other ? **this == *other : get() == other.get(); }
 };
 
 
@@ -205,6 +206,8 @@ public:
 	SSGroupImpl(const SSDb &ssDb, const CSSM_DATA &dataBlob);
 	SSGroupImpl(const SSDb &ssDb,
 				const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry);
+
+	static bool isGroup(const CSSM_DATA &dataBlob);
 
 	const CssmData label() const;
 	void decodeDataBlob(const CSSM_DATA &dataBlob,

@@ -1,0 +1,47 @@
+#! /bin/sh
+
+# The ctags/etags example from the manual, plus a check for _SHORTNAME.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = etags ctags
+ctags_SOURCES = etags.c
+ctags_CFLAGS = -DCTAGS
+ctags_SHORTNAME = c
+# No etags_SOURCES definition.  Use the default source.
+etags_CFLAGS = -DETAGS
+etags_SHORTNAME = e
+END
+
+cat > etags.c << 'END'
+#include <stdio.h>
+int
+main (int argc, char *argv[])
+{
+#ifdef CTAGS
+   puts ("ctags");
+#else
+   puts ("etags");
+#endif
+   return 0;
+}
+END
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure
+$MAKE
+./ctags | grep ctags
+./etags | grep etags
+test -f ./c-etags.o
+test -f ./e-etags.o

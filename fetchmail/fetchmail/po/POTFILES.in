@@ -3,7 +3,6 @@ checkalias.c
 cram.c
 driver.c
 env.c
-error.c
 etrn.c
 fetchmail.c
 fetchmail.h
@@ -19,9 +18,12 @@ odmr.c
 opie.c
 options.c
 pop3.c
+rcfile_y.c
+report.c
 rfc822.c
 rpa.c
 sink.c
+smtp.c
 socket.c
 transact.c
 uid.c

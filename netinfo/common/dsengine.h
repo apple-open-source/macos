@@ -47,11 +47,12 @@
 
 #define DSENGINE_FLAGS_DEREFERENCE_IDS  0x0200
 #define DSENGINE_FLAGS_NATIVE_AUTHORIZATION 0x0400
-#define DSENGINE_FLAGS_LOCK_STORE        0x0800
 
 typedef struct
 {
 	dsstore *store;
+	Logic3 (*delegate)(dsfilter *, dsrecord *, void *);
+	void *private;
 } dsengine;
 
 /*
@@ -91,6 +92,7 @@ dsstatus dsengine_fetch_list(dsengine *s, u_int32_t count, u_int32_t *dsid,
  * Save a record.
  */
 dsstatus dsengine_save(dsengine *s, dsrecord *r);
+dsstatus dsengine_save_fast(dsengine *s, dsrecord *r);
 
 /*
  * Modify a record attribute. 
@@ -308,5 +310,11 @@ dsdata *dsengine_convert_name(dsengine *e, dsdata *name, u_int32_t intype, u_int
  * set to the engine's flags & DSENGINE_FLAGS_NAMING_MASK.
  */
 dsdata *dsengine_map_name(dsengine *e, dsdata *name, u_int32_t intype);
+
+/*
+ * Sets a delegate for testing filters, to allow the
+ * client to override filter matching.
+ */
+void dsengine_set_filter_test_delegate(dsengine *, Logic3 (*)(dsfilter *, dsrecord *, void *), void *);
 
 #endif __DSENGINE_H__

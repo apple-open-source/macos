@@ -1,4 +1,4 @@
-/* $RCSfile: hash.h,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:13:04 $
+/* $RCSfile: hash.h,v $$Revision: 1.2 $$Date: 2002/03/14 09:04:01 $
  *
  *    Copyright (c) 1991-1997, Larry Wall
  *
@@ -6,6 +6,9 @@
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log: hash.h,v $
+ * Revision 1.2  2002/03/14 09:04:01  zarzycki
+ * Revert HEAD back to perl-17
+ *
  * Revision 1.1.1.2  2000/03/31 05:13:04  wsanchez
  * Import of perl 5.6.0
  *

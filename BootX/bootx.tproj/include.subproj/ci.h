@@ -22,7 +22,7 @@
 /*
  *  ci.h - Headers for the OF Client Interface Library
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -42,232 +42,26 @@ struct CIArgs {
   CICell nReturns;
   
   union {
-    struct {			// nArgs=1, nReturns=1
-      char *forth;
-      CICell catchResult;
-    } interpret_0_0;
-	
-    struct {			// nArgs=2, nReturns=1
-      char *forth;
-      CICell arg1;
-      CICell catchResult;
-    } interpret_1_0;
-	
-    struct {			// nArgs=2, nReturns=2
-      char *forth;
-      CICell arg1;
-      CICell catchResult;
-      CICell return1;
-    } interpret_1_1;
-	
-    struct {			// nArgs=3, nReturns=2
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell catchResult;
-      CICell return1;
-    } interpret_2_1;
-	
-    struct {			// nArgs=4, nReturns=2
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell arg3;
-      CICell catchResult;
-      CICell return1;
-    } interpret_3_1;
-	
-    struct {			// nArgs=4, nReturns=3
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell arg3;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-    } interpret_3_2;
-	
-    struct {            // nArgs=5, nReturns=1
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell arg3;
-      CICell arg4;
-      CICell catchResult;
-    } interpret_4_0;
-	
-    struct {			// nArgs=1, nReturns=2
-      char *forth;
-      CICell catchResult;
-      CICell return1;
-    } interpret_0_1;
-	
-    struct {			// nArgs=1, nReturns=3
-      char *forth;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-    } interpret_0_2;
-	
-    struct {			// nArgs=1, nReturns=4
-      char *forth;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-      CICell return3;
-    } interpret_0_3;
-	
-    struct {			// nArgs=2, nReturns=4
-      char *forth;
-      CICell arg1;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-      CICell return3;
-    } interpret_1_3;
-	
-    struct {			// nArgs=3, nReturns=4
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-      CICell return3;
-    } interpret_2_3;
-	
-    struct {			// nArgs=3, nReturns=5
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-      CICell return3;
-      CICell return4;
-    } interpret_2_4;
-	
-    struct {			// nArgs=3, nReturns=1
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell catchResult;
-    } interpret_2_0;
-	
-    struct {			// nArgs=3, nReturns=3
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell catchResult;
-      CICell return1;
-      CICell return2;
-    } interpret_2_2;
-	
-    struct {			// nArgs=4, nReturns=1
-      char *forth;
-      CICell arg1;
-      CICell arg2;
-      CICell arg3;
-      CICell catchResult;
-    } interpret_3_0;
-
-    struct {			// nArgs=2, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell catchResult;
-    } callMethod_0_0;
-
-    struct {			// nArgs=2, nReturns=2
-      char *method;
-      CICell iHandle;
-      CICell catchResult;
-      CICell return1;
-    } callMethod_0_1;
-
-    struct {			// nArgs=3, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_1_0;
-
-    struct {			// nArgs=3, nReturns=2
-      char *method;
-      CICell iHandle;
-      CICell arg1;
-      CICell catchResult;
-      CICell return1;
-    } callMethod_1_1;
-
-    struct {			// nArgs=4, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_2_0;
-
-    struct {			// nArgs=5, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg3;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_3_0;
-
-    struct {			// nArgs=5, nReturns=2
-      char *method;
-      CICell iHandle;
-      CICell arg3;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-      CICell return1;
-    } callMethod_3_1;
-
-    struct {			// nArgs=6, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg4;
-      CICell arg3;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_4_0;
-
-    struct {			// nArgs=7, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg5;
-      CICell arg4;
-      CICell arg3;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_5_0;
-
-    struct {			// nArgs=8, nReturns=1
-      char *method;
-      CICell iHandle;
-      CICell arg6;
-      CICell arg5;
-      CICell arg4;
-      CICell arg3;
-      CICell arg2;
-      CICell arg1;
-      CICell catchResult;
-    } callMethod_6_0;
-
+    struct {			// nArgs=1 + args, nReturns=1 + rets
+      const char *forth;
+      CICell     cells[6 + 1 + 6];
+    } interpret;
+    
+    struct {			// nArgs=2 + args, nReturns=1 + rets
+      const char *method;
+      CICell     iHandle;
+      CICell     cells[6 + 1 + 6];
+    } callMethod;
+    
     struct {			// nArgs=1, nReturns=1	( device-specifier -- ihandle )
       char *devSpec;	        // IN parameter
       CICell ihandle;		// RETURN value
     } open;
-	
+    
     struct {			// nArgs=1, nReturns=0	( ihandle -- )
       CICell ihandle;		// IN parameter
     } close;
-
+    
     struct {                    // nArgs=3, nReturns=1 ( ihandle addr length -- actual )
       CICell ihandle;
       CICell addr;
@@ -380,7 +174,6 @@ typedef long (*ClientInterfacePtr)(CIArgs *args);
 
 // ci.c
 long InitCI(ClientInterfacePtr ciPtr);
-
 long CallCI(CIArgs *ciArgsPtr);
 
 // Device Tree
@@ -404,22 +197,7 @@ CICell Write(CICell ihandle, long addr, long length);
 CICell Seek(CICell ihandle, long long position);
 
 // Call Method
-long CallMethod_0_0(CICell ihandle, char *method);
-long CallMethod_0_1(CICell ihandle, char *method, CICell *ret1);
-long CallMethod_1_0(CICell ihandle, char *method, CICell arg1);
-long CallMethod_1_1(CICell iHandle, char *method, CICell arg1, CICell *ret1);
-long CallMethod_2_0(CICell ihandle, char *method,
-		    CICell arg1, CICell arg2);
-long CallMethod_3_0(CICell ihandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3);
-long CallMethod_3_1(CICell ihandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3, CICell *ret1);
-long CallMethod_4_0(CICell ihandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3, CICell arg4);
-long CallMethod_5_0(CICell ihandle, char *method, CICell arg1, CICell arg2,
-		    CICell arg3, CICell arg4, CICell arg5);
-long CallMethod_6_0(CICell ihandle, char *method, CICell arg1, CICell arg2,
-		    CICell arg3, CICell arg4, CICell arg5, CICell arg6);
+long CallMethod(long args, long rets, CICell iHandle, const char *method, ...);
 
 // Memory
 CICell Claim(CICell virt, CICell size, CICell align);
@@ -431,30 +209,7 @@ void Enter(void);
 void Exit(void);
 void Quiesce(void);
 
-// Interpret_n_m
-long Interpret_0_0(char *forthString);
-long Interpret_1_0(char *forthString, CICell arg1);
-long Interpret_1_1(char *forthString, CICell arg1, CICell *ret1);
-long Interpret_2_1(char *forthString, CICell arg1, CICell arg2, CICell *ret1);
-long Interpret_3_1(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		  CICell *ret1);
-long Interpret_3_2(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		  CICell *ret1, CICell *ret2);
-long Interpret_4_0(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		  CICell arg4);
-long Interpret_0_1(char *forthString, CICell *ret1);
-long Interpret_0_2(char *forthString, CICell *ret1, CICell *ret2);
-long Interpret_0_3(char *forthString, CICell *ret1,
-		   CICell *ret2, CICell *ret3);
-long Interpret_1_3(char *forthString, CICell arg1, CICell *ret1, CICell *ret2,
-		  CICell *ret3);
-long Interpret_2_3(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2, CICell *ret3);
-long Interpret_2_4(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2, CICell *ret3, CICell *ret4);
-long Interpret_2_0(char *forthString, CICell arg1, CICell arg2);
-long Interpret_2_2(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2);
-long Interpret_3_0(char *forthString, CICell arg1, CICell arg2, CICell arg3);
+// Interpret
+long Interpret(long args, long rets, const char *forthString, ...);
 
 #endif /* ! _BOOTX_CI_H_ */

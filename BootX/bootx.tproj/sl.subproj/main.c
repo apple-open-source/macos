@@ -22,7 +22,7 @@
 /*
  *  main.c - Main functions for BootX.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -59,6 +59,7 @@ long gSymbolTableSize;
 
 long gBootSourceNumber = -1;
 long gBootSourceNumberMax;
+long gBootMode = kBootModeNormal;
 long gBootDeviceType;
 long gBootFileType;
 char gBootDevice[256];
@@ -109,7 +110,7 @@ static void Main(ClientInterfacePtr ciPtr)
   ret = GetBootPaths();
   if (ret != 0) FailToBoot(1);
   
-  DrawSplashScreen();
+  DrawSplashScreen(0);
   
   while (ret == 0) {
     ret = LoadFile(gBootFile);
@@ -120,33 +121,27 @@ static void Main(ClientInterfacePtr ciPtr)
   }
   
   ret = DecodeKernel();
-  if (ret != 0) FailToBoot(4);
+  if (ret != 0) FailToBoot(3);
   
   ret = LoadDrivers(gRootDir);
-  if (ret != 0) FailToBoot(5);
-
-#if 0    
-  ret = LoadDisplayDrivers();
-  if (ret != 0) FailToBoot(6);
-#endif
-
+  if (ret != 0) FailToBoot(4);
+  
+  DrawSplashScreen(1);
+  
   ret = SetUpBootArgs();
-  if (ret != 0) FailToBoot(7);
+  if (ret != 0) FailToBoot(5);
   
   ret = CallKernel();
   
-  FailToBoot(8);
+  FailToBoot(6);
 }
 
 
 static long InitEverything(ClientInterfacePtr ciPtr)
 {
-  long ret, mem_base, mem_base2, size;
+  long   ret, mem_base, mem_base2, size;
   CICell keyboardPH;
-  char name[32];
-#if 0
-  char defaultBootDevice[256];
-#endif
+  char   name[32], securityMode[33];
   
   // Init the OF Client Interface.
   ret = InitCI(ciPtr);
@@ -157,7 +152,7 @@ static long InitEverything(ClientInterfacePtr ciPtr)
   if (gOFVersion == 0) return -1;
   
   // Init the SL Words package.
-  ret = InitSLWords(gOFVersion);
+  ret = InitSLWords();
   if (ret != 0) return -1;
   
   // Get the phandle for /options
@@ -210,29 +205,21 @@ static long InitEverything(ClientInterfacePtr ciPtr)
   if (gKeyMap == NULL) return -1;
   UpdateKeyMap();
   
-#if 0  
-  // On OF 3.x, if the Option key was pressed,
-  // set the default boot device and reboot.
-  if (gOFVersion >= kOFVersion3x) {
-    if (TestForKey(kOptKey)) {
-      size = GetProp(gOptionsPH, "default-boot-device", defaultBootDevice,255);
-      if (size == -1) {
-	Interpret_0_0("set-default boot-device");
-      } else {
-	defaultBootDevice[size] = '\0';
-	SetProp(gOptionsPH, "boot-device", defaultBootDevice, size);
-	SetProp(gOptionsPH, "boot-file", 0, 0);
-      }
-      Interpret_0_0("reset-all");
-    }
+  // Test for Secure Boot Mode.
+  size = GetProp(gOptionsPH, "security-mode", securityMode, 32);
+  if (size != -1) {
+    securityMode[size] = '\0';
+    if (strcmp(securityMode, "none")) gBootMode |= kBootModeSecure;
   }
-#endif
   
 #if kFailToBoot
   // 'cmd-s' or 'cmd-v' is pressed set outputLevel to kOutputLevelFull
-  if (TestForKey(kCommandKey) && (TestForKey('s') || TestForKey('v')))
+  if (((gBootMode & kBootModeSecure) == 0) && TestForKey(kCommandKey) &&
+      (TestForKey('s') || TestForKey('v'))) {
     SetOutputLevel(kOutputLevelFull);
-  else SetOutputLevel(kOutputLevelOff);
+  } else {
+    SetOutputLevel(kOutputLevelOff);
+  }
 #else
   SetOutputLevel(kOutputLevelFull);
 #endif
@@ -240,12 +227,16 @@ static long InitEverything(ClientInterfacePtr ciPtr)
   // printf now works.
   printf("\n\nMac OS X Loader\n");
   
-  mem_base = Claim(kMallocAddr, kMallocSize, 0);
-  if (mem_base == 0) {
+  // Test for Safe Boot Mode.
+  if (((gBootMode & kBootModeSecure) == 0) && TestForKey(kShiftKey)) {
+    gBootMode |= kBootModeSafe;
+  }
+  
+  if (Claim(kMallocAddr, kMallocSize, 0) == 0) {
     printf("Claim for malloc failed.\n");
     return -1;
   }
-  malloc_init((char *)mem_base, kMallocSize);
+  malloc_init((char *)kMallocAddr, kMallocSize);
   
   // malloc now works.
   
@@ -273,29 +264,29 @@ static long InitEverything(ClientInterfacePtr ciPtr)
     }
     
     // Unmap the old xcoff stack.
-    CallMethod_2_0(gMMUIH, "unmap", 0x00380000, 0x00080000);
+    CallMethod(2, 0, gMMUIH, "unmap", 0x00380000, 0x00080000);
     
     // Grap the physical memory then the logical.
-    CallMethod_3_1(gMemoryIH, "claim",
-		   kImageAddr1Phys, kImageSize1, 0, &mem_base);
-    CallMethod_3_1(gMMUIH, "claim",
-		   kImageAddr1, kImageSize1, 0, &mem_base2);
+    CallMethod(3, 1, gMemoryIH, "claim",
+	       kImageAddr1Phys, kImageSize1, 0, &mem_base);
+    CallMethod(3, 1, gMMUIH, "claim",
+	       kImageAddr1, kImageSize1, 0, &mem_base2);
     if ((mem_base == 0) || (mem_base2 == 0)) {
       printf("Claim for Image Area failed.\n");
       return -1;
     }
     
     // Map them together.
-    CallMethod_4_0(gMMUIH, "map",
-		   kImageAddr1Phys, kImageAddr1, kImageSize1, 0);
+    CallMethod(4, 0, gMMUIH, "map",
+	       kImageAddr1Phys, kImageAddr1, kImageSize1, 0);
   }
   
   bzero((char *)kImageAddr, kImageSize);
   
-  // Malloc some space for the Vector Save area.
-  gVectorSaveAddr = malloc(kVectorSize);
+  // Allocate some space for the Vector Save area.
+  gVectorSaveAddr = AllocateBootXMemory(kVectorSize);
   if (gVectorSaveAddr == 0) {
-    printf("Malloc for Vector Save Area failed.\n");
+    printf("Allocation for the Vector Save Area failed.\n");
     return -1;
   }
   
@@ -325,10 +316,10 @@ static long SetUpBootArgs(void)
 {
   boot_args_ptr args;
   CICell        memoryPH;
-  long          secure = 0, sym = 0, graphicsBoot = 1;
+  long          graphicsBoot = 1;
   long          ret, cnt, mem_size, size, dash;
-  long          aKey, sKey, vKey, yKey, shiftKey, keyPos;
-  char          ofBootArgs[128], *ofArgs, tc, keyStr[8], securityMode[33];
+  long          sKey, vKey, keyPos;
+  char          ofBootArgs[128], *ofArgs, tc, keyStr[8];
   
   // Save file system cache statistics.
   SetProp(gChosenPH, "BootXCacheHits", (char *)&gCacheHits, 4);
@@ -348,33 +339,18 @@ static long SetUpBootArgs(void)
   args->Version = kBootArgsVersion;
   args->machineType = 0;
   
-  // Get the security-mode.
-  size = GetProp(gOptionsPH, "security-mode", securityMode, 32);
-  if (size != -1) {
-    securityMode[size] = '\0';
-    if (strcmp(securityMode, "none")) secure = 1;
-  }
-  
-  // Check the Keyboard for 'a', 'cmd-s', 'cmd-v', 'y' and shift
+  // Check the Keyboard for 'cmd-s' and 'cmd-v'
   UpdateKeyMap();
-  if (!secure) {
-    aKey = TestForKey('a');
+  if ((gBootMode & kBootModeSecure) == 0) {
     sKey = TestForKey(kCommandKey) && TestForKey('s');
     vKey = TestForKey(kCommandKey) && TestForKey('v');
-    yKey = TestForKey('y');
   } else {
-    aKey = 0;
     sKey = 0;
     vKey = 0;
-    yKey = 0;
   }
-  shiftKey = TestForKey(kShiftKey);
   
   // if 'cmd-s' or 'cmd-v' was pressed do a text boot.
   if (sKey || vKey) graphicsBoot = 0;
-  
-  // if 'y' key was pressed send the symbols;
-  if (yKey) sym = 1;
   
   // Create the command line.
   if (gOFVersion < kOFVersion3x) {
@@ -415,63 +391,42 @@ static long SetUpBootArgs(void)
       
       // Do special stuff if in a dash arg.
       if (dash) {
-	if (tc == 'a') {
-	  ofArgs++;
-	  aKey = 0;
-	}
-	else if (tc == 's') {
+	if        (tc == 's') {
 	  graphicsBoot = 0;
 	  ofArgs++;
 	  sKey = 0;
-	}
-	else if (tc == 'v') {
+	} else if (tc == 'v') {
 	  graphicsBoot = 0;
 	  ofArgs++;
 	  vKey = 0;
-	}
-	else if (tc == 'x') {
-	  ofArgs++;
-	  shiftKey = 0;
-	}
-	else if (tc == 'y') {
-	  sym = 1;
-	  ofArgs++;
-	  yKey = 0;
-	}
-	else {
+	} else {
 	  // Check for exiting dash arg
 	  if (isspace(tc)) dash = 0;
 	  
-	  // Copy any non 'a', 's', 'v', 'x' or 'y'
+	  // Copy any non 's' or 'v'
 	  ofArgs++;
 	}
       } else {
 	// Not a dash arg so just copy it.
 	ofArgs++;
-      }    
+      }
     }
   }
   
-  // Add any pressed keys (a, s, v, y, shift) to the command line
+  // Add any pressed keys (s, v, shift) to the command line
   keyPos = 0;
-  if (aKey || sKey || vKey || yKey || shiftKey) {
+  if (sKey || vKey || (gBootMode & kBootModeSafe)) {
     keyStr[keyPos++] = '-';
     
-    if (aKey) keyStr[keyPos++] = 'a';
     if (sKey) keyStr[keyPos++] = 's';
     if (vKey) keyStr[keyPos++] = 'v';
-    if (yKey) keyStr[keyPos++] = 'y';
-    if (shiftKey) keyStr[keyPos++] = 'x';
+    if (gBootMode & kBootModeSafe) keyStr[keyPos++] = 'x';
     
     keyStr[keyPos++] = ' ';
   }
   keyStr[keyPos++] = '\0';
   
-  // Send symbols?
-  if (!sym && !yKey) gSymbolTableAddr = 0;
-  
-  sprintf(args->CommandLine, "%s%s symtab=%d",
-	  keyStr, ofBootArgs, gSymbolTableAddr);
+  sprintf(args->CommandLine, "%s%s", keyStr, ofBootArgs);
   
   // Get the memory info
   memoryPH = FindDevice("/memory");
@@ -492,7 +447,7 @@ static long SetUpBootArgs(void)
   
   // Get the video info
   GetMainScreenPH(&args->Video);
-  args->Video.v_display  = graphicsBoot;
+  args->Video.v_display = graphicsBoot;
   
   // Add the DeviceTree to the memory-map.
   // The actuall address and size must be filled in later.
@@ -557,7 +512,7 @@ static long CallKernel(void)
 static void FailToBoot(long num)
 {
 #if kFailToBoot
-  DrawBrokenSystemFolder();
+  DrawFailedBootPicture();
   while (1);
   num = 0;
 #else
@@ -571,13 +526,13 @@ static long InitMemoryMap(void)
 {
   long result;
   
-  result = Interpret_0_1(
-			 " dev /chosen"
-			 " new-device"
-			 " \" memory-map\" device-name"
-			 " active-package"
-			 " device-end"
-			 , &gMemoryMapPH);
+  result = Interpret(0, 1,
+		     " dev /chosen"
+		     " new-device"
+		     " \" memory-map\" device-name"
+		     " active-package"
+		     " device-end"
+		     , &gMemoryMapPH);
   
   return result;
 }
@@ -701,7 +656,13 @@ static long GetBootPaths(void)
       gBootSourceNumber = 0;
       gBootFileType = gBootDeviceType;
       if (gBootFileType == kNetworkDeviceType) gBootSourceNumberMax = 1;
-      else gBootSourceNumberMax = 4;
+      else {
+	if (gOFVersion < kOFVersion3x) {
+	  gBootSourceNumberMax = 4;
+	} else {
+	  gBootSourceNumberMax = 6;
+	}
+      }
     }
     
     if (gBootFileType == kNetworkDeviceType) {
@@ -794,14 +755,9 @@ static long GetBootPaths(void)
       strncpy(gBootFile, gBootDevice + cnt + 1, cnt2 - cnt - 1);
       partNum = atoi(gBootFile);
       
-      if (gBootSourceNumber > 1) {
-	// Adjust the partition number to the root partition
-	if (gOFVersion < kOFVersion3x) {
-	  partNum += 1;
-	} else {
-	  partNum += 2;
-	}
-      }
+      // Adjust the partition number.
+      // Pass 0 & 1, no offset. Pass 2 & 3, offset 1, Pass 4 & 5, offset 2.
+      partNum += gBootSourceNumber / 2;
       
       // Construct the boot-file
       strncpy(gBootFile, gBootDevice, cnt + 1);

@@ -74,6 +74,74 @@
 		<true/>
 	</dict>
 
+<!-- Login mechanism based rule.  Not for general use, yet.
+  -->
+	<key>system.login.console</key>
+	<dict>
+		<key>eval</key>
+		<string>loginwindow_builtin:login,authinternal,loginwindow_builtin:success</string>
+<!-- krb5auth:authenticate can be used to hinge local authentication 
+     on a successful kerberos authentication.
+  -->
+	</dict>
+        <key>system.login.pam</key>
+        <dict>
+                <key>eval</key>
+                <string>push_hints_to_context,authinternal</string>
+        </dict>
+        <key>system.login.tty</key>
+        <dict>
+                <key>eval</key>
+                <string>push_hints_to_context,authinternal</string>
+        </dict>
+	<key>system.login.done</key>
+	<dict>
+		<key>eval</key>
+		<string>switch_to_user</string>
+	</dict>
+<!-- krb5auth:login can be used to do kerberos authentication as a 
+     side-effect of logging in.  Local username/password will be used.
+  -->
+
+<!-- This right is checked by the Admin framework when making changes to
+     the system preferences.
+     Credentials remain valid forever.
+     An acquired credential is shared amongst all clients.
+     If the proccess that created the AuthorizationRef has uid = 0 this right
+     will automatically be granted.
+  -->
+	<key>system.preferences</key>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<true/>
+		<key>allow-root</key>
+		<true/>
+	</dict>
+
+<!-- The following right is checked for printing to locked printers. -->
+	<key>system.printingmanager</key>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<false/>
+		<key>timeout</key>
+		<integer>0</integer>
+	</dict>
+
+<!-- See authopen(1) for information on the use of this right. -->
+	<key>sys.openfile.</key>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<false/>
+		<key>timeout</key>
+		<integer>300</integer>
+	</dict>
+
 <!-- All other rights will be matched by this rule.
      Credentials remain valid 5 minutes after they've been obtained.
      An acquired credential is shared amongst all clients.

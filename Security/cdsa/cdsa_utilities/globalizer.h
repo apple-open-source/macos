@@ -25,12 +25,8 @@
 #include <Security/threading.h>
 #include <memory>
 
-#ifdef _CPP_GLOBALIZER
-# pragma export on
-#endif
+namespace Security {
 
-namespace Security
-{
 
 //
 // GlobalNexus is the common superclass of all globality scopes.
@@ -39,12 +35,12 @@ namespace Security
 //
 class GlobalNexus {
 public:
-    class Error : public exception {
+    class Error : public std::exception {
     public:
-		virtual ~Error();
+        virtual ~Error() throw();
         const char * const message;
         Error(const char *m) : message(m) { }
-        const char *what() const { return message; }
+        const char *what() const throw() { return message; }
     };
 };
 
@@ -91,6 +87,16 @@ private:
     static void *make() { return new Type; }
 };
 
+template <class Type>
+class CleanModuleNexus : public ModuleNexus<Type> {
+public:
+    ~CleanModuleNexus()
+    {
+        debug("nexus", "ModuleNexus %p destroyed object 0x%x", this, pointer);
+        delete reinterpret_cast<Type *>(pointer);
+    }
+};
+
 #else	// !_HAVE_ATOMIC_OPERATIONS
 
 template <class Type>
@@ -111,22 +117,22 @@ public:
     
     void reset()		{ delete mSingleton; mSingleton = NULL; }
     
-private:
+protected:
     Type *mSingleton;		// pointer to singleton static initialized to NULL
     Mutex mLock;			// construction lock
 };
-
-#endif // _HAVE_ATOMIC_OPERATIONS
 
 template <class Type>
 class CleanModuleNexus : public ModuleNexus<Type> {
 public:
     ~CleanModuleNexus()
     {
-        debug("nexus", "ModuleNexus %p destroyed object 0x%x", this, pointer);
-        delete reinterpret_cast<Type *>(pointer);
+        debug("nexus", "ModuleNexus %p destroyed object 0x%x", this, mSingleton);
+        delete mSingleton;
     }
 };
+
+#endif // _HAVE_ATOMIC_OPERATIONS
 
 
 //

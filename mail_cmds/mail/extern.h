@@ -254,8 +254,5 @@ int	 wait_child __P((int));
 int	 wait_command __P((int));
 int	 writeback __P((FILE *));
 
-/* hack to include strlcpy for backport to 10.1 systems */
-size_t     strlcpy __P((char *, const char *, size_t));
-
 extern char *__progname;
 extern char *tmpdir;

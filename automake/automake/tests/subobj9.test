@@ -1,0 +1,41 @@
+#! /bin/sh
+
+# Test for PR 312.
+
+required='libtoolize gcc'
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(x, 0, x)
+AM_INIT_AUTOMAKE([foreign subdir-objects])
+
+AC_PROG_CXX
+AM_PROG_LIBTOOL
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+noinst_LTLIBRARIES = libfoo.la
+libfoo_la_SOURCES = src/foo.cc
+END
+
+mkdir src
+cat > src/foo.cc << 'END'
+int doit (void)
+{
+   return 23;
+}
+END
+
+set -e
+
+libtoolize --force
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure CXX=gcc
+$MAKE
+$MAKE distcheck

@@ -40,7 +40,7 @@
 
 #if !(defined(lint) || defined(KERNEL) || defined(_KERNEL))
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/bpf/net/bpf_filter.c,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/bpf/net/bpf_filter.c,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)";
 #endif
 
 #include <sys/param.h>

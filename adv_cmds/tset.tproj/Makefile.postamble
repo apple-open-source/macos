@@ -1,2 +1,0 @@
-after_install::
-	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/reset

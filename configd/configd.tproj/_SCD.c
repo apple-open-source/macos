@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -188,7 +188,7 @@ _addRegexWatcherByKey(const void *key, void *val, void *context)
 	char		reErrBuf[256];
 	int		reErrStrLen;
 
-	if (CFDictionaryContainsKey(info, kSCDData) == FALSE) {
+	if (!CFDictionaryContainsKey(info, kSCDData)) {
 		/* if no data (yet) */
 		return;
 	}
@@ -228,7 +228,7 @@ _addRegexWatcherByKey(const void *key, void *val, void *context)
  *
  * This is a CFDictionaryApplierFunction which will iterate over each session
  * defined in the "sessionData" dictionary. The arguments are the session
- * key, it's associated session dictionary, , and the store key being added.
+ * key, it's associated session dictionary, and the store key being added.
  *
  * If an active session includes any regular expression keys which match the
  * key being added to the "storeData" dictionary then we mark this key as being
@@ -245,11 +245,6 @@ _addRegexWatchersBySession(const void *key, void *val, void *context)
 	CFArrayRef	rKeys;
 	CFArrayRef	rData;
 	CFIndex		i;
-
-	if (info == NULL) {
-		/* if no dictionary for this session */
-		return;
-	}
 
 	rKeys = CFDictionaryGetValue(info, kSCDRegexKeys);
 	if (rKeys == NULL) {
@@ -418,8 +413,8 @@ _removeRegexWatcherByKey(const void *key, void *val, void *context)
 	char		reErrBuf[256];
 	int		reErrStrLen;
 
-	if ((info == NULL) || (CFDictionaryContainsKey(info, kSCDWatchers) == FALSE)) {
-		/* no dictionary or no watchers */
+	if (CFDictionaryContainsKey(info, kSCDWatchers) == FALSE) {
+		/* if no watchers */
 		return;
 	}
 
@@ -486,11 +481,6 @@ _removeRegexWatchersBySession(const void *key, void *val, void *context)
 	CFArrayRef	rKeys;
 	CFArrayRef	rData;
 	CFIndex		i;
-
-	if (info == NULL) {
-		/* if no dictionary for this session */
-		return;
-	}
 
 	rKeys = CFDictionaryGetValue(info, kSCDRegexKeys);
 	if (rKeys == NULL) {

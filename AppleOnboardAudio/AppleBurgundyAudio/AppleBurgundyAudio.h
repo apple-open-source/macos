@@ -82,12 +82,12 @@ protected:
     bool						gCanPollSatus;
 
 public:
-        //Classical Unix function
+	// Classical Unix function
     virtual bool init(OSDictionary *properties);
     virtual void free();
     virtual IOService* probe(IOService *provider, SInt32*);
 
-        //IOAudioDevice subclass
+	// IOAudioDevice subclass
     virtual bool initHardware(IOService *provider);
         
 protected:    
@@ -108,7 +108,7 @@ public:
 	virtual IOReturn setModemSound(bool state);
 protected:    
 
-            //activation functions
+	// activation functions
     UInt32	sndHWGetActiveOutputExclusive(void);
     IOReturn   	sndHWSetActiveOutputExclusive(UInt32 outputPort );
     UInt32 	sndHWGetActiveInputExclusive(void);
@@ -117,21 +117,21 @@ protected:
     IOReturn   	sndHWSetProgOutput(UInt32 outputBits);
     
     IOReturn sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
-            // control function
+	// control function
     bool   	sndHWGetSystemMute(void);
     IOReturn  	sndHWSetSystemMute(bool mutestate);
     bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
     IOReturn   	sndHWSetSystemVolume(UInt32 value);
     IOReturn	sndHWSetPlayThrough(bool playthroughstate);
     
-            //Power Management
+	// Power Management
     IOReturn   	sndHWSetPowerState(IOAudioDevicePowerState theState);
 
-            //Identification
+	// Identification
     UInt32 	sndHWGetType( void );
     UInt32	sndHWGetManufacturer( void );
     
-        //Burgundy soecific routine
+	// Burgundy soecific routine
     void 	DisconnectMixer(UInt32 mixer );
     UInt32	GetPhysicalOutputPort(UInt32 logicalPort );
     UInt32 	GetPhysicalInputPort(UInt32 logicalPort );
@@ -140,7 +140,7 @@ protected:
     void	ReleaseMux(UInt8 mux);
     void	ReserveMux(UInt8 mux, UInt32 physicalInput);
 
-			// User Client calls
+	// User Client calls
 	virtual UInt8	readGPIO (UInt32 selector) {return 0;}
 	virtual void	writeGPIO (UInt32 selector, UInt8 data) {return;}
 	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) {return 0;}

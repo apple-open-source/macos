@@ -1,5 +1,5 @@
-# Process window for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Process window for Insight.
+# Copyright 1998, 1999, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -19,7 +19,6 @@
 # ----------------------------------------------------------------------
 
 body ProcessWin::constructor {args} {
-  set top [winfo toplevel $itk_interior]
 
   window_name "Processes"
   gdbtk_busy
@@ -27,10 +26,7 @@ body ProcessWin::constructor {args} {
   gdbtk_idle
 
   # Add hooks for this object
-  add_hook gdb_update_hook [code $this update]
-  add_hook gdb_busy_hook [code $this busy]
   add_hook gdb_no_inferior_hook [code $this idle]
-  add_hook gdb_idle_hook [code $this idle]
 }
 
 
@@ -38,42 +34,49 @@ body ProcessWin::constructor {args} {
 #  METHOD:  build_win - build the main process window
 # ------------------------------------------------------------------
 body ProcessWin::build_win {} {
-  global tixOption tcl_platform
+  global tcl_platform
+
   if {$tcl_platform(platform) == "windows"} {
-    tixScrolledListBox $itk_interior.s -scrollbar both -sizebox 1
+    set hsmode static
+    set vsmode static
+    ide_sizebox $itk_interior.sbox
+    place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
   } else {
-    tixScrolledListBox $itk_interior.s -scrollbar auto
+    set hsmode dynamic
+    set vsmode dynamic
   }
-  set lb [$itk_interior.s subwidget listbox]
-  $lb configure -selectmode single -bg $tixOption(input1_bg) \
-    -selectbackground green \
-    -selectforeground black \
-    -font src-font          \
-    -exportselection false
-  update
-  balloon register $lb "Click on a line to change context"
 
-  # bind mouse button 1 to change the current context
-  bind $lb <ButtonPress-1> [code $this change_context %y]
-  bind $lb <ButtonRelease-1> break
+  itk_component add slbox {
+    iwidgets::scrolledlistbox $itk_interior.slbox \
+      -background [pref get gdb/font/normal_bg] \
+      -selectbackground green \
+      -selectforeground black \
+      -textfont global/fixed \
+      -exportselection false \
+      -selectioncommand [code $this change_context]
+  } {}
+  [$itk_component(slbox) component listbox] configure \
+    -bg [pref get gdb/font/normal_bg]
+  update dummy
 
-  pack $itk_interior.s -side left -expand yes -fill both
+  pack $itk_component(slbox) -side left -expand yes -fill both
 }
 
 
 # ------------------------------------------------------------------
 #  METHOD:  update - update widget when something changes
 # ------------------------------------------------------------------
-body ProcessWin::update {} {
+body ProcessWin::update {event} {
   if {!$protect_me} {
 
-    $lb delete 0 end
+    $itk_component(slbox) delete 0 end
     if {[catch {gdb_cmd "info thread"} threads]} {
       # failed.  leave window blank
       return
     }
 
-    #debug "processWin update: \n$threads"
+    set threads [split $threads \n]
+    debug "processWin update: \n$threads"
     if {[llength $threads] == 0} {
       # no processes/threads listed.
       return
@@ -82,7 +85,7 @@ body ProcessWin::update {} {
     # insert each line one at a time
     set active -1
     set num_threads 0
-    foreach line [split $threads \n] {
+    foreach line $threads {
       # Active line starts with "*"
       if {[string index $line 0] == "*"} {
 	# strip off leading "*"
@@ -91,7 +94,7 @@ body ProcessWin::update {} {
       }
       # scan for GDB ID number at start of line
       if {[scan $line "%d" id($num_threads)] == 1} {
-	$lb insert end $line
+	$itk_component(slbox) insert end $line
 	incr num_threads
       }
     }
@@ -99,8 +102,8 @@ body ProcessWin::update {} {
     # highlight the active thread
     if {$active >= 0} {
       set active_thread $id($active)
-      $lb selection set $active
-      $lb see $active
+      $itk_component(slbox) selection set $active
+      $itk_component(slbox) see $active
     }
   }
 }
@@ -109,12 +112,12 @@ body ProcessWin::update {} {
 #  METHOD:  change_context - change the current context (active thread)
 #        This method is currently ONLY called from the mouse binding
 # ------------------------------------------------------------------
-body ProcessWin::change_context {y} {
-  if {!$Running && [$lb size] != 0} {
+body ProcessWin::change_context {} {
+  if {!$Running && [$itk_component(slbox) size] != 0} {
     gdbtk_busy
-    set linenum [$lb nearest $y]
-    set idnum $id($linenum)
-    #debug "change_context to line $linenum  id=$idnum"
+    set sel [$itk_component(slbox) curselection]
+    set idnum $id($sel)
+    #debug "change_context to line $sel  id=$idnum"
     catch {gdb_cmd "thread $idnum"}
     # Run idle hooks and cause all widgets to update
     set protect_me 1
@@ -128,9 +131,6 @@ body ProcessWin::change_context {y} {
 #  DESTRUCTOR - destroy window containing widget
 # ------------------------------------------------------------------
 body ProcessWin::destructor {} {
-  remove_hook gdb_update_hook [code $this update]
-  remove_hook gdb_idle_hook [code $this idle]
-  remove_hook gdb_busy_hook [code $this busy]
   remove_hook gdb_no_inferior_hook [code $this no_inferior]
 }
 
@@ -139,25 +139,27 @@ body ProcessWin::destructor {} {
 # ------------------------------------------------------------------
 body ProcessWin::reconfig {} {
   destroy $itk_interior.s
+  if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
+  if {[winfo exists $itk_interior.slbox]} { destroy $itk_interior.slbox }
   build_win
 }
 
 # ------------------------------------------------------------------
-#  METHOD:  busy - gdb_busy_hook
+#  METHOD:  busy - BusyEvent handler
 #
 #        This method should accomplish blocking
 #        - clicks in the window
 #        - change mouse pointer
 # ------------------------------------------------------------------
-body ProcessWin::busy {} {
+body ProcessWin::busy {event} {
   set Running 1
   cursor watch
 }
 
 # ------------------------------------------------------------------
-#  METHOD:  idle - idle hook.  Run when the target is not running
+#  METHOD:  idle - handle IdleEvent
 # ------------------------------------------------------------------
-body ProcessWin::idle {} {
+body ProcessWin::idle {event} {
   set Running 0
   cursor {}
 }
@@ -168,5 +170,5 @@ body ProcessWin::idle {} {
 #        pointer to the given glyph.
 # ------------------------------------------------------------------
 body ProcessWin::cursor {glyph} {
-  $top configure -cursor $glyph
+  $_top configure -cursor $glyph
 }

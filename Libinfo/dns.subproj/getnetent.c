@@ -66,7 +66,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)getnetent.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: getnetent.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $";
+static char rcsid[] = "$Id: getnetent.c,v 1.3 2002/06/12 17:40:29 epeyton Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -76,6 +76,7 @@ static char rcsid[] = "$Id: getnetent.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $
 #include <arpa/nameser.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <resolv.h>
 #include <netdb.h>
 #include <string.h>
@@ -87,7 +88,6 @@ static char rcsid[] = "$Id: getnetent.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $
 #define	MAXALIASES	35
 
 static FILE *netf;
-static char line[BUFSIZ+1];
 static struct netent net;
 static char *net_aliases[MAXALIASES];
 #if defined(__APPLE__)
@@ -142,10 +142,17 @@ struct netent *
 getnetent()
 {
 	char *p;
+	static char *line = NULL;
 	register char *cp, **q;
 
 	if (netf == NULL && (netf = fopen(_PATH_NETWORKS, "r" )) == NULL)
 		return (NULL);
+
+	if (line == NULL) {
+		line = malloc(BUFSIZ+1);
+		if (line == NULL)
+			return (NULL);
+	}
 again:
 	p = fgets(line, BUFSIZ, netf);
 	if (p == NULL)

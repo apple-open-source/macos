@@ -1,0 +1,67 @@
+# Jamfile for target msdos.util of project msdosfs
+
+
+PROJECT = msdosfs ;
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# msdos.util target
+export deferred TARGET_NAME = msdos.util ;
+export deferred PRODUCT_NAME = msdos.util ;
+
+export deferred CLONE_HEADERS = NO ;
+export deferred FRAMEWORK_SEARCH_PATHS =  ;
+export deferred HEADER_SEARCH_PATHS =  ;
+export deferred LIBRARY_SEARCH_PATHS =  ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = msdos.util ;
+export deferred REZ_EXECUTABLE = YES ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred SKIP_INSTALL = YES ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+commitdeferred ;
+
+
+BeginTool "<msdos.util>msdos.util$(TOOL_SUFFIX)" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+msdos_util.tproj/dosutil.c_ATTRIBUTES = ;
+SOURCES = msdos_util.tproj/dosutil.c ;
+ProcessSources "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/CoreFoundation.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES = /System/Library/Frameworks/CoreFoundation.framework ;
+ProcessFrameworksAndLibraries "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag002 : BPTag003 ;
+
+# Copy Files
+COPY_FILES = msdos_util.tproj/msdos.util.8 ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/usr/share/man/man8" ;
+if $(ACTION) in install installhdrs {
+	ProcessCopyFiles "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+else {
+	NoOp "<msdos.util>msdos.util$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+
+EndTool "<msdos.util>msdos.util$(TOOL_SUFFIX)" ;
+

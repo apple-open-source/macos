@@ -1,0 +1,83 @@
+## automake - create Makefile.in from Makefile.am
+## Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2001
+##  Free Software Foundation, Inc.
+
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2, or (at your option)
+## any later version.
+
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+## 02111-1307, USA.
+
+
+## ------------ ##
+## Installing.  ##
+## ------------ ##
+
+if %?INSTALL%
+_am_installdirs += $(DESTDIR)$(%NDIR%dir)
+?BASE?%DIR%PROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+?!BASE?%DIR%PROGRAMS_INSTALL = $(install_sh_PROGRAM)
+?EXEC?.PHONY install-exec-am: install-%DIR%PROGRAMS
+?!EXEC?.PHONY install-data-am: install-%DIR%PROGRAMS
+install-%DIR%PROGRAMS: $(%DIR%_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(%NDIR%dir)
+## Funny invocation because Makefile variable can be empty, leading to
+## a syntax error in sh.
+	@list='$(%DIR%_PROGRAMS)'; for p in $$list; do \
+## On Cygwin with libtool test won't see `foo.exe' but instead `foo'.
+## So we check for both.
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+?LIBTOOL?	     || test -f $$p1 \
+	  ; then \
+## Compute basename of source file.  Unless this is a nobase_ target, we
+## want to install 'python/foo.py' as '$(DESTDIR)$(%NDIR%dir)/foo.yo',
+## not '$(DESTDIR)$(%NDIR%dir)/python/foo.yo'.
+?BASE?	    p1=`echo "$$p1" | sed -e 's,^.*/,,'`; \
+	    f=`echo $$p1|sed '$(transform);s/$$/$(EXEEXT)/'`; \
+## Note that we explicitly set the libtool mode.  This avoids any
+## lossage if the install program doesn't have a name that libtool
+## expects.
+?LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f"; \
+?LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f; \
+?!LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f"; \
+?!LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f; \
+	  else :; fi; \
+	done
+endif %?INSTALL%
+
+
+## -------------- ##
+## Uninstalling.  ##
+## -------------- ##
+
+if %?INSTALL%
+.PHONY uninstall-am: uninstall-%DIR%PROGRAMS
+uninstall-%DIR%PROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(%DIR%_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+?BASE?	  f=`echo "$$f" | sed -e 's,^.*/,,'`; \
+	  echo " rm -f $(DESTDIR)$(%NDIR%dir)/$$f"; \
+	  rm -f $(DESTDIR)$(%NDIR%dir)/$$f; \
+	done
+endif %?INSTALL%
+
+
+## ---------- ##
+## Cleaning.  ##
+## ---------- ##
+
+.PHONY clean-am: clean-%DIR%PROGRAMS
+clean-%DIR%PROGRAMS:
+	-test -z "$(%DIR%_PROGRAMS)" || rm -f $(%DIR%_PROGRAMS)

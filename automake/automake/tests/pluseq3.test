@@ -1,0 +1,38 @@
+#! /bin/sh
+
+# Another `+=' test with conditionals.
+
+. $srcdir/defs || exit 1
+
+echo 'AM_CONDITIONAL(CHECK, true)' >> configure.in
+
+cat > Makefile.am << 'END'
+
+if CHECK
+data_DATA = zar
+endif
+
+if CHECK
+data_DATA += \
+ doz
+else
+data_DATA += dog
+endif
+
+END
+
+: > zar
+: > doz
+: > dog
+
+set -e
+
+$ACLOCAL || exit 1
+$AUTOMAKE
+
+grep '^@CHECK_TRUE@data_DATA = zar \\$' Makefile.in
+grep '^@CHECK_TRUE@ doz$' Makefile.in
+
+grep '^@CHECK_FALSE@data_DATA = dog$' Makefile.in
+
+exit 0

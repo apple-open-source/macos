@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,20 +62,6 @@ class IOFWUserCommand: public OSObject
 										IOReturn 				status, 
 										IOFireWireNub *			device, 
 										IOFWCommand *			fwCmd) ;
-//	virtual IOReturn			submit(
-//										FWUserCommandSubmitParams*	inParams,
-//										FWUserCommandSubmitResult*	outResult) = 0 ;
-	virtual void				setRefCon(
-										void*					inRefCon)
-										{ fUserRefCon = inRefCon; }
-	virtual void*				getRefCon() { return fUserRefCon; }
-	
-//	virtual IOReturn			submitRead(
-//										FWUserCommandSubmitParams*	inParams,
-//										FWUserCommandSubmitResult*	outResult) ;
-//	virtual IOReturn			submitWrite(
-//										FWUserCommandSubmitParams*	inParams,
-//										FWUserCommandSubmitResult*	outResult) ;
 	virtual IOReturn			submit(
 										FWUserCommandSubmitParams*	inParams,
 										FWUserCommandSubmitResult*	outResult) = 0 ;
@@ -84,10 +70,9 @@ class IOFWUserCommand: public OSObject
 	OSAsyncReference				fAsyncRef ;
 	IOFWAsyncCommand*				fCommand ;
 	const IOFireWireUserClient*		fUserClient ;
-	void*							fUserRefCon ;
 
 	IOMemoryDescriptor*				fMem ;
-	UInt32*							fQuads ;	// 
+	UInt32*							fQuads ;
 	UInt32							fNumQuads ;
 	Boolean							fCopyFlag ;
 } ;
@@ -108,29 +93,6 @@ public:
 										FWUserCommandSubmitResult*	outResult) ;
 } ;
 
-/*class IOFWUserReadQuadletCommand: public IOFWUserCommand
-{
-	OSDeclareDefaultStructors(IOFWUserReadQuadletCommand)
-
- public:
-	// --- init's --------------------------------
-	virtual bool				initWithSubmitParams(
-										const FWUserCommandSubmitParams*	inParams,
-										const IOFireWireUserClient*			inUserClient ) ;
-
-	// --- free ----------------------------------										
-	virtual void				free() ;
-	
-//	// --- IOFWCommand methods -------------------
-//	virtual IOReturn			submit(
-//										FWUserCommandSubmitParams*	inParams,
-//										FWUserCommandSubmitResult*	outResult) ;
-
- protected:
-	UInt32*		fQuads ;
-	UInt32		fNumQuads ;
-} ; */
-
 class IOFWUserWriteCommand: public IOFWUserCommand
 {
 	OSDeclareDefaultStructors(IOFWUserWriteCommand)
@@ -143,29 +105,10 @@ class IOFWUserWriteCommand: public IOFWUserCommand
 
 	// --- IOFWCommand methods -------------------
 	virtual IOReturn			submit(
-										FWUserCommandSubmitParams*	inParams,
-										FWUserCommandSubmitResult*	outResult) ;
+										FWUserCommandSubmitParams*		inParams,
+										FWUserCommandSubmitResult*		outResult) ;
 
 } ;
-
-/*class IOFWUserWriteQuadletCommand: public IOFWUserCommand
-{
-	OSDeclareDefaultStructors(IOFWUserWriteQuadletCommand)
-
- public:
-	// --- init's --------------------------------
-	virtual bool				initWithSubmitParams(
-										const FWUserCommandSubmitParams*	inParams,
-										const IOFireWireUserClient*			inUserClient ) ;
-
-//	// --- IOFWCommand methods -------------------
-//	virtual IOReturn			submit(
-//										FWUserCommandSubmitParams*	inParams,
-//										FWUserCommandSubmitResult*	outResult) ;
-
- protected:
-	UInt32		fNumQuads ;
-} ; */
 
 class IOFWUserCompareSwapCommand: public IOFWUserCommand
 {
@@ -181,7 +124,12 @@ class IOFWUserCompareSwapCommand: public IOFWUserCommand
 	virtual IOReturn			submit(
 										FWUserCommandSubmitParams*	inParams,
 										FWUserCommandSubmitResult*	outResult) ;
- 
+	IOReturn					submit(
+										FWUserCommandSubmitParams*		inParams,
+										FWUserCompareSwapSubmitResult*	outResult) ;
+	static void					asyncCompletion( void* refcon, IOReturn status, IOFireWireNub* device, 
+										IOFWCommand* fwCmd) ;
+
   protected:
 	IOByteCount		fSize ;
  } ;

@@ -1,0 +1,89 @@
+                                  _   _ ____  _     
+                              ___| | | |  _ \| |    
+                             / __| | | | |_) | |    
+                            | (__| |_| |  _ <| |___ 
+                             \___|\___/|_| \_\_____|
+
+The cURL Test Suite
+
+Requires:
+  perl (and a unix-style shell)
+
+Run:
+  'make test'. This invokes the 'runtests.pl' perl script. Edit the top
+  variables of that script in case you have some specific needs.
+
+  The script breaks on the first test that doesn't do OK. Use -a to prevent
+  the script to abort on the first error. Run the script with -v for more
+  verbose output. Use -d to run the test servers with debug output enabled as
+  well.
+
+  Use -s for shorter output, or pass test numbers to run specific tests only
+  (like "./runtests.pl 3 4" to test 3 and 4 only). It also supports test case
+  ranges with 'to'. As in "./runtests 3 to 9" which runs the seven tests from
+  3 to 9.
+
+Memory:
+  The test script will check that all allocated memory is freed properly IF
+  curl has been built with the MALLOCDEBUG define set. The script will
+  automatically detect if that is the case, and it will use the ../memanalyze
+  script to analyze the memory debugging output.
+
+Debug:
+  If a test case fails, you can conveniently get the script to invoke the
+  debugger (gdb) for you with the server running and the exact same command
+  line parameters that failed. Just invoke 'runtests.pl <test number> -g' and
+  then just type 'run' in the debugger to perform the command through the
+  debugger.
+
+  If a test case causes a core dump, analyze it by running gdb like:
+
+          # gdb ../curl/src core
+
+  ... and get a stack trace with the gdb command:
+
+          (gdb) where
+
+Logs:
+  All logs are generated in the logs/ subdirctory (it is emtpied first
+  in the runtests.pl script)
+
+Data:
+  All test-data are put in the data/ subdirctory.
+
+  For each tests there exist a few files, all with their own separate and
+  special purpose. Replace N with the test number:
+
+    nameN.txt: test description as displayed when run
+
+    commandN.txt: command line options for this test
+
+    protN.txt: the full dump of the protocol communication that curl is
+               expected to use when performing this test
+
+    replyN.txt: the full dump the server should reply to curl for this test.
+               If the final result that curl should've got is not in this
+               file, you can instead name the file replyN0001.txt. This
+               enables you to fiddle more. ;-) Alas, the server sends the
+               replyN.txt file but checks the result after the test against
+               the *0001.txt file.
+
+    stdoutN.txt: if this file is present, curl's stdout is compared against
+               this file to see that they're identical. If this is present,
+               curl will not be run with -o but instead all output is compared
+               against this file!
+
+    errorN.txt: if this file is present, it should contain the error number
+               curl is supposed to return when this test is run.
+
+    uploadN.txt: if this file is present, it should contain the same data as
+               the log/upload.N does, after a curl upload has been performed.
+
+    ftpdN.txt: this file may contain instructions how to modify the behaviour
+               of the ftp server. It uses a simple syntax that is left to
+               describe here!
+
+TODO:
+
+  * Make httpserver.pl work when we PUT without Content-Length:
+  * Add persistant connection support and test cases

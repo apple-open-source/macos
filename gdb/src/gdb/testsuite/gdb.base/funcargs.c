@@ -634,7 +634,7 @@ void test_struct_args ()
 #ifdef PROTOTYPES
 void localvars_after_alloca (char c, short s, int i, long l)
 #else
-int
+void
 localvars_after_alloca (c, s, i, l)
      char c;
      short s;
@@ -671,7 +671,7 @@ char c; int i; short s; long l; unsigned char uc; unsigned short us; unsigned lo
 #ifdef PROTOTYPES
 void call_after_alloca (char c, short s, int i, long l)
 #else
-int
+void
 call_after_alloca (c, s, i, l)
      char c;
      short s;
@@ -747,7 +747,7 @@ int main ()
   call2f (f, l, d, c, f, s, d, i);
   call2g (l, d, c, f, s, d, i, f);
   call2h (d, c, f, s, d, i, f, l);
-  call2i (c, f, c, c, d, c, c, c, f, s, c, d);;
+  call2i (c, f, c, c, d, c, c, c, f, s, c, d);
 
   /* Test dereferencing pointers to various integral and floating types */
 

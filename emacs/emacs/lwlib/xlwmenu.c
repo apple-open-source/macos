@@ -1,15 +1,15 @@
-/* Implements a lightweight menubar widget.  
+/* Implements a lightweight menubar widget.
    Copyright (C) 1992 Lucid, Inc.
 
 This file is part of the Lucid Widget Library.
 
-The Lucid Widget Library is free software; you can redistribute it and/or 
+The Lucid Widget Library is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
 The Lucid Widget Library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
@@ -20,24 +20,67 @@ Boston, MA 02111-1307, USA.  */
 
 /* Created by devin@lucid.com */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 
 #include <sys/types.h>
+#if (defined __sun) && !(defined SUNOS41)
+#define SUNOS41
 #include <X11/Xos.h>
+#undef SUNOS41
+#else
+#include <X11/Xos.h>
+#endif
 #include <X11/IntrinsicP.h>
 #include <X11/ObjectP.h>
 #include <X11/StringDefs.h>
 #include <X11/cursorfont.h>
-#include <X11/bitmaps/gray>
 #include "xlwmenuP.h"
+
+#ifdef emacs
+
+/* Defined in xfns.c.  When config.h defines `static' as empty, we get
+   redefinition errors when gray_bitmap is included more than once, so
+   we're referring to the one include in xfns.c here.  */
+
+extern int gray_bitmap_width;
+extern int gray_bitmap_height;
+extern char *gray_bitmap_bits;
+
+/* Defined in xterm.c.  */
+extern int x_alloc_nearest_color_for_widget __P ((Widget, Colormap, XColor*));
+extern int x_alloc_lighter_color_for_widget __P ((Widget, Display*, Colormap,
+						  unsigned long *,
+						  double, int));
+extern int x_catch_errors __P ((Display*));
+extern int x_uncatch_errors __P ((Display*, int));
+extern int x_had_errors_p __P ((Display*));
+extern int x_clear_errors __P ((Display*));
+extern unsigned long x_copy_dpy_color __P ((Display *, Colormap,
+					    unsigned long));
+
+/* Defined in xfaces.c.  */
+extern void x_free_dpy_colors __P ((Display *, Screen *, Colormap,
+				    unsigned long *pixels, int npixels));
+#else /* not emacs */
+
+#include <X11/bitmaps/gray>
+#define gray_bitmap_width	gray_width
+#define gray_bitmap_height	gray_height
+#define gray_bitmap_bits	gray_bits
+
+#endif /* not emacs */
 
 static int pointer_grabbed;
 static XEvent menu_post_event;
 
 XFontStruct *xlwmenu_default_font;
 
-static char 
-xlwMenuTranslations [] = 
+static char
+xlwMenuTranslations [] =
 "<BtnDown>:	  start()\n\
 <Motion>:	  drag()\n\
 <BtnUp>:	  select()\n\
@@ -74,9 +117,9 @@ xlwMenuTranslations [] =
 ";
 
 #define offset(field) XtOffset(XlwMenuWidget, field)
-static XtResource 
+static XtResource
 xlwMenuResources[] =
-{ 
+{
   {XtNfont,  XtCFont, XtRFontStruct, sizeof(XFontStruct *),
      offset(menu.font),XtRString, "XtDefaultFont"},
   {XtNforeground, XtCForeground, XtRPixel, sizeof(Pixel),
@@ -84,7 +127,7 @@ xlwMenuResources[] =
   {XtNbuttonForeground, XtCButtonForeground, XtRPixel, sizeof(Pixel),
      offset(menu.button_foreground), XtRString, "XtDefaultForeground"},
   {XtNmargin, XtCMargin, XtRDimension,  sizeof(Dimension),
-     offset(menu.margin), XtRImmediate, (XtPointer)0},
+     offset(menu.margin), XtRImmediate, (XtPointer) 4},
   {XtNhorizontalSpacing, XtCMargin, XtRDimension,  sizeof(Dimension),
      offset(menu.horizontal_spacing), XtRImmediate, (XtPointer)3},
   {XtNverticalSpacing, XtCMargin, XtRDimension,  sizeof(Dimension),
@@ -104,10 +147,12 @@ xlwMenuResources[] =
   {XmNbottomShadowPixmap, XmCBottomShadowPixmap, XtRPixmap, sizeof (Pixmap),
      offset (menu.bottom_shadow_pixmap), XtRImmediate, (XtPointer)None},
 
-  {XtNopen, XtCCallback, XtRCallback, sizeof(XtPointer), 
+  {XtNopen, XtCCallback, XtRCallback, sizeof(XtPointer),
      offset(menu.open), XtRCallback, (XtPointer)NULL},
-  {XtNselect, XtCCallback, XtRCallback, sizeof(XtPointer), 
+  {XtNselect, XtCCallback, XtRCallback, sizeof(XtPointer),
      offset(menu.select), XtRCallback, (XtPointer)NULL},
+  {XtNhighlightCallback, XtCCallback, XtRCallback, sizeof(XtPointer),
+     offset(menu.highlight), XtRCallback, (XtPointer)NULL},
   {XtNmenu, XtCMenu, XtRPointer, sizeof(XtPointer),
      offset(menu.contents), XtRImmediate, (XtPointer)NULL},
   {XtNcursor, XtCCursor, XtRCursor, sizeof(Cursor),
@@ -130,8 +175,9 @@ static void Drag();
 static void Select();
 static void Key();
 static void Nothing();
+static int separator_height ();
 
-static XtActionsRec 
+static XtActionsRec
 xlwMenuActionsList [] =
 {
   {"start",		Start},
@@ -146,7 +192,7 @@ xlwMenuActionsList [] =
 XlwMenuClassRec xlwMenuClassRec =
 {
   {  /* CoreClass fields initialization */
-    (WidgetClass) SuperClass,		/* superclass		  */	
+    (WidgetClass) SuperClass,		/* superclass		  */
     "XlwMenu",				/* class_name		  */
     sizeof(XlwMenuRec),			/* size			  */
     XlwMenuClassInitialize,		/* class_initialize	  */
@@ -191,6 +237,20 @@ int submenu_destroyed;
 static int next_release_must_exit;
 
 /* Utilities */
+
+
+/* Like abort, but remove grabs from widget W before.  */
+
+static void
+abort_gracefully (w)
+     Widget w;
+{
+  if (XtIsShell (XtParent (w)))
+    XtRemoveGrab (w);
+  XtUngrabPointer (w, CurrentTime);
+  abort ();
+}
+
 static void
 push_new_stack (mw, val)
      XlwMenuWidget mw;
@@ -246,15 +306,6 @@ make_old_stack_space (mw, n)
 }
 
 /* Size code */
-static Boolean
-all_dashes_p (s)
-     char *s;
-{
-  char* p;
-  for (p = s; *p == '-'; p++);
-  return !*p;
-}
-
 int
 string_width (mw, s)
      XlwMenuWidget mw;
@@ -262,7 +313,7 @@ string_width (mw, s)
 {
   XCharStruct xcs;
   int drop;
-  
+
   XTextExtents (mw->menu.font, s, strlen (s), &drop, &drop, &drop, &xcs);
   return xcs.width;
 }
@@ -271,12 +322,32 @@ static int
 arrow_width (mw)
      XlwMenuWidget mw;
 {
-  return mw->menu.font->ascent / 2 | 1;
+  return (mw->menu.font->ascent * 3/4) | 1;
 }
+
+/* Return the width of toggle buttons of widget MW.  */
+
+static int
+toggle_button_width (mw)
+     XlwMenuWidget mw;
+{
+  return ((mw->menu.font->ascent + mw->menu.font->descent) * 2 / 3) | 1;
+}
+
+
+/* Return the width of radio buttons of widget MW.  */
+
+static int
+radio_button_width (mw)
+     XlwMenuWidget mw;
+{
+  return toggle_button_width (mw) * 1.41;
+}
+
 
 static XtResource
 nameResource[] =
-{ 
+{
   {"labelString",  "LabelString", XtRString, sizeof(String),
      0, XtRImmediate, 0},
 };
@@ -320,38 +391,52 @@ resource_widget_value (mw, val)
 
 /* Returns the sizes of an item */
 static void
-size_menu_item (mw, val, horizontal_p, label_width, rest_width, height)
+size_menu_item (mw, val, horizontal_p, label_width, rest_width, button_width,
+		height)
      XlwMenuWidget mw;
      widget_value* val;
      int horizontal_p;
      int* label_width;
      int* rest_width;
+     int* button_width;
      int* height;
 {
-  if (all_dashes_p (val->name))
+  enum menu_separator separator;
+
+  if (lw_separator_p (val->name, &separator, 0))
     {
-      *height = 2;
+      *height = separator_height (separator);
       *label_width = 1;
       *rest_width = 0;
+      *button_width = 0;
     }
   else
     {
       *height =
 	mw->menu.font->ascent + mw->menu.font->descent
 	  + 2 * mw->menu.vertical_spacing + 2 * mw->menu.shadow_thickness;
-      
+
       *label_width =
 	string_width (mw, resource_widget_value (mw, val))
 	  + mw->menu.horizontal_spacing + mw->menu.shadow_thickness;
-      
+
       *rest_width =  mw->menu.horizontal_spacing + mw->menu.shadow_thickness;
       if (!horizontal_p)
 	{
 	  if (val->contents)
+	    /* Add width of the arrow displayed for submenus.  */
 	    *rest_width += arrow_width (mw) + mw->menu.arrow_spacing;
 	  else if (val->key)
-	    *rest_width +=
-	      string_width (mw, val->key) + mw->menu.arrow_spacing;
+	    /* Add width of key equivalent string.  */
+	    *rest_width += (string_width (mw, val->key)
+			    + mw->menu.arrow_spacing);
+
+	  if (val->button_type == BUTTON_TYPE_TOGGLE)
+	    *button_width = (toggle_button_width (mw)
+			     + mw->menu.horizontal_spacing);
+	  else if (val->button_type == BUTTON_TYPE_RADIO)
+	    *button_width = (radio_button_width (mw)
+			     + mw->menu.horizontal_spacing);
 	}
     }
 }
@@ -363,24 +448,27 @@ size_menu (mw, level)
 {
   unsigned int  label_width = 0;
   int		rest_width = 0;
+  int		button_width = 0;
   int		max_rest_width = 0;
+  int		max_button_width = 0;
   unsigned int  height = 0;
   int		horizontal_p = mw->menu.horizontal && (level == 0);
   widget_value*	val;
   window_state*	ws;
 
   if (level >= mw->menu.old_depth)
-    abort ();
+    abort_gracefully ((Widget) mw);
 
-  ws = &mw->menu.windows [level];  
+  ws = &mw->menu.windows [level];
   ws->width = 0;
   ws->height = 0;
   ws->label_width = 0;
+  ws->button_width = 0;
 
   for (val = mw->menu.old_stack [level]->contents; val; val = val->next)
     {
       size_menu_item (mw, val, horizontal_p, &label_width, &rest_width,
-		      &height);
+		      &button_width, &height);
       if (horizontal_p)
 	{
 	  ws->width += label_width + rest_width;
@@ -393,44 +481,99 @@ size_menu (mw, level)
 	    ws->label_width = label_width;
 	  if (rest_width > max_rest_width)
 	    max_rest_width = rest_width;
+	  if (button_width > max_button_width)
+	    max_button_width = button_width;
 	  ws->height += height;
 	}
     }
-  
+
   if (horizontal_p)
-    ws->label_width = 0;
+    ws->label_width = ws->button_width = 0;
   else
-    ws->width = ws->label_width + max_rest_width;
+    {
+      ws->width = ws->label_width + max_rest_width + max_button_width;
+      ws->button_width = max_button_width;
+    }
 
   ws->width += 2 * mw->menu.shadow_thickness;
   ws->height += 2 * mw->menu.shadow_thickness;
+
+  if (horizontal_p)
+    {
+      ws->width += 2 * mw->menu.margin;
+      ws->height += 2 * mw->menu.margin;
+    }
 }
 
 
 /* Display code */
+
 static void
-draw_arrow (mw, window, gc, x, y, width)
+draw_arrow (mw, window, gc, x, y, width, down_p)
      XlwMenuWidget mw;
      Window window;
      GC gc;
      int x;
      int y;
      int width;
+     int down_p;
 {
-  XPoint points [3];
-  points [0].x = x;
-  points [0].y = y + mw->menu.font->ascent;
-  points [1].x = x;
-  points [1].y = y;
-  points [2].x = x + width;
-  points [2].y = y + mw->menu.font->ascent / 2;
-  
-  XFillPolygon (XtDisplay (mw), window, gc, points, 3, Convex,
-		CoordModeOrigin);
+  Display *dpy = XtDisplay (mw);
+  GC top_gc = mw->menu.shadow_top_gc;
+  GC bottom_gc = mw->menu.shadow_bottom_gc;
+  int thickness = mw->menu.shadow_thickness;
+  int height = width;
+  XPoint pt[10];
+  /* alpha = atan (0.5)
+     factor = (1 + sin (alpha)) / cos (alpha) */
+  double factor = 1.62;
+  int thickness2 = thickness * factor;
+
+  y += (mw->menu.font->ascent + mw->menu.font->descent - height) / 2;
+
+  if (down_p)
+    {
+      GC temp;
+      temp = top_gc;
+      top_gc = bottom_gc;
+      bottom_gc = temp;
+    }
+
+  pt[0].x = x;
+  pt[0].y = y + height;
+  pt[1].x = x + thickness;
+  pt[1].y = y + height - thickness2;
+  pt[2].x = x + thickness2;
+  pt[2].y = y + thickness2;
+  pt[3].x = x;
+  pt[3].y = y;
+  XFillPolygon (dpy, window, top_gc, pt, 4, Convex, CoordModeOrigin);
+
+  pt[0].x = x;
+  pt[0].y = y;
+  pt[1].x = x + thickness;
+  pt[1].y = y + thickness2;
+  pt[2].x = x + width - thickness2;
+  pt[2].y = y + height / 2;
+  pt[3].x = x + width;
+  pt[3].y = y + height / 2;
+  XFillPolygon (dpy, window, top_gc, pt, 4, Convex, CoordModeOrigin);
+
+  pt[0].x = x;
+  pt[0].y = y + height;
+  pt[1].x = x + thickness;
+  pt[1].y = y + height - thickness2;
+  pt[2].x = x + width - thickness2;
+  pt[2].y = y + height / 2;
+  pt[3].x = x + width;
+  pt[3].y = y + height / 2;
+  XFillPolygon (dpy, window, bottom_gc, pt, 4, Convex, CoordModeOrigin);
 }
 
+
+
 static void
-draw_shadow_rectangle (mw, window, x, y, width, height, erase_p)
+draw_shadow_rectangle (mw, window, x, y, width, height, erase_p, down_p)
      XlwMenuWidget mw;
      Window window;
      int x;
@@ -438,12 +581,22 @@ draw_shadow_rectangle (mw, window, x, y, width, height, erase_p)
      int width;
      int height;
      int erase_p;
+     int down_p;
 {
   Display *dpy = XtDisplay (mw);
   GC top_gc = !erase_p ? mw->menu.shadow_top_gc : mw->menu.background_gc;
   GC bottom_gc = !erase_p ? mw->menu.shadow_bottom_gc : mw->menu.background_gc;
   int thickness = mw->menu.shadow_thickness;
   XPoint points [4];
+
+  if (!erase_p && down_p)
+    {
+      GC temp;
+      temp = top_gc;
+      top_gc = bottom_gc;
+      bottom_gc = temp;
+    }
+
   points [0].x = x;
   points [0].y = y;
   points [1].x = x + width;
@@ -483,11 +636,272 @@ draw_shadow_rectangle (mw, window, x, y, width, height, erase_p)
 }
 
 
-/* Display the menu item and increment where.x and where.y to show how large
-** the menu item was. 
-*/
 static void
-display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute_p)
+draw_shadow_rhombus (mw, window, x, y, width, height, erase_p, down_p)
+     XlwMenuWidget mw;
+     Window window;
+     int x;
+     int y;
+     int width;
+     int height;
+     int erase_p;
+     int down_p;
+{
+  Display *dpy = XtDisplay (mw);
+  GC top_gc = !erase_p ? mw->menu.shadow_top_gc : mw->menu.background_gc;
+  GC bottom_gc = !erase_p ? mw->menu.shadow_bottom_gc : mw->menu.background_gc;
+  int thickness = mw->menu.shadow_thickness;
+  XPoint points [4];
+
+  if (!erase_p && down_p)
+    {
+      GC temp;
+      temp = top_gc;
+      top_gc = bottom_gc;
+      bottom_gc = temp;
+    }
+
+  points [0].x = x;
+  points [0].y = y + height / 2;
+  points [1].x = x + thickness;
+  points [1].y = y + height / 2;
+  points [2].x = x + width / 2;
+  points [2].y = y + thickness;
+  points [3].x = x + width / 2;
+  points [3].y = y;
+  XFillPolygon (dpy, window, top_gc, points, 4, Convex, CoordModeOrigin);
+  points [0].x = x + width / 2;
+  points [0].y = y;
+  points [1].x = x + width / 2;
+  points [1].y = y + thickness;
+  points [2].x = x + width - thickness;
+  points [2].y = y + height / 2;
+  points [3].x = x + width;
+  points [3].y = y + height / 2;
+  XFillPolygon (dpy, window, top_gc, points, 4, Convex, CoordModeOrigin);
+  points [0].x = x;
+  points [0].y = y + height / 2;
+  points [1].x = x + thickness;
+  points [1].y = y + height / 2;
+  points [2].x = x + width / 2;
+  points [2].y = y + height - thickness;
+  points [3].x = x + width / 2;
+  points [3].y = y + height;
+  XFillPolygon (dpy, window, bottom_gc, points, 4, Convex, CoordModeOrigin);
+  points [0].x = x + width / 2;
+  points [0].y = y + height;
+  points [1].x = x + width / 2;
+  points [1].y = y + height - thickness;
+  points [2].x = x + width - thickness;
+  points [2].y = y + height / 2;
+  points [3].x = x + width;
+  points [3].y = y + height / 2;
+  XFillPolygon (dpy, window, bottom_gc, points, 4, Convex, CoordModeOrigin);
+}
+
+
+/* Draw a toggle button on widget MW, X window WINDOW.  X/Y is the
+   top-left corner of the menu item.  SELECTED_P non-zero means the
+   toggle button is selected.  */
+
+static void
+draw_toggle (mw, window, x, y, selected_p)
+     XlwMenuWidget mw;
+     Window window;
+     int x, y, selected_p;
+{
+  int width, height;
+
+  width = toggle_button_width (mw);
+  height = width;
+  x += mw->menu.horizontal_spacing;
+  y += (mw->menu.font->ascent - height) / 2;
+  draw_shadow_rectangle (mw, window, x, y, width, height, False, selected_p);
+}
+
+
+/* Draw a radio button on widget MW, X window WINDOW.  X/Y is the
+   top-left corner of the menu item.  SELECTED_P non-zero means the
+   toggle button is selected.  */
+
+static void
+draw_radio (mw, window, x, y, selected_p)
+     XlwMenuWidget mw;
+     Window window;
+     int x, y, selected_p;
+{
+  int width, height;
+
+  width = radio_button_width (mw);
+  height = width;
+  x += mw->menu.horizontal_spacing;
+  y += (mw->menu.font->ascent - height) / 2;
+  draw_shadow_rhombus (mw, window, x, y, width, height, False, selected_p);
+}
+
+
+/* Draw a menu separator on widget MW, X window WINDOW.  X/Y is the
+   top-left corner of the menu item.  WIDTH is the width of the
+   separator to draw.  TYPE is the separator type.  */
+
+static void
+draw_separator (mw, window, x, y, width, type)
+     XlwMenuWidget mw;
+     Window window;
+     int x, y, width;
+     enum menu_separator type;
+{
+  Display *dpy = XtDisplay (mw);
+  XGCValues xgcv;
+
+  switch (type)
+    {
+    case SEPARATOR_NO_LINE:
+      break;
+
+    case SEPARATOR_SINGLE_LINE:
+      XDrawLine (dpy, window, mw->menu.foreground_gc,
+		 x, y, x + width, y);
+      break;
+
+    case SEPARATOR_DOUBLE_LINE:
+      draw_separator (mw, window, x, y, width, SEPARATOR_SINGLE_LINE);
+      draw_separator (mw, window, x, y + 2, width, SEPARATOR_SINGLE_LINE);
+      break;
+
+    case SEPARATOR_SINGLE_DASHED_LINE:
+      xgcv.line_style = LineOnOffDash;
+      XChangeGC (dpy, mw->menu.foreground_gc, GCLineStyle, &xgcv);
+      XDrawLine (dpy, window, mw->menu.foreground_gc,
+		 x, y, x + width, y);
+      xgcv.line_style = LineSolid;
+      XChangeGC (dpy, mw->menu.foreground_gc, GCLineStyle, &xgcv);
+      break;
+
+    case SEPARATOR_DOUBLE_DASHED_LINE:
+      draw_separator (mw, window, x, y, width,
+		      SEPARATOR_SINGLE_DASHED_LINE);
+      draw_separator (mw, window, x, y + 2, width,
+		      SEPARATOR_SINGLE_DASHED_LINE);
+      break;
+
+    case SEPARATOR_SHADOW_ETCHED_IN:
+      XDrawLine (dpy, window, mw->menu.shadow_bottom_gc,
+		 x, y, x + width, y);
+      XDrawLine (dpy, window, mw->menu.shadow_top_gc,
+		 x, y + 1, x + width, y + 1);
+      break;
+
+    case SEPARATOR_SHADOW_ETCHED_OUT:
+      XDrawLine (dpy, window, mw->menu.shadow_top_gc,
+		 x, y, x + width, y);
+      XDrawLine (dpy, window, mw->menu.shadow_bottom_gc,
+		 x, y + 1, x + width, y + 1);
+      break;
+
+    case SEPARATOR_SHADOW_ETCHED_IN_DASH:
+      xgcv.line_style = LineOnOffDash;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      draw_separator (mw, window, x, y, width, SEPARATOR_SHADOW_ETCHED_IN);
+      xgcv.line_style = LineSolid;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      break;
+
+    case SEPARATOR_SHADOW_ETCHED_OUT_DASH:
+      xgcv.line_style = LineOnOffDash;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      draw_separator (mw, window, x, y, width, SEPARATOR_SHADOW_ETCHED_OUT);
+      xgcv.line_style = LineSolid;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      break;
+
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_IN:
+      draw_separator (mw, window, x, y, width, SEPARATOR_SHADOW_ETCHED_IN);
+      draw_separator (mw, window, x, y + 3, width, SEPARATOR_SHADOW_ETCHED_IN);
+      break;
+
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT:
+      draw_separator (mw, window, x, y, width,
+		      SEPARATOR_SHADOW_ETCHED_OUT);
+      draw_separator (mw, window, x, y + 3, width,
+		      SEPARATOR_SHADOW_ETCHED_OUT);
+      break;
+
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH:
+      xgcv.line_style = LineOnOffDash;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      draw_separator (mw, window, x, y, width,
+		      SEPARATOR_SHADOW_DOUBLE_ETCHED_IN);
+      xgcv.line_style = LineSolid;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      break;
+
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH:
+      xgcv.line_style = LineOnOffDash;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      draw_separator (mw, window, x, y, width,
+		      SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT);
+      xgcv.line_style = LineSolid;
+      XChangeGC (dpy, mw->menu.shadow_bottom_gc, GCLineStyle, &xgcv);
+      XChangeGC (dpy, mw->menu.shadow_top_gc, GCLineStyle, &xgcv);
+      break;
+
+    default:
+      abort ();
+    }
+}
+
+
+/* Return the pixel height of menu separator SEPARATOR.  */
+
+static int
+separator_height (separator)
+     enum menu_separator separator;
+{
+  switch (separator)
+    {
+    case SEPARATOR_NO_LINE:
+      return 2;
+
+    case SEPARATOR_SINGLE_LINE:
+    case SEPARATOR_SINGLE_DASHED_LINE:
+      return 1;
+
+    case SEPARATOR_DOUBLE_LINE:
+    case SEPARATOR_DOUBLE_DASHED_LINE:
+      return 3;
+
+    case SEPARATOR_SHADOW_ETCHED_IN:
+    case SEPARATOR_SHADOW_ETCHED_OUT:
+    case SEPARATOR_SHADOW_ETCHED_IN_DASH:
+    case SEPARATOR_SHADOW_ETCHED_OUT_DASH:
+      return 2;
+
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_IN:
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT:
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH:
+    case SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH:
+      return 5;
+
+    default:
+      abort ();
+    }
+}
+
+
+/* Display the menu item and increment where.x and where.y to show how large
+   the menu item was.  */
+
+static void
+display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p,
+		   just_compute_p)
      XlwMenuWidget mw;
      widget_value* val;
      window_state* ws;
@@ -501,17 +915,20 @@ display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute
   int font_ascent = mw->menu.font->ascent;
   int font_descent = mw->menu.font->descent;
   int shadow = mw->menu.shadow_thickness;
-  int separator_p = all_dashes_p (val->name);
+  int margin = mw->menu.margin;
   int h_spacing = mw->menu.horizontal_spacing;
   int v_spacing = mw->menu.vertical_spacing;
   int label_width;
   int rest_width;
+  int button_width;
   int height;
   int width;
-  int button_p;
+  enum menu_separator separator;
+  int separator_p = lw_separator_p (val->name, &separator, 0);
 
   /* compute the sizes of the item */
-  size_menu_item (mw, val, horizontal_p, &label_width, &rest_width, &height);
+  size_menu_item (mw, val, horizontal_p, &label_width, &rest_width,
+		  &button_width, &height);
 
   if (horizontal_p)
     width = label_width + rest_width;
@@ -520,12 +937,6 @@ display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute
       label_width = ws->label_width;
       width = ws->width - 2 * shadow;
     }
-
-#if 0
-  /* see if it should be a button in the menubar */
-  button_p = horizontal_p && val->call_data;
-#endif
-  button_p = 0;
 
   /* Only highlight an enabled item that has a callback. */
   if (highlighted_p)
@@ -539,26 +950,29 @@ display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute
       int x = where->x + shadow;
       int y = where->y + shadow;
 
+      if (horizontal_p)
+	{
+	  x += margin;
+	  y += margin;
+	}
+
       /* pick the foreground and background GC. */
       if (val->enabled)
-	text_gc = button_p ? mw->menu.button_gc : mw->menu.foreground_gc;
+	text_gc = mw->menu.foreground_gc;
       else
-	text_gc =
-	  button_p ? mw->menu.inactive_button_gc : mw->menu.inactive_gc;
+	text_gc = mw->menu.inactive_gc;
       deco_gc = mw->menu.foreground_gc;
 
       if (separator_p)
 	{
-	  XDrawLine (XtDisplay (mw), ws->window, mw->menu.shadow_bottom_gc,
-		     x, y, x + width, y);
-	  XDrawLine (XtDisplay (mw), ws->window, mw->menu.shadow_top_gc,
-		     x, y + 1, x + width, y + 1);
+	  draw_separator (mw, ws->window, x, y, width, separator);
 	}
-      else 
+      else
 	{
 	  int x_offset = x + h_spacing + shadow;
 	  char* display_string = resource_widget_value (mw, val);
-	  draw_shadow_rectangle (mw, ws->window, x, y, width, height, True);
+	  draw_shadow_rectangle (mw, ws->window, x, y, width, height, True,
+				 False);
 
 	  /* Deal with centering a menu title. */
 	  if (!horizontal_p && !val->contents && !val->call_data)
@@ -568,20 +982,32 @@ display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute
 	      if (width > l)
 		x_offset = (width - l) >> 1;
 	    }
+	  else if (!horizontal_p && ws->button_width)
+	    x_offset += ws->button_width;
+
+
           XDrawString (XtDisplay (mw), ws->window, text_gc, x_offset,
 		       y + v_spacing + shadow + font_ascent,
 		       display_string, strlen (display_string));
-	  
+
 	  if (!horizontal_p)
 	    {
+	      if (val->button_type == BUTTON_TYPE_TOGGLE)
+		draw_toggle (mw, ws->window, x, y + v_spacing + shadow,
+			     val->selected);
+	      else if (val->button_type == BUTTON_TYPE_RADIO)
+		draw_radio (mw, ws->window, x, y + v_spacing + shadow,
+			    val->selected);
+
 	      if (val->contents)
 		{
 		  int a_w = arrow_width (mw);
 		  draw_arrow (mw, ws->window, deco_gc,
-			      x + width - arrow_width (mw)
-			      - mw->menu.horizontal_spacing 
+			      x + width - a_w
+			      - mw->menu.horizontal_spacing
 			      - mw->menu.shadow_thickness,
-			      y + v_spacing + shadow, a_w);
+			      y + v_spacing + shadow, a_w,
+			      highlighted_p);
 		}
 	      else if (val->key)
 		{
@@ -591,36 +1017,23 @@ display_menu_item (mw, val, ws, where, highlighted_p, horizontal_p, just_compute
 			       val->key, strlen (val->key));
 		}
 	    }
-
-	  else if (button_p)
-	    {
-#if 1
-	      XDrawRectangle (XtDisplay (mw), ws->window, deco_gc,
-			      x + shadow, y + shadow,
-			      label_width + h_spacing - 1,
-			      font_ascent + font_descent + 2 * v_spacing - 1);
-	      draw_shadow_rectangle (mw, ws->window, x, y, width, height,
-				     False);
-#else
-	      highlighted_p = True;
-#endif
-	    }
 	  else
 	    {
-	      XDrawRectangle (XtDisplay (mw), ws->window, 
+	      XDrawRectangle (XtDisplay (mw), ws->window,
 			      mw->menu.background_gc,
 			      x + shadow, y + shadow,
 			      label_width + h_spacing - 1,
 			      font_ascent + font_descent + 2 * v_spacing - 1);
 	      draw_shadow_rectangle (mw, ws->window, x, y, width, height,
-				     True);
+				     True, False);
 	    }
 
 	  if (highlighted_p)
-	    draw_shadow_rectangle (mw, ws->window, x, y, width, height, False);
+	    draw_shadow_rectangle (mw, ws->window, x, y, width, height, False,
+				   False);
 	}
     }
-  
+
   where->x += width;
   where->y += height;
 }
@@ -647,13 +1060,14 @@ display_menu (mw, level, just_compute_p, highlighted_pos, hit, hit_return,
   /* This is set nonzero if the element containing HIGHLIGHTED_POS
      is disabled, so that we do not return any subsequent element either.  */
   int no_return = 0;
+  enum menu_separator separator;
 
   if (level >= mw->menu.old_depth)
-    abort ();
+    abort_gracefully ((Widget) mw);
 
   if (level < mw->menu.old_depth - 1)
     following_item = mw->menu.old_stack [level + 1];
-  else 
+  else
     following_item = NULL;
 
   if (hit)
@@ -673,7 +1087,7 @@ display_menu (mw, level, just_compute_p, highlighted_pos, hit, hit_return,
 	  else
 	    highlighted_pos->y = where.y;
 	}
-      
+
       just_compute_this_one_p =
 	just_compute_p || ((this || that) && val != this &&  val != that);
 
@@ -691,7 +1105,7 @@ display_menu (mw, level, just_compute_p, highlighted_pos, hit, hit_return,
       if (hit
 	  && !*hit_return
 	  && (horizontal_p ? hit->x < where.x : hit->y < where.y)
-	  && !all_dashes_p (val->name)
+	  && !lw_separator_p (val->name, &separator, 0)
 	  && !no_return)
 	{
 	  if (val->enabled)
@@ -705,9 +1119,10 @@ display_menu (mw, level, just_compute_p, highlighted_pos, hit, hit_return,
       else
 	where.x = 0;
     }
-  
+
   if (!just_compute_p)
-    draw_shadow_rectangle (mw, ws->window, 0, 0, ws->width, ws->height, False);
+    draw_shadow_rectangle (mw, ws->window, 0, 0, ws->width, ws->height,
+			   False, False);
 }
 
 /* Motion code */
@@ -718,7 +1133,7 @@ set_new_state (mw, val, level)
      int level;
 {
   int i;
-  
+
   mw->menu.new_depth = 0;
   for (i = 0; i < level; i++)
     push_new_stack (mw, mw->menu.old_stack [i]);
@@ -736,7 +1151,7 @@ make_windows_if_needed (mw, n)
   int mask;
   Window root = RootWindowOfScreen (DefaultScreenOfDisplay (XtDisplay (mw)));
   window_state* windows;
-  
+
   if (mw->menu.windows_length >= n)
     return;
 
@@ -750,7 +1165,7 @@ make_windows_if_needed (mw, n)
   xswa.cursor = mw->menu.cursor_shape;
   mask = CWSaveUnder | CWOverrideRedirect | CWBackPixel | CWBorderPixel
     | CWEventMask | CWCursor;
-  
+
   if (!mw->menu.windows)
     {
       mw->menu.windows =
@@ -780,6 +1195,23 @@ make_windows_if_needed (mw, n)
   }
 }
 
+/* Value is non-zero if WINDOW is part of menu bar widget W.  */
+
+int
+xlwmenu_window_p (w, window)
+     Widget w;
+     Window window;
+{
+  XlwMenuWidget mw = (XlwMenuWidget) w;
+  int i;
+  
+  for (i = 0; i < mw->menu.windows_length; ++i)
+    if (window == mw->menu.windows[i].window)
+      break;
+
+  return i < mw->menu.windows_length;
+}
+
 /* Make the window fit in the screen */
 static void
 fit_to_screen (mw, ws, previous_ws, horizontal_p)
@@ -799,7 +1231,11 @@ fit_to_screen (mw, ws, previous_ws, horizontal_p)
   else if (ws->x + ws->width > screen_width)
     {
       if (!horizontal_p)
-	ws->x = previous_ws->x - ws->width;
+	/* The addition of shadow-thickness for a sub-menu's position is
+	   to reflect a similar adjustment when the menu is displayed to
+	   the right of the invoking menu-item; it makes the sub-menu
+	   look more `attached' to the menu-item.  */
+	ws->x = previous_ws->x - ws->width + mw->menu.shadow_thickness;
       else
 	ws->x = screen_width - ws->width;
       if (ws->x < 0)
@@ -829,7 +1265,7 @@ fit_to_screen (mw, ws, previous_ws, horizontal_p)
 	ws->y = previous_ws->y - ws->height;
       else
 	ws->y = screen_height - ws->height;
-      if (ws->y < 0) 
+      if (ws->y < 0)
         ws->y = 0;
     }
 }
@@ -871,6 +1307,11 @@ remap_menubar (mw)
   if (new_selection && !new_selection->enabled)
     new_selection = NULL;
 
+  /* Call callback when the hightlighted item changes.  */
+  if (old_selection || new_selection)
+    XtCallCallbackList ((Widget)mw, mw->menu.highlight,
+			(XtPointer) new_selection);
+
   /* updates old_state from new_state.  It has to be done now because
      display_menu (called below) uses the old_stack to know what to display. */
   for (i = last_same + 1; i < new_depth; i++)
@@ -889,12 +1330,20 @@ remap_menubar (mw)
       window_state *previous_ws = &windows[i - 1];
       window_state *ws = &windows[i];
 
-      ws->x
-	= previous_ws->x + selection_position.x + mw->menu.shadow_thickness;
+      ws->x = (previous_ws->x + selection_position.x
+	       + mw->menu.shadow_thickness);
+      if (mw->menu.horizontal && i == 1)
+	ws->x += mw->menu.margin;
+
+#if 0
       if (!mw->menu.horizontal || i > 1)
 	ws->x += mw->menu.shadow_thickness;
-      ws->y
-	= previous_ws->y + selection_position.y + mw->menu.shadow_thickness;
+#endif
+
+      ws->y = (previous_ws->y + selection_position.y
+	       + mw->menu.shadow_thickness);
+      if (mw->menu.horizontal && i == 1)
+	ws->y += mw->menu.margin;
 
       size_menu (mw, i);
 
@@ -942,7 +1391,7 @@ map_event_to_widget_value (mw, ev, val, level)
   window_state*	ws;
 
   *val = NULL;
-  
+
   /* Find the window */
   for (i = mw->menu.old_depth - 1; i >= 0; i--)
     {
@@ -974,14 +1423,14 @@ make_drawing_gcs (mw)
   mw->menu.foreground_gc = XtGetGC ((Widget)mw,
 				    GCFont | GCForeground | GCBackground,
 				    &xgcv);
-  
+
   xgcv.font = mw->menu.font->fid;
   xgcv.foreground = mw->menu.button_foreground;
   xgcv.background = mw->core.background_pixel;
   mw->menu.button_gc = XtGetGC ((Widget)mw,
 				GCFont | GCForeground | GCBackground,
 				&xgcv);
-  
+
   xgcv.font = mw->menu.font->fid;
   xgcv.foreground = mw->menu.foreground;
   xgcv.background = mw->core.background_pixel;
@@ -990,7 +1439,7 @@ make_drawing_gcs (mw)
   mw->menu.inactive_gc = XtGetGC ((Widget)mw,
 				  (GCFont | GCForeground | GCBackground
 				   | GCFillStyle | GCStipple), &xgcv);
-  
+
   xgcv.font = mw->menu.font->fid;
   xgcv.foreground = mw->menu.button_foreground;
   xgcv.background = mw->core.background_pixel;
@@ -999,7 +1448,7 @@ make_drawing_gcs (mw)
   mw->menu.inactive_button_gc = XtGetGC ((Widget)mw,
 				  (GCFont | GCForeground | GCBackground
 				   | GCFillStyle | GCStipple), &xgcv);
-  
+
   xgcv.font = mw->menu.font->fid;
   xgcv.foreground = mw->core.background_pixel;
   xgcv.background = mw->menu.foreground;
@@ -1035,27 +1484,43 @@ make_shadow_gcs (mw)
   XGCValues xgcv;
   unsigned long pm = 0;
   Display *dpy = XtDisplay ((Widget) mw);
-  Colormap cmap = DefaultColormapOfScreen (XtScreen ((Widget) mw));
+  Screen *screen = XtScreen ((Widget) mw);
+  Colormap cmap = mw->core.colormap;
   XColor topc, botc;
   int top_frobbed = 0, bottom_frobbed = 0;
 
+  mw->menu.free_top_shadow_color_p = 0;
+  mw->menu.free_bottom_shadow_color_p = 0;
+
   if (mw->menu.top_shadow_color == -1)
     mw->menu.top_shadow_color = mw->core.background_pixel;
+  else
+    mw->menu.top_shadow_color = mw->menu.top_shadow_color;
+
   if (mw->menu.bottom_shadow_color == -1)
     mw->menu.bottom_shadow_color = mw->menu.foreground;
+  else
+    mw->menu.bottom_shadow_color = mw->menu.bottom_shadow_color;
 
   if (mw->menu.top_shadow_color == mw->core.background_pixel ||
       mw->menu.top_shadow_color == mw->menu.foreground)
     {
       topc.pixel = mw->core.background_pixel;
+#ifdef emacs
+      if (x_alloc_lighter_color_for_widget ((Widget) mw, dpy, cmap,
+					    &topc.pixel,
+					    1.2, 0x8000))
+#else
       XQueryColor (dpy, cmap, &topc);
       /* don't overflow/wrap! */
       topc.red   = MINL (65535, topc.red   * 1.2);
       topc.green = MINL (65535, topc.green * 1.2);
       topc.blue  = MINL (65535, topc.blue  * 1.2);
       if (XAllocColor (dpy, cmap, &topc))
+#endif
 	{
 	  mw->menu.top_shadow_color = topc.pixel;
+	  mw->menu.free_top_shadow_color_p = 1;
 	  top_frobbed = 1;
 	}
     }
@@ -1063,33 +1528,48 @@ make_shadow_gcs (mw)
       mw->menu.bottom_shadow_color == mw->core.background_pixel)
     {
       botc.pixel = mw->core.background_pixel;
+#ifdef emacs
+      if (x_alloc_lighter_color_for_widget ((Widget) mw, dpy, cmap,
+					    &botc.pixel,
+					    0.6, 0x4000))
+#else
       XQueryColor (dpy, cmap, &botc);
       botc.red   *= 0.6;
       botc.green *= 0.6;
       botc.blue  *= 0.6;
       if (XAllocColor (dpy, cmap, &botc))
+#endif
 	{
 	  mw->menu.bottom_shadow_color = botc.pixel;
+	  mw->menu.free_bottom_shadow_color_p = 1;
 	  bottom_frobbed = 1;
 	}
     }
 
   if (top_frobbed && bottom_frobbed)
     {
-      int top_avg = ((topc.red / 3) + (topc.green / 3) + (topc.blue / 3));
-      int bot_avg = ((botc.red / 3) + (botc.green / 3) + (botc.blue / 3));
-      if (bot_avg > top_avg)
-	{
-	  Pixel tmp = mw->menu.top_shadow_color;
-	  mw->menu.top_shadow_color = mw->menu.bottom_shadow_color;
-	  mw->menu.bottom_shadow_color = tmp;
-	}
-      else if (topc.pixel == botc.pixel)
+      if (topc.pixel == botc.pixel)
 	{
 	  if (botc.pixel == mw->menu.foreground)
-	    mw->menu.top_shadow_color = mw->core.background_pixel;
+	    {
+	      if (mw->menu.free_top_shadow_color_p)
+		{
+		  x_free_dpy_colors (dpy, screen, cmap,
+				     &mw->menu.top_shadow_color, 1);
+		  mw->menu.free_top_shadow_color_p = 0;
+		}
+	      mw->menu.top_shadow_color = mw->core.background_pixel;
+	    }
 	  else
-	    mw->menu.bottom_shadow_color = mw->menu.foreground;
+	    {
+	      if (mw->menu.free_bottom_shadow_color_p)
+		{
+		  x_free_dpy_colors (dpy, screen, cmap,
+				     &mw->menu.bottom_shadow_color, 1);
+		  mw->menu.free_bottom_shadow_color_p = 0;
+		}
+	      mw->menu.bottom_shadow_color = mw->menu.foreground;
+	    }
 	}
     }
 
@@ -1097,12 +1577,23 @@ make_shadow_gcs (mw)
       mw->menu.top_shadow_color == mw->core.background_pixel)
     {
       mw->menu.top_shadow_pixmap = mw->menu.gray_pixmap;
+      if (mw->menu.free_top_shadow_color_p)
+	{
+	  x_free_dpy_colors (dpy, screen, cmap, &mw->menu.top_shadow_color, 1);
+	  mw->menu.free_top_shadow_color_p = 0;
+	}
       mw->menu.top_shadow_color = mw->menu.foreground;
     }
   if (!mw->menu.bottom_shadow_pixmap &&
       mw->menu.bottom_shadow_color == mw->core.background_pixel)
     {
       mw->menu.bottom_shadow_pixmap = mw->menu.gray_pixmap;
+      if (mw->menu.free_bottom_shadow_color_p)
+	{
+	  x_free_dpy_colors (dpy, screen, cmap,
+			     &mw->menu.bottom_shadow_color, 1);
+	  mw->menu.free_bottom_shadow_color_p = 0;
+	}
       mw->menu.bottom_shadow_color = mw->menu.foreground;
     }
 
@@ -1123,6 +1614,19 @@ static void
 release_shadow_gcs (mw)
      XlwMenuWidget mw;
 {
+  Display *dpy = XtDisplay ((Widget) mw);
+  Screen *screen = XtScreen ((Widget) mw);
+  Colormap cmap = mw->core.colormap;
+  Pixel px[2];
+  int i = 0;
+
+  if (mw->menu.free_top_shadow_color_p)
+    px[i++] = mw->menu.top_shadow_color;
+  if (mw->menu.free_bottom_shadow_color_p)
+    px[i++] = mw->menu.bottom_shadow_color;
+  if (i > 0)
+    x_free_dpy_colors (dpy, screen, cmap, px, i);
+
   XtReleaseGC ((Widget) mw, mw->menu.shadow_top_gc);
   XtReleaseGC ((Widget) mw, mw->menu.shadow_bottom_gc);
 }
@@ -1137,10 +1641,10 @@ XlwMenuInitialize (request, mw, args, num_args)
   /* Get the GCs and the widget size */
   XSetWindowAttributes xswa;
   int mask;
-  
+
   Window window = RootWindowOfScreen (DefaultScreenOfDisplay (XtDisplay (mw)));
   Display* display = XtDisplay (mw);
-  
+
 #if 0
   widget_value *tem = (widget_value *) XtMalloc (sizeof (widget_value));
 
@@ -1152,12 +1656,12 @@ XlwMenuInitialize (request, mw, args, num_args)
 
 /*  mw->menu.cursor = XCreateFontCursor (display, mw->menu.cursor_shape); */
   mw->menu.cursor = mw->menu.cursor_shape;
-  
+
   mw->menu.gray_pixmap
-    = XCreatePixmapFromBitmapData (display, window, gray_bits,
-				   gray_width, gray_height,
+    = XCreatePixmapFromBitmapData (display, window, gray_bitmap_bits,
+				   gray_bitmap_width, gray_bitmap_height,
 				   (unsigned long)1, (unsigned long)0, 1);
-  
+
   /* I don't understand why this ends up 0 sometimes,
      but it does.  This kludge works around it.
      Can anyone find a real fix?   -- rms.  */
@@ -1166,23 +1670,23 @@ XlwMenuInitialize (request, mw, args, num_args)
 
   make_drawing_gcs (mw);
   make_shadow_gcs (mw);
-  
+
   xswa.background_pixel = mw->core.background_pixel;
   xswa.border_pixel = mw->core.border_pixel;
   mask = CWBackPixel | CWBorderPixel;
-  
+
   mw->menu.popped_up = False;
-  
+
   mw->menu.old_depth = 1;
   mw->menu.old_stack = (widget_value**)XtMalloc (sizeof (widget_value*));
   mw->menu.old_stack_length = 1;
   mw->menu.old_stack [0] = mw->menu.contents;
-  
+
   mw->menu.new_depth = 0;
   mw->menu.new_stack = 0;
   mw->menu.new_stack_length = 0;
   push_new_stack (mw, mw->menu.contents);
-  
+
   mw->menu.windows = (window_state*)XtMalloc (sizeof (window_state));
   mw->menu.windows_length = 1;
   mw->menu.windows [0].x = 0;
@@ -1190,7 +1694,7 @@ XlwMenuInitialize (request, mw, args, num_args)
   mw->menu.windows [0].width = 0;
   mw->menu.windows [0].height = 0;
   size_menu (mw, 0);
-  
+
   mw->core.width = mw->menu.windows [0].width;
   mw->core.height = mw->menu.windows [0].height;
 }
@@ -1228,7 +1732,7 @@ XlwMenuRealize (w, valueMask, attributes)
 /* Only the toplevel menubar/popup is a widget so it's the only one that
    receives expose events through Xt.  So we repaint all the other panes
    when receiving an Expose event. */
-static void 
+static void
 XlwMenuRedisplay (w, ev, region)
      Widget w;
      XEvent* ev;
@@ -1249,7 +1753,18 @@ XlwMenuRedisplay (w, ev, region)
     display_menu (mw, i, False, NULL, NULL, NULL, NULL, NULL);
 }
 
-static void 
+
+/* Part of a hack to make the menu redisplay when a tooltip frame
+   over a menu item is unmapped.  */
+
+void
+xlwmenu_redisplay (w)
+     Widget w;
+{
+  XlwMenuRedisplay (w, NULL, None);
+}
+
+static void
 XlwMenuDestroy (w)
      Widget w;
 {
@@ -1300,7 +1815,7 @@ XlwMenuDestroy (w)
     XtFree ((char *) mw->menu.windows);
 }
 
-static Boolean 
+static Boolean
 XlwMenuSetValues (current, request, new)
      Widget current;
      Widget request;
@@ -1327,23 +1842,32 @@ XlwMenuSetValues (current, request, new)
     {
       release_drawing_gcs (newmw);
       make_drawing_gcs (newmw);
+
+      release_shadow_gcs (newmw);
+      /* Cause the shadow colors to be recalculated.  */
+      newmw->menu.top_shadow_color = -1;
+      newmw->menu.bottom_shadow_color = -1;
+      make_shadow_gcs (newmw);
+
       redisplay = True;
-      
-      for (i = 0; i < oldmw->menu.windows_length; i++)
-	{
-	  XSetWindowBackground (XtDisplay (oldmw),
-				oldmw->menu.windows [i].window,
-				newmw->core.background_pixel);
-	  /* clear windows and generate expose events */
-	  XClearArea (XtDisplay (oldmw), oldmw->menu.windows[i].window,
-		      0, 0, 0, 0, True);
-	}
+
+      if (XtIsRealized (current))
+	/* If the menu is currently displayed, change the display.  */
+	for (i = 0; i < oldmw->menu.windows_length; i++)
+	  {
+	    XSetWindowBackground (XtDisplay (oldmw),
+				  oldmw->menu.windows [i].window,
+				  newmw->core.background_pixel);
+	    /* clear windows and generate expose events */
+	    XClearArea (XtDisplay (oldmw), oldmw->menu.windows[i].window,
+			0, 0, 0, 0, True);
+	  }
     }
 
   return redisplay;
 }
 
-static void 
+static void
 XlwMenuResize (w)
      Widget w;
 {
@@ -1378,7 +1902,7 @@ handle_single_motion_event (mw, ev)
   else
     set_new_state (mw, val, level);
   remap_menubar (mw);
-  
+
   /* Sync with the display.  Makes it feel better on X terms. */
   XSync (XtDisplay (mw), False);
 }
@@ -1406,7 +1930,7 @@ handle_motion_event (mw, ev)
     handle_single_motion_event (mw, ev);
 }
 
-static void 
+static void
 Start (w, ev, params, num_params)
      Widget w;
      XEvent *ev;
@@ -1418,7 +1942,7 @@ Start (w, ev, params, num_params)
   if (!mw->menu.popped_up)
     {
       menu_post_event = *ev;
-      pop_up_menu (mw, ev);
+      pop_up_menu (mw, (XButtonPressedEvent*) ev);
     }
   else
     {
@@ -1435,7 +1959,7 @@ Start (w, ev, params, num_params)
     }
 }
 
-static void 
+static void
 Drag (w, ev, params, num_params)
      Widget w;
      XEvent *ev;
@@ -1499,7 +2023,7 @@ Select (w, ev, params, num_params)
 {
   XlwMenuWidget mw = (XlwMenuWidget)w;
   widget_value* selected_item = mw->menu.old_stack [mw->menu.old_depth - 1];
-  
+
   /* If user releases the button quickly, without selecting anything,
      after the initial down-click that brought the menu up,
      do nothing.  */

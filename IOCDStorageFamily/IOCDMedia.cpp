@@ -30,13 +30,13 @@ OSDefineMetaClassAndStructors(IOCDMedia, IOMedia)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Local Functions
 
-static void readCDCompletion(void *   target,
-                             void *   parameter,
-                             IOReturn status,
-                             UInt64   actualByteCount)
+static void storageCompletion(void *   target,
+                              void *   parameter,
+                              IOReturn status,
+                              UInt64   actualByteCount)
 {
     //
-    // Internal completion routine for synchronous version of readCD.
+    // Internal completion routine for synchronous versions of read and write.
     //
 
     if (parameter)  *((UInt64 *)parameter) = actualByteCount;
@@ -91,6 +91,12 @@ void IOCDMedia::read(IOService *          /* client */,
         return;
     }
 
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
     if (_mediaSize < byteStart + buffer->getLength())
     {
         complete(completion, kIOReturnBadArgument);
@@ -99,6 +105,75 @@ void IOCDMedia::read(IOService *          /* client */,
 
     byteStart += _mediaBase;
     getProvider()->readCD( /* client     */ this,
+                           /* byteStart  */ byteStart,
+                           /* buffer     */ buffer,
+                           /* sectorArea */ (CDSectorArea) 0xF8, // (2352 bytes)
+                           /* sectorType */ (CDSectorType) 0x00, // ( all types)
+                           /* completion */ completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOCDMedia::write(IOService *          client,
+                      UInt64               byteStart,
+                      IOMemoryDescriptor * buffer,
+                      IOStorageCompletion  completion)
+{
+    //
+    // Write data into the storage object at the specified byte offset from the
+    // specified buffer, asynchronously.   When the write completes, the caller
+    // will be notified via the specified completion action.
+    //
+    // The buffer will be retained for the duration of the write.
+    //
+    // This method will work even when the media is in the terminated state.
+    //
+
+    if (isInactive())
+    {
+        complete(completion, kIOReturnNoMedia);
+        return;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        complete(completion, kIOReturnNotOpen);
+        return;
+    }
+
+    if (_openReaderWriter != client)           // (instantaneous value, no lock)
+    {
+        complete(completion, kIOReturnNotPrivileged);
+        return;
+    }
+
+    if (_isWritable == 0)
+    {
+        complete(completion, kIOReturnLockedWrite);
+        return;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        complete(completion, kIOReturnUnformattedMedia);
+        return;
+    }
+
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    if (_mediaSize < byteStart + buffer->getLength())
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    byteStart += _mediaBase;
+    getProvider()->writeCD(
+                           /* client     */ this,
                            /* byteStart  */ byteStart,
                            /* buffer     */ buffer,
                            /* sectorArea */ (CDSectorArea) 0xF8, // (2352 bytes)
@@ -125,7 +200,7 @@ IOReturn IOCDMedia::readCD(IOService *          client,
     // This method will work even when the media is in the terminated state.
     //
 
-    IOStorageCompletion	completion;
+    IOStorageCompletion completion;
     IOSyncer *          completionSyncer;
 
     // Initialize the lock we will synchronize against.
@@ -135,7 +210,7 @@ IOReturn IOCDMedia::readCD(IOService *          client,
     // Fill in the completion information for this request.
 
     completion.target    = completionSyncer;
-    completion.action    = readCDCompletion;
+    completion.action    = storageCompletion;
     completion.parameter = actualByteCount;
 
     // Issue the asynchronous read.
@@ -183,6 +258,12 @@ void IOCDMedia::readCD(IOService *          client,
     if (_mediaSize == 0 || _preferredBlockSize == 0)
     {
         complete(completion, kIOReturnUnformattedMedia);
+        return;
+    }
+
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
         return;
     }
 
@@ -300,6 +381,13 @@ IOReturn IOCDMedia::readTOC(IOMemoryDescriptor * buffer,
         return kIOReturnNoMedia;
     }
 
+    if (buffer == 0)
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnBadArgument;
+    }
+
     return getProvider()->readTOC(
                                 /* buffer               */ buffer,
                                 /* format               */ format,
@@ -320,6 +408,13 @@ IOReturn IOCDMedia::readDiscInfo(IOMemoryDescriptor * buffer,
         if (actualByteCount)  *actualByteCount = 0;
 
         return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0)
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnBadArgument;
     }
 
     return getProvider()->readDiscInfo(
@@ -343,6 +438,13 @@ IOReturn IOCDMedia::readTrackInfo(IOMemoryDescriptor *   buffer,
         return kIOReturnNoMedia;
     }
 
+    if (buffer == 0)
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnBadArgument;
+    }
+
     return getProvider()->readTrackInfo(
                                 /* buffer               */ buffer,
                                 /* address              */ address,
@@ -354,11 +456,110 @@ OSMetaClassDefineReservedUsed(IOCDMedia, 4);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOCDMedia, 5);
+void IOCDMedia::writeCD(IOService *          client,
+                        UInt64               byteStart,
+                        IOMemoryDescriptor * buffer,
+                        CDSectorArea         sectorArea,
+                        CDSectorType         sectorType,
+                        IOStorageCompletion  completion)
+{
+    //
+    // Write data into the CD media object at the specified byte offset from the
+    // specified buffer, asynchronously.    When the write completes, the caller
+    // will be notified via the specified completion action.
+    //
+    // The buffer will be retained for the duration of the write.
+    //
+    // This method will work even when the media is in the terminated state.
+    //
+
+    if (isInactive())
+    {
+        complete(completion, kIOReturnNoMedia);
+        return;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        complete(completion, kIOReturnNotOpen);
+        return;
+    }
+
+    if (_openReaderWriter != client)           // (instantaneous value, no lock)
+    {
+        complete(completion, kIOReturnNotPrivileged);
+        return;
+    }
+
+    if (_isWritable == 0)
+    {
+        complete(completion, kIOReturnLockedWrite);
+        return;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        complete(completion, kIOReturnUnformattedMedia);
+        return;
+    }
+
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    byteStart += _mediaBase;
+    getProvider()->writeCD( /* client     */ this,
+                            /* byteStart  */ byteStart,
+                            /* buffer     */ buffer,
+                            /* sectorArea */ sectorArea,
+                            /* sectorType */ sectorType,
+                            /* completion */ completion );
+}
+
+OSMetaClassDefineReservedUsed(IOCDMedia, 5);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOCDMedia, 6);
+IOReturn IOCDMedia::writeCD(IOService *          client,
+                            UInt64               byteStart,
+                            IOMemoryDescriptor * buffer,
+                            CDSectorArea         sectorArea,
+                            CDSectorType         sectorType,
+                            UInt64 *             actualByteCount = 0)
+{
+    //
+    // Write data into the CD media object at the specified byte offset from the
+    // specified buffer, synchronously.    When the write completes, this method
+    // will return to the caller.  The actual byte count field is optional.
+    //
+    // This method will work even when the media is in the terminated state.
+    //
+
+    IOStorageCompletion completion;
+    IOSyncer *          completionSyncer;
+
+    // Initialize the lock we will synchronize against.
+
+    completionSyncer = IOSyncer::create();
+
+    // Fill in the completion information for this request.
+
+    completion.target    = completionSyncer;
+    completion.action    = storageCompletion;
+    completion.parameter = actualByteCount;
+
+    // Issue the asynchronous write.
+
+    writeCD(client, byteStart, buffer, sectorArea, sectorType, completion);
+
+    // Wait for the read to complete.
+
+    return completionSyncer->wait();
+}
+
+OSMetaClassDefineReservedUsed(IOCDMedia, 6);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

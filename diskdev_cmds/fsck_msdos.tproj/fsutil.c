@@ -200,7 +200,7 @@ void
 perror(s)
 	const char *s;
 {
-	pfatal("%s (%s)", s, strerror(errno));
+	pfatal("%s (%s)\n", s, strerror(errno));
 }
 
 #ifdef __APPLE__

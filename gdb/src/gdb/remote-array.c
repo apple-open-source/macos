@@ -1,5 +1,8 @@
 /* Remote debugging interface for Array Tech RAID controller..
-   Copyright 90, 91, 92, 93, 94, 1995, 1998  Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support. Written by Rob Savoye for Cygnus.
 
    This module talks to a debug monitor called 'MONITOR', which
@@ -22,15 +25,12 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
- */
+   Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "gdbcore.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include <ctype.h>
-#include <signal.h>
 #include <sys/types.h>
 #include "gdb_string.h"
 #include "command.h"
@@ -39,35 +39,18 @@
 #include "remote-utils.h"
 #include "inferior.h"
 #include "version.h"
+#include "regcache.h"
 
 extern int baud_rate;
 
 #define ARRAY_PROMPT ">> "
-
-#define SWAP_TARGET_AND_HOST(buffer,len) 				\
-  do									\
-    {									\
-      if (TARGET_BYTE_ORDER != HOST_BYTE_ORDER)				\
-	{								\
-	  char tmp;							\
-	  char *p = (char *)(buffer);					\
-	  char *q = ((char *)(buffer)) + len - 1;		   	\
-	  for (; p < q; p++, q--)				 	\
-	    {								\
-	      tmp = *q;							\
-	      *q = *p;							\
-	      *p = tmp;							\
-	    }								\
-	}								\
-    }									\
-  while (0)
 
 static void debuglogs (int, char *, ...);
 static void array_open ();
 static void array_close ();
 static void array_detach ();
 static void array_attach ();
-static void array_resume ();
+static void array_resume (ptid_t ptid, int step, enum target_signal sig);
 static void array_fetch_register ();
 static void array_store_register ();
 static void array_fetch_registers ();
@@ -79,7 +62,8 @@ static void array_create_inferior ();
 static void array_mourn_inferior ();
 static void make_gdb_packet ();
 static int array_xfer_memory ();
-static int array_wait ();
+static ptid_t array_wait (ptid_t ptid,
+                                 struct target_waitstatus *status);
 static int array_insert_breakpoint ();
 static int array_remove_breakpoint ();
 static int tohex ();
@@ -107,7 +91,7 @@ static int timeout = 30;
  * Descriptor for I/O to remote machine.  Initialize it to NULL so that
  * array_open knows that we don't have a file open when the program starts.
  */
-serial_t array_desc = NULL;
+struct serial *array_desc = NULL;
 
 /*
  * this array of registers need to match the indexes used by GDB. The
@@ -178,7 +162,6 @@ Specify the serial device it is connected to (e.g. /dev/ttya).";
   array_ops.to_thread_alive = 0;
   array_ops.to_stop = 0;
   array_ops.to_pid_to_exec_file = NULL;
-  array_ops.to_core_file_to_sym_file = NULL;
   array_ops.to_stratum = process_stratum;
   array_ops.DONT_USE = 0;
   array_ops.to_has_all_memory = 1;
@@ -209,8 +192,8 @@ printf_monitor (char *pattern,...)
 
   if (strlen (buf) > PBUFSIZ)
     error ("printf_monitor(): string too long");
-  if (SERIAL_WRITE (array_desc, buf, strlen (buf)))
-    fprintf (stderr, "SERIAL_WRITE failed: %s\n", safe_strerror (errno));
+  if (serial_write (array_desc, buf, strlen (buf)))
+    fprintf (stderr, "serial_write failed: %s\n", safe_strerror (errno));
 }
 /*
  * write_monitor -- send raw data to monitor.
@@ -218,8 +201,8 @@ printf_monitor (char *pattern,...)
 static void
 write_monitor (char data[], int len)
 {
-  if (SERIAL_WRITE (array_desc, data, len))
-    fprintf (stderr, "SERIAL_WRITE failed: %s\n", safe_strerror (errno));
+  if (serial_write (array_desc, data, len))
+    fprintf (stderr, "serial_write failed: %s\n", safe_strerror (errno));
 
   *(data + len + 1) = '\0';
   debuglogs (1, "write_monitor(), Sending: \"%s\".", data);
@@ -319,7 +302,7 @@ readchar (int timeout)
 {
   int c;
 
-  c = SERIAL_READCHAR (array_desc, abs (timeout));
+  c = serial_readchar (array_desc, abs (timeout));
 
   if (sr_get_debug () > 5)
     {
@@ -508,22 +491,10 @@ get_hex_word (void)
 
   val = 0;
 
-#if 0
-  if (HOST_BYTE_ORDER == BIG_ENDIAN)
-    {
-#endif
-      for (i = 0; i < 8; i++)
-	val = (val << 4) + get_hex_digit (i == 0);
-#if 0
-    }
-  else
-    {
-      for (i = 7; i >= 0; i--)
-	val = (val << 4) + get_hex_digit (i == 0);
-    }
-#endif
+  for (i = 0; i < 8; i++)
+    val = (val << 4) + get_hex_digit (i == 0);
 
-  debuglogs (4, "get_hex_word() got a 0x%x for a %s host.", val, (HOST_BYTE_ORDER == BIG_ENDIAN) ? "big endian" : "little endian");
+  debuglogs (4, "get_hex_word() got a 0x%x.", val);
 
   return val;
 }
@@ -590,21 +561,21 @@ array_open (char *args, char *name, int from_tty)
   mips_set_processor_type_command ("lsi33k", 0);
 
   strcpy (dev_name, args);
-  array_desc = SERIAL_OPEN (dev_name);
+  array_desc = serial_open (dev_name);
 
   if (array_desc == NULL)
     perror_with_name (dev_name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (array_desc, baud_rate))
+      if (serial_setbaudrate (array_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (array_desc);
+	  serial_close (array_desc);
 	  perror_with_name (name);
 	}
     }
 
-  SERIAL_RAW (array_desc);
+  serial_raw (array_desc);
 
 #if defined (LOG_FILE)
   log_file = fopen (LOG_FILE, "w");
@@ -646,7 +617,7 @@ array_open (char *args, char *name, int from_tty)
 static void
 array_close (int quitting)
 {
-  SERIAL_CLOSE (array_desc);
+  serial_close (array_desc);
   array_desc = NULL;
 
   debuglogs (1, "array_close (quitting=%d)", quitting);
@@ -698,7 +669,7 @@ array_attach (char *args, int from_tty)
  * array_resume -- Tell the remote machine to resume.
  */
 static void
-array_resume (int pid, int step, enum target_signal sig)
+array_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   debuglogs (1, "array_resume (step=%d, sig=%d)", step, sig);
 
@@ -718,13 +689,13 @@ array_resume (int pid, int step, enum target_signal sig)
  * array_wait -- Wait until the remote machine stops, then return,
  *          storing status in status just as `wait' would.
  */
-static int
-array_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+array_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   int old_timeout = timeout;
   int result, i;
   char c;
-  serial_t tty_desc;
+  struct serial *tty_desc;
   serial_ttystate ttystate;
 
   debuglogs (1, "array_wait (), printing extraneous text.");
@@ -735,9 +706,9 @@ array_wait (int pid, struct target_waitstatus *status)
   timeout = 0;			/* Don't time out -- user program is running. */
 
 #if !defined(__GO32__) && !defined(__MSDOS__) && !defined(_WIN32)
-  tty_desc = SERIAL_FDOPEN (0);
-  ttystate = SERIAL_GET_TTY_STATE (tty_desc);
-  SERIAL_RAW (tty_desc);
+  tty_desc = serial_fdopen (0);
+  ttystate = serial_get_tty_state (tty_desc);
+  serial_raw (tty_desc);
 
   i = 0;
   /* poll on the serial port and the keyboard. */
@@ -761,10 +732,10 @@ array_wait (int pid, struct target_waitstatus *status)
 	  fputc_unfiltered (c, gdb_stdout);
 	  gdb_flush (gdb_stdout);
 	}
-      c = SERIAL_READCHAR (tty_desc, timeout);
+      c = serial_readchar (tty_desc, timeout);
       if (c > 0)
 	{
-	  SERIAL_WRITE (array_desc, &c, 1);
+	  serial_write (array_desc, &c, 1);
 	  /* do this so it looks like there's keyboard echo */
 	  if (c == 3)		/* exit on Control-C */
 	    break;
@@ -774,7 +745,7 @@ array_wait (int pid, struct target_waitstatus *status)
 #endif
 	}
     }
-  SERIAL_SET_TTY_STATE (tty_desc, ttystate);
+  serial_set_tty_state (tty_desc, ttystate);
 #else
   expect_prompt (1);
   debuglogs (4, "array_wait(), got the expect_prompt.");
@@ -785,7 +756,7 @@ array_wait (int pid, struct target_waitstatus *status)
 
   timeout = old_timeout;
 
-  return 0;
+  return inferior_ptid;
 }
 
 /*
@@ -795,16 +766,14 @@ array_wait (int pid, struct target_waitstatus *status)
 static void
 array_fetch_registers (int ignored)
 {
-  int regno, i;
+  char *reg = alloca (MAX_REGISTER_RAW_SIZE);
+  int regno;
   char *p;
-  unsigned char packet[PBUFSIZ];
-  char regs[REGISTER_BYTES];
+  char *packet = alloca (PBUFSIZ);
 
   debuglogs (1, "array_fetch_registers (ignored=%d)\n", ignored);
 
   memset (packet, 0, PBUFSIZ);
-  /* Unimplemented registers read as all bits zero.  */
-  memset (regs, 0, REGISTER_BYTES);
   make_gdb_packet (packet, "g");
   if (array_send_packet (packet) == 0)
     error ("Couldn't transmit packet\n");
@@ -816,10 +785,10 @@ array_fetch_registers (int ignored)
     {
       /* supply register stores in target byte order, so swap here */
       /* FIXME: convert from ASCII hex to raw bytes */
-      i = ascii2hexword (packet + (regno * 8));
+      LONGEST i = ascii2hexword (packet + (regno * 8));
       debuglogs (5, "Adding register %d = %x\n", regno, i);
-      SWAP_TARGET_AND_HOST (&i, 4);
-      supply_register (regno, (char *) &i);
+      store_unsigned_integer (&reg, REGISTER_RAW_SIZE (regno), i);
+      supply_register (regno, (char *) &reg);
     }
 }
 
@@ -1026,7 +995,7 @@ array_read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
 static int
 array_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		   struct target_ops *target)
+		   struct mem_attrib *attrib, struct target_ops *target)
 {
   if (write)
     return array_write_inferior_memory (memaddr, myaddr, len);

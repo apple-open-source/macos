@@ -1,4 +1,4 @@
-;;; tex-mode.el --- TeX, LaTeX, and SliTeX mode commands.
+;;; tex-mode.el --- TeX, LaTeX, and SliTeX mode commands
 
 ;; Copyright (C) 1985, 86, 89, 92, 94, 95, 96, 97, 98, 1999
 ;;       Free Software Foundation, Inc.
@@ -26,11 +26,14 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 ;; Pacify the byte-compiler
 (eval-when-compile
   (require 'compare-w)
+  (require 'cl)
   (require 'skeleton))
 
 (require 'shell)
@@ -129,15 +132,15 @@ See the documentation of `tex-command'."
   :version "20.4")
 
 (defvar standard-latex-block-names
-  '("abstract"         "array"            "center"       "description"
-    "displaymath"      "document"         "enumerate"    "eqnarray"
-    "eqnarray*"        "equation"         "figure"       "figure*"
-    "flushleft"        "flushright"       "itemize"      "letter"
-    "list"             "minipage"         "picture"      "quotation"
-    "quote"            "slide"            "sloppypar"    "tabbing"
-    "table"            "table*"           "tabular"      "tabular*"
-    "thebibliography"  "theindex*"        "titlepage"    "trivlist"
-    "verbatim"         "verbatim*"        "verse")
+  '("abstract"		"array"		"center"	"description"
+    "displaymath"	"document"	"enumerate"	"eqnarray"
+    "eqnarray*"		"equation"	"figure"	"figure*"
+    "flushleft"		"flushright"	"itemize"	"letter"
+    "list"		"minipage"	"picture"	"quotation"
+    "quote"		"slide"		"sloppypar"	"tabbing"
+    "table"		"table*"	"tabular"	"tabular*"
+    "thebibliography"	"theindex*"	"titlepage"	"trivlist"
+    "verbatim"		"verbatim*"	"verse"		"math")
   "Standard LaTeX block names.")
 
 ;;;###autoload
@@ -207,7 +210,7 @@ Should show the queue(s) that \\[tex-print] puts jobs on."
   :group 'tex-view)
 
 ;;;###autoload
-(defcustom tex-default-mode 'plain-tex-mode
+(defcustom tex-default-mode 'latex-mode
   "*Mode to enter for a new file that might be either TeX or LaTeX.
 This variable is used when it can't be determined whether the file
 is plain TeX or LaTeX or what because the file contains no commands.
@@ -266,18 +269,53 @@ Should be a simple file name with no extension or directory specification.")
   "File name that \\[tex-print] prints.
 Set by \\[tex-region], \\[tex-buffer], and \\[tex-file].")
 
-(defvar tex-mode-syntax-table nil
+(easy-mmode-defsyntax tex-mode-syntax-table
+  '((?% . "<")
+    (?\n . ">")
+    (?\f . ">")
+    (?\C-@ . "w")
+    (?' . "w")
+    (?@ . "_")
+    (?* . "_")
+    (?\t . " ")
+    (?~ . " ")
+    (?$ . "$$")
+    (?\\ . "/")
+    (?\" . ".")
+    (?& . ".")
+    (?_ . ".")
+    (?^ . "."))
   "Syntax table used while in TeX mode.")
+
+;;;;
+;;;; Imenu support
+;;;;
 
-(defcustom latex-imenu-indent-string "."
+(defcustom latex-imenu-indent-string ". "
   "*String to add repeated in front of nested sectional units for Imenu.
 An alternative value is \" . \", if you use a font with a narrow period."
   :type 'string
   :group 'tex)
 
+(defvar latex-section-alist
+  '(("part" . 0) ("chapter" . 1)
+    ("section" . 2) ("subsection" . 3)
+    ("subsubsection" . 4)
+    ("paragraph" . 5) ("subparagraph" . 6)))
+
+(defvar latex-metasection-list
+  '("documentstyle" "documentclass"
+    "begin{document}" "end{document}"
+    "appendix" "frontmatter" "mainmatter" "backmatter"))
+
 (defun latex-imenu-create-index ()
-  "Generates an alist for imenu from a LaTeX buffer."
-  (let (i0 menu case-fold-search)
+  "Generate an alist for imenu from a LaTeX buffer."
+  (let ((section-regexp
+	 (concat "\\\\" (regexp-opt (mapcar 'car latex-section-alist) t)
+		 "\\*?[ \t]*{"))
+	(metasection-regexp
+	 (concat "\\\\" (regexp-opt latex-metasection-list t)))
+	i0 menu case-fold-search)
     (save-excursion
       ;; Find the top-most level in this file but don't allow it to be
       ;; any deeper than "section" (which is top-level in an article).
@@ -290,64 +328,228 @@ An alternative value is \" . \", if you use a font with a narrow period."
 
       ;; Look for chapters and sections.
       (goto-char (point-min))
-      (while (search-forward-regexp
-	      "\\\\\\(part\\|chapter\\|section\\|subsection\\|\
-subsubsection\\|paragraph\\|subparagraph\\)\\*?[ \t]*{" nil t)
+      (while (search-forward-regexp section-regexp nil t)
 	(let ((start (match-beginning 0))
 	      (here (point))
 	      (i (cdr (assoc (buffer-substring-no-properties
 			      (match-beginning 1)
 			      (match-end 1))
-			     '(("part" . 0) ("chapter" . 1)
-			       ("section" . 2) ("subsection" . 3)
-			       ("subsubsection" . 4)
-			       ("paragraph" . 5) ("subparagraph" . 6))))))
+			     latex-section-alist))))
 	  (backward-char 1)
 	  (condition-case err
 	      (progn
 		;; Using sexps allows some use of matching {...} inside
 		;; titles.
 		(forward-sexp 1)
-		(setq menu
-		      (cons (cons (concat (apply 'concat
-						 (make-list
-						  (max 0 (- i i0))
-						  latex-imenu-indent-string))
-					  (buffer-substring-no-properties
-					   here (1- (point))))
-				  start)
-			    menu))
-		)
+		(push (cons (concat (apply 'concat
+					   (make-list
+					    (max 0 (- i i0))
+					    latex-imenu-indent-string))
+				    (buffer-substring-no-properties
+				     here (1- (point))))
+			    start)
+		      menu))
 	    (error nil))))
 
       ;; Look for included material.
       (goto-char (point-min))
       (while (search-forward-regexp
 	      "\\\\\\(include\\|input\\|verbatiminput\\|bibliography\\)\
-[ \t]*{\\([^}\n]+\\)}"
+\[ \t]*{\\([^}\n]+\\)}"
 	      nil t)
-	(setq menu
-	      (cons (cons (concat "<<" (buffer-substring-no-properties
-					(match-beginning 2)
-					(match-end 2))
-				  (if (= (char-after (match-beginning 1)) ?b)
-				      ".bbl"
-				    ".tex"))
-			  (match-beginning 0))
-		    menu)))
+	(push (cons (concat "<<" (buffer-substring-no-properties
+				  (match-beginning 2)
+				  (match-end 2))
+			    (if (= (char-after (match-beginning 1)) ?b)
+				".bbl"
+			      ".tex"))
+		    (match-beginning 0))
+	      menu))
 
       ;; Look for \frontmatter, \mainmatter, \backmatter, and \appendix.
       (goto-char (point-min))
-      (while (search-forward-regexp
-	      "\\\\\\(frontmatter\\|mainmatter\\|backmatter\\|appendix\\)\\b"
-	      nil t)
-	(setq menu
-	      (cons (cons "--" (match-beginning 0))
-		    menu)))
+      (while (search-forward-regexp metasection-regexp nil t)
+	(push (cons "--" (match-beginning 0)) menu))
 
       ;; Sort in increasing buffer position order.
       (sort menu (function (lambda (a b) (< (cdr a) (cdr b))))))))
+
+;;;;
+;;;; Outline support
+;;;;
 
+(defvar latex-outline-regexp
+  (concat "\\\\"
+	  (regexp-opt (append latex-metasection-list
+			      (mapcar 'car latex-section-alist)) t)))
+
+(defun latex-outline-level ()
+  (if (looking-at latex-outline-regexp)
+      (1+ (or (cdr (assoc (match-string 1) latex-section-alist)) -1))
+    1000))
+
+;;;;
+;;;; Font-Lock support
+;;;;
+
+;(defvar tex-font-lock-keywords
+;  ;; Regexps updated with help from Ulrik Dickow <dickow@nbi.dk>.
+;  '(("\\\\\\(begin\\|end\\|newcommand\\){\\([a-zA-Z0-9\\*]+\\)}"
+;     2 font-lock-function-name-face)
+;    ("\\\\\\(cite\\|label\\|pageref\\|ref\\){\\([^} \t\n]+\\)}"
+;     2 font-lock-constant-face)
+;    ;; It seems a bit dubious to use `bold' and `italic' faces since we might
+;    ;; not be able to display those fonts.
+;    ("{\\\\bf\\([^}]+\\)}" 1 'bold keep)
+;    ("{\\\\\\(em\\|it\\|sl\\)\\([^}]+\\)}" 2 'italic keep)
+;    ("\\\\\\([a-zA-Z@]+\\|.\\)" . font-lock-keyword-face)
+;    ("^[ \t\n]*\\\\def[\\\\@]\\(\\w+\\)" 1 font-lock-function-name-face keep))
+;  ;; Rewritten and extended for LaTeX2e by Ulrik Dickow <dickow@nbi.dk>.
+;  '(("\\\\\\(begin\\|end\\|newcommand\\){\\([a-zA-Z0-9\\*]+\\)}"
+;     2 font-lock-function-name-face)
+;    ("\\\\\\(cite\\|label\\|pageref\\|ref\\){\\([^} \t\n]+\\)}"
+;     2 font-lock-constant-face)
+;    ("^[ \t]*\\\\def\\\\\\(\\(\\w\\|@\\)+\\)" 1 font-lock-function-name-face)
+;    "\\\\\\([a-zA-Z@]+\\|.\\)"
+;    ;; It seems a bit dubious to use `bold' and `italic' faces since we might
+;    ;; not be able to display those fonts.
+;    ;; LaTeX2e: \emph{This is emphasized}.
+;    ("\\\\emph{\\([^}]+\\)}" 1 'italic keep)
+;    ;; LaTeX2e: \textbf{This is bold}, \textit{...}, \textsl{...}
+;    ("\\\\text\\(\\(bf\\)\\|it\\|sl\\){\\([^}]+\\)}"
+;     3 (if (match-beginning 2) 'bold 'italic) keep)
+;    ;; Old-style bf/em/it/sl.  Stop at `\\' and un-escaped `&', for tables.
+;    ("\\\\\\(\\(bf\\)\\|em\\|it\\|sl\\)\\>\\(\\([^}&\\]\\|\\\\[^\\]\\)+\\)"
+;     3 (if (match-beginning 2) 'bold 'italic) keep))
+
+;; Rewritten with the help of Alexandra Bac <abac@welcome.disi.unige.it>.
+(defconst tex-font-lock-keywords-1
+  (eval-when-compile
+    (let* (;; Names of commands whose arg should be fontified as heading, etc.
+	   (headings (regexp-opt
+		      '("title"  "begin" "end" "chapter" "part"
+			"section" "subsection" "subsubsection"
+			"paragraph" "subparagraph" "subsubparagraph"
+			"newcommand" "renewcommand" "newenvironment"
+			"newtheorem")
+		      t))
+	   (variables (regexp-opt
+		       '("newcounter" "newcounter*" "setcounter" "addtocounter"
+			 "setlength" "addtolength" "settowidth")
+		       t))
+	   (includes (regexp-opt
+		      '("input" "include" "includeonly" "bibliography"
+			"epsfig" "psfig" "epsf" "nofiles" "usepackage"
+			"documentstyle" "documentclass" "verbatiminput"
+			"includegraphics" "includegraphics*")
+		      t))
+	   ;; Miscellany.
+	   (slash "\\\\")
+	   (opt " *\\(\\[[^]]*\\] *\\)*")
+	   ;; This would allow highlighting \newcommand\CMD but requires
+	   ;; adapting subgroup numbers below.
+	   ;; (arg "\\(?:{\\(\\(?:[^{}\\]+\\|\\\\.\\|{[^}]*}\\)+\\)\\|\\\\[a-z*]+\\)"))
+	   (arg "{\\(\\(?:[^{}\\]+\\|\\\\.\\|{[^}]*}\\)+\\)"))
+      (list
+       ;; Heading args.
+       (list (concat slash headings "\\*?" opt arg)
+	     ;; If ARG ends up matching too much (if the {} don't match, f.ex)
+	     ;; jit-lock will do funny things: when updating the buffer
+	     ;; the re-highlighting is only done locally so it will just
+	     ;; match the local line, but defer-contextually will
+	     ;; match more lines at a time, so ARG will end up matching
+	     ;; a lot more, which might suddenly include a comment
+	     ;; so you get things highlighted bold when you type them
+	     ;; but they get turned back to normal a little while later
+	     ;; because "there's already a face there".
+	     ;; Using `keep' works around this un-intuitive behavior as well
+	     ;; as improves the behavior in the very rare case where you do
+	     ;; have a comment in ARG.
+	     3 'font-lock-function-name-face 'keep)
+       (list (concat slash "\\(re\\)?newcommand\\** *\\(\\\\[A-Za-z@]+\\)")
+	     2 'font-lock-function-name-face 'keep)
+       ;; Variable args.
+       (list (concat slash variables " *" arg) 2 'font-lock-variable-name-face)
+       ;; Include args.
+       (list (concat slash includes opt arg) 3 'font-lock-builtin-face)
+       ;; Definitions.  I think.
+       '("^[ \t]*\\\\def *\\\\\\(\\(\\w\\|@\\)+\\)"
+	 1 font-lock-function-name-face))))
+  "Subdued expressions to highlight in TeX modes.")
+
+(defconst tex-font-lock-keywords-2
+  (append tex-font-lock-keywords-1
+   (eval-when-compile
+     (let* (;;
+	    ;; Names of commands whose arg should be fontified with fonts.
+	    (bold (regexp-opt '("textbf" "textsc" "textup"
+				"boldsymbol" "pmb") t))
+	    (italic (regexp-opt '("textit" "textsl" "emph") t))
+	    (type (regexp-opt '("texttt" "textmd" "textrm" "textsf") t))
+	    ;;
+	    ;; Names of commands whose arg should be fontified as a citation.
+	    (citations (regexp-opt
+			'("label" "ref" "pageref" "vref" "eqref"
+			  "cite" "nocite" "index" "glossary" "bibitem"
+			  ;; These are text, rather than citations.
+			  ;; "caption" "footnote" "footnotemark" "footnotetext"
+			  )
+			t))
+	    ;;
+	    ;; Names of commands that should be fontified.
+	    (specials (regexp-opt
+		       '("\\" "\\*" ;; "-"
+			 "linebreak" "nolinebreak" "pagebreak" "nopagebreak"
+			 "newline" "newpage" "clearpage" "cleardoublepage"
+			 "displaybreak" "allowdisplaybreaks" "enlargethispage")
+		       t))
+	    (general "\\([a-zA-Z@]+\\**\\|[^ \t\n]\\)")
+	    ;;
+	    ;; Miscellany.
+	    (slash "\\\\")
+	    (opt " *\\(\\[[^]]*\\] *\\)*")
+	    (arg "{\\(\\(?:[^{}\\]+\\|\\\\.\\|{[^}]*}\\)+\\)"))
+       (list
+	;;
+	;; Citation args.
+	(list (concat slash citations opt arg) 3 'font-lock-constant-face)
+	;;
+	;; Text between `` quotes ''.
+	(cons (concat (regexp-opt `("``" "\"<" "\"`" "<<" "«") t)
+		      "[^'\">»]+"	;a bit pessimistic
+		      (regexp-opt `("''" "\">" "\"'" ">>" "»") t))
+	      'font-lock-string-face)
+	;;
+	;; Command names, special and general.
+	(cons (concat slash specials) 'font-lock-warning-face)
+	(concat slash general)
+	;;
+	;; Font environments.  It seems a bit dubious to use `bold' etc. faces
+	;; since we might not be able to display those fonts.
+	(list (concat slash bold " *" arg) 2 '(quote bold) 'append)
+	(list (concat slash italic " *" arg) 2 '(quote italic) 'append)
+	;; (list (concat slash type arg) 2 '(quote bold-italic) 'append)
+	;;
+	;; Old-style bf/em/it/sl.  Stop at `\\' and un-escaped `&', for tables.
+	(list (concat "\\\\\\(\\(bf\\)\\|em\\|it\\|sl\\)\\>"
+		      "\\(\\([^}&\\]\\|\\\\[^\\]\\)+\\)")
+	      3 '(if (match-beginning 2) 'bold 'italic) 'append)))))
+   "Gaudy expressions to highlight in TeX modes.")
+
+(defvar tex-font-lock-keywords tex-font-lock-keywords-1
+  "Default expressions to highlight in TeX modes.")
+
+
+(defface tex-math-face
+  '((t :inherit font-lock-string-face))
+  "Face used to highlight TeX math expressions.")
+(defvar tex-math-face 'tex-math-face)
+
+;; Use string syntax but math face for $...$.
+(defun tex-font-lock-syntactic-face-function (state)
+  (if (nth 3 state) tex-math-face font-lock-comment-face))
+
+
 (defun tex-define-common-keys (keymap)
   "Define the keys that we want defined both in TeX mode and in the TeX shell."
   (define-key keymap "\C-c\C-k" 'tex-kill-job)
@@ -358,57 +560,75 @@ subsubsection\\|paragraph\\|subparagraph\\)\\*?[ \t]*{" nil t)
 
   (define-key keymap [menu-bar tex] (cons "TeX" (make-sparse-keymap "TeX")))
 
-  (define-key keymap [menu-bar tex tex-kill-job] '("Tex Kill" . tex-kill-job))
+  (define-key keymap [menu-bar tex tex-kill-job]
+    '(menu-item "Tex Kill" tex-kill-job :enable (tex-shell-running)))
   (define-key keymap [menu-bar tex tex-recenter-output-buffer]
-    '("Tex Recenter" . tex-recenter-output-buffer))
+    '(menu-item "Tex Recenter" tex-recenter-output-buffer
+                :enable (get-buffer "*tex-shell*")))
   (define-key keymap [menu-bar tex tex-show-print-queue]
     '("Show Print Queue" . tex-show-print-queue))
   (define-key keymap [menu-bar tex tex-alt-print]
-    '("Tex Print (alt printer)" . tex-alt-print))
-  (define-key keymap [menu-bar tex tex-print] '("Tex Print" . tex-print))
-  (define-key keymap [menu-bar tex tex-view] '("Tex View" . tex-view))
-  )
+    '(menu-item "Tex Print (alt printer)" tex-alt-print
+                :enable (stringp tex-print-file)))
+  (define-key keymap [menu-bar tex tex-print]
+    '(menu-item "Tex Print" tex-print :enable (stringp tex-print-file)))
+  (define-key keymap [menu-bar tex tex-view]
+    '(menu-item "Tex View" tex-view :enable (stringp tex-print-file))))
 
-(defvar tex-mode-map nil "Keymap for TeX mode.")
+(defvar tex-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map text-mode-map)
+    (tex-define-common-keys map)
+    (define-key map "\"" 'tex-insert-quote)
+    (define-key map "(" 'skeleton-pair-insert-maybe)
+    (define-key map "{" 'skeleton-pair-insert-maybe)
+    (define-key map "[" 'skeleton-pair-insert-maybe)
+    (define-key map "$" 'skeleton-pair-insert-maybe)
+    (define-key map "\n" 'tex-terminate-paragraph)
+    (define-key map "\t" 'indent-for-tab-command)
+    (define-key map "\M-\r" 'latex-insert-item)
+    (define-key map "\C-c}" 'up-list)
+    (define-key map "\C-c{" 'tex-insert-braces)
+    (define-key map "\C-c\C-r" 'tex-region)
+    (define-key map "\C-c\C-b" 'tex-buffer)
+    (define-key map "\C-c\C-f" 'tex-file)
+    (define-key map "\C-c\C-i" 'tex-bibtex-file)
+    (define-key map "\C-c\C-o" 'tex-latex-block)
+    (define-key map "\C-c\C-e" 'tex-close-latex-block)
+    (define-key map "\C-c\C-u" 'tex-goto-last-unclosed-latex-block)
+    (define-key map "\C-c\C-m" 'tex-feed-input)
+    (define-key map [(control return)] 'tex-feed-input)
+    (define-key map [menu-bar tex tex-bibtex-file]
+      '("BibTeX File" . tex-bibtex-file))
+    (define-key map [menu-bar tex tex-validate-region]
+      '(menu-item "Validate Region" tex-validate-region :enable mark-active))
+    (define-key map [menu-bar tex tex-validate-buffer]
+      '("Validate Buffer" . tex-validate-buffer))
+    (define-key map [menu-bar tex tex-region]
+      '(menu-item "TeX Region" tex-region :enable mark-active))
+    (define-key map [menu-bar tex tex-buffer]
+      '("TeX Buffer" . tex-buffer))
+    (define-key map [menu-bar tex tex-file] '("TeX File" . tex-file))
+    map)
+ "Keymap shared by TeX modes.")
 
-(if tex-mode-map
-    nil
-  (setq tex-mode-map (make-sparse-keymap))
-  (tex-define-common-keys tex-mode-map)
-  (define-key tex-mode-map "\"" 'tex-insert-quote)
-  (define-key tex-mode-map "\n" 'tex-terminate-paragraph)
-  (define-key tex-mode-map "\C-c}" 'up-list)
-  (define-key tex-mode-map "\C-c{" 'tex-insert-braces)
-  (define-key tex-mode-map "\C-c\C-r" 'tex-region)
-  (define-key tex-mode-map "\C-c\C-b" 'tex-buffer)
-  (define-key tex-mode-map "\C-c\C-f" 'tex-file)
-  (define-key tex-mode-map "\C-c\C-i" 'tex-bibtex-file)
-  (define-key tex-mode-map "\C-c\C-o" 'tex-latex-block)
-  (define-key tex-mode-map "\C-c\C-e" 'tex-close-latex-block)
-  (define-key tex-mode-map "\C-c\C-u" 'tex-goto-last-unclosed-latex-block)
-  (define-key tex-mode-map "\C-c\C-m" 'tex-feed-input)
-  (define-key tex-mode-map [(control return)] 'tex-feed-input)
-  (define-key tex-mode-map [menu-bar tex tex-bibtex-file]
-    '("BibTeX File" . tex-bibtex-file))
-  (define-key tex-mode-map [menu-bar tex tex-validate-region]
-    '("Validate Region" . tex-validate-region))
-  (define-key tex-mode-map [menu-bar tex tex-validate-buffer]
-    '("Validate Buffer" . tex-validate-buffer))
-  (define-key tex-mode-map [menu-bar tex tex-region]
-    '("TeX Region" . tex-region))
-  (define-key tex-mode-map [menu-bar tex tex-buffer]
-    '("TeX Buffer" . tex-buffer))
-  (define-key tex-mode-map [menu-bar tex tex-file] '("TeX File" . tex-file)))
+(defvar latex-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map tex-mode-map)
+    map)
+  "Keymap for `latex-mode'.  See also `tex-mode-map'.")
 
-(put 'tex-region 'menu-enable 'mark-active)
-(put 'tex-validate-region 'menu-enable 'mark-active)
-(put 'tex-print 'menu-enable '(stringp tex-print-file))
-(put 'tex-alt-print 'menu-enable '(stringp tex-print-file))
-(put 'tex-view 'menu-enable '(stringp tex-print-file))
-(put 'tex-recenter-output-buffer 'menu-enable '(get-buffer "*tex-shell*"))
-(put 'tex-kill-job 'menu-enable '(tex-shell-running))
+(defvar plain-tex-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map tex-mode-map)
+    map)
+  "Keymap for `plain-tex-mode'.  See also `tex-mode-map'.")
 
-(defvar tex-shell-map nil
+(defvar tex-shell-map
+  (let ((m (make-sparse-keymap)))
+    (set-keymap-parent m shell-mode-map)
+    (tex-define-common-keys m)
+    m)
   "Keymap for the TeX shell.
 Inherits `shell-mode-map' with a few additions.")
 
@@ -425,8 +645,8 @@ Inherits `shell-mode-map' with a few additions.")
     ,@tex-face-alist)
   "Alist of face and LaTeX font name for facemenu.")
 
-;;; This would be a lot simpler if we just used a regexp search,
-;;; but then it would be too slow.
+;; This would be a lot simpler if we just used a regexp search,
+;; but then it would be too slow.
 ;;;###autoload
 (defun tex-mode ()
   "Major mode for editing files of input for TeX, LaTeX, or SliTeX.
@@ -436,7 +656,7 @@ this file is for plain TeX, LaTeX, or SliTeX and calls `plain-tex-mode',
 such as if there are no commands in the file, the value of `tex-default-mode'
 says which mode to use."
   (interactive)
-  (let (mode slash comment)
+  (let ((mode tex-default-mode) slash comment)
     (save-excursion
       (goto-char (point-min))
       (while (and (setq slash (search-forward "\\" nil t))
@@ -444,15 +664,20 @@ says which mode to use."
 				  (save-excursion
 				    (beginning-of-line)
 				    (search-forward "%" search-end t))))))
-      (if (and slash (not comment))
-	  (setq mode (if (looking-at "documentstyle\\|documentclass\\|begin\\b\\|NeedsTeXFormat{LaTeX")
-                         (if (looking-at
-			      "document\\(style\\|class\\)\\(\\[.*\\]\\)?{slides}")
-                             'slitex-mode
-                           'latex-mode)
-		       'plain-tex-mode))))
-    (if mode (funcall mode)
-      (funcall tex-default-mode))))
+      (when (and slash (not comment))
+	(setq mode
+	      (if (looking-at
+		   (eval-when-compile
+		     (concat
+		      (regexp-opt '("documentstyle" "documentclass"
+				    "begin" "section" "part" "chapter") 'words)
+		      "\\|NeedsTeXFormat{LaTeX")))
+		  (if (looking-at
+		       "document\\(style\\|class\\)\\(\\[.*\\]\\)?{slides}")
+		      'slitex-mode
+		    'latex-mode)
+		'plain-tex-mode))))
+    (funcall mode)))
 
 ;;;###autoload
 (defalias 'TeX-mode 'tex-mode)
@@ -462,7 +687,7 @@ says which mode to use."
 (defalias 'LaTeX-mode 'latex-mode)
 
 ;;;###autoload
-(defun plain-tex-mode ()
+(define-derived-mode plain-tex-mode text-mode "TeX"
   "Major mode for editing files of input for plain TeX.
 Makes $ and } display the characters they match.
 Makes \" insert `` when it seems to be the beginning of a quotation,
@@ -480,7 +705,7 @@ Use \\[tex-validate-buffer] to check buffer for paragraphs containing
 mismatched $'s or braces.
 
 Special commands:
-\\{tex-mode-map}
+\\{plain-tex-mode-map}
 
 Mode variables:
 tex-run-command
@@ -502,19 +727,15 @@ tex-show-queue-command
 Entering Plain-tex mode runs the hook `text-mode-hook', then the hook
 `tex-mode-hook', and finally the hook `plain-tex-mode-hook'.  When the
 special subshell is initiated, the hook `tex-shell-hook' is run."
-
-  (interactive)
   (tex-common-initialization)
-  (setq mode-name "TeX")
-  (setq major-mode 'plain-tex-mode)
   (setq tex-command tex-run-command)
   (setq tex-start-of-header "%\\*\\*start of header")
   (setq tex-end-of-header "%\\*\\*end of header")
   (setq tex-trailer "\\bye\n")
-  (run-hooks 'text-mode-hook 'tex-mode-hook 'plain-tex-mode-hook))
+  (run-hooks 'tex-mode-hook))
 
 ;;;###autoload
-(defun latex-mode ()
+(define-derived-mode latex-mode text-mode "LaTeX"
   "Major mode for editing files of input for LaTeX.
 Makes $ and } display the characters they match.
 Makes \" insert `` when it seems to be the beginning of a quotation,
@@ -532,7 +753,7 @@ Use \\[tex-validate-buffer] to check buffer for paragraphs containing
 mismatched $'s or braces.
 
 Special commands:
-\\{tex-mode-map}
+\\{latex-mode-map}
 
 Mode variables:
 latex-run-command
@@ -554,45 +775,51 @@ tex-show-queue-command
 Entering Latex mode runs the hook `text-mode-hook', then
 `tex-mode-hook', and finally `latex-mode-hook'.  When the special
 subshell is initiated, `tex-shell-hook' is run."
-  (interactive)
   (tex-common-initialization)
-  (setq mode-name "LaTeX")
-  (setq major-mode 'latex-mode)
   (setq tex-command latex-run-command)
-  (setq tex-start-of-header "\\\\documentstyle\\|\\\\documentclass")
-  (setq tex-end-of-header "\\\\begin{document}")
-  (setq tex-trailer "\\end{document}\n")
+  (setq tex-start-of-header "\\\\document\\(style\\|class\\)")
+  (setq tex-end-of-header "\\\\begin\\s-*{document}")
+  (setq tex-trailer "\\end\\s-*{document}\n")
   ;; A line containing just $$ is treated as a paragraph separator.
   ;; A line starting with $$ starts a paragraph,
   ;; but does not separate paragraphs if it has more stuff on it.
-  (setq paragraph-start "[ \t]*$\\|[\f%]\\|[ \t]*\\$\\$\\|\
-\\\\begin\\>\\|\\\\label\\>\\|\\\\end\\>\\|\\\\\\[\\|\\\\\\]\\|\
-\\\\chapter\\>\\|\\\\section\\>\\|\
-\\\\subsection\\>\\|\\\\subsubsection\\>\\|\
-\\\\paragraph\\>\\|\\\\subparagraph\\>\\|\
-\\\\item\\>\\|\\\\bibitem\\>\\|\\\\newline\\>\\|\\\\noindent\\>\\|\
-\\\\[a-z]*space\\>\\|\\\\[a-z]*skip\\>\\|\
-\\\\newpage\\>\\|\\\\[a-z]*page\\|\\\\footnote\\>\\|\
-\\\\marginpar\\>\\|\\\\parbox\\>\\|\\\\caption\\>")
-  (setq paragraph-separate "[ \t]*$\\|[\f%]\\|[ \t]*\\$\\$[ \t]*$\\|\
-\\\\begin\\>\\|\\\\label\\>\\|\\\\end\\>\\|\\\\\\[\\|\\\\\\]\\|\
-\\\\chapter\\>\\|\\\\section\\>\\|\
-\\\\subsection\\>\\|\\\\subsubsection\\>\\|\
-\\\\paragraph\\>\\|\\\\subparagraph\\>\\|\
-\\(\\\\item\\|\\\\bibitem\\|\\\\newline\\|\\\\noindent\\|\
-\\\\[a-z]*space\\|\\\\[a-z]*skip\\|\
-\\\\newpage\\|\\\\[a-z]*page[a-z]*\\|\\\\footnote\\|\
-\\\\marginpar\\|\\\\parbox\\|\\\\caption\\)[ \t]*\\($\\|%\\)")
-  (make-local-variable 'imenu-create-index-function)
-  (setq imenu-create-index-function 'latex-imenu-create-index)
-  (make-local-variable 'tex-face-alist)
-  (setq tex-face-alist tex-latex-face-alist)
-  (make-local-variable 'fill-nobreak-predicate)
-  (setq fill-nobreak-predicate 'latex-fill-nobreak-predicate)
-  (run-hooks 'text-mode-hook 'tex-mode-hook 'latex-mode-hook))
+  (setq paragraph-start
+	(concat "[\f%]\\|[ \t]*\\($\\|\\$\\$\\|"
+		"\\\\[][]\\|"
+		"\\\\" (regexp-opt (append
+				    (mapcar 'car latex-section-alist)
+				    '("begin" "label" "end"
+				      "item" "bibitem" "newline" "noindent"
+				      "newpage" "footnote" "marginpar"
+				      "parbox" "caption")) t)
+		"\\>\\|\\\\[a-z]*" (regexp-opt '("space" "skip" "page") t)
+		"\\>\\)"))
+  (setq paragraph-separate
+	(concat "[\f%]\\|[ \t]*\\($\\|"
+		"\\\\[][]\\|"
+		"\\\\" (regexp-opt (append
+				    (mapcar 'car latex-section-alist)
+				    '("begin" "label" "end" )) t)
+		"\\>\\|\\\\\\(" (regexp-opt '("item" "bibitem" "newline"
+					      "noindent" "newpage" "footnote"
+					      "marginpar" "parbox" "caption"))
+		"\\|\\$\\$\\|[a-z]*\\(space\\|skip\\|page[a-z]*\\)"
+		"\\>\\)[ \t]*\\($\\|%\\)\\)"))
+  (set (make-local-variable 'imenu-create-index-function)
+       'latex-imenu-create-index)
+  (set (make-local-variable 'tex-face-alist) tex-latex-face-alist)
+  (set (make-local-variable 'fill-nobreak-predicate)
+       'latex-fill-nobreak-predicate)
+  (set (make-local-variable 'indent-line-function) 'latex-indent)
+  (set (make-local-variable 'fill-indent-according-to-mode) t)
+  (set (make-local-variable 'outline-regexp) latex-outline-regexp)
+  (set (make-local-variable 'outline-level) 'latex-outline-level)
+  (set (make-local-variable 'forward-sexp-function) 'latex-forward-sexp)
+  (set (make-local-variable 'skeleton-end-hook) nil)
+  (run-hooks 'tex-mode-hook))
 
 ;;;###autoload
-(defun slitex-mode ()
+(define-derived-mode slitex-mode latex-mode "SliTeX"
   "Major mode for editing files of input for SliTeX.
 Makes $ and } display the characters they match.
 Makes \" insert `` when it seems to be the beginning of a quotation,
@@ -610,7 +837,7 @@ Use \\[tex-validate-buffer] to check buffer for paragraphs containing
 mismatched $'s or braces.
 
 Special commands:
-\\{tex-mode-map}
+\\{slitex-mode-map}
 
 Mode variables:
 slitex-run-command
@@ -633,114 +860,47 @@ Entering SliTeX mode runs the hook `text-mode-hook', then the hook
 `tex-mode-hook', then the hook `latex-mode-hook', and finally the hook
 `slitex-mode-hook'.  When the special subshell is initiated, the hook
 `tex-shell-hook' is run."
-  (interactive)
-  (tex-common-initialization)
-  (setq mode-name "SliTeX")
-  (setq major-mode 'slitex-mode)
   (setq tex-command slitex-run-command)
-  (setq tex-start-of-header "\\\\documentstyle{slides}\\|\\\\documentclass{slides}")
-  (setq tex-end-of-header "\\\\begin{document}")
-  (setq tex-trailer "\\end{document}\n")
-  ;; A line containing just $$ is treated as a paragraph separator.
-  ;; A line starting with $$ starts a paragraph,
-  ;; but does not separate paragraphs if it has more stuff on it.
-  (setq paragraph-start "[ \t]*$\\|[\f%]\\|[ \t]*\\$\\$\\|\
-\\\\begin\\>\\|\\\\label\\>\\|\\\\end\\>\\|\\\\\\[\\|\\\\\\]\\|\
-\\\\chapter\\>\\|\\\\section\\>\\|\
-\\\\subsection\\>\\|\\\\subsubsection\\>\\|\
-\\\\paragraph\\>\\|\\\\subparagraph\\>\\|\
-\\\\item\\>\\|\\\\bibitem\\>\\|\\\\newline\\>\\|\\\\noindent\\>\\|\
-\\\\[a-z]*space\\>\\|\\\\[a-z]*skip\\>\\|\
-\\\\newpage\\>\\|\\\\[a-z]*page\\|\\\\footnote\\>\\|\
-\\\\marginpar\\>\\|\\\\parbox\\>\\|\\\\caption\\>")
-  (setq paragraph-separate "[ \t]*$\\|[\f%]\\|[ \t]*\\$\\$[ \t]*$\\|\
-\\\\begin\\>\\|\\\\label\\>\\|\\\\end\\>\\|\\\\\\[\\|\\\\\\]\\|\
-\\\\chapter\\>\\|\\\\section\\>\\|\
-\\\\subsection\\>\\|\\\\subsubsection\\>\\|\
-\\\\paragraph\\>\\|\\\\subparagraph\\>\\|\
-\\\\item[ \t]*$\\|\\\\bibitem[ \t]*$\\|\\\\newline[ \t]*$\\|\\\\noindent[ \t]*$\\|\
-\\\\[a-z]*space[ \t]*$\\|\\\\[a-z]*skip[ \t]*$\\|\
-\\\\newpage[ \t]*$\\|\\\\[a-z]*page[a-z]*[ \t]*$\\|\\\\footnote[ \t]*$\\|\
-\\\\marginpar[ \t]*$\\|\\\\parbox[ \t]*$\\|\\\\caption[ \t]*$")
-  (make-local-variable 'imenu-create-index-function)
-  (setq imenu-create-index-function 'latex-imenu-create-index)
-  (make-local-variable 'tex-face-alist)
-  (setq tex-face-alist tex-latex-face-alist)
-  (make-local-variable 'fill-nobreak-predicate)
-  (setq fill-nobreak-predicate 'latex-fill-nobreak-predicate)
-  (run-hooks
-   'text-mode-hook 'tex-mode-hook 'latex-mode-hook 'slitex-mode-hook))
+  (setq tex-start-of-header "\\\\documentstyle{slides}\\|\\\\documentclass{slides}"))
 
 (defun tex-common-initialization ()
-  (kill-all-local-variables)
-  (use-local-map tex-mode-map)
-  (setq local-abbrev-table text-mode-abbrev-table)
-  (if (null tex-mode-syntax-table)
-      (let ((char 0))
-	(setq tex-mode-syntax-table (make-syntax-table))
-	(set-syntax-table tex-mode-syntax-table)
-	(while (< char ? )
-	  (modify-syntax-entry char ".")
-	  (setq char (1+ char)))
-	(modify-syntax-entry ?\C-@ "w")
-	(modify-syntax-entry ?\t " ")
-	(modify-syntax-entry ?\n ">")
-	(modify-syntax-entry ?\f ">")
-	(modify-syntax-entry ?$ "$$")
-	(modify-syntax-entry ?% "<")
-	(modify-syntax-entry ?\\ "/")
-	(modify-syntax-entry ?\" ".")
-	(modify-syntax-entry ?& ".")
-	(modify-syntax-entry ?_ ".")
-	(modify-syntax-entry ?@ "_")
-	(modify-syntax-entry ?~ " ")
-	(modify-syntax-entry ?' "w"))
-    (set-syntax-table tex-mode-syntax-table))
+  (set-syntax-table tex-mode-syntax-table)
   ;; Regexp isearch should accept newline and formfeed as whitespace.
-  (make-local-variable 'search-whitespace-regexp)
-  (setq search-whitespace-regexp "[ \t\r\n\f]+")
-  (make-local-variable 'paragraph-start)
+  (set (make-local-variable 'search-whitespace-regexp) "[ \t\r\n\f]+")
   ;; A line containing just $$ is treated as a paragraph separator.
-  (setq paragraph-start "[ \t]*$\\|[\f\\\\%]\\|[ \t]*\\$\\$")
-  (make-local-variable 'paragraph-separate)
+  (set (make-local-variable 'paragraph-start)
+       "[ \t]*$\\|[\f\\\\%]\\|[ \t]*\\$\\$")
   ;; A line starting with $$ starts a paragraph,
   ;; but does not separate paragraphs if it has more stuff on it.
-  (setq paragraph-separate "[ \t]*$\\|[\f\\\\%]\\|[ \t]*\\$\\$[ \t]*$")
-  (make-local-variable 'comment-start)
-  (setq comment-start "%")
-  (make-local-variable 'comment-start-skip)
-  (setq comment-start-skip "\\(\\(^\\|[^\\]\\)\\(\\\\\\\\\\)*\\)\\(%+ *\\)")
-  (make-local-variable 'comment-indent-function)
-  (setq comment-indent-function 'tex-comment-indent)
-  (make-local-variable 'parse-sexp-ignore-comments)
-  (setq parse-sexp-ignore-comments t)
-  (make-local-variable 'compare-windows-whitespace)
-  (setq compare-windows-whitespace 'tex-categorize-whitespace)
-  (make-local-variable 'skeleton-further-elements)
-  (setq skeleton-further-elements
-	'((indent-line-function 'indent-relative-maybe)))
-  (make-local-variable 'facemenu-add-face-function)
-  (make-local-variable 'facemenu-end-add-face)
-  (make-local-variable 'facemenu-remove-face-function)
-  (setq facemenu-add-face-function
-	(lambda (face end)
-	  (let ((face-text (cdr (assq face tex-face-alist))))
-	    (if face-text
-		face-text
-	      (error "Face %s not configured for %s mode" face mode-name))))
-	facemenu-end-add-face "}"
-	facemenu-remove-face-function t)
+  (set (make-local-variable 'paragraph-separate)
+	"[ \t]*$\\|[\f\\\\%]\\|[ \t]*\\$\\$[ \t]*$")
+  (set (make-local-variable 'comment-start) "%")
+  (set (make-local-variable 'comment-add) 1)
+  (set (make-local-variable 'comment-start-skip)
+       "\\(\\(^\\|[^\\]\\)\\(\\\\\\\\\\)*\\)\\(%+ *\\)")
+  (set (make-local-variable 'parse-sexp-ignore-comments) t)
+  (set (make-local-variable 'compare-windows-whitespace)
+       'tex-categorize-whitespace)
+  (set (make-local-variable 'facemenu-add-face-function)
+       (lambda (face end)
+	 (let ((face-text (cdr (assq face tex-face-alist))))
+	   (if face-text
+	       face-text
+	     (error "Face %s not configured for %s mode" face mode-name)))))
+  (set (make-local-variable 'facemenu-end-add-face) "}")
+  (set (make-local-variable 'facemenu-remove-face-function) t)
+  (set (make-local-variable 'font-lock-defaults)
+       '((tex-font-lock-keywords
+	  tex-font-lock-keywords-1 tex-font-lock-keywords-2)
+	 nil nil ((?$ . "\"")) nil
+	 ;; Who ever uses that anyway ???
+	 (font-lock-mark-block-function . mark-paragraph)
+	 (font-lock-syntactic-face-function
+	  . tex-font-lock-syntactic-face-function)))
   (make-local-variable 'tex-command)
   (make-local-variable 'tex-start-of-header)
   (make-local-variable 'tex-end-of-header)
   (make-local-variable 'tex-trailer))
-
-(defun tex-comment-indent ()
-  (if (looking-at "%%%")
-      (current-column)
-    (skip-chars-backward " \t")
-    (max (if (bolp) 0 (1+ (current-column)))
-	 comment-column)))
 
 (defun tex-categorize-whitespace (backward-limit)
   ;; compare-windows-whitespace is set to this.
@@ -781,15 +941,9 @@ inserts \" characters."
   (if arg
       (self-insert-command (prefix-numeric-value arg))
     (insert
-     (cond ((or (bobp)
-		(save-excursion
-		  (forward-char -1)
-		  (looking-at "\\s(\\|\\s \\|\\s>")))
-	    tex-open-quote)
-	   ((= (preceding-char) ?\\)
-	    ?\")
-	   (t
-	    tex-close-quote)))))
+     (cond ((= (preceding-char) ?\\) ?\")
+	   ((memq (char-syntax (preceding-char)) '(?\( ?> ?\ )) tex-open-quote)
+	   (t tex-close-quote)))))
 
 (defun tex-validate-buffer ()
   "Check current buffer for paragraphs containing mismatched braces or $s.
@@ -847,15 +1001,14 @@ on the line for the invalidity you want to see."
 		      (forward-char (- start end))
 		      (setq text-beg (point-marker))
 		      (insert (format "%3d: " linenum))
-		      (put-text-property (marker-position text-beg)
-					 (- (marker-position text-end) 1)
-					 'mouse-face 'highlight)
-		      (put-text-property (marker-position text-beg)
-					 (- (marker-position text-end) 1)
+		      (add-text-properties
+		       text-beg (- text-end 1)
+		       '(mouse-face highlight
+			 help-echo "mouse-2: go to this invalidity"))
+		      (put-text-property text-beg (- text-end 1)
 					 'occur tem)))))
 	    (goto-char prev-end))))
-      (save-excursion
-	(set-buffer standard-output)
+      (with-current-buffer standard-output
 	(if (eq num-matches 0)
 	    (insert "None!\n"))
 	(if (interactive-p)
@@ -888,11 +1041,8 @@ area if a mismatch is found."
 	(error
 	 (skip-syntax-forward " .>")
 	 (setq failure-point (point)))))
-    (if failure-point
-	(progn
-	  (goto-char failure-point)
-	  nil)
-      t)))
+    (if failure-point (goto-char failure-point))
+    (not failure-point)))
 
 (defun tex-terminate-paragraph (inhibit-validation)
   "Insert two newlines, breaking a paragraph for TeX.
@@ -931,27 +1081,51 @@ A prefix arg inhibits the checking."
 	    (setq inside t)))))
     inside))
 
-;;; Like tex-insert-braces, but for LaTeX.
+(defvar latex-block-default "enumerate")
+
+;; Like tex-insert-braces, but for LaTeX.
 (define-skeleton tex-latex-block
   "Create a matching pair of lines \\begin[OPT]{NAME} and \\end{NAME} at point.
 Puts point on a blank line between them."
-  (completing-read "LaTeX block name: "
-		   (mapcar 'list
-			   (append standard-latex-block-names
-				   latex-block-names)))
-  "\\begin["
-  (skeleton-read "[options]: ") & ?\] | -1
-  ?\{
-  str
-  ?\} \n
-  _ \n
-  "\\end{" str ?\})
+  (let ((choice (completing-read (format "LaTeX block name [%s]: "
+					 latex-block-default)
+				 (mapcar 'list
+					 (append standard-latex-block-names
+						 latex-block-names))
+				 nil nil nil nil latex-block-default)))
+    (setq latex-block-default choice)
+    (unless (or (member choice standard-latex-block-names)
+		(member choice latex-block-names))
+      ;; Remember new block names for later completion.
+      (push choice latex-block-names))
+    choice)
+  \n "\\begin{" str ?\}
+  ?\[ (skeleton-read "[options]: ") & ?\] | -1
+  > \n _ \n
+  "\\end{" str ?\} > \n)
+
+(define-skeleton latex-insert-item
+  "Insert a \item macro."
+  nil
+  \n "\\item " >)
+
+
+;;;;
+;;;; LaTeX syntax navigation
+;;;;
 
 (defun tex-last-unended-begin ()
   "Leave point at the beginning of the last `\\begin{...}' that is unended."
-  (while (and (re-search-backward "\\(\\\\begin\\s *{\\)\\|\\(\\\\end\\s *{\\)")
-              (looking-at "\\\\end{"))
+  (while (and (re-search-backward "\\\\\\(begin\\|end\\)\\s *{")
+              (looking-at "\\\\end"))
     (tex-last-unended-begin)))
+
+(defun tex-next-unmatched-end ()
+  "Leave point at the end of the next `\\end' that is unended."
+  (while (and (re-search-forward "\\\\\\(begin\\|end\\)\\s *{[^}]+}")
+	      (save-excursion (goto-char (match-beginning 0))
+			      (looking-at "\\\\begin")))
+    (tex-next-unmatched-end)))
 
 (defun tex-goto-last-unclosed-latex-block ()
   "Move point to the last unclosed \\begin{...}.
@@ -965,6 +1139,78 @@ Mark is left at original location."
       (setq spot (point)))
     (push-mark)
     (goto-char spot)))
+
+(defun latex-backward-sexp-1 ()
+  "Like (backward-sexp 1) but aware of multi-char elements."
+  (let ((pos (point))
+	(forward-sexp-function))
+    (backward-sexp 1)
+    (if (looking-at "\\\\begin\\>")
+	(signal 'scan-error
+		(list "Containing expression ends prematurely"
+		      (point) (prog1 (point) (goto-char pos))))
+      (when (eq (char-after) ?{)
+	(let ((newpos (point)))
+	  (when (ignore-errors (backward-sexp 1) t)
+	    (if (looking-at "\\\\end\\>")
+		(tex-last-unended-begin)
+	      (goto-char newpos))))))))
+
+(defun latex-forward-sexp-1 ()
+  "Like (forward-sexp 1) but aware of multi-char elements."
+  (let ((pos (point))
+	(forward-sexp-function))
+    (forward-sexp 1)
+    (let ((newpos (point)))
+      (skip-syntax-backward "/w")
+      (cond
+       ((looking-at "\\\\end\\>")
+	(signal 'scan-error
+		(list "Containing expression ends prematurely"
+		      (point)
+		      (prog1
+			  (progn (ignore-errors (forward-sexp 2)) (point))
+			(goto-char pos)))))
+       ((looking-at "\\\\begin\\>")
+	(goto-char (match-end 0))
+	(tex-next-unmatched-end))
+       (t (goto-char newpos))))))
+
+(defun latex-forward-sexp (&optional arg)
+  "Like `forward-sexp' but aware of multi-char elements."
+  (interactive "P")
+  (unless arg (setq arg 1))
+  (let ((pos (point)))
+    (condition-case err
+	(while (/= arg 0)
+	  (setq arg
+		(if (> arg 0)
+		    (progn (latex-forward-sexp-1) (1- arg))
+		  (progn (latex-backward-sexp-1) (1+ arg)))))
+      (scan-error
+       (goto-char pos)
+       (signal (car err) (cdr err))))))
+
+(defun latex-syntax-after ()
+  "Like (char-syntax (char-after)) but aware of multi-char elements."
+  (if (looking-at "\\\\end\\>") ?\) (char-syntax (following-char))))
+
+(defun latex-skip-close-parens ()
+  "Like (skip-syntax-forward \" )\") but aware of multi-char elements."
+  (let ((forward-sexp-function nil))
+    (while (progn (skip-syntax-forward " )")
+		  (looking-at "\\\\end\\>"))
+      (forward-sexp 2))))
+
+(defun latex-down-list ()
+  "Like (down-list 1) but aware of multi-char elements."
+  (forward-comment (point-max))
+  (let ((forward-sexp-function nil))
+    (if (not (looking-at "\\\\begin\\>"))
+	(down-list 1)
+      (forward-sexp 1)
+      ;; Skip arguments.
+      (while (looking-at "[ \t]*\\s(") (forward-sexp)))))
 
 (defun tex-close-latex-block ()
   "Creates an \\end{...} to match the last unclosed \\begin{...}."
@@ -981,36 +1227,67 @@ Mark is left at original location."
     (indent-to indentation)
     (insert "\\end" text)
     (if new-line-needed (insert ?\n))))
+
+(defconst tex-discount-args-cmds
+  '("begin" "end" "input" "special" "cite" "ref" "include" "includeonly"
+    "documentclass" "usepackage" "label")
+  "TeX commands whose arguments should not be counted as text.")
+
+(defun tex-count-words (begin end)
+  "Count the number of words in the buffer."
+  (interactive
+   (if (and transient-mark-mode mark-active)
+       (list (region-beginning) (region-end))
+     (list (point-min) (point-max))))
+  ;; TODO: skip comments and math and maybe some environments.
+  (save-excursion
+    (goto-char begin)
+    (let ((count 0))
+      (while (and (< (point) end) (re-search-forward "\\<" end t))
+	(if (not (eq (char-syntax (preceding-char)) ?/))
+	    (progn
+	      ;; Don't count single-char words.
+	      (unless (looking-at ".\\>") (incf count))
+	      (forward-char 1))
+	  (let ((cmd
+		 (buffer-substring-no-properties
+		  (point) (progn (when (zerop (skip-chars-forward "a-zA-Z@"))
+				   (forward-char 1))
+				 (point)))))
+	    (when (member cmd tex-discount-args-cmds)
+	      (skip-chars-forward "*")
+	      (forward-comment (point-max))
+	      (when (looking-at "\\[")
+		(forward-sexp 1)
+		(forward-comment (point-max)))
+	      (if (not (looking-at "{"))
+		  (forward-char 1)
+		(forward-sexp 1))))))
+      (message "%s words" count))))
+
+
 
 ;;; Invoking TeX in an inferior shell.
 
-;;; Why use a shell instead of running TeX directly?  Because if TeX
-;;; gets stuck, the user can switch to the shell window and type at it.
+;; Why use a shell instead of running TeX directly?  Because if TeX
+;; gets stuck, the user can switch to the shell window and type at it.
 
-;;; The utility functions:
+;; The utility functions:
+
+(define-derived-mode tex-shell shell-mode "TeX-Shell"
+  (compilation-shell-minor-mode t))
 
 ;;;###autoload
 (defun tex-start-shell ()
-  (save-excursion
-    (set-buffer
-     (make-comint
-      "tex-shell"
-      (or tex-shell-file-name (getenv "ESHELL") (getenv "SHELL") "/bin/sh")
-      nil))
+  (with-current-buffer
+      (make-comint
+       "tex-shell"
+       (or tex-shell-file-name (getenv "ESHELL") shell-file-name)
+       nil)
     (let ((proc (get-process "tex-shell")))
       (set-process-sentinel proc 'tex-shell-sentinel)
       (process-kill-without-query proc)
-      (setq comint-prompt-regexp shell-prompt-pattern)
-      (setq tex-shell-map (nconc (make-sparse-keymap) shell-mode-map))
-      (tex-define-common-keys tex-shell-map)
-      (use-local-map tex-shell-map)
-      (compilation-shell-minor-mode t)
-      (add-hook 'comint-input-filter-functions 'shell-directory-tracker nil t)
-      (make-local-variable 'list-buffers-directory)
-      (make-local-variable 'shell-dirstack)
-      (make-local-variable 'shell-last-dir)
-      (make-local-variable 'shell-dirtrackp)
-      (run-hooks 'tex-shell-hook)
+      (tex-shell)
       (while (zerop (buffer-size))
 	(sleep-for 1)))))
 
@@ -1019,13 +1296,13 @@ Mark is left at original location."
 In the tex buffer this can be used to continue an interactive tex run.
 In the tex shell buffer this command behaves like `comint-send-input'."
   (interactive)
-  (set-buffer (process-buffer (get-process "tex-shell")))
+  (set-buffer (tex-shell-buf))
   (comint-send-input)
   (tex-recenter-output-buffer nil))
 
 (defun tex-display-shell ()
   "Make the TeX shell buffer visible in a window."
-  (display-buffer (process-buffer (get-process "tex-shell")))
+  (display-buffer (tex-shell-buf))
   (tex-recenter-output-buffer nil))
 
 (defun tex-shell-sentinel (proc msg)
@@ -1048,6 +1325,14 @@ In the tex shell buffer this command behaves like `comint-send-input'."
 (defvar tex-send-command-modified-tick 0)
 (make-variable-buffer-local 'tex-send-command-modified-tick)
 
+(defun tex-shell-proc ()
+  (or (tex-shell-running) (error "No TeX subprocess")))
+(defun tex-shell-buf ()
+  (process-buffer (tex-shell-proc)))
+(defun tex-shell-buf-no-error ()
+  (let ((proc (tex-shell-running)))
+    (and proc (process-buffer proc))))
+
 (defun tex-send-command (command &optional file background)
   "Send COMMAND to TeX shell process, substituting optional FILE for *.
 Do this in background if optional BACKGROUND is t.  If COMMAND has no *,
@@ -1058,7 +1343,7 @@ evaluates to a command string.
 Return the process in which TeX is running."
   (save-excursion
     (let* ((cmd (eval command))
-	   (proc (or (get-process "tex-shell") (error "No TeX subprocess")))
+	   (proc (tex-shell-proc))
 	   (buf (process-buffer proc))
            (star (string-match "\\*" cmd))
 	   (string
@@ -1102,10 +1387,54 @@ If NOT-ALL is non-nil, save the `.dvi' file."
 
 (add-hook 'kill-emacs-hook 'tex-delete-last-temp-files)
 
-(defvar tex-start-tex-marker nil
-  "Marker pointing after last TeX-running command in the TeX shell buffer.")
+(defun tex-guess-main-file (&optional all)
+  "Find a likely `tex-main-file'.
+Looks for hints in other buffers in the same directory or in
+ALL other buffers."
+  (let ((dir default-directory)
+	(header-re tex-start-of-header))
+    (catch 'found
+      ;; Look for a buffer with `tex-main-file' set.
+      (dolist (buf (if (consp all) all (buffer-list)))
+	(with-current-buffer buf
+	  (when (and (or all (equal dir default-directory))
+		     (stringp tex-main-file))
+	    (throw 'found (expand-file-name tex-main-file)))))
+      ;; Look for a buffer containing the magic `tex-start-of-header'.
+      (dolist (buf (if (consp all) all (buffer-list)))
+	(with-current-buffer buf
+	  (when (and (or all (equal dir default-directory))
+		     buffer-file-name
+		     ;; (or (easy-mmode-derived-mode-p 'latex-mode)
+		     ;; 	 (easy-mmode-derived-mode-p 'plain-tex-mode))
+		     (save-excursion
+		       (goto-char (point-min))
+		       (re-search-forward header-re 10000 t)))
+	    (throw 'found (expand-file-name buffer-file-name))))))))
 
-(defun tex-start-tex (command file)
+(defun tex-main-file ()
+  "Return the relative name of the main file."
+  (let* ((file (or tex-main-file
+		   ;; Compatibility with AUCTeX.
+		   (and (boundp 'TeX-master) (stringp TeX-master)
+			(set (make-local-variable 'tex-main-file) TeX-master))
+		   ;; Try to guess the main file.
+		   (if (not buffer-file-name)
+		       (error "Buffer is not associated with any file")
+		     (file-relative-name
+		      (if (save-excursion
+			    (goto-char (point-min))
+			    (re-search-forward tex-start-of-header 10000 t))
+			  ;; This is the main file.
+			  buffer-file-name
+			;; This isn't the main file, let's try to find better,
+			(or (tex-guess-main-file)
+			    ;; (tex-guess-main-file t)
+			    buffer-file-name)))))))
+    (if (file-exists-p file) file (concat file ".tex"))))
+
+
+(defun tex-start-tex (command file &optional dir)
   "Start a TeX run, using COMMAND on FILE."
   (let* ((star (string-match "\\*" command))
          (compile-command
@@ -1118,14 +1447,39 @@ If NOT-ALL is non-nil, save the `.dvi' file."
 			(concat
 			 (shell-quote-argument tex-start-options-string) " "))
 		    (comint-quote-filename file)))))
-    (with-current-buffer (process-buffer (tex-send-command compile-command))
-      (save-excursion
-	(forward-line -1)
-	(setq tex-start-tex-marker (point-marker)))
-      (make-local-variable 'compilation-parse-errors-function)
-      (setq compilation-parse-errors-function 'tex-compilation-parse-errors)
-      (compilation-forget-errors))))
+    (tex-send-tex-command compile-command dir)))
+
+(defun tex-send-tex-command (cmd &optional dir)
+  (unless (or (equal dir (let ((buf (tex-shell-buf-no-error)))
+                           (and buf (with-current-buffer buf
+                                      default-directory))))
+	      (not dir))
+    (let (shell-dirtrack-verbose)
+      (tex-send-command tex-shell-cd-command dir)))
+  (with-current-buffer (process-buffer (tex-send-command cmd))
+    (make-local-variable 'compilation-parse-errors-function)
+    (setq compilation-parse-errors-function 'tex-compilation-parse-errors)
+    (setq compilation-last-buffer (current-buffer))
+    (compilation-forget-errors)
+    ;; Don't parse previous compilations.
+    (set-marker compilation-parsing-end (1- (point-max))))
+  (tex-display-shell)
+  (setq tex-last-buffer-texed (current-buffer)))
 
+(defvar tex-error-parse-syntax-table
+  (let ((st (make-syntax-table)))
+    (modify-syntax-entry ?\( "()" st)
+    (modify-syntax-entry ?\) ")(" st)
+    (modify-syntax-entry ?\\ "\\" st)
+    (modify-syntax-entry ?\{ "_" st)
+    (modify-syntax-entry ?\} "_" st)
+    (modify-syntax-entry ?\[ "_" st)
+    (modify-syntax-entry ?\] "_" st)
+    ;; Single quotations may appear in errors
+    (modify-syntax-entry ?\" "_" st)
+    st)
+  "Syntax-table used while parsing TeX error messages.")
+
 (defun tex-compilation-parse-errors (limit-search find-at-least)
   "Parse the current buffer as TeX error messages.
 See the variable `compilation-parse-errors-function' for the interface it uses.
@@ -1139,20 +1493,9 @@ for the error messages."
   (message "Parsing error messages...")
   (let ((default-directory		; Perhaps dir has changed meanwhile.
 	  (file-name-directory (buffer-file-name tex-last-buffer-texed)))
-	(old-syntax-table (syntax-table))
-	(tex-error-parse-syntax-table (copy-syntax-table (syntax-table)))
 	found-desired (num-errors-found 0)
 	last-filename last-linenum last-position
 	begin-of-error end-of-error)
-    (modify-syntax-entry ?\{ "_" tex-error-parse-syntax-table)
-    (modify-syntax-entry ?\} "_" tex-error-parse-syntax-table)
-    (modify-syntax-entry ?\[ "_" tex-error-parse-syntax-table)
-    (modify-syntax-entry ?\] "_" tex-error-parse-syntax-table)
-    ;; Single quotations may appear in errors
-    (modify-syntax-entry ?\" "_" tex-error-parse-syntax-table)
-    ;; Don't parse previous compilations.
-    (setq compilation-parsing-end
-	  (max compilation-parsing-end tex-start-tex-marker))
     ;; Don't reparse messages already seen at last parse.
     (goto-char compilation-parsing-end)
     ;; Parse messages.
@@ -1167,18 +1510,14 @@ for the error messages."
 	     (error-text (regexp-quote (match-string 3)))
 	     (filename
 	      (save-excursion
-		(unwind-protect
-		    (progn
-		      (set-syntax-table tex-error-parse-syntax-table)
-		      (backward-up-list 1)
-		      (skip-syntax-forward "(_")
-		      (while (not (file-readable-p
-				   (thing-at-point 'filename)))
-			(skip-syntax-backward "(_")
-			(backward-up-list 1)
-			(skip-syntax-forward "(_"))
-		      (thing-at-point 'filename))
-		  (set-syntax-table old-syntax-table))))
+		(with-syntax-table tex-error-parse-syntax-table
+		  (backward-up-list 1)
+		  (skip-syntax-forward "(_")
+		  (while (not (file-readable-p (thing-at-point 'filename)))
+		    (skip-syntax-backward "(_")
+		    (backward-up-list 1)
+		    (skip-syntax-forward "(_"))
+		  (thing-at-point 'filename))))
 	     (new-file
 	      (or (null last-filename)
 		  (not (string-equal last-filename filename))))
@@ -1188,16 +1527,14 @@ for the error messages."
 		    (set-buffer tex-last-buffer-texed)
 		  (set-buffer (find-file-noselect filename)))
 		(if new-file
-		    (goto-line linenum)
+		    (progn (goto-line linenum) (setq last-position nil))
 		  (goto-char last-position)
 		  (forward-line (- linenum last-linenum)))
 		;; first try a forward search for the error text,
 		;; then a backward search limited by the last error.
 		(let ((starting-point (point)))
 		  (or (re-search-forward error-text nil t)
-		      (re-search-backward
-		       error-text
-		       (marker-position last-position) t)
+		      (re-search-backward error-text last-position t)
 		      (goto-char starting-point)))
 		(point-marker))))
 	(goto-char this-error)
@@ -1217,7 +1554,7 @@ for the error messages."
 		(cons (cons this-error error-location)
 		      compilation-error-list))
 	  (goto-char end-of-error)))))
-  (setq compilation-parsing-end (point))
+  (set-marker compilation-parsing-end (point))
   (setq compilation-error-list (nreverse compilation-error-list))
   (message "Parsing error messages...done"))
 
@@ -1249,7 +1586,8 @@ The value of `tex-command' specifies the command to use to run TeX."
   ;; tex-directory is ".".
   (let* ((zap-directory
           (file-name-as-directory (expand-file-name tex-directory)))
-         (tex-out-file (concat zap-directory tex-zap-file ".tex")))
+         (tex-out-file (expand-file-name (concat tex-zap-file ".tex")
+					 zap-directory)))
     ;; Don't delete temp files if we do the same buffer twice in a row.
     (or (eq (current-buffer) tex-last-buffer-texed)
 	(tex-delete-last-temp-files t))
@@ -1302,15 +1640,11 @@ The value of `tex-command' specifies the command to use to run TeX."
 			  tex-out-file t nil))))
     ;; Record the file name to be deleted afterward.
     (setq tex-last-temp-file tex-out-file)
-    (let (shell-dirtrack-verbose)
-      (tex-send-command tex-shell-cd-command zap-directory))
     ;; Use a relative file name here because (1) the proper dir
     ;; is already current, and (2) the abs file name is sometimes
     ;; too long and can make tex crash.
-    (tex-start-tex tex-command (concat tex-zap-file ".tex"))
-    (tex-display-shell)
-    (setq tex-print-file tex-out-file)
-    (setq tex-last-buffer-texed (current-buffer))))
+    (tex-start-tex tex-command (concat tex-zap-file ".tex") zap-directory)
+    (setq tex-print-file tex-out-file)))
 
 (defun tex-buffer ()
   "Run TeX on current buffer.  See \\[tex-region] for more information.
@@ -1324,22 +1658,14 @@ See \\[tex-file] for an alternative."
 This function is more useful than \\[tex-buffer] when you need the
 `.aux' file of LaTeX to have the correct name."
   (interactive)
-  (let ((source-file
-	 (or tex-main-file
-	     (if (buffer-file-name)
-		 (file-name-nondirectory (buffer-file-name))
-	       (error "Buffer does not seem to be associated with any file"))))
-	(file-dir (file-name-directory (buffer-file-name))))
+  (let* ((source-file (tex-main-file))
+	 (file-dir (file-name-directory (expand-file-name source-file))))
     (if tex-offer-save
         (save-some-buffers))
     (if (tex-shell-running)
         (tex-kill-job)
       (tex-start-shell))
-    (let (shell-dirtrack-verbose)
-      (tex-send-command tex-shell-cd-command file-dir))
-    (tex-start-tex tex-command source-file)
-    (tex-display-shell)
-    (setq tex-last-buffer-texed (current-buffer))
+    (tex-start-tex tex-command source-file file-dir)
     (setq tex-print-file (expand-file-name source-file))))
 
 (defun tex-generate-zap-file-name ()
@@ -1350,13 +1676,7 @@ This function is more useful than \\[tex-buffer] when you need the
   ;; don't work with file names that start with #.
   (format "_TZ_%d-%s"
           (process-id (get-buffer-process "*tex-shell*"))
-	  (tex-strip-dots (system-name))))
-
-(defun tex-strip-dots (s)
-  (setq s (copy-sequence s))
-  (while (string-match "\\." s)
-    (aset s (match-beginning 0) ?-))
-  s)
+	  (subst-char-in-string ?. ?- (system-name))))
 
 ;; This will perhaps be useful for modifying TEXINPUTS.
 ;; Expand each file name, separated by colons, in the string S.
@@ -1367,22 +1687,31 @@ This function is more useful than \\[tex-buffer] when you need the
       (setq start (match-end 0)))
     (or (= start 0)
 	(setq elts (cons (substring s start) elts)))
-    (mapconcat '(lambda (elt)
-		  (if (= (length elt) 0) elt (expand-file-name elt)))
+    (mapconcat (lambda (elt)
+		 (if (= (length elt) 0) elt (expand-file-name elt)))
 	       (nreverse elts) ":")))
 
 (defun tex-shell-running ()
-  (and (get-process "tex-shell")
-       (eq (process-status (get-process "tex-shell")) 'run)))
+  (let ((proc (get-process "tex-shell")))
+    (when proc
+      (if (and (eq (process-status proc) 'run)
+               (buffer-live-p (process-buffer proc)))
+          ;; return the TeX process on success
+          proc
+          ;; get rid of the process permanently
+          ;; this should get rid of the annoying w32 problem with
+          ;; dead tex-shell buffer and live process
+          (delete-process proc)))))
 
 (defun tex-kill-job ()
   "Kill the currently running TeX job."
   (interactive)
-  ;; quit-process leads to core dumps of the tex process (except if
+  ;; `quit-process' leads to core dumps of the tex process (except if
   ;; coredumpsize has limit 0kb as on many environments).  One would
   ;; like to use (kill-process proc 'lambda), however that construct
   ;; does not work on some systems and kills the shell itself.
-  (quit-process (get-process "tex-shell") t))
+  (let ((proc (get-process "tex-shell")))
+    (when proc (quit-process proc t))))
 
 (defun tex-recenter-output-buffer (linenum)
   "Redisplay buffer of TeX job output so that most recent output can be seen.
@@ -1494,6 +1823,105 @@ Runs the shell command defined by `tex-show-queue-command'."
     (tex-send-command tex-shell-cd-command file-dir)
     (tex-send-command tex-bibtex-command tex-out-file))
   (tex-display-shell))
+
+;;;;
+;;;; LaTeX indentation
+;;;;
+
+(defvar tex-indent-allhanging t)
+(defvar tex-indent-arg 4)
+(defvar tex-indent-basic 2)
+(defvar tex-indent-item tex-indent-basic)
+(defvar tex-indent-item-re "\\\\\\(bib\\)?item\\>")
+
+(easy-mmode-defsyntax tex-latex-indent-syntax-table
+  '((?$ . ".")
+    (?\( . ".")
+    (?\) . "."))
+  "Syntax table used while computing indentation."
+  :copy tex-mode-syntax-table)
+
+(defun latex-indent (&optional arg)
+  (with-syntax-table tex-latex-indent-syntax-table
+    ;; TODO: Rather than ignore $, we should try to be more clever about it.
+    (let ((indent
+	   (save-excursion
+	     (beginning-of-line)
+	     (latex-find-indent))))
+      (if (< indent 0) (setq indent 0))
+      (if (<= (current-column) (current-indentation))
+	  (indent-line-to indent)
+	(save-excursion (indent-line-to indent))))))
+
+(defun latex-find-indent (&optional virtual)
+  "Find the proper indentation of text after point.
+VIRTUAL if non-nil indicates that we're only trying to find the indentation
+  in order to determine the indentation of something else.
+There might be text before point."
+  (save-excursion
+    (skip-chars-forward " \t")
+    (or
+     ;; Trust the current indentation, if such info is applicable.
+     (and virtual (>= (current-indentation) (current-column))
+	  (current-indentation))
+     ;; Put leading close-paren where the matching open brace would be.
+     (and (eq (latex-syntax-after) ?\))
+	  (ignore-errors
+	    (save-excursion
+	      (latex-skip-close-parens)
+	      (latex-backward-sexp-1)
+	      (latex-find-indent 'virtual))))
+     ;; Default (maybe an argument)
+     (let ((pos (point))
+	   (char (char-after))
+	   ;; Outdent \item if necessary.
+	   (indent (if (looking-at tex-indent-item-re) (- tex-indent-item) 0))
+	   up-list-pos)
+       ;; Find the previous point which determines our current indentation.
+       (condition-case err
+	   (progn
+	     (latex-backward-sexp-1)
+	     (while (> (current-column) (current-indentation))
+	       (latex-backward-sexp-1)))
+	 (scan-error
+	  (setq up-list-pos (nth 2 err))))
+       (cond
+	((= (point-min) pos) 0) ; We're really just indenting the first line.
+	((integerp up-list-pos)
+	 ;; Have to indent relative to the open-paren.
+	 (goto-char up-list-pos)
+	 (if (and (not tex-indent-allhanging)
+		  (> pos (progn (latex-down-list)
+				(forward-comment (point-max))
+				(point))))
+	     ;; Align with the first element after the open-paren.
+	     (current-column)
+	   ;; We're the first element after a hanging brace.
+	   (goto-char up-list-pos)
+	   (+ indent tex-indent-basic (latex-find-indent 'virtual))))
+	;; We're now at the "beginning" of a line.
+	((not (and (not virtual) (eq (char-after) ?\\)))
+	 ;; Nothing particular here: just keep the same indentation.
+	 (+ indent (current-column)))
+	;; We're now looking at a macro call.
+	((looking-at tex-indent-item-re)
+	 ;; Indenting relative to an item, have to re-add the outdenting.
+	 (+ indent (current-column) tex-indent-item))
+	(t
+	 (let ((col (current-column)))
+	   (if (not (eq (char-syntax char) ?\())
+	       ;; If the first char was not an open-paren, there's
+	       ;; a risk that this is really not an argument to the
+	       ;; macro at all.
+	       (+ indent col)
+	     (forward-sexp 1)
+	     (if (< (line-end-position)
+		    (save-excursion (forward-comment (point-max))
+				    (point)))
+		 ;; we're indenting the first argument.
+		 (min (current-column) (+ tex-indent-arg col))
+	       (skip-syntax-forward " ")
+	       (current-column))))))))))
 
 (run-hooks 'tex-mode-load-hook)
 

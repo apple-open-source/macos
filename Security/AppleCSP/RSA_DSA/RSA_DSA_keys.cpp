@@ -20,7 +20,7 @@
  * RSA_DSA_Keys.cpp - RSA, DSA related asymmetric key pair classes. 
  */
 
-#include "RSA_DSA_Keys.h"
+#include "RSA_DSA_keys.h"
 #include <opensslUtils/opensslUtils.h>
 #include <opensslUtils/openRsaSnacc.h>
 #include <Security/cssmdata.h>
@@ -178,21 +178,26 @@ RSAKeyInfoProvider::RSAKeyInfoProvider(
 	const CssmKey &cssmKey) :
 		CSPKeyInfoProvider(cssmKey)
 {
+}
+
+CSPKeyInfoProvider *RSAKeyInfoProvider::provider(
+		const CssmKey &cssmKey)
+{
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_RSA:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+			return NULL;
 	}
 	switch(cssmKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return;
+	return new RSAKeyInfoProvider(cssmKey);
 }
 
 /* Given a raw key, cook up a Binary key */
@@ -530,21 +535,26 @@ DSAKeyInfoProvider::DSAKeyInfoProvider(
 	const CssmKey &cssmKey) :
 		CSPKeyInfoProvider(cssmKey)
 {
+
+}
+CSPKeyInfoProvider *DSAKeyInfoProvider::provider(
+		const CssmKey &cssmKey)
+{
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_DSA:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+			return NULL;
 	}
 	switch(cssmKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 			break;
 		default:
-			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return;
+	return new DSAKeyInfoProvider(cssmKey);
 }
 
 /* Given a raw key, cook up a Binary key */

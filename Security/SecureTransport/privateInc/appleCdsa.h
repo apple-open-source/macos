@@ -47,12 +47,19 @@ extern char *stCssmErrToStr(CSSM_RETURN err);
 #define stPrintCdsaError(o, cr)
 #endif
 
+extern SSLErr sslSetUpSymmKey(
+	CSSM_KEY_PTR	symKey,
+	CSSM_ALGORITHMS	alg,
+	CSSM_KEYUSE		keyUse, 		// CSSM_KEYUSE_ENCRYPT, etc.
+	CSSM_BOOL		copyKey,		// true: copy keyData   false: set by reference
+	uint8 			*keyData,
+	uint32			keyDataLen);	// in bytes
+
 extern SSLErr sslFreeKey(CSSM_CSP_HANDLE cspHand, 
 	CSSM_KEY_PTR 	*key,
-	#if		ST_KEYCHAIN_ENABLE
-	KCItemRef		*kcItem);
+	#if		ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF
+	SecKeychainRef	*kcItem);
 	#else	/* !ST_KEYCHAIN_ENABLE */
-	/* fixme - will we need kcItem as a CL field ptr? */
 	void			*kcItem);
 	#endif	/* ST_KEYCHAIN_ENABLE*/
 
@@ -95,7 +102,7 @@ extern SSLErr sslVerifyCertChain(
  */
 SSLErr sslRsaRawSign(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	privKey,
+	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -105,7 +112,7 @@ SSLErr sslRsaRawSign(
 	
 SSLErr sslRsaRawVerify(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -117,7 +124,7 @@ SSLErr sslRsaRawVerify(
  */
 SSLErr sslRsaEncrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -126,7 +133,7 @@ SSLErr sslRsaEncrypt(
 	UInt32				*actualBytes);		// RETURNED
 SSLErr sslRsaDecrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	privKey,
+	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*cipherText,
 	UInt32				cipherTextLen,		
@@ -138,14 +145,14 @@ SSLErr sslRsaDecrypt(
  * Obtain size of key in bytes.
  */
 extern UInt32 sslKeyLengthInBytes(
-	const CSSM_KEY_PTR key);
+	const CSSM_KEY	*key);
 
 /*
  * Get raw key bits from an RSA public key.
  */
 SSLErr sslGetPubKeyBits(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	SSLBuffer			*modulus,		// data mallocd and RETURNED
 	SSLBuffer			*exponent);		// data mallocd and RETURNED

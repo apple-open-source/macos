@@ -1,29 +1,29 @@
 \initial {%}
-\entry {\code {%Y}}{18}
+\entry {\code {%Y}}{16}
 \initial {C}
-\entry {\code {C-x 4 C-f}}{16}
-\entry {\code {C-x 4 C-j}}{18}
-\entry {\code {C-x C-f}}{15}
-\entry {\code {C-x C-j}}{17}
+\entry {\code {C-x 4 C-f}}{13}
+\entry {\code {C-x 4 C-j}}{16}
+\entry {\code {C-x C-f}}{13}
+\entry {\code {C-x C-j}}{15}
 \initial {F}
-\entry {\code {F}}{13}
+\entry {\code {F}}{11}
 \initial {G}
-\entry {\code {g}}{12}
+\entry {\code {g}}{10}
 \initial {I}
-\entry {\code {I}}{18}
+\entry {\code {I}}{16}
 \initial {M}
-\entry {\code {M-!}}{17}
-\entry {\code {M-(}}{14}
-\entry {\code {M-g}}{17}
-\entry {\code {M-G}}{17}
-\entry {\code {M-o}}{6}
+\entry {\code {M-!}}{15}
+\entry {\code {M-(}}{12}
+\entry {\code {M-g}}{15}
+\entry {\code {M-G}}{15}
+\entry {\code {M-o}}{4}
 \initial {N}
-\entry {\code {N}}{18}
+\entry {\code {N}}{16}
 \initial {T}
-\entry {\code {T}}{17}
+\entry {\code {T}}{15}
 \initial {V}
-\entry {\code {V}}{18}
+\entry {\code {V}}{16}
 \initial {W}
-\entry {\code {w}}{17}
+\entry {\code {w}}{15}
 \initial {Y}
-\entry {\code {Y}}{18}
+\entry {\code {Y}}{16}

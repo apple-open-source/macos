@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = chflags chmod chown compress cp dd df du install ln ls\
         mkdir mkfifo mknod mtree mv pax rm rmdir rmt shar tcopy\
-        touch
+        touch file
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
 
@@ -26,7 +26,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

@@ -1,5 +1,7 @@
 /* Output generating routines for GDB CLI.
-   Copyright 1999-2000 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Solutions.
    Written by Fernando Nasser for Cygnus.
 
@@ -30,43 +32,44 @@
 #include "interpreter.h"
 #include "event-top.h"
 #include "inferior.h" /* for sync_execution */
-
-/* Convenience macro for allocting typesafe memory. */
-
-#ifndef XMALLOC
-#define XMALLOC(TYPE) (TYPE*) xmalloc (sizeof (TYPE))
-#endif
+#include "gdb_assert.h"
 
 struct ui_out_data
   {
     struct ui_file *stream;
+    int suppress_output;
   };
 
 /* These are the CLI output functions */
 
-static void cli_table_begin (struct ui_out *uiout, int nbrofcols, char *tblid);
+static void cli_table_begin (struct ui_out *uiout, int nbrofcols,
+			     int nr_rows, const char *tblid);
 static void cli_table_body (struct ui_out *uiout);
 static void cli_table_end (struct ui_out *uiout);
 static void cli_table_header (struct ui_out *uiout, int width,
-			      enum ui_align alig, char *colhdr);
-static void cli_list_begin (struct ui_out *uiout, int list_flag, char *lstid);
-static void cli_list_end (struct ui_out *uiout, int list_flag);
+			      enum ui_align alig, const char *col_name,
+			      const char *colhdr);
+static void cli_begin (struct ui_out *uiout, enum ui_out_type type,
+		       int level, const char *lstid);
+static void cli_end (struct ui_out *uiout, enum ui_out_type type, int level);
 static void cli_field_int (struct ui_out *uiout, int fldno, int width,
-			   enum ui_align alig, char *fldname, int value);
+			   enum ui_align alig, const char *fldname, int value);
 static void cli_field_skip (struct ui_out *uiout, int fldno, int width,
-			    enum ui_align alig, char *fldname);
+			    enum ui_align alig, const char *fldname);
 static void cli_field_string (struct ui_out *uiout, int fldno, int width,
-			   enum ui_align alig, char *fldname,
+			      enum ui_align alig, const char *fldname,
 			      const char *string);
 static void cli_field_fmt (struct ui_out *uiout, int fldno,
 			   int width, enum ui_align align,
-			   char *fldname, char *format, va_list args);
+			   const char *fldname, const char *format,
+			   va_list args);
 static void cli_spaces (struct ui_out *uiout, int numspaces);
-static void cli_text (struct ui_out *uiout, char *string);
-static void cli_text_fmt (struct ui_out *uiout, char *format, va_list args);
-static void cli_message (struct ui_out *uiout, int verbosity, char *format,
-			 va_list args);
-static void cli_wrap_hint (struct ui_out *uiout, char *identstring);
+static void cli_text (struct ui_out *uiout, const char *string);
+static void cli_text_fmt (struct ui_out *uiout, const char *format, va_list args);
+static void cli_message (struct ui_out *uiout, int verbosity,
+			 const char *format, va_list args);
+
+static void cli_wrap_hint (struct ui_out *uiout, const char *identstring);
 static void cli_flush (struct ui_out *uiout);
 
 /* This is the CLI ui-out implementation functions vector */
@@ -80,8 +83,8 @@ static struct ui_out_impl cli_ui_out_impl =
   cli_table_body,
   cli_table_end,
   cli_table_header,
-  cli_list_begin,
-  cli_list_end,
+  cli_begin,
+  cli_end,
   cli_field_int,
   cli_field_skip,
   cli_field_string,
@@ -91,7 +94,10 @@ static struct ui_out_impl cli_ui_out_impl =
   cli_text_fmt,
   cli_message,
   cli_wrap_hint,
-  cli_flush
+  cli_flush,
+  NULL, /* notify_begin unimplemented for cli */
+  NULL, /* notify_end unimplemented for cli */
+  0, /* Does not need MI hacks (i.e. needs CLI hacks).  */
 };
 
 /* Prototypes for the CLI Interpreter functions */
@@ -110,8 +116,9 @@ extern void _initialize_cli_out (void);
 
 static void field_separator (void);
 
-static void out_field_fmt (struct ui_out *uiout, int fldno, char *fldname,
-			   char *format,...);
+static void out_field_fmt (struct ui_out *uiout, int fldno,
+			   const char *fldname,
+			   const char *format,...);
 
 /* local variables */
 
@@ -123,8 +130,17 @@ struct gdb_interpreter *cli_interp;
 /* Mark beginning of a table */
 
 void
-cli_table_begin (struct ui_out *uiout, int nbrofcols, char *tblid)
+cli_table_begin (struct ui_out *uiout, int nbrofcols,
+		 int nr_rows,
+		 const char *tblid)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (nr_rows == 0)
+    data->suppress_output = 1;
+  else
+    /* Only the table suppresses the output and, fortunatly, a table
+       is not a recursive data structure. */
+    gdb_assert (data->suppress_output == 0);
 }
 
 /* Mark beginning of a table body */
@@ -132,6 +148,9 @@ cli_table_begin (struct ui_out *uiout, int nbrofcols, char *tblid)
 void
 cli_table_body (struct ui_out *uiout)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   /* first, close the table header line */
   cli_text (uiout, "\n");
 }
@@ -141,39 +160,60 @@ cli_table_body (struct ui_out *uiout)
 void
 cli_table_end (struct ui_out *uiout)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  data->suppress_output = 0;
 }
 
 /* Specify table header */
 
 void
 cli_table_header (struct ui_out *uiout, int width, enum ui_align alignment,
-		  char *colhdr)
+		  const char *col_name,
+		  const char *colhdr)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   cli_field_string (uiout, 0, width, alignment, 0, colhdr);
 }
 
 /* Mark beginning of a list */
 
 void
-cli_list_begin (struct ui_out *uiout, int list_flag, char *lstid)
+cli_begin (struct ui_out *uiout,
+	   enum ui_out_type type,
+	   int level,
+	   const char *id)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
 }
 
 /* Mark end of a list */
 
 void
-cli_list_end (struct ui_out *uiout, int list_flag)
+cli_end (struct ui_out *uiout,
+	 enum ui_out_type type,
+	 int level)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
 }
 
 /* output an int field */
 
 void
 cli_field_int (struct ui_out *uiout, int fldno, int width,
-	       enum ui_align alignment, char *fldname, int value)
+	       enum ui_align alignment,
+	       const char *fldname, int value)
 {
   char buffer[20];		/* FIXME: how many chars long a %d can become? */
 
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   sprintf (buffer, "%d", value);
   cli_field_string (uiout, fldno, width, alignment, fldname, buffer);
 }
@@ -182,8 +222,12 @@ cli_field_int (struct ui_out *uiout, int fldno, int width,
 
 void
 cli_field_skip (struct ui_out *uiout, int fldno, int width,
-		enum ui_align alignment, char *fldname)
+		enum ui_align alignment,
+		const char *fldname)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   cli_field_string (uiout, fldno, width, alignment, fldname, "");
 }
 
@@ -195,11 +239,15 @@ cli_field_string (struct ui_out *uiout,
 		  int fldno,
 		  int width,
 		  enum ui_align align,
-		  char *fldname,
+		  const char *fldname,
 		  const char *string)
 {
   int before = 0;
   int after = 0;
+
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
 
   if ((align != ui_noalign) && string)
     {
@@ -240,9 +288,14 @@ cli_field_string (struct ui_out *uiout,
 void
 cli_field_fmt (struct ui_out *uiout, int fldno,
 	       int width, enum ui_align align,
-	       char *fldname, char *format, va_list args)
+	       const char *fldname,
+	       const char *format,
+	       va_list args)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
+
   vfprintf_filtered (data->stream, format, args);
 
   if (align != ui_noalign)
@@ -253,35 +306,47 @@ void
 cli_spaces (struct ui_out *uiout, int numspaces)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   print_spaces_filtered (numspaces, data->stream);
 }
 
 void
-cli_text (struct ui_out *uiout, char *string)
+cli_text (struct ui_out *uiout, const char *string)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   fputs_filtered (string, data->stream);
 }
 
 /* VARARGS */
 void
-cli_text_fmt (struct ui_out *uiout, char *format, va_list args)
+cli_text_fmt (struct ui_out *uiout, const char *format, va_list args)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   vfprintf_filtered (data->stream, format, args);
 }
 
 void
-cli_message (struct ui_out *uiout, int verbosity, char *format, va_list args)
+cli_message (struct ui_out *uiout, int verbosity,
+	     const char *format, va_list args)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   if (ui_out_get_verblvl (uiout) >= verbosity)
     vfprintf_unfiltered (data->stream, format, args);
 }
 
 void
-cli_wrap_hint (struct ui_out *uiout, char *identstring)
+cli_wrap_hint (struct ui_out *uiout, const char *identstring)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   wrap_here (identstring);
 }
 
@@ -299,8 +364,9 @@ cli_flush (struct ui_out *uiout)
 
 /* VARARGS */
 static void
-out_field_fmt (struct ui_out *uiout, int fldno, char *fldname,
-	       char *format,...)
+out_field_fmt (struct ui_out *uiout, int fldno,
+	       const char *fldname,
+	       const char *format,...)
 {
   struct ui_out_data *data = ui_out_data (uiout);
   va_list args;
@@ -329,6 +395,7 @@ cli_out_new (struct ui_file *stream)
 
   struct ui_out_data *data = XMALLOC (struct ui_out_data);
   data->stream = stream;
+  data->suppress_output = 0;
   return ui_out_new (&cli_ui_out_impl, data, flags);
 }
 
@@ -383,7 +450,6 @@ cli_interpreter_display_prompt (void *data, char *new_prompt)
 int 
 cli_interpreter_exec (void *data, char *command_str)
 {
-
   return safe_execute_command (command_str, 0);
 }
 

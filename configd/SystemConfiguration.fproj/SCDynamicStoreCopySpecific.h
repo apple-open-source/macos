@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -78,6 +78,40 @@ SCDynamicStoreCopyConsoleUser		(
 					SCDynamicStoreRef	session,
 					uid_t			*uid,
 					gid_t			*gid
+					);
+
+/*!
+	@function SCDynamicStoreCopyLocalHostName
+	@discussion Gets the current local host name.
+
+		See SCDynamicStoreKeyCreateHostNames() for notification
+		key information.
+	@param store An SCDynamicStoreRef that should be used for communication
+		with the server.
+		If NULL, a temporary session will be used.
+	@result The current local host name;
+		NULL if the name has not been set or if an error was encountered.
+		You must release the returned value.
+ */
+CFStringRef
+SCDynamicStoreCopyLocalHostName		(
+					SCDynamicStoreRef	store
+					);
+
+/*!
+	@function SCDynamicStoreCopyLocation
+	@discussion Gets the current "location" identifier.
+	@param store An SCDynamicStoreRef that should be used for communication
+		with the server.
+		If NULL, a temporary session will be used.
+	@result A string representing the current "location" identifier;
+		NULL if no "location" identifier has been defined or if an error
+ 		was encountered.
+		You must release the returned value.
+ */
+CFStringRef
+SCDynamicStoreCopyLocation	(
+					SCDynamicStoreRef	store
 					);
 
 /*!

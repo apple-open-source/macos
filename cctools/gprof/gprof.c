@@ -677,8 +677,8 @@ enum bool old_style)
 #else
     struct gmonhdr header;
 #endif
-    unsigned long i, j;
-    unsigned UNIT sample;
+    unsigned long i, j, size;
+    unsigned UNIT sample, *samples;
 
 	if(nbytes < sizeof(header))
 	    fatal("gmon.out file: %s malformed (byte count less than the "
@@ -802,11 +802,15 @@ enum bool old_style)
 	/*
 	 * Read and sum up the sample counts for this sample set.
 	 */
+	size = sample_sets[i].nsamples * sizeof(unsigned UNIT);
+	samples = malloc(size);
+	if(samples == NULL)
+	    system_fatal("can't allocate buffer of size: %lu for samples from "
+			 "gmon.out file: %s", size, filename);
+	if(read(fd, samples, size) != size)
+	    system_fatal("can't read samples from gmon.out file: %s", filename);
 	for(j = 0; j < sample_sets[i].nsamples; j++){
-	    if(read(fd, &sample, sizeof(unsigned UNIT)) !=
-		   sizeof(unsigned UNIT))
-		system_fatal("can't read samples from gmon.out file: %s",
-			     filename);
+	    sample = samples[j];
 #ifdef DEBUG
 if(debug & 8192){
 if(sample != 0)
@@ -815,6 +819,7 @@ printf("sample[%ld] = %u\n", j, sample);
 #endif
 	    sample_sets[i].samples[j] += sample;
 	}
+	free(samples);
 	return(header.ncnt);
 }
 

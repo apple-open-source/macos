@@ -32,7 +32,6 @@
  * 08-Mar-90  Avadis Tevanian, Jr. (avie) at NeXT
  *	Added errno field to cproc structure.
  *
- * $Log: cthread_internals.h,v $
  * Revision 1.1.1.1  1997/09/03 20:54:11  roland
  * Initial checkin of SGS release 244
  *

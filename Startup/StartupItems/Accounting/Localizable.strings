@@ -4,6 +4,8 @@
 <dict>
 	<key>Starting accounting</key>
 	<string>Starting accounting</string>
+	<key>Stopping accounting</key>
+	<string>Stopping accounting</string>
 </dict>
 </plist>
 

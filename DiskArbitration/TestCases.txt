@@ -1,0 +1,50 @@
+Disk Arbitration and disktool test cases split by test area
+
+Default Permissions = chown dev nodes and disks do not mount at loginwindow
+
+Mounting
+	Using Default Permissions At Loginwindow
+		All fixed disks should be mounted
+		Insert CD - shouldn't mount, though mountpoint is created and set
+		Insert Multi Partition - shouldn't mount
+		Insert disk that will fail fsck (ntfs) - error dialog without launch DU button & text
+		Insert disk that is unrecognized (beos) - error dialog without init button & text
+		under all cases above, /dev/disk* nodes should not be chowned, or left at zero
+		under all cases above, disks should be hardware ejectable (and Pro keyboard)
+		
+		Insert CD (shouldn't mount) and login - CD should mount and be "owned" by logged in user
+
+	Disk Images/Remote Mounts
+		log in >console (or remote), mount a disk image, should mount and chown /dev to user uid
+		log in >console (or remote), mount_afp/URLMount image, should mount
+		log in, mount a disk image, should mount and chown /dev to user uid and display in finder
+
+	Using Default Permissions After Logging In
+		All fixed disks should be mounted and appear in finder
+		Insert CD - should appear in finder
+		Insert Audio CD - should appear in finder
+		Insert multi partition - should mount multi volumes in Finder
+		Insert disk that will fail fsck (ntfs) - error dialog with launch DU button & text
+		Insert disk that is unrecognized (beos) - error dialog with init button & text
+		under all cases above, /dev/disk* nodes should be chowned to the uid of the logged in user, or left at zero
+
+	Not chowning /dev nodes on removable media
+		Insert disk while logged in as user, /dev nodes should not be chowned (i.e. left as root, operator)
+		
+	Allowing disks to mount at loginwindow
+		All fixed disks should be mounted
+		Insert CD - should mount, only root will be able to eject without logging in
+		Insert Multi Partition - should mount, only root will be able to eject without logging in
+		When a user logs in, that user will be made "owner" of the disks and will be able to eject removable media
+
+
+Permissions/Security
+	
+	using disktool the rules are,
+		If the volume was mounted by a user, only that user or root should be able to eject it.
+		Tests
+			Mount a disk image at the command line by user test, only test or root should be able to eject
+			Mount a CD while logged in as foo, bar should not be able to eject from command line, but foo can from command line or finder
+			Same goes for unmount
+			Same goes for rename
+		

@@ -160,16 +160,6 @@ void AppleTPSession::CertGroupToTupleGroup(CSSM_CL_HANDLE CLHandle,
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
-void AppleTPSession::SubmitCredRequest(const CSSM_TP_AUTHORITY_ID *PreferredAuthority,
-		CSSM_TP_AUTHORITY_REQUEST_TYPE RequestType,
-		const CSSM_TP_REQUEST_SET &RequestInput,
-		const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,
-		sint32 &EstimatedTime,
-		CssmData &ReferenceIdentifier)
-{
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
-}
-
 void AppleTPSession::FormRequest(const CSSM_TP_AUTHORITY_ID *PreferredAuthority,
 		CSSM_TP_FORM_TYPE FormType,
 		CssmData &BlankForm)
@@ -230,14 +220,4 @@ void AppleTPSession::FormSubmit(CSSM_TP_FORM_TYPE FormType,
 {
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
-
-void AppleTPSession::RetrieveCredResult(const CssmData &ReferenceIdentifier,
-		const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthCredentials,
-		sint32 &EstimatedTime,
-		CSSM_BOOL &ConfirmationRequired,
-		CSSM_TP_RESULT_SET_PTR &RetrieveOutput)
-{
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
-}
-
 

@@ -1,20 +1,27 @@
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
+RC_OS = macos
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifeq "mwcc" "$(notdir $(CC))"
+
+ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
   CFLAGS = $(OFLAG) -g -Wall -Wno-precomp $(X_CFLAGS) \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -40,7 +47,7 @@ CFILES1 = libtool.c
 CFILES2 = main.c lipo.c size.c strings.c nm.c checksyms.c inout.c \
 	 indr.c strip.c atom.c segedit.c kern_tool.c cmpdylib.c \
 	 dylib_pcsampler.c pagestuff.c redo_prebinding.c seg_addr_table.c \
-	 check_dylib.c seg_hack.c check_hints.c
+	 check_dylib.c seg_hack.c check_hints.c install_name_tool.c
 ifeq "nextstep" "$(RC_OS)"
   CFILES3 = file.c ar.c
 endif
@@ -53,28 +60,51 @@ PROGS = lipo.NEW size.NEW strings.NEW nm.NEW \
 	libtool.NEW checksyms.NEW indr.NEW strip.NEW nmedit.NEW \
 	segedit.NEW kern_tool.NEW cmpdylib.NEW \
 	dylib_pcsampler.NEW pagestuff.NEW redo_prebinding.NEW \
-	seg_addr_table.NEW check_dylib.NEW seg_hack.NEW
+	seg_addr_table.NEW check_dylib.NEW seg_hack.NEW install_name_tool.NEW
 
 teflon_all macos_all: $(PROGS)
 
 nextstep_all: $(PROGS) atom.NEW ar.NEW file.NEW
 
-all:	$(OFILE_DIR) $(SYMROOT) $(RC_OS)_all
+all:	$(OFILE_DIR) $(SYMROOT) $(RC_OS)_all lib_ofiles
 
-lib_ofiles: $(OFILE_DIR) $(SYMROOT) libredo_prebinding.a
+lib_ofiles: $(OFILE_DIR) $(SYMROOT) \
+	libredo_prebinding.dylib libredo_prebinding.a
 
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) cctools_misc > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file \
 		$(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
-libredo_prebinding.o: redo_prebinding.c
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
+libredo_prebinding_dynamic.o: redo_prebinding.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -dynamic \
+		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
+else
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -dynamic \
+		-MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
+
+libredo_prebinding_static.o: redo_prebinding.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -static \
+		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
+else
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -static \
+		-MD -dependency-file $(OFILE_DIR)/$*.d \
+		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
+	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 checksyms.NEW: checksyms.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
@@ -147,10 +177,19 @@ redo_prebinding.NEW: redo_prebinding.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/redo_prebinding.NEW \
 		$(OFILE_DIR)/redo_prebinding.private.o
 
-libredo_prebinding.a: libredo_prebinding.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
-		-o $(SYMROOT)/libredo_prebinding.a libredo_prebinding.o \
-		$(LIBSTUFF)
+libredo_prebinding.dylib: libredo_prebinding_dynamic.o
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -dynamic \
+		-o $(OBJROOT)/libredo_dynamic.o \
+		libredo_prebinding_dynamic.o $(LIBSTUFF)
+	libtool -static -o $(SYMROOT)/libredo_prebinding.dylib \
+		$(OBJROOT)/libredo_dynamic.o
+
+libredo_prebinding.a: libredo_prebinding_static.o
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -static \
+		-o $(OBJROOT)/libredo_static.o \
+		libredo_prebinding_static.o $(LIBSTUFF)
+	libtool -static -o $(SYMROOT)/libredo_prebinding.a \
+		$(OBJROOT)/libredo_static.o
 
 seg_addr_table.NEW: seg_addr_table.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
@@ -206,6 +245,13 @@ seg_hack.NEW: seg_hack.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/seg_hack.NEW \
 		$(OFILE_DIR)/seg_hack.private.o
 
+install_name_tool.NEW: install_name_tool.o vers.o
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+		-o $(OBJROOT)/install_name_tool.private.o \
+		$(OFILE_DIR)/install_name_tool.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/install_name_tool.NEW \
+		$(OFILE_DIR)/install_name_tool.private.o
+
 indr.NEW: indr.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/indr.private.o \
@@ -228,9 +274,14 @@ nmedit.NEW: nmedit.o vers.o
 		$(OFILE_DIR)/nmedit.private.o
 
 nmedit.o: strip.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
+		-o $(OFILE_DIR)/nmedit.o $(SRCROOT)/strip.c -DNMEDIT
+else
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/nmedit.o $(SRCROOT)/strip.c -DNMEDIT
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 file.NEW: file.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
@@ -289,6 +340,7 @@ clean: shlib_clean
 	$(SYMROOT)/inout.NEW \
 	$(SYMROOT)/check_hints.NEW \
 	$(SYMROOT)/seg_hack.NEW \
+	$(SYMROOT)/install_name_tool.NEW \
 	$(SYMROOT)/indr.NEW \
 	$(SYMROOT)/strip.NEW \
 	$(SYMROOT)/nmedit.NEW \
@@ -299,6 +351,7 @@ clean: shlib_clean
 	$(SYMROOT)/dylib_pcsampler.NEW \
 	$(SYMROOT)/pagestuff.NEW \
 	$(SYMROOT)/redo_prebinding.NEW \
+	$(SYMROOT)/libredo_prebinding.dylib \
 	$(SYMROOT)/libredo_prebinding.a \
 	$(SYMROOT)/kern_tool.NEW \
 	$(SYMROOT)/cmpdylib.NEW
@@ -319,6 +372,7 @@ shlib_clean:
 	$(OFILE_DIR)/inout.o \
 	$(OFILE_DIR)/check_hints.o \
 	$(OFILE_DIR)/seg_hack.o \
+	$(OFILE_DIR)/install_name_tool.o \
 	$(OFILE_DIR)/indr.o \
 	$(OFILE_DIR)/file.o \
 	$(OFILE_DIR)/ar.o \
@@ -327,7 +381,10 @@ shlib_clean:
 	$(OFILE_DIR)/dylib_pcsampler.o \
 	$(OFILE_DIR)/pagestuff.o \
 	$(OFILE_DIR)/redo_prebinding.o \
-	$(OFILE_DIR)/libredo_prebinding.o \
+	$(OFILE_DIR)/libredo_prebinding_dynamic.o \
+	$(OFILE_DIR)/libredo_prebinding_static.o \
+	$(OFILE_DIR)/libredo_dynamic.o \
+	$(OFILE_DIR)/libredo_static.o \
 	$(OFILE_DIR)/seg_addr_table.o \
 	$(OFILE_DIR)/check_dylib.o \
 	$(OFILE_DIR)/kern_tool.o \
@@ -344,6 +401,7 @@ shlib_clean:
 	$(OFILE_DIR)/inout.private.o \
 	$(OFILE_DIR)/check_hints.private.o \
 	$(OFILE_DIR)/seg_hack.private.o \
+	$(OFILE_DIR)/install_name_tool.private.o \
 	$(OFILE_DIR)/indr.private.o \
 	$(OFILE_DIR)/file.private.o \
 	$(OFILE_DIR)/ar.private.o \
@@ -385,6 +443,8 @@ teflon_install macos_install: common_install
 	install -c -s -m 555 $(SYMROOT)/nmedit.NEW $(DSTROOT)$(USRBINDIR)/nmedit
 	(cd $(DSTROOT)$(LOCBINDIR); rm -f nmedit; \
 	 ln -s $(USRBINDIR)/nmedit nmedit)
+	install -c -s -m 555 $(SYMROOT)/install_name_tool.NEW \
+			  $(DSTROOT)$(USRBINDIR)/install_name_tool
 
 nextstep_install: common_install
 	$(MKDIRS) $(DSTROOT)$(BINDIR)
@@ -424,8 +484,12 @@ common_install:
 
 lib_ofiles_install: lib_ofiles
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)
+	install -p -c -m 444 $(SYMROOT)/libredo_prebinding.dylib \
+		 $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.dylib
+	ranlib $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.dylib
 	install -p -c -m 444 $(SYMROOT)/libredo_prebinding.a \
 		 $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.a
+	ranlib $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.a
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)

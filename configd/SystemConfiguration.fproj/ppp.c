@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,6 +20,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * Feb 28, 2002			Christophe Allie <callie@apple.com>
+ * - socket API fixes
+ *
+ * Feb 10, 2001			Allan Nathanson <ajn@apple.com>
+ * - cleanup API
+ *
+ * Feb 2000			Christophe Allie <callie@apple.com>
+ * - initial revision (as ppplib.c)
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -33,6 +46,52 @@
 
 #include "ppp_msg.h"
 #include "ppp.h"
+
+
+static int
+readn(int ref, void *data, int len)
+{
+	int	left	= len;
+	int	n;
+	void	*p	= data;
+
+	while (left > 0) {
+		if ((n = read(ref, p, left)) < 0) {
+			if (errno != EINTR) {
+				return -1;
+			}
+			n = 0;
+		} else if (n == 0) {
+			break; /* EOF */
+		}
+
+		left -= n;
+		p += n;
+	}
+	return (len - left);
+}
+
+
+static int
+writen(int ref, void *data, int len)
+{
+	int	left	= len;
+	int	n;
+	void	*p	= data;
+
+	while (left > 0) {
+		if ((n = write(ref, p, left)) <= 0) {
+			if (errno != EINTR) {
+				return -1;
+			}
+			n = 0;
+		}
+		left -= n;
+		p += n;
+	}
+	return len;
+}
+
 
 __private_extern__
 int
@@ -89,33 +148,25 @@ PPPExec(int		ref,
 	msg.m_len  = ((request != NULL) && (requestLen > 0)) ? requestLen : 0;
 
 	//  send the command
-	n = write(ref, &msg, sizeof(msg));
-	if (n == -1) {
+	if (writen(ref, &msg, sizeof(msg)) < 0) {
 		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
 		return errno;
-	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
-		return -1;
 	}
 
 	if ((request != NULL) && (requestLen > 0)) {
-		n = write(ref, request, requestLen);
-		if (n == -1) {
+		if (writen(ref, request, requestLen) < 0) {
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
 			return errno;
-		} else if (n != requestLen) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
-			return -1;
 		}
 	}
 
 	// always expect a reply
-	n = read(ref, &msg, sizeof(msg));
+	n = readn(ref, &msg, sizeof(msg));
 	if (n == -1) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec readn() failed: error=%s"), strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec readn() failed: insufficent data, read=%d"), n);
 		return -1;
 	}
 
@@ -123,13 +174,13 @@ PPPExec(int		ref,
 		buf = CFAllocatorAllocate(NULL, msg.m_len, 0);
 		if (buf) {
 			// read reply
-			n = read(ref, buf, msg.m_len);
+			n = readn(ref, buf, msg.m_len);
 			if (n == -1) {
-				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
+				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec readn() failed: error=%s"), strerror(errno));
 				CFAllocatorDeallocate(NULL, buf);
 				return errno;
 			} else if (n != msg.m_len) {
-				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
+				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec readn() failed: insufficent data, read=%d"), n);
 				CFAllocatorDeallocate(NULL, buf);
 				return -1;
 			}
@@ -184,48 +235,6 @@ PPPDisconnect(int ref, u_long link)
 			 NULL);
 	if (status != 0) {
 		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_DISCONNECT) failed: status = %d"), status);
-		return status;
-	}
-
-	return status;
-}
-
-
-int
-PPPListen(int ref, u_long link)
-{
-	int	status;
-
-	status = PPPExec(ref,
-			 link,
-			 PPP_LISTEN,
-			 NULL,
-			 0,
-			 NULL,
-			 NULL);
-	if (status != 0) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_LISTEN) failed: status = %d"), status);
-		return status;
-	}
-
-	return status;
-}
-
-
-int
-PPPApply(int ref, u_long link)
-{
-	int	status;
-
-	status = PPPExec(ref,
-			 link,
-			 PPP_APPLY,
-			 NULL,
-			 0,
-			 NULL,
-			 NULL);
-	if (status != 0) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_APPLY) failed: status = %d"), status);
 		return status;
 	}
 
@@ -457,3 +466,31 @@ PPPStatus(int ref, u_long link, struct ppp_status **stat)
 
 	return status;
 }
+
+
+#ifdef	NOT_NEEDED
+__private_extern__
+int
+PPPEnableEvents(int ref, u_long link, u_char enable)
+{
+	int	status;
+
+	status = PPPExec(ref,
+			 link,
+			 enable ? PPP_ENABLE_EVENT : PPP_DISABLE_EVENT,
+			 NULL,
+			 0,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose,
+		      LOG_ERR,
+		      CFSTR("PPPExec(%s) failed: status = %d"),
+		      enable ? "PPP_ENABLE_EVENT" : "PPP_DISABLE_EVENT",
+		      status);
+		return status;
+	}
+
+	return status;
+}
+#endif	/* NOT_NEEDED */

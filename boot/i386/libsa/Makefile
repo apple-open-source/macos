@@ -7,8 +7,8 @@ INSTALL_SA_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/
 INSTALL_MD_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machdep/i386
 
 OPTIM = -Os
-CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp \
-	-munaligned-text -static -traditional-cpp
+CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
+	      -fno-builtin -static
 
 INC = -I. -I$(SYMROOT) -I$(UTILDIR)
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -25,12 +25,12 @@ VPATH = $(OBJROOT):$(SYMROOT)
 
 SA_OBJS = prf.o printf.o zalloc.o \
 	string.o strtol.o error.o \
-	setjmp.o qsort.o bswap.o
+	setjmp.o qsort.o
 
 SFILES = setjmp.s
 CFILES = prf.c printf.c zalloc.c \
 	string.c strtol.c error.c \
-	qsort.c bswap.c
+	qsort.c
 HFILES = memory.h
 EXPORTED_HFILES = libsa.h kernBootStruct.h memory.h
 INSTALLED_SA_HFILES = libsa.h

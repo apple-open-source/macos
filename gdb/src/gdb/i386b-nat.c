@@ -1,5 +1,6 @@
 /* Native-dependent code for BSD Unix running on i386's, for GDB.
-   Copyright 1988, 1989, 1991, 1992, 1994, 1996 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1994, 1995, 1996, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,13 +28,15 @@
 #include <machine/frame.h>
 #include "inferior.h"
 #include "gdbcore.h" /* for registers_fetched() */
+#include "regcache.h"
 
 void
 fetch_inferior_registers (int regno)
 {
   struct reg inferior_registers;
 
-  ptrace (PT_GETREGS, inferior_pid, (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  ptrace (PT_GETREGS, PIDGET (inferior_ptid),
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
   memcpy (&registers[REGISTER_BYTE (0)], &inferior_registers, 4 * NUM_REGS);
   registers_fetched ();
 }
@@ -44,7 +47,8 @@ store_inferior_registers (int regno)
   struct reg inferior_registers;
 
   memcpy (&inferior_registers, &registers[REGISTER_BYTE (0)], 4 * NUM_REGS);
-  ptrace (PT_SETREGS, inferior_pid, (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  ptrace (PT_SETREGS, PIDGET (inferior_ptid),
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
 }
 
 struct md_core
@@ -243,10 +247,9 @@ i386_float_info (void)
   unsigned int rounded_size;
   /*extern int corechan; */
   int skip;
-  extern int inferior_pid;
 
   uaddr = (char *) &U_FPSTATE (u) - (char *) &u;
-  if (inferior_pid)
+  if (! ptid_equal (inferior_ptid, null_ptid))
     {
       int *ip;
 
@@ -258,7 +261,8 @@ i386_float_info (void)
       ip = (int *) buf;
       for (i = 0; i < rounded_size; i++)
 	{
-	  *ip++ = ptrace (PT_READ_U, inferior_pid, (caddr_t) rounded_addr, 0);
+	  *ip++ = ptrace (PT_READ_U, PIDGET (inferior_ptid),
+	                  (caddr_t) rounded_addr, 0);
 	  rounded_addr += sizeof (int);
 	}
     }

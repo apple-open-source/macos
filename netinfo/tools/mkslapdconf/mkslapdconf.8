@@ -1,0 +1,105 @@
+.TH NIGREP 1 "March 21, 2001" "Apple Computer, Inc."
+.SH "NAME"
+mkslapdconf \- generate a configuration file for the LDAP server
+.SH "SYNOPSIS"
+.B mkslapdconf
+[ \fB-r\fR ]
+.SH "DESCRIPTION"
+.I mkslapdconf
+creates a configuration file suitable for the slapd(8) LDAP server,
+using the LDAP NetInfo bridge (back-netinfo). By default, it is
+invoked in local mode, in which a list of NetInfo domains to
+serve is determined by listing the valid databases in /var/db/netinfo.
+.sp
+If the
+.I \-r
+option is specified, then
+.I
+mkslapdconf
+consults the NetInfo binder daemon, nibindd(8), to list the NetInfo
+domains served by the local machine. In either case, a separate
+instance of the bridge is created for each domain (although
+they all share the same process).
+In local mode, slapd(8) will access the NetInfo database directly;
+in remote mode, it will use the netinfo(3) client library to
+access the database via remote procedure calls (RPC).
+.sp
+NetInfo has separate namespaces for \fIdomains\fR and \fIdirectories\fR;
+in the X.500 information model, there is a single namespace.
+NetInfo names are written most significant component to least
+significant; X.500 "distinguished" names are usually written
+the other way. X.500 names are also case-insensitive.
+.sp
+The mapping between NetInfo domains and X.500 names may be
+configured using the \fIsuffix\fR property in a specific host's
+\fI/machines\fR entry. Like the \fIserves\fR property, the
+\fIsuffix\fR property determines the relative domain name of
+a child domain; its values must be ordered according to the
+\fIserves\fR property in each host entry. In the case
+of the master NetInfo server's host entry, the value of the \fIsuffix\fR
+property at the same index as the "./tag" \fIserves\fR property
+will be used to determine the distinguished name for the
+root NetInfo domain.
+In the absence of a specific mapping, the \fIou\fR attribute
+type is used to construct a relative distinguished name from
+the NetInfo domain name. Note that in the present implementation,
+even if the NetInfo database is accessed directly, the NetInfo
+server must still be running as the namespace is interrogated
+using NetInfo RPC.
+See nicl(1) for more information on how NetInfo
+directory names are mapped to X.500 distinguished names.
+.sp
+For example, the NetInfo entry /users/alice in
+the NetInfo domain /sales/polaris would be (with RFC
+2307 schema mapping) by default
+mapped to the distinguished name uid=alice,cn=users,ou=polaris,ou=sales.
+.sp
+.I
+mkslapdconf
+configures the LDAP bridge to apply traditional NetInfo
+authorization policies, as well as the native slapd(8) authorization
+model. If the current host is not the master for a NetInfo
+domain, then the LDAP bridge will be configured for read-only
+access only.
+.sp
+Referrals are used to glue NetInfo domains together so
+that the search policy described in netinfo(5) is adhered
+to.
+.I
+mkslapdconf
+configures a default referral for the immediate parent
+domain; child domains are handled by the bridge itself. The
+local domain is always aliased to the distinguished name
+\fIdc=local\fR, and (for one-level and subtree searches)
+the root (empty) DSE. A search with a base of "dc=local" or ""
+will consult the local NetInfo domain; search results
+will always be written relative to the canonical distinguished
+name for the domain, however.
+.sp
+The configuration file created by
+.I
+mkslapdconf
+includes the OpenLDAP core, Cosine (RFC 1274), NIS (RFC 2307)
+inetOrgPerson (RFC 2798), miscellaneous and Apple schema.
+If you wish to add support for additional schema you will
+need to postprocess the configuration file manually.
+.sp
+The configuration file is written to the standard output.
+.I
+mkslapdconf
+should be run at startup immediately before the LDAP server
+is started, but after the NetInfo server is started.
+.SH "OPTIONS"
+.TP
+.B "-r"
+Specify that the LDAP bridge will access the NetInfo
+database using the netinfo(3) RPC client library.
+.SH "EXAMPLES"
+# mkslapdconf > /etc/openldap/slapd.conf
+
+.SH "SEE ALSO"
+netinfo(3), netinfo(5), nibindd(8), nicl(1), nidomain(8), slapd(8)
+
+.SH "AUTHOR"
+Luke Howard, Apple Computer, Inc.
+.PP

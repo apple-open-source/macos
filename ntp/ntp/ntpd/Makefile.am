@@ -1,31 +1,43 @@
 #AUTOMAKE_OPTIONS = ../util/ansi2knr no-dependencies
 AUTOMAKE_OPTIONS = ../util/ansi2knr
 sbin_PROGRAMS = ntpd
-INCLUDES = -I$(top_srcdir)/include
+INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/librsaref
 LIBMATH = -lm
 # LDADD might need RESLIB and ADJLIB
 LDADD =	version.o @LIBPARSE@ ../libntp/libntp.a @LIBRSAREF@
+# ntpd may need:
+# log10                               refclock_wwv.o
+# sqrt                                ntp_control.o
+# floor                               refclock_wwv.o
+# which are (usually) provided by -lm.
 ntpd_LDADD = $(LDADD) $(LIBMATH)
 DISTCLEANFILES = .version version.c
 #EXTRA_DIST = ntpd.mak
 ETAGS_ARGS = Makefile.am
+###							Y2Kfixes
+check_PROGRAMS = @MAKE_CHECK_Y2K@
+EXTRA_PROGRAMS = check_y2k
 
-ntpd_SOURCES = map_vme.c ntp_config.c ntp_control.c ntp_io.c \
-	ntp_loopfilter.c ntp_monitor.c ntp_peer.c ntp_proto.c \
-	ntp_refclock.c ntp_request.c ntp_restrict.c ntp_timer.c \
-	ntp_util.c ntp_intres.c ntp_filegen.c ntpd.c \
-	refclock_conf.c refclock_chu.c refclock_local.c \
-	refclock_pst.c refclock_wwvb.c refclock_mx4200.c \
-	refclock_parse.c refclock_as2201.c refclock_bancomm.c \
-	refclock_tpro.c refclock_leitch.c refclock_irig.c \
-	refclock_msfees.c refclock_trak.c refclock_datum.c \
-	refclock_acts.c refclock_heath.c refclock_nmea.c \
-	refclock_atom.c refclock_ptbacts.c refclock_jupiter.c \
-	refclock_usno.c refclock_true.c refclock_hpgps.c \
-	refclock_shm.c refclock_gpsvme.c refclock_arbiter.c \
-	refclock_arc.c refclock_palisade.c refclock_palisade.h \
-	refclock_oncore.c refclock_chronolog.c refclock_dumbclock.c \
-	jupiter.h
+check-local: @MAKE_CHECK_Y2K@
+	test -z "@MAKE_CHECK_Y2K@" || ./@MAKE_CHECK_Y2K@
+
+# ntp_resolver.c is presently unused...
+ntpd_SOURCES = cmd_args.c jupiter.h map_vme.c ntp_config.c ntp_control.c \
+	ntp_crypto.c ntp_filegen.c \
+	ntp_intres.c ntp_io.c ntp_loopfilter.c ntp_monitor.c ntp_peer.c \
+	ntp_proto.c ntp_refclock.c ntp_request.c \
+	ntp_restrict.c ntp_timer.c \
+	ntp_util.c ntpd.c refclock_acts.c refclock_arbiter.c refclock_arc.c \
+	refclock_as2201.c refclock_atom.c refclock_bancomm.c \
+	refclock_chronolog.c refclock_chu.c refclock_conf.c refclock_datum.c \
+	refclock_dumbclock.c refclock_fg.c refclock_gpsvme.c refclock_heath.c \
+	refclock_hopfser.c refclock_hopfpci.c \
+	refclock_hpgps.c refclock_irig.c refclock_jjy.c refclock_jupiter.c refclock_leitch.c \
+	refclock_local.c refclock_msfees.c refclock_mx4200.c refclock_nmea.c \
+	refclock_oncore.c refclock_palisade.c refclock_palisade.h \
+	refclock_parse.c refclock_pcf.c refclock_pst.c refclock_ptbacts.c \
+	refclock_shm.c refclock_tpro.c refclock_trak.c refclock_true.c \
+	refclock_ulink.c refclock_usno.c refclock_wwv.c refclock_wwvb.c
 
 $(PROGRAMS): $(LDADD)
 
@@ -36,5 +48,5 @@ $(PROGRAMS): $(LDADD)
 	cd ../libparse && $(MAKE)
 
 version.o: $(ntpd_OBJECTS) ../libntp/libntp.a @LIBPARSE@ @LIBRSAREF@ Makefile
-	$(top_builddir)/scripts/mkver ntpd
+	env CSET=`cat $(top_srcdir)/version` $(top_builddir)/scripts/mkver ntpd
 	$(COMPILE) -c version.c

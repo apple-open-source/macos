@@ -1,5 +1,6 @@
 /* Native dependent code for Mach 386's for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1995, 1996, 1999, 2000,
+   2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,6 +23,7 @@
 #include "frame.h"
 #include "inferior.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #include <sys/param.h>
 #include <sys/dir.h>
@@ -47,9 +49,9 @@ fetch_inferior_registers (int regno)
 
   registers_fetched ();
 
-  ptrace (PTRACE_GETREGS, inferior_pid,
+  ptrace (PTRACE_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers);
-  ptrace (PTRACE_GETFPREGS, inferior_pid,
+  ptrace (PTRACE_GETFPREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers);
 
   memcpy (registers, &inferior_registers, sizeof inferior_registers);
@@ -86,23 +88,26 @@ store_inferior_registers (int regno)
        instruction that moves eax into ebp gets single-stepped.  */
     {
       int stack = inferior_registers.r_reg[SP_REGNUM];
-      int stuff = ptrace (PTRACE_PEEKDATA, inferior_pid,
+      int stuff = ptrace (PTRACE_PEEKDATA, PIDGET (inferior_ptid),
 			  (PTRACE_ARG3_TYPE) stack);
       int reg = inferior_registers.r_reg[EAX];
       inferior_registers.r_reg[EAX] =
 	inferior_registers.r_reg[FP_REGNUM];
-      ptrace (PTRACE_SETREGS, inferior_pid,
+      ptrace (PTRACE_SETREGS, PIDGET (inferior_ptid),
 	      (PTRACE_ARG3_TYPE) & inferior_registers);
-      ptrace (PTRACE_POKEDATA, inferior_pid, (PTRACE_ARG3_TYPE) stack, 0xc589);
-      ptrace (PTRACE_SINGLESTEP, inferior_pid, (PTRACE_ARG3_TYPE) stack, 0);
+      ptrace (PTRACE_POKEDATA, PIDGET (inferior_ptid),
+              (PTRACE_ARG3_TYPE) stack, 0xc589);
+      ptrace (PTRACE_SINGLESTEP, PIDGET (inferior_ptid),
+              (PTRACE_ARG3_TYPE) stack, 0);
       wait (0);
-      ptrace (PTRACE_POKEDATA, inferior_pid, (PTRACE_ARG3_TYPE) stack, stuff);
+      ptrace (PTRACE_POKEDATA, PIDGET (inferior_ptid),
+              (PTRACE_ARG3_TYPE) stack, stuff);
       inferior_registers.r_reg[EAX] = reg;
     }
 #endif
-  ptrace (PTRACE_SETREGS, inferior_pid,
+  ptrace (PTRACE_SETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers);
-  ptrace (PTRACE_SETFPREGS, inferior_pid,
+  ptrace (PTRACE_SETFPREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers);
 }
 

@@ -43,6 +43,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <Security/cssm.h>
 #include <Security/cssmapple.h>
@@ -55,15 +56,55 @@
 #pragma mark *** Utilities ***
 
 /*
+ * Set up a Raw symmetric key with specified algorithm and key bits.
+ */
+SSLErr sslSetUpSymmKey(
+	CSSM_KEY_PTR	symKey,
+	CSSM_ALGORITHMS	alg,
+	CSSM_KEYUSE		keyUse, 		// CSSM_KEYUSE_ENCRYPT, etc.
+	CSSM_BOOL		copyKey,		// true: copy keyData   false: set by reference
+	uint8 			*keyData,
+	uint32			keyDataLen)		// in bytes
+{
+	SSLErr serr;
+	CSSM_KEYHEADER *hdr;
+	
+	memset(symKey, 0, sizeof(CSSM_KEY));
+	if(copyKey) {
+		serr = stSetUpCssmData(&symKey->KeyData, keyDataLen);
+		if(serr) {
+			return serr;
+		}
+		memmove(symKey->KeyData.Data, keyData, keyDataLen);
+	}
+	else {
+		symKey->KeyData.Data = keyData;
+		symKey->KeyData.Length = keyDataLen;
+	}
+	
+	/* set up the header */
+	hdr = &symKey->KeyHeader;
+	hdr->BlobType = CSSM_KEYBLOB_RAW;
+	hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+	hdr->AlgorithmId = alg;
+	hdr->KeyClass = CSSM_KEYCLASS_SESSION_KEY;
+	hdr->LogicalKeySizeInBits = keyDataLen * 8;
+	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
+	hdr->KeyUsage = keyUse;
+	hdr->WrapAlgorithmId = CSSM_ALGID_NONE;
+	return SSLNoErr;
+}
+
+/*
  * Free a CSSM_KEY - its CSP resources, KCItemRef, and the key itself.
  */
 SSLErr sslFreeKey(
 	CSSM_CSP_HANDLE		cspHand,
 	CSSM_KEY_PTR		*key,		/* so we can null it out */
-	#if		ST_KEYCHAIN_ENABLE
-	KCItemRef			*kcItem)	/* optional; ditto */
-	#else
-	void				*kcItem)
+	#if		ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF
+	SecKeychainRef	*kcItem)
+	#else	
+	void			*kcItem) 
 	#endif
 {
 	CASSERT(key != NULL);
@@ -75,7 +116,7 @@ SSLErr sslFreeKey(
 		sslFree(*key);
 		*key = NULL;
 	}
-	#if		ST_KEYCHAIN_ENABLE
+	#if		ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF
 	if((kcItem != NULL) && (*kcItem != NULL)) {
 		KCReleaseItem(kcItem);		/* does this NULL the referent? */
 		*kcItem = NULL;
@@ -153,7 +194,12 @@ SSLErr attachToAll(SSLContext *ctx)
 	
 	CASSERT(ctx != NULL);
 	crtn = attachToModules(&ctx->cspHand, &ctx->clHand, 
-		&ctx->tpHand);
+		&ctx->tpHand
+		#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
+		,
+		&ctx->cspDlHand
+		#endif
+		);
 	if(crtn) {
 	   return SSLAttachFailure;
 	}
@@ -249,6 +295,7 @@ SSLErr stSetUpCssmData(
 
 /*
  * Common RNG function; replaces SSLRef's SSLRandomFunc.
+ * FIXME - just use /dev/random.
  */
 SSLErr sslRand(SSLContext *ctx, SSLBuffer *buf)
 {
@@ -305,7 +352,7 @@ SSLErr sslRand(SSLContext *ctx, SSLBuffer *buf)
 
 SSLErr sslRsaRawSign(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	privKey,
+	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -333,7 +380,7 @@ SSLErr sslRsaRawSign(
 
 SSLErr sslRsaRawVerify(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -390,7 +437,7 @@ errOut:
 
 SSLErr sslRsaRawSign(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	privKey,
+	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -453,7 +500,7 @@ SSLErr sslRsaRawSign(
 
 SSLErr sslRsaRawVerify(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -520,7 +567,7 @@ SSLErr sslRsaRawVerify(
 
 SSLErr sslRsaEncrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
 	UInt32				plainTextLen,
@@ -547,7 +594,7 @@ SSLErr sslRsaEncrypt(
 	}
 	
 	#if		RSA_PUB_KEY_USAGE_HACK
-	pubKey->KeyHeader.KeyUsage |= CSSM_KEYUSE_ENCRYPT;
+	((CSSM_KEY_PTR)pubKey)->KeyHeader.KeyUsage |= CSSM_KEYUSE_ENCRYPT;
 	#endif
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	
@@ -555,7 +602,7 @@ SSLErr sslRsaEncrypt(
 		CSSM_ALGID_RSA,
 		&creds,
 		pubKey,
-		CSSM_PADDING_NONE,
+		CSSM_PADDING_PKCS1,
 		&cryptHand);
 	if(crtn) {
 		stPrintCdsaError("CSSM_CSP_CreateAsymmetricContext", crtn);
@@ -647,7 +694,7 @@ SSLErr sslRsaEncrypt(
 
 SSLErr sslRsaDecrypt(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	privKey,
+	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*cipherText,
 	UInt32				cipherTextLen,		
@@ -677,7 +724,7 @@ SSLErr sslRsaDecrypt(
 		CSSM_ALGID_RSA,
 		&creds,
 		privKey,
-		CSSM_PADDING_NONE,
+		CSSM_PADDING_PKCS1,
 		&cryptHand);
 	if(crtn) {
 		stPrintCdsaError("CSSM_CSP_CreateAsymmetricContext", crtn);
@@ -772,7 +819,7 @@ SSLErr sslRsaDecrypt(
 /*
  * Obtain size of key in bytes.
  */
-UInt32 sslKeyLengthInBytes(const CSSM_KEY_PTR key)
+UInt32 sslKeyLengthInBytes(const CSSM_KEY *key)
 {
 	CASSERT(key != NULL);
 	return (((key->KeyHeader.LogicalKeySizeInBits) + 7) / 8);
@@ -783,14 +830,14 @@ UInt32 sslKeyLengthInBytes(const CSSM_KEY_PTR key)
  */
 SSLErr sslGetPubKeyBits(
 	SSLContext			*ctx,
-	const CSSM_KEY_PTR	pubKey,
+	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	SSLBuffer			*modulus,		// data mallocd and RETURNED
 	SSLBuffer			*exponent)		// data mallocd and RETURNED
 {
 	CSSM_KEY			wrappedKey;
 	CSSM_BOOL			didWrap = CSSM_FALSE;
-	CSSM_KEYHEADER_PTR	hdr;
+	const CSSM_KEYHEADER *hdr;
 	CSSM_CC_HANDLE 		ccHand;
 	CSSM_RETURN			crtn;
 	SSLBuffer			pubKeyBlob;
@@ -972,7 +1019,12 @@ abort:
  * Caller must CSSM_FreeKey and free the CSSM_KEY_PTR itself. 
  *
  * For now, the returned cspHand is a copy of ctx->cspHand, so it
- * doesn't have to be detached later - this may change....
+ * doesn't have to be detached later - this may change.
+ *
+ * Update: since CSSM_CL_CertGetKeyInfo() doesn't provide a means for
+ * us to tell the CL what CSP to use, we really have no way of knowing 
+ * what is going on here...we return the process-wide (bare) cspHand,
+ * which is currently always able to deal with this raw public key. 
  */
 SSLErr sslPubKeyFromCert(
 	SSLContext 			*ctx,
@@ -1066,7 +1118,7 @@ void writeBufBlob(const SSLBuffer *blob,
 
 #endif	/* 0 */
 
-#if		ST_KEYCHAIN_ENABLE
+#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 
 /*
  * Given a CSSM_CERTGROUP which fails due to CSSM_TP_INVALID_ANCHOR
@@ -1147,7 +1199,7 @@ static SSLErr sslHandleNewRoot(
 	return SSLNoErr;
 }
 
-#endif	/* ST_KEYCHAIN_ENABLE */
+#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 
 /* free a CSSM_CERT_GROUP */ 
 static void sslFreeCertGroup(
@@ -1195,7 +1247,12 @@ SSLErr sslVerifyCertChain(
 	CSSM_TP_CALLERAUTH_CONTEXT	authCtx;
 	CSSM_FIELD					policyId;
 	CSSM_DL_DB_LIST				dbList;
+	CSSM_APPLE_TP_SSL_OPTIONS	sslOpts;
+	CSSM_APPLE_TP_ACTION_DATA	actionData;
 	
+	/* FIXME - allowAnyRoot should probably mean "return success" with 
+	 * no checking */
+	 
 	numCerts = SSLGetCertificateChainLength(certChain);
 	if(numCerts == 0) {
 		/* nope */
@@ -1218,7 +1275,7 @@ SSLErr sslVerifyCertChain(
 	if(certGroup.GroupList.CertList == NULL) {
 		return SSLMemoryErr;
 	}
-	certGroup.CertGroupType = CSSM_CERTGROUP_ENCODED_CERT;
+	certGroup.CertGroupType = CSSM_CERTGROUP_DATA;
 	certGroup.CertType = CSSM_CERT_X_509v3;
 	certGroup.CertEncoding = CSSM_CERT_ENCODING_DER; 
 	certGroup.NumCerts = numCerts;
@@ -1229,13 +1286,6 @@ SSLErr sslVerifyCertChain(
 		SSLBUF_TO_CSSM(&c->derCert, &certGroup.GroupList.CertList[i]);
 		c = c->next;
 	}
-	
-	#if		0
-	if(ctx->rootCertName != NULL) {
-		/* save root cert */
-		writeBlob(&certGroup.CertList[numCerts-1], ctx->rootCertName);
-	}
-	#endif	/* SSL_DEBUG */
 	
 	memset(&vfyCtx, 0, sizeof(CSSM_TP_VERIFY_CONTEXT));
 	vfyCtx.Action = CSSM_TP_ACTION_DEFAULT;
@@ -1254,14 +1304,28 @@ SSLErr sslVerifyCertChain(
 			CSSM_ACCESS_CREDENTIALS_PTR CallerCredentials;
 		} CSSM_TP_CALLERAUTH_CONTEXT, *CSSM_TP_CALLERAUTH_CONTEXT_PTR;
 	*/
+	
+	/* SSL-specific FieldValue */
+	sslOpts.Version = CSSM_APPLE_TP_SSL_OPTS_VERSION;
+	sslOpts.ServerNameLen = ctx->peerDomainNameLen;
+	sslOpts.ServerName = ctx->peerDomainName;
+	
+	/* TP-wide ActionData */
+	actionData.Version = CSSM_APPLE_TP_ACTION_VERSION;
+	actionData.ActionFlags = 0x80000000;	// @@@ secret root-cert-enable 
+	if(ctx->allowExpiredCerts) {
+		actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED;
+	}
+	vfyCtx.ActionData.Data = (uint8 *)&actionData;
+	vfyCtx.ActionData.Length = sizeof(actionData);
+	
 	/* zero or one policy here */
-	policyId.FieldValue.Data = NULL;
-	policyId.FieldValue.Length = 0;
 	policyId.FieldOid = CSSMOID_APPLE_TP_SSL;
+	policyId.FieldValue.Data = (uint8 *)&sslOpts;
+	policyId.FieldValue.Length = sizeof(sslOpts);
 	authCtx.Policy.NumberOfPolicyIds = 1;
 	authCtx.Policy.PolicyIds = &policyId;
-	authCtx.Policy.PolicyControl = ctx->allowExpiredCerts ?
-		CSSM_TP_ALLOW_EXPIRE : NULL;
+	
 	authCtx.VerifyTime = NULL;
 	authCtx.VerificationAbortOn = CSSM_TP_STOP_ON_POLICY;
 	authCtx.CallbackWithVerifiedCert = NULL;
@@ -1292,13 +1356,13 @@ SSLErr sslVerifyCertChain(
 	if(crtn) {	
 		/* get some detailed error info */
 		switch(crtn) {
-			case CSSMERR_TP_INVALID_ANCHOR_CERT:
+			case CSSMERR_TP_INVALID_ANCHOR_CERT: 
 				/* root found but we don't trust it */
 				if(ctx->allowAnyRoot) {
 					dprintf0("***Warning: accepting unknown root cert\n");
 					break;
 				}
-				#if		ST_KEYCHAIN_ENABLE
+				#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 				if(ctx->newRootCertKc != NULL) {
 					/* see if user wants to handle new root */
 					serr = sslHandleNewRoot(ctx, &certGroup);
@@ -1308,7 +1372,7 @@ SSLErr sslVerifyCertChain(
 				}
 				#else
 				serr = SSLUnknownRootCert;
-				#endif	/* ST_KEYCHAIN_ENABLE */
+				#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 				break;
 			case CSSMERR_TP_NOT_TRUSTED:
 				/* no root, not even in implicit SSL roots */
@@ -1319,7 +1383,7 @@ SSLErr sslVerifyCertChain(
 				serr = SSLNoRootCert;
 				break;
 			case CSSMERR_TP_CERT_EXPIRED:
-				/* FIXME  - tolerate this case via some TBD flag */
+				assert(!ctx->allowExpiredCerts);
 				serr = SSLCertExpired;
 				break;
 			case CSSMERR_TP_CERT_NOT_VALID_YET:
@@ -1483,7 +1547,7 @@ CSSM_DATA_PTR sslGetCertSubjectName(
 }
 #endif	ST_KEYCHAIN_ENABLE 
 
-#if		(SSL_DEBUG && ST_KEYCHAIN_ENABLE)
+#if		(SSL_DEBUG && ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS)
 void verifyTrustedRoots(SSLContext *ctx,
 	CSSM_DATA_PTR	certs,
 	unsigned		numCerts)

@@ -6,8 +6,8 @@ DIR = boot2
 include ../MakePaths.dir
 
 OPTIM = -Os
-CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp \
-    -munaligned-text -DSAIO_INTERNAL_USER -static -traditional-cpp
+CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
+          -fno-builtin -DSAIO_INTERNAL_USER -static
 DEFINES=
 CONFIG = hd
 SYMDIR = $(SYMROOT)
@@ -32,19 +32,19 @@ VPATH = $(OBJROOT):$(SYMROOT)
 
 # The ordering is important;
 # boot2.o must be first.
-OBJS = boot2.o boot.o graphics.o drivers.o prompt.o
+OBJS = boot2.o boot.o graphics.o drivers.o prompt.o options.o
 # button.o browser.o scrollbar.o == NOTYET	
 
 UTILDIR = ../util
 SFILES = boot2.s
-CFILES = boot.c graphics.c drivers.c prompt.c
+CFILES = boot.c graphics.c drivers.c prompt.c options.c
 HFILES = boot.h
 OTHERFILES = Makefile
 ALLSRC = $(FOREIGNSRC) $(FOREIGNBIN) $(SFILES) $(CFILES) \
 	$(HFILES) $(OTHERFILES)
 DIRS_NEEDED = $(OBJROOT) $(SYMROOT)
-BOOT2ADDR = 3000
-MAXBOOTSIZE = 45056
+BOOT2ADDR = 20200
+MAXBOOTSIZE = 65024
 
 all: $(DIRS_NEEDED) boot
 

@@ -344,5 +344,51 @@ AppleX509CLSession::PassThrough(
 	const void *InputParams,
 	void **OutputParams)
 {
-	unimplemented();
+	switch(PassThroughId) {
+		case CSSM_APPLEX509CL_OBTAIN_CSR:
+		{
+			/*
+			 * Create a Cert Signing Request (CSR).
+			 * Input is a CSSM_APPLE_CL_CSR_REQUEST.
+			 * Output is a PEM-encoded CertSigningRequest (SNACC type
+			 * CertificationRequest from pkcs10). 
+			 */
+			if(InputParams == NULL) {
+				CssmError::throwMe(CSSMERR_CL_INVALID_INPUT_POINTER);
+			}
+			if(OutputParams == NULL) {
+				CssmError::throwMe(CSSMERR_CL_INVALID_OUTPUT_POINTER);
+			}
+			CSSM_APPLE_CL_CSR_REQUEST *csrReq = 
+				(CSSM_APPLE_CL_CSR_REQUEST *)InputParams;
+			if((csrReq->subjectNameX509 == NULL) ||
+			(csrReq->signatureOid.Data == NULL) ||
+			(csrReq->subjectPublicKey == NULL) ||
+			(csrReq->subjectPrivateKey == NULL)) {
+				CssmError::throwMe(CSSMERR_CL_INVALID_INPUT_POINTER);
+			}
+			CSSM_DATA_PTR csrPtr = NULL;
+			generateCsr(CCHandle, csrReq, csrPtr);
+			*OutputParams = csrPtr;
+			break;
+		}	
+		case CSSM_APPLEX509CL_VERIFY_CSR:
+		{
+			/*
+			 * Perform signature verify of a CSR.
+			 * Input:  CSSM_DATA referring to a DER-encoded CSR.
+			 * Output: Nothing, throws CSSMERR_CL_VERIFICATION_FAILURE
+			 *         on failure.
+			 */
+			if(InputParams == NULL) {
+				CssmError::throwMe(CSSMERR_CL_INVALID_INPUT_POINTER);
+			}
+			const CSSM_DATA *csrPtr = (const CSSM_DATA *)InputParams;
+			verifyCsr(csrPtr);
+			break;
+		}	
+		default:
+			CssmError::throwMe(CSSMERR_CL_INVALID_PASSTHROUGH_ID);
+	}
 }
+

@@ -143,9 +143,15 @@ proc all_threads_running {} {
 
     send_gdb "p common_routine::hits\n"
     gdb_expect {
-	-re ".*= 15\r\n$gdb_prompt $" {}
-	-re ".*= 16\r\n$gdb_prompt $" {}
-	-re ".*= 17\r\n$gdb_prompt $" {}
+	-re ".*= 15\r\n$gdb_prompt $" {
+	    pass "stopped before calling common_routine 15 times"
+	}
+	-re ".*= 16\r\n$gdb_prompt $" {
+	    pass "stopped before calling common_routine 15 times (16 times)"
+	}
+	-re ".*= 17\r\n$gdb_prompt $" {
+	    pass "stopped before calling common_routine 15 times (17 times)"
+	}
 	default {
 	    fail "stopped before calling common_routine 15 times"
 	    return 0
@@ -165,7 +171,11 @@ proc all_threads_running {} {
 
     send_gdb "p common_routine::full_coverage\n"
     gdb_expect {
-	-re ".*= 1\r\n$gdb_prompt $" {}
+	-re ".* = 1.*$gdb_prompt $" {}
+	-re ".* = 0.*$gdb_prompt $" {
+	    fail "some threads didn't run"
+	    return 0
+	}
 	default {
 	    fail "some threads didn't run"
 	    return 0
@@ -188,13 +198,11 @@ proc test_startup {} {
     # We should be able to do an info threads before starting any others.
     send_gdb "info threads\n"
     gdb_expect {
-	-re ".*Thread.*LWP.*main.*$gdb_prompt $" {
+	-re ".*Thread.*main.*$gdb_prompt $" {
 	    pass "info threads"
 	}
 	-re "\r\n$gdb_prompt $" {
-	    pass "info threads"
-	    setup_xfail "*-*-*"
-	    fail "gdb does not support pthreads for this machine"
+	    unsupported "gdb does not support pthreads for this machine"
 	    return 0
 	}
     }
@@ -241,6 +249,15 @@ proc check_control_c {} {
 
     # Send a continue followed by ^C to the process to stop it.
     send_gdb "continue\n"
+    gdb_expect {
+	-re "Continuing." {
+	    pass "Continue with all threads running"
+	}
+	timeout {
+	    fail "Continue with all threads running (timeout)"
+	}
+    }
+    sleep 1
     set description "Stopped with a ^C"
     after 1000 [send_gdb "\003"]
     gdb_expect {
@@ -252,6 +269,7 @@ proc check_control_c {} {
 	}
 	timeout {
 	    fail "$description (timeout)"
+	    return 1;
 	}
     }
     gdb_test "bt" ""
@@ -260,6 +278,7 @@ proc check_control_c {} {
     if [all_threads_running] then {
 	pass "All threads running after continuing from ^C stop"
     }
+    return 0;
 }
 
 proc check_backtraces {} {
@@ -294,6 +313,7 @@ proc check_backtraces {} {
     send_gdb "continue\n"
     gdb_expect {
 	-re "Breakpoint .* common_routine \\(arg=2\\).*" {
+	    pass "continue to bkpt at common_routine in thread 2"
 	    send_gdb "backtrace\n"
 	    gdb_expect {
 		-re "#0.*common_routine \\(arg=2\\).*#1.*thread2.*" {
@@ -308,16 +328,16 @@ proc check_backtraces {} {
 	    }
 	}
 	-re "Breakpoint .* common_routine \\(arg=0\\).*" {
-	    fail "stopped in main thread at breakpoint for thread 2"
+	    fail "continue to bkpt at common_routine in thread 2 (arg=0)"
 	}
 	-re "Breakpoint .* common_routine \\(arg=1\\).*" {
-	    fail "stopped in main thread at breakpoint for thread 1"
+	    fail "continue to bkpt at common_routine in thread 2 (arg=1)"
 	}
 	-re ".*$gdb_prompt" {
 	    fail "continue to bkpt at common_routine in thread 2"
 	}
 	default {
-	    fail "continue to bkpt at common_routine in thread 2"
+	    fail "continue to bkpt at common_routine in thread 2 (default)"
 	}
 	timeout {
 	    fail "continue to bkpt at common_routine in thread 2 (timeout)"
@@ -329,7 +349,10 @@ setup_xfail "alpha-*-osf*"
 if [runto_main] then {
     clear_xfail "alpha-*-osf*"
     if [test_startup] then {
-	check_control_c
+	if [check_control_c] then {
+	    warning "Could not stop child with ^C; skipping rest of tests.\n"
+	    return;
+	}
 	check_backtraces
     }
 }

@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,10 +27,15 @@
  *
  */
 
-/* We use <config.h> instead of "config.h" so that a compilation        *
- * using -I. -I$srcdir will use ./config.h rather than $srcdir/config.h *
- * (which it would do because it found this file in $srcdir).           */
-#include <config.h>
+#define trashzle()      trashzleptr()
+#define zleread(X,Y,H)  zlereadptr(X,Y,H)
+#define spaceinline(X)  spaceinlineptr(X)
+#define zrefresh()      refreshptr()
+
+#define compctlread(N,A,O,R) compctlreadptr(N,A,O,R)
+
+/* A few typical macros */
+#define minimum(a,b)  ((a) < (b) ? (a) : (b))
 
 /*
  * Our longest integer type:  will be a 64 bit either if long already is,
@@ -38,12 +43,8 @@
  * Currently we only define this to be longer than a long if --enable-lfs
  * was given.  That enables internal use of 64-bit types even if
  * no actual large file support is present.
- *
- * This comes before system.h, where we use SIZEOF_ZLONG for
- * defining the digit buffer size.
  */
 #ifdef ZSH_64_BIT_TYPE
-# define SIZEOF_ZLONG 8
 typedef ZSH_64_BIT_TYPE zlong;
 #ifdef ZSH_64_BIT_UTYPE
 typedef ZSH_64_BIT_UTYPE zulong;
@@ -51,20 +52,53 @@ typedef ZSH_64_BIT_UTYPE zulong;
 typedef unsigned zlong zulong;
 #endif
 #else
-# define SIZEOF_ZLONG SIZEOF_LONG
 typedef long zlong;
 typedef unsigned long zulong;
 #endif
 
-#include <system.h>
-
-/* A few typical macros */
-#define minimum(a,b)  ((a) < (b) ? (a) : (b))
+/*
+ * Double float support requires 64-bit alignment, so if longs and
+ * pointers are less we need to pad out.
+ */
+#ifndef LONG_IS_64_BIT
+# define PAD_64_BIT 1
+#endif
 
 /* math.c */
-typedef int LV;
+typedef struct {
+    union {
+	zlong l;
+	double d;
+    } u;
+    int type;
+} mnumber;
 
-#include "zle.h"
+#define MN_INTEGER 1		/* mnumber is integer */
+#define MN_FLOAT   2		/* mnumber is floating point */
+
+typedef struct mathfunc *MathFunc;
+typedef mnumber (*NumMathFunc)(char *, int, mnumber *, int);
+typedef mnumber (*StrMathFunc)(char *, char *, int);
+
+struct mathfunc {
+    MathFunc next;
+    char *name;
+    int flags;
+    NumMathFunc nfunc;
+    StrMathFunc sfunc;
+    char *module;
+    int minargs;
+    int maxargs;
+    int funcid;
+};
+
+#define MFF_STR      1
+#define MFF_ADDED    2
+
+#define NUMMATHFUNC(name, func, min, max, id) \
+    { NULL, name, 0, func, NULL, NULL, min, max, id }
+#define STRMATHFUNC(name, func, id) \
+    { NULL, name, MFF_STR, NULL, func, NULL, 0, 0, id }
 
 /* Character tokens are sometimes casted to (unsigned char)'s.         * 
  * Unfortunately, some compilers don't correctly cast signed to        * 
@@ -159,69 +193,71 @@ enum {
     DINPAR,
     DOUTPAR,
     AMPERBANG,		/* 30 */
+    SEMIAMP,
     DOUTBRACK,
     STRING,
     ENVSTRING,
-    ENVARRAY,
-    ENDINPUT,		/* 35 */
+    ENVARRAY,		/* 35 */
+    ENDINPUT,
     LEXERR,
 
     /* Tokens for reserved words */
     BANG,	/* !         */
     DINBRACK,	/* [[        */
-    INBRACE,    /* {         */
-    OUTBRACE,   /* }         */	/* 40 */
+    INBRACE,    /* {         */	/* 40 */
+    OUTBRACE,   /* }         */
     CASE,	/* case      */
     COPROC,	/* coproc    */
     DO,		/* do        */
-    DONE,	/* done      */
-    ELIF,	/* elif      */ /* 45 */
+    DONE,	/* done      */ /* 45 */
+    ELIF,	/* elif      */
     ELSE,	/* else      */
     ZEND,	/* end       */
     ESAC,	/* esac      */
-    FI,		/* fi        */
-    FOR,	/* for       */ /* 50 */
+    FI,		/* fi        */ /* 50 */
+    FOR,	/* for       */
     FOREACH,	/* foreach   */
     FUNC,	/* function  */
     IF,		/* if        */
-    NOCORRECT,	/* nocorrect */
-    REPEAT,	/* repeat    */ /* 55 */
+    NOCORRECT,	/* nocorrect */ /* 55 */
+    REPEAT,	/* repeat    */
     SELECT,	/* select    */
     THEN,	/* then      */
     TIME,	/* time      */
-    UNTIL,	/* until     */
-    WHILE	/* while     */ /* 60 */
+    UNTIL,	/* until     */ /* 60 */
+    WHILE	/* while     */
 };
 
 /* Redirection types.  If you modify this, you may also have to modify *
- * redirtab in globals.h and getredirs() in text.c and the IS_* macros *
+ * redirtab in parse.c and getredirs() in text.c and the IS_* macros   *
  * below.                                                              */
 
 enum {
-    WRITE,		/* > */
-    WRITENOW,		/* >| */
-    APP,		/* >> */
-    APPNOW,		/* >>| */
-    ERRWRITE,		/* &>, >& */
-    ERRWRITENOW,	/* >&| */
-    ERRAPP,		/* >>& */
-    ERRAPPNOW,		/* >>&| */
-    READ,		/* < */
-    READWRITE,		/* <> */
-    HEREDOC,		/* << */
-    HEREDOCDASH,	/* <<- */
-    HERESTR,		/* <<< */
-    MERGEIN,		/* <&n */
-    MERGEOUT,		/* >&n */
-    CLOSE,		/* >&-, <&- */
-    INPIPE,		/* < <(...) */
-    OUTPIPE		/* > >(...) */
+    REDIR_WRITE,		/* > */
+    REDIR_WRITENOW,		/* >| */
+    REDIR_APP,		/* >> */
+    REDIR_APPNOW,		/* >>| */
+    REDIR_ERRWRITE,		/* &>, >& */
+    REDIR_ERRWRITENOW,	/* >&| */
+    REDIR_ERRAPP,		/* >>& */
+    REDIR_ERRAPPNOW,		/* >>&| */
+    REDIR_READWRITE,		/* <> */
+    REDIR_READ,		/* < */
+    REDIR_HEREDOC,		/* << */
+    REDIR_HEREDOCDASH,	/* <<- */
+    REDIR_HERESTR,		/* <<< */
+    REDIR_MERGEIN,		/* <&n */
+    REDIR_MERGEOUT,		/* >&n */
+    REDIR_CLOSE,		/* >&-, <&- */
+    REDIR_INPIPE,		/* < <(...) */
+    REDIR_OUTPIPE		/* > >(...) */
 };
 
-#define IS_APPEND_REDIR(X)    ((X)>=WRITE && (X)<=ERRAPPNOW && ((X) & 2))
-#define IS_CLOBBER_REDIR(X)   ((X)>=WRITE && (X)<=ERRAPPNOW && ((X) & 1))
-#define IS_ERROR_REDIR(X)     ((X)>=ERRWRITE && (X)<=ERRAPPNOW)
-#define IS_READFD(X)          (((X)>=READ && (X)<=MERGEIN) || (X)==INPIPE)
+#define IS_WRITE_FILE(X)      ((X)>=REDIR_WRITE && (X)<=REDIR_READWRITE)
+#define IS_APPEND_REDIR(X)    (IS_WRITE_FILE(X) && ((X) & 2))
+#define IS_CLOBBER_REDIR(X)   (IS_WRITE_FILE(X) && ((X) & 1))
+#define IS_ERROR_REDIR(X)     ((X)>=REDIR_ERRWRITE && (X)<=REDIR_ERRAPPNOW)
+#define IS_READFD(X)          (((X)>=REDIR_READWRITE && (X)<=REDIR_MERGEIN) || (X)==REDIR_INPIPE)
 #define IS_REDIROP(X)         ((X)>=OUTANG && (X)<=TRINANG)
 
 /* Flags for input stack */
@@ -240,6 +276,7 @@ enum {
 #define META_ALLOC	4
 #define META_NOALLOC	5
 #define META_HEAPDUP	6
+#define META_HREALLOC	7
 
 
 /**************************/
@@ -251,36 +288,33 @@ typedef struct linklist  *LinkList;
 typedef struct hashnode  *HashNode;
 typedef struct hashtable *HashTable;
 
+typedef struct optname   *Optname;
 typedef struct reswd     *Reswd;
 typedef struct alias     *Alias;
 typedef struct param     *Param;
+typedef struct paramdef  *Paramdef;
 typedef struct cmdnam    *Cmdnam;
 typedef struct shfunc    *Shfunc;
+typedef struct funcstack *Funcstack;
+typedef struct funcwrap  *FuncWrap;
 typedef struct builtin   *Builtin;
 typedef struct nameddir  *Nameddir;
+typedef struct module    *Module;
+typedef struct linkedmod *Linkedmod;
 
-typedef struct schedcmd  *Schedcmd;
+typedef struct patprog   *Patprog;
 typedef struct process   *Process;
 typedef struct job       *Job;
 typedef struct value     *Value;
-typedef struct varasg    *Varasg;
-typedef struct cond      *Cond;
-typedef struct cmd       *Cmd;
-typedef struct pline     *Pline;
-typedef struct sublist   *Sublist;
-typedef struct list      *List;
-typedef struct comp      *Comp;
+typedef struct conddef   *Conddef;
 typedef struct redir     *Redir;
 typedef struct complist  *Complist;
 typedef struct heap      *Heap;
 typedef struct heapstack *Heapstack;
 typedef struct histent   *Histent;
-typedef struct compctlp  *Compctlp;
-typedef struct compctl   *Compctl;
-typedef struct compcond  *Compcond;
-typedef struct forcmd    *Forcmd;
+typedef struct hookdef   *Hookdef;
 
-typedef struct asgment  *Asgment;
+typedef struct asgment   *Asgment;
 
 
 /********************************/
@@ -302,165 +336,57 @@ struct linklist {
 
 /* Macros for manipulating link lists */
 
-#define addlinknode(X,Y) insertlinknode(X,(X)->last,Y)
-#define empty(X)     ((X)->first == NULL)
-#define nonempty(X)  ((X)->first != NULL)
-#define firstnode(X) ((X)->first)
-#define getaddrdata(X) (&((X)->dat))
-#define getdata(X)   ((X)->dat)
-#define setdata(X,Y) ((X)->dat = (Y))
-#define lastnode(X)  ((X)->last)
-#define nextnode(X)  ((X)->next)
-#define prevnode(X)  ((X)->last)
-#define peekfirst(X) ((X)->first->dat)
-#define pushnode(X,Y) insertlinknode(X,(LinkNode) X,Y)
-#define incnode(X) (X = nextnode(X))
-#define gethistent(X) (histentarr+((X)%histentct))
+#define addlinknode(X,Y)    insertlinknode(X,(X)->last,Y)
+#define zaddlinknode(X,Y)   zinsertlinknode(X,(X)->last,Y)
+#define uaddlinknode(X,Y)   uinsertlinknode(X,(X)->last,Y)
+#define empty(X)            ((X)->first == NULL)
+#define nonempty(X)         ((X)->first != NULL)
+#define firstnode(X)        ((X)->first)
+#define getaddrdata(X)      (&((X)->dat))
+#define getdata(X)          ((X)->dat)
+#define setdata(X,Y)        ((X)->dat = (Y))
+#define lastnode(X)         ((X)->last)
+#define nextnode(X)         ((X)->next)
+#define prevnode(X)         ((X)->last)
+#define peekfirst(X)        ((X)->first->dat)
+#define pushnode(X,Y)       insertlinknode(X,(LinkNode) X,Y)
+#define zpushnode(X,Y)      zinsertlinknode(X,(LinkNode) X,Y)
+#define incnode(X)          (X = nextnode(X))
+#define firsthist()         (hist_ring? hist_ring->down->histnum : curhist)
+#define setsizednode(X,Y,Z) ((X)->first[(Y)].dat = (void *) (Z))
 
+/* stack allocated linked lists */
+
+#define local_list0(N) struct linklist N
+#define init_list0(N) \
+    do { \
+        (N).first = NULL; \
+        (N).last = (LinkNode) &(N); \
+    } while (0)
+#define local_list1(N) struct linklist N; struct linknode __n0
+#define init_list1(N,V0) \
+    do { \
+        (N).first = &__n0; \
+        (N).last = &__n0; \
+        __n0.next = NULL; \
+        __n0.last = (LinkNode) &(N); \
+        __n0.dat = (void *) (V0); \
+    } while (0)
 
 /********************************/
 /* Definitions for syntax trees */
 /********************************/
 
-/* struct list, struct sublist, struct pline, etc.  all fit the form *
- * of this structure and are used interchangably. The ptrs may hold  *
- * integers or pointers, depending on the type of the node.          */
-
-/* Generic node structure for syntax trees */
-struct node {
-    int ntype;			/* node type */
-};
-
-#define N_LIST    0
-#define N_SUBLIST 1
-#define N_PLINE   2
-#define N_CMD     3
-#define N_REDIR   4
-#define N_COND    5
-#define N_FOR     6
-#define N_CASE    7
-#define N_IF      8
-#define N_WHILE   9
-#define N_VARASG 10
-#define N_COUNT  11
-
-/* values for types[4] */
-
-#define NT_EMPTY 0
-#define NT_NODE  1
-#define NT_STR   2
-#define NT_LIST  4
-#define NT_ARR   8
-
-#define NT_TYPE(T) ((T) & 0xff)
-#define NT_N(T, N) (((T) >> (8 + (N) * 4)) & 0xf)
-#define NT_SET(T0, N, T1, T2, T3, T4) \
-    ((T0) | ((N) << 24) | \
-     ((T1) << 8) | ((T2) << 12) | ((T3) << 16) | ((T4) << 20))
-#define NT_NUM(T) (((T) >> 24) & 7)
-#define NT_HEAP   (1 << 30)
-
-/* tree element for lists */
-
-struct list {
-    int ntype;			/* node type */
-    int type;
-    Sublist left;
-    List right;
-};
-
 /* These are control flags that are passed *
  * down the execution pipeline.            */
-#define Z_TIMED	(1<<0)	/* pipeline is being timed                   */
-#define Z_SYNC	(1<<1)	/* run this sublist synchronously       (;)  */
-#define Z_ASYNC	(1<<2)	/* run this sublist asynchronously      (&)  */
+#define Z_TIMED	 (1<<0)	/* pipeline is being timed                   */
+#define Z_SYNC	 (1<<1)	/* run this sublist synchronously       (;)  */
+#define Z_ASYNC  (1<<2)	/* run this sublist asynchronously      (&)  */
 #define Z_DISOWN (1<<3)	/* run this sublist without job control (&|) */
+/* (1<<4) is used for Z_END, see the wordcode definitions */
+/* (1<<5) is used for Z_SIMPLE, see the wordcode definitions */
 
-/* tree element for sublists */
-
-struct sublist {
-    int ntype;			/* node type */
-    int type;
-    int flags;			/* see PFLAGs below */
-    Pline left;
-    Sublist right;
-};
-
-#define ORNEXT  10		/* || */
-#define ANDNEXT 11		/* && */
-
-#define PFLAG_NOT     1		/* ! ... */
-#define PFLAG_COPROC 32		/* coproc ... */
-
-/* tree element for pipes */
-
-struct pline {
-    int ntype;			/* node type */
-    int type;
-    Cmd left;
-    Pline right;
-};
-
-#define END	0		/* pnode *right is null                     */
-#define PIPE	1		/* pnode *right is the rest of the pipeline */
-
-/* tree element for commands */
-
-struct cmd {
-    int ntype;			/* node type                    */
-    int type;
-    int flags;			/* see CFLAGs below             */
-    int lineno;			/* lineno of script for command */
-    union {
-	List list;		/* for SUBSH/CURSH/SHFUNC       */
-	Forcmd forcmd;
-	struct casecmd *casecmd;
-	struct ifcmd *ifcmd;
-	struct whilecmd *whilecmd;
-	Sublist pline;
-	Cond cond;
-	void *generic;
-    } u;
-    LinkList args;		/* command & argmument List (char *'s)   */
-    LinkList redir;		/* i/o redirections (struct redir *'s)   */
-    LinkList vars;		/* param assignments (struct varasg *'s) */
-};
-
-/* cmd types */
-#define SIMPLE   0
-#define SUBSH    1
-#define CURSH    2
-#define ZCTIME   3
-#define FUNCDEF  4
-#define CFOR     5
-#define CWHILE   6
-#define CREPEAT  7
-#define CIF      8
-#define CCASE    9
-#define CSELECT 10
-#define COND    11
-#define CARITH  12
-
-/* flags for command modifiers */
-#define CFLAG_EXEC	(1<<0)	/* exec ...    */
-
-/* tree element for redirection lists */
-
-struct redir {
-    int ntype;			/* node type */
-    int type;
-    int fd1, fd2;
-    char *name;
-};
-
-/* tree element for conditionals */
-
-struct cond {
-    int ntype;		/* node type                     */
-    int type;		/* can be cond_type, or a single */
-			/* letter (-a, -b, ...)          */
-    void *left, *right;
-};
+/* Condition types. */
 
 #define COND_NOT    0
 #define COND_AND    1
@@ -478,41 +404,34 @@ struct cond {
 #define COND_GT    13
 #define COND_LE    14
 #define COND_GE    15
+#define COND_MOD   16
+#define COND_MODI  17
 
-struct forcmd {			/* for/select */
-/* Cmd->args contains list of words to loop thru */
-    int ntype;			/* node type                          */
-    int inflag;			/* if there is an in ... clause       */
-    char *name;			/* parameter to assign values to      */
-    List list;			/* list to look through for each name */
+typedef int (*CondHandler) _((char **, int));
+
+struct conddef {
+    Conddef next;		/* next in list                       */
+    char *name;			/* the condition name                 */
+    int flags;			/* see CONDF_* below                  */
+    CondHandler handler;	/* handler function                   */
+    int min;			/* minimum number of strings          */
+    int max;			/* maximum number of strings          */
+    int condid;			/* for overloading handler functions  */
+    char *module;		/* module to autoload                 */
 };
 
-struct casecmd {
-/* Cmd->args contains word to test */
-    int ntype;			/* node type       */
-    char **pats;
-    List *lists;		/* list to execute */
-};
+#define CONDF_INFIX  1
+#define CONDF_ADDED  2
 
+#define CONDDEF(name, flags, handler, min, max, condid) \
+    { NULL, name, flags, handler, min, max, condid, NULL }
 
-/*  A command like "if foo then bar elif baz then fubar else fooble"  */
-/*  generates a tree like:                                            */
-/*                                                                    */
-/*  struct ifcmd a = { next =  &b,  ifl = "foo", thenl = "bar" }      */
-/*  struct ifcmd b = { next =  &c,  ifl = "baz", thenl = "fubar" }    */
-/*  struct ifcmd c = { next = NULL, ifl = NULL, thenl = "fooble" }    */
+/* tree element for redirection lists */
 
-struct ifcmd {
-    int ntype;			/* node type */
-    List *ifls;
-    List *thenls;
-};
-
-struct whilecmd {
-    int ntype;			/* node type                           */
-    int cond;			/* 0 for while, 1 for until            */
-    List cont;			/* condition                           */
-    List loop;			/* list to execute until condition met */
+struct redir {
+    int type;
+    int fd1, fd2;
+    char *name;
 };
 
 /* The number of fds space is allocated for  *
@@ -534,26 +453,6 @@ struct multio {
     int fds[MULTIOUNIT];	/* list of src/dests redirected to/from this fd */
 };
 
-/* variable assignment tree element */
-
-struct varasg {
-    int ntype;			/* node type                             */
-    int type;			/* nonzero means array                   */
-    char *name;
-    char *str;			/* should've been a union here.  oh well */
-    LinkList arr;
-};
-
-/* lvalue for variable assignment/expansion */
-
-struct value {
-    int isarr;
-    Param pm;		/* parameter node                      */
-    int inv;		/* should we return the index ?        */
-    int a;		/* first element of array slice, or -1 */
-    int b;		/* last element of array slice, or -1  */
-};
-
 /* structure for foo=bar assignments */
 
 struct asgment {
@@ -562,15 +461,208 @@ struct asgment {
     char *value;
 };
 
+/* lvalue for variable assignment/expansion */
+
+struct value {
+    int isarr;
+    Param pm;		/* parameter node                      */
+    int inv;		/* should we return the index ?        */
+    int start;		/* first element of array slice, or -1 */
+    int end;		/* 1-rel last element of array slice, or -1 */
+    char **arr;		/* cache for hash turned into array */
+};
+
 #define MAX_ARRLEN    262144
 
+/********************************************/
+/* Defintions for word code                 */
+/********************************************/
+
+typedef unsigned int wordcode;
+typedef wordcode *Wordcode;
+
+typedef struct funcdump *FuncDump;
+typedef struct eprog *Eprog;
+
+struct funcdump {
+    FuncDump next;		/* next in list */
+    dev_t dev;			/* device */
+    ino_t ino;			/* indoe number */
+    int fd;			/* file descriptor */
+    Wordcode map;		/* pointer to header */
+    Wordcode addr;		/* mapped region */
+    int len;			/* length */
+    int count;			/* reference count */
+};
+
+struct eprog {
+    int flags;			/* EF_* below */
+    int len;			/* total block length */
+    int npats;			/* Patprog cache size */
+    Patprog *pats;		/* the memory block, the patterns */
+    Wordcode prog;		/* memory block ctd, the code */
+    char *strs;			/* memory block ctd, the strings */
+    Shfunc shf;			/* shell function for autoload */
+    FuncDump dump;		/* dump file this is in */
+};
+
+#define EF_REAL 1
+#define EF_HEAP 2
+#define EF_MAP  4
+#define EF_RUN  8
+
+typedef struct estate *Estate;
+
+struct estate {
+    Eprog prog;			/* the eprog executed */
+    Wordcode pc;		/* program counter, current pos */
+    char *strs;			/* strings from prog */
+};
+
+typedef struct eccstr *Eccstr;
+
+struct eccstr {
+    Eccstr left, right;
+    char *str;
+    wordcode offs, aoffs;
+    int nfunc;
+};
+
+#define EC_NODUP  0
+#define EC_DUP    1
+#define EC_DUPTOK 2
+
+#define WC_CODEBITS 5
+
+#define wc_code(C)   ((C) & ((wordcode) ((1 << WC_CODEBITS) - 1)))
+#define wc_data(C)   ((C) >> WC_CODEBITS)
+#define wc_bdata(D)  ((D) << WC_CODEBITS)
+#define wc_bld(C,D)  (((wordcode) (C)) | (((wordcode) (D)) << WC_CODEBITS))
+
+#define WC_END      0
+#define WC_LIST     1
+#define WC_SUBLIST  2
+#define WC_PIPE     3
+#define WC_REDIR    4
+#define WC_ASSIGN   5
+#define WC_SIMPLE   6
+#define WC_SUBSH    7
+#define WC_CURSH    8
+#define WC_TIMED    9
+#define WC_FUNCDEF 10
+#define WC_FOR     11
+#define WC_SELECT  12
+#define WC_WHILE   13
+#define WC_REPEAT  14
+#define WC_CASE    15
+#define WC_IF      16
+#define WC_COND    17
+#define WC_ARITH   18
+#define WC_AUTOFN  19
+
+#define WCB_END()           wc_bld(WC_END, 0)
+
+#define WC_LIST_TYPE(C)     wc_data(C)
+#define Z_END               (1<<4) 
+#define Z_SIMPLE            (1<<5)
+#define WC_LIST_SKIP(C)     (wc_data(C) >> 6)
+#define WCB_LIST(T,O)       wc_bld(WC_LIST, ((T) | ((O) << 6)))
+
+#define WC_SUBLIST_TYPE(C)  (wc_data(C) & ((wordcode) 3))
+#define WC_SUBLIST_END      0
+#define WC_SUBLIST_AND      1
+#define WC_SUBLIST_OR       2
+#define WC_SUBLIST_FLAGS(C) (wc_data(C) & ((wordcode) 0x1c))
+#define WC_SUBLIST_COPROC   4
+#define WC_SUBLIST_NOT      8
+#define WC_SUBLIST_SIMPLE  16
+#define WC_SUBLIST_SKIP(C)  (wc_data(C) >> 5)
+#define WCB_SUBLIST(T,F,O)  wc_bld(WC_SUBLIST, ((T) | (F) | ((O) << 5)))
+
+#define WC_PIPE_TYPE(C)     (wc_data(C) & ((wordcode) 1))
+#define WC_PIPE_END         0
+#define WC_PIPE_MID         1
+#define WC_PIPE_LINENO(C)   (wc_data(C) >> 1)
+#define WCB_PIPE(T,L)       wc_bld(WC_PIPE, ((T) | ((L) << 1)))
+
+#define WC_REDIR_TYPE(C)    wc_data(C)
+#define WCB_REDIR(T)        wc_bld(WC_REDIR, (T))
+
+#define WC_ASSIGN_TYPE(C)   (wc_data(C) & ((wordcode) 1))
+#define WC_ASSIGN_SCALAR    0
+#define WC_ASSIGN_ARRAY     1
+#define WC_ASSIGN_NUM(C)    (wc_data(C) >> 1)
+#define WCB_ASSIGN(T,N)     wc_bld(WC_ASSIGN, ((T) | ((N) << 1)))
+
+#define WC_SIMPLE_ARGC(C)   wc_data(C)
+#define WCB_SIMPLE(N)       wc_bld(WC_SIMPLE, (N))
+
+#define WC_SUBSH_SKIP(C)    wc_data(C)
+#define WCB_SUBSH(O)        wc_bld(WC_SUBSH, (O))
+
+#define WC_CURSH_SKIP(C)    wc_data(C)
+#define WCB_CURSH(O)        wc_bld(WC_CURSH, (O))
+
+#define WC_TIMED_TYPE(C)    wc_data(C)
+#define WC_TIMED_EMPTY      0
+#define WC_TIMED_PIPE       1
+#define WCB_TIMED(T)        wc_bld(WC_TIMED, (T))
+
+#define WC_FUNCDEF_SKIP(C)  wc_data(C)
+#define WCB_FUNCDEF(O)      wc_bld(WC_FUNCDEF, (O))
+
+#define WC_FOR_TYPE(C)      (wc_data(C) & 3)
+#define WC_FOR_PPARAM       0
+#define WC_FOR_LIST         1
+#define WC_FOR_COND         2
+#define WC_FOR_SKIP(C)      (wc_data(C) >> 2)
+#define WCB_FOR(T,O)        wc_bld(WC_FOR, ((T) | ((O) << 2)))
+
+#define WC_SELECT_TYPE(C)   (wc_data(C) & 1)
+#define WC_SELECT_PPARAM    0
+#define WC_SELECT_LIST      1
+#define WC_SELECT_SKIP(C)   (wc_data(C) >> 1)
+#define WCB_SELECT(T,O)     wc_bld(WC_SELECT, ((T) | ((O) << 1)))
+
+#define WC_WHILE_TYPE(C)    (wc_data(C) & 1)
+#define WC_WHILE_WHILE      0
+#define WC_WHILE_UNTIL      1
+#define WC_WHILE_SKIP(C)    (wc_data(C) >> 1)
+#define WCB_WHILE(T,O)      wc_bld(WC_WHILE, ((T) | ((O) << 1)))
+
+#define WC_REPEAT_SKIP(C)   wc_data(C)
+#define WCB_REPEAT(O)       wc_bld(WC_REPEAT, (O))
+
+#define WC_CASE_TYPE(C)     (wc_data(C) & 3)
+#define WC_CASE_HEAD        0
+#define WC_CASE_OR          1
+#define WC_CASE_AND         2
+#define WC_CASE_SKIP(C)     (wc_data(C) >> 2)
+#define WCB_CASE(T,O)       wc_bld(WC_CASE, ((T) | ((O) << 2)))
+
+#define WC_IF_TYPE(C)       (wc_data(C) & 3)
+#define WC_IF_HEAD          0
+#define WC_IF_IF            1
+#define WC_IF_ELIF          2
+#define WC_IF_ELSE          3
+#define WC_IF_SKIP(C)       (wc_data(C) >> 2)
+#define WCB_IF(T,O)         wc_bld(WC_IF, ((T) | ((O) << 2)))
+
+#define WC_COND_TYPE(C)     (wc_data(C) & 127)
+#define WC_COND_SKIP(C)     (wc_data(C) >> 7)
+#define WCB_COND(T,O)       wc_bld(WC_COND, ((T) | ((O) << 7)))
+
+#define WCB_ARITH()         wc_bld(WC_ARITH, 0)
+
+#define WCB_AUTOFN()        wc_bld(WC_AUTOFN, 0)
 
 /********************************************/
 /* Defintions for job table and job control */
 /********************************************/
 
-/* size of job table */
-#define MAXJOB 50
+#ifdef NEED_LINUX_TASKS_H
+#include <linux/tasks.h>
+#endif
 
 /* entry in the job table */
 
@@ -649,8 +741,19 @@ struct execstack {
 
 struct heredocs {
     struct heredocs *next;
-    Redir rd;
+    int type;
+    int pc;
+    char *str;
 };
+
+struct dirsav {
+    int dirfd, level;
+    char *dirname;
+    dev_t dev;
+    ino_t ino;
+};
+
+#define MAX_PIPESTATS 256
 
 /*******************************/
 /* Definitions for Hash Tables */
@@ -665,14 +768,14 @@ typedef void     (*AddNodeFunc)    _((HashTable, char *, void *));
 typedef HashNode (*GetNodeFunc)    _((HashTable, char *));
 typedef HashNode (*RemoveNodeFunc) _((HashTable, char *));
 typedef void     (*FreeNodeFunc)   _((HashNode));
+typedef int      (*CompareFunc)    _((const char *, const char *));
 
 /* type of function that is passed to *
  * scanhashtable or scanmatchtable    */
 typedef void     (*ScanFunc)       _((HashNode, int));
+typedef void     (*ScanTabFunc)    _((HashTable, ScanFunc, int));
 
-#ifdef ZSH_HASH_DEBUG
 typedef void (*PrintTableStats) _((HashTable));
-#endif
 
 /* hash table for standard open hashing */
 
@@ -682,14 +785,11 @@ struct hashtable {
     int ct;			/* number of elements                         */
     HashNode *nodes;		/* array of size hsize                        */
 
-#ifdef ZSH_HASH_DEBUG
-    char *tablename;		/* string containing name of the hash table */
-#endif
-
     /* HASHTABLE METHODS */
     HashFunc hash;		/* pointer to hash function for this table    */
     TableFunc emptytable;	/* pointer to function to empty table         */
     TableFunc filltable;	/* pointer to function to fill table          */
+    CompareFunc cmpnodes;	/* pointer to function to compare two nodes     */
     AddNodeFunc addnode;	/* pointer to function to add new node        */
     GetNodeFunc getnode;	/* pointer to function to get an enabled node */
     GetNodeFunc getnode2;	/* pointer to function to get node            */
@@ -699,9 +799,10 @@ struct hashtable {
     ScanFunc enablenode;	/* pointer to function to enable a node       */
     FreeNodeFunc freenode;	/* pointer to function to free a node         */
     ScanFunc printnode;		/* pointer to function to print a node        */
+    ScanTabFunc scantab;	/* pointer to function to scan table          */
 
-#ifdef ZSH_HASH_DEBUG
-    PrintTableStats printinfo;	/* pointer to function to print table stats */
+#ifdef HASHTABLE_INTERNAL_MEMBERS
+    HASHTABLE_INTERNAL_MEMBERS	/* internal use in hashtable.c                */
 #endif
 };
 
@@ -717,6 +818,15 @@ struct hashnode {
  * you can disable builtins, shell functions, aliases and *
  * reserved words.                                        */
 #define DISABLED	(1<<0)
+
+/* node in shell option table */
+
+struct optname {
+    HashNode next;		/* next in hash chain */
+    char *nam;			/* hash data */
+    int flags;
+    int optno;			/* option number */
+};
 
 /* node in shell reserved word hash table (reswdtab) */
 
@@ -763,12 +873,46 @@ struct shfunc {
     HashNode next;		/* next in hash chain     */
     char *nam;			/* name of shell function */
     int flags;			/* various flags          */
-    List funcdef;		/* function definition    */
+    Eprog funcdef;		/* function definition    */
 };
+
+/* Shell function context types. */
+
+#define SFC_NONE     0		/* no function running */
+#define SFC_DIRECT   1		/* called directly from the user */
+#define SFC_SIGNAL   2		/* signal handler */
+#define SFC_HOOK     3		/* one of the special functions */
+#define SFC_WIDGET   4		/* user defined widget */
+#define SFC_COMPLETE 5		/* called from completion code */
+#define SFC_CWIDGET  6		/* new style completion widget */
+
+/* node in function stack */
+
+struct funcstack {
+    Funcstack prev;		/* previous in stack */
+    char *name;			/* name of function called */
+};
+
+/* node in list of function call wrappers */
+
+typedef int (*WrapFunc) _((Eprog, FuncWrap, char *));
+
+struct funcwrap {
+    FuncWrap next;
+    int flags;
+    WrapFunc handler;
+    Module module;
+};
+
+#define WRAPF_ADDED 1
+
+#define WRAPDEF(func) \
+    { NULL, 0, func, NULL }
 
 /* node in builtin command hash table (builtintab) */
 
 typedef int (*HandlerFunc) _((char *, char **, char *, int));
+#define NULLBINCMD ((HandlerFunc) 0)
 
 struct builtin {
     HashNode next;		/* next in hash chain                                 */
@@ -782,11 +926,17 @@ struct builtin {
     char *defopts;		/* options set by default for overloaded handlerfuncs */
 };
 
+#define BUILTIN(name, flags, handler, min, max, funcid, optstr, defopts) \
+    { NULL, name, flags, handler, min, max, funcid, optstr, defopts }
+#define BIN_PREFIX(name, flags) \
+    BUILTIN(name, flags | BINF_PREFIX, NULLBINCMD, 0, 0, 0, NULL, NULL)
+
 /* builtin flags */
 /* DISABLE IS DEFINED AS (1<<0) */
 #define BINF_PLUSOPTS		(1<<1)	/* +xyz legal */
 #define BINF_R			(1<<2)	/* this is the builtin `r' (fc -e -) */
 #define BINF_PRINTOPTS		(1<<3)
+#define BINF_ADDED		(1<<4)	/* is in the builtins hash table */
 #define BINF_FCOPTS		(1<<5)
 #define BINF_TYPEOPT		(1<<6)
 #define BINF_ECHOPTS		(1<<7)
@@ -801,6 +951,95 @@ struct builtin {
 
 #define BINF_TYPEOPTS   (BINF_TYPEOPT|BINF_PLUSOPTS)
 
+struct module {
+    char *nam;
+    int flags;
+    union {
+	void *handle;
+	Linkedmod linked;
+	char *alias;
+    } u;
+    LinkList deps;
+    int wrapper;
+};
+
+#define MOD_BUSY    (1<<0)
+#define MOD_UNLOAD  (1<<1)
+#define MOD_SETUP   (1<<2)
+#define MOD_LINKED  (1<<3)
+#define MOD_INIT_S  (1<<4)
+#define MOD_INIT_B  (1<<5)
+#define MOD_ALIAS   (1<<6)
+
+typedef int (*Module_func) _((Module));
+
+struct linkedmod {
+    char *name;
+    Module_func setup;
+    Module_func boot;
+    Module_func cleanup;
+    Module_func finish;
+};
+
+/* C-function hooks */
+
+typedef int (*Hookfn) _((Hookdef, void *));
+
+struct hookdef {
+    Hookdef next;
+    char *name;
+    Hookfn def;
+    int flags;
+    LinkList funcs;
+};
+
+#define HOOKF_ALL 1
+
+#define HOOKDEF(name, func, flags) { NULL, name, (Hookfn) func, flags, NULL }
+
+/*
+ * Types used in pattern matching.  Most of these longs could probably
+ * happily be ints.
+ */
+
+struct patprog {
+    long		startoff;  /* length before start of programme */
+    long		size;	   /* total size from start of struct */
+    long		mustoff;   /* offset to string that must be present */
+    int			globflags; /* globbing flags to set at start */
+    int			globend;   /* globbing flags set after finish */
+    int			flags;	   /* PAT_* flags */
+    int			patmlen;   /* length of pure string or longest match */
+    int			patnpar;   /* number of active parentheses */
+    char		patstartch;
+};
+
+/* Flags used in pattern matchers (Patprog) and passed down to patcompile */
+
+#define PAT_FILE	0x0001	/* Pattern is a file name */
+#define PAT_FILET	0x0002	/* Pattern is top level file, affects ~ */
+#define PAT_ANY		0x0004	/* Match anything (cheap "*") */
+#define PAT_NOANCH	0x0008	/* Not anchored at end */
+#define PAT_NOGLD	0x0010	/* Don't glob dots */
+#define PAT_PURES	0x0020	/* Pattern is a pure string: set internally */
+#define PAT_STATIC	0x0040	/* Don't copy pattern to heap as per default */
+#define PAT_SCAN	0x0080	/* Scanning, so don't try must-match test */
+#define PAT_ZDUP        0x0100  /* Copy pattern in real memory */
+#define PAT_NOTSTART	0x0200	/* Start of string is not real start */
+#define PAT_NOTEND	0x0400	/* End of string is not real end */
+
+/* Globbing flags: lower 8 bits gives approx count */
+#define GF_LCMATCHUC	0x0100
+#define GF_IGNCASE	0x0200
+#define GF_BACKREF	0x0400
+#define GF_MATCHREF	0x0800
+
+/* Dummy Patprog pointers. Used mainly in executable code, but the
+ * pattern code needs to know about it, too. */
+
+#define dummy_patprog1 ((Patprog) 1)
+#define dummy_patprog2 ((Patprog) 2)
+
 /* node used in parameter hash table (paramtab) */
 
 struct param {
@@ -810,27 +1049,37 @@ struct param {
 
     /* the value of this parameter */
     union {
+	void *data;		/* used by special parameter functions    */
 	char **arr;		/* value if declared array   (PM_ARRAY)   */
 	char *str;		/* value if declared string  (PM_SCALAR)  */
 	zlong val;		/* value if declared integer (PM_INTEGER) */
+	double dval;		/* value if declared float
+				                    (PM_EFLOAT|PM_FFLOAT) */
+        HashTable hash;		/* value if declared assoc   (PM_HASHED)  */
     } u;
 
     /* pointer to function to set value of this parameter */
     union {
 	void (*cfn) _((Param, char *));
 	void (*ifn) _((Param, zlong));
+	void (*ffn) _((Param, double));
 	void (*afn) _((Param, char **));
+        void (*hfn) _((Param, HashTable));
     } sets;
 
     /* pointer to function to get value of this parameter */
     union {
 	char *(*cfn) _((Param));
 	zlong (*ifn) _((Param));
+	double (*ffn) _((Param));
 	char **(*afn) _((Param));
+        HashTable (*hfn) _((Param));
     } gets;
 
+    /* pointer to function to unset this parameter */
+    void (*unsetfn) _((Param, int));
+
     int ct;			/* output base or field width            */
-    void *data;			/* used by getfns                        */
     char *env;			/* location in environment, if exported  */
     char *ename;		/* name of corresponding environment var */
     Param old;			/* old struct for use with local         */
@@ -840,38 +1089,111 @@ struct param {
 /* flags for parameters */
 
 /* parameter types */
-#define PM_SCALAR	0	/* scalar                                     */
-#define PM_ARRAY	(1<<0)	/* array                                      */
-#define PM_INTEGER	(1<<1)	/* integer                                    */
+#define PM_SCALAR	0	/* scalar                                   */
+#define PM_ARRAY	(1<<0)	/* array                                    */
+#define PM_INTEGER	(1<<1)	/* integer                                  */
+#define PM_EFLOAT	(1<<2)	/* double with %e output		    */
+#define PM_FFLOAT	(1<<3)	/* double with %f output		    */
+#define PM_HASHED	(1<<4)	/* association                              */
 
-#define PM_TYPE(X) (X & (PM_SCALAR|PM_INTEGER|PM_ARRAY))
+#define PM_TYPE(X) \
+  (X & (PM_SCALAR|PM_INTEGER|PM_EFLOAT|PM_FFLOAT|PM_ARRAY|PM_HASHED))
 
-#define PM_LEFT		(1<<2)	/* left justify and remove leading blanks     */
-#define PM_RIGHT_B	(1<<3)	/* right justify and fill with leading blanks */
-#define PM_RIGHT_Z	(1<<4)	/* right justify and fill with leading zeros  */
-#define PM_LOWER	(1<<5)	/* all lower case                             */
+#define PM_LEFT		(1<<5)	/* left justify, remove leading blanks      */
+#define PM_RIGHT_B	(1<<6)	/* right justify, fill with leading blanks  */
+#define PM_RIGHT_Z	(1<<7)	/* right justify, fill with leading zeros   */
+#define PM_LOWER	(1<<8)	/* all lower case                           */
 
 /* The following are the same since they *
  * both represent -u option to typeset   */
-#define PM_UPPER	(1<<6)	/* all upper case                             */
-#define PM_UNDEFINED	(1<<6)	/* undefined (autoloaded) shell function      */
+#define PM_UPPER	(1<<9)	/* all upper case                           */
+#define PM_UNDEFINED	(1<<9)	/* undefined (autoloaded) shell function    */
 
-#define PM_READONLY	(1<<7)	/* readonly                                   */
-#define PM_TAGGED	(1<<8)	/* tagged                                     */
-#define PM_EXPORTED	(1<<9)	/* exported                                   */
-#define PM_UNIQUE	(1<<10)	/* remove duplicates                          */
-#define PM_SPECIAL	(1<<11) /* special builtin parameter                  */
-#define PM_DONTIMPORT	(1<<12)	/* do not import this variable                */
-#define PM_UNSET	(1<<13)
+#define PM_READONLY	(1<<10)	/* readonly                                 */
+#define PM_TAGGED	(1<<11)	/* tagged                                   */
+#define PM_EXPORTED	(1<<12)	/* exported                                 */
 
-/* node for compctl hash table (compctltab) */
+/* The following are the same since they *
+ * both represent -U option to typeset   */
+#define PM_UNIQUE	(1<<13)	/* remove duplicates                        */
+#define PM_UNALIASED	(1<<13)	/* do not expand aliases when autoloading   */
 
-struct compctlp {
-    HashNode next;		/* next in hash chain               */
-    char *nam;			/* command name                     */
-    int flags;			/* CURRENTLY UNUSED                 */
-    Compctl cc;			/* pointer to the compctl desc.     */
+#define PM_HIDE		(1<<14)	/* Special behaviour hidden by local        */
+#define PM_HIDEVAL	(1<<15)	/* Value not shown in `typeset' commands    */
+#define PM_TIED 	(1<<16)	/* array tied to colon-path or v.v.         */
+
+/* Remaining flags do not correspond directly to command line arguments */
+#define PM_LOCAL	(1<<17) /* this parameter will be made local        */
+#define PM_SPECIAL	(1<<18) /* special builtin parameter                */
+#define PM_DONTIMPORT	(1<<19)	/* do not import this variable              */
+#define PM_RESTRICTED	(1<<20) /* cannot be changed in restricted mode     */
+#define PM_UNSET	(1<<21)	/* has null value                           */
+#define PM_REMOVABLE	(1<<22)	/* special can be removed from paramtab     */
+#define PM_AUTOLOAD	(1<<23) /* autoloaded from module                   */
+#define PM_NORESTORE	(1<<24)	/* do not restore value of local special    */
+#define PM_HASHELEM     (1<<25) /* is a hash-element */
+
+/* The option string corresponds to the first of the variables above */
+#define TYPESET_OPTSTR "aiEFALRZlurtxUhHT"
+
+/* These typeset options take an optional numeric argument */
+#define TYPESET_OPTNUM "LRZiEF"
+
+/* Flags for extracting elements of arrays and associative arrays */
+#define SCANPM_WANTVALS   (1<<0)
+#define SCANPM_WANTKEYS   (1<<1)
+#define SCANPM_WANTINDEX  (1<<2)
+#define SCANPM_MATCHKEY   (1<<3)
+#define SCANPM_MATCHVAL   (1<<4)
+#define SCANPM_MATCHMANY  (1<<5)
+#define SCANPM_ASSIGNING  (1<<6)
+#define SCANPM_KEYMATCH   (1<<7)
+#define SCANPM_DQUOTED    (1<<8)
+#define SCANPM_ISVAR_AT   ((-1)<<15)	/* Only sign bit is significant */
+
+/*
+ * Flags for doing matches inside parameter substitutions, i.e.
+ * ${...#...} and friends.  This could be an enum, but so
+ * could a lot of other things.
+ */
+
+#define SUB_END		0x0001	/* match end instead of begining, % or %%  */
+#define SUB_LONG	0x0002	/* % or # doubled, get longest match */
+#define SUB_SUBSTR	0x0004	/* match a substring */
+#define SUB_MATCH	0x0008	/* include the matched portion */
+#define SUB_REST	0x0010	/* include the unmatched portion */
+#define SUB_BIND	0x0020	/* index of beginning of string */
+#define SUB_EIND	0x0040	/* index of end of string */
+#define SUB_LEN		0x0080	/* length of match */
+#define SUB_ALL		0x0100	/* match complete string */
+#define SUB_GLOBAL	0x0200	/* global substitution ${..//all/these} */
+#define SUB_DOSUBST	0x0400	/* replacement string needs substituting */
+
+/* Flags as the second argument to prefork */
+#define PF_TYPESET	0x01	/* argument handled like typeset foo=bar */
+#define PF_ASSIGN	0x02	/* argument handled like the RHS of foo=bar */
+#define PF_SINGLE	0x04	/* single word substitution */
+
+struct paramdef {
+    char *name;
+    int flags;
+    void *var;
+    void *set;
+    void *get;
+    void *unset;
 };
+
+#define PARAMDEF(name, flags, var, set, get, unset) \
+    { name, flags, (void *) var, (void *) set, (void *) get, (void *) unset }
+#define INTPARAMDEF(name, var) \
+    { name, PM_INTEGER, (void *) var, (void *) intvarsetfn, \
+      (void *) intvargetfn, (void *) stdunsetfn }
+#define STRPARAMDEF(name, var) \
+    { name, PM_SCALAR, (void *) var, (void *) strvarsetfn, \
+      (void *) strvargetfn, (void *) stdunsetfn }
+#define ARRPARAMDEF(name, var) \
+    { name, PM_ARRAY, (void *) var, (void *) arrvarsetfn, \
+      (void *) arrvargetfn, (void *) stdunsetfn }
 
 /* node for named directory hash table (nameddirtab) */
 
@@ -886,32 +1208,22 @@ struct nameddir {
 /* flags for named directories */
 /* DISABLED is defined (1<<0) */
 #define ND_USERNAME	(1<<1)	/* nam is actually a username       */
+#define ND_NOABBREV	(1<<2)	/* never print as abbrev (PWD or OLDPWD) */
 
 
 /* flags for controlling printing of hash table nodes */
 #define PRINT_NAMEONLY		(1<<0)
 #define PRINT_TYPE		(1<<1)
 #define PRINT_LIST		(1<<2)
+#define PRINT_KV_PAIR		(1<<3)
+#define PRINT_INCLUDEVALUE	(1<<4)
 
 /* flags for printing for the whence builtin */
-#define PRINT_WHENCE_CSH	(1<<3)
-#define PRINT_WHENCE_VERBOSE	(1<<4)
-#define PRINT_WHENCE_SIMPLE	(1<<5)
-#define PRINT_WHENCE_FUNCDEF	(1<<6)
-
-
-/******************************/
-/* Definitions for sched list */
-/******************************/
- 
-/* node in sched list */
-
-struct schedcmd {
-    struct schedcmd *next;
-    char *cmd;			/* command to run */
-    time_t time;		/* when to run it */
-};
-
+#define PRINT_WHENCE_CSH	(1<<5)
+#define PRINT_WHENCE_VERBOSE	(1<<6)
+#define PRINT_WHENCE_SIMPLE	(1<<7)
+#define PRINT_WHENCE_FUNCDEF	(1<<9)
+#define PRINT_WHENCE_WORD	(1<<10)
 
 /***********************************/
 /* Definitions for history control */
@@ -920,18 +1232,31 @@ struct schedcmd {
 /* history entry */
 
 struct histent {
+    HashNode hash_next;		/* next in hash chain               */
     char *text;			/* the history line itself          */
+    int flags;			/* Misc flags                       */
+
+    Histent up;			/* previous line (moving upward)    */
+    Histent down;		/* next line (moving downward)      */
     char *zle_text;		/* the edited history line          */
     time_t stim;		/* command started time (datestamp) */
     time_t ftim;		/* command finished time            */
     short *words;		/* Position of words in history     */
 				/*   line:  as pairs of start, end  */
     int nwords;			/* Number of words in history line  */
-    int flags;			/* Misc flags                       */
+    int histnum;		/* A sequential history number      */
 };
 
+#define HIST_MAKEUNIQUE	0x00000001	/* Kill this new entry if not unique */
 #define HIST_OLD	0x00000002	/* Command is already written to disk*/
 #define HIST_READ	0x00000004	/* Command was read back from disk*/
+#define HIST_DUP	0x00000008	/* Command duplicates a later line */
+#define HIST_FOREIGN	0x00000010	/* Command came from another shell */
+#define HIST_TMPSTORE	0x00000020	/* Kill when user enters another cmd */
+
+#define GETHIST_UPWARD  (-1)
+#define GETHIST_DOWNWARD  1
+#define GETHIST_EXACT     0
 
 /* Parts of the code where history expansion is disabled *
  * should be within a pair of STOPHIST ... ALLOWHIST     */
@@ -944,149 +1269,45 @@ struct histent {
 #define HISTFLAG_RECALL 4
 #define HISTFLAG_SETTY  8
 
+#define HFILE_APPEND		0x0001
+#define HFILE_SKIPOLD		0x0002
+#define HFILE_SKIPDUPS		0x0004
+#define HFILE_SKIPFOREIGN	0x0008
+#define HFILE_FAST		0x0010
+#define HFILE_USE_OPTIONS	0x8000
+
 /******************************************/
 /* Definitions for programable completion */
 /******************************************/
 
-struct compcond {
-    struct compcond *and, *or;	/* the next or'ed/and'ed conditions    */
-    int type;			/* the type (CCT_*)                    */
-    int n;			/* the array length                    */
-    union {			/* these structs hold the data used to */
-	struct {		/* test this condition                 */
-	    int *a, *b;		/* CCT_POS, CCT_NUMWORDS               */
-	}
-	r;
-	struct {		/* CCT_CURSTR, CCT_CURPAT,... */
-	    int *p;
-	    char **s;
-	}
-	s;
-	struct {		/* CCT_RANGESTR,... */
-	    char **a, **b;
-	}
-	l;
-    }
-    u;
-};
-
-#define CCT_UNUSED     0
-#define CCT_POS        1
-#define CCT_CURSTR     2
-#define CCT_CURPAT     3
-#define CCT_WORDSTR    4
-#define CCT_WORDPAT    5
-#define CCT_CURSUF     6
-#define CCT_CURPRE     7
-#define CCT_CURSUB     8
-#define CCT_CURSUBC    9
-#define CCT_NUMWORDS  10
-#define CCT_RANGESTR  11
-#define CCT_RANGEPAT  12
-
-/* Contains the real description for compctls */
-
-struct compctl {
-    int refc;			/* reference count                         */
-    struct compctl *next;	/* next compctl for -x                     */
-    unsigned long mask;		/* mask of things to complete (CC_*)       */
-    char *keyvar;		/* for -k (variable)                       */
-    char *glob;			/* for -g (globbing)                       */
-    char *str;			/* for -s (expansion)                      */
-    char *func;			/* for -K (function)                       */
-    char *explain;		/* for -X (explanation)                    */
-    char *prefix, *suffix;	/* for -P and -S (prefix, suffix)          */
-    char *subcmd;		/* for -l (command name to use)            */
-    char *hpat;			/* for -H (history pattern)                */
-    int hnum;			/* for -H (number of events to search)     */
-    struct compctl *ext;	/* for -x (first of the compctls after -x) */
-    struct compcond *cond;	/* for -x (condition for this compctl)     */
-    struct compctl *xor;	/* for + (next of the xor'ed compctls)     */
-};
-
-/* objects to complete */
-#define CC_FILES	(1<<0)
-#define CC_COMMPATH	(1<<1)
-#define CC_REMOVE	(1<<2)
-#define CC_OPTIONS	(1<<3)
-#define CC_VARS		(1<<4)
-#define CC_BINDINGS	(1<<5)
-#define CC_ARRAYS	(1<<6)
-#define CC_INTVARS	(1<<7)
-#define CC_SHFUNCS	(1<<8)
-#define CC_PARAMS	(1<<9)
-#define CC_ENVVARS	(1<<10)
-#define CC_JOBS		(1<<11)
-#define CC_RUNNING	(1<<12)
-#define CC_STOPPED	(1<<13)
-#define CC_BUILTINS	(1<<14)
-#define CC_ALREG	(1<<15)
-#define CC_ALGLOB	(1<<16)
-#define CC_USERS	(1<<17)
-#define CC_DISCMDS	(1<<18)
-#define CC_EXCMDS	(1<<19)
-#define CC_SCALARS	(1<<20)
-#define CC_READONLYS	(1<<21)
-#define CC_SPECIALS	(1<<22)
-#define CC_DELETE	(1<<23)
-#define CC_NAMED	(1<<24)
-#define CC_QUOTEFLAG	(1<<25)
-#define CC_EXTCMDS	(1<<26)
-#define CC_RESWDS	(1<<27)
-
-#define CC_RESERVED	(1<<31)
+/* Nothing special. */
+#define IN_NOTHING 0
+/* In command position. */
+#define IN_CMD     1
+/* In a mathematical environment. */
+#define IN_MATH    2
+/* In a condition. */
+#define IN_COND    3
+/* In a parameter assignment (e.g. `foo=bar'). */
+#define IN_ENV     4
 
 
 /******************************/
 /* Definition for zsh options */
 /******************************/
 
-/* Possible values of emulation: the order must match the OPT_*SH values *
- * below.                                                                */
+/* Possible values of emulation */
 
-enum {
-  EMULATE_CSH, /* C shell */
-  EMULATE_KSH, /* Korn shell */
-  EMULATE_SH,  /* Bourne shell */
-  EMULATE_ZSH  /* `native' mode */
-};
-
-/* the option name table */
-
-struct option {
-    char *name;			/* full name */
-    char id_zsh;		/* single letter name in zsh/csh mode */
-    char id_ksh;		/* single letter name in ksh/sh mode */
-    unsigned char flags;	/* see below */
-};
-
-#define optid(X) ( isset(SHOPTIONLETTERS) ? (X).id_ksh : (X).id_zsh )
-
-/* option flags: the order of the shells here must match the order of the *
- * EMULATE_ values above                                                  */
-
-#define OPT_CSH		0x01	/* option is set by default for csh */
-#define OPT_KSH		0x02	/* option is set by default for ksh */
-#define OPT_SH		0x04	/* option is set by default for sh */
-#define OPT_ZSH		0x08	/* option is set by default for zsh */
-
-#define OPT_ALL		(OPT_CSH|OPT_KSH|OPT_SH|OPT_ZSH)
-#define OPT_BOURNE	(OPT_KSH|OPT_SH)
-#define OPT_BSHELL	(OPT_KSH|OPT_SH|OPT_ZSH)
-#define OPT_NONBOURNE	(OPT_ALL & ~OPT_BOURNE)
-#define OPT_NONZSH	(OPT_ALL & ~OPT_ZSH)
-
-#define OPT_EMULATE	0x40	/* option is relevant to emulation */
-#define OPT_SPECIAL	0x80	/* option should never be set by emulate() */
-
-/* this can be ored with an option letter to invert its sense */
-
-#define OPT_REV		((char) 0x80)
+#define EMULATE_CSH  (1<<1) /* C shell */
+#define EMULATE_KSH  (1<<2) /* Korn shell */
+#define EMULATE_SH   (1<<3) /* Bourne shell */
+#define EMULATE_ZSH  (1<<4) /* `native' mode */
 
 /* option indices */
 
 enum {
     OPT_INVALID,
+    ALIASESOPT,
     ALLEXPORT,
     ALWAYSLASTPROMPT,
     ALWAYSTOEND,
@@ -1102,12 +1323,17 @@ enum {
     AUTORESUME,
     BADPATTERN,
     BANGHIST,
+    BAREGLOBQUAL,
+    BASHAUTOLIST,
     BEEP,
     BGNICE,
     BRACECCL,
     BSDECHO,
+    CBASES,
     CDABLEVARS,
+    CHASEDOTS,
     CHASELINKS,
+    CHECKJOBS,
     CLOBBER,
     COMPLETEALIASES,
     COMPLETEINWORD,
@@ -1116,6 +1342,7 @@ enum {
     CSHJUNKIEHISTORY,
     CSHJUNKIELOOPS,
     CSHJUNKIEQUOTES,
+    CSHNULLCMD,
     CSHNULLGLOB,
     EQUALS,
     ERREXIT,
@@ -1125,6 +1352,8 @@ enum {
     FLOWCONTROL,
     FUNCTIONARGZERO,
     GLOBOPT,
+    GLOBALEXPORT,
+    GLOBALRCS,
     GLOBASSIGN,
     GLOBCOMPLETE,
     GLOBDOTS,
@@ -1134,22 +1363,34 @@ enum {
     HASHLISTALL,
     HISTALLOWCLOBBER,
     HISTBEEP,
+    HISTEXPIREDUPSFIRST,
+    HISTFINDNODUPS,
+    HISTIGNOREALLDUPS,
     HISTIGNOREDUPS,
     HISTIGNORESPACE,
+    HISTNOFUNCTIONS,
     HISTNOSTORE,
     HISTREDUCEBLANKS,
+    HISTSAVENODUPS,
     HISTVERIFY,
     HUP,
     IGNOREBRACES,
     IGNOREEOF,
+    INCAPPENDHISTORY,
     INTERACTIVE,
     INTERACTIVECOMMENTS,
     KSHARRAYS,
+    KSHAUTOLOAD,
+    KSHGLOB,
     KSHOPTIONPRINT,
+    KSHTYPESET,
     LISTAMBIGUOUS,
     LISTBEEP,
+    LISTPACKED,
+    LISTROWSFIRST,
     LISTTYPES,
     LOCALOPTIONS,
+    LOCALTRAPS,
     LOGINSHELL,
     LONGLISTJOBS,
     MAGICEQUALSUBST,
@@ -1162,13 +1403,16 @@ enum {
     NOTIFY,
     NULLGLOB,
     NUMERICGLOBSORT,
+    OCTALZEROES,
     OVERSTRIKE,
     PATHDIRS,
     POSIXBUILTINS,
     PRINTEIGHTBIT,
     PRINTEXITVALUE,
     PRIVILEGED,
+    PROMPTBANG,
     PROMPTCR,
+    PROMPTPERCENT,
     PROMPTSUBST,
     PUSHDIGNOREDUPS,
     PUSHDMINUS,
@@ -1178,10 +1422,14 @@ enum {
     RCQUOTES,
     RCS,
     RECEXACT,
+    RESTRICTED,
     RMSTARSILENT,
+    RMSTARWAIT,
+    SHAREHISTORY,
     SHFILEEXPANSION,
     SHGLOB,
     SHINSTDIN,
+    SHNULLCMD,
     SHOPTIONLETTERS,
     SHORTLOOPS,
     SHWORDSPLIT,
@@ -1192,13 +1440,13 @@ enum {
     VERBOSE,
     XTRACE,
     USEZLE,
+    DVORAK,
     OPT_SIZE
 };
 
 #undef isset
 #define isset(X) (opts[X])
 #define unset(X) (!opts[X])
-#define defset(X) (!!(optns[X].flags & (1 << emulation)))
 
 #define interact (isset(INTERACTIVE))
 #define jobbing  (isset(MONITOR))
@@ -1279,7 +1527,11 @@ struct ttyinfo {
 #define TCSTANDOUTEND  22
 #define TCUNDERLINEEND 23
 #define TCHORIZPOS     24
-#define TC_COUNT       25
+#define TCUPCURSOR     25
+#define TCDOWNCURSOR   26
+#define TCLEFTCURSOR   27
+#define TCRIGHTCURSOR  28
+#define TC_COUNT       29
 
 #define tccan(X) (tclen[X])
 
@@ -1303,21 +1555,20 @@ struct ttyinfo {
 /* Definitions for the %_ prompt escape */
 /****************************************/
 
-#include "ztype.h"
-
+#define CMDSTACKSZ 256
 #define cmdpush(X) do { \
-		       if (cmdsp >= 0 && cmdsp < 256) \
-			   cmdstack[cmdsp++] = (X); \
-		   } while (0)
+                       if (cmdsp >= 0 && cmdsp < CMDSTACKSZ) \
+                           cmdstack[cmdsp++]=(X); \
+                   } while (0)
 #ifdef DEBUG
 # define cmdpop()  do { \
-		       if (cmdsp <= 0) { \
+                       if (cmdsp <= 0) { \
 			   fputs("BUG: cmdstack empty\n", stderr); \
 			   fflush(stderr); \
 		       } else cmdsp--; \
-		   } while (0)
+                   } while (0)
 #else
-# define cmdpop()  do { if (cmdsp > 0) cmdsp--; } while (0)
+# define cmdpop()   do { if (cmdsp > 0) cmdsp--; } while (0)
 #endif
 
 #define CS_FOR          0
@@ -1356,49 +1607,48 @@ struct ttyinfo {
  * Memory management *
  *********************/
 
-#ifndef DEBUG
-# define HEAPALLOC	do { int nonlocal_useheap = global_heapalloc(); do
+/* heappush saves the current heap state using this structure */
 
-# define PERMALLOC	do { int nonlocal_useheap = global_permalloc(); do
+struct heapstack {
+    struct heapstack *next;	/* next one in list for this heap */
+    size_t used;
+};
 
-# define LASTALLOC	while (0); \
-			if (nonlocal_useheap) global_heapalloc(); \
-			else global_permalloc(); \
-		} while(0)
+/* A zsh heap. */
 
-# define LASTALLOC_RETURN \
-			for (nonlocal_useheap ? global_heapalloc() : \
-			     global_permalloc(); 1;) return
-#else
-# define HEAPALLOC	do { int nonlocal_useheap = global_heapalloc(); \
-			alloc_stackp++; do
+struct heap {
+    struct heap *next;		/* next one                                  */
+    size_t size;		/* size of heap                              */
+    size_t used;		/* bytes used from the heap                  */
+    struct heapstack *sp;	/* used by pushheap() to save the value used */
 
-# define PERMALLOC	do { int nonlocal_useheap = global_permalloc(); \
-			alloc_stackp++; do
-
-# define LASTALLOC	while (0); alloc_stackp--; \
-			if (nonlocal_useheap) global_heapalloc(); \
-			else global_permalloc(); \
-		} while(0)
-
-# define LASTALLOC_RETURN \
-			for (nonlocal_useheap ? global_heapalloc() : \
-			     global_permalloc(); alloc_stackp--;) return
+/* Uncomment the following if the struct needs padding to 64-bit size. */
+/* Make sure sizeof(heap) is a multiple of 8 
+#if defined(PAD_64_BIT) && !defined(__GNUC__)
+    size_t dummy;		
 #endif
+*/
+#define arena(X)	((char *) (X) + sizeof(struct heap))
+}
+#if defined(PAD_64_BIT) && defined(__GNUC__)
+  __attribute__ ((aligned (8)))
+#endif
+;
+
+# define NEWHEAPS(h)    do { Heap _switch_oldheaps = h = new_heaps(); do
+# define OLDHEAPS       while (0); old_heaps(_switch_oldheaps); } while (0);
+
+# define SWITCHHEAPS(o, h)  do { o = switch_heaps(h); do
+# define SWITCHBACKHEAPS(o) while (0); switch_heaps(o); } while (0);
 
 /****************/
 /* Debug macros */
 /****************/
 
 #ifdef DEBUG
-# define DPUTS(X,Y) do { if ((X)) dputs(Y); } while (0)
-# define MUSTUSEHEAP(X) do { if (useheap == 0) { \
-		    fprintf(stderr, "BUG: permanent allocation in %s\n", X); \
-		    fflush(stderr); \
-		} } while (0)
+# define DPUTS(X,Y) if (!(X)) {;} else dputs(Y)
 #else
 # define DPUTS(X,Y)
-# define MUSTUSEHEAP(X)
 #endif
 
 /**************************/
@@ -1407,16 +1657,39 @@ struct ttyinfo {
 
 /* These used in the sigtrapped[] array */
 
-#define ZSIG_TRAPPED	(1<<0)
-#define ZSIG_IGNORED	(1<<1)
-#define ZSIG_FUNC	(1<<2)
+#define ZSIG_TRAPPED	(1<<0)	/* Signal is trapped */
+#define ZSIG_IGNORED	(1<<1)	/* Signal is ignored */
+#define ZSIG_FUNC	(1<<2)	/* Trap is a function, not an eval list */
+/* Mask to get the above flags */
+#define ZSIG_MASK	(ZSIG_TRAPPED|ZSIG_IGNORED|ZSIG_FUNC)
+/* No. of bits to shift local level when storing in sigtrapped */
+#define ZSIG_SHIFT	3
 
-/***********************/
-/* Shared header files */
-/***********************/
+/**********************************/
+/* Flags to third argument of zle */
+/**********************************/
 
-#include "version.h"
-#include "signals.h"
-#include "globals.h"
-#include "prototypes.h"
-#include "hashtable.h"
+#define ZLRF_HISTORY	0x01	/* OK to access the history list */
+#define ZLRF_NOSETTY	0x02	/* Don't set tty before return */
+
+/****************/
+/* Entry points */
+/****************/
+
+/* compctl entry point pointers */
+
+typedef int (*CompctlReadFn) _((char *, char **, char *, char *));
+
+/* ZLE entry point pointers */
+
+typedef void (*ZleVoidFn) _((void));
+typedef void (*ZleVoidIntFn) _((int));
+typedef unsigned char * (*ZleReadFn) _((char *, char *, int));
+
+/***************************************/
+/* Hooks in core.                      */
+/***************************************/
+
+#define EXITHOOK       (zshhooks + 0)
+#define BEFORETRAPHOOK (zshhooks + 1)
+#define AFTERTRAPHOOK  (zshhooks + 2)

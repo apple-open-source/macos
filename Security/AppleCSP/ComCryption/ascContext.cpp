@@ -10,7 +10,7 @@
 #include "ascFactory.h"
 #include <Security/debugging.h>
 #include <Security/logging.h>
-#include <Security/debugging.h>
+#include <Security/cssmapple.h>
 
 #define abprintf(args...)	debug("ascBuf", ## args)		/* buffer sizes */
 #define aioprintf(args...)	debug("ascIo", ## args)		/* all I/O */
@@ -141,6 +141,32 @@ void ASCContext::init(
 	}
 	mDecryptBufValid = false;
 	
+	/* optional optimization attribute */
+	comcryptOptimize optimize = CCO_DEFAULT;
+	uint32 opt = context.getInt(CSSM_ATTRIBUTE_ASC_OPTIMIZATION); 
+	switch(opt) {
+		case CSSM_ASC_OPTIMIZE_DEFAULT:
+			optimize = CCO_DEFAULT;
+			break;
+		case CSSM_ASC_OPTIMIZE_SIZE:
+			optimize = CCO_SIZE;
+			break;
+		case CSSM_ASC_OPTIMIZE_SECURITY:
+			optimize = CCO_SECURITY;
+			break;
+		case CSSM_ASC_OPTIMIZE_TIME:
+			optimize = CCO_TIME;
+			break;
+		case CSSM_ASC_OPTIMIZE_TIME_SIZE:
+			optimize = CCO_TIME_SIZE;
+			break;
+		case CSSM_ASC_OPTIMIZE_ASCII:
+			optimize = CCO_ASCII;
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+	}
+	
 	/* All other context attributes ignored */
 	/* init the low-level state */
 	if(mCcObj == NULL) {
@@ -151,7 +177,7 @@ void ASCContext::init(
 		}
 	}
 	 
-	crtn = comcryptInit(mCcObj, keyData, keyLen, CCO_DEFAULT);
+	crtn = comcryptInit(mCcObj, keyData, keyLen, optimize);
 	if(crtn) {
 		throwComcrypt(crtn, "comcryptInit");
 	}

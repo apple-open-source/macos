@@ -1,19 +1,58 @@
-/*
-   ** tuiLayout.c
-   ** This module contains procedures for handling the layout of the windows.
- */
+/* TUI layout window management.
 
+   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
+   Inc.
+
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
+/* FIXME: cagney/2002-02-28: The GDB coding standard indicates that
+   "defs.h" should be included first.  Unfortunatly some systems
+   (currently Debian GNU/Linux) include the <stdbool.h> via <curses.h>
+   and they clash with "bfd.h"'s definiton of true/false.  The correct
+   fix is to remove true/false from "bfd.h", however, until that
+   happens, hack around it by including "config.h" and <curses.h>
+   first.  */
+
+#include "config.h"
+#ifdef HAVE_NCURSES_H       
+#include <ncurses.h>
+#else
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#endif
 
 #include "defs.h"
 #include "command.h"
 #include "symtab.h"
 #include "frame.h"
+#include <ctype.h>
 
 #include "tui.h"
 #include "tuiData.h"
+#include "tuiDataWin.h"
 #include "tuiGeneralWin.h"
 #include "tuiStack.h"
 #include "tuiRegs.h"
+#include "tuiWin.h"
+#include "tuiSourceWin.h"
 #include "tuiDisassem.h"
 
 /*******************************
@@ -36,12 +75,9 @@ static TuiLayoutType _nextLayout (void);
 static TuiLayoutType _prevLayout (void);
 static void _tuiLayout_command (char *, int);
 static void _tuiToggleLayout_command (char *, int);
-static void _tui_vToggleLayout_command (va_list);
 static void _tuiToggleSplitLayout_command (char *, int);
-static void _tui_vToggleSplitLayout_command (va_list);
-static Opaque _extractDisplayStartAddr (void);
+static CORE_ADDR _extractDisplayStartAddr (void);
 static void _tuiHandleXDBLayout (TuiLayoutDefPtr);
-static TuiStatus _tuiSetLayoutTo (char *);
 
 
 /***************************************
@@ -64,13 +100,7 @@ static TuiLayoutType lastLayout = UNDEFINED_LAYOUT;
    **        Show the screen layout defined
  */
 void
-#ifdef __STDC__
-showLayout (
-	     TuiLayoutType layout)
-#else
-showLayout (layout)
-     TuiLayoutType layout;
-#endif
+showLayout (TuiLayoutType layout)
 {
   TuiLayoutType curLayout = currentLayout ();
 
@@ -130,15 +160,8 @@ showLayout (layout)
    **    to regsDisplayType.
  */
 TuiStatus
-#ifdef __STDC__
-tuiSetLayout (
-	       TuiLayoutType layoutType,
-	       TuiRegisterDisplayType regsDisplayType)
-#else
-tuiSetLayout (layoutType, regsDisplayType)
-     TuiLayoutType layoutType;
-     TuiRegisterDisplayType regsDisplayType;
-#endif
+tuiSetLayout (TuiLayoutType layoutType,
+              TuiRegisterDisplayType regsDisplayType)
 {
   TuiStatus status = TUI_SUCCESS;
 
@@ -146,7 +169,7 @@ tuiSetLayout (layoutType, regsDisplayType)
     {
       TuiLayoutType curLayout = currentLayout (), newLayout = UNDEFINED_LAYOUT;
       int regsPopulate = FALSE;
-      Opaque addr = _extractDisplayStartAddr ();
+      CORE_ADDR addr = _extractDisplayStartAddr ();
       TuiWinInfoPtr newWinWithFocus = (TuiWinInfoPtr) NULL, winWithFocus = tuiWinWithFocus ();
       TuiLayoutDefPtr layoutDef = tuiLayoutDef ();
 
@@ -195,8 +218,7 @@ tuiSetLayout (layoutType, regsDisplayType)
 		         ** 2. if target was compiled without -g
 		         ** We still want to show the assembly though!
 		       */
-		      addr = vcatch_errors ((OpaqueFuncPtr)
-					    tuiGetBeginAsmAddress);
+		      addr = tuiGetBeginAsmAddress ();
 		      tuiSetWinFocusTo (disassemWin);
 		      layoutDef->displayMode = DISASSEM_WIN;
 		      layoutDef->split = FALSE;
@@ -209,8 +231,7 @@ tuiSetLayout (layoutType, regsDisplayType)
 		         ** 2. if target was compiled without -g
 		         ** We still want to show the assembly though!
 		       */
-		      addr = vcatch_errors ((OpaqueFuncPtr)
-					    tuiGetBeginAsmAddress);
+		      addr = tuiGetBeginAsmAddress ();
 		      if (winWithFocus == srcWin)
 			tuiSetWinFocusTo (srcWin);
 		      else
@@ -233,8 +254,7 @@ tuiSetLayout (layoutType, regsDisplayType)
 		         ** 2. if target was compiled without -g
 		         ** We still want to show the assembly though!
 		       */
-		      addr = vcatch_errors ((OpaqueFuncPtr)
-					    tuiGetBeginAsmAddress);
+		      addr = tuiGetBeginAsmAddress ();
 		      if (winWithFocus != dataWin)
 			tuiSetWinFocusTo (disassemWin);
 		      else
@@ -273,29 +293,6 @@ tuiSetLayout (layoutType, regsDisplayType)
   return status;
 }				/* tuiSetLayout */
 
-
-/*
-   ** tui_vSetLayoutTo()
-   **        Function to set the layout to SRC, ASM, SPLIT, NEXT, PREV, DATA,
-   **        REGS, $REGS, $GREGS, $FREGS, $SREGS with arguments in a va_list
- */
-TuiStatus
-#ifdef __STDC__
-tui_vSetLayoutTo (
-		   va_list args)
-#else
-tui_vSetLayoutTo (args)
-     va_list args;
-#endif
-{
-  char *layoutName;
-
-  layoutName = va_arg (args, char *);
-
-  return (_tuiSetLayoutTo (layoutName));
-}				/* tui_vSetLayoutTo */
-
-
 /*
    ** tuiAddWinToLayout().
    **        Add the specified window to the layout in a logical way.
@@ -303,13 +300,7 @@ tui_vSetLayoutTo (args)
    **        window to be added.
  */
 void
-#ifdef __STDC__
-tuiAddWinToLayout (
-		    TuiWinType type)
-#else
-tuiAddWinToLayout (type)
-     TuiWinType type;
-#endif
+tuiAddWinToLayout (TuiWinType type)
 {
   TuiLayoutType curLayout = currentLayout ();
 
@@ -358,43 +349,13 @@ tuiAddWinToLayout (type)
 
 
 /*
-   ** tui_vAddWinToLayout().
-   **        Add the specified window to the layout in a logical way,
-   **        with arguments in a va_list.
- */
-void
-#ifdef __STDC__
-tui_vAddWinToLayout (
-		      va_list args)
-#else
-tui_vAddWinToLayout (args)
-     va_list args;
-#endif
-{
-  TuiWinType type = va_arg (args, TuiWinType);
-
-  tuiAddWinToLayout (type);
-
-  return;
-}				/* tui_vAddWinToLayout */
-
-
-/*
    ** tuiDefaultWinHeight().
    **        Answer the height of a window.  If it hasn't been created yet,
    **        answer what the height of a window would be based upon its
    **        type and the layout.
  */
 int
-#ifdef __STDC__
-tuiDefaultWinHeight (
-		      TuiWinType type,
-		      TuiLayoutType layout)
-#else
-tuiDefaultWinHeight (type, layout)
-     TuiWinType type;
-     TuiLayoutType layout;
-#endif
+tuiDefaultWinHeight (TuiWinType type, TuiLayoutType layout)
 {
   int h;
 
@@ -436,15 +397,7 @@ tuiDefaultWinHeight (type, layout)
    **        type and the layout.
  */
 int
-#ifdef __STDC__
-tuiDefaultWinViewportHeight (
-			      TuiWinType type,
-			      TuiLayoutType layout)
-#else
-tuiDefaultWinViewportHeight (type, layout)
-     TuiWinType type;
-     TuiLayoutType layout;
-#endif
+tuiDefaultWinViewportHeight (TuiWinType type, TuiLayoutType layout)
 {
   int h;
 
@@ -467,10 +420,8 @@ tuiDefaultWinViewportHeight (type, layout)
 void
 _initialize_tuiLayout (void)
 {
-  if (tui_version)
-    {
-      add_com ("layout", class_tui, _tuiLayout_command,
-	       "Change the layout of windows.\n\
+  add_com ("layout", class_tui, _tuiLayout_command,
+           "Change the layout of windows.\n\
 Usage: layout prev | next | <layout_name> \n\
 Layout names are:\n\
    src   : Displays source and command windows.\n\
@@ -482,18 +433,15 @@ Layout names are:\n\
            source/assembly/command (split) is displayed, \n\
            the register window is displayed with \n\
            the window that has current logical focus.\n");
-      if (xdb_commands)
-	{
-	  add_com ("td", class_tui, _tuiToggleLayout_command,
-		   "Toggle between Source/Command and Disassembly/Command layouts.\n");
-	  add_com ("ts", class_tui, _tuiToggleSplitLayout_command,
-		   "Toggle between Source/Command or Disassembly/Command and \n\
+  if (xdb_commands)
+    {
+      add_com ("td", class_tui, _tuiToggleLayout_command,
+               "Toggle between Source/Command and Disassembly/Command layouts.\n");
+      add_com ("ts", class_tui, _tuiToggleSplitLayout_command,
+               "Toggle between Source/Command or Disassembly/Command and \n\
 Source/Disassembly/Command layouts.\n");
-	}
     }
-
-  return;
-}				/* _intialize_tuiLayout */
+}
 
 
 /*************************
@@ -506,14 +454,8 @@ Source/Disassembly/Command layouts.\n");
    **    Function to set the layout to SRC, ASM, SPLIT, NEXT, PREV, DATA, REGS,
    **        $REGS, $GREGS, $FREGS, $SREGS.
  */
-static TuiStatus
-#ifdef __STDC__
-_tuiSetLayoutTo (
-		  char *layoutName)
-#else
-_tuiSetLayoutTo (layoutName)
-     char *layoutName;
-#endif
+TuiStatus
+tui_set_layout (const char *layoutName)
 {
   TuiStatus status = TUI_SUCCESS;
 
@@ -525,7 +467,7 @@ _tuiSetLayoutTo (layoutName)
       TuiRegisterDisplayType dpyType = TUI_UNDEFINED_REGS;
       TuiLayoutType curLayout = currentLayout ();
 
-      bufPtr = (char *) tuiStrDup (layoutName);
+      bufPtr = (char *) xstrdup (layoutName);
       for (i = 0; (i < strlen (layoutName)); i++)
 	bufPtr[i] = toupper (bufPtr[i]);
 
@@ -577,7 +519,7 @@ _tuiSetLayoutTo (layoutName)
 		dpyType = TUI_GENERAL_REGS;
 	      else if (subset_compare (bufPtr, TUI_SPECIAL_REGS_NAME))
 		dpyType = TUI_SPECIAL_REGS;
-	      else
+	      else if (dataWin)
 		{
 		  if (dataWin->detail.dataDisplayInfo.regsDisplayType !=
 		      TUI_UNDEFINED_REGS)
@@ -603,7 +545,7 @@ _tuiSetLayoutTo (layoutName)
 	    newLayout = _prevLayout ();
 	  else
 	    status = TUI_FAILURE;
-	  free (bufPtr);
+	  xfree (bufPtr);
 
 	  tuiSetLayout (newLayout, dpyType);
 	}
@@ -612,27 +554,24 @@ _tuiSetLayoutTo (layoutName)
     status = TUI_FAILURE;
 
   return status;
-}				/* _tuiSetLayoutTo */
+}
 
 
-static Opaque
-#ifdef __STDC__
+static CORE_ADDR
 _extractDisplayStartAddr (void)
-#else
-_extractDisplayStartAddr ()
-#endif
 {
   TuiLayoutType curLayout = currentLayout ();
-  Opaque addr;
+  CORE_ADDR addr;
+  CORE_ADDR pc;
 
   switch (curLayout)
     {
     case SRC_COMMAND:
     case SRC_DATA_COMMAND:
-      find_line_pc (
-		    current_source_symtab,
+      find_line_pc (current_source_symtab,
 		    srcWin->detail.sourceInfo.startLineOrAddr.lineNo,
-		    &addr);
+		    &pc);
+      addr = pc;
       break;
     case DISASSEM_COMMAND:
     case SRC_DISASSEM_COMMAND:
@@ -640,7 +579,7 @@ _extractDisplayStartAddr ()
       addr = disassemWin->detail.sourceInfo.startLineOrAddr.addr;
       break;
     default:
-      addr = (Opaque) NULL;
+      addr = 0;
       break;
     }
 
@@ -649,13 +588,7 @@ _extractDisplayStartAddr ()
 
 
 static void
-#ifdef __STDC__
-_tuiHandleXDBLayout (
-		      TuiLayoutDefPtr layoutDef)
-#else
-_tuiHandleXDBLayout (layoutDef)
-     TuiLayoutDefPtr layoutDef;
-#endif
+_tuiHandleXDBLayout (TuiLayoutDefPtr layoutDef)
 {
   if (layoutDef->split)
     {
@@ -676,30 +609,12 @@ _tuiHandleXDBLayout (layoutDef)
 
 
 static void
-#ifdef __STDC__
-_tuiToggleLayout_command (
-			   char *arg,
-			   int fromTTY)
-#else
-_tuiToggleLayout_command (arg, fromTTY)
-     char *arg;
-     int fromTTY;
-#endif
-{
-  tuiDo ((TuiOpaqueFuncPtr) _tui_vToggleLayout_command, arg, fromTTY);
-}
-
-static void
-#ifdef __STDC__
-_tui_vToggleLayout_command (
-			     va_list args)
-#else
-_tui_vToggleLayout_command (args)
-     va_list args;
-#endif
+_tuiToggleLayout_command (char *arg, int fromTTY)
 {
   TuiLayoutDefPtr layoutDef = tuiLayoutDef ();
 
+  /* Make sure the curses mode is enabled.  */
+  tui_enable ();
   if (layoutDef->displayMode == SRC_WIN)
     layoutDef->displayMode = DISASSEM_WIN;
   else
@@ -708,70 +623,40 @@ _tui_vToggleLayout_command (args)
   if (!layoutDef->split)
     _tuiHandleXDBLayout (layoutDef);
 
-  return;
-}				/* _tuiToggleLayout_command */
-
-
-static void
-#ifdef __STDC__
-_tuiToggleSplitLayout_command (
-				char *arg,
-				int fromTTY)
-#else
-_tuiToggleSplitLayout_command (arg, fromTTY)
-     char *arg;
-     int fromTTY;
-#endif
-{
-  tuiDo ((TuiOpaqueFuncPtr) _tui_vToggleSplitLayout_command, arg, fromTTY);
 }
 
+
 static void
-#ifdef __STDC__
-_tui_vToggleSplitLayout_command (
-				  va_list args)
-#else
-_tui_vToggleSplitLayout_command (args)
-     va_list args;
-#endif
+_tuiToggleSplitLayout_command (char *arg, int fromTTY)
 {
   TuiLayoutDefPtr layoutDef = tuiLayoutDef ();
 
+  /* Make sure the curses mode is enabled.  */
+  tui_enable ();
   layoutDef->split = (!layoutDef->split);
   _tuiHandleXDBLayout (layoutDef);
 
-  return;
-}				/* _tui_vToggleSplitLayout_command */
+}
 
 
 static void
-#ifdef __STDC__
-_tuiLayout_command (
-		     char *arg,
-		     int fromTTY)
-#else
-_tuiLayout_command (arg, fromTTY)
-     char *arg;
-     int fromTTY;
-#endif
+_tuiLayout_command (char *arg, int fromTTY)
 {
-  if ((TuiStatus) tuiDo (
-		   (TuiOpaqueFuncPtr) tui_vSetLayoutTo, arg) != TUI_SUCCESS)
-    warning ("Invalid layout specified.\n%s" LAYOUT_USAGE);
+  /* Make sure the curses mode is enabled.  */
+  tui_enable ();
 
-  return;
-}				/* _tuiLayout_command */
+  /* Switch to the selected layout.  */
+  if (tui_set_layout (arg) != TUI_SUCCESS)
+    warning ("Invalid layout specified.\n%s", LAYOUT_USAGE);
+
+}
 
 /*
    ** _nextLayout().
    **        Answer the previous layout to cycle to.
  */
 static TuiLayoutType
-#ifdef __STDC__
 _nextLayout (void)
-#else
-_nextLayout ()
-#endif
 {
   TuiLayoutType newLayout;
 
@@ -794,11 +679,7 @@ _nextLayout ()
    **        Answer the next layout to cycle to.
  */
 static TuiLayoutType
-#ifdef __STDC__
 _prevLayout (void)
-#else
-_prevLayout ()
-#endif
 {
   TuiLayoutType newLayout;
 
@@ -821,17 +702,7 @@ _prevLayout ()
    ** _makeCommandWindow().
  */
 static void
-#ifdef __STDC__
-_makeCommandWindow (
-		     TuiWinInfoPtr * winInfoPtr,
-		     int height,
-		     int originY)
-#else
-_makeCommandWindow (winInfoPtr, height, originY)
-     TuiWinInfoPtr *winInfoPtr;
-     int height;
-     int originY;
-#endif
+_makeCommandWindow (TuiWinInfoPtr * winInfoPtr, int height, int originY)
 {
   _initAndMakeWin ((Opaque *) winInfoPtr,
 		   CMD_WIN,
@@ -851,17 +722,7 @@ _makeCommandWindow (winInfoPtr, height, originY)
    ** _makeSourceWindow().
  */
 static void
-#ifdef __STDC__
-_makeSourceWindow (
-		    TuiWinInfoPtr * winInfoPtr,
-		    int height,
-		    int originY)
-#else
-_makeSourceWindow (winInfoPtr, height, originY)
-     TuiWinInfoPtr *winInfoPtr;
-     int height;
-     int originY;
-#endif
+_makeSourceWindow (TuiWinInfoPtr * winInfoPtr, int height, int originY)
 {
   _makeSourceOrDisassemWindow (winInfoPtr, SRC_WIN, height, originY);
 
@@ -873,17 +734,7 @@ _makeSourceWindow (winInfoPtr, height, originY)
    ** _makeDisassemWindow().
  */
 static void
-#ifdef __STDC__
-_makeDisassemWindow (
-		      TuiWinInfoPtr * winInfoPtr,
-		      int height,
-		      int originY)
-#else
-_makeDisassemWindow (winInfoPtr, height, originY)
-     TuiWinInfoPtr *winInfoPtr;
-     int height;
-     int originY;
-#endif
+_makeDisassemWindow (TuiWinInfoPtr * winInfoPtr, int height, int originY)
 {
   _makeSourceOrDisassemWindow (winInfoPtr, DISASSEM_WIN, height, originY);
 
@@ -895,17 +746,7 @@ _makeDisassemWindow (winInfoPtr, height, originY)
    ** _makeDataWindow().
  */
 static void
-#ifdef __STDC__
-_makeDataWindow (
-		  TuiWinInfoPtr * winInfoPtr,
-		  int height,
-		  int originY)
-#else
-_makeDataWindow (winInfoPtr, height, originY)
-     TuiWinInfoPtr *winInfoPtr;
-     int height;
-     int originY;
-#endif
+_makeDataWindow (TuiWinInfoPtr * winInfoPtr, int height, int originY)
 {
   _initAndMakeWin ((Opaque *) winInfoPtr,
 		   DATA_WIN,
@@ -925,11 +766,7 @@ _makeDataWindow (winInfoPtr, height, originY)
    **        Show the Source/Command layout
  */
 static void
-#ifdef __STDC__
 _showSourceCommand (void)
-#else
-_showSourceCommand ()
-#endif
 {
   _showSourceOrDisassemAndCommand (SRC_COMMAND);
 
@@ -942,11 +779,7 @@ _showSourceCommand ()
    **        Show the Dissassem/Command layout
  */
 static void
-#ifdef __STDC__
 _showDisassemCommand (void)
-#else
-_showDisassemCommand ()
-#endif
 {
   _showSourceOrDisassemAndCommand (DISASSEM_COMMAND);
 
@@ -959,11 +792,7 @@ _showDisassemCommand ()
    **        Show the Source/Disassem/Command layout
  */
 static void
-#ifdef __STDC__
 _showSourceDisassemCommand (void)
-#else
-_showSourceDisassemCommand ()
-#endif
 {
   TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
 
@@ -1081,13 +910,7 @@ _showSourceDisassemCommand ()
    **        Show the Source/Data/Command or the Dissassembly/Data/Command layout
  */
 static void
-#ifdef __STDC__
-_showData (
-	    TuiLayoutType newLayout)
-#else
-_showData (newLayout)
-     TuiLayoutType newLayout;
-#endif
+_showData (TuiLayoutType newLayout)
 {
   int totalHeight = (termHeight () - cmdWin->generic.height);
   int srcHeight, dataHeight;
@@ -1155,23 +978,8 @@ _showData (newLayout)
    ** _initGenWinInfo().
  */
 static void
-#ifdef __STDC__
-_initGenWinInfo (
-		  TuiGenWinInfoPtr winInfo,
-		  TuiWinType type,
-		  int height,
-		  int width,
-		  int originX,
-		  int originY)
-#else
-_initGenWinInfo (winInfo, type, height, width, originX, originY)
-     TuiGenWinInfoPtr winInfo;
-     TuiWinType type;
-     int height;
-     int width;
-     int originX;
-     int originY;
-#endif
+_initGenWinInfo (TuiGenWinInfoPtr winInfo, TuiWinType type,
+                 int height, int width, int originX, int originY)
 {
   int h = height;
 
@@ -1196,25 +1004,8 @@ _initGenWinInfo (winInfo, type, height, width, originX, originY)
    ** _initAndMakeWin().
  */
 static void
-#ifdef __STDC__
-_initAndMakeWin (
-		  Opaque * winInfoPtr,
-		  TuiWinType winType,
-		  int height,
-		  int width,
-		  int originX,
-		  int originY,
-		  int boxIt)
-#else
-_initAndMakeWin (winInfoPtr, winType, height, width, originX, originY, boxIt)
-     Opaque *winInfoPtr;
-     TuiWinType winType;
-     int height;
-     int width;
-     int originX;
-     int originY;
-     int boxIt;
-#endif
+_initAndMakeWin (Opaque * winInfoPtr, TuiWinType winType,
+                 int height, int width, int originX, int originY, int boxIt)
 {
   Opaque opaqueWinInfo = *winInfoPtr;
   TuiGenWinInfoPtr generic;
@@ -1244,7 +1035,6 @@ _initAndMakeWin (winInfoPtr, winType, height, width, originX, originY, boxIt)
       makeWindow (generic, boxIt);
       if (winType == LOCATOR_WIN)
 	tuiClearLocatorDisplay ();
-      echo ();
     }
   *winInfoPtr = opaqueWinInfo;
 
@@ -1256,19 +1046,8 @@ _initAndMakeWin (winInfoPtr, winType, height, width, originX, originY, boxIt)
    ** _makeSourceOrDisassemWindow().
  */
 static void
-#ifdef __STDC__
-_makeSourceOrDisassemWindow (
-			      TuiWinInfoPtr * winInfoPtr,
-			      TuiWinType type,
-			      int height,
-			      int originY)
-#else
-_makeSourceOrDisassemWindow (winInfoPtr, type, height, originY)
-     TuiWinInfoPtr *winInfoPtr;
-     TuiWinType type;
-     int height;
-     int originY;
-#endif
+_makeSourceOrDisassemWindow (TuiWinInfoPtr * winInfoPtr, TuiWinType type,
+                             int height, int originY)
 {
   TuiGenWinInfoPtr executionInfo = (TuiGenWinInfoPtr) NULL;
 
@@ -1308,13 +1087,7 @@ _makeSourceOrDisassemWindow (winInfoPtr, type, height, originY)
    **        Show the Source/Command or the Disassem layout
  */
 static void
-#ifdef __STDC__
-_showSourceOrDisassemAndCommand (
-				  TuiLayoutType layoutType)
-#else
-_showSourceOrDisassemAndCommand (layoutType)
-     TuiLayoutType layoutType;
-#endif
+_showSourceOrDisassemAndCommand (TuiLayoutType layoutType)
 {
   if (currentLayout () != layoutType)
     {

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = yppoll.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble yppoll.8
+OTHERSRCS = Makefile.dist Makefile.preamble yppoll.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

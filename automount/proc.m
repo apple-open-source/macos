@@ -21,17 +21,30 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import "automount.h"
-#import "NFSHeaders.h"
+#include <sys/types.h>
 #import <syslog.h>
 #import <unistd.h>
 #import <stdlib.h>
 #import <string.h>
+#import "automount.h"
+#import "NFSHeaders.h"
 #import "Controller.h"
 #import "AMMap.h"
 #import "log.h"
 #import "AMVnode.h"
 #import "AMString.h"
+
+/* Some essential cheats: */
+struct svcudp_data {
+	u_int   su_iosz;	/* byte size of send.recv buffer */
+	u_long	su_xid;		/* transaction id */
+	XDR	su_xdrs;	/* XDR handle */
+	char	su_verfbody[MAX_AUTH_BYTES];	/* verifier body */
+	char * 	su_cache;	/* cached data, NULL if no cache */
+};
+#define	su_data(xprt)	((struct svcudp_data *)(xprt->xp_p2))
+
+u_long rpc_xid;			/* copy of su_xid, derived from rm_xid */
 
 #ifndef __APPLE__
 #define nfsproc_create_2_svc nfsproc_create_2
@@ -206,6 +219,8 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 
 	sys_msg(debug_proc, LOG_DEBUG, "-> readlink");
 	sys_msg(debug_proc, LOG_DEBUG, "    fh = %s", fhtoc(fh));
+	rpc_xid = su_data(req->rq_xprt)->su_xid;
+	sys_msg(debug_proc, LOG_DEBUG, "	xid = 0x%08lx", rpc_xid);
 
 	if (doing_timeout) return NULL;
 
@@ -235,8 +250,30 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 	if (([n type] == NFLNK) && (![n mounted]))
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "	not mounted");
+#warning deriving internal copy of private and transport-specific xid...
 		status = [[n map] mount:n withUid:uid];
+		
+		if (gBlockedMountDependency) {
+			sys_msg(debug_proc, LOG_DEBUG, "	mount is in progress; transaction id = 0x%08lx", gBlockingMountTransactionID);
+			if (gBlockingMountTransactionID == rpc_xid) {
+				/* This is a retransmission of the original readlink request
+				   that triggered the mount in the first place; best to wait
+				   until the mount's complete. */
+				sys_msg(debug_proc, LOG_DEBUG, "<- [readlink abandoned]");
+				gBlockedMountDependency = NO;	/* This is a one-shot deal */
+				return NULL;				/* Try again later... */
+			};
+			
+			/* This is a mount in progress from another call - don't wait up and don't hold up THIS call! */
+			gBlockedMountDependency = NO;	
+		};
 
+		if (gForkedMountInProgress) {
+			sys_msg(debug_proc, LOG_DEBUG, "<- [readlink abandoned]");
+			gForkedMountInProgress = NO;
+			return NULL;
+		};
+		
 		if (status != 0)
 		{
 			res.status = NFSERR_NOENT;
@@ -246,9 +283,8 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 	}
 
 	sys_msg(debug_proc, LOG_DEBUG, "    name = %s", [[n name] value]);
-	sys_msg(debug_proc, LOG_DEBUG, "    link = %s", [[n link] value]);
-
 	res.readlinkres_u.data = [[n link] value];
+	sys_msg(debug_proc, LOG_DEBUG, "    link = %s", res.readlinkres_u.data);
 	sys_msg(debug_proc, LOG_DEBUG, "<- readlink");
 	return(&res);
 }
@@ -468,9 +504,58 @@ nfsstat *
 nfsproc_symlink_2_svc(symlinkargs *args, struct svc_req *req)
 {
 	static nfsstat status;
+	struct file_handle *ifh;
+	Vnode *n;
+	struct authunix_parms *aup;
+	uid_t uid = -2;	/* default = nobody */
 
-	sys_msg(debug_proc, LOG_DEBUG, "-- symlink");
-	status = NFSERR_ROFS;
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
+		aup = (struct authunix_parms *)req->rq_clntcred;
+		uid = aup->aup_uid;
+	}
+
+	sys_msg(debug_proc, LOG_DEBUG, "-> symlink");
+	sys_msg(debug_proc, LOG_DEBUG, "    from.dir fh = %s", fhtoc(&(args->from.dir)));
+	sys_msg(debug_proc, LOG_DEBUG, "    from.name = %s", args->from.name);
+	sys_msg(debug_proc, LOG_DEBUG, "    to = %s", args->to);
+	sys_msg(debug_proc, LOG_DEBUG, "    attributes:");
+	sys_msg(debug_proc, LOG_DEBUG, "        mode = 0%o", args->attributes.mode);
+	sys_msg(debug_proc, LOG_DEBUG, "        uid = 0%ld", args->attributes.uid);
+	sys_msg(debug_proc, LOG_DEBUG, "        gid = 0%ld", args->attributes.gid);
+	sys_msg(debug_proc, LOG_DEBUG, "        size = 0x%x", args->attributes.size);
+	sys_msg(debug_proc, LOG_DEBUG, "        atime = [0x%x, 0x%x]", args->attributes.atime.seconds);
+	sys_msg(debug_proc, LOG_DEBUG, "        mtime = [0x%x, 0x%x]", args->attributes.mtime.useconds);
+	sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	
+	if (uid != 0) {
+		sys_msg(debug, LOG_ERR, "symlink request from unauthorized uid");
+		status = NFSERR_ACCES;
+		return(&status);
+	};
+	
+	ifh = (struct file_handle *)&(args->from.dir);
+	n = [controller vnodeWithID:ifh->node_id];
+	if (n == nil)
+	{
+		sys_msg(debug, LOG_ERR, "lookup for non-existent file handle %s",
+			fhtoc(&(args->from.dir)));
+		status = NFSERR_NOENT;
+	}
+	else status = [n nfsStatus];
+	if (status != NFS_OK)
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "<- symlink (error %d)", status);
+		return(&status);
+	}
+
+	status = [n symlinkWithName:args->from.name to:args->to attributes:(struct nfsv2_sattr *)&args->attributes];
+
+	if (status) {
+		sys_msg(debug_proc, LOG_DEBUG, "<- symlink");
+	} else {
+		sys_msg(debug_proc, LOG_DEBUG, "<- symlink (status = %d)", status);
+	};
 	return(&status);
 }
 

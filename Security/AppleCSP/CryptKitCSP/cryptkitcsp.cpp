@@ -31,6 +31,7 @@
 #include <CryptKit/falloc.h>
 #include <CryptKit/feeFunctions.h>
 #include <MiscCSPAlgs/SHA1_MD5_Object.h>
+#include <Security/digestobject.h>
 
 CssmAllocator *CryptKitFactory::normAllocator;
 CssmAllocator *CryptKitFactory::privAllocator;
@@ -101,6 +102,26 @@ bool CryptKitFactory::setup(
 					if(cspCtx == NULL) {
 						cspCtx = new SignatureContext(session,
 							*(new SHA1Object()),
+							*(new FEEECDSASigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+				case CSSM_ALGID_FEE:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new NullDigest()),
+							*(new FEERawSigner(feeRandCallback, 
+								&session,
+								session,
+								*privAllocator)));
+					}
+					return true;
+				case CSSM_ALGID_ECDSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new NullDigest()),
 							*(new FEEECDSASigner(feeRandCallback, 
 								&session,
 								session,

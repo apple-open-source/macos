@@ -105,10 +105,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define CLASH_DETECTION
 
-/* We use the Berkeley (and usg5.2.2) interface to nlist.  */
-
-#define NLIST_STRUCT
-
 /* The file containing the kernel's symbol table is called /vmunix.  */
 
 #define KERNEL_FILE "/vmunix"
@@ -122,6 +118,3 @@ Boston, MA 02111-1307, USA.  */
 
 #define SIGNALS_VIA_CHARACTERS
 
-/* We do have vfork.  */
-
-#define HAVE_VFORK

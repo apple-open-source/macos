@@ -1,7 +1,6 @@
-This is Info file ../info/viper, produced by Makeinfo version 1.68 from
-the input file viper.texi.
+This is ../info/viper, produced by makeinfo version 4.0 from viper.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * VIPER: (viper).       The newest Emacs VI-emulation mode.
                           (also, A VI Plan for Emacs Rescue
@@ -11,20 +10,88 @@ END-INFO-DIR-ENTRY
 Distribution
 ************
 
-Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+Copyright (C) 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided that
-the entire resulting derived work is distributed under the terms of a
-permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the same conditions as for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: viper,  Node: Movement and Markers,  Next: New Commands,  Prev: Abbreviation Facilities,  Up: Improvements over Vi
+
+Movement and Markers
+====================
+
+   Viper can be set free from the line-limited movements in Vi, such as
+`l' refusing to move beyond the line, <ESC> moving one character back,
+etc.  These derive from Ex, which is a line editor.  If your `.viper'
+contains
+
+     `(setq viper-ex-style-motion nil)'
+
+the motion will be a true screen editor motion.  One thing you must then
+watch out for is that it is possible to be on the end-of-line character.
+The keys `x' and `%' will still work correctly, i.e., as if they were
+on the last character.
+
+   The word-movement commands `w', `e', etc., and the associated
+deletion/yanking commands, `dw', `yw', etc., can be made to understand
+Emacs syntax tables.  If the variable `viper-syntax-preference' is set
+to `strict-vi' then the meaning of _word_ is the same as in Vi.
+However, if the value is `reformed-vi' (the default) then the
+alphanumeric symbols will be those specified by the current Emacs syntax
+table (which may be different for different major modes) plus the
+underscore symbol `_', minus some non-word symbols, like '.;,|, etc.
+Both `strict-vi' and `reformed-vi' work close to Vi in traditional
+cases, but `reformed-vi' does a better job when editing text in
+non-Latin alphabets.
+
+   The user can also specify the value `emacs', which would make Viper
+use exactly the Emacs notion of word.  In particular, the underscore
+may not be part of a word.  Finally, if `viper-syntax-preference' is
+set to `extended', Viper words would consist of characters that are
+classified as alphanumeric _or_ as parts of symbols.  This is
+convenient for writing programs and in many other situations.
+
+   `viper-syntax-preference' is a local variable, so it can have
+different values for different major modes.  For instance, in
+programming modes it can have the value `extended'.  In text modes
+where words contain special characters, such as European (non-English)
+letters, Cyrillic letters, etc., the value can be `reformed-vi' or
+`emacs'.
+
+   Changes to `viper-syntax-preference' should be done in the hooks to
+various major modes by executing `viper-set-syntax-preference' as in
+the following example:
+
+     (viper-set-syntax-preference nil "emacs")
+
+   The above discussion of the meaning of Viper's words concerns only
+Viper's movement commands.  In regular expressions, words remain the
+same as in Emacs.  That is, the expressions `\w', `\>', `\<', etc., use
+Emacs' idea of what is a word, and they don't look into the value of
+variable `viper-syntax-preference'.  This is because Viper doesn't
+change syntax tables in fear of upsetting the various major modes that
+set these tables.
+
+   Textmarkers in Viper remember the file and the position, so that you
+can switch files by simply doing `'a'.  If you set up a regimen for
+using Textmarkers, this is very useful.  Contents of textmarkers can be
+viewed by `[marker'.  (Contents of registers can be viewed by
+`]register').
 
 
 File: viper,  Node: New Commands,  Next: Useful Packages,  Prev: Movement and Markers,  Up: Improvements over Vi
@@ -126,7 +193,7 @@ New Commands
 `[]'
      Go to end of heading.
 
-`g <*movement command*>'
+`g <_movement command_>'
      Search buffer for text delimited by movement command.  The
      canonical example is `gw' to search for the word under the cursor.
      *Note Improved Search::, for details.
@@ -135,8 +202,8 @@ New Commands
      Quit and Abort Recursive edit.  These may be necessary on occasion.
      *Note Vi State::, for a reason.
 
-`C-c g'
-     Hitting `C-c' followed by `g' will display the information on the
+`C-c C-g'
+     Hitting `C-c' followed by `C-g' will display the information on the
      current buffer.  This is the same as hitting `C-g' in Vi, but, as
      explained above, `C-g' is needed for other purposes in Emacs.
 
@@ -280,13 +347,13 @@ examples are provided that you can use directly.
 * Menu:
 
 * Rudimentary Changes::          Simple constant definitions.
-* Keybindings::                  Enabling Emacs Keys, Rebinding keys, etc.
+* Key Bindings::                 Enabling Emacs Keys, Rebinding keys, etc.
 * Packages that Change Keymaps:: How to deal with such beasts.
 * Viper Specials::               Special Viper commands.
 * Vi Macros::                    How to do Vi style macros.
 
 
-File: viper,  Node: Rudimentary Changes,  Next: Keybindings,  Prev: Customization,  Up: Customization
+File: viper,  Node: Rudimentary Changes,  Next: Key Bindings,  Prev: Customization,  Up: Customization
 
 Rudimentary Changes
 ===================
@@ -433,13 +500,28 @@ get the full list of Vi variables, type `:se <SPC> <TAB>'.
      Setting this variable too high may slow down your typing.  Setting
      it too low may make it hard to type macros quickly enough.
 
+`viper-translate-all-ESC-keysequences t on tty, nil on windowing display'
+     Normally, Viper lets Emacs translate only those ESC key sequences
+     that are defined in the low-level key-translation-map or
+     function-key-map, such as those emitted by the arrow and function
+     keys. Other sequences, e.g., `\\e/', are treated as `ESC' command
+     followed by a `/'. This is good for people who type fast and tend
+     to hit other characters right after they hit ESC. Other people
+     like Emacs to translate `ESC' sequences all the time.  The default
+     is to translate all sequences only when using a dumb terminal.
+     This permits you to use `ESC' as a meta key in insert mode. For
+     instance, hitting `ESC x' fast would have the effect of typing
+     `M-x'.  If your dumb terminal is not so dumb and understands the
+     meta key, then you probably will be better off setting this
+     variable to nil. Try and see which way suits you best.
+
 `viper-ex-style-motion t'
      Set this to `nil', if you want `l,h' to cross lines, etc.  *Note
      Movement and Markers::, for more info.
 
 `viper-ex-style-editing t'
-     Set this to to `nil', if you want `C-h' and <DEL> to not stop at
-     the beginning of a line in Insert state, <X> and <x> to delete
+     Set this to `nil', if you want `C-h' and <DEL> to not stop at the
+     beginning of a line in Insert state, <X> and <x> to delete
      characters across lines in Vi command state, etc.
 
 `viper-ESC-moves-cursor-back t'
@@ -466,19 +548,17 @@ get the full list of Vi variables, type `:se <SPC> <TAB>'.
 `viper-spell-function 'ispell-region'
      Function used by the command `#c<move>' to spell.
 
-`ex-nontrivial-find-file-function'
-     The value of this variable is the function used to find all files
-     that match a wildcard.  This is usually done when the user types
-     `:e' and specifies a wildcard in the file name (or if the file
-     name contains unusual symbols (e.g., a space).  Viper provides two
-     functions for this: one for Unix-like systems
-     (`viper-ex-nontrivial-find-file-unix') and one for DOS, W95, and
-     NT (`viper-ex-nontrivial-find-file-ms').  If the default function
-     doesn't quite do what you expect or if you prefer to use "fancy"
-     shells, you may have to write your own version of this function
-     and make it into the value of `ex-nontrivial-find-file-function'.
-     Use `viper-ex-nontrivial-find-file-unix' and
-     `viper-ex-nontrivial-find-file-ms' as examples.
+`viper-glob-function'
+     The value of this variable is the function symbol used to expand
+     wildcard symbols. This is platform-dependent. The default tries to
+     set this variable to work with most shells, MS Windows, OS/2, etc.
+     However, if it doesn't work the way you expect, you should write
+     your own.  Use `viper-glob-unix-files' and
+     `viper-glob-mswindows-files' in `viper-util.el' as examples.
+
+     This feature is used to expand wildcards in the Ex command `:e'.
+     Note that Viper doesn't support wildcards in the `:r' and `:w'
+     commands, because file completion is a better mechanism.
 
 `ex-cycle-other-window t'
      If not `nil', `:n' and `:b' will cycle through files in another
@@ -641,10 +721,10 @@ like this in your `.viper' file:
      (setq viper-case-fold-search t)
 
 
-File: viper,  Node: Keybindings,  Next: Packages that Change Keymaps,  Prev: Rudimentary Changes,  Up: Customization
+File: viper,  Node: Key Bindings,  Next: Packages that Change Keymaps,  Prev: Rudimentary Changes,  Up: Customization
 
-Keybindings
-===========
+Key Bindings
+============
 
    Viper lets you define hot keys, i.e., you can associate keyboard keys
 such as F1, Help, PgDn, etc., with Emacs Lisp functions (that may
@@ -654,8 +734,8 @@ key's preferred form is [help], and the Undo key has the preferred form
 [f14].  You can find out the preferred form of a key by typing `M-x
 describe-key-briefly' and then typing the key you want to know about.
 
-   Under X Windows, every keyboard key emits its preferred form, so you
-can just type
+   Under the X Window System, every keyboard key emits its preferred
+form, so you can just type
 
      (global-set-key [f11] 'calendar)                        ; L1, Stop
      (global-set-key [f14] 'undo)                            ; L4, Undo
@@ -687,14 +767,14 @@ concerned only with the following three keymaps:
 `viper-insert-global-user-map' for Insert state commands, and
 `viper-emacs-global-user-map' for Emacs state commands (note:
 customized bindings for Emacs state made to
-`viper-emacs-global-user-map' are *not* inherited by Insert state).
+`viper-emacs-global-user-map' are _not_ inherited by Insert state).
 
    For more information on Viper keymaps, see the header of the file
 `viper.el'.  If you wish to change a Viper binding, you can use the
 `define-key' command, to modify `viper-vi-global-user-map',
 `viper-insert-global-user-map', and `viper-emacs-global-user-map', as
 explained below.  Each of these key maps affects the corresponding
-Viper state.  The keymap `viper-vi-global-user-map' also affects
+Viper state.  The keymap `viper-insert-global-user-map' also affects
 Viper's Replace state.
 
 If you want to bind a key, say `C-v', to the function that scrolls page
@@ -715,12 +795,12 @@ To customize the binding for `C-h' in Insert state:
      (define-key viper-insert-global-user-map "\C-h" 'my-del-backwards-function)
 
 Each Emacs command key calls some lisp function.  If you have enabled
-the Help, (*note Rudimentary Changes::.) `C-h k' will show you the
+the Help, (*note Rudimentary Changes::) `C-h k' will show you the
 function for each specific key; `C-h b' will show all bindings, and
 `C-h m' will provide information on the major mode in effect.  If Help
 is not enabled, you can still get help in Vi state by prefixing the
 above commands with `\', e.g., `\ C-h k' (or you can use the Help menu
-in the menu bar, if Emacs runs under X Windows).
+in the menu bar, if Emacs runs under X).
 
    Viper users can also change bindings on a per major mode basis.  As
 with global bindings, this can be done separately for each of the three
@@ -769,7 +849,7 @@ macros, one can use the normal keys alongside with the macros.  If
 per-mode modifications are needed, the user can try both ways and see
 which one is more convenient.  *Note Vi Macros::, for details.
 
-   Note: in major modes that come up in *Emacs state* by default, the
+   Note: in major modes that come up in _Emacs state_ by default, the
 aforesaid modifications may not take place immediately (but only after
 the buffer switches to some other Viper state and then back to Emacs
 state).  To avoid this, one should add `viper-change-state-to-emacs' to
@@ -829,7 +909,7 @@ situations, the remedy is to type `M-x viper-zap-local-keys'.
 general info on key bindings in Emacs.
 
 
-File: viper,  Node: Packages that Change Keymaps,  Next: Viper Specials,  Prev: Keybindings,  Up: Customization
+File: viper,  Node: Packages that Change Keymaps,  Next: Viper Specials,  Prev: Key Bindings,  Up: Customization
 
 Packages that Change Keymaps
 ----------------------------
@@ -853,7 +933,7 @@ language-specific major modes to bind <TAB> and `C-j' (the line feed)
 keys to various formatting functions.  This is extremely useful, but
 may require some getting used to for a Vi user.  If you decide that
 this feature is not for you, you can re-bind these keys as explained
-earlier (*note Customization::.).
+earlier (*note Customization::).
 
    Binding for <TAB> is one of the most unusual aspects of Viper for
 many novice users.  In Emacs, <TAB> is used to format text and
@@ -903,9 +983,9 @@ they may bind common keys to specialized commands.  This might make
 sense for modes that bind only a small number of common keys.  For
 instance, Viper subverts the Shell mode by changing the bindings for
 `C-m' and `C-d' using `viper-add-local-keys' described in section on
-customization (*note Customization::.).
+customization (*note Customization::).
 
-   In some cases, some *minor* modes might override certain essential
+   In some cases, some _minor_ modes might override certain essential
 bindings in Vi command state.  This is not a big priblem because this
 can happen only in the beginning, when the minor mode kicks in.  Typing
 `M-x viper-mode' will correct the situation.  Viper knows about several

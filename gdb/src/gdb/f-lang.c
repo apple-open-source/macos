@@ -1,5 +1,6 @@
 /* Fortran language support routines for GDB, the GNU debugger.
-   Copyright 1993, 1994, 1996, 2000 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Motorola.  Adapted from the C parser by Farooq Butt
    (fmbutt@engage.sps.mot.com).
 
@@ -428,7 +429,7 @@ static const struct op_print f_op_print_tab[] =
   {NULL, 0, 0, 0}
 };
 
-struct type **CONST_PTR (f_builtin_types[]) =
+struct type **const (f_builtin_types[]) =
 {
   &builtin_type_f_character,
     &builtin_type_f_logical,
@@ -635,7 +636,7 @@ add_common_block (char *name, CORE_ADDR offset, int secnum, char *func_stab)
       STREQ (name, BLANK_COMMON_NAME_MF77))
     {
 
-      free (name);
+      xfree (name);
       name = alloca (strlen (BLANK_COMMON_NAME_LOCAL) + 1);
       strcpy (name, BLANK_COMMON_NAME_LOCAL);
     }
@@ -809,7 +810,7 @@ patch_all_commons_by_name (char *name, CORE_ADDR offset, int secnum)
   if ((STREQ (name, BLANK_COMMON_NAME_ORIGINAL)) ||
       (STREQ (name, BLANK_COMMON_NAME_MF77)))
     {
-      free (name);
+      xfree (name);
       name = alloca (strlen (BLANK_COMMON_NAME_LOCAL) + 1);
       strcpy (name, BLANK_COMMON_NAME_LOCAL);
     }
@@ -875,7 +876,7 @@ clear_bf_list (void)
   while (tmp != NULL)
     {
       next = tmp->next;
-      free (tmp);
+      xfree (tmp);
       tmp = next;
     }
   saved_bf_list = NULL;
@@ -896,7 +897,8 @@ get_bf_for_fcn (long the_function)
      item at the head of the queue is the one you want)  */
 
   if (saved_bf_list == NULL)
-    internal_error ("cannot get .bf node off empty list");
+    internal_error (__FILE__, __LINE__,
+		    "cannot get .bf node off empty list");
 
   if (current_head_bf_list != NULL)
     if (current_head_bf_list->symnum_fcn == the_function)
@@ -946,7 +948,7 @@ clear_function_list (void)
   while (tmp != NULL)
     {
       next = tmp->next;
-      free (tmp);
+      xfree (tmp);
       tmp = next;
     }
 

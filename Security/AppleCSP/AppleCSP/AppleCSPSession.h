@@ -44,6 +44,7 @@ class MiscAlgFactory;
 class AscAlgFactory;
 #endif
 class RSA_DSA_Factory;
+class DH_Factory;
 
 /* one per attach/detach */
 class AppleCSPSession : public CSPFullPluginSession {
@@ -121,7 +122,7 @@ public:
 	BinaryKey &lookupRefKey(
 		const CssmKey		&cssmKey);
 
-	// CSP's RNG. THis is redirects to Yarrow.
+	// CSP's RNG. This redirects to Yarrow.
 	void					getRandomBytes(size_t length, uint8 *cp);
 	void					addEntropy(size_t length, const uint8 *cp);  
  
@@ -139,6 +140,7 @@ public:
 	AscAlgFactory			&ascAlgFactory;
 	#endif
 	RSA_DSA_Factory			&rsaDsaAlgFactory;
+	DH_Factory				&dhAlgFactory;
 	
 private:
 	// storage of binary keys (which apps know as reference keys)
@@ -202,9 +204,17 @@ private:
  */
 class CSPKeyInfoProvider 
 {
-public:
+protected:
 	CSPKeyInfoProvider(
 		const CssmKey &cssmKey) : mKey(cssmKey) { }
+public:
+	/* 
+	 * This is the public way to construct - returns NULL if key is 
+	 * not handled. Static declaration per subclass.
+	 *
+	 * static CSPKeyInfoProvider *provider(
+	 *	const CssmKey &cssmKey);
+	 */	 
 	virtual ~CSPKeyInfoProvider() { }
 	
 	/* cook up a Binary key */
@@ -225,9 +235,13 @@ protected:
  */
 class SymmetricKeyInfoProvider : public CSPKeyInfoProvider 
 {
-public:
+private:
 	SymmetricKeyInfoProvider(
 		const CssmKey		&cssmKey);
+public:
+	static CSPKeyInfoProvider *provider(
+		const CssmKey &cssmKey);
+		
 	~SymmetricKeyInfoProvider() { }
 	void CssmKeyToBinary(
 		BinaryKey			**binKey);	// RETURNED

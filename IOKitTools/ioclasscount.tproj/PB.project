@@ -3,6 +3,7 @@
     FILESTABLE = {
         FRAMEWORKS = (CoreFoundation.framework, IOKit.framework); 
         FRAMEWORKSEARCH = (); 
+        H_FILES = (); 
         OTHER_LINKED = (ioclasscount.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, ioclasscount.8); 
     }; 

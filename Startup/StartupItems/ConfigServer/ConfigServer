@@ -1,15 +1,26 @@
 #!/bin/sh
 
+##
+# Configuration Server
+##
+
 . /etc/rc.common
 
-##
-# Start up Configuration Server
-##
+StartService ()
+{
+    ConsoleMessage "Configuring network"
 
-case "${HOSTNAME:=-AUTOMATIC-}" in
-	"-AUTOMATIC-" | "") hostname localhost ;;
-	*) hostname "${HOSTNAME}" ;;
-esac
+    return 0
+}
 
-ConsoleMessage "Starting Network Configuration Server"
-configd
+StopService ()
+{
+    return 0
+}
+
+RestartService ()
+{
+    return 0
+}
+
+RunService "$1"

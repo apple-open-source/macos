@@ -61,57 +61,58 @@
  * - eliminated ability to read host entries from a file
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <sys/stat.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/file.h>
-#import <sys/time.h>
-#import <sys/types.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <netinet/bootp.h>
-#import <netinet/if_ether.h>
-#import <net/if_arp.h>
-#import <mach/boolean.h>
-#import <signal.h>
-#import <stdio.h>
-#import <string.h>
-#import <errno.h>
-#import <ctype.h>
-#import <netdb.h>
-#import <setjmp.h>
-#import <syslog.h>
-#import <arpa/inet.h>
-#import <arpa/nameser.h>
-#import <sys/uio.h>
-#import <resolv.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/bootp.h>
+#include <netinet/if_ether.h>
+#include <net/if_arp.h>
+#include <mach/boolean.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <ctype.h>
+#include <netdb.h>
+#include <setjmp.h>
+#include <syslog.h>
+#include <arpa/inet.h>
+#include <arpa/nameser.h>
+#include <sys/uio.h>
+#include <resolv.h>
 
-#import "arp.h"
-#import "netinfo.h"
-#import "interfaces.h"
-#import "inetroute.h"
+#include "arp.h"
+#include "netinfo.h"
+#include "interfaces.h"
+#include "inetroute.h"
 #import "subnetDescr.h"
-#import "dhcp_options.h"
-#import "rfc_options.h"
-#import "macNC.h"
-#import "bsdpd.h"
-#import "NICache.h"
-#import "host_identifier.h"
-#import "dhcpd.h"
-#import "ts_log.h"
-#import "bootpd.h"
-#import "bsdp.h"
-#import "bootp_transmit.h"
+#include "dhcp_options.h"
+#include "rfc_options.h"
+#include "macNC.h"
+#include "bsdpd.h"
+#include "NICache.h"
+#include "host_identifier.h"
+#include "dhcpd.h"
+#include "bootpd.h"
+#include "bsdp.h"
+#include "bootp_transmit.h"
 
 #define CFGPROP_BOOTP_ENABLED		"bootp_enabled"
 #define CFGPROP_DHCP_ENABLED		"dhcp_enabled"
 #define CFGPROP_OLD_NETBOOT_ENABLED	"old_netboot_enabled"
 #define CFGPROP_NETBOOT_ENABLED		"netboot_enabled"
+#define CFGPROP_ALLOW			"allow"
+#define CFGPROP_DENY			"deny"
 
 /* external functions */
 extern char *  			ether_ntoa(struct ether_addr *e);
@@ -164,11 +165,31 @@ static u_short			S_ipport_client = IPPORT_BOOTPC;
 static u_short			S_ipport_server = IPPORT_BOOTPS;
 static struct timeval		S_lastmsgtime;
 static u_char 			S_rxpkt[2048];/* receive packet buffer */
-#ifndef SYSTEM_ARP
 static int			S_rtsockfd = -1;
-#endif SYSTEM_ARP
 static boolean_t		S_sighup = TRUE; /* fake the 1st sighup */
 static u_int32_t		S_which_services = 0;
+static struct ether_addr *	S_allow = NULL;
+static int			S_allow_count = 0;
+static struct ether_addr *	S_deny = NULL;
+static int			S_deny_count = 0;
+
+void
+my_log(int priority, const char *message, ...)
+{
+    va_list 		ap;
+
+    if (priority == LOG_DEBUG) {
+	if (verbose == FALSE)
+	    return;
+	priority = LOG_INFO;
+    }
+    if (quiet && (priority > LOG_ERR)) { 
+	return;
+    }
+    va_start(ap, message);
+    vsyslog(priority, message, ap);
+    return;
+}
 
 /*
  * PropList_t routines
@@ -207,7 +228,7 @@ PropList_read(PropList_t * pl_p)
     
     status = ni_pathsearch(NIDomain_handle(ni_local), &dir_id, pl_p->path);
     if (status != NI_OK) {
-	syslog(LOG_INFO, "ni_pathsearch '%s' failed: %s",
+	my_log(LOG_INFO, "ni_pathsearch '%s' failed: %s",
 	       pl_p->path, ni_error(status));
 	ni_proplist_free(&pl_p->pl);
 	bzero(&pl_p->dir_id, sizeof(pl_p->dir_id));
@@ -221,7 +242,7 @@ PropList_read(PropList_t * pl_p)
 	pl_p->instance++;
 	status = ni_read(NIDomain_handle(ni_local), &dir_id, &pl_p->pl);
 	if (status != NI_OK) {
-	    syslog(LOG_INFO, "ni_read '%s' failed: %s",
+	    my_log(LOG_INFO, "ni_read '%s' failed: %s",
 		   pl_p->path, ni_error(status));
 	    return (FALSE);
 	}
@@ -248,8 +269,7 @@ PropList_lookup(PropList_t * pl_p, ni_name propname)
 static int 		issock(int fd);
 static void		on_alarm(int sigraised);
 static void		on_sighup(int sigraised);
-static void		bootp_request(interface_t *, void * bp, int len,
-				      struct timeval *);
+static void		bootp_request(request_t * request);
 static void		setarp(struct in_addr * ia, u_char * ha, int len);
 static void		S_server_loop();
 static void		S_relay_loop(struct in_addr * relay, int max_hops);
@@ -296,6 +316,7 @@ background()
     }
 }
 
+#if 0
 static __inline__ boolean_t
 is_this_our_name(interface_list_t * list, char * name)
 {
@@ -348,6 +369,7 @@ setMaster(NIDomain_t * domain, interface_list_t * list)
     ni_namelist_free(&nl);
     return;
 }
+#endif 0
 
 /*
  * Function: S_ni_domains_init
@@ -382,11 +404,12 @@ S_ni_domains_init()
 	    if (hierarchy_done)
 		continue;
 	    hierarchy_done = TRUE;
-	    if (verbose)
-		syslog(LOG_INFO, 
-		       "opening hierarchy starting at " NI_DOMAIN_LOCAL);
+	    my_log(LOG_DEBUG, 
+		   "opening hierarchy starting at " NI_DOMAIN_LOCAL);
 	    domain = NIDomain_init(NI_DOMAIN_LOCAL);
+#if 0
 	    setMaster(domain, S_interfaces);
+#endif 0
 	    while (TRUE) {
 		NIDomain_t * obj;
 
@@ -402,21 +425,20 @@ S_ni_domains_init()
 		    domain = obj;
 		}
 		else {
-		    if (verbose)
-			syslog(LOG_INFO, "opened domain %s/%s", 
-			       inet_ntoa(NIDomain_ip(domain)),
-			       NIDomain_tag(domain));
+		    my_log(LOG_DEBUG, "opened domain %s/%s", 
+			   inet_ntoa(NIDomain_ip(domain)),
+			   NIDomain_tag(domain));
 		    NIDomainList_add(&niSearchDomains, domain);
 		    NICache_add_domain(&cache, domain);
 		}
 		domain = NIDomain_parent(domain);
+#if 0
 		setMaster(domain, S_interfaces);
+#endif 0
 	    }
 	}
 	else {
-	    if (verbose) {
-		syslog(LOG_INFO, "opening domain %s", dstr);
-	    }
+	    my_log(LOG_DEBUG, "opening domain %s", dstr);
 	    domain = NIDomain_init(dstr);
 
 	    if (domain != NULL) {
@@ -431,16 +453,17 @@ S_ni_domains_init()
 		    NIDomain_free(domain);
 		    continue;
 		}
+#if 0
 		setMaster(domain, S_interfaces);
+#endif 0
 		NIDomainList_add(&niSearchDomains, domain);
 		NICache_add_domain(&cache, domain);
-		if (verbose)
-		    syslog(LOG_INFO, "opened domain %s/%s", 
-			   inet_ntoa(NIDomain_ip(domain)),
-			   NIDomain_tag(domain));
+		my_log(LOG_DEBUG, "opened domain %s/%s", 
+		       inet_ntoa(NIDomain_ip(domain)),
+		       NIDomain_tag(domain));
 	    }
 	    else {
-		syslog(LOG_INFO, "unable to open domain '%s'", dstr);
+		my_log(LOG_INFO, "unable to open domain '%s'", dstr);
 	    }
 	}
     }
@@ -457,11 +480,13 @@ S_ni_domains_init()
 	}
 	if (ni_local == NULL) {
 	    ni_local = NIDomain_init(NI_DOMAIN_LOCAL);
+#if 0
 	    setMaster(ni_local, S_interfaces);
+#endif 0
 
 	    if (ni_local == NULL)
 		exit(1);
-	    syslog(LOG_INFO, 
+	    my_log(LOG_INFO, 
 		   "opened local netinfo domain");
 	}
     }
@@ -478,6 +503,7 @@ S_get_dns()
 
     if (S_dns_servers) {
 	free(S_dns_servers);
+	S_dns_servers = NULL;
     }
     S_dns_servers_count = _res.nscount;
     if (S_dns_servers_count == 1) {
@@ -539,16 +565,21 @@ S_log_interfaces()
 	if ((ptrlist_count(&S_if_list) == 0
 	     || S_string_in_list(&S_if_list, if_name(if_p)))
 	    && if_inet_valid(if_p) && !(if_flags(if_p) & IFF_LOOPBACK)) {
-	    char 	ip[32];
+	    int 		i;
+	    inet_addrinfo_t *	info;
+	    char 		ip[32];
 
-	    strcpy(ip, inet_ntoa(if_inet_addr(if_p)));
-	    syslog(LOG_INFO, "interface %s: ip %s mask %s", 
-		   if_name(if_p), ip, inet_ntoa(if_inet_netmask(if_p)));
+	    for (i = 0; i < if_inet_count(if_p); i++) {
+		info = if_inet_addr_at(if_p, i);
+		strcpy(ip, inet_ntoa(info->addr));
+		my_log(LOG_INFO, "interface %s: ip %s mask %s", 
+		       if_name(if_p), ip, inet_ntoa(info->mask));
+	    }
 	    count++;
 	}
     }
     if (count == 0) {
-	syslog(LOG_INFO, "no available interfaces");
+	my_log(LOG_INFO, "no available interfaces");
 	exit(2);
     }
     return;
@@ -567,7 +598,7 @@ S_get_interfaces()
     
     new_list = ifl_init();
     if (new_list == NULL) {
-	syslog(LOG_INFO, "interface list initialization failed");
+	my_log(LOG_INFO, "interface list initialization failed");
 	exit(1);
     }
     ifl_free(&S_interfaces);
@@ -589,7 +620,7 @@ S_get_network_routes()
     
     new_list = inetroute_list_init();
     if (new_list == NULL) {
-	syslog(LOG_INFO, "can't get inetroutes list");
+	my_log(LOG_INFO, "can't get inetroutes list");
 	exit(1);
     }
     
@@ -657,6 +688,102 @@ S_disable_netboot()
     return;
 }
 
+typedef int (*qsort_compare_func_t)(const void *, const void *);
+
+static struct ether_addr *
+S_make_ether_list(ni_namelist * nl_p, int * count_p)
+{
+    int			count = 0;
+    int			i;
+    struct ether_addr * list;
+
+    list = (struct ether_addr *)malloc(sizeof(*list) * nl_p->ninl_len);
+    for (i = 0; i < nl_p->ninl_len; i++) {
+	const char *		val = nl_p->ninl_val[i];
+	struct ether_addr * 	eaddr;
+
+	if (strlen(val) < 2)
+	    continue;
+	/* ignore ethernet hardware type, if present */
+	if (strncmp(val, "1,", 2) == 0) {
+	    val = val + 2;
+	}
+	eaddr = ether_aton((char *)val);
+	if (eaddr == NULL) {
+	    continue;
+	}
+	list[count++] = *eaddr;
+    }
+    if (count == 0) {
+	free(list);
+	list = NULL;
+    }
+    else {
+	qsort(list, count, sizeof(*list), (qsort_compare_func_t)ether_cmp);
+    }
+    *count_p = count;
+    return (list);
+}
+
+static boolean_t
+S_ok_to_respond(int hwtype, void * hwaddr, int hwlen)
+{
+    struct ether_addr *	search;
+    boolean_t		respond = TRUE;
+
+    if (hwlen != ETHER_ADDR_LEN) {
+	return (TRUE);
+    }
+    if (S_deny != NULL) {
+	search = bsearch(hwaddr, S_deny, S_deny_count, sizeof(*S_deny),
+			 (qsort_compare_func_t)ether_cmp);
+	if (search != NULL) {
+	    my_log(LOG_DEBUG, "%s is in deny list, ignoring\n",
+		   ether_ntoa(hwaddr));
+	    respond = FALSE;
+	}
+    }
+    if (respond == TRUE && S_allow != NULL) {
+	search = bsearch(hwaddr, S_allow, S_allow_count, sizeof(*S_allow),
+			 (qsort_compare_func_t)ether_cmp);
+	if (search == NULL) {
+	    my_log(LOG_DEBUG, "%s is not in the allow list, ignoring\n",
+		   ether_ntoa(hwaddr));
+	    respond = FALSE;
+	}
+    }
+    return (respond);
+}
+
+static void
+S_refresh_allow_deny(PropList_t * pl_p)
+{
+    ni_namelist *	nl_p = NULL;
+
+    if (S_allow != NULL) {
+	free(S_allow);
+	S_allow = NULL;
+    }
+    if (S_deny != NULL) {
+	free(S_deny);
+	S_deny = NULL;
+    }
+    S_allow_count = 0;
+    S_deny_count = 0;
+
+    /* allow */
+    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_ALLOW);
+    if (nl_p != NULL && nl_p->ninl_len > 0) {
+	S_allow = S_make_ether_list(nl_p, &S_allow_count);
+    }
+    /* deny */
+    nl_p = PropList_lookup(&S_config_dhcp, CFGPROP_DENY);
+    if (nl_p != NULL && nl_p->ninl_len > 0) {
+	S_deny = S_make_ether_list(nl_p, &S_deny_count);
+    }
+    return;
+}
+
 static void
 S_update_services()
 {
@@ -707,6 +834,7 @@ S_update_services()
 			     SERVICE_OLD_NETBOOT);
 	}
     }
+    S_refresh_allow_deny(&S_config_dhcp);
     return;
 }
 
@@ -812,7 +940,7 @@ main(int argc, char * argv[])
 		ptrlist_add(&S_if_list, optarg);
 	    }
 	    else {
-		syslog(LOG_INFO, "interface %s already specified",
+		my_log(LOG_INFO, "interface %s already specified",
 		       optarg);
 	    }
 	    break;
@@ -872,10 +1000,6 @@ main(int argc, char * argv[])
 	    break;
 	}
     }
-    if (debug)
-	quiet = 0;
-    else if (quiet)
-	verbose = 0;
     if (!issock(0)) { /* started by user */
 	struct sockaddr_in Sin = { sizeof(Sin), AF_INET };
 	int i;
@@ -884,19 +1008,19 @@ main(int argc, char * argv[])
 	    background();
 	
 	if ((bootp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	    syslog(LOG_INFO, "socket call failed");
+	    my_log(LOG_INFO, "socket call failed");
 	    exit(1);
 	}
 	Sin.sin_port = htons(S_ipport_server);
 	Sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	i = 0;
 	while (bind(bootp_socket, (struct sockaddr *)&Sin, sizeof(Sin)) < 0) {
-	    syslog(LOG_INFO, "bind call failed: %s", strerror(errno));
+	    my_log(LOG_INFO, "bind call failed: %s", strerror(errno));
 	    if (errno != EADDRINUSE)
 		exit(1);
 	    i++;
 	    if (i == 10) {
-		syslog(LOG_INFO, "exiting");
+		my_log(LOG_INFO, "exiting");
 		exit(1);
 	    }
 	    sleep(10);
@@ -919,7 +1043,7 @@ main(int argc, char * argv[])
     else
 	(void) openlog("bootpd", logopt | LOG_PID, LOG_DAEMON);
 	
-    syslog(LOG_DEBUG, "server starting");
+    my_log(LOG_DEBUG, "server starting");
 
     { 
 	int opt = 1;
@@ -927,7 +1051,7 @@ main(int argc, char * argv[])
 #if defined(IP_RECVIF)
 	if (setsockopt(bootp_socket, IPPROTO_IP, IP_RECVIF, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    syslog(LOG_INFO, "setsockopt(IP_RECVIF) failed: %s", 
+	    my_log(LOG_INFO, "setsockopt(IP_RECVIF) failed: %s", 
 		   strerror(errno));
 	    exit(1);
 	}
@@ -935,23 +1059,21 @@ main(int argc, char * argv[])
 	
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_BROADCAST, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    syslog(LOG_INFO, "setsockopt(SO_BROADCAST) failed");
+	    my_log(LOG_INFO, "setsockopt(SO_BROADCAST) failed");
 	    exit(1);
 	}
 	if (setsockopt(bootp_socket, IPPROTO_IP, IP_RECVDSTADDR, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    syslog(LOG_INFO, "setsockopt(IPPROTO_IP, IP_RECVDSTADDR) failed");
+	    my_log(LOG_INFO, "setsockopt(IPPROTO_IP, IP_RECVDSTADDR) failed");
 	    exit(1);
 	}
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_REUSEADDR, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    syslog(LOG_INFO, "setsockopt(SO_REUSEADDR) failed");
+	    my_log(LOG_INFO, "setsockopt(SO_REUSEADDR) failed");
 	    exit(1);
 	}
     }
     
-    ts_log_init(verbose);
-
     /* install our sighup handler */
     signal(SIGHUP, on_sighup);
 
@@ -966,20 +1088,18 @@ main(int argc, char * argv[])
 	    ptrlist_add(&S_domain_list, DOMAIN_HIERARCHY);
 	}
 	if (S_ni_domains_init() == FALSE) {
-	    syslog(LOG_INFO, "domain initialization failed");
+	    my_log(LOG_INFO, "domain initialization failed");
 	    exit (1);
 	}
 	S_update_services();
     }
 
-#ifndef SYSTEM_ARP
     S_rtsockfd = arp_get_routing_socket();
     if (S_rtsockfd < 0) {
-	syslog(LOG_INFO, "couldn't get routing socket: %s",
+	my_log(LOG_INFO, "couldn't get routing socket: %s",
 	       strerror(errno));
 	exit(1);
     }
-#endif SYSTEM_ARP
 	
     if (relay) {
 	S_relay_loop(&relay_server, max_hops);
@@ -1111,8 +1231,7 @@ bootp_add_bootfile(char * request_file, char * hostname,
     else if (bootfile && bootfile[0])
 	strcpy(file, bootfile);
     else {
-	if (verbose)
-	    syslog(LOG_INFO, "no replyfile", path);
+	my_log(LOG_DEBUG, "no replyfile", path);
 	return (TRUE);
     }
 
@@ -1140,17 +1259,15 @@ bootp_add_bootfile(char * request_file, char * hostname,
     if (dothost == FALSE) {
 	if (access(path, R_OK) < 0) {
 	    if (S_bootfile_noexist_reply == FALSE) {
-		syslog(LOG_INFO, 
+		my_log(LOG_INFO, 
 		       "boot file %s* missing - not replying", path);
 		return (FALSE);
 	    }
-	    if (verbose)
-		syslog(LOG_INFO, "boot file %s* missing", path);
+	    my_log(LOG_DEBUG, "boot file %s* missing", path);
 	}
     }
 
-    if (verbose)
-	syslog(LOG_INFO,"replyfile %s", path);
+    my_log(LOG_DEBUG, "replyfile %s", path);
     strcpy(reply_file, path);
     return (TRUE);
 }
@@ -1250,8 +1367,7 @@ subnet_match(void * arg, struct in_addr iaddr)
  *
  */
 static void
-bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
-	      struct timeval * time_in_p)
+bootp_request(request_t * request)
 {
     u_char *		bootfile = NULL;
     NIDomain_t *	domain = NULL;
@@ -1270,9 +1386,9 @@ bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
     static int		n_netinfo_options 
 	= sizeof(netinfo_options) / sizeof(netinfo_options[0]);
     struct bootp 	rp;
-    struct bootp *	rq = (struct bootp *)rxpkt;
+    struct bootp *	rq = (struct bootp *)request->pkt;
 
-    if (rxpkt_len < sizeof(struct bootp))
+    if (request->pkt_length < sizeof(struct bootp))
 	return;
 
     rp = *rq;	/* copy request into reply */
@@ -1283,9 +1399,9 @@ bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
 	PLCacheEntry_t * 	entry;
 
 	bzero(&match, sizeof(match));
-	match.if_p = if_p;
+	match.if_p = request->if_p;
 	match.giaddr = rq->bp_giaddr;
-	entry = NICache_lookup_hw(&cache, time_in_p, 
+	entry = NICache_lookup_hw(&cache, request->time_in_p, 
 				  rq->bp_htype, rq->bp_chaddr, rq->bp_hlen,
 				  subnet_match, &match, &domain, &iaddr);
 	if (entry == NULL) {
@@ -1304,15 +1420,15 @@ bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
 	
 	iaddr = rq->bp_ciaddr;
 
-	entry = NICache_lookup_ip(&cache, time_in_p, iaddr, &domain);
+	entry = NICache_lookup_ip(&cache, request->time_in_p, iaddr, &domain);
 	if (entry == NULL)
 	    return;
 	host_parms_from_proplist(&entry->pl, 0, NULL, &hostname, &bootfile);
     }
-    if (!quiet)
-	syslog(LOG_INFO,"BOOTP request [%s]: %s requested file '%s'",
-	       if_name(if_p), hostname ? hostname : (u_char *)inet_ntoa(iaddr),
-	       rq->bp_file);
+    my_log(LOG_INFO,"BOOTP request [%s]: %s requested file '%s'",
+	   if_name(request->if_p), 
+	   hostname ? hostname : (u_char *)inet_ntoa(iaddr),
+	   rq->bp_file);
     if (bootp_add_bootfile(rq->bp_file, hostname, bootfile,
 			   rp.bp_file) == FALSE)
 	/* client specified a bootfile but it did not exist */
@@ -1326,32 +1442,29 @@ bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
 		    sizeof(rp.bp_vend) - sizeof(rfc_magic));
 
 	if (netinfo_host) {
-	    if (verbose)
-		syslog(LOG_INFO, "netinfo client");
-	    add_subnet_options(domain, hostname, iaddr, if_p, &options, 
+	    my_log(LOG_DEBUG, "netinfo client");
+	    add_subnet_options(domain, hostname, iaddr, 
+			       request->if_p, &options, 
 			       netinfo_options, n_netinfo_options);
 	}
 	else {
-	    add_subnet_options(domain, hostname, iaddr, if_p, &options, 
-			       NULL, 0);
+	    add_subnet_options(domain, hostname, iaddr, 
+			       request->if_p, &options, NULL, 0);
 	}
-
-	if (verbose) 
-	    syslog(LOG_INFO, "added vendor extensions");
+	my_log(LOG_DEBUG, "added vendor extensions");
 	if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
 	    != dhcpoa_success_e) {
-	    syslog(LOG_INFO, "couldn't add end tag");
+	    my_log(LOG_INFO, "couldn't add end tag");
 	}
 	else
 	    bcopy(rfc_magic, rp.bp_vend, sizeof(rfc_magic));
     } /* if RFC magic number */
 
-    rp.bp_siaddr = if_inet_addr(if_p);
+    rp.bp_siaddr = if_inet_addr(request->if_p);
     strcpy(rp.bp_sname, server_name);
-    if (sendreply(if_p, &rp, sizeof(rp), FALSE, NULL)) {
-	if (!quiet)
-	    syslog(LOG_INFO, "reply sent %s %s pktsize %d",
-		   hostname, inet_ntoa(iaddr), sizeof(rp));
+    if (sendreply(request->if_p, &rp, sizeof(rp), FALSE, NULL)) {
+	my_log(LOG_INFO, "reply sent %s %s pktsize %d",
+	       hostname, inet_ntoa(iaddr), sizeof(rp));
     }
 
   no_reply:
@@ -1386,22 +1499,19 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
      */
     if (bp->bp_ciaddr.s_addr) {
 	dst = bp->bp_ciaddr;
-	if (verbose) 
-	    syslog(LOG_DEBUG, "reply ciaddr %s", inet_ntoa(dst));
+	my_log(LOG_DEBUG, "reply ciaddr %s", inet_ntoa(dst));
     }
     else if (bp->bp_giaddr.s_addr) {
 	dst = bp->bp_giaddr;
 	dest_port = S_ipport_server;
 	src_port = S_ipport_client;
-	if (verbose) 
-	    syslog(LOG_INFO, "reply giaddr %s", inet_ntoa(dst));
+	my_log(LOG_DEBUG, "reply giaddr %s", inet_ntoa(dst));
 	if (broadcast) /* tell the gateway to broadcast */
 	    bp->bp_unused = htons(ntohs(bp->bp_unused | DHCP_FLAGS_BROADCAST));
     } 
     else { /* local net request */
 	if (broadcast || (ntohs(bp->bp_unused) & DHCP_FLAGS_BROADCAST)) {
-	    if (verbose)
-		syslog(LOG_INFO, "replying using broadcast IP address");
+	    my_log(LOG_DEBUG, "replying using broadcast IP address");
 	    dst.s_addr = htonl(INADDR_BROADCAST);
 	}
 	else {
@@ -1413,8 +1523,7 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
 		setarp(&dst, bp->bp_chaddr, bp->bp_hlen);
 	    hwaddr = bp->bp_chaddr;
 	}
-	if (verbose) 
-	    syslog(LOG_INFO, "replying to %s", inet_ntoa(dst));
+	my_log(LOG_DEBUG, "replying to %s", inet_ntoa(dst));
     }
     if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
 		       bp->bp_htype,
@@ -1423,7 +1532,7 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
 		       dst, if_inet_addr(if_p),
 		       dest_port, src_port,
 		       bp, n) < 0) {
-	syslog(LOG_INFO, "transmit failed, %m");
+	my_log(LOG_INFO, "transmit failed, %m");
 	return (FALSE);
     }
     if (debug && verbose) {
@@ -1459,17 +1568,15 @@ get_dhcp_option(id subnet, int tag, void * buf, int * len_p)
 
     nl_p = [subnet lookup:propname];
     if (nl_p == NULL) {
-	if (verbose)
-	    syslog(LOG_INFO, "subnet entry %s is missing option %s",
-		   [subnet name:err], propname);
+	my_log(LOG_DEBUG, "subnet entry %s is missing option %s",
+	       [subnet name:err], propname);
 	return (FALSE);
     }
 
     if (dhcptag_from_strlist((unsigned char * *)nl_p->ninl_val,
 			     nl_p->ninl_len, tag, buf, len_p, err) == FALSE) {
-	if (verbose)
-	    syslog(LOG_INFO, "couldn't add option '%s': %s",
-		   propname, err);
+	my_log(LOG_DEBUG, "couldn't add option '%s': %s",
+	       propname, err);
 	return (FALSE);
     }
     return (TRUE);
@@ -1535,7 +1642,7 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		if (dhcpoa_add(options, dhcptag_host_name_e,
 			       strlen(hostname), hostname)
 		    != dhcpoa_success_e) {
-		    syslog(LOG_INFO, "couldn't add hostname: %s",
+		    my_log(LOG_INFO, "couldn't add hostname: %s",
 			   dhcpoa_err(options));
 		}
 	    }
@@ -1544,9 +1651,8 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 	    && get_dhcp_option(subnet, tags[i], buf, &len)) {
 	    if (dhcpoa_add(options, tags[i], len, buf) 
 		!= dhcpoa_success_e) {
-		if (!quiet)
-		    syslog(LOG_INFO, "couldn't add option %d: %s",
-			   tags[i], dhcpoa_err(options));
+		my_log(LOG_INFO, "couldn't add option %d: %s",
+		       tags[i], dhcpoa_err(options));
 	    }
 	}
 	else { /* try to use defaults if no explicit configuration */
@@ -1577,18 +1683,16 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		  if (dhcpoa_add(options, dhcptag_netinfo_server_address_e,
 				 sizeof(ip.sin_addr), &ip.sin_addr) 
 		      != dhcpoa_success_e) {
-		      if (!quiet)
-			  syslog(LOG_INFO, 
-				 "couldn't add netinfo server address: %s",
-				 dhcpoa_err(options));
+		      my_log(LOG_INFO, 
+			     "couldn't add netinfo server address: %s",
+			     dhcpoa_err(options));
 		      goto netinfo_failed;
 		  }
 		  if (dhcpoa_add(options, dhcptag_netinfo_server_tag_e,
 				 strlen(tag), tag) != dhcpoa_success_e) {
-		      if (!quiet)
-			  syslog(LOG_INFO, 
-				 "couldn't add netinfo server tag: %s",
-				 dhcpoa_err(options));
+		      my_log(LOG_INFO, 
+			     "couldn't add netinfo server tag: %s",
+			     dhcpoa_err(options));
 		      goto netinfo_failed;
 		  }
 	      netinfo_failed:
@@ -1601,14 +1705,12 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		if (dhcpoa_add(options, dhcptag_subnet_mask_e, 
 			       sizeof(info->mask), &info->mask) 
 		    != dhcpoa_success_e) {
-		    if (!quiet)
-			syslog(LOG_INFO, "couldn't add subnet_mask: %s",
-			       dhcpoa_err(options));
+		    my_log(LOG_INFO, "couldn't add subnet_mask: %s",
+			   dhcpoa_err(options));
 		    continue;
 		}
-		if (verbose)
-		    syslog(LOG_INFO, "subnet mask %s derived from %s",
-			   inet_ntoa(info->mask), if_name(if_p));
+		my_log(LOG_DEBUG, "subnet mask %s derived from %s",
+		       inet_ntoa(info->mask), if_name(if_p));
 		break;
 	      }
 	      case dhcptag_router_e:
@@ -1622,13 +1724,11 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		    continue;
 		if (dhcpoa_add(options, dhcptag_router_e, sizeof(*def_route),
 			       def_route) != dhcpoa_success_e) {
-		    if (!quiet)
-			syslog(LOG_INFO, "couldn't add router: %s",
-			       dhcpoa_err(options));
+		    my_log(LOG_INFO, "couldn't add router: %s",
+			   dhcpoa_err(options));
 		    continue;
 		}
-		if (verbose)
-		    syslog(LOG_INFO, "default route added as router");
+		my_log(LOG_DEBUG, "default route added as router");
 		break;
 	      case dhcptag_domain_name_server_e:
 		if (S_dns_servers_count == 0)
@@ -1636,26 +1736,24 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		if (dhcpoa_add(options, dhcptag_domain_name_server_e,
 			       S_dns_servers_count * sizeof(*S_dns_servers),
 			       S_dns_servers) != dhcpoa_success_e) {
-		    if (!quiet)
-			syslog(LOG_INFO, "couldn't add dns servers: %s",
-			       dhcpoa_err(options));
+		    my_log(LOG_INFO, "couldn't add dns servers: %s",
+			   dhcpoa_err(options));
 		    continue;
 		}
 		if (verbose)
-		    syslog(LOG_INFO, "default dns servers added");
+		    my_log(LOG_DEBUG, "default dns servers added");
 		break;
 	      case dhcptag_domain_name_e:
 		if (S_domain_name) {
 		    if (dhcpoa_add(options, dhcptag_domain_name_e,
 				   strlen(S_domain_name), S_domain_name)
 			!= dhcpoa_success_e) {
-			if (!quiet)
-			    syslog(LOG_INFO, "couldn't add domain name: %s",
-				   dhcpoa_err(options));
+			my_log(LOG_INFO, "couldn't add domain name: %s",
+			       dhcpoa_err(options));
 			continue;
 		    }
 		    if (verbose)
-			syslog(LOG_INFO, "default domain name added");
+			my_log(LOG_DEBUG, "default domain name added");
 		}
 		break;
 	      default:
@@ -1667,7 +1765,6 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 }
 
 
-#ifndef SYSTEM_ARP
 /*
  * Function: setarp
  *
@@ -1682,7 +1779,7 @@ setarp(struct in_addr * ia, u_char * ha, int len)
     route_msg msg;
 
     if (S_rtsockfd == -1) {
-	syslog(LOG_ERR, "setarp: routing socket not initialized");
+	my_log(LOG_ERR, "setarp: routing socket not initialized");
 	exit(1);
     }
     arp_ret = arp_get(S_rtsockfd, &msg, ia);
@@ -1702,52 +1799,21 @@ setarp(struct in_addr * ia, u_char * ha, int len)
 	    }
 	}
     }
-    else if (verbose)
-	syslog(LOG_INFO, "arp_get(%s) failed, %d", inet_ntoa(*ia), arp_ret);
+    else 
+	my_log(LOG_DEBUG, "arp_get(%s) failed, %d", inet_ntoa(*ia), arp_ret);
     arp_ret = arp_delete(S_rtsockfd, *ia, FALSE);
-    if (arp_ret != 0 && verbose)
-	syslog(LOG_INFO, "arp_delete(%s) failed, %d", inet_ntoa(*ia), arp_ret);
+    if (arp_ret != 0)
+	my_log(LOG_DEBUG, "arp_delete(%s) failed, %d", inet_ntoa(*ia), arp_ret);
     arp_ret = arp_set(S_rtsockfd, ia, (void *)ha, len, TRUE, FALSE);
-    if (verbose) {
-	if (arp_ret == 0)
-	    syslog(LOG_INFO, "arp_set(%s, %s) succeeded", inet_ntoa(*ia), 
-		   ether_ntoa((struct ether_addr *)ha));
-	else
-	    syslog(LOG_INFO, "arp_set(%s, %s) failed: %s", inet_ntoa(*ia), 
-		   ether_ntoa((struct ether_addr *)ha),
-		   arp_strerror(arp_ret));
-    }
+    if (arp_ret == 0)
+	my_log(LOG_DEBUG, "arp_set(%s, %s) succeeded", inet_ntoa(*ia), 
+	       ether_ntoa((struct ether_addr *)ha));
+    else
+	my_log(LOG_DEBUG, "arp_set(%s, %s) failed: %s", inet_ntoa(*ia), 
+	       ether_ntoa((struct ether_addr *)ha),
+	       arp_strerror(arp_ret));
     return;
 }
-#else SYSTEM_ARP
-/* 
- * SYSTEM_ARP: use system("arp") to set the arp entry
- */
-/*
- * Setup the arp cache so that IP address 'ia' will be temporarily
- * bound to hardware address 'ha' of length 'len'.
- */
-static void
-setarp(struct in_addr * ia, u_char * ha, int len)
-{
-    char buf[256];
-    int status;
-    
-    sprintf(buf, "/usr/sbin/arp -d %s", inet_ntoa(*ia));
-    if (verbose) 
-	syslog(LOG_INFO, buf);
-    status = system(buf);
-    if (status && verbose)
-	syslog(LOG_INFO, "arp -d failed, exit code=0x%x", status);
-    sprintf(buf, "/usr/sbin/arp -s %s %s temp",
-	    inet_ntoa(*ia), ether_ntoa((struct ether_addr *)ha));;
-    if (verbose) syslog(LOG_INFO, buf);
-    status = system(buf);
-    if (status && verbose)
-	syslog(LOG_INFO, "arp failed, exit code=0x%x", status);
-    return;
-}
-#endif SYSTEM_ARP
 
 /**
  ** Server Main Loop
@@ -1794,7 +1860,7 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 			   *relay, if_inet_addr(if_p),
 			   S_ipport_server, S_ipport_client,
 			   bp, n) < 0) {
-	    syslog(LOG_INFO, "send failed, %m");
+	    my_log(LOG_INFO, "send failed, %m");
 	    return;
 	}
 	break;
@@ -1810,8 +1876,7 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 	}
 	
 	if ((ntohs(bp->bp_unused) & DHCP_FLAGS_BROADCAST)) {
-	    if (verbose)
-		syslog(LOG_INFO, "replying using broadcast IP address");
+	    my_log(LOG_DEBUG, "replying using broadcast IP address");
 	    dst.s_addr = htonl(INADDR_BROADCAST);
 	}
 	else {
@@ -1820,7 +1885,7 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 		setarp(&dst, bp->bp_chaddr, bp->bp_hlen);
 	}
 	if (verbose) {
-	    syslog(LOG_INFO, "relaying from server '%s' to %s", 
+	    my_log(LOG_DEBUG, "relaying from server '%s' to %s", 
 		   bp->bp_sname, inet_ntoa(dst));
 	}
 
@@ -1829,7 +1894,7 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 			   dst, if_inet_addr(if_p),
 			   S_ipport_client, S_ipport_server,
 			   bp, n) < 0) {
-	    syslog(LOG_INFO, "send failed, %m");
+	    my_log(LOG_INFO, "send failed, %m");
 	    return;
 	}
 	break;
@@ -1844,9 +1909,8 @@ S_relay_packet(struct in_addr * relay, int max_hops, struct bootp * bp, int n,
 
 	gettimeofday(&now, 0);
 	timeval_subtract(now, S_lastmsgtime, &result);
-	if (!quiet)
-	    syslog(LOG_INFO, "relay time %d.%06d seconds",
-		   result.tv_sec, result.tv_usec);
+	my_log(LOG_INFO, "relay time %d.%06d seconds",
+	       result.tv_sec, result.tv_usec);
     }
     return;
 }
@@ -1855,20 +1919,28 @@ static void
 S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		  struct in_addr * dstaddr_p)
 {
-    dhcpol_t		options;
-    dhcpol_t *		options_p = NULL;
+    boolean_t		bsdp_pkt = FALSE;
     boolean_t		dhcp_pkt = FALSE;
     dhcp_msgtype_t	dhcp_msgtype = dhcp_msgtype_none_e;
-    
-    switch (bp->bp_op) {
 
+    switch (bp->bp_op) {
       case BOOTREQUEST: {
 	boolean_t 	handled = FALSE;
+	dhcpol_t	options;
+	request_t	request;
+
+	request.if_p = if_p;
+	request.pkt = (struct dhcp *)bp;
+	request.pkt_length = n;
+	request.options_p = NULL;
+	request.dstaddr_p = dstaddr_p;
+	request.time_in_p = &S_lastmsgtime;
+
+	dhcpol_init(&options);
 
 	/* get the packet options, check for dhcp */
-	dhcpol_init(&options);
 	if (dhcpol_parse_packet(&options, (struct dhcp *)bp, n, NULL)) {
-	    options_p = &options;
+	    request.options_p = &options;
 	    dhcp_pkt = is_dhcp_packet(&options, &dhcp_msgtype);
 	}
 	
@@ -1879,31 +1951,48 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 
 	if (bp->bp_sname[0] != '\0' 
 	    && strcmp(bp->bp_sname, server_name) != 0)
-	    break;
+	    goto request_done;
 
 	if (bp->bp_siaddr.s_addr != 0
 	    && ntohl(bp->bp_siaddr.s_addr) != ntohl(if_inet_addr(if_p).s_addr))
-	    break;
+	    goto request_done;
 
 	if (dhcp_pkt) { /* this is a DHCP packet */
+	    if (netboot_enabled(if_p) || old_netboot_enabled(if_p)) {
+		char		arch[256];
+		bsdp_version_t	client_version;
+		boolean_t	is_old_netboot = FALSE;
+		char		sysid[256];
+		dhcpol_t	rq_vsopt; /* is_bsdp_packet() initializes */
+		
+		bsdp_pkt = is_bsdp_packet(request.options_p, arch, sysid,
+					  &rq_vsopt, &client_version,
+					  &is_old_netboot);
+		if (bsdp_pkt) {
+		    if (is_old_netboot == TRUE
+			&& old_netboot_enabled(if_p) == FALSE) {
+			/* ignore it */
+		    }
+		    else {
+			bsdp_request(&request, dhcp_msgtype,
+				     arch, sysid, &rq_vsopt, client_version);
+		    }
+		}
+		dhcpol_free(&rq_vsopt);
+	    }
 	    if (dhcp_enabled(if_p) || old_netboot_enabled(if_p)) {
 		handled = TRUE;
-		dhcp_request(dhcp_msgtype, dhcp_enabled(if_p),
-			     if_p, S_rxpkt, n, options_p, 
-			     dstaddr_p, &S_lastmsgtime);
-	    }
-	    if (netboot_enabled(if_p)) {
-		bsdp_request(dhcp_msgtype, if_p, S_rxpkt, n, options_p, 
-			     dstaddr_p, &S_lastmsgtime);
+		dhcp_request(&request, dhcp_msgtype, dhcp_enabled(if_p));
 	    }
 	}
 	if (handled == FALSE && old_netboot_enabled(if_p)) {
-	    handled = old_netboot_request(if_p, S_rxpkt, n, options_p,
-					  dstaddr_p, &S_lastmsgtime);
+	    handled = old_netboot_request(&request);
 	}
 	if (handled == FALSE && bootp_enabled(if_p)) {
-	    bootp_request(if_p, S_rxpkt, n, &S_lastmsgtime);
+	    bootp_request(&request);
 	}
+      request_done:
+	dhcpol_free(&options);
 	break;
       }
 
@@ -1914,16 +2003,14 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
       default:
 	break;
     }
-    dhcpol_free(&options);
     if (verbose || debug) {
 	struct timeval now;
 	struct timeval result;
 
 	gettimeofday(&now, 0);
 	timeval_subtract(now, S_lastmsgtime, &result);
-	if (!quiet)
-	    syslog(LOG_INFO, "service time %d.%06d seconds",
-		   result.tv_sec, result.tv_usec);
+	my_log(LOG_INFO, "service time %d.%06d seconds",
+	       result.tv_sec, result.tv_usec);
     }
     return;
 }
@@ -1965,7 +2052,7 @@ S_which_interface()
     if_p = ifl_find_name(S_interfaces, ifname);
     if (if_p == NULL) {
 	if (verbose)
-	    syslog(LOG_INFO, "unknown interface %s\n", ifname);
+	    my_log(LOG_DEBUG, "unknown interface %s\n", ifname);
 	return (NULL);
     }
     if (if_inet_valid(if_p) == FALSE)
@@ -1973,7 +2060,7 @@ S_which_interface()
     if (ptrlist_count(&S_if_list) > 0
 	&& S_string_in_list(&S_if_list, ifname) == FALSE) {
 	if (verbose)
-	    syslog(LOG_INFO, "ignoring request on %s", ifname);
+	    my_log(LOG_DEBUG, "ignoring request on %s", ifname);
 	return (NULL);
     }
     return (if_p);
@@ -2007,6 +2094,7 @@ S_server_loop()
     interface_t *	if_p = NULL;
     int 		mask;
     int			n;
+    struct dhcp *	request = (struct dhcp *)S_rxpkt;
 
     for (;;) {
 	S_init_msg();
@@ -2014,8 +2102,7 @@ S_server_loop()
 	msg.msg_namelen = sizeof(from);
 	n = recvmsg(bootp_socket, &msg, 0);
 	if (n < 0) {
-	    if (verbose)
-		syslog(LOG_DEBUG, "recvmsg failed, %m");
+	    my_log(LOG_DEBUG, "recvmsg failed, %m");
 	    errno = 0;
 	    continue;
 	}
@@ -2025,10 +2112,10 @@ S_server_loop()
 
 	    if (gethostname(server_name, sizeof(server_name) - 1)) {
 		server_name[0] = '\0';
-		syslog(LOG_INFO, "gethostname() failed, %m");
+		my_log(LOG_INFO, "gethostname() failed, %m");
 	    }
 	    else {
-		syslog(LOG_INFO, "server name %s", server_name);
+		my_log(LOG_INFO, "server name %s", server_name);
 	    }
 
 	    if (first == FALSE) {
@@ -2050,6 +2137,11 @@ S_server_loop()
 		    if (ni_local != NULL)
 			new_subnets = [[subnetListNI alloc] 
 					  initFromDomain:ni_local Err:err];
+		    if (new_subnets == nil) {
+			my_log(LOG_INFO, 
+			       "subnets init using local domain failed: %s", 
+			       err);
+		    }
 		}
 		else for (i = 0; i < NIDomainList_count(&niSearchDomains); 
 			  i++) {
@@ -2061,11 +2153,12 @@ S_server_loop()
 				      initFromDomain:domain Err:err];
 		    if (new_subnets != nil)
 			break;
+		    my_log(LOG_INFO, 
+			   "subnets init using domain %s failed: %s", 
+			   NIDomain_name(domain), err);
 		}
-		if (new_subnets == nil) {
-		    syslog(LOG_INFO, "subnets init failed: %s", err);
-		}
-		else {
+
+		if (new_subnets != nil) {
 		    [subnets free];
 		    subnets = new_subnets;
 		    if (debug)
@@ -2076,15 +2169,21 @@ S_server_loop()
 	    if (S_do_netboot || S_do_old_netboot
 		|| S_service_is_enabled(SERVICE_NETBOOT 
 					| SERVICE_OLD_NETBOOT)) {
-		if (macNC_init() == FALSE
-		    || bsdp_init() == FALSE) {
-		    syslog(LOG_INFO, "NetBoot service disabled");
+		if (bsdp_init() == FALSE) {
+		    my_log(LOG_INFO, "bootpd: NetBoot service turned off");
 		    S_disable_netboot();
 		}
 	    }
             S_sighup = FALSE;
 	}
 
+	if (n < sizeof(struct dhcp)) {
+	    continue;
+	}
+	if (S_ok_to_respond(request->dp_htype, request->dp_chaddr, 
+			    request->dp_hlen) == FALSE) {
+	    continue;
+	}
 	dstaddr_p = S_which_dstaddr();
 	if (debug) {
 	    if (dstaddr_p == NULL)
@@ -2131,8 +2230,7 @@ S_relay_loop(struct in_addr * relay, int max_hops)
 	msg.msg_namelen = sizeof(from);
 	n = recvmsg(bootp_socket, &msg, 0);
 	if (n < 0) {
-	    if (verbose)
-		syslog(LOG_DEBUG, "recvmsg failed, %m");
+	    my_log(LOG_DEBUG, "recvmsg failed, %m");
 	    errno = 0;
 	    continue;
 	}

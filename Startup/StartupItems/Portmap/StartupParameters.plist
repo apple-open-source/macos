@@ -2,10 +2,5 @@
   Description     = "network port mapper";
   Provides        = ("Portmap");
   Requires        = ("Network");
-  OrderPreference = "None";
-  Messages =
-  {
-    start = "Starting port mapper";
-    stop  = "Stopping port mapper";
-  };
+  OrderPreference = "First";
 }

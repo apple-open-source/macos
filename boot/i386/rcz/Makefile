@@ -7,8 +7,8 @@ LIBSADIR = ../libsa
 INSTALLDIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/standalone
 
 OPTIM = -Os
-CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp \
-    -munaligned-text -static -traditional-cpp
+CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
+          -fno-builtin -static
 DEFINES=
 CONFIG = hd
 INC = -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSADIR)

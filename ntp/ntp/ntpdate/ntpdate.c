@@ -6,9 +6,21 @@
 # include <config.h>
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
+#ifdef HAVE_NETINFO
+#include <netinfo/ni.h>
 #endif
+
+#include "ntp_machine.h"
+#include "ntp_fp.h"
+#include "ntp.h"
+#include "ntp_io.h"
+#include "ntp_unixtime.h"
+#include "ntpdate.h"
+#include "ntp_string.h"
+#include "ntp_syslog.h"
+#include "ntp_select.h"
+#include "ntp_stdlib.h"
+
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -16,19 +28,23 @@
 #include <stdio.h>
 #include <signal.h>
 #include <ctype.h>
-#include <errno.h>
 #ifdef HAVE_POLL_H
-#include <poll.h>
+# include <poll.h>
 #endif
 #ifndef SYS_WINNT
 # include <netdb.h>
-# include <sys/signal.h>
-# include <sys/ioctl.h>
-# include <sys/time.h>
-# include <sys/resource.h>
-#else
-# include <sys/time.h>
+# ifdef HAVE_SYS_SIGNAL_H
+#  include <sys/signal.h>
+# else
+#  include <signal.h>
+# endif
+# ifdef HAVE_SYS_IOCTL_H
+#  include <sys/ioctl.h>
+# endif
 #endif /* SYS_WINNT */
+#ifdef HAVE_SYS_RESOURCE_H
+# include <sys/resource.h>
+#endif /* HAVE_SYS_RESOURCE_H */
 
 #ifdef SYS_VXWORKS
 # include "ioLib.h"
@@ -41,24 +57,6 @@ struct timeval timeout = {0,0};
 struct timeval timeout = {60,0};
 #endif
 
-
-#if defined(SYS_HPUX)
-# include <utmp.h>
-#endif
-
-#ifdef HAVE_NETINFO
-#include <netinfo/ni.h>
-#endif
-
-#include "ntp_fp.h"
-#include "ntp.h"
-#include "ntp_io.h"
-#include "ntp_unixtime.h"
-#include "ntpdate.h"
-#include "ntp_string.h"
-#include "ntp_syslog.h"
-#include "ntp_select.h"
-#include "ntp_stdlib.h"
 #include "recvbuff.h"
 
 #ifdef SYS_WINNT
@@ -143,9 +141,8 @@ char *progname;
  */
 int sys_samples = DEFSAMPLES;	/* number of samples/server */
 u_long sys_timeout = DEFTIMEOUT; /* timeout time, in TIMER_HZ units */
-struct server **sys_servers;	/* the server list */
+struct server *sys_servers;	/* the server list */
 int sys_numservers = 0; 	/* number of servers to poll */
-int sys_maxservers = 0; 	/* max number of servers to deal with */
 int sys_authenticate = 0;	/* true when authenticating */
 u_int32 sys_authkey = 0;	/* set to authentication key in use */
 u_long sys_authdelay = 0;	/* authentication delay */
@@ -257,7 +254,6 @@ void clear_globals()
    * Systemwide parameters and flags
    */
   sys_numservers = 0;	  /* number of servers to poll */
-  sys_maxservers = 0;	  /* max number of servers to deal with */
   sys_authenticate = 0;   /* true when authenticating */
   sys_authkey = 0;	   /* set to authentication key in use */
   sys_authdelay = 0;   /* authentication delay */
@@ -309,8 +305,9 @@ ntpdatemain (
 	l_fp tmp;
 	int errflg;
 	int c;
+	char *cfgpath;
 #ifdef HAVE_NETINFO
-	ni_namelist *netinfoservers;
+	ni_namelist *netinfoservers = 0;
 #endif
 #ifdef SYS_WINNT
 	HANDLE process_handle;
@@ -334,13 +331,14 @@ ntpdatemain (
 #endif
 
 	errflg = 0;
+	cfgpath = 0;
 	progname = argv[0];
 	syslogit = 0;
 
 	/*
 	 * Decode argument list
 	 */
-	while ((c = ntp_getopt(argc, argv, "a:bBde:k:o:p:qr:st:uv")) != EOF)
+	while ((c = ntp_getopt(argc, argv, "a:bBc:de:k:o:p:qr:st:uv")) != EOF)
 		switch (c)
 		{
 		case 'a':
@@ -355,6 +353,9 @@ ntpdatemain (
 		case 'B':
 			never_step++;
 			always_step = 0;
+			break;
+		case 'c':
+			cfgpath = ntp_optarg;
 			break;
 		case 'd':
 			++debug;
@@ -432,7 +433,7 @@ ntpdatemain (
 	
 	if (errflg) {
 		(void) fprintf(stderr,
-				   "usage: %s [-bBdqsv] [-a key#] [-e delay] [-k file] [-p samples] [-o version#] [-r rate] [-t timeo] server ...\n",
+				   "usage: %s [-bBdqsuv] [-a key#] [-c path] [-e delay] [-k file] [-p samples] [-o version#] [-r rate] [-t timeo] server ...\n",
 				   progname);
 		exit(2);
 	}
@@ -473,13 +474,15 @@ ntpdatemain (
 	/*
 	 * Add servers we are going to be polling
 	 */
-	sys_maxservers = argc - ntp_optind;
-#ifdef HAVE_NETINFO
-	if ((netinfoservers = getnetinfoservers()))
-		sys_maxservers += netinfoservers->ni_namelist_len;
+
+#ifdef __APPLE__
+	loadservers(cfgpath);
 #endif
-	sys_servers = (struct server **)
-		emalloc(sys_maxservers * sizeof(struct server *));
+
+#ifdef HAVE_NETINFO
+	if (sys_numservers == 0)
+		netinfoservers = getnetinfoservers();
+#endif
 
 	for ( ; ntp_optind < argc; ntp_optind++)
 		addserver(argv[ntp_optind]);
@@ -490,14 +493,17 @@ ntpdatemain (
 		    *netinfoservers->ni_namelist_val ) {
 			u_int servercount = 0;
 			while (servercount < netinfoservers->ni_namelist_len) {
-				char *server = netinfoservers->ni_namelist_val[servercount];
-				char *space = strchr(server, ' ');
-				if (space) *space = '\0';
+				int  quoted = 0;
+				char *token = netinfoservers->ni_namelist_val[servercount];
+
+				while ((*token != '\0') && ((*token != ' ') || quoted))
+					quoted ^= (*token++ == '"');
+				*token = '\0';
+
 				if (debug) msyslog(LOG_DEBUG,
 						   "Adding time server %s from NetInfo configuration.",
-						   server);
-				addserver(server);
-				servercount++;
+						   netinfoservers->ni_namelist_val[servercount]);
+				addserver(netinfoservers->ni_namelist_val[servercount++]);
 			}
 		}
 		ni_namelist_free(netinfoservers);
@@ -516,9 +522,10 @@ ntpdatemain (
 	if (sys_authenticate) {
 		init_auth();
 		if (!authreadkeys(key_file)) {
-			msyslog(LOG_ERR, "no key file, exitting");
+			msyslog(LOG_ERR, "no key file <%s>, exiting", key_file);
 			exit(1);
 		}
+		authtrust(sys_authkey, 1);
 		if (!authistrusted(sys_authkey)) {
 			char buf[10];
 
@@ -713,12 +720,12 @@ transmit(
 	if (sys_authenticate) {
 		int len;
 
-		xpkt.keyid1 = htonl(sys_authkey);
+		xpkt.exten[0] = htonl(sys_authkey);
 		get_systime(&server->xmt);
 		L_ADDUF(&server->xmt, sys_authdelay);
 		HTONL_FP(&server->xmt, &xpkt.xmt);
 		len = authencrypt(sys_authkey, (u_int32 *)&xpkt, LEN_PKT_NOMAC);
-		sendpkt(&(server->srcadr), &xpkt, LEN_PKT_NOMAC + len);
+		sendpkt(&(server->srcadr), &xpkt, (int)(LEN_PKT_NOMAC + len));
 
 		if (debug > 1)
 			printf("transmit auth to %s\n",
@@ -751,7 +758,7 @@ receive(
 	register struct pkt *rpkt;
 	register struct server *server;
 	register s_fp di;
-	l_fp t10, t23;
+	l_fp t10, t23, tmp;
 	l_fp org;
 	l_fp rec;
 	l_fp ci;
@@ -783,7 +790,7 @@ receive(
 
 	if ((PKT_MODE(rpkt->li_vn_mode) != MODE_SERVER
 		 && PKT_MODE(rpkt->li_vn_mode) != MODE_PASSIVE)
-		|| rpkt->stratum > NTP_MAXSTRATUM) {
+		|| rpkt->stratum >= STRATUM_UNSPEC) {
 		if (debug)
 			printf("receive: mode %d stratum %d\n",
 			   PKT_MODE(rpkt->li_vn_mode), rpkt->stratum);
@@ -821,13 +828,13 @@ receive(
 
 		if (debug > 3)
 			printf("receive: rpkt keyid=%ld sys_authkey=%ld decrypt=%ld\n",
-			   (long int)ntohl(rpkt->keyid1), (long int)sys_authkey,
+			   (long int)ntohl(rpkt->exten[0]), (long int)sys_authkey,
 			   (long int)authdecrypt(sys_authkey, (u_int32 *)rpkt,
-				LEN_PKT_NOMAC, rbufp->recv_length - LEN_PKT_NOMAC));
+				LEN_PKT_NOMAC, (int)(rbufp->recv_length - LEN_PKT_NOMAC)));
 
-		if (has_mac && ntohl(rpkt->keyid1) == sys_authkey &&
+		if (has_mac && ntohl(rpkt->exten[0]) == sys_authkey &&
 			authdecrypt(sys_authkey, (u_int32 *)rpkt, LEN_PKT_NOMAC,
-			rbufp->recv_length - LEN_PKT_NOMAC))
+			(int)(rbufp->recv_length - LEN_PKT_NOMAC)))
 			is_authentic = 1;
 		if (debug)
 			printf("receive: authentication %s\n",
@@ -873,9 +880,15 @@ receive(
 	L_SUB(&t23, &org);		/* pkt->org == t3 */
 
 	/* now have (t2 - t3) and (t0 - t1).	Calculate (ci) and (di) */
+	/*
+	 * Calculate (ci) = ((t1 - t0) / 2) + ((t2 - t3) / 2)
+	 * For large offsets this may prevent an overflow on '+'
+	 */
 	ci = t10;
-	L_ADD(&ci, &t23);
 	L_RSHIFT(&ci);
+	tmp = t23;
+	L_RSHIFT(&tmp);
+	L_ADD(&ci, &tmp);
 
 	/*
 	 * Calculate di in t23 in full precision, then truncate
@@ -900,7 +913,7 @@ receive(
 	/*
 	 * Shift this data in, then transmit again.
 	 */
-	server_data(server, (u_fp) di, &ci, 0);
+	server_data(server, (s_fp) di, &ci, 0);
 	transmit(server);
 }
 
@@ -1030,25 +1043,45 @@ clock_select(void)
 	 * NTP_MAXLIST of them.
 	 */
 	nlist = 0;	/* none yet */
-	for (n = 0; n < sys_numservers; n++) {
-		server = sys_servers[n];
-		if (server->delay == 0)
-			continue;	/* no data */
-		if (server->stratum > NTP_INFIN)
-			continue;	/* stratum no good */
-		if (server->delay > NTP_MAXWGT) {
-			continue;	/* too far away */
+	for (server = sys_servers; server != NULL; server = server->next_server) {
+		if (server->delay == 0) {
+			if (debug)
+				printf("%s: Server dropped: no data\n", ntoa(&server->srcadr));
+			continue;   /* no data */
 		}
-		if (server->leap == LEAP_NOTINSYNC)
-			continue;	/* he's in trouble */
+		if (server->stratum > NTP_INFIN) {
+			if (debug)
+				printf("%s: Server dropped: strata too high\n", ntoa(&server->srcadr));
+			continue;   /* stratum no good */
+		}
+		if (server->delay > NTP_MAXWGT) {
+			if (debug)
+				printf("%s: Server dropped: server too far away\n", 
+				       ntoa(&server->srcadr));
+			continue;   /* too far away */
+		}
+		if (server->leap == LEAP_NOTINSYNC) {
+			if (debug)
+				printf("%s: Server dropped: Leap not in sync\n", ntoa(&server->srcadr));
+			continue;   /* he's in trouble */
+		}
 		if (!L_ISHIS(&server->org, &server->reftime)) {
-			continue;	/* very broken host */
+			if (debug)
+				printf("%s: Server dropped: server is very broken\n", 
+				       ntoa(&server->srcadr));
+			continue;   /* very broken host */
 		}
 		if ((server->org.l_ui - server->reftime.l_ui)
-			>= NTP_MAXAGE) {
+		    >= NTP_MAXAGE) {
+			if (debug)
+				printf("%s: Server dropped: Server has gone too long without sync\n", 
+				       ntoa(&server->srcadr));
 			continue;	/* too long without sync */
 		}
 		if (server->trust != 0) {
+			if (debug)
+				printf("%s: Server dropped: Server is untrusted\n",
+				       ntoa(&server->srcadr));
 			continue;
 		}
 
@@ -1206,18 +1239,17 @@ clock_select(void)
 static int
 clock_adjust(void)
 {
-	register int i;
-	register struct server *server;
+	register struct server *sp, *server;
 	s_fp absoffset;
 	int dostep;
 
-	for (i = 0; i < sys_numservers; i++)
-		clock_filter(sys_servers[i]);
+	for (sp = sys_servers; sp != NULL; sp = sp->next_server)
+		clock_filter(sp);
 	server = clock_select();
 
 	if (debug || simple_query) {
-		for (i = 0; i < sys_numservers; i++)
-			printserver(sys_servers[i], stdout);
+		for (sp = sys_servers; sp != NULL; sp = sp->next_server)
+			printserver(sp, stdout);
 	}
 
 	if (server == 0) {
@@ -1280,21 +1312,6 @@ addserver(
 {
 	register struct server *server;
 	u_int32 netnum;
-	static int toomany = 0;
-
-	if (sys_numservers >= sys_maxservers) {
-		if (!toomany) {
-			/*
-			 * This is actually a `can't happen' now.    Leave
-			 * the error message in anyway, though
-			 */
-			toomany = 1;
-			msyslog(LOG_ERR,
-				"too many servers (> %d) specified, remainder not used",
-				sys_maxservers);
-		}
-		return;
-	}
 
 	if (!getnetnum(serv, &netnum)) {
 		msyslog(LOG_ERR, "can't find host %s\n", serv);
@@ -1308,8 +1325,16 @@ addserver(
 	server->srcadr.sin_addr.s_addr = netnum;
 	server->srcadr.sin_port = htons(NTP_PORT);
 
-	sys_servers[sys_numservers++] = server;
-	server->event_time = sys_numservers;
+	server->event_time = ++sys_numservers;
+	if (sys_servers == NULL)
+		sys_servers = server;
+	else {
+		struct server *sp;
+
+		for (sp = sys_servers; sp->next_server != NULL;
+		     sp = sp->next_server) ;
+		sp->next_server = server;
+	}
 }
 
 
@@ -1321,18 +1346,47 @@ findserver(
 	struct sockaddr_in *addr
 	)
 {
-	register int i;
 	register u_int32 netnum;
+	struct server *server;
+	struct server *mc_server;
 
+	mc_server = NULL;
 	if (htons(addr->sin_port) != NTP_PORT)
 		return 0;
 	netnum = addr->sin_addr.s_addr;
 
-	for (i = 0; i < sys_numservers; i++) {
-		if (netnum == sys_servers[i]->srcadr.sin_addr.s_addr)
-			return sys_servers[i];
+	for (server = sys_servers; server != NULL; 
+	     server = server->next_server) {
+		register u_int32 servnum;
+		
+		servnum = server->srcadr.sin_addr.s_addr;
+		if (netnum == servnum)
+			return server;
+		if (IN_MULTICAST(ntohl(servnum)))
+			mc_server = server;
 	}
-	return 0;
+
+	if (mc_server != NULL) {	
+		struct server *sp;
+
+		if (mc_server->event_time != 0) {
+			mc_server->event_time = 0;
+			complete_servers++;
+		}
+		server = (struct server *)emalloc(sizeof(struct server));
+		memset((char *)server, 0, sizeof(struct server));
+
+		server->srcadr.sin_family = AF_INET;
+		server->srcadr.sin_addr.s_addr = netnum;
+		server->srcadr.sin_port = htons(NTP_PORT);
+
+		server->event_time = ++sys_numservers;
+		for (sp = sys_servers; sp->next_server != NULL;
+		     sp = sp->next_server) ;
+		sp->next_server = server;
+		transmit(server);
+	}
+	return NULL;
 }
 
 
@@ -1342,7 +1396,7 @@ findserver(
 void
 timer(void)
 {
-	register int i;
+	struct server *server;
 
 	/*
 	 * Bump the current idea of the time
@@ -1354,13 +1408,19 @@ timer(void)
 	 * who's event timers have expired.  Give these to
 	 * the transmit routine.
 	 */
-	for (i = 0; i < sys_numservers; i++) {
-		if (sys_servers[i]->event_time != 0
-			&& sys_servers[i]->event_time <= current_time)
-			transmit(sys_servers[i]);
+	for (server = sys_servers; server != NULL; 
+	     server = server->next_server) {
+		if (server->event_time != 0
+		    && server->event_time <= current_time)
+			transmit(server);
 	}
 }
 
+
+/*
+ * The code duplication in the following subroutine sucks, but
+ * we need to appease ansi2knr.
+ */
 
 #ifndef SYS_WINNT
 /*
@@ -1370,13 +1430,16 @@ static RETSIGTYPE
 alarming(
 	int sig
 	)
-#else
-void CALLBACK 
-alarming(UINT uTimerID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
-#endif /* SYS_WINNT */
 {
 	alarm_flag++;
 }
+#else
+void CALLBACK 
+alarming(UINT uTimerID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
+{
+	alarm_flag++;
+}
+#endif /* SYS_WINNT */
 
 
 /*
@@ -1537,9 +1600,6 @@ init_alarm(void)
 static void
 init_io(void)
 {
-	register int i;
-	register struct recvbuf *rb;
-
 	/*
 	 * Init buffer free list and stat counters
 	 */
@@ -1644,7 +1704,7 @@ sendpkt(
 	DWORD err;
 #endif /* SYS_WINNT */
 
-	cc = sendto(fd, (char *)pkt, len, 0, (struct sockaddr *)dest,
+	cc = sendto(fd, (char *)pkt, (size_t)len, 0, (struct sockaddr *)dest,
 			sizeof(struct sockaddr_in));
 #ifndef SYS_WINNT
 	if (cc == -1) {
@@ -1834,7 +1894,8 @@ l_step_systime(
 		isneg = 0;
 
 	if (ftmp.l_ui >= 3) {		/* Step it and slew - we might win */
-		n = step_systime(ts);
+		LFPTOD(ts, dtemp);
+		n = step_systime(dtemp);
 		if (!n)
 			return n;
 		if (isneg)
@@ -1902,7 +1963,7 @@ printserver(
 	if (!debug) {
 		(void) fprintf(fp, "server %s, stratum %d, offset %s, delay %s\n",
 				   ntoa(&pp->srcadr), pp->stratum,
-				   lfptoa(&pp->offset, 6), fptoa(pp->delay, 5));
+				   lfptoa(&pp->offset, 6), fptoa((s_fp)pp->delay, 5));
 		return;
 	}
 
@@ -1924,7 +1985,7 @@ printserver(
 	}
 	(void) fprintf(fp,
 			   "refid [%s], delay %s, dispersion %s\n",
-			   str, fptoa(pp->delay, 5),
+			   str, fptoa((s_fp)pp->delay, 5),
 			   ufptoa(pp->dispersion, 5));
 
 	(void) fprintf(fp, "transmitted %d, in filter %d\n",
@@ -1954,7 +2015,7 @@ printserver(
 	(void) fprintf(fp, "\n");
 
 	(void) fprintf(fp, "delay %s, dispersion %s\n",
-			   fptoa(pp->delay, 5), ufptoa(pp->dispersion, 5));
+			   fptoa((s_fp)pp->delay, 5), ufptoa(pp->dispersion, 5));
 
 	(void) fprintf(fp, "offset %s\n\n",
 			   lfptoa(&pp->offset, 6));

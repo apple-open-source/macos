@@ -1,6 +1,6 @@
-;;; mouse-sel.el --- Multi-click selection support for Emacs 19
+;;; mouse-sel.el --- multi-click selection support for Emacs 19
 
-;; Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 2001 Free Software Foundation, Inc.
 
 ;; Author: Mike Williams <mikew@gopher.dosli.govt.nz>
 ;; Keywords: mouse
@@ -203,12 +203,13 @@ Triple-clicking selects lines.
 Quad-clicking selects paragraphs.
 
 - Selecting sets the region & X primary selection, but does NOT affect
-the kill-ring.  Because the mouse handlers set the primary selection
-directly, mouse-sel sets the variables interprogram-cut-function
-and interprogram-paste-function to nil.
+the kill-ring, nor do the kill-ring function change the X selection.
+Because the mouse handlers set the primary selection directly,
+mouse-sel sets the variables interprogram-cut-function and
+interprogram-paste-function to nil.
 
 - Clicking mouse-2 inserts the contents of the primary selection at
-the mouse position (or point, if mouse-yank-at-point is non-nil).
+the mouse position (or point, if `mouse-yank-at-point' is non-nil).
 
 - Pressing mouse-2 while selecting or extending copies selection
 to the kill ring.  Pressing mouse-1 or mouse-3 kills it.
@@ -251,9 +252,15 @@ primary selection and region."
 	(mouse-sel-default-bindings
 	 ;;
 	 ;; Primary selection bindings.
-	 (global-unset-key [mouse-1])
-	 (global-unset-key [drag-mouse-1])
-	 (global-unset-key [mouse-3])
+
+	 ;; Bind keys to `ignore' instead of unsetting them because
+	 ;; modes may bind `down-mouse-1', for instance, without
+	 ;; binding other `up-mouse-1' or `mouse-1'.  If we unset
+	 ;; `mouse-1', this leads to a bitch_at_user when the mouse
+	 ;; goes up because no matching binding is found for that.
+	 (global-set-key [mouse-1] 'ignore)
+	 (global-set-key [drag-mouse-1] 'ignore)
+	 (global-set-key [mouse-3] 'ignore)
 	 (global-set-key [down-mouse-1]	'mouse-select)
 	 (unless (eq mouse-sel-default-bindings 'interprogram-cut-paste)
 	   (global-set-key [mouse-2]	'mouse-insert-selection)
@@ -262,9 +269,9 @@ primary selection and region."
 	 (global-set-key [down-mouse-3]	'mouse-extend)
 	 ;;
 	 ;; Secondary selection bindings.
-	 (global-unset-key [M-mouse-1])
-	 (global-unset-key [M-drag-mouse-1])
-	 (global-unset-key [M-mouse-3])
+	 (global-set-key [M-mouse-1] 'ignore)
+	 (global-set-key [M-drag-mouse-1] 'ignore)
+	 (global-set-key [M-mouse-3] 'ignore)
 	 (global-set-key [M-down-mouse-1]	'mouse-select-secondary)
 	 (global-set-key [M-mouse-2] 		'mouse-insert-secondary)
 	 (global-set-key [M-down-mouse-3] 	'mouse-extend-secondary))))
@@ -295,8 +302,8 @@ primary selection and region."
 (defconst mouse-sel-selection-alist
   '((PRIMARY mouse-drag-overlay mouse-sel-primary-thing)
     (SECONDARY mouse-secondary-overlay mouse-sel-secondary-thing))
-  "Alist associating selections with variables.  Each element is of
-the form:
+  "Alist associating selections with variables.
+Each element is of the form:
 
    (SELECTION-NAME OVERLAY-SYMBOL SELECTION-THING-SYMBOL)
 
@@ -736,4 +743,4 @@ If `mouse-yank-at-point' is non-nil, insert at point instead."
 
 (provide 'mouse-sel)
 
-;; mouse-sel.el ends here.
+;;; mouse-sel.el ends here

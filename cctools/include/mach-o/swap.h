@@ -21,12 +21,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <architecture/byte_order.h>
-#import <mach-o/fat.h>
-#import <mach-o/loader.h>
-#import <mach-o/nlist.h>
-#import <mach-o/reloc.h>
-#import <mach-o/ranlib.h>
+#ifndef _MACH_O_SWAP_H_
+#define _MACH_O_SWAP_H_
+
+#include <architecture/byte_order.h>
+#include <mach-o/fat.h>
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
+#include <mach-o/reloc.h>
+#include <mach-o/ranlib.h>
 
 extern void swap_fat_header(
     struct fat_header *fat_header,
@@ -118,6 +121,10 @@ extern void swap_twolevel_hints_command(
     struct twolevel_hints_command *hints_cmd,
     enum NXByteOrder target_byte_sex);
 
+extern void swap_prebind_cksum_command(
+    struct prebind_cksum_command *cksum_cmd,
+    enum NXByteOrder target_byte_sex);
+
 extern void swap_twolevel_hint(
     struct twolevel_hint *hints,
     unsigned long nhints,
@@ -158,6 +165,4 @@ extern void swap_dylib_table_of_contents(
     unsigned long ntocs,
     enum NXByteOrder target_byte_sex);
 
-
-
-
+#endif /* _MACH_O_SWAP_H_ */

@@ -19,23 +19,34 @@
 //
 // passphrases - canonical code to obtain passphrases
 //
-#ifndef _H_PASSPHRASES
-#define _H_PASSPHRASES
+#ifndef _H_AGENTQUERY
+#define _H_AGENTQUERY
 
 #include "securityserver.h"
 #include "xdatabase.h"
 #include <Security/utilities.h>
 #include "SecurityAgentClient.h"
+#include "AuthorizationData.h"
 
+using Authorization::AuthItemSet;
 
 //
 // The common machinery of retryable SecurityAgent queries
 //
+class Session;
+
 class SecurityAgentQuery : protected SecurityAgent::Client {
+public:
 	typedef SecurityAgent::Reason Reason;
-public:	
-	SecurityAgentQuery();
+
+	SecurityAgentQuery(uid_t clientUID, Session &clientSession);
 	virtual ~SecurityAgentQuery();
+
+	virtual void activate(const char *bootstrapName = NULL);
+	virtual void terminate();
+
+private:
+	Session &mClientSession;
 };
 
 
@@ -44,7 +55,13 @@ public:
 //
 class QueryKeychainUse : public SecurityAgent::Client::KeychainChoice, public SecurityAgentQuery {
 public:
-	void operator () (const char *database, const char *description, AclAuthorization action);
+    QueryKeychainUse(uid_t clientUID, Session &clientSession,
+		     bool needPass) :
+	SecurityAgentQuery(clientUID, clientSession),
+	needPassphrase(needPass) { }
+    void operator () (const char *database, const char *description, AclAuthorization action);
+	
+	const bool needPassphrase;
 };
 
 
@@ -53,7 +70,10 @@ public:
 //
 class QueryPassphrase : public SecurityAgentQuery {
 protected:
-	QueryPassphrase(unsigned int maxTries) : maxRetries(maxTries) { }
+	QueryPassphrase(uid_t clientUID, Session &clientSession,
+			unsigned int maxTries) :
+	    SecurityAgentQuery(clientUID, clientSession),
+	    maxRetries(maxTries) { }
 	void query(const AccessCredentials *cred, CSSM_SAMPLE_TYPE relevantSampleType);
 	
 	virtual void queryInteractive(CssmOwnedData &passphrase) = 0;
@@ -73,7 +93,10 @@ private:
 class QueryUnlock : public QueryPassphrase {
 	static const int maxTries = 3;
 public:
-	QueryUnlock(Database &db) : QueryPassphrase(maxTries), database(db) { }
+	QueryUnlock(uid_t clientUID, Session &clientSession,
+		    Database &db) :
+	    QueryPassphrase(clientUID, clientSession, maxTries),
+	    database(db) { }
 	
 	Database &database;
 	
@@ -92,11 +115,13 @@ protected:
 class QueryNewPassphrase : public QueryPassphrase {
 	static const int maxTries = 7;
 public:
-	QueryNewPassphrase(Database::Common &common, Reason reason)
-	: QueryPassphrase(maxTries), dbCommon(common), initialReason(reason),
-		mPassphrase(CssmAllocator::standard(CssmAllocator::sensitive)),
-        mPassphraseValid(false) { }
-		
+	QueryNewPassphrase(uid_t clientUID, Session &clientSession,
+		    Database::Common &common, Reason reason) :
+	    QueryPassphrase(clientUID, clientSession, maxTries),
+	    dbCommon(common), initialReason(reason),
+	    mPassphrase(CssmAllocator::standard(CssmAllocator::sensitive)),
+	    mPassphraseValid(false) { }
+
 	Database::Common &dbCommon;
 	
 	void operator () (const AccessCredentials *cred, CssmOwnedData &passphrase);
@@ -118,21 +143,36 @@ private:
 // This class is not self-contained, since the AuthorizationEngine wants
 // to micro-manage the retry process.
 //
+class AuthorizationToken;
+
 class QueryAuthorizeByGroup : public SecurityAgentQuery {
 public:
-    QueryAuthorizeByGroup() : mActive(false) { }
-	bool operator () (const char *group, const char *candidateUser,
-        char username[SecurityAgent::maxUsernameLength],
-        char passphrase[SecurityAgent::maxPassphraseLength], 
-        Reason reason = SecurityAgent::userNotInGroup);
+    QueryAuthorizeByGroup(uid_t clientUID, const AuthorizationToken &auth);
+
+    bool operator () (const char *group, const char *candidateUser, char username[SecurityAgent::maxUsernameLength], char passphrase[SecurityAgent::maxPassphraseLength], Reason reason = SecurityAgent::userNotInGroup);
     void cancel(Reason reason);
     void done();
     
     uid_t uid();
+    
+    const AuthorizationToken &authorization;
 
 private:
     bool mActive;
 };
 
+class QueryInvokeMechanism : public SecurityAgentQuery {
+public:
+    QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth);
+    bool operator () (const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthItemSet &inHints, const AuthItemSet &inContext, AuthorizationResult  *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr);
+};
 
-#endif //_H_PASSPHRASES
+class QueryTerminateAgent : public SecurityAgentQuery {
+public:
+    QueryTerminateAgent(uid_t clientUID, const AuthorizationToken &auth);
+    void operator () ();
+};
+
+
+
+#endif //_H_AGENTQUERY

@@ -19,9 +19,7 @@
 
 /* This file is derived from c-lang.h */
 
-#ifdef __STDC__			/* Forward decls for prototypes */
 struct value;
-#endif
 
 extern int pascal_parse (void);	/* Defined in p-exp.y */
 
@@ -39,6 +37,8 @@ extern void pascal_type_print_method_args (char *, char *,
 					   struct ui_file *);
 
 /* These are in p-lang.c: */
+
+extern int is_pascal_string_type (struct type *, int *, int *, int *, int*);
 
 extern void pascal_printchar (int, struct ui_file *);
 

@@ -20,10 +20,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * This header contains the IONeXTPartitionScheme class definition.
+ */
+
 #ifndef _IONEXTPARTITIONSCHEME_H
 #define _IONEXTPARTITIONSCHEME_H
 
 #include <IOKit/IOTypes.h>
+
+/*
+ * kIONeXTPartitionSchemeClass is the name of the IONeXTPartitionScheme class.
+ */
+
+#define kIONeXTPartitionSchemeClass "IONeXTPartitionScheme"
 
 /*
  * NeXT Partition Map Definitions
@@ -99,11 +109,12 @@ typedef struct disk_label
 
 #pragma options align=reset              /* (reset to default struct packing) */
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOPartitionScheme.h>
 
@@ -230,6 +241,6 @@ public:
     OSMetaClassDeclareReservedUnused(IONeXTPartitionScheme, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IONEXTPARTITIONSCHEME_H */

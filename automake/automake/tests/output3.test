@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# Yet another AC_OUTPUT test.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT([Makefile
+tests/Makefile tests/defs],
+[blah])
+END
+
+: > Makefile.am
+
+mkdir tests
+: > tests/Makefile.am
+: > tests/defs.in
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -1,5 +1,6 @@
 /* Support for printing Chill types for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,10 +28,7 @@
 #include "value.h"
 #include "gdbcore.h"
 #include "target.h"
-#include "command.h"
-#include "gdbcmd.h"
 #include "language.h"
-#include "demangle.h"
 #include "ch-lang.h"
 #include "typeprint.h"
 
@@ -209,7 +207,7 @@ chill_type_print_base (struct type *type, struct ui_file *stream, int show,
 	  fprintf_filtered (stream, "(\n");
 	  if ((TYPE_NFIELDS (type) == 0) && (TYPE_NFN_FIELDS (type) == 0))
 	    {
-	      if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
+	      if (TYPE_STUB (type))
 		{
 		  fprintfi_filtered (level + 4, stream, "<incomplete type>\n");
 		}

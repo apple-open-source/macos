@@ -31,7 +31,7 @@
 #ifndef __AUDIOHARDWAREUTILITIES__
 #define __AUDIOHARDWAREUTILITIES__
 
-    // Debugging help
+// Debugging help
 #ifdef DEBUGLOG
 #define debugIOLog( message ) \
 	{IOLog( message ); IOSleep(20);}
@@ -75,18 +75,18 @@
     #define CLOG( stuff )  ; 
 #endif
 
-    // Bytes parsing
+// Bytes parsing
 #define NEXTENDOFSTRING(bytes, idx)  while('\0' != bytes[idx]) idx++;
 #define ASSIGNSTARTSTRING(startidx, parser)  startidx = ++parser;
 #define ASSIGNSTOPSTRING(stopidx, parser)  stopidx = parser+1;
-#define NEXTENDOFWORD(bytes, idx)  while(' ' != bytes[idx]) idx++;
+#define NEXTENDOFWORD(bytes, idx, size)  while(' ' != bytes[idx] && idx <= size) idx++;
 #define ASSIGNNEXTWORD(bytes, startidx, stopidx)  do {stopidx++; startidx = stopidx;}\
                             while((bytes[stopidx -1] == ' ') && (bytes[stopidx] == ' '))
 #define READWORDASNUMBER(result, bytesPtr, startidx, stopidx) \
-    bytesPtr[stopidx] = '\0'; result = getStringAsNumber(bytesPtr+startidx);bytesPtr[stopidx] = ' ';
+    {char temp[stopidx-startidx+1];memcpy(temp, bytesPtr+startidx, stopidx-startidx);temp[stopidx-startidx] = 0; result = getStringAsNumber(temp);};
 
-    // Macros definitions
-#define CLEAN_RELEASE(thingPtr) if(thingPtr) {thingPtr->release(); thingPtr=0;}
+// Macros definitions
+#define CLEAN_RELEASE(thingPtr) if(thingPtr) {thingPtr->release(); thingPtr=NULL;}
 
 //	-----------------------------------------------------------------
 #define SoundAssertionMessage( cond, file, line, handler ) \

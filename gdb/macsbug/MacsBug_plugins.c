@@ -5,7 +5,7 @@
  |                                MacsBug Plugins Command                               |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2002                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -157,7 +157,7 @@ static void back_up_over_prompt(unsigned long addr, int branchTaken, int from_tt
     if (!macsbug_screen && isatty(STDOUT_FILENO)) {	/* skip if macsbug screen is up	*/
 	gdb_eval("$__accessible__=*(char*)0x%lX", addr);
 	if (from_tty)
-	    gdb_printf(CURSOR_UP, 2 + (branchTaken != 0));
+	    gdb_printf(CURSOR_UP CLEAR_LINE, 2 + (branchTaken != 0));
     }
 }
 
@@ -292,7 +292,7 @@ static void dm(char *arg, int from_tty)
 	    back_up_over_prompt(gdb_get_int("$dot"), 0, from_tty);
 	} else {
 	    gdb_printf("Displaying memory from %.8lX\n", gdb_get_int("$dot"));
-	    gdb_set_int("$__prev_dm_n__", 16);
+	    gdb_set_int("$__prev_dm_n__", hexdump_width);
 	}
 	
 	__hexdump("$dot $__prev_dm_n__", from_tty);
@@ -307,7 +307,7 @@ static void dm(char *arg, int from_tty)
    
     if (argc == 2) {
 	gdb_set_int("$dot", addr);		/* $dot=addr				*/
-	gdb_set_int("$__prev_dm_n__", 16);
+	gdb_set_int("$__prev_dm_n__", hexdump_width);
 	
 	gdb_printf("Displaying memory from %.8lX\n", addr);
 	__hexdump("$dot", from_tty);
@@ -634,7 +634,7 @@ static void dv(char *arg, int from_tty)
     struct tm *ts;
     long      year;
     
-    gdb_printf("\nGdb/Macsbug " VERSION ", Copyright Apple Computer, Inc. 2000");
+    gdb_printf("\nGdb/Macsbug " VERSION ", Copyright Apple Computer, Inc. 2000-2002");
     
     time(&t);
     ts = localtime(&t);
@@ -687,9 +687,9 @@ static void fb(char *arg, int from_tty)
 #define FB_HELP  \
 "FB addr n expr|\"string\" -- Search from addr to addr+n-1 for the byte.\n"		\
 "\n"											\
-"Note, FB is also an alias for gdb's FUTURE_BREAK command.  The syntax of\n"		\
+"Note, FB is also an alias for gdb's FUTURE-BREAK command.  The syntax of\n"		\
 "the FB parameters determines whether FB is treated as a MacsBug FB or a\n"		\
-"gdb FUTURE_BREAK alias."
+"gdb FUTURE-BREAK alias."
 
 
 /*--------------------------------------------------------------------------*
@@ -1342,10 +1342,8 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
     for (i = 2; i < argc; ++i) {		/* process all the args...		*/
     	isstr = gdb_is_string(argv[i]);
 	
-	if (i == 2) {				/* 1st time around display the title	*/
-	    gdb_printf("Memory set starting at %.8lX\n", addr);
+	if (i == 2)				/* 1st time around display the title	*/
 	    gdb_set_int("$dot", addr);		/* set $dot to initial address		*/
-	}
 	
 	if (isstr) {				/* always write entire strings		*/
 	    gdb_get_string(argv[i], str, 1023);
@@ -1391,7 +1389,9 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
     
     /* Hexdump the results...								*/
     
-    sprintf(str, "0x%lX %ld", start, ((addr - start + 15)/16)*16);
+    gdb_printf("Memory set starting at %.8lX\n", start);
+    sprintf(str, "0x%lX %ld", start, 
+    	      ((addr - start + hexdump_width - 1)/hexdump_width)*hexdump_width);
     __hexdump(str, from_tty);			/* __hexdump start N			*/
     
     gdb_set_int("$__lastcmd__", cmdNbr);

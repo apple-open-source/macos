@@ -64,7 +64,15 @@ struct link_map_offsets
     int l_name_size;
   };
 
-#ifndef SVR4_FETCH_LINK_MAP_OFFSETS
-extern struct link_map_offsets *default_svr4_fetch_link_map_offsets (void);
-#define SVR4_FETCH_LINK_MAP_OFFSETS() default_svr4_fetch_link_map_offsets ()
-#endif
+/* set_solib_svr4_fetch_link_map_offsets() is intended to be called by
+   a <arch>_gdbarch_init() function.  It is used to establish an
+   architecture specific link_map_offsets fetcher for the architecture
+   being defined.  */
+
+extern void set_solib_svr4_fetch_link_map_offsets
+  (struct gdbarch *gdbarch, struct link_map_offsets *(*func) (void));
+
+/* legacy_svr4_fetch_link_map_offsets_hook is a pointer to a function
+   which is used to fetch link map offsets.  It will only be set
+   by solib-legacy.c, if at all. */
+extern struct link_map_offsets *(*legacy_svr4_fetch_link_map_offsets_hook)(void);

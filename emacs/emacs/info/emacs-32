@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,781 +11,1129 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Concept Index,  Next: Acknowledgments,  Prev: Variable Index,  Up: Top
+File: emacs,  Node: Acknowledgments,  Next: Screen,  Prev: Concept Index,  Up: Top
 
-Concept Index
-*************
+Acknowledgments
+***************
 
-* Menu:
+   Many people have contributed code included in the Free Software
+Foundation's distribution of GNU Emacs.  To show our appreciation for
+their public spirit, we list here in alphabetical order those who have
+written substantial portions.
 
-* *Messages* buffer:                     Echo Area.
-* .mailrc file:                          Mail Aliases.
-* // in file name:                       Minibuffer File.
-* 8-bit display:                         Single-Byte European Support.
-* <ESC> replacing <META> key:            User Input.
-* A and B buffers (Emerge):              Overview of Emerge.
-* Abbrev mode:                           Abbrev Concepts.
-* abbrevs:                               Abbrevs.
-* aborting recursive edit:               Quitting.
-* accented characters:                   Single-Byte European Support.
-* accessible portion:                    Narrowing.
-* accumulating scattered text:           Accumulating Text.
-* action options (command line):         Command Arguments.
-* active fields (customization buffer):  Customization Groups.
-* adaptive filling:                      Adaptive Fill.
-* againformation:                        Dissociated Press.
-* alarm clock:                           Appointments.
-* ange-ftp:                              Remote Files.
-* appending kills in the ring:           Appending Kills.
-* appointment notification:              Appointments.
-* apropos:                               Apropos.
-* arguments (command line):              Command Arguments.
-* arguments, numeric:                    Arguments.
-* arguments, prefix:                     Arguments.
-* arrow keys:                            Moving Point.
-* ASCII:                                 User Input.
-* Asm mode:                              Asm Mode.
-* astronomical day numbers:              Calendar Systems.
-* attribute (Rmail):                     Rmail Labels.
-* Auto Compression mode:                 Compressed Files.
-* Auto Fill mode:                        Auto Fill.
-* Auto Save mode:                        Auto Save.
-* Auto-Lower mode:                       Frame Parameters.
-* Auto-Raise mode:                       Frame Parameters.
-* autoload:                              Lisp Libraries.
-* Awk mode:                              Program Modes.
-* back end (version control):            Version Systems.
-* backend options (VC):                  Backend Options.
-* backtrace for bug reports:             Checklist.
-* backup file:                           Backup.
-* backup file names on MS-DOS:           MS-DOS File Names.
-* base buffer:                           Indirect Buffers.
-* batch mode:                            Initial Options.
-* binding:                               Commands.
-* blank lines:                           Blank Lines.
-* blank lines in programs:               Multi-Line Comments.
-* body lines (Outline mode):             Outline Format.
-* bold font:                             Face Customization.
-* bookmarks:                             Bookmarks.
-* borders (X Windows):                   Borders X.
-* boredom:                               Amusements.
-* branch (version control):              Branches.
-* buffer menu:                           Several Buffers.
-* buffers:                               Buffers.
-* buggestion:                            Dissociated Press.
-* bugs:                                  Bugs.
-* building programs:                     Building.
-* button down events:                    Mouse Buttons.
-* byte code:                             Lisp Libraries.
-* C editing:                             Programs.
-* c indentation styles:                  C Indent Styles.
-* C mode:                                C Modes.
-* C++ mode:                              C Modes.
-* C-:                                    User Input.
-* calendar:                              Calendar/Diary.
-* calendar and LaTeX:                    LaTeX Calendar.
-* calendar, first day of week:           Move to Beginning or End.
-* capitalizing words:                    Case.
-* case conversion:                       Case.
-* centering:                             Fill Commands.
-* change buffers:                        Select Buffer.
-* change log:                            Change Log.
-* Change Log mode:                       Change Log.
-* changes, undoing:                      Undo.
-* character set (keyboard):              User Input.
-* characters (in text) <1>:              Text Display.
-* characters (in text):                  Text Characters.
-* checking out files:                    VC Concepts.
-* checking spelling:                     Spelling.
-* Chinese:                               International.
-* Chinese calendar:                      Calendar Systems.
-* choosing a major mode:                 Choosing Modes.
-* citing mail:                           Citing Mail.
-* click events:                          Mouse Buttons.
-* codepage, MS-DOS:                      MS-DOS and MULE.
-* coding systems:                        Coding Systems.
-* collision:                             Interlocking.
-* color of window (X Windows):           Colors X.
-* colors:                                Frame Parameters.
-* Column Number mode:                    Optional Mode Line.
-* columns (and rectangles):              Rectangles.
-* columns (indentation):                 Indentation.
-* columns, splitting:                    Two-Column.
-* Comint mode:                           Shell Mode.
-* command:                               Commands.
-* command history:                       Repetition.
-* command line arguments:                Command Arguments.
-* comments:                              Comments.
-* comparing files:                       Comparing Files.
-* compilation errors:                    Compilation.
-* Compilation mode:                      Compilation Mode.
-* compilation under MS-DOS:              MS-DOS Processes.
-* complete:                              Completion Options.
-* complete key:                          Keys.
-* completion:                            Completion.
-* completion (symbol names):             Symbol Completion.
-* completion in Lisp:                    Symbol Completion.
-* completion using tags:                 Symbol Completion.
-* compression:                           Compressed Files.
-* conflicts:                             Merging.
-* connecting to remote host:             Remote Host.
-* continuation line:                     Continuation Lines.
-* Control:                               User Input.
-* control characters:                    User Input.
-* Control-Meta:                          Lists.
-* converting text to upper or lower case: Case.
-* Coptic calendar:                       Calendar Systems.
-* copying files:                         Misc File Ops.
-* copying text:                          Yanking.
-* CORBA IDL mode:                        C Modes.
-* correcting spelling:                   Spelling.
-* CPerl mode:                            Program Modes.
-* crashes:                               Auto Save.
-* creating files:                        Visiting.
-* creating frames:                       Creating Frames.
-* current buffer:                        Buffers.
-* cursor:                                Point.
-* cursor location:                       Position Info.
-* cursor location, under MS-DOS:         Text and Binary.
-* cursor motion:                         Moving Point.
-* customization:                         Customization.
-* customization buffer:                  Easy Customization.
-* customization groups:                  Customization Groups.
-* customizing faces:                     Face Customization.
-* customizing Lisp indentation:          Lisp Indent.
-* cut buffer:                            Mouse Commands.
-* cutting and X:                         Mouse Commands.
-* cutting text:                          Killing.
-* CVS:                                   Version Systems.
-* cvs watch feature:                     Backend Options.
-* CVSREAD environment variable (CVS):    Backend Options.
-* day of year:                           General Calendar.
-* daylight savings time:                 Daylight Savings.
-* DBX:                                   Debuggers.
-* debuggers:                             Debuggers.
-* default argument:                      Minibuffer.
-* default-frame-alist:                   Creating Frames.
-* defining keyboard macros:              Keyboard Macros.
-* defuns:                                Defuns.
-* deleting blank lines:                  Blank Lines.
-* deleting characters and lines:         Erasing.
-* deleting files (in Dired):             Dired Deletion.
-* deletion:                              Killing.
-* deletion (of files):                   Misc File Ops.
-* deletion (Rmail):                      Rmail Deletion.
-* desktop:                               Saving Emacs Sessions.
-* Devanagari:                            International.
-* developediment:                        Dissociated Press.
-* diary:                                 Diary.
-* diary file:                            Format of Diary File.
-* digest message:                        Rmail Digest.
-* directory header lines:                Subdirectory Motion.
-* directory listing:                     Directories.
-* directory listing on MS-DOS:           MS-DOS Processes.
-* Dired:                                 Dired.
-* Dired sorting:                         Dired Updating.
-* disabled command:                      Disabling.
-* DISPLAY environment variable:          Display X.
-* display name (X Windows):              Display X.
-* doctor:                                Total Frustration.
-* DOS codepages:                         MS-DOS and MULE.
-* double clicks:                         Mouse Buttons.
-* double slash in file name:             Minibuffer File.
-* down events:                           Mouse Buttons.
-* drag events:                           Mouse Buttons.
-* drastic changes:                       Reverting.
-* dribble file:                          Checklist.
-* echo area:                             Echo Area.
-* editable fields (customization buffer): Customization Groups.
-* editing binary files:                  Editing Binary Files.
-* editing in Picture mode:               Basic Picture.
-* editing level, recursive:              Recursive Edit.
-* EDITOR environment variable:           Emacs Server.
-* EDT:                                   Emulation.
-* Eldoc mode:                            Documentation.
-* Eliza:                                 Total Frustration.
-* Emacs as a server:                     Emacs Server.
-* Emacs initialization file:             Init File.
-* Emacs-Lisp mode:                       Lisp Eval.
-* emacsclient:                           Emacs Server.
-* Emerge:                                Emerge.
-* emulating other editors:               Emulation.
-* encoding of characters:                International.
-* end-of-line conversion:                Coding Systems.
-* end-of-line conversion on MS-DOS/MS-Windows: Text and Binary.
-* end-of-line conversion, mode-line indication: Mode Line.
-* Enriched mode:                         Formatted Text.
-* entering Emacs:                        Entering Emacs.
-* environment:                           Single Shell.
-* environment variables:                 Environment.
-* erasing characters and lines:          Erasing.
-* error log:                             Compilation.
-* error message in the echo area:        Echo Area.
-* ESHELL environment variable:           Interactive Shell.
-* etags program:                         Create Tags Table.
-* Ethiopian:                             International.
-* Ethiopic calendar:                     Calendar Systems.
-* European character sets:               Single-Byte European Support.
-* exiting:                               Exiting.
-* exiting recursive edit:                Recursive Edit.
-* expanding subdirectories in Dired:     Subdirectories in Dired.
-* expansion (of abbrevs):                Abbrevs.
-* expansion of C macros:                 Other C Commands.
-* expression:                            Lists.
-* expunging (Dired):                     Dired Deletion.
-* expunging (Rmail):                     Rmail Deletion.
-* faces:                                 Faces.
-* faces under MS-DOS:                    MS-DOS Display.
-* Fast Lock mode:                        Fast Lock Mode.
-* file dates:                            Interlocking.
-* file directory:                        Directories.
-* file local variables:                  File Variables.
-* file names:                            File Names.
-* file names under MS-DOS:               MS-DOS File Names.
-* file names under Windows 95/NT:        MS-DOS File Names.
-* file truenames:                        File Aliases.
-* files:                                 Files.
-* files, visiting and saving:            Visiting.
-* fill prefix:                           Fill Prefix.
-* filling text:                          Filling.
-* find and Dired:                        Dired and Find.
-* finding strings within text:           Search.
-* flagging files (in Dired):             Dired Deletion.
-* flow control:                          Unasked-for Search.
-* Flyspell mode:                         Spelling.
-* Follow mode:                           Follow Mode.
-* font (default):                        Creating Frames.
-* font (principal):                      Frame Parameters.
-* Font Lock mode:                        Font Lock.
-* font name (X Windows):                 Font X.
-* fonts and faces:                       Face Customization.
-* fonts, emulating under MS-DOS:         MS-DOS Display.
-* fontsets:                              Fontsets.
-* formatted text:                        Formatted Text.
-* formfeed:                              Pages.
-* Fortran continuation lines:            ForIndent Cont.
-* Fortran mode:                          Fortran.
-* forwarding a message:                  Rmail Reply.
-* frame size under MS-DOS:               MS-DOS Display.
-* frames:                                Frames.
-* frames on MS-DOS:                      MS-DOS Display.
-* French Revolutionary calendar:         Calendar Systems.
-* FTP:                                   Remote Files.
-* function:                              Commands.
-* function definition:                   Commands.
-* function key:                          Keymaps.
-* GDB:                                   Debuggers.
-* geometry (X Windows):                  Window Size X.
-* getting help with keys:                Basic Help.
-* global keymap:                         Keymaps.
-* global mark ring:                      Global Mark Ring.
-* global substitution:                   Replace.
-* Gnus:                                  Gnus.
-* Go Moku:                               Amusements.
-* graphic characters:                    Inserting Text.
-* Greek:                                 International.
-* Gregorian calendar:                    Other Calendars.
-* growing minibuffer:                    Minibuffer Edit.
-* GUD library:                           Debuggers.
-* gzip:                                  Compressed Files.
-* hard newline:                          Hard and Soft Newlines.
-* hardcopy:                              Hardcopy.
-* head version:                          Branches.
-* header (TeX mode):                     TeX Print.
-* header line (Dired):                   Subdirectory Motion.
-* headers (of mail message):             Mail Headers.
-* heading lines (Outline mode):          Outline Format.
-* Hebrew calendar:                       Calendar Systems.
-* height of minibuffer:                  Minibuffer Edit.
-* help:                                  Help.
-* Hexl mode:                             Editing Binary Files.
-* hiding in Dired (Dired):               Hiding Subdirectories.
-* highlighting region:                   Transient Mark.
-* Hindi:                                 International.
-* history of commands:                   Repetition.
-* history of minibuffer input:           Minibuffer History.
-* history reference:                     History References.
-* holidays:                              Holidays.
-* HOME directory under MS-DOS:           MS-DOS File Names.
-* hook:                                  Hooks.
-* horizontal scrolling:                  Horizontal Scrolling.
-* Hscroll mode:                          Horizontal Scrolling.
-* Hyper (under MS-DOS):                  MS-DOS Input.
-* Icomplete mode:                        Completion Options.
-* Icon mode:                             Program Modes.
-* icons (X Windows):                     Icons X.
-* IDL mode:                              C Modes.
-* ignoriginal:                           Dissociated Press.
-* in-situ subdirectory (Dired):          Subdirectories in Dired.
-* inbox file:                            Rmail Inbox.
-* incremental search:                    Incremental Search.
-* indentation:                           Indentation.
-* Indentation Calculation:               Indentation Calculation.
-* indentation for comments:              Comment Commands.
-* indentation for programs:              Program Indent.
-* indirect buffer:                       Indirect Buffers.
-* indirect buffers and outlines:         Outline Views.
-* inferior process:                      Compilation.
-* inferior processes under MS-DOS:       MS-DOS Processes.
-* Info:                                  Misc Help.
-* Info index completion:                 Symbol Completion.
-* init file:                             Init File.
-* init file, default name under MS-DOS:  MS-DOS File Names.
-* initial options (command line):        Command Arguments.
-* initial-frame-alist:                   Creating Frames.
-* input event:                           User Input.
-* input methods:                         Input Methods.
-* input with the keyboard:               User Input.
-* inserted subdirectory (Dired):         Subdirectories in Dired.
-* inserting blank lines:                 Blank Lines.
-* insertion:                             Inserting Text.
-* international scripts:                 International.
-* international support (MS-DOS):        MS-DOS and MULE.
-* interval operator (in regexps):        Create Tags Table.
-* invisible lines:                       Outline Mode.
-* IPA:                                   International.
-* Islamic calendar:                      Calendar Systems.
-* ISO commercial calendar:               Calendar Systems.
-* ISO Latin character sets:              Single-Byte European Support.
-* iso-ascii library:                     Single-Byte European Support.
-* iso-transl library:                    Single-Byte European Support.
-* ispell program:                        Spelling.
-* italic font:                           Face Customization.
-* Japanese:                              International.
-* Java mode:                             C Modes.
-* JDB:                                   Debuggers.
-* Julian calendar:                       Calendar Systems.
-* Julian day numbers:                    Calendar Systems.
-* justification:                         Fill Commands.
-* Kerberos POP authentication:           Movemail.
-* key:                                   Keys.
-* key bindings:                          Key Bindings.
-* key rebinding, permanent:              Init File.
-* key rebinding, this session:           Rebinding.
-* key sequence:                          Keys.
-* keyboard input:                        User Input.
-* keyboard macro:                        Keyboard Macros.
-* keyboard translations:                 Keyboard Translations.
-* keymap:                                Keymaps.
-* kill ring:                             Yanking.
-* killing buffers:                       Kill Buffer.
-* killing characters and lines:          Erasing.
-* killing Emacs:                         Exiting.
-* killing rectangular areas of text:     Rectangles.
-* killing text:                          Killing.
-* Korean:                                International.
-* label (Rmail):                         Rmail Labels.
-* language environment, automatic selection on MS-DOS: MS-DOS and MULE.
-* language environments:                 Language Environments.
-* Lao:                                   International.
-* LaTeX mode:                            TeX Mode.
-* Lazy Lock mode:                        Lazy Lock Mode.
-* leaving Emacs:                         Exiting.
-* libraries:                             Lisp Libraries.
-* line number commands:                  Position Info.
-* Line Number mode:                      Optional Mode Line.
-* line wrapping:                         Continuation Lines.
-* Lisp editing:                          Programs.
-* Lisp string syntax:                    Init Syntax.
-* Lisp symbol completion:                Symbol Completion.
-* list:                                  Lists.
-* listing current buffers:               List Buffers.
-* loading Lisp code:                     Lisp Libraries.
-* local keymap:                          Local Keymaps.
-* local variables:                       Locals.
-* local variables in files:              File Variables.
-* location of point:                     Position Info.
-* locking (CVS):                         Backend Options.
-* locking and version control:           VC Concepts.
-* locking files:                         Interlocking.
-* locking under version control:         Backend Options.
-* locking, non-strict (RCS):             Backend Options.
-* long file names in DOS box under Windows 95/NT: MS-DOS File Names.
-* lpr usage under MS-DOS:                MS-DOS Printing.
-* Lucid Widget X Resources:              Lucid Resources.
-* M-:                                    User Input.
-* Macintosh end-of-line conversion:      Coding Systems.
-* macro expansion in C:                  Other C Commands.
-* mail:                                  Sending Mail.
-* mail (on mode line):                   Optional Mode Line.
-* mail aliases:                          Mail Aliases.
-* MAIL environment variable:             Rmail Inbox.
-* Mail mode:                             Mail Mode.
-* mail-composition methods:              Mail Methods.
-* MAILHOST environment variable:         Movemail.
-* mailrc file:                           Mail Aliases.
-* major modes:                           Major Modes.
-* make:                                  Compilation.
-* Makefile mode:                         Program Modes.
-* making pictures out of text characters: Picture.
-* manipulating paragraphs:               Paragraphs.
-* manipulating sentences:                Sentences.
-* manipulating text:                     Text.
-* manuals, on-line:                      Misc Help.
-* Marathi:                               International.
-* mark:                                  Mark.
-* mark ring:                             Mark Ring.
-* marking in Dired:                      Marks vs Flags.
-* marking sections of text:              Marking Objects.
-* Markov chain:                          Dissociated Press.
-* master file:                           VC Concepts.
-* matching parentheses:                  Matching.
-* Mayan calendar:                        Calendar Systems.
-* Mayan calendar round:                  Mayan Calendar.
-* Mayan haab calendar:                   Mayan Calendar.
-* Mayan long count:                      Mayan Calendar.
-* Mayan tzolkin calendar:                Mayan Calendar.
-* memory full:                           Memory Full.
-* menu bar:                              Menu Bar.
-* Menu Bar mode:                         Menu Bars.
-* Menu X Resources (Lucid widgets):      Lucid Resources.
-* Menu X Resources (Motif widgets):      Motif Resources.
-* merge buffer (Emerge):                 Overview of Emerge.
-* merging changes:                       Merging.
-* merging files:                         Emerge.
-* message:                               Sending Mail.
-* message number:                        Rmail Basics.
-* messages saved from echo area:         Echo Area.
-* Meta:                                  User Input.
-* Meta (under MS-DOS):                   MS-DOS Input.
-* Meta commands and words:               Words.
-* Midnight mode:                         Kill Buffer.
-* minibuffer:                            Minibuffer.
-* minibuffer history:                    Minibuffer History.
-* minibuffer keymaps:                    Minibuffer Maps.
-* minor mode keymap:                     Local Keymaps.
-* minor modes:                           Minor Modes.
-* mistakes, correcting:                  Fixit.
-* mode hook:                             Program Modes.
-* mode line:                             Mode Line.
-* mode line (MS-DOS):                    MS-DOS and MULE.
-* mode, Abbrev:                          Abbrev Concepts.
-* mode, Auto Compression:                Compressed Files.
-* mode, Auto Fill:                       Auto Fill.
-* mode, Auto Save:                       Auto Save.
-* mode, C:                               C Modes.
-* mode, Column Number:                   Optional Mode Line.
-* mode, Comint:                          Shell Mode.
-* mode, Compilation:                     Compilation Mode.
-* mode, CORBA IDL:                       C Modes.
-* mode, Emacs-Lisp:                      Lisp Eval.
-* mode, Enriched:                        Formatted Text.
-* mode, Fast Lock:                       Fast Lock Mode.
-* mode, Follow:                          Follow Mode.
-* mode, Font Lock:                       Font Lock.
-* mode, Fortran:                         Fortran.
-* mode, Hexl:                            Editing Binary Files.
-* mode, Hscroll:                         Horizontal Scrolling.
-* mode, Java:                            C Modes.
-* mode, LaTeX:                           TeX Mode.
-* mode, Lazy Lock:                       Lazy Lock Mode.
-* mode, Line Number:                     Optional Mode Line.
-* mode, Mail:                            Mail Mode.
-* mode, major:                           Major Modes.
-* mode, Menu Bar:                        Menu Bars.
-* mode, minor:                           Minor Modes.
-* mode, Objective C:                     C Modes.
-* mode, Outline:                         Outline Mode.
-* mode, Overwrite:                       Minor Modes.
-* mode, Paragraph-Indent Text:           Text Mode.
-* mode, Pike:                            C Modes.
-* mode, Resize-Minibuffer:               Minibuffer Edit.
-* mode, Scroll Bar:                      Scroll Bars.
-* mode, Shell:                           Shell Mode.
-* mode, SliTeX:                          TeX Mode.
-* mode, TeX:                             TeX Mode.
-* mode, Text:                            Text Mode.
-* mode, Transient Mark:                  Transient Mark.
-* mode, View:                            Misc File Ops.
-* modes for programming languages:       Program Modes.
-* modified (buffer):                     Visiting.
-* moon, phases of:                       Lunar Phases.
-* Motif Widget X Resources:              Motif Resources.
-* mouse:                                 Keymaps.
-* mouse button events:                   Mouse Buttons.
-* mouse buttons (what they do):          Mouse Commands.
-* mouse support under MS-DOS:            MS-DOS Input.
-* movemail:                              Movemail.
-* movemail program:                      Movemail.
-* movement:                              Moving Point.
-* moving inside the calendar:            Calendar Motion.
-* moving point:                          Moving Point.
-* moving text:                           Yanking.
-* moving the cursor:                     Moving Point.
-* MS-DOG:                                MS-DOS.
-* MS-DOS end-of-line conversion:         Coding Systems.
-* MS-DOS peculiarities:                  MS-DOS.
-* MULE:                                  International.
-* multibyte characters:                  International.
-* multiple displays:                     Multiple Displays.
-* multiple views of outline:             Outline Views.
-* multiple windows in Emacs:             Windows.
-* mustatement:                           Dissociated Press.
-* named configurations (RCS):            Snapshot Caveats.
-* narrowing:                             Narrowing.
-* newline:                               Inserting Text.
-* newlines, hard and soft:               Hard and Soft Newlines.
-* NFS and quitting:                      Quitting.
-* non-strict locking (RCS):              Backend Options.
-* non-window terminals:                  Non-Window Terminals.
-* nonincremental search:                 Nonincremental Search.
-* nroff:                                 Nroff Mode.
-* NSA:                                   Distracting NSA.
-* numeric arguments:                     Arguments.
-* Objective C mode:                      C Modes.
-* on-line manuals:                       Misc Help.
-* operating on files in Dired:           Operating on Files.
-* operations on a marked region:         Using Region.
-* option, user:                          Variables.
-* options (command line):                Command Arguments.
-* other editors:                         Emulation.
-* out of memory:                         Memory Full.
-* Outline mode:                          Outline Mode.
-* outline with multiple views:           Outline Views.
-* outragedy:                             Dissociated Press.
-* Overwrite mode:                        Minor Modes.
-* pages:                                 Pages.
-* Paragraph-Indent Text mode:            Text Mode.
-* paragraphs:                            Paragraphs.
-* parentheses:                           Matching.
-* parts of the screen:                   Screen.
-* pasting:                               Yanking.
-* pasting and X:                         Mouse Commands.
-* patches, sending:                      Sending Patches.
-* PDB:                                   Debuggers.
-* per-buffer variables:                  Locals.
-* Perl mode:                             Program Modes.
-* Perldb:                                Debuggers.
-* Persian calendar:                      Calendar Systems.
-* phases of the moon:                    Lunar Phases.
-* Picture mode and rectangles:           Rectangles in Picture.
-* pictures:                              Picture.
-* Pike mode:                             C Modes.
-* point:                                 Point.
-* point location:                        Position Info.
-* point location, under MS-DOS:          Text and Binary.
-* POP inboxes:                           Movemail.
-* POP inboxes in reverse order:          Movemail.
-* prefix arguments:                      Arguments.
-* prefix key:                            Keys.
-* preprocessor highlighting:             Other C Commands.
-* presidentagon:                         Dissociated Press.
-* primary Rmail file:                    Rmail Basics.
-* primary selection:                     Mouse Commands.
-* printing under MS-DOS:                 MS-DOS Processes.
-* program building:                      Building.
-* program editing:                       Programs.
-* prompt:                                Minibuffer.
-* properbose:                            Dissociated Press.
-* puzzles:                               Amusements.
-* query replace:                         Query Replace.
-* quitting:                              Quitting.
-* quitting (in search):                  Incremental Search.
-* quitting Emacs:                        Exiting.
-* quitting on MS-DOS:                    MS-DOS Input.
-* quoting:                               Inserting Text.
-* quoting file names:                    Quoted File Names.
-* RCS:                                   Version Systems.
-* read-only buffer:                      Misc Buffer.
-* reading mail:                          Rmail.
-* reading netnews:                       Gnus.
-* rebinding keys, permanently:           Init File.
-* rebinding keys, this session:          Rebinding.
-* rebinding major mode keys:             Local Keymaps.
-* rebinding mouse buttons:               Mouse Buttons.
-* rectangle:                             Rectangles.
-* rectangles and Picture mode:           Rectangles in Picture.
-* recursive editing level:               Recursive Edit.
-* regexp:                                Regexp Search.
-* regexp syntax:                         Regexps.
-* region:                                Mark.
-* region face:                           Faces.
-* region highlighting:                   Transient Mark.
-* registered file:                       VC Concepts.
-* registers:                             Registers.
-* regular expression:                    Regexp Search.
-* remote file access:                    Remote Files.
-* remote host:                           Remote Host.
-* repeating a command:                   Repeating.
-* replacement:                           Replace.
-* reply to a message:                    Rmail Reply.
-* REPLYTO environment variable:          Mail Headers.
-* reporting bugs:                        Checklist.
-* Resize-Minibuffer mode:                Minibuffer Edit.
-* resolving conflicts:                   Merging.
-* resources:                             Resources X.
-* restriction:                           Narrowing.
-* retrying a failed message:             Rmail Reply.
-* Rlogin:                                Remote Host.
-* Rmail:                                 Rmail.
-* rot13 code:                            Rmail Rot13.
-* running Lisp functions:                Building.
-* Russian:                               International.
-* saved echo area messages:              Echo Area.
-* saving files:                          Visiting.
-* saving keyboard macros:                Save Kbd Macro.
-* saving option value:                   Changing an Option.
-* saving sessions:                       Saving Emacs Sessions.
-* SCCS:                                  Version Systems.
-* screen:                                Screen.
-* Scroll Bar mode:                       Scroll Bars.
-* scrolling:                             Scrolling.
-* scrolling in the calendar:             Scroll Calendar.
-* SDB:                                   Debuggers.
-* search-and-replace commands:           Replace.
-* searching:                             Search.
-* searching in Rmail:                    Rmail Motion.
-* secondary selection:                   Secondary Selection.
-* selected buffer:                       Buffers.
-* selected window:                       Basic Window.
-* selecting buffers in other windows:    Pop Up Window.
-* selection, primary:                    Mouse Commands.
-* selective display:                     Outline Mode.
-* selective undo:                        Undo.
-* self-documentation:                    Help.
-* sending mail:                          Sending Mail.
-* sending patches for GNU Emacs:         Sending Patches.
-* sentences:                             Sentences.
-* server, using Emacs as:                Emacs Server.
-* setting a mark:                        Mark.
-* setting option value:                  Changing an Option.
-* setting variables:                     Examining.
-* sexp:                                  Lists.
-* shell commands:                        Shell.
-* shell commands, Dired:                 Shell Commands in Dired.
-* SHELL environment variable:            Interactive Shell.
-* Shell mode:                            Shell Mode.
-* Show Paren mode:                       Matching.
-* simultaneous editing:                  Interlocking.
-* single-frame terminals:                Non-Window Terminals.
-* size of minibuffer:                    Minibuffer Edit.
-* slashes repeated in file name:         Minibuffer File.
-* SliTeX mode:                           TeX Mode.
-* snapshots and version control:         Snapshots.
-* soft newline:                          Hard and Soft Newlines.
-* sorting:                               Sorting.
-* sorting Dired buffer:                  Dired Updating.
-* speedbar:                              Speedbar.
-* spelling, checking and correcting:     Spelling.
-* splitting columns:                     Two-Column.
-* standard fontset:                      Defining Fontsets.
-* starting Emacs:                        Entering Emacs.
-* startup (command line arguments):      Command Arguments.
-* startup (init file):                   Init File.
-* startup fontset:                       Defining Fontsets.
-* stealth fontification:                 Lazy Lock Mode.
-* string substitution:                   Replace.
-* string syntax:                         Init Syntax.
-* subdirectories in Dired:               Subdirectories in Dired.
-* subscribe groups:                      Summary of Gnus.
-* subshell:                              Shell.
-* subtree (Outline mode):                Outline Visibility.
-* summary (Rmail):                       Rmail Summary.
-* sunrise and sunset:                    Sunrise/Sunset.
-* Super (under MS-DOS):                  MS-DOS Input.
-* suspending:                            Exiting.
-* switch buffers:                        Select Buffer.
-* switches (command line):               Command Arguments.
-* syntactic analysis:                    Syntactic Analysis.
-* syntactic component:                   Syntactic Analysis.
-* syntactic symbol:                      Syntactic Analysis.
-* syntax highlighting:                   Font Lock.
-* syntax table:                          Syntax.
-* tab stops:                             Tab Stops.
-* tables, indentation for:               Tab Stops.
-* tags completion:                       Symbol Completion.
-* tags table:                            Tags.
-* Tcl mode:                              Program Modes.
-* techniquitous:                         Dissociated Press.
-* television:                            Appending Kills.
-* Telnet:                                Remote Host.
-* TERM environment variable:             Checklist.
-* termscript file:                       Checklist.
-* TeX mode:                              TeX Mode.
-* TEXEDIT environment variable:          Emacs Server.
-* TEXINPUTS environment variable:        TeX Print.
-* text:                                  Text.
-* text and binary files on MS-DOS/MS-Windows: Text and Binary.
-* Text mode:                             Text Mode.
-* Thai:                                  International.
-* Tibetan:                               International.
-* time (on mode line):                   Optional Mode Line.
-* top level:                             Mode Line.
-* tower of Hanoi:                        Amusements.
-* Transient Mark mode:                   Transient Mark.
-* transposition:                         List Commands.
-* triple clicks:                         Mouse Buttons.
-* truenames of files:                    File Aliases.
-* truncation:                            Continuation Lines.
-* trunk (version control):               Branches.
-* two-column editing:                    Two-Column.
-* typos, fixing:                         Fixit.
-* uncompression:                         Compressed Files.
-* undeletion (Rmail):                    Rmail Deletion.
-* undigestify:                           Rmail Digest.
-* undo:                                  Undo.
-* undo limit:                            Undo.
-* unibyte operation <1>:                 General Variables.
-* unibyte operation:                     Initial Options.
-* Unibyte operation:                     Single-Byte European Support.
-* unibyte operation (MS-DOS):            MS-DOS and MULE.
-* unsubscribe groups:                    Summary of Gnus.
-* untranslated file system:              Text and Binary.
-* user option:                           Variables.
-* userenced:                             Dissociated Press.
-* using tab stops in making tables:      Tab Stops.
-* variable:                              Variables.
-* vc-resolve-conflicts:                  Merging.
-* version control:                       Version Control.
-* VERSION_CONTROL environment variable:  Backup Names.
-* vi:                                    Emulation.
-* Vietnamese:                            International.
-* View mode:                             Misc File Ops.
-* viewing:                               Misc File Ops.
-* views of an outline:                   Outline Views.
-* visiting files:                        Visiting.
-* watching files (CVS):                  Backend Options.
-* weeks, which day they start on:        Move to Beginning or End.
-* widening:                              Narrowing.
-* Windows clipboard support:             MS-DOS Input.
-* windows in Emacs:                      Windows.
-* word processing:                       Formatted Text.
-* word search:                           Word Search.
-* word wrap:                             Auto Fill.
-* words:                                 Words.
-* words, case conversion:                Case.
-* work file:                             VC Concepts.
-* wrapping:                              Continuation Lines.
-* WYSIWYG:                               Formatted Text.
-* X cutting and pasting:                 Mouse Commands.
-* XDB:                                   Debuggers.
-* xon-xoff:                              Unasked-for Search.
-* yahrzeits:                             From Other Calendar.
-* yanking:                               Yanking.
-* yanking previous kills:                Earlier Kills.
-* Zippy:                                 Amusements.
-* Zmacs mode:                            Transient Mark.
+   * Per Abrahamsen wrote the customization buffer facilities, as well
+     as `double.el' for typing accented characters not normally
+     available from the keyboard, `xt-mouse.el' which handles mouse
+     commands through Xterm, `gnus-cus.el' which implements
+     customization commands for Gnus, `gnus-cite.el', a
+     citation-parsing facility for news articles and `cpp.el' which
+     hides or highlights parts of C programs according to preprocessor
+     conditionals.
 
+   * Tomas Abrahamsson wrote `artist.el', a package for producing ASCII
+     art with a mouse or with keyboard keys.
+
+   * Jay K. Adams wrote `jka-compr.el', providing automatic
+     decompression and recompression for compressed files.
+
+   * Joe Arceneaux wrote the original text property implementation, and
+     implemented support for X11.
+
+   * Miles Bader wrote `image-file.el', support code for visiting image
+     files; and `minibuf-eldef.el', a minor mode whereby the default
+     value is shown in the minibuffer prompt only when appropriate.
+
+   * David Bakhash wrote `strokes.el', a mode for controlling Emacs by
+     moving the mouse in particular patterns.
+
+   * Eli Barzilay wrote `calculator.el', a desktop calculator for Emacs.
+
+   * Steven L. Baur wrote `footnote.el' which lets you include
+     footnotes in email messages, and `gnus-audio.el' which provides
+     sound effects for Gnus.
+
+   * Boaz Ben-Zvi wrote `profile.el', to time Emacs Lisp functions.
+
+   * Ray Blaak wrote `delphi.el', a major mode for editing Delphi
+     (Object Pascal) source code.
+
+   * Jim Blandy wrote Emacs 19's input system, brought its
+     configuration and build process up to the GNU coding standards,
+     and contributed to the frame support and multi-face support.  Jim
+     also wrote `tvi970.el', terminal support for the TeleVideo 970
+     terminals.
+
+   * Per Bothner wrote `term.el', a terminal emulator in an Emacs
+     buffer.
+
+   * Terrence M. Brannon wrote `landmark.el', a neural-network robot
+     that learns landmarks.
+
+   * Frank Bresz wrote `diff.el', a program to display `diff' output.
+
+   * Peter Breton implemented:
+
+        - `dirtrack' which does better tracking of directory changes in
+          shell buffers,
+
+        - `filecache.el' which records which directories your files are
+          in,
+
+        - `locate.el' which interfaces to the `locate' command,
+
+        - `find-lisp.el', an Emacs Lisp emulation of the `find' program,
+
+        - `net-utils.el', and
+
+        - the "generic mode" feature.
+
+   * Emmanuel Briot wrote `xml.el', an XML parser for Emacs.
+
+   * Kevin Broadey wrote `foldout.el', providing folding extensions to
+     Emacs's outline modes.
+
+   * David M. Brown wrote `array.el', for editing arrays and other
+     tabular data.
+
+   * W/lodek Bzyl and Ryszard Kubiak wrote `ogonek.el', a package for
+     changing the encoding of Polish characters.
+
+   * Bill Carpenter provided `feedmail.el', a package for massaging
+     outgoing mail messages and sending them through various popular
+     mailers.
+
+   * Per Cederqvist and Inge Wallin wrote `ewoc.el', an Emacs widget for
+     manipulating object collections.
+
+   * Hans Chalupsky wrote `advice.el', an overloading mechanism for
+     Emacs Lisp functions, and `trace.el', a tracing facility for Emacs
+     Lisp.
+
+   * Chris Chase and Carsten Dominik wrote `idlwave.el', an editing mode
+     for IDL and WAVE CL.
+
+   * Bob Chassell wrote `texnfo-upd.el' and `makeinfo.el', modes and
+     utilities for working with Texinfo files; and `page-ext.el',
+     commands for extended page handling.
+
+   * Andrew Choi wrote the Macintosh support code, and contributed
+     `mac-win.el', support for the Mac window system.
+
+   * James Clark wrote `sgml-mode.el', a mode for editing SGML
+     documents, and contributed to Emacs's dumping procedures.
+
+   * Mike Clarkson wrote `edt.el', an emulation of DEC's EDT editor.
+
+   * Glynn Clements provided `gamegrid.el' and a couple of games that
+     use it, Snake and Tetris.
+
+   * Georges Brun-Cottan and Stefan Monnier wrote `easy-mmode.el', a
+     package for easy definition of major and minor modes.
+
+   * Andrew Csillag wrote M4 mode (`m4-mode.el').
+
+   * Doug Cutting and Jamie Zawinski wrote `disass.el', a disassembler
+     for compiled Emacs Lisp code.
+
+   * Michael DeCorte wrote `emacs.csh', a C-shell script that starts a
+     new Emacs job, or restarts a paused Emacs if one exists.
+
+   * Gary Delp wrote `mailpost.el', an interface between RMAIL and the
+     `/usr/uci/post' mailer.
+
+   * Matthieu Devin wrote `delsel.el', a package to make newly-typed
+     text replace the current selection.
+
+   * Eric Ding contributed `goto-addr.el',
+
+   * Carsten Dominik wrote `reftex.el', a package for setting up labels
+     and cross-references in LaTeX documents.
+
+   * Scott Draves wrote `tq.el', help functions for maintaining
+     transaction queues between Emacs and its subprocesses.
+
+   * Benjamin Drieu wrote `pong.el', an implementation of the classical
+     pong game.
+
+   * Viktor Dukhovni wrote support for dumping under SunOS version 4.
+
+   * John Eaton co-wrote Octave mode (`octave.el' and related files).
+
+   * Rolf Ebert co-wrote Ada mode (`ada-mode.el').
+
+   * Stephen Eglen implemented `mspools.el', for use with Procmail,
+     which tells you which mail folders have mail waiting in them, and
+     `iswitchb.el', a feature for incremental reading and completion of
+     buffer names.
+
+   * Torbjo"rn Einarsson contributed the  Fortran 90 mode (`f90.el').
+
+   * Tsugutomo Enami co-wrote the support for international character
+     sets.
+
+   * Hans Henrik Eriksen wrote `simula.el', a mode for editing SIMULA 87
+     code.
+
+   * Michael Ernst wrote `reposition.el', a command for recentering a
+     function's source code and preceding comment on the screen.
+
+   * Ata Etemadi wrote `cdl.el', functions for working with Common Data
+     Language source code.
+
+   * Frederick Farnbach implemented `morse.el', which converts text to
+     Morse code.
+
+   * Oscar Figueiredo wrote EUDC, the Emacs Unified Directory Client,
+     which is an interface to directory servers via LDAP, CCSO PH/QI,
+     or BBDB; and `ldap.el', the LDAP client interface.
+
+   * Fred Fish wrote the support for dumping COFF executable files.
+
+   * Karl Fogel wrote:
+
+        - `bookmark.el', for creating named placeholders, saving them
+          and jumping to them later,
+
+        - `mail-hist.el', a history mechanism for outgoing mail
+          messages, and
+
+        - `saveplace.el', for preserving point's location in files
+          between editing sessions.
+
+   * Gary Foster wrote `crisp.el', the emulation for CRiSP and Brief
+     editors, and `scroll-lock.el' (now `scroll-all.el') a mode for
+     scrolling several buffers together.
+
+   * Noah Friedman wrote `rlogin.el', an interface to Rlogin,
+     `type-break.el', which reminds you to take periodic breaks from
+     typing, and `eldoc-mode', a mode to show the defined parameters or
+     the doc string for the Lisp function near point.  With Roland
+     McGrath, he wrote `rsz-mini.el', a minor mode to automatically
+     resize the minibuffer to fit the text it contains.
+
+   * Keith Gabryelski wrote `hexl.el', a mode for editing binary files.
+
+   * Kevin Gallagher rewrote and enhanced the EDT emulation, and wrote
+     `flow-ctrl.el', a package for coping with unsuppressible XON/XOFF
+     flow control.
+
+   * Kevin Gallo added multiple-frame support for Windows NT and wrote
+     `w32-win.el', support functions for the MS-Windows window system.
+
+   * Howard Gayle wrote:
+
+        - the C and lisp code for display tables and case tables,
+
+        - `rot13.el', a command to display the plain-text form of a
+          buffer encoded with the Caesar cipher,
+
+        - `case-table.el', code to extend the character set and support
+          case tables,
+
+        - much of the support for the ISO-8859 European character sets
+          (which includes `iso-ascii.el', `iso-insert.el',
+          `iso-swed.el', `latin-1.el', `iso-syntax.el', `iso-transl.el',
+          `swedish.el'), and
+
+        - `vt100-led.el', a package for controlling the LED's on
+          VT100-compatible terminals.
+
+   * Stephen Gildea made the Emacs quick reference card, and made many
+     contributions for `time-stamp.el', a package for maintaining
+     last-change time stamps in files.
+
+   * Julien Gilles wrote `gnus-ml.el', a mailing list minor mode for
+     Gnus.
+
+   * David Gillespie wrote:
+
+        - Emacs 19's Common Lisp compatibility packages, replacing the
+          old package by Cesar Augusto Quiroz Gonzalez,
+
+        - `complete.el', a partial completion mechanism, and
+
+        - `edmacro.el', a package for editing keyboard macros.
+
+   * Bob Glickstein contributed the `sregex.el' feature, a facility for
+     writing regexps using a Lisp-like syntax.
+
+   * Boris Goldowsky wrote:
+
+        - `avoid.el', a package to keep the mouse cursor out of the way
+          of the text cursor,
+
+        - `shadowfile.el', a package for keeping identical copies of
+          files in more than one place,
+
+        - `format.el', a package for reading and writing files in
+          various formats,
+
+        - `enriched.el', a package for saving text properties in files,
+          and
+
+        - `facemenu.el', a package for specifying faces.
+
+   * Michelangelo Grigni wrote `ffap.el' which visits a file, taking
+     the file name from the buffer.
+
+   * Odd Gripenstam wrote `dcl-mode.el' for editing DCL command files.
+
+   * Michael Gschwind wrote `iso-cvt.el', a package to convert between
+     the ISO 8859-1 character set and the notations for non-ASCII
+     characters used by TeX and net tradition, and `latin-2.el', code
+     which sets up case-conversion and syntax tables for the ISO Latin-2
+     character set.
+
+   * Henry Guillaume wrote `find-file.el', a package to visit files
+     related to the currently visited file.
+
+   * Doug Gwyn wrote the portable `alloca' implementation.
+
+   * Ken'ichi Handa implemented most of the support for international
+     character sets, and wrote `isearch-x.el', a facility for searching
+     non-ASCII text.  Together with Naoto Takahashi, he wrote
+     `quail.el', a simple input facility for typing non-ASCII text from
+     an ASCII keyboard.  Ken'ichi also wrote `ps-bdf.el', a BDF font
+     support for printing non-ASCII text on a PostScript printer.
+
+   * Chris Hanson wrote `netuname.el', a package to use HP-UX's Remote
+     File Access facility from Emacs.
+
+   * K. Shane Hartman wrote:
+
+        - `chistory.el' and `echistory.el', packages for browsing
+          command history lists,
+
+        - `electric.el' and `helper.el', providing an alternative
+          command loop and appropriate help facilities,
+
+        - `emacsbug.el', a package for reporting Emacs bugs,
+
+        - `picture.el', a mode for editing ASCII pictures, and
+
+        - `view.el', a package for perusing files and buffers without
+          editing them.
+
+   * John Heidemann wrote `mouse-copy.el' and `mouse-drag.el', which
+     provide alternative mouse-based editing and scrolling features.
+     He also contributed `zone-mode.el', a major mode for editing DNS
+     zone files.
+
+   * Jon K Hellan wrote `utf7.el', support for mail-safe transformation
+     format of Unicode.
+
+   * Markus Heritsch co-wrote Ada mode (`ada-mode.el').
+
+   * Karl Heuer wrote the original blessmail script, implemented the
+     `intangible' text property, and rearranged the structure of the
+     `Lisp_Object' type to allow for more data bits.
+
+   * Manabu Higashida ported Emacs to MS-DOS.
+
+   * Anders Holst wrote `hippie-exp.el', a versatile completion and
+     expansion package.
+
+   * Kurt Hornik co-wrote Octave mode (`octave.el' and related files).
+
+   * Tom Houlder wrote `mantemp.el', which generates manual C++
+     template instantiations.
+
+   * Denis Howe wrote `browse-url.el', a package for invoking a WWW
+     browser to display a URL.
+
+   * Lars Magne Ingebrigtsen did a major redesign of the Gnus
+     news-reader and wrote many of its parts.
+
+   * Andrew Innes contributed extensively to the MS-Windows support.
+
+   * Seiichiro Inoue improved Emacs's XIM support.
+
+   * Kyle Jones wrote `life.el', a package to play Conway's "life" game,
+     and `mldrag.el', a package which allows the user to resize windows
+     by dragging mode lines and vertical window separators with the
+     mouse.
+
+   * Terry Jones wrote `shadow.el', a package for finding potential
+     load-path problems when some Lisp file "shadows" another.
+
+   * Simon Josefsson wrote `flow-fill.el', a package for interpreting
+     RFC2646 formatted text in messages, `imap.el', an Emacs Lips
+     library for talking to IMAP servers, `nnimap', the IMAP back-end
+     for Gnus, nd `rfc2104.el', a hashed message authentication
+     facility.
+
+   * Tomoji Kagatani implemented `smtpmail.el', used for sending out
+     mail with SMTP.
+
+   * David Kaufman wrote `yow.c', an essential utility program for the
+     hopelessly pinheaded.
+
+   * Henry Kautz wrote `bib-mode.el', a mode for maintaining
+     bibliography databases compatible with `refer' (the `troff'
+     version) and `lookbib', and `refbib.el', a package to convert
+     those databases to the format used by the LaTeX text formatting
+     package.
+
+   * Howard Kaye wrote `sort.el', commands to sort text in Emacs
+     buffers.
+
+   * Michael Kifer wrote `ediff.el', an interactive interface to the
+     `diff', `patch', and `merge' programs, and Viper, the newest
+     emulation for VI.
+
+   * Richard King wrote the first version of `userlock.el' and
+     `filelock.c', which provide simple support for multiple users
+     editing the same file.  He also wrote the initial version of
+     `uniquify.el', a facility to make buffer names unique by adding
+     parts of the file's name to the buffer name.
+
+   * Peter Kleiweg wrote `ps-mode.el', a major mode for editing
+     PostScript files and running a PostScript interpreter
+     interactively from within Emacs.
+
+   * Larry K. Kolodney wrote `cvtmail.c', a program to convert the mail
+     directories used by Gosling Emacs into RMAIL format.
+
+   * David M. Koppelman wrote `hi-lock.el', a minor mode for
+     interactive automatic highlighting of parts of the buffer text.
+
+   * Robert Krawitz wrote the original `xmenu.c', part of Emacs's pop-up
+     menu support.
+
+   * Sebastian Kremer wrote Emacs 19's `dired-mode', with contributions
+     by Lawrence R. Dodd.  He also wrote `ls-lisp.el', a Lisp emulation
+     of the `ls' command for platforms which don't have `ls' as a
+     standard program.
+
+   * Geoff Kuenning wrote Emacs 19's `ispell.el', based on work by Ken
+     Stevens and others.
+
+   * David Ka*gedal wrote `tempo.el', providing support for easy
+     insertion of boilerplate text and other common constructions.
+
+   * Daniel LaLiberte wrote:
+
+        - `edebug.el', a source-level debugger for Emacs Lisp,
+
+        - `cl-specs.el', specifications to help `edebug' debug code
+          written using David Gillespie's Common Lisp support,
+
+        - `cust-print.el', a customizable package for printing lisp
+          objects,
+
+        - `eval-reg.el', a re-implementation of `eval-region' in Emacs
+          Lisp, and
+
+        - `isearch.el', Emacs's incremental search minor mode.
+
+   * James R. Larus wrote `mh-e.el', an interface to the MH mail system.
+
+   * Vinicius Jose Latorre wrote:
+
+        - `ps-print', a package for pretty-printing Emacs buffers to
+          PostScript printers,
+
+        - `delim-col.el', a package to arrange text into columns,
+
+        - `ebnf2ps.el', a package that translates EBNF grammar to a
+          syntactic chart that can be printed to a PostScript printer.
+
+   * Frederic Lepied contributed `expand.el', which uses the abbrev
+     mechanism for inserting programming constructs.
+
+   * Peter Liljenberg wrote `elint.el', a Lint-style code checker for
+     Emacs Lisp programs.
+
+   * Lars Lindberg wrote `msb.el', which provides more flexible menus
+     for buffer selection, and rewrote `dabbrev.el'.
+
+   * Anders Lindgren wrote `autorevert.el', a package for automatically
+     reverting files visited by Emacs that were changed on disk;
+     `cwarn.el', a package to highlight suspicious C and C++
+     constructs; and `follow.el', a minor mode to synchronize windows
+     that show the same buffer.
+
+   * Dave Love wrote:
+
+        - `autoarg-mode', a global minor mode whereby digit keys supply
+          prefix arguments, and `autoarg-kp-mode' which redefines the
+          keypad numeric keys to digit arguments,
+
+        - `autoconf.el', a mode for editing Autoconf `configure.in'
+          files,
+
+        - `elide-head.el', a package for eliding boilerplate text, such
+          as copyright notices, from file headers,
+
+        - `hl-line.el', a package that provides a minor mode for
+          highlighting the line in the current window on which point is,
+
+        - `latin-8.el' and `latin-9.el', code which sets up
+          case-conversion and syntax tables for the ISO Latin-8 and
+          Latin-9 character sets,
+
+        - `latin1-disp.el', a package that lets you display ISO 8859
+          characters on Latin-1 terminals by setting up appropriate
+          display tables,
+
+        - `refill.el', a mode for automatic paragraph refilling, akin to
+          typical word processors,
+
+        - `smiley-ems.el', a facility for displaying smiley faces, and
+
+        - `tool-bar.el', a mode to control the display of the Emacs
+          tool bar.
+
+   * Eric Ludlam wrote the Speedbar package and `checkdoc.el', a package
+     for checking doc strings in Emacs Lisp programs.
+
+   * Christopher J. Madsen wrote `decipher.el', a package for cracking
+     simple substitution ciphers.
+
+   * Neil M. Mager wrote `appt.el', functions to notify users of their
+     appointments.  It finds appointments recorded in the diary files
+     generated by Edward M. Reingold's `calendar' package.
+
+   * Ken Manheimer wrote `allout.el', a mode for manipulating and
+     formatting outlines, and `icomplete.el', which provides incremental
+     completion feedback in the minibuffer.
+
+   * Bill Mann wrote `perl-mode.el', a mode for editing Perl code.
+
+   * Brian Marick and Daniel LaLiberte wrote `hideif.el', support for
+     hiding selected code within C `#ifdef' clauses.
+
+   * Simon Marshall wrote:
+
+        - `fast-lock.el', which caches the face data computed by Font
+          Lock mode,
+
+        - `lazy-lock.el', which delays fontification in Font Lock mode
+          until text is actually displayed, and
+
+        - `regexp-opt.el', which generates a regular expression from a
+          list of strings.
+
+     Simon also extended `comint.el', originally written by Olin
+     Shivers.
+
+   * Bengt Martensson, Mark Shapiro, Mike Newton, Aaron Larson, and
+     Stefan Schoef, wrote `bibtex.el', a mode for editing BibTeX
+     bibliography files.
+
+   * Charlie Martin wrote `autoinsert.el', which provides automatic
+     mode-sensitive insertion of text into new files.
+
+   * Thomas May wrote `blackbox.el', a version of the traditional
+     blackbox game.
+
+   * Roland McGrath wrote:
+
+        - `compile.el', a package for running compilations in a buffer,
+          and then visiting the locations reported in error messages,
+
+        - `etags.el', a package for jumping to function definitions and
+          searching or replacing in all the files mentioned in a `TAGS'
+          file,
+
+        - `find-dired.el', for using `dired' commands on output from the
+          `find' program, with Sebastian Kremer,
+
+        - `map-ynp.el', a general purpose boolean question-asker,
+
+        - `autoload.el', providing semi-automatic maintenance of
+          autoload files, and
+
+        - `upd-copyr.el', providing semi-automatic maintenance of
+          copyright notices in source code.
+
+   * David Megginson wrote `derived.el', which allows one to define new
+     major modes by inheriting key bindings and commands from existing
+     major modes.
+
+   * Will Mengarini wrote `repeat.el', a command to repeat the preceding
+     command with its arguments.
+
+   * Wayne Mesard wrote `hscroll.el' which does horizontal scrolling
+     automatically.
+
+   * Brad Miller wrote `gnus-gl.el', a Gnus interface for GroupLens.
+
+   * Richard Mlynarik wrote:
+
+        - `cl-indent.el', a package for indenting Common Lisp code,
+
+        - `ebuff-menu.el', an "electric" browser for buffer listings,
+
+        - `ehelp.el', bindings for browsing help screens,
+
+        - `rfc822.el', a parser for E-mail addresses in the RFC-822
+          format, used in mail messages and news articles,
+
+        - `terminal.el', a terminal emulator for Emacs subprocesses, and
+
+        - `yow.el', an essential utility (try `M-x yow').
+
+   * Gerd Moellmann wrote:
+
+        - the new display engine for Emacs 21,
+
+        - the asynchronous timers facility (`atimer.c'),
+
+        - the `ebrowse' C++ browser,
+
+        - `jit-lock.el', the Just-In-Time font-lock support mode,
+
+        - `tooltip.el', a package for displaying tooltips, and
+
+        - `authors.el' package for maintaining the `AUTHORS' files.
+
+     Gerd took over the Emacs maintenance as the head maintainer since
+     the beginning of Emacs 21 development.
+
+   * Stefan Monnier wrote:
+
+        - `PCL-CVS', a directory-level front end to the CVS version
+          control system,
+
+        - `smerge-mode.el', a minor mode for resolving `diff3'
+          conflicts, and
+
+        - `diff-mode.el', a mode for viewing and editing context diffs.
+
+   * Morioka Tomohiko wrote several packages for MIME support in Gnus
+     and elsewhere.
+
+   * Sen Nagata wrote `crm.el', a package for reading multiple strings
+     with completion, and `rfc2368.el', support for `mailto:' URLs.
+
+   * Erik Naggum wrote the time-conversion functions.  He also wrote
+     `disp-table.el', a package for dealing with display tables,
+     `latin-4.el' and `latin-5.el', code which sets up case-conversion
+     and syntax tables for the ISO Latin-4 and Latin-5 character sets,
+     `mailheader.el', a pacakage for parsing email headers, and
+     `parse-time.el', a package for parsing time strings.
+
+   * Thomas Neumann and Eric Raymond wrote `makefile.el' (now
+     `make-mode.el'), a mode for editing makefiles.
+
+   * Thien-Thi Nguyen and Dan Nicolaescu wrote `hideshow.el', a minor
+     mode for selectively displaying blocks of text.
+
+   * Dan Nicolaescu wrote `romanian.el', support for editing Romanian
+     text, and `iris-ansi.el', support for running Emacs on SGI's
+     `xwsh' and `winterm' terminal emulators.
+
+   * Jurgen Nickelsen wrote `ws-mode.el', providing WordStar emulation.
+
+   * Jeff Norden wrote `kermit.el', a package to help the Kermit dialup
+     communications program run comfortably in an Emacs shell buffer.
+
+   * Andrew Norman wrote `ange-ftp.el', providing transparent FTP
+     support.
+
+   * Alexandre Oliva wrote `gnus-mlspl.el', a group params-based mail
+     splitting mechanism.
+
+   * David Pearson contributed `quickurl.el', a simple method of
+     inserting a URL into the current buffer based on text at point;
+     `5x5.el', a game to fill all squares on the field.
+
+   * Jeff Peck wrote:
+
+        - `emacstool.c', support for running Emacs under SunView/Sun
+          Windows,
+
+        - `sun.el', key bindings for sunterm keys,
+
+        - `sun-curs.el', cursor definitions for Sun Windows, and
+
+        - `sun-fns.el' and `sun-mouse.el', providing mouse support for
+          Sun Windows.
+
+   * Damon Anton Permezel wrote `hanoi.el', an animated demonstration of
+     the "Towers of Hanoi" puzzle.
+
+   * William M. Perry wrote `mailcap.el', a MIME media types
+     configuration facility, and `mwheel.el', support for MS
+     Intellimouse type mice with wheels.
+
+   * Per Persson wrote `gnus-vm.el', the VM interface for Gnus.
+
+   * Jens Petersen wrote `find-func.el', which makes it easy to find
+     the source code for an Emacs Lisp function or variable.
+
+   * Daniel Pfeiffer wrote:
+
+        - `copyright.el', a package for updating copyright notices in
+          files,
+
+        - `executable.el', a package for executing interpreter scripts,
+
+        - `sh-script.el', a mode for editing shell scripts,
+
+        - `skeleton.el', implementing a concise language for writing
+          statement skeletons, and
+
+        - `two-column.el', a minor mode for simultaneous two-column
+          editing.
+
+     Daniel also rewrote `apropos.el', originally written by Joe Wells,
+     and, together with Jim Blandy, co-authored `wyse50.el', support for
+     Wyse 50 terminals.
+
+   * Richard L. Pieri wrote `pop3.el', a Post Office Protocol (RFC
+     1460) interface for Emacs.
+
+   * Fred Pierresteguy and Paul Reilly made Emacs work with X Toolkit
+     widgets.
+
+   * Christian Plaunt wrote `soundex.el', an implementation of the
+     Soundex algorithm for comparing English words by their
+     pronunciation.
+
+   * David Ponce wrote `recentf.el', a package that puts a menu of
+     recently visited files in the Emacs menu bar.
+
+   * Francesco A. Potorti wrote `cmacexp.el', providing a command which
+     runs the C preprocessor on a region of a file and displays the
+     results.  He also expanded and redesigned the `etags' program.
+
+   * Michael D. Prange and Steven A. Wood wrote `fortran.el', a mode for
+     editing FORTRAN code.
+
+   * Mukesh Prasad contributed `vmsproc.el', a facility for running
+     asynchronous subprocesses on VMS.
+
+   * Marko Rahamaa wrote `latin-3.el', code which sets up
+     case-conversion and syntax tables for the ISO Latin-3 charact set.
+
+   * Ashwin Ram wrote `refer.el', commands to look up references in
+     bibliography files by keyword.
+
+   * Eric S. Raymond wrote:
+
+        - `vc.el', an interface to the RCS and SCCS source code version
+          control systems, with Paul Eggert,
+
+        - `gud.el', a package for running source-level debuggers like
+          GDB and SDB in Emacs,
+
+        - `asm-mode.el', a mode for editing assembly language code,
+
+        - `AT386.el', terminal support package for IBM's AT keyboards,
+
+        - `cookie1.el', support for "fortune-cookie" programs like
+          `yow.el' and `spook.el',
+
+        - `finder.el', a package for finding Emacs Lisp packages by
+          keyword and topic,
+
+        - `keyswap.el', code to swap the <BS> and <DEL> keys,
+
+        - `loadhist.el', functions for loading and unloading Emacs
+          features,
+
+        - `lisp-mnt.el', functions for working with the special headers
+          used in Emacs Lisp library files, and
+
+        - code to set and make use of the `load-history' lisp variable,
+          which records the source file from which each lisp function
+          loaded into Emacs came.
+
+   * Edward M. Reingold wrote the extensive calendar and diary support
+     (try `M-x calendar'), with contributions from Stewart Clamen,
+     Nachum Dershowitz, Paul Eggert, Steve Fisk, Michael Kifer, and
+     Lara Rios.  Andy Oram contributed to its documentation.  Reingold
+     has also contributed to `tex-mode.el', a mode for editing TeX
+     files, as have William F. Schelter, Dick King, Stephen Gildea,
+     Michael Prange, and Jacob Gore.
+
+   * Alex Rezinsky contributed `which-func.el', a mode that shows the
+     name of the current function in the mode line.
+
+   * Rob Riepel contributed `tpu-edt.el' and its associated files,
+     providing an emulation of the VMS TPU text editor emulating the
+     VMS EDT editor, and `vt-control.el', providing some control
+     functions for the DEC VT line of terminals.
+
+   * Roland B. Roberts contributed much of the VMS support distributed
+     with Emacs 19, along with Joseph M. Kelsey, and `vms-pmail.el',
+     support for using Emacs within VMS MAIL.
+
+   * John Robinson wrote `bg-mouse.el', support for the mouse on the BBN
+     Bitgraph terminal.
+
+   * Danny Roozendaal implemented `handwrite.el', which converts text
+     into "handwriting."
+
+   * William Rosenblatt wrote `float.el', implementing a floating-point
+     numeric type using Lisp cons cells and integers.
+
+   * Guillermo J. Rozas wrote `scheme.el', a mode for editing Scheme and
+     DSSSL code, and `fakemail.c', an interface to the System V mailer.
+
+   * Ivar Rummelhoff provided `winner.el', which records recent window
+     configurations so you can move back to them.
+
+   * Jason Rumney has ported the Emacs 21 display engine to MS-Windows,
+     and contributed extensively to the MS-Windows port of Emacs.
+
+   * Wolfgang Rupprecht contributed Emacs 19's floating-point support
+     (including `float-sup.el' and `floatfns.c'), and `sup-mouse.el',
+     support for the Supdup mouse on lisp machines.
+
+   * James B. Salem and Brewster Kahle wrote `completion.el', providing
+     dynamic word completion.
+
+   * Masahiko Sato wrote `vip.el', an emulation of the VI editor.
+
+   * Holger Schauer wrote `fortune.el', a package for using fortune in
+     message signatures.
+
+   * William Schelter wrote `telnet.el', support for `telnet' sessions
+     within Emacs.
+
+   * Ralph Schleicher contributed `battery.el', a package for displaying
+     laptop computer battery status, and `info-look.el', a package for
+     looking up Info documentation for symbols in the buffer.
+
+   * Michael Schmidt and Tom Perrine wrote `modula2.el', a mode for
+     editing Modula-2 code, based on work by Mick Jordan and Peter
+     Robinson.
+
+   * Ronald S. Schnell wrote `dunnet.el', a text adventure game.
+
+   * Philippe Schnoebelen wrote `gomoku.el', a Go Moku game played
+     against Emacs, and `mpuz.el', a multiplication puzzle.
+
+   * Jan Schormann wrote `solitaire.el', an Emacs Lisp implementation of
+     the Solitaire game.
+
+   * Alex Schroeder wrote `ansi-color.el', a package for translating
+     ANSI color escape sequences to Emacs faces, and `sql.el', a package
+     for interactively running an SQL interpreter in an Emacs buffer.
+
+   * Randal Schwartz wrote `pp.el', a pretty-printer for lisp objects.
+
+   * Oliver Seidel wrote `todo-mode.el', a package for maintaining
+     `TODO' list files.
+
+   * Manuel Serrano contributed the Flyspell package that does spell
+     checking as you type.
+
+   * Hovav Shacham wrote `windmove.el', a set of commands for selecting
+     windows based on their geometrical position on the frame.
+
+   * Stanislav Shalunov wrote `uce.el', for responding to unsolicited
+     commercial email.
+
+   * Richard Sharman contributed `hilit-chg.el', which uses colors to
+     show recent editing changes.
+
+   * Olin Shivers wrote:
+
+        - `comint.el', a library for modes running interactive
+          command-line- oriented subprocesses,
+
+        - `cmuscheme.el', for running inferior Scheme processes,
+
+        - `inf-lisp.el', for running inferior Lisp process, and
+
+        - `shell.el', for running inferior shells.
+
+   * Espen Skoglund wrote `pascal.el', a mode for editing Pascal code.
+
+   * Rick Sladkey wrote `backquote.el', a lisp macro for creating
+     mostly-constant data.
+
+   * Lynn Slater wrote `help-macro.el', a macro for writing interactive
+     help for key bindings.
+
+   * Chris Smith wrote `icon.el', a mode for editing Icon code.
+
+   * David Smith wrote `ielm.el', a mode for interacting with the Emacs
+     Lisp interpreter as a subprocess.
+
+   * Paul D. Smith wrote `snmp-mode.el'.
+
+   * William Sommerfeld wrote `scribe.el', a mode for editing Scribe
+     files, and `server.el', a package allowing programs to send files
+     to an extant Emacs job to be edited.
+
+   * Andre Spiegel made many contributions to the Emacs Version Control
+     package, and in particular made it support multiple back ends.
+
+   * Michael Staats wrote `pc-select.el', which rebinds keys for
+     selecting regions to follow many other systems.
+
+   * Richard Stallman invented Emacs, and then wrote:
+
+        - `easymeny.el', a facility for defining Emacs menus,
+
+        - `menu-bar.el', the Emacs menu bar support code,
+
+        - `paren.el', a package to make matching parentheses stand out
+          in color, and
+
+        - most of the rest of Emacs code.
+
+   * Sam Steingold wrote `gulp.el', a facility for asking package
+     maintainers for updated versions of their packages via e-mail, and
+     `midnight.el', a package for running a command every midnight.
+
+   * Ake Stenhoff and Lars Lindberg wrote `imenu.el', a framework for
+     browsing indices made from buffer contents.
+
+   * Peter Stephenson contributed `vcursor.el', which implements a
+     "virtual cursor" that you can move with the keyboard and use for
+     copying text.
+
+   * Ken Stevens wrote the initial version of `ispell.el' and maintains
+     that package since Ispell 3.1 release.
+
+   * Jonathan Stigelman wrote `hilit19.el', a package providing
+     automatic highlighting in source code buffers, mail readers, and
+     other contexts.
+
+   * Martin Stjernholm co-authored CC Mode, a major editing mode for C,
+     C++, Objective-C, and Java code.
+
+   * Steve Strassman did not write `spook.el', and even if he did, he
+     really didn't mean for you to use it in an anarchistic way.
+
+   * Olaf Sylvester wrote `bs.el', a package for manipulating Emacs
+     buffers.
+
+   * Tibor S<imko and Milan Zamzal wrote `slovak.el', support for
+     editing text in Slovak language.
+
+   * Naoto Takahashi wrote `utf-8.el', support for encoding and
+     decoding UTF-8 data.
+
+   * Taichi Kawabata wrote support for Devanagari script and the Indian
+     languages.
+
+   * Jens T. Berger Thielemann wrote `word-help.el', which is part of
+     the basis for `info-look.el'.
+
+   * Spencer Thomas wrote the original `dabbrev.el', providing a command
+     which completes the partial word before point, based on other
+     nearby words for which it is a prefix.  He also wrote the original
+     dumping support.
+
+   * Jim Thompson wrote `ps-print.el', which converts Emacs text to
+     Postscript.
+
+   * Tom Tromey and Chris Lindblad wrote `tcl.el', a major mode for
+     editing Tcl/Tk source files and running a Tcl interpeter as an
+     Emacs subprocess.
+
+   * Daiki Ueno wrote `starttls.el', support for Transport Layer
+     Security protocol.
+
+   * Masanobu Umeda wrote:
+
+        - GNUS, a feature-full reader for Usenet news,
+
+        - `prolog.el', a mode for editing Prolog code,
+
+        - `rmailsort.el', a package for sorting messages in RMAIL
+          folders,
+
+        - `metamail.el', an interface to the Metamail program,
+
+        - `gnus-kill.el', the Kill File mode for Gnus,
+
+        - `gnus-mh.el', an mh-e interface for Gnus,
+
+        - `gnus-msg.el', a mail and post interface for Gnus,
+
+        - `tcp.el', emulation of the `open-network-stream' function for
+          some Emacs configurations which lack it, and
+
+        - `timezone.el', providing functions for dealing with time
+          zones.
+
+   * Rajesh Vaidheeswarran wrote `whitespace.el', a package that
+     detects and cleans up excess whitespace in a file.
+
+   * Neil W. Van Dyke wrote `webjump.el', a "hot links" package.
+
+   * Didier Verna contributed `rect.el', a package of functions for
+     operations on rectangle regions of text.
+
+   * Ulrik Vieth implemented `meta-mode.el', for editing MetaFont code.
+
+   * Geoffrey Voelker wrote the Windows NT support.  He also wrote
+     `dos-w32.el', functions shared by the MS-DOS and MS-Windows ports
+     of Emacs, and `w32-fns.el', MS-Windows specific support functions.
+
+   * Johan Vromans wrote `forms.el' and its associated files, defining a
+     mode for filling in forms, and `iso-acc.el', a minor mode providing
+     electric accent keys for text using the ISO-8859 character set.
+
+   * Barry Warsaw wrote:
+
+        - `assoc.el', a set of utility functions for working with
+          association lists,
+
+        - `cc-mode.el', a major mode for editing C, C++, and Java code,
+          based on earlier work by Dave Detlefs, Stewart Clamen, and
+          Richard Stallman,
+
+        - `elp.el', a new profiler for Emacs Lisp programs.
+
+        - `man.el', a mode for reading UNIX manual pages,
+
+        - `regi.el', providing an AWK-like functionality for use in lisp
+          programs,
+
+        - `reporter.el', providing customizable bug reporting for lisp
+          packages, and
+
+        - `supercite.el', a minor mode for quoting sections of mail
+          messages and news articles.
+
+   * Morten Welinder introduced face support into the MS-DOS port of
+     Emacs, and also wrote:
+
+        - `desktop.el', facilities for saving some of Emacs's state
+          between sessions,
+
+        - `timer.el', the Emacs facility to run commands at a given
+          time or frequency, or when Emacs is idle, and its C-level
+          support code,
+
+        - `pc-win.el', the MS-DOS "window-system" support,
+
+        - `internal.el', an "internal terminal" emulator for the MS-DOS
+          port of Emacs,
+
+        - `arc-mode.el', the mode for editing compressed archives,
+
+        - `s-region.el', commands for setting the region using the
+          shift key and motion commands, and
+
+        - `dos-fns.el', functions for use under MS-DOS.
+
+     He also helped port Emacs to MS-DOS.
+
+   * Joseph Brian Wells wrote:
+
+        - `apropos.el', a command to find commands, functions, and
+          variables whose names contain matches for a regular
+          expression,
+
+        - `resume.el', support for processing command-line arguments
+          after resuming a suspended Emacs job, and
+
+        - `mail-extr.el', a package for extracting names and addresses
+          from mail headers, with contributions from Jamie Zawinski.
+
+   * Rodney Whitby and Reto Zimmermann wrote `vhdl-mode.el', a major
+     mode for editing VHDL source code.
+
+   * John Wiegley wrote `align.el', a set of commands for aligning text
+     according to regular-expression based rules; `timeclock.el', a
+     package for keeping track of time spent on projects;
+     `pcomplete.el', a programmable completion facility; and `eshell',
+     a command shell implemented entirely in Emacs Lisp.
+
+   * Ed Wilkinson wrote `b2m.c', a program to convert mail files from
+     RMAIL format to Unix `mbox' format.
+
+   * Mike Williams wrote `mouse-sel.el', providing enhanced mouse
+     selection, and `thingatpt.el', a library of functions for finding
+     the "thing" (word, line, s-expression) containing point.
+
+   * Bill Wohler wrote the Emacs interface to the MH mail system.
+
+   * Dale R. Worley wrote `emerge.el', a package for interactively
+     merging two versions of a file.
+
+   * Francis J. Wright wrote `WoMan', a package for browsing manual
+     pages without the `man' command.
+
+   * Tom Wurgler wrote `emacs-lock.el', which makes it harder to exit
+     with valuable buffers unsaved.
+
+   * Ilya Zakharevich and Bob Olson contributed `cperl-mode.el', a major
+     mode for editing Perl code.  Ilya Zakharevich also wrote `tmm.el',
+     a mode for accessing the Emacs menu bar on a text-mode terminal.
+
+   * Milan Zamzal wrote `czech.el', support for editing Czech text,
+     `glasses.el', a package for easier reading of source code which
+     uses illegible identifier names such as `cantReadThisVariable', and
+     `tildify.el', commands for adding hard spaces to text, TeX, and
+     SGML/HTML files.
+
+   * Victor Zandy contributed `zone.el', a package for people who like
+     to zone out in front of Emacs.
+
+   * Eli Zaretskii made many standard Emacs features work on MS-DOS.
+     He also wrote `tty-colors.el', which implements transparent
+     mapping of X colors to tty colors, and (together with Kenichi
+     Handa) `codepage.el', a package for editing text encoded in
+     DOS/Windows code pages.
+
+   * Jamie Zawinski wrote:
+
+        - Emacs 19's optimizing byte compiler, with Hallvard Furuseth,
+
+        - much of the support for faces and X selections,
+
+        - `mailabbrev.el', a package providing automatic expansion of
+          mail aliases, and
+
+        - `tar-mode.el', providing simple viewing and editing commands
+          for tar files.
+
+   * Shenghuo Zhu wrote:
+
+        - `binhex.el', a package for reading and writing binhex files,
+
+        - `mm-partial.el', message/partial support for MIME messages,
+
+        - `rfc1843.el', an HZ decoding package,
+
+        - `uudecode.el', an Emacs Lisp decoder for uuencoded data,
+
+        - `webmail.el', an interface to Web mail.
+
+   * Ian T. Zimmerman wrote `gametree.el'.
+
+   * Neal Ziring and Felix S. T. Wu wrote `vi.el', an emulation of the
+     VI text editor.
+
+   * Detlev Zundel wrote `re-builder.el', a package for building regexps
+     with visual feedback.
+
+
+   Others too numerous to mention have reported and fixed bugs, and
+added features to many parts of Emacs.  (Many are mentioned in the
+`ChangeLog' files which are summarized in the file `AUTHORS' in the
+distribution.)  We thank them for their generosity as well.
+
+   This list intended to mention every contributor of a major package or
+feature we currently distribute; if you know of someone we have omitted,
+please report that as a manual bug.
 

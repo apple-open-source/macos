@@ -29,8 +29,9 @@ extern char *strstr();	/* needed on sysV68 R3V7.1. */
 #define IMAP4		0	/* IMAP4 rev 0, RFC1730 */
 #define IMAP4rev1	1	/* IMAP4 rev 1, RFC2060 */
 
-static int count, unseen, deletions, imap_version, preauth; 
-static int expunged, expunge_period, saved_timeout;
+static int count = 0, recentcount = 0, unseen = 0, deletions = 0;
+static int expunged, expunge_period, saved_timeout = 0;
+static int imap_version, preauth;
 static flag do_idle;
 static char capabilities[MSGBUFSIZE+1];
 static unsigned int *unseen_messages;
@@ -75,6 +76,10 @@ static int imap_ok(int sock, char *argbuf)
 		mytimeout = saved_timeout;
 		stage = STAGE_FETCH;
 	    }
+	}
+	else if (strstr(buf, "RECENT"))
+	{
+	    recentcount = atoi(buf+2);
 	}
 	else if (strstr(buf, "PREAUTH"))
 	    preauth = TRUE;
@@ -181,7 +186,7 @@ static int do_imap_ntlm(int sock, struct query *ctl)
     if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
 	return result;
   
-    len = from64tobits ((unsigned char*)&challenge, msgbuf);
+    len = from64tobits ((unsigned char*)&challenge, msgbuf, sizeof(msgbuf));
     
     if (outlevel >= O_DEBUG)
 	dumpSmbNtlmAuthChallenge(stdout, &challenge);
@@ -236,27 +241,32 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     capabilities[0] = '\0';
     if ((ok = gen_transact(sock, "CAPABILITY")) == PS_SUCCESS)
     {
+	char	*cp;
+
+	/* capability checks are supposed to be caseblind */
+	for (cp = capabilities; *cp; cp++)
+	    *cp = toupper(*cp);
+
 	/* UW-IMAP server 10.173 notifies in all caps, but RFC2060 says we
 	   should expect a response in mixed-case */
-	if (strstr(capabilities, "IMAP4REV1") ||
-	    strstr(capabilities, "IMAP4rev1"))
+	if (strstr(capabilities, "IMAP4REV1"))
 	{
 	    imap_version = IMAP4rev1;
 	    if (outlevel >= O_DEBUG)
-		report(stdout, _("Protocol identified as IMAP4 rev 1\n"));
+		report(stdout, GT_("Protocol identified as IMAP4 rev 1\n"));
 	}
 	else
 	{
 	    imap_version = IMAP4;
 	    if (outlevel >= O_DEBUG)
-		report(stdout, _("Protocol identified as IMAP4 rev 0\n"));
+		report(stdout, GT_("Protocol identified as IMAP4 rev 0\n"));
 	}
     }
     else if (ok == PS_ERROR)
     {
 	imap_version = IMAP2;
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("Protocol identified as IMAP2 or IMAP2BIS\n"));
+	    report(stdout, GT_("Protocol identified as IMAP2 or IMAP2BIS\n"));
     }
     else
 	return(ok);
@@ -280,7 +290,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     {
 	do_idle = TRUE;
 	if (outlevel >= O_VERBOSE)
-	    report(stdout, _("will idle after poll\n"));
+	    report(stdout, GT_("will idle after poll\n"));
     }
 
     /* 
@@ -366,10 +376,10 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	else
 	    return ok;
 #else
-    if (ctl->server.authenticate == A_NTLM)
+    if (ctl->server.authenticate == A_OTP)
     {
 	report(stderr, 
-	   _("Required OTP capability not compiled into fetchmail\n"));
+	   GT_("Required OTP capability not compiled into fetchmail\n"));
     }
 #endif /* OPIE_ENABLE */
 
@@ -391,7 +401,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     if (ctl->server.authenticate == A_NTLM)
     {
 	report(stderr, 
-	   _("Required NTLM capability not compiled into fetchmail\n"));
+	   GT_("Required NTLM capability not compiled into fetchmail\n"));
     }
 #endif /* NTLM_ENABLE */
 
@@ -400,7 +410,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     if ((imap_version >= IMAP4rev1) && (!strstr(capabilities, "LOGIN")))
     {
 	report(stderr, 
-	       _("Required LOGIN capability not supported by server\n"));
+	       GT_("Required LOGIN capability not supported by server\n"));
     }
 #endif /* __UNUSED__ */
 
@@ -481,42 +491,82 @@ static int imap_getrange(int sock,
 	 * just after deletion.
 	 */
 	ok = 0;
-	if (deletions && expunge_period != 1)
+	if (deletions) {
 	    ok = internal_expunge(sock);
-	count = -1;
-	if (do_idle)
+	    if (ok)
+	    {
+		report(stderr, GT_("expunge failed\n"));
+		return(ok);
+	    }
+	}
+
+	/*
+	 * recentcount is already set here by the last imap command which
+	 * returned RECENT on detecting new mail. if recentcount is 0, wait
+	 * for new mail.
+	 */
+
+	/* this is a while loop because imap_idle() might return on other
+	 * mailbox changes also */
+	while (recentcount == 0 && do_idle) {
+	    smtp_close(ctl, 1);
 	    ok = imap_idle(sock);
-	if (ok || gen_transact(sock, "NOOP"))
-	{
-	    report(stderr, _("re-poll failed\n"));
-	    return(ok);
+	    if (ok)
+	    {
+		report(stderr, GT_("re-poll failed\n"));
+		return(ok);
+	    }
 	}
-	else if (count == -1)	/* no EXISTS response to NOOP/IDLE */
-	{
-	    count = 0;
-	}
+	/* if recentcount is 0, return no mail */
+	if (recentcount == 0)
+		count = 0;
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("%d messages waiting after re-poll\n"), count);
+	    report(stdout, GT_("%d messages waiting after re-poll\n"), count);
     }
     else
     {
+	count = 0;
 	ok = gen_transact(sock, 
 			  check_only ? "EXAMINE \"%s\"" : "SELECT \"%s\"",
 			  folder ? folder : "INBOX");
 	if (ok != 0)
 	{
-	    report(stderr, _("mailbox selection failed\n"));
+	    report(stderr, GT_("mailbox selection failed\n"));
 	    return(ok);
 	}
 	else if (outlevel >= O_DEBUG)
-	    report(stdout, _("%d messages waiting after first poll\n"), count);
+	    report(stdout, GT_("%d messages waiting after first poll\n"), count);
 
 	/* no messages?  then we may need to idle until we get some */
-	if (count == 0 && do_idle)
-	    imap_idle(sock);
+	while (count == 0 && do_idle) {
+	    ok = imap_idle(sock);
+	    if (ok)
+	    {
+		report(stderr, GT_("re-poll failed\n"));
+		return(ok);
+	    }
+	}
+
+	/*
+	 * We should have an expunge here to
+	 * a) avoid fetching deleted mails during 'fetchall'
+	 * b) getting a wrong count of mails during 'no fetchall'
+	 */
+	if (!check_only && !ctl->keep && count > 0)
+	{
+	    ok = internal_expunge(sock);
+	    if (ok)
+	    {
+		report(stderr, GT_("expunge failed\n"));
+		return(ok);
+	    }
+	    if (outlevel >= O_DEBUG)
+		report(stdout, GT_("%d messages waiting after expunge\n"), count);
+	}
     }
 
     *countp = count;
+    recentcount = 0;
 
     /* OK, now get a count of unseen messages and their indices */
     if (!ctl->fetchall && count > 0)
@@ -532,7 +582,7 @@ static int imap_getrange(int sock,
 	    ok = gen_recv(sock, buf, sizeof(buf));
 	    if (ok != 0)
 	    {
-		report(stderr, _("search for unseen messages failed\n"));
+		report(stderr, GT_("search for unseen messages failed\n"));
 		return(PS_PROTOCOL);
 	    }
 	    else if ((cp = strstr(buf, "* SEARCH")))
@@ -556,7 +606,7 @@ static int imap_getrange(int sock,
 
 			if (outlevel >= O_DEBUG)
 			    report(stdout, 
-				   _("%u is unseen\n"), 
+				   GT_("%u is unseen\n"), 
 				   unseen_messages[unseen]);
 		
 			unseen++;
@@ -570,7 +620,9 @@ static int imap_getrange(int sock,
 	unseen = -1;
 
     *newp = unseen;
+    count = 0;
     expunged = 0;
+    deletions = 0;
 
     return(PS_SUCCESS);
 }
@@ -615,7 +667,7 @@ static int imap_getsizes(int sock, int count, int *sizes)
      * known-bad size value.
      */
     if (count == 1)
-	gen_send(sock, "FETCH 1 RFC822.SIZE", count);
+	gen_send(sock, "FETCH 1 RFC822.SIZE");
     else
 	gen_send(sock, "FETCH 1:%d RFC822.SIZE", count);
     for (;;)
@@ -630,8 +682,8 @@ static int imap_getsizes(int sock, int count, int *sizes)
 	else if (sscanf(buf, "* %u FETCH (RFC822.SIZE %u)", &num, &size) == 2) {
 	    if (num > 0 && num <= count)
 	        sizes[num - 1] = size;
-	    /* else, strict: protocol error, flexible: nothing
-	     * I vote for flexible. */
+	    else
+		report(stderr, "Warning: ignoring bogus data for message sizes returned by the server.\n");
 	}
     }
 

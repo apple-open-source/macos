@@ -1,0 +1,45 @@
+#! /bin/sh
+
+# Regression test for conditionally defined overriding of automatic rules.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_CONDITIONAL(COND1, true)
+AM_CONDITIONAL(COND2, true)
+END
+
+cat > Makefile.am << 'END'
+
+if COND1
+if COND2
+bin_SCRIPTS = helldl
+helldl$(EXEEXT):
+	rm -f $@
+	echo '#! /bin/sh' > $@
+	echo '-dlopen is unsupported' >> $@
+	chmod +x $@
+endif
+else
+if COND2
+else
+bin_SCRIPTS = helldl
+helldl$(EXEEXT):
+	rm -f $@
+	echo '#! /bin/sh' > $@
+	echo '-dlopen is unsupported' >> $@
+	chmod +x $@
+endif
+endif
+
+bin_PROGRAMS = helldl
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+num1=`grep 'helldl$(EXEEXT):' Makefile.in | wc -l`
+num2=`grep '@COND1_FALSE@@COND2_TRUE@helldl$(EXEEXT):' Makefile.in | wc -l`
+test $num1 -eq 4 || exit 1
+test $num2 -eq 1 || exit 1

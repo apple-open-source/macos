@@ -30,8 +30,12 @@
 */
 
 
-#include <MacTypes.i>
-#include <Components.i>
+%if FRAMEWORKS	
+	#include <CoreServices.i>
+%else
+    #include <MacTypes.i>
+    #include <Components.i>
+%endif
 
 
 typedef extern UInt32	(*DCResponseHandler) (
@@ -50,7 +54,7 @@ struct DVCTransactionParams {
 
 %TellEmitter "components" "prefix DeviceControl";
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=fw_DVComponentGlue_X>
 ComponentResult DeviceControlDoAVCTransaction(ComponentInstance instance, DVCTransactionParams* params) = ComponentCall(1);
 
 

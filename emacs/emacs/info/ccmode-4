@@ -1,0 +1,586 @@
+This is ../info/ccmode, produced by makeinfo version 4.0 from
+cc-mode.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* CC Mode: (ccmode).   Emacs mode for editing C, C++, Objective-C,
+                          Java, Pike, and IDL code.
+END-INFO-DIR-ENTRY
+
+   Copyright (C) 1995, 96, 97, 98, 99, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License" in the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: ccmode,  Node: Sample .emacs File,  Next: Concept Index,  Prev: Mailing Lists and Submitting Bug Reports,  Up: Top
+
+Sample .emacs file
+******************
+
+     ;; Here's a sample .emacs file that might help you along the way.  Just
+     ;; copy this region and paste it into your .emacs file.  You may want to
+     ;; change some of the actual values.
+     
+     (defconst my-c-style
+       '((c-tab-always-indent        . t)
+         (c-comment-only-line-offset . 4)
+         (c-hanging-braces-alist     . ((substatement-open after)
+                                        (brace-list-open)))
+         (c-hanging-colons-alist     . ((member-init-intro before)
+                                        (inher-intro)
+                                        (case-label after)
+                                        (label after)
+                                        (access-label after)))
+         (c-cleanup-list             . (scope-operator
+                                        empty-defun-braces
+                                        defun-close-semi))
+         (c-offsets-alist            . ((arglist-close . c-lineup-arglist)
+                                        (substatement-open . 0)
+                                        (case-label        . 4)
+                                        (block-open        . 0)
+                                        (knr-argdecl-intro . -)))
+         (c-echo-syntactic-information-p . t)
+         )
+       "My C Programming Style")
+     
+     ;; offset customizations not in my-c-style
+     (setq c-offsets-alist '((member-init-intro . ++)))
+     
+     ;; Customizations for all modes in CC Mode.
+     (defun my-c-mode-common-hook ()
+       ;; add my personal style and set it for the current buffer
+       (c-add-style "PERSONAL" my-c-style t)
+       ;; other customizations
+       (setq tab-width 8
+             ;; this will make sure spaces are used instead of tabs
+             indent-tabs-mode nil)
+       ;; we like auto-newline and hungry-delete
+       (c-toggle-auto-hungry-state 1)
+       ;; key bindings for all supported languages.  We can put these in
+       ;; c-mode-base-map because c-mode-map, c++-mode-map, objc-mode-map,
+       ;; java-mode-map, idl-mode-map, and pike-mode-map inherit from it.
+       (define-key c-mode-base-map "\C-m" 'c-context-line-break)
+       )
+     
+     (add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
+
+
+File: ccmode,  Node: Concept Index,  Next: Command Index,  Prev: Sample .emacs File,  Up: Top
+
+Concept Index
+*************
+
+* Menu:
+
+* -block-intro syntactic symbols:        Syntactic Symbols.
+* -close syntactic symbols:              Syntactic Symbols.
+* -cont syntactic symbols:               Syntactic Symbols.
+* -intro syntactic symbols:              Syntactic Symbols.
+* -open syntactic symbols:               Syntactic Symbols.
+* access-label syntactic symbol:         Syntactic Symbols.
+* adaptive fill mode:                    Text Filling and Line Breaking.
+* adding styles:                         Adding Styles.
+* announcement mailing list:             Mailing Lists and Submitting Bug Reports.
+* arglist-close syntactic symbol:        Syntactic Symbols.
+* arglist-cont syntactic symbol:         Syntactic Symbols.
+* arglist-cont-nonempty syntactic symbol: Syntactic Symbols.
+* arglist-intro syntactic symbol:        Syntactic Symbols.
+* auto fill mode:                        Text Filling and Line Breaking.
+* auto-newline insertion:                Auto-newline Insertion.
+* block-close syntactic symbol <1>:      Hanging Braces.
+* block-close syntactic symbol:          Syntactic Symbols.
+* block-open syntactic symbol <1>:       Syntactic Symbols.
+* block-open syntactic symbol:           Hanging Braces.
+* BOCM:                                  Introduction.
+* brace lists:                           Syntactic Symbols.
+* brace-entry-open syntactic symbol <1>: Hanging Braces.
+* brace-entry-open syntactic symbol:     Syntactic Symbols.
+* brace-list-close syntactic symbol <1>: Hanging Braces.
+* brace-list-close syntactic symbol:     Syntactic Symbols.
+* brace-list-entry syntactic symbol:     Syntactic Symbols.
+* brace-list-intro syntactic symbol <1>: Syntactic Symbols.
+* brace-list-intro syntactic symbol:     Hanging Braces.
+* brace-list-open syntactic symbol <1>:  Hanging Braces.
+* brace-list-open syntactic symbol:      Syntactic Symbols.
+* BSD style:                             Built-in Styles.
+* bug report mailing list:               Mailing Lists and Submitting Bug Reports.
+* bugs:                                  Limitations and Known Bugs.
+* built-in styles:                       Built-in Styles.
+* c syntactic symbol:                    Syntactic Symbols.
+* case-label syntactic symbol:           Syntactic Symbols.
+* catch-clause syntactic symbol:         Syntactic Symbols.
+* cc-compat.el file:                     Introduction.
+* cc-lobotomy.el file:                   Performance Issues.
+* cc-mode-18.el file:                    Getting Connected.
+* class-close syntactic symbol <1>:      Syntactic Symbols.
+* class-close syntactic symbol:          Hanging Braces.
+* class-open syntactic symbol <1>:       Syntactic Symbols.
+* class-open syntactic symbol:           Hanging Braces.
+* clean-ups:                             Clean-ups.
+* comment line prefix:                   Text Filling and Line Breaking.
+* comment-intro syntactic symbol:        Syntactic Symbols.
+* comment-only line:                     Syntactic Analysis.
+* cpp-macro syntactic symbol:            Syntactic Symbols.
+* cpp-macro-cont syntactic symbol:       Syntactic Symbols.
+* custom indentation functions:          Custom Indentation Functions.
+* customizing brace hanging:             Custom Brace and Colon Hanging.
+* customizing colon hanging:             Custom Brace and Colon Hanging.
+* customizing indentation:               Customizing Indentation.
+* customizing semi-colons and commas:    Customizing Semi-colons and Commas.
+* defun-block-intro syntactic symbol:    Syntactic Symbols.
+* defun-close syntactic symbol <1>:      Syntactic Symbols.
+* defun-close syntactic symbol:          Hanging Braces.
+* defun-open syntactic symbol <1>:       Syntactic Symbols.
+* defun-open syntactic symbol:           Hanging Braces.
+* do-while-closure syntactic symbol:     Syntactic Symbols.
+* electric characters:                   Minor Modes.
+* electric commands:                     Auto-newline Insertion.
+* Ellemtel style:                        Built-in Styles.
+* else-clause syntactic symbol:          Syntactic Symbols.
+* extern-lang-close syntactic symbol <1>: Syntactic Symbols.
+* extern-lang-close syntactic symbol:    Hanging Braces.
+* extern-lang-open syntactic symbol <1>: Hanging Braces.
+* extern-lang-open syntactic symbol:     Syntactic Symbols.
+* FAQ:                                   Frequently Asked Questions.
+* file styles:                           File Styles.
+* Filladapt mode:                        Text Filling and Line Breaking.
+* frequently asked questions:            Frequently Asked Questions.
+* friend syntactic symbol:               Syntactic Symbols.
+* func-decl-cont syntactic symbol:       Syntactic Symbols.
+* GNU indent program:                    Indentation Commands.
+* GNU style:                             Built-in Styles.
+* hanging braces:                        Hanging Braces.
+* hanging colons:                        Hanging Colons.
+* hanging commas:                        Hanging Semi-colons and Commas.
+* hanging semi-colons:                   Hanging Semi-colons and Commas.
+* hooks:                                 Hooks.
+* hungry-deletion of whitespace:         Hungry-deletion of Whitespace.
+* in-class inline methods:               Syntactic Symbols.
+* inclass syntactic symbol:              Syntactic Symbols.
+* indentation calculation:               Indentation Calculation.
+* indentation commands:                  Indentation Commands.
+* indentation engine:                    New Indentation Engine.
+* indentation functions <1>:             Indentation Functions.
+* indentation functions:                 Customizing Indentation.
+* inexpr-class syntactic symbol:         Syntactic Symbols.
+* inexpr-class-close symbol:             Hanging Braces.
+* inexpr-class-open symbol:              Hanging Braces.
+* inexpr-statement syntactic symbol:     Syntactic Symbols.
+* inextern-lang syntactic symbol:        Syntactic Symbols.
+* inher-cont syntactic symbol:           Syntactic Symbols.
+* inher-intro syntactic symbol:          Syntactic Symbols.
+* inlambda syntactic symbol:             Syntactic Symbols.
+* inline-close syntactic symbol <1>:     Hanging Braces.
+* inline-close syntactic symbol:         Syntactic Symbols.
+* inline-open syntactic symbol <1>:      Hanging Braces.
+* inline-open syntactic symbol:          Syntactic Symbols.
+* innamespace syntactic symbol:          Syntactic Symbols.
+* interactive customization:             Interactive Customization.
+* Java style:                            Built-in Styles.
+* Javadoc markup:                        Text Filling and Line Breaking.
+* K&R style:                             Built-in Styles.
+* knr-argdecl syntactic symbol:          Syntactic Symbols.
+* knr-argdecl-intro syntactic symbol:    Syntactic Symbols.
+* label syntactic symbol:                Syntactic Symbols.
+* lambda-intro-cont syntactic symbol:    Syntactic Symbols.
+* limitations:                           Limitations and Known Bugs.
+* line-up functions:                     Indentation Functions.
+* Linux style:                           Built-in Styles.
+* literal <1>:                           Hungry-deletion of Whitespace.
+* literal <2>:                           Indentation Commands.
+* literal <3>:                           Auto-newline Insertion.
+* literal:                               Clean-ups.
+* local variables:                       File Styles.
+* mailing lists:                         Mailing Lists and Submitting Bug Reports.
+* member-init-cont syntactic symbol:     Syntactic Symbols.
+* member-init-intro syntactic symbol:    Syntactic Symbols.
+* movement commands:                     Movement Commands.
+* multi-line macros:                     Syntactic Symbols.
+* namespace-close syntactic symbol <1>:  Hanging Braces.
+* namespace-close syntactic symbol:      Syntactic Symbols.
+* namespace-open syntactic symbol <1>:   Syntactic Symbols.
+* namespace-open syntactic symbol:       Hanging Braces.
+* objc-method-args-cont syntactic symbol: Syntactic Symbols.
+* objc-method-call-cont syntactic symbol: Syntactic Symbols.
+* objc-method-intro syntactic symbol:    Syntactic Symbols.
+* paragraph fill:                        Text Filling and Line Breaking.
+* performance issues:                    Performance Issues.
+* permanent customization:               Permanent Customization.
+* Pike autodoc markup:                   Text Filling and Line Breaking.
+* Python style:                          Built-in Styles.
+* relative buffer position:              Syntactic Analysis.
+* reporting bugs:                        Mailing Lists and Submitting Bug Reports.
+* statement syntactic symbol:            Syntactic Symbols.
+* statement-case-intro syntactic symbol: Syntactic Symbols.
+* statement-case-open syntactic symbol <1>: Hanging Braces.
+* statement-case-open syntactic symbol:  Syntactic Symbols.
+* statement-cont syntactic symbol:       Syntactic Symbols.
+* stream-op syntactic symbol <1>:        Syntactic Symbols.
+* stream-op syntactic symbol:            Custom Indentation Functions.
+* string syntactic symbol:               Syntactic Symbols.
+* Stroustrup style:                      Built-in Styles.
+* style variables:                       Styles.
+* styles:                                Styles.
+* substatement:                          Syntactic Analysis.
+* substatement block:                    Syntactic Analysis.
+* substatement syntactic symbol:         Syntactic Symbols.
+* substatement-block-intro syntactic symbol: Syntactic Symbols.
+* substatement-open syntactic symbol <1>: Hanging Braces.
+* substatement-open syntactic symbol:    Syntactic Symbols.
+* syntactic analysis:                    Syntactic Analysis.
+* syntactic component:                   Syntactic Analysis.
+* syntactic component list:              Syntactic Analysis.
+* syntactic symbol:                      Syntactic Analysis.
+* syntactic symbols:                     Syntactic Symbols.
+* syntactic whitespace <1>:              Syntactic Symbols.
+* syntactic whitespace:                  Auto-newline Insertion.
+* topmost-intro syntactic symbol:        Syntactic Symbols.
+* topmost-intro-cont syntactic symbol:   Syntactic Symbols.
+* User style:                            Built-in Styles.
+* Whitesmith style:                      Built-in Styles.
+
+
+File: ccmode,  Node: Command Index,  Next: Key Index,  Prev: Concept Index,  Up: Top
+
+Command Index
+*************
+
+   Since most CC Mode commands are prepended with the string `c-', each
+appears under its `c-<THING>' name and its `<THING> (c-)' name.
+
+* Menu:
+
+* add-style (c-):                        Adding Styles.
+* auto-fill-mode:                        Text Filling and Line Breaking.
+* backslash-region (c-):                 Other Commands.
+* backward-conditional (c-):             Movement Commands.
+* backward-delete-char-untabify:         Hungry-deletion of Whitespace.
+* backward-into-nomenclature (c-):       Movement Commands.
+* beginning-of-defun <1>:                Movement Commands.
+* beginning-of-defun:                    Performance Issues.
+* beginning-of-defun (c-):               Movement Commands.
+* beginning-of-statement (c-):           Movement Commands.
+* c++-mode:                              Introduction.
+* c-add-style:                           Adding Styles.
+* c-backslash-region:                    Other Commands.
+* c-backward-conditional:                Movement Commands.
+* c-backward-into-nomenclature:          Movement Commands.
+* c-beginning-of-defun:                  Movement Commands.
+* c-beginning-of-statement:              Movement Commands.
+* c-context-line-break:                  Text Filling and Line Breaking.
+* c-down-conditional:                    Movement Commands.
+* c-down-conditional-with-else:          Movement Commands.
+* c-electric-backspace:                  Hungry-deletion of Whitespace.
+* c-electric-brace:                      Hanging Braces.
+* c-electric-delete:                     Hungry-deletion of Whitespace.
+* c-electric-lt-gt:                      Other Electric Commands.
+* c-electric-paren:                      Other Electric Commands.
+* c-electric-pound:                      Other Electric Commands.
+* c-electric-slash:                      Other Electric Commands.
+* c-electric-star:                       Other Electric Commands.
+* c-end-of-defun:                        Movement Commands.
+* c-end-of-statement:                    Movement Commands.
+* c-fill-paragraph:                      Text Filling and Line Breaking.
+* c-forward-conditional:                 Movement Commands.
+* c-forward-into-nomenclature:           Movement Commands.
+* c-indent-command:                      Indentation Commands.
+* c-indent-defun:                        Indentation Commands.
+* c-indent-exp <1>:                      Limitations and Known Bugs.
+* c-indent-exp:                          Indentation Commands.
+* c-indent-multi-line-block:             Indentation Functions.
+* c-indent-new-comment-line:             Text Filling and Line Breaking.
+* c-indent-one-line-block:               Indentation Functions.
+* c-lineup-arglist:                      Indentation Functions.
+* c-lineup-arglist-close-under-paren:    Indentation Functions.
+* c-lineup-arglist-intro-after-paren:    Indentation Functions.
+* c-lineup-C-comments:                   Indentation Functions.
+* c-lineup-close-paren:                  Indentation Functions.
+* c-lineup-comment:                      Indentation Functions.
+* c-lineup-dont-change:                  Indentation Functions.
+* c-lineup-inexpr-block:                 Indentation Functions.
+* c-lineup-java-inher:                   Indentation Functions.
+* c-lineup-java-throws:                  Indentation Functions.
+* c-lineup-math:                         Indentation Functions.
+* c-lineup-multi-inher:                  Indentation Functions.
+* c-lineup-ObjC-method-args:             Indentation Functions.
+* c-lineup-ObjC-method-args-2:           Indentation Functions.
+* c-lineup-ObjC-method-call:             Indentation Functions.
+* c-lineup-runin-statements:             Indentation Functions.
+* c-lineup-streamop <1>:                 Custom Indentation Functions.
+* c-lineup-streamop:                     Indentation Functions.
+* c-lineup-template-args:                Indentation Functions.
+* c-lineup-whitesmith-in-block:          Indentation Functions.
+* c-mark-function:                       Indentation Commands.
+* c-mode:                                Introduction.
+* c-scope-operator:                      Other Commands.
+* c-semi&comma-inside-parenlist:         Customizing Semi-colons and Commas.
+* c-semi&comma-no-newlines-before-nonblanks: Customizing Semi-colons and Commas.
+* c-semi&comma-no-newlines-for-oneline-inliners: Customizing Semi-colons and Commas.
+* c-set-offset:                          Customizing Indentation.
+* c-set-style:                           Built-in Styles.
+* c-setup-filladapt:                     Text Filling and Line Breaking.
+* c-show-syntactic-information:          Syntactic Analysis.
+* c-snug-do-while:                       Custom Brace and Colon Hanging.
+* c-submit-bug-report:                   Mailing Lists and Submitting Bug Reports.
+* c-toggle-auto-hungry-state:            Minor Modes.
+* c-toggle-auto-state:                   Minor Modes.
+* c-toggle-hungry-state:                 Minor Modes.
+* c-up-conditional:                      Movement Commands.
+* c-up-conditional-with-else:            Movement Commands.
+* c-version:                             Getting Connected.
+* context-line-break (c-):               Text Filling and Line Breaking.
+* defun-prompt-regexp:                   Performance Issues.
+* delete-char:                           Hungry-deletion of Whitespace.
+* down-conditional (c-):                 Movement Commands.
+* down-conditional-with-else (c-):       Movement Commands.
+* electric-backspace (c-):               Hungry-deletion of Whitespace.
+* electric-brace (c-):                   Hanging Braces.
+* electric-delete (c-):                  Hungry-deletion of Whitespace.
+* electric-lt-gt (c-):                   Other Electric Commands.
+* electric-paren (c-):                   Other Electric Commands.
+* electric-pound (c-):                   Other Electric Commands.
+* electric-slash (c-):                   Other Electric Commands.
+* electric-star (c-):                    Other Electric Commands.
+* end-of-defun:                          Movement Commands.
+* end-of-defun (c-):                     Movement Commands.
+* end-of-statement (c-):                 Movement Commands.
+* fill-paragraph (c-):                   Text Filling and Line Breaking.
+* filladapt-mode:                        Text Filling and Line Breaking.
+* forward-conditional (c-):              Movement Commands.
+* forward-into-nomenclature (c-):        Movement Commands.
+* idl-mode:                              Introduction.
+* indent-command (c-):                   Indentation Commands.
+* indent-defun (c-):                     Indentation Commands.
+* indent-exp (c-) <1>:                   Limitations and Known Bugs.
+* indent-exp (c-):                       Indentation Commands.
+* indent-for-comment:                    Other Special Indentations.
+* indent-multi-line-block (c-):          Indentation Functions.
+* indent-new-comment-line (c-):          Text Filling and Line Breaking.
+* indent-one-line-block (c-):            Indentation Functions.
+* indent-region:                         Indentation Commands.
+* java-mode <1>:                         Introduction.
+* java-mode:                             Built-in Styles.
+* lineup-arglist (c-):                   Indentation Functions.
+* lineup-arglist-close-under-paren (c-): Indentation Functions.
+* lineup-arglist-intro-after-paren (c-): Indentation Functions.
+* lineup-C-comments (c-):                Indentation Functions.
+* lineup-close-paren (c-):               Indentation Functions.
+* lineup-comment (c-):                   Indentation Functions.
+* lineup-dont-change (c-):               Indentation Functions.
+* lineup-inexpr-block (c-):              Indentation Functions.
+* lineup-java-inher (c-):                Indentation Functions.
+* lineup-java-throws (c-):               Indentation Functions.
+* lineup-math (c-):                      Indentation Functions.
+* lineup-multi-inher (c-):               Indentation Functions.
+* lineup-ObjC-method-args (c-):          Indentation Functions.
+* lineup-ObjC-method-args-2 (c-):        Indentation Functions.
+* lineup-ObjC-method-call (c-):          Indentation Functions.
+* lineup-runin-statements (c-):          Indentation Functions.
+* lineup-streamop (c-) <1>:              Custom Indentation Functions.
+* lineup-streamop (c-):                  Indentation Functions.
+* lineup-template-args (c-):             Indentation Functions.
+* lineup-whitesmith-in-block (c-):       Indentation Functions.
+* mark-function (c-):                    Indentation Commands.
+* objc-mode:                             Introduction.
+* pike-mode:                             Introduction.
+* scope-operator (c-):                   Other Commands.
+* semi&comma-inside-parenlist (c-):      Customizing Semi-colons and Commas.
+* semi&comma-no-newlines-before-nonblanks (c-): Customizing Semi-colons and Commas.
+* semi&comma-no-newlines-for-oneline-inliners (c-): Customizing Semi-colons and Commas.
+* set-offset (c-):                       Customizing Indentation.
+* set-style (c-):                        Built-in Styles.
+* setup-filladapt (c-):                  Text Filling and Line Breaking.
+* show-syntactic-information (c-):       Syntactic Analysis.
+* snug-do-while (c-):                    Custom Brace and Colon Hanging.
+* submit-bug-report (c-):                Mailing Lists and Submitting Bug Reports.
+* tab-to-tab-stop:                       Indentation Commands.
+* toggle-auto-hungry-state (c-):         Minor Modes.
+* toggle-auto-state (c-):                Minor Modes.
+* toggle-hungry-state (c-):              Minor Modes.
+* up-conditional (c-):                   Movement Commands.
+* up-conditional-with-else (c-):         Movement Commands.
+* version (c-):                          Getting Connected.
+
+
+File: ccmode,  Node: Key Index,  Next: Variable Index,  Prev: Command Index,  Up: Top
+
+Key Index
+*********
+
+* Menu:
+
+* #:                                     Other Electric Commands.
+* (:                                     Other Electric Commands.
+* ):                                     Other Electric Commands.
+* <:                                     Other Electric Commands.
+* >:                                     Other Electric Commands.
+* Backspace:                             Hungry-deletion of Whitespace.
+* C-c .:                                 Built-in Styles.
+* C-c ::                                 Other Commands.
+* C-c C-\:                               Other Commands.
+* C-c C-a:                               Minor Modes.
+* C-c C-b:                               Mailing Lists and Submitting Bug Reports.
+* C-c C-d:                               Minor Modes.
+* C-c C-n:                               Movement Commands.
+* C-c C-o:                               Customizing Indentation.
+* C-c C-p:                               Movement Commands.
+* C-c C-q:                               Indentation Commands.
+* C-c C-s:                               Syntactic Analysis.
+* C-c C-t:                               Minor Modes.
+* C-c C-u:                               Movement Commands.
+* C-j:                                   Frequently Asked Questions.
+* C-M-\:                                 Frequently Asked Questions.
+* C-M-q:                                 Frequently Asked Questions.
+* C-M-u:                                 Frequently Asked Questions.
+* C-M-x:                                 Frequently Asked Questions.
+* C-u:                                   Auto-newline Insertion.
+* C-x h:                                 Frequently Asked Questions.
+* DEL:                                   Hungry-deletion of Whitespace.
+* M-;:                                   Other Special Indentations.
+* M-a:                                   Movement Commands.
+* M-C-\:                                 Indentation Commands.
+* M-C-h:                                 Indentation Commands.
+* M-C-q:                                 Indentation Commands.
+* M-e:                                   Movement Commands.
+* M-j:                                   Text Filling and Line Breaking.
+* M-q:                                   Text Filling and Line Breaking.
+* RET:                                   Frequently Asked Questions.
+* TAB:                                   Indentation Commands.
+
+
+File: ccmode,  Node: Variable Index,  Prev: Key Index,  Up: Top
+
+Variable Index
+**************
+
+   Since most CC Mode variables are prepended with the string `c-',
+each appears under its `c-<THING>' name and its `<THING> (c-)' name.
+
+* Menu:
+
+* adaptive-fill-first-line-regexp:       Text Filling and Line Breaking.
+* adaptive-fill-mode:                    Text Filling and Line Breaking.
+* adaptive-fill-regexp:                  Text Filling and Line Breaking.
+* backslash-column (c-):                 Other Commands.
+* backspace-function (c-):               Hungry-deletion of Whitespace.
+* basic-offset (c-):                     Customizing Indentation.
+* block-comment-prefix (c-):             Text Filling and Line Breaking.
+* c++-mode-hook:                         Hooks.
+* c-backslash-column:                    Other Commands.
+* c-backspace-function:                  Hungry-deletion of Whitespace.
+* c-basic-offset:                        Customizing Indentation.
+* c-block-comment-prefix:                Text Filling and Line Breaking.
+* c-cleanup-list:                        Clean-ups.
+* c-comment-continuation-stars:          Text Filling and Line Breaking.
+* c-comment-only-line-offset:            Indentation Functions.
+* c-comment-prefix-regexp:               Text Filling and Line Breaking.
+* c-default-style:                       Built-in Styles.
+* c-delete-function:                     Hungry-deletion of Whitespace.
+* c-echo-syntactic-information-p:        Indentation Calculation.
+* c-electric-pound-behavior:             Other Electric Commands.
+* c-enable-xemacs-performance-kludge-p:  Performance Issues.
+* c-file-offsets:                        File Styles.
+* c-file-style:                          File Styles.
+* c-hanging-braces-alist <1>:            Hanging Braces.
+* c-hanging-braces-alist:                Custom Brace and Colon Hanging.
+* c-hanging-colon-alist:                 Custom Brace and Colon Hanging.
+* c-hanging-colons-alist:                Hanging Colons.
+* c-hanging-semi&comma-criteria:         Customizing Semi-colons and Commas.
+* c-ignore-auto-fill:                    Text Filling and Line Breaking.
+* c-indent-comments-syntactically-p:     Other Special Indentations.
+* c-indentation-style:                   Built-in Styles.
+* c-initialization-hook:                 Hooks.
+* c-insert-tab-function:                 Indentation Commands.
+* c-Java-defun-prompt-regexp:            Performance Issues.
+* c-label-minimum-indentation:           Other Special Indentations.
+* c-mode-common-hook <1>:                Hooks.
+* c-mode-common-hook:                    Built-in Styles.
+* c-mode-hook:                           Hooks.
+* c-offsets-alist <1>:                   Syntactic Symbols.
+* c-offsets-alist:                       Customizing Indentation.
+* c-old-style-variable-behavior:         Styles.
+* c-progress-interval:                   Indentation Commands.
+* c-recognize-knr-p:                     Performance Issues.
+* c-special-indent-hook:                 Other Special Indentations.
+* c-strict-syntax-p:                     Customizing Indentation.
+* c-style-alist <1>:                     Built-in Styles.
+* c-style-alist <2>:                     Advanced Customizations.
+* c-style-alist:                         Adding Styles.
+* c-style-variables-are-local-p:         Permanent Customization.
+* c-syntactic-context:                   Custom Brace and Colon Hanging.
+* c-tab-always-indent:                   Indentation Commands.
+* cc-lobotomy-pith-list:                 Performance Issues.
+* cleanup-list (c-):                     Clean-ups.
+* comment-column:                        Other Special Indentations.
+* comment-continuation-stars (c-):       Text Filling and Line Breaking.
+* comment-end:                           Text Filling and Line Breaking.
+* comment-multi-line:                    Text Filling and Line Breaking.
+* comment-only-line-offset (c-):         Indentation Functions.
+* comment-prefix-regexp (c-):            Text Filling and Line Breaking.
+* comment-start:                         Text Filling and Line Breaking.
+* comment-start-skip <1>:                Text Filling and Line Breaking.
+* comment-start-skip:                    Indentation Functions.
+* default-style (c-):                    Built-in Styles.
+* delete-function (c-):                  Hungry-deletion of Whitespace.
+* delete-key-deletes-forward:            Hungry-deletion of Whitespace.
+* echo-syntactic-information-p (c-):     Indentation Calculation.
+* electric-pound-behavior (c-):          Other Electric Commands.
+* enable-xemacs-performance-kludge-p (c-): Performance Issues.
+* file-offsets (c-):                     File Styles.
+* file-style (c-):                       File Styles.
+* filladapt-mode:                        Text Filling and Line Breaking.
+* hanging-braces-alist (c-) <1>:         Custom Brace and Colon Hanging.
+* hanging-braces-alist (c-):             Hanging Braces.
+* hanging-colon-alist (c-):              Custom Brace and Colon Hanging.
+* hanging-colons-alist (c-):             Hanging Colons.
+* hanging-semi&comma-criteria (c-):      Customizing Semi-colons and Commas.
+* idl-mode-hook:                         Hooks.
+* ignore-auto-fill (c-):                 Text Filling and Line Breaking.
+* indent-comments-syntactically-p (c-):  Other Special Indentations.
+* indent-tabs-mode:                      Indentation Commands.
+* indentation-style (c-):                Built-in Styles.
+* initialization-hook (c-):              Hooks.
+* insert-tab-function (c-):              Indentation Commands.
+* Java-defun-prompt-regexp (c-):         Performance Issues.
+* java-mode-hook:                        Hooks.
+* label-minimum-indentation (c-):        Other Special Indentations.
+* mode-common-hook (c-) <1>:             Built-in Styles.
+* mode-common-hook (c-):                 Hooks.
+* objc-mode-hook:                        Hooks.
+* offsets-alist (c-) <1>:                Syntactic Symbols.
+* offsets-alist (c-):                    Customizing Indentation.
+* old-style-variable-behavior (c-):      Styles.
+* paragraph-ignore-fill-prefix:          Text Filling and Line Breaking.
+* paragraph-separate:                    Text Filling and Line Breaking.
+* paragraph-start:                       Text Filling and Line Breaking.
+* pike-mode-hook:                        Hooks.
+* progress-interval (c-):                Indentation Commands.
+* recognize-knr-p (c-):                  Performance Issues.
+* signal-error-on-buffer-boundary:       Limitations and Known Bugs.
+* special-indent-hook (c-):              Other Special Indentations.
+* strict-syntax-p (c-):                  Customizing Indentation.
+* style-alist (c-) <1>:                  Built-in Styles.
+* style-alist (c-) <2>:                  Advanced Customizations.
+* style-alist (c-):                      Adding Styles.
+* style-variables-are-local-p (c-):      Permanent Customization.
+* syntactic-context (c-):                Custom Brace and Colon Hanging.
+* tab-always-indent (c-):                Indentation Commands.
+
+

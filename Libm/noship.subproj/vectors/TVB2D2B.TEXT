@@ -1,0 +1,59 @@
+! <scp> 12/2/01 disabled 'p' cases of following vectors. All fail
+! First some easy integer cases.
+! <scp> 2d	 p   1	  1		x   1
+! <scp> 2d	 p   -1	  -1	x   -1
+! <scp> 2d	 p   2	  2		x   2
+! <scp> 2d	 p   1	  1		x   1
+! <scp> 2d	 p   3	  3		x   3
+2d	 sd   1	  1		OK   1
+2d	 sd   -1	-1	OK   -1
+2d	 sd   2	  2	  	OK   2
+2d	 sd   1	  1	  	OK   1
+2d	 sd   3	  3		OK   3
+2d	 sd   1d1	  1d1	  x   1d1
+2d	 sd   1u1	  1u1	  x   1u1
+2d	 sd   3u1	  3u1	  x   3u1
+2d	 sd   3d1	  3d1	  x   3d1
+2d	 sd   -1d1	  -1d1	  x   -1d1
+2d	 sd   -1u1	  -1u1	  x   -1u1
+2d	 sd   -3u1	  -3u1	  x   -3u1
+2d	 sd   -3d1	  -3d1	  x   -3d1
+! zero
+! <scp> 2d	 sdp	0		0		OK   0
+! <scp> 2d	 sdp	-0		0		OK  -0
+2d	 sd	0		0		OK   0
+2d	 sd	-0		0		OK  -0
+! some huge numbers
+2d	 sd		Hd1		Hd1		x   Hd1
+! <scp> 2d	 sdp	Hm1		Hm1		x   Hm1
+2d	 sd	Hm1		Hm1		x   Hm1
+2d	 sd		-Hd1	-Hd1	x	-Hd1
+! <scp> 2d	 sdp	-Hm1	-Hm1	x   -Hm1
+2d	 sd	-Hm1	-Hm1	x   -Hm1
+! infinity
+! <scp> 2d	 sdp   H	  H		OK   H
+! <scp> 2d	 sdp   -H	  -H	OK   -H
+2d	 sd   H	  H		OK   H
+2d	 sd   -H	  -H	OK   -H
+! Tiny numbers...
+! <scp> 2d	 sdp   0i2	  0i2	ux   0i2
+! <scp> 2d	 sdp   0i1	  0i1	ux   0i1
+! <scp> 2d	 sdp   -0i2	  -0i2	ux   -0i2
+! <scp> 2d	 sdp   -0i1	  -0i1	ux   -0i1
+2d	 sd   0i2	  0i2	ux   0i2
+2d	 sd   0i1	  0i1	ux   0i1
+2d	 sd   -0i2	  -0i2	ux   -0i2
+2d	 sd   -0i1	  -0i1	ux   -0i1
+! denormal numbers
+2d	 sd   -Ei1	 -Ei1	x   -Ei1
+2d	 sd   Ep4	 Ep4	x   Ep4
+2d	 sd   Ei1	 Ei1	x   Ei1
+2d	 sd   -Ed1	 -Ed1	ux	-Ed1
+! <scp> 2d	 p   	E	 E		ux   E
+2d	 sd		E	 E		x   E
+2d	sd   	Ed1	 Ed1	ux   Ed1
+!NAN operands.
+! <scp>2d	 sdp   Q	  Q	  OK   Q
+! <scp>2d	 sdp   -Q	  -Q  OK   -Q
+2d	 sd   Q	  Q	  OK   Q
+2d	 sd   -Q	  -Q  OK   -Q

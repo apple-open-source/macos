@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,11 +19,29 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
-#include <libkern/OSByteOrder.h>
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceType0E.h>
-#include <IOKit/scsi-commands/IOReducedBlockServices.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
+#include "IOSCSIPeripheralDeviceType0E.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"PDT 0E"
+
+#if DEBUG
+#define SCSI_PDT_0E_DEBUGGING_LEVEL				0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_PDT_0E_DEBUGGING_LEVEL >= 1 )
@@ -49,6 +67,17 @@
 OSDefineMetaClassAndStructors ( IOSCSIPeripheralDeviceType0E, IOSCSIReducedBlockCommandsDevice );
 
 
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods - Methods used by this class and subclasses
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ init - Called at initialization time						       [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPeripheralDeviceType0E::init ( OSDictionary * propTable )
 {
@@ -70,13 +99,18 @@ IOSCSIPeripheralDeviceType0E::init ( OSDictionary * propTable )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Called at services start time	(after successful matching)
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPeripheralDeviceType0E::start ( IOService * provider )
 {
 	
 	STATUS_LOG ( ( "IOSCSIPeripheralDeviceType0E::start called\n" ) );
 	
-	// Call our super class' start routine so that all inherited
+	// Call our superclass' start routine so that all inherited
 	// behavior is initialized.    
 	if ( !super::start ( provider ) )
     {
@@ -90,6 +124,10 @@ IOSCSIPeripheralDeviceType0E::start ( IOService * provider )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ stop - Called at stop start time								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIPeripheralDeviceType0E::stop ( IOService * provider )
 {
@@ -102,12 +140,20 @@ IOSCSIPeripheralDeviceType0E::stop ( IOService * provider )
 	
 }
 
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 6 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIPeripheralDeviceType0E, 8 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 1 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 2 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 3 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 4 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 5 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 6 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 7 );
+OSMetaClassDefineReservedUnused ( IOSCSIPeripheralDeviceType0E, 8 );

@@ -43,7 +43,9 @@
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors(IOAudioEngine, IOService)
-OSMetaClassDefineReservedUnused(IOAudioEngine, 0);
+
+OSMetaClassDefineReservedUsed(IOAudioEngine, 0);
+
 OSMetaClassDefineReservedUnused(IOAudioEngine, 1);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 2);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 3);
@@ -92,6 +94,17 @@ OSMetaClassDefineReservedUnused(IOAudioEngine, 45);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 46);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 47);
 
+// New Code:
+IOReturn IOAudioEngine::performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate)
+{
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioEngine[%p]::performFormatChange(%p, %p, %p, %p)\n", this, audioStream, newFormat, formatExtension, newSampleRate);
+#endif
+
+    return kIOReturnUnsupported;
+}
+
+// Original code from here forward:
 SInt32 compareAudioStreams(IOAudioStream *stream1, IOAudioStream *stream2, void *ref)
 {
     UInt32 startingChannelID1, startingChannelID2;
@@ -113,7 +126,7 @@ void IOAudioEngine::initKeys()
     }
 }
 
-OSDictionary *IOAudioEngine::createDictionaryFromSampleRate(const IOAudioSampleRate *sampleRate, OSDictionary *rateDict = 0)
+OSDictionary *IOAudioEngine::createDictionaryFromSampleRate(const IOAudioSampleRate *sampleRate, OSDictionary *rateDict)
 {
     OSDictionary *newDict = NULL;
     
@@ -144,7 +157,7 @@ OSDictionary *IOAudioEngine::createDictionaryFromSampleRate(const IOAudioSampleR
     return newDict;
 }
 
-IOAudioSampleRate *IOAudioEngine::createSampleRateFromDictionary(const OSDictionary *rateDict, IOAudioSampleRate *sampleRate = 0)
+IOAudioSampleRate *IOAudioEngine::createSampleRateFromDictionary(const OSDictionary *rateDict, IOAudioSampleRate *sampleRate)
 {
     IOAudioSampleRate *rate = NULL;
     static IOAudioSampleRate staticSampleRate;
@@ -375,7 +388,7 @@ IOCommandGate *IOAudioEngine::getCommandGate() const
     return commandGate;
 }
 
-void IOAudioEngine::registerService(IOOptionBits options = 0)
+void IOAudioEngine::registerService(IOOptionBits options)
 {
 #ifdef DEBUG_CALLS
     IOLog("IOAudioEngine[%p]::registerService(0x%lx)\n", this, options);
@@ -1696,7 +1709,7 @@ IOReturn IOAudioEngine::convertInputSamples(const void *sampleBuf, void *destBuf
     return kIOReturnUnsupported;
 }
 
-void IOAudioEngine::takeTimeStamp(bool incrementLoopCount = true, AbsoluteTime *timestamp = NULL)
+void IOAudioEngine::takeTimeStamp(bool incrementLoopCount, AbsoluteTime *timestamp)
 {
     AbsoluteTime uptime, *ts;
     

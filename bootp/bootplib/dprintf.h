@@ -1,3 +1,6 @@
+
+#ifndef _S_DPRINTF_H
+#define _S_DPRINTF_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -24,3 +27,5 @@
 #else DEBUG
 #define dprintf(x)
 #endif DEBUG
+
+#endif _S_DPRINTF_H

@@ -1,0 +1,11 @@
+.purify
+config.log
+config.cache
+config.status
+Makefile
+buildno
+python
+build
+Makefile.pre
+platform
+pyconfig.h

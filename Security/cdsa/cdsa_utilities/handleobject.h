@@ -26,8 +26,13 @@
 #include <Security/utilities.h>
 #include <Security/threading.h>
 #include <Security/globalizer.h>
-#include <hash_map>
 
+#if __GNUC__ > 2
+#include <ext/hash_map>
+using __gnu_cxx::hash_map;
+#else
+#include <hash_map>
+#endif
 
 namespace Security
 {
@@ -80,34 +85,40 @@ private:
 //
 class HandleObject : public HandledObject {
     NOCOPY(HandleObject)
-    class State; friend class State;
-    template <class Subtype> friend Subtype &findHandle(CSSM_HANDLE, CSSM_RETURN);
-    template <class Subtype> friend Subtype &findHandleAndLock(CSSM_HANDLE, CSSM_RETURN);
-    template <class Subtype> friend Subtype &killHandle(CSSM_HANDLE, CSSM_RETURN);
+    class State;
+
 public:
     HandleObject()				{ state().make(this); }
-    virtual ~HandleObject()		{ state().erase(this); }
+    virtual ~HandleObject();
+	
+public:
+	template <class Subtype>
+	static Subtype &find(CSSM_HANDLE handle, CSSM_RETURN error);
+	
+	template <class Subtype>
+	static Subtype &findAndLock(CSSM_HANDLE handle, CSSM_RETURN error);
+	
+	template <class Subtype>
+	static Subtype &findAndKill(CSSM_HANDLE handle, CSSM_RETURN error);
 
 protected:
     virtual void lock();
     virtual bool tryLock();
 
 private:
-    enum LocateMode { lockTarget, findTarget, removeTarget };
-
-private:
     typedef hash_map<CSSM_HANDLE, HandleObject *> HandleMap;
-    class State {
+    class State : public Mutex {
     public:
         State();
         void make(HandleObject *obj);
-        HandleObject *locate(Handle h, LocateMode mode, CSSM_RETURN error);
+		HandleObject *find(Handle h, CSSM_RETURN error);
+        HandleMap::iterator locate(Handle h, CSSM_RETURN error);
         void erase(HandleObject *obj);
+		void erase(HandleMap::iterator &it);
 
     private:
         HandleMap handleMap;
         uint32 sequence;
-        Mutex mLock;
     };
     
     static ModuleNexus<State> state;
@@ -118,34 +129,67 @@ private:
 // Type-specific ways to access the HandleObject map in various ways
 //
 template <class Subclass>
-Subclass &findHandle(CSSM_HANDLE handle,
-                     CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
+inline Subclass &HandleObject::find(CSSM_HANDLE handle, CSSM_RETURN error)
 {
-    Subclass *sub;
-    if (!(sub = dynamic_cast<Subclass *>(HandleObject::state().locate(handle, HandleObject::findTarget, error))))
-        CssmError::throwMe(error);
-    return *sub;
-}
-
-template <class Subclass>
-Subclass &findHandleAndLock(CSSM_HANDLE handle,
-                            CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
-{
-    Subclass *sub;
-    if (!(sub = dynamic_cast<Subclass *>(HandleObject::state().locate(handle, HandleObject::lockTarget, error))))
-        CssmError::throwMe(error);
-    return *sub;
-}
-
-template <class Subclass>
-Subclass &killHandle(CSSM_HANDLE handle,
-                     CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
-{
-    Subclass *sub;
-    if (!(sub = dynamic_cast<Subclass *>(HandleObject::state().locate(handle, HandleObject::removeTarget, error))))
-        CssmError::throwMe(error);
+	Subclass *sub;
+	if (!(sub = dynamic_cast<Subclass *>(state().find(handle, error))))
+		CssmError::throwMe(error);
 	return *sub;
 }
+
+template <class Subclass>
+inline Subclass &HandleObject::findAndLock(CSSM_HANDLE handle,
+	CSSM_RETURN error)
+{
+	for (;;) {
+		HandleMap::iterator it = state().locate(handle, error);
+		StLock<Mutex> _(state(), true);	// locate() locked it
+		Subclass *sub;
+		if (!(sub = dynamic_cast<Subclass *>(it->second)))
+			CssmError::throwMe(error);	// bad type
+		if (it->second->tryLock())		// try to lock it
+			return *sub;				// okay, go
+		Thread::yield();				// object lock failed, backoff and retry
+	}
+}
+
+template <class Subclass>
+inline Subclass &HandleObject::findAndKill(CSSM_HANDLE handle,
+	CSSM_RETURN error)
+{
+	for (;;) {
+		HandleMap::iterator it = state().locate(handle, error);
+		StLock<Mutex> _(state(), true);	// locate() locked it
+		Subclass *sub;
+		if (!(sub = dynamic_cast<Subclass *>(it->second)))
+			CssmError::throwMe(error);	// bad type
+		if (it->second->tryLock()) {	// try to lock it
+			state().erase(it);			// kill the handle
+			return *sub;				// okay, go
+		}
+		Thread::yield();				// object lock failed, backoff and retry
+	}
+}
+
+
+//
+// Compatibility with old (global function) accessors
+//
+template <class Subclass>
+inline Subclass &findHandle(CSSM_HANDLE handle,
+                     CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
+{ return HandleObject::find<Subclass>(handle, error); }
+
+template <class Subclass>
+inline Subclass &findHandleAndLock(CSSM_HANDLE handle,
+                            CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
+{ return HandleObject::findAndLock<Subclass>(handle, error); }
+
+template <class Subclass>
+inline Subclass &killHandle(CSSM_HANDLE handle,
+                     CSSM_RETURN error = CSSMERR_CSSM_INVALID_ADDIN_HANDLE)
+{ return HandleObject::findAndKill<Subclass>(handle, error); }
+
 
 } // end namespace Security
 

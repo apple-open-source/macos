@@ -59,8 +59,8 @@ void SC_decodeAsnBitsToCssmData(
  * All AsnType subclasses implement this either via PDU_MEMBER_MACROS
  * for SecuritySNACCRuntime built-in types, or explicitly for all
  * other classes using asn-useful.h. To faciliate a global "one
- * routine for encode/decode" which operattes on AsnType &'s, we have 
- * to explicitly provide this here. Why this is no in AsnType, I don't 
+ * routine for encode/decode" which operates on AsnType &'s, we have 
+ * to explicitly provide this here. Why this is not in AsnType, I don't 
  * know.
  */
 static int SC_BDecPDU(
@@ -69,16 +69,15 @@ static int SC_BDecPDU(
 	AsnLen 		&bytesDecoded)
 {
     ENV_TYPE env;
-    int val;
 
     bytesDecoded = 0;
-    if ((val = setjmp (env)) == 0)
-    {
+	try {
          asnObj.BDec(b, bytesDecoded, env);
          return !b.ReadError();
     }
-    else
+	catch(...) {
         return false;
+	}
 }
 
 static int SC_BEncPdu(
@@ -187,4 +186,12 @@ void SC_encodeLength(
 		*ucp-- = contentLen & 0xff;
 		contentLen >>= 8;
 	}
+}
+
+/*
+ * Explicitly non-inlined SnaccError throw 
+ */
+void SnaccExcep::throwMe(int err)
+{
+	throw SnaccExcep(err);
 }

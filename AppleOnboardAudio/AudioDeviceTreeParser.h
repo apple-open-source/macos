@@ -27,6 +27,8 @@ public :
     UInt32 getNumberOfFeatures();
     UInt32 getNumberofInputsWithMuxes();
     UInt32 getLayoutID();
+    UInt32 getInternalMicGainOffset();     	// aml 4.26.02
+    bool getHasHWInputGain();     			// aml 4.29.02
     
     SInt16 getPowerObjectType();
     bool getPhaseInversion();
@@ -42,7 +44,7 @@ protected:
     bool init(IOService *provider);
     void free();
     
-        //Utilities to parse the registry
+	// Utilities to parse the registry
     UInt8 convertAsciiToHexData(char ascii);
     UInt32 getStringAsNumber(char *string);
     bool getStringAsHexData( char *string, UInt8 *value, UInt32 *size );

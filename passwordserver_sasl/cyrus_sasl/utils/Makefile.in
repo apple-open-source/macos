@@ -1,0 +1,564 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# Makefile.am for the SASL utilities
+# Rob Earhart
+#
+################################################################
+# Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# 3. The name "Carnegie Mellon University" must not be used to
+#    endorse or promote products derived from this software without
+#    prior written permission. For permission or any other legal
+#    details, please contact  
+#      Office of Technology Transfer
+#      Carnegie Mellon University
+#      5000 Forbes Avenue
+#      Pittsburgh, PA  15213-3890
+#      (412) 268-4387, fax: (412) 268-7395
+#      tech-transfer@andrew.cmu.edu
+#
+# 4. Redistributions of any form whatsoever must retain the following
+#    acknowledgment:
+#    "This product includes software developed by Computing Services
+#     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+#
+# CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+# THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+# FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+# AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+# OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+################################################################
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AS = @AS@
+AWK = @AWK@
+CC = @CC@
+CPP = @CPP@
+DIRS = @DIRS@
+DLLTOOL = @DLLTOOL@
+DMALLOC_LIBS = @DMALLOC_LIBS@
+DYNSASLFLAGS = @DYNSASLFLAGS@
+GETADDRINFOOBJS = @GETADDRINFOOBJS@
+GETNAMEINFOOBJS = @GETNAMEINFOOBJS@
+GETSUBOPT = @GETSUBOPT@
+GSSAPIBASE_LIBS = @GSSAPIBASE_LIBS@
+GSSAPI_LIBS = @GSSAPI_LIBS@
+IPCTYPE = @IPCTYPE@
+JAVAC = @JAVAC@
+JAVADOC = @JAVADOC@
+JAVAH = @JAVAH@
+JAVAROOT = @JAVAROOT@
+JAVA_INCLUDES = @JAVA_INCLUDES@
+LIBOBJS = @LIBOBJS@
+LIBTOOL = @LIBTOOL@
+LIB_CRYPT = @LIB_CRYPT@
+LIB_DES = @LIB_DES@
+LIB_DYN_SASL = @LIB_DYN_SASL@
+LIB_PAM = @LIB_PAM@
+LIB_SASL = @LIB_SASL@
+LIB_SOCKET = @LIB_SOCKET@
+LN_S = @LN_S@
+LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
+LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
+LTLIBOBJS = @LTLIBOBJS@
+LTSNPRINTFOBJS = @LTSNPRINTFOBJS@
+MAKEINFO = @MAKEINFO@
+NM = @NM@
+OBJDUMP = @OBJDUMP@
+OTP_LIBS = @OTP_LIBS@
+PACKAGE = @PACKAGE@
+PLAIN_LIBS = @PLAIN_LIBS@
+PURECOV = @PURECOV@
+PURIFY = @PURIFY@
+PWCHECKMETH = @PWCHECKMETH@
+RANLIB = @RANLIB@
+SASLFLAGS = @SASLFLAGS@
+SASL_DB_BACKEND = @SASL_DB_BACKEND@
+SASL_DB_BACKEND_STATIC = @SASL_DB_BACKEND_STATIC@
+SASL_DB_INC = @SASL_DB_INC@
+SASL_DB_LIB = @SASL_DB_LIB@
+SASL_DB_MANS = @SASL_DB_MANS@
+SASL_DB_UTILS = @SASL_DB_UTILS@
+SASL_DL_LIB = @SASL_DL_LIB@
+SASL_KRB_LIB = @SASL_KRB_LIB@
+SASL_MECHS = @SASL_MECHS@
+SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
+SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
+SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
+SFIO_INC_FLAGS = @SFIO_INC_FLAGS@
+SFIO_LIB_FLAGS = @SFIO_LIB_FLAGS@
+SMTPTEST_PROGRAM = @SMTPTEST_PROGRAM@
+SNPRINTFOBJS = @SNPRINTFOBJS@
+SRP_LIBS = @SRP_LIBS@
+VERSION = @VERSION@
+plugindir = @plugindir@
+
+all_sasl_libs = ../lib/libsasl2.la $(SASL_DB_LIB) $(LIB_SOCKET)
+all_sasl_static_libs = ../lib/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS)
+
+sbin_PROGRAMS = @SASL_DB_UTILS@ @SMTPTEST_PROGRAM@
+EXTRA_PROGRAMS = saslpasswd2 sasldblistusers2 testsuite testsuitestatic smtptest
+
+noinst_PROGRAMS = dbconverter-2
+
+man_MANS = @SASL_DB_MANS@
+EXTRA_MANS = saslpasswd2.8 sasldblistusers2.8
+
+saslpasswd2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+saslpasswd2_SOURCES = saslpasswd.c
+sasldblistusers2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+sasldblistusers2_SOURCES = sasldblistusers.c
+dbconverter_2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+
+testsuite_LDADD = $(all_sasl_libs) @DMALLOC_LIBS@
+
+CLEANFILES = $(EXTRA_PROGRAMS)
+
+testsuitestatic_SOURCES = testsuite.c
+testsuitestatic_LDADD = $(all_sasl_static_libs) @DMALLOC_LIBS@
+testsuitestatic_DEPENDENCIES = ../lib/libsasl2.a
+
+smtptest_SOURCES = 
+smtptest_DEPENDENCIES = ./smtptest.lo ./libsfsasl2.la
+smtptest_LDADD = ./smtptest.lo ./libsfsasl2.la @SFIO_LIB_FLAGS@ @DMALLOC_LIBS@ $(all_sasl_libs)
+
+saslincludedir = $(includedir)/sasl
+
+saslinclude_HEADERS = @SASL_UTIL_HEADERS_EXTRA@
+EXTRA_HEADERS = sfsasl.h
+
+# Note: we explicitly do *not* link to libsfio, as people will need to
+# link to that anyway if they want to use this. 
+lib_LTLIBRARIES = @SASL_UTIL_LIBS_EXTRA@
+EXTRA_LTLIBRARIES = libsfsasl2.la
+libsfsasl2_la_SOURCES = 
+libsfsasl2_la_LIBADD = sfsasl.lo
+libsfsasl2_la_LDFLAGS = -version-info 1:0:0 -export-dynamic -rpath $(libdir)
+
+INCLUDES = -I$(top_srcdir)/include
+EXTRA_DIST = saslpasswd2.8 sasldblistusers2.8 sfsasl.h sfsasl.c smtptest.c testsuite.c
+mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
+CONFIG_HEADER = ../config.h
+CONFIG_CLEAN_FILES = 
+LTLIBRARIES =  $(lib_LTLIBRARIES)
+
+
+DEFS = @DEFS@ -I. -I$(srcdir) -I..
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+libsfsasl2_la_DEPENDENCIES =  sfsasl.lo
+libsfsasl2_la_OBJECTS = 
+PROGRAMS =  $(noinst_PROGRAMS) $(sbin_PROGRAMS)
+
+saslpasswd2_OBJECTS =  saslpasswd.o
+saslpasswd2_DEPENDENCIES =  ../sasldb/libsasldb.la ../lib/libsasl2.la
+saslpasswd2_LDFLAGS = 
+sasldblistusers2_OBJECTS =  sasldblistusers.o
+sasldblistusers2_DEPENDENCIES =  ../sasldb/libsasldb.la \
+../lib/libsasl2.la
+sasldblistusers2_LDFLAGS = 
+testsuite_SOURCES = testsuite.c
+testsuite_OBJECTS =  testsuite.o
+testsuite_DEPENDENCIES =  ../lib/libsasl2.la
+testsuite_LDFLAGS = 
+testsuitestatic_OBJECTS =  testsuite.o
+testsuitestatic_LDFLAGS = 
+smtptest_OBJECTS = 
+smtptest_LDFLAGS = 
+dbconverter_2_SOURCES = dbconverter-2.c
+dbconverter_2_OBJECTS =  dbconverter-2.o
+dbconverter_2_DEPENDENCIES =  ../sasldb/libsasldb.la ../lib/libsasl2.la
+dbconverter_2_LDFLAGS = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+MANS = $(man_MANS)
+
+NROFF = nroff
+HEADERS =  $(saslinclude_HEADERS)
+
+DIST_COMMON =  Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+SOURCES = $(libsfsasl2_la_SOURCES) $(saslpasswd2_SOURCES) $(sasldblistusers2_SOURCES) testsuite.c $(testsuitestatic_SOURCES) $(smtptest_SOURCES) dbconverter-2.c
+OBJECTS = $(libsfsasl2_la_OBJECTS) $(saslpasswd2_OBJECTS) $(sasldblistusers2_OBJECTS) testsuite.o $(testsuitestatic_OBJECTS) $(smtptest_OBJECTS) dbconverter-2.o
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .s
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps utils/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-libLTLIBRARIES:
+
+clean-libLTLIBRARIES:
+	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
+
+distclean-libLTLIBRARIES:
+
+maintainer-clean-libLTLIBRARIES:
+
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(libdir)
+	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo "$(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(libdir)/$$p"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(libdir)/$$p; \
+	  else :; fi; \
+	done
+
+uninstall-libLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
+	done
+
+.c.o:
+	$(COMPILE) -c $<
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+libsfsasl2.la: $(libsfsasl2_la_OBJECTS) $(libsfsasl2_la_DEPENDENCIES)
+	$(LINK)  $(libsfsasl2_la_LDFLAGS) $(libsfsasl2_la_OBJECTS) $(libsfsasl2_la_LIBADD) $(LIBS)
+
+mostlyclean-noinstPROGRAMS:
+
+clean-noinstPROGRAMS:
+	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
+
+distclean-noinstPROGRAMS:
+
+maintainer-clean-noinstPROGRAMS:
+
+mostlyclean-sbinPROGRAMS:
+
+clean-sbinPROGRAMS:
+	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
+
+distclean-sbinPROGRAMS:
+
+maintainer-clean-sbinPROGRAMS:
+
+install-sbinPROGRAMS: $(sbin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(sbindir)
+	@list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-sbinPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+saslpasswd2: $(saslpasswd2_OBJECTS) $(saslpasswd2_DEPENDENCIES)
+	@rm -f saslpasswd2
+	$(LINK) $(saslpasswd2_LDFLAGS) $(saslpasswd2_OBJECTS) $(saslpasswd2_LDADD) $(LIBS)
+
+sasldblistusers2: $(sasldblistusers2_OBJECTS) $(sasldblistusers2_DEPENDENCIES)
+	@rm -f sasldblistusers2
+	$(LINK) $(sasldblistusers2_LDFLAGS) $(sasldblistusers2_OBJECTS) $(sasldblistusers2_LDADD) $(LIBS)
+
+testsuite: $(testsuite_OBJECTS) $(testsuite_DEPENDENCIES)
+	@rm -f testsuite
+	$(LINK) $(testsuite_LDFLAGS) $(testsuite_OBJECTS) $(testsuite_LDADD) $(LIBS)
+
+testsuitestatic: $(testsuitestatic_OBJECTS) $(testsuitestatic_DEPENDENCIES)
+	@rm -f testsuitestatic
+	$(LINK) $(testsuitestatic_LDFLAGS) $(testsuitestatic_OBJECTS) $(testsuitestatic_LDADD) $(LIBS)
+
+smtptest: $(smtptest_OBJECTS) $(smtptest_DEPENDENCIES)
+	@rm -f smtptest
+	$(LINK) $(smtptest_LDFLAGS) $(smtptest_OBJECTS) $(smtptest_LDADD) $(LIBS)
+
+dbconverter-2: $(dbconverter_2_OBJECTS) $(dbconverter_2_DEPENDENCIES)
+	@rm -f dbconverter-2
+	$(LINK) $(dbconverter_2_LDFLAGS) $(dbconverter_2_OBJECTS) $(dbconverter_2_LDADD) $(LIBS)
+install-man: $(MANS)
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS)
+uninstall-man:
+	@$(NORMAL_UNINSTALL)
+	$(MAKE) $(AM_MAKEFLAGS)
+
+install-saslincludeHEADERS: $(saslinclude_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(saslincludedir)
+	@list='$(saslinclude_HEADERS)'; for p in $$list; do \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(saslincludedir)/$$p"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(saslincludedir)/$$p; \
+	done
+
+uninstall-saslincludeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(saslinclude_HEADERS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(saslincludedir)/$$p; \
+	done
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = utils
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am: install-libLTLIBRARIES install-sbinPROGRAMS
+install-exec: install-exec-am
+
+install-data-am: install-man install-saslincludeHEADERS
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-libLTLIBRARIES uninstall-sbinPROGRAMS \
+		uninstall-man uninstall-saslincludeHEADERS
+uninstall: uninstall-am
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(MANS) $(HEADERS)
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(libdir) $(DESTDIR)$(sbindir) \
+		$(DESTDIR)$(saslincludedir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+mostlyclean-am:  mostlyclean-libLTLIBRARIES mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-noinstPROGRAMS \
+		mostlyclean-sbinPROGRAMS mostlyclean-tags \
+		mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-libLTLIBRARIES clean-compile clean-libtool \
+		clean-noinstPROGRAMS clean-sbinPROGRAMS clean-tags \
+		clean-generic mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-libLTLIBRARIES distclean-compile \
+		distclean-libtool distclean-noinstPROGRAMS \
+		distclean-sbinPROGRAMS distclean-tags distclean-generic \
+		clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-libLTLIBRARIES \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-noinstPROGRAMS \
+		maintainer-clean-sbinPROGRAMS maintainer-clean-tags \
+		maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-libLTLIBRARIES distclean-libLTLIBRARIES \
+clean-libLTLIBRARIES maintainer-clean-libLTLIBRARIES \
+uninstall-libLTLIBRARIES install-libLTLIBRARIES mostlyclean-compile \
+distclean-compile clean-compile maintainer-clean-compile \
+mostlyclean-libtool distclean-libtool clean-libtool \
+maintainer-clean-libtool mostlyclean-noinstPROGRAMS \
+distclean-noinstPROGRAMS clean-noinstPROGRAMS \
+maintainer-clean-noinstPROGRAMS mostlyclean-sbinPROGRAMS \
+distclean-sbinPROGRAMS clean-sbinPROGRAMS maintainer-clean-sbinPROGRAMS \
+uninstall-sbinPROGRAMS install-sbinPROGRAMS install-man uninstall-man \
+uninstall-saslincludeHEADERS install-saslincludeHEADERS tags \
+mostlyclean-tags distclean-tags clean-tags maintainer-clean-tags \
+distdir info-am info dvi-am dvi check check-am installcheck-am \
+installcheck install-exec-am install-exec install-data-am install-data \
+install-am install uninstall-am uninstall all-redirect all-am all \
+installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+
+sfsasl.lo: sfsasl.c
+	$(LIBTOOL) --mode=compile $(COMPILE) @SFIO_INC_FLAGS@ -c $(srcdir)/sfsasl.c
+
+smtptest.lo: smtptest.c
+	$(LIBTOOL) --mode=compile $(COMPILE) @SFIO_INC_FLAGS@ -c $(srcdir)/smtptest.c
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

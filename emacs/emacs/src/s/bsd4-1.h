@@ -1,5 +1,5 @@
 /* Definitions file for GNU Emacs running on bsd 4.1.
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -98,10 +98,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CLASH_DETECTION    /* Might work; not tried yet.  */
 
-/* We use the Berkeley (and usg5.2.2) interface to nlist.  */
-
-#define NLIST_STRUCT
-
 /* The file containing the kernel's symbol table is called /vmunix.  */
 
 #define KERNEL_FILE "/vmunix"
@@ -121,10 +117,6 @@ Boston, MA 02111-1307, USA.  */
 #define _setjmp setjmp
 
 #define lstat stat
-
-/* sys_open handles the necessary 4.2 features for open.  */
-
-#define open sys_open
 
 /* Names of flags for open.  */
 #define O_RDONLY 0

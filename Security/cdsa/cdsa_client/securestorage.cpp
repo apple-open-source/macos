@@ -18,11 +18,13 @@
 
 #include "securestorage.h"
 #include "genkey.h"
-#include "aclsupport.h"
+//#include "aclsupport.h"
+#include <Security/Access.h>
 #include <Security/osxsigning.h>
 #include <memory>
 
 using namespace CssmClient;
+using namespace KeychainCore;
 
 //
 // Manage CSPDL attachments
@@ -151,7 +153,7 @@ SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
 				 const CSSM_ACCESS_CREDENTIALS *cred)
 {
 	// Create an encoded dataBlob for this item.
-	CssmDataContainer dataBlob;
+	CssmDataContainer dataBlob(allocator());
 	group->encodeDataBlob(data, cred, dataBlob);
 
 	// Insert the record with the new juicy dataBlob.
@@ -233,11 +235,11 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb, const CSSM_DATA &dataBlob)
 : KeyImpl(ssDb->csp()), mLabel(ssDb->allocator())
 {
 	if (dataBlob.Length < kLabelSize + kIVSize)
-		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // @@@ Not a SS record
+		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // Not a SS record
 
 	mLabel = CssmData(dataBlob.Data, kLabelSize);
 	if (*reinterpret_cast<const uint32 *>(mLabel.Data) != kGroupMagic)
-		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // @@@ Not a SS record
+		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // Not a SS record
 
 	// Look up the symmetric key with that label.
 	DbCursor cursor(new DbDbCursorImpl(ssDb, 0, CssmAllocator::standard()));
@@ -247,7 +249,7 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb, const CSSM_DATA &dataBlob)
 	DbUniqueRecord keyId;
 	CssmDataContainer keyData(ssDb->allocator());
 	if (!cursor->next(NULL, &keyData, keyId))
-		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // @@@ The key is gone
+		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // The key can't be found
 
 	// Set the key part of ourself.
 	static_cast<CSSM_KEY &>(*this) =
@@ -256,6 +258,13 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb, const CSSM_DATA &dataBlob)
 	// Activate ourself so CSSM_FreeKey will get called when we go out of
 	// scope.
 	activate();
+}
+
+bool
+SSGroupImpl::isGroup(const CSSM_DATA &dataBlob)
+{
+	return dataBlob.Length >= kLabelSize + kIVSize
+		&& *reinterpret_cast<const uint32 *>(dataBlob.Data) == kGroupMagic;
 }
 
 const CssmData
@@ -297,17 +306,25 @@ SSGroupImpl::decodeDataBlob(const CSSM_DATA &dataBlob,
 			throw;
 
 		// The user checked to don't ask again checkbox in the rogue app alert.  Let's edit the ACL for this key and add the calling application to it.
+#if 1
+		Key key(this);		// the underlying key
+		RefPointer<Access> access = new Access(*key);	// extract access rights
+		RefPointer<TrustedApplication> thisApp = new TrustedApplication;
+		access->addApplicationToRight(CSSM_ACL_AUTHORIZATION_DECRYPT, thisApp.get());	// add this app
+		access->setAccess(*key, true);	// commit
+#else
 		KeychainACL acl(Key(this));
 		acl.anyAllow(false);
 		acl.alwaysAskUser(true);
 
-		auto_ptr<CodeSigning::OSXCode> code(CodeSigning::OSXCode::main());
+		RefPointer<CodeSigning::OSXCode> code(CodeSigning::OSXCode::main());
 		const char *path = code->canonicalPath().c_str();
 		CssmData comment(const_cast<char *>(path), strlen(path) + 1);
 		acl.push_back(TrustedApplication(path, comment));
 
 		// Change the acl.
 		acl.commit();
+#endif
 
 		// Retry the decrypt operation.
 		Decrypt decrypt(csp(), algorithm());
@@ -410,7 +427,7 @@ SSDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data,
 	attrs = attributes ? attributes : &noAttrs;
 
 	// Get the datablob for this record
-	CssmDataContainer dataBlob;
+	CssmDataContainer dataBlob(allocator());
 	for (;;)
 	{
 		if (!DbDbCursorImpl::next(attrs, &dataBlob, uniqueId))
@@ -432,9 +449,16 @@ SSDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data,
 		}
 	}
 
+	if (!SSGroupImpl::isGroup(dataBlob))
+	{
+		data->Data = dataBlob.Data;
+		data->Length = dataBlob.Length;
+		dataBlob.Data = NULL;
+		dataBlob.Length = 0;
+		return true;
+	}
+
 	// Get the group for dataBlob
-	// @@@ This might fail in which case we should probably not decrypt the
-	// data.
 	SSGroup group(database(), dataBlob);
 
 	// Decode the dataBlob, pass in the DL allocator.
@@ -501,20 +525,21 @@ SSDbUniqueRecordImpl::deleteRecord(const CSSM_ACCESS_CREDENTIALS *cred)
 {
 	// Get the datablob for this record
 	// @@@ Fixme so we don't need to call DbUniqueRecordImpl::get
-	CssmDataContainer dataBlob;
+	CssmDataContainer dataBlob(allocator());
 	DbUniqueRecordImpl::get(NULL, &dataBlob);
 
-	// Get the group for dataBlob
-	// @@@ This might fail in which case we should probably not decrypt the
-	// data.
-	SSGroup group(database(), dataBlob);
-
 	// @@@ Use transactions.
+	if (SSGroupImpl::isGroup(dataBlob))
+	{
+		// Get the group for dataBlob
+		SSGroup group(database(), dataBlob);
+		// Delete the group
+		// @@@ What if the group is shared?
+		group->deleteKey(cred);
+	}
+
 	// Delete the record.
 	DbUniqueRecordImpl::deleteRecord();
-	// Delete the group
-	// @@@ What if the group is shared?
-	group->deleteKey(cred);
 }
 
 void
@@ -539,18 +564,22 @@ SSDbUniqueRecordImpl::modify(CSSM_DB_RECORDTYPE recordType,
 		return;
 	}
 
-	// Get the datablob for this record @@@ Fixme so we don't need to call
-	// DbUniqueRecordImpl::get
-	CssmDataContainer oldDataBlob;
+	// Get the datablob for this record
+	// @@@ Fixme so we don't need to call DbUniqueRecordImpl::get
+	CssmDataContainer oldDataBlob(allocator());
 	DbUniqueRecordImpl::get(NULL, &oldDataBlob);
 
+	if (!SSGroupImpl::isGroup(oldDataBlob))
+	{
+		DbUniqueRecordImpl::modify(recordType, attributes, data, modifyMode);
+		return;
+	}
+
 	// Get the group for oldDataBlob
-	// @@@ This might fail in which case we should probably not decrypt the
-	// data.
 	SSGroup group(database(), oldDataBlob);
 
 	// Create a new dataBlob.
-	CssmDataContainer dataBlob;
+	CssmDataContainer dataBlob(allocator());
 	group->encodeDataBlob(data, cred, dataBlob);
 	DbUniqueRecordImpl::modify(recordType, attributes, &dataBlob, modifyMode);
 }
@@ -571,14 +600,21 @@ SSDbUniqueRecordImpl::get(DbAttributes *attributes, ::CssmDataContainer *data,
 		return;
 	}
 
-	// Get the datablob for this record @@@ Fixme so we don't need to call
-	// DbUniqueRecordImpl::get
-	CssmDataContainer dataBlob;
+	// Get the datablob for this record
+	// @@@ Fixme so we don't need to call DbUniqueRecordImpl::get
+	CssmDataContainer dataBlob(allocator());
 	DbUniqueRecordImpl::get(attributes, &dataBlob);
 
+	if (!SSGroupImpl::isGroup(dataBlob))
+	{
+		data->Data = dataBlob.Data;
+		data->Length = dataBlob.Length;
+		dataBlob.Data = NULL;
+		dataBlob.Length = 0;
+		return;
+	}
+
 	// Get the group for dataBlob
-	// @@@ This might fail in which case we should probably not decrypt the
-	// data.
 	SSGroup group(database(), dataBlob);
 
 	// Decode the dataBlob, pass in the DL allocator.
@@ -590,7 +626,7 @@ SSDbUniqueRecordImpl::group()
 {
 	// Get the datablob for this record
 	// @@@ Fixme so we don't need to call DbUniqueRecordImpl::get
-	CssmDataContainer dataBlob;
+	CssmDataContainer dataBlob(allocator());
 	DbUniqueRecordImpl::get(NULL, &dataBlob);
 	return SSGroup(database(), dataBlob);
 }

@@ -1,6 +1,7 @@
 /* MS-DOS specific Lisp utilities.  Coded by Manabu Higashida, 1991.
    Major changes May-July 1993 Morten Welinder (only 10% original code left)
-   Copyright (C) 1991, 1993, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1996, 1997, 1998, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -26,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 /* The entire file is within this conditional */
 
 #include <stdio.h>
+#include <string.h>
 #include <dos.h>
 #include "lisp.h"
 #include "buffer.h"
@@ -36,9 +38,13 @@ Boston, MA 02111-1307, USA.  */
 #include "window.h"
 #include "dosfns.h"
 #include "msdos.h"
+#include "dispextern.h"
+#include "charset.h"
+#include "coding.h"
 #include <dpmi.h>
 #include <go32.h>
 #include <dirent.h>
+#include <sys/vfs.h>
 
 #ifndef __DJGPP_MINOR__
 # define __tb _go32_info_block.linear_address_of_transfer_buffer;
@@ -171,11 +177,6 @@ Report whether a mouse is present.")
   else
     return Qnil;
 }
-
-/* Function to translate colour names to integers.  See lisp/term/pc-win.el
-   for its definition.  */
-
-Lisp_Object Qmsdos_color_translate;
 #endif
 
 
@@ -401,6 +402,54 @@ init_dosfns ()
 }
 
 #ifndef HAVE_X_WINDOWS
+
+/* Emulation of some X window features from xfns.c and xfaces.c.  */
+
+/* Standard VGA colors, in the order of their standard numbering
+   in the default VGA palette.  */
+static char *vga_colors[16] = {
+  "black", "blue", "green", "cyan", "red", "magenta", "brown",
+  "lightgray", "darkgray", "lightblue", "lightgreen", "lightcyan",
+  "lightred", "lightmagenta", "yellow", "white"
+};
+
+/* Given a color name, return its index, or -1 if not found.  Note
+   that this only performs case-insensitive comparison against the
+   standard names.  For anything more sophisticated, like matching
+   "gray" with "grey" or translating X color names into their MSDOS
+   equivalents, call the Lisp function Qtty_color_desc (defined
+   on lisp/term/tty-colors.el).  */
+int
+msdos_stdcolor_idx (const char *name)
+{
+  int i;
+
+  for (i = 0; i < sizeof (vga_colors) / sizeof (vga_colors[0]); i++)
+    if (strcasecmp (name, vga_colors[i]) == 0)
+      return i;
+
+  return
+    strcmp (name, unspecified_fg) == 0 ? FACE_TTY_DEFAULT_FG_COLOR
+    : strcmp (name, unspecified_bg) == 0 ? FACE_TTY_DEFAULT_BG_COLOR
+    : FACE_TTY_DEFAULT_COLOR;
+}
+
+/* Given a color index, return its standard name.  */
+Lisp_Object
+msdos_stdcolor_name (int idx)
+{
+  extern Lisp_Object Qunspecified;
+
+  if (idx == FACE_TTY_DEFAULT_FG_COLOR)
+    return build_string (unspecified_fg);
+  else if (idx == FACE_TTY_DEFAULT_BG_COLOR)
+    return build_string (unspecified_bg);
+  else if (idx >= 0 && idx < sizeof (vga_colors) / sizeof (vga_colors[0]))
+    return build_string (vga_colors[idx]);
+  else
+    return Qunspecified;	/* meaning the default */
+}
+
 /* Support for features that are available when we run in a DOS box
    on MS-Windows.  */
 int
@@ -463,6 +512,32 @@ x_set_title (f, name)
 }
 #endif /* !HAVE_X_WINDOWS */
 
+DEFUN ("file-system-info", Ffile_system_info, Sfile_system_info, 1, 1, 0,
+  "Return storage information about the file system FILENAME is on.\n\
+Value is a list of floats (TOTAL FREE AVAIL), where TOTAL is the total\n\
+storage of the file system, FREE is the free storage, and AVAIL is the\n\
+storage available to a non-superuser.  All 3 numbers are in bytes.\n\
+If the underlying system call fails, value is nil.")
+  (filename)
+  Lisp_Object filename;
+{
+  struct statfs stfs;
+  Lisp_Object encoded, value;
+
+  CHECK_STRING (filename, 0);
+  filename = Fexpand_file_name (filename, Qnil);
+  encoded = ENCODE_FILE (filename);
+
+  if (statfs (XSTRING (encoded)->data, &stfs))
+    value = Qnil;
+  else
+    value = list3 (make_float ((double) stfs.f_bsize * stfs.f_blocks),
+		   make_float ((double) stfs.f_bsize * stfs.f_bfree),
+		   make_float ((double) stfs.f_bsize * stfs.f_bavail));
+
+  return value;
+}
+
 void
 dos_cleanup (void)
 {
@@ -491,10 +566,9 @@ syms_of_dosfns ()
   defsubr (&Smsdos_set_keyboard);
   defsubr (&Sinsert_startup_screen);
   defsubr (&Smsdos_mouse_disable);
+  defsubr (&Sfile_system_info);
 #ifndef HAVE_X_WINDOWS
   defsubr (&Smsdos_mouse_p);
-  Qmsdos_color_translate = intern ("msdos-color-translate");
-  staticpro (&Qmsdos_color_translate);
 #endif
 
   DEFVAR_INT ("dos-country-code", &dos_country_code,
@@ -514,7 +588,7 @@ The following are known:\n\
 	865	Norway/Denmark");
 
   DEFVAR_INT ("dos-timezone-offset", &dos_timezone_offset,
-    "The current timezone offset to UTC in minutes.
+    "The current timezone offset to UTC in minutes.\n\
 Implicitly modified when the TZ variable is changed.");
   
   DEFVAR_LISP ("dos-version", &Vdos_version,

@@ -40,11 +40,22 @@ protected:
     struct ExpansionData { };
     
     ExpansionData *reserved;
-    
+
+public:
+	static IOAudioSelectorControl *createOutputSelector(SInt32 initialValue,
+															UInt32 channelID,
+															const char *channelName = 0,
+															UInt32 cntrlID = 0);
+
+	virtual IOReturn removeAvailableSelection(SInt32 selectionValue);
+	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, const char *selectionDescription);
+	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, OSString *selectionDescription);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 0);
-    OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 1);
-    OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 2);
+    OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 2);
+
     OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 3);
     OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 4);
     OSMetaClassDeclareReservedUnused(IOAudioSelectorControl, 5);

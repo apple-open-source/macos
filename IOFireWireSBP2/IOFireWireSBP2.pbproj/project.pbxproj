@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		00F0F431FFCA255711CE233C = {
 			buildStyles = (
@@ -83,10 +83,10 @@
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions;
-				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.1.2d24;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -103,15 +103,15 @@
 			productName = "IOFireWireSBP2 (Bundle)";
 			productReference = 00F0F451FFCA255711CE233C;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -123,11 +123,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2d24</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSBP2</key>
@@ -192,9 +192,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -213,14 +213,14 @@
 				015B61DB00A36AE011CE233E,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F45DFFCA255711CE233C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F45EFFCA255711CE233C = {
 			buildActionMask = 2147483647;
@@ -235,21 +235,21 @@
 				015B61DC00A36AE011CE233E,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F465FFCA255711CE233C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F466FFCA255711CE233C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F467FFCA255711CE233C = {
 			buildActionMask = 2147483647;
@@ -258,9 +258,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -325,15 +325,15 @@
 			productName = IOFireWireSBP2Lib;
 			productReference = 00F0F46FFFCA290111CE233C;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -345,11 +345,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2d24</string>
+	<string>1.2.0</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -386,14 +386,14 @@
 				02848093FFCB4DC711CE233C,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F473FFCA290111CE233C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F474FFCA290111CE233C = {
 			buildActionMask = 2147483647;
@@ -404,7 +404,7 @@
 				02848098FFCB4DC711CE233C,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F475FFCA290111CE233C = {
 			buildActionMask = 2147483647;
@@ -413,14 +413,14 @@
 				F5278E6200D571A901CE2124,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F476FFCA290111CE233C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F0F477FFCA2A5011CE233C = {
 			children = (
@@ -468,7 +468,7 @@
 				013D96E8FFE08A8311CE2282,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F2509BFFCB3F9811CE233C = {
 			buildRules = (
@@ -901,7 +901,7 @@
 				028480A2FFCB5D0F11CE233C,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		028480A2FFCB5D0F11CE233C = {
 			fileRef = 02848083FFCB4DC711CE233C;

@@ -46,7 +46,7 @@ Error::cssmError() const
 }
 
 const char *
-Error::what () const
+Error::what () const throw()
 {
 	return "CSSM client library error";
 }
@@ -201,9 +201,15 @@ CssmImpl::activate()
 	{
 		// currently, no choices on PVC mode and key hierarchy
 		CSSM_PVC_MODE pvc = CSSM_PVC_NONE;
-		//@@@ should handle PVC_ALREADY... non-error
-		check(CSSM_Init(&mVersion, mScope, &mCallerGuid,
-			CSSM_KEY_HIERARCHY_NONE, &pvc, NULL));
+		switch (CSSM_RETURN rc = CSSM_Init(&mVersion,
+				mScope, &mCallerGuid,
+				CSSM_KEY_HIERARCHY_NONE, &pvc, NULL)) {
+		case CSSMERR_CSSM_PVC_ALREADY_CONFIGURED:
+		case CSSM_OK:
+			break;
+		default:
+			check(rc);
+		}
 		mActive = true;
 	}
 }

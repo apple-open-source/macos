@@ -1,5 +1,8 @@
-# Register display window class definition for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Register display window class definition for Insight.
+# Copyright 1998, 1999, 2001 Red Hat, Inc.
+#
+# Written by Keith Seitz (keiths@redhat.com)
+# based on work by Martin Hunt (hunt@redhat.com)
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -16,56 +19,77 @@ class RegWin {
   inherit EmbeddedWin GDBWin
   
   private {
-    variable reg_display_list {}
-    variable all_regs_shown    1
-    variable disp_all_menu_item
-    variable num_regs 0
-    variable nRows
-    variable nCols
-    variable changed_reg_list {}
-    variable oldValue
-    variable ScrolledWin
-    variable Menu
-    variable Editing -1
-    variable selected -1
-    variable mbar 1
-    variable reg_names_dirty 0
-    variable Running 0
-    
-    common HighlightForeground {}
-    common NormalForeground {}
-    
-    method init_reg_display_vars {args}
-    method handle_set_hook {var val}
-    method disassembly_changed {}
-    method dimensions {}
-    method fixLength {s size where}
-    method build_win {}  
-  } 
+    variable _change_list {}
+    variable _menuitems
 
-  public {
-    proc save_reg_display_vars {} 
+    # Display data for the table
+    variable _data
 
-    method constructor {args}
-    method destructor {}
-    method reg_select_up {}
-    method reg_select_down {}
-    method reg_select_right {}
-    method reg_select_left {}
-    method reg_select { r }
-    method but3 {rn X Y}
-    method display_all {} 
-    method delete_from_display_list {rn} 
-    method addToWatch {reg}
-    method edit {r} 
-    method acceptEdit {r} 
-    method unedit {} 
-    method update {}
-    method idle {}
-    method reconfig {}
-    method busy {}
+    # Mapping of table cell index to register number
+    variable _register
+
+    # Mapping of register number to table cell index. "hidden" if
+    # the register was "removed" from the display.
+    variable _cell
+
+    # Display formats for the registers (indexed by regnum)
+    variable _format
+
+    # Is REGNUM editable?
+    variable _editable
+
+    # Is REGNUM typed?
+    variable _typed
+
+    # The list of registers we're displaying
+    variable _reg_display_list {}
+
+    # Size of columns
+    variable _col_size
+
+    # Fencepost
+    variable _running 0
+
+
+    # Table layout/display methods
+    method _build_win {}
+    method _dimensions {}
+    method _layout_table {}
+    method _prefs_changed {pref value}
+    method _size_cell_column {cell down}
+    method _size_column {col down}
+
+    # Table event handlers and related methods
+    method _accept_edit {}
+    method _add_to_watch {rn}
+    method _but3 {x y X Y}
+    method _delete_from_display {rn} 
+    method _display_all {} 
+    method _edit {x y}
+    method _edit_menu {rn}
+    method _move {direction}
+    method _post_menu {}
+    method _select {x y}
+    method _select_cell {cell}
+    method _unedit {}
+
+    # Register operations
+    method _get_value {rn}
+    method _change_format {rn}
+    method _update_register {rn}
   }
 
+  public {
+    method constructor {args}
+    method destructor {}
 
+    #
+    # Gdb Events
+    #
+    method busy {event}
+    method idle {event}
+    method set_variable {event}
+    method update {event}
+    method arch_changed {event}
+  }
 }
-

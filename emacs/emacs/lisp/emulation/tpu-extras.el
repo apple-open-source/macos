@@ -1,6 +1,6 @@
-;;; tpu-extras.el --- Scroll margins and free cursor mode for TPU-edt
+;;; tpu-extras.el --- scroll margins and free cursor mode for TPU-edt
 
-;; Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
 
 ;; Author: Rob Riepel <riepel@networking.stanford.edu>
 ;; Maintainer: Rob Riepel <riepel@networking.stanford.edu>
@@ -142,7 +142,7 @@ the previous line when starting from a line beginning."
 
 (defun tpu-write-file-hook nil
   "Eliminate whitespace at ends of lines, if the cursor is free."
-  (if (and (buffer-modified-p) tpu-cursor-free) (picture-clean)))
+  (if (and (buffer-modified-p) tpu-cursor-free) (tpu-trim-line-ends)))
 
 (or (memq 'tpu-write-file-hook write-file-hooks)
     (setq write-file-hooks
@@ -216,7 +216,7 @@ Accepts a prefix argument for the number of lines to move."
   (interactive "p")
   (let ((beg (tpu-current-line)))
     (backward-char 1)
-    (forward-line (- 1 num))
+    (forward-visible-line (- 1 num))
     (tpu-top-check beg num)))
 
 (defun tpu-next-end-of-line (num)
@@ -473,7 +473,7 @@ version that respects the bottom scroll margin."
 (defun tpu-set-cursor-bound nil
   "Constrain the cursor to the flow of the text."
   (interactive)
-  (picture-clean)
+  (tpu-trim-line-ends)
   (setq tpu-cursor-free nil)
   (substitute-key-definition 'tpu-set-cursor-bound
 			     'tpu-set-cursor-free

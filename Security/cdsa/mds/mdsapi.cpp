@@ -134,17 +134,6 @@ static CSSM_RETURN CSSMAPI cssm_DataGetFromUniqueRecordId(CSSM_DL_DB_HANDLE DLDB
   END_API(MDS)
 }
 
-#if 0
-static CSSM_RETURN CSSMAPI cssm_GetDbOwner(CSSM_DL_DB_HANDLE DLDBHandle,
-         CSSM_ACL_OWNER_PROTOTYPE_PTR Owner)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).GetDbOwner(DLDBHandle.DBHandle,
-			Required(Owner));
-  END_API(MDS)
-}
-#endif
-
 static CSSM_RETURN CSSMAPI cssm_CreateRelation(CSSM_DL_DB_HANDLE DLDBHandle,
          CSSM_DB_RECORDTYPE RelationID,
          const char *RelationName,
@@ -163,45 +152,6 @@ static CSSM_RETURN CSSMAPI cssm_CreateRelation(CSSM_DL_DB_HANDLE DLDBHandle,
 			Required(pIndexInfo));
   END_API(MDS)
 }
-
-#if 0
-static CSSM_RETURN CSSMAPI cssm_GetDbAcl(CSSM_DL_DB_HANDLE DLDBHandle,
-         const CSSM_STRING *SelectionTag,
-         uint32 *NumberOfAclInfos,
-         CSSM_ACL_ENTRY_INFO_PTR *AclInfos)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).GetDbAcl(DLDBHandle.DBHandle,
-			SelectionTag,
-			Required(NumberOfAclInfos),
-			Required(AclInfos));
-  END_API(MDS)
-}
-
-static CSSM_RETURN CSSMAPI cssm_ChangeDbOwner(CSSM_DL_DB_HANDLE DLDBHandle,
-         const CSSM_ACCESS_CREDENTIALS *AccessCred,
-         const CSSM_ACL_OWNER_PROTOTYPE *NewOwner)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).ChangeDbOwner(DLDBHandle.DBHandle,
-			AccessCredentials::required(AccessCred),
-			Required(NewOwner));
-  END_API(MDS)
-}
-
-static CSSM_RETURN CSSMAPI cssm_PassThrough(CSSM_DL_DB_HANDLE DLDBHandle,
-         uint32 PassThroughId,
-         const void *InputParams,
-         void **OutputParams)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).PassThrough(DLDBHandle.DBHandle,
-			PassThroughId,
-			InputParams,
-			OutputParams);
-  END_API(MDS)
-}
-#endif
 
 static CSSM_RETURN CSSMAPI cssm_FreeUniqueRecord(CSSM_DL_DB_HANDLE DLDBHandle,
          CSSM_DB_UNIQUE_RECORD_PTR UniqueRecord)
@@ -246,40 +196,6 @@ static CSSM_RETURN CSSMAPI cssm_DataGetNext(CSSM_DL_DB_HANDLE DLDBHandle,
   END_API(MDS)
 }
 
-#if 0
-static CSSM_RETURN CSSMAPI cssm_DbDelete(CSSM_DL_HANDLE DLHandle,
-         const char *DbName,
-         const CSSM_NET_ADDRESS *DbLocation,
-         const CSSM_ACCESS_CREDENTIALS *AccessCred)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLHandle).DbDelete(DbName,
-			DbLocation,
-			AccessCredentials::optional(AccessCred));
-  END_API(MDS)
-}
-
-static CSSM_RETURN CSSMAPI cssm_DbCreate(CSSM_DL_HANDLE DLHandle,
-         const char *DbName,
-         const CSSM_NET_ADDRESS *DbLocation,
-         const CSSM_DBINFO *DBInfo,
-         CSSM_DB_ACCESS_TYPE AccessRequest,
-         const CSSM_RESOURCE_CONTROL_CONTEXT *CredAndAclEntry,
-         const void *OpenParameters,
-         CSSM_DB_HANDLE *DbHandle)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLHandle).DbCreate(DbName,
-			DbLocation,
-			Required(DBInfo),
-			AccessRequest,
-			CredAndAclEntry,
-			OpenParameters,
-			Required(DbHandle));
-  END_API(MDS)
-}
-#endif
-
 static CSSM_RETURN CSSMAPI cssm_GetDbNames(CSSM_DL_HANDLE DLHandle,
          CSSM_NAME_LIST_PTR *NameList)
 {
@@ -294,30 +210,6 @@ static CSSM_RETURN CSSMAPI cssm_DbClose(CSSM_DL_DB_HANDLE DLDBHandle)
   findHandle<MDSSession>(DLDBHandle.DLHandle).DbClose(DLDBHandle.DBHandle);
   END_API(MDS)
 }
-
-#if 0
-static CSSM_RETURN CSSMAPI cssm_ChangeDbAcl(CSSM_DL_DB_HANDLE DLDBHandle,
-         const CSSM_ACCESS_CREDENTIALS *AccessCred,
-         const CSSM_ACL_EDIT *AclEdit)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).ChangeDbAcl(DLDBHandle.DBHandle,
-			AccessCredentials::required(AccessCred),
-			Required(AclEdit));
-  END_API(MDS)
-}
-
-static CSSM_RETURN CSSMAPI cssm_Authenticate(CSSM_DL_DB_HANDLE DLDBHandle,
-         CSSM_DB_ACCESS_TYPE AccessRequest,
-         const CSSM_ACCESS_CREDENTIALS *AccessCred)
-{
-  BEGIN_API
-  findHandle<MDSSession>(DLDBHandle.DLHandle).Authenticate(DLDBHandle.DBHandle,
-			AccessRequest,
-			AccessCredentials::required(AccessCred));
-  END_API(MDS)
-}
-#endif
 
 static CSSM_RETURN CSSMAPI cssm_FreeNameList(CSSM_DL_HANDLE DLHandle,
          CSSM_NAME_LIST_PTR NameList)

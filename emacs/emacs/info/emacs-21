@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1092 +11,1233 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Sorting,  Next: Narrowing,  Prev: Postscript Variables,  Up: Top
+File: emacs,  Node: Rmail Editing,  Next: Rmail Digest,  Prev: Rmail Coding,  Up: Rmail
 
-Sorting Text
-============
-
-   Emacs provides several commands for sorting text in the buffer.  All
-operate on the contents of the region (the text between point and the
-mark).  They divide the text of the region into many "sort records",
-identify a "sort key" for each record, and then reorder the records
-into the order determined by the sort keys.  The records are ordered so
-that their keys are in alphabetical order, or, for numeric sorting, in
-numeric order.  In alphabetic sorting, all upper-case letters `A'
-through `Z' come before lower-case `a', in accord with the ASCII
-character sequence.
-
-   The various sort commands differ in how they divide the text into
-sort records and in which part of each record is used as the sort key.
-Most of the commands make each line a separate sort record, but some
-commands use paragraphs or pages as sort records.  Most of the sort
-commands use each entire sort record as its own sort key, but some use
-only a portion of the record as the sort key.
-
-`M-x sort-lines'
-     Divide the region into lines, and sort by comparing the entire
-     text of a line.  A numeric argument means sort into descending
-     order.
-
-`M-x sort-paragraphs'
-     Divide the region into paragraphs, and sort by comparing the entire
-     text of a paragraph (except for leading blank lines).  A numeric
-     argument means sort into descending order.
-
-`M-x sort-pages'
-     Divide the region into pages, and sort by comparing the entire
-     text of a page (except for leading blank lines).  A numeric
-     argument means sort into descending order.
-
-`M-x sort-fields'
-     Divide the region into lines, and sort by comparing the contents of
-     one field in each line.  Fields are defined as separated by
-     whitespace, so the first run of consecutive non-whitespace
-     characters in a line constitutes field 1, the second such run
-     constitutes field 2, etc.
-
-     Specify which field to sort by with a numeric argument: 1 to sort
-     by field 1, etc.  A negative argument means count fields from the
-     right instead of from the left; thus, minus 1 means sort by the
-     last field.  If several lines have identical contents in the field
-     being sorted, they keep same relative order that they had in the
-     original buffer.
-
-`M-x sort-numeric-fields'
-     Like `M-x sort-fields' except the specified field is converted to
-     an integer for each line, and the numbers are compared.  `10'
-     comes before `2' when considered as text, but after it when
-     considered as a number.
-
-`M-x sort-columns'
-     Like `M-x sort-fields' except that the text within each line used
-     for comparison comes from a fixed range of columns.  See below for
-     an explanation.
-
-`M-x reverse-region'
-     Reverse the order of the lines in the region.  This is useful for
-     sorting into descending order by fields or columns, since those
-     sort commands do not have a feature for doing that.
-
-   For example, if the buffer contains this:
-
-     On systems where clash detection (locking of files being edited) is
-     implemented, Emacs also checks the first time you modify a buffer
-     whether the file has changed on disk since it was last visited or
-     saved.  If it has, you are asked to confirm that you want to change
-     the buffer.
-
-applying `M-x sort-lines' to the entire buffer produces this:
-
-     On systems where clash detection (locking of files being edited) is
-     implemented, Emacs also checks the first time you modify a buffer
-     saved.  If it has, you are asked to confirm that you want to change
-     the buffer.
-     whether the file has changed on disk since it was last visited or
-
-where the upper-case `O' sorts before all lower-case letters.  If you
-use `C-u 2 M-x sort-fields' instead, you get this:
-
-     implemented, Emacs also checks the first time you modify a buffer
-     saved.  If it has, you are asked to confirm that you want to change
-     the buffer.
-     On systems where clash detection (locking of files being edited) is
-     whether the file has changed on disk since it was last visited or
-
-where the sort keys were `Emacs', `If', `buffer', `systems' and `the'.
-
-   `M-x sort-columns' requires more explanation.  You specify the
-columns by putting point at one of the columns and the mark at the other
-column.  Because this means you cannot put point or the mark at the
-beginning of the first line of the text you want to sort, this command
-uses an unusual definition of `region': all of the line point is in is
-considered part of the region, and so is all of the line the mark is in,
-as well as all the lines in between.
-
-   For example, to sort a table by information found in columns 10 to
-15, you could put the mark on column 10 in the first line of the table,
-and point on column 15 in the last line of the table, and then run
-`sort-columns'.  Equivalently, you could run it with the mark on column
-15 in the first line and point on column 10 in the last line.
-
-   This can be thought of as sorting the rectangle specified by point
-and the mark, except that the text on each line to the left or right of
-the rectangle moves along with the text inside the rectangle.  *Note
-Rectangles::.
-
-   Many of the sort commands ignore case differences when comparing, if
-`sort-fold-case' is non-`nil'.
-
-
-File: emacs,  Node: Narrowing,  Next: Two-Column,  Prev: Sorting,  Up: Top
-
-Narrowing
-=========
-
-   "Narrowing" means focusing in on some portion of the buffer, making
-the rest temporarily inaccessible.  The portion which you can still get
-to is called the "accessible portion".  Canceling the narrowing, which
-makes the entire buffer once again accessible, is called "widening".
-The amount of narrowing in effect in a buffer at any time is called the
-buffer's "restriction".
-
-   Narrowing can make it easier to concentrate on a single subroutine or
-paragraph by eliminating clutter.  It can also be used to restrict the
-range of operation of a replace command or repeating keyboard macro.
-
-`C-x n n'
-     Narrow down to between point and mark (`narrow-to-region').
-
-`C-x n w'
-     Widen to make the entire buffer accessible again (`widen').
-
-`C-x n p'
-     Narrow down to the current page (`narrow-to-page').
-
-`C-x n d'
-     Narrow down to the current defun (`narrow-to-defun').
-
-   When you have narrowed down to a part of the buffer, that part
-appears to be all there is.  You can't see the rest, you can't move
-into it (motion commands won't go outside the accessible part), you
-can't change it in any way.  However, it is not gone, and if you save
-the file all the inaccessible text will be saved.  The word `Narrow'
-appears in the mode line whenever narrowing is in effect.
-
-   The primary narrowing command is `C-x n n' (`narrow-to-region').  It
-sets the current buffer's restrictions so that the text in the current
-region remains accessible but all text before the region or after the
-region is inaccessible.  Point and mark do not change.
-
-   Alternatively, use `C-x n p' (`narrow-to-page') to narrow down to
-the current page.  *Note Pages::, for the definition of a page.  `C-x n
-d' (`narrow-to-defun') narrows down to the defun containing point
-(*note Defuns::).
-
-   The way to cancel narrowing is to widen with `C-x n w' (`widen').
-This makes all text in the buffer accessible again.
-
-   You can get information on what part of the buffer you are narrowed
-down to using the `C-x =' command.  *Note Position Info::.
-
-   Because narrowing can easily confuse users who do not understand it,
-`narrow-to-region' is normally a disabled command.  Attempting to use
-this command asks for confirmation and gives you the option of enabling
-it; if you enable the command, confirmation will no longer be required
-for it.  *Note Disabling::.
-
-
-File: emacs,  Node: Two-Column,  Next: Editing Binary Files,  Prev: Narrowing,  Up: Top
-
-Two-Column Editing
-==================
-
-   Two-column mode lets you conveniently edit two side-by-side columns
-of text.  It uses two side-by-side windows, each showing its own buffer.
-
-   There are three ways to enter two-column mode:
-
-`<F2> 2' or `C-x 6 2'
-     Enter two-column mode with the current buffer on the left, and on
-     the right, a buffer whose name is based on the current buffer's
-     name (`2C-two-columns').  If the right-hand buffer doesn't already
-     exist, it starts out empty; the current buffer's contents are not
-     changed.
-
-     This command is appropriate when the current buffer is empty or
-     contains just one column and you want to add another column.
-
-`<F2> s' or `C-x 6 s'
-     Split the current buffer, which contains two-column text, into two
-     buffers, and display them side by side (`2C-split').  The current
-     buffer becomes the left-hand buffer, but the text in the right-hand
-     column is moved into the right-hand buffer.  The current column
-     specifies the split point.  Splitting starts with the current line
-     and continues to the end of the buffer.
-
-     This command is appropriate when you have a buffer that already
-     contains two-column text, and you wish to separate the columns
-     temporarily.
-
-`<F2> b BUFFER <RET>'
-`C-x 6 b BUFFER <RET>'
-     Enter two-column mode using the current buffer as the left-hand
-     buffer, and using buffer BUFFER as the right-hand buffer
-     (`2C-associate-buffer').
-
-   `<F2> s' or `C-x 6 s' looks for a column separator, which is a
-string that appears on each line between the two columns.  You can
-specify the width of the separator with a numeric argument to `<F2> s';
-that many characters, before point, constitute the separator string.
-By default, the width is 1, so the column separator is the character
-before point.
-
-   When a line has the separator at the proper place, `<F2> s' puts the
-text after the separator into the right-hand buffer, and deletes the
-separator.  Lines that don't have the column separator at the proper
-place remain unsplit; they stay in the left-hand buffer, and the
-right-hand buffer gets an empty line to correspond.  (This is the way
-to write a line that "spans both columns while in two-column mode":
-write it in the left-hand buffer, and put an empty line in the
-right-hand buffer.)
-
-   The command `C-x 6 <RET>' or `<F2> <RET>' (`2C-newline') inserts a
-newline in each of the two buffers at corresponding positions.  This is
-the easiest way to add a new line to the two-column text while editing
-it in split buffers.
-
-   When you have edited both buffers as you wish, merge them with `<F2>
-1' or `C-x 6 1' (`2C-merge').  This copies the text from the right-hand
-buffer as a second column in the other buffer.  To go back to
-two-column editing, use `<F2> s'.
-
-   Use `<F2> d' or `C-x 6 d' to dissociate the two buffers, leaving
-each as it stands (`2C-dissociate').  If the other buffer, the one not
-current when you type `<F2> d', is empty, `<F2> d' kills it.
-
-
-File: emacs,  Node: Editing Binary Files,  Next: Saving Emacs Sessions,  Prev: Two-Column,  Up: Top
-
-Editing Binary Files
-====================
-
-   There is a special major mode for editing binary files: Hexl mode.
-To use it, use `M-x hexl-find-file' instead of `C-x C-f' to visit the
-file.  This command converts the file's contents to hexadecimal and
-lets you edit the translation.  When you save the file, it is converted
-automatically back to binary.
-
-   You can also use `M-x hexl-mode' to translate an existing buffer
-into hex.  This is useful if you visit a file normally and then discover
-it is a binary file.
-
-   Ordinary text characters overwrite in Hexl mode.  This is to reduce
-the risk of accidentally spoiling the alignment of data in the file.
-There are special commands for insertion.  Here is a list of the
-commands of Hexl mode:
-
-`C-M-d'
-     Insert a byte with a code typed in decimal.
-
-`C-M-o'
-     Insert a byte with a code typed in octal.
-
-`C-M-x'
-     Insert a byte with a code typed in hex.
-
-`C-x ['
-     Move to the beginning of a 1k-byte "page."
-
-`C-x ]'
-     Move to the end of a 1k-byte "page."
-
-`M-g'
-     Move to an address specified in hex.
-
-`M-j'
-     Move to an address specified in decimal.
-
-`C-c C-c'
-     Leave Hexl mode, going back to the major mode this buffer had
-     before you invoked `hexl-mode'.
-
-
-File: emacs,  Node: Saving Emacs Sessions,  Next: Recursive Edit,  Prev: Editing Binary Files,  Up: Top
-
-Saving Emacs Sessions
-=====================
-
-   You can use the Desktop library to save the state of Emacs from one
-session to another.  Saving the state means that Emacs starts up with
-the same set of buffers, major modes, buffer positions, and so on that
-the previous Emacs session had.
-
-   To use Desktop, you should use the Customization buffer (*note Easy
-Customization::) to set `desktop-enable' to a non-`nil' value, or add
-these lines at the end of your `.emacs' file:
-
-     (desktop-load-default)
-     (desktop-read)
-
-The first time you save the state of the Emacs session, you must do it
-manually, with the command `M-x desktop-save'.  Once you have done
-that, exiting Emacs will save the state again--not only the present
-Emacs session, but also subsequent sessions.  You can also save the
-state at any time, without exiting Emacs, by typing `M-x desktop-save'
-again.
-
-   In order for Emacs to recover the state from a previous session, you
-must start it with the same current directory as you used when you
-started the previous session.  This is because `desktop-read' looks in
-the current directory for the file to read.  This means that you can
-have separate saved sessions in different directories; the directory in
-which you start Emacs will control which saved session to use.
-
-   The variable `desktop-files-not-to-save' controls which files are
-excluded from state saving.  Its value is a regular expression that
-matches the files to exclude.  By default, remote (ftp-accessed) files
-are excluded; this is because visiting them again in the subsequent
-session would be slow.  If you want to include these files in state
-saving, set `desktop-files-not-to-save' to `"^$"'.  *Note Remote
-Files::.
-
-
-File: emacs,  Node: Recursive Edit,  Next: Emulation,  Prev: Saving Emacs Sessions,  Up: Top
-
-Recursive Editing Levels
+Editing Within a Message
 ========================
 
-   A "recursive edit" is a situation in which you are using Emacs
-commands to perform arbitrary editing while in the middle of another
-Emacs command.  For example, when you type `C-r' inside of a
-`query-replace', you enter a recursive edit in which you can change the
-current buffer.  On exiting from the recursive edit, you go back to the
-`query-replace'.
+   Most of the usual Emacs commands are available in Rmail mode, though
+a few, such as `C-M-n' and `C-M-h', are redefined by Rmail for other
+purposes.  However, the Rmail buffer is normally read only, and most of
+the letters are redefined as Rmail commands.  If you want to edit the
+text of a message, you must use the Rmail command `e'.
 
-   "Exiting" the recursive edit means returning to the unfinished
-command, which continues execution.  The command to exit is `C-M-c'
-(`exit-recursive-edit').
+`e'
+     Edit the current message as ordinary text.
 
-   You can also "abort" the recursive edit.  This is like exiting, but
-also quits the unfinished command immediately.  Use the command `C-]'
-(`abort-recursive-edit') to do this.  *Note Quitting::.
+   The `e' command (`rmail-edit-current-message') switches from Rmail
+mode into Rmail Edit mode, another major mode which is nearly the same
+as Text mode.  The mode line indicates this change.
 
-   The mode line shows you when you are in a recursive edit by
-displaying square brackets around the parentheses that always surround
-the major and minor mode names.  Every window's mode line shows this,
-in the same way, since being in a recursive edit is true of Emacs as a
-whole rather than any particular window or buffer.
+   In Rmail Edit mode, letters insert themselves as usual and the Rmail
+commands are not available.  When you are finished editing the message
+and are ready to go back to Rmail, type `C-c C-c', which switches back
+to Rmail mode.  Alternatively, you can return to Rmail mode but cancel
+all the editing that you have done, by typing `C-c C-]'.
 
-   It is possible to be in recursive edits within recursive edits.  For
-example, after typing `C-r' in a `query-replace', you may type a
-command that enters the debugger.  This begins a recursive editing level
-for the debugger, within the recursive editing level for `C-r'.  Mode
-lines display a pair of square brackets for each recursive editing
-level currently in progress.
-
-   Exiting the inner recursive edit (such as, with the debugger `c'
-command) resumes the command running in the next level up.  When that
-command finishes, you can then use `C-M-c' to exit another recursive
-editing level, and so on.  Exiting applies to the innermost level only.
-Aborting also gets out of only one level of recursive edit; it returns
-immediately to the command level of the previous recursive edit.  If you
-wish, you can then abort the next recursive editing level.
-
-   Alternatively, the command `M-x top-level' aborts all levels of
-recursive edits, returning immediately to the top-level command reader.
-
-   The text being edited inside the recursive edit need not be the same
-text that you were editing at top level.  It depends on what the
-recursive edit is for.  If the command that invokes the recursive edit
-selects a different buffer first, that is the buffer you will edit
-recursively.  In any case, you can switch buffers within the recursive
-edit in the normal manner (as long as the buffer-switching keys have
-not been rebound).  You could probably do all the rest of your editing
-inside the recursive edit, visiting files and all.  But this could have
-surprising effects (such as stack overflow) from time to time.  So
-remember to exit or abort the recursive edit when you no longer need it.
-
-   In general, we try to minimize the use of recursive editing levels in
-GNU Emacs.  This is because they constrain you to "go back" in a
-particular order--from the innermost level toward the top level.  When
-possible, we present different activities in separate buffers so that
-you can switch between them as you please.  Some commands switch to a
-new major mode which provides a command to switch back.  These
-approaches give you more flexibility to go back to unfinished tasks in
-the order you choose.
+   Entering Rmail Edit mode runs the hook `text-mode-hook'; then it
+runs the hook `rmail-edit-mode-hook' (*note Hooks::).  It adds the
+attribute `edited' to the message.  It also displays the full headers
+of the message, so that you can edit the headers as well as the body of
+the message, and your changes in the headers will be permanent.
 
 
-File: emacs,  Node: Emulation,  Next: Dissociated Press,  Prev: Recursive Edit,  Up: Top
+File: emacs,  Node: Rmail Digest,  Next: Out of Rmail,  Prev: Rmail Editing,  Up: Rmail
 
-Emulation
-=========
+Digest Messages
+===============
 
-   GNU Emacs can be programmed to emulate (more or less) most other
-editors.  Standard facilities can emulate these:
+   A "digest message" is a message which exists to contain and carry
+several other messages.  Digests are used on some moderated mailing
+lists; all the messages that arrive for the list during a period of time
+such as one day are put inside a single digest which is then sent to the
+subscribers.  Transmitting the single digest uses much less computer
+time than transmitting the individual messages even though the total
+size is the same, because the per-message overhead in network mail
+transmission is considerable.
 
-EDT (DEC VMS editor)
-     Turn on EDT emulation with `M-x edt-emulation-on'.  `M-x
-     edt-emulation-off' restores normal Emacs command bindings.
+   When you receive a digest message, the most convenient way to read
+it is to "undigestify" it: to turn it back into many individual
+messages.  Then you can read and delete the individual messages as it
+suits you.
 
-     Most of the EDT emulation commands are keypad keys, and most
-     standard Emacs key bindings are still available.  The EDT
-     emulation rebindings are done in the global keymap, so there is no
-     problem switching buffers or major modes while in EDT emulation.
-
-vi (Berkeley editor)
-     Viper is the newest emulator for vi.  It implements several levels
-     of emulation; level 1 is closest to vi itself, while level 5
-     departs somewhat from strict emulation to take advantage of the
-     capabilities of Emacs.  To invoke Viper, type `M-x viper-mode'; it
-     will guide you the rest of the way and ask for the emulation
-     level.  *note Viper: (viper)Top.
-
-vi (another emulator)
-     `M-x vi-mode' enters a major mode that replaces the previously
-     established major mode.  All of the vi commands that, in real vi,
-     enter "input" mode are programmed instead to return to the
-     previous major mode.  Thus, ordinary Emacs serves as vi's "input"
-     mode.
-
-     Because vi emulation works through major modes, it does not work
-     to switch buffers during emulation.  Return to normal Emacs first.
-
-     If you plan to use vi emulation much, you probably want to bind a
-     key to the `vi-mode' command.
-
-vi (alternate emulator)
-     `M-x vip-mode' invokes another vi emulator, said to resemble real
-     vi more thoroughly than `M-x vi-mode'.  "Input" mode in this
-     emulator is changed from ordinary Emacs so you can use <ESC> to go
-     back to emulated vi command mode.  To get from emulated vi command
-     mode back to ordinary Emacs, type `C-z'.
-
-     This emulation does not work through major modes, and it is
-     possible to switch buffers in various ways within the emulator.
-     It is not so necessary to assign a key to the command `vip-mode' as
-     it is with `vi-mode' because terminating insert mode does not use
-     it.
-
-     *note VIP: (vip)Top, for full information.
+   To do this, select the digest message and type the command `M-x
+undigestify-rmail-message'.  This extracts the submessages as separate
+Rmail messages, and inserts them following the digest.  The digest
+message itself is flagged as deleted.
 
 
-File: emacs,  Node: Dissociated Press,  Next: Amusements,  Prev: Emulation,  Up: Top
+File: emacs,  Node: Out of Rmail,  Next: Rmail Rot13,  Prev: Rmail Digest,  Up: Rmail
 
-Dissociated Press
-=================
+Converting an Rmail File to Inbox Format
+========================================
 
-   `M-x dissociated-press' is a command for scrambling a file of text
-either word by word or character by character.  Starting from a buffer
-of straight English, it produces extremely amusing output.  The input
-comes from the current Emacs buffer.  Dissociated Press writes its
-output in a buffer named `*Dissociation*', and redisplays that buffer
-after every couple of lines (approximately) so you can read the output
-as it comes out.
+   The command `M-x unrmail' converts a file in Rmail format to inbox
+format (also known as the system mailbox, or mbox, format), so that you
+can use it with other mail-editing tools.  You must specify two
+arguments, the name of the Rmail file and the name to use for the
+converted file.  `M-x unrmail' does not alter the Rmail file itself.
 
-   Dissociated Press asks every so often whether to continue generating
-output.  Answer `n' to stop it.  You can also stop at any time by
-typing `C-g'.  The dissociation output remains in the `*Dissociation*'
-buffer for you to copy elsewhere if you wish.
+   `M-x unrmail' is useful if you can run Emacs on the machine where
+the Rmail file resides, or can access the Rmail file remotely (*note
+Remote Files::) from a machine where Emacs is installed.  If accessing
+Rmail files from Emacs is impossible, you can use the `b2m' program
+instead.  `b2m' is part of the Emacs distribution, it is installed into
+the same directory where all the other auxiliary programs (`etags'
+etc.) are installed, and its source is available in the Emacs source
+distribution, so that you could copy the source to the target machine
+and compile it there.
 
-   Dissociated Press operates by jumping at random from one point in the
-buffer to another.  In order to produce plausible output rather than
-gibberish, it insists on a certain amount of overlap between the end of
-one run of consecutive words or characters and the start of the next.
-That is, if it has just printed out `president' and then decides to jump
-to a different point in the file, it might spot the `ent' in `pentagon'
-and continue from there, producing `presidentagon'.(1)  Long sample
-texts produce the best results.
+   To convert a file `BABYL-FILE' into `MBOX-FILE', invoke `b2m' like
+this:
 
-   A positive argument to `M-x dissociated-press' tells it to operate
-character by character, and specifies the number of overlap characters.
-A negative argument tells it to operate word by word and specifies the
-number of overlap words.  In this mode, whole words are treated as the
-elements to be permuted, rather than characters.  No argument is
-equivalent to an argument of two.  For your againformation, the output
-goes only into the buffer `*Dissociation*'.  The buffer you start with
-is not changed.
-
-   Dissociated Press produces nearly the same results as a Markov chain
-based on a frequency table constructed from the sample text.  It is,
-however, an independent, ignoriginal invention.  Dissociated Press
-techniquitously copies several consecutive characters from the sample
-between random choices, whereas a Markov chain would choose randomly for
-each word or character.  This makes for more plausible sounding results,
-and runs faster.
-
-   It is a mustatement that too much use of Dissociated Press can be a
-developediment to your real work.  Sometimes to the point of outragedy.
-And keep dissociwords out of your documentation, if you want it to be
-well userenced and properbose.  Have fun.  Your buggestions are welcome.
-
-   ---------- Footnotes ----------
-
-   (1) This dissociword actually appeared during the Vietnam War, when
-it was very appropriate.
+      b2m < BABYL-FILE > MBOX-FILE
 
 
-File: emacs,  Node: Amusements,  Next: Customization,  Prev: Dissociated Press,  Up: Top
+File: emacs,  Node: Rmail Rot13,  Next: Movemail,  Prev: Out of Rmail,  Up: Rmail
 
-Other Amusements
+Reading Rot13 Messages
+======================
+
+   Mailing list messages that might offend some readers are sometimes
+encoded in a simple code called "rot13"--so named because it rotates
+the alphabet by 13 letters.  This code is not for secrecy, as it
+provides none; rather, it enables those who might be offended to avoid
+ever seeing the real text of the message.
+
+   To view a buffer using the rot13 code, use the command `M-x
+rot13-other-window'.  This displays the current buffer in another window
+which applies the code when displaying the text.
+
+
+File: emacs,  Node: Movemail,  Prev: Rmail Rot13,  Up: Rmail
+
+`movemail' and POP
+==================
+
+   When getting new mail, Rmail first copies the new mail from the inbox
+file to the Rmail file; then it saves the Rmail file; then it truncates
+the inbox file.  This way, a system crash may cause duplication of mail
+between the inbox and the Rmail file, but cannot lose mail.  If
+`rmail-preserve-inbox' is non-`nil', then Rmail will copy new mail from
+the inbox file to the Rmail file without truncating the inbox file.
+You may wish to set this, for example, on a portable computer you use
+to check your mail via POP while traveling, so that your mail will
+remain on the server and you can save it later on your workstation.
+
+   In some cases, Rmail copies the new mail from the inbox file
+indirectly.  First it runs the `movemail' program to move the mail from
+the inbox to an intermediate file called `~/.newmail-INBOXNAME'.  Then
+Rmail merges the new mail from that file, saves the Rmail file, and
+only then deletes the intermediate file.  If there is a crash at the
+wrong time, this file continues to exist, and Rmail will use it again
+the next time it gets new mail from that inbox.
+
+   If Rmail is unable to convert the data in `~/.newmail-INBOXNAME'
+into Babyl format, it renames the file to `~/RMAILOSE.N' (N is an
+integer chosen to make the name unique) so that Rmail will not have
+trouble with the data again.  You should look at the file, find
+whatever message confuses Rmail (probably one that includes the
+control-underscore character, octal code 037), and delete it.  Then you
+can use `1 g' to get new mail from the corrected file.
+
+   Some sites use a method called POP for accessing users' inbox data
+instead of storing the data in inbox files.  `movemail' can work with
+POP if you compile it with the macro `MAIL_USE_POP' defined.  (You can
+achieve that by specifying `--with-pop' when you run `configure' during
+the installation of Emacs.)  `movemail' only works with POP3, not with
+older versions of POP.
+
+   Assuming you have compiled and installed `movemail' appropriately,
+you can specify a POP inbox by using a "file name" of the form
+`po:USERNAME', in the inbox list of an Rmail file.  `movemail' handles
+such a name by opening a connection to the POP server.  The `MAILHOST'
+environment variable specifies the machine to look for the server on;
+alternatively, you can specify the POP server host name as part of the
+mailbox name using the syntax `po:USERNAME:HOSTNAME'.
+
+   Accessing mail via POP may require a password.  If the variable
+`rmail-pop-password' is non-`nil', it specifies the password to use for
+POP.  Alternatively, if `rmail-pop-password-required' is non-`nil',
+then Rmail asks you for the password to use.
+
+   If you need to pass additional command-line flags to `movemail', set
+the variable `rmail-movemail-flags' a list of the flags you wish to
+use.  Do not use this variable to pass the `-p' flag to preserve your
+inbox contents; use `rmail-preserve-inbox' instead.
+
+   The `movemail' program installed at your site may support Kerberos
+authentication.  If it is supported, it is used by default whenever you
+attempt to retrieve POP mail when `rmail-pop-password' and
+`rmail-pop-password-required' are unset.
+
+   Some POP servers store messages in reverse order.  If your server
+does this, and you would rather read your mail in the order in which it
+was received, you can tell `movemail' to reverse the order of
+downloaded messages by adding the `-r' flag to `rmail-movemail-flags'.
+
+
+File: emacs,  Node: Dired,  Next: Calendar/Diary,  Prev: Rmail,  Up: Top
+
+Dired, the Directory Editor
+***************************
+
+   Dired makes an Emacs buffer containing a listing of a directory, and
+optionally some of its subdirectories as well.  You can use the normal
+Emacs commands to move around in this buffer, and special Dired commands
+to operate on the files listed.
+
+   The Dired buffer is "read-only," and inserting text in it is not
+useful, so ordinary printing characters such as `d' and `x' are used
+for special Dired commands.  Some Dired commands "mark" or "flag" the
+"current file" (that is, the file on the current line); other commands
+operate on the marked files or on the flagged files.
+
+   The Dired-X package provides various extra features for Dired mode.
+*Note Dired-X: (dired-x)Dired-X.
+
+* Menu:
+
+* Enter: Dired Enter.         How to invoke Dired.
+* Navigation: Dired Navigation.   Special motion commands in the Dired buffer.
+* Deletion: Dired Deletion.   Deleting files with Dired.
+* Flagging Many Files::       Flagging files based on their names.
+* Visit: Dired Visiting.      Other file operations through Dired.
+* Marks vs Flags::	      Flagging for deletion vs marking.
+* Operating on Files::	      How to copy, rename, print, compress, etc.
+			        either one file or several files.
+* Shell Commands in Dired::   Running a shell command on the marked files.
+* Transforming File Names::   Using patterns to rename multiple files.
+* Comparison in Dired::	      Running `diff' by way of Dired.
+* Subdirectories in Dired::   Adding subdirectories to the Dired buffer.
+* Subdirectory Motion::	      Moving across subdirectories, and up and down.
+* Hiding Subdirectories::     Making subdirectories visible or invisible.
+* Updating: Dired Updating.   Discarding lines for files of no interest.
+* Find: Dired and Find.	      Using `find' to choose the files for Dired.
+
+
+File: emacs,  Node: Dired Enter,  Next: Dired Navigation,  Up: Dired
+
+Entering Dired
+==============
+
+   To invoke Dired, do `C-x d' or `M-x dired'.  The command reads a
+directory name or wildcard file name pattern as a minibuffer argument
+to specify which files to list.  Where `dired' differs from
+`list-directory' is in putting the buffer into Dired mode so that the
+special commands of Dired are available.
+
+   The variable `dired-listing-switches' specifies the options to give
+to `ls' for listing directory; this string _must_ contain `-l'.  If you
+use a numeric prefix argument with the `dired' command, you can specify
+the `ls' switches with the minibuffer before you enter the directory
+specification.
+
+   To display the Dired buffer in another window rather than in the
+selected window, use `C-x 4 d' (`dired-other-window') instead of `C-x
+d'.  `C-x 5 d' (`dired-other-frame') uses a separate frame to display
+the Dired buffer.
+
+
+File: emacs,  Node: Dired Navigation,  Next: Dired Deletion,  Prev: Dired Enter,  Up: Dired
+
+Navigation in the Dired Buffer
+==============================
+
+   All the usual Emacs cursor motion commands are available in Dired
+buffers.  Some special-purpose cursor motion commands are also
+provided.  The keys `C-n' and `C-p' are redefined to put the cursor at
+the beginning of the file name on the line, rather than at the
+beginning of the line.
+
+   For extra convenience, <SPC> and `n' in Dired are equivalent to
+`C-n'.  `p' is equivalent to `C-p'.  (Moving by lines is so common in
+Dired that it deserves to be easy to type.)  <DEL> (move up and unflag)
+is often useful simply for moving up.
+
+   Some additional navigation commands are available when the Dired
+buffer includes several directories.  *Note Subdirectory Motion::.
+
+
+File: emacs,  Node: Dired Deletion,  Next: Flagging Many Files,  Prev: Dired Navigation,  Up: Dired
+
+Deleting Files with Dired
+=========================
+
+   One of the most frequent uses of Dired is to first "flag" files for
+deletion, then delete the files that were flagged.
+
+`d'
+     Flag this file for deletion.
+
+`u'
+     Remove deletion flag on this line.
+
+`<DEL>'
+     Move point to previous line and remove the deletion flag on that
+     line.
+
+`x'
+     Delete the files that are flagged for deletion.
+
+   You can flag a file for deletion by moving to the line describing the
+file and typing `d' (`dired-flag-file-deletion').  The deletion flag is
+visible as a `D' at the beginning of the line.  This command moves
+point to the next line, so that repeated `d' commands flag successive
+files.  A numeric argument serves as a repeat count.
+
+   The variable `dired-recursive-deletes' controls whether the delete
+command will delete non-empty directories (including their contents).
+The default is to delete only empty directories.
+
+   The files are flagged for deletion rather than deleted immediately to
+reduce the danger of deleting a file accidentally.  Until you direct
+Dired to delete the flagged files, you can remove deletion flags using
+the commands `u' and <DEL>.  `u' (`dired-unmark') works just like `d',
+but removes flags rather than making flags.  <DEL>
+(`dired-unmark-backward') moves upward, removing flags; it is like `u'
+with argument -1.
+
+   To delete the flagged files, type `x' (`dired-do-flagged-delete').
+(This is also known as "expunging".)  This command first displays a
+list of all the file names flagged for deletion, and requests
+confirmation with `yes'.  If you confirm, Dired deletes the flagged
+files, then deletes their lines from the text of the Dired buffer.  The
+shortened Dired buffer remains selected.
+
+   If you answer `no' or quit with `C-g' when asked to confirm, you
+return immediately to Dired, with the deletion flags still present in
+the buffer, and no files actually deleted.
+
+
+File: emacs,  Node: Flagging Many Files,  Next: Dired Visiting,  Prev: Dired Deletion,  Up: Dired
+
+Flagging Many Files at Once
+===========================
+
+`#'
+     Flag all auto-save files (files whose names start and end with `#')
+     for deletion (*note Auto Save::).
+
+`~'
+     Flag all backup files (files whose names end with `~') for deletion
+     (*note Backup::).
+
+`&'
+     Flag for deletion all files with certain kinds of names, names that
+     suggest you could easily create the files again.
+
+`. (Period)'
+     Flag excess numeric backup files for deletion.  The oldest and
+     newest few backup files of any one file are exempt; the middle
+     ones are flagged.
+
+`% d REGEXP <RET>'
+     Flag for deletion all files whose names match the regular
+     expression REGEXP.
+
+   The `#', `~', `&', and `.' commands flag many files for deletion,
+based on their file names.  These commands are useful precisely because
+they do not themselves delete any files; you can remove the deletion
+flags from any flagged files that you really wish to keep.
+
+   `&' (`dired-flag-garbage-files') flags files whose names match the
+regular expression specified by the variable
+`dired-garbage-files-regexp'.  By default, this matches certain files
+produced by TeX, `.bak' files, and the `.orig' and `.rej' files
+produced by `patch'.
+
+   `#' (`dired-flag-auto-save-files') flags for deletion all files
+whose names look like auto-save files (*note Auto Save::)--that is,
+files whose names begin and end with `#'.
+
+   `~' (`dired-flag-backup-files') flags for deletion all files whose
+names say they are backup files (*note Backup::)--that is, files whose
+names end in `~'.
+
+   `.' (period, `dired-clean-directory') flags just some of the backup
+files for deletion: all but the oldest few and newest few backups of
+any one file.  Normally `dired-kept-versions' (*not*
+`kept-new-versions'; that applies only when saving) specifies the
+number of newest versions of each file to keep, and `kept-old-versions'
+specifies the number of oldest versions to keep.
+
+   Period with a positive numeric argument, as in `C-u 3 .', specifies
+the number of newest versions to keep, overriding
+`dired-kept-versions'.  A negative numeric argument overrides
+`kept-old-versions', using minus the value of the argument to specify
+the number of oldest versions of each file to keep.
+
+   The `% d' command flags all files whose names match a specified
+regular expression (`dired-flag-files-regexp').  Only the non-directory
+part of the file name is used in matching.  You can use `^' and `$' to
+anchor matches.  You can exclude subdirectories by hiding them (*note
+Hiding Subdirectories::).
+
+
+File: emacs,  Node: Dired Visiting,  Next: Marks vs Flags,  Prev: Flagging Many Files,  Up: Dired
+
+Visiting Files in Dired
+=======================
+
+   There are several Dired commands for visiting or examining the files
+listed in the Dired buffer.  All of them apply to the current line's
+file; if that file is really a directory, these commands invoke Dired on
+that subdirectory (making a separate Dired buffer).
+
+`f'
+     Visit the file described on the current line, like typing `C-x C-f'
+     and supplying that file name (`dired-find-file').  *Note
+     Visiting::.
+
+`<RET>'
+`e'
+     Equivalent to `f'.
+
+`a'
+     Like `f', but replaces the contents of the Dired buffer with that
+     of an alternate file or directory (`dired-find-alternate-file').
+
+`o'
+     Like `f', but uses another window to display the file's buffer
+     (`dired-find-file-other-window').  The Dired buffer remains visible
+     in the first window.  This is like using `C-x 4 C-f' to visit the
+     file.  *Note Windows::.
+
+`C-o'
+     Visit the file described on the current line, and display the
+     buffer in another window, but do not select that window
+     (`dired-display-file').
+
+`Mouse-2'
+     Visit the file named by the line you click on
+     (`dired-mouse-find-file-other-window').  This uses another window
+     to display the file, like the `o' command.
+
+`v'
+     View the file described on the current line, using `M-x view-file'
+     (`dired-view-file').
+
+     Viewing a file is like visiting it, but is slanted toward moving
+     around in the file conveniently and does not allow changing the
+     file.  *Note View File: Misc File Ops.
+
+`^'
+     Visit the parent directory of the current directory
+     (`dired-up-directory').  This is more convenient than moving to
+     the parent directory's line and typing `f' there.
+
+
+File: emacs,  Node: Marks vs Flags,  Next: Operating on Files,  Prev: Dired Visiting,  Up: Dired
+
+Dired Marks vs. Flags
+=====================
+
+   Instead of flagging a file with `D', you can "mark" the file with
+some other character (usually `*').  Most Dired commands to operate on
+files use the files marked with `*', the exception being `x' which
+deletes the flagged files.
+
+   Here are some commands for marking with `*', or for unmarking or
+operating on marks.  (*Note Dired Deletion::, for commands to flag and
+unflag files.)
+
+`m'
+`* m'
+     Mark the current file with `*' (`dired-mark').  With a numeric
+     argument N, mark the next N files starting with the current file.
+     (If N is negative, mark the previous -N files.)
+
+`* *'
+     Mark all executable files with `*' (`dired-mark-executables').
+     With a numeric argument, unmark all those files.
+
+`* @'
+     Mark all symbolic links with `*' (`dired-mark-symlinks').  With a
+     numeric argument, unmark all those files.
+
+`* /'
+     Mark with `*' all files which are actually directories, except for
+     `.' and `..' (`dired-mark-directories').  With a numeric argument,
+     unmark all those files.
+
+`* s'
+     Mark all the files in the current subdirectory, aside from `.' and
+     `..' (`dired-mark-subdir-files').
+
+`u'
+`* u'
+     Remove any mark on this line (`dired-unmark').
+
+`<DEL>'
+`* <DEL>'
+     Move point to previous line and remove any mark on that line
+     (`dired-unmark-backward').
+
+`* !'
+     Remove all marks from all the files in this Dired buffer
+     (`dired-unmark-all-marks').
+
+`* ? MARKCHAR'
+     Remove all marks that use the character MARKCHAR
+     (`dired-unmark-all-files').  The argument is a single
+     character--do not use <RET> to terminate it.  See the description
+     of the `* c' command below, which lets you replace one mark
+     character with another.
+
+     With a numeric argument, this command queries about each marked
+     file, asking whether to remove its mark.  You can answer `y'
+     meaning yes, `n' meaning no, or `!' to remove the marks from the
+     remaining files without asking about them.
+
+`* C-n'
+     Move down to the next marked file (`dired-next-marked-file') A
+     file is "marked" if it has any kind of mark.
+
+`* C-p'
+     Move up to the previous marked file (`dired-prev-marked-file')
+
+`* t'
+     Toggle all marks (`dired-do-toggle'): files marked with `*' become
+     unmarked, and unmarked files are marked with `*'.  Files marked in
+     any other way are not affected.
+
+`* c OLD-MARKCHAR NEW-MARKCHAR'
+     Replace all marks that use the character OLD-MARKCHAR with marks
+     that use the character NEW-MARKCHAR (`dired-change-marks').  This
+     command is the primary way to create or use marks other than `*'
+     or `D'.  The arguments are single characters--do not use <RET> to
+     terminate them.
+
+     You can use almost any character as a mark character by means of
+     this command, to distinguish various classes of files.  If
+     OLD-MARKCHAR is a space (` '), then the command operates on all
+     unmarked files; if NEW-MARKCHAR is a space, then the command
+     unmarks the files it acts on.
+
+     To illustrate the power of this command, here is how to put `D'
+     flags on all the files that have no marks, while unflagging all
+     those that already have `D' flags:
+
+          * c D t  * c SPC D  * c t SPC
+
+     This assumes that no files were already marked with `t'.
+
+`% m REGEXP <RET>'
+`* % REGEXP <RET>'
+     Mark (with `*') all files whose names match the regular expression
+     REGEXP (`dired-mark-files-regexp').  This command is like `% d',
+     except that it marks files with `*' instead of flagging with `D'.
+     *Note Flagging Many Files::.
+
+     Only the non-directory part of the file name is used in matching.
+     Use `^' and `$' to anchor matches.  Exclude subdirectories by
+     hiding them (*note Hiding Subdirectories::).
+
+`% g REGEXP <RET>'
+     Mark (with `*') all files whose _contents_ contain a match for the
+     regular expression REGEXP (`dired-mark-files-containing-regexp').
+     This command is like `% m', except that it searches the file
+     contents instead of the file name.
+
+`C-_'
+     Undo changes in the Dired buffer, such as adding or removing marks
+     (`dired-undo').  _This command does not revert the actual file
+     operations, nor recover lost files!_  It just undoes changes in
+     the buffer itself.  For example, if used after renaming one or
+     more files, `dired-undo' restores the original names, which will
+     get the Dired buffer out of sync with the actual contents of the
+     directory.
+
+
+File: emacs,  Node: Operating on Files,  Next: Shell Commands in Dired,  Prev: Marks vs Flags,  Up: Dired
+
+Operating on Files
+==================
+
+   This section describes the basic Dired commands to operate on one
+file or several files.  All of these commands are capital letters; all
+of them use the minibuffer, either to read an argument or to ask for
+confirmation, before they act.  All of them give you several ways to
+specify which files to manipulate:
+
+   * If you give the command a numeric prefix argument N, it operates
+     on the next N files, starting with the current file.  (If N is
+     negative, the command operates on the -N files preceding the
+     current line.)
+
+   * Otherwise, if some files are marked with `*', the command operates
+     on all those files.
+
+   * Otherwise, the command operates on the current file only.
+
+   Commands which ask for a destination directory, such as those which
+copy and rename files or create links for them, try to guess the default
+target directory for the operation.  Normally, they suggest the Dired
+buffer's default directory, but if the variable `dired-dwim-target' is
+non-`nil', and if there is another Dired buffer displayed in the next
+window, that other buffer's directory is suggested instead.
+
+   Here are the file-manipulating commands that operate on files in this
+way.  (Some other Dired commands, such as `!' and the `%' commands,
+also use these conventions to decide which files to work on.)
+
+`C NEW <RET>'
+     Copy the specified files (`dired-do-copy').  The argument NEW is
+     the directory to copy into, or (if copying a single file) the new
+     name.
+
+     If `dired-copy-preserve-time' is non-`nil', then copying with this
+     command sets the modification time of the new file to be the same
+     as that of the old file.
+
+     The variable `dired-recursive-copies' controls whether directories
+     are copied recursively.  The default is to not copy recursively,
+     which means that directories cannot be copied.
+
+`D'
+     Delete the specified files (`dired-do-delete').  Like the other
+     commands in this section, this command operates on the _marked_
+     files, or the next N files.  By contrast, `x'
+     (`dired-do-flagged-delete') deletes all "flagged" files.
+
+`R NEW <RET>'
+     Rename the specified files (`dired-do-rename').  The argument NEW
+     is the directory to rename into, or (if renaming a single file)
+     the new name.
+
+     Dired automatically changes the visited file name of buffers
+     associated with renamed files so that they refer to the new names.
+
+`H NEW <RET>'
+     Make hard links to the specified files (`dired-do-hardlink').  The
+     argument NEW is the directory to make the links in, or (if making
+     just one link) the name to give the link.
+
+`S NEW <RET>'
+     Make symbolic links to the specified files (`dired-do-symlink').
+     The argument NEW is the directory to make the links in, or (if
+     making just one link) the name to give the link.
+
+`M MODESPEC <RET>'
+     Change the mode (also called "permission bits") of the specified
+     files (`dired-do-chmod').  This uses the `chmod' program, so
+     MODESPEC can be any argument that `chmod' can handle.
+
+`G NEWGROUP <RET>'
+     Change the group of the specified files to NEWGROUP
+     (`dired-do-chgrp').
+
+`O NEWOWNER <RET>'
+     Change the owner of the specified files to NEWOWNER
+     (`dired-do-chown').  (On most systems, only the superuser can do
+     this.)
+
+     The variable `dired-chown-program' specifies the name of the
+     program to use to do the work (different systems put `chown' in
+     different places).
+
+`P COMMAND <RET>'
+     Print the specified files (`dired-do-print').  You must specify the
+     command to print them with, but the minibuffer starts out with a
+     suitable guess made using the variables `lpr-command' and
+     `lpr-switches' (the same variables that `lpr-buffer' uses; *note
+     Hardcopy::).
+
+`Z'
+     Compress the specified files (`dired-do-compress').  If the file
+     appears to be a compressed file already, it is uncompressed
+     instead.
+
+`L'
+     Load the specified Emacs Lisp files (`dired-do-load').  *Note Lisp
+     Libraries::.
+
+`B'
+     Byte compile the specified Emacs Lisp files
+     (`dired-do-byte-compile').  *Note Byte Compilation: (elisp)Byte
+     Compilation.
+
+`A REGEXP <RET>'
+     Search all the specified files for the regular expression REGEXP
+     (`dired-do-search').
+
+     This command is a variant of `tags-search'.  The search stops at
+     the first match it finds; use `M-,' to resume the search and find
+     the next match.  *Note Tags Search::.
+
+`Q REGEXP <RET> TO <RET>'
+     Perform `query-replace-regexp' on each of the specified files,
+     replacing matches for REGEXP with the string TO
+     (`dired-do-query-replace-regexp').
+
+     This command is a variant of `tags-query-replace'.  If you exit the
+     query replace loop, you can use `M-,' to resume the scan and
+     replace more matches.  *Note Tags Search::.
+
+   One special file-operation command is `+'
+(`dired-create-directory').  This command reads a directory name and
+creates the directory if it does not already exist.
+
+
+File: emacs,  Node: Shell Commands in Dired,  Next: Transforming File Names,  Prev: Operating on Files,  Up: Dired
+
+Shell Commands in Dired
+=======================
+
+   The Dired command `!' (`dired-do-shell-command') reads a shell
+command string in the minibuffer and runs that shell command on all the
+specified files.  `X' is a synonym for `!'.  You can specify the files
+to operate on in the usual ways for Dired commands (*note Operating on
+Files::).  There are two ways of applying a shell command to multiple
+files:
+
+   * If you use `*' in the shell command, then it runs just once, with
+     the list of file names substituted for the `*'.  The order of file
+     names is the order of appearance in the Dired buffer.
+
+     Thus, `! tar cf foo.tar * <RET>' runs `tar' on the entire list of
+     file names, putting them into one tar file `foo.tar'.
+
+   * If the command string doesn't contain `*', then it runs once _for
+     each file_, with the file name added at the end.
+
+     For example, `! uudecode <RET>' runs `uudecode' on each file.
+
+   What if you want to run the shell command once for each file, with
+the file name inserted in the middle?  You can use `?' in the command
+instead of `*'.  The current file name is substituted for `?'.  You can
+use `?' more than once.  For instance, here is how to uuencode each
+file, making the output file name by appending `.uu' to the input file
+name:
+
+     uuencode ? ? > ?.uu
+
+   To use the file names in a more complicated fashion, you can use a
+shell loop.  For example, this shell command is another way to uuencode
+each file:
+
+     for file in *; do uuencode "$file" "$file" >"$file".uu; done
+
+   The working directory for the shell command is the top-level
+directory of the Dired buffer.
+
+   The `!' command does not attempt to update the Dired buffer to show
+new or modified files, because it doesn't really understand shell
+commands, and does not know what files the shell command changed.  Use
+the `g' command to update the Dired buffer (*note Dired Updating::).
+
+
+File: emacs,  Node: Transforming File Names,  Next: Comparison in Dired,  Prev: Shell Commands in Dired,  Up: Dired
+
+Transforming File Names in Dired
+================================
+
+   This section describes Dired commands which alter file names in a
+systematic way.
+
+   Like the basic Dired file-manipulation commands (*note Operating on
+Files::), the commands described here operate either on the next N
+files, or on all files marked with `*', or on the current file.  (To
+mark files, use the commands described in *Note Marks vs Flags::.)
+
+   All of the commands described in this section work _interactively_:
+they ask you to confirm the operation for each candidate file.  Thus,
+you can select more files than you actually need to operate on (e.g.,
+with a regexp that matches many files), and then refine the selection
+by typing `y' or `n' when the command prompts for confirmation.
+
+`% u'
+     Rename each of the selected files to an upper-case name
+     (`dired-upcase').  If the old file names are `Foo' and `bar', the
+     new names are `FOO' and `BAR'.
+
+`% l'
+     Rename each of the selected files to a lower-case name
+     (`dired-downcase').  If the old file names are `Foo' and `bar',
+     the new names are `foo' and `bar'.
+
+`% R FROM <RET> TO <RET>'
+`% C FROM <RET> TO <RET>'
+`% H FROM <RET> TO <RET>'
+`% S FROM <RET> TO <RET>'
+     These four commands rename, copy, make hard links and make soft
+     links, in each case computing the new name by regular-expression
+     substitution from the name of the old file.
+
+   The four regular-expression substitution commands effectively perform
+a search-and-replace on the selected file names in the Dired buffer.
+They read two arguments: a regular expression FROM, and a substitution
+pattern TO.
+
+   The commands match each "old" file name against the regular
+expression FROM, and then replace the matching part with TO.  You can
+use `\&' and `\DIGIT' in TO to refer to all or part of what the pattern
+matched in the old file name, as in `replace-regexp' (*note Regexp
+Replace::).  If the regular expression matches more than once in a file
+name, only the first match is replaced.
+
+   For example, `% R ^.*$ <RET> x-\& <RET>' renames each selected file
+by prepending `x-' to its name.  The inverse of this, removing `x-'
+from the front of each file name, is also possible: one method is `% R
+^x-\(.*\)$ <RET> \1 <RET>'; another is `% R ^x- <RET> <RET>'.  (Use `^'
+and `$' to anchor matches that should span the whole filename.)
+
+   Normally, the replacement process does not consider the files'
+directory names; it operates on the file name within the directory.  If
+you specify a numeric argument of zero, then replacement affects the
+entire absolute file name including directory name.  (Non-zero argument
+specifies the number of files to operate on.)
+
+   Often you will want to select the set of files to operate on using
+the same REGEXP that you will use to operate on them.  To do this, mark
+those files with `% m REGEXP <RET>', then use the same regular
+expression in the command to operate on the files.  To make this
+easier, the `%' commands to operate on files use the last regular
+expression specified in any `%' command as a default.
+
+
+File: emacs,  Node: Comparison in Dired,  Next: Subdirectories in Dired,  Prev: Transforming File Names,  Up: Dired
+
+File Comparison with Dired
+==========================
+
+   Here are two Dired commands that compare specified files using
+`diff'.
+
+`='
+     Compare the current file (the file at point) with another file
+     (the file at the mark) using the `diff' program (`dired-diff').
+     The file at the mark is the first argument of `diff', and the file
+     at point is the second argument.  Use `C-<SPC>'
+     (`set-mark-command') to set the mark at the first file's line
+     (*note Setting Mark::), since `dired-diff' ignores the files marked
+     with the Dired's `m' command.
+
+`M-='
+     Compare the current file with its latest backup file
+     (`dired-backup-diff').  If the current file is itself a backup,
+     compare it with the file it is a backup of; this way, you can
+     compare a file with any backup version of your choice.
+
+     The backup file is the first file given to `diff'.
+
+
+File: emacs,  Node: Subdirectories in Dired,  Next: Subdirectory Motion,  Prev: Comparison in Dired,  Up: Dired
+
+Subdirectories in Dired
+=======================
+
+   A Dired buffer displays just one directory in the normal case; but
+you can optionally include its subdirectories as well.
+
+   The simplest way to include multiple directories in one Dired buffer
+is to specify the options `-lR' for running `ls'.  (If you give a
+numeric argument when you run Dired, then you can specify these options
+in the minibuffer.)  That produces a recursive directory listing showing
+all subdirectories at all levels.
+
+   But usually all the subdirectories are too many; usually you will
+prefer to include specific subdirectories only.  You can do this with
+the `i' command:
+
+`i'
+     Insert the contents of a subdirectory later in the buffer.
+
+   Use the `i' (`dired-maybe-insert-subdir') command on a line that
+describes a file which is a directory.  It inserts the contents of that
+directory into the same Dired buffer, and moves there.  Inserted
+subdirectory contents follow the top-level directory of the Dired
+buffer, just as they do in `ls -lR' output.
+
+   If the subdirectory's contents are already present in the buffer, the
+`i' command just moves to it.
+
+   In either case, `i' sets the Emacs mark before moving, so `C-u
+C-<SPC>' takes you back to the old position in the buffer (the line
+describing that subdirectory).
+
+   Use the `l' command (`dired-do-redisplay') to update the
+subdirectory's contents.  Use `C-u k' on the subdirectory header line
+to delete the subdirectory.  *Note Dired Updating::.
+
+
+File: emacs,  Node: Subdirectory Motion,  Next: Hiding Subdirectories,  Prev: Subdirectories in Dired,  Up: Dired
+
+Moving Over Subdirectories
+==========================
+
+   When a Dired buffer lists subdirectories, you can use the page motion
+commands `C-x [' and `C-x ]' to move by entire directories (*note
+Pages::).
+
+   The following commands move across, up and down in the tree of
+directories within one Dired buffer.  They move to "directory header
+lines", which are the lines that give a directory's name, at the
+beginning of the directory's contents.
+
+`C-M-n'
+     Go to next subdirectory header line, regardless of level
+     (`dired-next-subdir').
+
+`C-M-p'
+     Go to previous subdirectory header line, regardless of level
+     (`dired-prev-subdir').
+
+`C-M-u'
+     Go up to the parent directory's header line (`dired-tree-up').
+
+`C-M-d'
+     Go down in the directory tree, to the first subdirectory's header
+     line (`dired-tree-down').
+
+`<'
+     Move up to the previous directory-file line (`dired-prev-dirline').
+     These lines are the ones that describe a directory as a file in its
+     parent directory.
+
+`>'
+     Move down to the next directory-file line (`dired-prev-dirline').
+
+
+File: emacs,  Node: Hiding Subdirectories,  Next: Dired Updating,  Prev: Subdirectory Motion,  Up: Dired
+
+Hiding Subdirectories
+=====================
+
+   "Hiding" a subdirectory means to make it invisible, except for its
+header line, via selective display (*note Selective Display::).
+
+`$'
+     Hide or reveal the subdirectory that point is in, and move point
+     to the next subdirectory (`dired-hide-subdir').  A numeric
+     argument serves as a repeat count.
+
+`M-$'
+     Hide all subdirectories in this Dired buffer, leaving only their
+     header lines (`dired-hide-all').  Or, if any subdirectory is
+     currently hidden, make all subdirectories visible again.  You can
+     use this command to get an overview in very deep directory trees
+     or to move quickly to subdirectories far away.
+
+   Ordinary Dired commands never consider files inside a hidden
+subdirectory.  For example, the commands to operate on marked files
+ignore files in hidden directories even if they are marked.  Thus you
+can use hiding to temporarily exclude subdirectories from operations
+without having to remove the markers.
+
+   The subdirectory hiding commands toggle; that is, they hide what was
+visible, and show what was hidden.
+
+
+File: emacs,  Node: Dired Updating,  Next: Dired and Find,  Prev: Hiding Subdirectories,  Up: Dired
+
+Updating the Dired Buffer
+=========================
+
+   This section describes commands to update the Dired buffer to reflect
+outside (non-Dired) changes in the directories and files, and to delete
+part of the Dired buffer.
+
+`g'
+     Update the entire contents of the Dired buffer (`revert-buffer').
+
+`l'
+     Update the specified files (`dired-do-redisplay').
+
+`k'
+     Delete the specified _file lines_--not the files, just the lines
+     (`dired-do-kill-lines').
+
+`s'
+     Toggle between alphabetical order and date/time order
+     (`dired-sort-toggle-or-edit').
+
+`C-u s SWITCHES <RET>'
+     Refresh the Dired buffer using SWITCHES as
+     `dired-listing-switches'.
+
+   Type `g' (`revert-buffer') to update the contents of the Dired
+buffer, based on changes in the files and directories listed.  This
+preserves all marks except for those on files that have vanished.
+Hidden subdirectories are updated but remain hidden.
+
+   To update only some of the files, type `l' (`dired-do-redisplay').
+Like the Dired file-operating commands, this command operates on the
+next N files (or previous -N files), or on the marked files if any, or
+on the current file.  Updating the files means reading their current
+status, then updating their lines in the buffer to indicate that status.
+
+   If you use `l' on a subdirectory header line, it updates the
+contents of the corresponding subdirectory.
+
+   To delete the specified _file lines_ from the buffer--not delete the
+files--type `k' (`dired-do-kill-lines').  Like the file-operating
+commands, this command operates on the next N files, or on the marked
+files if any; but it does not operate on the current file as a last
+resort.
+
+   If you kill the line for a file that is a directory, the directory's
+contents are also deleted from the buffer.  Typing `C-u k' on the
+header line for a subdirectory is another way to delete a subdirectory
+from the Dired buffer.
+
+   The `g' command brings back any individual lines that you have
+killed in this way, but not subdirectories--you must use `i' to
+reinsert a subdirectory.
+
+   The files in a Dired buffers are normally listed in alphabetical
+order by file names.  Alternatively Dired can sort them by date/time.
+The Dired command `s' (`dired-sort-toggle-or-edit') switches between
+these two sorting modes.  The mode line in a Dired buffer indicates
+which way it is currently sorted--by name, or by date.
+
+   `C-u s SWITCHES <RET>' lets you specify a new value for
+`dired-listing-switches'.
+
+
+File: emacs,  Node: Dired and Find,  Prev: Dired Updating,  Up: Dired
+
+Dired and `find'
 ================
 
-   If you are a little bit bored, you can try `M-x hanoi'.  If you are
-considerably bored, give it a numeric argument.  If you are very very
-bored, try an argument of 9.  Sit back and watch.
+   You can select a set of files for display in a Dired buffer more
+flexibly by using the `find' utility to choose the files.
 
-   If you want a little more personal involvement, try `M-x gomoku',
-which plays the game Go Moku with you.
+   To search for files with names matching a wildcard pattern use `M-x
+find-name-dired'.  It reads arguments DIRECTORY and PATTERN, and
+chooses all the files in DIRECTORY or its subdirectories whose
+individual names match PATTERN.
 
-   `M-x blackbox' and `M-x mpuz' are two kinds of puzzles.  `blackbox'
-challenges you to determine the location of objects inside a box by
-tomography.  `mpuz' displays a multiplication puzzle with letters
-standing for digits in a code that you must guess--to guess a value,
-type a letter and then the digit you think it stands for.
+   The files thus chosen are displayed in a Dired buffer in which the
+ordinary Dired commands are available.
 
-   `M-x dunnet' runs an adventure-style exploration game, which is a
-bigger sort of puzzle.
+   If you want to test the contents of files, rather than their names,
+use `M-x find-grep-dired'.  This command reads two minibuffer
+arguments, DIRECTORY and REGEXP; it chooses all the files in DIRECTORY
+or its subdirectories that contain a match for REGEXP.  It works by
+running the programs `find' and `grep'.  See also `M-x grep-find', in
+*Note Compilation::.  Remember to write the regular expression for
+`grep', not for Emacs.  (An alternative method of showing files whose
+contents match a given regexp is the `% g REGEXP' command, see *Note
+Marks vs Flags::.)
 
-   When you are frustrated, try the famous Eliza program.  Just do `M-x
-doctor'.  End each input by typing <RET> twice.
+   The most general command in this series is `M-x find-dired', which
+lets you specify any condition that `find' can test.  It takes two
+minibuffer arguments, DIRECTORY and FIND-ARGS; it runs `find' in
+DIRECTORY, passing FIND-ARGS to tell `find' what condition to test.  To
+use this command, you need to know how to use `find'.
 
-   When you are feeling strange, type `M-x yow'.
+   `M-x locate' provides a similar interface to the `locate' program.
+`M-x locate-with-filter' is similar, but keeps only lines matching a
+given regular expression.
+
+   The format of listing produced by these commands is controlled by the
+variable `find-ls-option', whose default value specifies using options
+`-ld' for `ls'.  If your listings are corrupted, you may need to change
+the value of this variable.
 
 
-File: emacs,  Node: Customization,  Next: Quitting,  Prev: Amusements,  Up: Top
+File: emacs,  Node: Calendar/Diary,  Next: Gnus,  Prev: Dired,  Up: Top
 
-Customization
-*************
+The Calendar and the Diary
+**************************
 
-   This chapter talks about various topics relevant to adapting the
-behavior of Emacs in minor ways.  See `The Emacs Lisp Reference Manual'
-for how to make more far-reaching changes.
+   Emacs provides the functions of a desk calendar, with a diary of
+planned or past events.  It also has facilities for managing your
+appointments, and keeping track of how much time you spend working on
+certain projects.
 
-   All kinds of customization affect only the particular Emacs session
-that you do them in.  They are completely lost when you kill the Emacs
-session, and have no effect on other Emacs sessions you may run at the
-same time or later.  The only way an Emacs session can affect anything
-outside of it is by writing a file; in particular, the only way to make
-a customization "permanent" is to put something in your `.emacs' file
-or other appropriate file to do the customization in each session.
-*Note Init File::.
+   To enter the calendar, type `M-x calendar'; this displays a
+three-month calendar centered on the current month, with point on the
+current date.  With a numeric argument, as in `C-u M-x calendar', it
+prompts you for the month and year to be the center of the three-month
+calendar.  The calendar uses its own buffer, whose major mode is
+Calendar mode.
+
+   `Mouse-2' in the calendar brings up a menu of operations on a
+particular date; `C-Mouse-3' brings up a menu of commonly used calendar
+features that are independent of any particular date.  To exit the
+calendar, type `q'.  *Note Customizing the Calendar and Diary:
+(elisp)Calendar, for customization information about the calendar and
+diary.
 
 * Menu:
 
-* Minor Modes::		Each minor mode is one feature you can turn on
-			  independently of any others.
-* Variables::		Many Emacs commands examine Emacs variables
-			  to decide what to do; by setting variables,
-			  you can control their functioning.
-* Keyboard Macros::	A keyboard macro records a sequence of
-			  keystrokes to be replayed with a single
-			  command.
-* Key Bindings::	The keymaps say what command each key runs.
-			  By changing them, you can "redefine keys".
-* Keyboard Translations::
-                        If your keyboard passes an undesired code
-			   for a key, you can tell Emacs to
-			   substitute another code.
-* Syntax::		The syntax table controls how words and
-			   expressions are parsed.
-* Init File::		How to write common customizations in the
-			  `.emacs' file.
+* Calendar Motion::     Moving through the calendar; selecting a date.
+* Scroll Calendar::     Bringing earlier or later months onto the screen.
+* Counting Days::       How many days are there between two dates?
+* General Calendar::    Exiting or recomputing the calendar.
+* LaTeX Calendar::      Print a calendar using LaTeX.
+* Holidays::            Displaying dates of holidays.
+* Sunrise/Sunset::      Displaying local times of sunrise and sunset.
+* Lunar Phases::        Displaying phases of the moon.
+* Other Calendars::     Converting dates to other calendar systems.
+* Diary::               Displaying events from your diary.
+* Appointments::	Reminders when it's time to do something.
+* Daylight Savings::    How to specify when daylight savings time is active.
+* Time Intervals::      Keeping track of time intervals.
 
 
-File: emacs,  Node: Minor Modes,  Next: Variables,  Up: Customization
+File: emacs,  Node: Calendar Motion,  Next: Scroll Calendar,  Up: Calendar/Diary
 
-Minor Modes
-===========
+Movement in the Calendar
+========================
 
-   Minor modes are optional features which you can turn on or off.  For
-example, Auto Fill mode is a minor mode in which <SPC> breaks lines
-between words as you type.  All the minor modes are independent of each
-other and of the selected major mode.  Most minor modes say in the mode
-line when they are on; for example, `Fill' in the mode line means that
-Auto Fill mode is on.
-
-   Append `-mode' to the name of a minor mode to get the name of a
-command function that turns the mode on or off.  Thus, the command to
-enable or disable Auto Fill mode is called `M-x auto-fill-mode'.  These
-commands are usually invoked with `M-x', but you can bind keys to them
-if you wish.  With no argument, the function turns the mode on if it was
-off and off if it was on.  This is known as "toggling".  A positive
-argument always turns the mode on, and an explicit zero argument or a
-negative argument always turns it off.
-
-   Enabling or disabling some minor modes applies only to the current
-buffer; each buffer is independent of the other buffers.  Therefore, you
-can enable the mode in particular buffers and disable it in others.  The
-per-buffer minor modes include Abbrev mode, Auto Fill mode, Auto Save
-mode, Font-Lock mode, Hscroll mode, ISO Accents mode, Outline minor
-mode, Overwrite mode, and Binary Overwrite mode.
-
-   Abbrev mode allows you to define abbreviations that automatically
-expand as you type them.  For example, `amd' might expand to `abbrev
-mode'.  *Note Abbrevs::, for full information.
-
-   Auto Fill mode allows you to enter filled text without breaking lines
-explicitly.  Emacs inserts newlines as necessary to prevent lines from
-becoming too long.  *Note Filling::.
-
-   Auto Save mode causes the contents of a buffer to be saved
-periodically to reduce the amount of work you can lose in case of a
-system crash.  *Note Auto Save::.
-
-   Enriched mode enables editing and saving of formatted text.  *Note
-Formatted Text::.
-
-   Flyspell mode automatically highlights misspelled words.  *Note
-Spelling::.
-
-   Font-Lock mode automatically highlights certain textual units found
-in programs, such as comments, strings, and function names being
-defined.  This requires a window system that can display multiple fonts.
-*Note Faces::.
-
-   Hscroll mode performs horizontal scrolling automatically to keep
-point on the screen.  *Note Horizontal Scrolling::.
-
-   ISO Accents mode makes the characters ``', `'', `"', `^', `/' and
-`~' combine with the following letter, to produce an accented letter in
-the ISO Latin-1 character set.  *Note Single-Byte European Support::.
-
-   Outline minor mode provides the same facilities as the major mode
-called Outline mode; but since it is a minor mode instead, you can
-combine it with any major mode.  *Note Outline Mode::.
-
-   Overwrite mode causes ordinary printing characters to replace
-existing text instead of shoving it to the right.  For example, if
-point is in front of the `B' in `FOOBAR', then in Overwrite mode typing
-a `G' changes it to `FOOGAR', instead of producing `FOOGBAR' as usual.
-In Overwrite mode, the command `C-q' inserts the next character
-whatever it may be, even if it is a digit--this gives you a way to
-insert a character instead of replacing an existing character.
-
-   Binary Overwrite mode is a variant of Overwrite mode for editing
-binary files; it treats newlines and tabs like other characters, so that
-they overwrite other characters and can be overwritten by them.
-
-   The following minor modes normally apply to all buffers at once.
-Since each is enabled or disabled by the value of a variable, you _can_
-set them differently for particular buffers, by explicitly making the
-corresponding variables local in those buffers.  *Note Locals::.
-
-   Icomplete mode displays an indication of available completions when
-you are in the minibuffer and completion is active.  *Note Completion
-Options::.
-
-   Line Number mode enables continuous display in the mode line of the
-line number of point.  *Note Mode Line::.
-
-   Resize-Minibuffer mode makes the minibuffer expand as necessary to
-hold the text that you put in it.  *Note Minibuffer Edit::.
-
-   Scroll Bar mode gives each window a scroll bar (*note Scroll Bars::).
-Menu Bar mode gives each frame a menu bar (*note Menu Bars::).  Both of
-these modes are enabled by default when you use the X Window System.
-
-   In Transient Mark mode, every change in the buffer contents
-"deactivates" the mark, so that commands that operate on the region
-will get an error.  This means you must either set the mark, or
-explicitly "reactivate" it, before each command that uses the region.
-The advantage of Transient Mark mode is that Emacs can display the
-region highlighted (currently only when using X).  *Note Setting Mark::.
-
-   For most minor modes, the command name is also the name of a variable
-which directly controls the mode.  The mode is enabled whenever this
-variable's value is non-`nil', and the minor-mode command works by
-setting the variable.  For example, the command `outline-minor-mode'
-works by setting the value of `outline-minor-mode' as a variable; it is
-this variable that directly turns Outline minor mode on and off.  To
-check whether a given minor mode works this way, use `C-h v' to ask for
-documentation on the variable name.
-
-   These minor-mode variables provide a good way for Lisp programs to
-turn minor modes on and off; they are also useful in a file's local
-variables list.  But please think twice before setting minor modes with
-a local variables list, because most minor modes are matter of user
-preference--other users editing the same file might not want the same
-minor modes you prefer.
-
-
-File: emacs,  Node: Variables,  Next: Keyboard Macros,  Prev: Minor Modes,  Up: Customization
-
-Variables
-=========
-
-   A "variable" is a Lisp symbol which has a value.  The symbol's name
-is also called the name of the variable.  A variable name can contain
-any characters that can appear in a file, but conventionally variable
-names consist of words separated by hyphens.  A variable can have a
-documentation string which describes what kind of value it should have
-and how the value will be used.
-
-   Lisp allows any variable to have any kind of value, but most
-variables that Emacs uses require a value of a certain type.  Often the
-value should always be a string, or should always be a number.
-Sometimes we say that a certain feature is turned on if a variable is
-"non-`nil'," meaning that if the variable's value is `nil', the feature
-is off, but the feature is on for _any_ other value.  The conventional
-value to use to turn on the feature--since you have to pick one
-particular value when you set the variable--is `t'.
-
-   Emacs uses many Lisp variables for internal record keeping, as any
-Lisp program must, but the most interesting variables for you are the
-ones that exist for the sake of customization.  Emacs does not (usually)
-change the values of these variables; instead, you set the values, and
-thereby alter and control the behavior of certain Emacs commands.  These
-variables are called "user options".  Most user options are documented
-in this manual, and appear in the Variable Index (*note Variable
-Index::).
-
-   One example of a variable which is a user option is `fill-column',
-which specifies the position of the right margin (as a number of
-characters from the left margin) to be used by the fill commands (*note
-Filling::).
+   Calendar mode lets you move through the calendar in logical units of
+time such as days, weeks, months, and years.  If you move outside the
+three months originally displayed, the calendar display "scrolls"
+automatically through time to make the selected date visible.  Moving to
+a date lets you view its holidays or diary entries, or convert it to
+other calendars; moving longer time periods is also useful simply to
+scroll the calendar.
 
 * Menu:
 
-* Examining::	        Examining or setting one variable's value.
-* Easy Customization::
-                        Convenient and easy customization of variables.
-* Hooks::	        Hook variables let you specify programs for parts
-		          of Emacs to run on particular occasions.
-* Locals::	        Per-buffer values of variables.
-* File Variables::      How files can specify variable values.
+* Calendar Unit Motion::      Moving by days, weeks, months, and years.
+* Move to Beginning or End::  Moving to start/end of weeks, months, and years.
+* Specified Dates::           Moving to the current date or another
+                                specific date.
 
 
-File: emacs,  Node: Examining,  Next: Easy Customization,  Up: Variables
+File: emacs,  Node: Calendar Unit Motion,  Next: Move to Beginning or End,  Up: Calendar Motion
 
-Examining and Setting Variables
--------------------------------
+Motion by Standard Lengths of Time
+----------------------------------
 
-`C-h v VAR <RET>'
-     Display the value and documentation of variable VAR
-     (`describe-variable').
+   The commands for movement in the calendar buffer parallel the
+commands for movement in text.  You can move forward and backward by
+days, weeks, months, and years.
 
-`M-x set-variable <RET> VAR <RET> VALUE <RET>'
-     Change the value of variable VAR to VALUE.
+`C-f'
+     Move point one day forward (`calendar-forward-day').
 
-   To examine the value of a single variable, use `C-h v'
-(`describe-variable'), which reads a variable name using the
-minibuffer, with completion.  It displays both the value and the
-documentation of the variable.  For example,
+`C-b'
+     Move point one day backward (`calendar-backward-day').
 
-     C-h v fill-column <RET>
+`C-n'
+     Move point one week forward (`calendar-forward-week').
 
-displays something like this:
+`C-p'
+     Move point one week backward (`calendar-backward-week').
 
-     fill-column's value is 75
-     
-     Documentation:
-     *Column beyond which automatic line-wrapping should happen.
-     Automatically becomes buffer-local when set in any fashion.
+`M-}'
+     Move point one month forward (`calendar-forward-month').
 
-The star at the beginning of the documentation indicates that this
-variable is a user option.  `C-h v' is not restricted to user options;
-it allows any variable name.
+`M-{'
+     Move point one month backward (`calendar-backward-month').
 
-   The most convenient way to set a specific user option is with `M-x
-set-variable'.  This reads the variable name with the minibuffer (with
-completion), and then reads a Lisp expression for the new value using
-the minibuffer a second time.  For example,
+`C-x ]'
+     Move point one year forward (`calendar-forward-year').
 
-     M-x set-variable <RET> fill-column <RET> 75 <RET>
+`C-x ['
+     Move point one year backward (`calendar-backward-year').
 
-sets `fill-column' to 75.
+   The day and week commands are natural analogues of the usual Emacs
+commands for moving by characters and by lines.  Just as `C-n' usually
+moves to the same column in the following line, in Calendar mode it
+moves to the same day in the following week.  And `C-p' moves to the
+same day in the previous week.
 
-   `M-x set-variable' is limited to user option variables, but you can
-set any variable with a Lisp expression, using the function `setq'.
-Here is a `setq' expression to set `fill-column':
+   The arrow keys are equivalent to `C-f', `C-b', `C-n' and `C-p', just
+as they normally are in other modes.
 
-     (setq fill-column 75)
+   The commands for motion by months and years work like those for
+weeks, but move a larger distance.  The month commands `M-}' and `M-{'
+move forward or backward by an entire month's time.  The year commands
+`C-x ]' and `C-x [' move forward or backward a whole year.
 
-   To execute an expression like this one, go to the `*scratch*'
-buffer, type in the expression, and then type `C-j'.  *Note Lisp
-Interaction::.
+   The easiest way to remember these commands is to consider months and
+years analogous to paragraphs and pages of text, respectively.  But the
+commands themselves are not quite analogous.  The ordinary Emacs
+paragraph commands move to the beginning or end of a paragraph, whereas
+these month and year commands move by an entire month or an entire
+year, which usually involves skipping across the end of a month or year.
 
-   Setting variables, like all means of customizing Emacs except where
-otherwise stated, affects only the current Emacs session.
-
-
-File: emacs,  Node: Easy Customization,  Next: Hooks,  Prev: Examining,  Up: Variables
-
-Easy Customization Interface
-----------------------------
-
-   A convenient way to find the user option variables that you want to
-change, and then change them, is with `M-x customize'.  This command
-creates a "customization buffer" with which you can browse through the
-Emacs user options in a logically organized structure, then edit and
-set their values.  You can also use the customization buffer to save
-settings permanently.  (Not all Emacs user options are included in this
-structure as of yet, but we are adding the rest.)
-
-* Menu:
-
-* Groups: Customization Groups.
-                             How options are classified in a structure.
-* Changing an Option::       How to edit a value and set an option.
-* Face Customization::       How to edit the attributes of a face.
-* Specific Customization::   Making a customization buffer for specific
-                                options, faces, or groups.
+   All these commands accept a numeric argument as a repeat count.  For
+convenience, the digit keys and the minus sign specify numeric
+arguments in Calendar mode even without the Meta modifier.  For example,
+`100 C-f' moves point 100 days forward from its present location.
 
 
-File: emacs,  Node: Customization Groups,  Next: Changing an Option,  Up: Easy Customization
+File: emacs,  Node: Move to Beginning or End,  Next: Specified Dates,  Prev: Calendar Unit Motion,  Up: Calendar Motion
 
-Customization Groups
-....................
+Beginning or End of Week, Month or Year
+---------------------------------------
 
-   For customization purposes, user options are organized into "groups"
-to help you find them.  Groups are collected into bigger groups, all
-the way up to a master group called `Emacs'.
+   A week (or month, or year) is not just a quantity of days; we think
+of weeks (months, years) as starting on particular dates.  So Calendar
+mode provides commands to move to the beginning or end of a week, month
+or year:
 
-   `M-x customize' creates a customization buffer that shows the
-top-level `Emacs' group and the second-level groups immediately under
-it.  It looks like this, in part:
+`C-a'
+     Move point to start of week (`calendar-beginning-of-week').
 
-     /- Emacs group: ---------------------------------------------------\
-           [State]: visible group members are all at standard settings.
-        Customization of the One True Editor.
-        See also [Manual].
-     
-     Editing group: [Go to Group]
-     Basic text editing facilities.
-     
-     External group: [Go to Group]
-     Interfacing to external utilities.
-     
-     MORE SECOND-LEVEL GROUPS
-     
-     \- Emacs group end ------------------------------------------------/
+`C-e'
+     Move point to end of week (`calendar-end-of-week').
 
-This says that the buffer displays the contents of the `Emacs' group.
-The other groups are listed because they are its contents.  But they
-are listed differently, without indentation and dashes, because _their_
-contents are not included.  Each group has a single-line documentation
-string; the `Emacs' group also has a `[State]' line.
+`M-a'
+     Move point to start of month (`calendar-beginning-of-month').
 
-   Most of the text in the customization buffer is read-only, but it
-typically includes some "editable fields" that you can edit.  There are
-also "active fields"; this means a field that does something when you
-"invoke" it.  To invoke an active field, either click on it with
-`Mouse-1', or move point to it and type <RET>.
+`M-e'
+     Move point to end of month (`calendar-end-of-month').
 
-   For example, the phrase `[Go to Group]' that appears in a
-second-level group is an active field.  Invoking the `[Go to Group]'
-field for a group creates a new customization buffer, which shows that
-group and its contents.  This field is a kind of hypertext link to
-another group.
+`M-<'
+     Move point to start of year (`calendar-beginning-of-year').
 
-   The `Emacs' group does not include any user options itself, but
-other groups do.  By examining various groups, you will eventually find
-the options and faces that belong to the feature you are interested in
-customizing.  Then you can use the customization buffer to set them.
+`M->'
+     Move point to end of year (`calendar-end-of-year').
 
-   You can view the structure of customization groups on a larger scale
-with `M-x customize-browse'.  This command creates a special kind of
-customization buffer which shows only the names of the groups (and
-options and faces), and their structure.
+   These commands also take numeric arguments as repeat counts, with the
+repeat count indicating how many weeks, months, or years to move
+backward or forward.
 
-   In this buffer, you can show the contents of a group by invoking
-`[+]'.  When the group contents are visible, this button changes to
-`[-]'; invoking that hides the group contents.
-
-   Each group, option or face name in this buffer has an active field
-which says `[Group]', `[Option]' or `[Face]'.  Invoking that active
-field creates an ordinary customization buffer showing just that group
-and its contents, just that option, or just that face.  This is the way
-to set values in it.
+   By default, weeks begin on Sunday.  To make them begin on Monday
+instead, set the variable `calendar-week-start-day' to 1.
 
 
-File: emacs,  Node: Changing an Option,  Next: Face Customization,  Prev: Customization Groups,  Up: Easy Customization
+File: emacs,  Node: Specified Dates,  Prev: Move to Beginning or End,  Up: Calendar Motion
 
-Changing an Option
-..................
+Specified Dates
+---------------
 
-   Here is an example of what a user option looks like in the
-customization buffer:
+   Calendar mode provides commands for moving to a particular date
+specified in various ways.
 
-     Kill Ring Max: [Hide] 30
-        [State]: this option is unchanged from its standard setting.
-     Maximum length of kill ring before oldest elements are thrown away.
+`g d'
+     Move point to specified date (`calendar-goto-date').
 
-   The text following `[Hide]', `30' in this case, indicates the
-current value of the option.  If you see `[Show]' instead of `[Hide]',
-it means that the value is hidden; the customization buffer initially
-hides values that take up several lines.  Invoke `[Show]' to show the
-value.
+`o'
+     Center calendar around specified month (`calendar-other-month').
 
-   The line after the option name indicates the "customization state"
-of the option: in the example above, it says you have not changed the
-option yet.  The word `[State]' at the beginning of this line is
-active; you can get a menu of various operations by invoking it with
-`Mouse-1' or <RET>.  These operations are essential for customizing the
-variable.
+`.'
+     Move point to today's date (`calendar-goto-today').
 
-   The line after the `[State]' line displays the beginning of the
-option's documentation string.  If there are more lines of
-documentation, this line ends with `[More]'; invoke this to show the
-full documentation string.
+   `g d' (`calendar-goto-date') prompts for a year, a month, and a day
+of the month, and then moves to that date.  Because the calendar
+includes all dates from the beginning of the current era, you must type
+the year in its entirety; that is, type `1990', not `90'.
 
-   To enter a new value for `Kill Ring Max', move point to the value
-and edit it textually.  For example, you can type `M-d', then insert
-another number.
+   `o' (`calendar-other-month') prompts for a month and year, then
+centers the three-month calendar around that month.
 
-   When you begin to alter the text, you will see the `[State]' line
-change to say that you have edited the value:
-
-     [State]: you have edited the value as text, but not set the option.
-
-   Editing the value does not actually set the option variable.  To do
-that, you must "set" the option.  To do this, invoke the word `[State]'
-and choose `Set for Current Session'.
-
-   The state of the option changes visibly when you set it:
-
-     [State]: you have set this option, but not saved it for future sessions.
-
-   You don't have to worry about specifying a value that is not valid;
-setting the option checks for validity and will not really install an
-unacceptable value.
-
-   While editing a value or field that is a file name, directory name,
-command name, or anything else for which completion is defined, you can
-type `M-<TAB>' (`widget-complete') to do completion.
-
-   Some options have a small fixed set of possible legitimate values.
-These options don't let you edit the value textually.  Instead, an
-active field `[Value Menu]' appears before the value; invoke this field
-to edit the value.  For a boolean "on or off" value, the active field
-says `[Toggle]', and it changes to the other value.  `[Value Menu]' and
-`[Toggle]' edit the buffer; the changes take effect when you use the
-`Set for Current Session' operation.
-
-   Some options have values with complex structure.  For example, the
-value of `load-path' is a list of directories.  Here is how it appears
-in the customization buffer:
-
-     Load Path:
-     [INS] [DEL] [Current dir?]: /usr/local/share/emacs/20.3/site-lisp
-     [INS] [DEL] [Current dir?]: /usr/local/share/emacs/site-lisp
-     [INS] [DEL] [Current dir?]: /usr/local/share/emacs/20.3/leim
-     [INS] [DEL] [Current dir?]: /usr/local/share/emacs/20.3/lisp
-     [INS] [DEL] [Current dir?]: /build/emacs/e20/lisp
-     [INS] [DEL] [Current dir?]: /build/emacs/e20/lisp/gnus
-     [INS]
-        [State]: this item has been changed outside the customization buffer.
-     List of directories to search for files to load....
-
-Each directory in the list appears on a separate line, and each line has
-several editable or active fields.
-
-   You can edit any of the directory names.  To delete a directory from
-the list, invoke `[DEL]' on that line.  To insert a new directory in
-the list, invoke `[INS]' at the point where you want to insert it.
-
-   You can also invoke `[Current dir?]' to switch between including a
-specific named directory in the path, and including `nil' in the path.
-(`nil' in a search path means "try the current directory.")
-
-   Two special commands, <TAB> and `S-<TAB>', are useful for moving
-through the customization buffer.  <TAB> (`widget-forward') moves
-forward to the next active or editable field; `S-<TAB>'
-(`widget-backward') moves backward to the previous active or editable
-field.
-
-   Typing <RET> on an editable field also moves forward, just like
-<TAB>.  The reason for this is that people have a tendency to type
-<RET> when they are finished editing a field.  If you have occasion to
-insert a newline in an editable field, use `C-o' or `C-q C-j'.
-
-   Setting the option changes its value in the current Emacs session;
-"saving" the value changes it for future sessions as well.  This works
-by writing code into your `~/.emacs' file so as to set the option
-variable again each time you start Emacs.  To save the option, invoke
-`[State]' and select the `Save for Future Sessions' operation.
-
-   You can also restore the option to its standard value by invoking
-`[State]' and selecting the `Reset to Standard Settings' operation.
-There are actually three reset operations:
-
-`Reset'
-     If you have made some modifications and not yet set the option,
-     this restores the text in the customization buffer to match the
-     actual value.
-
-`Reset to Saved'
-     This restores the value of the option to the last saved value, and
-     updates the text accordingly.
-
-`Reset to Standard Settings'
-     This sets the option to its standard value, and updates the text
-     accordingly.  This also eliminates any saved value for the option,
-     so that you will get the standard value in future Emacs sessions.
-
-   The state of a group indicates whether anything in that group has
-been edited, set or saved.  You can select `Set for Current Session',
-`Save for Future Sessions' and the various kinds of `Reset' operation
-for the group; these operations on the group apply to all options in
-the group and its subgroups.
-
-   Near the top of the customization buffer there are two lines
-containing several active fields:
-
-      [Set for Current Session] [Save for Future Sessions]
-      [Reset] [Reset to Saved] [Reset to Standard]   [Bury Buffer]
-
-Invoking `[Bury Buffer]' buries this customization buffer.  Each of the
-other fields performs an operation--set, save or reset--on each of the
-items in the buffer that could meaningfully be set, saved or reset.
-
-
-File: emacs,  Node: Face Customization,  Next: Specific Customization,  Prev: Changing an Option,  Up: Easy Customization
-
-Customizing Faces
-.................
-
-   In addition to user options, some customization groups also include
-faces.  When you show the contents of a group, both the user options and
-the faces in the group appear in the customization buffer.  Here is an
-example of how a face looks:
-
-     Custom Changed Face: (sample)
-        [State]: this face is unchanged from its standard setting.
-     Face used when the customize item has been changed.
-     Attributes: [ ] Bold: [toggle] off
-                 [X] Italic: [toggle] on
-                 [ ] Underline: [toggle] off
-                 [ ] Inverse-Video: [toggle] on
-                 [ ] Foreground: black (sample)
-                 [ ] Background: white (sample)
-                 [ ] Stipple:
-
-   Each face attribute has its own line.  The `[X]' field before the
-attribute name indicates whether the attribute is "enabled"; `X' means
-that it is.  You can enable or disable the attribute by invoking that
-field.  When the attribute is enabled, you can change the attribute
-value in the usual ways.
-
-   On a black-and-white display, the colors you can use for the
-background are `black', `white', `gray', `gray1', and `gray3'.  Emacs
-supports these shades of gray by using background stipple patterns
-instead of a color.
-
-   Setting, saving and resetting a face work like the same operations
-for options (*note Changing an Option::).
-
-   A face can specify different appearances for different types of
-display.  For example, a face can make text red on a color display, but
-use a bold font on a monochrome display.  To specify multiple
-appearances for a face, select `Show Display Types' in the menu you get
-from invoking `[State]'.
-
-   Another more basic way to set the attributes of a specific face is
-with `M-x modify-face'.  This command reads the name of a face, then
-reads the attributes one by one.  For the color and stipple attributes,
-the attribute's current value is the default--type just <RET> if you
-don't want to change that attribute.  Type `none' if you want to clear
-out the attribute.
+   You can return to today's date with `.' (`calendar-goto-today').
 

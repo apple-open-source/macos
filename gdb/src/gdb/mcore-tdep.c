@@ -1,5 +1,5 @@
 /* Target-machine dependent code for Motorola MCore for GDB, the GNU debugger
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,6 +22,10 @@
 #include "symtab.h"
 #include "value.h"
 #include "gdbcmd.h"
+#include "regcache.h"
+#include "symfile.h"
+#include "gdbcore.h"
+#include "inferior.h"
 
 /* Functions declared and used only in this file */
 
@@ -47,11 +51,9 @@ CORE_ADDR mcore_frame_args_address (struct frame_info *fi);
 
 CORE_ADDR mcore_frame_locals_address (struct frame_info *fi);
 
-void mcore_virtual_frame_pointer (CORE_ADDR pc, long *reg, long *offset);
-
 CORE_ADDR mcore_push_return_address (CORE_ADDR pc, CORE_ADDR sp);
 
-CORE_ADDR mcore_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
+CORE_ADDR mcore_push_arguments (int nargs, struct value ** args, CORE_ADDR sp,
 			unsigned char struct_return, CORE_ADDR struct_addr);
 
 void mcore_pop_frame (struct frame_info *fi);
@@ -163,7 +165,7 @@ mcore_dump_insn (char *commnt, CORE_ADDR pc, int insn)
     {
       printf_filtered ("MCORE:  %s %08x %08x ",
 		       commnt, (unsigned int) pc, (unsigned int) insn);
-      (*tm_print_insn) (pc, &tm_print_insn_info);
+      TARGET_PRINT_INSN (pc, &tm_print_insn_info);
       printf_filtered ("\n");
     }
 }
@@ -217,7 +219,7 @@ analyze_dummy_frame (CORE_ADDR pc, CORE_ADDR frame)
   return dummy;
 }
 
-/* Function prologues on the Motorol MCore processors consist of:
+/* Function prologues on the Motorola MCore processors consist of:
 
    - adjustments to the stack pointer (r1 used as scratch register)
    - store word/multiples that use r0 as the base address
@@ -247,7 +249,9 @@ mcore_analyze_prologue (struct frame_info *fi, CORE_ADDR pc, int skip_prologue)
   CORE_ADDR func_addr, func_end, addr, stop;
   CORE_ADDR stack_size;
   int insn, rn;
-  int status, fp_regnum, flags;
+  int status;
+  int fp_regnum = 0; /* dummy, valid when (flags & MY_FRAME_IN_FP) */
+  int flags;
   int framesize;
   int register_offsets[NUM_REGS];
   char *name;
@@ -643,7 +647,7 @@ mcore_frame_locals_address (struct frame_info * fi)
 /* Return the frame pointer in use at address PC. */
 
 void
-mcore_virtual_frame_pointer (CORE_ADDR pc, long *reg, long *offset)
+mcore_virtual_frame_pointer (CORE_ADDR pc, int *reg, LONGEST *offset)
 {
   struct frame_info *dummy = analyze_dummy_frame (pc, 0);
   if (dummy->extra_info->status & MY_FRAME_IN_SP)
@@ -741,7 +745,7 @@ mcore_pop_frame (struct frame_info *fi)
    bytes) as hidden first arguments. */
 
 CORE_ADDR
-mcore_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
+mcore_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		      unsigned char struct_return, CORE_ADDR struct_addr)
 {
   int argreg;

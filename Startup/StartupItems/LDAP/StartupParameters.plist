@@ -1,0 +1,6 @@
+{
+  Description     = "LDAP";
+  Provides        = ("LDAP");
+  Requires        = ("Network Configuration", "DirectoryServices");
+  OrderPreference = "None";
+}

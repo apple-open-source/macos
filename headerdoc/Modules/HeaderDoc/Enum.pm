@@ -4,7 +4,7 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/22 02:27:13 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -24,7 +24,7 @@
 ######################################################################
 package HeaderDoc::Enum;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
@@ -41,14 +41,15 @@ sub new {
     my $self = {};
     
     bless($self, $class);
-    $self->SUPER::_initialize();
     $self->_initialize();
     return($self);
 }
 
 sub _initialize {
     my($self) = shift;
-    $self->{CONSTANTS} = [];
+    
+    $self->SUPER::_initialize();
+    $self->{CONSTANTS} = ();
 }
 
 sub constants {
@@ -56,7 +57,7 @@ sub constants {
     if (@_) { 
         @{ $self->{CONSTANTS} } = @_;
     }
-    return @{ $self->{CONSTANTS} };
+    ($self->{CONSTANTS}) ? return @{ $self->{CONSTANTS} } : return ();
 }
 
 sub addConstant {

@@ -1,6 +1,6 @@
 ;;; sgml-mode.el --- SGML- and HTML-editing modes
 
-;; Copyright (C) 1992, 1995, 1996, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1992,95,96,98,2001  Free Software Foundation, Inc.
 
 ;; Author: James Clark <jjc@jclark.com>
 ;; Adapted-By: ESR, Daniel Pfeiffer <occitan@esperanto.org>,
@@ -32,7 +32,9 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'skeleton))
+(eval-when-compile
+  (require 'skeleton)
+  (require 'outline))
 
 (defgroup sgml nil
   "SGML editing mode"
@@ -45,6 +47,12 @@
 
 (put 'sgml-transformation 'variable-interactive
      "aTransformation function: ")
+
+(defcustom sgml-mode-hook nil
+  "Hook run by command `sgml-mode'.
+`text-mode-hook' is run first."
+  :group 'sgml
+  :type 'hook)
 
 ;; As long as Emacs' syntax can't be complemented with predicates to context
 ;; sensitively confirm the syntax of characters, we have to live with this
@@ -71,9 +79,8 @@ This takes effect when first loading the sgml-mode library.")
 
 
 (defvar sgml-mode-map
-  (let ((map (list 'keymap (make-vector 256 nil)))
+  (let ((map (make-keymap))	;`sparse' doesn't allow binding to charsets.
 	(menu-map (make-sparse-keymap "SGML")))
-    (define-key map "\t" 'indent-relative-maybe)
     (define-key map "\C-c\C-i" 'sgml-tags-invisible)
     (define-key map "/" 'sgml-slash)
     (define-key map "\C-c\C-n" 'sgml-name-char)
@@ -98,10 +105,8 @@ This takes effect when first loading the sgml-mode library.")
 	      (define-key map "\"" 'sgml-name-self))
 	  (if (memq ?' sgml-specials)
 	      (define-key map "'" 'sgml-name-self))))
-    (let ((c 127)
-	  (map (nth 1 map)))
-      (while (< (setq c (1+ c)) 256)
-	(aset map c 'sgml-maybe-name-self)))
+    (define-key map (vector (make-char 'latin-iso8859-1))
+      'sgml-maybe-name-self)
     (define-key map [menu-bar sgml] (cons "SGML" menu-map))
     (define-key menu-map [sgml-validate] '("Validate" . sgml-validate))
     (define-key menu-map [sgml-name-8bit-mode]
@@ -166,7 +171,7 @@ This takes effect when first loading the sgml-mode library.")
    "nbsp" "iexcl" "cent" "pound" "curren" "yen" "brvbar" "sect"
    "uml" "copy" "ordf" "laquo" "not" "shy" "reg" "macr"
    "ring" "plusmn" "sup2" "sup3" "acute" "micro" "para" "middot"
-   "cedil" "sup1" "ordm" "raquo" "frac14" "half" "frac34" "iquest"
+   "cedil" "sup1" "ordm" "raquo" "frac14" "frac12" "frac34" "iquest"
    "Agrave" "Aacute" "Acirc" "Atilde" "Auml" "Aring" "AElig" "Ccedil"
    "Egrave" "Eacute" "Ecirc" "Euml" "Igrave" "Iacute" "Icirc" "Iuml"
    "ETH" "Ntilde" "Ograve" "Oacute" "Ocirc" "Otilde" "Ouml" nil
@@ -178,24 +183,25 @@ This takes effect when first loading the sgml-mode library.")
   "Vector of symbolic character names without `&' and `;'.")
 
 
-;; sgmls is a free SGML parser available from
-;; ftp.uu.net:pub/text-processing/sgml
+;; nsgmls is a free SGML parser in the SP suite available from
+;; ftp.jclark.com and otherwise packaged for GNU systems.
 ;; Its error messages can be parsed by next-error.
 ;; The -s option suppresses output.
 
-(defcustom sgml-validate-command "sgmls -s"
+(defcustom sgml-validate-command "nsgmls -s" ; replaced old `sgmls'
   "*The command to validate an SGML document.
 The file name of current buffer file name will be appended to this,
 separated by a space."
   :type 'string
+  :version "21.1"
   :group 'sgml)
 
 (defvar sgml-saved-validate-command nil
   "The command last used to validate in this buffer.")
 
 
-;;; I doubt that null end tags are used much for large elements,
-;;; so use a small distance here.
+;; I doubt that null end tags are used much for large elements,
+;; so use a small distance here.
 (defcustom sgml-slash-distance 1000
   "*If non-nil, is the maximum distance to search for matching `/'."
   :type '(choice (const nil) integer)
@@ -295,7 +301,6 @@ varables of same name)."
   (make-local-variable 'comment-start)
   (make-local-variable 'comment-end)
   (make-local-variable 'comment-indent-function)
-  (make-local-variable 'comment-start-skip)
   (make-local-variable 'comment-indent-function)
   (make-local-variable 'sgml-tags-invisible)
   (make-local-variable 'skeleton-transformation)
@@ -322,14 +327,11 @@ varables of same name)."
 	paragraph-separate "[ \t]*$\\|\
 \[ \t]*</?\\([A-Za-z]\\([-.A-Za-z0-9= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>$"
 	paragraph-start "[ \t]*$\\|\
-\[ \t]*</?\\([A-Za-z]\\([-.A-Za-z0-9= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>$"
+\[ \t]*</?\\([A-Za-z]\\([-.A-Za-z0-9= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>"
 	adaptive-fill-regexp "[ \t]*"
 	comment-start "<!-- "
 	comment-end " -->"
 	comment-indent-function 'sgml-comment-indent
-	;; This will allow existing comments within declarations to be
-	;; recognized.
-	comment-start-skip "--[ \t]*"
 	skeleton-transformation sgml-transformation
 	skeleton-further-elements '((completion-ignore-case t))
 	skeleton-end-hook (lambda ()
@@ -346,10 +348,12 @@ varables of same name)."
 			     nil
 			     t)
 	facemenu-add-face-function 'sgml-mode-facemenu-add-face-function)
-  (while sgml-display-text
-    (put (car (car sgml-display-text)) 'before-string
-	 (cdr (car sgml-display-text)))
-    (setq sgml-display-text (cdr sgml-display-text))))
+  ;; This will allow existing comments within declarations to be
+  ;; recognized.
+  (set (make-local-variable 'comment-start-skip) "\\(?:<!\\)?--[ \t]*")
+  (set (make-local-variable 'comment-end-skip) "[ \t]*--\\([ \t\n]*>\\)?")
+  (dolist (pair sgml-display-text)
+    (put (car pair) 'before-string (cdr pair))))
 
 
 (defun sgml-mode-facemenu-add-face-function (face end)
@@ -358,11 +362,11 @@ varables of same name)."
 	(setq face (funcall skeleton-transformation face))
 	(setq facemenu-end-add-face (concat "</" face ">"))
 	(concat "<" face ">"))
-    (error "Face not configured for %s mode." mode-name)))
+    (error "Face not configured for %s mode" mode-name)))
 
 
 ;;;###autoload
-(defun sgml-mode (&optional function)
+(defun sgml-mode ()
   "Major mode for editing SGML documents.
 Makes > match <.  Makes / blink matching /.
 Keys <, &, SPC within <>, \" and ' can be electric depending on
@@ -395,13 +399,7 @@ Do \\[describe-key] on the following bindings to discover what they do.
 
 
 (defun sgml-comment-indent ()
-  (if (and (looking-at "--")
-	   (not (and (eq (preceding-char) ?!)
-		     (eq (char-after (- (point) 2)) ?<))))
-      (progn
-	(skip-chars-backward " \t")
-	(max comment-column (1+ (current-column))))
-    0))
+  (if (looking-at "--") comment-column 0))
 
 
 
@@ -477,7 +475,10 @@ or M-- for a soft hyphen."
   "Insert a symbolic character name according to `sgml-char-names'."
   (interactive "*")
   (if sgml-name-8bit-mode
-      (sgml-name-char last-command-char)
+      (sgml-name-char
+       (if (eq (char-charset last-command-char) 'latin-iso8859-1)
+	   (+ 128 (- last-command-char (make-char 'latin-iso8859-1)))
+	 last-command-char))
     (self-insert-command 1)))
 
 
@@ -502,22 +503,24 @@ skeleton-transformation RET upcase RET, or put this in your `.emacs':
   (setq sgml-transformation 'upcase)"
   (funcall skeleton-transformation
 	   (completing-read "Tag: " sgml-tag-alist))
-  ?< (setq v1 (eval str)) |
+  ?< str |
   (("") -1 '(undo-boundary) (identity "&lt;")) |	; see comment above
-  (("") '(setq v2 (sgml-attributes v1 t)) ?>
-   (if (string= "![" v1)
-       (prog1 '(("") " [ " _ " ]]")
-	 (backward-char))
-     (if (or (eq v2 t)
-	     (string-match "^[/!?]" v1))
-	 ()
-       (if (symbolp v2)
-	   '(("") v2 _ v2 "</" v1 ?>)
-	 (if (eq (car v2) t)
-	     (cons '("") (cdr v2))
-	   (append '(("") (car v2))
-		   (cdr v2)
-		   '(resume: (car v2) _ "</" v1 ?>))))))))
+  `(("") '(setq v2 (sgml-attributes ,str t)) ?>
+    (if (string= "![" ,str)
+	(prog1 '(("") " [ " _ " ]]")
+	  (backward-char))
+      (if (or (eq v2 t)
+	      (string-match "^[/!?]" ,str))
+	  ()
+	(if (symbolp v2)
+	    ;; We go use `identity' to prevent skeleton from passing
+	    ;; `str' through skeleton-transformation a second time.
+	    '(("") v2 _ v2 "</" (identity ',str) ?>)
+	  (if (eq (car v2) t)
+	      (cons '("") (cdr v2))
+	    (append '(("") (car v2))
+		    (cdr v2)
+		    '(resume: (car v2) _ "</" (identity ',str) ?>))))))))
 
 (autoload 'skeleton-read "skeleton")
 
@@ -714,34 +717,38 @@ With prefix argument ARG, repeat this ARG times."
   (interactive "P")
   (let ((modified (buffer-modified-p))
 	(inhibit-read-only t)
+	(inhibit-modification-hooks t)
+	;; Avoid spurious the `file-locked' checks.
+	(buffer-file-name nil)
 	;; This is needed in case font lock gets called,
 	;; since it moves point and might call sgml-point-entered.
 	(inhibit-point-motion-hooks t)
 	symbol)
-    (save-excursion
-      (goto-char (point-min))
-      (if (setq sgml-tags-invisible
-		(if arg
-		    (>= (prefix-numeric-value arg) 0)
-		  (not sgml-tags-invisible)))
-	  (while (re-search-forward "<\\([!/?A-Za-z][-A-Za-z0-9]*\\)"
-				    nil t)
-	    (setq symbol (intern-soft (downcase (match-string 1))))
-	    (goto-char (match-beginning 0))
-	    (and (get symbol 'before-string)
-		 (not (overlays-at (point)))
-		 (overlay-put (make-overlay (point)
-					    (match-beginning 1))
-			      'category symbol))
-	    (put-text-property (point)
-			       (progn (forward-list) (point))
-			       'category 'sgml-tag))
-	(let ((pos (point)))
-	  (while (< (setq pos (next-overlay-change pos)) (point-max))
-	    (delete-overlay (car (overlays-at pos)))))
-	(remove-text-properties (point-min) (point-max)
-				'(category sgml-tag intangible t))))
-    (set-buffer-modified-p modified)
+    (unwind-protect
+	(save-excursion
+	  (goto-char (point-min))
+	  (if (setq sgml-tags-invisible
+		    (if arg
+			(>= (prefix-numeric-value arg) 0)
+		      (not sgml-tags-invisible)))
+	      (while (re-search-forward "<\\([!/?A-Za-z][-A-Za-z0-9]*\\)"
+					nil t)
+		(setq symbol (intern-soft (downcase (match-string 1))))
+		(goto-char (match-beginning 0))
+		(and (get symbol 'before-string)
+		     (not (overlays-at (point)))
+		     (overlay-put (make-overlay (point)
+						(match-beginning 1))
+				  'category symbol))
+		(put-text-property (point)
+				   (progn (forward-list) (point))
+				   'category 'sgml-tag))
+	    (let ((pos (point)))
+	      (while (< (setq pos (next-overlay-change pos)) (point-max))
+		(delete-overlay (car (overlays-at pos)))))
+	    (remove-text-properties (point-min) (point-max)
+				    '(category sgml-tag intangible t))))
+      (restore-buffer-modified-p modified))
     (run-hooks 'sgml-tags-invisible-hook)
     (message "")))
 
@@ -750,7 +757,8 @@ With prefix argument ARG, repeat this ARG times."
   (let ((inhibit-point-motion-hooks t))
     (save-excursion
       (message "Invisible tag: %s"
-	       (buffer-substring
+	       ;; Strip properties, otherwise, the text is invisible.
+	       (buffer-substring-no-properties
 		(point)
 		(if (or (and (> x y)
 			     (not (eq (following-char) ?<)))
@@ -818,17 +826,26 @@ See `sgml-tag-alist' for info about attributerules.."
       (if alist
 	  (insert (skeleton-read '(completing-read "Value: " alist))))
       (insert ?\"))))
-
-(provide 'sgml-mode)
 
+
+;;; HTML mode
+
+(defcustom html-mode-hook nil
+  "Hook run by command `html-mode'.
+`text-mode-hook' and `sgml-mode-hook' are run first."
+  :group 'sgml
+  :type 'hook
+  :options '(html-autoview-mode))
+
 (defvar html-quick-keys sgml-quick-keys
   "Use C-c X combinations for quick insertion of frequent tags when non-nil.
 This defaults to `sgml-quick-keys'.
 This takes effect when first loading the library.")
 
 (defvar html-mode-map
-  (let ((map (nconc (make-sparse-keymap) sgml-mode-map))
+  (let ((map (make-sparse-keymap))
 	(menu-map (make-sparse-keymap "HTML")))
+    (set-keymap-parent map  sgml-mode-map)
     (define-key map "\C-c6" 'html-headline-6)
     (define-key map "\C-c5" 'html-headline-5)
     (define-key map "\C-c4" 'html-headline-4)
@@ -926,7 +943,7 @@ This takes effect when first loading the library.")
 ;; should code exactly HTML 3 here when that is finished
 (defvar html-tag-alist
   (let* ((1-7 '(("1") ("2") ("3") ("4") ("5") ("6") ("7")))
-	 (1-9 '(,@1-7 ("8") ("9")))
+	 (1-9 `(,@1-7 ("8") ("9")))
 	 (align '(("align" ("left") ("center") ("right"))))
 	 (valign '(("top") ("middle") ("bottom") ("baseline")))
 	 (rel '(("next") ("previous") ("parent") ("subdocument") ("made")))
@@ -938,10 +955,9 @@ This takes effect when first loading the library.")
 		 ("rel" ,@rel)
 		 ("rev" ,@rel)
 		 ("title")))
-	 (list '((nil \n ( "List item: "
-			   "<li>" str \n))))
+	 (list '((nil \n ("List item: " "<li>" str \n))))
 	 (cell `(t
-		 ,align
+		 ,@align
 		 ("valign" ,@valign)
 		 ("colspan" ,@1-9)
 		 ("rowspan" ,@1-9)
@@ -1010,6 +1026,7 @@ This takes effect when first loading the library.")
       ("dd" t)
       ("del")
       ("dfn")
+      ("div")
       ("dl" (nil \n
 		 ( "Term: "
 		   "<dt>" str "<dd>" _ \n)))
@@ -1044,6 +1061,7 @@ This takes effect when first loading the library.")
       ("s")
       ("samp")
       ("small")
+      ("span")
       ("strong")
       ("sub")
       ("sup")
@@ -1209,8 +1227,9 @@ To work around that, do:
 	outline-level (lambda ()
 			(char-after (1- (match-end 0)))))
   (setq imenu-create-index-function 'html-imenu-index)
-  (make-local-variable 'imenu-sort-function)
-  (setq imenu-sort-function nil) ; sorting the menu defeats the purpose
+  ;; It's for the user to decide if it defeats it or not  -stef
+  ;; (make-local-variable 'imenu-sort-function)
+  ;; (setq imenu-sort-function nil) ; sorting the menu defeats the purpose
   (run-hooks 'text-mode-hook 'sgml-mode-hook 'html-mode-hook))
 
 (defvar html-imenu-regexp
@@ -1236,7 +1255,7 @@ The third `match-string' will be the used in the menu.")
     (nreverse toc-index)))
 
 (defun html-autoview-mode (&optional arg)
-  "Toggle automatic viewing via `html-viewer' upon saving buffer.
+  "Toggle automatic viewing via `browse-url-of-buffer' upon saving buffer.
 With positive prefix ARG always turns viewing on, with negative ARG always off.
 Can be used as a value for `html-mode-hook'."
   (interactive "P")
@@ -1245,7 +1264,6 @@ Can be used as a value for `html-mode-hook'."
 		  (and (boundp 'after-save-hook)
 		       (memq 'browse-url-of-buffer after-save-hook))))
       (setq after-save-hook (delq 'browse-url-of-buffer after-save-hook))
-    (make-local-hook 'after-save-hook)
     (add-hook 'after-save-hook 'browse-url-of-buffer nil t))
   (message "Autoviewing turned %s."
 	   (if arg "off" "on")))
@@ -1365,5 +1383,7 @@ Can be used as a value for `html-mode-hook'."
 			       (funcall skeleton-transformation "<br>")
 			     "")))
    \n))
+
+(provide 'sgml-mode)
 
 ;;; sgml-mode.el ends here

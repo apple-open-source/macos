@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: spell.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $";
+static char rcsid[] = "$Id: spell.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	spell.c
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: spell.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -101,7 +101,7 @@ static char *pinespellhelp[] = {
  */
 spell(f, n)
 {
-    int    status, next, khelp = 0, ret;
+    int    status, next, ret;
     FILE   *p;
     char   *b, *sp, *fn;
     char   wb[NLINE], cb[NLINE];
@@ -117,15 +117,14 @@ spell(f, n)
     }
     if((sp = (char *)getenv("SPELL")) == NULL)
       sp = SPELLER;
-    sprintf(s, "( %s ) < %s", sp, fn);
 
-    if((p=P_open(s)) == NULL){			/* read output from command */
+    sprintf(cb, "( %s ) < %s", sp, fn);		/* pre-use buffer! */
+    if((p = P_open(cb)) == NULL){ 		/* read output from command */
 	unlink(fn);
-	emlwrite("Can't fork spell checker");
+	emlwrite("Can't fork spell checker", NULL);
 	return(-1);
     }
 
-    khelp = 0;
     ret = 1;
     while(fgets(wb, NLINE, p) != NULL && ret){
 	if((b = (char *)strchr(wb,'\n')) != NULL)
@@ -134,16 +133,10 @@ spell(f, n)
 
 	gotobob(0, 1);
 
-	if(Pmaster == NULL)
-	  sgarbk = FALSE;
-
 	status = TRUE;
 	next = 1;
 
 	while(status){
-	    if(!khelp++)			/* not too early */
-	      wkeyhelp("GC0000000000", "Get Help,Cancel");
-
 	    if(next++)
 	      if(movetoword(wb) != TRUE)
 		break;
@@ -154,14 +147,16 @@ spell(f, n)
 	    (*term.t_rev)(0);
 
 	    if(strcmp(cb, wb)){
-		sprintf(s, "Replace %s with %s", wb, cb);
-		status=mlyesno(s, TRUE);
+		char prompt[2*NLINE + 32];
+		sprintf(prompt, "Replace \"%s\" with \"%s\"", wb, cb);
+		status=mlyesno(prompt, TRUE);
 	    }
 	    else
-	      status=mlreplyd("Edit a replacement: ", cb, NLINE, QDEFLT);
+	      status=mlreplyd("Edit a replacement: ", cb, NLINE, QDEFLT, NULL);
 
 
 	    curwp->w_flag |= WFMOVE;		/* put cursor back */
+	    sgarbk = 0;				/* fake no-keymenu-change! */
 	    update();
 	    pputs(wb, 0);			/* un-highlight */
 
@@ -184,7 +179,6 @@ spell(f, n)
 		  pico_help(spellhelp, "Help with Spelling Checker", 1);
 	      case (CTRL|'L'):
 		next = 0;			/* don't get next word */
-		khelp = 0;			/* key help has changed */
 		sgarbf = TRUE;			/* repaint full screen */
 		update();
 		status = TRUE;
@@ -202,9 +196,7 @@ spell(f, n)
     unlink(fn);
     swapimark(0, 1);
     curwp->w_flag |= WFHARD|WFMODE;
-
-    if(Pmaster == NULL)
-      sgarbk = TRUE;
+    sgarbk = TRUE;
 
     if(ret)
       emlwrite("Done checking spelling");

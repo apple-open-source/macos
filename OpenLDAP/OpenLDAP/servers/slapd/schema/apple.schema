@@ -1,0 +1,456 @@
+#ident $Id: apple.schema,v 1.4 2002/07/15 23:45:19 majka Exp $
+#
+# Preliminary Apple OS X Native LDAP Schema
+# This file is subject to change.
+#
+
+#
+# Container structural object class.
+#
+objectclass (
+	1.2.840.113556.1.3.23
+	NAME 'container'
+	SUP top
+	STRUCTURAL
+	MUST ( cn ) )
+
+#
+# User attributes 1.3.6.1.4.1.63.1000.1.1.1.6
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.6
+	NAME 'apple-user-homeurl'
+	DESC 'home directory URL'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.7
+	NAME 'apple-user-class'
+	DESC 'user class'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.8
+	NAME 'apple-user-homequota'
+	DESC 'home directory quota'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.9
+	NAME 'apple-user-mailattribute'
+	DESC 'mail attribute'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.10
+	NAME 'apple-mcxflags'
+	DESC 'mcx flags'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.11
+	NAME 'apple-mcxsettings'
+	DESC 'mcx settings'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.12
+	NAME 'apple-user-picture'
+	DESC 'picture'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.13
+	NAME 'apple-user-printattribute'
+	DESC 'print attribute'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.14
+	NAME 'apple-user-adminlimits'
+	DESC 'admin limits'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+        1.3.6.1.4.1.63.1000.1.1.1.1.15
+        NAME 'apple-user-authenticationhint'
+        DESC 'password hint'
+        EQUALITY caseExactMatch
+        SUBSTR caseExactSubstringsMatch
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+#
+# User object class.
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.1
+	NAME 'apple-user'
+	SUP top
+	AUXILIARY
+	DESC 'apple user account'
+	MAY ( apple-user-homeurl $ apple-user-class $
+		apple-user-homequota $ apple-user-mailattribute $
+		apple-user-printattribute $ apple-mcxflags $
+		apple-mcxsettings $ apple-user-adminlimits $
+		apple-user-picture $ apple-user-authenticationhint $ 
+		authAuthority ) )
+
+#
+# Group attributes 1.3.6.1.4.1.63.1000.1.1.2.14
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.1
+	NAME 'apple-group-homeurl'
+	DESC 'group home url'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.2
+	NAME 'apple-group-homeowner'
+	DESC 'group home owner settings'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.5
+	NAME 'apple-group-realname'
+	DESC 'group real name'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+#
+# Group auxiliary object class.
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.14
+	NAME 'apple-group'
+	SUP top
+	AUXILIARY
+	DESC 'group account'
+	MAY ( apple-group-homeurl $
+	      apple-group-homeowner $
+	      apple-mcxflags $
+	      apple-mcxsettings $
+	      apple-group-realname ) )
+
+#
+# Computer attributes 1.3.6.1.4.1.63.1000.1.1.1.3
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.3.8
+	NAME 'apple-machine-software'
+	DESC 'installed system software'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.3.9
+	NAME 'apple-machine-hardware'
+	DESC 'system hardware description'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributeType ( 
+	1.3.6.1.4.1.63.1000.1.1.1.3.10
+	NAME 'apple-machine-serves'
+	DESC 'NetInfo Domain Server Binding'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributeType ( 
+	1.3.6.1.4.1.63.1000.1.1.1.3.11
+	NAME 'apple-machine-suffix'
+	DESC 'DIT suffix'
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+#
+# Computer auxiliary object class.
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.3
+	NAME 'apple-machine'
+	SUP top
+	AUXILIARY
+	MAY ( apple-machine-software $
+	      apple-machine-hardware $
+	      apple-machine-serves $
+	      apple-machine-suffix ) )
+
+#
+# Mount attributes 1.3.6.1.4.1.63.1000.1.1.1.8
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.8.1
+	NAME 'mountDirectory'
+	DESC 'mount path'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.8.2
+	NAME 'mountType'
+	DESC 'mount VFS type'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.8.3
+	NAME 'mountOption'
+	DESC 'mount options'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype (
+        1.3.6.1.4.1.63.1000.1.1.1.8.4
+        NAME 'mountDumpFrequency'
+        DESC 'mount dump frequency'
+        EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+        1.3.6.1.4.1.63.1000.1.1.1.8.5
+        NAME 'mountPassNo'
+        DESC 'mount passno'
+        EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+#
+# Mount object 1.3.6.1.4.1.63.1000.1.1.2.8
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.8
+	NAME 'mount'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( mountDirectory $
+	      mountType $
+	      mountOption $
+              mountDumpFrequency $
+              mountPassNo ) )
+
+#
+# Printer attributes 1.3.6.1.4.1.63.1000.1.1.1.9
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.9.1
+	NAME 'apple-printer-attributes'
+	DESC 'printer attributes in /etc/printcap format'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+#
+# Printer object 1.3.6.1.4.1.63.1000.1.1.2.9
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.9
+	NAME 'apple-printer'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( apple-printer-attributes ) )
+
+#
+# Computer list attributes 1.3.6.1.4.1.63.1000.1.1.1.11
+#
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.11.3
+	NAME 'apple-computers'
+	DESC 'computers'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+        1.3.6.1.4.1.63.1000.1.1.1.11.4
+        NAME 'apple-computer-list-groups'
+        DESC 'groups'
+        EQUALITY caseExactMatch
+        SUBSTR caseExactSubstringsMatch
+        SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+#
+# Computer object 1.3.6.1.4.1.63.1000.1.1.2.10
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.10
+	NAME 'apple-computer'
+	DESC 'computer'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( description $
+	      macAddress $
+	      apple-mcxflags $
+	      apple-mcxsettings ) )
+
+#
+# Computer list object 1.3.6.1.4.1.63.1000.1.1.2.11
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.11
+	NAME 'apple-computer-list'
+	DESC 'computer list'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( apple-mcxflags $
+	      apple-mcxsettings $
+              apple-computer-list-groups $
+	      apple-computers ) )
+
+#
+# Configuration attributes 1.3.6.1.4.1.63.1000.1.1.1.12
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.12.1
+	NAME 'apple-password-server-location'
+	DESC 'password server location'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.12.2
+	NAME 'apple-data-stamp'
+	DESC 'data stamp'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.12.3
+	NAME 'apple-config-realname'
+	DESC 'config real name'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+#
+# Configuration object 1.3.6.1.4.1.63.1000.1.1.2.12
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.12
+	NAME 'apple-configuration'
+	DESC 'configuration'
+	SUP top STRUCTURAL 
+	MAY ( cn $ apple-config-realname $ 
+		apple-data-stamp $ apple-password-server-location ) )
+
+#
+# Preset computer list object class.
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.13
+	NAME 'apple-preset-computer-list'
+	DESC 'preset computer list'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( apple-mcxflags $
+	      apple-mcxsettings ) )
+
+#
+# Preset group object 1.3.6.1.4.1.63.1000.1.1.3.14
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.3.14
+	NAME 'apple-preset-group'
+	DESC 'preset group'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( memberUid $
+	      gidNumber $
+	      apple-group-homeurl $
+	      apple-group-homeowner $
+	      apple-mcxflags $
+	      apple-mcxsettings $
+	      apple-group-realname ) )
+
+#
+# Preset user object attributes 1.3.6.1.4.1.63.1000.1.1.1.15
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.15.1
+	NAME 'apple-preset-user-is-admin'
+	DESC 'flag indicating whether the preset user is an administrator'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+#
+# Preset user object 1.3.6.1.4.1.63.1000.1.1.2.15
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.15
+	NAME 'apple-preset-user'
+	DESC 'preset user'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( uid $
+	      memberUid $
+	      gidNumber $
+	      homeDirectory $
+	      apple-user-homeurl $
+	      apple-user-homequota $
+	      apple-user-mailattribute $
+	      apple-user-printattribute $
+	      apple-mcxflags $
+	      apple-mcxsettings $
+	      apple-user-adminlimits $
+	      userPassword $
+	      apple-user-picture $
+	      loginShell $
+	      shadowLastChange $
+	      shadowExpire $
+	      authAuthority $
+	      apple-preset-user-is-admin ) )
+
+#
+# Authentication authority attribute 1.3.6.1.4.1.63.1000.1.1.2.16.1
+#
+#attributetype (
+#	1.3.6.1.4.1.63.1000.1.1.2.16.1
+#	NAME 'authAuthority'
+#	DESC 'password server authentication authority'
+#	EQUALITY caseExactIA5Match
+#       SUBSTR caseExactIA5SubstringsMatch
+#	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+#
+# Authentication authority object 1.3.6.1.4.1.63.1000.1.1.2.16
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.16
+	NAME 'authAuthorityObject'
+	SUP top AUXILIARY
+	MAY ( authAuthority ) )

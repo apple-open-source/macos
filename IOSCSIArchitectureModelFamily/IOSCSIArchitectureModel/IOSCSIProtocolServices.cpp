@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,18 +20,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Libkern includes
 #include <libkern/OSByteOrder.h>
+
+// General IOKit includes
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
 
-// For debugging, set SCSI_PROTOCOL_SERVICES_DEBUGGING_LEVEL to one
-// of the following values:
-//		0	No debugging 	(GM release level)
-// 		1 	PANIC_NOW only
-//		2	PANIC_NOW and ERROR_LOG
-//		3	PANIC_NOW, ERROR_LOG and STATUS_LOG
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 												0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SCSIProtocolServices"
+
+#if DEBUG
+#define SCSI_PROTOCOL_SERVICES_DEBUGGING_LEVEL				0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_PROTOCOL_SERVICES_DEBUGGING_LEVEL >= 1 )
@@ -57,41 +74,10 @@
 OSDefineMetaClass ( IOSCSIProtocolServices, IOSCSIProtocolInterface );
 OSDefineAbstractStructors ( IOSCSIProtocolServices, IOSCSIProtocolInterface );
 
-// Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 6 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 8 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 9 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 10 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 11 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 12 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 13 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 14 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 15 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolServices, 16 );
 
-/*
-struct IOPMPowerState
-{
-	UInt32			version;				// version number of this struct
-	IOPMPowerFlags	capabilityFlags;		// bits that describe (to interested drivers) the capability of the device in this state 
-	IOPMPowerFlags	outputPowerCharacter;	// description (to power domain children) of the power provided in this state 
-	IOPMPowerFlags	inputPowerRequirement;	// description (to power domain parent) of input power required in this state
-	UInt32			staticPower;			// average consumption in milliwatts
-	UInt32			unbudgetedPower;		// additional consumption from separate power supply (mw)
-	UInt32			powerToAttain;			// additional power to attain this state from next lower state (in mw)
-	UInt32			timeToAttain;			// time required to enter this state from next lower state (in microseconds)
-	UInt32			settleUpTime;			// settle time required after entering this state from next lower state (microseconds)
-	UInt32			timeToLower;			// time required to enter next lower state from this one (in microseconds)
-	UInt32			settleDownTime;			// settle time required after entering next lower state from this state (microseconds)
-	UInt32			powerDomainBudget;		// power in mw a domain in this state can deliver to its children
-};
-*/
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Used by power manager to figure out what states we support
 // The default implementation supports two basic states: ON and OFF
@@ -104,19 +90,16 @@ static IOPMPowerState sPowerStates[kSCSIProtocolLayerNumDefaultStates] =
 };
 
 
-UInt32
-IOSCSIProtocolServices::GetInitialPowerState ( void )
-{
-	
-	STATUS_LOG ( ( "%s%s::%s called%s\n", "\033[33m", getName ( ), __FUNCTION__, "\033[0m" ) );
-	return fCurrentPowerState;
-	
-}
-
-
+#if 0
 #pragma mark -
-#pragma mark Public Methods
+#pragma mark ¥ Public Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ init - Initialization method.						 			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIProtocolServices::init ( OSDictionary * propTable )
@@ -131,6 +114,10 @@ IOSCSIProtocolServices::init ( OSDictionary * propTable )
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Called by IOKit to start our services.		  		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIProtocolServices::start ( IOService * provider )
@@ -149,18 +136,27 @@ IOSCSIProtocolServices::start ( IOService * provider )
 	
 	// Allocate the mutex for accessing the SCSI Task Queue.
 	fQueueLock = IOSimpleLockAlloc ( );
-	if ( fQueueLock == NULL )
-	{
-		PANIC_NOW ( ( "IOSCSIProtocolServices::start Allocate fQueueLock failed." ) );
-	}
+	require ( fQueueLock, PanicNow );
 	
 	return true;
+	
+	
+PanicNow:
+	
+	
+	IOPanic ( "SCSIProtcolServices: Could not allocate simple lock for task queue\n" );
+	
+	return false;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ stop - Called by IOKit to stop our services.			  		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
-IOSCSIProtocolServices::stop ( IOService * provider )
+IOSCSIProtocolServices::free ( void )
 {
 	
 	if ( fQueueLock != NULL )
@@ -172,20 +168,41 @@ IOSCSIProtocolServices::stop ( IOService * provider )
 		
 	}
 	
-	super::stop ( provider );
+	super::free ( );
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Power Management Methods
+#pragma mark ¥ Power Management Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetInitialPowerState - Gets the initial power state for the device
+//															 		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
+IOSCSIProtocolServices::GetInitialPowerState ( void )
+{
+	
+	STATUS_LOG ( ( "%s%s::%s called%s\n", "\033[33m", getName ( ), __FUNCTION__, "\033[0m" ) );
+	return fCurrentPowerState;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ InitializePowerManagement - Called to initialize power management.
+//															  		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolServices::InitializePowerManagement ( IOService * provider )
 {
-	
-	STATUS_LOG ( ( "%s%s::%s called%s\n", "\033[33m", getName ( ), __FUNCTION__, "\033[0m" ) );
 	
 	fCurrentPowerState = kSCSIProtocolLayerPowerStateOn;
 	
@@ -203,6 +220,10 @@ IOSCSIProtocolServices::InitializePowerManagement ( IOService * provider )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandlePowerChange - Handles power changes.			  		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIProtocolServices::HandlePowerChange ( void )
 {
@@ -215,7 +236,6 @@ IOSCSIProtocolServices::HandlePowerChange ( void )
 	STATUS_LOG ( ( "fProposedPowerState = %ld, fCurrentPowerState = %ld\n",
 						fProposedPowerState, fCurrentPowerState ) );
 	
-	
 	while ( fProposedPowerState != fCurrentPowerState )
 	{
 		
@@ -223,7 +243,7 @@ IOSCSIProtocolServices::HandlePowerChange ( void )
 		
 		switch ( fProposedPowerState )
 		{
-		
+			
 			case kSCSIProtocolLayerPowerStateOff:
 				status = HandlePowerOff ( );
 				STATUS_LOG ( ( "HandlePowerOff returned status = %d\n", status ) );
@@ -241,7 +261,7 @@ IOSCSIProtocolServices::HandlePowerChange ( void )
 					fCurrentPowerState = kSCSIProtocolLayerPowerStateOn;
 				}
 				break;
-				
+			
 			default:
 				PANIC_NOW ( ( "HandlePowerChange: bad proposed power state\n" ) );
 				break;
@@ -253,6 +273,11 @@ IOSCSIProtocolServices::HandlePowerChange ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandleCheckPowerState - Handles checking the current power state.
+//															  		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIProtocolServices::HandleCheckPowerState ( void )
 {
@@ -261,6 +286,11 @@ IOSCSIProtocolServices::HandleCheckPowerState ( void )
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TicklePowerManager - Tickles the power manager with the desired state.
+//															  		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolServices::TicklePowerManager ( void )
@@ -271,6 +301,10 @@ IOSCSIProtocolServices::TicklePowerManager ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandlePowerOff - Default method that does nothing.	  		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
 IOSCSIProtocolServices::HandlePowerOff ( void )
 {
@@ -279,6 +313,10 @@ IOSCSIProtocolServices::HandlePowerOff ( void )
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ HandlePowerOn - Default method that does nothing.	  		 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIProtocolServices::HandlePowerOn ( void )
@@ -289,9 +327,17 @@ IOSCSIProtocolServices::HandlePowerOn ( void )
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Status Notification Senders
+#pragma mark ¥ Status Notification Senders
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendNotification_DeviceRemoved - 	Rejects all currently queued requests.
+//														  		 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolServices::SendNotification_DeviceRemoved ( void )
@@ -310,23 +356,37 @@ IOSCSIProtocolServices::SendNotification_DeviceRemoved ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendNotification_VerifyDeviceState - 	Messages the SCSI Application Layer
+//											driver to verify the device's state
+//														  		 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
-IOSCSIProtocolServices::SendNotification_VerifyDeviceState( void )
+IOSCSIProtocolServices::SendNotification_VerifyDeviceState ( void )
 {
 	
 	STATUS_LOG ( ("%s: SendNotification_VerifyDeviceState called\n", getName ( ) ) );
 	
 	// Send message up to SCSI Application Layer.
-	messageClients ( kSCSIProtocolNotification_VerifyDeviceState );
+	messageClients ( kSCSIProtocolNotification_VerifyDeviceState, 0 , 0 );
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Task Field Accessors
+#pragma mark ¥ SCSI Task Field Accessors
+#pragma mark -
+#endif
 
 
 // ---- Utility methods for accessing SCSITask attributes ----
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskAttribute - Gets the task attribute from the task. 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSITaskAttribute
 IOSCSIProtocolServices::GetTaskAttribute ( SCSITaskIdentifier request )
 {
@@ -339,9 +399,13 @@ IOSCSIProtocolServices::GetTaskAttribute ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskState - Sets the task state. 							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIProtocolServices::SetTaskState ( 	SCSITaskIdentifier request,
-										SCSITaskState newTaskState )
+IOSCSIProtocolServices::SetTaskState ( SCSITaskIdentifier	request,
+									   SCSITaskState		newTaskState )
 {
 	
 	SCSITask *	scsiRequest;
@@ -351,6 +415,10 @@ IOSCSIProtocolServices::SetTaskState ( 	SCSITaskIdentifier request,
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskState - Gets the task state. 							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskState
 IOSCSIProtocolServices::GetTaskState ( SCSITaskIdentifier request )
@@ -364,175 +432,236 @@ IOSCSIProtocolServices::GetTaskState ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetLogicalUnitNumber - Gets the Logical Unit Number (LUN).	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt8
-IOSCSIProtocolServices::GetLogicalUnitNumber( SCSITaskIdentifier request )
+IOSCSIProtocolServices::GetLogicalUnitNumber ( SCSITaskIdentifier request )
 {
 	SCSITask *	scsiRequest;
 	
-    scsiRequest = OSDynamicCast( SCSITask, request );
+    scsiRequest = OSDynamicCast ( SCSITask, request );
 	return scsiRequest->GetLogicalUnitNumber();
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetCommandDescriptorBlockSize - Gets the size of the CDB.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt8
-IOSCSIProtocolServices::GetCommandDescriptorBlockSize ( SCSITaskIdentifier request )
+IOSCSIProtocolServices::GetCommandDescriptorBlockSize (
+										SCSITaskIdentifier request )
 {
 	
 	SCSITask *	scsiRequest;
+	UInt8		size;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	
 	// Check to see what the current execution mode is  
-	if ( scsiRequest->GetTaskExecutionMode() == kSCSITaskMode_CommandExecution )
+	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->GetCommandDescriptorBlockSize ( );
+		size = scsiRequest->GetCommandDescriptorBlockSize ( );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseCommandDescriptorBlockSize ( );
+		size = scsiRequest->GetAutosenseCommandDescriptorBlockSize ( );
 	}
+	
+	return size;
 	
 }
 
 
-// This will always return a 16 Byte CDB.  If the Protocol Layer driver does not
-// support 16 Byte CDBs, it will have to create a local SCSICommandDescriptorBlock
-// variable to get the CDB data and then transfer the needed bytes from there.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetCommandDescriptorBlock - Gets the CDB data.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIProtocolServices::GetCommandDescriptorBlock (
-												SCSITaskIdentifier request,
-												SCSICommandDescriptorBlock * cdbData )
+							SCSITaskIdentifier 				request,
+							SCSICommandDescriptorBlock *	cdbData )
 {
 	
 	SCSITask *	scsiRequest;
+	bool		result = false;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	
 	// Check to see what the current execution mode is  
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-   	 	return scsiRequest->GetCommandDescriptorBlock ( cdbData );
+   	 	result = scsiRequest->GetCommandDescriptorBlock ( cdbData );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseCommandDescriptorBlock ( cdbData );
+		result = scsiRequest->GetAutosenseCommandDescriptorBlock ( cdbData );
 	}
+	
+	return result;
 	
 }
 
 
-// Get the control information for the transfer, including
-// the transfer direction and the number of bytes to transfer.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataTransferDirection - Gets the data transfer direction.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt8
-IOSCSIProtocolServices::GetDataTransferDirection ( SCSITaskIdentifier request )
+IOSCSIProtocolServices::GetDataTransferDirection (
+								SCSITaskIdentifier request )
 {
 	
 	SCSITask *	scsiRequest;
+	UInt8		direction;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	
 	// Check to see what the current execution mode is  
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->GetDataTransferDirection( );
+		direction = scsiRequest->GetDataTransferDirection ( );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseDataTransferDirection ( );
+		direction = scsiRequest->GetAutosenseDataTransferDirection ( );
 	}
+	
+	return direction;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRequestedDataTransferCount - 	Gets the size of the requested data
+//										transfer.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt64
-IOSCSIProtocolServices::GetRequestedDataTransferCount ( SCSITaskIdentifier request )
+IOSCSIProtocolServices::GetRequestedDataTransferCount (
+									SCSITaskIdentifier request )
 {
 	
 	SCSITask *	scsiRequest;
+	UInt64		amount;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	
 	// Check to see what the current execution mode is  
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->GetRequestedDataTransferCount ( );
+		amount = scsiRequest->GetRequestedDataTransferCount ( );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseRequestedDataTransferCount ( );
+		amount = scsiRequest->GetAutosenseRequestedDataTransferCount ( );
 	}
+	
+	return amount;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetRealizedDataTransferCount - 	Sets the amount of data actually
+//										transferred.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOSCSIProtocolServices::SetRealizedDataTransferCount ( 	SCSITaskIdentifier request,
-														UInt64 newRealizedDataCount )
+IOSCSIProtocolServices::SetRealizedDataTransferCount (
+								SCSITaskIdentifier	request,
+								UInt64				newRealizedDataCount )
 {
 	
 	SCSITask *	scsiRequest;
+	bool		result;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
-
+	
 	// Check to see what the current execution mode is  
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->SetRealizedDataTransferCount ( newRealizedDataCount );
+		result = scsiRequest->SetRealizedDataTransferCount ( newRealizedDataCount );
 	}
 	
 	else
 	{
-		return scsiRequest->SetAutosenseRealizedDataCount ( newRealizedDataCount );
+		result = scsiRequest->SetAutosenseRealizedDataCount ( newRealizedDataCount );
 	}
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRealizedDataTransferCount - 	Gets the amount of data actually
+//										transferred.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt64
-IOSCSIProtocolServices::GetRealizedDataTransferCount ( SCSITaskIdentifier request )
+IOSCSIProtocolServices::GetRealizedDataTransferCount (
+									SCSITaskIdentifier request )
 {
 	
 	SCSITask *	scsiRequest;
+	UInt64		amount;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	
 	// Check to see what the current execution mode is  
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->GetRealizedDataTransferCount ( );
+		amount = scsiRequest->GetRealizedDataTransferCount ( );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseRealizedDataCount ( );
+		amount = scsiRequest->GetAutosenseRealizedDataCount ( );
 	}
+	
+	return amount;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataBuffer - Gets the data buffer associated with this request.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOMemoryDescriptor *
 IOSCSIProtocolServices::GetDataBuffer ( SCSITaskIdentifier request )
 {
 	
-	SCSITask *	scsiRequest;
+	SCSITask *				scsiRequest;
+	IOMemoryDescriptor *	buffer;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	if ( scsiRequest->GetTaskExecutionMode ( ) == kSCSITaskMode_CommandExecution )
 	{
-		return scsiRequest->GetDataBuffer ( );
+		buffer = scsiRequest->GetDataBuffer ( );
 	}
 	
 	else
 	{
-		return scsiRequest->GetAutosenseDataBuffer ( );
+		buffer = scsiRequest->GetAutosenseDataBuffer ( );
 	}
+	
+	return buffer;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataBufferOffset - Gets the offset into the data buffer.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt64
 IOSCSIProtocolServices::GetDataBufferOffset ( SCSITaskIdentifier request )
@@ -546,6 +675,11 @@ IOSCSIProtocolServices::GetDataBufferOffset ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTimeoutDuration - Gets the timeout duration for the request.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt32
 IOSCSIProtocolServices::GetTimeoutDuration ( SCSITaskIdentifier request )
 {
@@ -558,25 +692,51 @@ IOSCSIProtocolServices::GetTimeoutDuration ( SCSITaskIdentifier request )
 }
 
 
-// Set the auto sense data that was returned for the SCSI Task.
-// A return value if true indicates that the data copied to the member 
-// sense data structure, false indicates that the data could not be saved.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutoSenseData - Sets the auto sense data for this request.
+//														[DEPRECATED][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIProtocolServices::SetAutoSenseData ( 	SCSITaskIdentifier request,
-											SCSI_Sense_Data * senseData )
+IOSCSIProtocolServices::SetAutoSenseData (
+							SCSITaskIdentifier		request,
+							SCSI_Sense_Data *		senseData )
+{
+	
+	return SetAutoSenseData ( request, senseData, sizeof ( SCSI_Sense_Data ) );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutoSenseData - Sets the auto sense data for this request.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIProtocolServices::SetAutoSenseData (
+							SCSITaskIdentifier		request,
+							SCSI_Sense_Data *		senseData,
+							UInt8					senseDataSize )
 {
 	
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->SetAutoSenseData ( senseData );
+	return scsiRequest->SetAutoSenseData ( senseData, senseDataSize );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetProtocolLayerReference - Sets the protocol layer refcon for this task.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIProtocolServices::SetProtocolLayerReference ( SCSITaskIdentifier request,
-													void * newReferenceValue )
+IOSCSIProtocolServices::SetProtocolLayerReference (
+								SCSITaskIdentifier	request,
+								void *				newReferenceValue )
 {
 	
 	SCSITask *		scsiRequest;
@@ -586,6 +746,11 @@ IOSCSIProtocolServices::SetProtocolLayerReference ( SCSITaskIdentifier request,
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetProtocolLayerReference - Gets the protocol layer refcon for this task.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void *
 IOSCSIProtocolServices::GetProtocolLayerReference ( SCSITaskIdentifier request )
@@ -599,8 +764,14 @@ IOSCSIProtocolServices::GetProtocolLayerReference ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskExecutionMode - Sets the SCSITaskMode for this task.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIProtocolServices::SetTaskExecutionMode ( SCSITaskIdentifier request, SCSITaskMode newTaskMode )
+IOSCSIProtocolServices::SetTaskExecutionMode (
+							SCSITaskIdentifier	request,
+							SCSITaskMode		newTaskMode )
 {
 	
 	SCSITask *		scsiRequest;
@@ -610,6 +781,10 @@ IOSCSIProtocolServices::SetTaskExecutionMode ( SCSITaskIdentifier request, SCSIT
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskExecutionMode - Gets the SCSITaskMode for this task.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskMode
 IOSCSIProtocolServices::GetTaskExecutionMode ( SCSITaskIdentifier request )
@@ -623,15 +798,22 @@ IOSCSIProtocolServices::GetTaskExecutionMode ( SCSITaskIdentifier request )
 }
 
 
-#pragma mark - 
-#pragma mark SCSI Task Queue Management
+#if 0
+#pragma mark -
+#pragma mark ¥ SCSI Task Queue Management
+#pragma mark -
+#endif
+
 // Following are the commands used to manipulate the queue of pending SCSI Tasks.
 // Currently the queuing is strictly first in, first out.  This needs to be changed
 // to support the SCSI queueing model in the SCSI Architecture Model-2 specification.
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AddSCSITaskToQueue -	Add the SCSI Task to the queue. The Task's
+//							Attribute determines where in the queue the Task
+//							is placed.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-// Add the SCSI Task to the queue.  The Task's Attribute determines where in
-// the queue the Task is placed.
 void
 IOSCSIProtocolServices::AddSCSITaskToQueue ( SCSITaskIdentifier request )
 {
@@ -679,25 +861,34 @@ IOSCSIProtocolServices::AddSCSITaskToQueue ( SCSITaskIdentifier request )
 }
 
 
-// Add the SCSI Task to the head of the queue.  This is used when the task
-// has been removed from the head of the queue, but the subclass indicates
-// that it can not yet process this task.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AddSCSITaskToHeadOfQueue -	Add the SCSI Task to the head of the queue.
+//									This is used when the task has been removed
+//									from the head of the queue, but the
+//									subclass indicates that it can not yet
+//									process this task.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIProtocolServices::AddSCSITaskToHeadOfQueue ( SCSITask * request )
 {
 	
 	IOSimpleLockLock ( fQueueLock );
-
+	
 	// Make sure that the new request does not have a following task.
 	request->EnqueueFollowingSCSITask ( fSCSITaskQueueHead );
 	fSCSITaskQueueHead = request;
-
+	
 	IOSimpleLockUnlock ( fQueueLock );
 	
 }
 
 
-// Remove the next SCSI Task for the queue and return it.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RetrieveNextSCSITaskFromQueue -	Remove the next SCSI Task from the
+//										queue and return it.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSITask *
 IOSCSIProtocolServices::RetrieveNextSCSITaskFromQueue ( void )
 {
@@ -739,9 +930,14 @@ IOSCSIProtocolServices::RetrieveNextSCSITaskFromQueue ( void )
 }
 
 
-// Check to see if the SCSI Task resides and abort it if it does.
-// This currently does nothing since the ABORT TASK and ABORT TASK SET
-// managment functions are not supported.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortSCSITaskFromQueue -	Check to see if the SCSI Task resides and
+//								abort it if it does. This currently does
+//								nothing since the ABORT TASK and ABORT TASK SET
+//								management functions are not supported.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIProtocolServices::AbortSCSITaskFromQueue ( SCSITask *request )
 {
@@ -757,7 +953,11 @@ IOSCSIProtocolServices::AbortSCSITaskFromQueue ( SCSITask *request )
 }
 
 
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendSCSITasksFromQueue -	Removes tasks from the queue and sends them to
+//								the protocol layer for processing.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIProtocolServices::SendSCSITasksFromQueue ( void )
 {
@@ -803,7 +1003,11 @@ IOSCSIProtocolServices::SendSCSITasksFromQueue ( void )
 }
 
 
-// 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RejectSCSITasksCurrentlyQueued -	Rejects task currently queued.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIProtocolServices::RejectSCSITasksCurrentlyQueued ( void )
 {
@@ -827,10 +1031,15 @@ IOSCSIProtocolServices::RejectSCSITasksCurrentlyQueued ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ProcessCompletedTask - Processes completed tasks.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
-IOSCSIProtocolServices::ProcessCompletedTask ( 	SCSITaskIdentifier 	request, 
-												SCSIServiceResponse serviceResponse,
-												SCSITaskStatus		taskStatus )
+IOSCSIProtocolServices::ProcessCompletedTask (
+							SCSITaskIdentifier		request, 
+							SCSIServiceResponse		serviceResponse,
+							SCSITaskStatus			taskStatus )
 {
 	
 	SCSITask *	scsiRequest;
@@ -865,7 +1074,7 @@ IOSCSIProtocolServices::ProcessCompletedTask ( 	SCSITaskIdentifier 	request,
 				{
 					
 					// Check if the Protocol has already provided this data
-					if ( scsiRequest->GetAutoSenseData ( NULL ) == false )
+					if ( scsiRequest->GetAutoSenseData ( NULL, 0 ) == false )
 					{
 						
 						// Put the task into Autosense mode and
@@ -914,8 +1123,12 @@ IOSCSIProtocolServices::ProcessCompletedTask ( 	SCSITaskIdentifier 	request,
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RejectTask - Rejects a task.									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
-IOSCSIProtocolServices::RejectTask ( SCSITaskIdentifier 	request )
+IOSCSIProtocolServices::RejectTask ( SCSITaskIdentifier request )
 {
 	
 	SCSITask *	scsiRequest;
@@ -937,9 +1150,16 @@ IOSCSIProtocolServices::RejectTask ( SCSITaskIdentifier 	request )
 }
 
 
-#pragma mark - 
-#pragma mark Provided Services to the SCSI Protocol Layer Subclasses
+#if 0
+#pragma mark -
+#pragma mark ¥ Provided Services to the SCSI Protocol Layer Subclasses
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CommandCompleted - Called by subclass to complete a command.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolServices::CommandCompleted ( 	SCSITaskIdentifier 	request, 
@@ -967,14 +1187,19 @@ IOSCSIProtocolServices::CommandCompleted ( 	SCSITaskIdentifier 	request,
 }
 
 
-#pragma mark - 
-#pragma mark Provided Services to the SCSI Application Layer 
+#if 0
+#pragma mark -
+#pragma mark ¥ Provided Services to the SCSI Application Layer 
+#pragma mark -
+#endif
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ExecuteCommand -	The ExecuteCommand function will take a SCSI Task and
+//						transport it across the physical wire(s) to the device.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-// ------------ The Export functions to the SCSI Application Layer --------------
-// The ExecuteCommand function will take a SCSI Task and transport
-// it across the physical wire(s) to the device
-void   
+void
 IOSCSIProtocolServices::ExecuteCommand ( SCSITaskIdentifier request )
 {
 	
@@ -1009,9 +1234,207 @@ IOSCSIProtocolServices::ExecuteCommand ( SCSITaskIdentifier request )
 }
 
 
-// The AbortCommand function will abort the indicated SCSI Task,
-// if it is possible and the Task has not already completed.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortTask -	The Task Management function to allow the SCSI Application
+// 					Layer client to request that a specific task be aborted.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::AbortTask (
+							UInt8						theLogicalUnit,
+							SCSITaggedTaskIdentifier 	theTag )
+{
+	return HandleAbortTask ( theLogicalUnit, theTag );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortTaskSet -	The Task Management function to allow the SCSI Application
+//					Layer client to request that a all tasks currently in the
+//					task set be aborted.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::AbortTaskSet ( UInt8 theLogicalUnit )
+{
+	return HandleAbortTaskSet ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ClearACA -	The Task Management function to allow the SCSI Application
+//				Layer client to request that an Auto-Contingent Allegiance
+//				be cleared.											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::ClearACA ( UInt8 theLogicalUnit )
+{
+	return HandleClearACA ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ClearTaskSet -	The Task Management function to allow the SCSI Application
+//					Layer client to request that the task set be cleared.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::ClearTaskSet ( UInt8 theLogicalUnit )
+{
+	return HandleClearTaskSet ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ LogicalUnitReset -	The Task Management function to allow the SCSI Application
+//						Layer client to request that the Logical Unit be reset.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::LogicalUnitReset ( UInt8 theLogicalUnit )
+{
+	return HandleLogicalUnitReset ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ TargetReset -	The Task Management function to allow the SCSI Application
+//					Layer client to request that the Target Device be reset.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::TargetReset ( void )
+{
+	return HandleTargetReset ( );
+}
+
+
+#if 0
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleAbortTask -	The Task Management function to abort the specified task.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleAbortTask ( 
+							UInt8 						theLogicalUnit, 
+							SCSITaggedTaskIdentifier 	theTag )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleAbortTaskSet - 	The Task Management function to abort the
+//							entire task set for the logical unit.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleAbortTaskSet ( 
+							UInt8 						theLogicalUnit )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleClearACA - 	The Task Management function to clear an
+//						Auto-Contingent Allegiance for the logical unit.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleClearACA ( UInt8 theLogicalUnit )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleClearTaskSet - 	The Task Management function to clear an
+//							entire task set for the logical unit.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleClearTaskSet ( UInt8 theLogicalUnit )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleLogicalUnitReset - 	The Task Management function to reset the
+//								logical unit.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleLogicalUnitReset ( UInt8 theLogicalUnit )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleTargetReset - 	The HandleTargetReset member routine requests that
+//							the Protocol Services Driver perform the necessary
+//							steps detailed in the specification that defines
+//							the protocol the driver represents for the
+//							TargetReset management function.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIProtocolServices::HandleTargetReset ( void )
+{
+	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortCommand -	The AbortCommand method is replaced by the AbortTask
+//					Management function and should no longer be called.
+//														  			[PROTECTED]
+// [OBSOLETE - DO NOT USE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSIServiceResponse
 IOSCSIProtocolServices::AbortCommand ( SCSITaskIdentifier request )
 {
 	return kSCSIServiceResponse_FUNCTION_REJECTED;
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 1 );	// HandleAbortTask
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 2 );	// HandleAbortTaskSet
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 3 );	// HandleClearACA
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 4 );	// HandleClearTaskSet
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 5 );	// HandleLogicalUnitReset
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolServices, 6 );	// HandleTargetReset
+
+// Space reserved for future expansion.
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 7 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 8 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 9 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 10 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 11 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 12 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 13 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 14 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 15 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolServices, 16 );

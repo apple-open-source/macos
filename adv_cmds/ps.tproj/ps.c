@@ -52,6 +52,7 @@ static const char rcsid[] =
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/sysctl.h>
+#include <sys/syslog.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -104,12 +105,8 @@ char jfmt[] = "user pid ppid pgid sess jobc state tt time command";
 char lfmt[] = "uid pid ppid cpu pri nice vsz rss wchan state tt time command";
 char   o1[] = "pid";
 char   o2[] = "tt state time command";
-#if 0
 char ufmt[] = "user pid %cpu %mem vsz rss tt state start time command";
-#else
-char ufmt[] = "user pid %cpu %mem vsz rss tt state time command";
 char mfmt[] = "user pid tt %cpu state  pri stime utime command";
-#endif
 char vfmt[] = "pid state time sl re pagein vsz rss lim tsiz %cpu %mem command";
 
 int mflg = 0; /* if -M option to display all mach threads */
@@ -134,6 +131,9 @@ main(argc, argv)
 	char *nlistf, *memf, *swapf, errbuf[_POSIX2_LINE_MAX];
 	int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
 	size_t bufSize = 0;
+	size_t orig_bufSize = 0;
+	int local_error=0;
+	int retry_count = 0;
 
 	(void) setlocale(LC_ALL, "");
 
@@ -379,10 +379,27 @@ main(argc, argv)
     }
 
     kprocbuf= kp = (struct kinfo_proc *)malloc(bufSize);
-    if (sysctl(mib, 4, kp, &bufSize, NULL, 0) < 0) {
+
+    retry_count = 0;
+    orig_bufSize = bufSize;
+   for(retry_count=0; ; retry_count++) {
+    /* retry for transient errors due to load in the system */
+    local_error = 0;
+    bufSize = orig_bufSize;
+    if ((local_error = sysctl(mib, 4, kp, &bufSize, NULL, 0)) < 0) {
+	if (retry_count < 1000) {
+		/* 1 sec back off */
+		sleep(1);
+		continue;
+	}
         perror("Failure calling sysctl");
         return 0;
-    }	
+    } else if (local_error == 0) {
+	break;
+    }
+    /* 1 sec back off */
+    sleep(1);
+   }
 
     /* This has to be after the second sysctl since the bufSize
        may have changed.  */
@@ -690,8 +707,12 @@ kludge_oldps_options(s)
 	 * if last letter is a 't' flag with no argument (in the context
 	 * of the oldps options -- option string NOT starting with a '-' --
 	 * then convert to 'T' (meaning *this* terminal, i.e. ttyname(0)).
+	 *
+	 * However, if a flag accepting a string argument is found in the
+	 * option string, the remainder of the string is the argument to
+	 * that flag; do not modify that argument.
 	 */
-	if (*cp == 't' && *s != '-')
+	if (strcspn(s, "MNOoUW") == len && *cp == 't' && *s != '-')
 		*cp = 'T';
 	else {
 		/*

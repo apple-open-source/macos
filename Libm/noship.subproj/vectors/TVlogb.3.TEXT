@@ -1,0 +1,37 @@
+! <scp> 01/08/02 reworked cases depending on Extended80 format.
+!
+! Test vectors for LOGB:
+!
+3L	d	1	0	OK	0
+3L	d	0	0	z	-H
+3L	d	0i1	0	OK	-1074
+3L	d	0i2	0	OK	-1073
+3L	d	0i4	0	OK	-1072
+3L	d	Ed1	0	OK	-1023
+3L	d	E	0	OK	-1022
+3L	d	Ei1	0	OK	-1022
+3L	d	1d1	0	OK	-1
+3L	d	1m1	0	OK	-1
+3L	d	3m1	0	OK	0
+3L	d	-1	0	OK	0
+3L	d	-0	0	z	-H
+3L	d	-0i1	0	OK	-1074
+3L	d	-0i2	0	OK	-1073
+3L	d	-0i4	0	OK	-1072
+3L	d	-1d1	0	OK	-1
+3L	d	-1m1	0	OK	-1
+3L	d	-3m1	0	OK	0
+3L	d	Q	0	OK	Q
+! Commented out signaling NaN case <JPO, 5/12/93>
+!3L	e	S	0	i	Q
+3L	d	H	0	OK	H
+3L	d	1p63	0	OK	63
+3L	d	1p63d1	0	OK	62
+3L	d	1p63d2	0	OK	62
+3L	d	Hd1	0	OK	1023
+3L	d	-H	0	OK	H
+3L	d	-1p63	0	OK	63
+3L	d	-1p63d1	0	OK	62
+3L	d	-1p63d2	0	OK	62
+3L	d	-Hd1	0	OK	1023
+

@@ -1,5 +1,6 @@
 /* Target-dependent code for the HP PA architecture, for GDB.
-   Copyright 1986, 1987, 1989-1996, 1999-2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -26,6 +27,8 @@
 #include "bfd.h"
 #include "inferior.h"
 #include "value.h"
+#include "regcache.h"
+#include "completer.h"
 
 /* For argument passing to the inferior */
 #include "symtab.h"
@@ -146,7 +149,7 @@ extern int hp_som_som_object_present;
 extern int exception_catchpoints_are_fragile;
 
 /* This is defined in valops.c. */
-extern value_ptr find_function_in_inferior (char *);
+extern struct value *find_function_in_inferior (char *);
 
 /* Should call_function allocate stack space for a struct return?  */
 int
@@ -744,7 +747,9 @@ find_proc_framesize (CORE_ADDR pc)
 
   /* If Save_SP is set, and we're not in an interrupt or signal caller,
      then we have a frame pointer.  Use it.  */
-  if (u->Save_SP && !pc_in_interrupt_handler (pc)
+  if (u->Save_SP
+      && !pc_in_interrupt_handler (pc)
+      && msym_us
       && !IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us)))
     return -1;
 
@@ -1395,7 +1400,7 @@ push_dummy_frame (struct inferior_status *inf_status)
      We also need a number of horrid hacks to deal with lossage in the
      PC queue registers (apparently they're not valid when the in syscall
      bit is set).  */
-  pc = target_read_pc (inferior_pid);
+  pc = target_read_pc (inferior_ptid);
   int_buffer = read_register (FLAGS_REGNUM);
   if (int_buffer & 0x2)
     {
@@ -1629,7 +1634,7 @@ restore_pc_queue (struct frame_saved_regs *fsr)
          any other choice?  Is there *any* way to do this stuff with
          ptrace() or some equivalent?).  */
       resume (1, 0);
-      target_wait (inferior_pid, &w);
+      target_wait (inferior_ptid, &w);
 
       if (w.kind == TARGET_WAITKIND_SIGNALLED)
 	{
@@ -1665,7 +1670,7 @@ restore_pc_queue (struct frame_saved_regs *fsr)
    to the callee, so we do that too.  */
    
 CORE_ADDR
-hppa_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+hppa_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     int struct_return, CORE_ADDR struct_addr)
 {
   /* array of arguments' offsets */
@@ -1784,7 +1789,7 @@ hppa_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
    arguments into registers as needed by the ABI. */
    
 CORE_ADDR
-hppa_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+hppa_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     int struct_return, CORE_ADDR struct_addr)
 {
   /* array of arguments' offsets */
@@ -1813,7 +1818,8 @@ hppa_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 	 target.  */
       bytes_reserved = (lengths[i] + REGISTER_SIZE - 1) & -REGISTER_SIZE;
 
-      offset[i] = cum_bytes_reserved + lengths[i];
+      offset[i] = (cum_bytes_reserved
+		   + (lengths[i] > 4 ? bytes_reserved : lengths[i]));
 
       /* If the argument is a double word argument, then it needs to be
 	 double word aligned.  */
@@ -1873,10 +1879,10 @@ hppa_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
    This function does the same stuff as value_being_returned in values.c, but
    gets the value from the stack rather than from the buffer where all the
    registers were saved when the function called completed. */
-value_ptr
+struct value *
 hppa_value_returned_from_stack (register struct type *valtype, CORE_ADDR addr)
 {
-  register value_ptr val;
+  register struct value *val;
 
   val = allocate_value (valtype);
   CHECK_TYPEDEF (valtype);
@@ -1912,13 +1918,13 @@ find_stub_with_shl_get (struct minimal_symbol *function, CORE_ADDR handle)
   struct symbol *get_sym, *symbol2;
   struct minimal_symbol *buff_minsym, *msymbol;
   struct type *ftype;
-  value_ptr *args;
-  value_ptr funcval, val;
+  struct value **args;
+  struct value *funcval;
+  struct value *val;
 
   int x, namelen, err_value, tmp = -1;
   CORE_ADDR endo_buff_addr, value_return_addr, errno_return_addr;
   CORE_ADDR stub_addr;
-
 
   args = (value_ptr *) alloca (sizeof (value_ptr) * 8);		/* 6 for the arguments and one null one??? */
   funcval = find_function_in_inferior ("__d_shl_get", builtin_type_voidptrfuncptr);
@@ -2007,7 +2013,7 @@ cover_find_stub_with_shl_get (PTR args_untyped)
 
 CORE_ADDR
 hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
-		     value_ptr *args, struct type *type, int gcc_p)
+		     struct value **args, struct type *type, int gcc_p)
 {
   CORE_ADDR dyncall_addr;
   struct minimal_symbol *msymbol;
@@ -2074,9 +2080,9 @@ hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
 	   such that it points to the PC value written immediately above
 	   (ie the call dummy).  */
         resume (1, 0);
-        target_wait (inferior_pid, &w);
+        target_wait (inferior_ptid, &w);
         resume (1, 0);
-        target_wait (inferior_pid, &w);
+        target_wait (inferior_ptid, &w);
 
 	/* Restore the two instructions at the old PC locations.  */
         *((int *) buf) = inst1;
@@ -2160,7 +2166,7 @@ hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
          stub rather than the export stub or real function for lazy binding
          to work correctly
 
-         /* If we are using the gcc PLT call routine, then we need to
+         If we are using the gcc PLT call routine, then we need to
          get the import stub for the target function.  */
       if (using_gcc_plt_call && som_solib_get_got_by_pc (fun))
 	{
@@ -2368,7 +2374,7 @@ hppa_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
   if (flags & 2)
     return pc;
 #ifndef GDB_TARGET_IS_PA_ELF
-  else if (som_solib_get_got_by_pc (target_read_pc (inferior_pid)))
+  else if (som_solib_get_got_by_pc (target_read_pc (inferior_ptid)))
     return pc;
 #endif
   else
@@ -2406,32 +2412,26 @@ target_read_fp (int pid)
    bits.  */
 
 CORE_ADDR
-target_read_pc (int pid)
+target_read_pc (ptid_t ptid)
 {
-  int flags = read_register_pid (FLAGS_REGNUM, pid);
+  int flags = read_register_pid (FLAGS_REGNUM, ptid);
 
   /* The following test does not belong here.  It is OS-specific, and belongs
      in native code.  */
   /* Test SS_INSYSCALL */
   if (flags & 2)
-    {
-#if 0
-      warning ("target in syscall; returning PC_REGNUM anyway");
-#else
-      return read_register_pid (31, pid) & ~0x3;
-#endif
-    }
+    return read_register_pid (31, ptid) & ~0x3;
 
-  return read_register_pid (PC_REGNUM, pid) & ~0x3;
+  return read_register_pid (PC_REGNUM, ptid) & ~0x3;
 }
 
 /* Write out the PC.  If currently in a syscall, then also write the new
    PC value into %r31.  */
 
 void
-target_write_pc (CORE_ADDR v, int pid)
+target_write_pc (CORE_ADDR v, ptid_t ptid)
 {
-  int flags = read_register_pid (FLAGS_REGNUM, pid);
+  int flags = read_register_pid (FLAGS_REGNUM, ptid);
 
   /* The following test does not belong here.  It is OS-specific, and belongs
      in native code.  */
@@ -2439,10 +2439,10 @@ target_write_pc (CORE_ADDR v, int pid)
      privilege bits set correctly.  */
   /* Test SS_INSYSCALL */
   if (flags & 2)
-    write_register_pid (31, v | 0x3, pid);
+    write_register_pid (31, v | 0x3, ptid);
 
-  write_register_pid (PC_REGNUM, v, pid);
-  write_register_pid (NPC_REGNUM, v + 4, pid);
+  write_register_pid (PC_REGNUM, v, ptid);
+  write_register_pid (NPC_REGNUM, v + 4, ptid);
 }
 
 /* return the alignment of a type in bytes. Structures have the maximum
@@ -2505,15 +2505,15 @@ pa_do_registers_info (int regnum, int fpregs)
 
       if (!is_pa_2)
 	{
-	  printf_unfiltered ("%s %x\n", REGISTER_NAME (regnum), reg_val[1]);
+	  printf_unfiltered ("%s %lx\n", REGISTER_NAME (regnum), reg_val[1]);
 	}
       else
 	{
 	  /* Fancy % formats to prevent leading zeros. */
 	  if (reg_val[0] == 0)
-	    printf_unfiltered ("%s %x\n", REGISTER_NAME (regnum), reg_val[1]);
+	    printf_unfiltered ("%s %lx\n", REGISTER_NAME (regnum), reg_val[1]);
 	  else
-	    printf_unfiltered ("%s %x%8.8x\n", REGISTER_NAME (regnum),
+	    printf_unfiltered ("%s %lx%8.8lx\n", REGISTER_NAME (regnum),
 			       reg_val[0], reg_val[1]);
 	}
     }
@@ -2550,16 +2550,16 @@ pa_do_strcat_registers_info (int regnum, int fpregs, struct ui_file *stream,
 
       if (!is_pa_2)
 	{
-	  fprintf_unfiltered (stream, "%s %x", REGISTER_NAME (regnum), reg_val[1]);
+	  fprintf_unfiltered (stream, "%s %lx", REGISTER_NAME (regnum), reg_val[1]);
 	}
       else
 	{
 	  /* Fancy % formats to prevent leading zeros. */
 	  if (reg_val[0] == 0)
-	    fprintf_unfiltered (stream, "%s %x", REGISTER_NAME (regnum),
+	    fprintf_unfiltered (stream, "%s %lx", REGISTER_NAME (regnum),
 				reg_val[1]);
 	  else
-	    fprintf_unfiltered (stream, "%s %x%8.8x", REGISTER_NAME (regnum),
+	    fprintf_unfiltered (stream, "%s %lx%8.8lx", REGISTER_NAME (regnum),
 				reg_val[0], reg_val[1]);
 	}
     }
@@ -2653,7 +2653,7 @@ pa_register_look_aside (char *raw_regs, int regnum, long *raw_val)
   for (i = start; i < 2; i++)
     {
       errno = 0;
-      raw_val[i] = call_ptrace (PT_RUREGS, inferior_pid,
+      raw_val[i] = call_ptrace (PT_RUREGS, PIDGET (inferior_ptid),
 				(PTRACE_ARG3_TYPE) regaddr, 0);
       if (errno != 0)
 	{
@@ -2706,17 +2706,17 @@ pa_print_registers (char *raw_regs, int regnum, int fpregs)
 	      /* Being big-endian, on this machine the low bits
 	         (the ones we want to look at) are in the second longword. */
 	      long_val = extract_signed_integer (&raw_val[1], 4);
-	      printf_filtered ("%10.10s: %8x   ",
+	      printf_filtered ("%10.10s: %8lx   ",
 			       REGISTER_NAME (regnum), long_val);
 	    }
 	  else
 	    {
 	      /* raw_val = extract_signed_integer(&raw_val, 8); */
 	      if (raw_val[0] == 0)
-		printf_filtered ("%10.10s:         %8x   ",
+		printf_filtered ("%10.10s:         %8lx   ",
 				 REGISTER_NAME (regnum), raw_val[1]);
 	      else
-		printf_filtered ("%10.10s: %8x%8.8x   ",
+		printf_filtered ("%10.10s: %8lx%8.8lx   ",
 				 REGISTER_NAME (regnum),
 				 raw_val[0], raw_val[1]);
 	    }
@@ -2757,17 +2757,19 @@ pa_strcat_registers (char *raw_regs, int regnum, int fpregs,
 	      /* Being big-endian, on this machine the low bits
 	         (the ones we want to look at) are in the second longword. */
 	      long_val = extract_signed_integer (&raw_val[1], 4);
-	      fprintf_filtered (stream, "%8.8s: %8x  ", REGISTER_NAME (i + (j * 18)), long_val);
+	      fprintf_filtered (stream, "%8.8s: %8lx  ",
+				REGISTER_NAME (i + (j * 18)), long_val);
 	    }
 	  else
 	    {
 	      /* raw_val = extract_signed_integer(&raw_val, 8); */
 	      if (raw_val[0] == 0)
-		fprintf_filtered (stream, "%8.8s:         %8x  ", REGISTER_NAME (i + (j * 18)),
-				  raw_val[1]);
+		fprintf_filtered (stream, "%8.8s:         %8lx  ",
+				  REGISTER_NAME (i + (j * 18)), raw_val[1]);
 	      else
-		fprintf_filtered (stream, "%8.8s: %8x%8.8x  ", REGISTER_NAME (i + (j * 18)),
-				  raw_val[0], raw_val[1]);
+		fprintf_filtered (stream, "%8.8s: %8lx%8.8lx  ",
+				  REGISTER_NAME (i + (j * 18)), raw_val[0],
+				  raw_val[1]);
 	    }
 	}
       fprintf_unfiltered (stream, "\n");
@@ -3317,7 +3319,7 @@ skip_trampoline_code (CORE_ADDR pc, char *name)
 	  stubsym = lookup_minimal_symbol_by_pc (loc);
 	  if (stubsym == NULL)
 	    {
-	      warning ("Unable to find symbol for 0x%x", loc);
+	      warning ("Unable to find symbol for 0x%lx", loc);
 	      return orig_pc == pc ? 0 : pc & ~0x3;
 	    }
 
@@ -4054,7 +4056,7 @@ hppa_frame_find_saved_regs (struct frame_info *frame_info,
 	    }
 	}
 
-      /* Quit if we hit any kind of branch the previous iteration.
+      /* Quit if we hit any kind of branch the previous iteration. */
       if (final_iteration)
 	break;
 
@@ -4136,7 +4138,7 @@ setup_d_pid_in_inferior (void)
     }
 
   anaddr = SYMBOL_VALUE_ADDRESS (msymbol);
-  store_unsigned_integer (buf, 4, inferior_pid);	/* FIXME 32x64? */
+  store_unsigned_integer (buf, 4, PIDGET (inferior_ptid)); /* FIXME 32x64? */
   if (target_write_memory (anaddr, buf, 4))	/* FIXME 32x64? */
     {
       warning ("Unable to write __d_pid");
@@ -4278,7 +4280,7 @@ initialize_hp_cxx_exception_support (void)
       if (!eh_notify_callback_addr)
 	{
 	  /* We can get here either if there is no plabel in the export list
-	     for the main image, or if something strange happened (??) */
+	     for the main image, or if something strange happened (?) */
 	  warning ("Couldn't find a plabel (indirect function label) for the exception callback.");
 	  warning ("GDB will not be able to intercept exception events.");
 	  return 0;
@@ -4406,7 +4408,7 @@ child_enable_exception_callback (enum exception_event_kind kind, int enable)
   if (enable)
     {
       /* Ensure that __d_pid is set up correctly -- end.c code checks this. :-( */
-      if (inferior_pid > 0)
+      if (PIDGET (inferior_ptid) > 0)
 	{
 	  if (setup_d_pid_in_inferior ())
 	    return (struct symtab_and_line *) -1;
@@ -4544,7 +4546,8 @@ unwind_command (char *exp, int from_tty)
       return;
     }
 
-  printf_unfiltered ("unwind_table_entry (0x%x):\n", u);
+  printf_unfiltered ("unwind_table_entry (0x%s):\n",
+		     paddr_nz (host_pointer_to_address (u)));
 
   printf_unfiltered ("\tregion_start = ");
   print_address (u->region_start, gdb_stdout);
@@ -4552,11 +4555,7 @@ unwind_command (char *exp, int from_tty)
   printf_unfiltered ("\n\tregion_end = ");
   print_address (u->region_end, gdb_stdout);
 
-#ifdef __STDC__
 #define pif(FLD) if (u->FLD) printf_unfiltered (" "#FLD);
-#else
-#define pif(FLD) if (u->FLD) printf_unfiltered (" FLD");
-#endif
 
   printf_unfiltered ("\n\tflags =");
   pif (Cannot_unwind);
@@ -4581,11 +4580,7 @@ unwind_command (char *exp, int from_tty)
 
   putchar_unfiltered ('\n');
 
-#ifdef __STDC__
 #define pin(FLD) printf_unfiltered ("\t"#FLD" = 0x%x\n", u->FLD);
-#else
-#define pin(FLD) printf_unfiltered ("\tFLD = 0x%x\n", u->FLD);
-#endif
 
   pin (Region_description);
   pin (Entry_FR);
@@ -4627,14 +4622,20 @@ unwind_command (char *exp, int from_tty)
    For these reasons, we have to violate information hiding and
    call "breakpoint_here_p".  If core gdb thinks there is a bpt
    here, that's what counts, as core gdb is the one which is
-   putting the BPT instruction in and taking it out. */
+   putting the BPT instruction in and taking it out.
+
+   Note that this implementation is potentially redundant now that
+   default_prepare_to_proceed() has been added.
+
+   FIXME This may not support switching threads after Ctrl-C
+   correctly. The default implementation does support this. */
 int
 hppa_prepare_to_proceed (void)
 {
   pid_t old_thread;
   pid_t current_thread;
 
-  old_thread = hppa_switched_threads (inferior_pid);
+  old_thread = hppa_switched_threads (PIDGET (inferior_ptid));
   if (old_thread != 0)
     {
       /* Switched over from "old_thread".  Try to do
@@ -4645,8 +4646,8 @@ hppa_prepare_to_proceed (void)
 
       /* Yuk, shouldn't use global to specify current
          thread.  But that's how gdb does it. */
-      current_thread = inferior_pid;
-      inferior_pid = old_thread;
+      current_thread = PIDGET (inferior_ptid);
+      inferior_ptid = pid_to_ptid (old_thread);
 
       new_pc = read_pc ();
       if (new_pc != old_pc	/* If at same pc, no need */
@@ -4658,14 +4659,14 @@ hppa_prepare_to_proceed (void)
 	  registers_changed ();
 #if 0
 	  printf ("---> PREPARE_TO_PROCEED (was %d, now %d)!\n",
-		  current_thread, inferior_pid);
+		  current_thread, PIDGET (inferior_ptid));
 #endif
 
 	  return 1;
 	}
 
       /* Otherwise switch back to the user-chosen thread. */
-      inferior_pid = current_thread;
+      inferior_ptid = pid_to_ptid (current_thread);
       new_pc = read_pc ();	/* Re-prime register cache */
     }
 
@@ -4700,9 +4701,94 @@ hppa_skip_permanent_breakpoint (void)
 void
 _initialize_hppa_tdep (void)
 {
+  struct cmd_list_element *c;
+  void break_at_finish_command (char *arg, int from_tty);
+  void tbreak_at_finish_command (char *arg, int from_tty);
+  void break_at_finish_at_depth_command (char *arg, int from_tty);
+
   tm_print_insn = print_insn_hppa;
 
   add_cmd ("unwind", class_maintenance, unwind_command,
 	   "Print unwind table entry at given address.",
 	   &maintenanceprintlist);
+
+  deprecate_cmd (add_com ("xbreak", class_breakpoint, 
+			  break_at_finish_command,
+			  concat ("Set breakpoint at procedure exit. \n\
+Argument may be function name, or \"*\" and an address.\n\
+If function is specified, break at end of code for that function.\n\
+If an address is specified, break at the end of the function that contains \n\
+that exact address.\n",
+		   "With no arg, uses current execution address of selected stack frame.\n\
+This is useful for breaking on return to a stack frame.\n\
+\n\
+Multiple breakpoints at one place are permitted, and useful if conditional.\n\
+\n\
+Do \"help breakpoints\" for info on other commands dealing with breakpoints.", NULL)), NULL);
+  deprecate_cmd (add_com_alias ("xb", "xbreak", class_breakpoint, 1), NULL);
+  deprecate_cmd (add_com_alias ("xbr", "xbreak", class_breakpoint, 1), NULL);
+  deprecate_cmd (add_com_alias ("xbre", "xbreak", class_breakpoint, 1), NULL);
+  deprecate_cmd (add_com_alias ("xbrea", "xbreak", class_breakpoint, 1), NULL);
+
+  deprecate_cmd (c = add_com ("txbreak", class_breakpoint, 
+			      tbreak_at_finish_command,
+"Set temporary breakpoint at procedure exit.  Either there should\n\
+be no argument or the argument must be a depth.\n"), NULL);
+  set_cmd_completer (c, location_completer);
+  
+  if (xdb_commands)
+    deprecate_cmd (add_com ("bx", class_breakpoint, 
+			    break_at_finish_at_depth_command,
+"Set breakpoint at procedure exit.  Either there should\n\
+be no argument or the argument must be a depth.\n"), NULL);
+}
+
+/* Copy the function value from VALBUF into the proper location
+   for a function return.
+
+   Called only in the context of the "return" command.  */
+
+void
+hppa_store_return_value (struct type *type, char *valbuf)
+{
+  /* For software floating point, the return value goes into the
+     integer registers.  But we do not have any flag to key this on,
+     so we always store the value into the integer registers.
+
+     If its a float value, then we also store it into the floating
+     point registers.  */
+  write_register_bytes (REGISTER_BYTE (28)
+		        + (TYPE_LENGTH (type) > 4
+			   ? (8 - TYPE_LENGTH (type))
+			   : (4 - TYPE_LENGTH (type))),
+			valbuf,
+			TYPE_LENGTH (type));
+  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
+    write_register_bytes (REGISTER_BYTE (FP4_REGNUM),
+			  valbuf,
+			  TYPE_LENGTH (type));
+}
+
+/* Copy the function's return value into VALBUF.
+
+   This function is called only in the context of "target function calls",
+   ie. when the debugger forces a function to be called in the child, and
+   when the debugger forces a fucntion to return prematurely via the
+   "return" command.  */
+
+void
+hppa_extract_return_value (struct type *type, char *regbuf, char *valbuf)
+{
+  if (! SOFT_FLOAT && TYPE_CODE (type) == TYPE_CODE_FLT)
+    memcpy (valbuf,
+	    (char *)regbuf + REGISTER_BYTE (FP4_REGNUM),
+	    TYPE_LENGTH (type));
+  else
+    memcpy (valbuf,
+	    ((char *)regbuf
+	     + REGISTER_BYTE (28)
+	     + (TYPE_LENGTH (type) > 4
+		? (8 - TYPE_LENGTH (type))
+		: (4 - TYPE_LENGTH (type)))),
+	    TYPE_LENGTH (type));
 }

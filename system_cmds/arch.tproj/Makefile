@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = arch.c
 
-OTHERSRCS = Makefile PB.project Makefile.postamble
+OTHERSRCS = Makefile PB.project Makefile.postamble arch.1 machine.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

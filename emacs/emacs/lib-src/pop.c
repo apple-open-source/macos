@@ -1,5 +1,5 @@
 /* pop.c: client routines for talking to a POP3-protocol post-office server
-   Copyright (c) 1991, 1993, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (c) 1991, 1993, 1996, 1997, 1999 Free Software Foundation, Inc.
    Written by Jonathan Kamens, jik@security.ov.com.
 
 This file is part of GNU Emacs.
@@ -27,14 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifdef MAIL_USE_POP
-
-#ifdef HAVE_CONFIG_H
-/* Cancel these substitutions made in config.h */
-#undef open
-#undef read
-#undef write
-#undef close
-#endif
 
 #include <sys/types.h>
 #ifdef WINDOWSNT
@@ -75,9 +67,6 @@ extern struct servent *hes_getservbyname (/* char *, char * */);
 #ifdef STDC_HEADERS
 #include <string.h>
 #define index strchr
-#endif
-#ifdef STDC_HEADERS
-#include <stdlib.h>
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -149,14 +138,12 @@ static int gettermination _P((popserver));
 static void pop_trash _P((popserver));
 static char *find_crlf _P((char *, int));
 
-#define ERROR_MAX 80		/* a pretty arbitrary size */
+#define ERROR_MAX 160		/* a pretty arbitrary size, but needs
+				   to be bigger than the original
+				   value of 80 */
 #define POP_PORT 110
 #define KPOP_PORT 1109
-#ifdef WINDOWSNT
 #define POP_SERVICE "pop3"	/* we don't want the POP2 port! */
-#else
-#define POP_SERVICE "pop"
-#endif
 #ifdef KERBEROS
 #define KPOP_SERVICE "kpop"
 #endif

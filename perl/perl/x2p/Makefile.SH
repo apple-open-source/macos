@@ -27,9 +27,12 @@ esac
 echo "Extracting x2p/Makefile (with variable substitutions)"
 rm -f Makefile
 cat >Makefile <<!GROK!THIS!
-# $RCSfile: Makefile.SH,v $$Revision: 1.1.1.4 $$Date: 2000/03/31 05:13:03 $
+# $RCSfile: Makefile.SH,v $$Revision: 1.2 $$Date: 2002/03/14 09:03:59 $
 #
 # $Log: Makefile.SH,v $
+# Revision 1.2  2002/03/14 09:03:59  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.4  2000/03/31 05:13:03  wsanchez
 # Import of perl 5.6.0
 #

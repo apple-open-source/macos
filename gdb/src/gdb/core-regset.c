@@ -1,5 +1,6 @@
 /* Machine independent GDB support for core files on systems using "regsets".
-   Copyright 1993-1998 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -83,9 +84,8 @@ static void
 fetch_core_registers (char *core_reg_sect, unsigned core_reg_size, int which,
 		      CORE_ADDR reg_addr)
 {
-#if defined (HAVE_GREGSET_T) && defined (HAVE_FPREGSET_T)
-  gregset_t gregset;
-  fpregset_t fpregset;
+  gdb_gregset_t gregset;
+  gdb_fpregset_t fpregset;
 
   if (which == 0)
     {
@@ -112,7 +112,6 @@ fetch_core_registers (char *core_reg_sect, unsigned core_reg_size, int which,
 	    supply_fpregset (&fpregset);
 	}
     }
-#endif /* defined(HAVE_GREGSET_T) && defined (HAVE_FPREGSET_T) */
 }
 
 

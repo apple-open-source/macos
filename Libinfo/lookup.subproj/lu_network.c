@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,14 +29,23 @@
 #include <mach/mach.h>
 #include <stdio.h>
 #include <string.h>
-#include "lookup.h"
 #include <rpc/types.h>
 #include <rpc/xdr.h>
-#include "_lu_types.h"
 #include <netdb.h>
-#include "lu_utils.h"
 #include <sys/socket.h>
-#import <netinet/in.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+
+#include "_lu_types.h"
+#include "lookup.h"
+#include "lu_utils.h"
+
+static pthread_mutex_t _network_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#define N_GET_NAME 1
+#define N_GET_ADDR 2
+#define N_GET_ENT 3
 
 extern struct netent *_res_getnetbyaddr();
 extern struct netent *_res_getnetbyname();
@@ -46,289 +55,464 @@ extern struct netent *_old_getnetent();
 extern void _old_setnetent();
 extern void _old_endnetent();
 
-static lookup_state n_state = LOOKUP_CACHE;
-static struct netent global_n;
-static int global_free = 1;
-static char *n_data = NULL;
-static unsigned n_datalen;
-static int n_nentries;
-static int n_start = 1;
-static XDR n_xdr;
+extern mach_port_t _lu_port;
+extern int _lu_running(void);
 
 static void
-freeold(void)
+free_network_data(struct netent *n)
 {
 	char **aliases;
 
-	if (global_free == 1) return;
+	if (n == NULL) return;
 
-	free(global_n.n_name);
+	free(n->n_name);
 
-	aliases = global_n.n_aliases;
+	aliases = n->n_aliases;
 	if (aliases != NULL)
 	{
 		while (*aliases != NULL) free(*aliases++);
-		free(global_n.n_aliases);
+		free(n->n_aliases);
 	}
-
-	global_free = 1;
 }
 
 static void
-convert_n(_lu_netent *lu_n)
+free_network(struct netent *n)
 {
-	int i, len;
+	if (n == NULL) return;
+	free_network_data(n);
+	free(n);
+}
 
-	freeold();
+static void
+free_lu_thread_info_network(void *x)
+{
+	struct lu_thread_info *tdata;
 
-	global_n.n_name = strdup(lu_n->n_names.n_names_val[0]);
+	if (x == NULL) return;
 
-	len = lu_n->n_names.n_names_len - 1;
-	global_n.n_aliases = malloc((len + 1) * sizeof(char *));
-
-	for (i = 0; i < len; i++)
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
 	{
-		global_n.n_aliases[i] = strdup(lu_n->n_names.n_names_val[i + 1]);
+		free_network((struct netent *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
 	}
 
-	global_n.n_aliases[len] = NULL;
+	_lu_data_free_vm_xdr(tdata);
 
-	global_n.n_addrtype = AF_INET;
-	global_n.n_net = lu_n->n_net;
+	free(tdata);
+}
 
-	global_free = 0;
+static struct netent *
+extract_network(XDR *xdr)
+{
+	struct netent *n;
+	int i, j, nvals, nkeys, status;
+	char *key, **vals;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	n = (struct netent *)calloc(1, sizeof(struct netent));
+
+	n->n_addrtype = AF_INET;
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_network(n);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((n->n_name == NULL) && (!strcmp("name", key)))
+		{
+			n->n_name = vals[0];
+			if (nvals > 1)
+			{
+				n->n_aliases = (char **)calloc(nvals, sizeof(char *));
+				for  (j = 1; j < nvals; j++) n->n_aliases[j-1] = vals[j];
+			}
+			j = nvals;
+		}
+		else if (!strcmp("address", key))
+		{
+			n->n_net = inet_network(vals[0]);
+		}
+	
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (n->n_name == NULL) n->n_name = strdup("");
+	if (n->n_aliases == NULL) n->n_aliases = (char **)calloc(1, sizeof(char *));
+
+	return n;
+}
+
+static struct netent *
+copy_network(struct netent *in)
+{
+	int i, len;
+	struct netent *n;
+
+	if (in == NULL) return NULL;
+
+	n = (struct netent *)calloc(1, sizeof(struct netent));
+
+	n->n_name = LU_COPY_STRING(in->n_name);
+
+	len = 0;
+	if (in->n_aliases != NULL)
+	{
+		for (len = 0; in->n_aliases[len] != NULL; len++);
+	}
+
+	n->n_aliases = (char **)calloc(len + 1, sizeof(char *));
+	for (i = 0; i < len; i++)
+	{
+		n->n_aliases[i] = strdup(in->n_aliases[i]);
+	}
+
+	n->n_addrtype = in->n_addrtype;
+	n->n_net = in->n_net;
+
+	return n;
+}
+
+static void
+recycle_network(struct lu_thread_info *tdata, struct netent *in)
+{
+	struct netent *n;
+
+	if (tdata == NULL) return;
+	n = (struct netent *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_network(n);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_network_data(n);
+
+	n->n_name = in->n_name;
+	n->n_aliases = in->n_aliases;
+	n->n_addrtype = in->n_addrtype;
+	n->n_net = in->n_net;
+
+	free(in);
 }
 
 static struct netent *
 lu_getnetbyaddr(long addr, int type)
 {
+	struct netent *n;
 	unsigned datalen;
-	_lu_netent_ptr lu_n;
-	XDR xdr;
+	XDR inxdr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
-	
-	if (type != AF_INET)
-	{
-		return (NULL);
-	}
+	char *lookup_buf;
+	int count;
+
+	if (type != AF_INET) return NULL;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getnetbyaddr", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	addr = htonl(addr);
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)&addr, 1, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)&addr, 1, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
-		return (NULL);
+		return NULL;
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
-	lu_n = NULL;
-	if (!xdr__lu_netent_ptr(&xdr, &lu_n) || (lu_n == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
-		xdr_destroy(&xdr);
-		return (NULL);
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&xdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_n(lu_n);
-	xdr_free(xdr__lu_netent_ptr, &lu_n);
-	return (&global_n);
+	n = extract_network(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return n;
 }
 
 static struct netent *
 lu_getnetbyname(const char *name)
 {
+	struct netent *n;
 	unsigned datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	XDR inxdr;
-	_lu_netent_ptr lu_n;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
+	int count;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getnetbyname", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
+		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
-	lu_n = NULL;
-	if (!xdr__lu_netent_ptr(&inxdr, &lu_n) || (lu_n == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&inxdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_n(lu_n);
-	xdr_free(xdr__lu_netent_ptr, &lu_n);
-	return (&global_n);
+	n = extract_network(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return n;
 }
 
 static void
 lu_endnetent()
 {
-	n_nentries = 0;
-	if (n_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)n_data, n_datalen);
-		n_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_network, free_lu_thread_info_network);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static void
 lu_setnetent()
 {
 	lu_endnetent();
-	n_start = 1;
 }
 
 static struct netent *
 lu_getnetent()
 {
 	static int proc = -1;
-	_lu_netent lu_n;
+	struct lu_thread_info *tdata;
+	struct netent *n;
 
-	if (n_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_network, free_lu_thread_info_network);
+	if (tdata == NULL)
 	{
-		n_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_network, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
 			if (_lookup_link(_lu_port, "getnetent", &proc) != KERN_SUCCESS)
 			{
 				lu_endnetent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &n_data, &n_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endnetent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-		n_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-		xdrmem_create(&n_xdr, n_data, n_datalen,
-			XDR_DECODE);
-		if (!xdr_int(&n_xdr, &n_nentries))
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
+
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&n_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_endnetent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (n_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&n_xdr);
 		lu_endnetent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_n, sizeof(lu_n));
-	if (!xdr__lu_netent(&n_xdr, &lu_n))
+	n = extract_network(tdata->lu_xdr);
+	if (n == NULL)
 	{
-		xdr_destroy(&n_xdr);
 		lu_endnetent();
-		return (NULL);
+		return NULL;
 	}
 
-	n_nentries--;
-	convert_n(&lu_n);
-	xdr_free(xdr__lu_netent, &lu_n);
-	return (&global_n);
+	tdata->lu_vm_cursor--;
+	
+	return n;
+}
+
+static struct netent *
+getnet(const char *name, long addr, int type, int source)
+{
+	struct netent *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_network, free_lu_thread_info_network);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_network, tdata);
+	}
+
+	if (_lu_running())
+	{
+		switch (source)
+		{
+			case N_GET_NAME:
+				res = lu_getnetbyname(name);
+				break;
+			case N_GET_ADDR:
+				res = lu_getnetbyaddr(addr, type);
+				break;
+			case N_GET_ENT:
+				res = lu_getnetent();
+				break;
+			default: res = NULL;
+		}
+	}
+	else
+	{
+		pthread_mutex_lock(&_network_lock);
+		switch (source)
+		{
+			case N_GET_NAME:
+				res = copy_network(_old_getnetbyname(name));
+				break;
+			case N_GET_ADDR:
+				res = copy_network(_old_getnetbyaddr(addr, type));
+				break;
+			case N_GET_ENT:
+				res = copy_network(_old_getnetent());
+				break;
+			default: res = NULL;
+		}
+		pthread_mutex_unlock(&_network_lock);
+	}
+
+	recycle_network(tdata, res);
+	return (struct netent *)tdata->lu_entry;
 }
 
 struct netent *
 getnetbyaddr(long addr, int type)
 {
-    struct netent *res;
-
-    if (_lu_running())
-	{
-		res = lu_getnetbyaddr(addr, type);
-    }
-	else
-	{
-		res = _res_getnetbyaddr(addr, type);
-		if (res == NULL) res = _old_getnetbyaddr(addr, type);
-    }
-
-    return res;
+	return getnet(NULL, addr, type, N_GET_ADDR);
 }
 
 struct netent *
 getnetbyname(const char *name)
 {
-    struct netent *res;
-
-    if (_lu_running())
-	{
-		res = lu_getnetbyname(name);
-    }
-	else
-	{
-		res = _res_getnetbyname(name);
-		if (res == NULL) res = _old_getnetbyname(name);
-    }
-
-    return res;
+	return getnet(name, 0, 0, N_GET_NAME);
 }
 
 struct netent *
 getnetent(void)
 {
-	GETENT(lu_getnetent, _old_getnetent, &n_state, struct netent);
+	return getnet(NULL, 0, 0, N_GET_ENT);
 }
 
 void
 setnetent(int stayopen)
 {
-	SETSTATE(lu_setnetent, _old_setnetent, &n_state, stayopen);
+	if (_lu_running()) lu_setnetent();
+	else _old_setnetent(stayopen);
 }
 
 void
 endnetent(void)
 {
-	UNSETSTATE(lu_endnetent, _old_endnetent, &n_state);
+	if (_lu_running()) lu_endnetent();
+	else _old_endnetent();
 }

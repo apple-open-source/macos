@@ -146,7 +146,7 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 					xfree(fldtab[0]->sval);
 				fldtab[0]->sval = buf;	/* buf == record */
 				fldtab[0]->tval = REC | STR | DONTFREE;
-				if (isnumber(fldtab[0]->sval)) {
+				if (awk_isnumber(fldtab[0]->sval)) {
 					fldtab[0]->fval = atof(fldtab[0]->sval);
 					fldtab[0]->tval |= NUM;
 				}
@@ -241,7 +241,7 @@ void setclvar(char *s)	/* set var=value from s */
 	p = qstring(p, '\0');
 	q = setsymtab(s, p, 0.0, STR, symtab);
 	setsval(q, p);
-	if (isnumber(q->sval)) {
+	if (awk_isnumber(q->sval)) {
 		q->fval = atof(q->sval);
 		q->tval |= NUM;
 	}
@@ -330,7 +330,7 @@ void fldbld(void)	/* create fields from current record */
 	donefld = 1;
 	for (j = 1; j <= lastfld; j++) {
 		p = fldtab[j];
-		if(isnumber(p->sval)) {
+		if(awk_isnumber(p->sval)) {
 			p->fval = atof(p->sval);
 			p->tval |= NUM;
 		}
@@ -630,7 +630,7 @@ int isclvar(char *s)	/* is s of form var=something ? */
 /* strtod is supposed to be a proper test of what's a valid number */
 
 #include <math.h>
-int isnumber(char *s)
+int awk_isnumber(char *s)
 {
 	double r;
 	char *ep;

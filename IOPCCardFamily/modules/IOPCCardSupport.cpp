@@ -189,14 +189,16 @@ IOPCCardIOUnmap(void *vaddr)
     if (iter) {
         while ((map = (IOMemoryMap *)iter->getNextObject())) {
             if ((void *)map->getVirtualAddress() == vaddr) {
-		IODeviceMemory *range = (IODeviceMemory *)map = map->getMemoryDescriptor();
+		IODeviceMemory *range = (IODeviceMemory *)map->getMemoryDescriptor();
 		map->release();
 		range->release();
-		break;
+		iter->release();
+		return;
 	    }
 	}
         iter->release();
     }
+    IOLog("IOPCCardIOUnmap(): failed to unmap virtual address %p\n", vaddr);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

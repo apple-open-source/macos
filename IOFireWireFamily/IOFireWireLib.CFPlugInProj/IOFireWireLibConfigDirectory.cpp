@@ -7,773 +7,613 @@
  *
  */
 
-//#include <Carbon/Carbon.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOCFPlugIn.h>
+#import "IOFireWireLibConfigDirectory.h"
 
-#include "IOFireWireLibPriv.h"
-#include "IOFireWireLibConfigDirectory.h"
+namespace IOFireWireLib {
 
-IOFireWireConfigDirectoryInterface 
-IOFireWireLibConfigDirectoryCOM::sInterface = {
-	INTERFACEIMP_INTERFACE,
-	1, 0, //vers, rev
-	& IOFireWireLibConfigDirectoryCOM::SUpdate,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeyType,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeyValue_UInt32,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeyValue_Data,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeyValue_ConfigDirectory,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeyOffset_FWAddress,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexType,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexKey,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexValue_UInt32,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexValue_Data,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexValue_String,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexValue_ConfigDirectory,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexOffset_FWAddress,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexOffset_UInt32,
-	& IOFireWireLibConfigDirectoryCOM::SGetIndexEntry,
-	& IOFireWireLibConfigDirectoryCOM::SGetSubdirectories,
-	& IOFireWireLibConfigDirectoryCOM::SGetKeySubdirectories,
-	& IOFireWireLibConfigDirectoryCOM::SGetType,
-	& IOFireWireLibConfigDirectoryCOM::SGetNumEntries
-} ;				
-
-
-// ============================================================
-//
-// IOFireWireLibConfigDirectoryImp
-//
-// ============================================================
-
-IOFireWireLibConfigDirectoryImp::IOFireWireLibConfigDirectoryImp(
-	IOFireWireDeviceInterfaceImp& 	inUserClient,
-	FWKernConfigDirectoryRef	  	inKernConfigDirectoryRef): IOFireWireIUnknown(),
-															   mUserClient(inUserClient),
-															   mKernConfigDirectoryRef(inKernConfigDirectoryRef)
-{
-	mUserClient.AddRef() ;
-}
-
-IOFireWireLibConfigDirectoryImp::IOFireWireLibConfigDirectoryImp(
-	IOFireWireDeviceInterfaceImp& inUserClient): IOFireWireIUnknown(),
-												 mUserClient(inUserClient),
-												 mKernConfigDirectoryRef(0)
-{	
-	mUserClient.AddRef() ;
-}
+	ConfigDirectoryCOM::Interface 	ConfigDirectoryCOM::sInterface = {
+		INTERFACEIMP_INTERFACE,
+		1, 0, //vers, rev
+		& ConfigDirectoryCOM::SUpdate,
+		& ConfigDirectoryCOM::SGetKeyType,
+		& ConfigDirectoryCOM::SGetKeyValue_UInt32,
+		& ConfigDirectoryCOM::SGetKeyValue_Data,
+		& ConfigDirectoryCOM::SGetKeyValue_ConfigDirectory,
+		& ConfigDirectoryCOM::SGetKeyOffset_FWAddress,
+		& ConfigDirectoryCOM::SGetIndexType,
+		& ConfigDirectoryCOM::SGetIndexKey,
+		& ConfigDirectoryCOM::SGetIndexValue_UInt32,
+		& ConfigDirectoryCOM::SGetIndexValue_Data,
+		& ConfigDirectoryCOM::SGetIndexValue_String,
+		& ConfigDirectoryCOM::SGetIndexValue_ConfigDirectory,
+		& ConfigDirectoryCOM::SGetIndexOffset_FWAddress,
+		& ConfigDirectoryCOM::SGetIndexOffset_UInt32,
+		& ConfigDirectoryCOM::SGetIndexEntry,
+		& ConfigDirectoryCOM::SGetSubdirectories,
+		& ConfigDirectoryCOM::SGetKeySubdirectories,
+		& ConfigDirectoryCOM::SGetType,
+		& ConfigDirectoryCOM::SGetNumEntries
+	} ;				
 	
-IOFireWireLibConfigDirectoryImp::~IOFireWireLibConfigDirectoryImp()
-{
-	mUserClient.Release() ;
-}
 	
-IOReturn
-IOFireWireLibConfigDirectoryImp::Update(UInt32 offset)
-{
-	return kIOReturnUnsupported ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyType(int key, IOConfigKeyType& type)
-{
-	io_connect_t	connection = mUserClient.GetUserClientConnection() ;
-
-	if (!connection)
-		return kIOReturnError ;
-		
-	return IOConnectMethodScalarIScalarO(
-				connection,
-				kFWConfigDirectoryGetKeyType,
-				1,
-				1,
-				key,
-				& type) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyValue(int key, UInt32 &value, CFStringRef*& text)
-{
-	io_connect_t		connection ;
+	// ============================================================
+	//
+	// ConfigDirectory
+	//
+	// ============================================================
 	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	FWKernOSStringRef	kernelStringRef ;
-	UInt32				stringLen ;
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetKeyValue_UInt32,
-							2,
-							3,
-							mKernConfigDirectoryRef,
-							key,
-							& value,
-							& kernelStringRef,
-							& stringLen) ;
-
-	if (text && (kIOReturnSuccess == result))
-		result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
-	
-	return result ;
-}
-	
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyValue(int key, CFDataRef* value, CFStringRef*& text)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	FWKernOSStringRef	kernelStringRef ;
-	UInt32				stringLen ;
-	FWKernOSDataRef		kernelDataRef ;
-	IOByteCount			dataSize ;
-	
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetKeyValue_Data,
-							2,
-							4,
-							mKernConfigDirectoryRef,
-							key,
-							& kernelStringRef,
-							& stringLen,
-							& kernelDataRef,
-							& dataSize) ;
-
-	if (text && (kIOReturnSuccess == result))
-		result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
-	if (kIOReturnSuccess == result)
-		result = mUserClient.CreateCFDataWithOSDataRef(kernelDataRef, dataSize, value) ;
-	
-	return result ;
-}
-	
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyValue(int key, IOFireWireLibConfigDirectoryRef& value, REFIID iid, CFStringRef*& text)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	FWKernOSStringRef			kernelStringRef ;
-	FWKernConfigDirectoryRef	kernelDirectoryRef ;
-	UInt32						stringLen ;
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetKeyValue_ConfigDirectory,
-							2,
-							3,
-							mKernConfigDirectoryRef,
-							key,
-							& kernelDirectoryRef,
-							& kernelStringRef,
-							& stringLen) ;
-
-	IUnknownVTbl**	iUnknown = nil ;
-	if (kIOReturnSuccess == result)
+	ConfigDirectory::ConfigDirectory( IUnknownVTbl* interface, Device& userclient, FWKernConfigDirectoryRef inKernConfigDirectoryRef)
+	: IOFireWireIUnknown( interface ),
+	mUserClient( userclient ),
+	mKernConfigDirectoryRef( inKernConfigDirectoryRef )
 	{
-		iUnknown = IOFireWireLibConfigDirectoryCOM::Alloc(mUserClient, kernelDirectoryRef) ;
+		mUserClient.AddRef() ;
+	}
 	
-		if (!iUnknown)
-			result = kIOReturnNoMemory ;
-		else
-		{
-			if (S_OK != (*iUnknown)->QueryInterface(iUnknown, iid, (void**) & value))
-				result = kIOReturnError ;
-			
-			(*iUnknown)->Release(iUnknown) ;
-		}
+	ConfigDirectory::ConfigDirectory( IUnknownVTbl* interface, Device& userclient )
+	: IOFireWireIUnknown( interface ),
+	mUserClient( userclient )
+	{	
+		IOReturn err = IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryCreate, 0, 1, & mKernConfigDirectoryRef) ;
+		if (err)
+			throw ;//Exception::IOReturn(err) ;	//!!!
+
+		mUserClient.AddRef() ;
+	}
+		
+	ConfigDirectory::~ConfigDirectory()
+	{
+		IOReturn err = IOConnectMethodScalarIScalarO(
+					mUserClient.GetUserClientConnection(),
+					kFWConfigDirectoryRelease,
+					1,
+					0,
+					mKernConfigDirectoryRef ) ;
+		IOFireWireLibLogIfErr_(err, "%s %u: release config dir failed err=%x\n", __FILE__, __LINE__, err) ;
+	
+		mUserClient.Release() ;
+	}
+		
+	IOReturn
+	ConfigDirectory::Update(UInt32 offset)
+	{
+		return kIOReturnUnsupported ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetKeyType(int key, IOConfigKeyType& type)
+	{
+		return IOConnectMethodScalarIScalarO(
+					mUserClient.GetUserClientConnection(),
+					kFWConfigDirectoryGetKeyType,
+					1,
+					1,
+					key,
+					& type) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetKeyValue(int key, UInt32 &value, CFStringRef*& text)
+	{
+		FWKernOSStringRef	kernelStringRef ;
+		UInt32				stringLen ;
+		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
+				kFWConfigDirectoryGetKeyValue_UInt32, 3, 3, mKernConfigDirectoryRef, key, text != nil,
+				& value, & kernelStringRef, & stringLen) ;
 	
 		if (text && (kIOReturnSuccess == result))
 			result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
+		
+		return result ;
+	}
+		
+	IOReturn
+	ConfigDirectory::GetKeyValue(int key, CFDataRef* value, CFStringRef*& text)
+	{
+		FWGetKeyValueDataResults results ;
+		IOByteCount	resultsSize = sizeof(results) ;
+		
+		IOReturn error = IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), 
+				kFWConfigDirectoryGetKeyValue_Data, 3, & resultsSize, mKernConfigDirectoryRef, key, text != nil,
+				& results ) ;
+	
+		if ( text && (kIOReturnSuccess == error))
+			error = mUserClient.CreateCFStringWithOSStringRef( results.text, results.textLength, text ) ;
+		if ( kIOReturnSuccess == error )
+			error = mUserClient.CreateCFDataWithOSDataRef( results.data, results.dataLength, value ) ;
+		
+		return error ;
+	}
+		
+	IOReturn
+	ConfigDirectory::GetKeyValue(int key, DirRef& value, REFIID iid, CFStringRef*& text)
+	{
+		FWKernOSStringRef			kernelStringRef ;
+		FWKernConfigDirectoryRef	kernelDirectoryRef ;
+		UInt32						stringLen ;
+		IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetKeyValue_ConfigDirectory,
+				3, 3, mKernConfigDirectoryRef, key, text != nil, & kernelDirectoryRef, & kernelStringRef, & stringLen ) ;
+	
+		IUnknownVTbl**	iUnknown = nil ;
+		if (kIOReturnSuccess == result)
+		{
+			iUnknown = reinterpret_cast<IUnknownVTbl**>(ConfigDirectoryCOM::Alloc(mUserClient, kernelDirectoryRef)) ;
+		
+			if (!iUnknown)
+				result = kIOReturnNoMemory ;
+			else
+			{
+				if (S_OK != (*iUnknown)->QueryInterface(iUnknown, iid, (void**) & value))
+					result = kIOReturnError ;
+				
+				(*iUnknown)->Release(iUnknown) ;
+			}
+		
+			if (text && (kIOReturnSuccess == result))
+				result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
+		}
+		
+		return result ;
 	}
 	
-	return result ;
-}
+	IOReturn
+	ConfigDirectory::GetKeyOffset(int key, FWAddress& value, CFStringRef*& text)
+	{
+		FWGetKeyOffsetResults results ;
+		IOByteCount resultsSize = sizeof(results) ;
 
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyOffset(int key, FWAddress& value, CFStringRef*& text)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
+		IOReturn error = IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetKeyOffset_FWAddress,
+				3, & resultsSize, mKernConfigDirectoryRef, key, text != nil, & results ) ;
+		
+		value = results.address ;
 
-	FWKernOSStringRef	kernelStringRef ;
-	UInt32				stringLen ;
-	UInt32				addressHi ;
-	UInt32				addressLo ;
+		if (text && (kIOReturnSuccess == error))
+			error = mUserClient.CreateCFStringWithOSStringRef( results.text, results.length, text ) ;
 	
-	IOReturn result = IOConnectMethodScalarIScalarO(
-								connection,
-								kFWConfigDirectoryGetKeyOffset_FWAddress,
-								2,
-								4,
+		return error ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetKeyValue(int key, FWKernConfigDirectoryRef& value)
+	{
+		FWKernOSStringRef			kernelStringRef ;
+		FWKernConfigDirectoryRef	kernelDirectoryRef ;
+		UInt32						stringLen ;
+		IOReturn result = IOConnectMethodScalarIScalarO(
+								mUserClient.GetUserClientConnection(),
+								kFWConfigDirectoryGetKeyValue_ConfigDirectory,
+								3,
+								3,
 								mKernConfigDirectoryRef,
 								key,
-								& addressHi,
-								& addressLo,
+								(UInt32)false,
+								& kernelDirectoryRef,
 								& kernelStringRef,
 								& stringLen) ;
+		
+		return result ;
+	}
 	
-	value.nodeID = addressHi >> 16 ;
-	value.addressHi = addressHi & 0xFFFF ;
-	value.addressLo = addressLo ;
-
-	if (text && (kIOReturnSuccess == result))
-		result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
-
-	return result ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeyValue(int key, FWKernConfigDirectoryRef& value)
-{
-	io_connect_t		connection ;
+	IOReturn
+	ConfigDirectory::GetIndexType(int index, IOConfigKeyType &type)
+	{
+		return IOConnectMethodScalarIScalarO(
+					mUserClient.GetUserClientConnection(),
+					kFWConfigDirectoryGetIndexType,
+					2,
+					1,
+					mKernConfigDirectoryRef,
+					index,
+					& type) ;
+	}
 	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
+	IOReturn
+	ConfigDirectory::GetIndexKey(int index, int &key)
+	{
+		return IOConnectMethodScalarIScalarO(
+					mUserClient.GetUserClientConnection(),
+					kFWConfigDirectoryGetIndexKey,
+					2,
+					1,
+					mKernConfigDirectoryRef,
+					index,
+					& key) ;
+	}
 	
-	FWKernOSStringRef			kernelStringRef ;
-	FWKernConfigDirectoryRef	kernelDirectoryRef ;
-	UInt32						stringLen ;
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetKeyValue_ConfigDirectory,
-							2,
-							3,
-							mKernConfigDirectoryRef,
-							key,
-							& kernelDirectoryRef,
-							& kernelStringRef,
-							& stringLen) ;
-	
-	return result ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexType(int index, IOConfigKeyType &type)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(
-				connection,
-				kFWConfigDirectoryGetIndexType,
-				2,
-				1,
-				mKernConfigDirectoryRef,
-				index,
-				& type) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexKey(int index, int &key)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(
-				connection,
-				kFWConfigDirectoryGetIndexKey,
-				2,
-				1,
-				mKernConfigDirectoryRef,
-				index,
-				& key) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexValue(int index, UInt32& value)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(
-				connection,
-				kFWConfigDirectoryGetIndexValue_UInt32,
-				2,
-				1,
-				mKernConfigDirectoryRef,
-				index,
-				& value) ;
-}
-
-	
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexValue(int index, CFDataRef* value)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	FWKernOSDataRef	dataRef ;
-	IOByteCount		dataLen ;
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetIndexValue_Data,
-							2,
-							2,
-							mKernConfigDirectoryRef,
-							index,
-							& dataRef,
-							& dataLen) ;
-
-	if (kIOReturnSuccess == result)
-		result = mUserClient.CreateCFDataWithOSDataRef(dataRef, dataLen, value) ;
-
-	return result ;
-}
-	
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexValue(int index, CFStringRef* value)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	FWKernOSStringRef	stringRef ;
-	UInt32				stringLen ;
-	IOReturn result = IOConnectMethodScalarIScalarO(
-							connection,
-							kFWConfigDirectoryGetIndexValue_String,
-							2,
-							2,
-							mKernConfigDirectoryRef,
-							index,
-							& stringRef,
-							& stringLen) ;
-
-	if (kIOReturnSuccess == result)
-		result = mUserClient.CreateCFStringWithOSStringRef(stringRef, stringLen, value) ;
-	
-	return result ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexValue(int index, FWKernConfigDirectoryRef& value)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	return IOConnectMethodScalarIScalarO(
-					connection,
-					kFWConfigDirectoryGetIndexValue_ConfigDirectory,
+	IOReturn
+	ConfigDirectory::GetIndexValue(int index, UInt32& value)
+	{
+		return IOConnectMethodScalarIScalarO(
+					mUserClient.GetUserClientConnection(),
+					kFWConfigDirectoryGetIndexValue_UInt32,
 					2,
 					1,
 					mKernConfigDirectoryRef,
 					index,
 					& value) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexValue(int index, IOFireWireLibConfigDirectoryRef& value, REFIID iid)
-{
-	io_connect_t		connection ;
+	}
 	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	FWKernConfigDirectoryRef	directoryRef ;
-	IOReturn result = IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetIndexValue_ConfigDirectory,
-								2, 1, mKernConfigDirectoryRef, index, & directoryRef) ;
-
-	IUnknownVTbl** iUnknown ;
-	if (kIOReturnSuccess == result)
+		
+	IOReturn
+	ConfigDirectory::GetIndexValue(int index, CFDataRef* value)
 	{
-		iUnknown = IOFireWireLibConfigDirectoryCOM::Alloc(mUserClient, directoryRef) ;
+		FWKernOSDataRef	dataRef ;
+		IOByteCount		dataLen ;
+		IOReturn result = IOConnectMethodScalarIScalarO(
+								mUserClient.GetUserClientConnection(),
+								kFWConfigDirectoryGetIndexValue_Data,
+								2,
+								2,
+								mKernConfigDirectoryRef,
+								index,
+								& dataRef,
+								& dataLen) ;
+	
+		if (kIOReturnSuccess == result)
+			result = mUserClient.CreateCFDataWithOSDataRef(dataRef, dataLen, value) ;
+	
+		return result ;
+	}
+		
+	IOReturn
+	ConfigDirectory::GetIndexValue(int index, CFStringRef* value)
+	{
+		FWKernOSStringRef	stringRef ;
+		UInt32				stringLen ;
+		IOReturn result = IOConnectMethodScalarIScalarO(
+								mUserClient.GetUserClientConnection(),
+								kFWConfigDirectoryGetIndexValue_String,
+								2,
+								2,
+								mKernConfigDirectoryRef,
+								index,
+								& stringRef,
+								& stringLen) ;
+	
+		if (kIOReturnSuccess == result)
+			result = mUserClient.CreateCFStringWithOSStringRef(stringRef, stringLen, value) ;
+		
+		return result ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetIndexValue(int index, FWKernConfigDirectoryRef& value)
+	{
+		return IOConnectMethodScalarIScalarO(
+						mUserClient.GetUserClientConnection(),
+						kFWConfigDirectoryGetIndexValue_ConfigDirectory,
+						2,
+						1,
+						mKernConfigDirectoryRef,
+						index,
+						& value) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetIndexValue(int index, IOFireWireLibConfigDirectoryRef& value, REFIID iid)
+	{
+		FWKernConfigDirectoryRef	directoryRef ;
+		IOReturn result = IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetIndexValue_ConfigDirectory,
+									2, 1, mKernConfigDirectoryRef, index, & directoryRef) ;
+	
+		IUnknownVTbl** iUnknown ;
+		if (kIOReturnSuccess == result)
+		{
+			iUnknown = reinterpret_cast<IUnknownVTbl**>(ConfigDirectoryCOM::Alloc(mUserClient, directoryRef)) ;
+	
+			if (!iUnknown)
+				result = kIOReturnNoMemory ;
+			else
+			{
+				if (S_OK != (*iUnknown)->QueryInterface(iUnknown, iid, (void**) & value))
+					result = kIOReturnError ;
+				
+				(*iUnknown)->Release(iUnknown) ;
+			}
+		}
+		
+		return result ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetIndexOffset(int index, FWAddress& value)
+	{
+		UInt32 addressHi ;
+		UInt32 addressLo ;
+		IOReturn result = IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetIndexOffset_FWAddress, 2, 2, 
+								mKernConfigDirectoryRef, index, & addressHi, & addressLo) ;
+		
+		value.nodeID = addressHi>>16 ;
+		value.addressHi = addressHi ;
+		value.addressLo = addressLo ;
+		
+		return result ;
+	}
+		
+	IOReturn
+	ConfigDirectory::GetIndexOffset(int index, UInt32& value)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetIndexOffset_UInt32, 2, 1,
+						mKernConfigDirectoryRef, index, & value) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetIndexEntry(int index, UInt32 &value)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetIndexEntry, 2, 1, 
+						mKernConfigDirectoryRef, index, & value) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetSubdirectories(io_iterator_t *outIterator)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetSubdirectories, 1, 1,
+						mKernConfigDirectoryRef, outIterator) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetKeySubdirectories(int key, io_iterator_t *outIterator)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetKeySubdirectories, 2, 1,
+						mKernConfigDirectoryRef, key, outIterator) ;
+	}
+	
+	IOReturn
+	ConfigDirectory::GetType(int *outType)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetType, 1, 1, mKernConfigDirectoryRef,
+						outType) ;
+	}
+	
+	IOReturn 
+	ConfigDirectory::GetNumEntries(int *outNumEntries)
+	{
+		return IOConnectMethodScalarIScalarO(mUserClient.GetUserClientConnection(), kFWConfigDirectoryGetNumEntries, 1, 1,
+						mKernConfigDirectoryRef, outNumEntries) ;
+	}
+	
+	// ============================================================
+	//
+	// ConfigDirectoryCOM
+	//
+	// ============================================================
+	
+#pragma mark -
+	ConfigDirectoryCOM::ConfigDirectoryCOM( Device& inUserClient, FWKernConfigDirectoryRef inDirRef )
+	: ConfigDirectory( reinterpret_cast<IUnknownVTbl*>( & sInterface ), inUserClient, inDirRef)
+	{
+	}
+	
+	ConfigDirectoryCOM::ConfigDirectoryCOM( Device& inUserClient )
+	: ConfigDirectory( reinterpret_cast<IUnknownVTbl*>( & sInterface ), inUserClient)
+	{
+	}
+	
+	ConfigDirectoryCOM::~ConfigDirectoryCOM()
+	{
+	}
+	
+	IUnknownVTbl**
+	ConfigDirectoryCOM::Alloc( Device& inUserClient, FWKernConfigDirectoryRef inDirRef )
+	{
+		ConfigDirectoryCOM*	me = nil ;
+		
+		try {
+			me = new ConfigDirectoryCOM(inUserClient, inDirRef) ;
+		} catch(...) {
+		}
+		
+		return ( nil == me ) ? nil : reinterpret_cast<IUnknownVTbl**>(& me->GetInterface()) ;
+	}
+	
+	IUnknownVTbl**
+	ConfigDirectoryCOM::Alloc(Device& inUserClient)
+	{
+		ConfigDirectoryCOM *	me = nil ;
 
-		if (!iUnknown)
-			result = kIOReturnNoMemory ;
+		try {
+			me = new ConfigDirectoryCOM(inUserClient) ;
+		} catch (...) {
+		}
+
+		return ( nil == me ) ? nil : reinterpret_cast<IUnknownVTbl**>(& me->GetInterface()) ;
+	}
+	
+	HRESULT STDMETHODCALLTYPE
+	ConfigDirectoryCOM::QueryInterface(REFIID iid, LPVOID* ppv)
+	{
+		HRESULT		result = S_OK ;
+		*ppv = nil ;
+	
+		CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
+	
+		if ( CFEqual(interfaceID, IUnknownUUID) ||  CFEqual(interfaceID, kIOFireWireConfigDirectoryInterfaceID) )
+		{
+			*ppv = & GetInterface() ;
+			AddRef() ;
+		}
 		else
 		{
-			if (S_OK != (*iUnknown)->QueryInterface(iUnknown, iid, (void**) & value))
-				result = kIOReturnError ;
-			
-			(*iUnknown)->Release(iUnknown) ;
-		}
-	}
-	
-	return result ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexOffset(int index, FWAddress& value)
-{
-	io_connect_t		connection ;	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	UInt32 addressHi ;
-	UInt32 addressLo ;
-	IOReturn result = IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetIndexOffset_FWAddress, 2, 2, 
-							mKernConfigDirectoryRef, index, & addressHi, & addressLo) ;
-	
-	value.nodeID = addressHi>>16 ;
-	value.addressHi = addressHi ;
-	value.addressLo = addressLo ;
-	
-	return result ;
-}
-	
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexOffset(int index, UInt32& value)
-{
-	io_connect_t		connection ;
-	
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetIndexOffset_UInt32, 2, 1,
-					mKernConfigDirectoryRef, index, & value) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetIndexEntry(int index, UInt32 &value)
-{
-	io_connect_t		connection ;
-
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetIndexEntry, 2, 1, 
-					mKernConfigDirectoryRef, index, & value) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetSubdirectories(io_iterator_t *outIterator)
-{
-	io_connect_t	connection ;
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetSubdirectories, 1, 1,
-					mKernConfigDirectoryRef, outIterator) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetKeySubdirectories(int key, io_iterator_t *outIterator)
-{
-	io_connect_t	connection ;
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetKeySubdirectories, 2, 1,
-					mKernConfigDirectoryRef, key, outIterator) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::GetType(int *outType)
-{
-	io_connect_t	connection ;
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetType, 1, 1, mKernConfigDirectoryRef,
-					outType) ;
-}
-
-IOReturn 
-IOFireWireLibConfigDirectoryImp::GetNumEntries(int *outNumEntries)
-{
-	io_connect_t	connection ;
-	if (0 == (connection = mUserClient.GetUserClientConnection()))
-		return kIOReturnError ;
-	
-	return IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryGetNumEntries, 1, 1,
-					mKernConfigDirectoryRef, outNumEntries) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryImp::Init()
-{
-	IOReturn result = kIOReturnSuccess ;
-
-	if (0 == mKernConfigDirectoryRef)
-	{
-		io_connect_t	connection ;
-		if (0 == (connection = mUserClient.GetUserClientConnection()))
-			result = kIOReturnError ;
-		else
-			result = IOConnectMethodScalarIScalarO(connection, kFWConfigDirectoryCreate, 0, 1, & mKernConfigDirectoryRef) ;
-	}	
-	
-	return result ;
-}
-
-//IOReturn
-//IOFireWireLibConfigDirectoryImp::GetSubdirectoryRef(int inKey, FWKernConfigDirectoryRef* outDirRef, CFStringRef*& outText) ;
-
-// ============================================================
-//
-// IOFireWireLibConfigDirectoryCOM
-//
-// ============================================================
-
-IOFireWireLibConfigDirectoryCOM::IOFireWireLibConfigDirectoryCOM(
-	IOFireWireDeviceInterfaceImp& 	inUserClient,
-	FWKernConfigDirectoryRef 		inDirRef): IOFireWireLibConfigDirectoryImp(inUserClient, inDirRef)
-{
-	mInterface.pseudoVTable = (IUnknownVTbl*) & sInterface ;
-	mInterface.obj = this ;
-}
-
-IOFireWireLibConfigDirectoryCOM::IOFireWireLibConfigDirectoryCOM(IOFireWireDeviceInterfaceImp& inUserClient): IOFireWireLibConfigDirectoryImp(inUserClient)
-{
-	mInterface.pseudoVTable = (IUnknownVTbl*) & sInterface ;
-	mInterface.obj = this ;
-}
-
-IOFireWireLibConfigDirectoryCOM::~IOFireWireLibConfigDirectoryCOM()
-{
-}
-
-IUnknownVTbl**
-IOFireWireLibConfigDirectoryCOM::Alloc(IOFireWireDeviceInterfaceImp& inUserClient, FWKernConfigDirectoryRef inDirRef)
-{
-	IOFireWireLibConfigDirectoryCOM*	me ;
-	IUnknownVTbl** interface = NULL ;
-	
-	me = new IOFireWireLibConfigDirectoryCOM(inUserClient, inDirRef) ;
-	if ( me && (kIOReturnSuccess == me->Init()) )
-	{
-//		me->AddRef() ;
-		interface = & me->mInterface.pseudoVTable ;
-	}
-	else
-		delete me ;
+			*ppv = nil ;
+			result = E_NOINTERFACE ;
+		}	
 		
-	return interface ;
-}
-
-IUnknownVTbl** 
-IOFireWireLibConfigDirectoryCOM::Alloc(IOFireWireDeviceInterfaceImp& inUserClient)
-{
-    IOFireWireLibConfigDirectoryCOM *	me;
-	IUnknownVTbl** 	interface = NULL;
-	
-    me = new IOFireWireLibConfigDirectoryCOM(inUserClient) ;
-    if( me && (kIOReturnSuccess == me->Init()) )
-	{
-		// whoops -- no need to call addref. all these objects derive from IOFireWireIUnknown
-		// which automatically sets the ref count to 1 on creation.
-//		me->AddRef();
-        interface = & me->mInterface.pseudoVTable;
-    }
-	else
-		delete me ;
-	
-	return interface;
-}
-
-HRESULT STDMETHODCALLTYPE
-IOFireWireLibConfigDirectoryCOM::QueryInterface(REFIID iid, LPVOID* ppv)
-{
-	HRESULT		result = S_OK ;
-	*ppv = nil ;
-
-	CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
-
-	if ( CFEqual(interfaceID, IUnknownUUID) ||  CFEqual(interfaceID, kIOFireWireConfigDirectoryInterfaceID) )
-	{
-		*ppv = & mInterface ;
-		AddRef() ;
+		CFRelease(interfaceID) ;
+		return result ;
 	}
-	else
+	
+	// static methods:
+	
+	IOReturn
+	ConfigDirectoryCOM::SUpdate(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		UInt32 								inOffset)
 	{
-		*ppv = nil ;
-		result = E_NOINTERFACE ;
-	}	
+		return kIOReturnUnsupported ;
+	}
 	
-	CFRelease(interfaceID) ;
-	return result ;
-}
-
-// static methods:
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SUpdate(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	UInt32 								inOffset)
-{
-	return kIOReturnUnsupported ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeyType(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	IOConfigKeyType* 					outType)
-{
-	return GetThis(inDir)->GetKeyType(inKey, *outType) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeyValue_UInt32(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	UInt32*								outValue, 
-	CFStringRef*						outText)
-{
-	return GetThis(inDir)->GetKeyValue(inKey, * outValue, outText) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetKeyType(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		IOConfigKeyType* 					outType)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeyType(inKey, *outType) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeyValue_Data(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	CFDataRef *							outValue, 
-	CFStringRef*						outText)
-{
-	return GetThis(inDir)->GetKeyValue(inKey, outValue, outText) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetKeyValue_UInt32(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		UInt32*								outValue, 
+		CFStringRef*						outText)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeyValue(inKey, * outValue, outText) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetKeyValue_Data(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		CFDataRef *							outValue, 
+		CFStringRef*						outText)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeyValue(inKey, outValue, outText) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetKeyValue_ConfigDirectory(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		IOFireWireLibConfigDirectoryRef*	outValue,
+		REFIID								iid,
+		CFStringRef*						outText)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeyValue(inKey, * outValue, iid, outText) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetKeyOffset_FWAddress(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		FWAddress*							outValue, 
+		CFStringRef* 						text)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeyOffset(inKey, *outValue, text) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexType(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		IOConfigKeyType*					outType)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexType(inIndex, *outType) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeyValue_ConfigDirectory(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	IOFireWireLibConfigDirectoryRef*	outValue,
-	REFIID								iid,
-	CFStringRef*						outText)
-{
-	return GetThis(inDir)->GetKeyValue(inKey, * outValue, iid, outText) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexKey(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		int *								outKey)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexKey(inIndex, *outKey) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeyOffset_FWAddress(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	FWAddress*							outValue, 
-	CFStringRef* 						text)
-{
-	return GetThis(inDir)->GetKeyOffset(inKey, *outValue, text) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexValue_UInt32(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		UInt32 *							outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexValue(inIndex, *outValue) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexType(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	IOConfigKeyType*					outType)
-{
-	return GetThis(inDir)->GetIndexType(inIndex, *outType) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexKey(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	int *								outKey)
-{
-	return GetThis(inDir)->GetIndexKey(inIndex, *outKey) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexValue_UInt32(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	UInt32 *							outValue)
-{
-	return GetThis(inDir)->GetIndexValue(inIndex, *outValue) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexValue_Data(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	CFDataRef *							outValue)
-{
-	return GetThis(inDir)->GetIndexValue(inIndex, outValue) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexValue_Data(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		CFDataRef *							outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexValue(inIndex, outValue) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexValue_String(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		CFStringRef*						outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexValue(inIndex, outValue) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexValue_ConfigDirectory(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		IOFireWireLibConfigDirectoryRef*	outValue,
+		REFIID								iid)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexValue(inIndex, *outValue, iid) ;
+	}
+		
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexOffset_FWAddress(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		FWAddress*							outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexOffset(inIndex, *outValue) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexValue_String(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	CFStringRef*						outValue)
-{
-	return GetThis(inDir)->GetIndexValue(inIndex, outValue) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexOffset_UInt32(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		UInt32*								outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexOffset(inIndex, *outValue) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexValue_ConfigDirectory(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	IOFireWireLibConfigDirectoryRef*	outValue,
-	REFIID								iid)
-{
-	return GetThis(inDir)->GetIndexValue(inIndex, *outValue, iid) ;
-}
+	IOReturn
+	ConfigDirectoryCOM::SGetIndexEntry(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inIndex, 
+		UInt32*								outValue)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetIndexEntry(inIndex, *outValue) ;
+	}
 	
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexOffset_FWAddress(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	FWAddress*							outValue)
-{
-	return GetThis(inDir)->GetIndexOffset(inIndex, *outValue) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexOffset_UInt32(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	UInt32*								outValue)
-{
-	return GetThis(inDir)->GetIndexOffset(inIndex, *outValue) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetIndexEntry(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inIndex, 
-	UInt32*								outValue)
-{
-	return GetThis(inDir)->GetIndexEntry(inIndex, *outValue) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetSubdirectories(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	io_iterator_t*						outIterator)
-{
-	return GetThis(inDir)->GetSubdirectories(outIterator) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetKeySubdirectories(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int 								inKey, 
-	io_iterator_t *						outIterator)
-{
-	return GetThis(inDir)->GetKeySubdirectories(inKey, outIterator) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetType(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int *								outType)
-{
-	return GetThis(inDir)->GetType(outType) ;
-}
-
-IOReturn
-IOFireWireLibConfigDirectoryCOM::SGetNumEntries(
-	IOFireWireLibConfigDirectoryRef 	inDir, 
-	int *								outNumEntries)
-{
-	return GetThis(inDir)->GetNumEntries(outNumEntries) ;
+	IOReturn
+	ConfigDirectoryCOM::SGetSubdirectories(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		io_iterator_t*						outIterator)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetSubdirectories(outIterator) ;
+	}
+	
+	IOReturn
+	ConfigDirectoryCOM::SGetKeySubdirectories(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int 								inKey, 
+		io_iterator_t *						outIterator)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetKeySubdirectories(inKey, outIterator) ;
+	}
+	
+	IOReturn
+	ConfigDirectoryCOM::SGetType(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int *								outType)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetType(outType) ;
+	}
+	
+	IOReturn
+	ConfigDirectoryCOM::SGetNumEntries(
+		IOFireWireLibConfigDirectoryRef 	inDir, 
+		int *								outNumEntries)
+	{
+		return IOFireWireIUnknown::InterfaceMap<ConfigDirectoryCOM>::GetThis(inDir)->GetNumEntries(outNumEntries) ;
+	}
 }

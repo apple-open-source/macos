@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  *
@@ -54,6 +54,8 @@ typedef IOReturn	(FWIsochChannelForceStopNotificationProc) (
 
 typedef FWIsochChannelForceStopNotificationProc *FWIsochChannelForceStopNotificationProcPtr;
 
+/*! @class IOFWIsochChannel
+*/
 class IOFWIsochChannel : public OSObject
 {
     OSDeclareDefaultStructors(IOFWIsochChannel)
@@ -105,6 +107,17 @@ public:
     virtual IOReturn releaseChannel();
     virtual IOReturn start();
     virtual IOReturn stop();
+
+protected:
+	// handles IRM and channel determination and allocation.
+	// called by both user and kernel isoch channels
+	IOReturn			allocateChannelBegin(
+								IOFWSpeed		inSpeed,		// used to calculate bandwidth number
+								UInt64			inAllowedChans,
+								UInt32&			outChannel ) ;
+	// handles IRM and channel allocation.
+	// called by both user and kernel isoch channels
+	IOReturn			releaseChannelComplete() ;
 
 private:
     OSMetaClassDeclareReservedUnused(IOFWIsochChannel, 0);

@@ -40,6 +40,7 @@
 #define _IO_ATA_BLOCKSTORAGE_DEVICE_H_
 
 #include <IOKit/IOTypes.h>
+#include <IOKit/ata/IOATACommand.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 
 class IOATABlockStorageDriver;
@@ -56,11 +57,20 @@ protected:
 	IOATABlockStorageDriver *     fProvider;
 	
 	// binary compatibility instance variable expansion
-	struct ExpansionData { };
+	struct ExpansionData
+	{
+		OSSet *		fClients;
+	};
 	ExpansionData * reserved;
+	
+	#define fClients	reserved->fClients
 	
 	virtual bool		attach ( IOService * provider );
 	virtual void		detach ( IOService * provider );
+
+    virtual bool		handleOpen ( IOService * client, IOOptionBits options, void * access );
+	virtual void		handleClose ( IOService * client, IOOptionBits options );
+    virtual bool		handleIsOpen ( const IOService * client ) const;
 	
 public:
 	
@@ -118,9 +128,13 @@ public:
     virtual IOReturn	reportRemovability ( bool * isRemovable );
     
     virtual IOReturn	reportWriteProtection ( bool * isWriteProtected );
-
+	
+	/* Added with 10.1.4 */
+	OSMetaClassDeclareReservedUsed ( IOATABlockStorageDevice, 1 )
+	
+	virtual IOReturn	sendSMARTCommand ( IOATACommand * command );
+	
 	// Binary Compatibility reserved method space
-	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDevice, 1 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDevice, 2 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDevice, 3 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDevice, 4 );

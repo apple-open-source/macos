@@ -31,7 +31,9 @@
 
 #import <mach/mach.h>
 
-extern void init_errlog(boolean_t is_init);
+extern void init_errlog(boolean_t);
+extern void stop_errlog(void);
+extern void close_errlog(void);
 extern void debug(const char *format, ...);
 extern void info(const char *format, ...);
 extern void log(const char *format, ...);
@@ -42,5 +44,4 @@ extern void unix_error(const char *msg, ...);
 extern void fatal(const char *msg, ...);
 extern void kern_fatal(kern_return_t result, const char *msg, ...);
 extern void unix_fatal(const char *msg, ...);
-extern void close_errlog(void);
 

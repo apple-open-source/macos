@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,181 +19,162 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef __SCSI_TASK_CLASS_H__
 #define __SCSI_TASK_CLASS_H__
 
-#include <IOKit/IOCFPlugIn.h>
 
-__BEGIN_DECLS
-#include <sys/semaphore.h>
-__END_DECLS
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
+// Private includes
+#include "SCSITaskIUnknown.h"
 #include "SCSITaskLib.h"
+#include "SCSITaskLibPriv.h"
 #include "SCSITaskDeviceClass.h"
 
-__BEGIN_DECLS
-extern void * SCSITaskUserClientLibFactory ( CFAllocatorRef allocator, CFUUIDRef typeID );
-__END_DECLS
 
-class SCSITaskClass
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declarations
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
+class SCSITaskClass : public SCSITaskIUnknown
 {
-
-public:
-
-	struct InterfaceMap 
-	{
-        IUnknownVTbl *	pseudoVTable;
-        SCSITaskClass *	obj;
-    };
-
-	SCSITaskClass ( void );
-	virtual ~SCSITaskClass ( void );
 	
-	static void sAbortAndReleaseTasks ( const void * value, void * context );
-	static void sSetConnectionAndPort ( const void * value, void * context );
+	public:
+		
+		SCSITaskClass ( void );
+		virtual ~SCSITaskClass ( void );
+		
+		static void sAbortAndReleaseTasks ( const void * value, void * context );
+		static void sSetConnectionAndPort ( const void * value, void * context );
+		
+		virtual IOReturn Init ( SCSITaskDeviceClass * scsiTaskDevice,
+								io_connect_t connection,
+								mach_port_t asyncPort );
+		
+		virtual IOReturn SetConnectionAndPort ( io_connect_t connection, mach_port_t asyncPort );
+		
+		static SCSITaskInterface ** alloc ( SCSITaskDeviceClass * scsiTaskDevice,
+											io_connect_t connection,
+											mach_port_t asyncPort );
+		
+	protected:
+		
+		static SCSITaskInterface	sSCSITaskInterface;
+		struct InterfaceMap			fSCSITaskInterfaceMap;
+		
+		SCSITaskDeviceClass *		fSCSITaskDevice;
+		io_connect_t				fConnection;	// connection to user client in kernel
+		mach_port_t					fAsyncPort;		// async port for callback from kernel
+		void *						fCallbackRefCon;
+		SCSITaskCallbackFunction 	fCallbackFunction;
+		
+		SCSITaskData				fTaskArguments;
+		SCSITaskResults				fTaskResults;
+		
+		SCSI_Sense_Data				fSenseData;
+		SCSI_Sense_Data *			fExternalSenseData;
+		IOVirtualRange *			fSGList;
+		SCSITaskState				fTaskState;
+		
+		// CFPlugIn/IOCFPlugIn stuff
+		virtual HRESULT QueryInterface ( REFIID iid, void ** ppv );
+		
+		// SCSITaskInterface stuff
+		virtual Boolean  	IsTaskActive ( void );
+
+		virtual void 		SetTaskAttribute ( SCSITaskAttribute inAttributeValue );
+		
+		virtual SCSITaskAttribute 	GetTaskAttribute ( void );
+		
+		virtual IOReturn 	SetCommandDescriptorBlock ( UInt8 * inCDB, UInt8 inSize );
+		
+		virtual UInt8 		GetCommandDescriptorBlockSize ( void );
 	
-	virtual IOReturn Init ( SCSITaskDeviceClass * scsiTaskDevice,
-							io_connect_t connection,
-							mach_port_t asyncPort );
+		virtual void	 	GetCommandDescriptorBlock ( UInt8 * outCDB );
+		
+		virtual IOReturn 	SetScatterGatherEntries ( IOVirtualRange * inScatterGatherList,
+										   UInt8 inScatterGatherEntries,
+										   UInt64 transferCount,
+										   UInt8 transferDirection );
+		
+		virtual IOReturn	SetSenseDataBuffer ( void * buffer, UInt8 bufferSize );
+		
+		virtual void 		SetTimeoutDuration ( UInt32 timeoutDurationMS );
+		
+		virtual UInt32 		GetTimeoutDuration ( void );
+		
+		virtual void 		SetTaskCompletionCallback ( 
+													 SCSITaskCallbackFunction callback,
+													 void * refCon );
+		
+		virtual IOReturn 	ExecuteTaskAsync ( void );
+		
+		virtual IOReturn 	ExecuteTaskSync ( SCSI_Sense_Data * senseDataBuffer,
+											  SCSITaskStatus * taskStatus,
+											  UInt64 * realizedTransferCount );
+		
+		virtual IOReturn 	AbortTask ( void );
+		
+		virtual SCSIServiceResponse 	GetServiceResponse ( void );
+		
+		virtual SCSITaskState 	GetTaskState ( void );
+		
+		virtual SCSITaskStatus 	GetTaskStatus ( void );
+		
+		virtual UInt64 		GetRealizedDataTransferCount ( void );
+		
+		virtual IOReturn 	GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer );
+		
+		virtual void 		TaskCompletion ( IOReturn result, void ** args, int numArgs );
+		
+		// Method for getting the "this" pointer
+		static inline SCSITaskClass * getThis ( void * task )
+			{ return ( SCSITaskClass * ) ( ( InterfaceMap * ) task)->obj; };
 
-	virtual IOReturn SetConnectionAndPort ( io_connect_t connection, mach_port_t asyncPort );
-	
-protected:
-	
-	//////////////////////////////////////
-	// CFPlugIn interfaces
-	
-	static SCSITaskInterface	sSCSITaskInterface;
-	InterfaceMap				fSCSITaskInterfaceMap;
-
-	//////////////////////////////////////
-	// CFPlugIn refcounting
-	
-	UInt32 						fRefCount;
-	
-	//////////////////////////////////////
-	// user client connection
-	
-	SCSITaskDeviceClass *		fSCSITaskDevice;
-	io_connect_t				fConnection;	// connection to user client in kernel
-	mach_port_t					fAsyncPort;		// async port for callback from kernel
-	void *						fCallbackRefCon;
-	SCSITaskCallbackFunction 	fCallbackFunction;
-	
-	UInt32						fTaskReference;	// reference to kernel task object
-	
-	// Cached variables for Getter functions
-	UInt8						fCDBSize;
-	SCSICommandDescriptorBlock	fCDB;
-	UInt32						fTimeoutDuration;
-	UInt64						fRealizedTransferCount;
-	bool						fIsTaskSynch;
-	SCSIServiceResponse			fServiceResponse;
-	SCSITaskStatus				fTaskStatus;
-	
-	//////////////////////////////////////	
-	// IUnknown Interface methods
-	
-	static HRESULT 	staticQueryInterface ( void * self, REFIID iid, void ** ppv );
-	virtual HRESULT QueryInterface ( REFIID iid, void ** ppv );
-
-	static UInt32 	staticAddRef ( void * self );
-	virtual UInt32 	AddRef ( void );
-
-	static UInt32 	staticRelease ( void * self );
-	virtual UInt32 	Release ( void );
-
-	//////////////////////////////////////	
-	// SCSITask Interface methods
-	static Boolean		staticIsTaskActive ( void * task );
-	virtual Boolean  	IsTaskActive ( void );
-
-	static IOReturn 	staticSetTaskAttribute ( void * task, SCSITaskAttribute inAttributeValue );
-	virtual IOReturn 	SetTaskAttribute ( SCSITaskAttribute inAttributeValue );
-
-	static IOReturn 	staticGetTaskAttribute ( void * task, SCSITaskAttribute * outAttribute );
-	virtual IOReturn 	GetTaskAttribute ( SCSITaskAttribute * outAttribute );
-
-	static IOReturn 	staticSetCommandDescriptorBlock ( void * task, UInt8 * inCDB, UInt8 inSize );
-	virtual IOReturn 	SetCommandDescriptorBlock ( UInt8 * inCDB, UInt8 inSize );
-
-	static UInt8 		staticGetCommandDescriptorBlockSize ( void * task );
-	virtual UInt8 		GetCommandDescriptorBlockSize ( void );
-
-	static IOReturn 	staticGetCommandDescriptorBlock ( void * task, UInt8 * outCDB );
-	virtual IOReturn 	GetCommandDescriptorBlock ( UInt8 * outCDB );
-	
-
-	static IOReturn 	staticSetScatterGatherEntries ( void * task,
-									   IOVirtualRange * inScatterGatherList,
-									   UInt8 inScatterGatherEntries,
-									   UInt64 transferCount,
-									   UInt8 transferDirection );
-	virtual IOReturn 	SetScatterGatherEntries ( IOVirtualRange * inScatterGatherList,
-									   UInt8 inScatterGatherEntries,
-									   UInt64 transferCount,
-									   UInt8 transferDirection );
-	
-	static IOReturn 	staticSetTimeoutDuration ( void * task, UInt32 timeoutDurationMS );
-	virtual IOReturn 	SetTimeoutDuration ( UInt32 timeoutDurationMS );
-
-	static UInt32 		staticGetTimeoutDuration ( void * task );
-	virtual UInt32 		GetTimeoutDuration ( void );
-
-	static IOReturn 	staticSetTaskCompletionCallback ( void * task,
-												 SCSITaskCallbackFunction callback,
-												 void * refCon );
-	virtual IOReturn 	SetTaskCompletionCallback ( 
-												 SCSITaskCallbackFunction callback,
-												 void * refCon );
-
-	static IOReturn 	staticExecuteTaskAsync ( void * task );
-	virtual IOReturn 	ExecuteTaskAsync ( void );
-	
-	static IOReturn 	staticExecuteTaskSync ( void * task, SCSI_Sense_Data * senseDataBuffer,
-												SCSITaskStatus * taskStatus, UInt64 * realizedTransferCount );
-	virtual IOReturn 	ExecuteTaskSync ( SCSI_Sense_Data * senseDataBuffer,
-										  SCSITaskStatus * taskStatus,
-										  UInt64 * realizedTransferCount );
-	
-	static IOReturn 	staticAbortTask ( void * task );
-	virtual IOReturn 	AbortTask ( void );
-
-	static IOReturn 	staticGetServiceResponse ( void * task, SCSIServiceResponse * outResponse );
-	virtual IOReturn 	GetServiceResponse ( SCSIServiceResponse * outResponse );
-
-	static IOReturn 	staticGetTaskState ( void * task, SCSITaskState * outState );
-	virtual IOReturn 	GetTaskState ( SCSITaskState * outState );
-
-	static IOReturn 	staticGetTaskStatus ( void * task, SCSITaskStatus * outStatus );
-	virtual IOReturn 	GetTaskStatus ( SCSITaskStatus * outStatus );
-
-	static UInt64 		staticGetRealizedDataTransferCount ( void * task );
-	virtual UInt64 		GetRealizedDataTransferCount ( void );
-
-	static IOReturn 	staticGetAutoSenseData ( void * task, SCSI_Sense_Data * senseDataBuffer );
-	virtual IOReturn 	GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer );
-	
-	static void 		staticTaskCompletion ( void * refcon, IOReturn result, void ** args, int numArgs );
-	virtual void 		TaskCompletion ( IOReturn result, void ** args, int numArgs );
-
-	// Method for getting the "this" pointer
-	static inline SCSITaskClass * getThis ( void * task )
-		{ return ( SCSITaskClass * ) ( ( InterfaceMap * ) task)->obj; };
-	
-private:
-	
-	// Disable copy constructor
-	SCSITaskClass ( SCSITaskClass &src );	
-	void operator = ( SCSITaskClass &src );
-
-public:
-	
-	static SCSITaskInterface ** alloc ( SCSITaskDeviceClass * scsiTaskDevice,
-										io_connect_t connection,
-										mach_port_t asyncPort );
-	
+		// Static methods
+		static Boolean		sIsTaskActive ( void * task );		
+		static IOReturn		sSetTaskAttribute ( void * task, SCSITaskAttribute inAttributeValue );
+		static IOReturn 	sGetTaskAttribute ( void * task, SCSITaskAttribute * outTaskAttributeValue );
+		static IOReturn 	sSetCommandDescriptorBlock ( void * task, UInt8 * inCDB, UInt8 inSize );
+		static UInt8 		sGetCommandDescriptorBlockSize ( void * task );
+		static IOReturn 	sGetCommandDescriptorBlock ( void * task, UInt8 * outCDB );
+		static IOReturn 	sSetScatterGatherEntries ( 	void * 				task,
+										   				IOVirtualRange *	inScatterGatherList,
+										   				UInt8				inScatterGatherEntries,
+										   				UInt64				transferCount,
+										   				UInt8				transferDirection );
+		static IOReturn		sSetSenseDataBuffer ( void * task, SCSI_Sense_Data * buffer, UInt8 bufferSize );
+		static IOReturn 	sSetTimeoutDuration ( void * task, UInt32 timeoutDurationMS );
+		static UInt32 		sGetTimeoutDuration ( void * task );
+		static IOReturn		sSetTaskCompletionCallback (	void *						task,
+															SCSITaskCallbackFunction	callback,
+															void *						refCon );
+		static IOReturn 	sExecuteTaskAsync ( void * task );
+		static IOReturn 	sExecuteTaskSync (	void *				task,
+												SCSI_Sense_Data *	senseDataBuffer,
+												SCSITaskStatus *	taskStatus,
+												UInt64 *			realizedTransferCount );
+		static IOReturn 	sAbortTask ( void * task );
+		static IOReturn 	sGetServiceResponse ( void * task, SCSIServiceResponse * serviceResponse );
+		static IOReturn 	sGetTaskState ( void * task, SCSITaskState * outTaskState );
+		static IOReturn 	sGetTaskStatus ( void * task, SCSITaskStatus * outTaskStatus );
+		static UInt64 		sGetRealizedDataTransferCount ( void * task );
+		static IOReturn 	sGetAutoSenseData ( void * task, SCSI_Sense_Data * senseDataBuffer );
+		static void 		sTaskCompletion ( void * refcon, IOReturn result, void ** args, int numArgs );
+		
+	private:
+		
+		virtual IOReturn ExecuteTask ( void );
+		
+		// Disable copy constructor
+		SCSITaskClass ( SCSITaskClass &src );	
+		void operator = ( SCSITaskClass &src );
+		
 };
 
 
-#endif /* !__SCSI_TASK_CLASS_H__ */
+#endif	/* __SCSI_TASK_CLASS_H__ */

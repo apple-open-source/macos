@@ -1,8 +1,8 @@
-;;; saveplace.el --- automatically save place in files.
+;;; saveplace.el --- automatically save place in files
 
 ;; Copyright (C) 1993, 1994 Free Software Foundation, Inc.
 
-;; Author: Karl Fogel <kfogel@cs.oberlin.edu>
+;; Author: Karl Fogel <kfogel@red-bean.com>
 ;; Maintainer: FSF
 ;; Created: July, 1993
 ;; Keywords: bookmarks, placeholders
@@ -143,10 +143,6 @@ To save places automatically in all files, put this in your `.emacs' file:
       (message "Saving places to %s..." file)
       (set-buffer (get-buffer-create " *Saved Places*"))
       (delete-region (point-min) (point-max))
-      (if (file-readable-p file)
-          (insert-file-contents file))
-      (delete-region (point-min) (point-max))
-      (goto-char (point-min))
       (print save-place-alist (current-buffer))
       (let ((version-control
              (cond
@@ -242,4 +238,3 @@ To save places automatically in all files, put this in your `.emacs' file:
 (provide 'saveplace) ; why not...
 
 ;;; saveplace.el ends here
-

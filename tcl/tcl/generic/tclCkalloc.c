@@ -13,7 +13,7 @@
  *
  * This code contributed by Karl Lehenbauer and Mark Diekhans
  *
- * RCS: @(#) $Id: tclCkalloc.c,v 1.1.1.4 2000/12/06 23:03:22 wsanchez Exp $
+ * RCS: @(#) $Id: tclCkalloc.c,v 1.1.1.5 2002/04/05 16:13:15 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -1016,6 +1016,7 @@ TclFinalizeMemorySubsystem()
     }
     if (curTagPtr != NULL) {
 	TclpFree((char *) curTagPtr);
+	curTagPtr = NULL;
     }
     allocHead = NULL;
     Tcl_MutexUnlock(ckallocMutexPtr);

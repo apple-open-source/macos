@@ -12,12 +12,11 @@ NAME = StartupItems
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-BUNDLES = 
-
 TOOLS = Accounting Apache AppleShare AppleTalk AppServices AuthServer\
-        ConfigServer Cleanup Cron DirectoryServices Disks IPServices\
-        Network NetworkTime NFS Portmap QuickTimeServer Sendmail\
-        SystemLog SystemTuning
+        ConfigServer CoreGraphics Cron DirectoryServices Disks\
+        IPServices LDAP LoginWindow mDNSResponder NetInfo Network\
+        NetworkExtensions NetworkTime NFS NIS Portmap Sendmail SystemLog\
+        SystemTuning
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

@@ -1,0 +1,25 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            hstech.texinfo, 
+            rluser.texinfo, 
+            rltech.texinfo, 
+            rlman.texinfo, 
+            hsuser.texinfo, 
+            hist.texinfo
+        ); 
+        Headers = (); 
+        Makefiles = (Makefile); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = doc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

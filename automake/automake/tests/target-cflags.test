@@ -1,0 +1,62 @@
+#! /bin/sh
+
+# Test to make sure target specific CFLAGS work
+# Assar Westerlund <assar@sics.se>
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(foo.c)
+AM_INIT_AUTOMAKE(target-cflags,0.0)
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = foreign no-dependencies
+
+bin_PROGRAMS = foo bar
+foo_CFLAGS   = -DFOO
+END
+
+cat > foo.c << 'END'
+#include <stdio.h>
+#ifdef FOO
+int main(void) {
+  return 0;
+}
+#endif
+END
+
+cat > bar.c << 'END'
+#ifndef FOO
+int main(void)
+{
+  return 0;
+}
+#endif
+END
+
+# Likewise for gcc.
+(gcc -v) > /dev/null 2>&1 || exit 77
+
+$needs_gnu_make
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+mkdir obj
+
+cd obj
+../configure
+$MAKE
+./foo
+./bar
+cd ..
+
+./configure
+$MAKE
+./foo
+./bar

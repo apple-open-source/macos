@@ -72,6 +72,7 @@ int rijndaelBlockDecrypt(
 	word8 *input, 
 	word8 *outBuffer);
 	
+#if		!GLADMAN_AES_128_ENABLE
 /*
  * Optimized routines for 128 bit block and 128 bit key.
  */
@@ -83,8 +84,9 @@ int rijndaelBlockDecrypt128(
 	keyInstance 	*key, 
 	word8 			*input, 
 	word8 			*outBuffer);
+#endif	/* !GLADMAN_AES_128_ENABLE */
 
-#ifdef	__ppc__
+#if defined(__ppc__) && defined(ALTIVEC_ENABLE)
 /* 
  * dmitch addenda 4/11/2001: 128-bit only vectorized encrypt/decrypt with no CBC
  */
@@ -96,11 +98,12 @@ void vBlockDecrypt128(
 	keyInstance *key, 
 	word8 *input, 
 	word8 *outBuffer);
-#endif	__ppc__
-	
+
 /* temp switch for runtime enable/disable */
 extern int doAES128;
 
+#endif	/* __ppc__ && ALTIVEC_ENABLE */
+	
 /* ptr to one of several (possibly optimized) encrypt/decrypt functions */
 typedef int (*aesCryptFcn)(
 	keyInstance *key, 

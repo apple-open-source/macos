@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,18 +29,20 @@
 #include <IOKit/firewire/IOFWRegs.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
 
-class OSData;
+#include "IOFireWireROMCache.h"
+
 class OSString;
 class OSIterator;
 class IOFireWireDevice;
 
+/*! @class IORemoteConfigDirectory
+*/
 class IORemoteConfigDirectory : public IOConfigDirectory
 {
     OSDeclareDefaultStructors(IORemoteConfigDirectory);
 
 protected:
-    IOFireWireDevice *fOwner;	// Device that ROM is stored in.
-    OSData *fROM;				// Our cache of the ROM
+    IOFireWireROMCache *fROM;				// Our cache of the ROM
     
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -51,7 +53,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-    virtual bool initWithOwnerOffset(IOFireWireDevice *owner, OSData *rom,
+    virtual bool initWithOwnerOffset(IOFireWireROMCache *rom,
                              int start, int type);
     virtual void free();
 
@@ -59,7 +61,7 @@ protected:
     virtual IOConfigDirectory *getSubDir(int start, int type);
 
 public:
-    static IOConfigDirectory *withOwnerOffset(IOFireWireDevice *owner, OSData *rom,
+    static IOConfigDirectory *withOwnerOffset(IOFireWireROMCache *rom,
                                            int start, int type);
 
 
@@ -73,6 +75,13 @@ public:
     */
     virtual IOReturn update(UInt32 offset, const UInt32 *&romBase);
 
+protected:
+	
+	virtual const UInt32 * lockData( void );
+	virtual void unlockData( void );
+	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length );
+	virtual IOReturn checkROMState( void );
+	
 private:
     OSMetaClassDeclareReservedUnused(IORemoteConfigDirectory, 0);
     OSMetaClassDeclareReservedUnused(IORemoteConfigDirectory, 1);

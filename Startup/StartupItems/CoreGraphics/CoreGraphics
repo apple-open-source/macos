@@ -1,0 +1,53 @@
+#!/bin/sh
+
+##
+# Startup the ATS Server and the Window Server
+##
+
+. /etc/rc.common
+
+StartService ()
+{
+    local VerboseFlag=$(ConsoleMessage -q VerboseFlag)
+    local startATSServerRunFile="/var/run/StartupItems/StartATSServer.run"
+    local windowServerRunFile="/var/run/StartupItems/WindowServer.run"
+
+    local SafeBoot=""
+    local reply=$(ConsoleMessage -q SafeBoot)
+    if [ "${reply:=-NO-}" = "-YES-" ]; then
+        SafeBoot="-x"
+    fi
+
+    if [ "${DISPLAYSERVER:=-QUARTZ-}" = "-QUARTZ-" ]; then
+        if [ -x /System/Library/CoreServices/StartATSServer ]; then
+            if ! [ -f "${startATSServerRunFile}" ]; then
+
+                ConsoleMessage "Starting ATS Server"
+                /usr/bin/touch "${startATSServerRunFile}"
+
+                /System/Library/CoreServices/StartATSServer
+            fi
+        fi
+        
+        if [ "${VerboseFlag:=-NO-}" = "-NO-" ] &&
+        [ -x /System/Library/CoreServices/WindowServer ]; then
+            if ! [ -f "${windowServerRunFile}" ]; then
+
+                ConsoleMessage "Starting Window Server"
+                /usr/bin/touch "${windowServerRunFile}"
+
+                /System/Library/CoreServices/WindowServer ${SafeBoot}
+            fi
+            ConsoleMessage -b /System/Library/CoreServices/SystemStarter/QuartzDisplay.bundle/QuartzDisplay
+        fi
+    fi
+}
+
+StopService ()
+{
+    return 0;
+}
+
+RestartService () { StartService; }
+
+RunService "$1"

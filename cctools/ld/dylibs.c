@@ -124,6 +124,8 @@ merge_dylibs(void)
     struct dylib_command *dl;
     struct dylinker_command *dyld;
     char *dyld_name;
+    struct merged_dylib *mdl;
+    struct dynamic_library *p;
 
 	/*
 	 * Process all the load commands for the dynamic shared libraries.
@@ -132,15 +134,24 @@ merge_dylibs(void)
 	lc = (struct load_command *)((char *)cur_obj->obj_addr +
 				     sizeof(struct mach_header));
 	for(i = 0; i < mh->ncmds; i++){
-	    if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_ID_DYLIB){
+	    if(lc->cmd == LC_ID_DYLIB ||
+	       lc->cmd == LC_LOAD_DYLIB ||
+	       lc->cmd == LC_LOAD_WEAK_DYLIB){
 		/*
 		 * Do not record dynamic libraries dependencies in the output
 		 * file.  Only record the library itself.
 		 */
-		if(lc->cmd != LC_LOAD_DYLIB || mh->filetype != MH_DYLIB){
+		if((lc->cmd != LC_LOAD_DYLIB &&
+		    lc->cmd != LC_LOAD_WEAK_DYLIB) || mh->filetype != MH_DYLIB){
 		    dl = (struct dylib_command *)lc;
-		    (void)lookup_merged_dylib(dl);
-		    (void)add_dynamic_lib(DYLIB, dl, cur_obj);
+		    mdl = lookup_merged_dylib(dl);
+		    if(filetype == MH_DYLIB && dylib_install_name != NULL &&
+		       strcmp(mdl->dylib_name, dylib_install_name) == 0)
+			error_with_cur_obj("can't be linked because it has the "
+			   "same install_name (%s) as the output", 
+			   dylib_install_name);
+		    p = add_dynamic_lib(DYLIB, dl, cur_obj);
+		    mdl->dynamic_library = p;
 		}
 	    }
 	    else if(lc->cmd == LC_LOAD_DYLINKER || lc->cmd == LC_ID_DYLINKER){

@@ -1,0 +1,68 @@
+#! /bin/sh
+
+# Test sources listed in conditional.
+# Report from Rob Savoye <rob@cygnus.com>, and Lars J. Aas.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AM_CONDITIONAL(ONE, true)
+AM_CONDITIONAL(TWO, false)
+AM_CONDITIONAL(THREE, maybe)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = targ
+
+if ONE
+SONE = one.c
+else
+SONE =
+endif
+
+if TWO
+STWO = two.c
+else
+STWO =
+endif
+
+if THREE
+STHREE = three.c
+else
+STHREE =
+endif
+
+targ_SOURCES = $(SONE) $(STWO) $(STHREE)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# `b top' so that
+sed -n '
+/[oO][bB][jJ][eE][cC][tT].* =/ {
+  : loop
+  /\\$/ {
+    p
+    n
+    b loop
+  }
+  p
+}' Makefile.in >produced
+
+cat >expected << 'EOF'
+@ONE_TRUE@am__objects_1 = one.$(OBJEXT)
+@ONE_FALSE@am__objects_1 =
+@TWO_TRUE@am__objects_2 = two.$(OBJEXT)
+@TWO_FALSE@am__objects_2 =
+@THREE_TRUE@am__objects_3 = three.$(OBJEXT)
+@THREE_FALSE@am__objects_3 =
+am_targ_OBJECTS = $(am__objects_1) $(am__objects_2) $(am__objects_3)
+targ_OBJECTS = $(am_targ_OBJECTS)
+EOF
+
+diff expected produced || exit 1

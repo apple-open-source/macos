@@ -20,7 +20,7 @@
 
 #include "SHA1.h"
 #include "SHA1_priv.h"
-#include "platform.h"
+#include <strings.h>
 
 /* for now map falloc to malloc, FIXME */
 #include <stdlib.h>
@@ -160,6 +160,14 @@ unsigned char *sha1Digest(sha1Obj sha1)
 	 * FIXME - should do explicit conversion to char array....?
 	 */
 	return (unsigned char *)sinst->context.digest;
+}
+
+/* As above, with copy. */
+void sha1GetDigest(sha1Obj sha1,
+	unsigned char *digest)
+{
+	unsigned char *dig = sha1Digest(sha1);
+	memmove(digest, dig, SHS_DIGESTSIZE);
 }
 
 unsigned sha1DigestLen(void)

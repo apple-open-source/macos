@@ -1,8 +1,9 @@
 \initial {C}
+\entry {\code {C-_}}{7}
 \entry {\code {C-c ?}}{7}
-\entry {\code {C-c C-b}}{7}
-\entry {\code {C-c C-c}}{9}
-\entry {\code {C-c C-d}}{9}
+\entry {\code {C-c C-b}}{8}
+\entry {\code {C-c C-c}}{10}
+\entry {\code {C-c C-d}}{10}
 \entry {\code {C-c C-e}}{9}
 \entry {\code {C-c C-f C-b}}{7}
 \entry {\code {C-c C-f C-c}}{7}
@@ -10,18 +11,25 @@
 \entry {\code {C-c C-f C-f}}{7}
 \entry {\code {C-c C-f C-k}}{7}
 \entry {\code {C-c C-f C-n}}{7}
-\entry {\code {C-c C-f C-o}}{7}
 \entry {\code {C-c C-f C-r}}{7}
 \entry {\code {C-c C-f C-s}}{7}
 \entry {\code {C-c C-f C-t}}{7}
 \entry {\code {C-c C-f C-u}}{7}
-\entry {\code {C-c C-i}}{7}
-\entry {\code {C-c C-k}}{9}
-\entry {\code {C-c C-n}}{9}
+\entry {\code {C-c C-f C-w}}{7}
+\entry {\code {C-c C-i}}{8}
+\entry {\code {C-c C-k}}{10}
+\entry {\code {C-c C-n}}{10}
 \entry {\code {C-c C-q}}{8}
 \entry {\code {C-c C-r}}{9}
-\entry {\code {C-c C-s}}{9}
-\entry {\code {C-c C-t}}{9}
+\entry {\code {C-c C-s}}{10}
+\entry {\code {C-c C-t}}{10}
+\entry {\code {C-c C-v}}{9}
 \entry {\code {C-c C-w}}{8}
+\entry {\code {C-c C-x}}{9}
 \entry {\code {C-c C-y}}{8}
-\entry {\code {C-c M-r}}{9}
+\entry {\code {C-c M-C-y}}{8}
+\entry {\code {C-c M-h}}{8}
+\entry {\code {C-c M-r}}{10}
+\initial {M}
+\entry {\code {M-RET}}{9}
+\entry {\code {message-newline-and-reformat}}{9}

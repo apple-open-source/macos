@@ -26,7 +26,7 @@
 /* XXX: recursive operations */
 
 #include "includes.h"
-RCSID("$OpenBSD: sftp-int.c,v 1.44 2002/02/13 00:59:23 djm Exp $");
+RCSID("$OpenBSD: sftp-int.c,v 1.47 2002/06/23 09:30:14 deraadt Exp $");
 
 #include "buffer.h"
 #include "xmalloc.h"
@@ -176,8 +176,9 @@ local_do_shell(const char *args)
 		    strerror(errno));
 		_exit(1);
 	}
-	if (waitpid(pid, &status, 0) == -1)
-		fatal("Couldn't wait for child: %s", strerror(errno));
+	while (waitpid(pid, &status, 0) == -1)
+		if (errno != EINTR)
+			fatal("Couldn't wait for child: %s", strerror(errno));
 	if (!WIFEXITED(status))
 		error("Shell exited abormally");
 	else if (WEXITSTATUS(status))
@@ -834,7 +835,7 @@ parse_dispatch_command(struct sftp_conn *conn, const char *cmd, char **pwd)
 		help();
 		break;
 	case I_VERSION:
-		printf("SFTP protocol version %d\n", sftp_proto_version(conn));
+		printf("SFTP protocol version %u\n", sftp_proto_version(conn));
 		break;
 	default:
 		fatal("%d is not implemented", cmdnum);
@@ -886,8 +887,10 @@ interactive_loop(int fd_in, int fd_out, char *file1, char *file2)
 				    file2);
 
 			parse_dispatch_command(conn, cmd, &pwd);
+			xfree(dir);
 			return;
 		}
+		xfree(dir);
 	}
 #if HAVE_SETVBUF
 	setvbuf(stdout, NULL, _IOLBF, 0);

@@ -30,16 +30,16 @@
 //
 // Bracket Macros
 //
-#define UCSP_ARGS	mach_port_t sport, mach_port_t rport, security_token_t securityToken, \
+#define UCSP_ARGS	mach_port_t servicePort, mach_port_t replyPort, security_token_t securityToken, \
                     CSSM_RETURN *rcode
 #define CONTEXT_ARGS Context context, Pointer contextBase, Context::Attr *attributes, mach_msg_type_number_t attrCount
 
 #define BEGIN_IPCN	*rcode = CSSM_OK; try {
-#define BEGIN_IPC	BEGIN_IPCN Connection &connection = Server::connection(rport);
+#define BEGIN_IPC	BEGIN_IPCN Connection &connection = Server::connection(replyPort);
 #define END_IPC(base)	END_IPCN(base) Server::requestComplete(); return KERN_SUCCESS;
 #define END_IPCN(base) 	} \
 	catch (const CssmCommonError &err) { *rcode = err.cssmError(CSSM_ ## base ## _BASE_ERROR); } \
-	catch (std::bad_alloc) { *rcode = CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
+	catch (const std::bad_alloc &) { *rcode = CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
 	catch (Connection *conn) { *rcode = 0; } \
 	catch (...) { *rcode = CssmError::merge(CSSM_ERRCODE_INTERNAL_ERROR, CSSM_ ## base ## _BASE_ERROR); }
 
@@ -68,6 +68,9 @@ public:
 		: mData(*outP), mLength(*outLength) { }
 	~OutputData()
 	{ mData = data(); mLength = length(); Server::releaseWhenDone(mData); }
+    
+    void operator = (const CssmData &source)
+    { CssmData::operator = (source); }
 	
 private:
 	void * &mData;
@@ -110,11 +113,12 @@ template <class T>
 void relocate(T *obj, T *base, size_t size)
 {
     if (obj) {
+		if (base == NULL)	// invalid, could confuse walkers
+			CssmError::throwMe(CSSM_ERRCODE_INVALID_POINTER);
         CheckingReconstituteWalker w(obj, base, size);
         walk(w, base);
     }
 }
-
 
 
 //
@@ -123,7 +127,19 @@ void relocate(T *obj, T *base, size_t size)
 kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, const char *identity)
 {
 	BEGIN_IPCN
-	Server::active().setupConnection(rport, taskPort, securityToken, identity);
+	Server::active().setupConnection(servicePort, replyPort, taskPort, securityToken, identity);
+	END_IPCN(CSSM)
+	return KERN_SUCCESS;
+}
+
+kern_return_t ucsp_server_setupNew(UCSP_ARGS, mach_port_t taskPort, const char *identity,
+	mach_port_t *newServicePort)
+{
+	BEGIN_IPCN
+	Session *session = new DynamicSession(TaskPort(taskPort).bootstrap());
+	Server::active().setupConnection(session->servicePort(), replyPort,
+		taskPort, securityToken, identity);
+	*newServicePort = session->servicePort();
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
 }
@@ -131,7 +147,7 @@ kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, const char *ide
 kern_return_t ucsp_server_teardown(UCSP_ARGS)
 {
 	BEGIN_IPCN
-	Server::active().endConnection(rport);
+	Server::active().endConnection(replyPort);
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
 }
@@ -277,6 +293,22 @@ kern_return_t ucsp_server_releaseKey(UCSP_ARGS, KeyHandle key)
 	END_IPC(CSP)
 }
 
+kern_return_t ucsp_server_queryKeySizeInBits(UCSP_ARGS, KeyHandle key, CSSM_KEY_SIZE *length)
+{
+	BEGIN_IPC
+	*length = connection.queryKeySize(findHandle<Key>(key));
+	END_IPC(CSP)
+}
+
+kern_return_t ucsp_server_getOutputSize(UCSP_ARGS, CONTEXT_ARGS, KeyHandle key,
+    uint32 inputSize, boolean_t encrypt, uint32 *outputSize)
+{
+    BEGIN_IPC
+    context.postIPC(contextBase, attributes);
+    *outputSize = connection.getOutputSize(context, findHandle<Key>(key), inputSize, encrypt);
+    END_IPC(CSP)
+}
+
 
 //
 // RNG interface
@@ -298,22 +330,22 @@ kern_return_t ucsp_server_generateRandom(UCSP_ARGS, uint32 bytes, DATA_OUT(data)
 // Signatures and MACs
 //
 kern_return_t ucsp_server_generateSignature(UCSP_ARGS, CONTEXT_ARGS, KeyHandle key,
-		DATA_IN(data), DATA_OUT(signature))
+        CSSM_ALGORITHMS signOnlyAlgorithm, DATA_IN(data), DATA_OUT(signature))
 {
 	BEGIN_IPC
 	context.postIPC(contextBase, attributes);
 	OutputData sigData(signature, signatureLength);
-	connection.generateSignature(context, findHandle<Key>(key),
+	connection.generateSignature(context, findHandle<Key>(key), signOnlyAlgorithm,
 		DATA(data), sigData);
 	END_IPC(CSP)
 }
 
 kern_return_t ucsp_server_verifySignature(UCSP_ARGS, CONTEXT_ARGS, KeyHandle key,
-		DATA_IN(data), DATA_IN(signature))
+		CSSM_ALGORITHMS verifyOnlyAlgorithm, DATA_IN(data), DATA_IN(signature))
 {
 	BEGIN_IPC
 	context.postIPC(contextBase, attributes);
-	connection.verifySignature(context, findHandle<Key>(key),
+	connection.verifySignature(context, findHandle<Key>(key), verifyOnlyAlgorithm,
 		DATA(data), DATA(signature));
 	END_IPC(CSP)
 }
@@ -399,6 +431,53 @@ kern_return_t ucsp_server_generateKeyPair(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
 		pubUsage, pubAttrs, privUsage, privAttrs, pub, priv);
     pub->returnKey(*pubKey, *pubHeader);
     priv->returnKey(*privKey, *privHeader);
+	END_IPC(CSP)
+}
+
+
+//
+// Key derivation.
+// This is a bit strained; the incoming 'param' value may have structure
+// and needs to be handled on a per-algorithm basis, which means we have to
+// know which key derivation algorithms we support for passing to our CSP(s).
+// The default behavior is to handle "flat" data blobs, which is as good
+// a default as we can manage.
+// NOTE: The param-specific handling must be synchronized with the client library
+// code (in sstransit.h).
+//
+kern_return_t ucsp_server_deriveKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS, KeyHandle key,
+	COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
+    COPY_IN(void, paramInputData), DATA_OUT(paramOutput),
+	uint32 usage, uint32 attrs, KeyHandle *newKey, CssmKey::Header *newHeader)
+{
+	BEGIN_IPC
+	context.postIPC(contextBase, attributes);
+    relocate(cred, credBase, credLength);
+	relocate(owner, ownerBase, ownerLength);
+    
+    // munge together the incoming 'param' value according to algorithm
+    CssmData param;
+    switch (context.algorithm()) {
+    case CSSM_ALGID_PKCS5_PBKDF2:
+        relocate((CSSM_PKCS5_PBKDF2_PARAMS *)paramInputData,
+            (CSSM_PKCS5_PBKDF2_PARAMS *)paramInputDataBase,
+            paramInputDataLength);
+        param = CssmData(paramInputData, sizeof(CSSM_PKCS5_PBKDF2_PARAMS));
+        break;
+    default:
+        param = CssmData(paramInputData, paramInputDataLength);
+        break;
+    }
+    Key &theKey = connection.deriveKey(Server::optionalDatabase(db),
+		context, Server::optionalKey(key), cred, owner, &param, usage, attrs);
+    theKey.returnKey(*newKey, *newHeader);
+    if (param.length()) {
+        if (!param)	// CSP screwed up
+            CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+        if (paramInputDataLength)		// using incoming buffer; make a copy
+            param = CssmAutoData(Server::csp().allocator(), param).release();
+        OutputData(paramOutput, paramOutputLength) = param;	// return the data
+    }
 	END_IPC(CSP)
 }
 
@@ -499,13 +578,12 @@ kern_return_t ucsp_server_getAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 
 kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 	COPY_IN(AccessCredentials, cred), CSSM_ACL_EDIT_MODE mode, CSSM_ACL_HANDLE handle,
-	COPY_IN(AclEntryPrototype, acl))
+	COPY_IN(AclEntryInput, acl))
 {
 	BEGIN_IPC
     relocate(cred, credBase, credLength);
 	relocate(acl, aclBase, aclLength);
-	AclEntryInput input(*acl);
-	Server::aclBearer(kind, key).cssmChangeAcl(AclEdit(mode, handle, &input), cred);
+	Server::aclBearer(kind, key).cssmChangeAcl(AclEdit(mode, handle, acl), cred);
 	END_IPC(CSP)
 }
 
@@ -561,14 +639,18 @@ kern_return_t ucsp_server_authorizationCopyInfo(UCSP_ARGS,
 	COPY_OUT(AuthorizationItemSet, info))
 {
 	BEGIN_IPC
-	Authorization::MutableRightSet result;
-	*rcode = connection.process.session.authGetInfo(authorization,
-        tag[0] ? tag : NULL, result);
-	Copier<AuthorizationItemSet> returnedInfo(result, CssmAllocator::standard());
-	*info = *infoBase = returnedInfo;
-	*infoLength = returnedInfo.length();
-	Server::releaseWhenDone(returnedInfo.keep());
-	END_IPC(CSSM)
+    AuthorizationItemSet *result;
+    *info = *infoBase = NULL;
+    *infoLength = 0;
+    *rcode = connection.process.session.authGetInfo(authorization,
+        tag[0] ? tag : NULL, result); // result is a deep copy
+    if (*rcode == noErr)
+    {
+        *info = *infoBase = result;
+        *infoLength = size(result);
+        Server::releaseWhenDone(result);
+    }
+    END_IPC(CSSM)
 }
 
 kern_return_t ucsp_server_authorizationExternalize(UCSP_ARGS,
@@ -607,4 +689,29 @@ kern_return_t ucsp_server_setupSession(UCSP_ARGS,
 	BEGIN_IPC
     Session::setup(flags, attrs);
 	END_IPC(CSSM)
+}
+
+
+//
+// Notification core subsystem
+//
+kern_return_t ucsp_server_requestNotification(UCSP_ARGS, mach_port_t receiver, uint32 domain, uint32 events)
+{
+    BEGIN_IPC
+    connection.process.requestNotifications(receiver, domain, events);
+    END_IPC(CSSM)
+}
+
+kern_return_t ucsp_server_stopNotification(UCSP_ARGS, mach_port_t receiver)
+{
+    BEGIN_IPC
+    connection.process.stopNotifications(receiver);
+    END_IPC(CSSM)
+}
+
+kern_return_t ucsp_server_postNotification(UCSP_ARGS, uint32 domain, uint32 event, DATA_IN(data))
+{
+    BEGIN_IPC
+    connection.process.postNotification(domain, event, DATA(data));
+    END_IPC(CSSM)
 }

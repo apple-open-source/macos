@@ -14,8 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = iostat.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble iostat.8\
-            names.c
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble iostat.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -29,6 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+FRAMEWORKS = -framework CoreFoundation -framework IOKit
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

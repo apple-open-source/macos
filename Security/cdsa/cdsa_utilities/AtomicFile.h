@@ -104,7 +104,7 @@ private:
     class OpenFile
     {
     public:
-        OpenFile(const std::string &inFilename, bool write, bool lock, VersionId inVersionId);
+        OpenFile(const std::string &inFilename, bool write, bool lock, VersionId inVersionId, mode_t mode);
         ~OpenFile();
 
         void close();
@@ -120,6 +120,9 @@ private:
 
         void lock();
         void unlock();
+
+		// Return the mode bits of the file
+		mode_t mode();
 
         int mUseCount;
         FileRef mFileRef;

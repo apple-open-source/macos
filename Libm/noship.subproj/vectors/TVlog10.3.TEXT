@@ -1,0 +1,75 @@
+! <scp> 01/08/02 reworked cases depending on Extended80 format.
+! Test vectors for log10
+!
+!
+! The easy case:
+38	d	1	0	OK	0
+! Zero:
+38	d	+0	0	z	-H
+38	d	-0	0	z	-H
+! Infinity:
+38	d	+H	0	OK	+H
+38	d	-H	0	i	Q
+! Negative cases:
+38	d	-1	0	i	Q
+38	d	-2	0	i	Q
+38	d	-2i2	0	i	Q
+38	d	-4d5	0	i	Q
+38	d	-1u1	0	i	Q
+38	d	-1u4	0	i	Q
+38	d	-Hd1	0	i	Q
+38	d	-Hm1i2	0	i	Q
+38	d	-Hm2i2	0	i	Q
+38	d	-Hm2i4	0	i	Q
+38	d	-E	0	i	Q
+38	d	-Ei1	0	i	Q
+38	d	-Ed1	0	i	Q
+38	d	-Ep1	0	i	Q
+38	d	-Em1	0	i	Q
+38	d	-0i1	0	i	Q
+38	d	-0i2	0	i	Q
+38	d	-0i7	0	i	Q
+! NaN cases:
+38	d	Q	0	OK	Q
+38	d	-Q	0	OK	-Q
+! Powers of 10
+! For now, only round-to-nearest is tested
+38	=d	10	0	x	1	!	flags????
+38	=d	1000	0	x	3
+! <scp> 38	=e	$73E6D1BA8323FE558C61	0	x	4000-1	! log10(1.0e4000)
+48	=d	0x73d658e3      0xab795204 0 0 x 0x406f4000      0x00000000 ! log10(1.0e250)
+38	=d	$3FFBCCCCCCCCCCCCCCCD	0	x	-1	!	log10(0.1)
+38	=d	$3FF583126E978D4FDF3B	0	x	-3	!	log10(0.001)
+! <scp> 38	=e	$0C179C3D73864F3805C0	0	x	-4000-1	! log10(1.0e-4000)
+48	=d	0x0c06e93f      0x5da2824c 0 0 x 0xc06f4000      0x00000000 ! log10(1.0e-250)
+
+! Powers of 2
+! For now, only round-to-nearest is tested
+! <scp> harness appears to incorrectly convert the '$' constants below. 
+! <scp> Use long double derived values instead.
+
+! <scp> 38	=e	1p1		0	x	$3FFD9A209A84FBCFF799
+! <scp> 38	=e	1p10		0	x	$4000C0A8C1263AC3F57F
+! <scp> 38	=e	1p100		0	x	$4003F0D2F16FC974F2DF-1
+48	=d	0x40000000	0x00000000	0x0	0x0	x	0x3fd34413	0x509f79ff
+48	=d	0x40900000	0x00000000	0x0	0x0	x	0x40081518	0x24c7587f
+48	=d	0x46300000	0x00000000	0x0	0x0	x	0x403e1a5e	0x2df92e9e
+
+!38	=e	1p1000		0	x	$40079683D6E5DDE917CB	Makes no sense for powerpc <klh 9/30/93>
+!38	=e	1p10000		0	x	$400ABC24CC9F55635DBE-1	Makes no sense for powerpc <klh 9/30/93>
+!38	=e	1p16383		0	x	$400B9A1E320291BC0859	Makes no sense for powerpc <klh 9/30/93>
+
+! <scp> 38	=e	1m1		0	x	$BFFD9A209A84FBCFF799
+! <scp> 38	=e	1m10		0	x	$C000C0A8C1263AC3F57F
+! <scp> 38	=e	1m100		0	x	$C003F0D2F16FC974F2DF-1
+48	=d	0x3fe00000	0x00000000	0x0	0x0	x	0xbfd34413	0x509f79ff
+48	=d	0x3f500000	0x00000000	0x0	0x0	x	0xc0081518	0x24c7587f
+48	=d	0x39b00000	0x00000000	0x0	0x0	x	0xc03e1a5e	0x2df92e9e
+
+!38	=e	1m1000		0	x	$C0079683D6E5DDE917CB	Makes no sense for powerpc <klh 9/30/93>
+!38	=e	1m10000		0	x	$C00ABC24CC9F55635DBE-1	Makes no sense for powerpc <klh 9/30/93>
+
+! <scp> 38	=e	E		0	x	$C00B9A1E320291BC0859
+! <scp> 38	=e	0i1		0	x	$C00B9AB5EA1AACA3E911
+48	=d	0x00000000	0x00000001	0x0	0x0	x	0xc07434e6	0x420f4374
+48	=d	0x00100000	0x00000000	0x0	0x0	x	0xc0733a71	0x46f72a42

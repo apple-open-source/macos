@@ -1,10 +1,10 @@
-;;; slovak.el --- Support for Slovak -*- coding: iso-2022-7bit; -*-
+;;; slovak.el --- support for Slovak -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1998 Free Software Foundation.
+;; Copyright (C) 1998, 2001 Free Software Foundation.
 
 ;; Authors:    Tibor ,B)(Bimko <tibor.simko@fmph.uniba.sk>,
-;;             Milan Zamazal <pdm@fi.muni.cz>
-;; Maintainer: Milan Zamazal <pdm@fi.muni.cz>
+;;             Milan Zamazal <pdm@zamazal.org>
+;; Maintainer: Pavel Jan,Am(Bk <Pavel@Janik.cz>
 ;; Keywords: multilingual, Slovak
 
 ;; This file is part of GNU Emacs.
@@ -30,11 +30,6 @@
 
 ;;; Code:
 
-(defun setup-slovak-environment ()
-  "Setup multilingual environment (MULE) for Slovak."
-  (interactive)
-  (set-language-environment "Slovak"))
-
 (set-language-info-alist
  "Slovak" '((charset . (ascii latin-iso8859-2))
 	    (coding-system . (iso-8859-2))
@@ -43,10 +38,14 @@
 	    (input-method . "slovak")
 	    (unibyte-syntax . "latin-2")
 	    (unibyte-display . iso-8859-2)
+	    (tutorial . "TUTORIAL.sk")
 	    (sample-text . "Prajeme V,Ba(Bm pr,Bm(Bjemn,B}(B de,Br(B!")
-	    (documentation . t))
+	    (documentation . "\
+This language environment is almost the same as Latin-2,
+but default input method is set to \"slovak\",
+and select's the Slovak tutorial."))
  '("European"))
 
 (provide 'slovak)
 
-;; slovak.el ends here
+;;; slovak.el ends here

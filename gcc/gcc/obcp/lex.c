@@ -3154,7 +3154,7 @@ do_identifier (token, parsing, args)
 	{
 	  if (objc_method_context && is_ivar (objc_ivar_chain, token))
 	    {
-	      if (!DECL_NONLOCAL (token))
+	      if (IDENTIFIER_BINDING (token))
 		warning ("local declaration of `%s' " 
 			 "hides instance variable",
 			 IDENTIFIER_POINTER (token));

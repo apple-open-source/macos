@@ -16,7 +16,7 @@ HFILES = error.h identd.h xpaths.h
 
 CFILES = config.c identd.c netbsd.c parse.c proxy.c version.c
 
-OTHERSRCS = CREDITS Makefile.dist README identd.8 Makefile.preamble
+OTHERSRCS = CREDITS Makefile.dist README identd.8 Makefile.preamble Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

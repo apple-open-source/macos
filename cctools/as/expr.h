@@ -1,3 +1,5 @@
+#ifndef _EXPR_H_
+#define _EXPR_H_
 /* expr.h -> header file for expr.c
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -108,3 +110,4 @@ extern char get_symbol_end(
     void);
 extern segT try_to_make_absolute(
     expressionS *expressionP);
+#endif /* _EXPR_H_ */

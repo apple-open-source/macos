@@ -136,6 +136,8 @@ DbImpl::deactivate()
 void
 DbImpl::deleteDb()
 {
+	// Deactivate so the db gets closed if it was open.
+	deactivate();
 	// This call does not require the receiver to be active.
 	check(CSSM_DL_DbDelete(dl()->handle(), name(), dbLocation(),
 						   mAccessCredentials));
@@ -427,6 +429,18 @@ ObjectImpl(parent), CssmAutoQuery(query, allocator)
 DbCursorImpl::DbCursorImpl(const Object &parent, uint32 capacity, CssmAllocator &allocator) :
 ObjectImpl(parent), CssmAutoQuery(capacity, allocator)
 {
+}
+
+CssmAllocator &
+DbCursorImpl::allocator() const
+{
+	return ObjectImpl::allocator();
+}
+
+void
+DbCursorImpl::allocator(CssmAllocator &alloc)
+{
+	ObjectImpl::allocator(alloc);
 }
 
 

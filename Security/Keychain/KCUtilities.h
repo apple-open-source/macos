@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -15,12 +15,10 @@
  * specific language governing rights and limitations under the License.
  */
 
+#ifndef _SECURITY_KCUTILITIES_H_
+#define _SECURITY_KCUTILITIES_H_
 
-#ifdef _KC_UTILS
-# pragma export on
-#endif
-
-#include <Security/SecKeychainAPI.h>
+#include <Security/SecKeychainItem.h>
 #include <Security/utilities.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <memory>
@@ -65,6 +63,4 @@ private:
 
 } // end namespace Security
 
-#ifdef _KC_UTILS
-#pragma export off
-#endif
+#endif // !_SECURITY_KCUTILITIES_H_

@@ -1,4 +1,4 @@
-.TH SIZE 1 "October 23, 1997" "Apple Computer, Inc."
+.TH SIZE 1 "May 23, 2002" "Apple Computer, Inc."
 .SH NAME
 size \- print the size of the sections in an object file
 .SH SYNOPSIS
@@ -38,6 +38,21 @@ When used with the
 .B \-m
 option,
 print the values in hexadecimal (with leading 0x's) rather than decimal.
+.TP
+.BI \-arch " arch_type"
+Specifies the architecture,
+.I arch_type,
+of the file for
+.IR size (1)
+to operate on when the file is a fat file.  (See
+.IR arch (3)
+for the currently know
+.IR arch_type s.)
+The
+.I arch_type
+can be "all" to operate on all architectures in the file.
+The default is to display only the host architecture, if the file contains it;
+otherwise, all architectures in the file are shown.
 .SH "SEE ALSO"
 otool(1)
 .SH BUGS

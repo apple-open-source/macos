@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,6 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 /*
  * ABOUT THIS FILE
  *		This file contains the definition for the command object that 
@@ -39,13 +41,30 @@
 
 #if defined(KERNEL) && defined(__cplusplus)
 
-// Headers for general IOKit definitions
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 
-// Headers for SCSI command support definitions
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define	SEARCH_DATA_PARAMETER_LIST_MIN_LENGTH		20
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class SCSIBlockCommands : public SCSIPrimaryCommands
 {
@@ -53,10 +72,10 @@ class SCSIBlockCommands : public SCSIPrimaryCommands
 	OSDeclareDefaultStructors ( SCSIBlockCommands )
 	
 public:
-
+	
 	// factory method accessor
 	static SCSIBlockCommands * CreateSCSIBlockCommandObject ( void );
-
+	
 	// SCSI Block Commands as defined in T10:990D SBC, Revision 8c,
 	// dated 13 November 1997
 	
@@ -206,6 +225,7 @@ public:
 	virtual bool	READ_UPDATED_BLOCK_10 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt32						transferCount,
 							SCSICmdField1Bit 			DPO, 
 							SCSICmdField1Bit 			FUA,
 			 				SCSICmdField1Bit 			RELADR, 
@@ -242,7 +262,7 @@ public:
 			 				SCSICmdField1Bit 			INTDATA, 
 			 				SCSICmdField2Bit 			PORT_CONTROL, 
 			 				SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
-							SCSICmdField4Byte 			REBUILD_LENGTH, 
+							SCSICmdField4Byte 			REGENERATE_LENGTH, 
 							SCSICmdField4Byte 			PARAMETER_LIST_LENGTH, 
 							SCSICmdField1Byte 			CONTROL );
 
@@ -260,6 +280,7 @@ public:
 	virtual bool	SEARCH_DATA_EQUAL_10 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt32						transferCount,
 							SCSICmdField1Bit 			INVERT, 
 							SCSICmdField1Bit 			SPNDAT, 
 							SCSICmdField1Bit 			RELADR, 
@@ -274,6 +295,7 @@ public:
 	virtual bool	SEARCH_DATA_HIGH_10 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt32						transferCount,
 							SCSICmdField1Bit 			INVERT, 
 							SCSICmdField1Bit 			SPNDAT, 
 							SCSICmdField1Bit 			RELADR, 
@@ -288,6 +310,7 @@ public:
 	virtual bool	SEARCH_DATA_LOW_10 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt32						transferCount,
 							SCSICmdField1Bit 			INVERT, 
 							SCSICmdField1Bit 			SPNDAT, 
 							SCSICmdField1Bit 			RELADR, 
@@ -351,6 +374,7 @@ public:
 	virtual bool	UPDATE_BLOCK ( 
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt64						transferCount,
 							SCSICmdField1Bit 			RELADR, 
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField1Byte 			CONTROL );
@@ -381,7 +405,8 @@ public:
 	virtual bool	WRITE_6 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
-   							SCSICmdField2Byte 			LOGICAL_BLOCK_ADDRESS, 
+							UInt64						transferCount,
+							SCSICmdField21Bit 			LOGICAL_BLOCK_ADDRESS,
 							SCSICmdField1Byte 			TRANSFER_LENGTH, 
 							SCSICmdField1Byte 			CONTROL );
 	  
@@ -402,6 +427,7 @@ public:
 	virtual bool	WRITE_12 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt64						transferCount,
 							SCSICmdField1Bit 			DPO, 
 							SCSICmdField1Bit 			FUA,
 							SCSICmdField1Bit 			EBP, 
@@ -414,6 +440,7 @@ public:
 	virtual bool	WRITE_AND_VERIFY_10 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt64						transferCount,
 							SCSICmdField1Bit 			DPO,
 							SCSICmdField1Bit 			EBP, 
 							SCSICmdField1Bit 			BYTCHK, 
@@ -426,6 +453,7 @@ public:
 	virtual bool	WRITE_AND_VERIFY_12 (
 							SCSITask *					request,
 							IOMemoryDescriptor *		dataBuffer,
+							UInt64						transferCount,
 							SCSICmdField1Bit 			DPO,
 							SCSICmdField1Bit 			EBP, 
 							SCSICmdField1Bit 			BYTCHK, 

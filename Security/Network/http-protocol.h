@@ -40,8 +40,8 @@ namespace Network {
 // The Protocol object for the HTTP protocol
 //
 class HTTPProtocol : public Protocol {
-    class HTTPTransfer;
 public:
+    class HTTPTransfer;
     static const IPPort defaultHttpPort = 80;
 
     HTTPProtocol(Manager &mgr, const char *scheme = "http");
@@ -55,11 +55,12 @@ private:
         void merge(string key, string &old, string newValue);
     };
 
-private:
+protected:
     //
     // Our persistent connection object
     //
     class HTTPConnection : public TCPConnection {
+        static const int defaultSubVersion = 1;	// default to HTTP/1.1
     public:
         HTTPConnection(Protocol &proto, const HostTarget &tgt);
     
@@ -106,6 +107,7 @@ private:
         void chooseRetain();
 
     protected:
+        int subVersion;						// HTTP/1.x sub-protocol version
         State state;						// master state machine switch
         bool deferSendRequest;				// allows a subclass to interrupt state machine
         string mOperation;					// requested HTTP operation
@@ -113,7 +115,7 @@ private:
         unsigned int httpVersionMinor;		// minor version of peer
     };
 
-
+public:
     //
     // A generic Transfer object. All HTTP transfers are transactional (headers in, optional data in,
     // headers out, optional data out), so there's no reason to distinguish subclasses.

@@ -17,7 +17,8 @@ CFILES = hfsutil_main.c
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             hfs_CD.fs.tiff hfs_CD.openfs.tiff hfs_FD.fs.tiff\
             hfs_FD.openfs.tiff hfs_HD.fs.tiff hfs_HD.openfs.tiff\
-            hfs_RHD.fs.tiff hfs_RHD.openfs.tiff Info.plist InfoPlist.strings PkgInfo version.plist
+            hfs_RHD.fs.tiff hfs_RHD.openfs.tiff Info.plist\
+            InfoPlist.strings PkgInfo version.plist hfs.util.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -48,7 +48,7 @@ class DbQueryKey
 public:
 	DbQueryKey(const DbConstIndex &index);
 	
-	static const uint32 kQueryValue = 0;
+	enum { kQueryValue = 0 };
 	
 private:
 	WriteSection mKeyData;

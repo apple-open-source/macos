@@ -1,4 +1,5 @@
-#   Copyright (C) 1988, 1990, 1991, 1992, 1997 Free Software Foundation, Inc.
+#   Copyright 1988, 1990, 1991, 1992, 1994, 1995, 1996, 1997, 1999
+#   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,8 +24,8 @@ if $tracelevel then {
     strace $tracelevel
 }
 
-# This only works for native, I think.
-if ![isnative] then {
+# Don't try this for remote targets.
+if [is_remote target] then {
     continue
 }
 

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)clnt_raw.c 1.22 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)clnt_raw.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: clnt_raw.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: clnt_raw.c,v 1.3 2002/02/19 20:36:22 epeyton Exp $";
 #endif
 
 /*
@@ -67,7 +67,11 @@ static char *rcsid = "$Id: clnt_raw.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
  * any interference from the kernal.
  */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <rpc/rpc.h>
+
+extern bool_t	xdr_opaque_auth();
 
 #define MCALL_MSG_SIZE 24
 

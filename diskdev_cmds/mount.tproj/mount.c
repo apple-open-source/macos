@@ -390,6 +390,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		do {
 			(void)snprintf(execname,
 			    sizeof(execname), "%s/mount_%s", *edir, vfstype);
+			argv[0] = execname;
 			execv(execname, (char * const *)argv);
 			if (errno != ENOENT)
 				warn("exec %s for %s", execname, name);

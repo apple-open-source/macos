@@ -28,8 +28,8 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 CFStringRef
 SCDynamicStoreKeyCreateProxies(CFAllocatorRef allocator)
@@ -45,22 +45,23 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 {
 	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
-	SCDynamicStoreRef	mySession	= store;
 	CFDictionaryRef		proxies		= NULL;
+	Boolean			tempSession	= FALSE;
 
 	if (!store) {
-		mySession = SCDynamicStoreCreate(NULL,
-						 CFSTR("SCDynamicStoreCopyConsoleUser"),
-						 NULL,
-						 NULL);
-		if (!mySession) {
+		store = SCDynamicStoreCreate(NULL,
+					     CFSTR("SCDynamicStoreCopyConsoleUser"),
+					     NULL,
+					     NULL);
+		if (!store) {
 			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
 			return NULL;
 		}
+		tempSession = TRUE;
 	}
 
 	key  = SCDynamicStoreKeyCreateProxies(NULL);
-	dict = SCDynamicStoreCopyValue(mySession, key);
+	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
 	if (!isA_CFDictionary(dict)) {
 		_SCErrorSet(kSCStatusNoKey);
@@ -71,7 +72,7 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 
     done :
 
-	if (!store && mySession)	CFRelease(mySession);
-	if (dict)			CFRelease(dict);
+	if (tempSession)	CFRelease(store);
+	if (dict)		CFRelease(dict);
 	return proxies;
 }

@@ -13,10 +13,10 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
 HFILES = aliasdb.h bootparams.h lookup_types.h lu_overrides.h\
-         lu_utils.h netgr.h printerdb.h
+         lu_host.h lu_utils.h netdb_async.h netgr.h printerdb.h
 
 CFILES = lu_alias.c lu_bootp.c lu_bootparam.c lu_fstab.c lu_group.c\
-         lu_host.c lu_netgroup.c lu_network.c lu_printer.c\
+         lu_host.c lu_host_async.c lu_netgroup.c lu_network.c lu_printer.c\
          lu_protocol.c lu_rpc.c lu_service.c lu_user.c lu_utils.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble lookup.defs\

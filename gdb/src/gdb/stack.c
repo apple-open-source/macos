@@ -1,5 +1,8 @@
 /* Print and select stack frames for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991-1996, 1998-2000 Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -37,12 +40,7 @@
 #include "symfile.h"
 #include "objfiles.h"
 
-#ifdef TARGET_HAS_EMBEDDED_SYMBOLS
-#endif
-
-#ifdef UI_OUT
 #include "ui-out.h"
-#endif
 
 /* Prototypes for exported functions. */
 
@@ -113,7 +111,6 @@ struct frame_info *parse_frame_specification (char *);
 static void frame_info (char *, int);
 
 extern int addressprint;	/* Print addresses, or stay symbolic only? */
-extern int info_verbose;	/* Verbosity of symbol reading msgs */
 extern int lines_to_list;	/* # of lines "list" command shows by default */
 
 /* The "selected" stack frame is used by default for local and arg access.
@@ -154,11 +151,6 @@ show_and_print_stack_frame_stub (void *args)
 {
   struct print_stack_frame_args *p = (struct print_stack_frame_args *) args;
 
-  /* Reversed order of these so tuiDo() doesn't occur
-   * in the middle of "Breakpoint 1 ... [location]" printing = RT
-   */
-  if (tui_version)
-    print_frame_info_base (p->fi, p->level, p->source, p->args);
   print_frame_info (p->fi, p->level, p->source, p->args);
 
   return 0;
@@ -172,10 +164,7 @@ print_stack_frame_stub (void *args)
 {
   struct print_stack_frame_args *p = (struct print_stack_frame_args *) args;
 
-  if (tui_version)
-    print_frame_info (p->fi, p->level, p->source, p->args);
-  else
-    print_frame_info_base (p->fi, p->level, p->source, p->args);
+  print_frame_info_base (p->fi, p->level, p->source, p->args);
   return 0;
 }
 
@@ -413,25 +402,37 @@ print_frame_info_base (struct frame_info *fi, int level, int source, int args)
 				     fi->pc);
       if (!done)
 	{
-	  if (addressprint && mid_statement && !tui_version)
-	    {
-#ifdef UI_OUT
-	      ui_out_field_core_addr (uiout, "addr", fi->pc);
-	      ui_out_text (uiout, "\t");
-#else
-	      print_address_numeric (fi->pc, 1, gdb_stdout);
-	      printf_filtered ("\t");
-#endif
-	    }
-
 	  if (print_frame_info_listing_hook)
-	    print_frame_info_listing_hook (sal.symtab, sal.line, 1, 0);
-	  else if (!tui_version)
-	    print_source_lines (sal.symtab, sal.line, 1, 0);
+	    {
+	      print_frame_info_listing_hook (sal.symtab, sal.line, sal.line + 1, 0);
+	      current_source_symtab = sal.symtab;
+	    }
+	  else
+	    {
+	      /* We used to do this earlier, but that is clearly
+		 wrong. This function is used by many different
+		 parts of gdb, including normal_stop in infrun.c,
+		 which uses this to print out the current PC
+		 when we stepi/nexti into the middle of a source
+		 line. Only the command line really wants this
+		 behavior. Other UIs probably would like the
+		 ability to decide for themselves if it is desired. */
+	      if (addressprint && mid_statement)
+		{
+		  ui_out_field_core_addr (uiout, "addr", fi->pc);
+		  ui_out_text (uiout, "\t");
+		}
+
+	      if (print_frame_info_listing_hook)
+		print_frame_info_listing_hook (sal.symtab, sal.line, 1, 0);
+	      else
+		print_source_lines (sal.symtab, sal.line, 1, 0);
+
+	    }
 	}
       current_source_line = max (sal.line - lines_to_list / 2, 1);
     }
-
+  
   if (source != 0)
     set_default_breakpoint (1, fi->pc, sal.symtab, sal.line);
 
@@ -450,13 +451,12 @@ print_frame (struct frame_info *fi,
   struct symbol *func;
   register char *funname = 0;
   enum language funlang = language_unknown;
-#ifdef UI_OUT
   struct ui_stream *stb;
   struct cleanup *old_chain;
+  struct cleanup *list_chain;
 
   stb = ui_out_stream_new (uiout);
   old_chain = make_cleanup_ui_out_stream_delete (stb);
-#endif /* UI_OUT */
 
   func = find_pc_function (fi->pc);
   if (func)
@@ -550,78 +550,54 @@ print_frame (struct frame_info *fi,
 
   annotate_frame_begin (level == -1 ? 0 : level, fi->pc);
 
-#ifdef UI_OUT
-  ui_out_list_begin (uiout, "frame");
-#endif
+  list_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "frame");
 
   if (level >= 0)
     {
-#ifdef UI_OUT
       ui_out_text (uiout, "#");
       ui_out_field_fmt (uiout, "level", "%-2d", level);
       ui_out_spaces (uiout, 1);
-#else
-      printf_filtered ("#%-2d ", level);
-#endif
     }
   if (addressprint)
     if (fi->pc != sal.pc || !sal.symtab || source == LOC_AND_ADDRESS)
       {
 	annotate_frame_address ();
-#ifdef UI_OUT
 	ui_out_field_core_addr (uiout, "addr", fi->pc);
 	annotate_frame_address_end ();
 	ui_out_text (uiout, " in ");
-#else
-	print_address_numeric (fi->pc, 1, gdb_stdout);
-	annotate_frame_address_end ();
-	printf_filtered (" in ");
-#endif
+        
+        if (ui_out_is_mi_like_p (uiout))
+          {
+            ui_out_field_core_addr (uiout, "fp", FRAME_FP(fi));
+          }
       }
   annotate_frame_function_name ();
-#ifdef UI_OUT
   fprintf_symbol_filtered (stb->stream, funname ? funname : "??", funlang,
 			   DMGL_ANSI);
   ui_out_field_stream (uiout, "func", stb);
   ui_out_wrap_hint (uiout, "   ");
-#else
-  fprintf_symbol_filtered (gdb_stdout, funname ? funname : "??", funlang,
-			   DMGL_ANSI);
-  wrap_here ("   ");
-#endif
   annotate_frame_args ();
       
-#ifdef UI_OUT
   ui_out_text (uiout, " (");
-#else
-  fputs_filtered (" (", gdb_stdout);
-#endif
   if (args)
     {
       struct print_args_args args;
+      struct cleanup *args_list_chain;
       args.fi = fi;
       args.func = func;
       args.stream = gdb_stdout;
-#ifdef UI_OUT
-      ui_out_list_begin (uiout, "args");
+      args_list_chain = make_cleanup_ui_out_list_begin_end (uiout, "args");
       catch_errors (print_args_stub, &args, "", RETURN_MASK_ALL);
       /* FIXME: args must be a list. If one argument is a string it will
 		 have " that will not be properly escaped.  */
-      ui_out_list_end (uiout);
-#else
-      catch_errors (print_args_stub, &args, "", RETURN_MASK_ALL);
-#endif
+      /* Invoke ui_out_tuple_end.  */
+      do_cleanups (args_list_chain);
       QUIT;
     }
-#ifdef UI_OUT
   ui_out_text (uiout, ")");
-#else
-  printf_filtered (")");
-#endif
   if (sal.symtab && sal.symtab->filename)
     {
       annotate_frame_source_begin ();
-#ifdef UI_OUT
       ui_out_wrap_hint (uiout, "   ");
       ui_out_text (uiout, " at ");
       annotate_frame_source_file ();
@@ -630,36 +606,11 @@ print_frame (struct frame_info *fi,
       ui_out_text (uiout, ":");
       annotate_frame_source_line ();
       ui_out_field_int (uiout, "line", sal.line);
-#else
-      wrap_here ("   ");
-      printf_filtered (" at ");
-      annotate_frame_source_file ();
-      printf_filtered ("%s", sal.symtab->filename);
-      annotate_frame_source_file_end ();
-      printf_filtered (":");
-      annotate_frame_source_line ();
-      printf_filtered ("%d", sal.line);
-#endif
       annotate_frame_source_end ();
     }
 
-#ifdef PC_LOAD_SEGMENT
-  /* If we couldn't print out function name but if can figure out what
-         load segment this pc value is from, at least print out some info
-         about its load segment. */
-  if (!funname)
-    {
-      annotate_frame_where ();
-#ifdef UI_OUT
-      ui_out_wrap_hint (uiout, "  ");
-      ui_out_text (uiout, " from ");
-      ui_out_field_string (uiout, "from", PC_LOAD_SEGMENT (fi->pc));
-#else
-      wrap_here ("  ");
-      printf_filtered (" from %s", PC_LOAD_SEGMENT (fi->pc));
-#endif
-    }
-#endif /* PC_LOAD_SEGMENT */
+  if (print_frame_more_info_hook)
+    print_frame_more_info_hook (uiout, &sal, fi);
 
 #ifdef PC_SOLIB
   if (!funname || (!sal.symtab || !sal.symtab->filename))
@@ -668,42 +619,19 @@ print_frame (struct frame_info *fi,
       if (lib)
 	{
 	  annotate_frame_where ();
-#ifdef UI_OUT
 	  ui_out_wrap_hint (uiout, "  ");
 	  ui_out_text (uiout, " from ");
 	  ui_out_field_string (uiout, "from", lib);
-#else
-	  wrap_here ("  ");
-	  printf_filtered (" from %s", lib);
-#endif
 	}
     }
 #endif /* PC_SOLIB */
 
-#ifdef UI_OUT
-      if (print_frame_more_info_hook)
-	print_frame_more_info_hook (uiout, &sal, fi);   
-#endif
-
-#ifdef UI_OUT
-  ui_out_list_end (uiout);
+  /* do_cleanups will call ui_out_tuple_end() for us.  */
+  do_cleanups (list_chain);
   ui_out_text (uiout, "\n");
   do_cleanups (old_chain);
-#else
-  printf_filtered ("\n");
-#endif
 }
 
-
-#if 0
-void
-stack_publish_stopped_with_no_frame (void)
-{
-  TUIDO (((TuiOpaqueFuncPtr) tuiUpdateOnEnd));
-
-  return;
-}
-#endif
 
 /* Show or print the frame info.  If this is the tui, it will be shown in 
    the source display */
@@ -711,17 +639,7 @@ void
 print_frame_info (struct frame_info *fi, register int level, int source,
 		  int args)
 {
-  if (!tui_version)
-    print_frame_info_base (fi, level, source, args);
-  else
-    {
-      if (fi && (frame_in_dummy (fi) || fi->signal_handler_caller))
-	print_frame_info_base (fi, level, source, args);
-      else
-	{
-	  TUIDO (((TuiOpaqueFuncPtr) tui_vShowFrameInfo, fi));
-	}
-    }
+  print_frame_info_base (fi, level, source, args);
 }
 
 /* Show the frame info.  If this is the tui, it will be shown in 
@@ -729,7 +647,6 @@ print_frame_info (struct frame_info *fi, register int level, int source,
 void
 show_stack_frame (struct frame_info *fi)
 {
-  TUIDO (((TuiOpaqueFuncPtr) tui_vShowFrameInfo, fi));
 }
 
 
@@ -743,6 +660,7 @@ parse_frame_specification (char *frame_exp)
   int numargs = 0;
 #define	MAXARGS	4
   CORE_ADDR args[MAXARGS];
+  int level;
 
   if (frame_exp)
     {
@@ -762,8 +680,20 @@ parse_frame_specification (char *frame_exp)
 	  addr_string = savestring (frame_exp, p - frame_exp);
 
 	  {
-	    tmp_cleanup = make_cleanup (free, addr_string);
-	    args[numargs++] = parse_and_eval_address (addr_string);
+	    struct value *vp;
+
+	    tmp_cleanup = make_cleanup (xfree, addr_string);
+
+	    /* NOTE: we call parse_and_eval and then both
+	       value_as_long and value_as_address rather than calling
+	       parse_and_eval_long and parse_and_eval_address because
+	       of the issue of potential side effects from evaluating
+	       the expression.  */
+	    vp = parse_and_eval (addr_string);
+	    if (numargs == 0)
+	      level = value_as_long (vp);
+
+	    args[numargs++] = value_as_address (vp);
 	    do_cleanups (tmp_cleanup);
 	  }
 
@@ -783,7 +713,6 @@ parse_frame_specification (char *frame_exp)
       /* NOTREACHED */
     case 1:
       {
-	int level = args[0];
 	struct frame_info *fid =
 	find_relative_frame (get_current_frame (), &level);
 	struct frame_info *tfid;
@@ -805,7 +734,7 @@ parse_frame_specification (char *frame_exp)
 	   really should be used instead of spaces to delimit; using spaces
 	   normally works in an expression).  */
 #ifdef SETUP_ARBITRARY_FRAME
-	error ("No frame %d", args[0]);
+	error ("No frame %s", paddr_d (args[0]));
 #endif
 
 	/* If (s)he specifies the frame with an address, he deserves what
@@ -1028,7 +957,7 @@ frame_info (char *addr_exp, int from_tty)
       print_address_numeric (fi->saved_regs[SP_REGNUM], 1, gdb_stdout);
       printf_filtered ("\n");
       count = 0;
-      numregs = ARCH_NUM_REGS;
+      numregs = NUM_REGS + NUM_PSEUDO_REGS;
       for (i = 0; i < numregs; i++)
 	if (fi->saved_regs[i] && (i != SP_REGNUM) && (i != PC_REGNUM))
 	  {
@@ -1241,7 +1170,7 @@ backtrace_command (char *arg, int from_tty)
   backtrace_command_1 (argPtr, (argIndicatingFullTrace >= 0), from_tty);
 
   if (argIndicatingFullTrace >= 0 && totArgLen > 0)
-    free (argPtr);
+    xfree (argPtr);
 
   if (old_chain)
     do_cleanups (old_chain);
@@ -1262,16 +1191,12 @@ static int
 print_block_frame_locals (struct block *b, register struct frame_info *fi,
 			  int num_tabs, register struct ui_file *stream)
 {
-  int nsyms;
   register int i, j;
   register struct symbol *sym;
   register int values_printed = 0;
 
-  nsyms = BLOCK_NSYMS (b);
-
-  for (i = 0; i < nsyms; i++)
+  ALL_BLOCK_SYMBOLS (b, i, sym)
     {
-      sym = BLOCK_SYM (b, i);
       switch (SYMBOL_CLASS (sym))
 	{
 	case LOC_LOCAL:
@@ -1301,16 +1226,12 @@ static int
 print_block_frame_labels (struct block *b, int *have_default,
 			  register struct ui_file *stream)
 {
-  int nsyms;
   register int i;
   register struct symbol *sym;
   register int values_printed = 0;
 
-  nsyms = BLOCK_NSYMS (b);
-
-  for (i = 0; i < nsyms; i++)
+  ALL_BLOCK_SYMBOLS (b, i, sym)
     {
-      sym = BLOCK_SYM (b, i);
       if (STREQ (SYMBOL_NAME (sym), "default"))
 	{
 	  if (*have_default)
@@ -1347,7 +1268,7 @@ static void
 print_frame_local_vars (register struct frame_info *fi, register int num_tabs,
 			register struct ui_file *stream)
 {
-  register struct block *block = get_frame_block (fi);
+  register struct block *block = get_frame_block (fi, 0);
   register int values_printed = 0;
 
   if (block == 0)
@@ -1381,7 +1302,7 @@ print_frame_label_vars (register struct frame_info *fi, int this_level_only,
 			register struct ui_file *stream)
 {
   register struct blockvector *bl;
-  register struct block *block = get_frame_block (fi);
+  register struct block *block = get_frame_block (fi, 0);
   register int values_printed = 0;
   int index, have_default = 0;
   char *blocks_printed;
@@ -1487,7 +1408,6 @@ print_frame_arg_vars (register struct frame_info *fi,
 {
   struct symbol *func = get_frame_function (fi);
   register struct block *b;
-  int nsyms;
   register int i;
   register struct symbol *sym, *sym2;
   register int values_printed = 0;
@@ -1499,11 +1419,8 @@ print_frame_arg_vars (register struct frame_info *fi,
     }
 
   b = SYMBOL_BLOCK_VALUE (func);
-  nsyms = BLOCK_NSYMS (b);
-
-  for (i = 0; i < nsyms; i++)
+  ALL_BLOCK_SYMBOLS (b, i, sym)
     {
-      sym = BLOCK_SYM (b, i);
       switch (SYMBOL_CLASS (sym))
 	{
 	case LOC_ARG:
@@ -1538,7 +1455,6 @@ print_frame_arg_vars (register struct frame_info *fi,
 	  break;
 	}
     }
-
   if (!values_printed)
     {
       fprintf_filtered (stream, "No arguments.\n");
@@ -1591,14 +1507,6 @@ select_frame (struct frame_info *fi, int level)
 	{
 	  set_language (s->language);
 	}
-      /* elz: this if here fixes the problem with the pc not being displayed
-         in the tui asm layout, with no debug symbols. The value of s 
-         would be 0 here, and select_source_symtab would abort the
-         command by calling the 'error' function */
-      if (s)
-	{
-	  TUIDO (((TuiOpaqueFuncPtr) tui_vSelectSourceSymtab, s));
-	}
     }
 }
 
@@ -1612,24 +1520,9 @@ select_and_print_frame (struct frame_info *fi, int level)
   if (fi)
     {
       print_stack_frame (fi, level, 1);
-      TUIDO (((TuiOpaqueFuncPtr) tui_vCheckDataValues, fi));
     }
 }
 
-
-/* Select frame FI, noting that its stack level is LEVEL.  Be silent if
-   not the TUI */
-#if 0
-void
-select_and_maybe_print_frame (struct frame_info *fi, int level)
-{
-  if (!tui_version)
-    select_frame (fi, level);
-  else
-    select_and_print_frame (fi, level);
-}
-#endif
-
 
 /* Store the selected frame and its level into *FRAMEP and *LEVELP.
    If there is no selected frame, *FRAMEP is set to NULL.  */
@@ -1642,17 +1535,21 @@ record_selected_frame (CORE_ADDR *frameaddrp, int *levelp)
 }
 
 /* Return the symbol-block in which the selected frame is executing.
-   Can return zero under various legitimate circumstances.  */
+   Can return zero under various legitimate circumstances.
+
+   If ADDR_IN_BLOCK is non-zero, set *ADDR_IN_BLOCK to the relevant
+   code address within the block returned.  We use this to decide
+   which macros are in scope.  */
 
 struct block *
-get_selected_block (void)
+get_selected_block (CORE_ADDR *addr_in_block)
 {
   if (!target_has_stack)
     return 0;
 
   if (!selected_frame)
-    return get_current_block ();
-  return get_frame_block (selected_frame);
+    return get_current_block (addr_in_block);
+  return get_frame_block (selected_frame, addr_in_block);
 }
 
 /* Find a frame a certain number of levels away from FRAME.
@@ -1703,13 +1600,12 @@ find_relative_frame (register struct frame_info *frame,
    frame expressions. */
 
 /* ARGSUSED */
-#ifdef UI_OUT
 void
 select_frame_command_wrapper (char *level_exp, int from_tty)
 {
   select_frame_command (level_exp, from_tty);
 }
-#endif
+
 static void
 select_frame_command (char *level_exp, int from_tty)
 {
@@ -1785,8 +1681,6 @@ static void
 up_silently_command (char *count_exp, int from_tty)
 {
   up_silently_base (count_exp);
-  if (tui_version)
-    print_stack_frame (selected_frame, selected_frame_level, 1);
 }
 
 static void
@@ -1832,8 +1726,6 @@ static void
 down_silently_command (char *count_exp, int from_tty)
 {
   down_silently_base (count_exp);
-  if (tui_version)
-    print_stack_frame (selected_frame, selected_frame_level, 1);
 }
 
 static void
@@ -1843,13 +1735,12 @@ down_command (char *count_exp, int from_tty)
   show_and_print_stack_frame (selected_frame, selected_frame_level, 1);
 }
 
-#ifdef UI_OUT
 void
 return_command_wrapper (char *retval_exp, int from_tty)
 {
   return_command (retval_exp, from_tty);
 }
-#endif
+
 static void
 return_command (char *retval_exp, int from_tty)
 {
@@ -1857,7 +1748,7 @@ return_command (char *retval_exp, int from_tty)
   CORE_ADDR selected_frame_addr;
   CORE_ADDR selected_frame_pc;
   struct frame_info *frame;
-  value_ptr return_value = NULL;
+  struct value *return_value = NULL;
 
   if (selected_frame == NULL)
     error ("No selected frame.");
@@ -1988,7 +1879,7 @@ func_command (char *arg, int from_tty)
   while (!found && level == 0);
 
   if (func_bounds)
-    free (func_bounds);
+    xfree (func_bounds);
 
   if (!found)
     printf_filtered ("'%s' not within current stack frame.\n", arg);

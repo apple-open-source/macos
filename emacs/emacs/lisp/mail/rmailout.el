@@ -1,6 +1,6 @@
-;;; rmailout.el --- "RMAIL" mail reader for Emacs: output message to a file.
+;;; rmailout.el --- "RMAIL" mail reader for Emacs: output message to a file
 
-;; Copyright (C) 1985, 1987, 1993, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1987, 1993, 1994, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail
@@ -21,6 +21,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -50,8 +52,7 @@ Set `rmail-default-rmail-file' to this name as well as returning it."
 	    ;; Suggest a file based on a pattern match.
 	    (while (and tail (not answer))
 	      (save-excursion
-		(if (eq major-mode 'rmail-summary-mode)
-		    (set-buffer rmail-buffer)) 
+		(set-buffer rmail-buffer)
 		(goto-char (point-min))
 		(if (re-search-forward (car (car tail)) nil t)
 		    (setq answer (eval (cdr (car tail)))))
@@ -110,7 +111,7 @@ Set `rmail-default-file' to this name as well as returning it."
 ;;; There are functions elsewhere in Emacs that use this function;
 ;;; look at them before you change the calling method.
 ;;;###autoload
-(defun rmail-output-to-rmail-file (file-name &optional count)
+(defun rmail-output-to-rmail-file (file-name &optional count stay)
   "Append the current message to an Rmail file named FILE-NAME.
 If the file does not exist, ask if it should be created.
 If file is being visited, the message is appended to the Emacs
@@ -122,7 +123,10 @@ The default file name comes from `rmail-default-rmail-file',
 which is updated to the name you use in this command.
 
 A prefix argument N says to output N consecutive messages
-starting with the current one.  Deleted messages are skipped and don't count."
+starting with the current one.  Deleted messages are skipped and don't count.
+
+If optional argument STAY is non-nil, then leave the last filed
+mesasge up instead of moving forward to the next non-deleted message."
   (interactive
    (list (rmail-output-read-rmail-file-name)
 	 (prefix-numeric-value current-prefix-arg)))
@@ -142,7 +146,10 @@ starting with the current one.  Deleted messages are skipped and don't count."
 	      (save-excursion
 		(set-buffer file-buffer)
 		(rmail-insert-rmail-file-header)
-		(let ((require-final-newline nil))
+		(let ((require-final-newline nil)
+		      (coding-system-for-write
+		       (or rmail-file-coding-system
+			   'emacs-mule-unix)))
 		  (write-region (point-min) (point-max) file-name t 1)))
 	      (kill-buffer file-buffer))
 	  (error "Output file does not exist")))
@@ -150,6 +157,7 @@ starting with the current one.  Deleted messages are skipped and don't count."
       (let (redelete)
 	(unwind-protect
 	    (progn
+	      (set-buffer rmail-buffer)
 	      ;; Temporarily turn off Deleted attribute.
 	      ;; Do this outside the save-restriction, since it would
 	      ;; shift the place in the buffer where the visible text starts.
@@ -217,9 +225,15 @@ starting with the current one.  Deleted messages are skipped and don't count."
 	  (if redelete (rmail-set-attribute "deleted" t))))
       (setq count (1- count))
       (if rmail-delete-after-output
-	  (unless (rmail-delete-forward) (setq count 0))
+	  (unless 
+	      (if (and (= count 0) stay)
+		  (rmail-delete-message)
+		(rmail-delete-forward))
+	    (setq count 0))
 	(if (> count 0)
-	    (unless (rmail-next-undeleted-message 1) (setq count 0)))))))
+	    (unless 
+		(if (not stay) (rmail-next-undeleted-message 1))
+	      (setq count 0)))))))
 
 ;;;###autoload
 (defcustom rmail-fields-not-to-output nil
@@ -275,6 +289,7 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 			       (file-name-directory rmail-default-file))))
   (if (and (file-readable-p file-name) (mail-file-babyl-p file-name))
       (rmail-output-to-rmail-file file-name count)
+    (set-buffer rmail-buffer)
     (let ((orig-count count)
 	  (rmailbuf (current-buffer))
 	  (case-fold-search t)
@@ -303,11 +318,26 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 		(setq mail-from
 		      (mail-fetch-field "Mail-From")
 		      mime-version
-		      (mail-fetch-field "MIME-Version")))))
+		      (unless rmail-enable-mime
+			(mail-fetch-field "MIME-Version"))))))
 	(save-excursion
 	  (set-buffer tembuf)
 	  (erase-buffer)
 	  (insert-buffer-substring rmailbuf)
+	  (when rmail-enable-mime
+	    (if original-headers-p
+		(delete-region (goto-char (point-min))
+			       (if (search-forward "\n*** EOOH ***\n")
+				   (match-end 0)))
+	      (goto-char (point-min))
+	      (forward-line 2)
+	      (delete-region (point-min)(point))
+	      (search-forward "\n*** EOOH ***\n")
+	      (delete-region (match-beginning 0)
+			     (if (search-forward "\n\n")
+				 (1- (match-end 0)))))
+	    (setq buffer-file-coding-system (or rmail-file-coding-system
+						'raw-text)))
 	  (rmail-delete-unwanted-fields t)
 	  (or (bolp) (insert "\n"))
 	  (goto-char (point-min))

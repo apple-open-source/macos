@@ -765,6 +765,30 @@ long *string_byte_count)
 	    }
 	}
 
+	/*
+	 * Check to see that any symbol that is marked as a weak_definition
+	 * is a global symbol defined in a coalesced section.
+	 */
+	for(symbolP = symbol_rootP; symbolP; symbolP = symbolP->sy_next){
+	    if((symbolP->sy_nlist.n_type & N_STAB) == 0 &&
+	       (symbolP->sy_desc & N_WEAK_DEF) == N_WEAK_DEF){
+		if((symbolP->sy_type & N_EXT) == 0){
+		    as_bad("Non-global symbol: %s can't be a weak_definition",
+			   symbolP->sy_name);
+		}
+		else if((symbolP->sy_type & N_TYPE) == N_UNDF){
+		    as_bad("Undefined symbol: %s can't be a weak_definition",
+			   symbolP->sy_name);
+		}
+		else if((symbolP->sy_type & N_TYPE) != N_SECT ||
+			is_section_coalesced(symbolP->sy_other) == FALSE){
+		  as_bad("symbol: %s can't be a weak_definition (currently "
+		         "only supported in section of type coalesced)",
+			 symbolP->sy_name);
+		}
+	    }
+	}
+
 	/* Set the indexes for symbol groups into the symbol table */
 	ilocalsym = 0;
 	iextdefsym = nlocalsym;

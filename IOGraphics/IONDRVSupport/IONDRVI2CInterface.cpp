@@ -65,7 +65,7 @@ IONDRVI2CInterface * IONDRVI2CInterface::withNDRV(
     IONDRVFramebuffer * ndrv, SInt32 busID )
 {
     IONDRVI2CInterface * interface;
-    UInt64 id = (((UInt64) ndrv) << 32) | busID;
+    UInt64 id = (((UInt64) (UInt32) ndrv) << 32) | busID;
 
     interface = new IONDRVI2CInterface;
     if( interface) {
@@ -208,7 +208,7 @@ AppleOnboardI2CInterface * AppleOnboardI2CInterface::withInterface(
             PPCI2CInterface * onboardInterface, SInt32 port )
 {
     AppleOnboardI2CInterface * interface;
-    UInt64 id = (((UInt64) onboardInterface) << 32) | port;
+    UInt64 id = (((UInt64) (UInt32) onboardInterface) << 32) | port;
 
     interface = new AppleOnboardI2CInterface;
     if( interface) {

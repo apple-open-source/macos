@@ -1687,7 +1687,7 @@ static int dav_method_propfind(request_rec *r)
 	return HTTP_BAD_REQUEST;
     }
 
-    if (depth == DAV_INFINITY) {
+    if (depth == DAV_INFINITY && resource->collection) {
 	dav_dir_conf *conf;
 	conf = (dav_dir_conf *) ap_get_module_config(r->per_dir_config,
 						     &dav_module);
@@ -2524,9 +2524,6 @@ static int dav_method_copymove(request_rec *r, int is_move)
                                                        resnew_parent))
         resnew_parent = resource_parent;
 
-    /* New resource will be same kind as source */
-    resnew->collection = resource->collection;
-
     resource_state = dav_get_resource_state(lookup.rnew, resnew);
 
     /* If target exists, remove it first (we know Ovewrite must be TRUE).
@@ -2620,6 +2617,7 @@ static int dav_method_lock(request_rec *r)
 {
     dav_error *err;
     dav_resource *resource;
+    dav_resource *parent_resource = NULL;
     const dav_hooks_locks *locks_hooks;
     int result;
     int depth;
@@ -2649,6 +2647,17 @@ static int dav_method_lock(request_rec *r)
     result = dav_get_resource(r, &resource);
     if (result != OK)
         return result;
+
+    parent_resource  = (*resource->hooks->get_parent_resource)(resource);
+    if (parent_resource == NULL || !parent_resource->exists) {
+        const char *body = ap_psprintf(r->pool,
+	    "Missing one or more intermediate collections. "
+	    "Cannot lock resource %s.",
+	    ap_escape_html(r->pool, resource->uri));
+	return dav_handle_err(r, 
+            dav_new_error(r->pool, HTTP_CONFLICT, 0, body), NULL);
+    }
+
 
     /*
     ** Open writable. Unless an error occurs, we'll be

@@ -167,13 +167,13 @@ enum {
 	kNewPeakEnable		=	(1<<27),	    // enable new peak interrupt
 	kNewPeakPending		=	(1<<26),	   // new peak interrupt pending
 	kClocksStoppedEnable	=	(1<<25),	// enable clocks stopped interrupt
-	kClocksStoppedPending	=	(1<<24),// clocks stopped interrupt pending
+	kClocksStoppedPending	=	(1<<24),		// clocks stopped interrupt pending
 	kExtSyncErrorEnable		=	(1<<23),	// enable external sync error interrupt
 	kExtSyncErrorPending	=	(1<<22),	// external sync error interrupt pending
 	kExtSyncOKEnable		=	(1<<21),	   // enable external sync OK interrupt
 	kExtSyncOKPending		=	(1<<20),	  // external sync OK interrupt pending
 	kNewSampleRateEnable	=	(1<<19),	// enable new sample rate interrupt
-	kNewSampleRatePending	=	(1<<18),// new sample rate interrupt pending
+	kNewSampleRatePending	=	(1<<18),		// new sample rate interrupt pending
 	kStatusFlagEnable		=	(1<<17),	  // enable status flag interrupt
 	kStatusFlagPending		=	(1<<16)		 // status flag interrupt pending
 };
@@ -228,6 +228,7 @@ static UInt8	kBassRegValues[] = {
 //#define kUSE_DRC		//	when defined, enable DRC at -30.0 dB
 
 static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. from 0.0 to -70 db
+	0x00000000,														// -infinity
 	0x00000015,		0x00000016,		0x00000017,		0x00000019,		// -70.0,	-69.5,	-69.0,	-68.5,
 	0x0000001A,		0x0000001C,		0x0000001D,		0x0000001F,		// -68.0,	-67.5,	-67.0,	-66.5,
 	0x00000021,		0x00000023,		0x00000025,		0x00000027,		// -66.0,	-65.5,	-65.0,	-64.5,
@@ -277,6 +278,7 @@ static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. fro
 
 // This is the coresponding dB values of the entries in the volumeTable arrary above.
 static IOFixed	volumedBTable[] = {
+	-70 << 16,														// Should really be -infinity
 	-70 << 16,	-69 << 16 | 0x8000,	-69 << 16,	-68 << 16 | 0x8000,
 	-68 << 16,	-67 << 16 | 0x8000,	-67 << 16,	-66 << 16 | 0x8000,
 	-66 << 16,	-65 << 16 | 0x8000,	-65 << 16,	-64 << 16 | 0x8000,
@@ -513,8 +515,6 @@ enum GeneralTexas2HardwareAttributeConstants {
 	k16BitsPerChannel			=	16,
 	kTexas2InputChannelDepth	=	kStreamCountMono,
 	kTexas2InputFrameSize		=	16,
-	kTexas2TouchBiquad			=	1,
-	kTexas2BiquadUntouched		=	0,
 	kTouchBiquad				=	1,
 	kBiquadUntouched			=	0
 };
@@ -594,6 +594,7 @@ enum {
 #define kHeadphoneAmpEntry			"headphone-mute"
 #define kAmpEntry					"amp-mute"
 #define kLineOutAmpEntry			"line-output-mute"
+#define kMasterAmpEntry				"master-mute"
 #define kHWResetEntry				"audio-hw-reset"
 #define kHeadphoneDetectInt			"headphone-detect"
 #define kLineInDetectInt			"line-input-detect"
@@ -647,7 +648,8 @@ enum semaphores{
 enum writeMode{
 	kUPDATE_SHADOW					=	0,
 	kUPDATE_HW						=	1,
-	kUPDATE_ALL						=	2
+	kUPDATE_ALL						=	2,
+	kFORCE_UPDATE_ALL				=	3
 };
 
 enum resetRetryCount{
@@ -661,7 +663,12 @@ enum eqPrefsVersion{
 enum muteSelectors{
 	kHEADPHONE_AMP					=	0,
 	kSPEAKER_AMP					=	1,
-    kLINEOUT_AMP					=	2
+    kLINEOUT_AMP					=	2,
+	kMASTER_AMP						=	3
+};
+
+enum texas2delays {
+	kMAX_VOLUME_RAMP_DELAY			=	50				/*	50 milliseconds	*/
 };
 
 #define kHeadphoneBitPolarity		1
@@ -758,7 +765,7 @@ struct EQPrefs {
 	UInt32					genreType;				//	'jazz', 'clas', etc...
 	UInt32					eqCount;				//	number of eq[n] array elements
 	UInt32					nameID;					//	resource id of STR identifying the filter genre
-	EQPrefsElement			eq[4];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
+	EQPrefsElement			eq[8];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
 };
 typedef EQPrefs *EQPrefsPtr;
 
@@ -798,7 +805,9 @@ enum gpio{
 		
 		gpioPIN_RO				=	1,		//	bit address:	read only level on pin
 		
-		gpioDATA				=	0		//	bit address:	the gpio itself
+		gpioDATA				=	0,		//	bit address:	the gpio itself
+		
+		gpioBIT_MASK			=	1		//	value shifted by bit position to be used to determine a GPIO bit state
 };
 
 

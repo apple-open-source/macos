@@ -1,8 +1,9 @@
-;;; text-mode.el --- text mode, and its idiosyncratic commands.
+;;; text-mode.el --- text mode, and its idiosyncratic commands
 
 ;; Copyright (C) 1985, 1992, 1994 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
+;; Keywords: wp
 
 ;; This file is part of GNU Emacs.
 
@@ -28,8 +29,11 @@
 
 ;;; Code:
 
-(defvar text-mode-hook nil
-  "Normal hook run when entering Text mode and many related modes.")
+(defcustom text-mode-hook nil
+  "Normal hook run when entering Text mode and many related modes."
+  :type 'hook
+  :options '(turn-on-auto-fill flyspell-mode)
+  :group 'data)
 
 (defvar text-mode-variant nil
   "Non-nil if this buffer's major mode is a variant of Text mode.")
@@ -75,7 +79,9 @@ Turning on Text mode runs the normal hook `text-mode-hook'."
   (setq local-abbrev-table text-mode-abbrev-table)
   (set-syntax-table text-mode-syntax-table)
   (make-local-variable 'paragraph-start)
-  (setq paragraph-start (concat "[ \t]*$\\|" page-delimiter))
+  (setq paragraph-start (concat page-delimiter "\\|[ \t]*$"))
+  (if (eq ?^ (aref paragraph-start 0))
+      (setq paragraph-start (substring paragraph-start 1)))
   (make-local-variable 'paragraph-separate)
   (setq paragraph-separate paragraph-start)
   (make-local-variable 'indent-line-function)
@@ -88,6 +94,7 @@ Turning on Text mode runs the normal hook `text-mode-hook'."
   "Major mode for editing text, with leading spaces starting a paragraph.
 In this mode, you do not need blank lines between paragraphs
 when the first line of the following paragraph starts with whitespace.
+`paragraph-indent-minor-mode' provides a similar facility as a minor mode.
 Special commands:
 \\{text-mode-map}
 Turning on Paragraph-Indent Text mode runs the normal hooks
@@ -100,6 +107,19 @@ Turning on Paragraph-Indent Text mode runs the normal hooks
   (setq local-abbrev-table text-mode-abbrev-table)
   (set-syntax-table text-mode-syntax-table)
   (run-hooks 'text-mode-hook 'paragraph-indent-text-mode-hook))
+
+(defun paragraph-indent-minor-mode ()
+  "Minor mode for editing text, with leading spaces starting a paragraph.
+In this mode, you do not need blank lines between paragraphs when the
+first line of the following paragraph starts with whitespace, as with
+`paragraph-indent-mode'.
+Turning on Paragraph-Indent minor mode runs the normal hook
+`paragraph-indent-text-mode-hook'."
+  (interactive)
+  (set (make-local-variable 'paragraph-start)
+       (default-value 'paragraph-start))
+  (set (make-local-variable 'paragraph-separate) paragraph-start)
+  (run-hooks 'paragraph-indent-text-mode-hook))
       
 (defalias 'indented-text-mode 'text-mode)
 
@@ -173,7 +193,7 @@ The argument NLINES says how many lines to center."
 	(delete-horizontal-space)
 	(setq line-length (current-column))
 	(if (> (- fill-column lm line-length) 0)
-	    (indent-line-to 
+	    (indent-line-to
 	     (+ lm (/ (- fill-column lm line-length) 2))))))
     (cond ((null nlines)
 	   (setq nlines 0))

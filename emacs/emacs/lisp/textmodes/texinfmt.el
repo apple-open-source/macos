@@ -1,9 +1,10 @@
-;;; texinfmt.el --- format Texinfo files into Info files.
+;;; texinfmt.el --- format Texinfo files into Info files
 
 ;; Copyright (C) 1985, 1986, 1988, 1990, 1991, 1992, 1993, 
-;;               1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+;;               1994, 1995, 1996, 1997, 1998, 2000, 2001
+;;    Free Software Foundation, Inc.
 
-;; Maintainer: Robert J. Chassell <bug-texinfo@prep.ai.mit.edu>
+;; Maintainer: Robert J. Chassell <bug-texinfo@gnu.org>
 ;; Keywords: maint, tex, docs
 
 ;; This file is part of GNU Emacs.
@@ -22,6 +23,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -361,7 +364,7 @@ if large.  You can use Info-split to do this manually."
     (save-excursion
       (goto-char (point-min))
       (or (search-forward "@setfilename" nil t)
-          (error "Texinfo file needs an `@setfilename FILENAME' line."))
+          (error "Texinfo file needs an `@setfilename FILENAME' line"))
       (setq texinfo-command-end (point))
       (setq outfile (texinfo-parse-line-arg)))
 
@@ -858,8 +861,7 @@ lower types.")
           (if (not (= (following-char) ?\n))
               (insert ? )))
          ;; following char is a carriage return
-         ((= (following-char) ?
-)
+         ((= (following-char) ?\n)
           ;; remove command
           (delete-region (1- (point)) (1+ (point)))
           ;; insert single space if not at end of line;
@@ -869,7 +871,23 @@ lower types.")
          ;; Otherwise: the other characters are simply quoted.  Delete the @.
          (t
          (delete-char -1)
-         (forward-char 1)))
+	 ;; Be compatible with makeinfo: if @' and its ilk are
+	 ;; followed by a @ without a brace, barf.
+	 (if (looking-at "[\"'^`~=]")
+	     (progn
+	       (if (= (char-after (1+ (point))) ?@)
+		   (error "Use braces to give a command as an argument to @%c"
+			  (following-char)))
+	       (forward-char 1)
+	       ;; @' etc. can optionally accept their argument in
+	       ;; braces (makeinfo supports that).
+	       (when (looking-at "{")
+		 (let ((start (point)))
+		   (forward-list 1)
+		   (delete-char -1)
+		   (goto-char start)
+		   (delete-char 1))))
+	   (forward-char 1))))
       ;; @ is followed by a command-word; find the end of the word.
       (setq texinfo-command-start (1- (point)))
       (if (= (char-syntax (following-char)) ?w)
@@ -1053,7 +1071,7 @@ Leave point after argument."
       (setq args (cons (if (> end beg) (buffer-substring beg end))
                        args))
       (goto-char next))
-    (if (eolp) (forward-char 1))
+    ;;(if (eolp) (forward-char 1))
     (setq texinfo-command-end (point))
     (nreverse args)))
 
@@ -1089,10 +1107,10 @@ Leave point after argument."
   (goto-char texinfo-command-end)
   (skip-chars-forward " \t")
   (or (eolp)
-      (error "Extraneous text at end of command line."))
+      (error "Extraneous text at end of command line"))
   (goto-char texinfo-command-start)
   (or (bolp)
-      (error "Extraneous text at beginning of command line."))
+      (error "Extraneous text at beginning of command line"))
   (delete-region (point) (progn (forward-line 1) (point))))
 
 (defun texinfo-discard-line-with-args ()
@@ -1654,7 +1672,7 @@ Used by @refill indenting command to avoid indenting within lists, etc.")
   (texinfo-discard-line)
   (let ((next (1+ (car (cdr (car texinfo-stack))))))
     (if (> next ?z)
-        (error "More than 26 items in @alphaenumerate; get a bigger alphabet."))
+        (error "More than 26 items in @alphaenumerate; get a bigger alphabet"))
     (setcar (cdr (car texinfo-stack)) next)
     (insert "\b  " next ". \n"))
   (forward-line -1))
@@ -1664,7 +1682,7 @@ Used by @refill indenting command to avoid indenting within lists, etc.")
   (texinfo-discard-line)
   (let ((next (1+ (car (cdr (car texinfo-stack))))))
     (if (> next ?Z)
-        (error "More than 26 items in @capsenumerate; get a bigger alphabet."))
+        (error "More than 26 items in @capsenumerate; get a bigger alphabet"))
     (setcar (cdr (car texinfo-stack)) next)
     (insert "\b  " next ". \n"))
   (forward-line -1))
@@ -2029,7 +2047,7 @@ This command is executed when texinfmt sees @item inside @multitable."
       (while (search-forward "@tab" nil t)
         (setq tab-number (1+ tab-number)))
       (if (/= tab-number (length table-widths))
-          (error "Wrong number of @tab's in a @multitable row.")))
+          (error "Wrong number of @tab's in a @multitable row")))
     (goto-char (point-min))
 ;; 2. Format each cell, and copy to a rectangle
     ;; buffer looks like this:    A1  @tab  A2  @tab  A3
@@ -2111,7 +2129,7 @@ This command is executed when texinfmt sees @item inside @multitable."
     (setq fill-column existing-fill-column)))
 
 
-;;; @ifinfo,  @iftex, @tex, @ifhtml, @html
+;;; @ifinfo,  @iftex, @tex, @ifhtml, @html, @ifnottex
 
 (put 'ifinfo 'texinfo-format 'texinfo-discard-line)
 (put 'ifinfo 'texinfo-end 'texinfo-discard-command)
@@ -2139,6 +2157,9 @@ This command is executed when texinfmt sees @item inside @multitable."
   (delete-region texinfo-command-start
                  (progn (re-search-forward "@end html[ \t]*\n")
                         (point))))
+
+(put 'ifnottex 'texinfo-format 'texinfo-discard-line)
+(put 'ifnottex 'texinfo-end 'texinfo-discard-command)
 
 
 ;;; @titlepage
@@ -2348,7 +2369,18 @@ This command is executed when texinfmt sees @item inside @multitable."
   (insert "\"" (texinfo-parse-arg-discard) "\"")
   (goto-char texinfo-command-start))
 
-(put 'email 'texinfo-format 'texinfo-format-key)
+(put 'email 'texinfo-format 'texinfo-format-email)
+(defun texinfo-format-email ()
+  "Format email address and optional following full name.
+Insert full name, if present, followed by email address
+surrounded by in angle brackets."
+  (let ((args (texinfo-format-parse-args)))
+    (texinfo-discard-command)
+    ;; if full-name
+    (if (nth 1 args)
+        (insert  (nth 1 args) " "))
+    (insert "<" (nth 0 args) ">")))
+
 (put 'key 'texinfo-format 'texinfo-format-key)
 ;; I've decided not want to have angle brackets around these -- rms.
 (defun texinfo-format-key ()
@@ -2373,6 +2405,7 @@ If used within a line, follow `@bullet' with braces."
   (concat
    "^@"
    "\\("
+   "display\\|"
    "example\\|"
    "smallexample\\|"
    "lisp\\|"
@@ -2385,6 +2418,7 @@ If used within a line, follow `@bullet' with braces."
   (concat
    "^@end "
    "\\("
+   "display\\|"
    "example\\|"
    "smallexample\\|"
    "lisp\\|"
@@ -2808,6 +2842,7 @@ Default is to leave paragraph indentation as is."
   (require 'sort)
   (save-restriction
     (narrow-to-region start end)
+    (goto-char (point-min))
     (sort-subr nil 'forward-line 'end-of-line 'texinfo-sort-startkeyfun)))
 
 ;; Subroutine for sorting an index.
@@ -3805,6 +3840,8 @@ The command  `@value{foo}'  expands to the value."
   (let* ((arg (texinfo-parse-arg-discard))
          (flag (car (read-from-string arg)))
          (value (substring arg (cdr (read-from-string arg)))))
+    (if (string-match "^[ \t]+" value)
+	(setq value (substring value (match-end 0))))
     (put flag 'texinfo-whether-setp 'flag-set)
     (put flag 'texinfo-set-value value)))
 
@@ -4096,7 +4133,7 @@ Each file will be processed even if an error occurred previously.
 For example, invoke
   \"emacs -batch -funcall batch-texinfo-format $docs/ ~/*.texinfo\"."
   (if (not noninteractive)
-      (error "batch-texinfo-format may only be used -batch."))
+      (error "batch-texinfo-format may only be used -batch"))
   (let ((version-control t)
         (auto-save-default nil)
         (find-file-run-dired nil)
@@ -4153,4 +4190,4 @@ For example, invoke
 ;;; Place `provide' at end of file.
 (provide 'texinfmt)
 
-;;; texinfmt.el ends here.
+;;; texinfmt.el ends here

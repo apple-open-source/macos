@@ -29,6 +29,7 @@
 // Make and break the plugin object
 //
 CSPDLPlugin::CSPDLPlugin()
+	: mRawCsp(gGuidAppleCSP)
 {
 }
 
@@ -58,7 +59,8 @@ CSPDLPlugin::makeSession(CSSM_MODULE_HANDLE handle,
 									subserviceType,
 									attachFlags,
 									upcalls,
-									mSSCSPDLSession);
+									mSSCSPDLSession,
+									mRawCsp);
         case CSSM_SERVICE_DL:
             return new SSDLSession(handle,
 								   *this,

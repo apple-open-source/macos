@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# Test for PR 203.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+installdirs-local:
+	@echo here
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+test `grep installdirs-local Makefile.in | wc -l` -eq 2

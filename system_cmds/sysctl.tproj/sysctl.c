@@ -346,6 +346,7 @@ old_parse(string, flags)
 		break;
 
 	case CTL_HW:
+		useUnsignedInt = 1;
 		break;
 
 	case CTL_VM:
@@ -887,10 +888,11 @@ oidfmt(int *oid, int len, char *fmt, u_int *kind)
 static int
 show_var(int *oid, int nlen)
 {
-	u_char buf[BUFSIZ], *val, *p;
+	u_char buf[BUFSIZ], *val, *mval, *p;
 	char name[BUFSIZ], /* descr[BUFSIZ], */ *fmt;
 	int qoid[CTL_MAXNAME+2];
 	int i;
+	int retval;
 	size_t j, len;
 	u_int kind;
 	int (*func)(int, void *) = 0;
@@ -909,15 +911,18 @@ show_var(int *oid, int nlen)
 	i = sysctl(oid, nlen, 0, &j, 0, 0);
 	j += j; /* we want to be sure :-) */
 
-	val = alloca(j);
+	val = mval = malloc(j);
 	len = j;
 	i = sysctl(oid, nlen, val, &len, 0, 0);
-	if (i || !len)
-		return (1);
+	if (i || !len) {
+		retval = 1;
+		goto RETURN;
+	}
 
 	if (bflag) {
 		fwrite(val, 1, len, stdout);
-		return (0);
+		retval = 0;
+		goto RETURN;
 	}
 
 	qoid[1] = 4;
@@ -936,7 +941,8 @@ show_var(int *oid, int nlen)
 		if (!nflag)
 			printf("%s: ", name);
 		printf("%s", p);
-		return (0);
+		retval = 0;
+		goto RETURN;
 		
 	case 'I':
 		if (!nflag)
@@ -952,7 +958,8 @@ show_var(int *oid, int nlen)
 			len -= sizeof (int);
 			p += sizeof (int);
 		}
-		return (0);
+		retval = 0;
+		goto RETURN;
 
 	case 'L':
 		if (!nflag)
@@ -968,13 +975,15 @@ show_var(int *oid, int nlen)
 			len -= sizeof (long);
 			p += sizeof (long);
 		}
-		return (0);
+		retval = 0;
+		goto RETURN;
 
 	case 'P':
 		if (!nflag)
 			printf("%s: ", name);
 		printf("%p", *(void **)p);
-		return (0);
+		retval = 0;
+		goto RETURN;
 
 	case 'T':
 	case 'S':
@@ -986,12 +995,15 @@ show_var(int *oid, int nlen)
 		if (func) {
 			if (!nflag)
 				printf("%s: ", name);
-			return ((*func)(len, p));
+			retval = (*func)(len, p);
+			goto RETURN;
 		}
 		/* FALL THROUGH */
 	default:
-		if (!Aflag)
-			return (1);
+		if (!Aflag) {
+			retval = 1;
+			goto RETURN;
+		}
 		if (!nflag)
 			printf("%s: ", name);
 		printf("Format:%s Length:%ld Dump:0x", fmt, len);
@@ -1002,9 +1014,14 @@ show_var(int *oid, int nlen)
 			printf("...");
 			break;
 		}
-		return (0);
+		retval = 0;
+		goto RETURN;
 	}
-	return (1);
+
+	retval = 1;
+	RETURN:
+	free(mval);
+	return (retval);
 }
 
 static int

@@ -15,6 +15,7 @@
 #endif /* HAVE_MEMORY_H */
 #if defined(STDC_HEADERS)
 #include  <stdlib.h>
+#include  <limits.h>
 #endif
 #if defined(HAVE_UNISTD_H)
 #include <unistd.h>
@@ -28,11 +29,14 @@
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
 #endif
+#ifdef HESIOD
+#include <hesiod.h>
+#endif
 
-#ifdef HAVE_RES_SEARCH
+#if defined(HAVE_RES_SEARCH) || defined(HAVE_GETHOSTBYNAME)
 #include <netdb.h>
 #include "mx.h"
-#endif /* HAVE_RES_SEARCH */
+#endif /* defined(HAVE_RES_SEARCH) || defined(HAVE_GETHOSTBYNAME) */
 
 #include "kerberos.h"
 #ifdef KERBEROS_V4
@@ -60,6 +64,7 @@ int stage;		/* where are we? */
 int phase;		/* where are we, for error-logging purposes? */
 int batchcount;		/* count of messages sent in current batch */
 flag peek_capable;	/* can we peek for better error recovery? */
+int mailserver_socket_temp;	/* socket to free if connect timeout */ 
 
 static int timeoutcount;		/* count consecutive timeouts */
 
@@ -92,6 +97,24 @@ static void sigpipe_handler (int signal)
 /* handle SIGPIPE signal indicating a broken stream socket */
 {
     longjmp(restart, THROW_SIGPIPE);
+}
+
+/* ignore SIGALRM signal indicating a timeout during cleanup */
+static void cleanup_timeout_handler (int signal) { }
+
+#define CLEANUP_TIMEOUT 60 /* maximum timeout during cleanup */
+
+static int cleanupSockClose (int fd)
+/* close sockets in maximum CLEANUP_TIMEOUT seconds during cleanup */
+{
+    int scerror;
+    void (*alrmsave)(int);
+    alrmsave = signal(SIGALRM, cleanup_timeout_handler);
+    set_timeout(CLEANUP_TIMEOUT);
+    scerror = SockClose(fd);
+    set_timeout(0);
+    signal(SIGALRM, alrmsave);
+    return (scerror);
 }
 
 #ifdef KERBEROS_V4
@@ -150,7 +173,7 @@ char *principal;
     }
     if (rem != KSUCCESS)
     {
-	report(stderr, _("kerberos error %s\n"), (krb_get_err_text (rem)));
+	report(stderr, GT_("kerberos error %s\n"), (krb_get_err_text (rem)));
 	return (PS_AUTHFAIL);
     }
     return (0);
@@ -172,7 +195,9 @@ const char *canonical;  /* server name */
     krb5_auth_context auth_context = NULL;
 
     krb5_init_context(&context);
+#ifndef __APPLE__
     krb5_init_ets(context);
+#endif
     krb5_auth_con_init(context, &auth_context);
 
     if (retval = krb5_cc_default(context, &ccdef)) {
@@ -209,12 +234,12 @@ const char *canonical;  /* server name */
     if (retval) {
 #ifdef HEIMDAL
       if (err_ret && err_ret->e_text) {
-          report(stderr, _("krb5_sendauth: %s [server says '%*s'] \n"),
+          report(stderr, GT_("krb5_sendauth: %s [server says '%*s'] \n"),
                  error_message(retval),
                  err_ret->e_text);
 #else
       if (err_ret && err_ret->text.length) {
-          report(stderr, _("krb5_sendauth: %s [server says '%*s'] \n"),
+          report(stderr, GT_("krb5_sendauth: %s [server says '%*s'] \n"),
 		 error_message(retval),
 		 err_ret->text.length,
 		 err_ret->text.data);
@@ -295,7 +320,7 @@ static void send_size_warnings(struct query *ctl)
     if (open_warning_by_mail(ctl, (struct msgblk *)NULL))
 	return;
     stuff_warning(ctl,
-	   _("Subject: Fetchmail oversized-messages warning.\r\n"
+	   GT_("Subject: Fetchmail oversized-messages warning.\r\n"
 	     "\r\n"
 	     "The following oversized messages remain on the mail server %s:"),
 		  ctl->server.pollname);
@@ -313,7 +338,7 @@ static void send_size_warnings(struct query *ctl)
 	    nbr = current->val.status.mark;
 	    size = atoi(current->id);
 	    stuff_warning(ctl, 
-		    _("\t%d msg %d octets long skipped by fetchmail.\r\n"),
+		    GT_("\t%d msg %d octets long skipped by fetchmail.\r\n"),
 		    nbr, size);
 	}
 	current->val.status.num++;
@@ -397,8 +422,9 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    if (outlevel > O_SILENT)
 	    {
 		report_build(stdout, 
-			     _("skipping message %d (%d octets)"),
-			     num, msgsizes[num-1]);
+			     GT_("skipping message %s@%s:%d (%d octets)"),
+			     ctl->remotename, ctl->server.truename, num,
+			     msgsizes[num-1]);
 		switch (msgcodes[num-1])
 		{
 		case MSGLEN_INVALID:
@@ -412,11 +438,11 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		     * DELE succeeds but doesn't actually delete
 		     * the message.
 		     */
-		    report_build(stdout, _(" (length -1)"));
+		    report_build(stdout, GT_(" (length -1)"));
 		    break;
 		case MSGLEN_TOOLARGE:
 		    report_build(stdout, 
-				 _(" (oversized, %d octets)"),
+				 GT_(" (oversized, %d octets)"),
 				 msgsizes[num-1]);
 		    break;
 		}
@@ -431,8 +457,9 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    if (err == PS_TRANSIENT)    /* server is probably Exchange */
 	    {
 		report_build(stdout,
-			     _("couldn't fetch headers, msg %d (%d octets)"),
-			     num, msgsizes[num-1]);
+			     GT_("couldn't fetch headers, message %s@%s:%d (%d octets)"),
+			     ctl->remotename, ctl->server.truename, num,
+			     msgsizes[num-1]);
 		continue;
 	    }
 	    else if (err != 0)
@@ -447,12 +474,13 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 
 	    if (outlevel > O_SILENT)
 	    {
-		report_build(stdout, _("reading message %d of %d"),
-			     num,count);
+		report_build(stdout, GT_("reading message %s@%s:%d of %d"),
+			     ctl->remotename, ctl->server.truename,
+			     num, count);
 
 		if (len > 0)
-		    report_build(stdout, _(" (%d %soctets)"),
-				 len, wholesize ? "" : _("header "));
+		    report_build(stdout, GT_(" (%d %soctets)"),
+				 len, wholesize ? "" : GT_("header "));
 		if (outlevel >= O_VERBOSE)
 		    report_complete(stdout, "\n");
 		else
@@ -471,10 +499,23 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		suppress_delete = suppress_forward = TRUE;
 	    else if (err == PS_REFUSED)
 		suppress_forward = TRUE;
+#if 0
+	    /* 
+	     * readheaders does not read the body when it
+	     * hits a non-header. It has been recently
+	     * fixed to return PS_TRUNCATED (properly) when
+	     * that happens, but apparently fixing that bug
+	     * opened this one here (which looks like an 
+	     * inproper fix from some ancient thinko)
+	     */
 	    else if (err == PS_TRUNCATED)
 		suppress_readbody = TRUE;
 	    else if (err)
 		return(err);
+#else
+	    else if (err && err != PS_TRUNCATED)
+		return(err);
+#endif
 
 	    /* 
 	     * If we're using IMAP4 or something else that
@@ -510,7 +551,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 			len = msgsizes[num-1] - msgblk.msglen;
 		    if (outlevel > O_SILENT && !wholesize)
 			report_complete(stdout,
-					_(" (%d body octets) "), len);
+					GT_(" (%d body octets) "), len);
 		}
 	    }
 
@@ -519,11 +560,6 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    {
 		if (suppress_readbody)
 		{
-		    /* When readheaders returns PS_TRUNCATED,
-		     * the body (which has no content)
-		     * has already been read by readheaders,
-		     * so we say readbody returned PS_SUCCESS
-		     */
 		    err = PS_SUCCESS;
 		}
 		else
@@ -583,8 +619,9 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    {
 		if (outlevel >= O_DEBUG)
 		    report(stdout,
-			   _("message %d was not the expected length (%d actual != %d expected)\n"),
-			   num, msgblk.msglen, msgsizes[num-1]);
+			   GT_("message %s@%s:%d was not the expected length (%d actual != %d expected)\n"),
+			   ctl->remotename, ctl->server.truename, num,
+			   msgblk.msglen, msgsizes[num-1]);
 	    }
 
 	    /* end-of-message processing starts here */
@@ -607,8 +644,14 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	 * now.
 	 */
 
-	/* tell the UID code we've seen this */
-	if (ctl->newsaved)
+	/*
+	 * Tell the UID code we've seen this.
+	 * Matthias Andree: only register the UID if we could actually
+	 * forward this mail. If we omit this !suppress_delete check,
+	 * fetchmail will never retry mail that the local listener
+	 * refused temporarily.
+	 */
+	if (ctl->newsaved && !suppress_delete)
 	{
 	    struct idlist	*sdp;
 
@@ -624,7 +667,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	if (retained)
 	{
 	    if (outlevel > O_SILENT) 
-		report(stdout, _(" retained\n"));
+		report(stdout, GT_(" retained\n"));
 	}
 	else if (ctl->server.base_protocol->delete
 		 && !suppress_delete
@@ -632,7 +675,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	{
 	    (*deletions)++;
 	    if (outlevel > O_SILENT) 
-		report_complete(stdout, _(" flushed\n"));
+		report_complete(stdout, GT_(" flushed\n"));
 	    err = (ctl->server.base_protocol->delete)(mailserver_socket, ctl, num);
 	    if (err != 0)
 		return(err);
@@ -640,14 +683,14 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    delete_str(&ctl->newsaved, num);
 #endif /* POP3_ENABLE */
 	}
-	else if (outlevel > O_SILENT) 
-	    report_complete(stdout, _(" not flushed\n"));
+	else if (outlevel > O_SILENT)
+	    report_complete(stdout, GT_(" not flushed\n"));
 
 	/* perhaps this as many as we're ready to handle */
 	if (maxfetch && maxfetch <= *fetches && *fetches < count)
 	{
-	    report(stdout, _("fetchlimit %d reached; %d messages left on server\n"),
-		   maxfetch, count - *fetches);
+	    report(stdout, GT_("fetchlimit %d reached; %d messages left on server %s account %s\n"),
+		   maxfetch, count - *fetches, ctl->server.truename, ctl->remotename);
 	    return(PS_MAXFETCH);
 	}
     }
@@ -701,12 +744,17 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	sigfillset(&allsigs);
 	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
 #endif /* HAVE_SIGPROCMASK */
-
+	
+	/* If there was a connect timeout, the socket should be closed.
+	 * mailserver_socket_temp contains the socket to close.
+	 */
+	mailserver_socket = mailserver_socket_temp;
+	
 	if (js == THROW_SIGPIPE)
 	{
 	    signal(SIGPIPE, SIG_IGN);
 	    report(stdout,
-		   _("SIGPIPE thrown from an MDA or a stream socket error\n"));
+		   GT_("SIGPIPE thrown from an MDA or a stream socket error\n"));
 	    err = PS_SOCKET;
 	    goto cleanUp;
 	}
@@ -714,23 +762,23 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	{
 	    if (phase == OPEN_WAIT)
 		report(stdout,
-		       _("timeout after %d seconds waiting to connect to server %s.\n"),
+		       GT_("timeout after %d seconds waiting to connect to server %s.\n"),
 		       ctl->server.timeout, ctl->server.pollname);
 	    else if (phase == SERVER_WAIT)
 		report(stdout,
-		       _("timeout after %d seconds waiting for server %s.\n"),
+		       GT_("timeout after %d seconds waiting for server %s.\n"),
 		       ctl->server.timeout, ctl->server.pollname);
 	    else if (phase == FORWARDING_WAIT)
 		report(stdout,
-		       _("timeout after %d seconds waiting for %s.\n"),
+		       GT_("timeout after %d seconds waiting for %s.\n"),
 		       ctl->server.timeout,
 		       ctl->mda ? "MDA" : "SMTP");
 	    else if (phase == LISTENER_WAIT)
 		report(stdout,
-		       _("timeout after %d seconds waiting for listener to respond.\n"), ctl->server.timeout);
+		       GT_("timeout after %d seconds waiting for listener to respond.\n"), ctl->server.timeout);
 	    else
 		report(stdout, 
-		       _("timeout after %d seconds.\n"), ctl->server.timeout);
+		       GT_("timeout after %d seconds.\n"), ctl->server.timeout);
 
 	    /*
 	     * If we've exceeded our threshold for consecutive timeouts, 
@@ -742,14 +790,14 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		&& !open_warning_by_mail(ctl, (struct msgblk *)NULL))
 	    {
 		stuff_warning(ctl,
-			      _("Subject: fetchmail sees repeated timeouts\r\n"));
+			      GT_("Subject: fetchmail sees repeated timeouts\r\n"));
 		stuff_warning(ctl,
-			      _("Fetchmail saw more than %d timeouts while attempting to get mail from %s@%s.\r\n"), 
+			      GT_("Fetchmail saw more than %d timeouts while attempting to get mail from %s@%s.\r\n"), 
 			      MAX_TIMEOUTS,
 			      ctl->remotename,
 			      ctl->server.truename);
 		stuff_warning(ctl, 
-    _("This could mean that your mailserver is stuck, or that your SMTP\r\n" \
+    GT_("This could mean that your mailserver is stuck, or that your SMTP\r\n" \
     "server is wedged, or that your mailbox file on the server has been\r\n" \
     "corrupted by a server error.  You can run `fetchmail -v -v' to\r\n" \
     "diagnose the problem.\r\n\r\n" \
@@ -763,10 +811,11 @@ const int maxfetch;		/* maximum number of messages to fetch */
 
 	/* try to clean up all streams */
 	release_sink(ctl);
-	if (ctl->smtp_socket != -1)
-	    SockClose(ctl->smtp_socket);
-	if (mailserver_socket != -1)
-	    SockClose(mailserver_socket);
+	smtp_close(ctl, 0);
+	if (mailserver_socket != -1) {
+	    cleanupSockClose(mailserver_socket);
+	    mailserver_socket = -1;
+	}
     }
     else
     {
@@ -785,7 +834,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	if (ctl->preconnect && (err = system(ctl->preconnect)))
 	{
 	    report(stderr, 
-		   _("pre-connection command failed with status %d\n"), err);
+		   GT_("pre-connection command failed with status %d\n"), err);
 	    err = PS_SYNTAX;
 	    goto closeUp;
 	}
@@ -801,6 +850,85 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	port = ctl->server.port ? ctl->server.port : ctl->server.base_protocol->port;
 #endif
 #endif /* !INET6_ENABLE */
+
+#ifdef HESIOD
+	/* If either the pollname or vianame are "hesiod" we want to
+	   lookup the user's hesiod pobox host */
+	if (!strcasecmp(ctl->server.queryname, "hesiod")) {
+	    struct hes_postoffice *hes_p;
+	    hes_p = hes_getmailhost(ctl->remotename);
+	    if (hes_p != NULL && strcmp(hes_p->po_type, "POP") == 0) {
+		 free(ctl->server.queryname);
+		 ctl->server.queryname = xstrdup(hes_p->po_host);
+		 if (ctl->server.via)
+		     free(ctl->server.via);
+		 ctl->server.via = xstrdup(hes_p->po_host);
+	    } else {
+		 report(stderr,
+			GT_("couldn't find HESIOD pobox for %s\n"),
+			ctl->remotename);
+	    }
+	}
+#endif /* HESIOD */
+
+#ifdef HAVE_GETHOSTBYNAME
+	/*
+	 * Canonicalize the server truename for later use.  This also
+	 * functions as a probe for whether the mailserver is accessible.
+	 * We try it on each poll cycle until we get a result.  This way,
+	 * fetchmail won't fail if started up when the network is inaccessible.
+	 */
+	if (ctl->server.dns && !ctl->server.trueaddr)
+	{
+	    if (ctl->server.lead_server)
+	    {
+		char	*leadname = ctl->server.lead_server->truename;
+
+		/* prevent core dump from ill-formed or duplicate entry */
+		if (!leadname)
+		{
+		    report(stderr, GT_("Lead server has no name.\n"));
+		    err = PS_DNS;
+		    set_timeout(0);
+		    phase = oldphase;
+		    goto closeUp;
+		}
+
+		ctl->server.truename = xstrdup(leadname);
+	    }
+	    else
+	    {
+		struct hostent	*namerec;
+		    
+		/* 
+		 * Get the host's IP, so we can report it like this:
+		 *
+		 * Received: from hostname [10.0.0.1]
+		 */
+		errno = 0;
+		namerec = gethostbyname(ctl->server.queryname);
+		if (namerec == (struct hostent *)NULL)
+		{
+		    report(stderr,
+			   GT_("couldn't find canonical DNS name of %s\n"),
+			   ctl->server.pollname);
+		    err = PS_DNS;
+		    set_timeout(0);
+		    phase = oldphase;
+		    goto closeUp;
+		}
+		else 
+		{
+		    ctl->server.truename=xstrdup((char *)namerec->h_name);
+		    ctl->server.trueaddr=xmalloc(namerec->h_length);
+		    memcpy(ctl->server.trueaddr, 
+			   namerec->h_addr_list[0],
+			   namerec->h_length);
+		}
+	    }
+	}
+#endif /* HAVE_GETHOSTBYNAME */
+
 	realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
 
 	/* allow time for the port to be set up if we have a plugin */
@@ -819,7 +947,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    int err_no = errno;
 #ifdef HAVE_RES_SEARCH
 	    if (err_no != 0 && h_errno != 0)
-		report(stderr, _("internal inconsistency\n"));
+		report(stderr, GT_("internal inconsistency\n"));
 #endif
 	    /*
 	     * Avoid generating a bogus error every poll cycle when we're
@@ -829,28 +957,28 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    if (!((err_no == EHOSTUNREACH || err_no == ENETUNREACH) 
 		  && run.poll_interval))
 	    {
-		report_build(stderr, _("%s connection to %s failed"), 
+		report_build(stderr, GT_("%s connection to %s failed"), 
 			     ctl->server.base_protocol->name, ctl->server.pollname);
 #ifdef HAVE_RES_SEARCH
 		if (h_errno != 0)
 		{
 		    if (h_errno == HOST_NOT_FOUND)
-			strcpy(errbuf, _("host is unknown."));
+			strcpy(errbuf, GT_("host is unknown."));
 #ifndef __BEOS__
 		    else if (h_errno == NO_ADDRESS)
-			strcpy(errbuf, _("name is valid but has no IP address."));
+			strcpy(errbuf, GT_("name is valid but has no IP address."));
 #endif
 		    else if (h_errno == NO_RECOVERY)
-			strcpy(errbuf, _("unrecoverable name server error."));
+			strcpy(errbuf, GT_("unrecoverable name server error."));
 		    else if (h_errno == TRY_AGAIN)
-			strcpy(errbuf, _("temporary name server error."));
+			strcpy(errbuf, GT_("temporary name server error."));
 		    else
 #ifdef HAVE_SNPRINTF
 			snprintf(errbuf, sizeof(errbuf),
 #else
 			sprintf(errbuf,
 #endif /* HAVE_SNPRINTF */
-			  _("unknown DNS error %d."), h_errno);
+			  GT_("unknown DNS error %d."), h_errno);
 		}
 		else
 #endif /* HAVE_RES_SEARCH */
@@ -868,7 +996,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		if (open_warning_by_mail(ctl, (struct msgblk *)NULL) == 0)
 		{
 		    stuff_warning(ctl,
-			 _("Subject: Fetchmail unreachable-server warning.\r\n"
+			 GT_("Subject: Fetchmail unreachable-server warning.\r\n"
 			   "\r\n"
 			   "Fetchmail could not reach the mail server %s:")
 				  ctl->server.pollname);
@@ -883,21 +1011,35 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    phase = oldphase;
 	    goto closeUp;
 	}
-	set_timeout(0);
-	phase = oldphase;
 
 #ifdef SSL_ENABLE
+	/* Save the socket opened. Usefull if Fetchmail hangs on SSLOpen 
+	 * because the socket can be closed
+	 */
+	mailserver_socket_temp = mailserver_socket;
+	set_timeout(mytimeout);
+
 	/* perform initial SSL handshake on open connection */
 	/* Note:  We pass the realhost name over for certificate
 		verification.  We may want to make this configurable */
-	if (ctl->use_ssl && SSLOpen(mailserver_socket,ctl->sslkey,ctl->sslcert,ctl->sslproto,ctl->sslcertck,
+	if (ctl->use_ssl && SSLOpen(mailserver_socket,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck,
 	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1) 
 	{
-	    report(stderr, _("SSL connection failed.\n"));
+	    report(stderr, GT_("SSL connection failed.\n"));
 	    goto closeUp;
 	}
+	
+	/* Fetchmail didn't hang on SSLOpen, 
+	 * then no need to set mailserver_socket_temp 
+	 */
+	mailserver_socket_temp = -1;
 #endif
-
+	
+	/* A timeout is still defined before SSLOpen, 
+	 * then Fetchmail hanging on SSLOpen is handled.
+	 */
+	set_timeout(0);
+	phase = oldphase;
 #ifdef KERBEROS_V4
 	if (ctl->server.authenticate == A_KERBEROS_V4)
 	{
@@ -935,19 +1077,19 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    if (err != 0)
 	    {
 		if (err == PS_LOCKBUSY)
-		    report(stderr, _("Lock-busy error on %s@%s\n"),
+		    report(stderr, GT_("Lock-busy error on %s@%s\n"),
 			  ctl->remotename,
 			  ctl->server.truename);
 		else if (err == PS_SERVBUSY)
-		    report(stderr, _("Server busy error on %s@%s\n"),
+		    report(stderr, GT_("Server busy error on %s@%s\n"),
 			  ctl->remotename,
 			  ctl->server.truename);
 		else if (err == PS_AUTHFAIL)
 		{
-		    report(stderr, _("Authorization failure on %s@%s%s\n"), 
+		    report(stderr, GT_("Authorization failure on %s@%s%s\n"), 
 			   ctl->remotename,
 			   ctl->server.truename,
-			   (ctl->wehaveauthed ? _(" (previously authorized)") : "")
+			   (ctl->wehaveauthed ? GT_(" (previously authorized)") : "")
 			);
 
 		    /*
@@ -968,14 +1110,14 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		    {
 			ctl->wehavesentauthnote = 1;
 			stuff_warning(ctl,
-				      _("Subject: fetchmail authentication failed on %s@%s\r\n"),
+				      GT_("Subject: fetchmail authentication failed on %s@%s\r\n"),
 			    ctl->remotename, ctl->server.truename);
 			stuff_warning(ctl,
-				      _("Fetchmail could not get mail from %s@%s.\r\n"), 
+				      GT_("Fetchmail could not get mail from %s@%s.\r\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
 			if (ctl->wehaveauthed)
-			    stuff_warning(ctl, _("\
+			    stuff_warning(ctl, GT_("\
 The attempt to get authorization failed.\r\n\
 Since we have already succeeded in getting authorization for this\r\n\
 connection, this is probably another failure mode (such as busy server)\r\n\
@@ -990,7 +1132,7 @@ The fetchmail daemon will continue running and attempt to connect\r\n\
 at each cycle.  No future notifications will be sent until service\r\n\
 is restored."));
 			else
-			    stuff_warning(ctl, _("\
+			    stuff_warning(ctl, GT_("\
 The attempt to get authorization failed.\r\n\
 This probably means your password is invalid, but some servers have\r\n\
 other failure modes that fetchmail cannot distinguish from this\r\n\
@@ -1003,7 +1145,7 @@ is restored."));
 		    }
 		}
 		else
-		    report(stderr, _("Unknown login or authentication error on %s@%s\n"),
+		    report(stderr, GT_("Unknown login or authentication error on %s@%s\n"),
 			   ctl->remotename,
 			   ctl->server.truename);
 		    
@@ -1027,20 +1169,20 @@ is restored."));
 		{
 		    ctl->wehavesentauthnote = 0;
 		    report(stderr,
-			   _("Authorization OK on %s@%s\n"),
+			   GT_("Authorization OK on %s@%s\n"),
 			   ctl->remotename,
 			   ctl->server.truename);
 		    if (!open_warning_by_mail(ctl, (struct msgblk *)NULL))
 		    {
 			stuff_warning(ctl,
-			      _("Subject: fetchmail authentication OK on %s@%s\r\n"),
+			      GT_("Subject: fetchmail authentication OK on %s@%s\r\n"),
 				      ctl->remotename, ctl->server.truename);
 			stuff_warning(ctl,
-			      _("Fetchmail was able to log into %s@%s.\r\n"), 
+			      GT_("Fetchmail was able to log into %s@%s.\r\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
 			stuff_warning(ctl, 
-				      _("Service has been restored.\r\n"));
+				      GT_("Service has been restored.\r\n"));
 			close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		    
 		    }
@@ -1071,9 +1213,9 @@ is restored."));
 		if (outlevel >= O_DEBUG)
 		{
 		    if (idp->id)
-			report(stdout, _("selecting or re-polling folder %s\n"), idp->id);
+			report(stdout, GT_("selecting or re-polling folder %s\n"), idp->id);
 		    else
-			report(stdout, _("selecting or re-polling default folder\n"));
+			report(stdout, GT_("selecting or re-polling default folder\n"));
 		}
 
 		/* compute # of messages and number of new messages waiting */
@@ -1089,7 +1231,7 @@ is restored."));
 #else
 		    (void) sprintf(buf,
 #endif /* HAVE_SNPRINTF */
-				   _("%s at %s (folder %s)"),
+				   GT_("%s at %s (folder %s)"),
 				   ctl->remotename, ctl->server.truename, idp->id);
 		else
 #ifdef HAVE_SNPRINTF
@@ -1097,33 +1239,33 @@ is restored."));
 #else
 		    (void) sprintf(buf,
 #endif /* HAVE_SNPRINTF */
-			       _("%s at %s"),
+			       GT_("%s at %s"),
 				   ctl->remotename, ctl->server.truename);
 		if (outlevel > O_SILENT)
 		{
 		    if (count == -1)		/* only used for ETRN */
-			report(stdout, _("Polling %s\n"), ctl->server.truename);
+			report(stdout, GT_("Polling %s\n"), ctl->server.truename);
 		    else if (count != 0)
 		    {
 			if (new != -1 && (count - new) > 0)
-			    report_build(stdout, _("%d %s (%d seen) for %s"),
-				  count, count > 1 ? _("messages") :
-				                     _("message"),
+			    report_build(stdout, GT_("%d %s (%d seen) for %s"),
+				  count, count > 1 ? GT_("messages") :
+				                     GT_("message"),
 				  count-new, buf);
 			else
-			    report_build(stdout, _("%d %s for %s"), 
-				  count, count > 1 ? _("messages") :
-				                     _("message"), buf);
+			    report_build(stdout, GT_("%d %s for %s"), 
+				  count, count > 1 ? GT_("messages") :
+				                     GT_("message"), buf);
 			if (bytes == -1)
 			    report_complete(stdout, ".\n");
 			else
-			    report_complete(stdout, _(" (%d octets).\n"), bytes);
+			    report_complete(stdout, GT_(" (%d octets).\n"), bytes);
 		    }
 		    else
 		    {
 			/* these are pointless in normal daemon mode */
 			if (pass == 1 && (run.poll_interval == 0 || outlevel >= O_VERBOSE))
-			    report(stdout, _("No mail for %s\n"), buf); 
+			    report(stdout, GT_("No mail for %s\n"), buf); 
 		    }
 		}
 
@@ -1138,7 +1280,7 @@ is restored."));
 		    fetches = new;	/* set error status correctly */
 		    /*
 		     * There used to be a `goto noerror' here, but this
-		     * prevneted checking of multiple folders.  This
+		     * prevented checking of multiple folders.  This
 		     * comment is a reminder in case I introduced some
 		     * subtle bug by removing it...
 		     */
@@ -1177,6 +1319,19 @@ is restored."));
 		     */
 		    force_retrieval = !peek_capable && (ctl->errcount > 0);
 
+		    /*
+		     * Don't trust the message count passed by the server.
+		     * Without this check, it might be possible to do a
+		     * DNS-spoofing attack that would pass back a ridiculous 
+		     * count, and allocate a malloc area that would overlap
+		     * a portion of the stack.
+		     */
+		    if (count > INT_MAX/sizeof(int))
+		    {
+			report(stderr, GT_("bogus message count!"));
+			return(PS_PROTOCOL);
+		    }
+
 		    /* OK, we're going to gather size info next */
 		    xalloca(msgsizes, int *, sizeof(int) * count);
 		    xalloca(msgcodes, int *, sizeof(int) * count);
@@ -1214,6 +1369,8 @@ is restored."));
 			    continue;
 			else if (ctl->server.base_protocol->is_old && (ctl->server.base_protocol->is_old)(mailserver_socket,ctl,num))
 			    msgcodes[num-1] = MSGLEN_OLD;
+/*			else if (msgsizes[num-1] == 512)
+				msgcodes[num-1] = MSGLEN_OLD;  (hmh) sample code to skip message */
 		    }
 
 		    /* read, forward, and delete messages */
@@ -1252,7 +1409,7 @@ is restored."));
 	 */
 	if (err == 0)
 	    err = (fetches > 0) ? PS_SUCCESS : PS_NOMAIL;
-	SockClose(mailserver_socket);
+	cleanupSockClose(mailserver_socket);
 	goto closeUp;
 
     cleanUp:
@@ -1262,38 +1419,38 @@ is restored."));
 	    stage = STAGE_LOGOUT;
 	    (ctl->server.base_protocol->logout_cmd)(mailserver_socket, ctl);
 	}
-	SockClose(mailserver_socket);
+	cleanupSockClose(mailserver_socket);
     }
 
     msg = (const char *)NULL;	/* sacrifice to -Wall */
     switch (err)
     {
     case PS_SOCKET:
-	msg = _("socket");
+	msg = GT_("socket");
 	break;
     case PS_SYNTAX:
-	msg = _("missing or bad RFC822 header");
+	msg = GT_("missing or bad RFC822 header");
 	break;
     case PS_IOERR:
-	msg = _("MDA");
+	msg = GT_("MDA");
 	break;
     case PS_ERROR:
-	msg = _("client/server synchronization");
+	msg = GT_("client/server synchronization");
 	break;
     case PS_PROTOCOL:
-	msg = _("client/server protocol");
+	msg = GT_("client/server protocol");
 	break;
     case PS_LOCKBUSY:
-	msg = _("lock busy on server");
+	msg = GT_("lock busy on server");
 	break;
     case PS_SMTP:
-	msg = _("SMTP transaction");
+	msg = GT_("SMTP transaction");
 	break;
     case PS_DNS:
-	msg = _("DNS lookup");
+	msg = GT_("DNS lookup");
 	break;
     case PS_UNDEFINED:
-	report(stderr, _("undefined error\n"));
+	report(stderr, GT_("undefined error\n"));
 	break;
     }
     /* no report on PS_MAXFETCH or PS_UNDEFINED or PS_AUTHFAIL */
@@ -1304,9 +1461,9 @@ is restored."));
 	char	*stem;
 
 	if (phase == FORWARDING_WAIT || phase == LISTENER_WAIT)
-	    stem = _("%s error while delivering to SMTP host %s\n");
+	    stem = GT_("%s error while delivering to SMTP host %s\n");
 	else
-	    stem = _("%s error while fetching from %s\n");
+	    stem = GT_("%s error while fetching from %s\n");
 	report(stderr, stem, msg, ctl->server.pollname);
     }
 
@@ -1314,7 +1471,7 @@ closeUp:
     /* execute wrapup command, if any */
     if (ctl->postconnect && (err = system(ctl->postconnect)))
     {
-	report(stderr, _("post-connection command failed with status %d\n"), err);
+	report(stderr, GT_("post-connection command failed with status %d\n"), err);
 	if (err == PS_SUCCESS)
 	    err = PS_SYNTAX;
     }
@@ -1334,7 +1491,7 @@ const struct method *proto;	/* protocol method table */
 #ifndef KERBEROS_V4
     if (ctl->server.authenticate == A_KERBEROS_V4)
     {
-	report(stderr, _("Kerberos V4 support not linked.\n"));
+	report(stderr, GT_("Kerberos V4 support not linked.\n"));
 	return(PS_ERROR);
     }
 #endif /* KERBEROS_V4 */
@@ -1342,7 +1499,7 @@ const struct method *proto;	/* protocol method table */
 #ifndef KERBEROS_V5
     if (ctl->server.authenticate == A_KERBEROS_V5)
     {
-	report(stderr, _("Kerberos V5 support not linked.\n"));
+	report(stderr, GT_("Kerberos V5 support not linked.\n"));
 	return(PS_ERROR);
     }
 #endif /* KERBEROS_V5 */
@@ -1353,13 +1510,13 @@ const struct method *proto;	/* protocol method table */
 	/* check for unsupported options */
 	if (ctl->flush) {
 	    report(stderr,
-		    _("Option --flush is not supported with %s\n"),
+		    GT_("Option --flush is not supported with %s\n"),
 		    proto->name);
 	    return(PS_SYNTAX);
 	}
 	else if (ctl->fetchall) {
 	    report(stderr,
-		    _("Option --all is not supported with %s\n"),
+		    GT_("Option --all is not supported with %s\n"),
 		    proto->name);
 	    return(PS_SYNTAX);
 	}
@@ -1367,7 +1524,7 @@ const struct method *proto;	/* protocol method table */
     if (!proto->getsizes && NUM_SPECIFIED(ctl->limit))
     {
 	report(stderr,
-		_("Option --limit is not supported with %s\n"),
+		GT_("Option --limit is not supported with %s\n"),
 		proto->name);
 	return(PS_SYNTAX);
     }

@@ -1,11 +1,6 @@
 {
   Description     = "authentication service";
   Provides        = ("TIM");
-  Requires        = ("NetInfo");
+  Requires        = ("NetInfo", "DirectoryServices");
   OrderPreference = "None";
-  Messages =
-  {
-    start = "Starting authentication service";
-    stop  = "Stopping authentication service";
-  };
 }

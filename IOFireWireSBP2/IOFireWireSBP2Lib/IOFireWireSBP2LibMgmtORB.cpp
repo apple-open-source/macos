@@ -354,7 +354,7 @@ IOReturn IOFireWireSBP2LibMgmtORB::setCommandFunction( UInt32 function )
 						  kIOFWSBP2UserClientMgmtORBSetCommandFunction, 
 						  (int*)&params, 2, NULL, &len );
 						  
-		FWLOG(( "IOFireWireSBP2LibMgmtORB : setCommandFunction = 0x%08x\n", function ));
+		FWLOG(( "IOFireWireSBP2LibMgmtORB : setCommandFunction = 0x%08lx\n", function ));
 	}
 	
 	return status;

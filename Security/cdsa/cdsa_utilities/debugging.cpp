@@ -22,16 +22,29 @@
 #include <Security/debugsupport.h>
 #include <Security/globalizer.h>
 #include <cstdarg>
+#include <ctype.h>
 
 #define SYSLOG_NAMES	// compile syslog name tables
 #include <syslog.h>
+
+#if !defined(USE_CXXABI)
+#define USE_CXXABI 0	// only available in gcc3 >v1100
+#endif
+
+#if USE_CXXABI
+# include <cxxabi.h>	// for name demangling
+#endif //USE_CXXABI
+
 
 namespace Security {
 namespace Debug {
 
 
-#if !defined(NDEBUG)
+#if defined(NDEBUG)
 
+void Scope::operator () (const char *, ...)	{ }
+
+#else // NDEBUG
 
 //
 // Main debug functions (global and in-scope)
@@ -112,7 +125,7 @@ void dumpData(const void *ptr, size_t size)
 	} else {
 		dump("0x");
 		for (const char *p = addr; p < end; p++)
-			dump("%2.2x", *p);
+			dump("%2.2x", static_cast<unsigned char>(*p));
 	}
 #endif //NDEBUG_STUBS
 }
@@ -128,15 +141,39 @@ void dumpData(const char *title, const void *ptr, size_t size)
 
 
 //
+// Turn a C++ typeid into a nice type name.
+// This uses the C++ ABI where available.
+//
+string makeTypeName(const type_info &type)
+{
+#if USE_CXXABI
+	int status;
+	char *cname = abi::__cxa_demangle(type.name(), NULL, NULL, &status);
+	string name = cname; // save the value
+	::free(cname);	// yes, really (ABI rule)
+	return name;
+#else
+	return type.name();		// can't demangle; just return internal name
+#endif
+}
+
+
+//
 // Target initialization
 //
 #if !defined(NDEBUG_STUBS)
 
-Target::Target() : showScope(false), showThread(false),	showPid(false), sink(NULL)
+Target::Target() 
+	: showScope(false), showThread(false),	showPid(false),
+	  sink(NULL)
 {
 	// put into singleton slot if first
 	if (singleton == NULL)
 		singleton = this;
+	
+	// insert terminate handler
+	if (!previousTerminator)	// first time we do this
+		previousTerminator = set_terminate(terminator);
 }
 
 Target::~Target()
@@ -188,13 +225,19 @@ bool Target::debugging(const char *scope)
 //
 void Target::dump(const char *format, va_list args)
 {
-	sink->dump(format, args);
+	char buffer[messageConstructionSize];	// building the message here
+	vsnprintf(buffer, sizeof(buffer), format, args);
+	for (char *p = buffer; *p; p++)
+		if (!isprint(*p) && !isspace(*p) || *p == '\r')
+			*p = '?';
+	sink->dump(buffer);
 }
 
 bool Target::dump(const char *scope)
 {
 	return dumpSelector(scope);
 }
+
 
 //
 // Selector objects.
@@ -363,11 +406,25 @@ Target &Target::get()
 Target::Sink::~Sink()
 { }
 
-void Target::Sink::dump(const char *, va_list)
+void Target::Sink::dump(const char *)
 { }
 
 void Target::Sink::configure(const char *)
 { }
+
+
+//
+// The terminate handler installed when a Target is created
+//
+terminate_handler Target::previousTerminator;
+
+void Target::terminator()
+{
+	debug("exception", "uncaught exception terminates program");
+	previousTerminator();
+	debug("exception", "prior termination handler failed to abort; forcing abort");
+	abort();
+}
 
 
 //
@@ -388,12 +445,12 @@ void FileSink::put(const char *buffer, unsigned int)
 	putc('\n', file);
 }
 
-void FileSink::dump(const char *format, va_list args)
+void FileSink::dump(const char *text)
 {
 	StLock<Mutex> locker(lock, false);
 	if (lockIO)
 		locker.lock();
-	vfprintf(file, format, args);
+	fputs(text, file);
 }
 
 void FileSink::configure(const char *options)
@@ -415,10 +472,10 @@ void SyslogSink::put(const char *buffer, unsigned int)
 	syslog(priority, "%s", buffer);
 }
 
-void SyslogSink::dump(const char *format, va_list args)
+void SyslogSink::dump(const char *text)
 {
 	// add to dump buffer
-	vsnprintf(dumpPtr, dumpBuffer + dumpBufferSize - dumpPtr, format, args);
+	snprintf(dumpPtr, dumpBuffer + dumpBufferSize - dumpPtr, "%s", text);
 	
 	// take off full lines and submit
 	char *p = dumpBase;

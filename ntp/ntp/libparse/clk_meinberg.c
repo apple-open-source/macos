@@ -1,7 +1,7 @@
 /*
- * /src/NTP/ntp-4/libparse/clk_meinberg.c,v 4.7 1999/02/21 11:09:14 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_meinberg.c,v 4.8 1999/11/28 09:13:50 kardel RELEASE_19991128_A
  *  
- * clk_meinberg.c,v 4.7 1999/02/21 11:09:14 kardel RELEASE_19990228_A
+ * clk_meinberg.c,v 4.8 1999/11/28 09:13:50 kardel RELEASE_19991128_A
  *
  * Meinberg clock support
  *
@@ -15,14 +15,11 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_MEINBERG)
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/errno.h>
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
@@ -412,7 +409,7 @@ mbg_input(
 {
 	unsigned int rtc;
 	
-	parseprintf(DD_PARSE, ("mbg_input(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+	parseprintf(DD_PARSE, ("mbg_input(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 	
 	switch (ch)
 	{
@@ -580,7 +577,7 @@ gps_input(
   
   msg_buf = (struct msg_buf *)parseio->parse_pdata;
 
-  parseprintf(DD_PARSE, ("gps_input(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+  parseprintf(DD_PARSE, ("gps_input(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 
   if (!msg_buf)
     return PARSE_INP_SKIP;
@@ -718,6 +715,9 @@ int clk_meinberg_bs;
  * History:
  *
  * clk_meinberg.c,v
+ * Revision 4.8  1999/11/28 09:13:50  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.7  1999/02/21 11:09:14  kardel
  * cleanup
  *

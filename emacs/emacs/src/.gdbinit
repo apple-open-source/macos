@@ -1,14 +1,39 @@
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2000, 2001
+#   Free Software Foundation, Inc.
+#
+# This file is part of GNU Emacs.
+#
+# GNU Emacs is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Emacs is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GNU Emacs; see the file COPYING.  If not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
 # Force loading of symbols, enough to give us gdb_valbits etc.
 set main
 
 # Find lwlib source files too.
 dir ../lwlib
+#dir /gd/gnu/lesstif-0.89.9/lib/Xm
 
 # Don't enter GDB when user types C-g to quit.
 # This has one unfortunate effect: you can't type C-c
 # at the GDB to stop Emacs, when using X.
 # However, C-z works just as well in that case.
 handle 2 noprint pass
+
+# Don't pass SIGALRM to Emacs.  This makes problems when
+# debugging.
+handle SIGALRM ignore
 
 # Set up a mask to use.
 # This should be EMACS_INT, but in some cases that is a macro.
@@ -134,7 +159,7 @@ end
 
 define xsymbol
 print (struct Lisp_Symbol *) ((((int) $) & $valmask) | gdb_data_seg_bits)
-output (char*)&$->name->data
+output (char*)$->name->data
 echo \n
 end
 document xsymbol
@@ -243,6 +268,13 @@ Set $ as a buffer pointer, assuming it is an Emacs Lisp buffer value.
 Print the name of the buffer.
 end
 
+define xhashtable
+print (struct Lisp_Hash_Table *) (($ & $valmask) | gdb_data_seg_bits)
+end
+document xhashtable
+Set $ as a hash table pointer, assuming it is an Emacs Lisp hash table value.
+end
+
 define xcons
 print (struct Lisp_Cons *) (($ & $valmask) | gdb_data_seg_bits)
 output/x *$
@@ -293,7 +325,7 @@ end
 
 define xprintsym
   set $sym = (struct Lisp_Symbol *) ((((int) $arg0) & $valmask) | gdb_data_seg_bits)
-  output (char*)&$sym->name->data
+  output (char*)$sym->name->data
   echo \n
 end
 document xprintsym
@@ -303,14 +335,26 @@ end
 define xbacktrace
   set $bt = backtrace_list
   while $bt 
-    xprintsym *$bt->function
+    set $type = (enum Lisp_Type) ((*$bt->function >> gdb_valbits) & 0x7)
+    if $type == Lisp_Symbol
+      xprintsym *$bt->function
+    else
+      printf "0x%x ", *$bt->function
+      if $type == Lisp_Vectorlike
+        set $size = ((struct Lisp_Vector *) ((*$bt->function & $valmask) | gdb_data_seg_bits))->size
+        output (enum pvec_type) (($size & PVEC_FLAG) ? $size & PVEC_TYPE_MASK : 0)
+      else
+        printf "Lisp type %d", $type
+      end
+      echo \n
+    end
     set $bt = $bt->next
   end
 end
 document xbacktrace
   Print a backtrace of Lisp function calls from backtrace_list.
   Set a breakpoint at Fsignal and call this to see from where 
-  an error was signalled.
+  an error was signaled.
 end
 
 define xreload
@@ -320,7 +364,13 @@ end
 document xreload
   When starting Emacs a second time in the same gdb session under
   FreeBSD 2.2.5, gdb 4.13, $valmask and $nonvalbits have lost
-  their values.  This function reloads them.
+  their values.  (The same happens on current (2000) versions of GNU/Linux
+  with gdb 5.0.)
+  This function reloads them.
+end
+
+define hook-run
+  xreload
 end
 
 set print pretty on

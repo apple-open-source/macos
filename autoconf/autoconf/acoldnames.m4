@@ -1,80 +1,86 @@
-dnl Map old names of Autoconf macros to new regularized names.
-dnl This file is part of Autoconf.
-dnl Copyright (C) 1994 Free Software Foundation, Inc.
-dnl
-dnl This program is free software; you can redistribute it and/or modify
-dnl it under the terms of the GNU General Public License as published by
-dnl the Free Software Foundation; either version 2, or (at your option)
-dnl any later version.
-dnl
-dnl This program is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY; without even the implied warranty of
-dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-dnl GNU General Public License for more details.
-dnl
-dnl You should have received a copy of the GNU General Public License
-dnl along with this program; if not, write to the Free Software
-dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-dnl 02111-1307, USA.
-dnl
-dnl General macros.
-dnl
-define(AC_WARN, [indir([AC_MSG_WARN], $@)])dnl
-define(AC_ERROR, [indir([AC_MSG_ERROR], $@)])dnl
-AC_DEFUN(AC_PROGRAM_CHECK, [indir([AC_CHECK_PROG], $@)])dnl
-AC_DEFUN(AC_PROGRAM_PATH, [indir([AC_PATH_PROG], $@)])dnl
-AC_DEFUN(AC_PROGRAMS_CHECK, [indir([AC_CHECK_PROGS], $@)])dnl
-AC_DEFUN(AC_PROGRAMS_PATH, [indir([AC_PATH_PROGS], $@)])dnl
-AC_DEFUN(AC_PREFIX, [indir([AC_PREFIX_PROGRAM], $@)])dnl
-AC_DEFUN(AC_HEADER_EGREP, [indir([AC_EGREP_HEADER], $@)])dnl
-AC_DEFUN(AC_PROGRAM_EGREP, [indir([AC_EGREP_CPP], $@)])dnl
-AC_DEFUN(AC_TEST_PROGRAM, [indir([AC_TRY_RUN], $@)])dnl
-AC_DEFUN(AC_TEST_CPP, [indir([AC_TRY_CPP], $@)])dnl
-AC_DEFUN(AC_HEADER_CHECK, [indir([AC_CHECK_HEADER], $@)])dnl
-AC_DEFUN(AC_FUNC_CHECK, [indir([AC_CHECK_FUNC], $@)])dnl
-AC_DEFUN(AC_HAVE_FUNCS, [indir([AC_CHECK_FUNCS], $@)])dnl
-AC_DEFUN(AC_HAVE_HEADERS, [indir([AC_CHECK_HEADERS], $@)])dnl
-AC_DEFUN(AC_SIZEOF_TYPE, [indir([AC_CHECK_SIZEOF], $@)])dnl
-dnl
-dnl Specific macros.
-dnl
-AC_DEFUN(AC_GCC_TRADITIONAL, [indir([AC_PROG_GCC_TRADITIONAL])])dnl
-AC_DEFUN(AC_MINUS_C_MINUS_O, [indir([AC_PROG_CC_C_O])])dnl
-AC_DEFUN(AC_SET_MAKE, [indir([AC_PROG_MAKE_SET])])dnl
-AC_DEFUN(AC_YYTEXT_POINTER, [indir([AC_DECL_YYTEXT])])dnl
-AC_DEFUN(AC_LN_S, [indir([AC_PROG_LN_S])])dnl
-AC_DEFUN(AC_STDC_HEADERS, [indir([AC_HEADER_STDC])])dnl
-AC_DEFUN(AC_MAJOR_HEADER, [indir([AC_HEADER_MAJOR])])dnl
-AC_DEFUN(AC_STAT_MACROS_BROKEN, [indir([AC_HEADER_STAT])])dnl
-AC_DEFUN(AC_SYS_SIGLIST_DECLARED, [indir([AC_DECL_SYS_SIGLIST])])dnl
-AC_DEFUN(AC_GETGROUPS_T, [indir([AC_TYPE_GETGROUPS])])dnl
-AC_DEFUN(AC_UID_T, [indir([AC_TYPE_UID_T])])dnl
-AC_DEFUN(AC_SIZE_T, [indir([AC_TYPE_SIZE_T])])dnl
-AC_DEFUN(AC_PID_T, [indir([AC_TYPE_PID_T])])dnl
-AC_DEFUN(AC_OFF_T, [indir([AC_TYPE_OFF_T])])dnl
-AC_DEFUN(AC_MODE_T, [indir([AC_TYPE_MODE_T])])dnl
-AC_DEFUN(AC_RETSIGTYPE, [indir([AC_TYPE_SIGNAL])])dnl
-AC_DEFUN(AC_MMAP, [indir([AC_FUNC_MMAP])])dnl
-AC_DEFUN(AC_VPRINTF, [indir([AC_FUNC_VPRINTF])])dnl
-AC_DEFUN(AC_VFORK, [indir([AC_FUNC_VFORK])])dnl
-AC_DEFUN(AC_WAIT3, [indir([AC_FUNC_WAIT3])])dnl
-AC_DEFUN(AC_ALLOCA, [indir([AC_FUNC_ALLOCA])])dnl
-AC_DEFUN(AC_GETLOADAVG, [indir([AC_FUNC_GETLOADAVG])])dnl
-AC_DEFUN(AC_UTIME_NULL, [indir([AC_FUNC_UTIME_NULL])])dnl
-AC_DEFUN(AC_STRCOLL, [indir([AC_FUNC_STRCOLL])])dnl
-AC_DEFUN(AC_SETVBUF_REVERSED, [indir([AC_FUNC_SETVBUF_REVERSED])])dnl
-AC_DEFUN(AC_TIME_WITH_SYS_TIME, [indir([AC_HEADER_TIME])])dnl
-AC_DEFUN(AC_TIMEZONE, [indir([AC_STRUCT_TIMEZONE])])dnl
-AC_DEFUN(AC_ST_BLOCKS, [indir([AC_STRUCT_ST_BLOCKS])])dnl
-AC_DEFUN(AC_ST_BLKSIZE, [indir([AC_STRUCT_ST_BLKSIZE])])dnl
-AC_DEFUN(AC_ST_RDEV, [indir([AC_STRUCT_ST_RDEV])])dnl
-AC_DEFUN(AC_CROSS_CHECK, [indir([AC_C_CROSS])])dnl
-AC_DEFUN(AC_CHAR_UNSIGNED, [indir([AC_C_CHAR_UNSIGNED])])dnl
-AC_DEFUN(AC_LONG_DOUBLE, [indir([AC_C_LONG_DOUBLE])])dnl
-AC_DEFUN(AC_WORDS_BIGENDIAN, [indir([AC_C_BIGENDIAN])])dnl
-AC_DEFUN(AC_INLINE, [indir([AC_C_INLINE])])dnl
-AC_DEFUN(AC_CONST, [indir([AC_C_CONST])])dnl
-AC_DEFUN(AC_LONG_FILE_NAMES, [indir([AC_SYS_LONG_FILE_NAMES])])dnl
-AC_DEFUN(AC_RESTARTABLE_SYSCALLS, [indir([AC_SYS_RESTARTABLE_SYSCALLS])])dnl
-AC_DEFUN(AC_FIND_X, [indir([AC_PATH_X])])dnl
-AC_DEFUN(AC_FIND_XTRA, [indir([AC_PATH_XTRA])])dnl
+# This file is part of Autoconf.                           -*- Autoconf -*-
+# Support old macros, and provide automated updates.
+# Copyright 1994, 1999, 2000, 2001 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+#
+# Originally written by David J. MacKenzie.
+
+
+## ---------------------------- ##
+## General macros of autoconf.  ##
+## ---------------------------- ##
+
+AU_ALIAS([AC_WARN],		[AC_MSG_WARN])
+AU_ALIAS([AC_ERROR],		[AC_MSG_ERROR])
+AU_ALIAS([AC_HAVE_HEADERS],	[AC_CHECK_HEADERS])
+AU_ALIAS([AC_HEADER_CHECK],	[AC_CHECK_HEADER])
+AU_ALIAS([AC_HEADER_EGREP],	[AC_EGREP_HEADER])
+AU_ALIAS([AC_PREFIX],		[AC_PREFIX_PROGRAM])
+AU_ALIAS([AC_PROGRAMS_CHECK],	[AC_CHECK_PROGS])
+AU_ALIAS([AC_PROGRAMS_PATH],	[AC_PATH_PROGS])
+AU_ALIAS([AC_PROGRAM_CHECK],	[AC_CHECK_PROG])
+AU_ALIAS([AC_PROGRAM_EGREP],	[AC_EGREP_CPP])
+AU_ALIAS([AC_PROGRAM_PATH],	[AC_PATH_PROG])
+AU_ALIAS([AC_SIZEOF_TYPE],	[AC_CHECK_SIZEOF])
+AU_ALIAS([AC_TEST_CPP],		[AC_TRY_CPP])
+AU_ALIAS([AC_TEST_PROGRAM],	[AC_TRY_RUN])
+
+
+
+## ----------------------------- ##
+## Specific macros of autoconf.  ##
+## ----------------------------- ##
+
+AU_ALIAS([AC_CHAR_UNSIGNED],	[AC_C_CHAR_UNSIGNED])
+AU_ALIAS([AC_CONST],		[AC_C_CONST])
+AU_ALIAS([AC_CROSS_CHECK],	[AC_C_CROSS])
+AU_ALIAS([AC_FIND_X],		[AC_PATH_X])
+AU_ALIAS([AC_FIND_XTRA],	[AC_PATH_XTRA])
+AU_ALIAS([AC_GCC_TRADITIONAL],	[AC_PROG_GCC_TRADITIONAL])
+AU_ALIAS([AC_GETGROUPS_T],	[AC_TYPE_GETGROUPS])
+AU_ALIAS([AC_INLINE],		[AC_C_INLINE])
+AU_ALIAS([AC_LN_S],		[AC_PROG_LN_S])
+AU_ALIAS([AC_LONG_DOUBLE],	[AC_C_LONG_DOUBLE])
+AU_ALIAS([AC_LONG_FILE_NAMES],	[AC_SYS_LONG_FILE_NAMES])
+AU_ALIAS([AC_MAJOR_HEADER],	[AC_HEADER_MAJOR])
+AU_ALIAS([AC_MINUS_C_MINUS_O],	[AC_PROG_CC_C_O])
+AU_ALIAS([AC_MODE_T],		[AC_TYPE_MODE_T])
+AU_ALIAS([AC_OFF_T],		[AC_TYPE_OFF_T])
+AU_ALIAS([AC_PID_T],		[AC_TYPE_PID_T])
+AU_ALIAS([AC_RESTARTABLE_SYSCALLS],		[AC_SYS_RESTARTABLE_SYSCALLS])
+AU_ALIAS([AC_RETSIGTYPE],	[AC_TYPE_SIGNAL])
+AU_ALIAS([AC_SET_MAKE],		[AC_PROG_MAKE_SET])
+AU_ALIAS([AC_SIZE_T],		[AC_TYPE_SIZE_T])
+AU_ALIAS([AC_STAT_MACROS_BROKEN],		[AC_HEADER_STAT])
+AU_ALIAS([AC_STDC_HEADERS],	[AC_HEADER_STDC])
+AU_ALIAS([AC_ST_BLKSIZE],	[AC_STRUCT_ST_BLKSIZE])
+AU_ALIAS([AC_ST_BLOCKS],	[AC_STRUCT_ST_BLOCKS])
+AU_ALIAS([AC_ST_RDEV],		[AC_STRUCT_ST_RDEV])
+AU_ALIAS([AC_SYS_SIGLIST_DECLARED],		[AC_DECL_SYS_SIGLIST])
+AU_ALIAS([AC_TIMEZONE],		[AC_STRUCT_TIMEZONE])
+AU_ALIAS([AC_TIME_WITH_SYS_TIME],		[AC_HEADER_TIME])
+AU_ALIAS([AC_UID_T],		[AC_TYPE_UID_T])
+AU_ALIAS([AC_WORDS_BIGENDIAN],	[AC_C_BIGENDIAN])
+AU_ALIAS([AC_YYTEXT_POINTER],	[AC_DECL_YYTEXT])
+AU_ALIAS([AM_CYGWIN32],		[AC_CYGWIN32])
+AU_ALIAS([AC_CYGWIN32],         [AC_CYGWIN])
+AU_ALIAS([AM_EXEEXT],		[AC_EXEEXT])
+# We cannot do this, because in libtool.m4 yet they provide
+# this update.  Some solution is needed.
+# AU_ALIAS([AM_PROG_LIBTOOL],		[AC_PROG_LIBTOOL])
+AU_ALIAS([AM_MINGW32],		[AC_MINGW32])
+AU_ALIAS([AM_PROG_INSTALL],	[AC_PROG_INSTALL])

@@ -31,9 +31,6 @@
 	String *dataStore;
 }
 
-- (FstabMap *)initWithParent:(Vnode *)p
-	directory:(String *)dir
-	from:(String *)ds;
 - (void)setupLink:(Vnode *)v;
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type;
 - (void)postProcess:(Vnode *)v;

@@ -35,7 +35,6 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#ifdef _IPC_UNTYPED_
 #define SYS_PORT_NULL MACH_PORT_NULL
 #define sys_msg_return_type mach_msg_return_t
 #define sys_port_type mach_port_t
@@ -46,33 +45,20 @@
 #define sys_task_self mach_task_self
 #define sys_task_for_pid task_for_pid
 #define sys_msg_local_port msgh_local_port
-#else
-#define SYS_PORT_NULL PORT_NULL
-#define sys_msg_return_type msg_return_t
-#define sys_port_type port_t
-#define sys_task_port_type task_t
-#define sys_msg_timeout_type msg_timeout_t
-#define sys_msg_header_type msg_header_t
-#define sys_strerror mach_errormsg
-#define sys_task_self task_self
-#define sys_task_for_pid task_by_unix_pid
-#define sys_msg_local_port msg_local_port
-#endif
 
-int sys_server_running(char *name);
-kern_return_t sys_port_look_up(char *name, sys_port_type *p);
+#define SERVER_STATUS_ERROR -1
+#define SERVER_STATUS_INACTIVE 0
+#define SERVER_STATUS_ACTIVE 1
+#define SERVER_STATUS_ON_DEMAND 2
 
-kern_return_t sys_create_service(char *name, sys_port_type *p);
+kern_return_t sys_create_service(char *name, sys_port_type *p, int restart);
 kern_return_t sys_destroy_service(char *name);
 
-kern_return_t 
-sys_receive_port_alloc(sys_msg_header_type *h, unsigned int size);
+kern_return_t sys_receive_port_alloc(sys_msg_header_type *h, unsigned int size);
 
-kern_return_t 
-sys_port_alloc(sys_port_type *p);
+kern_return_t sys_port_alloc(sys_port_type *p);
 
-void
-sys_port_free(sys_port_type p);
+void sys_port_free(sys_port_type p);
 
 sys_msg_return_type
 sys_receive_message(sys_msg_header_type *h, unsigned int size, sys_port_type p, sys_msg_timeout_type t);
@@ -88,3 +74,4 @@ sys_port_extract_receive_right(sys_task_port_type et, sys_port_type ep, sys_port
 
 sys_port_type lookupd_port(char *name);
 
+int sys_server_status(char *name);

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_udp.c 1.24 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_udp.c	2.2 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: rpc_extra.c,v 1.1 2001/03/29 22:00:48 majka Exp $";
+static char *rcsid = "$Id: rpc_extra.c,v 1.2 2001/10/26 15:59:56 majka Exp $";
 #endif
 
 /*
@@ -440,6 +440,7 @@ struct udp_cache {
  (xid % (SPARSENESS*((struct udp_cache *) su_data(transp)->su_cache)->uc_size))	
 
 
+#ifdef NOTDEF
 /*
  * Enable use of the cache. 
  * Note: there is no disable.
@@ -478,6 +479,7 @@ svcudp_enablecache(transp, size)
 	su->su_cache = (char *) uc;
 	return(1);
 }
+#endif
 
 
 /*
@@ -691,6 +693,7 @@ svctcp_bind(int sock, struct sockaddr_in s, u_int sendsize, u_int recvsize)
 	return xprt;
 }
 
+#ifdef NOTDEF
 /*
  * Like svtcp_create(), except the routine takes any *open* UNIX file
  * descriptor as its first input.
@@ -704,6 +707,7 @@ svcfd_create(fd, sendsize, recvsize)
 
 	return (makefd_xprt(fd, sendsize, recvsize));
 }
+#endif
 
 static SVCXPRT *
 makefd_xprt(fd, sendsize, recvsize)

@@ -21,6 +21,7 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include "IOPMLib.h"
@@ -41,8 +42,8 @@
  *      AC
  */
 #define kACMinutesToDim	                5
-#define kACMinutesToSpin                5
-#define kACMinutesToSleep               20
+#define kACMinutesToSpin                10
+#define kACMinutesToSleep               10
 #define kACWakeOnRing                   0
 #define kACAutomaticRestart             0
 #define kACWakeOnLAN                    1
@@ -92,7 +93,7 @@ typedef struct {
 */
 } IOPMAggressivenessFactors;
 
-static IOReturn IOPMFunctionIsAvailable(CFStringRef);
+static IOReturn IOPMFunctionIsAvailable(CFStringRef, CFStringRef);
 
 static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
 {
@@ -284,7 +285,7 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     type = kPMMinutesToSleep;
     err = IOPMSetAggressiveness(PM_connection, type, p->fMinutesToSleep);
 
-    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMWakeOnLANKey)))
+    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMWakeOnLANKey), NULL))
     {
         type = kPMEthernetWakeOnLANSettings;
         err = IOPMSetAggressiveness(PM_connection, type, p->fWakeOnLAN);
@@ -293,7 +294,7 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     IOServiceClose(PM_connection);
     
     // Wake On Ring
-    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMWakeOnRingKey)))
+    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMWakeOnRingKey), NULL))
     {
         cudaPMU = getCudaPMURef();
         ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
@@ -309,7 +310,7 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     }
     
     // Automatic Restart On Power Loss, aka FileServer mode
-    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMRestartOnPowerLossKey)))
+    if(kIOReturnSuccess == IOPMFunctionIsAvailable(CFSTR(kIOPMRestartOnPowerLossKey), NULL))
     {
         cudaPMU = getCudaPMURef();
         ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
@@ -334,11 +335,25 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     return 0;
 }
 
+/* RY: Added macro to make sure we are using
+   the appropriate object */
+#define GetAggressivenessValue(obj, type, ret)	\
+do {						\
+    if (isA_CFNumber(obj)){			\
+        CFNumberGetValue(obj, type, &ret);	\
+        break;					\
+    }						\
+    else if (isA_CFBoolean(obj)){		\
+        ret = CFBooleanGetValue(obj);		\
+        break;					\
+    }						\
+} while (false);
+
 /* For internal use only */
 static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringRef prof, IOPMAggressivenessFactors *agg)
 {
     CFDictionaryRef p = NULL;
-    CFNumberRef		val;
+
     if( !(p = CFDictionaryGetValue(System, prof)) )
     {
         printf("IOPMconfigd: error getting agg factors from profile!\n");
@@ -352,132 +367,41 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
      */
     
     // dim
-    val = (CFNumberRef)CFDictionaryGetValue(p, CFSTR(kIOPMDisplaySleepKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fMinutesToDim));
-    }
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMDisplaySleepKey)),
+                           kCFNumberSInt32Type, agg->fMinutesToDim);
     
     // spin down
-    val = CFDictionaryGetValue(p, CFSTR(kIOPMDiskSleepKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fMinutesToSpin));
-    }
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMDiskSleepKey)),
+                           kCFNumberSInt32Type, agg->fMinutesToSpin);
 
     // sleep
-    val = CFDictionaryGetValue(p, CFSTR(kIOPMSystemSleepKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fMinutesToSleep));
-    }
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMSystemSleepKey)),
+                           kCFNumberSInt32Type, agg->fMinutesToSleep);
 
     // Wake On Magic Packet
-    val = CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnLANKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fWakeOnLAN));
-    }
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnLANKey)),
+                           kCFNumberSInt32Type, agg->fWakeOnLAN);
 
     // Wake On Ring
-    val = CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnRingKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fWakeOnRing));
-    }
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMWakeOnRingKey)),
+                           kCFNumberSInt32Type, agg->fWakeOnRing);
 
     // AutomaticRestartOnPowerLoss
-    val = CFDictionaryGetValue(p, CFSTR(kIOPMRestartOnPowerLossKey));
-    if (val)
-    {
-        CFNumberGetValue(val, kCFNumberSInt32Type, &(agg->fAutomaticRestart));
-    }
-
+    GetAggressivenessValue(CFDictionaryGetValue(p, CFSTR(kIOPMRestartOnPowerLossKey)),
+                           kCFNumberSInt32Type, agg->fAutomaticRestart);
+    
     return 0;
 }
 
-
-//---------------------------------------------------------------------------
-// Searches the IOKit registry and return an interface object with the
-// given BSD interface name, i.e. "en0".
-// Taken from Admin framework
-static io_object_t getNetworkInterfaceWithBSDName( const char * name )
-{
-    kern_return_t  kr;
-    io_iterator_t  ite;
-    io_object_t    obj = 0;
-    mach_port_t    masterPort;
-    
-    IOMasterPort(bootstrap_port, &masterPort);
-
-    kr = IOServiceGetMatchingServices( masterPort,
-                                       IOBSDNameMatching(masterPort, 0, name),
-                                       &ite);
-
-    if ( (kr != kIOReturnSuccess) || (ite == 0) ) return 0;
-
-    obj = IOIteratorNext(ite);
-    IORegistryDisposeEnumerator(ite);
-
-    // Caller must release object by calling IOObjectRelease(). 
-    return obj;
-}
-
-/* supportsWakeForNetworkAdministrativeAccess "borrowed" from 
-    Admin framework */
-static IOReturn supportsWakeForNetworkAdministrativeAccess(void)
-{
-	int				theResult = 0;
-        io_iterator_t		iter;
-	kern_return_t		kr;
-	static mach_port_t masterPort = NULL;
-
-    if(!masterPort) IOMasterPort(bootstrap_port, &masterPort);
-
-    kr = IOServiceGetMatchingServices(masterPort, IOServiceMatching(kIOEthernetInterfaceClass), &iter);
-    if(iter) {
-		io_object_t    obj;
-		char           path[512];
-        while((obj = IOIteratorNext(iter))) {
-            kr = IORegistryEntryGetPath((io_registry_entry_t)obj, kIOServicePlane, path);
-            if(kr == KERN_SUCCESS) {
-                CFStringRef    bsdName = IORegistryEntryCreateCFProperty(obj, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-                if(bsdName) {
-                    io_object_t     netif;
-                    netif = getNetworkInterfaceWithBSDName(CFStringGetCStringPtr(bsdName, kCFStringEncodingMacRoman));
-					
-                    if(netif) {
-                        io_connect_t    connect;
-						
-                        kr = IONetworkOpen(netif, &connect);
-                        if(kr == KERN_SUCCESS) {
-                            UInt32		filters;
-							
-                            kr = IONetworkGetPacketFiltersMask(connect, kIOEthernetWakeOnLANFilterGroup, &filters, kIONetworkSupportedPacketFilters);
-                            if(kr != KERN_SUCCESS); // NSLog(@"IONetworkGetPacketFiltersMask failed with error %i", kr);
-							
-                            if(filters & kIOEthernetWakeOnMagicPacket) theResult = 1;
-							
-                            IONetworkClose(connect);
-                        } //else NSLog(@"IONetworkOpen failed with error error %i", kr);
-						
-                            IOObjectRelease(netif);
-                    } //else NSLog(@"getNetworkInterfaceWithBSDName returned nil");
-                    CFRelease( bsdName );
-                } //else NSLog(@"IORegistryEntryCreateCFProperty returned nil name");
-            } //else NSLog(@"IORegistryEntryGetPath failed with error error %i", kr);
-
-            IOObjectRelease(obj);
-			if(theResult) break;
-        }
-        IOObjectRelease(iter);
-    } //else NSLog(@"IOServiceGetMatchingServices returned nil iterator (error=%i)", kr);
-	
-	if(theResult) return kIOReturnSuccess;
-	else return kIOReturnError;
-}
-
-static IOReturn IOPMFunctionIsAvailable(CFStringRef f)
+/*** IOPMFunctionIsAvailable
+     Arguments-
+        CFStringRef f - Name of a PM feature/Energy Saver checkbox feature (like "WakeOnRing" or "Reduce Processor Speed")
+        CFStringRef power_source - The current power source (like "AC Power" or "Battery Power")
+     Return value-
+        kIOReturnSuccess if the given PM feature is supported on the given power source
+        kIOReturnError if the feature is unsupported
+ ***/
+static IOReturn IOPMFunctionIsAvailable(CFStringRef f, CFStringRef power_source)
 {
     CFDictionaryRef		        supportedFeatures = NULL;
     CFPropertyListRef           izzo;
@@ -527,8 +451,17 @@ static IOReturn IOPMFunctionIsAvailable(CFStringRef f)
     // wake on magic packet
     if(CFEqual(f, CFSTR(kIOPMWakeOnLANKey)))
     {
-        ret = supportsWakeForNetworkAdministrativeAccess();
-        goto IOPMFunctionIsAvailable_exitpoint;
+        // Check for WakeOnLAN property in supportedFeatures
+        // Radar 2946434 WakeOnLAN is only supported when running on AC power. It's automatically disabled
+        // on battery power, and thus shouldn't be offered as a checkbox option.
+        if(CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnMagicPacket"))
+                && (!power_source || !CFEqual(CFSTR(kIOPMBatteryPowerKey), power_source)))
+        {
+            ret = kIOReturnSuccess;
+        } else {
+            ret = kIOReturnError;
+        }
+        goto IOPMFunctionIsAvailable_exitpoint;       
     }
 
     if(CFEqual(f, CFSTR(kIOPMWakeOnRingKey)))
@@ -627,7 +560,7 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
         CFDictionaryGetKeysAndValues(this_profile, (void **)dict_keys, (void **)dict_vals);
         // For each specific property within each dictionary
         while(--dict_count >= 0)
-            if( kIOReturnError == IOPMFunctionIsAvailable((CFStringRef)dict_keys[dict_count]) )
+            if( kIOReturnError == IOPMFunctionIsAvailable((CFStringRef)dict_keys[dict_count], (CFStringRef)profile_keys[profile_count]) )
             {
                 // If the property isn't supported, remove it
                 CFDictionaryRemoveValue(this_profile, (CFStringRef)dict_keys[dict_count]);    
@@ -712,10 +645,14 @@ extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
+    if(energyPrefs == 0) {
+        if(energyDict != 0) CFRelease(energyDict);
+        return NULL;
+    }
     
     // Attempt to read battery & AC settings
-    batterySettings = (CFDictionaryRef)SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey));
-    ACSettings = (CFDictionaryRef)SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMACPowerKey));
+    batterySettings = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMBatteryPowerKey)));
+    ACSettings = isA_CFDictionary(SCPreferencesGetValue(energyPrefs, CFSTR(kIOPMACPowerKey)));
     
     // If com.apple.PowerManagement.xml opened correctly, read data from it
     if( batterySettings || ACSettings ) 
@@ -724,6 +661,7 @@ extern CFMutableDictionaryRef IOPMCopyPMPreferences(void)
             CFDictionaryAddValue(energyDict, CFSTR(kIOPMBatteryPowerKey), batterySettings);
         if(ACSettings)
             CFDictionaryAddValue(energyDict, CFSTR(kIOPMACPowerKey), ACSettings);
+
     } else {
         // Fill dictionaries with default settings
         getDefaultEnergySettings(energyDict);
@@ -745,6 +683,10 @@ extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStrin
     CFDictionaryRef                 newPMPrefs = NULL;
     SCDynamicStoreRef               dynamic_store = NULL;
 
+    if(0 == isA_CFDictionary(SystemProfiles) || 0 == isA_CFString(profile)) {
+        return kIOReturnBadArgument;
+    }
+
     // Activate settings by sending them to the kernel
     agg = (IOPMAggressivenessFactors *)malloc(sizeof(IOPMAggressivenessFactors));
     getAggressivenessFactorsFromProfile(SystemProfiles, profile, agg);
@@ -757,9 +699,10 @@ extern IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStrin
                                          NULL, NULL);
     if(dynamic_store == NULL) return kIOReturnError;
 
-    activePMPrefs = (CFDictionaryRef)SCDynamicStoreCopyValue(dynamic_store,  
-                                         CFSTR(kIOPMDynamicStoreSettingsKey));
-    newPMPrefs = CFDictionaryGetValue(SystemProfiles, profile);
+    activePMPrefs = isA_CFDictionary(SCDynamicStoreCopyValue(dynamic_store,  
+                                         CFSTR(kIOPMDynamicStoreSettingsKey)));
+
+    newPMPrefs = isA_CFDictionary(CFDictionaryGetValue(SystemProfiles, profile));
 
     // If there isn't currently a value for kIOPMDynamicStoreSettingsKey
     //    or the current value is different than the new value
@@ -804,9 +747,19 @@ extern IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs)
         }
     }
 
-    SCPreferencesCommitChanges(energyPrefs);
+    if(!SCPreferencesCommitChanges(energyPrefs))
+    {
+        // handle error
+        if(kSCStatusAccessError == SCError()) return kIOReturnNotPrivileged;
+        return kIOReturnError;
+    }
     
-    SCPreferencesApplyChanges(energyPrefs);
+    if(!SCPreferencesApplyChanges(energyPrefs))
+    {
+        // handle error
+        if(kSCStatusAccessError == SCError()) return kIOReturnNotPrivileged;
+        return kIOReturnError;        
+    }
 
     return kIOReturnSuccess;
 }

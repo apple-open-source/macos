@@ -1,6 +1,6 @@
 #!/bin/sh
 # 
-# Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -87,11 +87,13 @@ done
 
 for file in $files
 do
-    base="`basename "$file" .defs`"
+    base="$(basename "$file" .defs)"
     temp="$base".$$
+    sourcedir="$(dirname "$file")"
     rm -f "$temp".c "$temp".d
     (echo '#line 1 '\""$file"\"; cat "$file") > "$temp".c
-    $C -E -arch $arch $cppflags "$temp".c | $M  $migflags || exit
+    $C -E -arch $arch $cppflags -I "$sourcedir" "$temp".c | $M  $migflags || exit
+
     if [ "$sawMD" -a -f "$temp".d ]
     then
 	deps=

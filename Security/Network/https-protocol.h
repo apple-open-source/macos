@@ -37,8 +37,8 @@ namespace Network {
 // stuff.
 //
 class SecureHTTPProtocol : public HTTPProtocol {
-    class SecureHTTPTransfer;
 public:
+    class SecureHTTPTransfer;
     static const IPPort defaultHttpsPort = 443;
 
     SecureHTTPProtocol(Manager &mgr);
@@ -52,7 +52,8 @@ private:
     // Our persistent connection object
     //
     typedef SecureTransport<Socket> SSL;
-    
+
+protected:
     class SecureHTTPConnection : public HTTPConnection, protected SSL {
     public:
         SecureHTTPConnection(Protocol &proto, const HostTarget &tgt);
@@ -85,7 +86,7 @@ private:
         bool atEnd() const;
     };
 
-
+public:
     //
     // A generic Transfer object. All HTTP transfers are transactional (headers in, optional data in,
     // headers out, optional data out), so there's no reason to distinguish subclasses.

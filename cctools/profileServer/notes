@@ -1,3 +1,10 @@
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+
 Changes the 5.3 release (the cctools-292 release):
 - Changed the return type of main() in profileServer.c from void to int to
   remove a warning from the egcs compiler.  Also changed the exit() calls to

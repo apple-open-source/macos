@@ -1,5 +1,6 @@
 /* Support for printing C++ values for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 1994-1996, 2000
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   2000, 2001, 2002
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -32,6 +33,7 @@
 #include "gdb_string.h"
 #include "c-lang.h"
 #include "target.h"
+#include "cp-abi.h"
 
 /* Indication of presence of HP-compiled object files */
 extern int hp_som_som_object_present;	/* defined in symtab.c */
@@ -47,7 +49,7 @@ static struct obstack dont_print_statmem_obstack;
 
 extern void _initialize_cp_valprint (void);
 
-static void cp_print_static_field (struct type *, value_ptr,
+static void cp_print_static_field (struct type *, struct value *,
 				   struct ui_file *, int, int,
 				   enum val_prettyprint);
 
@@ -56,14 +58,16 @@ static void cp_print_value (struct type *, struct type *, char *, int,
 			    enum val_prettyprint, struct type **);
 
 static void cp_print_hpacc_virtual_table_entries (struct type *, int *,
-						  value_ptr,
+						  struct value *,
 						  struct ui_file *, int,
 						  int,
 						  enum val_prettyprint);
 
 
 void
-cp_print_class_method (char *valaddr, struct type *type, struct ui_file *stream)
+cp_print_class_method (char *valaddr,
+		       struct type *type,
+		       struct ui_file *stream)
 {
   struct type *domain;
   struct fn_field *f = NULL;
@@ -137,7 +141,7 @@ cp_print_class_method (char *valaddr, struct type *type, struct ui_file *stream)
 	    }
 	}
     }
-common:
+ common:
   if (i < len)
     {
       char *demangled_name;
@@ -152,7 +156,7 @@ common:
       else
 	{
 	  fputs_filtered (demangled_name, stream);
-	  free (demangled_name);
+	  xfree (demangled_name);
 	}
     }
   else
@@ -165,16 +169,17 @@ common:
 
 /* This was what it was for gcc 2.4.5 and earlier.  */
 static const char vtbl_ptr_name_old[] =
-{CPLUS_MARKER, 'v', 't', 'b', 'l', '_', 'p', 't', 'r', '_', 't', 'y', 'p', 'e', 0};
+{
+  CPLUS_MARKER, 'v', 't', 'b', 'l', '_', 'p', 't', 'r', '_', 
+  't', 'y', 'p', 'e', 0
+};
+
 /* It was changed to this after 2.4.5.  */
-const char vtbl_ptr_name[] =
-{'_', '_', 'v', 't', 'b', 'l', '_', 'p', 't', 'r', '_', 't', 'y', 'p', 'e', 0};
+const char vtbl_ptr_name[] = "__vtbl_ptr_type";
 
 /* HP aCC uses different names */
-const char hpacc_vtbl_ptr_name[] =
-{'_', '_', 'v', 'f', 'p', 0};
-const char hpacc_vtbl_ptr_type_name[] =
-{'_', '_', 'v', 'f', 't', 'y', 'p', 0};
+const char hpacc_vtbl_ptr_name[] = "__vfp";
+const char hpacc_vtbl_ptr_type_name[] = "__vftyp";
 
 
 /* Return truth value for assertion that TYPE is of the type
@@ -196,6 +201,8 @@ cp_is_vtbl_ptr_type (struct type *type)
 int
 cp_is_vtbl_member (struct type *type)
 {
+  /* With older versions of g++, the vtbl field pointed to an array
+     of structures.  Nowadays it points directly to the structure. */
   if (TYPE_CODE (type) == TYPE_CODE_PTR)
     {
       type = TYPE_TARGET_TYPE (type);
@@ -209,6 +216,17 @@ cp_is_vtbl_member (struct type *type)
 	         to virtual functions. */
 	      return cp_is_vtbl_ptr_type (type);
 	    }
+	}
+      else if (TYPE_CODE (type) == TYPE_CODE_STRUCT)  /* if not using thunks */
+	{
+	  return cp_is_vtbl_ptr_type (type);
+	}
+      else if (TYPE_CODE (type) == TYPE_CODE_PTR)     /* if using thunks */
+	{
+	  /* The type name of the thunk pointer is NULL when using dwarf2.
+	     We could test for a pointer to a function, but there is
+	     no type info for the virtual table either, so it wont help.  */
+	  return cp_is_vtbl_ptr_type (type);
 	}
     }
   return 0;
@@ -254,11 +272,12 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 
   /* If there are no data fields, or if the only field is the
    * vtbl pointer, skip this part */
-  if ((len == n_baseclasses) ||
-      ((len - n_baseclasses == 1) &&
-       TYPE_HAS_VTABLE (type) &&
-  STREQN (TYPE_FIELD_NAME (type, n_baseclasses), hpacc_vtbl_ptr_name, 5)) ||
-      !len)
+  if ((len == n_baseclasses)
+      || ((len - n_baseclasses == 1)
+	  && TYPE_HAS_VTABLE (type)
+	  && STREQN (TYPE_FIELD_NAME (type, n_baseclasses),
+		     hpacc_vtbl_ptr_name, 5))
+      || !len)
     fprintf_filtered (stream, "<No data fields>");
   else
     {
@@ -280,7 +299,8 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 	    continue;
 
 	  /* If a vtable pointer appears, we'll print it out later */
-	  if (TYPE_HAS_VTABLE (type) && STREQN (TYPE_FIELD_NAME (type, i), hpacc_vtbl_ptr_name, 5))
+	  if (TYPE_HAS_VTABLE (type)
+	      && STREQN (TYPE_FIELD_NAME (type, i), hpacc_vtbl_ptr_name, 5))
 	    continue;
 
 	  if (fields_seen)
@@ -342,7 +362,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 
 	  if (!TYPE_FIELD_STATIC (type, i) && TYPE_FIELD_PACKED (type, i))
 	    {
-	      value_ptr v;
+	      struct value *v;
 
 	      /* Bitfields require special handling, especially due to byte
 	         order problems.  */
@@ -352,11 +372,12 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 		}
 	      else
 		{
-		  v = value_from_longest (TYPE_FIELD_TYPE (type, i),
-			  unpack_field_as_long (type, valaddr + offset, i));
+		  v = value_from_longest
+		    (TYPE_FIELD_TYPE (type, i), 
+		     unpack_field_as_long (type, valaddr + offset, i));
 
-		  val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0, 0,
-			     stream, format, 0, recurse + 1, pretty);
+		  val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v),
+			     0, 0, stream, format, 0, recurse + 1, pretty);
 		}
 	    }
 	  else
@@ -367,7 +388,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 		}
 	      else if (TYPE_FIELD_STATIC (type, i))
 		{
-		  value_ptr v = value_static_field (type, i);
+		  struct value *v = value_static_field (type, i);
 		  if (v == NULL)
 		    fputs_filtered ("<optimized out>", stream);
 		  else
@@ -378,7 +399,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 	      else
 		{
 		  val_print (TYPE_FIELD_TYPE (type, i),
-			  valaddr, offset + TYPE_FIELD_BITPOS (type, i) / 8,
+			     valaddr, offset + TYPE_FIELD_BITPOS (type, i) / 8,
 			     address + TYPE_FIELD_BITPOS (type, i) / 8,
 			     stream, format, 0, recurse + 1, pretty);
 		}
@@ -401,9 +422,12 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 	}
     }				/* if there are data fields */
   /* Now print out the virtual table pointer if there is one */
-  if (TYPE_HAS_VTABLE (type) && STREQN (TYPE_FIELD_NAME (type, n_baseclasses), hpacc_vtbl_ptr_name, 5))
+  if (TYPE_HAS_VTABLE (type)
+      && STREQN (TYPE_FIELD_NAME (type, n_baseclasses),
+		 hpacc_vtbl_ptr_name, 
+		 5))
     {
-      value_ptr v;
+      struct value *v;
       /* First get the virtual table pointer and print it out */
 
 #if 0
@@ -435,7 +459,8 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 
 	  if (1)
 	    {
-	      /* no RRBC support; function pointers embedded directly in vtable */
+	      /* no RRBC support; function pointers embedded directly
+                 in vtable */
 
 	      int vfuncs = count_virtual_fns (real_type);
 
@@ -443,7 +468,8 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 
 	      /* FIXME : doesn't work at present */
 #if 0
-	      fprintf_filtered (stream, "%d entr%s: ", vfuncs, vfuncs == 1 ? "y" : "ies");
+	      fprintf_filtered (stream, "%d entr%s: ", vfuncs,
+				vfuncs == 1 ? "y" : "ies");
 #else
 	      fputs_filtered ("not implemented", stream);
 
@@ -452,7 +478,9 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 
 	      /* recursive function that prints all virtual function entries */
 #if 0
-	      cp_print_hpacc_virtual_table_entries (real_type, &vfuncs, v, stream, format, recurse, pretty);
+	      cp_print_hpacc_virtual_table_entries (real_type, &vfuncs, v,
+						    stream, format, recurse,
+						    pretty);
 #endif
 	      fputs_filtered ("}", stream);
 	    }			/* non-RRBC case */
@@ -488,8 +516,10 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
 {
   struct obstack tmp_obstack;
   struct type **last_dont_print
-  = (struct type **) obstack_next_free (&dont_print_vb_obstack);
+    = (struct type **) obstack_next_free (&dont_print_vb_obstack);
   int i, n_baseclasses = TYPE_N_BASECLASSES (type);
+  int thisoffset;
+  struct type *thistype;
 
   if (dont_print_vb == 0)
     {
@@ -512,10 +542,10 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
 	  struct type **first_dont_print
-	  = (struct type **) obstack_base (&dont_print_vb_obstack);
+	    = (struct type **) obstack_base (&dont_print_vb_obstack);
 
 	  int j = (struct type **) obstack_next_free (&dont_print_vb_obstack)
-	  - first_dont_print;
+	    - first_dont_print;
 
 	  while (--j >= 0)
 	    if (baseclass == first_dont_print[j])
@@ -524,32 +554,43 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
 	  obstack_ptr_grow (&dont_print_vb_obstack, baseclass);
 	}
 
+      thisoffset = offset;
+      thistype = real_type;
       if (TYPE_HAS_VTABLE (type) && BASETYPE_VIA_VIRTUAL (type, i))
 	{
 	  /* Assume HP/Taligent runtime convention */
 	  find_rt_vbase_offset (type, TYPE_BASECLASS (type, i),
 				valaddr, offset, &boffset, &skip);
 	  if (skip >= 0)
-	    error ("Virtual base class offset not found from vtable while printing");
+	    error ("Virtual base class offset not found from vtable while"
+		   " printing");
 	  base_valaddr = valaddr;
 	}
       else
 	{
-	  boffset = baseclass_offset (type, i, valaddr + offset, address + offset);
+	  boffset = baseclass_offset (type, i,
+				      valaddr + offset,
+				      address + offset);
 	  skip = ((boffset == -1) || (boffset + offset) < 0) ? 1 : -1;
 
 	  if (BASETYPE_VIA_VIRTUAL (type, i))
 	    {
-	      /* The virtual base class pointer might have been clobbered by the
-	         user program. Make sure that it still points to a valid memory
-	         location.  */
+	      /* The virtual base class pointer might have been
+	         clobbered by the user program. Make sure that it
+	         still points to a valid memory location.  */
 
-	      if (boffset != -1 && ((boffset + offset) < 0 || (boffset + offset) >= TYPE_LENGTH (type)))
+	      if (boffset != -1
+		  && ((boffset + offset) < 0
+		      || (boffset + offset) >= TYPE_LENGTH (type)))
 		{
+		  /* FIXME (alloca): unsafe if baseclass is really really large. */
 		  base_valaddr = (char *) alloca (TYPE_LENGTH (baseclass));
-		  if (target_read_memory (address + boffset, base_valaddr,
+		  if (target_read_memory (address + offset + boffset, base_valaddr,
 					  TYPE_LENGTH (baseclass)) != 0)
 		    skip = 1;
+		  thisoffset = 0;
+		  boffset = 0;
+		  thistype = baseclass;
 		}
 	      else
 		base_valaddr = valaddr;
@@ -574,9 +615,11 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
       if (skip >= 1)
 	fprintf_filtered (stream, "<invalid address>");
       else
-	cp_print_value_fields (baseclass, real_type, base_valaddr, offset + boffset, address,
-			       stream, format, recurse, pretty,
-		     (struct type **) obstack_base (&dont_print_vb_obstack),
+	cp_print_value_fields (baseclass, thistype, base_valaddr,
+			       thisoffset + boffset, address, stream, format,
+			       recurse, pretty,
+			       ((struct type **)
+				obstack_base (&dont_print_vb_obstack)),
 			       0);
       fputs_filtered (", ", stream);
 
@@ -605,8 +648,12 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
    have the same meanings as in c_val_print.  */
 
 static void
-cp_print_static_field (struct type *type, value_ptr val, struct ui_file *stream,
-		       int format, int recurse, enum val_prettyprint pretty)
+cp_print_static_field (struct type *type,
+		       struct value *val,
+		       struct ui_file *stream,
+		       int format,
+		       int recurse,
+		       enum val_prettyprint pretty)
 {
   if (TYPE_CODE (type) == TYPE_CODE_STRUCT)
     {
@@ -622,7 +669,8 @@ cp_print_static_field (struct type *type, value_ptr val, struct ui_file *stream,
 	{
 	  if (VALUE_ADDRESS (val) == first_dont_print[i])
 	    {
-	      fputs_filtered ("<same as static member of an already seen type>",
+	      fputs_filtered ("<same as static member of an already"
+			      " seen type>",
 			      stream);
 	      return;
 	    }
@@ -632,11 +680,13 @@ cp_print_static_field (struct type *type, value_ptr val, struct ui_file *stream,
 		    sizeof (CORE_ADDR));
 
       CHECK_TYPEDEF (type);
-      cp_print_value_fields (type, type, VALUE_CONTENTS_ALL (val), VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
+      cp_print_value_fields (type, type, VALUE_CONTENTS_ALL (val),
+			     VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
 			     stream, format, recurse, pretty, NULL, 1);
       return;
     }
-  val_print (type, VALUE_CONTENTS_ALL (val), VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
+  val_print (type, VALUE_CONTENTS_ALL (val), 
+	     VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
 	     stream, format, 0, recurse, pretty);
 }
 
@@ -717,7 +767,7 @@ cp_print_class_member (char *valaddr, struct type *domain,
 
 static void
 cp_print_hpacc_virtual_table_entries (struct type *type, int *vfuncs,
-				      value_ptr v, struct ui_file *stream,
+				      struct value *v, struct ui_file *stream,
 				      int format, int recurse,
 				      enum val_prettyprint pretty)
 {
@@ -730,7 +780,8 @@ cp_print_hpacc_virtual_table_entries (struct type *type, int *vfuncs,
   /* Recursion on other classes that can share the same vtable */
   struct type *pbc = primary_base_class (type);
   if (pbc)
-    cp_print_hpacc_virtual_table_entries (pbc, vfuncs, v, stream, format, recurse, pretty);
+    cp_print_hpacc_virtual_table_entries (pbc, vfuncs, v, stream, format,
+					  recurse, pretty);
 
   /* Now deal with vfuncs declared in this class */
   for (fn = 0; fn < TYPE_NFN_FIELDS (type); fn++)
@@ -738,23 +789,28 @@ cp_print_hpacc_virtual_table_entries (struct type *type, int *vfuncs,
       if (TYPE_FN_FIELD_VIRTUAL_P (TYPE_FN_FIELDLIST1 (type, fn), oi))
 	{
 	  char *vf_name;
+	  const char *field_physname;
 
 	  /* virtual function offset */
-	  int vx = TYPE_FN_FIELD_VOFFSET (TYPE_FN_FIELDLIST1 (type, fn), oi) - 1;
+	  int vx = (TYPE_FN_FIELD_VOFFSET (TYPE_FN_FIELDLIST1 (type, fn), oi)
+		    - 1);
 
 	  /* Get the address of the vfunction entry */
-	  value_ptr vf = value_copy (v);
+	  struct value *vf = value_copy (v);
 	  if (VALUE_LAZY (vf))
 	    (void) value_fetch_lazy (vf);
-	  vf->aligner.contents[0] += 4 * (HP_ACC_VFUNC_START + vx);	/* adjust by offset */
+	  /* adjust by offset */
+	  vf->aligner.contents[0] += 4 * (HP_ACC_VFUNC_START + vx);
 	  vf = value_ind (vf);	/* get the entry */
 	  VALUE_TYPE (vf) = VALUE_TYPE (v);	/* make it a pointer */
 
 	  /* print out the entry */
 	  val_print (VALUE_TYPE (vf), VALUE_CONTENTS (vf), 0, 0,
 		     stream, format, 0, recurse + 1, pretty);
-	  vf_name = cplus_demangle (TYPE_FN_FIELD_PHYSNAME (TYPE_FN_FIELDLIST1 (type, fn), oi),
-				    DMGL_ARM);	/* pai: (temp) FIXME Maybe this should be DMGL_ANSI */
+	  field_physname
+	    = TYPE_FN_FIELD_PHYSNAME (TYPE_FN_FIELDLIST1 (type, fn), oi);
+	  /* pai: (temp) FIXME Maybe this should be DMGL_ANSI */
+	  vf_name = cplus_demangle (field_physname, DMGL_ARM);
 	  fprintf_filtered (stream, " %s", vf_name);
 	  if (--(*vfuncs) > 0)
 	    fputs_filtered (", ", stream);
@@ -793,5 +849,5 @@ _initialize_cp_valprint (void)
   obstack_begin (&dont_print_vb_obstack, 32 * sizeof (struct type *));
   obstack_specify_allocation (&dont_print_statmem_obstack,
 			      32 * sizeof (CORE_ADDR), sizeof (CORE_ADDR),
-			      xmalloc, free);
+			      xmalloc, xfree);
 }

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.h,v 1.2 2001/06/28 23:22:56 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.h,v 1.2 2001/06/28 23:22:56 bbraun Exp $ */
 /*
  * sh.h: Catch it all globals and includes file!
  */

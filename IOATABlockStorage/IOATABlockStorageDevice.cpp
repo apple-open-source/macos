@@ -37,12 +37,17 @@
  */
 
 #include <IOKit/IOLib.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include <IOKit/IOPlatformExpert.h>
+
 #include "IOATABlockStorageDriver.h"
 #include "IOATABlockStorageDevice.h"
-#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include "ATASMARTLibPriv.h"
 
 #define super IOBlockStorageDevice
 OSDefineMetaClassAndStructors ( IOATABlockStorageDevice, IOBlockStorageDevice );
+
 
 #if ( ATA_BLOCK_STORAGE_DEVICE_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)			IOPanic x
@@ -70,7 +75,7 @@ bool
 IOATABlockStorageDevice::attach ( IOService * provider )
 {
 	
-	OSDictionary *	dictionary = OSDictionary::withCapacity ( 1 );
+	OSDictionary *	dictionary = NULL;
 	
 	if ( !super::attach ( provider ) )
 		return false;
@@ -79,17 +84,28 @@ IOATABlockStorageDevice::attach ( IOService * provider )
 	if ( fProvider == NULL )
 	{
 		
-		IOLog ( "IOATABlockStorageDevice: attach; wrong provider type!\n" );
+		ERROR_LOG ( ( "IOATABlockStorageDevice: attach; wrong provider type!\n" ) );
 		return false;
 		
 	}
 	
+	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	if ( reserved == NULL )
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDevice: attach; can't allocate ExpansionData!\n" ) );
+		return false;
+		
+	}
+	
+	bzero ( reserved, sizeof ( ExpansionData ) );
+	
+	dictionary = OSDictionary::withCapacity ( 1 );
 	if ( dictionary != NULL )
 	{
 		
 		dictionary->setObject ( kIOPropertyPhysicalInterconnectTypeKey, fProvider->getProperty ( kIOPropertyPhysicalInterconnectTypeKey ) );
 		dictionary->setObject ( kIOPropertyPhysicalInterconnectLocationKey, fProvider->getProperty ( kIOPropertyPhysicalInterconnectLocationKey ) );
-		
 		setProperty ( kIOPropertyProtocolCharacteristicsKey, dictionary );
 		
 		dictionary->release ( );
@@ -102,6 +118,8 @@ IOATABlockStorageDevice::attach ( IOService * provider )
 		
 		char *		string;
 		OSString *	theString;
+		OSNumber *	value;
+		UInt32		features;
 		
 		string = getVendorString ( );
 		
@@ -130,6 +148,55 @@ IOATABlockStorageDevice::attach ( IOService * provider )
 			theString->release ( );
 		}
 		
+		dictionary->setObject ( kIOATASupportedFeaturesKey, fProvider->getProperty ( kIOATASupportedFeaturesKey ) );
+		value = OSDynamicCast ( OSNumber, fProvider->getProperty ( kIOATASupportedFeaturesKey ) );
+		if ( value != NULL )
+		{
+			
+			features = value->unsigned32BitValue ( );
+			if ( features & kIOATAFeatureSMART )
+			{
+				
+				OSDictionary *	userClientDict = OSDictionary::withCapacity ( 1 );
+				OSString *		string1;
+				OSString *		string2;
+				
+				string1 = OSString::withCString ( kATASMARTUserClientTypeIDKey );
+				string2 = OSString::withCString ( kATASMARTUserClientLibLocationKey );
+				
+				userClientDict->setObject ( string1, string2 );
+				
+				setProperty ( kIOUserClientClassKey, kATASMARTUserClientClassKey );
+				setProperty ( kIOCFPlugInTypesKey, userClientDict );
+				
+				if ( userClientDict != NULL )
+				{
+					
+					userClientDict->release ( );
+					userClientDict = NULL;
+					
+				}
+				
+				if ( string1 != NULL )
+				{
+					
+					string1->release ( );
+					string1 = NULL;
+					
+				}
+
+				if ( string2 != NULL )
+				{
+					
+					string2->release ( );
+					string2 = NULL;
+					
+				}
+				
+			}
+			
+		}
+		
 		setProperty ( kIOPropertyDeviceCharacteristicsKey, dictionary );
 		
 		dictionary->release ( );
@@ -151,7 +218,126 @@ IOATABlockStorageDevice::detach ( IOService * provider )
 	if ( fProvider == provider )
 		fProvider = 0;
 	
+	if ( reserved != NULL )
+	{
+		
+		if ( fClients != NULL )
+		{
+			
+			fClients->release ( );
+			fClients = NULL;
+			
+		}
+		
+		IOFree ( reserved, sizeof ( ExpansionData ) );
+		reserved = NULL;
+		
+	}
+	
 	super::detach ( provider );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// handleOpen from client.
+
+bool
+IOATABlockStorageDevice::handleOpen ( IOService * client, IOOptionBits options, void * access )
+{
+	
+	// If this isn't a user client, pass through to superclass.
+	if ( ( options & kIOATASMARTUserClientAccessMask ) == 0 )
+	{
+		
+		return super::handleOpen ( client, options, access );
+		
+	}
+	
+	// It's the user client, so add it to the set
+	
+	if ( fClients == NULL )
+		fClients = OSSet::withCapacity ( 1 );
+	
+	if ( fClients == NULL )
+		return false;
+	
+	// Check if we already have a user client open
+	if ( fClients->getCount ( ) != 0 )
+	{
+		
+		ERROR_LOG ( ( "User client already open\n" ) );
+		return false;
+	
+	}
+	
+	fClients->setObject ( client );
+	
+	return true;
+	
+}
+
+
+//---------------------------------------------------------------------------
+// handleClose from client.
+
+void
+IOATABlockStorageDevice::handleClose ( IOService * client, IOOptionBits options )
+{
+	
+	// If this isn't a user client, pass through to superclass.
+	if ( ( options & kIOATASMARTUserClientAccessMask ) == 0 )
+		super::handleClose ( client, options );
+	
+	else
+	{
+		
+		STATUS_LOG ( ( "Removing user client\n" ) );
+		fClients->removeObject ( client );
+		if ( fClients->getCount ( ) != 0 )
+		{
+			
+			ERROR_LOG ( ( "Removed client and still have count = %d\n", fClients->getCount ( ) ) );
+			return;
+			
+		}
+		
+	}
+	
+}
+
+
+//---------------------------------------------------------------------------
+// handleIsOpen from client.
+
+bool
+IOATABlockStorageDevice::handleIsOpen ( const IOService * client ) const
+{
+	
+	// General case (is anybody open)
+	if ( client == NULL )
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDevice::handleIsOpen, client is NULL\n" ) );
+		
+		if ( ( fClients != NULL ) && ( fClients->getCount ( ) > 0 ) )
+			return true;
+		
+		STATUS_LOG ( ( "calling super\n" ) );
+		
+		return super::handleIsOpen ( client );
+		
+	}
+	
+	STATUS_LOG ( ( "IOATABlockStorageDevice::handleIsOpen, client = %p\n", client ) );
+	
+	// specific case (is this client open)
+	if ( ( fClients != NULL ) && ( fClients->containsObject ( client ) ) )
+		return true;
+	
+	STATUS_LOG ( ( "calling super\n" ) );
+	
+	return super::handleIsOpen ( client );
 	
 }
 
@@ -167,17 +353,46 @@ IOATABlockStorageDevice::setProperties ( OSObject * properties )
 	OSNumber *		number 		= NULL;
 	IOReturn		status 		= kIOReturnSuccess;
 	UInt32			features	= 0;
+	boolean_t		success		= false;
+	char			modelName[50];
 	
 	STATUS_LOG ( ( "IOATABlockStorageDevice::setProperties called\n" ) );
 	
 	number = ( OSNumber * ) fProvider->getProperty ( kIOATASupportedFeaturesKey );
 	features = number->unsigned32BitValue ( );
 	
+	// Check if the drive supports this feature or not.
 	if ( ( features & kIOATAFeatureAdvancedPowerManagement ) == 0 )
 	{
 		
 		ERROR_LOG ( ( "IOATABlockStorageDevice::setProperties called on unsupported drive\n" ) );
-		return kIOReturnUnsupported;
+		status = kIOReturnUnsupported;
+		return status;
+		
+	}
+	
+	// Don't send the command to non-powerbooks
+	success = PEGetModelName ( modelName, sizeof ( modelName ) );
+	if ( success == true )
+	{
+		
+		if ( strncmp ( modelName, "PowerBook", 9 ) != 0 )
+		{
+			
+			ERROR_LOG ( ( "IOATABlockStorageDevice::setProperties called on non-powerbook drive\n" ) );
+			status = kIOReturnUnsupported;
+			return status;
+			
+		}
+		
+	}
+	
+	else
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDevice::setProperties couldn't get model name\n" ) );
+		status = kIOReturnUnsupported;
+		return status;
 		
 	}
 	
@@ -194,9 +409,12 @@ IOATABlockStorageDevice::setProperties ( OSObject * properties )
 		
 		if ( ( apmLevel == 0 ) || ( apmLevel == 0xFF ) )
 		{
-			return kIOReturnBadArgument;
+			
+			status = kIOReturnBadArgument;
+			return status;
+			
 		}
-
+		
 		STATUS_LOG ( ( "apmLevel = %d\n", apmLevel ) );
 		
 		status = fProvider->setAdvancedPowerManagementLevel ( apmLevel, true );
@@ -204,7 +422,9 @@ IOATABlockStorageDevice::setProperties ( OSObject * properties )
 	}
 	
 	else
+	{
 		status = kIOReturnBadArgument;
+	}
 	
 	STATUS_LOG ( ( "IOATABlockStorageDevice::leave setProperties\n" ) );
 	
@@ -498,8 +718,27 @@ IOATABlockStorageDevice::reportWriteProtection ( bool * isWriteProtected )
 }
 
 
+//---------------------------------------------------------------------------
+// 
+
+IOReturn
+IOATABlockStorageDevice::sendSMARTCommand ( IOATACommand * command )
+{
+	
+	// Block incoming I/O if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	return fProvider->sendSMARTCommand ( command );
+	
+}
+
+
 // binary compatibility reserved method space
-OSMetaClassDefineReservedUnused ( IOATABlockStorageDevice, 1 );
+OSMetaClassDefineReservedUsed ( IOATABlockStorageDevice, 1 );	/* sendSMARTCommand */
+
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDevice, 2 );
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDevice, 3 );
 OSMetaClassDefineReservedUnused ( IOATABlockStorageDevice, 4 );

@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- *  display.c - Functions to manage and find displays.
+ *  display.c - Functions to manage and find display.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -30,15 +30,9 @@
 #include <sl.h>
 
 #include "clut.h"
-
-#include "bad_system.h"
-
-#if kMacOSXServer
-#include "images.h"
-#else
-#include "happy_mac.h"
-#include "happy_foot.h"
-#endif
+#include "appleboot.h"
+#include "failedboot.h"
+#include "netboot.h"
 
 struct DisplayInfo {
   CICell screenPH;
@@ -53,66 +47,20 @@ struct DisplayInfo {
 
 typedef struct DisplayInfo DisplayInfo, *DisplayInfoPtr;
 
-// The Driver Description
-enum {
-  kInitialDriverDescriptor	= 0,
-  kVersionOneDriverDescriptor	= 1,
-  kTheDescriptionSignature	= 'mtej',
-  kDriverDescriptionSignature	= 'pdes'
-};
-
-struct DriverType {
-  unsigned char nameInfoStr[32]; // Driver Name/Info String
-  unsigned long	version;         // Driver Version Number - really NumVersion
-};
-typedef struct DriverType DriverType;
-
-struct DriverDescription {
-  unsigned long driverDescSignature; // Signature field of this structure
-  unsigned long driverDescVersion;   // Version of this data structure
-  DriverType    driverType;          // Type of Driver
-  char          otherStuff[512];
-};
-typedef struct DriverDescription DriverDescription;
-
-#define kNumNetDrivers (7)
-
-char *gNetDriverFileNames[kNumNetDrivers] = {
-  "ATYRagePro_ndrv",
-  "Spinnaker_ndrv",
-  "ATYLT-G_ndrv",
-  "ATYLTPro_ndrv",
-  "chips65550_ndrv",
-  "control_ndrv",
-  "ATYRage_ndrv"
-};
-
-char *gNetDriverMatchNames[kNumNetDrivers] = {
-  "ATY,mach64_3DUPro",
-  "ATY,mach64",
-  "ATY,264LT-G",
-  "ATY,RageLTPro",
-  "chips65550",
-  "control",
-  "ATY,mach64_3DU"
-};
 
 static long FindDisplays(void);
 static long OpenDisplays(void);
-static void DumpDisplaysInfo(void);
 static long OpenDisplay(long displayNum);
 static long InitDisplay(long displayNum);
-static long NetLoadDrivers(void);
-static long LoadDisplayDriver(char *fileSpec);
 static long LookUpCLUTIndex(long index, long depth);
-
-#if 0
-static long DiskLoadDrivers(void);
-#endif
 
 static long        gNumDisplays;
 static long        gMainDisplayNum;
 static DisplayInfo gDisplays[16];
+
+static unsigned char *gAppleBoot;
+static unsigned char *gNetBoot;
+static unsigned char *gFailedBoot;
 
 // Public Functions
 
@@ -125,208 +73,159 @@ long InitDisplays(void)
 }
 
 
-long LoadDisplayDrivers(void)
-{
-  long ret;
-  
-  // Don't bother if there are no displays.
-  if (gNumDisplays == 0) return 0;
-  
-  ret = NetLoadDrivers();
-  
-#if 0
-  switch (gBootFileType) {
-  case kNetworkDeviceType :
-    ret = NetLoadDrivers();
-    break;
-    
-  case kBlockDeviceType :
-    ret = DiskLoadDrivers();
-    break;
-    
-  case kUnknownDeviceType :
-    ret = 0;
-  }
-#endif
-  
-  return ret;
-}
-
-
-long DrawSplashScreen(void)
+long DrawSplashScreen(long stage)
 {
   DisplayInfoPtr display;
-  unsigned char  *happyMac, *happyFoot;
-  short          *happyMac16, *happyFoot16;
-  long           *happyMac32, *happyFoot32;
+  short          *appleBoot16, *netBoot16;
+  long           *appleBoot32, *netBoot32;
   long           cnt, x, y, pixelSize;
   
   if (gMainDisplayNum == -1) return 0;
   
   display = &gDisplays[gMainDisplayNum];
   
-  // Make sure the boot display is marked.
-  SetProp(display->screenPH, "AAPL,boot-display", NULL, 0);
-  
-#if kMacOSXServer
-  x = (display->width - BIG_WIDTH) / 2;
-  y = ((display->height - BIG_HEIGHT)) / 2 + BIG_DY;
-  
-  CallMethod_5_0(display->screenIH, "draw-rectangle", (long)bigImage,
-		 x, y, BIG_WIDTH, BIG_HEIGHT);
-  
-  x = (display->width - SPIN_WIDTH) / 2;
-  y = ((display->height - SPIN_WIDTH) / 2) + 28;
-  
-  // Set up the spin cursor.
-  SpinInit(0, display->screenIH, waitCursors,
-	   x, y, SPIN_WIDTH, SPIN_WIDTH);
-  
-  // Do a spin to start things off.
-  Spin();
-  
-#else
-  
-  switch (display->depth) {
-  case 16 :
-    happyMac16 = malloc(kHappyMacWidth * kHappyMacHeight * 2);
-    for (cnt = 0; cnt < (kHappyMacWidth * kHappyMacHeight); cnt++)
-      happyMac16[cnt] = LookUpCLUTIndex(gHappyMacIcon[cnt], 16);
-    happyMac = (char *)happyMac16;
-    break;
-    
-  case 32 :
-    happyMac32 = malloc(kHappyMacWidth * kHappyMacHeight * 4);
-    for (cnt = 0; cnt < (kHappyMacWidth * kHappyMacHeight); cnt++)
-      happyMac32[cnt] = LookUpCLUTIndex(gHappyMacIcon[cnt], 32);
-    happyMac = (char *)happyMac32;
-    break;
-    
-  default :
-    happyMac = gHappyMacIcon;
-    break;
-  }
-  
-  x = (display->width - kHappyMacWidth) / 2;
-  y = (display->height - kHappyMacHeight) / 2;
-  
-  CallMethod_5_0(display->screenIH, "draw-rectangle", (long)happyMac,
-		 x, y, kHappyMacWidth, kHappyMacHeight);
-  
-  if (gBootFileType != kNetworkDeviceType) {
-    SpinInit(0, 0, NULL, 0, 0, 0, 0, 0);
-  } else {
-    Interpret_1_0("ms", 1000);
+  switch (stage) {
+  case 0 :
+    // Make sure the boot display is marked.
+    SetProp(display->screenPH, "AAPL,boot-display", NULL, 0);
     
     switch (display->depth) {
     case 16 :
-      pixelSize = 2;
-      happyFoot16 = malloc(kHappyFootWidth * kHappyFootHeight * 2);
-      for (cnt = 0; cnt < (kHappyFootWidth * kHappyFootHeight); cnt++)
-	happyFoot16[cnt] = LookUpCLUTIndex(gHappyFootPict[cnt], 16);
-      happyFoot = (char *)happyFoot16;
+      appleBoot16 =
+	AllocateBootXMemory(kAppleBootWidth * kAppleBootHeight * 2);
+      for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
+	appleBoot16[cnt] = LookUpCLUTIndex(gAppleBootPict[cnt], 16);
+      gAppleBoot = (char *)appleBoot16;
       break;
       
     case 32 :
-      pixelSize = 4;
-      happyFoot32 = malloc(kHappyFootWidth * kHappyFootHeight * 4);
-      for (cnt = 0; cnt < (kHappyFootWidth * kHappyFootHeight); cnt++)
-	happyFoot32[cnt] = LookUpCLUTIndex(gHappyFootPict[cnt], 32);
-      happyFoot = (char *)happyFoot32;
+      appleBoot32 =
+	AllocateBootXMemory(kAppleBootWidth * kAppleBootHeight * 4);
+      for (cnt = 0; cnt < (kAppleBootWidth * kAppleBootHeight); cnt++)
+	appleBoot32[cnt] = LookUpCLUTIndex(gAppleBootPict[cnt], 32);
+      gAppleBoot = (char *)appleBoot32;
       break;
       
     default :
-      pixelSize = 1;
-      happyFoot = gHappyFootPict;
+      gAppleBoot = (unsigned char *)gAppleBootPict;
       break;
     }
     
-    for (cnt = 0; cnt < kHappyFootHeight - 1; cnt++) {
-      
-      CallMethod_5_0(display->screenIH, "draw-rectangle", (long)happyMac,
-		     x, y - cnt, kHappyMacWidth, kHappyMacHeight);
-      
-      CallMethod_5_0(display->screenIH, "draw-rectangle",
-		     (long)happyFoot + pixelSize *
-		     kHappyFootWidth * (kHappyFootHeight - cnt - 1),
-		     x + 6, y + kHappyMacHeight - 1 - cnt,
-		     kHappyFootWidth, cnt + 1);
-      
-      CallMethod_5_0(display->screenIH, "draw-rectangle",
-		     (long)happyFoot + pixelSize *
-		     kHappyFootWidth * (kHappyFootHeight - cnt - 1),
-		     x + 15, y + kHappyMacHeight - 1 - cnt,
-		     kHappyFootWidth, cnt + 1);
-      
-      Interpret_1_0("ms", 75);
-    }
+    x = (display->width - kAppleBootWidth) / 2;
+    y = (display->height - kAppleBootHeight) / 2 + kAppleBootOffset;
     
-    // Set up the spin cursor.
-    SpinInit(1, display->screenIH, happyFoot,
-	     x + 15, y + kHappyMacHeight - kHappyFootHeight + 1,
-	     kHappyFootWidth, kHappyFootHeight, pixelSize);
+    CallMethod(5, 0, display->screenIH, "draw-rectangle", (long)gAppleBoot,
+	       x, y, kAppleBootWidth, kAppleBootHeight);
+    
+    if (gBootFileType != kNetworkDeviceType) {
+      SpinInit(0, 0, NULL, 0, 0, 0, 0, 0, 0, 0);
+    } else {
+      switch (display->depth) {
+      case 16 :
+	pixelSize = 2;
+	netBoot16 =
+	  AllocateBootXMemory(kNetBootWidth * kNetBootHeight * kNetBootFrames * 2);
+	for (cnt = 0; cnt < (kNetBootWidth * kNetBootHeight * kNetBootFrames); cnt++)
+	  netBoot16[cnt] = LookUpCLUTIndex(gNetBootPict[cnt], 16);
+	gNetBoot = (char *)netBoot16;
+	break;
+	
+      case 32 :
+	pixelSize = 4;
+	netBoot32 =
+	  AllocateBootXMemory(kNetBootWidth * kNetBootHeight * kNetBootFrames * 4);
+	for (cnt = 0; cnt < (kNetBootWidth * kNetBootHeight * kNetBootFrames); cnt++)
+	  netBoot32[cnt] = LookUpCLUTIndex(gNetBootPict[cnt], 32);
+	gNetBoot = (char *)netBoot32;
+	break;
+	
+      default :
+	pixelSize = 1;
+	gNetBoot = (unsigned char *)gNetBootPict;
+	break;
+      }
+      
+      x = (display->width - kNetBootWidth) / 2;
+      y = (display->height - kNetBootHeight) / 2 + kNetBootOffset;
+      
+      CallMethod(5, 0, display->screenIH, "draw-rectangle", (long)gNetBoot,
+		 x, y, kNetBootWidth, kNetBootHeight);
+      
+      // Set up the spin cursor.
+      SpinInit(display->screenIH, gNetBoot,
+	       x, y,
+	       kNetBootWidth, kNetBootHeight,
+	       kNetBootFrames, kNetBootFPS, pixelSize, 0);
+    }
+    break;
+    
+  case 1 :
+    x = (display->width - kAppleBootWidth) / 2;
+    y = (display->height - kAppleBootHeight) / 2 + kAppleBootOffset;
+    
+    CallMethod(5, 0, display->screenIH, "draw-rectangle", (long)gAppleBoot,
+	       x, y, kAppleBootWidth, kAppleBootHeight);
+    
+    if (gBootFileType == kNetworkDeviceType) {
+      x = (display->width - kNetBootWidth) / 2;
+      y = (display->height - kNetBootHeight) / 2 + kNetBootOffset;
+      
+      // Erase the netboot picture with 75% grey.
+      CallMethod(5, 0, display->screenIH, "fill-rectangle",
+		 LookUpCLUTIndex(0x01, display->depth),
+		 x, y, kNetBootWidth, kNetBootHeight);
+    }
+    break;
+    
+  default :
+    return -1;
+    break;
   }
-#endif
   
   return 0;
 }
 
 
-long DrawBrokenSystemFolder(void)
+long DrawFailedBootPicture(void)
 {
   long           cnt;
-  unsigned char  *iconPtr, tmpIcon[1024];
-  short          *icon16;
-  long           *icon32;
+  short          *failedBoot16;
+  long           *failedBoot32, posX, posY;
   DisplayInfoPtr display = &gDisplays[gMainDisplayNum];
-  
-  long x, y;
-  
-#if kMacOSXServer
-  // Set the screen to Medium Blue
-  CallMethod_5_0(display->screenIH, "fill-rectangle", 128, 0, 0,
-		 display->width, display->height);
-  
-  // Use the default icon.
-  iconPtr = gBrokenSystemFolderIcon;
-#else
-  // Set the screen to Medium Grey
-  CallMethod_5_0(display->screenIH, "fill-rectangle",
-		 LookUpCLUTIndex(0xF9, display->depth),
-		 0, 0, display->width, display->height);
-  
-  // Convert the default icon.
-  for (cnt = 0; cnt < 1024; cnt++) {
-    tmpIcon[cnt] = gBrokenSystemFolderIcon[cnt];
-    if (tmpIcon[cnt] == 0x80) tmpIcon[cnt] = 0xF9;
-  }
-  iconPtr = tmpIcon;
-#endif
   
   switch (display->depth) {
   case 16 :
-    icon16 = malloc(32 * 32 * 2);
+    failedBoot16 = AllocateBootXMemory(32 * 32 * 2);
     for (cnt = 0; cnt < (32 * 32); cnt++)
-      icon16[cnt] = LookUpCLUTIndex(iconPtr[cnt], 16);
-    iconPtr = (char *)icon16;
+      failedBoot16[cnt] = LookUpCLUTIndex(gFailedBootPict[cnt], 16);
+    gFailedBoot = (char *)failedBoot16;
     break;
     
   case 32 :
-    icon32 = malloc(32 * 32 * 4);
+    failedBoot32 = AllocateBootXMemory(32 * 32 * 4);
     for (cnt = 0; cnt < (32 * 32); cnt++)
-      icon32[cnt] = LookUpCLUTIndex(iconPtr[cnt], 32);
-    iconPtr = (char *)icon32;
+      failedBoot32[cnt] = LookUpCLUTIndex(gFailedBootPict[cnt], 32);
+    gFailedBoot = (char *)failedBoot32;
     break;
     
   default :
+    gFailedBoot = (unsigned char *)gFailedBootPict;
     break;
   }
   
-  // Draw the broken system folder.
-  x = (display->width - 32) / 2;
-  y = ((display->height - 32)) / 2;
-  CallMethod_5_0(display->screenIH, "draw-rectangle",
-		 (long)iconPtr, x, y, 32, 32);
+  // Erase the newboot picture with 75% grey.
+  posX = (display->width - kNetBootWidth) / 2;
+  posY = (display->height - kNetBootHeight) / 2 + kNetBootOffset;
+  CallMethod(5, 0, display->screenIH, "fill-rectangle",
+	     LookUpCLUTIndex(0x01, display->depth),
+	     posX, posY, kNetBootWidth, kNetBootHeight);
+  
+  // Draw the failed boot picture.
+  posX = (display->width - kFailedBootWidth) / 2;
+  posY = ((display->height - kFailedBootHeight)) / 2 + kFailedBootOffset;
+  CallMethod(5, 0, display->screenIH, "draw-rectangle",
+	     (long)gFailedBoot, posX, posY,
+	     kFailedBootWidth, kFailedBootHeight);
   
   return 0;
 }
@@ -335,6 +234,7 @@ long DrawBrokenSystemFolder(void)
 void GetMainScreenPH(Boot_Video_Ptr video)
 {
   DisplayInfoPtr display;
+  long           address, size;
   
   if (gMainDisplayNum == -1) {
     // No display, set it to zero.
@@ -352,7 +252,23 @@ void GetMainScreenPH(Boot_Video_Ptr video)
     video->v_height = display->height;
     video->v_depth = display->depth;
   }
+  
+  // Allocate memory and a range for the CLUT.
+  size = 256 * 3;
+  address = AllocateKernelMemory(size);
+  AllocateMemoryRange("BootCLUT", address, size);
+  bcopy((char *)gClut, (char *)address, size);
+  
+  // Allocate memory and a range for the failed boot picture.
+  size = 32 + kFailedBootWidth * kFailedBootHeight;
+  address = AllocateKernelMemory(size);
+  AllocateMemoryRange("Pict-FailedBoot", address, size);
+  ((long *)address)[0] = kFailedBootWidth;
+  ((long *)address)[1] = kFailedBootHeight;
+  ((long *)address)[2] = kFailedBootOffset;
+  bcopy((char *)gFailedBootPict, (char *)(address + 32), size - 32);
 }
+
 
 // Private Functions
 
@@ -411,45 +327,12 @@ static long OpenDisplays(void)
   return 0;
 }
 
-static void DumpDisplaysInfo(void)
-{
-  long cnt, length;
-  char tmpStr[512];
-  
-  printf("gNumDisplays: %x, gMainDisplayNum: %x\n",
-	 gNumDisplays, gMainDisplayNum);
-  
-  for (cnt = 0; cnt < gNumDisplays; cnt++) {
-    printf("Display: %x, screenPH: %x,  screenIH: %x\n",
-	   cnt, gDisplays[cnt].screenPH, gDisplays[cnt].screenIH);
-    
-    if (gDisplays[cnt].screenPH) {
-      length = PackageToPath(gDisplays[cnt].screenPH, tmpStr, 511);
-      tmpStr[length] = '\0';
-      printf("PHandle Path: %s\n", tmpStr);
-    }
-    
-    if (gDisplays[cnt].screenIH) {
-      length = InstanceToPath(gDisplays[cnt].screenIH, tmpStr, 511);
-      tmpStr[length] = '\0';
-      printf("IHandle Path: %s\n", tmpStr);
-    }
-    
-    printf("address = %x\n", gDisplays[cnt].address);
-    printf("linebytes = %x\n", gDisplays[cnt].linebytes);
-    printf("width = %x\n", gDisplays[cnt].width);
-    printf("height = %x\n", gDisplays[cnt].height);
-    printf("depth = %x\n", gDisplays[cnt].depth);
-    printf("\n");
-  }
-}
-
 
 static long OpenDisplay(long displayNum)
 {
-  char   screenPath[258];
-  CICell screenIH;
-  long   ret;
+  char   screenPath[258], displayType[32];
+  CICell screenPH, screenIH;
+  long   ret, size;
   
   // Only try to open a screen once.
   if (gDisplays[displayNum].triedToOpen) {
@@ -458,27 +341,36 @@ static long OpenDisplay(long displayNum)
     gDisplays[displayNum].triedToOpen = -1;
   }
   
+  screenPH = gDisplays[displayNum].screenPH;
+  
   // Try to use mac-boot's ihandle.
-  Interpret_0_1("\" _screen-ihandle\" $find if execute else 0 then",
-		&screenIH);
-  if ((screenIH != 0) &&
-      (InstanceToPackage(screenIH) != gDisplays[displayNum].screenPH)) {
+  Interpret(0, 1, "\" _screen-ihandle\" $find if execute else 0 then",
+	    &screenIH);
+  if ((screenIH != 0) && (InstanceToPackage(screenIH) != screenPH)) {
     screenIH = 0;
   }
   
   // Try to use stdout as the screen's ihandle
-  if ((screenIH == 0) && (gStdOutPH == gDisplays[displayNum].screenPH)) {
+  if ((screenIH == 0) && (gStdOutPH == screenPH)) {
     screenIH = gStdOutIH;
   }
   
   // Try to open the display.
   if (screenIH == 0) {
     screenPath[255] = '\0';
-    ret = PackageToPath(gDisplays[displayNum].screenPH, screenPath, 255);
+    ret = PackageToPath(screenPH, screenPath, 255);
     if (ret != -1) {
       strcat(screenPath, ":0");
       screenIH = Open(screenPath);
     }
+  }
+  
+  // Find out what type of display is attached.
+  size = GetProp(screenPH, "display-type", displayType, 31);
+  if (size != -1) {
+    displayType[size] = '\0';
+    // If the display-type is NONE, don't use the display.
+    if (!strcmp(displayType, "NONE")) screenIH = 0;
   }
   
   // Save the ihandle for later use.
@@ -505,10 +397,10 @@ static long InitDisplay(long displayNum)
   GetProp(screenPH, "linebytes", (char *)&(display->linebytes), 4);
   
   // Replace some of the drivers words.
-  Interpret_3_1(
-   " to active-package"
-   " value rowbytes"
+  Interpret(3, 1,
    " value depthbytes"
+   " value rowbytes"
+   " to active-package"
    " frame-buffer-adr value this-frame-buffer-adr"
    
    " : rect-setup"      // ( adr|index x y w h -- w adr|index xy-adr h )
@@ -549,130 +441,15 @@ static long InitDisplay(long displayNum)
    , display->screenPH, display->linebytes,
    display->depth / 8, &display->address);
   
-  // Set the CLUT for 8 bit displays
+  // Set the CLUT for 8 bit displays.
   if (display->depth == 8) {
-    CallMethod_3_0(screenIH, "set-colors", (long)gClut, 0, 256);
+    CallMethod(3, 0, screenIH, "set-colors", (long)gClut, 0, 256);
   }
   
-#if kMacOSXServer  
-  // Set the screen to Medium Blue
-  CallMethod_5_0(screenIH, "fill-rectangle", 128, 0, 0,
-		 display->width, display->height);
-#else
-  // Set the screen to Medium Grey
-  CallMethod_5_0(screenIH, "fill-rectangle",
-		 LookUpCLUTIndex(0xF9, display->depth),
-		 0, 0, display->width, display->height);
-#endif
-  
-  return 0;
-}
-
-
-static long NetLoadDrivers(void)
-{
-  long   ret, cnt, curDisplay;
-  CICell screenPH;
-  char   fileSpec[512];
-  
-  for (cnt = 0; cnt < kNumNetDrivers; cnt++) {
-    
-    // See if there is a display for this driver.
-    for (curDisplay = 0; curDisplay < gNumDisplays; curDisplay++) {
-      screenPH = gDisplays[curDisplay].screenPH;
-      if (MatchThis(screenPH, gNetDriverMatchNames[cnt]) == 0) break;
-    }
-    
-    if (curDisplay == gNumDisplays) continue;
-    
-    sprintf(fileSpec, "%s%sDrivers\\ppc\\IONDRV.config\\%s",
-	    gRootDir,
-	    (gBootFileType == kNetworkDeviceType) ? "" : "private\\",
-	    gNetDriverFileNames[cnt]);
-    
-    ret = LoadDisplayDriver(fileSpec);
-  }
-  
-  return 0;
-}
-
-static long LoadDisplayDriver(char *fileSpec)
-{
-  char              *pef, *currentPef, *buffer;
-  long              pefLen, currentPefLen, ndrvUsed;
-  long              curDisplay;
-  char              descripName[] = " TheDriverDescription";
-  long              err;
-  DriverDescription descrip;
-  DriverDescription curDesc;
-  char              matchName[40];
-  unsigned long     newVersion;
-  unsigned long     curVersion;
-  CICell            screenPH;
-  
-  pefLen = LoadFile(fileSpec);
-  if (pefLen == -1) return -1;
-  if (pefLen == 0) return 0;
-  
-  pef = (char *)kLoadAddr;
-  
-  descripName[0] = strlen(descripName + 1);
-  err = GetSymbolFromPEF(descripName, pef, &descrip, sizeof(descrip));
-  if(err != 0) {
-    printf("\nGetSymbolFromPEF returns %d\n",err);
-    return -1;
-  }
-  if((descrip.driverDescSignature != kTheDescriptionSignature) ||
-     (descrip.driverDescVersion != kInitialDriverDescriptor))
-    return 0;
-  
-  strncpy(matchName, descrip.driverType.nameInfoStr + 1,
-	  descrip.driverType.nameInfoStr[0]);
-  newVersion = descrip.driverType.version;
-  
-  if((newVersion & 0xffff) == 0x8000)  // final stage, release rev
-    newVersion |= 0xff;
-  
-  ndrvUsed = 0;
-  buffer = (char *)malloc(pefLen);
-  if (buffer == NULL) {
-    printf("No space for the NDRV\n");
-    return -1;
-  }
-  bcopy(pef, buffer, pefLen);
-  
-  for (curDisplay = 0; curDisplay < gNumDisplays; curDisplay++) {
-    screenPH = gDisplays[curDisplay].screenPH;
-    
-    if (MatchThis(screenPH, matchName) != 0) continue;
-    
-    err = GetPackageProperty(screenPH, "driver,AAPL,MacOS,PowerPC",
-			     &currentPef, &currentPefLen);
-    
-    if (err == 0) {
-      err = GetSymbolFromPEF(descripName,currentPef,&curDesc,sizeof(curDesc));
-      if (err != 0) {
-	if((curDesc.driverDescSignature == kTheDescriptionSignature) &&
-	   (curDesc.driverDescVersion == kInitialDriverDescriptor)) {
-	  curVersion = curDesc.driverType.version;
-	  if((curVersion & 0xffff) == 0x8000) // final stage, release rev
-	    curVersion |= 0xff;
-
-	  if( newVersion <= curVersion)
-	    pefLen = 0;
-	}
-      }
-    }
-    
-    if(pefLen == 0) continue;
-    
-    printf("Installing patch driver\n");
-    
-    SetProp(screenPH, "driver,AAPL,MacOS,PowerPC", buffer, pefLen);
-    ndrvUsed = 1;
-  }
-  
-  if (ndrvUsed == 0) free(buffer);
+  // Set the screen to 75% grey.
+  CallMethod(5, 0, screenIH, "fill-rectangle",
+	     LookUpCLUTIndex(0x01, display->depth),
+	     0, 0, display->width, display->height);
   
   return 0;
 }
@@ -703,27 +480,40 @@ static long LookUpCLUTIndex(long index, long depth)
   return result;
 }
 
+
 #if 0
-static long DiskLoadDrivers(void)
+static void DumpDisplaysInfo(void);
+
+static void DumpDisplaysInfo(void)
 {
-  long ret, flags, index, time;
-  char dirSpec[512], *name;
+  long cnt, length;
+  char tmpStr[512];
   
-  index = 0;
-  while (1) {
-    sprintf(dirSpec, "%sprivate\\Drivers\\ppc\\IONDRV.config\\", gRootDir);
+  printf("gNumDisplays: %x, gMainDisplayNum: %x\n",
+	 gNumDisplays, gMainDisplayNum);
+  
+  for (cnt = 0; cnt < gNumDisplays; cnt++) {
+    printf("Display: %x, screenPH: %x,  screenIH: %x\n",
+	   cnt, gDisplays[cnt].screenPH, gDisplays[cnt].screenIH);
     
-    ret = GetDirEntry(dirSpec, &index, &name, &flags, &time);
-    if (ret == -1) break;
+    if (gDisplays[cnt].screenPH) {
+      length = PackageToPath(gDisplays[cnt].screenPH, tmpStr, 511);
+      tmpStr[length] = '\0';
+      printf("PHandle Path: %s\n", tmpStr);
+    }
     
-    if (flags != kFlatFileType) continue;
+    if (gDisplays[cnt].screenIH) {
+      length = InstanceToPath(gDisplays[cnt].screenIH, tmpStr, 511);
+      tmpStr[length] = '\0';
+      printf("IHandle Path: %s\n", tmpStr);
+    }
     
-    strcat(dirSpec, name);
-    ret = LoadDisplayDriver(dirSpec);
-    
-    if (ret == -1) return -1;
+    printf("address = %x\n", gDisplays[cnt].address);
+    printf("linebytes = %x\n", gDisplays[cnt].linebytes);
+    printf("width = %x\n", gDisplays[cnt].width);
+    printf("height = %x\n", gDisplays[cnt].height);
+    printf("depth = %x\n", gDisplays[cnt].depth);
+    printf("\n");
   }
-  
-  return 0;
 }
 #endif

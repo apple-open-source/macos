@@ -19,7 +19,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 #include <NetInfo/utf-8.h>
+
+static dsutil_utf8_callbacks _utf8_callbacks = { 0, NULL, NULL };
 
 #undef ISASCII
 #define ISASCII(uc)	((uc) < 0x100)
@@ -452,3 +455,66 @@ char *(dsutil_utf8_strtok)(char *str, const char *sep, char **last)
 	*last = end;
 	return begin;
 }
+
+void dsutil_utf8_set_callbacks(dsutil_utf8_callbacks *callbacks)
+{
+	if (callbacks != NULL)
+	{
+		if (callbacks->version == DSUTIL_UTF8_CALLBACKS_VERSION)
+			_utf8_callbacks = *callbacks;
+	}
+	else
+	{
+		_utf8_callbacks.version = 0;
+		_utf8_callbacks.normalize = 0;
+		_utf8_callbacks.compare = 0;
+	}
+}
+
+dsdata *dsutil_utf8_normalize(dsdata *str, u_int32_t casefold)
+{
+	u_int32_t i;
+	dsdata *out;
+
+	if (_utf8_callbacks.normalize != NULL)
+	{
+		return (_utf8_callbacks.normalize)(str, casefold);
+	}
+
+	if (casefold == 0)
+	{
+		return dsdata_retain(str);
+	}
+
+	/*
+	 * Copy input string and normalize each character
+	 * to upper-case.
+	 */
+	out = dsdata_copy(str);
+	if (out == NULL)
+	{
+		return NULL;
+	}
+
+	for (i = 0; i < out->length; i++)
+	{
+		out->data[i] = toupper(out->data[i]);
+	}
+
+	return out;
+}
+
+int32_t dsutil_utf8_compare(dsdata *a, dsdata *b, u_int32_t casefold)
+{
+	u_int32_t len;
+
+	if (_utf8_callbacks.compare != NULL)
+	{
+		return (_utf8_callbacks.compare)(a, b, casefold);
+	}
+
+	len = (a->length > b->length) ? b->length - 1 : a->length - 1;
+
+	return casefold ? strncasecmp(a->data, b->data, len) : strncmp(a->data, b->data, len);
+}
+

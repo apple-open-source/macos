@@ -18,18 +18,18 @@ Install_Target = install install.man
 
 install-rc:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/README $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/aliases $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/completions $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/environment $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/login $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/logout $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/rc $(DSTROOT)/usr/share/init/tcsh
-	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/tcsh.defaults $(DSTROOT)/usr/share/init/tcsh
-	$(_v) echo "source /usr/share/init/tcsh/rc"     > $(DSTROOT)$(ETCDIR)/csh.cshrc
-	$(_v) echo "source /usr/share/init/tcsh/login"  > $(DSTROOT)$(ETCDIR)/csh.login
-	$(_v) echo "source /usr/share/init/tcsh/logout" > $(DSTROOT)$(ETCDIR)/csh.logout
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/README $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/aliases $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/completions $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/environment $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/login $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/logout $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/rc $(DSTROOT)/usr/share/tcsh/examples
+	$(_v) $(INSTALL) -c -m 0644 $(SRCROOT)/$(Project)/init/tcsh.defaults $(DSTROOT)/usr/share/tcsh/examples
+	$(_V) $(INSTALL) -c -m 0644 $(SRCROOT)/csh.cshrc $(DSTROOT)/$(ETCDIR)/
+	$(_V) $(INSTALL) -c -m 0644 $(SRCROOT)/csh.login $(DSTROOT)/$(ETCDIR)/
+	$(_V) $(INSTALL) -c -m 0644 $(SRCROOT)/csh.logout $(DSTROOT)/$(ETCDIR)/
 
 install-links:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(BINDIR)

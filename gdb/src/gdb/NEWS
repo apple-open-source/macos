@@ -1,26 +1,316 @@
 		What has changed in GDB?
 	     (Organized release by release)
 
-*** Changes since GDB 5.0:
+*** Changes since GDB 5.2:
+
+* Changes in FreeBSD/i386 native debugging.
+
+Support for the "generate-core-file" has been added.
+
+* New commands "dump", "append", and "restore".
+
+These commands allow data to be copied from target memory
+to a bfd-format or binary file (dump and append), and back
+from a file into memory (restore).
+
+*** Changes in GDB 5.2:
+
+* New command "set trust-readonly-sections on[off]".
+
+This command is a hint that tells gdb that read-only sections
+really are read-only (ie. that their contents will not change).
+In this mode, gdb will go to the object file rather than the
+target to read memory from read-only sections (such as ".text").
+This can be a significant performance improvement on some
+(notably embedded) targets.
+
+* New command "generate-core-file" (or "gcore").
+
+This new gdb command allows the user to drop a core file of the child
+process state at any time.  So far it's been implemented only for
+GNU/Linux and Solaris, but should be relatively easily ported to other
+hosts.  Argument is core file name (defaults to core.<pid>).
+
+* New command line option
+
+GDB now accepts --pid or -p followed by a process id.  
+
+* Change in command line behavior -- corefiles vs. process ids.
+
+There is a subtle behavior in the way in which GDB handles 
+command line arguments.  The first non-flag argument is always
+a program to debug, but the second non-flag argument may either
+be a corefile or a process id.  Previously, GDB would attempt to
+open the second argument as a corefile, and if that failed, would
+issue a superfluous error message and then attempt to attach it as
+a process.  Now, if the second argument begins with a non-digit, 
+it will be treated as a corefile.  If it begins with a digit, 
+GDB will attempt to attach it as a process, and if no such process
+is found, will then attempt to open it as a corefile.
+
+* Changes in ARM configurations.
+
+Multi-arch support is enabled for all ARM configurations.  The ARM/NetBSD
+configuration is fully multi-arch.
+
+* New native configurations
+
+ARM NetBSD					arm*-*-netbsd*
+x86 OpenBSD					i[3456]86-*-openbsd*
+AMD x86-64 running GNU/Linux			x86_64-*-linux-*
+Sparc64 running FreeBSD				sparc64-*-freebsd*
+
+* New targets
+
+Sanyo XStormy16					xstormy16-elf
+
+* OBSOLETE configurations and files
+
+Configurations that have been declared obsolete in this release have
+been commented out.  Unless there is activity to revive these
+configurations, the next release of GDB will have their sources
+permanently REMOVED.
+
+AMD 29k family via UDI				a29k-amd-udi, udi29k
+A29K VxWorks					a29k-*-vxworks
+AMD 29000 embedded, using EBMON			a29k-none-none
+AMD 29000 embedded with COFF			a29k-none-coff
+AMD 29000 embedded with a.out			a29k-none-aout
+
+testsuite/gdb.hp/gdb.threads-hp/		directory
+
+* REMOVED configurations and files
+
+TI TMS320C80					tic80-*-*
+WDC 65816					w65-*-*
+PowerPC Solaris					powerpcle-*-solaris*
+PowerPC Windows NT				powerpcle-*-cygwin32
+PowerPC Netware					powerpc-*-netware*
+Harris/CXUX m88k				m88*-harris-cxux*
+Most ns32k hosts and targets			ns32k-*-mach3* ns32k-umax-*
+						ns32k-utek-sysv* ns32k-utek-*
+SunOS 4.0.Xi on i386				i[3456]86-*-sunos*
+Ultracomputer (29K) running Sym1		a29k-nyu-sym1 a29k-*-kern*
+Sony NEWS (68K) running NEWSOS 3.x		m68*-sony-sysv news
+ISI Optimum V (3.05) under 4.3bsd.		m68*-isi-*
+Apple Macintosh (MPW) host and target		N/A host, powerpc-*-macos*
+
+* Changes to command line processing
+
+The new `--args' feature can be used to specify command-line arguments
+for the inferior from gdb's command line.
+
+* Changes to key bindings
+
+There is a new `operate-and-get-next' function bound to `C-o'.
+
+*** Changes in GDB 5.1.1 
+
+Fix compile problem on DJGPP.
+
+Fix a problem with floating-point registers on the i386 being
+corrupted.
+
+Fix to stop GDB crashing on .debug_str debug info.
+
+Numerous documentation fixes.
+
+Numerous testsuite fixes.
+
+*** Changes in GDB 5.1:
 
 * New native configurations
 
 Alpha FreeBSD					alpha*-*-freebsd*
 x86 FreeBSD 3.x and 4.x				i[3456]86*-freebsd[34]*
+MIPS GNU/Linux					mips*-*-linux*
+MIPS SGI Irix 6.x				mips*-sgi-irix6*
+ia64 AIX					ia64-*-aix*
+s390 and s390x GNU/Linux			{s390,s390x}-*-linux*
 
 * New targets
 
-* OBSOLETE configurations
+Motorola 68HC11 and 68HC12			m68hc11-elf
+CRIS						cris-axis
+UltraSparc running GNU/Linux			sparc64-*-linux*
+
+* OBSOLETE configurations and files
 
 x86 FreeBSD before 2.2				i[3456]86*-freebsd{1,2.[01]}*, 
+Harris/CXUX m88k				m88*-harris-cxux*
+Most ns32k hosts and targets			ns32k-*-mach3* ns32k-umax-*
+						ns32k-utek-sysv* ns32k-utek-*
+TI TMS320C80					tic80-*-*
+WDC 65816					w65-*-*
+Ultracomputer (29K) running Sym1		a29k-nyu-sym1 a29k-*-kern*
+PowerPC Solaris					powerpcle-*-solaris*
+PowerPC Windows NT				powerpcle-*-cygwin32
+PowerPC Netware					powerpc-*-netware*
+SunOS 4.0.Xi on i386				i[3456]86-*-sunos*
+Sony NEWS (68K) running NEWSOS 3.x		m68*-sony-sysv news
+ISI Optimum V (3.05) under 4.3bsd.		m68*-isi-*
+Apple Macintosh (MPW) host			N/A
 
-* Deleted configurations
+stuff.c (Program to stuff files into a specially prepared space in kdb)
+kdb-start.c (Main loop for the standalone kernel debugger)
+
+Configurations that have been declared obsolete in this release have
+been commented out.  Unless there is activity to revive these
+configurations, the next release of GDB will have their sources
+permanently REMOVED.
+
+* REMOVED configurations and files
+
+Altos 3068					m68*-altos-*
+Convex						c1-*-*, c2-*-*
+Pyramid						pyramid-*-*
+ARM RISCix					arm-*-* (as host)
+Tahoe						tahoe-*-*
+ser-ocd.c					*-*-*
+
+* GDB has been converted to ISO C.
+
+GDB's source code has been converted to ISO C.  In particular, the
+sources are fully protoized, and rely on standard headers being
+present.
 
 * Other news:
 
-* All MIPS configurations are multi-arched.
+* "info symbol" works on platforms which use COFF, ECOFF, XCOFF, and NLM.
+
+* The MI enabled by default.
+
+The new machine oriented interface (MI) introduced in GDB 5.0 has been
+revised and enabled by default.  Packages which use GDB as a debugging
+engine behind a UI or another front end are encouraged to switch to
+using the GDB/MI interface, instead of the old annotations interface
+which is now deprecated.
+
+* Support for debugging Pascal programs.
+
+GDB now includes support for debugging Pascal programs.  The following
+main features are supported:
+
+    - Pascal-specific data types such as sets;
+
+    - automatic recognition of Pascal sources based on file-name
+      extension;
+
+    - Pascal-style display of data types, variables, and functions;
+
+    - a Pascal expression parser.
+
+However, some important features are not yet supported.
+
+    - Pascal string operations are not supported at all;
+
+    - there are some problems with boolean types;
+
+    - Pascal type hexadecimal constants are not supported
+      because they conflict with the internal variables format;
+
+    - support for Pascal objects and classes is not full yet;
+
+    - unlike Pascal, GDB is case-sensitive for symbol names.
+
+* Changes in completion.
+
+Commands such as `shell', `run' and `set args', which pass arguments
+to inferior programs, now complete on file names, similar to what
+users expect at the shell prompt.
+
+Commands which accept locations, such as `disassemble', `print',
+`breakpoint', `until', etc. now complete on filenames as well as
+program symbols.  Thus, if you type "break foob TAB", and the source
+files linked into the programs include `foobar.c', that file name will
+be one of the candidates for completion.  However, file names are not
+considered for completion after you typed a colon that delimits a file
+name from a name of a function in that file, as in "break foo.c:bar".
+
+`set demangle-style' completes on available demangling styles.
+
+* New platform-independent commands:
+
+It is now possible to define a post-hook for a command as well as a
+hook that runs before the command.  For more details, see the
+documentation of `hookpost' in the GDB manual.
+
+* Changes in GNU/Linux native debugging.
+
+Support for debugging multi-threaded programs has been completely
+revised for all platforms except m68k and sparc.  You can now debug as
+many threads as your system allows you to have.
+
+Attach/detach is supported for multi-threaded programs.
+
+Support for SSE registers was added for x86.  This doesn't work for
+multi-threaded programs though.
+
+* Changes in MIPS configurations.
 
 Multi-arch support is enabled for all MIPS configurations.
+
+GDB can now be built as native debugger on SGI Irix 6.x systems for
+debugging n32 executables.  (Debugging 64-bit executables is not yet
+supported.)
+
+* Unified support for hardware watchpoints in all x86 configurations.
+
+Most (if not all) native x86 configurations support hardware-assisted
+breakpoints and watchpoints in a unified manner.  This support
+implements debug register sharing between watchpoints, which allows to
+put a virtually infinite number of watchpoints on the same address,
+and also supports watching regions up to 16 bytes with several debug
+registers.
+
+The new maintenance command `maintenance show-debug-regs' toggles
+debugging print-outs in functions that insert, remove, and test
+watchpoints and hardware breakpoints.
+
+* Changes in the DJGPP native configuration.
+
+New command ``info dos sysinfo'' displays assorted information about
+the CPU, OS, memory, and DPMI server.
+
+New commands ``info dos gdt'', ``info dos ldt'', and ``info dos idt''
+display information about segment descriptors stored in GDT, LDT, and
+IDT.
+
+New commands ``info dos pde'' and ``info dos pte'' display entries
+from Page Directory and Page Tables (for now works with CWSDPMI only).
+New command ``info dos address-pte'' displays the Page Table entry for
+a given linear address.
+
+GDB can now pass command lines longer than 126 characters to the
+program being debugged (requires an update to the libdbg.a library
+which is part of the DJGPP development kit).
+
+DWARF2 debug info is now supported.
+
+It is now possible to `step' and `next' through calls to `longjmp'.
+
+* Changes in documentation.
+
+All GDB documentation was converted to GFDL, the GNU Free
+Documentation License.
+
+Tracepoints-related commands are now fully documented in the GDB
+manual.
+
+TUI, the Text-mode User Interface, is now documented in the manual.
+
+Tracepoints-related commands are now fully documented in the GDB
+manual.
+
+The "GDB Internals" manual now has an index.  It also includes
+documentation of `ui_out' functions, GDB coding standards, x86
+hardware watchpoints, and memory region attributes.
+
+* GDB's version number moved to ``version.in''
+
+The Makefile variable VERSION has been replaced by the file
+``version.in''.  People creating GDB distributions should update the
+contents of this file.
 
 * gdba.el deleted
 
@@ -165,7 +455,7 @@ enabled by configuring with:
 
 HP-UX 10.20					hppa*-*-hpux10.20
 HP-UX 11.x					hppa*-*-hpux11.0*
-M68K Linux					m68*-*-linux*
+M68K GNU/Linux					m68*-*-linux*
 
 * New targets
 
@@ -726,7 +1016,7 @@ breakpoints in shared libraries before the executable is run.
 There is a new hardware breakpoint for the watch command for sparclite
 targets.  See gdb/sparclite/hw_breakpoint.note.
 
-Hardware watchpoints are also now supported under Linux.
+Hardware watchpoints are also now supported under GNU/Linux.
  
 * Annotations
 
@@ -1230,7 +1520,7 @@ read after argv processing.
 
 Solaris-2.0 !!!				sparc-sun-solaris2  or  sun4sol2
 
-Linux support				i386-unknown-linux  or  linux
+GNU/Linux support			i386-unknown-linux  or  linux
 
 We are also including code to support the HP/PA running BSD and HPUX.  This
 is almost guaranteed not to work, as we didn't have time to test or build it

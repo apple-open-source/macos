@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		021C9E2B000BD0CF11CA285C = {
 			buildStyles = (
@@ -116,8 +116,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 5.5.0d15;
-				OPTIMIZATION_CFLAGS = "-O2";
+				MODULE_VERSION = 6.0.1d19;
+				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -135,8 +135,8 @@
 			productName = "IOSerialFamily (Bundle)";
 			productReference = 021C9E45000BD0CF11CA285C;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -155,11 +155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.5</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.5.0d15</string>
+	<string>6.0.1d19</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -212,7 +212,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -230,7 +229,6 @@
 				A0147847011B0EC802CA285C,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		021C9E49000BD0CF11CA285C = {
 			fileRef = 021C9E37000BD0CF11CA285C;
@@ -284,7 +282,6 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		021C9E51000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
@@ -293,7 +290,6 @@
 				021C9E54000BD0CF11CA285C,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		021C9E52000BD0CF11CA285C = {
 			fileRef = 021C9E33000BD0CF11CA285C;
@@ -316,14 +312,12 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		021C9E56000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		021C9E57000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
@@ -332,7 +326,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -378,7 +371,6 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		021C9E5B000BD1ED11CA285C = {
 			buildActionMask = 8;
@@ -392,28 +384,24 @@
 				021C9E65000BD2B811CA285C,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		021C9E5C000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		021C9E5D000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		021C9E5E000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		021C9E61000BD2B811CA285C = {
 			fileRef = 021C9E38000BD0CF11CA285C;
@@ -453,7 +441,6 @@
 				021C9E67000BD2B811CA285C,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		021C9E67000BD2B811CA285C = {
 			fileRef = 021C9E38000BD0CF11CA285C;
@@ -540,7 +527,6 @@
 				A05A28E501B566E102CA285C,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		A05A28E501B566E102CA285C = {
 			fileRef = A0147846011B0EC802CA285C;

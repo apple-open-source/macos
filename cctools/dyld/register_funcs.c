@@ -28,6 +28,7 @@
 #import "images.h"
 #import "allocate.h"
 #import "lock.h"
+#import "trace.h"
 
 /*
  * Since there typically only one function registered from the Objective-C
@@ -117,9 +118,11 @@ void (*func)(struct mach_header *mh, unsigned long vmaddr_slide))
 		link_state = GET_LINK_STATE(p->images[i].module);
 		if(link_state == UNUSED)
 		    continue;
+		DYLD_TRACE_CALLOUT_START(DYLD_TRACE_object_func, func);
 		release_lock();
 		func(p->images[i].image.mh, p->images[i].image.vmaddr_slide);
 		set_lock();
+		DYLD_TRACE_CALLOUT_END(DYLD_TRACE_object_func, func);
 	    }
 	    if(p->next_images == NULL)
 		break;
@@ -127,7 +130,9 @@ void (*func)(struct mach_header *mh, unsigned long vmaddr_slide))
 	for(q = &library_images ; ; q = q->next_images){
 	    for(i = 0; i < q->nimages; i++){
 		release_lock();
+		DYLD_TRACE_CALLOUT_START(DYLD_TRACE_library_func, func);
 		func(q->images[i].image.mh, q->images[i].image.vmaddr_slide);
+		DYLD_TRACE_CALLOUT_END(DYLD_TRACE_library_func, func);
 		set_lock();
 	    }
 	    if(q->next_images == NULL)
@@ -269,7 +274,11 @@ unsigned long vmaddr_slide)
 	     * image.
 	     */
 	    release_lock();
+            DYLD_TRACE_CALLOUT_START(DYLD_TRACE_add_image_func,
+		add_image_func->func);
 	    add_image_func->func(mh, vmaddr_slide);
+            DYLD_TRACE_CALLOUT_END(DYLD_TRACE_add_image_func,
+		add_image_func->func);
 	    set_lock();
 	}
 }
@@ -290,6 +299,8 @@ unsigned long vmaddr_slide)
 	    remove_image_func != NULL && remove_image_func->func != NULL;
 	    remove_image_func = remove_image_func->next){
 
+            DYLD_TRACE_CALLOUT_START(DYLD_TRACE_remove_image_func,
+		remove_image_func->func);
 	    /*
 	     * Since functions can only be added and not removed the 
 	     * remove_image_func_list will be valid when we get the lock back
@@ -300,6 +311,8 @@ unsigned long vmaddr_slide)
 	    release_lock();
 	    remove_image_func->func(mh, vmaddr_slide);
 	    set_lock();
+	    DYLD_TRACE_CALLOUT_END(DYLD_TRACE_remove_image_func,
+		remove_image_func->func);
 	}
 }
 
@@ -347,9 +360,13 @@ void (*func)(module_state *module))
 		if(link_state != LINKED && link_state != FULLY_LINKED)
 		    continue;
 
+		DYLD_TRACE_CALLOUT_START(DYLD_TRACE_link_object_module_func,
+		    func);
 		release_lock();
 		func(&(p->images[i].module));
 		set_lock();
+		DYLD_TRACE_CALLOUT_END(DYLD_TRACE_link_object_module_func,
+		    func);
 	    }
 	    if(p->next_images == NULL)
 		break;
@@ -362,9 +379,13 @@ void (*func)(module_state *module))
 		    if(link_state != LINKED && link_state != FULLY_LINKED)
 			continue;
 
+                    DYLD_TRACE_CALLOUT_START(
+			DYLD_TRACE_link_library_module_func, func);
 		    release_lock();
 		    func(q->images[i].modules + j);
 		    set_lock();
+		    DYLD_TRACE_CALLOUT_END(
+			DYLD_TRACE_link_library_module_func, func);
 		}
 	    }
 	    if(q->next_images == NULL)
@@ -494,6 +515,8 @@ module_state *module)
 	    link_module_func != NULL && link_module_func->func != NULL;
 	    link_module_func = link_module_func->next){
 
+            DYLD_TRACE_CALLOUT_START(DYLD_TRACE_link_module_func,
+		link_module_func->func);
 	    /*
 	     * Since functions can only be added and not removed the 
 	     * link_module_func_list will be valid when we get the lock back and
@@ -504,6 +527,8 @@ module_state *module)
 	    release_lock();
 	    link_module_func->func(module);
 	    set_lock();
+	    DYLD_TRACE_CALLOUT_END(DYLD_TRACE_link_module_func,
+		link_module_func->func);
 	}
 }
 

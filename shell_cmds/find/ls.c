@@ -1,5 +1,3 @@
-/*	$NetBSD: ls.c,v 1.10 1998/03/03 02:22:40 thorpej Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,12 +31,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static char sccsid[] = "from: @(#)ls.c	8.1 (Berkeley) 6/6/93";
+static char sccsid[] = "@(#)ls.c	8.1 (Berkeley) 6/6/93";
 #else
-__RCSID("$NetBSD: ls.c,v 1.10 1998/03/03 02:22:40 thorpej Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/find/ls.c,v 1.5.6.2 2001/05/06 09:53:22 phk Exp $";
 #endif
 #endif /* not lint */
 
@@ -47,18 +45,11 @@ __RCSID("$NetBSD: ls.c,v 1.10 1998/03/03 02:22:40 thorpej Exp $");
 
 #include <err.h>
 #include <errno.h>
-#include <fts.h>
-#include <grp.h>
-#include <pwd.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <tzfile.h>
 #include <unistd.h>
 #include <utmp.h>
-
-#include "find.h"
 
 /* Derived from the print routines in the ls(1) source code. */
 
@@ -71,10 +62,9 @@ printlong(name, accpath, sb)
 	char *accpath;			/* current valid path to filename */
 	struct stat *sb;		/* stat buffer */
 {
-	char modep[15];
+	char modep[15], *user_from_uid(), *group_from_gid();
 
-	(void)printf("%6lu %4qd ", (u_long)sb->st_ino,
-	    (long long)sb->st_blocks);
+	(void)printf("%6lu %4qd ", (u_long) sb->st_ino, sb->st_blocks);
 	(void)strmode(sb->st_mode, modep);
 	(void)printf("%s %3u %-*s %-*s ", modep, sb->st_nlink, UT_NAMESIZE,
 	    user_from_uid(sb->st_uid, 0), UT_NAMESIZE,
@@ -84,7 +74,7 @@ printlong(name, accpath, sb)
 		(void)printf("%3d, %3d ", major(sb->st_rdev),
 		    minor(sb->st_rdev));
 	else
-		(void)printf("%8qd ", (long long)sb->st_size);
+		(void)printf("%8qd ", sb->st_size);
 	printtime(sb->st_mtime);
 	(void)printf("%s", name);
 	if (S_ISLNK(sb->st_mode))
@@ -97,13 +87,13 @@ printtime(ftime)
 	time_t ftime;
 {
 	int i;
-	char *longstring;
+	char longstring[80];
 
-	longstring = ctime(&ftime);
+	strftime(longstring, sizeof(longstring), "%c", localtime(&ftime));
 	for (i = 4; i < 11; ++i)
 		(void)putchar(longstring[i]);
 
-#define	SIXMONTHS	((DAYSPERNYEAR / 2) * SECSPERDAY)
+#define	SIXMONTHS	((365 / 2) * 86400)
 	if (ftime + SIXMONTHS > time((time_t *)NULL))
 		for (i = 11; i < 16; ++i)
 			(void)putchar(longstring[i]);
@@ -122,7 +112,7 @@ printlink(name)
 	int lnklen;
 	char path[MAXPATHLEN + 1];
 
-	if ((lnklen = readlink(name, path, MAXPATHLEN)) == -1) {
+	if ((lnklen = readlink(name, path, MAXPATHLEN - 1)) == -1) {
 		warn("%s", name);
 		return;
 	}

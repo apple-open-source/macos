@@ -94,7 +94,7 @@ struct options {
     } auth;
     struct {
         struct opt_str 		logfile;
-        //struct opt_long 	alertenable;
+        struct opt_long 	alertenable;
         struct opt_long 	autoconnect;
         struct opt_long 	disclogout;
         struct opt_long 	verboselog;
@@ -116,7 +116,9 @@ struct client {
     /* event notification */
     u_char	 	notify; 	// 0 = do not notify, 1 = notification active
     u_long	 	notify_link; 	// link ref we want notification (or 0xFFFFFFFF for all links)
-
+    u_char	 	notify_useservice;	// add service id in the notification
+    u_char	 	*notify_service;	// add service id in the notification
+    
     /* option management */
     TAILQ_HEAD(, client_opts) 	opts_head;
 
@@ -127,9 +129,10 @@ struct client {
 u_long client_init_all ();
 struct client *client_new (CFSocketRef ref);
 void client_dispose (struct client *client);
-u_long client_notify (u_long link, u_long state, u_long error);
 struct options *client_newoptset (struct client *client, u_long link);
 struct options *client_findoptset (struct client *client, u_long link);
+u_long client_notify (u_char *serviceid, u_long link, u_long state, u_long error);
 struct client *client_findbysocketref(CFSocketRef ref);
+
 
 #endif

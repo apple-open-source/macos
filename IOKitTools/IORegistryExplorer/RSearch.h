@@ -22,4 +22,7 @@
 
 - (void)displaySearchWindow:(id)sender;
 
+- (BOOL) importFindText;
+- (BOOL) exportFindText;
+
 @end

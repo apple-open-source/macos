@@ -1,5 +1,6 @@
-/* Definitions to target GDB to Linux on 386.
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+/* Definitions to target GDB to GNU/Linux on PowerPC.
+
+   Copyright 1992, 1993, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -27,9 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* We can single step on linux */
 #undef  SOFTWARE_SINGLE_STEP
-#define SOFTWARE_SINGLE_STEP(p,q) abort() /* Will never execute! */
+#define SOFTWARE_SINGLE_STEP(p,q) internal_error (__FILE__, __LINE__, "Will never execute!")
 #undef  SOFTWARE_SINGLE_STEP_P
-#define SOFTWARE_SINGLE_STEP_P 0
+#define SOFTWARE_SINGLE_STEP_P() 0
 
 /* Make sure nexti gets the help it needs for debugging assembly code
    without symbols */

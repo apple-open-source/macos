@@ -1,0 +1,179 @@
+(2001/07/02 - petrs)   Updated the contrib/README to include xcscope.
+(2001/07/02 - petrs)   15.3 version name, man page update, README update.
+                       Make dist includes webcscope directory.
+(2001/06/29 - ragho)   webcscope added to contrib 
+(2001/06/29 - broeker) Re-formatted README, and added a tip working around 
+	               buggy libcurses on HP-UX 10.
+(2001/06/29 - broeker) Oversight in packages/MSDOS/djmake.bat fixed.	
+(2001/06/28 - darrylo) Updated xcscope.el to include GNU Emacs fixes and
+		       fuzzy pattern matching.  Updated docs in xcscope.el.
+(2001/06/28 - broeker) Added files in packages/MSDOS that help compiling
+		       cscope on MSDOS using the DJGPP compiler.
+(2001/06/28 - broeker) Add test for existence of <sys/termios.h> header,
+		       to protect platforms that don't have it.
+(2001/06/27 - broeker) Yet another set of automake/autoconf changes. 
+                       Regenerated auto* files checked in, too. We are
+		       'make distcheck' ready, now. Added 'ylwrap' to
+		       CVS.
+(2001/06/26 - broeker) Changed lex/flex handling in automake/autoconf setup
+	               to make 'make distcheck' work cleanly: added new
+		       files scanner.h and lookup.h to list of sources. 
+		       Made sure both scanner.l and fscanner.l end up in the
+		       distribution tarball, as they should.  Removed some
+		       quotes from definition of ACNU_DECL_YYTEXT in 
+		       configure.in which confused autoheader.
+(2001/06/25 - broeker) Change handling of tag-less enums to same method as
+	               used in fscanner.l since 2001/06/19.
+(2001/06/25 - broeker) Fix SF bug #435535: two uses of yytext[] had been left 
+	               over in fscanner.l, causing incorrect compression of
+		       keywords #define and #include.
+(2001/06/19 - broeker) More bugfixes and changes to flex scanner. Handling
+	               of preprocessing directives treats whitespace and
+		       garbage after the keyword more gently. It also avoids
+		       treating lex patterns as preprocessing directives. And 
+		       enum/struct/union definitions without a tag are no
+		       longer written out to the database, which should help
+		       to get rid of 'cannot get sourceline' error messages.
+		       Also a new rule to compress whitespace sequences by
+		       means of a flex rule (should to be faster than 
+		       hand-coding).
+(2001/06/15 - broeker) Bugfix to flex scanner: comments after an #endif, 
+	               without any whitespace in between, would be dumped
+		       to stdout.
+(2001/06/15 - broeker) Minor documentation glitch in manpage and online help
+	               screen: set of keys to choose from matches found 
+		       contains 0-9, not 1-9. 
+(2001/06/01 - broeker) New version of fscanner.l, and lots of
+	               small changes to other source files, too. Avoids
+		       (ab)use of yytext[] as a temporary buffer by unrelated
+		       pieces of code, and changes exported variables of the
+		       scanned line from lex-internal yyleng and my_yyleng 
+		       to my_yytext and my_yyleng. New header files scanner.h
+		       and lookup.h. 
+(2001/06/01 - broeker) Fix 64bit-related bug in invlib.c that caused the symbol
+                       'sun' to not be found on DigitalUnix/Alpha platform.
+(2001/05/30 - dixon) arrow and editing keys can be now used at the input line
+(2001/05/30 - duell) invname database issue fix.
+(2001/05/20 - garret)  Fixed some mishaps in ocs.
+(2001/04/30 - broeker) Fixed signed char casting bug in dicode compression. 
+	               Encapsulated dicode compression idioms into macros
+		       IS_A_DICODE() and DICODE_COMPRESS().
+(2001/04/26 - ogawa) Fix for posterr
+(2001/04/26 - sorfa) Fixed a SIGSEGV in linemode in find.c. Thanks to OGAWA Hirofumi
+                     for pointing out the problem.
+(2001/04/24 - slutz) STMTMAX increased to 10000
+(2001/03/29 - broeker) Some further MSDOS/DJGPP patches. Close file 
+	               'refsfound' before unlinking it. Avoid calling curses
+ 	               function nonl().  Replace fork/exec/wait machinery in 
+	               exec.c by call to lib function spawnvp().
+(2001/03/28 - broeker) Added flex-able version of scanner.l to the project, as
+	               file src/fscanner.l. Changed configure.in and 
+		       src/Makefile.am to use it if using 'flex'.
+(2001/03/27 - broeker) Remove 'extern' declaration of yylval from
+                       egrep.y:yylex(). It's not needed, as this is inside the
+	               Yacc source itself, where the definition of yylval is
+	               directly visible, and it causes problems by incompatible
+	               redefinition on Alpha/DigitalUnix using yacc.
+(2001/03/12 - broeker) Some minor changes for compiling cscope with DJGPP, the
+	               MSDOG port of GCC. Mainly non-availability of some
+		       Unix features like CLOSE_ON_EXEC for files, and SIGTSTP.
+(2001/03/12 - broeker) Added 'b' flags and O_BINARY bits to all file-opening
+                       calls for (potentially) binary data files, to allow 
+		       cscope to work on DOS-style platforms. Moved vpopen()
+		       and vpfopen() prototypes into vp.h.
+(2001/03/12 - broeker) rename 'basename' to 'mybasename' --- avoid XPG4
+                       name conflict
+(2001/02/12 - duell) man page update for CSCOPE_* information
+(2001/02/09 - duell & hull) Support for CSCOPE_EDITOR, CSCOPE_LINEFLAG and
+                            CSCOPE_LINEFLAGS_AFTER_FILE
+(2001/02/09 - petrs) Updated version number to 15.2b (for beta)
+(2001/02/09 - chuck & wilfredo) Darwin support
+(2001/01/24 - petrs) Replaced new style C comments, i.e. //
+(2000/12/12 - petrs) packages/cscope.spec has now no local directory
+(2000/12/12 - petrs) contrib/ocs now checks that cscope is in $PATH
+(2000/12/11 - frost) Safety feature in mypopen.c
+(2000/11/28 - blank) More FreeBSD support
+(2000/11/23 - broeker) Added check for snprintf() to configure.in
+(2000/11/22 - petrs) Updated date to cscope.1 man page and retagged the file
+(2000/11/22 - petrs) Tagged cvs tree as v15_1
+(2000/11/21 - petrs) Added UnixWare 7 packaging scripts
+(2000/11/20 - petrs) 15.1 version name, man page update, README update
+(2000/10/09 - atrn) better FreeBSD support
+(2000/10/02 - fritsch) better BeOS support
+(2000/10/02 - salz) -i now accepts '-' for a list of files from stdio
+(2000/09/19 - brent) fixed -R to handle similarly named files
+(2000/05/31 - mascott) ncurses.h gets picked up correctly for FreeBSD
+(2000/05/18 - hops) display errors via varargs posterr(ap, ..)
+                    start changing sprintfs to snprintfs
+                    buildonly not go into curses - set linemode 
+                        - fixes buildonly coredump
+                    explicitly initialise some booleans in main.c
+                    handle error messages nicely - curses msgline2 line 
+                    or stdout - using snprintf+posterr(buf). 
+                    Clear msg2 line  on ^L command.c.
+                    Support BS in getline()  input.c.
+                    Add build support for contrib dir.
+(2000/05/18 - broeker) move declarations of invlib.c functions to invlib.h,
+                       from global.h
+(2000/05/18 - broeker) it's 'myylineno', not 'yylineno'
+(2000/05/18 - broeker) don't #include <config.h>, but "config.h" --
+                       it's not a system header file, after all.
+(2000/05/18 - broeker) don't #include "global.h" from egrep.y -- the
+                       extern declaration for yylex() only confuses
+                       it, and it doesn't need most of "global.h",
+                       anyway.
+(2000/05/18 - broeker) no more 'extern' declaration in .c files -- they
+                       belong into the headers. For now, most of them move to
+                       "global.h".
+(2000/05/18 - broeker) don't cast function pointers -- make all the
+                       find*() function follow the same prototype,
+                       instead. This affects their definitions, too.
+(2000/05/17 - sharpe) progress bar, tab between line selection and option,
+                      new support for more than nine line selections
+(2000/05/15 - petr) version 15.0bl3 now, spec file change
+(2000/05/10 - klausner) NetBSD current support
+(2000/05/09 - petr) added packages directory and cscope.spec file
+(2000/05/09 - broeker) alloc.c, invlib.c, invlib.h: initial 64bit support
+(2000/05/05 - broeker) global.h, invlib.c: change return type of invterm to
+	                'long'
+(2000/05/05 - broeker) remove superfluous casts from and to type 'void *'
+                       in calls to malloc() family of routines
+(2000/05/04 - hops) configure: find flex libs in /usr/local, 
+                    cmdline args to specify use of flex/lex, yacc/byacc/bison
+(2000/05/03 - broeker) some code cleanup
+(2000/05/03 - broeker) more code cleanup and -Wall warnings removal
+(2000/05/03 - broeker) major code cleanup and fixing of memory leaks
+(2000/05/03 - broeker) configure checks for vsnprintf
+(2000/05/03 - petr) More than 9 select lines displays selection in uppercase
+(2000/05/02 - petr) Added support for more than 9 select lines (up to 45)
+                    temporary option -t enables this feature for testing
+(2000/05/01 - petr) Updated configure.in (and configure) to handle UW7
+(2000/04/28 - petr) Fixed another -q failure on large data
+(2000/04/28 - petr) Fixed -q failure
+(2000/04/27 - brent) Add support for 3 letter suffixes (currently .tcc)
+(2000/04/27 - brent) Add -R option to recurse subdirectories
+(2000/04/27 - petr) Changed version number to 15.0bl2
+(2000/04/27 - uzi) Added autoconf and restructure directories
+(2000/04/26 - petr) Tagged current source as v15_0_bl1 before autoconf support
+(2000/04/26 - darrylo) minor fixs in crossref.c and scanner.l
+(2000/04/26 - petr) changed spelling of psuedo to pseudo in scanner.l
+(2000/04/26 - uzi) Changes in preparation of autoconf/automake setup
+(2000/04/26 - uzi) Added k to terse args in cscope man page
+(2000/04/25 - petr) Added h to terse args in cscope man page
+(2000/04/25 - petr) Fixed build break with flex
+(2000/04/25 - petr) Added better support for non-flex lex
+(2000/04/22 - uzi) Added -h option, long usage help screen.
+(2000/04/22 - uzi) Added -c and -k support to cscope.files config file.
+(2000/04/22 - uzi) Added Makefile for Solaris and support for Delete key
+(2000/04/21 - hops) Changes for osr5 and uw7 builds, add contrib dir
+(2000/04/21 - petr) Created new build directory with system specific makefiles
+(2000/04/20 - uzi) -k kernel option and code clean up (from K&R C to ANSI C)
+(2000/04/20 - edgar) prevention of cscope.out corruption and correct dboffset calulation
+(2000/04/20 - martin) Use 'env LC_ALL=C sort' rather than 'LC_ALL=C sort' for sorting
+(2000/04/19 - petr) Added README/NEWS/AUTHORS files
+(2000/04/19 - jens) Non-preformatted man page
+(2000/04/19 - petr) Make sure install directory exists with make install
+(2000/04/19 - petr) Make sure temporary directory exists
+(2000/04/18 - petr) Remove temporary buffer
+(2000/04/18 - garyp) Support for .cc and .hh files
+(2000/04/17 - petr) Initial OpenSource release. Initial Linux port

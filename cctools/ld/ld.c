@@ -40,6 +40,7 @@
 #include "stuff/arch.h"
 #include "stuff/version_number.h"
 #include "stuff/guess_short_name.h"
+#include "stuff/macosx_deployment_target.h"
 #if !(defined(KLD) && defined(__STATIC__))
 #include <stdio.h>
 #include <signal.h>
@@ -134,10 +135,8 @@ __private_extern__
 enum bool bind_at_load = FALSE;		/* mark the output for dyld to be bound
 					   when loaded */
 __private_extern__
-enum bool lazy_init = FALSE;		/* mark the shared library to have its
-					   init routine to be run lazily via
-					   catching memory faults to its
-					   writeable segments */
+enum bool no_fix_prebinding = FALSE;	/* mark the output for dyld to never
+					   run fix_prebinding */
 __private_extern__
 enum bool load_map = FALSE;		/* print a load map */
 __private_extern__
@@ -213,17 +212,33 @@ static enum bool undefined_flag_specified = FALSE;
 #endif
 
 /* The checking for (twolevel namespace) multiply defined symbols */
-__private_extern__ enum multiply_defined_check_level multiply_defined_flag =
-    MULTIPLY_DEFINED_WARNING;
+__private_extern__ enum multiply_defined_check_level
+    multiply_defined_flag = MULTIPLY_DEFINED_WARNING;
+__private_extern__ enum multiply_defined_check_level
+    multiply_defined_unused_flag = MULTIPLY_DEFINED_SUPPRESS;
 /* the -nomultidefs option */
 __private_extern__ enum bool nomultidefs = FALSE;
 #ifndef RLD
 static enum bool multiply_defined_flag_specified = FALSE;
+static enum bool multiply_defined_unused_flag_specified = FALSE;
 #endif
 
 /* The checking for read only relocs */
 __private_extern__ enum read_only_reloc_check_level
     read_only_reloc_flag = READ_ONLY_RELOC_ERROR;
+
+/* The checking for section difference relocs */
+__private_extern__ enum sect_diff_reloc_check_level
+    sect_diff_reloc_flag = SECT_DIFF_RELOC_SUPPRESS;
+
+/* The handling for weak reference mismatches */
+__private_extern__ enum weak_reference_mismatches_handling
+    weak_reference_mismatches = WEAK_REFS_MISMATCH_ERROR;
+
+/* The Mac OS X deployment target */
+__private_extern__ enum macosx_deployment_target_value
+	macosx_deployment_target = 0;
+__private_extern__ const char *macosx_deployment_target_name = NULL;
 
 /* The prebinding optimization */
 #ifndef RLD
@@ -231,8 +246,11 @@ static enum bool prebinding_flag_specified = FALSE;
 #endif
 __private_extern__ enum bool prebinding = FALSE;
 __private_extern__ enum bool prebind_allow_overlap = FALSE;
+__private_extern__ enum bool prebind_all_twolevel_modules = FALSE;
 #ifndef RLD
 static enum bool read_only_reloc_flag_specified = FALSE;
+static enum bool sect_diff_reloc_flag_specified = FALSE;
+static enum bool weak_reference_mismatches_specified = FALSE;
 #endif
 
 /* True if -m is specified to allow multiply symbols, as a warning */
@@ -260,8 +278,12 @@ __private_extern__ enum bool segs_read_only_addr_specified = FALSE;
 __private_extern__ unsigned long segs_read_write_addr = 0;
 __private_extern__ enum bool segs_read_write_addr_specified = FALSE;
 
+#ifndef RLD
 /* file name of the segment address table */
-__private_extern__ char *seg_addr_table_name = NULL;
+static char *seg_addr_table_name = NULL;
+/* the file system path name to use instead of the install name */
+static char *seg_addr_table_filename = NULL;
+#endif !defined(RLD)
 
 /* The stack address and size */
 __private_extern__ unsigned long stack_addr = 0;
@@ -283,6 +305,11 @@ __private_extern__ unsigned long headerpad = sizeof(struct section) * 2;
 #ifndef RLD
 static enum bool headerpad_specified = FALSE;
 #endif !defined(RLD)
+/*
+ * If specified makes sure the header pad is big enough to change all the
+ * install name of the dylibs in the output to MAXPATHLEN.
+ */
+__private_extern__ enum bool headerpad_max_install_names = FALSE;
 
 /* The name of the specified entry point */
 __private_extern__ char *entry_point_name = NULL;
@@ -404,8 +431,11 @@ char *envp[])
     kern_return_t r;
     const struct arch_flag *family_arch_flag;
     enum undefined_check_level new_undefined_flag;
-    enum multiply_defined_check_level new_multiply_defined_flag;
+    enum multiply_defined_check_level new_multiply_defined_flag,
+	new_multiply_defined_unused_flag;
     enum read_only_reloc_check_level new_read_only_reloc_flag;
+    enum sect_diff_reloc_check_level new_sect_diff_reloc_flag;
+    enum weak_reference_mismatches_handling new_weak_reference_mismatches;
     enum bool is_framework;
     char *has_suffix;
 
@@ -524,6 +554,9 @@ char *envp[])
 		    else if(strcmp(p, "prebind_allow_overlap") == 0){
 			prebind_allow_overlap = TRUE;
 		    }
+		    else if(strcmp(p, "prebind_all_twolevel_modules") == 0){
+			prebind_all_twolevel_modules = TRUE;
+		    }
 		    else if(strcmp(p, "private_bundle") == 0){
 			private_bundle = TRUE;
 		    }
@@ -621,7 +654,7 @@ char *envp[])
 			break;
 		    }
 		    else if(strcmp(p, "run_init_lazily") == 0){
-			lazy_init = TRUE;
+			warning("-run_init_lazily is obsolete");
 			break;
 		    }
 		    if(p[1] != '\0')
@@ -708,7 +741,7 @@ char *envp[])
 			if(file_name == NULL ||
 			   file_name[1] == '\0' || argv[i][0] == ':')
 			    fatal("-dylib_file argument: %s must have a ':' "
-				  "between it's file names", argv[i]);
+				  "between its file names", argv[i]);
 			dylib_files = reallocate(dylib_files,
 					(ndylib_files + 1) * sizeof(char *));
 			dylib_files[ndylib_files++] = argv[i];
@@ -746,6 +779,9 @@ char *envp[])
 		case 'n':
 		    if(strcmp(p, "noflush") == 0){
 			flush = FALSE;
+		    }
+		    else if(strcmp(p, "nofixprebinding") == 0){
+			no_fix_prebinding = TRUE;
 		    }
 		    else if(strcmp(p, "no_arch_warnings") == 0){
 			no_arch_warnings = TRUE;
@@ -970,6 +1006,28 @@ char *envp[])
 		    else if(strcmp(p, "sectorder_detail") == 0){
 			sectorder_detail = TRUE;
 		    }
+		    else if(strcmp(p, "sect_diff_relocs") == 0){
+			if(++i >= argc)
+			    fatal("-sect_diff_relocs: argument missing");
+			if(strcmp(argv[i], "error") == 0)
+			    new_sect_diff_reloc_flag = SECT_DIFF_RELOC_ERROR;
+			else if(strcmp(argv[i], "warning") == 0)
+			    new_sect_diff_reloc_flag = SECT_DIFF_RELOC_WARNING;
+			else if(strcmp(argv[i], "suppress") == 0)
+			    new_sect_diff_reloc_flag = SECT_DIFF_RELOC_SUPPRESS;
+			else{
+			    fatal("-sect_diff_relocs: unknown argument: %s",
+				  argv[i]);
+			    new_sect_diff_reloc_flag = SECT_DIFF_RELOC_SUPPRESS;
+			}
+			if(sect_diff_reloc_flag_specified == TRUE &&
+			   new_sect_diff_reloc_flag != sect_diff_reloc_flag)
+			    fatal("more than one value specified for "
+				  "-sect_diff_relocs");
+			sect_diff_reloc_flag_specified = TRUE;
+			sect_diff_reloc_flag = new_sect_diff_reloc_flag;
+			break;
+		    }
 		    /*
 		     * Flags for specifing information about segments.
 		     */
@@ -1061,14 +1119,23 @@ char *envp[])
 			segs_read_write_addr_specified = TRUE;
 			i += 1;
 		    }
-		    /* specify the address (in hex) of the read-only segments
-		       -segs_read_only_addr <address> */
+		    /* specify the name of the segment address table */
 		    else if(strcmp(p, "seg_addr_table") == 0){
 			if(i + 1 >= argc)
 			    fatal("%s: argument missing", argv[i]);
 			if(seg_addr_table_name != NULL)
 			    fatal("%s: multiply specified", argv[i]);
 			seg_addr_table_name = argv[i+1];
+			i += 1;
+		    }
+		    /* specify the file system path name to be used instead of
+		       the install name in the segment address table */
+		    else if(strcmp(p, "seg_addr_table_filename") == 0){
+			if(i + 1 >= argc)
+			    fatal("%s: argument missing", argv[i]);
+			if(seg_addr_table_filename != NULL)
+			    fatal("%s: multiply specified", argv[i]);
+			seg_addr_table_filename = argv[i+1];
 			i += 1;
 		    }
 		    /* specify the segment alignment as a hexadecimal power of 2
@@ -1281,7 +1348,7 @@ char *envp[])
 			if(indr_symbol_name == NULL ||
 			   indr_symbol_name[1] == '\0' || *symbol_name == ':')
 			    fatal("-i argument: %s must have a ':' between "
-				  "it's symbol names", p + 1);
+				  "its symbol names", p + 1);
 			/* the creating of the symbol is done in the next pass
 			   of parsing arguments */
 		    }
@@ -1308,6 +1375,34 @@ char *envp[])
 				  "-multiply_defined");
 			multiply_defined_flag_specified = TRUE;
 			multiply_defined_flag = new_multiply_defined_flag;
+			break;
+		    }
+		    else if(strcmp(p, "multiply_defined_unused") == 0){
+			if(++i >= argc)
+			    fatal("-multiply_defined_unused: argument missing");
+			if(strcmp(argv[i], "error") == 0)
+			    new_multiply_defined_unused_flag =
+				MULTIPLY_DEFINED_ERROR;
+			else if(strcmp(argv[i], "warning") == 0)
+			    new_multiply_defined_unused_flag =
+				MULTIPLY_DEFINED_WARNING;
+			else if(strcmp(argv[i], "suppress") == 0)
+			    new_multiply_defined_unused_flag =
+				MULTIPLY_DEFINED_SUPPRESS;
+			else{
+			    fatal("-multiply_defined_unused: unknown argument: "
+				  "%s", argv[i]);
+			    new_multiply_defined_unused_flag =
+				MULTIPLY_DEFINED_SUPPRESS;
+			}
+			if(multiply_defined_unused_flag_specified == TRUE &&
+			   new_multiply_defined_unused_flag !=
+				multiply_defined_unused_flag)
+			    fatal("more than one value specified for "
+				  "-multiply_defined_unused");
+			multiply_defined_unused_flag_specified = TRUE;
+			multiply_defined_unused_flag =
+			    new_multiply_defined_unused_flag;
 			break;
 		    }
 		    /* treat multiply defined symbols as a warning not a
@@ -1398,6 +1493,35 @@ char *envp[])
 			whyload = TRUE;
 		    else if(strcmp(p, "whatsloaded") == 0)
 			whatsloaded = TRUE;
+		    else if(strcmp(p, "weak_reference_mismatches") == 0){
+			if(++i >= argc)
+			    fatal("-weak_reference_mismatches: "
+				  "argument missing");
+			if(strcmp(argv[i], "error") == 0)
+			    new_weak_reference_mismatches =
+				WEAK_REFS_MISMATCH_ERROR;
+			else if(strcmp(argv[i], "weak") == 0)
+			    new_weak_reference_mismatches =
+				WEAK_REFS_MISMATCH_WEAK;
+			else if(strcmp(argv[i], "non-weak") == 0)
+			    new_weak_reference_mismatches =
+				WEAK_REFS_MISMATCH_NON_WEAK;
+			else{
+			    fatal("-weak_reference_mismatches: unknown "
+				  "argument: %s", argv[i]);
+			    new_weak_reference_mismatches =
+				WEAK_REFS_MISMATCH_ERROR;
+			}
+			if(weak_reference_mismatches_specified == TRUE &&
+			   new_weak_reference_mismatches !=
+				weak_reference_mismatches)
+			    fatal("more than one value specified for "
+				  "-weak_reference_mismatches");
+			weak_reference_mismatches_specified = TRUE;
+			weak_reference_mismatches =
+			    new_weak_reference_mismatches;
+			break;
+		    }
 		    else
 			goto unknown_flag;
 		    break;
@@ -1448,6 +1572,9 @@ char *envp[])
 				  "hexadecimal number", argv[i+1]);
 			headerpad_specified = TRUE;
 			i += 1;
+		    }
+		    else if(strcmp(p, "headerpad_max_install_names") == 0){
+			headerpad_max_install_names = TRUE;
 		    }
 		    else
 			goto unknown_flag;
@@ -1539,11 +1666,24 @@ unknown_flag:
 		  bundle_loader);
 
 	/*
+	 * The LD_FORCE_NO_PREBIND environment variable overrides the command
+	 * line and the LD_PREBIND environment variable.
+	 */
+	if(getenv("LD_FORCE_NO_PREBIND") != NULL){
+	    if(prebinding_flag_specified == TRUE &&
+	       prebinding == TRUE){
+		warning("-prebind ignored because LD_FORCE_NO_PREBIND "
+			"environment variable specified");
+		prebinding_flag_specified = TRUE;
+		prebinding = FALSE;
+	    }
+	}
+	/*
 	 * The -prebind flag can also be specified with the LD_PREBIND
 	 * environment variable.  We quitely ignore this when -r is on or
 	 * if this is a fixed shared library output.
 	 */
-	if(getenv("LD_PREBIND") != NULL &&
+	else if(getenv("LD_PREBIND") != NULL &&
 	   save_reloc == FALSE &&
 	   filetype != MH_FVMLIB){
 	    if(prebinding_flag_specified == TRUE &&
@@ -1558,6 +1698,8 @@ unknown_flag:
 	}
 	if(getenv("LD_PREBIND_ALLOW_OVERLAP") != NULL)
 	    prebind_allow_overlap = TRUE;
+	if(getenv("LD_PREBIND_ALL_TWOLEVEL_MODULES") != NULL)
+	    prebind_all_twolevel_modules = TRUE;
 
 	/*
 	 * The -twolevel_namespace flag can also be specified with the
@@ -1569,6 +1711,45 @@ unknown_flag:
 	   static_specified == FALSE){
 		namespace_specified = TRUE;
 		twolevel_namespace = TRUE;
+	}
+
+	/*
+	 * Pick up the Mac OS X deployment target.
+	 */
+	get_macosx_deployment_target(&macosx_deployment_target,
+				     &macosx_deployment_target_name);
+
+	/*
+	 * If the -sect_diff_relocs is specified check to see it can be used
+	 * else pick up the LD_SECT_DIFF_RELOC if that can be used.
+	 */
+	if(sect_diff_reloc_flag_specified == TRUE){
+	    if(filetype != MH_EXECUTE || dynamic == FALSE)
+		fatal("can't use -sect_diff_relocs unless both -execute and "
+		      "-dynamic are in effect");
+	}
+	else{
+	    /*
+	     * The -sect_diff_relocs flag was not specified on the command
+	     * line, so if both -execute and -dynamic are in effect see if
+	     * LD_SECT_DIFF_RELOCS is specified as an environment variable and
+	     * use that value.
+	     */
+	    if(filetype == MH_EXECUTE && dynamic == TRUE){
+		p = getenv("LD_SECT_DIFF_RELOCS");
+		if(p != NULL){
+		    if(strcmp(p, "error") == 0)
+			sect_diff_reloc_flag = SECT_DIFF_RELOC_ERROR;
+		    else if(strcmp(p, "warning") == 0)
+			sect_diff_reloc_flag = SECT_DIFF_RELOC_WARNING;
+		    else if(strcmp(p, "suppress") == 0)
+			sect_diff_reloc_flag = SECT_DIFF_RELOC_SUPPRESS;
+		    else{
+			fatal("Unknown LD_SECT_DIFF_RELOCS environment variable"
+			      " %s value", p);
+		    }
+		}
+	    }
 	}
 
 	/*
@@ -1663,8 +1844,12 @@ unknown_flag:
 		else
 		    seg_addr_table = parse_seg_addr_table(seg_addr_table_name,
 			"-seg_addr_table", seg_addr_table_name, &table_size);
-		seg_addr_table_entry = search_seg_addr_table(seg_addr_table,
-							 dylib_install_name);
+		if(seg_addr_table_filename != NULL)
+		    seg_addr_table_entry = search_seg_addr_table(seg_addr_table,
+						     seg_addr_table_filename);
+		else
+		    seg_addr_table_entry = search_seg_addr_table(seg_addr_table,
+						     dylib_install_name);
 		if(seg_addr_table_entry != NULL){
 		    if(seg_addr_table_entry->split == TRUE){
 	       		if(read_only_reloc_flag != READ_ONLY_RELOC_ERROR){
@@ -1792,8 +1977,11 @@ unknown_flag:
 		    }
 		}
 		else{
-		    warning("-dylib_install_name %s not found in segment "
-			    "address table %s %s", dylib_install_name,
+		    warning("%s %s not found in segment address table %s %s",
+			    seg_addr_table_filename != NULL ?
+			    "-seg_addr_table_filename" : "-dylib_install_name",
+			    seg_addr_table_filename != NULL ?
+			    seg_addr_table_filename : dylib_install_name,
 			    env_seg_addr_table_name != NULL ?
 			    "LD_SEG_ADDR_TABLE" : "-seg_addr_table",
 			    seg_addr_table_name);
@@ -1840,9 +2028,6 @@ unknown_flag:
 	    if(nallowable_clients != 0)
 		fatal("-allowable_client flags can only be used when -dylib "
 		      "is also specified");
-	    if(lazy_init == TRUE)
-		fatal("-run_init_lazily can only be used when -dylib is also "
-		      "specified");
 	}
 	if(filetype == MH_BUNDLE){
 	    if(dynamic == FALSE)
@@ -2117,7 +2302,8 @@ unknown_flag:
 			i++;
 		    break;
 		case 'm':
-		    if(strcmp(p, "multiply_defined") == 0){
+		    if(strcmp(p, "multiply_defined") == 0 ||
+		       strcmp(p, "multiply_defined_unused") == 0){
 			i++;
 			break;
 		    }
@@ -2179,6 +2365,7 @@ unknown_flag:
 		            strcmp(p, "sectorder") == 0)
 			i += 3;
 		    else if(strcmp(p, "segaddr") == 0 ||
+			    strcmp(p, "sect_diff_relocs") == 0 ||
 		            strcmp(p, "sectobjectsymbols") == 0)
 			i += 2;
 		    else if(strcmp(p, "seg1addr") == 0 ||
@@ -2188,6 +2375,7 @@ unknown_flag:
 			    strcmp(p, "segs_read_only_addr") == 0 ||
 			    strcmp(p, "segs_read_write_addr") == 0 ||
 			    strcmp(p, "seg_addr_table") == 0 ||
+			    strcmp(p, "seg_addr_table_filename") == 0 ||
 			    strcmp(p, "sub_umbrella") == 0 ||
 			    strcmp(p, "sub_library") == 0)
 			i++;
@@ -2217,10 +2405,18 @@ unknown_flag:
 		    i++;
 		    break;
 		case 'h':
+		    if(strcmp(p, "headerpad_max_install_names") == 0)
+			break;
+		    i++;
+		    break;
 		case 'U':
 		case 'N':
 		case 'Y':
 		    i++;
+		    break;
+		case 'w':
+		    if(strcmp(p, "weak_reference_mismatches") == 0)
+			i++;
 		    break;
 		}
 	    }

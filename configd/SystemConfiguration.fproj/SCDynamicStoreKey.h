@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -112,6 +112,31 @@ SCDynamicStoreKeyCreateComputerName		(
 */
 CFStringRef
 SCDynamicStoreKeyCreateConsoleUser		(
+						CFAllocatorRef		allocator
+						);
+
+/*!
+	@function SCDynamicStoreKeyCreateHostNames
+	@discussion Creates a key that can be used in conjunction with
+		SCDynamicStoreSetNotificationKeys() to receive
+		notifications when the HostNames entity changes.  The
+		HostNames entity contains the LocalHostName.
+	@result A notification string for the HostNames entity.
+*/
+CFStringRef
+SCDynamicStoreKeyCreateHostNames		(
+						CFAllocatorRef		allocator
+						);
+
+/*!
+	@function SCDynamicStoreKeyCreateLocation
+	@discussion Creates a key that can be used in conjunction with
+		SCDynamicStoreSetNotificationKeys() to receive
+		notifications when the "location" identifier changes.
+	@result A notification string for the current "location" identifier.
+*/
+CFStringRef
+SCDynamicStoreKeyCreateLocation			(
 						CFAllocatorRef		allocator
 						);
 

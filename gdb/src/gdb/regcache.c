@@ -1,5 +1,5 @@
 /* Cache and manage the values of registers for GDB, the GNU debugger.
-   Copyright 1986, 87, 89, 91, 94, 95, 96, 1998, 2000
+   Copyright 1986, 1987, 1989, 1991, 1994, 1995, 1996, 1998, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -20,11 +20,12 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include "frame.h"
 #include "inferior.h"
 #include "target.h"
 #include "gdbarch.h"
 #include "gdbcmd.h"
+#include "regcache.h"
+#include "gdb_assert.h"
 
 /*
  * DATA STRUCTURE
@@ -32,7 +33,7 @@
  * Here is the actual register cache.
  */
 
-/* NOTE: this is a write-back cache.  There is no "dirty" bit for
+/* NOTE: this is a write-through cache.  There is no "dirty" bit for
    recording if the register values have been changed (eg. by the
    user).  Therefore all registers must be written back to the
    target when appropriate.  */
@@ -48,10 +49,9 @@ char *registers;
 
 signed char *register_valid;
 
-/* The thread/process associated with the current set of registers.
-   For now, -1 is special, and means `no current process'.  */
+/* The thread/process associated with the current set of registers. */
 
-static int registers_pid = -1;
+static ptid_t registers_ptid;
 
 /*
  * FUNCTIONS:
@@ -69,213 +69,81 @@ register_cached (int regnum)
   return register_valid[regnum];
 }
 
+/* Record that REGNUM's value is cached if STATE is >0, uncached but
+   fetchable if STATE is 0, and uncached and unfetchable if STATE is <0.  */
+
+void
+set_register_cached (int regnum, int state)
+{
+  register_valid[regnum] = state;
+}
+
 /* REGISTER_CHANGED
 
    invalidate a single register REGNUM in the cache */
 void
 register_changed (int regnum)
 {
-  register_valid[regnum] = 0;
+  set_register_cached (regnum, 0);
 }
 
-/* FIND_SAVED_REGISTER ()
+/* If REGNUM >= 0, return a pointer to register REGNUM's cache buffer area,
+   else return a pointer to the start of the cache buffer.  */
 
-   Return the address in which frame FRAME's value of register REGNUM
-   has been saved in memory.  Or return zero if it has not been saved.
-   If REGNUM specifies the SP, the value we return is actually
-   the SP value, not an address where it was saved.  */
-
-CORE_ADDR
-find_saved_register (struct frame_info *frame, int regnum)
+static char *
+register_buffer (int regnum)
 {
-  register struct frame_info *frame1 = NULL;
-  register CORE_ADDR addr = 0;
-
-  if (frame == NULL)		/* No regs saved if want current frame */
-    return 0;
-
-#ifdef HAVE_REGISTER_WINDOWS
-  /* We assume that a register in a register window will only be saved
-     in one place (since the name changes and/or disappears as you go
-     towards inner frames), so we only call get_frame_saved_regs on
-     the current frame.  This is directly in contradiction to the
-     usage below, which assumes that registers used in a frame must be
-     saved in a lower (more interior) frame.  This change is a result
-     of working on a register window machine; get_frame_saved_regs
-     always returns the registers saved within a frame, within the
-     context (register namespace) of that frame. */
-
-  /* However, note that we don't want this to return anything if
-     nothing is saved (if there's a frame inside of this one).  Also,
-     callers to this routine asking for the stack pointer want the
-     stack pointer saved for *this* frame; this is returned from the
-     next frame.  */
-
-  if (REGISTER_IN_WINDOW_P (regnum))
-    {
-      frame1 = get_next_frame (frame);
-      if (!frame1)
-	return 0;		/* Registers of this frame are active.  */
-
-      /* Get the SP from the next frame in; it will be this
-         current frame.  */
-      if (regnum != SP_REGNUM)
-	frame1 = frame;
-
-      FRAME_INIT_SAVED_REGS (frame1);
-      return frame1->saved_regs[regnum];	/* ... which might be zero */
-    }
-#endif /* HAVE_REGISTER_WINDOWS */
-
-  /* Note that this next routine assumes that registers used in
-     frame x will be saved only in the frame that x calls and
-     frames interior to it.  This is not true on the sparc, but the
-     above macro takes care of it, so we should be all right. */
-  while (1)
-    {
-      QUIT;
-      frame1 = get_prev_frame (frame1);
-      if (frame1 == 0 || frame1 == frame)
-	break;
-      FRAME_INIT_SAVED_REGS (frame1);
-      if (frame1->saved_regs[regnum])
-	addr = frame1->saved_regs[regnum];
-    }
-
-  return addr;
+  gdb_assert (regnum >= 0 && regnum < (NUM_REGS + NUM_PSEUDO_REGS));
+  return &registers[REGISTER_BYTE (regnum)];
 }
 
-/* DEFAULT_GET_SAVED_REGISTER ()
-
-   Find register number REGNUM relative to FRAME and put its (raw,
-   target format) contents in *RAW_BUFFER.  Set *OPTIMIZED if the
-   variable was optimized out (and thus can't be fetched).  Set *LVAL
-   to lval_memory, lval_register, or not_lval, depending on whether
-   the value was fetched from memory, from a register, or in a strange
-   and non-modifiable way (e.g. a frame pointer which was calculated
-   rather than fetched).  Set *ADDRP to the address, either in memory
-   on as a REGISTER_BYTE offset into the registers array.
-
-   Note that this implementation never sets *LVAL to not_lval.  But
-   it can be replaced by defining GET_SAVED_REGISTER and supplying
-   your own.
-
-   The argument RAW_BUFFER must point to aligned memory.  */
-
-static void
-default_get_saved_register (char *raw_buffer,
-			    int *optimized,
-			    CORE_ADDR *addrp,
-			    struct frame_info *frame,
-			    int regnum,
-			    enum lval_type *lval)
-{
-  CORE_ADDR addr;
-
-  if (!target_has_registers)
-    error ("No registers.");
-
-  /* Normal systems don't optimize out things with register numbers.  */
-  if (optimized != NULL)
-    *optimized = 0;
-  addr = find_saved_register (frame, regnum);
-  if (addr != 0)
-    {
-      if (lval != NULL)
-	*lval = lval_memory;
-      if (regnum == SP_REGNUM)
-	{
-	  if (raw_buffer != NULL)
-	    {
-	      /* Put it back in target format.  */
-	      store_address (raw_buffer, REGISTER_RAW_SIZE (regnum),
-			     (LONGEST) addr);
-	    }
-	  if (addrp != NULL)
-	    *addrp = 0;
-	  return;
-	}
-      if (raw_buffer != NULL)
-	target_read_memory (addr, raw_buffer, REGISTER_RAW_SIZE (regnum));
-    }
-  else
-    {
-      if (lval != NULL)
-	*lval = lval_register;
-      addr = REGISTER_BYTE (regnum);
-      if (raw_buffer != NULL)
-	read_register_gen (regnum, raw_buffer);
-    }
-  if (addrp != NULL)
-    *addrp = addr;
-}
-
-#if !defined (GET_SAVED_REGISTER)
-#define GET_SAVED_REGISTER(raw_buffer, optimized, addrp, frame, regnum, lval) \
-  default_get_saved_register(raw_buffer, optimized, addrp, frame, regnum, lval)
-#endif
-
-void
-get_saved_register (char *raw_buffer,
-		    int *optimized,
-		    CORE_ADDR *addrp,
-		    struct frame_info *frame,
-		    int regnum,
-		    enum lval_type *lval)
-{
-  GET_SAVED_REGISTER (raw_buffer, optimized, addrp, frame, regnum, lval);
-}
-
-/* READ_RELATIVE_REGISTER_RAW_BYTES_FOR_FRAME
-
-   Copy the bytes of register REGNUM, relative to the input stack frame,
-   into our memory at MYADDR, in target byte order.
-   The number of bytes copied is REGISTER_RAW_SIZE (REGNUM).
-
-   Returns 1 if could not be read, 0 if could.  */
-
-/* FIXME: This function increases the confusion between FP_REGNUM
-   and the virtual/pseudo-frame pointer.  */
+/* Return whether register REGNUM is a real register.  */
 
 static int
-read_relative_register_raw_bytes_for_frame (int regnum,
-					    char *myaddr,
-					    struct frame_info *frame)
+real_register (int regnum)
 {
-  int optim;
-  if (regnum == FP_REGNUM && frame)
-    {
-      /* Put it back in target format. */
-      store_address (myaddr, REGISTER_RAW_SIZE (FP_REGNUM),
-		     (LONGEST) FRAME_FP (frame));
-
-      return 0;
-    }
-
-  get_saved_register (myaddr, &optim, (CORE_ADDR *) NULL, frame,
-		      regnum, (enum lval_type *) NULL);
-
-  if (register_valid[regnum] < 0)
-    return 1;			/* register value not available */
-
-  return optim;
+  return regnum >= 0 && regnum < NUM_REGS;
 }
 
-/* READ_RELATIVE_REGISTER_RAW_BYTES
+/* Return whether register REGNUM is a pseudo register.  */
 
-   Copy the bytes of register REGNUM, relative to the current stack
-   frame, into our memory at MYADDR, in target byte order.  
-   The number of bytes copied is REGISTER_RAW_SIZE (REGNUM).
-
-   Returns 1 if could not be read, 0 if could.  */
-
-int
-read_relative_register_raw_bytes (int regnum, char *myaddr)
+static int
+pseudo_register (int regnum)
 {
-  return read_relative_register_raw_bytes_for_frame (regnum, myaddr,
-						     selected_frame);
+  return regnum >= NUM_REGS && regnum < NUM_REGS + NUM_PSEUDO_REGS;
 }
 
+/* Fetch register REGNUM into the cache.  */
+
+static void
+fetch_register (int regnum)
+{
+  /* NOTE: cagney/2001-12-04: Legacy targets were using fetch/store
+     pseudo-register as a way of handling registers that needed to be
+     constructed from one or more raw registers.  New targets instead
+     use gdbarch register read/write.  */
+  if (FETCH_PSEUDO_REGISTER_P ()
+      && pseudo_register (regnum))
+    FETCH_PSEUDO_REGISTER (regnum);
+  else
+    target_fetch_registers (regnum);
+}
+
+/* Write register REGNUM cached value to the target.  */
+
+static void
+store_register (int regnum)
+{
+  /* NOTE: cagney/2001-12-04: Legacy targets were using fetch/store
+     pseudo-register as a way of handling registers that needed to be
+     constructed from one or more raw registers.  New targets instead
+     use gdbarch register read/write.  */
+  if (STORE_PSEUDO_REGISTER_P ()
+      && pseudo_register (regnum))
+    STORE_PSEUDO_REGISTER (regnum);
+  else
+    target_store_registers (regnum);
+}
 
 /* Low level examining and depositing of registers.
 
@@ -293,7 +161,7 @@ registers_changed (void)
 {
   int i;
 
-  registers_pid = -1;
+  registers_ptid = pid_to_ptid (-1);
 
   /* Force cleanup of any alloca areas if using C alloca instead of
      a builtin alloca.  This particular call is used to clean up
@@ -302,13 +170,8 @@ registers_changed (void)
      gdb gives control to the user (ie watchpoints).  */
   alloca (0);
 
-  for (i = 0; i < ARCH_NUM_REGS; i++)
-    register_valid[i] = 0;
-
-  /* Assume that if all the hardware regs have changed, 
-     then so have the pseudo-registers.  */
-  for (i = NUM_REGS; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
-    register_valid[i] = 0;
+  for (i = 0; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
+    set_register_cached (i, 0);
 
   if (registers_changed_hook)
     registers_changed_hook ();
@@ -318,16 +181,23 @@ registers_changed (void)
 
    Indicate that all registers have been fetched, so mark them all valid.  */
 
+/* NOTE: cagney/2001-12-04: This function does not set valid on the
+   pseudo-register range since pseudo registers are always supplied
+   using supply_register().  */
+/* FIXME: cagney/2001-12-04: This function is DEPRECATED.  The target
+   code was blatting the registers[] array and then calling this.
+   Since targets should only be using supply_register() the need for
+   this function/hack is eliminated.  */
 
 void
 registers_fetched (void)
 {
   int i;
 
-  for (i = 0; i < ARCH_NUM_REGS; i++)
-    register_valid[i] = 1;
+  for (i = 0; i < NUM_REGS; i++)
+    set_register_cached (i, 1);
   /* Do not assume that the pseudo-regs have also been fetched.
-     Fetching all real regs might not account for all pseudo-regs.  */
+     Fetching all real regs NEVER accounts for pseudo-regs.  */
 }
 
 /* read_register_bytes and write_register_bytes are generally a *BAD*
@@ -338,7 +208,7 @@ registers_fetched (void)
    is that register sizes can vary, so a simple index won't suffice.]
    It is far better to call read_register_gen and write_register_gen
    if you want to get at the raw register contents, as it only takes a
-   regno as an argument, and therefore can't do a partial register
+   regnum as an argument, and therefore can't do a partial register
    update.
 
    Prior to the recent fixes to check for partial updates, both read
@@ -352,121 +222,169 @@ registers_fetched (void)
    into memory at MYADDR.  */
 
 void
-read_register_bytes (int inregbyte, char *myaddr, int inlen)
+read_register_bytes (int in_start, char *in_buf, int in_len)
 {
-  int inregend = inregbyte + inlen;
-  int regno;
-
-  if (registers_pid != inferior_pid)
-    {
-      registers_changed ();
-      registers_pid = inferior_pid;
-    }
+  int in_end = in_start + in_len;
+  int regnum;
+  char *reg_buf = alloca (MAX_REGISTER_RAW_SIZE);
 
   /* See if we are trying to read bytes from out-of-date registers.  If so,
      update just those registers.  */
 
-  for (regno = 0; regno < NUM_REGS + NUM_PSEUDO_REGS; regno++)
+  for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
     {
-      int regstart, regend;
+      int reg_start;
+      int reg_end;
+      int reg_len;
+      int start;
+      int end;
+      int byte;
 
-      if (register_valid[regno])
+      reg_start = REGISTER_BYTE (regnum);
+      reg_len = REGISTER_RAW_SIZE (regnum);
+      reg_end = reg_start + reg_len;
+
+      if (reg_end <= in_start || in_end <= reg_start)
+	/* The range the user wants to read doesn't overlap with regnum.  */
 	continue;
 
-      if (REGISTER_NAME (regno) == NULL || *REGISTER_NAME (regno) == '\0')
+      if (REGISTER_NAME (regnum) != NULL && *REGISTER_NAME (regnum) != '\0')
+	/* Force the cache to fetch the entire register.  */
+	read_register_gen (regnum, reg_buf);
+      else
+	/* Legacy note: even though this register is ``invalid'' we
+           still need to return something.  It would appear that some
+           code relies on apparent gaps in the register array also
+           being returned.  */
+	/* FIXME: cagney/2001-08-18: This is just silly.  It defeats
+           the entire register read/write flow of control.  Must
+           resist temptation to return 0xdeadbeef.  */
+	memcpy (reg_buf, registers + reg_start, reg_len);
+
+      /* Legacy note: This function, for some reason, allows a NULL
+         input buffer.  If the buffer is NULL, the registers are still
+         fetched, just the final transfer is skipped. */
+      if (in_buf == NULL)
 	continue;
 
-      regstart = REGISTER_BYTE (regno);
-      regend = regstart + REGISTER_RAW_SIZE (regno);
+      /* start = max (reg_start, in_start) */
+      if (reg_start > in_start)
+	start = reg_start;
+      else
+	start = in_start;
 
-      if (regend <= inregbyte || inregend <= regstart)
-	/* The range the user wants to read doesn't overlap with regno.  */
-	continue;
+      /* end = min (reg_end, in_end) */
+      if (reg_end < in_end)
+	end = reg_end;
+      else
+	end = in_end;
 
-      /* We've found an uncached register where at least one byte will be read.
-         Update it from the target.  */
-      if (regno < NUM_REGS)
-	target_fetch_registers (regno);
-      else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-	FETCH_PSEUDO_REGISTER (regno);
-
-      if (!register_valid[regno])
-	error ("read_register_bytes:  Couldn't update register %d.", regno);
+      /* Transfer just the bytes common to both IN_BUF and REG_BUF */
+      for (byte = start; byte < end; byte++)
+	{
+	  in_buf[byte - in_start] = reg_buf[byte - reg_start];
+	}
     }
-
-  if (myaddr != NULL)
-    memcpy (myaddr, &registers[inregbyte], inlen);
 }
 
-/* Read register REGNO into memory at MYADDR, which must be large
-   enough for REGISTER_RAW_BYTES (REGNO).  Target byte-order.  If the
+/* Read register REGNUM into memory at MYADDR, which must be large
+   enough for REGISTER_RAW_BYTES (REGNUM).  Target byte-order.  If the
    register is known to be the size of a CORE_ADDR or smaller,
    read_register can be used instead.  */
 
-void
-read_register_gen (int regno, char *myaddr)
+static void
+legacy_read_register_gen (int regnum, char *myaddr)
 {
-  if (registers_pid != inferior_pid)
+  gdb_assert (regnum >= 0 && regnum < (NUM_REGS + NUM_PSEUDO_REGS));
+  if (! ptid_equal (registers_ptid, inferior_ptid))
     {
       registers_changed ();
-      registers_pid = inferior_pid;
+      registers_ptid = inferior_ptid;
     }
 
-  if (!register_valid[regno])
-    {
-      if (regno < NUM_REGS)
-	target_fetch_registers (regno);
-      else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-	FETCH_PSEUDO_REGISTER (regno);
-    }
-  memcpy (myaddr, &registers[REGISTER_BYTE (regno)],
-	  REGISTER_RAW_SIZE (regno));
+  if (!register_cached (regnum))
+    fetch_register (regnum);
+
+  memcpy (myaddr, register_buffer (regnum),
+	  REGISTER_RAW_SIZE (regnum));
 }
 
-/* Write register REGNO at MYADDR to the target.  MYADDR points at
-   REGISTER_RAW_BYTES(REGNO), which must be in target byte-order.  */
-
-/* Registers we shouldn't try to store.  */
-#if !defined (CANNOT_STORE_REGISTER)
-#define CANNOT_STORE_REGISTER(regno) 0
-#endif
+void
+regcache_read (int rawnum, char *buf)
+{
+  gdb_assert (rawnum >= 0 && rawnum < (NUM_REGS + NUM_PSEUDO_REGS));
+  /* For moment, just use underlying legacy code. Ulgh!!! */
+  legacy_read_register_gen (rawnum, buf);
+}
 
 void
-write_register_gen (int regno, char *myaddr)
+read_register_gen (int regnum, char *buf)
+{
+  if (! gdbarch_register_read_p (current_gdbarch))
+    {
+      legacy_read_register_gen (regnum, buf);
+      return;
+    }
+  gdbarch_register_read (current_gdbarch, regnum, buf);
+}
+
+
+/* Write register REGNUM at MYADDR to the target.  MYADDR points at
+   REGISTER_RAW_BYTES(REGNUM), which must be in target byte-order.  */
+
+static void
+legacy_write_register_gen (int regnum, char *myaddr)
 {
   int size;
+  gdb_assert (regnum >= 0 && regnum < (NUM_REGS + NUM_PSEUDO_REGS));
 
   /* On the sparc, writing %g0 is a no-op, so we don't even want to
      change the registers array if something writes to this register.  */
-  if (CANNOT_STORE_REGISTER (regno))
+  if (CANNOT_STORE_REGISTER (regnum))
     return;
 
-  if (registers_pid != inferior_pid)
+  if (! ptid_equal (registers_ptid, inferior_ptid))
     {
       registers_changed ();
-      registers_pid = inferior_pid;
+      registers_ptid = inferior_ptid;
     }
 
-  size = REGISTER_RAW_SIZE (regno);
+  size = REGISTER_RAW_SIZE (regnum);
 
-  /* If we have a valid copy of the register, and new value == old value,
-     then don't bother doing the actual store. */
+  if (real_register (regnum))
+    {
+      /* If we have a valid copy of the register, and new value == old
+	 value, then don't bother doing the actual store. */
+      if (register_cached (regnum)
+	  && memcmp (register_buffer (regnum), myaddr, size) == 0)
+	return;
+      else
+	target_prepare_to_store ();
+    }
 
-  if (register_valid[regno]
-      && memcmp (&registers[REGISTER_BYTE (regno)], myaddr, size) == 0)
-    return;
+  memcpy (register_buffer (regnum), myaddr, size);
 
-  if (regno < NUM_REGS)
-    target_prepare_to_store ();
+  set_register_cached (regnum, 1);
+  store_register (regnum);
+}
 
-  memcpy (&registers[REGISTER_BYTE (regno)], myaddr, size);
+void
+regcache_write (int rawnum, char *buf)
+{
+  gdb_assert (rawnum >= 0 && rawnum < (NUM_REGS + NUM_PSEUDO_REGS));
+  /* For moment, just use underlying legacy code. Ulgh!!! */
+  legacy_write_register_gen (rawnum, buf);
+}
 
-  register_valid[regno] = 1;
-
-  if (regno < NUM_REGS)
-    target_store_registers (regno);
-  else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-    STORE_PSEUDO_REGISTER (regno);
+void
+write_register_gen (int regnum, char *buf)
+{
+  if (! gdbarch_register_write_p (current_gdbarch))
+    {
+      legacy_write_register_gen (regnum, buf);
+      return;
+    }
+  gdbarch_register_write (current_gdbarch, regnum, buf);
 }
 
 /* Copy INLEN bytes of consecutive data from memory at MYADDR
@@ -476,7 +394,7 @@ void
 write_register_bytes (int myregstart, char *myaddr, int inlen)
 {
   int myregend = myregstart + inlen;
-  int regno;
+  int regnum;
 
   target_prepare_to_store ();
 
@@ -485,12 +403,12 @@ write_register_bytes (int myregstart, char *myaddr, int inlen)
      nice things like handling threads, and avoiding updates when the
      new and old contents are the same.  */
 
-  for (regno = 0; regno < NUM_REGS + NUM_PSEUDO_REGS; regno++)
+  for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
     {
       int regstart, regend;
 
-      regstart = REGISTER_BYTE (regno);
-      regend = regstart + REGISTER_RAW_SIZE (regno);
+      regstart = REGISTER_BYTE (regnum);
+      regend = regstart + REGISTER_RAW_SIZE (regnum);
 
       /* Is this register completely outside the range the user is writing?  */
       if (myregend <= regstart || regend <= myregstart)
@@ -498,12 +416,12 @@ write_register_bytes (int myregstart, char *myaddr, int inlen)
 
       /* Is this register completely within the range the user is writing?  */
       else if (myregstart <= regstart && regend <= myregend)
-	write_register_gen (regno, myaddr + (regstart - myregstart));
+	write_register_gen (regnum, myaddr + (regstart - myregstart));
 
       /* The register partially overlaps the range being written.  */
       else
 	{
-	  char regbuf[MAX_REGISTER_RAW_SIZE];
+	  char *regbuf = (char*) alloca (MAX_REGISTER_RAW_SIZE);
 	  /* What's the overlap between this register's bytes and
              those the caller wants to write?  */
 	  int overlapstart = max (regstart, myregstart);
@@ -511,206 +429,172 @@ write_register_bytes (int myregstart, char *myaddr, int inlen)
 
 	  /* We may be doing a partial update of an invalid register.
 	     Update it from the target before scribbling on it.  */
-	  read_register_gen (regno, regbuf);
+	  read_register_gen (regnum, regbuf);
 
 	  memcpy (registers + overlapstart,
 		  myaddr + (overlapstart - myregstart),
 		  overlapend - overlapstart);
 
-	  if (regno < NUM_REGS)
-	    target_store_registers (regno);
-	  else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-	    STORE_PSEUDO_REGISTER (regno);
+	  store_register (regnum);
 	}
     }
 }
 
 
-/* Return the raw contents of register REGNO, regarding it as an
-   UNSIGNED integer. */
+/* Return the contents of register REGNUM as an unsigned integer.  */
 
 ULONGEST
-read_register (int regno)
+read_register (int regnum)
 {
-  if (registers_pid != inferior_pid)
-    {
-      registers_changed ();
-      registers_pid = inferior_pid;
-    }
-
-  if (!register_valid[regno])
-    {
-      if (regno < NUM_REGS)
-	target_fetch_registers (regno);
-      else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-	FETCH_PSEUDO_REGISTER (regno);
-    }
-
-  return (extract_unsigned_integer (&registers[REGISTER_BYTE (regno)],
-				    REGISTER_RAW_SIZE (regno)));
+  char *buf = alloca (REGISTER_RAW_SIZE (regnum));
+  read_register_gen (regnum, buf);
+  return (extract_unsigned_integer (buf, REGISTER_RAW_SIZE (regnum)));
 }
 
 ULONGEST
-read_register_pid (int regno, int pid)
+read_register_pid (int regnum, ptid_t ptid)
 {
+  ptid_t save_ptid;
   int save_pid;
   CORE_ADDR retval;
 
-  if (pid == inferior_pid)
-    return read_register (regno);
+  if (ptid_equal (ptid, inferior_ptid))
+    return read_register (regnum);
 
-  save_pid = inferior_pid;
+  save_ptid = inferior_ptid;
 
-  inferior_pid = pid;
+  inferior_ptid = ptid;
 
-  retval = read_register (regno);
+  retval = read_register (regnum);
 
-  inferior_pid = save_pid;
+  inferior_ptid = save_ptid;
 
   return retval;
 }
 
-/* Return the raw contents of register REGNO, regarding it a SIGNED
-   integer. */
+/* Return the contents of register REGNUM as a signed integer.  */
 
 LONGEST
-read_signed_register (int regno)
+read_signed_register (int regnum)
 {
-  if (registers_pid != inferior_pid)
-    {
-      registers_changed ();
-      registers_pid = inferior_pid;
-    }
-
-  if (!register_valid[regno])
-    target_fetch_registers (regno);
-
-  return (extract_signed_integer (&registers[REGISTER_BYTE (regno)],
-				  REGISTER_RAW_SIZE (regno)));
+  void *buf = alloca (REGISTER_RAW_SIZE (regnum));
+  read_register_gen (regnum, buf);
+  return (extract_signed_integer (buf, REGISTER_RAW_SIZE (regnum)));
 }
 
 LONGEST
-read_signed_register_pid (int regno, int pid)
+read_signed_register_pid (int regnum, ptid_t ptid)
 {
-  int save_pid;
+  ptid_t save_ptid;
   LONGEST retval;
 
-  if (pid == inferior_pid)
-    return read_signed_register (regno);
+  if (ptid_equal (ptid, inferior_ptid))
+    return read_signed_register (regnum);
 
-  save_pid = inferior_pid;
+  save_ptid = inferior_ptid;
 
-  inferior_pid = pid;
+  inferior_ptid = ptid;
 
-  retval = read_signed_register (regno);
+  retval = read_signed_register (regnum);
 
-  inferior_pid = save_pid;
+  inferior_ptid = save_ptid;
 
   return retval;
 }
 
-/* Store VALUE, into the raw contents of register number REGNO.  */
+/* Store VALUE into the raw contents of register number REGNUM.  */
 
 void
-write_register (int regno, LONGEST val)
+write_register (int regnum, LONGEST val)
 {
-  PTR buf;
+  void *buf;
   int size;
-
-  /* On the sparc, writing %g0 is a no-op, so we don't even want to
-     change the registers array if something writes to this register.  */
-  if (CANNOT_STORE_REGISTER (regno))
-    return;
-
-  if (registers_pid != inferior_pid)
-    {
-      registers_changed ();
-      registers_pid = inferior_pid;
-    }
-
-  size = REGISTER_RAW_SIZE (regno);
+  size = REGISTER_RAW_SIZE (regnum);
   buf = alloca (size);
   store_signed_integer (buf, size, (LONGEST) val);
-
-  /* If we have a valid copy of the register, and new value == old value,
-     then don't bother doing the actual store. */
-
-  if (register_valid[regno]
-      && memcmp (&registers[REGISTER_BYTE (regno)], buf, size) == 0)
-    return;
-
-  if (regno < NUM_REGS)
-    target_prepare_to_store ();
-
-  memcpy (&registers[REGISTER_BYTE (regno)], buf, size);
-
-  register_valid[regno] = 1;
-
-  if (regno < NUM_REGS)
-    target_store_registers (regno);
-  else if (regno < NUM_REGS + NUM_PSEUDO_REGS)
-    STORE_PSEUDO_REGISTER (regno);
+  write_register_gen (regnum, buf);
 }
 
 void
-write_register_pid (int regno, CORE_ADDR val, int pid)
+write_register_pid (int regnum, CORE_ADDR val, ptid_t ptid)
 {
-  int save_pid;
+  ptid_t save_ptid;
 
-  if (pid == inferior_pid)
+  if (ptid_equal (ptid, inferior_ptid))
     {
-      write_register (regno, val);
+      write_register (regnum, val);
       return;
     }
 
-  save_pid = inferior_pid;
+  save_ptid = inferior_ptid;
 
-  inferior_pid = pid;
+  inferior_ptid = ptid;
 
-  write_register (regno, val);
+  write_register (regnum, val);
 
-  inferior_pid = save_pid;
+  inferior_ptid = save_ptid;
 }
 
 /* SUPPLY_REGISTER()
 
-   Record that register REGNO contains VAL.  This is used when the
+   Record that register REGNUM contains VAL.  This is used when the
    value is obtained from the inferior or core dump, so there is no
    need to store the value there.
 
    If VAL is a NULL pointer, then it's probably an unsupported register.
-   We just set it's value to all zeros.  We might want to record this
+   We just set its value to all zeros.  We might want to record this
    fact, and report it to the users of read_register and friends.  */
 
 void
-supply_register (int regno, char *val)
+supply_register (int regnum, char *val)
 {
 #if 1
-  if (registers_pid != inferior_pid)
+  if (! ptid_equal (registers_ptid, inferior_ptid))
     {
       registers_changed ();
-      registers_pid = inferior_pid;
+      registers_ptid = inferior_ptid;
     }
 #endif
 
-  register_valid[regno] = 1;
+  set_register_cached (regnum, 1);
   if (val)
-    memcpy (&registers[REGISTER_BYTE (regno)], val, 
-	    REGISTER_RAW_SIZE (regno));
+    memcpy (register_buffer (regnum), val, 
+	    REGISTER_RAW_SIZE (regnum));
   else
-    memset (&registers[REGISTER_BYTE (regno)], '\000', 
-	    REGISTER_RAW_SIZE (regno));
+    memset (register_buffer (regnum), '\000', 
+	    REGISTER_RAW_SIZE (regnum));
 
   /* On some architectures, e.g. HPPA, there are a few stray bits in
      some registers, that the rest of the code would like to ignore.  */
 
-#ifdef CLEAN_UP_REGISTER_VALUE
-  CLEAN_UP_REGISTER_VALUE (regno, &registers[REGISTER_BYTE (regno)]);
+  /* NOTE: cagney/2001-03-16: The macro CLEAN_UP_REGISTER_VALUE is
+     going to be deprecated.  Instead architectures will leave the raw
+     register value as is and instead clean things up as they pass
+     through the method gdbarch_register_read() clean up the
+     values. */
+
+#ifdef DEPRECATED_CLEAN_UP_REGISTER_VALUE
+  DEPRECATED_CLEAN_UP_REGISTER_VALUE (regnum, register_buffer (regnum));
 #endif
 }
 
-/* read_pc, write_pc, read_sp, write_sp, read_fp, write_fp, etc.
-   Special handling for registers PC, SP, and FP.  */
+void
+regcache_collect (int regnum, void *buf)
+{
+  memcpy (buf, register_buffer (regnum), REGISTER_RAW_SIZE (regnum));
+}
+
+
+/* read_pc, write_pc, read_sp, write_sp, read_fp, etc.  Special
+   handling for registers PC, SP, and FP.  */
+
+/* NOTE: cagney/2001-02-18: The functions generic_target_read_pc(),
+   read_pc_pid(), read_pc(), generic_target_write_pc(),
+   write_pc_pid(), write_pc(), generic_target_read_sp(), read_sp(),
+   generic_target_write_sp(), write_sp(), generic_target_read_fp() and
+   read_fp(), will eventually be moved out of the reg-cache into
+   either frame.[hc] or to the multi-arch framework.  The are not part
+   of the raw register cache.  */
 
 /* This routine is getting awfully cluttered with #if's.  It's probably
    time to turn this into READ_PC and define it in the tm.h file.
@@ -726,74 +610,76 @@ supply_register (int regno, char *val)
    TARGET_READ_PC directly. (cagney). */
 
 CORE_ADDR
-generic_target_read_pc (int pid)
+generic_target_read_pc (ptid_t ptid)
 {
 #ifdef PC_REGNUM
   if (PC_REGNUM >= 0)
     {
-      CORE_ADDR pc_val = ADDR_BITS_REMOVE ((CORE_ADDR) read_register_pid (PC_REGNUM, pid));
+      CORE_ADDR pc_val = ADDR_BITS_REMOVE ((CORE_ADDR) read_register_pid (PC_REGNUM, ptid));
       return pc_val;
     }
 #endif
-  internal_error ("generic_target_read_pc");
+  internal_error (__FILE__, __LINE__,
+		  "generic_target_read_pc");
   return 0;
 }
 
 CORE_ADDR
-read_pc_pid (int pid)
+read_pc_pid (ptid_t ptid)
 {
-  int saved_inferior_pid;
+  ptid_t saved_inferior_ptid;
   CORE_ADDR pc_val;
 
-  /* In case pid != inferior_pid. */
-  saved_inferior_pid = inferior_pid;
-  inferior_pid = pid;
+  /* In case ptid != inferior_ptid. */
+  saved_inferior_ptid = inferior_ptid;
+  inferior_ptid = ptid;
 
-  pc_val = TARGET_READ_PC (pid);
+  pc_val = TARGET_READ_PC (ptid);
 
-  inferior_pid = saved_inferior_pid;
+  inferior_ptid = saved_inferior_ptid;
   return pc_val;
 }
 
 CORE_ADDR
 read_pc (void)
 {
-  return read_pc_pid (inferior_pid);
+  return read_pc_pid (inferior_ptid);
 }
 
 void
-generic_target_write_pc (CORE_ADDR pc, int pid)
+generic_target_write_pc (CORE_ADDR pc, ptid_t ptid)
 {
 #ifdef PC_REGNUM
   if (PC_REGNUM >= 0)
-    write_register_pid (PC_REGNUM, pc, pid);
+    write_register_pid (PC_REGNUM, pc, ptid);
   if (NPC_REGNUM >= 0)
-    write_register_pid (NPC_REGNUM, pc + 4, pid);
+    write_register_pid (NPC_REGNUM, pc + 4, ptid);
   if (NNPC_REGNUM >= 0)
-    write_register_pid (NNPC_REGNUM, pc + 8, pid);
+    write_register_pid (NNPC_REGNUM, pc + 8, ptid);
 #else
-  internal_error ("generic_target_write_pc");
+  internal_error (__FILE__, __LINE__,
+		  "generic_target_write_pc");
 #endif
 }
 
 void
-write_pc_pid (CORE_ADDR pc, int pid)
+write_pc_pid (CORE_ADDR pc, ptid_t ptid)
 {
-  int saved_inferior_pid;
+  ptid_t saved_inferior_ptid;
 
-  /* In case pid != inferior_pid. */
-  saved_inferior_pid = inferior_pid;
-  inferior_pid = pid;
+  /* In case ptid != inferior_ptid. */
+  saved_inferior_ptid = inferior_ptid;
+  inferior_ptid = ptid;
 
-  TARGET_WRITE_PC (pc, pid);
+  TARGET_WRITE_PC (pc, ptid);
 
-  inferior_pid = saved_inferior_pid;
+  inferior_ptid = saved_inferior_ptid;
 }
 
 void
 write_pc (CORE_ADDR pc)
 {
-  write_pc_pid (pc, inferior_pid);
+  write_pc_pid (pc, inferior_ptid);
 }
 
 /* Cope with strage ways of getting to the stack and frame pointers */
@@ -805,7 +691,8 @@ generic_target_read_sp (void)
   if (SP_REGNUM >= 0)
     return read_register (SP_REGNUM);
 #endif
-  internal_error ("generic_target_read_sp");
+  internal_error (__FILE__, __LINE__,
+		  "generic_target_read_sp");
 }
 
 CORE_ADDR
@@ -824,7 +711,8 @@ generic_target_write_sp (CORE_ADDR val)
       return;
     }
 #endif
-  internal_error ("generic_target_write_sp");
+  internal_error (__FILE__, __LINE__,
+		  "generic_target_write_sp");
 }
 
 void
@@ -840,32 +728,14 @@ generic_target_read_fp (void)
   if (FP_REGNUM >= 0)
     return read_register (FP_REGNUM);
 #endif
-  internal_error ("generic_target_read_fp");
+  internal_error (__FILE__, __LINE__,
+		  "generic_target_read_fp");
 }
 
 CORE_ADDR
 read_fp (void)
 {
   return TARGET_READ_FP ();
-}
-
-void
-generic_target_write_fp (CORE_ADDR val)
-{
-#ifdef FP_REGNUM
-  if (FP_REGNUM >= 0)
-    {
-      write_register (FP_REGNUM, val);
-      return;
-    }
-#endif
-  internal_error ("generic_target_write_fp");
-}
-
-void
-write_fp (CORE_ADDR val)
-{
-  TARGET_WRITE_FP (val);
 }
 
 /* ARGSUSED */
@@ -878,17 +748,33 @@ reg_flush_command (char *command, int from_tty)
     printf_filtered ("Register cache flushed.\n");
 }
 
-
 static void
 build_regcache (void)
 {
-  /* We allocate some extra slop since we do a lot of memcpy's around
-     `registers', and failing-soft is better than failing hard.  */
-  int sizeof_registers = REGISTER_BYTES + /* SLOP */ 256;
-  int sizeof_register_valid = 
-    (NUM_REGS + NUM_PSEUDO_REGS) * sizeof (*register_valid);
+  int i;
+  int sizeof_register_valid;
+  /* Come up with the real size of the registers buffer.  */
+  int sizeof_registers = REGISTER_BYTES; /* OK use.  */
+  for (i = 0; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
+    {
+      long regend;
+      /* Keep extending the buffer so that there is always enough
+         space for all registers.  The comparison is necessary since
+         legacy code is free to put registers in random places in the
+         buffer separated by holes.  Once REGISTER_BYTE() is killed
+         this can be greatly simplified.  */
+      /* FIXME: cagney/2001-12-04: This code shouldn't need to use
+         REGISTER_BYTE().  Unfortunatly, legacy code likes to lay the
+         buffer out so that certain registers just happen to overlap.
+         Ulgh!  New targets use gdbarch's register read/write and
+         entirely avoid this uglyness.  */
+      regend = REGISTER_BYTE (i) + REGISTER_RAW_SIZE (i);
+      if (sizeof_registers < regend)
+	sizeof_registers = regend;
+    }
   registers = xmalloc (sizeof_registers);
-  memset (registers, 0, sizeof_registers);
+  sizeof_register_valid = ((NUM_REGS + NUM_PSEUDO_REGS)
+			   * sizeof (*register_valid));
   register_valid = xmalloc (sizeof_register_valid);
   memset (register_valid, 0, sizeof_register_valid);
 }
@@ -896,12 +782,14 @@ build_regcache (void)
 void
 _initialize_regcache (void)
 {
-  build_regcache ();
-
   register_gdbarch_swap (&registers, sizeof (registers), NULL);
   register_gdbarch_swap (&register_valid, sizeof (register_valid), NULL);
   register_gdbarch_swap (NULL, 0, build_regcache);
 
   add_com ("flushregs", class_maintenance, reg_flush_command,
 	   "Force gdb to flush its register cache (maintainer command)");
+
+   /* Initialize the thread/process associated with the current set of
+      registers.  For now, -1 is special, and means `no current process'.  */
+  registers_ptid = pid_to_ptid (-1);
 }

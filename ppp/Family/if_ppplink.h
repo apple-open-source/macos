@@ -30,6 +30,8 @@
 #define PPP_TYPE_SYNCSERIAL	1		/* Synchonous Line Discipline */
 #define PPP_TYPE_PPPoE		2		/* PPP over Ethernet */
 #define PPP_TYPE_PPPoA		3		/* PPP over ATM */
+#define PPP_TYPE_PPTP		4		/* Point-to-Point Tunneling Protocol */
+#define PPP_TYPE_L2TP		5		/* Layer 2 Tunneling Protocol */
 #define PPP_TYPE_OTHER		0xFFF0		/* Undefined PPP type */
 
 
@@ -43,9 +45,6 @@
 #define PPP_LINK_ASYNC		0x00000002	/* link does asynchronous framing */
 #define PPP_LINK_ERRORDETECT	0x00000004	/* link does error detection */
 
-
-/* values for link state */
-#define PPP_LINK_STATE_XMIT_FULL 0x00000001	/* link doesn't want data anymore (associated with PPPLINK_EVT_XMIT_OK)  */
 
 /* miscellaneous debug flags */
 #define PPP_LOG_INPKT 		IFF_LINK0
@@ -79,7 +78,7 @@ struct ppp_link {
                             (struct ppp_link *link, u_int32_t cmd, void *data);    
 
     /* statistics and state information, updated by the link driver */
-    u_int32_t		lk_state;		/* current state bits */
+    u_int32_t		lk_reserved0;		/* reserved for future use */
     u_int32_t		lk_ipackets;		/* packets received on link */
     u_int32_t		lk_ierrors;		/* input errors on link */
     u_int32_t		lk_opackets;		/* packets sent on link */

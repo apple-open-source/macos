@@ -16,8 +16,11 @@ dhcp_print_packet(struct dhcp *dp, int pkt_len)
 {
     int i, j, len;
     
-    if (pkt_len == 0)
+    if (pkt_len < sizeof(struct dhcp)) {
+	printf("Packet is too short %d < %d\n", pkt_len,
+	       (int)sizeof(struct dhcp));
 	return;
+    }
     printf("op = ");
     if (dp->dp_op == BOOTREQUEST) printf("BOOTREQUEST\n");
     else if (dp->dp_op == BOOTREPLY) printf("BOOTREPLY\n");

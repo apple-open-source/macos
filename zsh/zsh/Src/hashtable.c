@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,22 +27,63 @@
  *
  */
 
-#include "zsh.h"
+#include "../config.h"
+
+#ifdef ZSH_HASH_DEBUG
+# define HASHTABLE_DEBUG_MEMBERS \
+    /* Members of struct hashtable used for debugging hash tables */ \
+    HashTable next, last;	/* linked list of all hash tables           */ \
+    char *tablename;		/* string containing name of the hash table */ \
+    PrintTableStats printinfo;	/* pointer to function to print table stats */
+#else /* !ZSH_HASH_DEBUG */
+# define HASHTABLE_DEBUG_MEMBERS
+#endif /* !ZSH_HASH_DEBUG */
+
+#define HASHTABLE_INTERNAL_MEMBERS \
+    ScanStatus scan;		/* status of a scan over this hashtable     */ \
+    HASHTABLE_DEBUG_MEMBERS
+
+typedef struct scanstatus *ScanStatus;
+
+#include "zsh.mdh"
+#include "hashtable.pro"
+
+/* Structure for recording status of a hashtable scan in progress.  When a *
+ * scan starts, the .scan member of the hashtable structure points to one  *
+ * of these.  That member being non-NULL disables resizing of the          *
+ * hashtable (when adding elements).  When elements are deleted, the       *
+ * contents of this structure is used to make sure the scan won't stumble  *
+ * into the deleted element.                                               */
+
+struct scanstatus {
+    int sorted;
+    union {
+	struct {
+	    HashNode *tab;
+	    int ct;
+	} s;
+	HashNode u;
+    } u;
+};
 
 /********************************/
 /* Generic Hash Table functions */
 /********************************/
 
+#ifdef ZSH_HASH_DEBUG
+static HashTable firstht, lastht;
+#endif /* ZSH_HASH_DEBUG */
+
 /* Generic hash function */
 
 /**/
-unsigned
+mod_export unsigned
 hasher(char *str)
 {
-    unsigned hashval = 0;
+    unsigned hashval = 0, c;
 
-    while (*str)
-	hashval += (hashval << 5) + *(unsigned char *)str++;
+    while ((c = *((unsigned char *) str++)))
+	hashval += (hashval << 5) + c;
 
     return hashval;
 }
@@ -50,16 +91,52 @@ hasher(char *str)
 /* Get a new hash table */
 
 /**/
-HashTable
-newhashtable(int size)
+mod_export HashTable
+newhashtable(int size, char const *name, PrintTableStats printinfo)
 {
     HashTable ht;
 
     ht = (HashTable) zcalloc(sizeof *ht);
+#ifdef ZSH_HASH_DEBUG
+    ht->next = NULL;
+    if(!firstht)
+	firstht = ht;
+    ht->last = lastht;
+    if(lastht)
+	lastht->next = ht;
+    lastht = ht;
+    ht->printinfo = printinfo ? printinfo : printhashtabinfo;
+    ht->tablename = ztrdup(name);
+#endif /* ZSH_HASH_DEBUG */
     ht->nodes = (HashNode *) zcalloc(size * sizeof(HashNode));
     ht->hsize = size;
     ht->ct = 0;
+    ht->scan = NULL;
+    ht->scantab = NULL;
     return ht;
+}
+
+/* Delete a hash table.  After this function has been used, any *
+ * existing pointers to the hash table are invalid.             */
+
+/**/
+mod_export void
+deletehashtable(HashTable ht)
+{
+    ht->emptytable(ht);
+#ifdef ZSH_HASH_DEBUG
+    if(ht->next)
+	ht->next->last = ht->last;
+    else
+	lastht = ht->last;
+    if(ht->last)
+	ht->last->next = ht->next;
+    else
+	firstht = ht->next;
+    zsfree(ht->tablename);
+#endif /* ZSH_HASH_DEBUG */
+    zfree(ht->nodes, ht->hsize * sizeof(HashNode));
+    zfree(ht, sizeof(*ht));
 }
 
 /* Add a node to a hash table.                          *
@@ -71,8 +148,19 @@ newhashtable(int size)
  * the table is then expanded.                          */
 
 /**/
-void
+mod_export void
 addhashnode(HashTable ht, char *nam, void *nodeptr)
+{
+    HashNode oldnode = addhashnode2(ht, nam, nodeptr);
+    if (oldnode)
+	ht->freenode(oldnode);
+}
+
+/* Add a node to a hash table, returning the old node on replacment. */
+
+/**/
+HashNode
+addhashnode2(HashTable ht, char *nam, void *nodeptr)
 {
     unsigned hashval;
     HashNode hn, hp, hq;
@@ -87,36 +175,45 @@ addhashnode(HashTable ht, char *nam, void *nodeptr)
     if (!hp) {
 	hn->next = NULL;
 	ht->nodes[hashval] = hn;
-	if (++ht->ct == ht->hsize * 2)
+	if (++ht->ct >= ht->hsize * 2 && !ht->scan)
 	    expandhashtable(ht);
-	return;
+	return NULL;
     }
 
     /* else check if the first node contains the same key */
-    if (!strcmp(hp->nam, hn->nam)) {
-	hn->next = hp->next;
+    if (ht->cmpnodes(hp->nam, hn->nam) == 0) {
 	ht->nodes[hashval] = hn;
-	ht->freenode(hp);
-	return;
+	replacing:
+	hn->next = hp->next;
+	if(ht->scan) {
+	    if(ht->scan->sorted) {
+		HashNode *tab = ht->scan->u.s.tab;
+		int i;
+		for(i = ht->scan->u.s.ct; i--; )
+		    if(tab[i] == hp)
+			tab[i] = hn;
+	    } else if(ht->scan->u.u == hp)
+		ht->scan->u.u = hn;
+	}
+	return hp;
     }
 
     /* else run through the list and check all the keys */
     hq = hp;
     hp = hp->next;
     for (; hp; hq = hp, hp = hp->next) {
-	if (!strcmp(hp->nam, hn->nam)) {
-	    hn->next = hp->next;
+	if (ht->cmpnodes(hp->nam, hn->nam) == 0) {
 	    hq->next = hn;
-	    ht->freenode(hp);
-	    return;
+	    goto replacing;
 	}
     }
 
     /* else just add it at the front of the list */
     hn->next = ht->nodes[hashval];
     ht->nodes[hashval] = hn;
-    if (++ht->ct == ht->hsize * 2)
+    if (++ht->ct >= ht->hsize * 2 && !ht->scan)
         expandhashtable(ht);
+    return NULL;
 }
 
 /* Get an enabled entry in a hash table.  *
@@ -125,7 +222,7 @@ addhashnode(HashTable ht, char *nam, void *nodeptr)
  * or isn't found, it returns NULL        */
 
 /**/
-HashNode
+mod_export HashNode
 gethashnode(HashTable ht, char *nam)
 {
     unsigned hashval;
@@ -133,7 +230,7 @@ gethashnode(HashTable ht, char *nam)
 
     hashval = ht->hash(nam) % ht->hsize;
     for (hp = ht->nodes[hashval]; hp; hp = hp->next) {
-	if (!strcmp(hp->nam, nam)) {
+	if (ht->cmpnodes(hp->nam, nam) == 0) {
 	    if (hp->flags & DISABLED)
 		return NULL;
 	    else
@@ -149,7 +246,7 @@ gethashnode(HashTable ht, char *nam)
  * it returns NULL.                       */
 
 /**/
-HashNode
+mod_export HashNode
 gethashnode2(HashTable ht, char *nam)
 {
     unsigned hashval;
@@ -157,7 +254,7 @@ gethashnode2(HashTable ht, char *nam)
 
     hashval = ht->hash(nam) % ht->hsize;
     for (hp = ht->nodes[hashval]; hp; hp = hp->next) {
-	if (!strcmp(hp->nam, nam))
+	if (ht->cmpnodes(hp->nam, nam) == 0)
 	    return hp;
     }
     return NULL;
@@ -169,7 +266,7 @@ gethashnode2(HashTable ht, char *nam)
  * is no such node, then it returns NULL        */
 
 /**/
-HashNode
+mod_export HashNode
 removehashnode(HashTable ht, char *nam)
 {
     unsigned hashval;
@@ -183,9 +280,20 @@ removehashnode(HashTable ht, char *nam)
 	return NULL;
 
     /* else check if the key in the first one matches */
-    if (!strcmp(hp->nam, nam)) {
+    if (ht->cmpnodes(hp->nam, nam) == 0) {
 	ht->nodes[hashval] = hp->next;
+	gotit:
 	ht->ct--;
+	if(ht->scan) {
+	    if(ht->scan->sorted) {
+		HashNode *tab = ht->scan->u.s.tab;
+		int i;
+		for(i = ht->scan->u.s.ct; i--; )
+		    if(tab[i] == hp)
+			tab[i] = NULL;
+	    } else if(ht->scan->u.u == hp)
+		ht->scan->u.u = hp->next;
+	}
 	return hp;
     }
 
@@ -193,10 +301,9 @@ removehashnode(HashTable ht, char *nam)
     hq = hp;
     hp = hp->next;
     for (; hp; hq = hp, hp = hp->next) {
-	if (!strcmp(hp->nam, nam)) {
+	if (ht->cmpnodes(hp->nam, nam) == 0) {
 	    hq->next = hp->next;
-	    ht->ct--;
-	    return hp;
+	    goto gotit;
 	}
     }
 
@@ -225,7 +332,7 @@ enablehashnode(HashNode hn, int flags)
 /* Compare two hash table entries by name */
 
 /**/
-int
+static int
 hnamcmp(const void *ap, const void *bp)
 {
     HashNode a = *(HashNode *)ap;
@@ -233,165 +340,115 @@ hnamcmp(const void *ap, const void *bp)
     return ztrcmp((unsigned char *) a->nam, (unsigned char *) b->nam);
 }
 
-/* Scan the nodes in a hash table and execute scanfunc on nodes based on the flags *
- * that are set/unset.  scanflags is passed unchanged to scanfunc (if executed).   *
- *                                                                                 *
- * If sorted = 1, then sort entries of hash table before scanning.                 *
- * If sorted = 0, don't sort entries before scanning.                              *
- * If (flags1 > 0), then execute func on a node only if these flags are set.       *
- * If (flags2 > 0), then execute func on a node only if these flags are NOT set.   *
- * The conditions above for flags1/flags2 must both be true.                       */
+/* Scan the nodes in a hash table and execute scanfunc on nodes based on
+ * the flags that are set/unset.  scanflags is passed unchanged to
+ * scanfunc (if executed).
+ *
+ * If sorted != 0, then sort entries of hash table before scanning.
+ * If flags1 > 0, then execute scanfunc on a node only if at least one of
+ *                these flags is set.
+ * If flags2 > 0, then execute scanfunc on a node only if all of
+ *                these flags are NOT set.
+ * The conditions above for flags1/flags2 must both be true.
+ *
+ * It is safe to add, remove or replace hash table elements from within
+ * the scanfunc.  Replaced elements will appear in the scan exactly once,
+ * the new version if it was not scanned before the replacement was made.
+ * Added elements might or might not appear in the scan.
+ */
 
 /**/
-void
+mod_export void
 scanhashtable(HashTable ht, int sorted, int flags1, int flags2, ScanFunc scanfunc, int scanflags)
 {
-    HashNode hn, *hnsorttab, *htp;
-    int i;
+    struct scanstatus st;
 
+    if (ht->scantab) {
+	ht->scantab(ht, scanfunc, scanflags);
+	return;
+    }
     if (sorted) {
-	hnsorttab = (HashNode *) zalloc(ht->ct * sizeof(HashNode));
+	int i, ct = ht->ct;
+	VARARR(HashNode, hnsorttab, ct);
+	HashNode *htp, hn;
 
 	for (htp = hnsorttab, i = 0; i < ht->hsize; i++)
 	    for (hn = ht->nodes[i]; hn; hn = hn->next)
 		*htp++ = hn;
+	qsort((void *)hnsorttab, ct, sizeof(HashNode), hnamcmp);
 
-	qsort((void *) & hnsorttab[0], ht->ct, sizeof(HashNode), hnamcmp);
+	st.sorted = 1;
+	st.u.s.tab = hnsorttab;
+	st.u.s.ct = ct;
+	ht->scan = &st;
 
-	/* Ignore the flags */
-	if (!flags1 && !flags2) {
-	    for (htp = hnsorttab, i = 0; i < ht->ct; i++, htp++)
+	for (htp = hnsorttab, i = 0; i < ct; i++, htp++)
+	    if (*htp && ((*htp)->flags & flags1) + !flags1 &&
+		!((*htp)->flags & flags2))
 		scanfunc(*htp, scanflags);
-	} else if (flags1 && !flags2) {
-	/* Only exec scanfunc if flags1 are set */
-	    for (htp = hnsorttab, i = 0; i < ht->ct; i++, htp++)
-		if ((*htp)->flags & flags1)
-		    scanfunc(*htp, scanflags);
-	} else if (!flags1 && flags2) {
-	/* Only exec scanfunc if flags2 are NOT set */
-	    for (htp = hnsorttab, i = 0; i < ht->ct; i++, htp++)
-		if (!((*htp)->flags & flags2))
-		    scanfunc(*htp, scanflags);
-	} else {
-	/* Only exec scanfun if flags1 are set, and flags2 are NOT set */
-	    for (htp = hnsorttab, i = 0; i < ht->ct; i++, htp++)
-		if (((*htp)->flags & flags1) && !((*htp)->flags & flags2))
-		    scanfunc(*htp, scanflags);
-	}
-	free(hnsorttab);
-	return;
-    }
 
-    /* Don't sort, just use hash order. */
+	ht->scan = NULL;
+    } else {
+	int i, hsize = ht->hsize;
+	HashNode *nodes = ht->nodes;
 
-    /* Ignore the flags */
-    if (!flags1 && !flags2) {
-	for (i = 0; i < ht->hsize; i++)
-	    for (hn = ht->nodes[i]; hn; hn = hn->next)
-		scanfunc(hn, scanflags);
-	return;
-    }
+	st.sorted = 0;
+	ht->scan = &st;
 
-    /* Only exec scanfunc if flags1 are set */
-    if (flags1 && !flags2) {
-	for (i = 0; i < ht->hsize; i++)
-	    for (hn = ht->nodes[i]; hn; hn = hn->next)
-		if (hn->flags & flags1)
+	for (i = 0; i < hsize; i++)
+	    for (st.u.u = nodes[i]; st.u.u; ) {
+		HashNode hn = st.u.u;
+		st.u.u = st.u.u->next;
+		if ((hn->flags & flags1) + !flags1 && !(hn->flags & flags2))
 		    scanfunc(hn, scanflags);
-	return;
-    }
+	    }
 
-    /* Only exec scanfunc if flags2 are NOT set */
-    if (!flags1 && flags2) {
-	for (i = 0; i < ht->hsize; i++)
-	    for (hn = ht->nodes[i]; hn; hn = hn->next)
-		if (!(hn->flags & flags2))
-		    scanfunc(hn, scanflags);
-	return;
+	ht->scan = NULL;
     }
-
-    /* Only exec scanfun if flags1 are set, and flags2 are NOT set */
-    for (i = 0; i < ht->hsize; i++)
-	for (hn = ht->nodes[i]; hn; hn = hn->next)
-	    if ((hn->flags & flags1) && !(hn->flags & flags2))
-		scanfunc(hn, scanflags);
 }
-
 
 /* Scan all nodes in a hash table and executes scanfunc on the *
  * nodes which meet all the following criteria:                *
  * The hash key must match the glob pattern given by `com'.    *
- * If (flags1 > 0), then all flags in flags1 must be set.      *
+ * If (flags1 > 0), then any flag in flags1 must be set.       *
  * If (flags2 > 0), then all flags in flags2 must NOT be set.  *
  *                                                             *
  * scanflags is passed unchanged to scanfunc (if executed).    *
- * The return value if the number of matches.                  */
+ * The return value is the number of matches.                  */
 
 /**/
 int
-scanmatchtable(HashTable ht, Comp com, int flags1, int flags2, ScanFunc scanfunc, int scanflags)
+scanmatchtable(HashTable ht, Patprog pprog, int flags1, int flags2, ScanFunc scanfunc, int scanflags)
 {
-    HashNode hn;
-    int i, match = 0;
+    int i, hsize = ht->hsize;
+    HashNode *nodes = ht->nodes;
+    int match = 0;
+    struct scanstatus st;
 
-    /* ignore the flags */
-    if (!flags1 && !flags2) {
-	for (i = 0; i < ht->hsize; i++) {
-	    for (hn = ht->nodes[i]; hn; hn = hn->next) {
-		if (domatch(hn->nam, com, 0)) {
-		    scanfunc(hn, scanflags);
-		    match++;
-		}
-	    }
-	}
-	return match;
-    }
+    st.sorted = 0;
+    ht->scan = &st;
 
-    /* flags in flags1 must be set */
-    if (flags1 && !flags2) {
-	for (i = 0; i < ht->hsize; i++) {
-	    for (hn = ht->nodes[i]; hn; hn = hn->next) {
-		if (domatch(hn->nam, com, 0) && (hn->flags & flags1)) {
-		    scanfunc(hn, scanflags);
-		    match++;
-		}
-	    }
-	}
-	return match;
-    }
-
-    /* flags in flags2 must NOT be set */
-    if (!flags1 && flags2) {
-	for (i = 0; i < ht->hsize; i++) {
-	    for (hn = ht->nodes[i]; hn; hn = hn->next) {
-		if (domatch(hn->nam, com, 0) && !(hn->flags & flags2)) {
-		    scanfunc(hn, scanflags);
-		    match++;
-		}
-	    }
-	}
-	return match;
-    }
-
-    /* flags in flags1 must be set,    *
-     * flags in flags2 must NOT be set */
-    for (i = 0; i < ht->hsize; i++) {
-	for (hn = ht->nodes[i]; hn; hn = hn->next) {
-	    if (domatch(hn->nam, com, 0) && (hn->flags & flags1) && !(hn->flags & flags2)) {
+    for (i = 0; i < hsize; i++)
+	for (st.u.u = nodes[i]; st.u.u; ) {
+	    HashNode hn = st.u.u;
+	    st.u.u = st.u.u->next;
+	    if ((hn->flags & flags1) + !flags1 && !(hn->flags & flags2) &&
+		pattry(pprog, hn->nam)) {
 		scanfunc(hn, scanflags);
 		match++;
 	    }
 	}
-    }
+
+    ht->scan = NULL;
+
     return match;
 }
-
 
 /* Expand hash tables when they get too many entries. *
  * The new size is 4 times the previous size.         */
 
 /**/
-void
+static void
 expandhashtable(HashTable ht)
 {
     struct hashnode **onodes, **ha, *hn, *hp;
@@ -419,8 +476,8 @@ expandhashtable(HashTable ht)
 /* Empty the hash table and resize it if necessary */
 
 /**/
-void
-emptyhashtable(HashTable ht, int newsize)
+static void
+resizehashtable(HashTable ht, int newsize)
 {
     struct hashnode **ha, *hn, *hp;
     int i;
@@ -449,14 +506,24 @@ emptyhashtable(HashTable ht, int newsize)
     ht->ct = 0;
 }
 
-/* Print info about hash table */
+/* Generic method to empty a hash table */
 
+/**/
+mod_export void
+emptyhashtable(HashTable ht)
+{
+    resizehashtable(ht, ht->hsize);
+}
+
+/**/
 #ifdef ZSH_HASH_DEBUG
+
+/* Print info about hash table */
 
 #define MAXDEPTH 7
 
 /**/
-void
+static void
 printhashtabinfo(HashTable ht)
 {
     HashNode hn;
@@ -487,26 +554,52 @@ printhashtabinfo(HashTable ht)
     printf("number of hash values with chain of length %d+ : %4d\n", MAXDEPTH, chainlen[MAXDEPTH]);
     printf("total number of nodes                         : %4d\n", total);
 }
-#endif
+
+/**/
+int
+bin_hashinfo(char *nam, char **args, char *ops, int func)
+{
+    HashTable ht;
+
+    printf("----------------------------------------------------\n");
+    queue_signals();
+    for(ht = firstht; ht; ht = ht->next) {
+	ht->printinfo(ht);
+	printf("----------------------------------------------------\n");
+    }
+    unqueue_signals();
+    return 0;
+}
+
+/**/
+#endif /* ZSH_HASH_DEBUG */
 
 /********************************/
 /* Command Hash Table Functions */
 /********************************/
 
-/* size of the initial cmdnamtab hash table */
-#define INITIAL_CMDNAMTAB 201
-
+/* hash table containing external commands */
+ 
+/**/
+mod_export HashTable cmdnamtab;
+ 
+/* how far we've hashed the PATH so far */
+ 
+/**/
+mod_export char **pathchecked;
+ 
 /* Create a new command hash table */
  
 /**/
 void
 createcmdnamtable(void)
 {
-    cmdnamtab = newhashtable(INITIAL_CMDNAMTAB);
+    cmdnamtab = newhashtable(201, "cmdnamtab", NULL);
 
     cmdnamtab->hash        = hasher;
     cmdnamtab->emptytable  = emptycmdnamtable;
     cmdnamtab->filltable   = fillcmdnamtable;
+    cmdnamtab->cmpnodes    = strcmp;
     cmdnamtab->addnode     = addhashnode;
     cmdnamtab->getnode     = gethashnode2;
     cmdnamtab->getnode2    = gethashnode2;
@@ -515,19 +608,15 @@ createcmdnamtable(void)
     cmdnamtab->enablenode  = NULL;
     cmdnamtab->freenode    = freecmdnamnode;
     cmdnamtab->printnode   = printcmdnamnode;
-#ifdef ZSH_HASH_DEBUG
-    cmdnamtab->printinfo   = printhashtabinfo;
-    cmdnamtab->tablename   = ztrdup("cmdnamtab");
-#endif
 
     pathchecked = path;
 }
 
 /**/
-void
+static void
 emptycmdnamtable(HashTable ht)
 {
-    emptyhashtable(ht, INITIAL_CMDNAMTAB);
+    emptyhashtable(ht);
     pathchecked = path;
 }
 
@@ -541,22 +630,37 @@ hashdir(char **dirp)
     Cmdnam cn;
     DIR *dir;
     char *fn;
+#if defined(_WIN32) || defined(__CYGWIN__)
+    char *exe;
+#endif /* _WIN32 || _CYGWIN__ */
 
     if (isrelative(*dirp) || !(dir = opendir(unmeta(*dirp))))
 	return;
 
-    while ((fn = zreaddir(dir))) {
-	/* Ignore `.' and `..'. */
-	if (fn[0] == '.' &&
-	    (fn[1] == '\0' ||
-	     (fn[1] == '.' && fn[2] == '\0')))
-	    continue;
+    while ((fn = zreaddir(dir, 1))) {
 	if (!cmdnamtab->getnode(cmdnamtab, fn)) {
 	    cn = (Cmdnam) zcalloc(sizeof *cn);
 	    cn->flags = 0;
 	    cn->u.name = dirp;
 	    cmdnamtab->addnode(cmdnamtab, ztrdup(fn), cn);
 	}
+#if defined(_WIN32) || defined(__CYGWIN__)
+	/* Hash foo.exe as foo, since when no real foo exists, foo.exe
+	   will get executed by DOS automatically.  This quiets
+	   spurious corrections when CORRECT or CORRECT_ALL is set. */
+	if ((exe = strrchr(fn, '.')) &&
+	    (exe[1] == 'E' || exe[1] == 'e') &&
+	    (exe[2] == 'X' || exe[2] == 'x') &&
+	    (exe[3] == 'E' || exe[3] == 'e') && exe[4] == 0) {
+	    *exe = 0;
+	    if (!cmdnamtab->getnode(cmdnamtab, fn)) {
+		cn = (Cmdnam) zcalloc(sizeof *cn);
+		cn->flags = 0;
+		cn->u.name = dirp;
+		cmdnamtab->addnode(cmdnamtab, ztrdup(fn), cn);
+	    }
+	}
+#endif /* _WIN32 || __CYGWIN__ */
     }
     closedir(dir);
 }
@@ -565,7 +669,7 @@ hashdir(char **dirp)
  * the command hashtable.                       */
 
 /**/
-void
+static void
 fillcmdnamtable(HashTable ht)
 {
     char **pq;
@@ -577,7 +681,7 @@ fillcmdnamtable(HashTable ht)
 }
 
 /**/
-void
+static void
 freecmdnamnode(HashNode hn)
 {
     Cmdnam cn = (Cmdnam) hn;
@@ -592,10 +696,16 @@ freecmdnamnode(HashNode hn)
 /* Print an element of the cmdnamtab hash table (external command) */
  
 /**/
-void
+static void
 printcmdnamnode(HashNode hn, int printflags)
 {
     Cmdnam cn = (Cmdnam) hn;
+
+    if (printflags & PRINT_WHENCE_WORD) {
+	printf("%s: %s\n", cn->nam, (cn->flags & HASHED) ? 
+	       "hashed" : "command");
+	return;
+    }
 
     if ((printflags & PRINT_WHENCE_CSH) || (printflags & PRINT_WHENCE_SIMPLE)) {
 	if (cn->flags & HASHED) {
@@ -627,6 +737,13 @@ printcmdnamnode(HashNode hn, int printflags)
 	return;
     }
 
+    if (printflags & PRINT_LIST) {
+	printf("hash ");
+
+	if(cn->nam[0] == '-')
+	    printf("-- ");
+    }
+
     if (cn->flags & HASHED) {
 	quotedzputs(cn->nam, stdout);
 	putchar('=');
@@ -646,15 +763,21 @@ printcmdnamnode(HashNode hn, int printflags)
 /* Shell Function Hash Table Functions */
 /***************************************/
 
+/* hash table containing the shell functions */
+
+/**/
+mod_export HashTable shfunctab;
+
 /**/
 void
 createshfunctable(void)
 {
-    shfunctab = newhashtable(7);
+    shfunctab = newhashtable(7, "shfunctab", NULL);
 
     shfunctab->hash        = hasher;
     shfunctab->emptytable  = NULL;
     shfunctab->filltable   = NULL;
+    shfunctab->cmpnodes    = strcmp;
     shfunctab->addnode     = addhashnode;
     shfunctab->getnode     = gethashnode;
     shfunctab->getnode2    = gethashnode2;
@@ -663,10 +786,6 @@ createshfunctable(void)
     shfunctab->enablenode  = enableshfuncnode;
     shfunctab->freenode    = freeshfuncnode;
     shfunctab->printnode   = printshfuncnode;
-#ifdef ZSH_HASH_DEBUG
-    shfunctab->printinfo   = printhashtabinfo;
-    shfunctab->tablename   = ztrdup("shfunctab");
-#endif
 }
 
 /* Remove an entry from the shell function hash table.   *
@@ -674,17 +793,18 @@ createshfunctable(void)
  * it will disable the trapping of that signal.          */
 
 /**/
-HashNode
+static HashNode
 removeshfuncnode(HashTable ht, char *nam)
 {
     HashNode hn;
+    int signum;
 
-    if ((hn = removehashnode(shfunctab, nam))) {
-	if (!strncmp(hn->nam, "TRAP", 4))
-	    unsettrap(getsignum(hn->nam + 4));
-	return hn;
-    } else
-	return NULL;
+    if (!strncmp(nam, "TRAP", 4) && (signum = getsignum(nam + 4)) != -1)
+	hn = removetrap(signum);
+    else
+	hn = removehashnode(shfunctab, nam);
+
+    return hn;
 }
 
 /* Disable an entry in the shell function hash table.    *
@@ -692,7 +812,7 @@ removeshfuncnode(HashTable ht, char *nam)
  * it will disable the trapping of that signal.          */
 
 /**/
-void
+static void
 disableshfuncnode(HashNode hn, int flags)
 {
     hn->flags |= DISABLED;
@@ -709,15 +829,14 @@ disableshfuncnode(HashNode hn, int flags)
  * it will re-enable the trapping of that signal.        */
 
 /**/
-void
+static void
 enableshfuncnode(HashNode hn, int flags)
 {
     Shfunc shf = (Shfunc) hn;
-    int signum;
 
     shf->flags &= ~DISABLED;
     if (!strncmp(shf->nam, "TRAP", 4)) {
-	signum = getsignum(shf->nam + 4);
+	int signum = getsignum(shf->nam + 4);
 	if (signum != -1) {
 	    settrap(signum, shf->funcdef);
 	    sigtrapped[signum] |= ZSIG_FUNC;
@@ -726,21 +845,21 @@ enableshfuncnode(HashNode hn, int flags)
 }
 
 /**/
-void
+static void
 freeshfuncnode(HashNode hn)
 {
     Shfunc shf = (Shfunc) hn;
 
     zsfree(shf->nam);
     if (shf->funcdef)
-	freestruct(shf->funcdef);
+	freeeprog(shf->funcdef);
     zfree(shf, sizeof(struct shfunc));
 }
 
 /* Print a shell function */
  
 /**/
-void
+static void
 printshfuncnode(HashNode hn, int printflags)
 {
     Shfunc f = (Shfunc) hn;
@@ -754,88 +873,83 @@ printshfuncnode(HashNode hn, int printflags)
 	return;
     }
  
-    if ((printflags & PRINT_WHENCE_VERBOSE) &&
+    if ((printflags & (PRINT_WHENCE_VERBOSE|PRINT_WHENCE_WORD)) &&
 	!(printflags & PRINT_WHENCE_FUNCDEF)) {
 	nicezputs(f->nam, stdout);
-	printf(" is a shell function\n");
+	printf((printflags & PRINT_WHENCE_WORD) ? ": function\n" :
+	       " is a shell function\n");
 	return;
     }
  
     if (f->flags & PM_UNDEFINED)
-	printf("undefined ");
-    if (f->flags & PM_TAGGED)
-	printf("traced ");
-    if (!f->funcdef) {
-	nicezputs(f->nam, stdout);
-	printf(" () { }\n");
-	return;
+	t = tricat("builtin autoload -X",
+		   ((f->flags & PM_UNALIASED)? "U" : ""),
+		   ((f->flags & PM_TAGGED)? "t" : ""));
+    else {
+	if (!f->funcdef)
+	    t = 0;
+	else
+	    t = getpermtext(f->funcdef, NULL);
     }
- 
-    t = getpermtext((void *) dupstruct((void *) f->funcdef));
+
     quotedzputs(f->nam, stdout);
-    printf(" () {\n\t");
-    zputs(t, stdout);
-    printf("\n}\n");
-    zsfree(t);
-}
-
-/****************************************/
-/* Builtin Command Hash Table Functions */
-/****************************************/
-
-/**/
-void
-createbuiltintable(void)
-{
-    Builtin bn;
-
-    builtintab = newhashtable(85);
-
-    builtintab->hash        = hasher;
-    builtintab->emptytable  = NULL;
-    builtintab->filltable   = NULL;
-    builtintab->addnode     = addhashnode;
-    builtintab->getnode     = gethashnode;
-    builtintab->getnode2    = gethashnode2;
-    builtintab->removenode  = NULL;
-    builtintab->disablenode = disablehashnode;
-    builtintab->enablenode  = enablehashnode;
-    builtintab->freenode    = NULL;
-    builtintab->printnode   = printbuiltinnode;
-#ifdef ZSH_HASH_DEBUG
-    builtintab->printinfo   = printhashtabinfo;
-    builtintab->tablename   = ztrdup("builtintab");
-#endif
-
-    for (bn = builtins; bn->nam; bn++)
-	builtintab->addnode(builtintab, bn->nam, bn);
-}
-
-/* Print a builtin */
-
-/**/
-void
-printbuiltinnode(HashNode hn, int printflags)
-{
-    Builtin bn = (Builtin) hn;
-
-    if (printflags & PRINT_WHENCE_CSH) {
-	printf("%s: shell built-in command\n", bn->nam);
-	return;
+    if (t) {
+	printf(" () {\n\t");
+	if (f->flags & PM_UNDEFINED)
+	    printf("%c undefined\n\t", hashchar);
+	if (f->flags & PM_TAGGED)
+	    printf("%c traced\n\t", hashchar);
+	zputs(t, stdout);
+	if (f->funcdef && (f->funcdef->flags & EF_RUN)) {
+	    printf("\n\t");
+	    quotedzputs(f->nam, stdout);
+	    printf(" \"$@\"");
+	}
+	printf("\n}\n");
+	zsfree(t);
+    } else {
+	printf(" () { }\n");
     }
-
-    if (printflags & PRINT_WHENCE_VERBOSE) {
-	printf("%s is a shell builtin\n", bn->nam);
-	return;
-    }
-
-    /* default is name only */
-    printf("%s\n", bn->nam);
 }
 
 /**************************************/
 /* Reserved Word Hash Table Functions */
 /**************************************/
+
+/* Nodes for reserved word hash table */
+
+static struct reswd reswds[] = {
+    {NULL, "!", 0, BANG},
+    {NULL, "[[", 0, DINBRACK},
+    {NULL, "{", 0, INBRACE},
+    {NULL, "}", 0, OUTBRACE},
+    {NULL, "case", 0, CASE},
+    {NULL, "coproc", 0, COPROC},
+    {NULL, "do", 0, DO},
+    {NULL, "done", 0, DONE},
+    {NULL, "elif", 0, ELIF},
+    {NULL, "else", 0, ELSE},
+    {NULL, "end", 0, ZEND},
+    {NULL, "esac", 0, ESAC},
+    {NULL, "fi", 0, FI},
+    {NULL, "for", 0, FOR},
+    {NULL, "foreach", 0, FOREACH},
+    {NULL, "function", 0, FUNC},
+    {NULL, "if", 0, IF},
+    {NULL, "nocorrect", 0, NOCORRECT},
+    {NULL, "repeat", 0, REPEAT},
+    {NULL, "select", 0, SELECT},
+    {NULL, "then", 0, THEN},
+    {NULL, "time", 0, TIME},
+    {NULL, "until", 0, UNTIL},
+    {NULL, "while", 0, WHILE},
+    {NULL, NULL}
+};
+
+/* hash table containing the reserved words */
+
+/**/
+mod_export HashTable reswdtab;
 
 /* Build the hash table containing zsh's reserved words. */
 
@@ -845,11 +959,12 @@ createreswdtable(void)
 {
     Reswd rw;
 
-    reswdtab = newhashtable(23);
+    reswdtab = newhashtable(23, "reswdtab", NULL);
 
     reswdtab->hash        = hasher;
     reswdtab->emptytable  = NULL;
     reswdtab->filltable   = NULL;
+    reswdtab->cmpnodes    = strcmp;
     reswdtab->addnode     = addhashnode;
     reswdtab->getnode     = gethashnode;
     reswdtab->getnode2    = gethashnode2;
@@ -858,10 +973,6 @@ createreswdtable(void)
     reswdtab->enablenode  = enablehashnode;
     reswdtab->freenode    = NULL;
     reswdtab->printnode   = printreswdnode;
-#ifdef ZSH_HASH_DEBUG
-    reswdtab->printinfo   = printhashtabinfo;
-    reswdtab->tablename   = ztrdup("reswdtab");
-#endif
 
     for (rw = reswds; rw->nam; rw++)
 	reswdtab->addnode(reswdtab, rw->nam, rw);
@@ -870,10 +981,15 @@ createreswdtable(void)
 /* Print a reserved word */
 
 /**/
-void
+static void
 printreswdnode(HashNode hn, int printflags)
 {
     Reswd rw = (Reswd) hn;
+
+    if (printflags & PRINT_WHENCE_WORD) {
+	printf("%s: reserved\n", rw->nam);
+	return;
+    }
 
     if (printflags & PRINT_WHENCE_CSH) {
 	printf("%s: shell reserved word\n", rw->nam);
@@ -893,17 +1009,23 @@ printreswdnode(HashNode hn, int printflags)
 /* Aliases Hash Table Functions */
 /********************************/
 
+/* hash table containing the aliases */
+ 
+/**/
+mod_export HashTable aliastab;
+ 
 /* Create new hash table for aliases */
 
 /**/
 void
 createaliastable(void)
 {
-    aliastab = newhashtable(23);
+    aliastab = newhashtable(23, "aliastab", NULL);
 
     aliastab->hash        = hasher;
     aliastab->emptytable  = NULL;
     aliastab->filltable   = NULL;
+    aliastab->cmpnodes    = strcmp;
     aliastab->addnode     = addhashnode;
     aliastab->getnode     = gethashnode;
     aliastab->getnode2    = gethashnode2;
@@ -912,10 +1034,6 @@ createaliastable(void)
     aliastab->enablenode  = enablehashnode;
     aliastab->freenode    = freealiasnode;
     aliastab->printnode   = printaliasnode;
-#ifdef ZSH_HASH_DEBUG
-    aliastab->printinfo   = printhashtabinfo;
-    aliastab->tablename   = ztrdup("aliastab");
-#endif
 
     /* add the default aliases */
     aliastab->addnode(aliastab, ztrdup("run-help"), createaliasnode(ztrdup("man"), 0));
@@ -925,7 +1043,7 @@ createaliastable(void)
 /* Create a new alias node */
 
 /**/
-Alias
+mod_export Alias
 createaliasnode(char *txt, int flags)
 {
     Alias al;
@@ -938,7 +1056,7 @@ createaliasnode(char *txt, int flags)
 }
 
 /**/
-void
+static void
 freealiasnode(HashNode hn)
 {
     Alias al = (Alias) hn;
@@ -951,7 +1069,7 @@ freealiasnode(HashNode hn)
 /* Print an alias */
 
 /**/
-void
+static void
 printaliasnode(HashNode hn, int printflags)
 {
     Alias a = (Alias) hn;
@@ -959,6 +1077,11 @@ printaliasnode(HashNode hn, int printflags)
     if (printflags & PRINT_NAMEONLY) {
 	zputs(a->nam, stdout);
 	putchar('\n');
+	return;
+    }
+
+    if (printflags & PRINT_WHENCE_WORD) {
+	printf("%s: alias\n", a->nam);
 	return;
     }
 
@@ -1007,111 +1130,30 @@ printaliasnode(HashNode hn, int printflags)
     putchar('\n');
 }
 
-/**********************************/
-/* Parameter Hash Table Functions */
-/**********************************/
-
-/**/
-void
-freeparamnode(HashNode hn)
-{
-    Param pm = (Param) hn;
- 
-    zsfree(pm->nam);
-    zfree(pm, sizeof(struct param));
-}
-
-/* Print a parameter */
-
-/**/
-void
-printparamnode(HashNode hn, int printflags)
-{
-#ifdef ZSH_64_BIT_TYPE
-    static char llbuf[DIGBUFSIZE];
-#endif
-    Param p = (Param) hn;
-    char *t, **u;
-
-    if (p->flags & PM_UNSET)
-	return;
-
-    /* Print the attributes of the parameter */
-    if (printflags & PRINT_TYPE) {
-	if (p->flags & PM_INTEGER)
-	    printf("integer ");
-	if (p->flags & PM_ARRAY)
-	    printf("array ");
-	if (p->flags & PM_LEFT)
-	    printf("left justified %d ", p->ct);
-	if (p->flags & PM_RIGHT_B)
-	    printf("right justified %d ", p->ct);
-	if (p->flags & PM_RIGHT_Z)
-	    printf("zero filled %d ", p->ct);
-	if (p->flags & PM_LOWER)
-	    printf("lowercase ");
-	if (p->flags & PM_UPPER)
-	    printf("uppercase ");
-	if (p->flags & PM_READONLY)
-	    printf("readonly ");
-	if (p->flags & PM_TAGGED)
-	    printf("tagged ");
-	if (p->flags & PM_EXPORTED)
-	    printf("exported ");
-    }
-
-    if (printflags & PRINT_NAMEONLY) {
-	zputs(p->nam, stdout);
-	putchar('\n');
-	return;
-    }
-
-    /* How the value is displayed depends *
-     * on the type of the parameter       */
-    quotedzputs(p->nam, stdout);
-    putchar('=');
-    switch (PM_TYPE(p->flags)) {
-    case PM_SCALAR:
-	/* string: simple output */
-	if (p->gets.cfn && (t = p->gets.cfn(p)))
-	    quotedzputs(t, stdout);
-	putchar('\n');
-	break;
-    case PM_INTEGER:
-	/* integer */
-#ifdef ZSH_64_BIT_TYPE
-	convbase(llbuf, p->gets.ifn(p), 0);
-	puts(llbuf);
-#else
-	printf("%ld\n", p->gets.ifn(p));
-#endif
-	break;
-    case PM_ARRAY:
-	/* array */
-	putchar('(');
-	u = p->gets.afn(p);
-	if(*u) {
-	    quotedzputs(*u++, stdout);
-	    while (*u) {
-		putchar(' ');
-		quotedzputs(*u++, stdout);
-	    }
-	}
-	printf(")\n");
-	break;
-    }
-}
-
 /****************************************/
 /* Named Directory Hash Table Functions */
 /****************************************/
 
-/* size of the initial name directory hash table */
-#define INITIAL_NAMEDDIR 201
+#ifdef HAVE_NIS_PLUS
+# include <rpcsvc/nis.h>
+#else
+# ifdef HAVE_NIS
+#  include	<rpc/types.h>
+#  include	<rpc/rpc.h>
+#  include	<rpcsvc/ypclnt.h>
+#  include	<rpcsvc/yp_prot.h>
+# endif
+#endif
 
+/* hash table containing named directories */
+
+/**/
+mod_export HashTable nameddirtab;
+ 
 /* != 0 if all the usernames have already been *
  * added to the named directory hash table.    */
-int allusersadded;
+
+static int allusersadded;
 
 /* Create new hash table for named directories */
 
@@ -1119,11 +1161,12 @@ int allusersadded;
 void
 createnameddirtable(void)
 {
-    nameddirtab = newhashtable(INITIAL_NAMEDDIR);
+    nameddirtab = newhashtable(201, "nameddirtab", NULL);
 
     nameddirtab->hash        = hasher;
     nameddirtab->emptytable  = emptynameddirtable;
     nameddirtab->filltable   = fillnameddirtable;
+    nameddirtab->cmpnodes    = strcmp;
     nameddirtab->addnode     = addnameddirnode;
     nameddirtab->getnode     = gethashnode;
     nameddirtab->getnode2    = gethashnode2;
@@ -1132,10 +1175,6 @@ createnameddirtable(void)
     nameddirtab->enablenode  = NULL;
     nameddirtab->freenode    = freenameddirnode;
     nameddirtab->printnode   = printnameddirnode;
-#ifdef ZSH_HASH_DEBUG
-    nameddirtab->printinfo   = printhashtabinfo;
-    nameddirtab->tablename   = ztrdup("nameddirtab");
-#endif
 
     allusersadded = 0;
     finddir(NULL);		/* clear the finddir cache */
@@ -1144,10 +1183,10 @@ createnameddirtable(void)
 /* Empty the named directories table */
 
 /**/
-void
+static void
 emptynameddirtable(HashTable ht)
 {
-    emptyhashtable(ht, INITIAL_NAMEDDIR);
+    emptyhashtable(ht);
     allusersadded = 0;
     finddir(NULL);		/* clear the finddir cache */
 }
@@ -1155,11 +1194,122 @@ emptynameddirtable(HashTable ht)
 /* Add all the usernames in the password file/database *
  * to the named directories table.                     */
 
+#ifdef HAVE_NIS_PLUS
+static int
+add_userdir(nis_name table, nis_object *object, void *userdata)
+{
+    if (object->zo_data.objdata_u.en_data.en_cols.en_cols_len >= 6) {
+	static char name[40], dir[PATH_MAX + 1];
+	register entry_col *ec =
+	    object->zo_data.objdata_u.en_data.en_cols.en_cols_val;
+	register int nl = minimum(ec[0].ec_value.ec_value_len, 39);
+	register int dl = minimum(ec[5].ec_value.ec_value_len, PATH_MAX);
+
+	memcpy(name, ec[0].ec_value.ec_value_val, nl);
+	name[nl] = '\0';
+	memcpy(dir, ec[5].ec_value.ec_value_val, dl);
+	dir[dl] = '\0';
+
+	adduserdir(name, dir, ND_USERNAME, 1);
+    }
+    return 0;
+}
+#else
+# ifdef HAVE_NIS
+static int
+add_userdir(int status, char *key, int keylen, char *val, int vallen, char *dummy)
+{
+    char *p, *d, *de;
+
+    if (status != YP_TRUE)
+	return 1;
+
+    if (vallen > keylen && *(p = val + keylen) == ':') {
+	*p++ = '\0';
+	if ((de = strrchr(p, ':'))) {
+	    *de = '\0';
+	    if ((d = strrchr(p, ':'))) {
+		if (*++d && val[0])
+		    adduserdir(val, d, ND_USERNAME, 1);
+	    }
+	}
+    }
+    return 0;
+}
+# endif /* HAVE_NIS */
+#endif  /* HAVE_NIS_PLUS */
+
 /**/
-void
+static void
 fillnameddirtable(HashTable ht)
 {
     if (!allusersadded) {
+#if defined(HAVE_NIS) || defined(HAVE_NIS_PLUS)
+	FILE *pwf;
+	char buf[BUFSIZ], *p, *d, *de;
+	int skipping, oldct = nameddirtab->ct, usepwf = 1;
+
+# ifndef HAVE_NIS_PLUS
+	char domain[YPMAXDOMAIN];
+	struct ypall_callback cb;
+
+	/* Get potential matches from NIS and cull those without local accounts */
+	if (getdomainname(domain, YPMAXDOMAIN) == 0) {
+	    cb.foreach = (int (*)()) add_userdir;
+	    cb.data = NULL;
+	    yp_all(domain, PASSWD_MAP, &cb);
+    }
+# else  /* HAVE_NIS_PLUS */
+	/* Maybe we should turn this string into a #define'd constant...? */
+
+	nis_list("passwd.org_dir", EXPAND_NAME|ALL_RESULTS|FOLLOW_LINKS|FOLLOW_PATH,
+		 add_userdir, 0);
+# endif
+	if (nameddirtab->ct == oldct) {
+	    /* Using NIS or NIS+ didn't add any user directories. This seems
+	     * fishy, so we fall back to using getpwent(). If we don't have
+	     * that, we only use the passwd file. */
+#ifdef HAVE_GETPWENT
+	    struct passwd *pw;
+ 
+	    setpwent();
+ 
+	    /* loop through the password file/database *
+	     * and add all entries returned.           */
+	    while ((pw = getpwent()) && !errflag)
+		adduserdir(pw->pw_name, pw->pw_dir, ND_USERNAME, 1);
+ 
+	    endpwent();
+	    usepwf = 0;
+#endif /* HAVE_GETPWENT */
+	}
+	if (usepwf) {
+	    /* Don't forget the non-NIS matches from the flat passwd file */
+	    if ((pwf = fopen(PASSWD_FILE, "r")) != NULL) {
+		skipping = 0;
+		while (fgets(buf, BUFSIZ, pwf) != NULL) {
+		    if (strchr(buf, '\n') != NULL) {
+			if (!skipping) {
+			    if ((p = strchr(buf, ':')) != NULL) {
+				*p++ = '\0';
+				if ((de = strrchr(p, ':'))) {
+				    *de = '\0';
+				    if ((d = strrchr(p, ':'))) {
+					if (*++d && buf[0])
+					    adduserdir(buf, d, ND_USERNAME, 1);
+				    }
+				}
+			    }
+			} else
+			    skipping = 0;
+		    } else
+			skipping = 1;
+		}
+		fclose(pwf);
+	    }
+	}
+#else  /* no NIS or NIS_PLUS */
+#ifdef HAVE_GETPWENT
 	struct passwd *pw;
  
 	setpwent();
@@ -1167,12 +1317,13 @@ fillnameddirtable(HashTable ht)
 	/* loop through the password file/database *
 	 * and add all entries returned.           */
 	while ((pw = getpwent()) && !errflag)
-	    adduserdir(ztrdup(pw->pw_name), pw->pw_dir, ND_USERNAME, 1);
+	    adduserdir(pw->pw_name, pw->pw_dir, ND_USERNAME, 1);
  
 	endpwent();
+#endif /* HAVE_GETPWENT */
+#endif
 	allusersadded = 1;
     }
-    return;
 }
 
 /* Add an entry to the named directory hash *
@@ -1180,7 +1331,7 @@ fillnameddirtable(HashTable ht)
  * initialising the `diff' member.          */
 
 /**/
-void
+static void
 addnameddirnode(HashTable ht, char *nam, void *nodeptr)
 {
     Nameddir nd = (Nameddir) nodeptr;
@@ -1194,7 +1345,7 @@ addnameddirnode(HashTable ht, char *nam, void *nodeptr)
  * hash table, clearing the finddir() cache. */
 
 /**/
-HashNode
+static HashNode
 removenameddirnode(HashTable ht, char *nam)
 {
     HashNode hn = removehashnode(ht, nam);
@@ -1207,7 +1358,7 @@ removenameddirnode(HashTable ht, char *nam)
 /* Free up the memory used by a named directory hash node. */
 
 /**/
-void
+static void
 freenameddirnode(HashNode hn)
 {
     Nameddir nd = (Nameddir) hn;
@@ -1220,7 +1371,7 @@ freenameddirnode(HashNode hn)
 /* Print a named directory */
 
 /**/
-void
+static void
 printnameddirnode(HashNode hn, int printflags)
 {
     Nameddir nd = (Nameddir) hn;
@@ -1230,6 +1381,13 @@ printnameddirnode(HashNode hn, int printflags)
 	putchar('\n');
 	return;
     }
+    
+    if (printflags & PRINT_LIST) {
+      printf("hash -d ");
+
+      if(nd->nam[0] == '-')
+	    printf("-- ");
+    }
 
     quotedzputs(nd->nam, stdout);
     putchar('=');
@@ -1237,157 +1395,137 @@ printnameddirnode(HashNode hn, int printflags)
     putchar('\n');
 }
 
-/********************************/
-/* Compctl Hash Table Functions */
-/********************************/
+/*************************************/
+/* History Line Hash Table Functions */
+/*************************************/
 
 /**/
 void
-createcompctltable(void)
+createhisttable(void)
 {
-    compctltab = newhashtable(23);
+    histtab = newhashtable(599, "histtab", NULL);
 
-    compctltab->hash        = hasher;
-    compctltab->emptytable  = NULL;
-    compctltab->filltable   = NULL;
-    compctltab->addnode     = addhashnode;
-    compctltab->getnode     = gethashnode2;
-    compctltab->getnode2    = gethashnode2;
-    compctltab->removenode  = removehashnode;
-    compctltab->disablenode = NULL;
-    compctltab->enablenode  = NULL;
-    compctltab->freenode    = freecompctlp;
-    compctltab->printnode   = printcompctlp;
-#ifdef ZSH_HASH_DEBUG
-    compctltab->printinfo   = printhashtabinfo;
-    compctltab->tablename   = ztrdup("compctltab");
-#endif
+    histtab->hash        = histhasher;
+    histtab->emptytable  = emptyhisttable;
+    histtab->filltable   = NULL;
+    histtab->cmpnodes    = histstrcmp;
+    histtab->addnode     = addhistnode;
+    histtab->getnode     = gethashnode2;
+    histtab->getnode2    = gethashnode2;
+    histtab->removenode  = removehashnode;
+    histtab->disablenode = NULL;
+    histtab->enablenode  = NULL;
+    histtab->freenode    = freehistnode;
+    histtab->printnode   = NULL;
+}
+
+/**/
+unsigned
+histhasher(char *str)
+{
+    unsigned hashval = 0;
+
+    while (inblank(*str)) str++;
+
+    while (*str) {
+	if (inblank(*str)) {
+	    do str++; while (inblank(*str));
+	    if (*str)
+		hashval += (hashval << 5) + ' ';
+	}
+	else
+	    hashval += (hashval << 5) + *(unsigned char *)str++;
+    }
+    return hashval;
 }
 
 /**/
 void
-freecompctl(Compctl cc)
+emptyhisttable(HashTable ht)
 {
-    if (cc == &cc_default ||
- 	cc == &cc_first ||
-	cc == &cc_compos ||
-	--cc->refc > 0)
+    emptyhashtable(ht);
+    if (hist_ring)
+	histremovedups();
+}
+
+/* Compare two strings with normalized white-space */
+
+/**/
+int
+histstrcmp(const char *str1, const char *str2)
+{
+    while (inblank(*str1)) str1++;
+    while (inblank(*str2)) str2++;
+    while (*str1 && *str2) {
+	if (inblank(*str1)) {
+	    if (!inblank(*str2))
+		break;
+	    do str1++; while (inblank(*str1));
+	    do str2++; while (inblank(*str2));
+	}
+	else {
+	    if (*str1 != *str2)
+		break;
+	    str1++;
+	    str2++;
+	}
+    }
+    return *str1 - *str2;
+}
+
+/**/
+void
+addhistnode(HashTable ht, char *nam, void *nodeptr)
+{
+    HashNode oldnode = addhashnode2(ht, nam, nodeptr);
+    Histent he = (Histent)nodeptr;
+    if (oldnode && oldnode != (HashNode)nodeptr) {
+	if (he->flags & HIST_MAKEUNIQUE
+	 || (he->flags & HIST_FOREIGN && (Histent)oldnode == he->up)) {
+	    (void) addhashnode2(ht, oldnode->nam, oldnode); /* restore hash */
+	    he->flags |= HIST_DUP;
+	    he->flags &= ~HIST_MAKEUNIQUE;
+	}
+	else {
+	    oldnode->flags |= HIST_DUP;
+	    if (hist_ignore_all_dups)
+		freehistnode(oldnode); /* Remove the old dup */
+	}
+    }
+    else
+	he->flags &= ~HIST_MAKEUNIQUE;
+}
+
+/**/
+void
+freehistnode(HashNode nodeptr)
+{
+    freehistdata((Histent)nodeptr, 1);
+    zfree(nodeptr, sizeof (struct histent));
+}
+
+/**/
+void
+freehistdata(Histent he, int unlink)
+{
+    if (!he)
 	return;
 
-    zsfree(cc->keyvar);
-    zsfree(cc->glob);
-    zsfree(cc->str);
-    zsfree(cc->func);
-    zsfree(cc->explain);
-    zsfree(cc->prefix);
-    zsfree(cc->suffix);
-    zsfree(cc->hpat);
-    zsfree(cc->subcmd);
-    if (cc->cond)
-	freecompcond(cc->cond);
-    if (cc->ext) {
-	Compctl n, m;
+    if (!(he->flags & (HIST_DUP | HIST_TMPSTORE)))
+	removehashnode(histtab, he->text);
 
-	n = cc->ext;
-	do {
-	    m = (Compctl) (n->next);
-	    freecompctl(n);
-	    n = m;
+    zsfree(he->text);
+    if (he->nwords)
+	zfree(he->words, he->nwords*2*sizeof(short));
+
+    if (unlink) {
+	if (!--histlinect)
+	    hist_ring = NULL;
+	else {
+	    if (he == hist_ring)
+		hist_ring = hist_ring->up;
+	    he->up->down = he->down;
+	    he->down->up = he->up;
 	}
-	while (n);
     }
-    if (cc->xor && cc->xor != &cc_default)
-	freecompctl(cc->xor);
-    zfree(cc, sizeof(struct compctl));
-}
-
-/**/
-void
-freecompctlp(HashNode hn)
-{
-    Compctlp ccp = (Compctlp) hn;
-
-    zsfree(ccp->nam);
-    freecompctl(ccp->cc);
-    zfree(ccp, sizeof(struct compctlp));
-}
-
-/***********************************************************/
-/* Emacs Multi-Character Key Bindings Hash Table Functions */
-/***********************************************************/
-
-/* size of the initial hashtable for multi-character *
- * emacs key bindings.                               */
-#define INITIAL_EMKEYBINDTAB 67
-
-/**/
-void
-createemkeybindtable(void)
-{
-    emkeybindtab = newhashtable(INITIAL_EMKEYBINDTAB);
-
-    emkeybindtab->hash        = hasher;
-    emkeybindtab->emptytable  = emptyemkeybindtable;
-    emkeybindtab->filltable   = NULL;
-    emkeybindtab->addnode     = addhashnode;
-    emkeybindtab->getnode     = gethashnode2;
-    emkeybindtab->getnode2    = gethashnode2;
-    emkeybindtab->removenode  = removehashnode;
-    emkeybindtab->disablenode = NULL;
-    emkeybindtab->enablenode  = NULL;
-    emkeybindtab->freenode    = freekeynode;
-
-    /* need to combine printbinding and printfuncbinding for this */
-    emkeybindtab->printnode   = NULL;
-#ifdef ZSH_HASH_DEBUG
-    emkeybindtab->printinfo   = printhashtabinfo;
-    emkeybindtab->tablename   = ztrdup("emkeybindtab");
-#endif
-}
-
-/**/
-void
-emptyemkeybindtable(HashTable ht)
-{
-    emptyhashtable(ht, INITIAL_EMKEYBINDTAB);
-}
-
-/********************************************************/
-/* Vi Multi-Character Key Bindings Hash Table Functions */
-/********************************************************/
-
-/* size of the initial hash table for *
- * multi-character vi key bindings.   */
-#define INITIAL_VIKEYBINDTAB 20
-
-/**/
-void
-createvikeybindtable(void)
-{
-    vikeybindtab = newhashtable(INITIAL_VIKEYBINDTAB);
-
-    vikeybindtab->hash        = hasher;
-    vikeybindtab->emptytable  = emptyvikeybindtable;
-    vikeybindtab->filltable   = NULL;
-    vikeybindtab->addnode     = addhashnode;
-    vikeybindtab->getnode     = gethashnode2;
-    vikeybindtab->getnode2    = gethashnode2;
-    vikeybindtab->removenode  = removehashnode;
-    vikeybindtab->disablenode = NULL;
-    vikeybindtab->enablenode  = NULL;
-    vikeybindtab->freenode    = freekeynode;
-
-    /* need to combine printbinding and printfuncbinding for this */
-    vikeybindtab->printnode   = NULL;
-#ifdef ZSH_HASH_DEBUG
-    vikeybindtab->printinfo   = printhashtabinfo;
-    vikeybindtab->tablename   = ztrdup("vikeybindtab");
-#endif
-}
-
-/**/
-void
-emptyvikeybindtable(HashTable ht)
-{
-    emptyhashtable(ht, INITIAL_VIKEYBINDTAB);
 }

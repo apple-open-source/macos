@@ -43,7 +43,8 @@ SSDLSession::SSDLSession(CSSM_MODULE_HANDLE handle,
 : DLPluginSession(handle, plug, version, subserviceId, subserviceType,
 				  attachFlags, upcalls, databaseManager),
   mSSCSPDLSession(ssCSPDLSession),
-  mDL(Module(gGuidAppleFileDL, Cssm::standard()))
+  mDL(Module(gGuidAppleFileDL, Cssm::standard())),
+  mClientSession(CssmAllocator::standard(), static_cast<PluginSession &>(*this))
 {
 	// @@@ mDL.allocator(*static_cast<DatabaseSession *>(this));
 	mDL->allocator(allocator());
@@ -89,7 +90,7 @@ SSDLSession::DbDelete(const char *inDbName,
 					  const CSSM_NET_ADDRESS *inDbLocation,
 					  const AccessCredentials *inAccessCred)
 {
-	SSDatabase db(mSSCSPDLSession.clientSession(), mDL, inDbName, inDbLocation);
+	SSDatabase db(mClientSession, mDL, inDbName, inDbLocation);
 	db->accessCredentials(inAccessCred);
 	db->deleteDb();
 }
@@ -104,7 +105,7 @@ SSDLSession::DbCreate(const char *inDbName,
 					  const void *inOpenParameters,
 					  CSSM_DB_HANDLE &outDbHandle)
 {
-	SSDatabase db(mSSCSPDLSession.clientSession(), mDL, inDbName, inDbLocation);
+	SSDatabase db(mClientSession, mDL, inDbName, inDbLocation);
 	db->dbInfo(&inDBInfo);
 	db->accessRequest(inAccessRequest);
 	db->resourceControlContext(inCredAndAclEntry);
@@ -124,7 +125,7 @@ SSDLSession::DbOpen(const char *inDbName,
 					const void *inOpenParameters,
 					CSSM_DB_HANDLE &outDbHandle)
 {
-	SSDatabase db(mSSCSPDLSession.clientSession(), mDL, inDbName, inDbLocation);
+	SSDatabase db(mClientSession, mDL, inDbName, inDbLocation);
 	db->accessRequest(inAccessRequest);
 	db->accessCredentials(inAccessCred);
 	db->openParameters(inOpenParameters);
@@ -404,10 +405,43 @@ SSDLSession::DataGetFromUniqueRecordId(CSSM_DB_HANDLE inDbHandle,
 {
 	SSDatabase db = findDbHandle(inDbHandle);
 	const SSUniqueRecord uniqueId = findSSUniqueRecord(inUniqueRecord);
-	CSSM_RETURN result = CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, inoutAttributes, inoutData);
+	
+	// Setup so we always retrive the attributes even if the client
+	// doesn't want them so we can figure out if we just retrived a key.
+	CSSM_DB_RECORD_ATTRIBUTE_DATA attributes;
+	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR pAttributes;
+	if (inoutAttributes)
+		pAttributes = inoutAttributes;
+	else
+	{
+		pAttributes = &attributes;
+		memset(pAttributes, 0, sizeof(attributes));
+	}
+
+	CSSM_RETURN result = CSSM_DL_DataGetFromUniqueRecordId(db->handle(), 
+		uniqueId, pAttributes, inoutData);
 	if (result)
 		CssmError::throwMe(result);
-	// @@@ If this is a key do the right thing.
+
+	if (inoutData)
+	{
+		if (pAttributes->DataRecordType == CSSM_DL_DB_RECORD_PUBLIC_KEY
+			|| pAttributes->DataRecordType == CSSM_DL_DB_RECORD_PRIVATE_KEY
+			|| pAttributes->DataRecordType == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		{
+			// This record is a key, do the right thing (tm).
+			// Allocate storage for the key.
+			CssmKey *outKey = allocator().alloc<CssmKey>();
+			new SSKey(*this, *outKey, db, uniqueId, pAttributes->DataRecordType, *inoutData);
+
+			// Free the data we retrived (keyblob)
+			allocator().free(inoutData->Data);
+
+			// Set the length and data on the data we return to the client
+			inoutData->Length = sizeof(*outKey);
+			inoutData->Data = reinterpret_cast<uint8 *>(outKey);			
+		}
+	}
 }
 
 void

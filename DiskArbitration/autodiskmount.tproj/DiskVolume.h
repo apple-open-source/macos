@@ -22,13 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef __DISK_VOLUME__
+#define __DISK_VOLUME__
+
 #include <CoreFoundation/CoreFoundation.h>
 #include "DiskArbitrationTypes.h"
 #include "DiskArbitrationServerMain.h"
 #include "FSParticular.h"
-
-#define FS_RESERVED_PREFIX	"Apple_"
-
 
 #define ADM_COOKIE_FILE		".autodiskmounted"
 
@@ -36,15 +36,19 @@ struct DiskVolume
 {
     char *		fs_type;
     char *		disk_dev_name;
-    char *		dev_type;
+    char *		uuid;
     char *		disk_name;
     char *		mount_point;
     char *		util_path;
     boolean_t		removable;
     boolean_t		writable;
+    boolean_t		internal;
     boolean_t		dirty;
     boolean_t		mounted;
+    boolean_t           run_quotacheck;
+    UInt64		size;
 };
+
 typedef struct DiskVolume DiskVolume, *DiskVolumePtr;
 
 void DiskVolume_new(DiskVolumePtr *diskVolume);
@@ -52,7 +56,7 @@ void DiskVolume_delete(DiskVolumePtr diskVolume);
 void DiskVolume_print(DiskVolumePtr diskVolume);
 void DiskVolume_setFSType(DiskVolumePtr diskVolume,char *t);
 void DiskVolume_setDiskDevName(DiskVolumePtr diskVolume,char *d);
-void DiskVolume_setDeviceType(DiskVolumePtr diskVolume,char *t);
+void DiskVolume_setUUID(DiskVolumePtr diskVolume,char *t);
 void DiskVolume_setDiskName(DiskVolumePtr diskVolume,char *n);
 void DiskVolume_setMountPoint(DiskVolumePtr diskVolume,char *m);
 void DiskVolume_setRemovable(DiskVolumePtr diskVolume,boolean_t val);
@@ -75,10 +79,12 @@ void 		DiskVolumes_delete(DiskVolumesPtr diskList);
 DiskVolumesPtr 		DiskVolumes_do_volumes(DiskVolumesPtr diskList);
 unsigned 	DiskVolumes_count(DiskVolumesPtr);
 DiskVolumePtr 	DiskVolumes_objectAtIndex(DiskVolumesPtr diskList,int index);
-DiskVolumePtr 	DiskVolumes_volumeWithMount(DiskVolumesPtr diskList,char *path);
+boolean_t     	DiskVolumes_volumeWithMount(DiskVolumesPtr diskList,char *path);
 boolean_t     	DiskVolumes_setVolumeMountPoint(DiskVolumesPtr diskList,DiskVolumePtr vol);
 DiskVolumesPtr   DiskVolumes_print(DiskVolumesPtr diskList);
 
+boolean_t	DiskVolumes_findDisk(DiskVolumesPtr diskList, boolean_t all,
+				     const char * volume_name);
 extern boolean_t DiskVolume_mount_ufs(DiskVolumePtr diskVolume);
 
 /* UI display stuff */
@@ -87,3 +93,5 @@ void StartUnrecognizedDiskDialogThread(DiskPtr disk);
 int DiskArbIsHandlingUnrecognizedDisks(void);
 void DiskVolume_SetTrashes(DiskVolumePtr dptr);
 void StartUnmountableDiskThread(DiskPtr disk);
+
+#endif

@@ -651,11 +651,26 @@ int _keymgr_get_lock_count_processwide_ptr(unsigned int key) {
 
 /*********************************************/
 
+
 /* We *could* include <mach.h> here but since all we care about is the
    name of the mach_header struct, this will do instead.  */
 
 struct mach_header;
 extern char *getsectdatafromheader();
+
+/* GCC3:  NB:  ENSURE THIS IS KEPT IN SYNC WITH gcc3/gcc/config/darwin.h  */
+
+struct __live_images {
+  unsigned long this_size;			/* sizeof (__live_images)  */
+  struct mach_header *mh;			/* the image info  */
+  unsigned long vm_slide;
+  void (*destructor)(struct __live_images *);	/* destructor for this  */
+  struct __live_images *next;
+  unsigned int examined_p;
+  void *fde;
+  void *object_info;
+  unsigned long info[2];			/* GCC3 use  */
+};
 
 /* The following two macros  are required for the inclusion
    of "gcc/frame.h".  FRAME_SECTION_DESCRIPTOR should be a
@@ -706,6 +721,16 @@ static void dwarf2_unwind_dyld_add_image_hook (struct mach_header *mh,
 
       _keymgr_set_and_unlock_processwide_ptr (KEYMGR_ZOE_IMAGE_LIST, obp);
     }
+  else  /* GCC3  */
+    {
+      struct __live_images *l = (struct __live_images *)calloc (1, sizeof (*l));
+      l->mh = mh;
+      l->vm_slide = vm_slide;
+      l->this_size = sizeof (*l);
+      l->next = (struct __live_images *)
+	  _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
+      _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST, l);
+    }
 }
 
 static void
@@ -738,6 +763,37 @@ dwarf2_unwind_dyld_remove_image_hook (struct mach_header *mh,
           }
 
       _keymgr_set_and_unlock_processwide_ptr (KEYMGR_ZOE_IMAGE_LIST, objlist);
+    }
+  else  /* GCC3  */
+    {
+      struct __live_images *top, **lip, *destroy = NULL;
+
+       /* Look for it in the list of live images and delete it.  */
+
+       top = (struct __live_images *)
+	    _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
+       for (lip = &top; *lip != NULL; lip = &(*lip)->next)
+	{
+	  if ((*lip)->mh == mh && (*lip)->vm_slide == vm_slide)
+	    {
+	      destroy = *lip;
+	      *lip = destroy->next;                 /* unlink DESTROY  */
+
+	      if (destroy->this_size != sizeof (*destroy))  /* sanity check  */
+		abort ();
+
+	      break;
+	    }
+	}
+      _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST, top);
+
+      /* Now that we have unlinked this from the image list, toss it.  */
+      if (destroy != NULL)
+	{
+	  if (destroy->destructor != NULL)
+	    (*destroy->destructor) (destroy);
+	  free (destroy);
+	}
     }
 }
 

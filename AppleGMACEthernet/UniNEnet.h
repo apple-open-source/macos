@@ -106,12 +106,6 @@ extern "C"
 #define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)&fpRegs->REG, 0, VAL )
 #endif // USE_ELG
 
-/*#if USE_ELG
-#define WRITE_REGISTER( REG, VAL )	writeRegister( &fpRegs->REG, VAL )
-#else
-#define WRITE_REGISTER( REG, VAL )	OSWriteLittleInt32( (void*)&fpRegs->REG, 0, VAL )
-#endif // USE_ELG
-*/
 
 
 #define NETWORK_STAT_ADD(  x )	(fpNetStats->x++)
@@ -143,8 +137,6 @@ extern "C"
 #define kTxQueueSize		"TxPacketQueueSize"
 #define kTxRingElements		"TxRingElements: 32,64,128,256,512,1024,2048,4096,8192"
 #define kRxRingElements		"RxRingElements: 32,64,128,256,512,1024,2048,4096,8192"
-
-#define kCacheLine128		"CacheLine128"
 
 	/* Performance tracepoints
 	 *
@@ -312,7 +304,6 @@ public:
 	UInt16		hashTableMask[ 16 ];
 
 	UInt32		currentPowerState;	/* must be 0 or 1		*/
-	UInt32		fCacheLineSize;		/* PCI cache line size	*/
 
 		/* Local copies of certain key registers:	*/
 
@@ -320,6 +311,7 @@ public:
 	UInt32		fXIFConfiguration;
 	UInt32		fRxMACConfiguration;
 	UInt32		fMACControlConfiguration;
+	UInt32		fRxMACStatus;				// preserve auto-clear register.
 
 private:			// Instance methods:
 	bool		allocateMemory();
@@ -399,7 +391,7 @@ public:		// Override methods:
 											UInt32			*filters ) const;
 
 	virtual IOReturn	getHardwareAddress( IOEthernetAddress *addr );
-	virtual IOReturn	setHardwareAddress( IOEthernetAddress *addr );
+	virtual IOReturn	setHardwareAddress( const IOEthernetAddress *addr );
 
 	virtual IOReturn	setMulticastMode( IOEnetMulticastMode mode );
 	virtual IOReturn	setMulticastList( IOEthernetAddress  *addrs, UInt32 count );

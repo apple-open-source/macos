@@ -4,8 +4,7 @@
 # Show diffs for a branch.
 # The branch must have been made with cvs-make-branch.
 ##
-# Wilfredo Sanchez Jr. | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 ##

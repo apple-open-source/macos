@@ -1,12 +1,12 @@
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_COMPUTIME)
 /*
- * /src/NTP/ntp-4/libparse/clk_computime.c,v 4.5 1998/06/14 21:09:34 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_computime.c,v 4.6 1999/11/28 09:13:49 kardel RELEASE_19991128_A
  *
- * clk_computime.c,v 4.5 1998/06/14 21:09:34 kardel RELEASE_19990228_A
+ * clk_computime.c,v 4.6 1999/11/28 09:13:49 kardel RELEASE_19991128_A
  * 
  * Supports Diem's Computime Radio Clock
  * 
@@ -23,19 +23,14 @@
  * 
  */
 
-
-#include "sys/types.h"
-#include "sys/time.h"
-#include "sys/errno.h"
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
-
+#include "ntp_stdlib.h"
 
 #include "parse.h"
 
 #ifndef PARSESTREAM
-#include "ntp_stdlib.h"
 #include <stdio.h>
 #else
 #include "sys/parsestreams.h"
@@ -142,7 +137,7 @@ inp_computime(
 {
 	unsigned int rtc;
 	
-	parseprintf(DD_PARSE, ("inp_computime(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+	parseprintf(DD_PARSE, ("inp_computime(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 	
 	switch (ch)
 	{
@@ -172,6 +167,9 @@ int clk_computime_bs;
 
 /*
  * clk_computime.c,v
+ * Revision 4.6  1999/11/28 09:13:49  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.5  1998/06/14 21:09:34  kardel
  * Sun acc cleanup
  *

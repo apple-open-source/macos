@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslsup.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 23-Feb-2002
+## Created on: 24-Jun-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -29,8 +29,8 @@
 | already done by APACI for the HTTP port (80).
 +---------------------------------------------------------------------------
 Index: configure
---- configure	16 Oct 2001 11:46:53 -0000	1.1.1.12
-+++ configure	16 Oct 2001 11:57:37 -0000	1.24
+--- configure	19 Jun 2002 07:20:10 -0000	1.1.1.14
++++ configure	19 Jun 2002 07:29:07 -0000	1.26
 @@ -258,6 +258,9 @@
  iflags_script="-m 755"
  iflags_data="-m 644"
@@ -80,7 +80,7 @@ Index: configure
      fi
      conf_serveradmin="`$aux/buildinfo.sh -n %u@%h%d`"
      conf_servername="`$aux/buildinfo.sh -n %h%d`"
-@@ -1257,6 +1269,7 @@
+@@ -1256,6 +1268,7 @@
      echo "   SERVER_CONFIG_FILE: ${sysconfdir_relative}${thetarget}.conf"
      echo "   ACCESS_CONFIG_FILE: ${sysconfdir_relative}access.conf"
      echo " RESOURCE_CONFIG_FILE: ${sysconfdir_relative}srm.conf"
@@ -88,7 +88,7 @@ Index: configure
      echo ""
      if [ "x$suexec" = "x1" ]; then
          echo "suEXEC setup:"
-@@ -1325,9 +1338,11 @@
+@@ -1324,9 +1337,11 @@
  -e "s%@suexec_gidmin@%$suexec_gidmin%g" \
  -e "s%@suexec_safepath@%$suexec_safepath%g" \
  -e "s%@suexec_umask@%$suexec_umask%g" \
@@ -100,7 +100,7 @@ Index: configure
  -e "s%@conf_serveradmin@%$conf_serveradmin%g" \
  -e "s%@conf_servername@%$conf_servername%g" \
  -e "s%@build_support@%$build_support%g" \
-@@ -1356,6 +1371,8 @@
+@@ -1354,6 +1369,8 @@
  echo "echo '-DSERVER_CONFIG_FILE=\"${sysconfdir_relative}${thetarget}.conf\"'" >>$src/apaci
  echo "echo '-DACCESS_CONFIG_FILE=\"${sysconfdir_relative}access.conf\"'" >>$src/apaci
  echo "echo '-DRESOURCE_CONFIG_FILE=\"${sysconfdir_relative}srm.conf\"'" >>$src/apaci
@@ -109,7 +109,7 @@ Index: configure
  chmod a+x $src/apaci
  CFLAGS="$CFLAGS \\\`\$(SRCDIR)/apaci\\\`"
  
-@@ -1372,7 +1389,7 @@
+@@ -1370,7 +1387,7 @@
  OIFS="$IFS"
  IFS="$DIFS"
  for var in CC CPP OPTIM CFLAGS CFLAGS_SHLIB LDFLAGS LD_SHLIB LDFLAGS_SHLIB \
@@ -127,8 +127,8 @@ Index: configure
 | additionally installed.
 +---------------------------------------------------------------------------
 Index: Makefile.tmpl
---- Makefile.tmpl	28 Jan 2002 19:21:20 -0000	1.1.1.11
-+++ Makefile.tmpl	28 Jan 2002 19:40:56 -0000	1.43
+--- Makefile.tmpl	27 Mar 2002 15:22:49 -0000	1.1.1.12
++++ Makefile.tmpl	27 Mar 2002 15:30:01 -0000	1.44
 @@ -141,10 +141,14 @@
  suexec_safepath = @suexec_safepath@
  suexec_umask    = @suexec_umask@
@@ -403,8 +403,8 @@ Index: Makefile.tmpl
 | script.
 +---------------------------------------------------------------------------
 Index: src/Makefile.tmpl
---- src/Makefile.tmpl	16 Oct 2001 11:47:06 -0000	1.1.1.10
-+++ src/Makefile.tmpl	16 Oct 2001 11:57:38 -0000	1.19
+--- src/Makefile.tmpl	19 Jun 2002 07:20:22 -0000	1.1.1.11
++++ src/Makefile.tmpl	19 Jun 2002 07:29:08 -0000	1.20
 @@ -11,6 +11,12 @@
    $(OSDIR)/libos.a \
    ap/libap.a
@@ -439,8 +439,8 @@ Index: src/Makefile.tmpl
 | `startssl' adds a -DSSL define when starting httpd.
 +---------------------------------------------------------------------------
 Index: src/support/apachectl
---- src/support/apachectl	23 Jan 2001 11:35:14 -0000	1.1.1.6
-+++ src/support/apachectl	23 Jan 2001 11:48:09 -0000	1.8
+--- src/support/apachectl	27 Mar 2002 15:23:11 -0000	1.1.1.7
++++ src/support/apachectl	27 Mar 2002 15:30:03 -0000	1.9
 @@ -75,6 +75,18 @@
  	    ERROR=3
  	fi
@@ -474,8 +474,8 @@ Index: src/support/apachectl
 | environment variables mod_ssl provides to CGI scripts.
 +---------------------------------------------------------------------------
 Index: src/support/suexec.c
---- src/support/suexec.c	20 May 2001 08:16:26 -0000	1.1.1.9
-+++ src/support/suexec.c	20 May 2001 08:23:03 -0000	1.9
+--- src/support/suexec.c	27 Mar 2002 15:23:12 -0000	1.1.1.10
++++ src/support/suexec.c	27 Mar 2002 15:30:03 -0000	1.10
 @@ -228,7 +228,13 @@
      cidx++;
  

@@ -1,5 +1,6 @@
 /* Parameters for target execution on an RS6000, for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1997
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000
    Free Software Foundation, Inc.
    Contributed by IBM Corporation.
 
@@ -30,6 +31,13 @@
    So we use dots instead.  This item must be coordinated with G++. */
 #undef CPLUS_MARKER
 #define CPLUS_MARKER '.'
+
+/* Return whether PC in function NAME is in code that should be skipped when
+   single-stepping.  */
+
+#define IN_SOLIB_RETURN_TRAMPOLINE(pc, name) \
+  rs6000_in_solib_return_trampoline (pc, name)
+extern int rs6000_in_solib_return_trampoline (CORE_ADDR, char *);
 
 /* If PC is in some function-call trampoline code, return the PC
    where the function itself actually starts.  If not, return NULL.  */
@@ -78,10 +86,6 @@ extern void aix_process_linenos (void);
 #define	FIRST_UISA_SP_REGNUM 64	/* first special register number */
 #define LAST_UISA_SP_REGNUM  70	/* last special register number */
 
-/* convert a dbx stab register number (from `r' declaration) to a gdb REGNUM */
-
-#define STAB_REG_TO_REGNUM(value)	(value)
-
 /* Define other aspects of the stack frame.  */
 
 #define INIT_FRAME_PC_FIRST(fromleaf, prev) \
@@ -97,8 +101,8 @@ extern void aix_process_linenos (void);
 
 /* RS6000/AIX does not support PT_STEP.  Has to be simulated.  */
 
-#define SOFTWARE_SINGLE_STEP_P 1
-extern void rs6000_software_single_step (unsigned int, int);
+#define SOFTWARE_SINGLE_STEP_P() 1
+extern void rs6000_software_single_step (enum target_signal, int);
 #define SOFTWARE_SINGLE_STEP(sig,bp_p) rs6000_software_single_step (sig, bp_p)
 
 /* Notice when a new child process is started. */
@@ -115,3 +119,10 @@ extern CORE_ADDR (*rs6000_find_toc_address_hook) (CORE_ADDR);
    child process. */
 
 extern void (*rs6000_set_host_arch_hook) (int);
+
+/* We need solib.h for building cross debuggers.  However, we don't want
+   to clobber any special solib support required by native debuggers, so
+   only include solib.h if SOLIB_ADD is not defined.  */
+#ifndef SOLIB_ADD
+#include "solib.h"
+#endif

@@ -24,10 +24,11 @@
 #ifdef SHLIB
 #include "shlib.h"
 #endif
-#import "stdlib.h"
-#import "libc.h"
-#import "mach-o/dyld.h"
-#import "mach-o/loader.h"
+#include "stdlib.h"
+#include "libc.h"
+#include "stuff/bool.h"
+#include "mach-o/dyld.h"
+#include "mach-o/loader.h"
 #ifndef __OPENSTEP__
 extern const struct section *getsectbyname(
 	const char *segname, 

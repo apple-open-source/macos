@@ -1,0 +1,32 @@
+#
+#	$Id$
+#
+
+srcdir	= @srcdir@
+VPATH	= @srcdir@
+SHELL	= /bin/sh
+
+CC	= @CC@
+CFLAGS	= -I${srcdir} -I${srcdir}/.. -I.. @INCLUDES@ @CFLAGS@
+
+AR	= @AR@
+RANLIB	= @RANLIB@
+
+LIB	= libukem.a
+
+OBJS	= @LIBOBJS@
+
+
+all:	${LIB}
+
+${LIB}: ${OBJS}
+	${AR} cr $@ ${OBJS}
+	${RANLIB} $@
+
+install:
+
+clean:
+	rm -f ${LIB} ${OBJS}
+
+distclean: clean
+	rm -f Makefile

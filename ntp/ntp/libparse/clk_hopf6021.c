@@ -1,7 +1,7 @@
 /*
- * /src/NTP/ntp-4/libparse/clk_hopf6021.c,v 4.6 1998/11/15 20:27:57 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_hopf6021.c,v 4.7 1999/11/28 09:13:49 kardel RELEASE_19991128_A
  *
- * clk_hopf6021.c,v 4.6 1998/11/15 20:27:57 kardel RELEASE_19990228_A
+ * clk_hopf6021.c,v 4.7 1999/11/28 09:13:49 kardel RELEASE_19991128_A
  *
  * Radiocode Clocks HOPF Funkuhr 6021 mit serieller Schnittstelle
  * base code version from 24th Nov 1995 - history at end
@@ -17,14 +17,11 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_HOPF6021)
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/errno.h>
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
@@ -229,7 +226,7 @@ inp_hopf6021(
 {
 	unsigned int rtc;
 	
-	parseprintf(DD_PARSE, ("inp_hopf6021(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+	parseprintf(DD_PARSE, ("inp_hopf6021(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 	
 	switch (ch)
 	{
@@ -254,6 +251,9 @@ int clk_hopf6021_bs;
  * History:
  *
  * clk_hopf6021.c,v
+ * Revision 4.7  1999/11/28 09:13:49  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.6  1998/11/15 20:27:57  kardel
  * Release 4.0.73e13 reconcilation
  *

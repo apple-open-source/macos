@@ -132,3 +132,7 @@ include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 #
 STRIPFLAGS = -S
 CC_Optimize = -O
+
+remove-header-link:
+	rm "$(DSTROOT)/System/Library/Frameworks/AppleTalk.framework/Headers"
+

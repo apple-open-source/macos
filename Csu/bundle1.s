@@ -21,6 +21,16 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+/*
+ * To avoid "relocation overflow" errors from the static link editor we want
+ * to make sure that the .text section and the stub sections don't have any 
+ * sections between them (like the .cstring section).  Since this is the first
+ * file loaded we can force the order by ordering the section directives.
+ */
+.text
+.picsymbol_stub
+
 #ifdef __m68k__
 /*
  * This is part of the code generation for the dynamic link editor's interface.
@@ -247,7 +257,7 @@ dyld_func_lookup_pointer:
 	.private_extern dyld_stub_binding_helper
 dyld_stub_binding_helper:
 	mflr	r0
-	bl	L1
+	bcl	20,31,L1
 L1:	mflr    r12
 	mtlr	r0
 	mr	r0,r12
@@ -263,7 +273,7 @@ L1:	mflr    r12
 	.private_extern __dyld_func_lookup
 __dyld_func_lookup:
 	mflr	r0
-	bl	L2
+	bcl	20,31,L2
 L2:	mflr    r11
 	mtlr	r0
 	addis	r11,r11,ha16(dyld_func_lookup_pointer-L2)

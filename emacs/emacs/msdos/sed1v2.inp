@@ -1,12 +1,28 @@
 # -sed1v2.inp-----------------------------------------------------------
-# Configuration script for src/makefile under DJGPP v2.x
+# Configuration script for src/Makefile under DJGPP v2.x
+# ----------------------------------------------------------------------
+#
+# Copyright (C) 1996, 1997, 1999, 2000
+#   Free Software Foundation, Inc.
+#
+# This file is part of GNU Emacs.
+#
+# This file is free software; as a special exception, the author gives
+# unlimited permission to copy and/or distribute it, with or without
+# modifications, as long as this notice is preserved.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
 # ----------------------------------------------------------------------
 s/^#.*//
 s/^[ \f\t][ \f\t]*$//
 s/^ /	/
 s/\.h\.in/.h-in/
-/^	\.\/temacs/i\
+/^	LC_ALL=C \.\/temacs/i\
 	stubedit temacs.exe minstack=100k
+/^	LC_ALL=C \.\/temacs/s/LC_ALL=C/set &;/
 /^MAKE *=/s/^/# /
 /^SHELL *=/s/^/# /
 /^srcdir *=/s/@[^@\n]*@/./
@@ -16,6 +32,10 @@ s/\.h\.in/.h-in/
 /^CFLAGS *=/s/@[^@\n]*@/-O2 -gcoff/
 /^CPPFLAGS *=/s/@[^@\n]*@//
 /^LDFLAGS *=/s/@[^@\n]*@//
+/^LIBS *=/s/@[^@\n]*@//
+/^LIBOBJS *=/s/@[^@\n]*@/getloadavg.o/
+/^GETLOADAVG_LIBS *=/s/@[^@\n]*@//
+/^LIBSOUND *=/s/@LIBSOUND@//
 /^LN_S *=/s/@[^@\n]*@/ln -s/
 /^M_FILE *=/s!@[^@\n]*@!m/intel386.h!
 /^S_FILE *=/s!@[^@\n]*@!s/msdos.h!

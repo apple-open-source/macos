@@ -32,6 +32,35 @@ typedef enum _change_type
   STRUCTURAL_CHANGE = 3
 } change_type;
 
+enum button_type
+{
+  BUTTON_TYPE_NONE,
+  BUTTON_TYPE_TOGGLE,
+  BUTTON_TYPE_RADIO
+};
+
+/* Menu separator types.  */
+
+enum menu_separator
+{
+  /* These values are Motif compatible.  */
+  SEPARATOR_NO_LINE,
+  SEPARATOR_SINGLE_LINE,
+  SEPARATOR_DOUBLE_LINE,
+  SEPARATOR_SINGLE_DASHED_LINE,
+  SEPARATOR_DOUBLE_DASHED_LINE,
+  SEPARATOR_SHADOW_ETCHED_IN,
+  SEPARATOR_SHADOW_ETCHED_OUT,
+  SEPARATOR_SHADOW_ETCHED_IN_DASH,
+  SEPARATOR_SHADOW_ETCHED_OUT_DASH,
+
+  /* The following are supported by XEmacs' Lucid menus.  */
+  SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
+  SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
+  SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
+  SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH
+};
+
 typedef struct _widget_value
 {
   /* name of widget */
@@ -40,12 +69,16 @@ typedef struct _widget_value
   char*		value;
   /* keyboard equivalent. no implications for XtTranslations */ 
   char*		key;
+  /* Help string or null if none.  */
+  char		*help;
   /* true if enabled */
   Boolean	enabled;
   /* true if selected */
   Boolean	selected;
   /* true if was edited (maintained by get_value) */
   Boolean	edited;
+  /* The type of a button.  */
+  enum button_type button_type;
   /* true if has changed (maintained by lw library) */
   change_type	change;
   /* true if this widget itself has changed,
@@ -70,53 +103,65 @@ typedef struct _widget_value
 } widget_value;
 
 
-typedef void (*lw_callback) (/* Widget w, LWLIB_ID id, void* data */);
+typedef void (*lw_callback) __P ((Widget w, LWLIB_ID id, void* data));
 
-void  lw_register_widget (/* char* type, char* name, LWLIB_ID id,
-			  widget_value* val, lw_callback pre_activate_cb,
-			  lw_callback selection_cb,
-			  lw_callback post_activate_cb */);
-Widget lw_get_widget (/* LWLIB_ID id, Widget parent, Boolean pop_up_p */);
-Widget lw_make_widget (/* LWLIB_ID id, Widget parent, Boolean pop_up_p */);
-Widget lw_create_widget (/* char* type, char* name, LWLIB_ID id,
-			 widget_value* val, Widget parent, Boolean pop_up_p,
-			 lw_callback pre_activate_cb,
-			 lw_callback selection_cb,
-			 lw_callback post_activate_cb */);
-LWLIB_ID lw_get_widget_id (/* Widget w */);
-void lw_modify_all_widgets (/* LWLIB_ID id, widget_value* val, Boolean deep_p */);
-void lw_destroy_widget (/* Widget w */);
-void lw_destroy_all_widgets (/* LWLIB_ID id */);
-void lw_destroy_everything (/* void */);
-void lw_destroy_all_pop_ups (/* void */);
-Widget lw_raise_all_pop_up_widgets (/* void */);
-widget_value* lw_get_all_values (/* LWLIB_ID id */);
-Boolean lw_get_some_values (/* LWLIB_ID id, widget_value* val */);
-void lw_pop_up_all_widgets (/* LWLIB_ID id */);
-void lw_pop_down_all_widgets (/* LWLIB_ID id */);
+void  lw_register_widget __P ((char* type, char* name, LWLIB_ID id,
+			       widget_value* val, lw_callback pre_activate_cb,
+			       lw_callback selection_cb,
+			       lw_callback post_activate_cb,
+			       lw_callback highlight_cb));
+Widget lw_get_widget __P ((LWLIB_ID id, Widget parent, Boolean pop_up_p));
+Widget lw_make_widget __P ((LWLIB_ID id, Widget parent, Boolean pop_up_p));
+Widget lw_create_widget __P ((char* type, char* name, LWLIB_ID id,
+			      widget_value* val, Widget parent, Boolean pop_up_p,
+			      lw_callback pre_activate_cb,
+			      lw_callback selection_cb,
+			      lw_callback post_activate_cb,
+			      lw_callback highlight_cb));
+LWLIB_ID lw_get_widget_id __P ((Widget w));
+int lw_modify_all_widgets __P ((LWLIB_ID id, widget_value* val, Boolean deep_p));
+void lw_destroy_widget __P ((Widget w));
+void lw_destroy_all_widgets __P ((LWLIB_ID id));
+void lw_destroy_everything __P ((void));
+void lw_destroy_all_pop_ups __P ((void));
+Widget lw_raise_all_pop_up_widgets __P ((void));
+widget_value* lw_get_all_values __P ((LWLIB_ID id));
+Boolean lw_get_some_values __P ((LWLIB_ID id, widget_value* val));
+void lw_pop_up_all_widgets __P ((LWLIB_ID id));
+void lw_pop_down_all_widgets __P ((LWLIB_ID id));
 widget_value *malloc_widget_value ();
-void free_widget_value (/* widget_value * */);
-void lw_popup_menu (/* Widget */);
+void free_widget_value __P ((widget_value *));
+void lw_popup_menu __P ((Widget, XEvent *));
 
 /* Toolkit independent way of focusing on a Widget at the Xt level. */
-void lw_set_keyboard_focus (/* Widget parent, Widget w */);
+void lw_set_keyboard_focus __P ((Widget parent, Widget w));
 
 /* Silly Energize hack to invert the "sheet" button */
-void lw_show_busy (/* Widget w, Boolean busy */);
+void lw_show_busy __P ((Widget w, Boolean busy));
 
 /* Silly hack to assist with Lucid/Athena geometry management. */
-void lw_refigure_widget (/* Widget w, Boolean doit */);
+void lw_refigure_widget __P ((Widget w, Boolean doit));
 
 /* Toolkit independent way of determining if an event occurred on a
    menubar. */
-Boolean lw_window_is_in_menubar (/* Window win, Widget menubar_widget */);
+Boolean lw_window_is_in_menubar __P ((Window win, Widget menubar_widget));
 
 /* Manage resizing: TRUE permits resizing widget w; FALSE disallows it. */
-void lw_allow_resizing (/* Widget w, Boolean flag */);
+void lw_allow_resizing __P ((Widget w, Boolean flag));
 
 /* Set up the main window. */
-void lw_set_main_areas (/* Widget parent,
+void lw_set_main_areas __P ((Widget parent,
 			   Widget menubar,
-			   Widget work_area */);
+			   Widget work_area));
+
+/* Value is non-zero if LABEL is a menu separator.  If it is, *TYPE is
+   set to an appropriate enumerator of type enum menu_separator.
+   MOTIF_P non-zero means map separator types not supported by Motif
+   to similar ones that are supported.  */
+
+int lw_separator_p __P ((char *label, enum menu_separator *type,
+		    int motif_p));
+
+void lwlib_bcopy __P ((char*, char*, int));
 
 #endif /* LWLIB_H */

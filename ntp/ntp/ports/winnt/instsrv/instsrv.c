@@ -25,7 +25,7 @@ VOID DisplayHelp(VOID);
 
 /* --------------------------------------------------------------------------------------- */
 
-int InstallService(LPCTSTR serviceName, LPCTSTR serviceExe)
+int InstallService(LPCTSTR serviceName, LPCTSTR displayName, LPCTSTR serviceExe)
 {
   LPCTSTR lpszBinaryPathName = serviceExe;
   TCHAR lpszRootPathName[] ="?:\\";
@@ -86,7 +86,7 @@ int InstallService(LPCTSTR serviceName, LPCTSTR serviceExe)
   schService = CreateService(
         schSCManager,               // SCManager database
         serviceName,                // name of service
-        serviceName,                // name to display (new parameter after october beta)
+        displayName,                // name to display
         SERVICE_ALL_ACCESS,         // desired access
         SERVICE_WIN32_OWN_PROCESS,  // service type
         SERVICE_AUTO_START,         // start type
@@ -194,7 +194,7 @@ int RemoveService(LPCTSTR serviceName)
   }
 
   if (DeleteService(schService))
-  { printf("\nDelete of Service \"NetworkTimeProtocol\" was SUCCESSFUL\n");
+  { printf("\nDelete of Service \"Network Time Protocol\" was SUCCESSFUL\n");
    return 0;
   }
   else
@@ -282,7 +282,7 @@ int addKeysToRegistry()
  
   /* Create a new key for our application */
   bSuccess = RegCreateKey(HKEY_LOCAL_MACHINE,
-      "SYSTEM\\CurrentControlSet\\Services\\NetworkTimeProtocol", &hk);
+      "SYSTEM\\CurrentControlSet\\Services\\NTP", &hk);
   if(bSuccess != ERROR_SUCCESS)
     {
       PERR("RegCreateKey");
@@ -295,9 +295,7 @@ int addKeysToRegistry()
   strcpy(lpmyarray,"Afd");
   lpmyarray = lpmyarray + 4;
   arsize = arsize + 4;
-  strcpy(lpmyarray,"LanManWorkstation");
-  lpmyarray = lpmyarray + 18;
-  arsize = arsize + 20;
+  arsize = arsize + 2;
   strcpy(lpmyarray,"\0\0");
   
   bSuccess = RegSetValueEx(hk,  /* subkey handle         */
@@ -321,8 +319,12 @@ int addKeysToRegistry()
 int main(int argc, char *argv[])
 {
   #define           SZ_NAME_BUF  270  // 256 is max, add a little
-  UCHAR   ucNameBuf[SZ_NAME_BUF] = "NetworkTimeProtocol";
+  UCHAR   ucNameBuf[SZ_NAME_BUF] = "NTP";
   LPTSTR  lpszServName = (LPTSTR)&ucNameBuf;
+
+  UCHAR   ucDNameBuf[SZ_NAME_BUF] = "Network Time Protocol";
+  LPTSTR  lpszDispName = (LPTSTR)&ucDNameBuf;
+
 
   UCHAR   ucExeNBuf[SZ_NAME_BUF] = "";
   LPTSTR  lpszExeName  = (LPTSTR)&ucExeNBuf;
@@ -405,7 +407,7 @@ int main(int argc, char *argv[])
   {
    /* get the exe name */
    strcpy(lpszExeName,argv[1]);
-   ok = InstallService(lpszServName,lpszExeName);
+   ok = InstallService(lpszServName, lpszDispName, lpszExeName);
   }
 
   CloseServiceHandle(schSCManager);
@@ -414,7 +416,7 @@ int main(int argc, char *argv[])
     {
   if (ok == 0)
    { /* Set the Event-ID message-file name. */
-    ok = addSourceToRegistry("NetworkTimeProtocol", lpszExeName);
+    ok = addSourceToRegistry("NTP", lpszExeName);
     if (ok == 0)
       ok = addKeysToRegistry();
     else return ok;

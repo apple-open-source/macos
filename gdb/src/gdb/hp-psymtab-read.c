@@ -1,5 +1,5 @@
 /* Read hp debug symbols and convert to internal format, for GDB.
-   Copyright 1993, 1996, 1998, 1999 Free Software Foundation, Inc.
+   Copyright 1993, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -68,7 +68,7 @@ static struct partial_symtab *hpread_end_psymtab
 #define PXDB_BSD  "/usr/bin/pxdb"
 
 #include <stdlib.h>
-#include <string.h>
+#include "gdb_string.h"
 
 /* check for the existence of a file, given its full pathname */
 int
@@ -110,7 +110,7 @@ static char main_string[] = "main";
 
    Return value: 1 if ok, 0 if not */
 int
-hpread_call_pxdb (char *file_name)
+hpread_call_pxdb (const char *file_name)
 {
   char *p;
   int status;
@@ -118,7 +118,7 @@ hpread_call_pxdb (char *file_name)
 
   if (file_exists (PXDB_SVR4))
     {
-      p = malloc (strlen (PXDB_SVR4) + strlen (file_name) + 2);
+      p = xmalloc (strlen (PXDB_SVR4) + strlen (file_name) + 2);
       strcpy (p, PXDB_SVR4);
       strcat (p, " ");
       strcat (p, file_name);
@@ -381,7 +381,7 @@ clear_pst_syms (void)
 {
   pst_syms_count = 0;
   pst_syms_size = 0;
-  free (pst_syms_array);
+  xfree (pst_syms_array);
   pst_syms_array = 0;
 }
 
@@ -865,8 +865,8 @@ hpread_quick_traverse (struct objfile *objfile, char *gntt_bits,
 		(CURR_MODULE_END == 0) || (CURR_MODULE_END == -1)))
 	{
 	  TELL_OBJFILE;
-	  warning ("Module \"%s\" [0x%x] has non-standard addresses.  It starts at 0x%x, ends at 0x%x, and will be skipped.",
-		   mod_name_string, curr_md, start_adr, end_adr);
+	  warning ("Module \"%s\" [0x%s] has non-standard addresses.  It starts at 0x%s, ends at 0x%s, and will be skipped.",
+		   mod_name_string, paddr_nz (curr_md), paddr_nz (start_adr), paddr_nz (end_adr));
 	  /* On to next module */
 	  curr_md++;
 	}
@@ -946,7 +946,7 @@ hpread_quick_traverse (struct objfile *objfile, char *gntt_bits,
 					  static_syms);
 
 	      /* Set up to only enter each class referenced in this module once.  */
-	      class_entered = malloc (B_BYTES (pxdb_header_p->cd_entries));
+	      class_entered = xmalloc (B_BYTES (pxdb_header_p->cd_entries));
 	      B_CLRALL (class_entered, pxdb_header_p->cd_entries);
 
 	      /* Scan the procedure descriptors for procedures in the current
@@ -1025,7 +1025,7 @@ hpread_quick_traverse (struct objfile *objfile, char *gntt_bits,
 	      /* Prepare for the next psymtab. */
 	      global_syms = objfile->global_psymbols.next;
 	      static_syms = objfile->static_psymbols.next;
-	      free (class_entered);
+	      xfree (class_entered);
 
 	      curr_fd++;
 	    }			/* Psymtab for file */
@@ -1174,7 +1174,7 @@ hpread_quick_traverse (struct objfile *objfile, char *gntt_bits,
 					  static_syms);
 
 	      /* Set up to only enter each class referenced in this module once.  */
-	      class_entered = malloc (B_BYTES (pxdb_header_p->cd_entries));
+	      class_entered = xmalloc (B_BYTES (pxdb_header_p->cd_entries));
 	      B_CLRALL (class_entered, pxdb_header_p->cd_entries);
 
 	      /* Scan the procedure descriptors for procedures in the current
@@ -1254,7 +1254,7 @@ hpread_quick_traverse (struct objfile *objfile, char *gntt_bits,
 	      /* Prepare for the next psymtab. */
 	      global_syms = objfile->global_psymbols.next;
 	      static_syms = objfile->static_psymbols.next;
-	      free (class_entered);
+	      xfree (class_entered);
 
 	      curr_md++;
 	      curr_fd++;
@@ -2073,7 +2073,7 @@ hpread_symfile_finish (struct objfile *objfile)
 {
   if (objfile->sym_private != NULL)
     {
-      mfree (objfile->md, objfile->sym_private);
+      xmfree (objfile->md, objfile->sym_private);
     }
 }
 

@@ -206,6 +206,7 @@ void)
 
 	/* TODO: figure out what to do for debugging */
 
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNDEFINED);
 
 	/* just here to keep the compiler happy */
@@ -295,6 +296,7 @@ char *prev_module_name)
 
 	/* TODO: figure out what to do for debugging */
 
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_MULTIPLY_DEFINED);
 }
 
@@ -312,6 +314,7 @@ void)
 	error("Call to undefined routine after a NSUnLinkModule with the "
 	      "NSUNLINKMODULE_OPTION_RESET_LAZY_REFERENCES option");
 	link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_BIND, NULL);
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_OTHER_ERROR);
 }
 
@@ -333,6 +336,7 @@ void)
 	     for(;;)
 		;
 	}
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_DEAD_LOCK);
 }
 
@@ -431,6 +435,7 @@ char *file_name)
 	}
 
 	/* TODO: figure out what to do for debugging */
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + error_class);
 }
 
@@ -442,6 +447,7 @@ abort(
 void)
 {
 	kill(getpid(), SIGABRT);
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNIX_RESOURCE);
 }
 

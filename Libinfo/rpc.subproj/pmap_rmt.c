@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_rmt.c 1.21 87/08/27 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_rmt.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_rmt.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: pmap_rmt.c,v 1.4 2002/03/15 22:07:50 majka Exp $";
 #endif
 
 /*
@@ -64,11 +64,14 @@ static char *rcsid = "$Id: pmap_rmt.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
  * Copyright (C) 1984, Sun Microsystems, Inc.
  */
 
+#include <string.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <rpc/pmap_prot.h>
 #include <rpc/pmap_clnt.h>
 #include <rpc/pmap_rmt.h>
 #include <sys/socket.h>
+#include <sys/fcntl.h>
 #include <stdio.h>
 #include <errno.h>
 #include <net/if.h>
@@ -193,7 +196,7 @@ getbroadcastnets(addrs, sock, buf)
         struct ifreq ifreq, *ifr;
 	struct sockaddr_in *sin;
         char *cp, *cplim;
-        int n, i = 0;
+        int i = 0;
 
         ifc.ifc_len = UDPMSGSIZE;
         ifc.ifc_buf = buf;
@@ -268,6 +271,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	struct rpc_msg msg;
 	struct timeval t; 
 	char outbuf[MAX_BROADCAST_SIZE], inbuf[UDPMSGSIZE];
+	int rfd;
 
 	/*
 	 * initialization: create a socket, a broadcast address, and
@@ -293,8 +297,15 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	baddr.sin_port = htons(PMAPPORT);
 	baddr.sin_addr.s_addr = htonl(INADDR_ANY);
 /*	baddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY); */
-	(void)gettimeofday(&t, (struct timezone *)0);
-	msg.rm_xid = xid = getpid() ^ t.tv_sec ^ t.tv_usec;
+
+	rfd = open("/dev/random", O_RDONLY, 0);
+	if ((rfd < 0) || (read(rfd, &msg.rm_xid, sizeof(msg.rm_xid)) != sizeof(msg.rm_xid)))
+	{
+		gettimeofday(&t, (struct timezone *)0);
+		msg.rm_xid = getpid() ^ t.tv_sec ^ t.tv_usec;
+	}
+	if (rfd > 0) close(rfd);
+
 	t.tv_usec = 0;
 	msg.rm_direction = CALL;
 	msg.rm_call.cb_rpcvers = RPC_MSG_VERSION;
@@ -342,8 +353,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 		msg.acpted_rply.ar_results.where = (caddr_t)&r;
                 msg.acpted_rply.ar_results.proc = xdr_rmtcallres;
 		readfds = mask;
-		switch (select(sock+1, &readfds, (int *)NULL, 
-			       (int *)NULL, &t)) {
+		switch (select(sock+1, &readfds, NULL, NULL, &t)) {
 
 		case 0:  /* timed out */
 			stat = RPC_TIMEDOUT;

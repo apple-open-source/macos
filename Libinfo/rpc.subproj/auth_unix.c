@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)auth_unix.c 1.19 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)auth_unix.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: auth_unix.c,v 1.3 2001/01/17 19:05:42 majka Exp $";
+static char *rcsid = "$Id: auth_unix.c,v 1.4 2002/02/19 20:36:22 epeyton Exp $";
 #endif
 
 /*
@@ -70,12 +70,18 @@ static char *rcsid = "$Id: auth_unix.c,v 1.3 2001/01/17 19:05:42 majka Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/param.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <rpc/auth.h>
 #include <rpc/auth_unix.h>
+
+extern bool_t	xdr_opaque_auth();
 
 /*
  * Unix authenticator operations vector
@@ -106,7 +112,7 @@ struct audata {
 };
 #define	AUTH_PRIVATE(auth)	((struct audata *)auth->ah_private)
 
-static bool_t marshal_new_auth();
+static void marshal_new_auth();
 
 
 /*
@@ -193,8 +199,9 @@ authunix_create(machname, uid, gid, len, aup_gids)
 * the maximum size of the group list that will be sent.
 */
 
-static maxgrplist = NGROUPS;
+static int maxgrplist = NGROUPS;
 
+void
 set_rpc_maxgrouplist(num)
 	int num;
 {
@@ -345,7 +352,7 @@ authunix_destroy(auth)
  * Marshals (pre-serializes) an auth struct.
  * sets private data, au_marshed and au_mpos
  */
-static bool_t
+static void
 marshal_new_auth(auth)
 	register AUTH *auth;
 {

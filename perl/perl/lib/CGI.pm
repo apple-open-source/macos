@@ -17,7 +17,7 @@ require 5.004;
 # The most recent version and complete docs are available at:
 #   http://stein.cshl.org/WWW/software/CGI/
 
-$CGI::revision = '$Id: CGI.pm,v 1.2 2000/12/09 03:19:32 wsanchez Exp $';
+$CGI::revision = '$Id: CGI.pm,v 1.4 2002/03/14 08:57:38 zarzycki Exp $';
 $CGI::VERSION='2.56';
 
 # HARD-CODED LOCATION FOR FILE UPLOAD TEMPORARY FILES.

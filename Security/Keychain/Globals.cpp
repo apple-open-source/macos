@@ -40,11 +40,11 @@ ModuleNexus<Globals> KeychainCore::globals;
 #pragma mark ÑÑÑÑ Constructor/Destructor ÑÑÑÑ
 
 Globals::Globals() :
-mUI(true), mACLFactory(CssmAllocator::standard())
+mUI(true)
 {
 }
 
 const AccessCredentials * Globals::credentials() 
 {
-	return (mUI ? mACLFactory.keychainPromptCredentials() : mACLFactory.nullCredentials()); 
+	return (mUI ? mACLFactory.promptCred() : mACLFactory.nullCred()); 
 }

@@ -40,7 +40,7 @@ class CssmSample : public PodWrapper<CssmSample, CSSM_SAMPLE> {
 public:
 	CssmSample(const TypedList &list)
 	{ TypedSample = list; Verifier = NULL; }
-	CssmSample(TypedList &list, const CssmSubserviceUid &ver)
+	CssmSample(const TypedList &list, const CssmSubserviceUid &ver)
 	{ TypedSample = list; Verifier = &ver; }
 
 	TypedList &value() { return TypedList::overlay(TypedSample); }
@@ -66,7 +66,7 @@ public:
 //
 class AccessCredentials : public PodWrapper<AccessCredentials, CSSM_ACCESS_CREDENTIALS> {
 public:
-	AccessCredentials() { memset(this, 0, sizeof(*this)); }
+	AccessCredentials() { clearPod(); }
 	
 	const char *tag() const { return EntryTag; }
 
@@ -75,6 +75,10 @@ public:
     
 public:
     static const AccessCredentials &null;	// all null credential
+	
+	// turn NULL into a null credential if needed
+	static const AccessCredentials *needed(const CSSM_ACCESS_CREDENTIALS *cred)
+	{ return cred ? overlay(cred) : &null; }
 };
 
 

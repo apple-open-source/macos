@@ -1,0 +1,60 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\vieww15680\viewh11220\viewkind0
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f0\b\fs72 \cf0 Mac OS X USB Kernel Sample Code
+\f1\b0\fs24 \
+\
+This directory contains three example ProjectBuilder projects for writing USB drivers which operate inside the kernel.\
+\
+
+\fs48 AnchorUSB Driver\
+
+\fs24 \
+This project shows how to implement a kernel level driver. It uses the Cypress/Anchor EZ-USB chip as the target for the driver.\
+\
+\
+
+\fs48 VendorSpecificDriver\
+
+\fs24 \
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\ql\qnatural
+\cf0 This project implements a code-less USB kernel driver that matches to a USB device but does 
+\f0\b nothing
+\f1\b0  to it.  It actually uses IOKit as the driver for the device, taking advantage of the fact that IOService::start always returns true.  If you are writing a user land driver but your device or interface is already being used by another kernel driver, you can use this driver to supersede that driver. \
+\
+For example, if  you have a device that is matched by the AppleUSBMouse kernel driver but you want to write your own user land driver, you can modify this project to match your device.  This new driver will then match against your device, but since it doesn't open the device, you will be able to access it through your user space code (without getting the kIOExclusiveAccessError ).  When you access your device from user space, it will be in an unconfigured state (e.g. no IOUSBInterfaces will have been instantiated).  You will need to configure it to a known state before you can start using it.\
+  \
+In order to modify this driver, you will need to change the matching criteria.  Go to the Targets tab, select VendorSpecificDriver in the left column.  Select the Bundle Settings tab and click the Expert button.   Select the disclosure triangle for the IOKitPersonalities dictionary, and then for the Driver1 dictionary.  Now modify the bcdDevice, idProduct, and idVendor to suit your device.  Also, change all instances of "MySoftwareCompany" to an appropriate name.  Do so in the Build Settings tab as well.  In that tab, change the Product name to something more appropriate than MySoftwareCompanyVendorSpecificDriver.  Also, edit the "InfoPlist.strings" file (under the English.lproj directory in the VendorSpecific project) and change the references to the "MySoftwareCompany".  (Use the "Open" menu in Project Builder to navigate to that file).\
+\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\fs48 \cf0 ClassicNotSeize Driver\
+
+\fs24 \
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\ql\qnatural
+\cf0 This project implements a code-less USB kernel driver.  It can be used to create a kernel driver that puts a property in the USB device's dictionary that instructs Classic to 
+\f0\b not
+\f1\b0  seize control of the device.  For example, Classic will always attempt to control a USB device with a vendor specific bDeviceClass (255) field in its device descriptor.  Another user space application will be unable to use the device while Classic is running.  Using this driver will instruct Classic to not seize control of the device.  This driver can also be used to instruct Classic to 
+\f0\b always
+\f1\b0  seize the device.\
+\
+The driver itself does not contain any code.  It uses the code from the com.apple.driver.AppleUSBMergeNub driver (CFBundleIdentifier in the IOKitPersonalities dictionary).  The probe method  for AppleUSBMergeNub driver will look for a dictionary called IOProviderMergeProperties and will merge the items in that dictionary into the device's dictionary.  It will then return false from the probe method, meaning that it won't actually load any more code.\
+\
+You will need to modify  the IOKitPersonalities dictionary to match your device.  The driver is matching to an IOUSBDevice with idProduct = 0 and idVendor = 0.  As always, you can have multiple personalities in this driver.\
+\
+If you want classic to 
+\f0\b not
+\f1\b0  seize your device, you need to merge the 
+\f0\b ClassicMustNotSeize
+\f1\b0  property into your device's dictionary (as shown in this example).  If you want Classic to 
+\f0\b always
+\f1\b0  seize your device, you need to merge the 
+\f0\b ClassicMustSeize
+\f1\b0  property.  Be aware that these properties are of type Boolean.\
+\
+\
+\
+Last modified: 06-Jun-2002}

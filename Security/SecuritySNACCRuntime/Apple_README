@@ -1,23 +1,22 @@
                  MacOS X Porting notes
-				   20 June 2001 dmitch
+				   20 March 2002 dmitch
 				   
 -- snacc.pbproj contains the following targets:
 
 	world: aggregate target, builds UnixBuild and snaccRuntime
 	
 	UnixBuild: Legacy target, invokes MacOSX-Install, a custom
-		script to config and build the snacc compiler and the 
-		Unix versions of the various libraries. This does not install
-		the snacc binary; maybe it should. 
-	  
-		Due to many brain dead Makefiles, this target always rebuilds
-		a ton of stuff even if nothing has changed. Feel free to rewrite
-		all the Makefiles to fix this.
-	  
-   snaccRuntime: builds the runtime support library as an OSX
+		script to config and build the snacc compiler. This does 
+		not install the snacc binary; maybe it should. 
+
+    snaccRuntime: builds the runtime support library as an OSX
       framework using the same source as c++-lib. Currently 
 	  obsolete; this is now part of Security.framework. 
-	  
+	
+    asn-useful - recompiles the sole ASN1 source in this modules
+	   asn-usefule.asn1. Do this after building and installing
+	   a new compiler. 
+	   
 -- There are a few header files which have duplicate copies
    in the snacc-1.3vda root directory and in c++-lib/inc. They're
    needed in the root by the compiler build and various configure
@@ -41,4 +40,14 @@
 -- When running the snacc compiler to generate C++ source, you 
    must specify the (undocumented) -D argument to enable VDADER_RULES. 
    When compiling that source, you must do a -DVDADER_RULES. 
+   
+-- As of 20 March 2002, the BDec routines now throw SnaccExcep exceptions;
+   there are no more setjmp/longjmp catchers. This is controlled by the
+   SNACC_EXCEPTION_ENABLE flag found in both asn-config.h files. 
+   
+-- As of 20 March 2002, there are no more BEncPdu or BDecPdu functions
+   anywhere. These were convenience routines and added about 47 KBytes
+   to Security.framework. This is controlled by the SNACC_ENABLE_PDU
+   flag found in both asn-config.h files.
+   
    

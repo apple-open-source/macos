@@ -1,5 +1,3 @@
-/*	$NetBSD: spec.c,v 1.12 1998/09/23 19:46:00 itohy Exp $	*/
-
 /*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,26 +31,25 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)spec.c	8.2 (Berkeley) 4/28/95";
-#else
-__RCSID("$NetBSD: spec.c,v 1.12 1998/09/23 19:46:00 itohy Exp $");
+static char sccsid[] = "@(#)spec.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/mtree/spec.c,v 1.13.2.1 2000/06/28 02:33:17 joe Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <fts.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
-
+#include <vis.h>
 #include "mtree.h"
 #include "extern.h"
 
@@ -64,15 +61,14 @@ static void	 unset __P((char *, NODE *));
 NODE *
 spec()
 {
-	NODE *centry, *last;
-	char *p;
+	register NODE *centry, *last;
+	register char *p;
 	NODE ginfo, *root;
 	int c_cur, c_next;
 	char buf[2048];
 
-	root = NULL;
-	centry = last = NULL;
-	memset(&ginfo, 0, sizeof(ginfo));
+	centry = last = root = NULL;
+	bzero(&ginfo, sizeof(ginfo));
 	c_cur = c_next = 0;
 	for (lineno = 1; fgets(buf, sizeof(buf), stdin);
 	    ++lineno, c_cur = c_next, c_next = 0) {
@@ -81,8 +77,8 @@ spec()
 			continue;
 
 		/* Find end of line. */
-		if ((p = strchr(buf, '\n')) == NULL)
-			mtree_err("line %d too long", lineno);
+		if ((p = index(buf, '\n')) == NULL)
+			errx(1, "line %d too long", lineno);
 
 		/* See if next line is continuation line. */
 		if (p[-1] == '\\') {
@@ -107,10 +103,10 @@ spec()
 			set(p, centry);
 			continue;
 		}
-			
+
 		/* Grab file name, "$", "set", or "unset". */
 		if ((p = strtok(p, "\n\t ")) == NULL)
-			mtree_err("missing field");
+			errx(1, "line %d: missing field", lineno);
 
 		if (p[0] == '/')
 			switch(p[1]) {
@@ -126,8 +122,9 @@ spec()
 				continue;
 			}
 
-		if (strchr(p, '/'))
-			mtree_err("slash character in file name");
+		if (index(p, '/'))
+			errx(1, "line %d: slash character in file name",
+			lineno);
 
 		if (!strcmp(p, "..")) {
 			/* Don't go up, if haven't gone down. */
@@ -141,16 +138,20 @@ spec()
 			last->flags |= F_DONE;
 			continue;
 
-noparent:		mtree_err("no parent node");
+noparent:		errx(1, "line %d: no parent node", lineno);
 		}
 
 		if ((centry = calloc(1, sizeof(NODE) + strlen(p))) == NULL)
-			mtree_err("%s", strerror(errno));
+			errx(1, "calloc");
 		*centry = ginfo;
-		(void)strcpy(centry->name, p);
 #define	MAGIC	"?*["
 		if (strpbrk(p, MAGIC))
 			centry->flags |= F_MAGIC;
+		if (strunvis(centry->name, p) == -1) {
+			warnx("filename %s is ill-encoded and literally used",
+			    p);
+			strcpy(centry->name, p);
+		}
 		set(NULL, centry);
 
 		if (!root) {
@@ -173,33 +174,57 @@ set(t, ip)
 	char *t;
 	NODE *ip;
 {
-	int type;
-	char *kw, *val;
+	register int type;
+	char *kw, *val = NULL;
 	struct group *gr;
 	struct passwd *pw;
 	mode_t *m;
 	int value;
 	char *ep;
 
-	val = NULL;
-	for (; (kw = strtok(t, "= \t\n")) != NULL; t = NULL) {
+	for (; (kw = strtok(t, "= \t\n")); t = NULL) {
 		ip->flags |= type = parsekey(kw, &value);
 		if (value && (val = strtok(NULL, " \t\n")) == NULL)
-			mtree_err("missing value");
+			errx(1, "line %d: missing value", lineno);
 		switch(type) {
 		case F_CKSUM:
 			ip->cksum = strtoul(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid checksum %s", val);
+				errx(1, "line %d: invalid checksum %s",
+				lineno, val);
 			break;
+		case F_MD5:
+			ip->md5digest = strdup(val);
+			if(!ip->md5digest) {
+				errx(1, "strdup");
+			}
+			break;
+		case F_SHA1:
+			ip->sha1digest = strdup(val);
+			if(!ip->sha1digest) {
+				errx(1, "strdup");
+			}
+			break;
+		case F_RMD160:
+			ip->rmd160digest = strdup(val);
+			if(!ip->rmd160digest) {
+				errx(1, "strdup");
+			}
+			break;
+		case F_FLAGS:
+			if (strcmp("none", val) == 0)
+				ip->st_flags = 0;
+			else if (strtofflags(&val, &ip->st_flags, NULL) != 0)
+				errx(1, "line %d: invalid flag %s",lineno, val);
+ 			break;
 		case F_GID:
-			ip->st_gid = (gid_t)strtoul(val, &ep, 10);
+			ip->st_gid = strtoul(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid gid %s", val);
+				errx(1, "line %d: invalid gid %s", lineno, val);
 			break;
 		case F_GNAME:
 			if ((gr = getgrnam(val)) == NULL)
-			    mtree_err("unknown group %s", val);
+			    errx(1, "line %d: unknown group %s", lineno, val);
 			ip->st_gid = gr->gr_gid;
 			break;
 		case F_IGN:
@@ -207,33 +232,37 @@ set(t, ip)
 			break;
 		case F_MODE:
 			if ((m = setmode(val)) == NULL)
-				mtree_err("invalid file mode %s", val);
+				errx(1, "line %d: invalid file mode %s",
+				lineno, val);
 			ip->st_mode = getmode(m, 0);
 			free(m);
 			break;
 		case F_NLINK:
-			ip->st_nlink = (nlink_t)strtoul(val, &ep, 10);
+			ip->st_nlink = strtoul(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid link count %s", val);
+				errx(1, "line %d: invalid link count %s",
+				lineno,  val);
 			break;
 		case F_SIZE:
-			ip->st_size = (off_t)strtoq(val, &ep, 10);
+			ip->st_size = strtoq(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid size %s", val);
+				errx(1, "line %d: invalid size %s",
+				lineno, val);
 			break;
 		case F_SLINK:
 			if ((ip->slink = strdup(val)) == NULL)
-				mtree_err("%s", strerror(errno));
+				errx(1, "strdup");
 			break;
 		case F_TIME:
-			ip->st_mtimespec.tv_sec =
-			    (time_t)strtoul(val, &ep, 10);
+			ip->st_mtimespec.tv_sec = strtoul(val, &ep, 10);
 			if (*ep != '.')
-				mtree_err("invalid time %s", val);
+				errx(1, "line %d: invalid time %s",
+				lineno, val);
 			val = ep + 1;
-			ip->st_mtimespec.tv_nsec = strtol(val, &ep, 10);
+			ip->st_mtimespec.tv_nsec = strtoul(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid time %s", val);
+				errx(1, "line %d: invalid time %s",
+				lineno, val);
 			break;
 		case F_TYPE:
 			switch(*val) {
@@ -264,17 +293,18 @@ set(t, ip)
 					ip->type = F_SOCK;
 				break;
 			default:
-				mtree_err("unknown file type %s", val);
+				errx(1, "line %d: unknown file type %s",
+				lineno, val);
 			}
 			break;
 		case F_UID:
-			ip->st_uid = (uid_t)strtoul(val, &ep, 10);
+			ip->st_uid = strtoul(val, &ep, 10);
 			if (*ep)
-				mtree_err("invalid uid %s", val);
+				errx(1, "line %d: invalid uid %s", lineno, val);
 			break;
 		case F_UNAME:
 			if ((pw = getpwnam(val)) == NULL)
-			    mtree_err("unknown user %s", val);
+			    errx(1, "line %d: unknown user %s", lineno, val);
 			ip->st_uid = pw->pw_uid;
 			break;
 		}
@@ -284,10 +314,10 @@ set(t, ip)
 static void
 unset(t, ip)
 	char *t;
-	NODE *ip;
+	register NODE *ip;
 {
-	char *p;
+	register char *p;
 
-	while ((p = strtok(t, "\n\t ")) != NULL)
+	while ((p = strtok(t, "\n\t ")))
 		ip->flags &= ~parsekey(p, NULL);
 }

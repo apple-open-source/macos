@@ -285,7 +285,7 @@ int unlink( char *f ); 	/* In filevms.c */
 # define MAXJOBS 64	/* silently enforce -j limit */
 # define MAXARGC 32	/* words in $(JAMSHELL) */
 
-# define CMDBUF 10240	/* size of command blocks */
+# define CMDBUF (10240 * 2)	/* size of command blocks */
 
 /* Jam private definitions below. */
 
@@ -296,6 +296,7 @@ struct globs {
 	int	jobs;
 	int	ignore;	/* continue after errors */
 #ifdef APPLE_EXTENSIONS
+	int	apple_jam_extensions;
 	int	parsable_output;
 	const char ** cmdline_defines;
 #endif
@@ -305,6 +306,7 @@ struct globs {
 extern struct globs globs;
 
 #ifdef APPLE_EXTENSIONS
+# define APPLE_JAM_EXTENSIONS ( globs.apple_jam_extensions )    /* should we enable Apple's Jam syntax extensions? */
 # define PARSABLE_OUTPUT ( globs.parsable_output )    /* should we annotate our output to make parsing easier? */
 #endif
 

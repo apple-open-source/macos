@@ -21,8 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <architecture/byte_order.h>
-#import <mach/ppc/thread_status.h>
+#include <architecture/byte_order.h>
+#include <mach/ppc/thread_status.h>
 
 extern void swap_ppc_thread_state_t(
     ppc_thread_state_t *cpu,

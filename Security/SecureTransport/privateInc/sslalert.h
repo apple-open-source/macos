@@ -63,15 +63,28 @@ typedef enum
 {   alert_close_notify = 0,
     alert_unexpected_message = 10,
     alert_bad_record_mac = 20,
+	alert_decryption_failed = 21,		/* TLS */
+	alert_record_overflow = 22,			/* TLS */
     alert_decompression_failure = 30,
     alert_handshake_failure = 40,
     alert_no_certificate = 41,
-    alert_bad_certificate = 42,
+    alert_bad_certificate = 42,			/* SSLv3 only */
     alert_unsupported_certificate = 43,
     alert_certificate_revoked = 44,
     alert_certificate_expired = 45,
     alert_certificate_unknown = 46,
-    alert_illegal_parameter = 47
+    alert_illegal_parameter = 47,
+	/* remainder are TLS addenda */
+	alert_unknown_ca = 48,
+	alert_access_denied = 49,
+	alert_decode_error = 50,
+	alert_decrypt_error = 51,
+	alert_export_restriction = 60,
+	alert_protocol_version = 70,
+	alert_insufficient_security = 71,
+	alert_internal_error = 80,
+	alert_user_canceled = 90,
+	alert_no_renegotiation = 100
 } AlertDescription;
 
 SSLErr SSLProcessAlert(SSLRecord rec, SSLContext *ctx);

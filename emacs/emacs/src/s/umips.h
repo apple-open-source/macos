@@ -36,7 +36,7 @@
 #undef static
 
 /* Don't try to use SIGIO or FIONREAD even though they are defined.  */
-#undef SIGIO
+#define BROKEN_SIGIO
 #define BROKEN_FIONREAD
 
 /* Describe special kernel features.  */
@@ -52,8 +52,6 @@
 #define BROKEN_SELECT
 
 #define HAVE_DUP2
-#define HAVE_GETWD
-#define HAVE_GETTIMEOFDAY
 
 #define HAVE_PTYS
 #define HAVE_SOCKETS
@@ -62,10 +60,6 @@
 #undef NOMULTIPLEJOBS
 
 #define CLASH_DETECTION
-
-#if defined(HAVE_X_WINDOWS) && defined(HAVE_X11)
-#define HAVE_VFORK		/* Graciously provided by libX.a */
-#endif
 
 #define utimes utime  /* Someone should check this.  */
 /* ??? */

@@ -1,27 +1,29 @@
 /**
  * StartupDisplay.c - Show Boot Status via the console
- * Wilfredo Sanchez | wsanchez@opensource.apple.com
+ * Wilfredo Sanchez  | wsanchez@opensource.apple.com
+ * Kevin Van Vechten | kevinvv@uclink4.berkeley.edu
  * $Apple$
  **
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  **
@@ -32,6 +34,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <time.h>
 #include <mach-o/dyld.h>
@@ -50,7 +53,9 @@ typedef struct _Text_DisplayContext {
  */
 static void* (*fInitDisplayContext)(void) = NULL;
 static void  (*fFreeDisplayContext)(DisplayContext) = NULL;
-static int   (*fDisplayStatus     )(DisplayContext, CFStringRef, float) = NULL;
+static int   (*fDisplayStatus     )(DisplayContext, CFStringRef) = NULL;
+static int   (*fDisplayProgress   )(DisplayContext, float      ) = NULL;
+static int   (*fDisplaySafeBootMsg)(DisplayContext, CFStringRef) = NULL;
 
 #define _StartupDisplay_C_
 #include "StartupDisplay.h"
@@ -64,60 +69,74 @@ static int   (*fDisplayStatus     )(DisplayContext, CFStringRef, float) = NULL;
  * we use them instead of the text drawing code.
  * The first plugin in the list to load is used.
  */
-static void autoLoadDisplayPlugIn()
+void LoadDisplayPlugIn(CFStringRef aPath)
 {
-    /* It would be swell if I could just use CFPlugIn */
+  /* It would be swell if I could just use CFPlugIn */
 
-    /* FIXME: This list should be in a plist. */
-    char* aPluginList[] = { "QuartzDisplay", "X11Display", NULL };
-    char* aPlugin;
-    int   aPluginIndex;
+    NSModule          aModule = NULL;
+    NSObjectFileImage anImage;
 
-    for (aPluginIndex = 0; (aPlugin = aPluginList[aPluginIndex]); aPluginIndex++)
-    {
-        NSModule          aModule = NULL;
-        NSObjectFileImage anImage;
+    CFIndex aPathLength = CFStringGetLength(aPath);
+    CFIndex aPathSize   = CFStringGetMaximumSizeForEncoding(aPathLength, kCFStringEncodingUTF8) + 1; /* aPath + null */
+    char*   aBundlePath = (char*)malloc(aPathSize);
 
-        char* aBundlePath = (char*)malloc(strlen(kBundleDirectory) + 1 + /* Path to bundle dir   */
-                                          (strlen(aPlugin)*2)          + /* <name>.bundle/<name> */
-					  strlen(kBundleExtension) + 2); /* .bundle/ + null      */
+    CFStringGetCString(aPath, aBundlePath, aPathSize, kCFStringEncodingUTF8);
 
-        sprintf(aBundlePath, "%s/%s.%s/%s", kBundleDirectory, aPlugin, kBundleExtension, aPlugin);
 
-        debug(CFSTR("Trying plugin %s..."), aBundlePath);
+    if (gDebugFlag) debug(CFSTR("Trying plugin %s..."), aBundlePath);
 
-        if (NSCreateObjectFileImageFromFile(aBundlePath, &anImage) != NSObjectFileImageSuccess ||
+    if (NSCreateObjectFileImageFromFile(aBundlePath, &anImage) != NSObjectFileImageSuccess ||
             !(aModule = NSLinkModule(anImage, "Display", NSLINKMODULE_OPTION_PRIVATE        |
                                                          NSLINKMODULE_OPTION_RETURN_ON_ERROR)))
-            debug(CFSTR("failed\n"));
+      {
+        debug(CFSTR("failed\n"));
+      }
+    else
+      {
+        getSymbol("__initDisplayContext", fInitDisplayContext);
+        getSymbol("__freeDisplayContext", fFreeDisplayContext);
+        getSymbol("__displayStatus"     , fDisplayStatus     );
+        getSymbol("__displayProgress"   , fDisplayProgress   );
+        getSymbol("__displaySafeBootMsg" , fDisplaySafeBootMsg);
+
+        if (fInitDisplayContext &&
+            fFreeDisplayContext &&
+            fDisplayStatus      &&
+            fDisplayProgress    &&
+            fDisplaySafeBootMsg )
+          {
+            if (gDebugFlag) debug(CFSTR("loaded\n"));
+          }
         else
-        {
-            getSymbol("__initDisplayContext", fInitDisplayContext);
-            getSymbol("__freeDisplayContext", fFreeDisplayContext);
-            getSymbol("__displayStatus"     , fDisplayStatus     );
+          {
+            debug(CFSTR("failed to lookup symbols\n"));
+            error(CFSTR("Load failure for possibly damaged plugin %s.\n"), aBundlePath);
 
-            if (fInitDisplayContext &&
-                fFreeDisplayContext &&
-                fDisplayStatus      )
-            {
-                debug(CFSTR("loaded\n"));
-                break;
-            }
-            else
-            {
-                debug(CFSTR("failed to lookup symbols\n"));
-                error(CFSTR("Load failure for possibly damaged plugin %s.\n"), aBundlePath);
+            if (!NSUnLinkModule(aModule, NSUNLINKMODULE_OPTION_NONE))
+              {
+                error(CFSTR("Failed to unload symbols for busted plugin.\n"));
+              }
 
-                if (!NSUnLinkModule(aModule, NSUNLINKMODULE_OPTION_NONE))
-                    error(CFSTR("Failed to unload symbols for busted plugin.\n"));
-
-                /* Make sure we aren't partly initialized. */
-                fInitDisplayContext = NULL;
-                fFreeDisplayContext = NULL;
-                fDisplayStatus      = NULL;
-            }
-        }
+            /* Make sure we aren't partly initialized. */
+            fInitDisplayContext = NULL;
+            fFreeDisplayContext = NULL;
+            fDisplayStatus      = NULL;
+            fDisplayProgress    = NULL;
+            fDisplaySafeBootMsg = NULL;
+          }
     }
+}
+
+/*
+ * Unload the current display bundle.
+ */
+void UnloadDisplayPlugIn()
+{
+    fInitDisplayContext = NULL;
+    fFreeDisplayContext = NULL;
+    fDisplayStatus      = NULL;
+    fDisplayProgress    = NULL;
+    fDisplaySafeBootMsg = NULL;
 }
 
 /*
@@ -127,37 +146,60 @@ static void autoLoadDisplayPlugIn()
 
 DisplayContext initDisplayContext()
 {
-    autoLoadDisplayPlugIn();
+  if (fInitDisplayContext) return fInitDisplayContext();
 
-    if (fInitDisplayContext) return fInitDisplayContext();
+  {
+    DisplayContext aContext = (DisplayContext)malloc(sizeof(struct _Text_DisplayContext));
 
-    {
-        DisplayContext aContext = (DisplayContext)malloc(sizeof(struct _Text_DisplayContext));
-
-        return(aContext);
-    }
+    return(aContext);
+  }
 }
 
 void freeDisplayContext (DisplayContext aContext)
 {
-    if (fFreeDisplayContext) return fFreeDisplayContext(aContext);
+  if (fFreeDisplayContext) return fFreeDisplayContext(aContext);
 
-    if (aContext) free(aContext);
+  if (aContext)
+    {
+      free(aContext);
+    }
 }
 
-int displayStatus (DisplayContext aDisplayContext,
-                   CFStringRef aMessage, float aPercentage)
+int displayStatus (DisplayContext aDisplayContext, CFStringRef aMessage)
 {
-    if (fDisplayStatus) return fDisplayStatus(aDisplayContext, aMessage, aPercentage);
+  if (fDisplayStatus) return fDisplayStatus(aDisplayContext, aMessage);
 
-    /**
-     * Draw text.
-     **/
-    if (aMessage)
-      {
-	message(CFSTR("%@\n"), aMessage);
+  /**
+   * Draw text.
+   **/
+  if (aMessage)
+    {
+      message(CFSTR("%@\n"), aMessage);
 
-	return(0);
-      }
-    return(1);
+      return(0);
+    }
+  return(1);
 }
+
+int displayProgress (DisplayContext aDisplayContext, float aPercentage)
+{
+    if (fDisplayProgress) return fDisplayProgress(aDisplayContext, aPercentage);
+    return(0);
+}
+
+int displaySafeBootMsg (DisplayContext aDisplayContext, CFStringRef aMessage)
+{
+  if (fDisplaySafeBootMsg) return fDisplaySafeBootMsg(aDisplayContext, aMessage);
+
+  /**
+   * Draw text.
+   **/
+  if (aMessage)
+    {
+      message(CFSTR("%@\n"), aMessage);
+
+      return(0);
+    }
+  return(1);
+}
+

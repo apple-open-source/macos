@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,6 +30,7 @@
  * - initial revision
  */
 
+#include <stdlib.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
@@ -67,8 +68,9 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	(void) pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldThreadState);
 
 	/* Remove notification keys */
-	if ((keyCnt = CFSetGetCount(storePrivate->keys)) > 0) {
-		void		**watchedKeys;
+	keyCnt = CFSetGetCount(storePrivate->keys);
+	if (keyCnt > 0) {
+		const void	**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex	i;
 
@@ -85,8 +87,9 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	}
 
 	/* Remove regex notification keys */
-	if ((keyCnt = CFSetGetCount(storePrivate->reKeys)) > 0) {
-		void		**watchedKeys;
+	keyCnt = CFSetGetCount(storePrivate->reKeys);
+	if (keyCnt > 0) {
+		const void	**watchedKeys;
 		CFArrayRef	keysToRemove;
 		CFIndex	i;
 
@@ -141,10 +144,10 @@ static CFTypeID __kSCDynamicStoreTypeID = _kCFRuntimeNotATypeID;
 
 static const CFRuntimeClass __SCDynamicStoreClass = {
 	0,				// version
-	"SCDynamicStore",			// className
+	"SCDynamicStore",		// className
 	NULL,				// init
 	NULL,				// copy
-	__SCDynamicStoreDeallocate,		// dealloc
+	__SCDynamicStoreDeallocate,	// dealloc
 	NULL,				// equal
 	NULL,				// hash
 	NULL,				// copyFormattingDesc
@@ -246,6 +249,7 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 	kern_return_t			status;
 	mach_port_t			bootstrap_port;
 	mach_port_t			server;
+	char				*server_name;
 	CFDataRef			xmlName;		/* serialized name */
 	xmlData_t			myNameRef;
 	CFIndex				myNameLen;
@@ -268,7 +272,12 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 		return NULL;
 	}
 
-	status = bootstrap_look_up(bootstrap_port, SCD_SERVER, &server);
+	server_name = getenv("SCD_SERVER");
+	if (!server_name) {
+		server_name = SCD_SERVER;
+	}
+
+	status = bootstrap_look_up(bootstrap_port, server_name, &server);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service currently registered, "a good thing" (tm) */
@@ -289,9 +298,10 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 	}
 
 	/* serialize the name */
-	xmlName = CFPropertyListCreateXMLData(NULL, name);
-	myNameRef = (xmlData_t)CFDataGetBytePtr(xmlName);
-	myNameLen = CFDataGetLength(xmlName);
+	if (!_SCSerialize(name, &xmlName, (void **)&myNameRef, &myNameLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
 	/* open a new session with the server */
 	status = configopen(server, myNameRef, myNameLen, &storePrivate->server, (int *)&sc_status);

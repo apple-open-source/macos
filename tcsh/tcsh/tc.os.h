@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.os.h,v 1.1.1.3 2001/06/28 23:10:54 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tc.os.h,v 1.1.1.3 2001/06/28 23:10:54 bbraun Exp $ */
 /*
  * tc.os.h: Shell os dependent defines
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -197,7 +197,8 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 			/* synchronize this sessions prefs/signature */
 			newPrivate = (SCPreferencesPrivateRef)newPrefs;
 			CFRelease(sessionPrivate->prefs);
-			sessionPrivate->prefs = CFRetain(newPrivate->prefs);
+			sessionPrivate->prefs = newPrivate->prefs;
+			CFRetain(sessionPrivate->prefs);
 			CFRelease(sessionPrivate->signature);
 			sessionPrivate->signature = CFRetain(newPrivate->signature);
 			CFRelease(newPrefs);

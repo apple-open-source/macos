@@ -29,13 +29,14 @@
 #include <mach/mach.h>
 #include <stdio.h>
 #include <string.h>
-#include "lookup.h"
 #include <rpc/types.h>
 #include <rpc/xdr.h>
-#include "_lu_types.h"
 #include <netdb.h>
+#include <netinet/in.h>
+
+#include "_lu_types.h"
+#include "lookup.h"
 #include "lu_utils.h"
-#import <netinet/in.h>
 
 extern struct protoent *_old_getprotobynumber();
 extern struct protoent *_old_getprotobyname();
@@ -43,260 +44,457 @@ extern struct protoent *_old_getprotoent();
 extern void _old_setprotoent();
 extern void _old_endprotoent();
 
-static lookup_state p_state = LOOKUP_CACHE;
-static struct protoent global_p;
-static int global_free = 1;
-static char *p_data = NULL;
-static unsigned p_datalen;
-static int p_nentries;
-static int p_start;
-static XDR p_xdr;
+#define PROTO_GET_NAME 1
+#define PROTO_GET_NUM 2
+#define PROTO_GET_ENT 3
 
 static void
-freeold(void)
+free_protocol_data(struct protoent *p)
 {
 	char **aliases;
 
-	if (global_free == 1) return;
+	if (p == NULL) return;
 
-	free(global_p.p_name);
-	aliases = global_p.p_aliases;
+	if (p->p_name != NULL) free(p->p_name);
+	aliases = p->p_aliases;
 	if (aliases != NULL)
 	{
 		while (*aliases != NULL) free(*aliases++);
-		free(global_p.p_aliases);
+		free(p->p_aliases);
 	}
-
-	global_free = 1;
 }
 
 static void
-convert_p(_lu_protoent *lu_p)
+free_protocol(struct protoent *p)
 {
-	int i, len;
+	if (p == NULL) return;
+	free_protocol_data(p);
+	free(p);
+}
 
-	freeold();
+static void
+free_lu_thread_info_protocol(void *x)
+{
+	struct lu_thread_info *tdata;
 
-	global_p.p_name = strdup(lu_p->p_names.p_names_val[0]);
+	if (x == NULL) return;
 
-	len = lu_p->p_names.p_names_len - 1;
-	global_p.p_aliases = (char **)malloc((len + 1) * sizeof(char *));
-
-	for (i = 0; i < len; i++)
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
 	{
-		global_p.p_aliases[i] = strdup(lu_p->p_names.p_names_val[i+1]);
+		free_protocol((struct protoent *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
 	}
 
-	global_p.p_aliases[len] = NULL;
+	_lu_data_free_vm_xdr(tdata);
 
-	global_p.p_proto = lu_p->p_proto;
+	free(tdata);
+}
 
-	global_free = 0;
+static struct protoent *
+extract_protocol(XDR *xdr)
+{
+	struct protoent *p;
+	int i, j, nvals, nkeys, status;
+	char *key, **vals;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	p = (struct protoent *)calloc(1, sizeof(struct protoent));
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_protocol(p);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((p->p_name == NULL) && (!strcmp("name", key)))
+		{
+			p->p_name = vals[0];
+			if (nvals > 1)
+			{
+				p->p_aliases = (char **)calloc(nvals, sizeof(char *));
+				for (j = 1; j < nvals; j++) p->p_aliases[j-1] = vals[j];
+			}
+			j = nvals;
+		}
+		else if (!strcmp("number", key))
+		{
+			p->p_proto = atoi(vals[0]);
+		}
+
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (p->p_name == NULL) p->p_name = strdup("");
+	if (p->p_aliases == NULL) p->p_aliases = (char **)calloc(1, sizeof(char *));
+
+	return p;
+}
+
+static struct protoent *
+copy_protocol(struct protoent *in)
+{
+	int i, len;
+	struct protoent *p;
+
+	if (in == NULL) return NULL;
+
+	p = (struct protoent *)calloc(1, sizeof(struct protoent));
+
+	p->p_proto = in->p_proto;
+	p->p_name = LU_COPY_STRING(in->p_name);
+
+	len = 0;
+	if (in->p_aliases != NULL)
+	{
+		for (len = 0; in->p_aliases[len] != NULL; len++);
+	}
+
+	p->p_aliases = (char **)calloc(len + 1, sizeof(char *));
+	for (i = 0; i < len; i++)
+	{
+		p->p_aliases[i] = strdup(in->p_aliases[i]);
+	}
+
+	return p;
+}
+
+static void
+recycle_protocol(struct lu_thread_info *tdata, struct protoent *in)
+{
+	struct protoent *p;
+
+	if (tdata == NULL) return;
+	p = (struct protoent *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_protocol(p);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_protocol_data(p);
+
+	p->p_proto = in->p_proto;
+	p->p_name = in->p_name;
+	p->p_aliases = in->p_aliases;
+
+	free(in);
 }
 
 static struct protoent *
 lu_getprotobynumber(long number)
 {
-	unsigned datalen;
-	_lu_protoent_ptr lu_p;
-	XDR xdr;
+	struct protoent *p;
+	unsigned int datalen;
+	XDR inxdr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
-	
+	char *lookup_buf;
+	int count;
+
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getprotobynumber", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	number = htonl(number);
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)&number, 1, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)&number, 1, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
-		return (NULL);
+		return NULL;
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&xdr, lookup_buf, datalen,
-		      XDR_DECODE);
-	lu_p = NULL;
-	if (!xdr__lu_protoent_ptr(&xdr, &lu_p) || (lu_p == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
-		xdr_destroy(&xdr);
-		return (NULL);
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&xdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_p(lu_p);
-	xdr_free(xdr__lu_protoent_ptr, &lu_p);
-	return (&global_p);
+	p = extract_protocol(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return p;
 }
 
 static struct protoent *
 lu_getprotobyname(const char *name)
 {
-	unsigned datalen;
+	struct protoent *p;
+	unsigned int datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	XDR inxdr;
-	_lu_protoent_ptr lu_p;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
+	int count;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getprotobyname", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
+		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
-	lu_p = NULL;
-	if (!xdr__lu_protoent_ptr(&inxdr, &lu_p) || (lu_p == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&inxdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_p(lu_p);
-	xdr_free(xdr__lu_protoent_ptr, &lu_p);
-	return (&global_p);
+	p = extract_protocol(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return p;
 }
 
 static void
 lu_endprotoent()
 {
-	p_nentries = 0;
-	if (p_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)p_data, p_datalen);
-		p_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_service, free_lu_thread_info_protocol);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static void
 lu_setprotoent()
 {
 	lu_endprotoent();
-	p_start = 1;
 }
+
 
 static struct protoent *
 lu_getprotoent()
 {
+	struct protoent *p;
 	static int proc = -1;
-	_lu_protoent lu_p;
+	struct lu_thread_info *tdata;
 
-	if (p_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_protocol, free_lu_thread_info_protocol);
+	if (tdata == NULL)
 	{
-		p_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_protocol, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
 			if (_lookup_link(_lu_port, "getprotoent", &proc) != KERN_SUCCESS)
 			{
 				lu_endprotoent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &p_data, &p_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endprotoent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF 
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */  
-		p_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-		xdrmem_create(&p_xdr, p_data, p_datalen,
-			XDR_DECODE);
-		if (!xdr_int(&p_xdr, &p_nentries))
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
+
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&p_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_endprotoent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (p_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&p_xdr);
 		lu_endprotoent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_p, sizeof(lu_p));
-	if (!xdr__lu_protoent(&p_xdr, &lu_p))
+	p = extract_protocol(tdata->lu_xdr);
+	if (p == NULL)
 	{
-		xdr_destroy(&p_xdr);
 		lu_endprotoent();
-		return (NULL);
+		return NULL;
 	}
 
-	p_nentries--;
-	convert_p(&lu_p);
-	xdr_free(xdr__lu_protoent, &lu_p);
-	return (&global_p);
+	tdata->lu_vm_cursor--;
+	
+	return p;
 }
 
-struct protoent *
-getprotobynumber(int number)
+static struct protoent *
+getproto(const char *name, int number, int source)
 {
-	LOOKUP1(lu_getprotobynumber, _old_getprotobynumber, number,
-		struct protoent);
+	struct protoent *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_protocol, free_lu_thread_info_protocol);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_protocol, tdata);
+	}
+
+	if (_lu_running())
+	{
+		switch (source)
+		{
+			case PROTO_GET_NAME:
+				res = lu_getprotobyname(name);
+				break;
+			case PROTO_GET_NUM:
+				res = lu_getprotobynumber(number);
+				break;
+			case PROTO_GET_ENT:
+				res = lu_getprotoent();
+				break;
+			default: res = NULL;
+		}
+	}
+	else
+	{
+		switch (source)
+		{
+			case PROTO_GET_NAME:
+				res = copy_protocol(_old_getprotobyname(name));
+				break;
+			case PROTO_GET_NUM:
+				res = copy_protocol(_old_getprotobynumber(number));
+				break;
+			case PROTO_GET_ENT:
+				res = copy_protocol(_old_getprotoent());
+				break;
+			default: res = NULL;
+		}
+	}
+
+	recycle_protocol(tdata, res);
+	return (struct protoent *)tdata->lu_entry;
 }
 
 struct protoent *
 getprotobyname(const char *name)
 {
-	LOOKUP1(lu_getprotobyname, _old_getprotobyname,  name, struct protoent);
+	return getproto(name, -2, PROTO_GET_NAME);
+}
+
+struct protoent *
+getprotobynumber(int number)
+{
+	return getproto(NULL, number, PROTO_GET_NUM);
 }
 
 struct protoent *
 getprotoent(void)
 {
-	GETENT(lu_getprotoent, _old_getprotoent, &p_state, struct protoent);
+	return getproto(NULL, -2, PROTO_GET_ENT);
 }
 
 void
 setprotoent(int stayopen)
 {
-	SETSTATE(lu_setprotoent, _old_setprotoent, &p_state, stayopen);
+	if (_lu_running()) lu_setprotoent();
+	else _old_setprotoent(stayopen);
 }
 
 void
 endprotoent(void)
 {
-	UNSETSTATE(lu_endprotoent, _old_endprotoent, &p_state);
+	if (_lu_running()) lu_endprotoent();
+	else _old_endprotoent();
 }

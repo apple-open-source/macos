@@ -14,8 +14,7 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = IORegistryExplorer
 
-TOOLS = ioreg.tproj ioclasscount.tproj ioalloccount.tproj\
-        mkextcache.tproj
+TOOLS = ioreg.tproj ioclasscount.tproj ioalloccount.tproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

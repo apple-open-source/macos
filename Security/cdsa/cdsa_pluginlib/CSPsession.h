@@ -93,9 +93,10 @@ private:
 // to explain here; refer to the accompanying documentation.
 //
 class CSPFullPluginSession : public CSPPluginSession {
+public:
     class CSPContext;
     class AlgorithmFactory;
-public:
+
     CSPFullPluginSession(CSSM_MODULE_HANDLE theHandle,
                     CssmPlugin &plug,
                     const CSSM_VERSION &version,

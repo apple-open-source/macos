@@ -30,6 +30,11 @@
 class IOHIDDevice;
 class IOHIDEventQueue;
 
+enum {
+    kIOHIDTransactionStateIdle,
+    kIOHIDTransactionStatePending,
+};
+
 //===========================================================================
 // An object that describes a single HID element.
     
@@ -50,40 +55,59 @@ protected:
     UInt32               _flags;
 
     UInt32               _reportSize;
+    UInt32		 _reportCount;
     UInt32               _reportStartBit;
     UInt32               _reportBits;
     UInt8                _reportID;
     UInt8                _reportType;
 
-    UInt16               _usagePage;
-    UInt16               _usageMin;
-    UInt16               _usageMax;
-    UInt16               _arrayIndex;
+    UInt32               _usagePage;
+    UInt32               _usageMin;
+    UInt32               _usageMax;
+    UInt32               _rangeIndex;
 
     UInt32               _logicalMin;
     UInt32               _logicalMax;
     UInt32               _physicalMin;
     UInt32               _physicalMax;
+    
+    UInt32               _unitExponent;
+    UInt32               _units;
+
+    UInt32               _transactionState;
+    
+    IOHIDElement *	 _arrayReportHandler;
+    OSDictionary *       _colArrayReportHandlers;
+    OSArray *       	 _arrayItems;
+    UInt32 *		 _oldArraySelectors;
+    
+    
 
     virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
 
     virtual void free();
 
-    virtual IOHIDElement * newSubElement( UInt16 arrayIndex ) const;
+    virtual IOHIDElement * newSubElement( UInt16 rangeIndex ) const;
 
     virtual bool createSubElements();
-
+    
+    static IOHIDElement * arrayHandlerElement(                                
+                                IOHIDDevice *    owner,
+                                IOHIDElementType type,
+                                IOHIDElement * child,
+                                IOHIDElement * parent);
+        
 public:
     static IOHIDElement * buttonElement(
                                 IOHIDDevice *    owner,
                                 IOHIDElementType type,
-                                HIDButtonCapsPtr button,
+                                HIDButtonCapabilitiesPtr button,
                                 IOHIDElement *   parent = 0 );
 
     static IOHIDElement * valueElement(
                                 IOHIDDevice *    owner,
                                 IOHIDElementType type,
-                                HIDValueCapsPtr  value,
+                                HIDValueCapabilitiesPtr  value,
                                 IOHIDElement *   parent = 0 );
     
     static IOHIDElement * collectionElement(
@@ -103,9 +127,15 @@ public:
                                 IOHIDElement **      next );
 
     virtual bool createReport( UInt8           reportID,
-                               void **         reportData,
+                               void *		reportData, // report should be allocated outside this method
                                UInt32 *        reportLength,
                                IOHIDElement ** next );
+                               
+    virtual void processArrayReport(void * reportData);
+    
+    virtual void createArrayReport(void * reportData);
+    
+    virtual void setArrayElementValue(UInt32 index, UInt32 value);
 
     virtual bool setMemoryForElementValue( IOVirtualAddress address,
                                            void *           location );
@@ -114,7 +144,7 @@ public:
 
     virtual UInt32 getElementValueSize() const;
 
-    virtual UInt32 getArrayCount() const;
+    virtual UInt32 getRangeCount() const;
 
     virtual bool getReportType( IOHIDReportType * reportType ) const;
 
@@ -142,8 +172,19 @@ public:
     inline IOHIDElementType getElementType() const
     { return _type; }
 
-    inline UInt32 getArrayIndex() const
-    { return _arrayIndex; }
+    inline UInt32 getRangeIndex() const
+    { return _rangeIndex; }
+    
+    inline UInt32 getReportSize() const
+    { return _reportSize; }
+    
+    inline void setTransactionState(UInt32 state)
+    { _transactionState = state;}
+    
+    inline UInt32 getTransactionState() const
+    { return _transactionState; }
+    
+    virtual void setOutOfBoundsValue();
 };
 
 #endif /* !_IOKIT_HID_IOHIDELEMENT_H */

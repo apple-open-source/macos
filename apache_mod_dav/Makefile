@@ -10,6 +10,7 @@ ProjectName	      = apache_mod_dav
 UserType              = Administrator
 ToolType              = Services
 Extra_Configure_Flags = --with-apxs
+Extra_CC_Flags        = -I.
 Extra_Install_Flags   = INSTALL_ROOT="$(DSTROOT)"
 GnuAfterInstall       = strip
 

@@ -4,9 +4,9 @@
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/22 02:27:13 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -32,12 +32,13 @@ BEGIN {
 
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::APIOwner;
-@ISA = qw( HeaderDoc::APIOwner );
 
 use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
 
+# Inheritance
+@ISA = qw( HeaderDoc::APIOwner );
 ################ Portability ###################################
 my $isMacOS;
 my $pathSeparator;
@@ -53,12 +54,6 @@ my $debugging = 0;
 my $tracing = 0;
 my $outputExtension = ".html";
 my $tocFrameName = "toc.html";
-my $theTime = time();
-my ($sec, $min, $hour, $dom, $moy, $year, @rest);
-($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
-$moy++;
-$year += 1900;
-my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
 sub new {
@@ -67,16 +62,24 @@ sub new {
     my $self = {};
     
     bless($self, $class);
-    $self->SUPER::_initialize();
     $self->_initialize();
     return($self);
 }
 
 sub _initialize {
     my($self) = shift;
-    $self->{CLASSES} = [];
+
+    $self->SUPER::_initialize();
+
+    $self->{CLASSES} = ();
     $self->{CLASSESDIR} = undef;
+    $self->{CATEGORIES}= ();
+    $self->{CATEGORIESDIR} = undef;
+    $self->{PROTOCOLS}= ();
+    $self->{PROTOCOLSDIR} = undef;
     $self->{CURRENTCLASS} = undef;
+    
+    $self->tocTitlePrefix('Header:');
 }
 
 sub outputDir {
@@ -87,6 +90,8 @@ sub outputDir {
         $self->SUPER::outputDir($rootOutputDir);
         $self->{OUTPUTDIR} = $rootOutputDir;
 	    $self->classesDir("$rootOutputDir$pathSeparator"."Classes");
+	    $self->protocolsDir("$rootOutputDir$pathSeparator"."Protocols");
+	    $self->categoriesDir("$rootOutputDir$pathSeparator"."Categories");
     }
     return $self->{OUTPUTDIR};
 }
@@ -106,7 +111,7 @@ sub classes {
     if (@_) {
         @{ $self->{CLASSES} } = @_;
     }
-    return @{ $self->{CLASSES} };
+    ($self->{CLASSES}) ? return @{ $self->{CLASSES} } : return ();
 }
 
 sub currentClass {
@@ -130,9 +135,96 @@ sub addToClasses {
     return @{ $self->{CLASSES} };
 }
 
+sub protocolsDir {
+    my $self = shift;
+
+    if (@_) {
+        $self->{PROTOCOLSDIR} = shift;
+    }
+    return $self->{PROTOCOLSDIR};
+}
+
+sub protocols {
+    my $self = shift;
+    
+    if (@_) {
+        @{ $self->{PROTOCOLS} } = @_;
+    }
+    ($self->{PROTOCOLS}) ? return @{ $self->{PROTOCOLS} } : return ();
+}
+
+sub addToProtocols {
+    my $self = shift;
+
+    if (@_) {
+        foreach my $item (@_) {
+            push (@{ $self->{PROTOCOLS} }, $item);
+        }
+    }
+    return @{ $self->{PROTOCOLS} };
+}
+
+sub categoriesDir {
+    my $self = shift;
+
+    if (@_) {
+        $self->{CATEGORIESDIR} = shift;
+    }
+    return $self->{CATEGORIESDIR};
+}
+
+sub categories {
+    my $self = shift;
+
+    if (@_) {
+        @{ $self->{CATEGORIES} } = @_;
+    }
+    ($self->{CATEGORIES}) ? return @{ $self->{CATEGORIES} } : return ();
+}
+
+sub addToCategories {
+    my $self = shift;
+
+    if (@_) {
+        foreach my $item (@_) {
+            push (@{ $self->{CATEGORIES} }, $item);
+        }
+    }
+    return @{ $self->{CATEGORIES} };
+}
+
+# removes a maximum of one object per invocation
+# we remove a catagory if we've been successful finding 
+# the associated class and adding the category methods to it.
+sub removeFromCategories {
+    my $self = shift;
+    my $objToRemove = shift;
+    my $nameOfObjToRemove = $objToRemove->name();
+    my @tempArray;
+    my @categories = $self->categories();
+    my $localDebug = 0;
+    
+    if (!@categories) {return;};
+
+	foreach my $obj (@categories) {
+	    if (ref($obj) eq "HeaderDoc::ObjCCategory") { 
+			my $fullName = $obj->name();
+			if ($fullName ne $nameOfObjToRemove) {
+				push (@tempArray, $obj);
+			} else {
+				print "Removing $fullName from Header object.\n" if ($localDebug);
+			}
+		}
+	}
+	# we set it directly since the accessor will not allow us to set an empty array
+	@{ $self->{CATEGORIES} } = @tempArray;
+}
+
 sub writeHeaderElements {
     my $self = shift;
     my $classesDir = $self->classesDir();
+    my $protocolsDir = $self->protocolsDir();
+    my $categoriesDir = $self->categoriesDir();
 
     $self->SUPER::writeHeaderElements();
     if ($self->classes()) {
@@ -141,15 +233,39 @@ sub writeHeaderElements {
 	    }
 	    $self->writeClasses();
     }
+    if ($self->protocols()) {
+		if (! -e $protocolsDir) {
+			unless (mkdir ("$protocolsDir", 0777)) {die ("Can't create output folder $protocolsDir. \n$!\n");};
+	    }
+	    $self->writeProtocols();
+    }
+    if ($self->categories()) {
+		if (! -e $categoriesDir) {
+			unless (mkdir ("$categoriesDir", 0777)) {die ("Can't create output folder $categoriesDir. \n$!\n");};
+	    }
+	    $self->writeCategories();
+    }
 }
 
 sub writeHeaderElementsToCompositePage {
     my $self = shift;
     my @classObjs = $self->classes();
+    my @protocolObjs = $self->protocols();
+    my @categoryObjs = $self->categories();
 
     $self->SUPER::writeHeaderElementsToCompositePage();
     if ($self->classes()) {
 	    foreach my $obj (@classObjs) {
+		    $obj->writeHeaderElementsToCompositePage(); 
+	    }
+    }
+    if ($self->protocols()) {
+	    foreach my $obj (@protocolObjs) {
+		    $obj->writeHeaderElementsToCompositePage(); 
+	    }
+    }
+    if ($self->categories()) {
+	    foreach my $obj (@categoryObjs) {
 		    $obj->writeHeaderElementsToCompositePage(); 
 	    }
     }
@@ -163,8 +279,42 @@ sub writeClasses {
     foreach my $obj (sort objName @classObjs) {
         my $className = $obj->name();
         # for now, always shorten long names since some files may be moved to a Mac for browsing
-        if (1 || $isMacOS) {$className = &safeName($className);};
+        if (1 || $isMacOS) {$className = &safeName(filename => $className);};
         $obj->outputDir("$classRootDir$pathSeparator$className");
+        $obj->createFramesetFile();
+        $obj->createContentFile();
+        $obj->createTOCFile();
+        $obj->writeHeaderElements(); 
+    }
+}
+
+sub writeProtocols {
+    my $self = shift;
+    my @protocolObjs = $self->protocols();
+    my $protocolsRootDir = $self->protocolsDir();
+        
+    foreach my $obj (sort objName @protocolObjs) {
+        my $protocolName = $obj->name();
+        # for now, always shorten long names since some files may be moved to a Mac for browsing
+        if (1 || $isMacOS) {$protocolName = &safeName(filename => $protocolName);};
+        $obj->outputDir("$protocolsRootDir$pathSeparator$protocolName");
+        $obj->createFramesetFile();
+        $obj->createContentFile();
+        $obj->createTOCFile();
+        $obj->writeHeaderElements(); 
+    }
+}
+
+sub writeCategories {
+    my $self = shift;
+    my @categoryObjs = $self->categories();
+    my $categoriesRootDir = $self->categoriesDir();
+        
+    foreach my $obj (sort objName @categoryObjs) {
+        my $categoryName = $obj->name();
+        # for now, always shorten long names since some files may be moved to a Mac for browsing
+        if (1 || $isMacOS) {$categoryName = &safeName(filename => $categoryName);};
+        $obj->outputDir("$categoriesRootDir$pathSeparator$categoryName");
         $obj->createFramesetFile();
         $obj->createContentFile();
         $obj->createTOCFile();
@@ -175,6 +325,7 @@ sub writeClasses {
 sub createTOCFile {
     my $self = shift;
     my $rootDir = $self->outputDir();
+    my $tocTitlePrefix = $self->tocTitlePrefix();
     my $outputFileName = "toc.html";    
     my $outputFile = "$rootDir$pathSeparator$outputFileName";    
     my $fileString = $self->tocString();    
@@ -182,10 +333,10 @@ sub createTOCFile {
 
 	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
-	print OUTFILE "<html><head><title>Draft Documentation for $filename</title></head>\n";
+	print OUTFILE "<html><head><title>Documentation for $filename</title></head>\n";
 	print OUTFILE "<body bgcolor=\"#cccccc\">\n";
 	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
-	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>Header:</b></font></td></tr>\n";
+	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
 	print OUTFILE "<tr><td width=\"15\"></td><td><b><font size=\"+1\">$filename</font></b></td></tr>\n";
 	print OUTFILE "</table><hr>\n";
 	print OUTFILE $fileString;
@@ -196,6 +347,8 @@ sub createTOCFile {
 sub tocString {
     my $self = shift;
     my @classes = $self->classes();
+    my @protocols = $self->protocols();
+    my @categories = $self->categories();
 	my $compositePageName = HeaderDoc::APIOwner->compositePageName();
 	my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName();
     
@@ -207,8 +360,28 @@ sub tocString {
 	        my $name = $obj->name();
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
-            if (1 || $isMacOS) {$safeName = &safeName($name);};
+            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
 	        $tocString .= "<nobr>&nbsp;<a href = \"Classes/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
+	    }
+    }
+    if (@protocols) {
+	    $tocString .= "<h4>Protocols</h4>\n";
+	    foreach my $obj (sort objName @protocols) {
+	        my $name = $obj->name();
+	        my $safeName = $name;
+	        # for now, always shorten long names since some files may be moved to a Mac for browsing
+            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
+	        $tocString .= "<nobr>&nbsp;<a href = \"Protocols/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
+	    }
+    }
+    if (@categories) {
+	    $tocString .= "<h4>Categories</h4>\n";
+	    foreach my $obj (sort objName @categories) {
+	        my $name = $obj->name();
+	        my $safeName = $name;
+	        # for now, always shorten long names since some files may be moved to a Mac for browsing
+            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
+	        $tocString .= "<nobr>&nbsp;<a href = \"Categories/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
 	    }
     }
     $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
@@ -235,20 +408,24 @@ sub objName { # used for sorting
 
 sub printObject {
     my $self = shift;
+    my $classesDir = $self->{CLASSESDIR};
+    my $categoriesDir = $self->{CATEGORIESDIR};
+    my $protocolsDir = $self->{PROTOCOLSDIR};
+    my $currentClass = $self->{CURRENTCLASS};
  
     print "Header\n";
+    print " classes dir:    $classesDir\n";
+    print " categories dir: $categoriesDir\n";
+    print " protocols dir:  $protocolsDir\n";
+    print " current class:  $currentClass\n";
     $self->SUPER::printObject();
-    print "outputDir: $self->{OUTPUTDIR}\n";
-    print "constantsDir: $self->{CONSTANTSDIR}\n";
-    print "datatypesDir: $self->{DATATYPESDIR}\n";
-    print "functionsDir: $self->{FUNCTIONSDIR}\n";
-    print "typedefsDir: $self->{TYPEDEFSDIR}\n";
-    print "constants:\n";
-    &printArray(@{$self->{CONSTANTS}});
-    print "functions:\n";
-    &printArray(@{$self->{FUNCTIONS}});
-    print "typedefs:\n";
-    &printArray(@{$self->{TYPEDEFS}});
+    print "  Classes:\n";
+    &printArray(@{$self->{CLASSES}});
+    print "  Categories:\n";
+    &printArray(@{$self->{CATEGORIES}});
+    print "  Protocols:\n";
+    &printArray(@{$self->{PROTOCOLS}});
+    
     print "\n";
 }
 

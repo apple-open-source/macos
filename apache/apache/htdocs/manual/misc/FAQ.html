@@ -22,8 +22,6 @@
     <h1 align="CENTER">Apache Server Frequently Asked
     Questions</h1>
 
-    <p>$Revision: 1.1.1.9 $ ($Date: 2002/03/18 21:58:50 $)</p>
-
     <p>The latest version of this FAQ is always available from the
     main Apache web site, at &lt;<a
     href="http://httpd.apache.org/docs/misc/FAQ.html"
@@ -317,6 +315,11 @@
           <li><a href="#codered">Why do I have weird entries in my
           logs asking for <code>default.ida</code> and
           <code>cmd.exe</code>?</a></li>
+
+          <li><a href="#restart">Why am I getting server restart
+          messages periodically, when I did not restart the
+          server?</a></li>
+
         </ol>
       </li>
       
@@ -397,7 +400,9 @@
 
           <li><a href="#ie-ignores-mime">Why do my files appear
           correctly in Internet Explorer, but show up as source or
-          trigger a save window with Netscape?</a></li>
+          trigger a save window with Netscape; or, Why doesn't
+          Internet Explorer render my text/plain document
+          correctly?</a></li>
 
 	  <li><a href="#canonical-hostnames">My site is accessible
           under many different hostnames; how do I redirect clients
@@ -406,6 +411,13 @@
           <li><a href="#firewall">Why can I access my website from the
           server or from my local network, but I can't access it from
           elsewhere on the Internet?</a></li>
+
+	  <li><a href="#indexes">How do I turn automatic directory listings
+	  on or off?</a></li>
+
+         <li><a href="#options">Why do my Options directives not have
+         the desired effect?</a></li>
+
 
         </ol>
       </li>
@@ -527,6 +539,10 @@
 
           <li><a href="#prompted-twice">Why does Apache ask for my
           password twice before serving a file?</a></li>
+
+          <li><a href="#image-theft">How can I prevent people from
+          "stealing" the images from my web site?</a></li>
+
         </ol>
       </li>
       
@@ -688,7 +704,7 @@
           <li>provides full source code and comes with an
           unrestrictive license</li>
 
-          <li>runs on Windows NT/9x, Netware 5.x, OS/2, and most
+          <li>runs on Windows NT/9x, Netware 5.x and above, OS/2, and most
           versions of Unix, as well as several other operating
           systems</li>
 
@@ -1260,10 +1276,9 @@
         with Perl. We implement a simple subset of Perl's regex
         support, but it's still a good way to learn what they mean.
         You can start by going to the <a
-        href="http://www.perl.com/CPAN-local/doc/manual/html/pod/perlre.html#Regular_Expressions">
-        CPAN page on regular expressions</a>, and branching out
-        from there.</p>
-        <hr />
+        href="http://www.perl.com/doc/manual/html/pod/perlre.html">CPAN
+        page on regular expressions</a>, and branching out from
+        there.</p> <hr />
       </li>
 
       <li>
@@ -1879,6 +1894,23 @@
           with more information.</p>
      </li>
 
+    <li<a id="restart" name="restart"><b>Why am I getting server restart
+    messages periodically, when I did not restart the server?</b></a>
+
+          <p>Problem: You are noticing restart messages in your error log,
+          periodically, when you know you did not restart the server
+          yourself:</p>
+
+<pre>
+[Thu Jun  6 04:02:01 2002] [notice] SIGHUP received.  Attempting to restart
+[Thu Jun  6 04:02:02 2002] [notice] Apache configured -- resuming normal operations
+</pre>
+
+          <p>Check your cron jobs to see when/if your server logs are being
+          rotated. Compare the time of rotation to the error menage time.
+          If they are the same, you can somewhat safely assume that the 
+          restart is due to your server logs being rotated.</p>
+
     </ol>
     
     
@@ -2386,29 +2418,34 @@
         <a id="ie-ignores-mime" name="ie-ignores-mime"><strong>Why
         do my files appear correctly in Internet Explorer, but show
         up as source or trigger a save window with
-        Netscape?</strong></a> 
+        Netscape; or, Why doesn't Internet Explorer render
+        my text/plain document correctly?</strong></a> 
 
-        <p>Internet Explorer (IE) and Netscape handle mime type
+        <p>MS Internet Explorer (MSIE) and Netscape handle mime type
         detection in different ways, and therefore will display the
         document differently. In particular, IE sometimes relies on
-        the file extension to determine the mime type. This can
-        happen when the server specifies a mime type of
-        <code>application/octet-stream</code> or
-        <code>text/plain</code>. (Unfortunately, this behavior
-        makes it impossible to properly send plain text in some
-        situations unless the file extension is <code>txt</code>.)
-        There are more details available on IE's mime type
-        detection behavior in an <a
+        the file extension or the contents of the file to determine
+        the mime type. This can happen when the server specifies a
+        mime type of <code>application/octet-stream</code> or
+        <code>text/plain</code>.  This behavior violates the the HTTP
+        standard and makes it impossible to deliver plain text
+        documents to MSIE clients in some cases.  More details are
+        available on MSIE's mime type detection behavior in an <a
         href="http://msdn.microsoft.com/workshop/networking/moniker/overview/appendix_a.asp">
-        MSDN article</a>.</p>
+        MSDN article</a> and a <a
+        href="http://ppewww.ph.gla.ac.uk/~flavell/www/content-type.html">note</a>
+        by Alan J. Flavell.</p>
 
-        <p>In order to make all browsers work correctly, you should
-        assure that Apache sends the correct mime type for the
-        file. This is accomplished by editing the
-        <code>mime.types</code> file or using an <a
+        <p>The best you can do as a server administrator is to
+        accurately configure the mime type of your documents by editing
+        the <code>mime.types</code> file or using an <a
         href="../mod/mod_mime.html#addtype"><code>AddType</code></a>
-        directive in the Apache configuration files.</p>
-        <hr />
+        directive in the Apache configuration files.  In some cases,
+        you may be able to fool MSIE into rendering text/plain documents
+        correctly by assuring they have a <code>.txt</code> filename
+        extension, but this will not work if MSIE thinks the content
+        looks like another file type.
+</p> <hr />
       </li>
       <li>
 	<a name="canonical-hostnames"><strong>My site is accessible
@@ -2470,6 +2507,59 @@ NameVirtualHost *<br />
 
         <hr /></li>
 
+         <li><a id="indexes" name="indexes"><strong>How do I turn automatic
+         directory listings on or off?</strong></a>
+
+         <p>If a client requests a URL that designates a directory and
+         the directory does not contain a filename that matches the <a
+         href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a>
+         directive, then <a
+         href="../mod/mod_autoindex.html">mod_autoindex</a> can be
+         configured to present a listing of the directory contents.</p>
+
+         <p>To turn on automatic directory indexing, find the 
+         <a href="../mod/core.html#options">Options</a> directive that
+         applies to the directory and add the <code>Indexes</code>
+         keyword.  To turn off automatic directory indexing, remove
+         the <code>Indexes</code> keyword from the appropriate 
+         <code>Options</code> line.</p>
+
+       <hr /></li>
+
+         <li><a id="options" name="options"><strong>Why do my Options
+         directives not have the desired effect?</strong></a>
+
+         <p>Directives placed in the configuration files are applied
+         in a very particular order, as described by <a
+         href="../sections.html">How Directory, Location, and Files
+         sections work</a>.  In addition, each <a
+         href="../mod/core.html#options">Options</a> directive has the
+         effect of resetting the options to <code>none</code> before
+         adding the specified options (unless only "+" and "-" options
+         are used).  The consequence is that <code>Options</code> set
+         in the main server or virtual host context (outside any
+         directory, location, or files section) will usually have no
+         effect, because they are overridden by more specific
+         <code>Options</code> directives.  For example, in the following</p>
+
+<blockquote><code>
+&lt;Directory /usr/local/apache/htdocs&gt;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;Options Indexes<br />
+&lt;/Directory&gt;<br />
+Options Includes ExecCGI<br />
+</code></blockquote>
+    
+         <p><code>Includes</code> and <code>ExecCGI</code> will be 
+         <strong>off</strong> in the <code>/usr/local/apache/htdocs</code>
+         directory.</p>
+
+         <p>You can usually avoid problems by either finding the 
+         <code>Options</code> directive that already applies to a 
+         specific directory and changing it, or by putting your
+         <code>Options</code> directive inside the most specific possible
+         <code>&lt;Directory&gt;</code> section.</p>
+
+       <hr /></li>
 
     </ol>
     
@@ -2924,6 +3014,10 @@ NameVirtualHost *<br />
             </dl>
           </li>
         </ol>
+        <p>If you are using suexec, the first technique will not work
+        because CGI scripts must be stored under the <code>public_html</code>
+        directory.</p>
+
         <hr />
       </li>
     </ol>
@@ -3242,6 +3336,44 @@ NameVirtualHost *<br />
         </ol>
         <hr />
       </li>
+
+      <li>
+        <a id="image-theft" name="image-theft"><strong>How can I prevent
+        people from "stealing" the images from my web site?</strong></a> 
+
+        <p>The goal here is to prevent people from inlining your images
+        directly from their web site, but accessing them only if they
+        appear inline in your pages.<p>
+
+        <p>This can be accomplished with a combination of SetEnvIf and
+        the Deny and Allow directives. However, it is important to 
+        understand that any access restriction based on the REFERER
+        header is intrinsically problematic due to the fact that 
+        browsers can send an incorrect REFERER, either because they 
+        want to circumvent your restriction or simply because they don't
+        send the right thing (or anything at all).</p>
+
+        <p>The following configuration will produce the desired effect
+        if the browser passes correct REFERER headers.</p>
+
+<pre>
+SetEnvIf REFERER "www\.mydomain\.com" linked_from_here
+SetEnvIf REFERER "^$" linked_from_here
+
+&lt;Directory /www/images&gt;
+    Order deny,allow
+    Deny from all
+    Allow from env=linked_from_here
+&lt;/Directory&gt;
+</pre>
+
+<p>Further examples can be found in the <a 
+href="../env.html#examples">Environment Variables</a> documentation.</p>
+
+        <hr />
+      </li>
+
+
     </ol>
     
     
@@ -3566,7 +3698,7 @@ NameVirtualHost *<br />
          A more sophisticated solution of a logfile rotation
         utility is available under the name <code>cronolog</code>
         from Andrew Ford's site at <a
-        href="http://www.ford-mason.co.uk/resources/cronolog/">http://www.ford-mason.co.uk/resources/cronolog/</a>.
+        href="http://www.cronolog.org/">http://www.cronolog.org/</a>.
         It can automatically create logfile subdirectories based on
         time and date, and can have a constant symlink point to the
         rotating logfiles. (As of version 1.6.1, cronolog is

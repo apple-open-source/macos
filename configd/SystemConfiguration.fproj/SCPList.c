@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,15 +41,19 @@ SCPreferencesCopyKeyList(SCPreferencesRef session)
 	CFArrayRef		keys;
 	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
 	CFIndex			prefsCnt;
-	void			**prefsKeys;
+	const void		**prefsKeys;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesCopyKeyList:"));
 
 	prefsCnt  = CFDictionaryGetCount(sessionPrivate->prefs);
-	prefsKeys = CFAllocatorAllocate(allocator, prefsCnt * sizeof(CFStringRef), 0);
-	CFDictionaryGetKeysAndValues(sessionPrivate->prefs, prefsKeys, NULL);
-	keys = CFArrayCreate(allocator, prefsKeys, prefsCnt, &kCFTypeArrayCallBacks);
-	CFAllocatorDeallocate(allocator, prefsKeys);
+	if (prefsCnt > 0) {
+		prefsKeys = CFAllocatorAllocate(allocator, prefsCnt * sizeof(CFStringRef), 0);
+		CFDictionaryGetKeysAndValues(sessionPrivate->prefs, prefsKeys, NULL);
+		keys = CFArrayCreate(allocator, prefsKeys, prefsCnt, &kCFTypeArrayCallBacks);
+		CFAllocatorDeallocate(allocator, prefsKeys);
+	} else {
+		keys = CFArrayCreate(allocator, NULL, 0, &kCFTypeArrayCallBacks);
+	}
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keys = %@"), keys);
 

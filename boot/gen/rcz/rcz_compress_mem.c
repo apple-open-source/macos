@@ -44,9 +44,9 @@ rcz_compress_memory(
 ) 
 /* Returns actual number of bytes emitted as compressed stream 'out.' */
 {
-    unsigned int c, ct, j, jmatch, jabove, match;
-    unsigned int data[32], version;
-    unsigned int word, token, tokenct, total;
+    unsigned int c, ct, j, jmatch = 0, jabove, match;
+    unsigned int data[32];
+    unsigned int word, token, tokenct;
     unsigned char *outorigin = out;
 
 /* First, put version number into stream. */

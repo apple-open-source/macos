@@ -28,7 +28,7 @@
 int ppp_ip_init(int init_arg);
 int ppp_ip_dispose(int term_arg);
 
-int ppp_ip_attach(struct ifnet *ifp, u_long *tag);
+int ppp_ip_attach(struct ifnet *ifp, struct sockaddr_in *addr, u_long *tag);
 int ppp_ip_detach(struct ifnet *ifp);
 
 

@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: configure.gnu,v 1.1.1.5 2000/03/31 05:10:40 wsanchez Exp $
+# $Id: configure.gnu,v 1.2 2002/03/14 08:54:08 zarzycki Exp $
 #
 # GNU configure-like front end to metaconfig's Configure.
 #
@@ -16,6 +16,9 @@
 # include this script in your own package.
 #
 # $Log: configure.gnu,v $
+# Revision 1.2  2002/03/14 08:54:08  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.5  2000/03/31 05:10:40  wsanchez
 # Import of perl 5.6.0
 #

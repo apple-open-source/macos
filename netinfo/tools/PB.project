@@ -5,7 +5,7 @@
         H_FILES = (); 
         OTHER_LINKED = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
-        SUBPROJECTS = (nicl, nidomain, nidump, nifind, nigrep, niload, nireport, niutil); 
+        SUBPROJECTS = (mkslapdconf, nicl, nidomain, nidump, nifind, nigrep, niload, nireport, niutil); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

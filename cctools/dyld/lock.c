@@ -37,7 +37,7 @@ volatile mach_port_t thread_that_has_dyld_lock = MACH_PORT_NULL;
 volatile mach_port_t cached_thread = MACH_PORT_NULL;
 volatile vm_address_t cached_stack = 0;
 
-static void yeild(unsigned long factor);
+static void yield(unsigned long factor);
 static mach_port_t dyld_mach_thread_self(void);
 
 /*
@@ -69,7 +69,7 @@ set_lock(void)
 	 * thread_that_has_dyld_lock can be inspected.
 	 */
 	while(try_to_get_lock(global_lock) == FALSE){
-	    yeild(2);
+	    yield(2);
 	}
 	/*
 	 * Now that we have the global_lock, see if thread_that_has_dyld_lock
@@ -81,7 +81,7 @@ set_lock(void)
 
 	/*
 	 * Now that we know this thread does not have the dyld_lock, this loop
-	 * gets the dyld_lock for this thread yeilding while it can't get it.
+	 * gets the dyld_lock for this thread yielding while it can't get it.
 	 */
 	for(;;){
 	    /* now we have the global_lock, see if dyld_lock is FALSE */
@@ -96,13 +96,13 @@ set_lock(void)
 		return;
 	    }
 	    else{
-		/* dyld_lock is TRUE so release the global lock and yeild */
+		/* dyld_lock is TRUE so release the global lock and yield */
 		clear_lock(global_lock);
-		yeild(2);
+		yield(2);
 	    }
 	    /* get the global lock so dyld_lock can be inspected */
 	    while(try_to_get_lock(global_lock) == FALSE){
-		yeild(2);
+		yield(2);
 	    }
 	}
 }
@@ -134,7 +134,7 @@ void)
 	 * Get the global lock so thread_that_has_dyld_lock can be inspected.
 	 */
 	while(try_to_get_lock(global_lock) == FALSE){
-	    yeild(2);
+	    yield(2);
 	}
 
 	/*
@@ -192,7 +192,7 @@ release_lock(void)
 
 	/* first get the global lock so that dyld_lock can be released */
 	while(try_to_get_lock(global_lock) == FALSE){
-	    yeild(1);
+	    yield(1);
 	}
 	thread_that_has_dyld_lock = MACH_PORT_NULL;
 	dyld_lock = FALSE;
@@ -215,17 +215,18 @@ release_lock(void)
 }
 
 /*
- * yeild() is called when a lock that is wanted can't be obtained my this
+ * yield() is called when a lock that is wanted can't be obtained my this
  * thread.
  */
 static
 void
-yeild(
+yield(
 unsigned long factor)
 {
     static struct host_sched_info info = { 0 };
     unsigned int count;
     kern_return_t r;
+    mach_port_t my_mach_host_self;
 
 	/*
 	 * Don't spin trying to get a lock, as this can cause dead
@@ -236,10 +237,13 @@ unsigned long factor)
 	 */
 	if(info.min_timeout == 0){
 	    count = HOST_SCHED_INFO_COUNT;
-	    if((r = host_info(mach_host_self(), HOST_SCHED_INFO, (host_info_t)
+	    my_mach_host_self = mach_host_self();
+	    if((r = host_info(my_mach_host_self, HOST_SCHED_INFO, (host_info_t)
 			      (&info), &count)) != KERN_SUCCESS){
+		mach_port_deallocate(mach_task_self(), my_mach_host_self);
 		mach_error(r, "can't get host sched info");
 	    }
+	    mach_port_deallocate(mach_task_self(), my_mach_host_self);
 	}
 	thread_switch(MACH_PORT_NULL, SWITCH_OPTION_DEPRESS,
 		      factor * info.min_timeout);
@@ -260,7 +264,7 @@ dyld_mach_thread_self(void)
 	stack_addr = (vm_address_t)trunc_page((vm_address_t)&my_thread);
 
 	while(try_to_get_lock(global_lock) == FALSE){
-	    yeild(1);
+	    yield(1);
 	}
 	if(cached_stack == stack_addr){
 	    my_thread = cached_thread;

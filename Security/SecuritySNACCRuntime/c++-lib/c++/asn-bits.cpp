@@ -32,8 +32,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-bits.cpp,v 1.3 2001/06/28 23:36:11 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-bits.cpp,v 1.4 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-bits.cpp,v $
+// Revision 1.4  2002/03/21 05:38:44  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.3.44.1  2002/03/20 00:36:48  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.3  2001/06/28 23:36:11  dmitch
 // Removed SccsId statics. numToHexCharTblG table now const. Radar 2705410.
 //
@@ -346,7 +352,11 @@ void AsnBits::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
         if (b.ReadError())
         {
             Asn1Error << "BDecBitString: ERROR - decoded past end of data" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-1);
+			#else
             longjmp (env, -1);
+			#endif
         }
     }
 
@@ -371,7 +381,11 @@ void AsnBits::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
       && (tag != MAKE_TAG_ID (UNIV, CONS, BITSTRING_TAG_CODE)))
     {
 	Asn1Error << "AsnBits::BDec: ERROR tag on BIT STRING is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-50);
+	#else
 	longjmp (env,-50);
+	#endif
     }
     elmtLen = BDecLen (b, bytesDecoded, env);
     BDecContent (b, tag, elmtLen, bytesDecoded, env);
@@ -431,7 +445,11 @@ void AsnBits::FillBitStringStk (BUF_TYPE b, AsnLen elmtLen0,
                  *  on last piece of bits string
                  */
                 Asn1Error << "BDecConsBitString: ERROR - a component of a constructed BIT STRING that is not the last has non-zero unused bits" << endl;
+				#if SNACC_EXCEPTION_ENABLE
+				SnaccExcep::throwMe(-2);
+				#else
                 longjmp (env, -2);
+				#endif
             }
 
             if (elmtLen1 != 0)
@@ -452,7 +470,11 @@ void AsnBits::FillBitStringStk (BUF_TYPE b, AsnLen elmtLen0,
                 if (refdLen == 0) /* end of data */
                 {
                     Asn1Error << "BDecConsOctetString: ERROR - expecting more data" << endl;
+					#if SNACC_EXCEPTION_ENABLE
+					SnaccExcep::throwMe(-3);
+					#else
                     longjmp (env, -3);
+					#endif
                 }
                 refdLen = lenToRef - totalRefdLen;
             }
@@ -475,7 +497,11 @@ void AsnBits::FillBitStringStk (BUF_TYPE b, AsnLen elmtLen0,
         else  /* wrong tag */
         {
             Asn1Error << "BDecConsBitString: ERROR - decoded non-BIT STRING tag inside a constructed BIT STRING" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-4);
+			#else
             longjmp (env, -4);
+			#endif
         }
     } /* end of for */
 
@@ -524,7 +550,7 @@ void AsnBits::Print (ostream &os) const
     size_t octetLen = (bitLen+7)/8;
 
     os << "'";
-    for (int i = 0; i < octetLen; i++)
+    for (unsigned i = 0; i < octetLen; i++)
         os << TO_HEX (bits[i] >> 4) << (TO_HEX (bits[i]));
     os << "'H  -- BIT STRING bitlen = " << bitLen << " --";
 #endif	/* NDEBUG */

@@ -24,6 +24,53 @@
 #define _PPP_IF_H_
 
 
+/*
+ * Network protocols we support.
+ */
+#define NP_IP	0		/* Internet Protocol V4 */
+//#define NP_IPV6	1		/* Internet Protocol V6 */
+//#define NP_IPX	2		/* IPX protocol */
+//#define NP_AT	3		/* Appletalk protocol */
+#define NUM_NP	1		/* Number of NPs. */
+
+struct ppp_if {
+    /* first, the ifnet structure... */
+    struct ifnet 	net;		/* network-visible interface */
+
+    /* administrative info */
+    TAILQ_ENTRY(ppp_if) next;
+    void 		*host;		/* first client structure */
+    u_int8_t 		nbclients;	/* nb clients attached */
+    u_int8_t 		in_use;		/* is this interface currently in use ? */
+
+    /* ppp data */
+    u_int16_t		mru;		/* max receive unit */
+    TAILQ_HEAD(, ppp_link)  link_head; 	/* list of links attached to this interface */
+    u_int8_t		nblinks;	/* # links currently attached */
+    struct mbuf 	*outm;		/* mbuf currently being output */
+    time_t		last_xmit; 	/* last proto packet sent on this interface */
+    time_t		last_recv; 	/* last proto packet received on this interface */
+    u_int32_t		sc_flags;	/* ppp private flags */
+    struct slcompress	*vjcomp; 	/* vjc control buffer */
+    enum NPmode		npmode[NUM_NP];	/* what to do with each net proto */
+
+    /* data compression */
+    void 		*xc_state;	/* send compressor state */
+    struct ppp_comp	*xcomp;		/* send compressor structure */
+    void 		*rc_state;	/* send compressor state */
+    struct ppp_comp	*rcomp;		/* send compressor structure */
+};
+
+
+/*
+ * Bits in sc_flags: SC_NO_TCP_CCID, SC_CCP_OPEN, SC_CCP_UP, SC_LOOP_TRAFFIC,
+ * SC_MULTILINK, SC_MP_SHORTSEQ, SC_MP_XSHORTSEQ, SC_COMP_TCP, SC_REJ_COMP_TCP.
+ */
+#define SC_FLAG_BITS	(SC_NO_TCP_CCID|SC_CCP_OPEN|SC_CCP_UP|SC_LOOP_TRAFFIC \
+			 |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
+			 |SC_COMP_TCP|SC_REJ_COMP_TCP)
+
+
 int ppp_if_init();
 int ppp_if_dispose();
 int ppp_if_attach(u_short *unit);
@@ -35,7 +82,8 @@ int ppp_if_control(struct ifnet *ifp, u_long cmd, void *data);
 int ppp_if_attachlink(struct ppp_link *link, int unit);
 int ppp_if_detachlink(struct ppp_link *link);
 int ppp_if_send(struct ifnet *ifp, struct mbuf *m);
-void ppp_if_linkerror(struct ppp_link *link);
+void ppp_if_error(struct ifnet *ifp);
+int ppp_if_xmit(struct ifnet *ifp, struct mbuf *m);
 
 
 

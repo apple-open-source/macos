@@ -37,7 +37,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: bufaux.c,v 1.22 2002/01/18 18:14:17 stevesk Exp $");
+RCSID("$OpenBSD: bufaux.c,v 1.27 2002/06/26 08:53:12 markus Exp $");
 
 #include <openssl/bn.h>
 #include "bufaux.h"
@@ -88,6 +88,8 @@ buffer_get_bignum(Buffer *buffer, BIGNUM *value)
 	bits = GET_16BIT(buf);
 	/* Compute the number of binary bytes that follow. */
 	bytes = (bits + 7) / 8;
+	if (bytes > 8 * 1024)
+		fatal("buffer_get_bignum: cannot handle BN of size %d", bytes);
 	if (buffer_len(buffer) < bytes)
 		fatal("buffer_get_bignum: input buffer too small");
 	bin = buffer_ptr(buffer);
@@ -105,6 +107,7 @@ buffer_put_bignum2(Buffer *buffer, BIGNUM *value)
 	u_char *buf = xmalloc(bytes);
 	int oi;
 	int hasnohigh = 0;
+
 	buf[0] = '\0';
 	/* Get the value of in binary */
 	oi = BN_bn2bin(value, buf+1);
@@ -128,23 +131,36 @@ buffer_put_bignum2(Buffer *buffer, BIGNUM *value)
 	xfree(buf);
 }
 
+/* XXX does not handle negative BNs */
 void
 buffer_get_bignum2(Buffer *buffer, BIGNUM *value)
 {
-	/**XXX should be two's-complement */
-	int len;
-	u_char *bin = buffer_get_string(buffer, (u_int *)&len);
+	u_int len;
+	u_char *bin = buffer_get_string(buffer, &len);
+
+	if (len > 8 * 1024)
+		fatal("buffer_get_bignum2: cannot handle BN of size %d", len);
 	BN_bin2bn(bin, len, value);
 	xfree(bin);
 }
-
 /*
- * Returns an integer from the buffer (4 bytes, msb first).
+ * Returns integers from the buffer (msb first).
  */
+
+u_short
+buffer_get_short(Buffer *buffer)
+{
+	u_char buf[2];
+
+	buffer_get(buffer, (char *) buf, 2);
+	return GET_16BIT(buf);
+}
+
 u_int
 buffer_get_int(Buffer *buffer)
 {
 	u_char buf[4];
+
 	buffer_get(buffer, (char *) buf, 4);
 	return GET_32BIT(buf);
 }
@@ -154,18 +170,29 @@ u_int64_t
 buffer_get_int64(Buffer *buffer)
 {
 	u_char buf[8];
+
 	buffer_get(buffer, (char *) buf, 8);
 	return GET_64BIT(buf);
 }
 #endif
 
 /*
- * Stores an integer in the buffer in 4 bytes, msb first.
+ * Stores integers in the buffer, msb first.
  */
+void
+buffer_put_short(Buffer *buffer, u_short value)
+{
+	char buf[2];
+
+	PUT_16BIT(buf, value);
+	buffer_append(buffer, buf, 2);
+}
+
 void
 buffer_put_int(Buffer *buffer, u_int value)
 {
 	char buf[4];
+
 	PUT_32BIT(buf, value);
 	buffer_append(buffer, buf, 4);
 }
@@ -175,6 +202,7 @@ void
 buffer_put_int64(Buffer *buffer, u_int64_t value)
 {
 	char buf[8];
+
 	PUT_64BIT(buf, value);
 	buffer_append(buffer, buf, 8);
 }
@@ -191,12 +219,13 @@ buffer_put_int64(Buffer *buffer, u_int64_t value)
 void *
 buffer_get_string(Buffer *buffer, u_int *length_ptr)
 {
-	u_int len;
 	u_char *value;
+	u_int len;
+
 	/* Get the length. */
 	len = buffer_get_int(buffer);
 	if (len > 256 * 1024)
-		fatal("Received packet with bad string length %d", len);
+		fatal("buffer_get_string: bad string length %d", len);
 	/* Allocate space for the string.  Add one byte for a null character. */
 	value = xmalloc(len + 1);
 	/* Get the string. */
@@ -221,6 +250,8 @@ buffer_put_string(Buffer *buffer, const void *buf, u_int len)
 void
 buffer_put_cstring(Buffer *buffer, const char *s)
 {
+	if (s == NULL)
+		fatal("buffer_put_cstring: s == NULL");
 	buffer_put_string(buffer, s, strlen(s));
 }
 
@@ -231,6 +262,7 @@ int
 buffer_get_char(Buffer *buffer)
 {
 	char ch;
+
 	buffer_get(buffer, &ch, 1);
 	return (u_char) ch;
 }
@@ -242,5 +274,6 @@ void
 buffer_put_char(Buffer *buffer, int value)
 {
 	char ch = value;
+
 	buffer_append(buffer, &ch, 1);
 }

@@ -5,6 +5,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 Install_Directory_Mode = 755
 Install_File_Mode      = 640
+Install_File_Group     = admin
 
 # Subdirectories with their own makefiles
 SubDirs = 
@@ -25,3 +26,4 @@ install::
 	$(_v) $(INSTALL_FILE) -c -m 600	/dev/null "$(Destination)/secure.log"
 	$(_v) $(INSTALL_FILE) -c	/dev/null "$(Destination)/system.log"
 	$(_v) $(INSTALL_FILE) -c	/dev/null "$(Destination)/wtmp"
+	$(_v) $(INSTALL_FILE) -c	/dev/null "$(Destination)/lastlog"

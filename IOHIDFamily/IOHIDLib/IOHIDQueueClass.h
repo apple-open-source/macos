@@ -59,6 +59,14 @@ protected:
     // owming device
     IOHIDDeviceClass *	fOwningDevice;
     
+    // CFMachPortCallBack routine for IOHIDQueue
+    static void queueEventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info);
+    
+    // Related IOHIDQueue call back info
+    IOHIDCallbackFunction	fEventCallback;
+    void *			fEventTarget;
+    void *			fEventRefcon;
+    
 public:
     // set owner
     void setOwningDevice (IOHIDDeviceClass * owningDevice) { fOwningDevice = owningDevice; };
@@ -109,16 +117,16 @@ public:
     /*  inserted to the queue  */
     /* callbackTarget and callbackRefcon are passed to the callback */
     virtual IOReturn setEventCallout (
-                            IOHIDCallbackFunction * 	callback,
+                            IOHIDCallbackFunction  	callback,
                             void * 			callbackTarget,
                             void *			callbackRefcon);
 
     /* Get the current notification callout */
     virtual IOReturn getEventCallout (
-                            IOHIDCallbackFunction ** 	outCallback,
+                            IOHIDCallbackFunction * 	outCallback,
                             void ** 			outCallbackTarget,
                             void **			outCallbackRefcon);
-
+    
 /*
  * Routing gumf for CFPlugIn interfaces
  */
@@ -163,14 +171,14 @@ protected:
     /* set a callback for notification when queue transistions from non-empty */
     static IOReturn queueSetEventCallout (
                             void * 			self,
-                            IOHIDCallbackFunction * 	callback,
+                            IOHIDCallbackFunction  	callback,
                             void * 			callbackTarget,
                             void *			callbackRefcon);
 
     /* Get the current notification callout */
     static IOReturn queueGetEventCallout (
                             void * 			self,
-                            IOHIDCallbackFunction ** 	outCallback,
+                            IOHIDCallbackFunction * 	outCallback,
                             void ** 			outCallbackTarget,
                             void **			outCallbackRefcon);
 

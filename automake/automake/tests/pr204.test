@@ -1,0 +1,54 @@
+#! /bin/sh
+# For PR 204.
+# Sources derived from nodist_ sources should not be distributed.
+
+required=bison
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat > configure.in <<'EOF'
+AC_INIT(pr204, 0.1)
+AM_INIT_AUTOMAKE
+AC_PROG_CC
+AC_PROG_YACC
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
+EOF
+
+# The PARSE2 intermediate variable is there to make
+# sure Automake match 'nodist_' against the right
+# variable name...
+cat > Makefile.am << 'EOF'
+EXTRA_PROGRAMS = foo
+PARSE2 = parse2.y
+nodist_foo_SOURCES = parse.y $(PARSE2)
+EOF
+
+cat > parse.y << 'END'
+%{
+int yylex () {return 0;}
+void yyerror (char *s) {}
+%}
+%%
+maude : 'm' 'a' 'u' 'd' 'e' {};
+END
+
+cp parse.y parse2.y
+
+# We are not checking Autoconf, so we pick $YACC for it.
+YACC="bison -y"
+export YACC
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+./configure
+$MAKE distdir
+test -f pr204-0.1/parse.c && exit 1
+test -f pr204-0.1/parse.y && exit 1
+test -f pr204-0.1/parse2.c && exit 1
+test -f pr204-0.1/parse2.y && exit 1
+# Make sure parse.c and parse2.c are still targets.
+$MAKE parse.c parse2.c

@@ -42,15 +42,24 @@ IOFWUserClientPhysicalAddressSpace::initWithDesc(
 	if (!IOFWPhysicalAddressSpace::initWithDesc(bus, mem))
 		return false ;
 	
-	UInt32 currentOffset = 0 ;
-	IOByteCount length ;
-
-	mSegmentCount = 0 ;
-		
-	while (0 != fMem->getPhysicalSegment(currentOffset, & length))
+	if ( kIOReturnSuccess != mem->prepare() )
 	{
-		currentOffset += length ;
-		mSegmentCount++ ;
+		fMemPrepared = false ;
+		return false ;
+	}
+	
+	fMemPrepared = true ;
+	mSegmentCount = 0 ;
+
+	{ //scope
+		UInt32 			currentOffset = 0 ;
+		IOByteCount 	length ;
+			
+		while (0 != fMem->getPhysicalSegment(currentOffset, & length))
+		{
+			currentOffset += length ;
+			++mSegmentCount ;
+		}
 	}
 	
 	return true ;
@@ -59,6 +68,9 @@ IOFWUserClientPhysicalAddressSpace::initWithDesc(
 void
 IOFWUserClientPhysicalAddressSpace::free()
 {
+	if (fMemPrepared)
+		fMem->complete() ;
+
 	IOFWPhysicalAddressSpace::free() ;
 }
 
@@ -78,7 +90,7 @@ IOFWUserClientPhysicalAddressSpace::getSegments(
 	IOReturn	result = kIOReturnSuccess ;
 
 	IOByteCount currentOffset = 0 ;
-	for(UInt32 segment=0; segment < segmentCount; segment++)
+	for(UInt32 segment=0; segment < segmentCount; ++segment)
 	{
 		outPages[segment] = fMem->getPhysicalSegment(currentOffset, & outLength[segment]) ;
 		currentOffset+= outLength[segment] ;

@@ -283,10 +283,10 @@ void h(long double = 4.33e33)
 { }
 #endif
 */
-void printf(const char *format, ... )
-{
-    // elipsis
-}
+
+/* An unneeded printf() definition - actually, just a stub - used to occupy
+   this space.  It has been removed and replaced with this comment which
+   exists to occupy some lines so that templates.exp won't need adjustment.  */
 
 class T1 {
 public:

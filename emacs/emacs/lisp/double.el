@@ -1,4 +1,4 @@
-;;; double.el --- Support for keyboard remapping with double clicking
+;;; double.el --- support for keyboard remapping with double clicking
 
 ;; Copyright (C) 1994, 1997, 1998 Free Software Foundation, Inc.
 
@@ -157,9 +157,19 @@ but not `C-u X' or `ESC X' since the X is not the prefix key."
 
 ;;; Mode
 
-(defvar double-mode nil)
-;; Indicator for the double mode.
-  (make-variable-buffer-local 'double-mode)
+;;;###autoload
+(defcustom double-mode nil
+  "Toggle Double mode.
+Setting this variable directly does not take effect;
+use either \\[customize] or the function `double-mode'."
+  :set (lambda (symbol value)
+	 (double-mode (if value 1 0)))
+  :initialize 'custom-initialize-default
+  :link '(emacs-commentary-link "double")
+  :type 'boolean
+  :require 'double
+  :group 'double)
+(make-variable-buffer-local 'double-mode)
 
 (or (assq 'double-mode minor-mode-alist)
     (setq minor-mode-alist
@@ -198,4 +208,3 @@ when pressed twice.  See variable `double-map' for details."
 (provide 'double)
 
 ;;; double.el ends here
-

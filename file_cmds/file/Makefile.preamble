@@ -1,0 +1,2 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common
+OTHER_CFLAGS = -DBUILTIN_FAT

@@ -1,0 +1,25 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (); 
+        Resources = (); 
+        SUBPROJECTS = (
+            bashdb, 
+            functions, 
+            loadables, 
+            misc, 
+            scripts, 
+            scripts.noah, 
+            scripts.v2, 
+            "startup-files"
+        ); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = examples; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

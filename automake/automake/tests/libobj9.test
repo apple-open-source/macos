@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Test for report from Jim Meyering.
+# LIBOBJS must handle $ac_objext.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_EXEEXT
+LIBOBJS="$LIBOBJS mountlist.$ac_objext"
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libtu.a
+libtu_a_SOURCES =
+libtu_a_LIBADD = @LIBOBJS@
+END
+
+: > mountlist.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1

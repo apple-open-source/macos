@@ -6,7 +6,7 @@ UTILDIR = ../util
 INSTALL_MI_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machdep/machine
 
 DEBUG = -O
-CFLAGS	= $(DEBUG) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp -munaligned-text
+CFLAGS	= $(DEBUG) $(MORECPP) -arch i386 -g -Wmost -Wno-precomp
 DEFINES=
 CONFIG = hd
 INC = -I. -I$(SYMROOT) -I$(UTILDIR)

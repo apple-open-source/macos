@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,12 +41,13 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <mach/boolean.h>
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -72,7 +73,7 @@ typedef enum {
 	COMMENT,
 	OBSOLETE,
 	REGULAR,
-	DEFINE ,
+	DEFINE,
 	FUTURE,
 	END
 } controlType;
@@ -99,6 +100,7 @@ typedef enum {
 #define CFARRAY_CFNUMBER	"CFArray[CFNumber]"
 #define CFARRAY_CFSTRING	"CFArray[CFString]"
 #define CFBOOLEAN		"CFBoolean"
+#define CFDATA			"CFData"
 #define CFDICTIONARY		"CFDictionary"
 #define CFNUMBER		"CFNumber"
 #define CFNUMBER_BOOL		"CFNumber (0 or 1)"
@@ -108,6 +110,7 @@ typedef enum {
 #define ADDRESSES		"Addresses"
 #define AIRPORT			"AirPort"
 #define ALERT			"Alert"
+#define ALLOWNETCREATION	"AllowNetCreation"
 #define ALTERNATEREMOTEADDRESS	"AlternateRemoteAddress"
 #define ANYREGEX		"AnyRegex"
 #define APPLETALK		"AppleTalk"
@@ -118,6 +121,8 @@ typedef enum {
 #define BROADCAST		"Broadcast"
 #define BROADCASTADDRESSES	"BroadcastAddresses"
 #define BROADCASTSERVERTAG	"BroadcastServerTag"
+#define CALLWAITINGAUDIBLEALERT	"CallWaitingAudibleAlert"
+#define CCP			"CCP"
 #define CHAP			"CHAP"
 #define COMM			"Comm"
 #define COMPRESSIONACFIELD	"CompressionACField"
@@ -127,20 +132,26 @@ typedef enum {
 #define CONFIGMETHOD		"ConfigMethod"
 #define CONNECTDELAY		"ConnectDelay"
 #define CONNECTIONSCRIPT	"ConnectionScript"
+#define CONNECTSPEED		"ConnectSpeed"
+#define CONNECTTIME		"ConnectTime"
 #define CONSOLEUSER		"ConsoleUser"
 #define CURRENTSET		"CurrentSet"
 #define DATACOMPRESSION		"DataCompression"
 #define DEFAULTSERVERTAG	"DefaultServerTag"
 #define DEFAULTZONE		"DefaultZone"
 #define DESTADDRESSES		"DestAddresses"
+#define DETACHING		"Detaching"
+#define DEVICE			"Device"
 #define DEVICENAME		"DeviceName"
 #define DHCP			"DHCP"
 #define DHCPCLIENTID		"DHCPClientID"
 #define DIALMODE		"DialMode"
 #define DIALONDEMAND		"DialOnDemand"
+#define DISCONNECTONANSWER	"DisconnectOnAnswer"
 #define DISCONNECTONIDLE	"DisconnectOnIdle"
 #define DISCONNECTONIDLETIMER	"DisconnectOnIdleTimer"
 #define DISCONNECTONLOGOUT	"DisconnectOnLogout"
+#define DISCONNECTONSLEEP	"DisconnectOnSleep"
 #define DISPLAYTERMINALWINDOW	"DisplayTerminalWindow"
 #define DNS			"DNS"
 #define DOMAIN 			"Domain"
@@ -149,6 +160,7 @@ typedef enum {
 #define ECHOENABLED		"EchoEnabled"
 #define ECHOFAILURE		"EchoFailure"
 #define ECHOINTERVAL		"EchoInterval"
+#define ENABLED			"Enabled"
 #define ENCODING		"Encoding"
 #define ENCRYPTION		"Encryption"
 #define ERRORCORRECTION		"ErrorCorrection"
@@ -165,6 +177,8 @@ typedef enum {
 #define GOPHERPORT		"GopherPort"
 #define GOPHERPROXY		"GopherProxy"
 #define HARDWARE		"Hardware"
+#define HOLD			"Hold"
+#define HOSTNAMES		"HostNames"
 #define HTTPENABLE		"HTTPEnable"
 #define HTTPPORT		"HTTPPort"
 #define HTTPPROXY		"HTTPProxy"
@@ -182,9 +196,13 @@ typedef enum {
 #define IPCP			"IPCP"
 #define IPV4			"IPv4"
 #define IPV6			"IPv6"
+#define JOINMODE		"JoinMode"
+#define LASTCAUSE		"LastCause"
 #define LASTUPDATED		"LastUpdated"
 #define LCP			"LCP"
 #define LINK			"Link"
+#define LINKLOCAL		"LinkLocal"
+#define LOCALHOSTNAME		"LocalHostName"
 #define LOGFILE			"Logfile"
 #define MACADDRESS		"MACAddress"
 #define MANUAL			"Manual"
@@ -196,18 +214,24 @@ typedef enum {
 #define NETINFO			"NetInfo"
 #define NETWORK			"Network"
 #define NETWORKID		"NetworkID"
+#define NETWORKRANGE		"NetworkRange"
 #define NETWORKSERVICES		"NetworkServices"
 #define NIS			"NIS"
 #define NODE			"Node"
 #define NODEID			"NodeID"
+#define NOTE			"Note"
+#define OVERRIDEPRIMARY		"OverridePrimary"
 #define PAP			"PAP"
 #define PASSWORD		"Password"
 #define PLUGIN			"Plugin"
+#define PLUGINS			"Plugins"
 #define POWERENABLED		"PowerEnabled"
 #define PPP			"PPP"
 #define PPPOE			"PPPoE"
 #define PPPOVERRIDEPRIMARY	"PPPOverridePrimary"
 #define PPPSERIAL		"PPPSerial"
+#define PPTP			"PPTP"
+#define PREFERRED		"Preferred"
 #define PREFERREDNETWORK	"PreferredNetwork"
 #define PREFS			"Prefs"
 #define PRIMARYINTERFACE	"PrimaryInterface"
@@ -216,15 +240,19 @@ typedef enum {
 #define PROXIES			"Proxies"
 #define PULSEDIAL		"PulseDial"
 #define RECEIVEACCM		"ReceiveACCM"
+#define RECENT			"Recent"
 #define REDIALCOUNT		"RedialCount"
 #define REDIALENABLED		"RedialEnabled"
 #define REDIALINTERVAL		"RedialInterval"
+#define REMINDER		"Reminder"
+#define REMINDERTIME		"ReminderTime"
 #define REMOTEADDRESS		"RemoteAddress"
 #define ROOTSEPARATOR		"RootSeparator"
 #define ROUTER			"Router"
 #define RTSPENABLE		"RTSPEnable"
 #define RTSPPORT		"RTSPPort"
 #define RTSPPROXY		"RTSPProxy"
+#define SAVEPASSWORDS		"SavePasswords"
 #define SEARCHDOMAINS		"SearchDomains"
 #define SEEDNETWORKRANGE	"SeedNetworkRange"
 #define SEEDROUTER		"SeedRouter"
@@ -244,14 +272,18 @@ typedef enum {
 #define SPEAKER			"Speaker"
 #define SPEED			"Speed"
 #define STATE			"State"
+#define STATUS			"Status"
+#define STRONGEST		"Strongest"
 #define SUBNETMASKS		"SubnetMasks"
 #define SUBTYPE			"SubType"
+#define SUPPORTSMODEMONHOLD	"SupportsModemOnHold"
 #define SYSTEM			"System"
 #define TERMINALSCRIPT		"TerminalScript"
 #define TRANSMITACCM		"TransmitACCM"
 #define TYPE			"Type"
 #define UID			"UID"
 #define USERDEFINEDNAME		"UserDefinedName"
+#define USE			"Use"
 #define USERS			"Users"
 #define VERBOSELOGGING		"VerboseLogging"
 #define WAITFORDIALTONE		"WaitForDialTone"
@@ -286,6 +318,7 @@ struct {
     { REGULAR, COMP, NETWORK, NULL, NULL },
     { REGULAR, COMP, SERVICE, NULL, NULL },
     { REGULAR, COMP, GLOBAL, NULL, NULL },
+    { DEFINE , COMP, HOSTNAMES, NULL, NULL },
     { REGULAR, COMP, INTERFACE, NULL, NULL },
     { REGULAR, COMP, SYSTEM, NULL, NULL },
     { REGULAR, COMP, USERS, NULL, NULL },
@@ -314,15 +347,32 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX COMP NETWORK " Properties\n */", NULL },
+    { DEFINE , NETPROP, OVERRIDEPRIMARY, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP, SERVICEORDER, NULL, CFARRAY_CFSTRING },
     { REGULAR, NETPROP, PPPOVERRIDEPRIMARY, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
+    { COMMENT, "/*\n * " KEY_PREFIX COMP NETWORK INTERFACE " Properties\n */", NULL },
+    { DEFINE , NETPROP, INTERFACES, NULL, CFARRAY_CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+
+    { COMMENT, "/*\n * " KEY_PREFIX COMP NETWORK HOSTNAMES " Properties\n */", NULL },
+    { DEFINE , NETPROP, LOCALHOSTNAME, NULL, CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+
     { COMMENT, "/*\n * " KEY_PREFIX NETENT AIRPORT " (Hardware) Entity Keys\n */", NULL, NULL, NULL },
-    { REGULAR, NETPROP AIRPORT, POWERENABLED, NULL, CFNUMBER_BOOL },
-    { REGULAR, NETPROP AIRPORT, AUTH PASSWORD, NULL, CFSTRING },
+    { DEFINE , NETPROP AIRPORT, ALLOWNETCREATION, NULL, CFNUMBER_BOOL },
+    { REGULAR, NETPROP AIRPORT, AUTH PASSWORD, NULL, CFDATA },
     { REGULAR, NETPROP AIRPORT, AUTH PASSWORD ENCRYPTION, NULL, CFSTRING },
+    { DEFINE , NETPROP AIRPORT, JOINMODE, NULL, CFSTRING },
+    { REGULAR, NETPROP AIRPORT, POWERENABLED, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP AIRPORT, PREFERREDNETWORK, NULL, CFSTRING },
+    { DEFINE , NETPROP AIRPORT, SAVEPASSWORDS, NULL, CFNUMBER_BOOL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP AIRPORT JOINMODE " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL AIRPORT JOINMODE, PREFERRED, NULL, NULL },
+    { DEFINE , NETVAL AIRPORT JOINMODE, RECENT, NULL, NULL },
+    { DEFINE , NETVAL AIRPORT JOINMODE, STRONGEST, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT APPLETALK " Entity Keys\n */", NULL, NULL, NULL },
@@ -331,6 +381,7 @@ struct {
     { REGULAR, NETPROP APPLETALK, CONFIGMETHOD, NULL, CFSTRING },
     { REGULAR, NETPROP APPLETALK, DEFAULTZONE, NULL, CFSTRING },
     { REGULAR, NETPROP APPLETALK, NETWORKID, NULL, CFNUMBER },
+    { REGULAR, NETPROP APPLETALK, NETWORKRANGE, NULL, CFARRAY_CFNUMBER },
     { REGULAR, NETPROP APPLETALK, NODEID, NULL, CFNUMBER },
     { REGULAR, NETPROP APPLETALK, SEEDNETWORKRANGE, NULL, CFARRAY_CFNUMBER },
     { REGULAR, NETPROP APPLETALK, SEEDZONES, NULL, CFARRAY_CFSTRING },
@@ -356,6 +407,7 @@ struct {
     { REGULAR, NETPROP INTERFACE, HARDWARE, NULL, CFSTRING },
     { REGULAR, NETPROP INTERFACE, TYPE, NULL, CFSTRING },
     { REGULAR, NETPROP INTERFACE, SUBTYPE, NULL, CFSTRING },
+    { DEFINE , NETPROP INTERFACE, SUPPORTSMODEMONHOLD, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "/* " KEY_PREFIX NETPROP INTERFACE TYPE " values */", NULL, NULL, NULL },
     { REGULAR, NETVAL INTERFACE TYPE, ETHERNET, NULL, NULL },
@@ -364,6 +416,7 @@ struct {
     { COMMENT, "/* " KEY_PREFIX NETPROP SERVICE SUBTYPE " values (for " PPP ") */", NULL, NULL, NULL },
     { REGULAR, NETVAL INTERFACE SUBTYPE, PPPOE, NULL, NULL },
     { REGULAR, NETVAL INTERFACE SUBTYPE, PPPSERIAL, NULL, NULL },
+    { DEFINE , NETVAL INTERFACE SUBTYPE, PPTP, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT IPV4 " Entity Keys\n */", NULL, NULL, NULL },
@@ -379,6 +432,7 @@ struct {
     { REGULAR, NETVAL IPV4 CONFIGMETHOD, BOOTP, NULL, NULL },
     { REGULAR, NETVAL IPV4 CONFIGMETHOD, DHCP, NULL, NULL },
     { REGULAR, NETVAL IPV4 CONFIGMETHOD, INFORM, NULL, NULL },
+    { REGULAR, NETVAL IPV4 CONFIGMETHOD, LINKLOCAL, NULL, NULL },
     { REGULAR, NETVAL IPV4 CONFIGMETHOD, MANUAL, NULL, NULL },
     { REGULAR, NETVAL IPV4 CONFIGMETHOD, PPP, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
@@ -390,13 +444,21 @@ struct {
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT LINK " Entity Keys\n */", NULL, NULL, NULL },
     { REGULAR, NETPROP LINK, ACTIVE, NULL, CFBOOLEAN },
+    { DEFINE , NETPROP LINK, DETACHING, NULL, CFBOOLEAN },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT MODEM " (Hardware) Entity Keys\n */", NULL, NULL, NULL },
     { REGULAR, NETPROP MODEM, CONNECTIONSCRIPT, NULL, CFSTRING },
+    { DEFINE , NETPROP MODEM, CONNECTSPEED, NULL, CFNUMBER },
     { DEFINE , NETPROP MODEM, DATACOMPRESSION, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP MODEM, DIALMODE, NULL, CFSTRING },
     { DEFINE , NETPROP MODEM, ERRORCORRECTION, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP MODEM, HOLD CALLWAITINGAUDIBLEALERT, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP MODEM, HOLD DISCONNECTONANSWER, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP MODEM, HOLD ENABLED, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP MODEM, HOLD REMINDER, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP MODEM, HOLD REMINDERTIME, NULL, CFNUMBER },
+    { DEFINE , NETPROP MODEM, NOTE, NULL, CFSTRING },
     { REGULAR, NETPROP MODEM, PULSEDIAL, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP MODEM, SPEAKER, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP MODEM, SPEED, NULL, CFNUMBER },
@@ -427,14 +489,21 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT PPP " Entity Keys\n */", NULL, NULL, NULL },
+    { DEFINE , NETPROP PPP, CONNECTTIME, NULL, CFNUMBER },
+    { DEFINE , NETPROP PPP, DEVICE LASTCAUSE, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, DIALONDEMAND, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP PPP, DISCONNECTONIDLE, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP PPP, DISCONNECTONIDLETIMER, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, DISCONNECTONLOGOUT, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP PPP, DISCONNECTONSLEEP, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP PPP, IDLEREMINDERTIMER, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, IDLEREMINDER, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP PPP, LASTCAUSE, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, LOGFILE, NULL, CFSTRING },
+    { DEFINE , NETPROP PPP, PLUGINS, NULL, CFARRAY_CFSTRING },
     { DEFINE , NETPROP PPP, SESSIONTIMER, NULL, CFNUMBER },
+    { DEFINE , NETPROP PPP, STATUS, NULL, CFSTRING },
+    { DEFINE , NETPROP PPP, USE SESSIONTIMER, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP PPP, VERBOSELOGGING, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
@@ -457,6 +526,10 @@ struct {
     { REGULAR, NETPROP PPP, COMM REDIALINTERVAL, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, COMM REMOTEADDRESS, NULL, CFSTRING },
     { REGULAR, NETPROP PPP, COMM TERMINALSCRIPT, NULL, CFSTRING },
+    { DEFINE , NETPROP PPP, COMM USE TERMINALSCRIPT, NULL, CFNUMBER_BOOL },
+
+    { COMMENT, "\n/* " CCP ": */", NULL, NULL, NULL },
+    { DEFINE , NETPROP PPP, CCP ENABLED, NULL, CFNUMBER_BOOL },
 
     { COMMENT, "\n/* " IPCP ": */", NULL, NULL, NULL },
     { REGULAR, NETPROP PPP, IPCP COMPRESSIONVJ, NULL, CFNUMBER_BOOL },

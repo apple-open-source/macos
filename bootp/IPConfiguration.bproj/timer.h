@@ -1,3 +1,7 @@
+
+#ifndef _S_TIMER_H
+#define _S_TIMER_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -36,8 +40,8 @@
 #define CFRUNLOOP_NEW_API	1
 #endif
 
-#import <CoreFoundation/CFRunLoop.h>
-#import "dynarray.h"
+#include <CoreFoundation/CFRunLoop.h>
+#include "dynarray.h"
 
 typedef struct timer_callout timer_callout_t;
 
@@ -67,3 +71,5 @@ int			timer_set_relative(timer_callout_t * entry,
 					   void * arg1, void * arg2, 
 					   void * arg3);
 void			timer_cancel(timer_callout_t * entry);
+
+#endif _S_TIMER_H

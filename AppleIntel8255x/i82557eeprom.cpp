@@ -41,7 +41,7 @@ static __inline__ void
 _logAddr(unsigned char * addr)
 {
     int i;
-    for (i = 0; i < NUM_EN_ADDR_BYTES; i++) {
+    for (i = 0; i < kIOEthernetAddressSize; i++) {
 		IOLog("%s%02x", i > 0 ? ":" : "", addr[i]);
     }
     return;
@@ -71,7 +71,7 @@ void i82557eeprom::dumpContents()
     IOLog("controller type: %d\n", eeprom_p->controllerType);
 
 	for (int i = 0; i < NUM_PHYS; i++) {
-		char * s = (i == PRIMARY_PHY) ? "primary" : "secondary";
+		const char * s = (i == PRIMARY_PHY) ? "primary" : "secondary";
 		UInt16 phy = OSReadLE16(&eeprom_p->phys[i]);
 
 		IOLog("%s PHY: %s\n", s,

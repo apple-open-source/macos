@@ -18,7 +18,6 @@
 
 NAME = man
 SUBDIRS = usr/man
-#MANDIR = ${DSTROOT}/NextLibrary/Documentation/ManPages
 MANDIR = ${DSTROOT}/usr/share/man
 #INDEXFILE= ${MANDIR}/.index.store
 #INDEXFLAGS=-fsvg -LEnglish
@@ -115,8 +114,10 @@ install:: ${DSTROOT}
 # 10/97 MR
 # For developer documentation directory *only*
 # 4/00 MR
-	mkdir -p ${DSTROOT}/Developer/Documentation
-	ln -s /usr/share/man ${DSTROOT}/Developer/Documentation/ManPages
+	
+	#Allowing bsdmanpages to create the symlink to /usr/share/man
+	#mkdir -p ${DSTROOT}/Developer/Documentation
+	#ln -s /usr/share/man ${DSTROOT}/Developer/Documentation/ManPages
 
 #####
 # Copy this directory to SRCROOT.

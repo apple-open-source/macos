@@ -248,7 +248,7 @@ set_clipboard_data (Format, Data, Size, Raw)
   unsigned char *dp = Data, *dstart = dp;
 
   if (Format != CF_OEMTEXT)
-    return 0;
+    return 3;
 
   /* need to know final size after '\r' chars are inserted (the
      standard CF_OEMTEXT clipboard format uses CRLF line endings,
@@ -266,10 +266,10 @@ set_clipboard_data (Format, Data, Size, Raw)
     }
 
   if (clipboard_compact (truelen) < truelen)
-    return 0;
+    return 1;
 
   if ((xbuf_addr = alloc_xfer_buf (truelen)) == 0)
-    return 0;
+    return 1;
 
   /* Move the buffer into the low memory, convert LF into CR-LF if needed.  */
   if (Raw)
@@ -333,8 +333,8 @@ set_clipboard_data (Format, Data, Size, Raw)
   if (regs.x.ax == 0)
     *last_clipboard_text = '\0';
 
-  /* Zero means success, otherwise (1 or 2) it's an error.  */
-  return regs.x.ax > 0 ? 0 : 1;
+  /* Zero means success, otherwise (1, 2, or 3) it's an error.  */
+  return regs.x.ax > 0 ? 0 : 3;
 }
 
 /* Return the size of the clipboard data of format FORMAT.  */
@@ -477,6 +477,8 @@ static char no_mem_msg[] =
   "(Not enough DOS memory to put saved text into clipboard.)";
 static char binary_msg[] =
   "(Binary characters in saved text; clipboard data not set.)";
+static char system_error_msg[] =
+  "(Clipboard interface failure; clipboard data not set.)";
 
 DEFUN ("w16-set-clipboard-data", Fw16_set_clipboard_data, Sw16_set_clipboard_data, 1, 2, 0,
        "This sets the clipboard data to the given text.")
@@ -486,8 +488,7 @@ DEFUN ("w16-set-clipboard-data", Fw16_set_clipboard_data, Sw16_set_clipboard_dat
   unsigned ok = 1, put_status = 0;
   int nbytes;
   unsigned char *src, *dst = NULL;
-  int charsets[MAX_CHARSET + 1];
-  int num;
+  int charset_info;
   int no_crlf_conversion;
 
   CHECK_STRING (string, 0);
@@ -506,14 +507,10 @@ DEFUN ("w16-set-clipboard-data", Fw16_set_clipboard_data, Sw16_set_clipboard_dat
 
   /* Since we are now handling multilingual text, we must consider
      encoding text for the clipboard.  */
-  bzero (charsets, (MAX_CHARSET + 1) * sizeof (int));
-  num = ((nbytes <= 1	/* Check the possibility of short cut.  */
-	  || !STRING_MULTIBYTE (string)
-	  || nbytes == XSTRING (string)->size)
-	 ? 0
-	 : find_charset_in_str (src, nbytes, charsets, Qnil, 0, 1));
+  charset_info = find_charset_in_text (src, XSTRING (string)->size, nbytes,
+				       NULL, Qnil);
 
-  if (!num || (num == 1 && charsets[CHARSET_ASCII]))
+  if (charset_info == 0)
     {
       /* No multibyte character in OBJ.  We need not encode it, but we
 	 will have to convert it to DOS CR-LF style.  */
@@ -531,6 +528,8 @@ DEFUN ("w16-set-clipboard-data", Fw16_set_clipboard_data, Sw16_set_clipboard_dat
 	Vnext_selection_coding_system = Vselection_coding_system;
       setup_coding_system
 	(Fcheck_coding_system (Vnext_selection_coding_system), &coding);
+      coding.src_multibyte = 1;
+      coding.dst_multibyte = 0;
       Vnext_selection_coding_system = Qnil;
       coding.mode |= CODING_MODE_LAST_BLOCK;
       Vlast_coding_system_used = coding.symbol;
@@ -579,6 +578,9 @@ DEFUN ("w16-set-clipboard-data", Fw16_set_clipboard_data, Sw16_set_clipboard_dat
 	    break;
 	  case 2:
 	    message2 (binary_msg, sizeof (binary_msg) - 1, 0);
+	    break;
+	  case 3:
+	    message2 (system_error_msg, sizeof (system_error_msg) - 1, 0);
 	    break;
 	}
       sit_for (2, 0, 0, 1, 1);
@@ -654,16 +656,16 @@ DEFUN ("w16-get-clipboard-data", Fw16_get_clipboard_data, Sw16_get_clipboard_dat
 	Vnext_selection_coding_system = Vselection_coding_system;
       setup_coding_system
 	(Fcheck_coding_system (Vnext_selection_coding_system), &coding);
+      coding.src_multibyte = 0;
+      coding.dst_multibyte = 1;
       Vnext_selection_coding_system = Qnil;
       coding.mode |= CODING_MODE_LAST_BLOCK;
       truelen = get_clipboard_data (CF_OEMTEXT, htext, data_size, 1);
       bufsize = decoding_buffer_size (&coding, truelen);
       buf = (unsigned char *) xmalloc (bufsize);
       decode_coding (&coding, htext, buf, truelen, bufsize);
-      truelen = (coding.fake_multibyte
-		 ? multibyte_chars_in_text (buf, coding.produced)
-		 : coding.produced_char);
-      ret = make_string_from_bytes ((char *) buf, truelen, coding.produced);
+      ret = make_string_from_bytes ((char *) buf,
+				    coding.produced_char, coding.produced);
       xfree (buf);
       Vlast_coding_system_used = coding.symbol;
     }

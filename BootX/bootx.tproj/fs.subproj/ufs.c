@@ -22,12 +22,13 @@
 /*
  *  ufs.c - File System Module for UFS.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 #include <sl.h>
+
 #include "ufs_byteorder.h"
 
 typedef struct dinode Inode, *InodePtr;
@@ -36,11 +37,11 @@ typedef struct dinode Inode, *InodePtr;
 
 static char *ReadBlock(long fragNum, long fragOffset, long length,
 		       char *buffer, long cache);
-static long ReadInode(long inodeNum, InodePtr inode);
+static long ReadInode(long inodeNum, InodePtr inode, long *flags, long *time);
 static long ResolvePathToInode(char *filePath, long *flags,
 			       InodePtr fileInode, InodePtr dirInode);
 static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
-			 long *dirIndex, char **name, long *flags, long *time);
+			 long *dirIndex, char **name);
 static long FindFileInDir(char *fileName, long *flags,
 			  InodePtr fileInode, InodePtr dirInode);
 static char *ReadFileBlock(InodePtr fileInode, long fragNum, long blockOffset,
@@ -57,6 +58,7 @@ static char      gDLBuf[8192];
 static char      gFSBuf[SBSIZE];
 static struct fs *gFS;
 static long      gBlockSize;
+static long      gBlockSizeOld;
 static long      gFragSize;
 static long      gFragsPerBlock;
 static char      *gTempBlock;
@@ -117,14 +119,19 @@ long UFSInitPartition(CICell ih)
   gBlockSize = gFS->fs_bsize;
   gFragSize  = gFS->fs_fsize;
   gFragsPerBlock = gBlockSize / gFragSize;
-  if (gTempBlock != 0) free(gTempBlock);
-  gTempBlock = malloc(gBlockSize);
+  
+  if (gBlockSizeOld <= gBlockSize) {
+    gTempBlock = AllocateBootXMemory(gBlockSize);
+  }
+  
   CacheInit(ih, gBlockSize);
+  
+  gBlockSizeOld = gBlockSize;
   
   gCurrentIH = ih;
   
   // Read the Root Inode
-  ReadInode(ROOTINO, &gRootInode);
+  ReadInode(ROOTINO, &gRootInode, 0, 0);
   
   return 0;
 }
@@ -142,7 +149,9 @@ long UFSLoadFile(CICell ih, char *filePath)
   if (*filePath == '\\') filePath++;
   if (*filePath == '\\') filePath++;
   ret = ResolvePathToInode(filePath, &flags, &gFileInode, &gRootInode);
-  if ((ret == -1) || (flags != kFlatFileType)) return -1;
+  if ((ret == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
+  
+  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
   
   ret = ReadFile(&gFileInode, &length);
   if (ret == -1) return -1;
@@ -154,7 +163,8 @@ long UFSLoadFile(CICell ih, char *filePath)
 long UFSGetDirEntry(CICell ih, char *dirPath, long *dirIndex,
 		    char **name, long *flags, long *time)
 {
-  long ret, fileInodeNum, dirFlags;
+  long  ret, fileInodeNum, dirFlags;
+  Inode tmpInode;
   
   if (UFSInitPartition(ih) == -1) return -1;
   
@@ -162,14 +172,15 @@ long UFSGetDirEntry(CICell ih, char *dirPath, long *dirIndex,
   if (*dirPath == '\\') dirPath++;
   if (*dirPath == '\\') dirPath++;
   ret = ResolvePathToInode(dirPath, &dirFlags, &gFileInode, &gRootInode);
-  if ((ret == -1) || (dirFlags != kDirectoryFileType)) return -1;
+  if ((ret == -1) || ((dirFlags & kFileTypeMask) != kFileTypeDirectory))
+    return -1;
   
-  do {
-    ret = ReadDirEntry(&gFileInode, &fileInodeNum, dirIndex,
-		       name, flags, time);
-  } while ((ret != -1) && (*flags == kUnknownFileType));
+  ret = ReadDirEntry(&gFileInode, &fileInodeNum, dirIndex, name);
+  if (ret != 0) return ret;
   
-  return ret;
+  ReadInode(fileInodeNum, &tmpInode, flags, time);
+  
+  return 0;
 }
 
 // Private functions
@@ -200,12 +211,27 @@ static char *ReadBlock(long fragNum, long blockOffset, long length,
 }
 
 
-static long ReadInode(long inodeNum, InodePtr inode)
+static long ReadInode(long inodeNum, InodePtr inode, long *flags, long *time)
 {
   long fragNum = ino_to_fsba(gFS, inodeNum);
   long blockOffset = ino_to_fsbo(gFS, inodeNum) * sizeof(Inode);
   
   ReadBlock(fragNum, blockOffset, sizeof(Inode), (char *)inode, 1);
+  
+  if (time != 0) *time = inode->di_mtime;
+  
+  if (flags != 0) {
+    switch (inode->di_mode & IFMT) {
+    case IFREG: *flags = kFileTypeFlat; break;
+    case IFDIR: *flags = kFileTypeDirectory; break;
+    case IFLNK: *flags = kFileTypeLink; break;
+    default :   *flags = kFileTypeUnknown; break;
+    }
+    
+    *flags |= inode->di_mode & kPermMask;
+    
+    if (inode->di_uid != 0) *flags |= kOwnerNotRoot;
+  }
   
   return 0;
 }
@@ -238,7 +264,7 @@ static long ResolvePathToInode(char *filePath, long *flags,
   ret = FindFileInDir(gTempName, flags, fileInode, dirInode);
   if (ret == -1) return -1;
   
-  if ((*restPath != '\0') && (*flags == kDirectoryFileType))
+  if ((*restPath != '\0') && ((*flags & kFileTypeMask) == kFileTypeDirectory))
     ret = ResolvePathToInode(restPath, flags, fileInode, fileInode);
   
   return ret;
@@ -246,37 +272,32 @@ static long ResolvePathToInode(char *filePath, long *flags,
 
 
 static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
-			 long *dirIndex, char **name, long *flags, long *time)
+			 long *dirIndex, char **name)
 {
   struct direct *dir;
   char          *buffer;
-  long          index = *dirIndex;
+  long          index;
   long          dirBlockNum, dirBlockOffset;
-  Inode         tmpInode;
   
-  dirBlockOffset = index % DIRBLKSIZ;
-  dirBlockNum    = index / DIRBLKSIZ;
+  while (1) {
+    index = *dirIndex;
+    
+    dirBlockOffset = index % DIRBLKSIZ;
+    dirBlockNum    = index / DIRBLKSIZ;
+    
+    buffer = ReadFileBlock(dirInode, dirBlockNum, 0, DIRBLKSIZ, 0, 1);
+    if (buffer == 0) return -1;
+    
+    dir = (struct direct *)(buffer + dirBlockOffset);
+    *dirIndex += dir->d_reclen;
+    
+    if (dir->d_ino != 0) break;
+    
+    if (dirBlockOffset != 0) return -1;
+  }
   
-  buffer = ReadFileBlock(dirInode, dirBlockNum, 0, DIRBLKSIZ, 0, 1);
-  if (buffer == 0) return -1;
-  
-  dir = (struct direct *)(buffer + dirBlockOffset);
-  if (dir->d_ino == 0) return -1;
-  
-  *dirIndex += dir->d_reclen;
   *fileInodeNum = dir->d_ino;
   *name = strncpy(gTempName2, dir->d_name, dir->d_namlen);
-  
-  ReadInode(dir->d_ino, &tmpInode);
-  
-  *time = tmpInode.di_mtime;
-  
-  switch (tmpInode.di_mode & IFMT) {
-  case IFREG: *flags = kFlatFileType; break;
-  case IFDIR: *flags = kDirectoryFileType; break;
-  case IFLNK: *flags = kLinkFileType; break;
-  default :   *flags = kUnknownFileType; break;
-  }
   
   return 0;
 }
@@ -285,19 +306,17 @@ static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
 static long FindFileInDir(char *fileName, long *flags,
 			  InodePtr fileInode, InodePtr dirInode)
 {
-  long ret, inodeNum, time, index = 0;
+  long ret, inodeNum, index = 0;
   char *name;
   
   while (1) {
-    ret = ReadDirEntry(dirInode, &inodeNum, &index, &name, flags, &time);
+    ret = ReadDirEntry(dirInode, &inodeNum, &index, &name);
     if (ret == -1) return -1;
-    
-    if (*flags == kUnknownFileType) continue;
     
     if (strcmp(fileName, name) == 0) break;
   }
   
-  ReadInode(inodeNum, fileInode);
+  ReadInode(inodeNum, fileInode, flags, 0);
   
   return 0;
 }

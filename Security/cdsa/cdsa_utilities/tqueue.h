@@ -117,7 +117,7 @@ inline void ScheduleQueue<Time>::schedule(Event *event, Time when)
 }
 
 template <class Time>
-inline ScheduleQueue<Time>::Event *ScheduleQueue<Time>::pop(Time now)
+inline typename ScheduleQueue<Time>::Event *ScheduleQueue<Time>::pop(Time now)
 {
 	if (!empty()) {
 		Event *top = first.fwd;

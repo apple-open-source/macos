@@ -78,6 +78,8 @@ typedef struct ISOVolumeDescriptor
 /* ************************************ P R O T O T Y P E S *************************************** */
 
 static void 			DoDisplayUsage( const char *argv[] );
+static void 			StripTrailingSpaces( char *theContentsPtr );
+
 static void 			DoFileSystemFile( char *theFileNameSuffixPtr, char *theContentsPtr );
 static int 			DoMount( char *theDeviceNamePtr, const char *theMountPointPtr );
 static int 			DoProbe( char *theDeviceNamePtr );
@@ -358,9 +360,14 @@ static int DoProbe( char *theDeviceNamePtr )
 			/* We found a match on id "CD001".  Now make sure type is for the primary descriptor */
 			if ( myISOVolDescPtr->type[0] == ISO_VD_PRIMARY )
 			{
-				DoFileSystemFile( FS_NAME_SUFFIX, ISO_FS_NAME_NAME );
+
 				myISOVolDescPtr->filler2[0] = 0x00; // make sure volume ID is null terminated
-				DoFileSystemFile( FS_LABEL_SUFFIX, &myISOVolDescPtr->volumeID[0] );
+				StripTrailingSpaces(myISOVolDescPtr->volumeID);
+				write(1, myISOVolDescPtr->volumeID,
+				      strlen(myISOVolDescPtr->volumeID));
+				DoFileSystemFile( FS_NAME_SUFFIX, ISO_FS_NAME );
+				DoFileSystemFile( FS_LABEL_SUFFIX,
+						  myISOVolDescPtr->volumeID );
 				break;
 			}
 		}
@@ -503,6 +510,20 @@ static void DoDisplayUsage( const char *argv[] )
 		
 } /* DoDisplayUsage */
 
+static void StripTrailingSpaces( char *theContentsPtr )
+{
+    if ( strlen(theContentsPtr) )
+    {
+    	char    	*myPtr;
+    	
+		myPtr = theContentsPtr + strlen( theContentsPtr ) - 1;
+		while ( *myPtr == ' ' && myPtr >= theContentsPtr )
+		{
+	    	*myPtr = 0x00;
+	    	myPtr--;
+		}
+    }
+}
 
 /* ************************************** DoFileSystemFile *******************************************
 Purpose -
@@ -517,24 +538,11 @@ Input -
 Output -
 	NA.
 *************************************************************************************************** */
-
 static void DoFileSystemFile( char *theFileNameSuffixPtr, char *theContentsPtr )
 {
     int    		myFD;
     char   		myFileName[MAXPATHLEN];
 
-    /* Remove any trailing white space */
-    if ( strlen(theContentsPtr) )
-    {
-    	char    	*myPtr;
-    	
-		myPtr = theContentsPtr + strlen( theContentsPtr ) - 1;
-		while ( *myPtr == ' ' && myPtr >= theContentsPtr )
-		{
-	    	*myPtr = 0x00;
-	    	myPtr--;
-		}
-    }
     sprintf( &myFileName[0], "%s/%s%s/%s", FS_DIR_LOCATION, ISO_FS_NAME, FS_DIR_SUFFIX, ISO_FS_NAME );
     strcat( &myFileName[0], theFileNameSuffixPtr );
     unlink( &myFileName[0] );		/* erase existing string */
@@ -550,17 +558,11 @@ static void DoFileSystemFile( char *theFileNameSuffixPtr, char *theContentsPtr )
 	    	write( myFD, theContentsPtr, strlen( theContentsPtr ) );
 	    	close( myFD );
 		} 
-		else 
-		{
-	    	perror( myFileName );
-		}
     }
     
     return;
     
 } /* DoFileSystemFile */
-
-
 
 /*
  * Minutes, Seconds, Frames (M:S:F)

@@ -23,7 +23,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-ospf6.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ospf6.c,v 1.1.1.2 2002/05/29 00:05:40 landonf Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -359,7 +359,7 @@ ospf6_print_lsa(register const struct lsa *lsap)
 		flags32 = ntohl(lsap->lsa_un.un_asla.asla_metric);
 		ospf6_print_bits(ospf6_asla_flag_bits, flags32);
 		printf(" metric %u",
-		       ntohl(lsap->lsa_un.un_asla.asla_metric) &
+		       (u_int32_t)ntohl(lsap->lsa_un.un_asla.asla_metric) &
 		       ASLA_MASK_METRIC);
 		lsapp = lsap->lsa_un.un_asla.asla_prefix;
 		k = ospf6_print_lsaprefix(lsapp);

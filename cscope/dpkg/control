@@ -1,0 +1,8 @@
+Package: cscope
+Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
+Vendor: Cscope
+Version: 15.3
+URL: http://cscope.sourceforge.net/
+Build-Depends: build-base
+Description: Source browser
+ Cscope is a text screen based source browsing tool.

@@ -1,5 +1,5 @@
 /* Target dependent code for the Motorola 68000 series.
-   Copyright (C) 1990, 1992, 1993, 1994, 1995, 1996, 1999, 2000
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -26,6 +26,7 @@
 #include "value.h"
 #include "gdb_string.h"
 #include "inferior.h"
+#include "regcache.h"
 
 
 #define P_LINKL_FP	0x480e
@@ -52,29 +53,7 @@ altos_skip_prologue (CORE_ADDR pc)
   else if (op == P_LINKL_FP)
     pc += 6;			/* Skip link #long */
   /* Not sure why branches are here.  */
-  /* From tm-isi.h, tm-altos.h */
-  else if (op == 0060000)
-    pc += 4;			/* Skip bra #word */
-  else if (op == 00600377)
-    pc += 6;			/* skip bra #long */
-  else if ((op & 0177400) == 0060000)
-    pc += 2;			/* skip bra #char */
-  return pc;
-}
-
-/* The only reason this is here is the tm-isi.h reference below.  It
-   was moved back here from tm-m68k.h.  FIXME? */
-
-extern CORE_ADDR
-isi_skip_prologue (CORE_ADDR pc)
-{
-  register int op = read_memory_integer (pc, 2);
-  if (op == P_LINKW_FP)
-    pc += 4;			/* Skip link #word */
-  else if (op == P_LINKL_FP)
-    pc += 6;			/* Skip link #long */
-  /* Not sure why branches are here.  */
-  /* From tm-isi.h, tm-altos.h */
+  /* From tm-altos.h */
   else if (op == 0060000)
     pc += 4;			/* Skip bra #word */
   else if (op == 00600377)
@@ -672,7 +651,8 @@ m68k_get_longjmp_target (CORE_ADDR *pc)
 
   return 1;
 #else
-  internal_error ("m68k_get_longjmp_target: not implemented");
+  internal_error (__FILE__, __LINE__,
+		  "m68k_get_longjmp_target: not implemented");
   return 0;
 #endif
 }

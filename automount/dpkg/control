@@ -1,0 +1,4 @@
+Package: automount
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: Filesystem automounter
+Build-Depends: build-base, libinfo-hdrs, librpcsvc-hdrs, objc4, corefoundation

@@ -16,7 +16,7 @@
  */
 
 /*
- * MacContext.h - AppleCSPContext for HMACSHA1
+ * MacContext.h - AppleCSPContext for HMAC{SHA1,MD5}
  */
 
 #ifndef	_MAC_CONTEXT_H_
@@ -25,15 +25,25 @@
 #include <AppleCSP/AppleCSPContext.h>
 #include <PBKDF2/HMACSHA1.h>
 
-#define HMAC_MIN_KEY_SIZE		20		/* in bytes */
+/* 
+ * TLS Export Ciphers require HMAC calculation with a secret key
+ * size of 0 bytes. We'd really like to enforce a minimum key size equal 
+ * the digest size, per RFC 2104, but TLS precludes that.
+ */
+#define HMAC_MIN_KEY_SIZE		0
+#define HMAC_SHA_MIN_KEY_SIZE	HMAC_MIN_KEY_SIZE
+#define HMAC_MD5_MIN_KEY_SIZE	HMAC_MIN_KEY_SIZE
 #define HMAC_MAX_KEY_SIZE		2048
-
 
 class MacContext : public AppleCSPContext  {
 public:
 	MacContext(
-		AppleCSPSession &session) : 
-			AppleCSPContext(session), mHmac(NULL) { }
+		AppleCSPSession &session,
+		CSSM_ALGORITHMS alg) : 
+			AppleCSPContext(session), 
+			mHmac(NULL),
+			mAlg(alg),
+			mDigestSize(0) { }
 	~MacContext();
 	
 	/* called out from CSPFullPluginSession....
@@ -51,6 +61,8 @@ public:
 
 private:
 	hmacContextRef	mHmac;
+	CSSM_ALGORITHMS	mAlg;
+	UInt32			mDigestSize;
 };
 
 #ifdef	CRYPTKIT_CSP_ENABLE
@@ -61,7 +73,8 @@ private:
 class MacLegacyContext : public AppleCSPContext  {
 public:
 	MacLegacyContext(
-		AppleCSPSession &session) : 
+		AppleCSPSession &session,
+		CSSM_ALGORITHMS alg) : 
 			AppleCSPContext(session), mHmac(NULL) { }
 	~MacLegacyContext();
 	

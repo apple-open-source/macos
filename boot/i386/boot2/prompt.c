@@ -28,12 +28,11 @@
 
 #include "vers.h"
 
-char bootPrompt[] = "\n\nDarwin/x86 boot v" I386BOOT_VERSION "\n"
-                    "%dK conventional / %dK extended memory\n\n"
-                    "Darwin/x86 will start up in %d seconds, or you can:\n"
-                    "  Type -v and press Return to start up Darwin/x86 with "
-                    "diagnostic messages\n"
-                    "  Type ? and press Return to learn about advanced startup "
-                    "options\n"
-                    "  Type any other character to stop Darwin/x86 from "
-                    "starting up automatically\n";
+char bootBanner[] = "\nDarwin/x86 boot v" I386BOOT_VERSION "\n"
+                    "%dK conventional / %dK extended memory\n";
+
+char bootPrompt[] =
+    "Press Return to start up Darwin/x86 with no options, or you can:\n"
+    "  Type -v and press Return to start up with diagnostic messages\n"
+    "  Type ? and press Return to learn about advanced startup options\n\n"
+    "boot: ";

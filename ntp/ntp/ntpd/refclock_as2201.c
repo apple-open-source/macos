@@ -8,15 +8,14 @@
 
 #if defined(REFCLOCK) && defined(CLOCK_AS2201)
 
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/time.h>
-
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_refclock.h"
 #include "ntp_unixtime.h"
 #include "ntp_stdlib.h"
+
+#include <stdio.h>
+#include <ctype.h>
 
 /*
  * This driver supports the Austron 2200A/2201A GPS Receiver with
@@ -76,8 +75,6 @@
  * AS2201 unit control structure.
  */
 struct as2201unit {
-	int	pollcnt;	/* poll message counter */
-
 	char	*lastptr;	/* statistics buffer pointer */
 	char	stats[SMAX];	/* statistics buffer */
 	int	linect;		/* count of lines remaining */
@@ -197,11 +194,9 @@ as2201_start(
 	 * Initialize miscellaneous variables
 	 */
 	peer->precision = PRECISION;
-	peer->burst = NTP_SHIFT;
+	peer->burst = NSTAGE;
 	pp->clockdesc = DESCRIPTION;
 	memcpy((char *)&pp->refid, REFID, 4);
-	up->pollcnt = 2;
-
 	up->lastptr = up->stats;
 	up->index = 0;
 	return (1);
@@ -281,7 +276,6 @@ as2201_receive(
 			up->linect = atoi(pp->a_lastcode);
 			return;
 		} else {
-			up->pollcnt = 2;
 			record_clock_stats(&peer->srcadr, up->stats);
 #ifdef DEBUG
 			if (debug)
@@ -313,6 +307,14 @@ as2201_receive(
 	}
 
 	/*
+	 * Test for synchronization (this is a temporary crock).
+	 */
+	if (pp->a_lastcode[2] != ':')
+		pp->leap = LEAP_NOTINSYNC;
+	else
+		pp->leap = LEAP_NOWARNING;
+
+	/*
 	 * Process the new sample in the median filter and determine the
 	 * timecode timestamp.
 	 */
@@ -320,15 +322,6 @@ as2201_receive(
 		refclock_report(peer, CEVNT_BADTIME);
 		return;
 	}
-
-	/*
-	 * Test for synchronization (this is a temporary crock).
-	 */
-	if (pp->a_lastcode[2] != ':')
-		pp->leap = LEAP_NOTINSYNC;
-	else
-		pp->leap = LEAP_NOWARNING;
-	refclock_receive(peer);
 
 	/*
 	 * If CLK_FLAG4 is set, initialize the statistics buffer and
@@ -364,7 +357,6 @@ as2201_poll(
 	struct peer *peer
 	)
 {
-	register struct as2201unit *up;
 	struct refclockproc *pp;
 
 	/*
@@ -373,11 +365,6 @@ as2201_poll(
 	 * eavesdropper watching the radio.
 	 */
 	pp = peer->procptr;
-	up = (struct as2201unit *)pp->unitptr;
-	if (up->pollcnt == 0)
-	    refclock_report(peer, CEVNT_TIMEOUT);
-	else
-	    up->pollcnt--;
 	if (write(pp->io.fd, "\r*toc\r", 6) != 6) {
 		refclock_report(peer, CEVNT_FAULT);
 	} else {
@@ -385,6 +372,14 @@ as2201_poll(
 		if (!(pp->sloppyclockflag & CLK_FLAG2))
 			get_systime(&pp->lastrec);
 	}
+	if (peer->burst > 0)
+                return;
+        if (pp->coderecv == pp->codeproc) {
+                refclock_report(peer, CEVNT_TIMEOUT);
+                return;
+        }
+        refclock_receive(peer);
+	peer->burst = NSTAGE;
 }
 
 #else

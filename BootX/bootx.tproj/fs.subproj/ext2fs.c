@@ -22,15 +22,12 @@
 /*
  *  ext2.c - File System Module for Ext2.
  *
- *  Copyright (c) 1999-2000 Apple Computer, Inc.
+ *  Copyright (c) 1999-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 #include <sl.h>
-#include <fs.h>
-
-#include <bsd/sys/types.h>
 
 #include "ext2fs.h"
 #include "ext2fs_dinode.h"
@@ -43,11 +40,11 @@ typedef struct ext2fs_dinode Inode, *InodePtr;
 static long HowMany(long bufferSize, long unitSize);
 static char *ReadBlock(long blockNum, long blockOffset, long length,
 		       char *buffer, long cache);
-static long ReadInode(long inodeNum, InodePtr inode);
+static long ReadInode(long inodeNum, InodePtr inode, long *flags, long *time);
 static long ResolvePathToInode(char *filePath, long *flags,
                                InodePtr fileInode, InodePtr dirInode);
 static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
-			 long *dirIndex, char **name, long *flags, long *time);
+			 long *dirIndex, char **name);
 static long FindFileInDir(char *fileName, long *flags,
                           InodePtr fileInode, InodePtr dirInode);
 static char *ReadFileBlock(InodePtr fileInode, long blockNum, long blockOffset,
@@ -59,6 +56,7 @@ static CICell          gCurrentIH;
 static char            gFSBuf[SBSIZE * 2];
 static struct m_ext2fs *gFS;
 static long            gBlockSize;
+static long            gBlockSizeOld;
 static char            *gTempBlock;
 static char            gTempName[EXT2FS_MAXNAMLEN + 1];
 static char            gTempName2[EXT2FS_MAXNAMLEN + 1];
@@ -87,9 +85,12 @@ long Ext2InitPartition(CICell ih)
   
   // Calculate the block size and set up the block cache.
   gBlockSize = 1024 << gFS->e2fs.e2fs_log_bsize;
-  if (gTempBlock != 0) free(gTempBlock);
-  gTempBlock = malloc(gBlockSize);
+  if (gBlockSizeOld <= gBlockSize) {
+    gTempBlock = AllocateBootXMemory(gBlockSize);
+  }
   CacheInit(ih, gBlockSize);
+  
+  gBlockSizeOld = gBlockSize;
   
   gCurrentIH = ih;
   
@@ -106,7 +107,7 @@ long Ext2InitPartition(CICell ih)
   gFS->e2fs_ngdb = HowMany(gFS->e2fs_ncg, gdPerBlock);
   gFS->e2fs_ipb = gFS->e2fs_bsize / EXT2_DINODE_SIZE;
   gFS->e2fs_itpg = gFS->e2fs.e2fs_ipg / gFS->e2fs_ipb;
-  gFS->e2fs_gd = malloc(gFS->e2fs_ngdb * gFS->e2fs_bsize);
+  gFS->e2fs_gd = AllocateBootXMemory(gFS->e2fs_ngdb * gFS->e2fs_bsize);
   
   // Read the summary information from disk.
   for (cnt = 0; cnt < gFS->e2fs_ngdb; cnt++) {
@@ -117,7 +118,7 @@ long Ext2InitPartition(CICell ih)
   }
   
   // Read the Root Inode
-  ReadInode(EXT2_ROOTINO, &gRootInode);
+  ReadInode(EXT2_ROOTINO, &gRootInode, 0, 0);
   
   return 0;
 }
@@ -135,7 +136,9 @@ long Ext2LoadFile(CICell ih, char *filePath)
   if (*filePath == '\\') filePath++;
   if (*filePath == '\\') filePath++;
   ret = ResolvePathToInode(filePath, &flags, &gFileInode, &gRootInode);
-  if ((ret == -1) || (flags != kFlatFileType)) return -1;
+  if ((ret == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
+  
+  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
   
   ret = ReadFile(&gFileInode, &length);
   if (ret != 0) return -1;
@@ -147,20 +150,23 @@ long Ext2LoadFile(CICell ih, char *filePath)
 long Ext2GetDirEntry(CICell ih, char *dirPath, long *dirIndex,
 		     char **name, long *flags, long *time)
 {
-  long ret, fileInodeNum, dirFlags;
+  long  ret, fileInodeNum, dirFlags;
+  Inode tmpInode;
   
   if (Ext2InitPartition(ih) == -1) return -1;
   
   // Skip a leading '\' if present
   if (dirPath[0] == '\\') dirPath++;
   ret = ResolvePathToInode(dirPath, &dirFlags, &gFileInode, &gRootInode);
-  if ((ret == -1) || (dirFlags != kDirectoryFileType)) return -1;
+  if ((ret == -1) || ((dirFlags & kFileTypeMask) != kFileTypeDirectory))
+    return -1;
   
-  do {
-    ret = ReadDirEntry(&gFileInode, &fileInodeNum, dirIndex, name, flags,time);
-  } while ((ret != -1) && (*flags == kUnknownFileType));
+  ret = ReadDirEntry(&gFileInode, &fileInodeNum, dirIndex, name);
+  if (ret != 0) return ret;
   
-  return ret;
+  ReadInode(fileInodeNum, &tmpInode, flags, time);
+  
+  return 0;
 }
 
 // Private functions
@@ -191,13 +197,28 @@ static char *ReadBlock(long blockNum, long blockOffset, long length,
 }
 
 
-static long ReadInode(long inodeNum, InodePtr inode)
+static long ReadInode(long inodeNum, InodePtr inode, long *flags, long *time)
 {
   long blockNum = ino_to_fsba(gFS, inodeNum);
   long blockOffset = ino_to_fsbo(gFS, inodeNum) * sizeof(Inode);
   
   ReadBlock(blockNum, blockOffset, sizeof(Inode), (char *)inode, 1);
   e2fs_i_bswap(inode, inode);
+  
+  if (time != 0) *time = inode->e2di_mtime;
+  
+  if (flags != 0) {
+    switch (inode->e2di_mode & EXT2_IFMT) {
+    case EXT2_IFREG: *flags = kFileTypeFlat; break;
+    case EXT2_IFDIR: *flags = kFileTypeDirectory; break;
+    case EXT2_IFLNK: *flags = kFileTypeLink; break;
+    default :        *flags = kFileTypeUnknown; break;
+    }
+    
+    *flags |= inode->e2di_mode & kPermMask;
+    
+    if (inode->e2di_uid != 0) *flags |= kOwnerNotRoot;
+  }
   
   return 0;
 }
@@ -230,7 +251,7 @@ static long ResolvePathToInode(char *filePath, long *flags,
   ret = FindFileInDir(gTempName, flags, fileInode, dirInode);
   if (ret == -1) return -1;
 
-  if ((*restPath != '\0') && (*flags == kDirectoryFileType))
+  if ((*restPath != '\0') && ((*flags & kFileTypeMask) == kFileTypeDirectory))
     ret = ResolvePathToInode(restPath, flags, fileInode, fileInode);
   
   return ret;
@@ -238,38 +259,33 @@ static long ResolvePathToInode(char *filePath, long *flags,
 
 
 static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
-			 long *dirIndex, char **name, long *flags, long *time)
+			 long *dirIndex, char **name)
 {
   struct ext2fs_direct *dir;
   char                 *buffer;
-  long                 offset, index = *dirIndex;
+  long                 offset, index;
   long                 blockNum, inodeNum;
-  Inode                tmpInode;
   
-  offset = index % gBlockSize;
-  blockNum = index / gBlockSize;
+  while (1) {
+    index = *dirIndex;
+    
+    offset = index % gBlockSize;
+    blockNum = index / gBlockSize;
+    
+    buffer = ReadFileBlock(dirInode, blockNum, 0, gBlockSize, 0, 1);
+    if (buffer == 0) return -1;
+    
+    dir = (struct ext2fs_direct *)(buffer + offset);
+    *dirIndex += bswap16(dir->e2d_reclen);
+    
+    inodeNum = bswap32(dir->e2d_ino);
+    if (inodeNum != 0) break;
+    
+    if (offset != 0) return -1;
+  }
   
-  buffer = ReadFileBlock(dirInode, blockNum, 0, gBlockSize, 0, 1);
-  if (buffer == 0) return -1;
-  
-  dir = (struct ext2fs_direct *)(buffer + offset);
-  inodeNum = bswap32(dir->e2d_ino);
-  if (inodeNum == 0) return -1;
-  
-  *dirIndex += bswap16(dir->e2d_reclen);
   *fileInodeNum = inodeNum;
   *name = strncpy(gTempName2, dir->e2d_name, dir->e2d_namlen);
-  
-  ReadInode(inodeNum, &tmpInode);
-  
-  *time = tmpInode.e2di_mtime;
-  
-  switch (tmpInode.e2di_mode & EXT2_IFMT) {
-  case EXT2_IFREG: *flags = kFlatFileType; break;
-  case EXT2_IFDIR: *flags = kDirectoryFileType; break;
-  case EXT2_IFLNK: *flags = kLinkFileType; break;
-  default :        *flags = kUnknownFileType; break;
-  }
   
   return 0;
 }
@@ -278,19 +294,17 @@ static long ReadDirEntry(InodePtr dirInode, long *fileInodeNum,
 static long FindFileInDir(char *fileName, long *flags,
                           InodePtr fileInode, InodePtr dirInode)
 {
-  long ret, inodeNum, time, index = 0;
+  long ret, inodeNum, index = 0;
   char *name;
   
   while (1) {
-    ret = ReadDirEntry(dirInode, &inodeNum, &index, &name, flags, &time);
+    ret = ReadDirEntry(dirInode, &inodeNum, &index, &name);
     if (ret == -1) return -1;
-    
-    if (*flags == kUnknownFileType) continue;
     
     if (strcmp(fileName, name) == 0) break;
   }
   
-  ReadInode(inodeNum, fileInode);
+  ReadInode(inodeNum, fileInode, flags, 0);
   
   return 0;
 }

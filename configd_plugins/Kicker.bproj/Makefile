@@ -13,7 +13,7 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Loadable Bundle
 
 GLOBAL_RESOURCES = Kicker.xml restart-AppleTalk restart-NetInfo\
-                   restart-automount restart-lookupd set-hostname
+                   restart-lookupd set-hostname enable-network
 
 CFILES = kicker.c
 
@@ -34,7 +34,7 @@ BUNDLE_EXTENSION = bundle
 
 
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -Wall -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+NEXTSTEP_PB_CFLAGS = -Wall
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

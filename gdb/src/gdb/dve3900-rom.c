@@ -1,6 +1,6 @@
 /* Remote debugging interface for Densan DVE-R3900 ROM monitor for
    GDB, the GNU debugger.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,6 +28,7 @@
 #include "command.h"
 #include "gdb_string.h"
 #include <time.h>
+#include "regcache.h"
 
 /* Type of function passed to bfd_map_over_sections.  */
 
@@ -833,7 +834,7 @@ load_section (bfd *abfd, asection *s, unsigned int *data_count)
       buffer = (unsigned char *) xmalloc (section_size);
       bfd_get_section_contents (abfd, s, buffer, 0, section_size);
       process_read_request (buffer, section_size);
-      free (buffer);
+      xfree (buffer);
     }
 }
 
@@ -926,7 +927,7 @@ r3900_load (char *filename, int from_tty)
   if (exec_bfd)
     write_pc (bfd_get_start_address (exec_bfd));
 
-  inferior_pid = 0;		/* No process now */
+  inferior_ptid = null_ptid;		/* No process now */
 
   /* This is necessary because many things were based on the PC at the
      time that we attached to the monitor, which is no longer valid

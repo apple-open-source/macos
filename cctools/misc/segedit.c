@@ -517,6 +517,7 @@ replace_sections(void)
 	    case LC_FVMFILE:
 	    case LC_PREPAGE:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLINKER:
 	    case LC_ID_DYLINKER:

@@ -32,6 +32,7 @@ static char *sFile;
 static int sSDL;
 static int sDVCPro;
 static int sFormat = 0;	// DV
+static int sLoop;
 
 static void printP(const char *s)
 {
@@ -93,14 +94,17 @@ static OSErr doWriteTest(ComponentInstance theInst)
     ComponentResult err;
     int len;
     
+    finished = 0;
     err = pthread_mutex_init(&globalsMutex, NULL);
     err = pthread_cond_init(&syncCond, NULL);
 
     file = open(sFile, O_RDONLY, 0666);
     printf("open file: %d\n", file);
 #if WRITEBUFF
-    myBuffer1 = NewPtr(frameSize);
-    myBuffer2 = NewPtr(frameSize);
+    if(!myBuffer1)
+        myBuffer1 = NewPtr(frameSize);
+    if(!myBuffer2)
+        myBuffer2 = NewPtr(frameSize);
     read(file, myBuffer1, frameSize);
     isochParamBlock1.buffer 		= myBuffer1;
 #else
@@ -193,6 +197,8 @@ static OSErr doWriteTest(ComponentInstance theInst)
 
     printf("Closed device\n");
 
+    close(sFile);
+    
 error:
     if(err)
         printf("Error %d(0x%x) in doWriteTest\n", err, err);
@@ -367,9 +373,6 @@ static void OpenDV()
     if( videoConfig.atom == nil)	// no good configs found
             goto error;
 
-    QTUnlockContainer( deviceList);
-    deviceList = NULL;
-
     printf("setting config\n");
     // set isoch to use this config
     err = IDHSetDeviceConfiguration( theInst, &videoConfig);
@@ -387,10 +390,11 @@ error:
     if( err != noErr)
         printf("error %d(0x%x)\n", err, err);
     if(deviceList) {
-            QTUnlockContainer( deviceList);
+        QTUnlockContainer( deviceList);
+        QTDisposeAtomContainer(deviceList);
     }
 
-    CallComponentClose(theInst, 0);
+    CloseComponent(theInst);
 
 }
 
@@ -415,6 +419,8 @@ int main(int argc, char **argv)
             sSDL = 1;
         else if(strcmp(argv[pos], "-DVCPro") == 0)
             sDVCPro = 1;
+        else if(strcmp(argv[pos], "-l") == 0)
+            sLoop = 1;
         else
             sFile = argv[pos];
         pos++;
@@ -460,7 +466,9 @@ int main(int argc, char **argv)
 	}
         }
 
-	OpenDV();
+    do {
+        OpenDV();
+    } while (sLoop);
 	return 0;
 }
 

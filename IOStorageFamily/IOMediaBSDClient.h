@@ -32,9 +32,9 @@
  * ioctl                        description
  * ---------------------------- ------------------------------------------------
  * DKIOCEJECT                   eject media
+ * DKIOCSYNCHRONIZECACHE        flush media
  *
- * DKIOCGETBLOCKSIZE            get media's preferred block size
- * DKIOCSETBLOCKSIZE            set media's preferred block size
+ * DKIOCGETBLOCKSIZE            get media's block size
  * DKIOCGETBLOCKCOUNT           get media's block count
  * DKIOCGETFIRMWAREPATH         get media's firmware path
  *
@@ -43,8 +43,8 @@
  *
  * DKIOCGETMAXBLOCKCOUNTREAD    get maximum block count for reads
  * DKIOCGETMAXBLOCKCOUNTWRITE   get maximum block count for writes
- * DKIOCGETMAXSEGMENTCOUNTREAD  get maximum physical segment count for reads
- * DKIOCGETMAXSEGMENTCOUNTWRITE get maximum physical segment count for writes
+ * DKIOCGETMAXSEGMENTCOUNTREAD  get maximum segment count for reads
+ * DKIOCGETMAXSEGMENTCOUNTWRITE get maximum segment count for writes
  */
 
 typedef struct
@@ -53,9 +53,9 @@ typedef struct
 } dk_firmware_path_t;
 
 #define DKIOCEJECT                   _IO('d', 21)
+#define DKIOCSYNCHRONIZECACHE        _IO('d', 22)
 
 #define DKIOCGETBLOCKSIZE            _IOR('d', 24, u_int32_t)
-#define DKIOCSETBLOCKSIZE            _IOW('d', 24, u_int32_t)
 #define DKIOCGETBLOCKCOUNT           _IOR('d', 25, u_int64_t)
 #define DKIOCGETBLOCKCOUNT32         _IOR('d', 25, u_int32_t)
 #define DKIOCGETFIRMWAREPATH         _IOR('d', 28, dk_firmware_path_t)
@@ -68,11 +68,16 @@ typedef struct
 #define DKIOCGETMAXSEGMENTCOUNTREAD  _IOR('d', 66, u_int64_t)
 #define DKIOCGETMAXSEGMENTCOUNTWRITE _IOR('d', 67, u_int64_t)
 
+#ifdef KERNEL
+#define DKIOCSETBLOCKSIZE            _IOW('d', 24, u_int32_t)
+#endif /* KERNEL */
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOMedia.h>
 
@@ -180,6 +185,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOMEDIABSDCLIENT_H */

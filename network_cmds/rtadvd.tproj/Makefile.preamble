@@ -1,0 +1,4 @@
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+-include ../Makefile.include
+LOCAL_CFLAGS= -DINET6 -DHAVE_GETIFADDRS
+AFTER_INSTALL += install-man-page install-config-files

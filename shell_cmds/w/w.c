@@ -188,7 +188,7 @@ main(argc, argv)
 	else
 		(void)setegid(egid);
 
-	if ((kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, buf)) == NULL)
+	if ((kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf)) == NULL)
 		errx(1, "%s", errbuf);
 
 	/* get rid of it now anyway */

@@ -87,6 +87,13 @@ SSLEncodeInt(unsigned char *p, UInt32 value, int length)
     return retVal;
 }
 
+UInt8*
+SSLEncodeUInt64(UInt8 *p, sslUint64 value)
+{   p = SSLEncodeInt(p, value.high, 4);
+    return SSLEncodeInt(p, value.low, 4);
+}
+
+
 void
 IncrementUInt64(sslUint64 *v)
 {   if (++v->low == 0)          /* Must have just rolled over */
@@ -149,6 +156,8 @@ const char *protocolVersStr(SSLProtocolVersion prot)
  	case SSL_Version_3_0_Only: return "SSL_Version_3_0_Only";
  	case SSL_Version_2_0: return "SSL_Version_2_0";
  	case SSL_Version_3_0: return "SSL_Version_3_0";
+ 	case TLS_Version_1_0: return "TLS_Version_1_0";
+ 	case TLS_Version_1_0_Only: return "TLS_Version_1_0_Only";
  	default: sslPanic("protocolVersStr: bad prot");
  	}
  	return NULL;	/* NOT REACHED */

@@ -1,5 +1,5 @@
 /* Print VAX instructions.
-   Copyright (C) 1995, 1998 Free Software Foundation, Inc.
+   Copyright 1995, 1998, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Pauline Middelink <middelin@polyware.iaf.nl>
 
 This program is free software; you can redistribute it and/or modify
@@ -21,12 +21,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "dis-asm.h"
 
 /* Local function prototypes */
-static int
-print_insn_arg PARAMS ((const char *, unsigned char *, bfd_vma,
-			disassemble_info *));
+static int fetch_data PARAMS ((struct disassemble_info *, bfd_byte *));
+static int print_insn_arg
+  PARAMS ((const char *, unsigned char *, bfd_vma, disassemble_info *));
+static int print_insn_mode
+  PARAMS ((int, unsigned char *, bfd_vma, disassemble_info *));
 
-static int
-print_insn_mode PARAMS ((int, unsigned char *, bfd_vma, disassemble_info *));
 
 static char *reg_names[] =
 {
@@ -112,7 +112,7 @@ print_insn_vax (memaddr, info)
      disassemble_info *info;
 {
   const struct vot *votp;
-  const char *argp = NULL;
+  const char *argp;
   unsigned char *arg;
   struct private priv;
   bfd_byte *buffer = priv.the_buffer;
@@ -120,13 +120,26 @@ print_insn_vax (memaddr, info)
   info->private_data = (PTR) &priv;
   priv.max_fetched = priv.the_buffer;
   priv.insn_start = memaddr;
+
   if (setjmp (priv.bailout) != 0)
     {
       /* Error return.  */
       return -1;
     }
 
-  FETCH_DATA (info, buffer + 2);
+  argp = NULL;
+  /* Check if the info buffer has more than one byte left since
+     the last opcode might be a single byte with no argument data.  */
+  if (info->buffer_length - (memaddr - info->buffer_vma) > 1)
+    {
+      FETCH_DATA (info, buffer + 2);
+    }
+  else
+    {
+      FETCH_DATA (info, buffer + 1);
+      buffer[1] = 0;
+    }
+
   for (votp = &votstrs[0]; votp->name[0]; votp++)
     {
       register vax_opcodeT opcode = votp->detail.code;

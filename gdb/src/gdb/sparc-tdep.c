@@ -1,6 +1,6 @@
 /* Target-dependent code for the SPARC for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,6 +30,7 @@
 #include "value.h"
 #include "bfd.h"
 #include "gdb_string.h"
+#include "regcache.h"
 
 #ifdef	USE_PROC_FS
 #include <sys/procfs.h>
@@ -425,7 +426,7 @@ CORE_ADDR
 sparc_frame_chain (struct frame_info *frame)
 {
   /* Value that will cause FRAME_CHAIN_VALID to not worry about the chain
-     value.  If it realy is zero, we detect it later in
+     value.  If it really is zero, we detect it later in
      sparc_init_prev_frame.  */
   return (CORE_ADDR) 1;
 }
@@ -526,7 +527,8 @@ setup_arbitrary_frame (int argc, CORE_ADDR *argv)
   frame = create_new_frame (argv[0], 0);
 
   if (!frame)
-    internal_error ("create_new_frame returned invalid frame");
+    internal_error (__FILE__, __LINE__,
+		    "create_new_frame returned invalid frame");
 
   frame->extra_info->bottom = argv[1];
   frame->pc = FRAME_SAVED_PC (frame);
@@ -984,8 +986,26 @@ sparc_push_dummy_frame (void)
 
   if (strcmp (target_shortname, "sim") != 0)
     {
-      write_fp (old_sp);
-
+      /* NOTE: cagney/2002-04-04: The code below originally contained
+         GDB's _only_ call to write_fp().  That call was eliminated by
+         inlining the corresponding code.  For the 64 bit case, the
+         old function (sparc64_write_fp) did the below although I'm
+         not clear why.  The same goes for why this is only done when
+         the underlying target is a simulator.  */
+      if (GDB_TARGET_IS_SPARC64)
+	{
+	  /* Target is a 64 bit SPARC.  */
+	  CORE_ADDR oldfp = read_register (FP_REGNUM);
+	  if (oldfp & 1)
+	    write_register (FP_REGNUM, old_sp - 2047);
+	  else
+	    write_register (FP_REGNUM, old_sp);
+	}
+      else
+	{
+	  /* Target is a 32 bit SPARC.  */
+	  write_register (FP_REGNUM, old_sp);
+	}
       /* Set return address register for the call dummy to the current PC.  */
       write_register (I7_REGNUM, read_pc () - 8);
     }
@@ -1053,7 +1073,8 @@ sparc_frame_find_saved_regs (struct frame_info *fi, CORE_ADDR *saved_regs_addr)
   CORE_ADDR frame_addr = FRAME_FP (fi);
 
   if (!fi)
-    internal_error ("Bad frame info struct in FRAME_FIND_SAVED_REGS");
+    internal_error (__FILE__, __LINE__,
+		    "Bad frame info struct in FRAME_FIND_SAVED_REGS");
 
   memset (saved_regs_addr, 0, NUM_REGS * sizeof (CORE_ADDR));
 
@@ -1683,8 +1704,9 @@ fill_fpregset (gdb_fpregset_t *fpregsetp, int regno)
 
 #endif /* USE_PROC_FS */
 
-
-#ifdef GET_LONGJMP_TARGET
+/* Because of Multi-arch, GET_LONGJMP_TARGET is always defined.  So test
+   for a definition of JB_PC.  */
+#ifdef JB_PC
 
 /* Figure out where the longjmp will land.  We expect that we have just entered
    longjmp and haven't yet setup the stack frame, so the args are still in the
@@ -1980,7 +2002,7 @@ gdb_print_insn_sparc (bfd_vma memaddr, disassemble_info *info)
    args are also passed in registers o0 - o5.  */
 
 CORE_ADDR
-sparc32_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+sparc32_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 			int struct_return, CORE_ADDR struct_addr)
 {
   int i, j, oregnum;
@@ -1999,7 +2021,7 @@ sparc32_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
      and sizes. */
   for (i = 0, m_arg = sparc_args; i < nargs; i++, m_arg++)
     {
-      value_ptr arg = args[i];
+      struct value *arg = args[i];
       struct type *arg_type = check_typedef (VALUE_TYPE (arg));
       /* Cast argument to long if necessary as the compiler does it too.  */
       switch (TYPE_CODE (arg_type))
@@ -2060,7 +2082,7 @@ sparc32_extract_return_value (struct type *type, char *regbuf, char *valbuf)
     memcpy (valbuf,
 	    &regbuf[O0_REGNUM * regsize +
 		    (typelen >= regsize
-		     || TARGET_BYTE_ORDER == LITTLE_ENDIAN ? 0
+		     || TARGET_BYTE_ORDER == BFD_ENDIAN_LITTLE ? 0
 		     : regsize - typelen)],
 	    typelen);
 }
@@ -2077,7 +2099,7 @@ sparc_store_return_value (struct type *type, char *valbuf)
   int regno;
   char *buffer;
 
-  buffer = alloca(MAX_REGISTER_RAW_SIZE);
+  buffer = alloca (MAX_REGISTER_RAW_SIZE);
 
   if (TYPE_CODE (type) == TYPE_CODE_FLT && SPARC_HAS_FPU)
     /* Floating-point values are returned in the register pair */
@@ -2197,15 +2219,8 @@ sparc_target_architecture_hook (const bfd_arch_info_type *ap)
 
   if (ap->mach == bfd_mach_sparc_sparclite_le)
     {
-      if (TARGET_BYTE_ORDER_SELECTABLE_P)
-	{
-	  target_byte_order = LITTLE_ENDIAN;
-	  bi_endian = 1;
-	}
-      else
-	{
-	  warning ("This GDB does not support little endian sparclite.");
-	}
+      target_byte_order = BFD_ENDIAN_LITTLE;
+      bi_endian = 1;
     }
   else
     bi_endian = 0;
@@ -2264,16 +2279,6 @@ sparc64_write_sp (CORE_ADDR val)
     write_register (SP_REGNUM, val);
 }
 
-void
-sparc64_write_fp (CORE_ADDR val)
-{
-  CORE_ADDR oldfp = read_register (FP_REGNUM);
-  if (oldfp & 1)
-    write_register (FP_REGNUM, val - 2047);
-  else
-    write_register (FP_REGNUM, val);
-}
-
 /* The SPARC 64 ABI passes floating-point arguments in FP0 to FP31,
    and all other arguments in O0 to O5.  They are also copied onto
    the stack in the correct places.  Apparently (empirically), 
@@ -2289,7 +2294,7 @@ sparc64_write_fp (CORE_ADDR val)
    int and float, we will waste every other register of both types.  */
 
 CORE_ADDR
-sparc64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+sparc64_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 			int struct_return, CORE_ADDR struct_retaddr)
 {
   int i, j, register_counter = 0;
@@ -2304,7 +2309,7 @@ sparc64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   for (i = nargs - 1; i >= 0; i--)
     {
       int len = TYPE_LENGTH (check_typedef (VALUE_TYPE (args[i])));
-      value_ptr copyarg = args[i];
+      struct value *copyarg = args[i];
       int copylen = len;
 
       if (copylen < SPARC_INTREG_SIZE)
@@ -2330,7 +2335,7 @@ sparc64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   for (i = 0; i < nargs; i++)
     {
       int len = TYPE_LENGTH (check_typedef (VALUE_TYPE (args[i])));
-      value_ptr copyarg = args[i];
+      struct value *copyarg = args[i];
       enum type_code typecode = TYPE_CODE (VALUE_TYPE (args[i]));
       int copylen = len;
 
@@ -2378,6 +2383,8 @@ sparc64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 		fpreg = FP0_REGNUM + 2 * register_counter;
 		register_counter += 2;
 		break;
+	      default:
+		internal_error (__FILE__, __LINE__, "bad switch");
 	      }
 	      write_register_bytes (REGISTER_BYTE (fpreg),
 				    VALUE_CONTENTS (args[i]),
@@ -2810,14 +2817,6 @@ sparc_frame_init_saved_regs (struct frame_info *fi_ignored)
 {	/* no-op */
 }
 
-/* The frame address: stored in the 'frame' field of the frame_info.  */
-
-static CORE_ADDR
-sparc_frame_address (struct frame_info *fi)
-{
-  return fi->frame;
-}
-
 /* gdbarch fix call dummy:
    All this function does is rearrange the arguments before calling
    sparc_fix_call_dummy (which does the real work).  */
@@ -2934,7 +2933,7 @@ sparc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     return arches->gdbarch;
 
   /* None found: is the request for a sparc architecture? */
-  if (info.bfd_architecture != bfd_arch_sparc)
+  if (info.bfd_arch_info->arch != bfd_arch_sparc)
     return NULL;	/* No; then it's not for us.  */
 
   /* Yes: create a new gdbarch for the specified machine type.  */
@@ -2957,16 +2956,15 @@ sparc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_fp_regnum (gdbarch, SPARC_FP_REGNUM);
   set_gdbarch_fp0_regnum (gdbarch, SPARC_FP0_REGNUM);
-  set_gdbarch_frame_args_address (gdbarch, sparc_frame_address);
+  set_gdbarch_frame_args_address (gdbarch, default_frame_address);
   set_gdbarch_frame_chain (gdbarch, sparc_frame_chain);
   set_gdbarch_frame_init_saved_regs (gdbarch, sparc_frame_init_saved_regs);
-  set_gdbarch_frame_locals_address (gdbarch, sparc_frame_address);
+  set_gdbarch_frame_locals_address (gdbarch, default_frame_address);
   set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
   set_gdbarch_frame_saved_pc (gdbarch, sparc_frame_saved_pc);
   set_gdbarch_frameless_function_invocation (gdbarch, 
 					     frameless_look_for_prologue);
   set_gdbarch_get_saved_register (gdbarch, sparc_get_saved_register);
-  set_gdbarch_ieee_float (gdbarch, 1);
   set_gdbarch_init_extra_frame_info (gdbarch, sparc_init_extra_frame_info);
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
   set_gdbarch_int_bit (gdbarch, 4 * TARGET_CHAR_BIT);
@@ -3048,7 +3046,6 @@ sparc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_store_struct_return (gdbarch, sparc32_store_struct_return);
       set_gdbarch_use_struct_convention (gdbarch, 
 					 generic_use_struct_convention);
-      set_gdbarch_write_fp (gdbarch, generic_target_write_fp);
       set_gdbarch_write_sp (gdbarch, generic_target_write_sp);
       tdep->y_regnum = SPARC32_Y_REGNUM;
       tdep->fp_max_regnum = SPARC_FP0_REGNUM + 32;
@@ -3107,7 +3104,6 @@ sparc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_store_struct_return (gdbarch, sparc64_store_struct_return);
       set_gdbarch_use_struct_convention (gdbarch, 
 					 sparc64_use_struct_convention);
-      set_gdbarch_write_fp (gdbarch, sparc64_write_fp);
       set_gdbarch_write_sp (gdbarch, sparc64_write_sp);
       tdep->y_regnum = SPARC64_Y_REGNUM;
       tdep->fp_max_regnum = SPARC_FP0_REGNUM + 48;

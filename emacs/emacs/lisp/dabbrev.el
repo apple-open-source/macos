@@ -1,6 +1,7 @@
 ;;; dabbrev.el --- dynamic abbreviation package
 
-;; Copyright (C) 1985, 86, 92, 94, 96, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 86, 92, 94, 96, 1997, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Author: Don Morrison
 ;; Maintainer: Lars Lindberg <Lars.Lindberg@sypro.cap.se>
@@ -127,6 +128,12 @@ Set this to nil if no characters should be skipped."
 		 (const :tag "off" nil))
   :group 'dabbrev)
 
+(defcustom dabbrev--eliminate-newlines t
+  "*Non-nil means dabbrev should not insert newlines.
+Instead it converts them to spaces."
+  :type 'boolean
+  :group 'dabbrev)
+
 (defcustom dabbrev-case-fold-search 'case-fold-search
   "*Control whether dabbrev searches should ignore case.
 A value of nil means case is significant.
@@ -193,15 +200,24 @@ Dabbrev always searches the current buffer first.  Then, if
 designated by `dabbrev-select-buffers-function'.
 
 Then, if `dabbrev-check-all-buffers' is non-nil, dabbrev searches
-all the other buffers, except those named in `dabbrev-ignored-buffer-names'."
+all the other buffers, except those named in `dabbrev-ignored-buffer-names',
+or matched by `dabbrev-ignored-regexps'."
   :type 'boolean
   :group 'dabbrev)
 
 (defcustom dabbrev-ignored-buffer-names '("*Messages*" "*Buffer List*")
-  "*List of buffer names that dabbrev should not check."
+  "*List of buffer names that dabbrev should not check.
+See also `dabbrev-ignored-buffer-regexps'."
   :type '(repeat (string :tag "Buffer name"))
   :group 'dabbrev
   :version "20.3")
+
+(defcustom dabbrev-ignored-buffer-regexps nil
+  "*List of regexps matching names of buffers that dabbrev should not check.
+See also `dabbrev-ignored-buffer-names'."
+  :type '(repeat regexp)
+  :group 'dabbrev
+  :version "21.1")
 
 (defcustom dabbrev-check-other-buffers t
   "*Should \\[dabbrev-expand] look in other buffers?\
@@ -225,8 +241,8 @@ The default value is t."
 (defvar dabbrev-select-buffers-function 'dabbrev--select-buffers
   "A function that selects buffers that should be searched by dabbrev.
 The function should take no arguments and return a list of buffers to
-search for expansions.  Have a look at `dabbrev--select-buffers' for
-an example.
+search for expansions.  See the source of `dabbrev--select-buffers'
+for an example.
 
 A mode setting this variable should make it buffer local.")
 
@@ -278,7 +294,7 @@ this list.")
 ;; The list of remaining buffers with the same mode as current buffer.
 (defvar dabbrev--friend-buffer-list nil)
 
-;; The buffer we looked in last.
+;; The buffer we looked in last, not counting the current buffer.
 (defvar dabbrev--last-buffer nil)
 
 ;; The buffer we found the expansion last time.
@@ -287,8 +303,8 @@ this list.")
 ;; The buffer we last did a completion in.
 (defvar dabbrev--last-completion-buffer nil)
 
-;; Non-nil means we should upcase
-;; when copying successive words.
+;; If non-nil, a function to use when copying successive words.
+;; It should be `upcase' or `downcase'.
 (defvar dabbrev--last-case-pattern nil)
 
 ;; Same as dabbrev-check-other-buffers, but is set for every expand.
@@ -310,14 +326,14 @@ this list.")
 ;; variable ELEMENT, and include it in the result
 ;; if CONDITION evaluates non-nil.
 (defmacro dabbrev-filter-elements (element list condition)
-  (` (let (dabbrev-result dabbrev-tail (, element))
-       (setq dabbrev-tail (, list))
-       (while dabbrev-tail
-	 (setq (, element) (car dabbrev-tail))
-	 (if (, condition)
-	     (setq dabbrev-result (cons (, element) dabbrev-result)))
-	 (setq dabbrev-tail (cdr dabbrev-tail)))
-       (nreverse dabbrev-result))))
+  `(let (dabbrev-result dabbrev-tail ,element)
+    (setq dabbrev-tail ,list)
+    (while dabbrev-tail
+      (setq ,element (car dabbrev-tail))
+      (if ,condition
+          (setq dabbrev-result (cons ,element dabbrev-result)))
+      (setq dabbrev-tail (cdr dabbrev-tail)))
+    (nreverse dabbrev-result)))
 
 ;;----------------------------------------------------------------
 ;; Exported functions
@@ -390,21 +406,21 @@ if there is a suitable one already."
 	  (cond
 	   ((or (not ignore-case-p)
 		(not dabbrev-case-replace))
-	    (mapcar (function (lambda (string)
-				(intern string my-obarray)))
+	    (mapc (function (lambda (string)
+			      (intern string my-obarray)))
 		    completion-list))
 	   ((string= abbrev (upcase abbrev))
-	    (mapcar (function (lambda (string)
-				(intern (upcase string) my-obarray)))
+	    (mapc (function (lambda (string)
+			      (intern (upcase string) my-obarray)))
 		    completion-list))
 	   ((string= (substring abbrev 0 1)
 		     (upcase (substring abbrev 0 1)))
-	    (mapcar (function (lambda (string)
-				(intern (capitalize string) my-obarray)))
+	    (mapc (function (lambda (string)
+			      (intern (capitalize string) my-obarray)))
 		    completion-list))
 	   (t
-	    (mapcar (function (lambda (string)
-				(intern (downcase string) my-obarray)))
+	    (mapc (function (lambda (string)
+			      (intern (downcase string) my-obarray)))
 		    completion-list)))
 	  (setq dabbrev--last-obarray my-obarray)
 	  (setq dabbrev--last-completion-buffer (current-buffer))
@@ -423,7 +439,7 @@ if there is a suitable one already."
 	  (message "Repeat `%s' to see all completions"
 		   (key-description (this-command-keys)))
 	(message "The only possible completion"))
-      (dabbrev--substitute-expansion nil abbrev init))
+      (dabbrev--substitute-expansion nil abbrev init nil))
      (t
       ;; * String is a common substring completion already.  Make list.
       (message "Making completion list...")
@@ -500,8 +516,6 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 		 (concat "\\(\\(" dabbrev--abbrev-char-regexp "\\)+\\)"))
 		(setq expansion (buffer-substring-no-properties
 				 dabbrev--last-expansion-location (point)))
-		(if dabbrev--last-case-pattern
-		    (setq expansion (upcase expansion)))
 
 		;; Record the end of this expansion, in case we repeat this.
 		(setq dabbrev--last-expansion-location (point)))
@@ -557,20 +571,11 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 		(copy-marker dabbrev--last-expansion-location)))
       ;; Success: stick it in and return.
       (setq buffer-undo-list (cons orig-point buffer-undo-list))
-      (dabbrev--substitute-expansion old abbrev expansion)
-
-      ;; If we are not copying successive words now,
-      ;; set dabbrev--last-case-pattern.
-      (and record-case-pattern
-	   (setq dabbrev--last-case-pattern
-		 (and (if (eq dabbrev-case-fold-search 'case-fold-search)
-			  case-fold-search
-			dabbrev-case-fold-search)
-		      (not dabbrev-upcase-means-case-search)
-		      (equal abbrev (upcase abbrev)))))
+      (dabbrev--substitute-expansion old abbrev expansion
+				     record-case-pattern)
 
       ;; Save state for re-expand.
-      (setq dabbrev--last-expansion expansion)	
+      (setq dabbrev--last-expansion expansion)
       (setq dabbrev--last-abbreviation abbrev)
       (setq dabbrev--last-abbrev-location (point-marker))))))
 
@@ -631,7 +636,7 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
     (dabbrev--goto-start-of-abbrev)
     (buffer-substring-no-properties
      dabbrev--last-abbrev-location (point))))
-	
+
 ;;; Initializes all global variables
 (defun dabbrev--reset-global-variables ()
   ;; dabbrev--last-obarray and dabbrev--last-completion-buffer
@@ -649,22 +654,28 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 					"\\sw\\|\\s_")
 	dabbrev--check-other-buffers dabbrev-check-other-buffers))
 
-;;; Find all buffers that are considered "friends" according to the
-;;; function pointed out by dabbrev-friend-buffer-function.
 (defun dabbrev--select-buffers ()
-  (save-excursion
-    (and (window-minibuffer-p (selected-window))
-	 (set-buffer (dabbrev--minibuffer-origin)))
-    (let ((orig-buffer (current-buffer)))
-      (dabbrev-filter-elements
-       buffer (buffer-list)
-       (and (not (eq orig-buffer buffer))
-	    (boundp 'dabbrev-friend-buffer-function)
-	    (funcall dabbrev-friend-buffer-function buffer))))))
+  "Return a list of other buffers to search for a possible abbrev.
+The current buffer is not included in the list.
 
-;;; Search for ABBREV, N times, normally looking forward,
-;;; but looking in reverse instead if REVERSE is non-nil.
+This function makes a list of all the buffers returned by `buffer-list',
+then discards buffers whose names match `dabbrev-ignored-buffer-names'
+or `dabbrev-ignored-buffer-regexps'.  It also discards buffers for which
+`dabbrev-friend-buffer-function', if it is bound, returns nil when called
+with the buffer as argument.
+It returns the list of the buffers that are not discarded."
+  (dabbrev-filter-elements
+   buffer (buffer-list)
+   (and (not (eq (current-buffer) buffer))
+	(not (dabbrev--ignore-buffer-p buffer))
+	(boundp 'dabbrev-friend-buffer-function)
+	(funcall dabbrev-friend-buffer-function buffer))))
+
 (defun dabbrev--try-find (abbrev reverse n ignore-case)
+  "Search for ABBREV, backwards if REVERSE, N times.
+If IGNORE-CASE is non-nil, ignore case while searching.
+Return the expansion found, and save the location of the start
+of the expansion in `dabbrev--last-expansion-location'."
   (save-excursion
     (save-restriction
       (widen)
@@ -682,8 +693,9 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 	     (setq dabbrev--last-expansion-location (point)))
 	expansion))))
 
-;;; Find all expansions of ABBREV
 (defun dabbrev--find-all-expansions (abbrev ignore-case)
+  "Return a list of all possible expansions of ABBREV.
+If IGNORE-CASE is non-nil, accept matches which differ in case."
   (let ((all-expansions nil)
 	expansion)
     (save-excursion
@@ -693,103 +705,128 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
     all-expansions))
 
 (defun dabbrev--scanning-message ()
-  (message "Scanning `%s'" (buffer-name (current-buffer))))
+  (unless (window-minibuffer-p (selected-window))
+    (message "Scanning `%s'" (buffer-name (current-buffer)))))
 
-;;; Find one occasion of ABBREV.
-;;; DIRECTION > 0 means look that many times backwards.
-;;; DIRECTION < 0 means look that many times forward.
-;;; DIRECTION = 0 means try both backward and forward.
-;;; IGNORE-CASE non-nil means ignore case when searching.
+(defun dabbrev--ignore-buffer-p (buffer)
+  "Return non-nil if BUFFER should be ignored by dabbrev."
+  (let ((bn (buffer-name buffer)))
+    (or (member bn dabbrev-ignored-buffer-names)
+	(let ((tail dabbrev-ignored-buffer-regexps)
+	      (match nil))
+	  (while (and tail (not match))
+	    (setq match (string-match (car tail) bn)
+		  tail (cdr tail)))
+	  match))))
+
 (defun dabbrev--find-expansion (abbrev direction ignore-case)
-  (let (expansion)
-    (save-excursion
-      (cond
-       (dabbrev--last-buffer
-	(set-buffer dabbrev--last-buffer)
-	(dabbrev--scanning-message))
-       ((and (not dabbrev-search-these-buffers-only)
-	     (window-minibuffer-p (selected-window)))
-	(set-buffer (dabbrev--minibuffer-origin))
-	;; In the minibuffer-origin buffer we will only search from
-	;; the top and down.
-	(goto-char (point-min))
-	(setq direction -1)
-	(dabbrev--scanning-message)))
-      (cond
-       ;; ------------------------------------------
-       ;; Look backwards
-       ;; ------------------------------------------
-       ((and (not dabbrev-search-these-buffers-only)
-	     (>= direction 0)
-	     (setq dabbrev--last-direction (min 1 direction))
-	     (setq expansion (dabbrev--try-find abbrev t
-						(max 1 direction)
-						ignore-case)))
-	expansion)
-       ;; ------------------------------------------
-       ;; Look forward
-       ;; ------------------------------------------
-       ((and (or (not dabbrev-search-these-buffers-only)
-		 dabbrev--last-buffer)
-	     (<= direction 0)
-	     (setq dabbrev--last-direction -1)
-	     (setq expansion (dabbrev--try-find abbrev nil
-						(max 1 (- direction))
-						ignore-case)))
-	expansion)
-       ;; ------------------------------------------
-       ;; Look in other buffers.
-       ;; Start at (point-min) and look forward.
-       ;; ------------------------------------------
-       (t
-	(setq dabbrev--last-direction -1)
-	;; Make sure that we should check other buffers
-	(or dabbrev--friend-buffer-list
-	    dabbrev--last-buffer
-	    (setq dabbrev--friend-buffer-list
-		  (mapcar (function get-buffer)
-			  dabbrev-search-these-buffers-only))
-	    (not dabbrev--check-other-buffers)
-	    (not (or (eq dabbrev--check-other-buffers t)
-		     (progn
-		       (setq dabbrev--check-other-buffers
-			     (y-or-n-p "Scan other buffers also? ")))))
-	    (let* (friend-buffer-list non-friend-buffer-list)
-	      (setq dabbrev--friend-buffer-list
-		    (funcall dabbrev-select-buffers-function))
-	      (if dabbrev-check-all-buffers
-		  (setq non-friend-buffer-list
-			(nreverse
-			 (dabbrev-filter-elements
-			  buffer (buffer-list)
-			  (and (not (member (buffer-name buffer)
-					    dabbrev-ignored-buffer-names))
-			       (not (memq buffer dabbrev--friend-buffer-list)))))
-			dabbrev--friend-buffer-list
-			(append dabbrev--friend-buffer-list
-				non-friend-buffer-list)))))
-	;; Move buffers that are visible on the screen
-	;; to the front of the list.  Remove the current buffer.
-	(when dabbrev--friend-buffer-list
-	  (let ((w (next-window (selected-window))))
-	    (while (not (eq w (selected-window)))
-	      (setq dabbrev--friend-buffer-list
-		    (cons (window-buffer w)
-			  (delq (window-buffer w) dabbrev--friend-buffer-list)))
-	      (setq w (next-window w))))
-	  (setq dabbrev--friend-buffer-list
-		(delq (current-buffer) dabbrev--friend-buffer-list)))
-	;; Walk through the buffers
-	(while (and (not expansion) dabbrev--friend-buffer-list)
-	  (setq dabbrev--last-buffer
-		(car dabbrev--friend-buffer-list))
-	  (setq dabbrev--friend-buffer-list
-		(cdr dabbrev--friend-buffer-list))
-	  (set-buffer dabbrev--last-buffer)
-	  (dabbrev--scanning-message)
-	  (setq dabbrev--last-expansion-location (point-min))
-	  (setq expansion (dabbrev--try-find abbrev nil 1 ignore-case)))
-	expansion)))))
+  "Find one occurrence of ABBREV, and return the expansion.
+DIRECTION > 0 means look that many times backwards.
+DIRECTION < 0 means look that many times forward.
+DIRECTION = 0 means try both backward and forward.
+IGNORE-CASE non-nil means ignore case when searching.
+This sets `dabbrev--last-direction' to 1 or -1 according
+to the direction in which the occurrence was actually found.
+It sets `dabbrev--last-expansion-location' to the location 
+of the start of the occurrence."
+  (save-excursion
+    ;; If we were scanning something other than the current buffer,
+    ;; continue scanning there.
+    (when dabbrev--last-buffer
+      (set-buffer dabbrev--last-buffer)
+      (dabbrev--scanning-message))
+    (or
+     ;; ------------------------------------------
+     ;; Look backward in current buffer.
+     ;; ------------------------------------------
+     (and (not dabbrev-search-these-buffers-only)
+	  (>= direction 0)
+	  (setq dabbrev--last-direction (min 1 direction))
+	  (dabbrev--try-find abbrev t
+			     (max 1 direction)
+			     ignore-case))
+     ;; ------------------------------------------
+     ;; Look forward in current buffer
+     ;; or whatever buffer we were last scanning.
+     ;; ------------------------------------------
+     (and (or (not dabbrev-search-these-buffers-only)
+	      dabbrev--last-buffer)
+	  (<= direction 0)
+	  (setq dabbrev--last-direction -1)
+	  (dabbrev--try-find abbrev nil
+			     (max 1 (- direction))
+			     ignore-case))
+     ;; ------------------------------------------
+     ;; Look in other buffers.
+     ;; Always start at (point-min) and look forward.
+     ;; ------------------------------------------
+     (progn
+       (setq dabbrev--last-direction -1)
+       (unless dabbrev--last-buffer
+	 ;; If we have just now begun to search other buffers,
+	 ;; determine which other buffers we should check.
+	 ;; Put that list in dabbrev--friend-buffer-list.
+	 (or dabbrev--friend-buffer-list
+	     (setq dabbrev--friend-buffer-list
+		   (dabbrev--make-friend-buffer-list))))
+       ;; Walk through the buffers till we find a match.
+       (let (expansion)
+	 (while (and (not expansion) dabbrev--friend-buffer-list)
+	   (setq dabbrev--last-buffer
+		 (car dabbrev--friend-buffer-list))
+	   (setq dabbrev--friend-buffer-list
+		 (cdr dabbrev--friend-buffer-list))
+	   (set-buffer dabbrev--last-buffer)
+	   (dabbrev--scanning-message)
+	   (setq dabbrev--last-expansion-location (point-min))
+	   (setq expansion (dabbrev--try-find abbrev nil 1 ignore-case)))
+	 expansion)))))
+
+;; Compute the list of buffers to scan.
+;; If dabbrev-search-these-buffers-only, then the current buffer
+;; is included in this list if it should be searched.
+;; Otherwise, the current buffer is searched first specially.,
+;; and it is not included in this list.
+(defun dabbrev--make-friend-buffer-list ()
+  (let ((list (mapcar (function get-buffer)
+		      dabbrev-search-these-buffers-only)))
+    (when (and (null dabbrev-search-these-buffers-only)
+	       dabbrev--check-other-buffers
+	       (or (eq dabbrev--check-other-buffers t)
+		   (setq dabbrev--check-other-buffers
+			 (y-or-n-p "Scan other buffers also? "))))
+      (setq list (funcall dabbrev-select-buffers-function))
+      ;; If dabbrev-check-all-buffers, tack on all the other
+      ;; buffers at the end of the list, except those which are
+      ;; specifically to be ignored.
+      (if dabbrev-check-all-buffers
+	  (setq list
+		(append list
+			(dabbrev-filter-elements
+			 buffer (buffer-list)
+			 (and (not (memq buffer list))
+			      (not (dabbrev--ignore-buffer-p buffer)))))))
+      ;; Remove the current buffer.
+      (setq list (delq (current-buffer) list)))
+    ;; Move buffers in the list that are visible on the screen
+    ;; to the front of the list, but don't add anything to the list.
+    (if list
+	(walk-windows (lambda (w)
+			(unless (eq w (selected-window))
+			  (if (memq (window-buffer w) list)
+			      (setq list
+				    (cons (window-buffer w)
+					  (delq (window-buffer w)
+						list))))))))
+    ;; In a minibuffer, search the buffer it was activated from,
+    ;; first after the minibuffer itself.  Unless we aren't supposed
+    ;; to search the current buffer either.
+    (if (and (window-minibuffer-p (selected-window))
+	     (not dabbrev-search-these-buffers-only))
+	(setq list
+	      (cons (dabbrev--minibuffer-origin)
+		    (delq (dabbrev--minibuffer-origin) list))))
+    list))
 
 (defun dabbrev--safe-replace-match (string &optional fixedcase literal)
   (if (eq major-mode 'picture-mode)
@@ -797,11 +834,15 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
     (replace-match string fixedcase literal)))
 
 ;;;----------------------------------------------------------------
-;;; Substitute the current string in buffer with the expansion
-;;; OLD is nil or the last expansion substring.
-;;; ABBREV is the abbreviation we are working with.
-;;; EXPANSION is the expansion substring.
-(defun dabbrev--substitute-expansion (old abbrev expansion)
+(defun dabbrev--substitute-expansion (old abbrev expansion record-case-pattern)
+  "Replace OLD with EXPANSION in the buffer.
+OLD is text currently in the buffer, perhaps the abbreviation
+or perhaps another expansion that was tried previously.
+ABBREV is the abbreviation we are expanding.
+It is \" \" if we are copying subsequent words.
+EXPANSION is the expansion substring to be used this time.
+RECORD-CASE-PATTERN, if non-nil, means set `dabbrev--last-case-pattern'
+to record whether we upcased the expansion, downcased it, or did neither."
   ;;(undo-boundary)
   (let ((use-case-replace (and (if (eq dabbrev-case-fold-search 'case-fold-search)
 				   case-fold-search
@@ -811,9 +852,16 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 			       (if (eq dabbrev-case-replace 'case-replace)
 				   case-replace
 				 dabbrev-case-replace))))
-    (and nil use-case-replace
-	 (setq old (concat abbrev (or old "")))
-	 (setq expansion (concat abbrev expansion)))
+
+    ;; If we upcased or downcased the original expansion,
+    ;; do likewise for the subsequent words when we copy them.
+    ;; Don't do any of the usual case processing, though.
+    (when (equal abbrev " ")
+      (if dabbrev--last-case-pattern
+	  (setq expansion
+		(funcall dabbrev--last-case-pattern expansion)))
+      (setq use-case-replace nil))
+
     ;; If the expansion has mixed case
     ;; and it is not simply a capitalized word,
     ;; or if the abbrev has mixed case,
@@ -821,23 +869,51 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
     ;; matches the start of the expansion,
     ;; copy the expansion's case
     ;; instead of downcasing all the rest.
+    ;; Treat a one-capital-letter abbrev as "not all upper case",
+    ;; so as to force preservation of the expansion's pattern
+    ;; if the expansion starts with a capital letter.
     (let ((expansion-rest (substring expansion 1)))
       (if (and (not (and (or (string= expansion-rest (downcase expansion-rest))
 			     (string= expansion-rest (upcase expansion-rest)))
 			 (or (string= abbrev (downcase abbrev))
-			     (string= abbrev (upcase abbrev)))))
+			     (and (string= abbrev (upcase abbrev))
+				  (> (length abbrev) 1)))))
 	       (string= abbrev
 			(substring expansion 0 (length abbrev))))
 	  (setq use-case-replace nil)))
-    (if (equal abbrev " ")
+
+    ;; If the abbrev and the expansion are both all-lower-case
+    ;; then don't do any conversion.  The conversion would be a no-op
+    ;; for this replacement, but it would carry forward to subsequent words.
+    ;; The goal of this is to preven that carrying forward.
+    (if (and (string= expansion (downcase expansion))
+	     (string= abbrev (downcase abbrev)))
 	(setq use-case-replace nil))
+
     (if use-case-replace
 	(setq expansion (downcase expansion)))
+
+    ;; In case we insert subsequent words,
+    ;; record if we upcased or downcased the first word,
+    ;; in order to do likewise for subsequent words.
+    (and record-case-pattern
+	 (setq dabbrev--last-case-pattern 
+	       (and use-case-replace
+		    (cond ((equal abbrev (upcase abbrev)) 'upcase)
+			  ((equal abbrev (downcase abbrev)) 'downcase)))))
+
+    ;; Convert newlines to spaces.
+    (if dabbrev--eliminate-newlines
+	(while (string-match "\n" expansion)
+	  (setq expansion (replace-match " " nil nil expansion))))
+
     (if old
 	(save-excursion
 	  (search-backward old))
       ;;(set-match-data (list (point-marker) (point-marker)))
-      (search-backward abbrev))
+      (search-backward abbrev)
+      (search-forward abbrev))
+
     ;; Make case of replacement conform to case of abbreviation
     ;; provided (1) that kind of thing is enabled in this buffer
     ;; and (2) the replacement itself is all lower case.
@@ -849,22 +925,24 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 ;;;----------------------------------------------------------------
 ;;; Search function used by dabbrevs library.
 
-;;; ABBREV is string to find as prefix of word.  Second arg, REVERSE,
-;;; is t for reverse search, nil for forward.  Variable dabbrev-limit
-;;; controls the maximum search region size.  Third argument IGNORE-CASE
-;;; non-nil means treat case as insignificant while looking for a match
-;;; and when comparing with previous matches.  Also if that's non-nil
-;;; and the match is found at the beginning of a sentence and is in
-;;; lower case except for the initial then it is converted to all lower
-;;; case for return.
-
-;;; Table of expansions already seen is examined in buffer
-;;; `dabbrev--last-table' so that only distinct possibilities are found
-;;; by dabbrev-re-expand.
-
-;;; Value is the expansion, or nil if not found.
 
 (defun dabbrev--search (abbrev reverse ignore-case)
+  "Search for something that could be used to expand ABBREV.
+
+Second arg, REVERSE, is t for reverse search, nil for forward.
+The variable `dabbrev-limit' controls the maximum search region size.
+Third argument IGNORE-CASE non-nil means treat case as insignificant while
+looking for a match and when comparing with previous matches.  Also if
+that's non-nil and the match is found at the beginning of a sentence
+and is in lower case except for the initial then it is converted to
+all lower case for return.
+
+Table of expansions already seen is examined in buffer
+`dabbrev--last-table' so that only distinct possibilities are found
+by dabbrev-re-expand.
+
+Returns the expansion found, or nil if not found.
+Leaves point at the location of the start of the expansion."
   (save-match-data
     (let ((pattern1 (concat (regexp-quote abbrev)
 			    "\\(" dabbrev--abbrev-char-regexp "\\)"))
@@ -916,6 +994,11 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 	      (if (and ignore-case (eval dabbrev-case-replace))
 		  result
 		result)))))))
+
+(dolist (mess '("^No dynamic expansion for .* found$"
+		"^No further dynamic expansion for .* found$"
+		"^No possible abbreviation preceding point$"))
+  (add-to-list 'debug-ignored-errors mess))
 
 (provide 'dabbrev)
 

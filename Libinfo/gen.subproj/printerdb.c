@@ -32,7 +32,7 @@
 #define strdup(x)  strcpy(malloc(strlen(x) + 1), x)
 
 extern size_t strlen(const char *);
-extern char *index(char *, char);
+extern char *index(const char *, int);
 extern char *strcpy(char *, const char *);
 extern int strcmp(const char *, const char*);
 extern void *bcopy(void *, void *, unsigned);
@@ -221,7 +221,7 @@ _old_prdb_getbyname(
 	if (pf == NULL) {
 		return (NULL);
 	}
-	while (ent = _old_prdb_get()) {
+	while ((ent = _old_prdb_get())) {
 		if (prmatch(ent, prname)) {
 			break;
 		}

@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include <mach/mach_init.h>
 
@@ -33,6 +34,7 @@
 
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/storage/IOMedia.h>
 
 #include "GetRegistry.h"
@@ -44,92 +46,149 @@
 -----------------------------------------------------------------------------------------
 */
 
-typedef enum
-{
-    kDiskTypeUnknown = 0x00,
-    kDiskTypeHD      = 0x01,
-    kDiskTypeCD      = 0x02,
-    kDiskTypeDVD     = 0x04
+typedef enum {
+	kDiskTypeUnknown = 0x00,
+	kDiskTypeHD = 0x01,
+	kDiskTypeCD = 0x02,
+	kDiskTypeDVD = 0x04
 } DiskType;
 
-DiskType GetDiskType(io_registry_entry_t media);
+DiskType        GetDiskType(io_registry_entry_t media);
 
 /*
 -----------------------------------------------------------------------------------------
 */
 
+extern mach_port_t ioMasterPort;
 
-
-void GetDisksFromRegistry(io_iterator_t iter, int initialRun)
+static kern_return_t openHIDService(mach_port_t io_master_port, io_connect_t *connection)
 {
-	kern_return_t		kr;
-	io_registry_entry_t	entry;
+    kern_return_t  kr;
+    mach_port_t ev, service, iter;
 
-	io_name_t		ioMediaName;
-	UInt32			ioBSDUnit;
-        UInt64			ioSize;
-	int			ioWhole, ioWritable, ioEjectable, ioLeaf;
-	DiskType		diskType;
-	unsigned		flags;
-        mach_port_t 		masterPort;
-        mach_timespec_t		timeSpec;
+    kr = IOServiceGetMatchingServices(io_master_port, IOServiceMatching(kIOHIDSystemClass), &iter);
+    if (kr != KERN_SUCCESS) {
+        return kr;
+    }
+
+    service = IOIteratorNext(iter);
+    kr = IOServiceOpen(service, mach_task_self(), kIOHIDParamConnectType, &ev);
+    // These objects need to be released whether or not there is an error from IOServiceOpen, so
+    // just do it up front.
+    IOObjectRelease(service);
+    IOObjectRelease(iter);
+    if (kr != KERN_SUCCESS) {
+        return kr;
+    }
+
+    *connection = ev;
+    return kr;
+}
+
+static void wakeMonitor()
+{
+    IOGPoint loc;
+    kern_return_t kr;
+    NXEvent nullEvent = {NX_NULLEVENT, {0, 0}, 0, -1, 0};
+    static io_connect_t io_connection = MACH_PORT_NULL;
+    static struct timeval last = {0};
+    struct timeval current;
+    enum { kNULLEventPostThrottle = 10 };
+
+    if (!io_connection) {
+        kr = openHIDService(ioMasterPort, &io_connection);
+        if (kr != KERN_SUCCESS) {
+            return;
+        }
+    }
+
+    (void) gettimeofday(&current, NULL);
+
+    // If a user event has been posted recently (i.e., within the throttle period) just return without
+    // doing anything, because people tend to call this thing a *lot*..
+    if ((current.tv_sec - last.tv_sec) < kNULLEventPostThrottle) {
+        return;
+    }
+
+    // Finally, post a NULL event
+    last = current;
+    kr = IOHIDPostEvent(io_connection, NX_NULLEVENT, loc, &nullEvent.data, FALSE, 0, FALSE);
+    if (kr != KERN_SUCCESS) {
+        return;
+    }
+
+    return;
+}
+
+void 
+GetDisksFromRegistry(io_iterator_t iter, int initialRun, int mountExisting)
+{
+	kern_return_t   kr;
+	io_registry_entry_t entry;
+
+	io_name_t       ioMediaName;
+	UInt32          ioBSDUnit;
+	UInt64          ioSize;
+	int             ioWhole, ioWritable, ioEjectable, ioLeaf;
+	DiskType        diskType;
+	unsigned        flags;
+	mach_port_t     masterPort;
+	mach_timespec_t timeSpec;
 
 
-        timeSpec.tv_sec = (initialRun ? 1 : 10);
-        timeSpec.tv_nsec = 0;
-        
-        IOMasterPort(bootstrap_port, &masterPort);
+	timeSpec.tv_sec = (initialRun ? 1 : 10);
+	timeSpec.tv_nsec = 0;
 
-        // sleep(1);
-        IOKitWaitQuiet(masterPort , &timeSpec);
+	IOMasterPort(bootstrap_port, &masterPort);
 
-	while ( entry = IOIteratorNext( iter ) )
-	{
-		char *          ioBSDName  = NULL; // (needs release)
-		char *          ioContent  = NULL; // (needs release)
+	//sleep(1);
+	IOKitWaitQuiet(masterPort, &timeSpec);
 
-		CFBooleanRef    boolean    = 0; // (don't release)
-		CFNumberRef     number     = 0; // (don't release)
-		CFDictionaryRef properties = 0; // (needs release)
-		CFStringRef     string     = 0; // (don't release)
+	while ((entry = IOIteratorNext(iter))) {
+		char           *ioBSDName = NULL;
+		//(needs release)
+			char           *ioContent = NULL;
+		//(needs release)
+			CFBooleanRef    boolean = 0;
+		//(don 't release)
+		   CFNumberRef number = 0;
+		//(don 't release)
+		   CFDictionaryRef properties = 0;
+		//(needs release)
+			CFStringRef     string = 0;
+		//(don 't release)
 
-                //CFDictionaryRef ioMatchingDictionary = NULL;
+		   // CFDictionaryRef ioMatchingDictionary = NULL;
 
-		io_string_t	ioDeviceTreePath;
-		char *		ioDeviceTreePathPtr;
+		io_string_t     ioDeviceTreePath;
+		char           *ioDeviceTreePathPtr;
 
-                int 		ejectOnLogout = 0;
+		int             ejectOnLogout = 0;
 
-		// MediaName
+		//MediaName
 
-		kr = IORegistryEntryGetName(entry, ioMediaName);
-		if ( KERN_SUCCESS != kr )
-		{
+			kr = IORegistryEntryGetName(entry, ioMediaName);
+		if (KERN_SUCCESS != kr) {
 			dwarning(("can't obtain name for media object\n"));
 			goto Next;
 		}
+		//Get Properties
 
-		// Get Properties
-
-		kr = IORegistryEntryCreateCFProperties(entry, &properties, kCFAllocatorDefault, kNilOptions);
-		if ( KERN_SUCCESS != kr )
-		{
+        kr = IORegistryEntryCreateCFProperties(entry, (CFMutableDictionaryRef *)&properties, kCFAllocatorDefault, kNilOptions);
+		if (KERN_SUCCESS != kr) {
 			dwarning(("can't obtain properties for '%s'\n", ioMediaName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(properties) == CFDictionaryGetTypeID());
 
-		// BSDName
-		
-		string = (CFStringRef) CFDictionaryGetValue(properties, CFSTR(kIOBSDNameKey));
-		if ( ! string )
-		{
+		//BSDName
+
+			string = (CFStringRef) CFDictionaryGetValue(properties, CFSTR(kIOBSDNameKey));
+		if (!string) {
 			/* We're only interested in disks accessible via BSD */
 			dwarning(("kIOBSDNameKey property missing for '%s'\n", ioMediaName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(string) == CFStringGetTypeID());
 
 		ioBSDName = daCreateCStringFromCFString(string);
@@ -137,432 +196,503 @@ void GetDisksFromRegistry(io_iterator_t iter, int initialRun)
 
 		dwarning(("ioBSDName = '%s'\t", ioBSDName));
 
-		// BSDUnit
-		
-		number = (CFNumberRef) CFDictionaryGetValue(properties, CFSTR(kIOBSDUnitKey));
-		if ( ! number )
-		{
+		//BSDUnit
+
+			number = (CFNumberRef) CFDictionaryGetValue(properties, CFSTR(kIOBSDUnitKey));
+		if (!number) {
 			/* We're only interested in disks accessible via BSD */
 			dwarning(("\nkIOBSDUnitKey property missing for '%s'\n", ioBSDName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(number) == CFNumberGetTypeID());
 
-		if ( ! CFNumberGetValue(number, kCFNumberSInt32Type, &ioBSDUnit) )
-		{
+		if (!CFNumberGetValue(number, kCFNumberSInt32Type, &ioBSDUnit)) {
 			goto Next;
 		}
-
 		dwarning(("ioBSDUnit = %ld\t", ioBSDUnit));
 
-		// Content
+		//Content
 
-		string = (CFStringRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaContentKey));
-		if ( ! string )
-		{
+			string = (CFStringRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaContentKey));
+		if (!string) {
 			dwarning(("\nkIOMediaContentKey property missing for '%s'\n", ioBSDName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(string) == CFStringGetTypeID());
 
 		ioContent = daCreateCStringFromCFString(string);
 		assert(ioContent);
 
 		dwarning(("ioContent = '%s'\t", ioContent));
-	
-		// Leaf
 
-		boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaLeafKey));
-		if ( ! boolean )
-		{
+		//Leaf
+
+			boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaLeafKey));
+		if (!boolean) {
 			dwarning(("\nkIOMediaLeafKey property missing for '%s'\n", ioBSDName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(boolean) == CFBooleanGetTypeID());
 
-		ioLeaf = ( kCFBooleanTrue == boolean );
+		ioLeaf = (kCFBooleanTrue == boolean);
 
 		dwarning(("ioLeaf = %d\t", ioLeaf));
-	
-		// Whole
-		boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaWholeKey));
-		if ( ! boolean )
-		{
+
+		//Whole
+			boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaWholeKey));
+		if (!boolean) {
 			dwarning(("\nkIOMediaWholeKey property missing for '%s'\n", ioBSDName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(boolean) == CFBooleanGetTypeID());
 
-		ioWhole = ( kCFBooleanTrue == boolean );
+		ioWhole = (kCFBooleanTrue == boolean);
 
 		dwarning(("ioWhole = %d\t", ioWhole));
 
-		// Writable
-	
-		boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaWritableKey));
-		if ( ! boolean )
-		{
+		//Writable
+
+			boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaWritableKey));
+		if (!boolean) {
 			dwarning(("\nkIOMediaWritableKey property missing for '%s'\n", ioBSDName));
 			goto Next;
 		}
-
 		assert(CFGetTypeID(boolean) == CFBooleanGetTypeID());
 
-		ioWritable = ( kCFBooleanTrue == boolean );
+		ioWritable = (kCFBooleanTrue == boolean);
 
 		dwarning(("ioWritable = %d\t", ioWritable));
-	
-		// Ejectable
 
-		boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaEjectableKey));
-		if ( ! boolean )
-		{
+		//Ejectable
+
+			boolean = (CFBooleanRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaEjectableKey));
+		if (!boolean) {
 			dwarning(("\nkIOMediaEjectableKey property missing for '%s'\n", ioBSDName));
 			goto Next;
-                }
-
+		}
 		assert(CFGetTypeID(boolean) == CFBooleanGetTypeID());
 
-		ioEjectable = ( kCFBooleanTrue == boolean );
+		ioEjectable = (kCFBooleanTrue == boolean);
 
 		dwarning(("ioEjectable = %d\t", ioEjectable));
 
-                // ioSize
+		//ioSize
 
-                number = (CFNumberRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaSizeKey));
-                if ( ! number )
-                {
-                        dwarning(("\nkIOMediaSizeKey property missing for '%s'\n", ioBSDName));
-                }
+			number = (CFNumberRef) CFDictionaryGetValue(properties, CFSTR(kIOMediaSizeKey));
+		if (!number) {
+			dwarning(("\nkIOMediaSizeKey property missing for '%s'\n", ioBSDName));
+		}
+		assert(CFGetTypeID(number) == CFNumberGetTypeID());
 
-                assert(CFGetTypeID(number) == CFNumberGetTypeID());
-
-                if ( ! CFNumberGetValue(number, kCFNumberLongLongType, &ioSize) )
-                {
-                        goto Next;
-                }
-
-                dwarning(("ioSize = %ld\t", (long int)ioSize));
+		if (!CFNumberGetValue(number, kCFNumberLongLongType, &ioSize)) {
+			goto Next;
+		}
+		dwarning(("ioSize = %ld\t", (long int) ioSize));
 
 
 		/* Obtain the device tree path. */
 
-		kr = IORegistryEntryGetPath( entry, kIODeviceTreePlane, ioDeviceTreePath );
-		if ( kr )
-		{
-                    // this warning is unneeded, since many volumes won't have this pointer.
-			// dwarning(( "\nERROR: IORegistryEntryGetPath -> %d\n", kr ));
+		kr = IORegistryEntryGetPath(entry, kIODeviceTreePlane, ioDeviceTreePath);
+		if (kr) {
+			//this warning is unneeded, since many volumes won 't have this pointer.
+				// dwarning(("\nERROR: IORegistryEntryGetPath -> %d\n", kr));
 			ioDeviceTreePathPtr = NULL;
-		}
-		else
-		{
-			dwarning(( "ioDeviceTreePath = '%s'\t", ioDeviceTreePath ));
-			if ( strlen( ioDeviceTreePath ) < strlen( "IODeviceTree:" ) )
-			{
-				dwarning(( "\nERROR: expected leading 'IODeviceTree:' in ioDeviceTreePath\n"));
-				ioDeviceTreePathPtr = ioDeviceTreePath; /* for lack of a better alternative */
-			}
-			else
-			{
-				ioDeviceTreePathPtr = ioDeviceTreePath + strlen( "IODeviceTree:" );
-				dwarning(( "\ntrimmed ioDeviceTreePath = '%s'\n", ioDeviceTreePathPtr ));
+		} else {
+			dwarning(("ioDeviceTreePath = '%s'\t", ioDeviceTreePath));
+			if (strlen(ioDeviceTreePath) < strlen("IODeviceTree:")) {
+				dwarning(("\nERROR: expected leading 'IODeviceTree:' in ioDeviceTreePath\n"));
+				ioDeviceTreePathPtr = ioDeviceTreePath;	/* for lack of a better
+									 * alternative */
+			} else {
+				ioDeviceTreePathPtr = ioDeviceTreePath + strlen("IODeviceTree:");
+				dwarning(("\ntrimmed ioDeviceTreePath = '%s'\n", ioDeviceTreePathPtr));
 			}
 		}
-		
-		// Construct the <flags> word
-		
-		flags = 0;
 
-		if ( ! ioWritable ) 
+		//Construct the < flags > word
+
+			flags = 0;
+
+		if (!ioWritable)
 			flags |= kDiskArbDiskAppearedLockedMask;
 
-		if ( ioEjectable ) 
+		if (ioEjectable)
 			flags |= kDiskArbDiskAppearedEjectableMask;
 
-		if ( ioWhole ) 
+		if (ioWhole)
 			flags |= kDiskArbDiskAppearedWholeDiskMask;
-		
-		if ( ! ioLeaf ) 
+
+		if (!ioLeaf)
 			flags |= kDiskArbDiskAppearedNonLeafDiskMask;
 
-                if ( ! ioSize )
-                        flags |= kDiskArbDiskAppearedNoSizeMask;   // blank media
+		if (!ioSize)
+			flags |= kDiskArbDiskAppearedNoSizeMask;
+		//blank media
 
 
-		// DiskType
-		
-		diskType = GetDiskType( entry );
-		switch ( diskType )
-		{
-			case kDiskTypeHD:
-				/* do nothing */
-			break;
-			case kDiskTypeCD:
-				flags |= kDiskArbDiskAppearedCDROMMask;
-			break;
-			case kDiskTypeDVD:
-				flags |= kDiskArbDiskAppearedDVDROMMask;
-			break;
-			case kDiskTypeUnknown:
-				/* do nothing */
-			break;
-			default:
-				/* do nothing */
-			break;
+			// DiskType
+
+        diskType = GetDiskType(entry);
+            switch (diskType) {
+            case kDiskTypeHD:
+                    /* do nothing */
+                    break;
+            case kDiskTypeCD:
+                    flags |= kDiskArbDiskAppearedCDROMMask;
+                    wakeMonitor();
+                    break;
+            case kDiskTypeDVD:
+                    flags |= kDiskArbDiskAppearedDVDROMMask;
+                    wakeMonitor();
+                    break;
+            case kDiskTypeUnknown:
+                    /* do nothing */
+                    break;
+            default:
+                    /* do nothing */
+                    break;
+        }
+
+        if (diskIsInternal(entry)) {
+            dwarning(("\nInternal disk appeared ...\n"));
+            flags |= kDiskArbDiskAppearedInternal;
+        }
+
+		//Create a disk record
+
+		if (!shouldAutomount(entry)) {
+			dwarning(("\nDo not mount this entry ...\n"));
+			flags |= kDiskArbDiskAppearedNoMountMask;
 		}
-		
-		// Create a disk record
+		if (shouldEjectOnLogout(entry)) {
+			dwarning(("\nEject this entry on logout ...\n"));
+			ejectOnLogout = 1;
+		}
+        {
 
-                if (!shouldAutomount(entry)) {
-                        dwarning(("\nDo not mount this entry ...\n"));
-                        flags |= kDiskArbDiskAppearedNoMountMask;
-                }
+			DiskPtr         dp;
 
-                if (shouldEjectOnLogout(entry)) {
-                        dwarning(("\nEject this entry on logout ...\n"));
-                        ejectOnLogout = 1;
-                }
+			/*
+			 * Is there an existing disk on our list with this
+			 * IOBSDName?
+			 */
 
+			dp = LookupDiskByIOBSDName(ioBSDName);
+			if (dp) {
+				dwarning(("%s: '%s' already exists\n", __FUNCTION__, ioBSDName));
 
-                {
+				if (dp->state != kDiskStatePostponed) {
+					if (mountExisting) {
+						if (dp->mountpoint && 0 == strcmp(dp->mountpoint, "")) {
+							dp->state = kDiskStateNew;
+                                                        dp->approvedForMounting = 0;
+						}
+					}
+				}
+			} else {
+				/*
+				 * Create a new disk, leaving the
+				 * <mountpoint> initialized to NULL
+				 */
+				DiskPtr         disk = NewDisk(ioBSDName,
+							       ioBSDUnit,
+							       ioContent,
+							   kDiskFamily_SCSI,
+							       NULL,
+							       ioMediaName,
+							ioDeviceTreePathPtr,
+							       entry,
+						    ownerUIDForMedia(entry),
+							       flags,
+							       ioSize);
+				if (!disk) {
+					LogErrorMessage("%s: NewDisk() failed!\n", __FUNCTION__);
+				}
+				if (initialRun) {
+					disk->state = kDiskStateNew;
+                                        disk->approvedForMounting = 1;
+				}
+				if (ejectOnLogout) {
+					disk->ejectOnLogout = ejectOnLogout;
+				}
+			}
+		}
 
-                        DiskPtr dp;
+Next:
 
-                        /* Is there an existing disk on our list with this IOBSDName? */
+		if (properties)
+			CFRelease(properties);
+		if (ioBSDName)
+			free(ioBSDName);
+		if (ioContent)
+			free(ioContent);
 
-                        dp = LookupDiskByIOBSDName( ioBSDName );
-                        if ( dp )
-                        {
-                                dwarning(("%s: '%s' already exists\n", __FUNCTION__, ioBSDName));
+		IOObjectRelease(entry);
 
-                                if ( dp->state != kDiskStatePostponed )
-                                {
-                                        /* In case it was accidentally unmounted, mark it for remounting */
-                                        if ( dp->mountpoint && 0==strcmp(dp->mountpoint,"") )
-                                        {
-                                                dp->state = kDiskStateNew;
-                                        }
-                                }
-                        }
-                        else
-                        {
-                                /* Create a new disk, leaving the <mountpoint> initialized to NULL */
-                                DiskPtr disk = NewDisk(	ioBSDName,
-                                                        ioBSDUnit,
-                                                        ioContent,
-                                                        kDiskFamily_SCSI,
-                                                        NULL,
-                                                        ioMediaName,
-                                                        ioDeviceTreePathPtr,
-                                                        entry,
-                                                        ownerUIDForMedia(entry),
-                                                        flags );
-                                if ( !disk  )
-                                {
-                                        LogErrorMessage("%s: NewDisk() failed!\n", __FUNCTION__);
-                                }
-                                if (initialRun) {
-                                        disk->state = kDiskStateNew;
-                                }
-                                if (ejectOnLogout) {
-                                        disk->ejectOnLogout = ejectOnLogout;
-                                }
-                        }
-                }
-		
-	Next:
-	
-		if ( properties )	CFRelease( properties );
-		if ( ioBSDName )	free( ioBSDName );
-		if ( ioContent )	free( ioContent );
+	}			/* while */
 
-		// IOObjectRelease( entry );
-		
-	} /* while */
-
-} /* GetDisksFromRegistry */
+}				/* GetDisksFromRegistry */
 
 
 /*
 -----------------------------------------------------------------------------------------
 */
 
-DiskType GetDiskType(io_registry_entry_t media)
+DiskType 
+GetDiskType(io_registry_entry_t media)
 {
-    io_registry_entry_t parent  = 0; // (needs release)
-    io_registry_entry_t service = media; // mandatory initialization
-    DiskType           type    = kDiskTypeUnknown; // mandatory initialization
-    kern_return_t       kr;
+	io_registry_entry_t parent = 0;
+	//(needs release)
+		io_registry_entry_t service = media;
+	//mandatory initialization
+		DiskType type = kDiskTypeUnknown;
+	//mandatory initialization
+		kern_return_t kr;
 
-    while ( service )
-    {
-        if ( IOObjectConformsTo( service, "IOCDMedia" ) )
-        {
-            dwarning(("DiskType = CD\n"));
-            type = kDiskTypeCD;
-            break;
-        }
-        else if ( IOObjectConformsTo( service, "IODVDMedia" ) )
-        {
-            dwarning(("DiskType = DVD\n"));
-            type = kDiskTypeDVD;
-            break;
-        }
-        else if ( IOObjectConformsTo( service, "IOBlockStorageDevice" ) )
-        {
-            dwarning(("DiskType = HD\n"));
-            type = kDiskTypeHD;
-            break;
-        }
+	while (service) {
+		if (IOObjectConformsTo(service, "IOCDMedia")) {
+			dwarning(("DiskType = CD\n"));
+			type = kDiskTypeCD;
+			break;
+		} else if (IOObjectConformsTo(service, "IODVDMedia")) {
+			dwarning(("DiskType = DVD\n"));
+			type = kDiskTypeDVD;
+			break;
+		} else if (IOObjectConformsTo(service, "IOBlockStorageDevice")) {
+			dwarning(("DiskType = HD\n"));
+			type = kDiskTypeHD;
+			break;
+		}
+		kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+		if (kr != KERN_SUCCESS)
+			break;
 
-        kr = IORegistryEntryGetParentEntry( service, kIOServicePlane, & parent );
-        if ( kr != KERN_SUCCESS ) break;
+		if (service != media)
+			IOObjectRelease(service);
 
-        if ( service != media ) IOObjectRelease( service );
+		service = parent;
+	}
 
-        service = parent;
-    }
+	if (service != media)
+		IOObjectRelease(service);
 
-    if ( service != media ) IOObjectRelease( service );
-
-    return type;
+	return type;
 }
 
-int shouldAutomount(io_registry_entry_t media)
+int 
+shouldAutomount(io_registry_entry_t media)
 {
-        io_registry_entry_t parent  = 0; // (needs release
-        io_registry_entry_t parentsParent  = 0; // (needs release)
-        io_registry_entry_t service = media; // mandatory initialization
-        kern_return_t       kr;
+	io_registry_entry_t parent = 0;
+	//(needs release
+	   io_registry_entry_t parentsParent = 0;
+	//(needs release)
+		io_registry_entry_t service = media;
+	//mandatory initialization
+		kern_return_t kr;
 
-        int			mount = 1;  // by default uninited
+	int             mount = 1;
+	//by default uninited
 
-        kr = IORegistryEntryGetParentEntry( service, kIOServicePlane, & parent );
-        if ( kr != KERN_SUCCESS ) return mount;
+		kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+	if (kr != KERN_SUCCESS)
+		return mount;
 
-        while ( parent )
-        {
+	while (parent) {
 
-                kr = IORegistryEntryGetParentEntry( parent, kIOServicePlane, & parentsParent );
-                if ( kr != KERN_SUCCESS )
-                        break;
+		kr = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parentsParent);
+		if (kr != KERN_SUCCESS)
+			break;
 
-                {
-                        CFBooleanRef autodiskmountRef = IORegistryEntryCreateCFProperty(parent, CFSTR("autodiskmount"), kCFAllocatorDefault, kNilOptions);
+		{
+			CFBooleanRef    autodiskmountRef = IORegistryEntryCreateCFProperty(parent, CFSTR("autodiskmount"), kCFAllocatorDefault, kNilOptions);
 
-                        if (autodiskmountRef) {
-                                assert(CFGetTypeID(autodiskmountRef) == CFBooleanGetTypeID());
-                                if (!( kCFBooleanTrue == autodiskmountRef )) {
-                                        mount = 0;
-                                        break;
-                                }
-                                CFRelease(autodiskmountRef);
-                        }
-                }
-                if ( parent ) IOObjectRelease( parent );
-                parent = parentsParent;
-                parentsParent = 0;
+			if (autodiskmountRef) {
+				assert(CFGetTypeID(autodiskmountRef) == CFBooleanGetTypeID());
+				if (!(kCFBooleanTrue == autodiskmountRef)) {
+					mount = 0;
+					break;
+				}
+				CFRelease(autodiskmountRef);
+			}
+		}
+		if (parent)
+			IOObjectRelease(parent);
+		parent = parentsParent;
+		parentsParent = 0;
 
-        }
+	}
 
-    if ( parent ) IOObjectRelease( parent );
-    if ( parentsParent ) IOObjectRelease( parentsParent );
+	if (parent)
+		IOObjectRelease(parent);
+	if (parentsParent)
+		IOObjectRelease(parentsParent);
 
-    return mount;
+	return mount;
 }
 
-int shouldEjectOnLogout(io_registry_entry_t media)
+int diskIsInternal(io_registry_entry_t media)
 {
-        io_registry_entry_t parent  = 0; // (needs release
-        io_registry_entry_t parentsParent  = 0; // (needs release)
-        io_registry_entry_t service = media; // mandatory initialization
-        kern_return_t       kr;
+    io_registry_entry_t parent = 0;
+    //(needs release
+       io_registry_entry_t parentsParent = 0;
+    //(needs release)
+        io_registry_entry_t service = media;
+    //mandatory initialization
+        kern_return_t kr;
 
-        int			eject = 0;  // by default uninited
+        int             isInternal = 0;
+    //by default inited
 
-        kr = IORegistryEntryGetParentEntry( service, kIOServicePlane, & parent );
-        if ( kr != KERN_SUCCESS ) return eject;
+    kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+    if (kr != KERN_SUCCESS)
+        return 1;
 
-        while ( parent )
+    while (parent) {
+
+        kr = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parentsParent);
+        if (kr != KERN_SUCCESS)
+            break;
+
+        if (IOObjectConformsTo(parent, "IOBlockStorageDevice"))
         {
+            CFDictionaryRef characteristics = IORegistryEntryCreateCFProperty(parent, CFSTR("Protocol Characteristics"), kCFAllocatorDefault, kNilOptions);
 
-                kr = IORegistryEntryGetParentEntry( parent, kIOServicePlane, & parentsParent );
-                if ( kr != KERN_SUCCESS )
-                        break;
+            if (characteristics) {
+                CFStringRef connection;
+                // CFShow(characteristics);
+                connection = (CFStringRef) CFDictionaryGetValue(characteristics, CFSTR("Physical Interconnect Location"));
+                if (connection) {
+                    CFComparisonResult result;
+                    assert(CFGetTypeID(connection) == CFStringGetTypeID());
 
-                {
-                        CFBooleanRef ejectRef = IORegistryEntryCreateCFProperty(parent, CFSTR("eject-upon-logout"), kCFAllocatorDefault, kNilOptions);
-
-                        if (ejectRef) {
-                                assert(CFGetTypeID(ejectRef) == CFBooleanGetTypeID());
-                                if (kCFBooleanTrue == ejectRef) {
-                                        eject = 1;
-                                        break;
-                                }
-                                CFRelease(ejectRef);
-                        }
+                    result = CFStringCompare(connection, CFSTR("Internal"), NULL);
+                    if (result == kCFCompareEqualTo) {
+                        isInternal = 1;
+                    }
                 }
-                if ( parent ) IOObjectRelease( parent );
-                parent = parentsParent;
-                parentsParent = 0;
 
+                CFRelease(characteristics);
+            }
+            break;
         }
-
-    if ( parent ) IOObjectRelease( parent );
-    if ( parentsParent ) IOObjectRelease( parentsParent );
-
-    return eject;
-}
-
-
-int ownerUIDForMedia(io_registry_entry_t media)
-{
-    io_registry_entry_t parent  = 0; // (needs release
-    io_registry_entry_t parentsParent  = 0; // (needs release)
-    io_registry_entry_t service = media; // mandatory initialization
-    kern_return_t       kr;
-
-    int			ownerUID = -1;  // by default uninited
-
-    kr = IORegistryEntryGetParentEntry( service, kIOServicePlane, & parent );
-    if ( kr != KERN_SUCCESS ) return ownerUID;
-
-    while ( parent )
-    {
-	
-        kr = IORegistryEntryGetParentEntry( parent, kIOServicePlane, & parentsParent );
-        if ( kr != KERN_SUCCESS )
-                break;
-        
-        {
-		// get owner-uid property
-                CFNumberRef ownerRef = IORegistryEntryCreateCFProperty(parent, CFSTR("owner-uid"), kCFAllocatorDefault, kNilOptions);
-                if (ownerRef) {
-                        assert(CFGetTypeID(ownerRef) == CFNumberGetTypeID());
-                        CFNumberGetValue(ownerRef, kCFNumberIntType, &ownerUID);
-                        dwarning(("Owner UID found %d\n", ownerUID));
-                        CFRelease(ownerRef);
-                        break;
-                }
-        }
-
-        if ( parent ) IOObjectRelease( parent );
+        if (parent)
+            IOObjectRelease(parent);
         parent = parentsParent;
         parentsParent = 0;
 
     }
 
-    if ( parent ) IOObjectRelease( parent );
-    if ( parentsParent ) IOObjectRelease( parentsParent );
+    if (parent)
+        IOObjectRelease(parent);
+    if (parentsParent)
+        IOObjectRelease(parentsParent);
 
-    return ownerUID;
+    return isInternal;
+}
+
+int 
+shouldEjectOnLogout(io_registry_entry_t media)
+{
+	io_registry_entry_t parent = 0;
+	//(needs release
+	   io_registry_entry_t parentsParent = 0;
+	//(needs release)
+		io_registry_entry_t service = media;
+	//mandatory initialization
+		kern_return_t kr;
+
+	int             eject = 0;
+	//by default uninited
+
+		kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+	if (kr != KERN_SUCCESS)
+		return eject;
+
+	while (parent) {
+
+		kr = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parentsParent);
+		if (kr != KERN_SUCCESS)
+			break;
+
+		{
+			CFBooleanRef    ejectRef = IORegistryEntryCreateCFProperty(parent, CFSTR("eject-upon-logout"), kCFAllocatorDefault, kNilOptions);
+
+			if (ejectRef) {
+				assert(CFGetTypeID(ejectRef) == CFBooleanGetTypeID());
+				if (kCFBooleanTrue == ejectRef) {
+					eject = 1;
+					break;
+				}
+				CFRelease(ejectRef);
+			}
+		}
+		if (parent)
+			IOObjectRelease(parent);
+		parent = parentsParent;
+		parentsParent = 0;
+
+	}
+
+	if (parent)
+		IOObjectRelease(parent);
+	if (parentsParent)
+		IOObjectRelease(parentsParent);
+
+	return eject;
+}
+
+
+int 
+ownerUIDForMedia(io_registry_entry_t media)
+{
+	io_registry_entry_t parent = 0;
+	//(needs release
+	   io_registry_entry_t parentsParent = 0;
+	//(needs release)
+		io_registry_entry_t service = media;
+	//mandatory initialization
+		kern_return_t kr;
+
+	int             ownerUID = -1;
+	//by default uninited
+
+		kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+	if (kr != KERN_SUCCESS)
+		return ownerUID;
+
+	while (parent) {
+
+		kr = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parentsParent);
+		if (kr != KERN_SUCCESS)
+			break;
+
+		{
+			//get owner - uid property
+				CFNumberRef ownerRef = IORegistryEntryCreateCFProperty(parent, CFSTR("owner-uid"), kCFAllocatorDefault, kNilOptions);
+			if (ownerRef) {
+				assert(CFGetTypeID(ownerRef) == CFNumberGetTypeID());
+				CFNumberGetValue(ownerRef, kCFNumberIntType, &ownerUID);
+				dwarning(("Owner UID found %d\n", ownerUID));
+				CFRelease(ownerRef);
+				break;
+			}
+		}
+
+		if (parent)
+			IOObjectRelease(parent);
+		parent = parentsParent;
+		parentsParent = 0;
+
+	}
+
+	if (parent)
+		IOObjectRelease(parent);
+	if (parentsParent)
+		IOObjectRelease(parentsParent);
+
+	return ownerUID;
 }
 
 /*
 -----------------------------------------------------------------------------------------
 */
-

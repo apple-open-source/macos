@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,8 +38,8 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFIndex				storeCnt;
-	void				**storeKeys;
-	void				**storeValues;
+	const void			**storeKeys;
+	const void			**storeValues;
 	CFMutableArrayRef		keyArray;
 	int				i;
 	CFStringRef			storeStr;
@@ -85,7 +85,7 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 		 * compile the provided regular expression using the
 		 * provided isRegex.
 		 */
-		regexBufLen = CFStringGetLength(regexStr)+1;
+		regexBufLen = CFStringGetLength(regexStr) + 1;
 		regexBuf    = CFAllocatorAllocate(NULL, regexBufLen, 0);
 		ok = CFStringGetCString(regexStr, regexBuf, regexBufLen, kCFStringEncodingMacRoman);
 		CFRelease(regexStr);
@@ -108,66 +108,68 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 		}
 	}
 
-	storeKeys   = CFAllocatorAllocate(NULL, storeCnt * sizeof(CFStringRef), 0);
-	storeValues = CFAllocatorAllocate(NULL, storeCnt * sizeof(CFStringRef), 0);
-	CFDictionaryGetKeysAndValues(storeData, storeKeys, storeValues);
-	for (i=0; i<storeCnt; i++) {
-		storeStr   = (CFStringRef)storeKeys[i];
-		storeValue = (CFDictionaryRef)storeValues[i];
-		if (isRegex) {
-			/*
-			 * only return those keys which match the regular
-			 * expression specified in the provided key.
-			 */
+	if (storeCnt > 0) {
+		storeKeys   = CFAllocatorAllocate(NULL, storeCnt * sizeof(CFStringRef), 0);
+		storeValues = CFAllocatorAllocate(NULL, storeCnt * sizeof(CFStringRef), 0);
+		CFDictionaryGetKeysAndValues(storeData, storeKeys, storeValues);
+		for (i=0; i<storeCnt; i++) {
+			storeStr   = (CFStringRef)storeKeys[i];
+			storeValue = (CFDictionaryRef)storeValues[i];
+			if (isRegex) {
+				/*
+				 * only return those keys which match the regular
+				 * expression specified in the provided key.
+				 */
 
-			int	storeKeyLen = CFStringGetLength(storeStr) + 1;
-			char	*storeKey   = CFAllocatorAllocate(NULL, storeKeyLen, 0);
+				int	storeKeyLen = CFStringGetLength(storeStr) + 1;
+				char	*storeKey   = CFAllocatorAllocate(NULL, storeKeyLen, 0);
 
-			if (!CFStringGetCString(storeStr,
-						storeKey,
-						storeKeyLen,
-						kCFStringEncodingMacRoman)) {
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert store key to C string"));
+				if (!CFStringGetCString(storeStr,
+							storeKey,
+							storeKeyLen,
+							kCFStringEncodingMacRoman)) {
+					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert store key to C string"));
+					CFAllocatorDeallocate(NULL, storeKey);
+					continue;
+				}
+
+				reError = regexec(&preg,
+						  storeKey,
+						  0,
+						  NULL,
+						  0);
+				switch (reError) {
+					case 0 :
+						/* we've got a match */
+						if (CFDictionaryContainsKey(storeValue, kSCDData))
+							CFArrayAppendValue(keyArray, storeStr);
+						break;
+					case REG_NOMATCH :
+						/* no match */
+						break;
+					default :
+						reErrStrLen = regerror(reError,
+								       &preg,
+								       reErrBuf,
+								       sizeof(reErrBuf));
+						SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+						break;
+				}
 				CFAllocatorDeallocate(NULL, storeKey);
-				continue;
-			}
-
-			reError = regexec(&preg,
-					  storeKey,
-					  0,
-					  NULL,
-					  0);
-			switch (reError) {
-				case 0 :
-					/* we've got a match */
-					if (CFDictionaryContainsKey(storeValue, kSCDData))
-						CFArrayAppendValue(keyArray, storeStr);
-					break;
-				case REG_NOMATCH :
-					/* no match */
-					break;
-				default :
-					reErrStrLen = regerror(reError,
-							       &preg,
-							       reErrBuf,
-							       sizeof(reErrBuf));
-					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
-					break;
-			}
-			CFAllocatorDeallocate(NULL, storeKey);
-		} else {
-			/*
-			 * only return those keys which are prefixed by the
-			 * provided key string and have data.
-			 */
-			if (((CFStringGetLength(key) == 0) || CFStringHasPrefix(storeStr, key)) &&
-			    CFDictionaryContainsKey(storeValue, kSCDData)) {
-				CFArrayAppendValue(keyArray, storeStr);
+			} else {
+				/*
+				 * only return those keys which are prefixed by the
+				 * provided key string and have data.
+				 */
+				if (((CFStringGetLength(key) == 0) || CFStringHasPrefix(storeStr, key)) &&
+				    CFDictionaryContainsKey(storeValue, kSCDData)) {
+					CFArrayAppendValue(keyArray, storeStr);
+				}
 			}
 		}
+		CFAllocatorDeallocate(NULL, storeKeys);
+		CFAllocatorDeallocate(NULL, storeValues);
 	}
-	CFAllocatorDeallocate(NULL, storeKeys);
-	CFAllocatorDeallocate(NULL, storeValues);
 
 	if (isRegex) {
 		regfree(&preg);
@@ -190,13 +192,10 @@ _configlist(mach_port_t			server,
 	    int				*sc_status
 )
 {
-	kern_return_t		status;
-	serverSessionRef	mySession = getSession(server);
-	CFDataRef		xmlKey;		/* key  (XML serialized) */
 	CFStringRef		key;		/* key  (un-serialized) */
+	serverSessionRef	mySession = getSession(server);
+	Boolean			ok;
 	CFArrayRef		subKeys;	/* array of CFStringRef's */
-	CFDataRef		xmlList;	/* list (XML serialized) */
-	CFStringRef		xmlError;
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("List keys in configuration database."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
@@ -205,27 +204,12 @@ _configlist(mach_port_t			server,
 	*listLen = 0;
 
 	/* un-serialize the key */
-	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	key = CFPropertyListCreateFromXMLData(NULL,
-					      xmlKey,
-					      kCFPropertyListImmutable,
-					      &xmlError);
-	CFRelease(xmlKey);
-	if (!key) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
-	} else if (!isA_CFString(key)) {
+	}
+
+	if (!isA_CFString(key)) {
 		CFRelease(key);
 		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
@@ -237,24 +221,13 @@ _configlist(mach_port_t			server,
 		return KERN_SUCCESS;
 	}
 
-	/*
-	 * serialize the array, copy it into an allocated buffer which will be
-	 * released when it is returned as part of a Mach message.
-	 */
-	xmlList = CFPropertyListCreateXMLData(NULL, subKeys);
+	/* serialize the list of keys */
+	ok = _SCSerialize(subKeys, NULL, (void **)listRef, (CFIndex *)listLen);
 	CFRelease(subKeys);
-	*listLen = CFDataGetLength(xmlList);
-	status = vm_allocate(mach_task_self(), (void *)listRef, *listLen, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+	if (!ok) {
 		*sc_status = kSCStatusFailed;
-		CFRelease(xmlList);
-		*listRef = NULL;
-		*listLen = 0;
 		return KERN_SUCCESS;
 	}
-	bcopy((char *)CFDataGetBytePtr(xmlList), *listRef, *listLen);
-	CFRelease(xmlList);
 
 	return KERN_SUCCESS;
 }

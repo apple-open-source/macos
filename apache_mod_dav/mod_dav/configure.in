@@ -16,11 +16,6 @@ if test "$CC" = "gcc" -a "$ac_cv_prog_cc_g" = "yes" -a \
    CFLAGS=`echo $CFLAGS | sed -e 's/-g//'`
 fi
 
-if test "`uname -sv`" = "AIX 4" -a "$GCC" != "yes"; then
-     APXS_EXP="-bE:mod_dav.exp"
-fi
-AC_SUBST(APXS_EXP)
-
 #
 # Hack to work around a Mac OS X Server cpp problem
 # Known versions needing this workaround are 5.3 and 5.4
@@ -133,6 +128,15 @@ if test "$BINNAME" = ""; then
 	fi
 fi
 
+if test "`uname -sv`" = "AIX 4" -a -n "$APXS"; then
+    if test "`$APXS -q LD_SHLIB`" = "gcc"; then
+	APXS_EXP="-Wl,-bE:mod_dav.exp"
+    else
+	APXS_EXP="-bE:mod_dav.exp"
+    fi
+fi
+AC_SUBST(APXS_EXP)
+
 XML_EXPAT_LIB=-lexpat
 
 AC_MSG_CHECKING(for expat)
@@ -167,6 +171,16 @@ AC_ARG_WITH(expat,
 	XML_DIR=$withval
 	XML_INCLUDE="$withval/xmlparse"
 	XML_LIB=$withval
+      fi
+    fi
+    if test "$XML_DIR" = ""; then
+      if test -f "$withval/include/expat.h"; then
+	# Expat 2
+	XML_DIR=$withval
+	XML_INCLUDE="$withval/include"
+	XML_LIB="$withval/lib"
+	XML_EXPAT_LIB="-lexpat"
+	AC_DEFINE(HAVE_EXPAT_2, 1, [define to use Expat 2])
       fi
     fi
     if test "$XML_DIR" = "" ; then
@@ -215,6 +229,13 @@ if test "$XML_DIR" = ""; then
 			XML_INCLUDE="$i/include/xmltok"
 			XML_LIB="$i/lib"
 			XML_EXPAT_LIB="-lxmlparse -lxmltok"
+		elif test -f "$i/include/expat.h"; then
+			# Expat 2
+			XML_DIR=$i
+			XML_INCLUDE="$i/include"
+			XML_LIB="$i/lib"
+			XML_EXPAT_LIB="-lexpat"
+			AC_DEFINE(HAVE_EXPAT_2, 1, [define to use Expat 2])
 		fi
 	done
 fi

@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Make sure ":" works with files automake generates.
+# This test is for multiple ":"s.
+# Test from Maciej W. Rozycki.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile zardoz:one:two:three)
+END
+
+: > Makefile.am
+: > one
+: > two
+: > three
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# The rule should regenerate the file "zardoz".
+grep '^zardoz:one:two' Makefile.in && exit 1
+exit 0

@@ -46,7 +46,7 @@
 
 ;;; Commentary:
 
-;; $Id: cperl-mode.el,v 1.1.1.3 2000/03/31 05:11:07 wsanchez Exp $
+;; $Id: cperl-mode.el,v 1.2 2002/03/14 08:55:29 zarzycki Exp $
 
 ;;; Before RMS Emacs 20.3: To use this mode put the following into
 ;;; your .emacs file:
@@ -7808,7 +7808,7 @@ We suppose that the regexp is scanned already."
 	  (cperl-fontify-syntaxically to)))))
 
 (defvar cperl-version 
-  (let ((v  "$Revision: 1.1.1.3 $"))
+  (let ((v  "$Revision: 1.2 $"))
     (string-match ":\\s *\\([0-9.]+\\)" v)
     (substring v (match-beginning 1) (match-end 1)))
   "Version of IZ-supported CPerl package this file is based on.")

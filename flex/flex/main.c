@@ -32,7 +32,7 @@ char copyright[] =
  All rights reserved.\n";
 #endif /* not lint */
 
-/* $Header: /cvs/Darwin/Commands/GNU/flex/flex/main.c,v 1.1.1.1 1999/04/23 00:46:30 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/flex/flex/main.c,v 1.1.1.1 1999/04/23 00:46:30 wsanchez Exp $ */
 
 
 #include "flexdef.h"

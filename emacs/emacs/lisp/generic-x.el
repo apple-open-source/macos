@@ -26,7 +26,7 @@
 ;;; Commentary:
 ;;
 ;; This file contains some pre-defined generic-modes.
-;; 
+;;
 ;; INSTALLATION:
 ;;
 ;; Add this line to your .emacs file:
@@ -37,7 +37,7 @@
 ;; `generic-extras-enable-list'. Some platform-specific modes are
 ;; affected by the variables `generic-define-mswindows-modes' and
 ;; `generic-define-unix-modes' (which see).
-;; 
+;;
 ;; You can also send in new modes; if the file types a reasonably common,
 ;; we would like to install them.
 ;;
@@ -48,17 +48,17 @@
 ;; Love]
 ;;
 ;; From Anders Lindgren <andersl@csd.uu.se>
-;; 
+;;
 ;; Problem summary: Wayne Adams has found a problem when using folding
 ;; mode in conjuction with font-lock for a mode defined in
 ;; `generic-x.el'.
 ;;
 ;; The problem, as Wayne described it, was that error messages of the
 ;; following form appeared when both font-lock and folding are used:
-;; 
+;;
 ;; >      - various msgs including "Fontifying region...(error Stack
 ;; > overflow in regexp matcher)" appear
-;; 
+;;
 ;; I have just tracked down the cause of the problem.  The regexp:s in
 ;; `generic-x.el' does not take into account the way that folding
 ;; hides sections of the buffer.  The technique is known as
@@ -66,26 +66,26 @@
 ;; started using it back in the good old' Emacs 18 days).  Basically, a
 ;; section is hidden by creating one very long line were the newline
 ;; character (C-j) is replaced by a linefeed (C-m) character.
-;; 
+;;
 ;; Many other hiding packages, besides folding, use the same technique,
 ;; the problem should occur when using them as well.
-;; 
+;;
 ;; The erroronous lines in `generic-extras' look like the following (this
 ;; example is from the `ini' section):
-;; 
-;;     '(("^\\(\\[.*\\]\\)"   1 'font-lock-reference-face)
+;;
+;;     '(("^\\(\\[.*\\]\\)"   1 'font-lock-constant-face)
 ;;       ("^\\(.*\\)="        1 'font-lock-variable-name-face)
-;; 
+;;
 ;; The intention of these lines is to highlight lines of the following
 ;; form:
-;; 
+;;
 ;; [foo]
 ;; bar = xxx
-;; 
+;;
 ;; However, since the `.' regexp symbol match the linefeed character the
 ;; entire folded section is searched, resulting in a regexp stack
 ;; overflow.
-;; 
+;;
 ;; Solution suggestion 2: Instead of using ".", use the sequence
 ;; "[^\n\r]".  This will make the rules behave just as before, but they
 ;; will work together with selective-display.
@@ -106,13 +106,13 @@
 Each entry in the list should be a symbol.
 The variables `generic-define-mswindows-modes' and `generic-define-unix-modes'
 also affect which generic modes are defined.
-Please note that if you set this variable after generic-x is loaded, 
+Please note that if you set this variable after generic-x is loaded,
 you must reload generic-x to enable the specified modes."
   :group 'generic-x
-  :type  '(repeat sexp) 
+  :type  '(repeat sexp)
   )
 
-(defcustom generic-define-mswindows-modes 
+(defcustom generic-define-mswindows-modes
   (memq system-type (list 'windows-nt 'ms-dos))
   "*If non-nil, some MS-Windows specific generic modes will be defined."
   :group 'generic-x
@@ -128,18 +128,27 @@ you must reload generic-x to enable the specified modes."
 
 (and generic-define-mswindows-modes
     (setq generic-extras-enable-list
-	  (append (list 'bat-generic-mode 'ini-generic-mode 
-			'inf-generic-mode 'rc-generic-mode 
+	  (append (list 'bat-generic-mode 'ini-generic-mode
+			'inf-generic-mode 'rc-generic-mode
 			'reg-generic-mode 'rul-generic-mode
-			'hosts-generic-mode 'apache-generic-mode)
+			'hosts-generic-mode
+			'apache-conf-generic-mode
+			'apache-log-generic-mode
+			)
 		  generic-extras-enable-list)))
 
 (and generic-define-unix-modes
      (setq generic-extras-enable-list
-	   (append (list 'apache-generic-mode 'samba-generic-mode 
-			 'hosts-generic-mode  'fvwm-generic-mode 
-			 'x-resource-generic-mode 
+	   (append (list 'apache-conf-generic-mode
+			 'apache-log-generic-mode
+			 'samba-generic-mode
+			 'hosts-generic-mode  'fvwm-generic-mode
+			 'x-resource-generic-mode
 			 'alias-generic-mode
+			 'inetd-conf-generic-mode
+			 'etc-services-generic-mode
+			 'etc-passwd-generic-mode
+			 'etc-fstab-generic-mode
 			 )
 		   generic-extras-enable-list)))
 
@@ -148,26 +157,54 @@ you must reload generic-x to enable the specified modes."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Apache
-(and 
- (memq 'apache-generic-mode generic-extras-enable-list)
+(and
+ (memq 'apache-conf-generic-mode generic-extras-enable-list)
 
-(define-generic-mode 'apache-generic-mode
-   (list ?#)  
-   nil 
-   '(("^\\(<.*>\\)"       1 'font-lock-reference-face)
-     ("^\\(\\sw+\\)\\s-"  1 'font-lock-variable-name-face))    
+(define-generic-mode 'apache-conf-generic-mode
+   (list ?#)
+   nil
+   '(("^\\s-*\\(<.*>\\)"       1 'font-lock-constant-face)
+     ("^\\(\\sw+\\)\\s-"  1 'font-lock-variable-name-face))
    (list "srm\\.conf\\'" "httpd\\.conf\\'" "access\\.conf\\'")
-   nil 
+   (list
+    (function
+     (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([-A-Za-z0-9_]+\\)" 1)
+	      ("*Directories*" "^\\s-*<Directory\\s-*\\([^>]+\\)>" 1)
+	      ("*Locations*"   "^\\s-*<Location\\s-*\\([^>]+\\)>" 1)
+	      ))
+       )))
    "Generic mode for Apache or HTTPD configuration files."))
- 
+
+(and
+ (memq 'apache-log-generic-mode generic-extras-enable-list)
+
+(define-generic-mode 'apache-log-generic-mode
+  nil
+  nil
+  ;; Hostname ? user date request return-code number-of-bytes
+  '(("^\\([-a-zA-z0-9.]+\\) - [-A-Za-z]+ \\(\\[.*\\]\\)"
+     (1 font-lock-constant-face)
+     (2 font-lock-variable-name-face))
+    )
+  (list "access_log\\'")
+  nil
+  "Mode for Apache log files"))
+
 ;;; Samba
-(and 
+(and
  (memq 'samba-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'samba-generic-mode
-   (list ?\;)
+   (list ?\; ?#)
    nil
-   '(("^\\(\\[.*\\]\\)"   1 'font-lock-reference-face))
+   '(
+     ("^\\(\\[.*\\]\\)"   1 'font-lock-constant-face)
+     ("^\\s-*\\(.+\\)=\\([^\r\n]*\\)"
+      (1 'font-lock-variable-name-face)
+      (2 'font-lock-type-face))
+     )
    (list "smb\\.conf\\'")
    (list 'generic-bracket-support)
    "Generic mode for Samba configuration files."))
@@ -175,25 +212,25 @@ you must reload generic-x to enable the specified modes."
 ;;; Fvwm
 ;; This is pretty basic. Also, modes for other window managers could
 ;; be defined as well.
-(and 
+(and
 (memq 'fvwm-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'fvwm-generic-mode
    (list ?#)
-   (list 
+   (list
     "AddToMenu"
     "AddToFunc"
     "ButtonStyle"
-    "EndFunction" 
+    "EndFunction"
     "EndPopup"
-    "Function" 
+    "Function"
     "IconPath"
     "Key"
     "ModulePath"
     "Mouse"
     "PixmapPath"
-    "Popup" 
-    "Style" 
+    "Popup"
+    "Style"
     )
    nil
    (list "\\.fvwmrc\\'" "\\.fvwm2rc\\'")
@@ -203,78 +240,78 @@ you must reload generic-x to enable the specified modes."
 ;;; X Resource
 ;; I'm pretty sure I've seen an actual mode to do this, but I don't
 ;; think it's standard with Emacs
-(and 
+(and
  (memq 'x-resource-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'x-resource-generic-mode
    (list ?!)
    nil
    '(("^\\([^:\n]+:\\)" 1 'font-lock-variable-name-face))
-   (list "\\.Xdefaults\\'" "\\.Xresources\\'")
+   (list "\\.Xdefaults\\'" "\\.Xresources\\'" "\\.Xenvironment\\'" "\\.ad\\'")
    nil
    "Generic mode for X Resource configuration files."))
 
 ;;; Hosts
-(and 
+(and
  (memq 'hosts-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'hosts-generic-mode
    (list ?#)
    (list "localhost")
-   '(("\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\\)" 1 'font-lock-reference-face))
+   '(("\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\\)" 1 'font-lock-constant-face))
    (list "[hH][oO][sS][tT][sS]\\'")
    nil
    "Generic mode for HOSTS files."))
 
 ;;; Windows INF files
-(and 
+(and
  (memq 'inf-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'inf-generic-mode
    (list ?\;)
-   nil 
-   '(("^\\(\\[.*\\]\\)"   1 'font-lock-reference-face))
+   nil
+   '(("^\\(\\[.*\\]\\)"   1 'font-lock-constant-face))
    (list "\\.[iI][nN][fF]\\'")
    (list 'generic-bracket-support)
    "Generic mode for MS-Windows INF files."))
 
 ;;; Windows INI files
 ;; Should define escape character as well!
-(and 
+(and
  (memq 'ini-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'ini-generic-mode
    (list ?\;)
    nil
-   '(("^\\(\\[.*\\]\\)"   1 'font-lock-reference-face)
+   '(("^\\(\\[.*\\]\\)"   1 'font-lock-constant-face)
      ("^\\([^=\n\r]*\\)=\\([^\n\r]*\\)$"
       (1 font-lock-function-name-face)
       (2 font-lock-variable-name-face)))
    (list "\\.[iI][nN][iI]\\'")
-    (list 
-     (function
-      (lambda ()
-	(setq imenu-generic-expression 
-	'((nil "^\\[\\(.*\\)\\]" 1)
-	  ("*Variables*" "^\\s-*\\([^=]+\\)\\s-*=" 1)))
-	)))
+   (list
+    (function
+     (lambda ()
+       (setq imenu-generic-expression
+	     '((nil "^\\[\\(.*\\)\\]" 1)
+	       ("*Variables*" "^\\s-*\\([^=]+\\)\\s-*=" 1)))
+       )))
     "Generic mode for MS-Windows INI files."))
 
 ;;; Windows REG files
 ;;; Unfortunately, Windows 95 and Windows NT have different REG file syntax!
-(and 
+(and
  (memq 'reg-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'reg-generic-mode
    '(?\;)
    '("key" "classes_root" "REGEDIT" "REGEDIT4")
-   '(("\\(\\[.*]\\)"     1 'font-lock-reference-face)
+   '(("\\(\\[.*]\\)"     1 'font-lock-constant-face)
      ("^\\([^\n\r]*\\)\\s-*="  1 'font-lock-variable-name-face))
    '("\\.[rR][eE][gG]\\'")
-    (list 
+    (list
      (function
       (lambda ()
-	(setq imenu-generic-expression 
+	(setq imenu-generic-expression
 	'((nil "^\\s-*\\(.*\\)\\s-*=" 1))))))
     "Generic mode for MS-Windows Registry files."))
 
@@ -288,11 +325,11 @@ you must reload generic-x to enable the specified modes."
      ;; Make this one first in the list, otherwise comments will
      ;; be over-written by other variables
      (list "^[@ \t]*\\([rR][eE][mM][^\n\r]*\\)" 1 'font-lock-comment-face t)
-     (list "^[ \t]*\\(::-.*\\)"		        1 'font-lock-comment-face t)
+     (list "^[ \t]*\\(::.*\\)"		        1 'font-lock-comment-face t)
      (list
       "^[@ \t]*\\([bB][rR][eE][aA][kK]\\|[vV][eE][rR][iI][fF][yY]\\)[ \t]+\\([oO]\\([nN]\\|[fF][fF]\\)\\)"
       '(1 font-lock-builtin-face)
-      '(2 font-lock-constant-face 'append t))
+      '(2 font-lock-constant-face t t))
      ;; Any text (except ON/OFF) following ECHO is a string.
      (list
       "^[@ \t]*\\([eE][cC][hH][oO]\\)[ \t]+\\(\\([oO]\\([nN]\\|[fF][fF]\\)\\)\\|\\([^>|\r\n]+\\)\\)"
@@ -302,22 +339,26 @@ you must reload generic-x to enable the specified modes."
      ;; These keywords appear as the first word on a line.  (Actually, they
      ;; can also appear after "if ..." or "for ..." clause, but since they
      ;; are frequently used in simple text, we punt.)
+     ;; In `generic-bat-mode-setup-function' we make the keywords
+     ;; case-insensitive
      (generic-make-keywords-list
       (list
-       "FOR" "for" "For"
-       "IF" "if" "If"
+       "for"
+       "if"
        )
       'font-lock-keyword-face "^[@ \t]*")
      ;; These keywords can be anywhere on a line
+     ;; In `generic-bat-mode-setup-function' we make the keywords
+     ;; case-insensitive
      (generic-make-keywords-list
       (list
-       "DO"	    "do"	 "Do"
-       "EXIST"	    "exist"	 "Exist"
-       "ERRORLEVEL" "errorlevel" "ErrorLevel" "Errorlevel"
-       "GOTO"	    "goto"	 "GoTo"	      "Goto"
-       "NOT"	    "not"	 "Not"
-       ) 'font-lock-keyword-face "[ \t|\n]")
-     ; These are built-in commands.  Only frequently-used ones are listed.
+       "do"
+       "exist"
+       "errorlevel"
+       "goto"
+       "not"
+       ) 'font-lock-keyword-face)
+     ;; These are built-in commands.  Only frequently-used ones are listed.
      (generic-make-keywords-list
       (list
        "CALL"	    "call"	 "Call"
@@ -341,13 +382,13 @@ you must reload generic-x to enable the specified modes."
      (list "\\(%[0-9]\\)"		 1 'font-lock-variable-name-face t)
      (list "\\(/[^/ \"\t\n]+\\)"	 1 'font-lock-type-face)
      (list "[\t ]+\\([+-][^\t\n\" ]+\\)" 1 'font-lock-type-face)
-     (list "[ \t\n|]\\<\\([gG][oO][tT][oO]\\)\\>[ \t]*\\(\\sw+\\)?" 
+     (list "[ \t\n|]\\<\\([gG][oO][tT][oO]\\)\\>[ \t]*\\(\\sw+\\)?"
 	   '(1 font-lock-keyword-face)
 	   '(2 font-lock-function-name-face nil t))
      (list "[ \t\n|]\\<\\([sS][eE][tT]\\)\\>[ \t]*\\(\\sw+\\)?[ \t]*=?"
 	   '(1 font-lock-builtin-face)
 	   '(2 font-lock-variable-name-face t t))
-     
+
      )
     (list
      "\\.[bB][aA][tT]\\'"
@@ -358,13 +399,53 @@ you must reload generic-x to enable the specified modes."
 
   (defvar bat-generic-mode-syntax-table nil
     "Syntax table in use in bat-generic-mode buffers.")
-  
+
+  (defvar bat-generic-mode-keymap (make-sparse-keymap)
+    "Keymap for bet-generic-mode.")
+
+  (defun bat-generic-mode-compile ()
+    "Run the current BAT file in a compilation buffer."
+    (interactive)
+    (let ((compilation-buffer-name-function
+	   (function
+	    (lambda(ign)
+	      (concat "*" (buffer-file-name) "*")))
+	      )
+	    )
+      (compile
+       (concat (w32-shell-name) " -c " (buffer-file-name)))))
+
+  (defun bat-generic-mode-run-as-comint ()
+    "Run the current BAT file in a comint buffer."
+    (interactive)
+    (require 'comint)
+    (let* ((file (buffer-file-name))
+	   (buf-name (concat "*" file "*")))
+      (save-excursion
+	(set-buffer
+	 (get-buffer-create buf-name))
+	(erase-buffer)
+	(comint-mode)
+	(comint-exec
+	 buf-name
+	 file
+	 (w32-shell-name)
+	 nil
+	 (list
+	  "-c"
+	  file
+	  )
+	 )
+	(display-buffer buf-name))))
+
+  (define-key bat-generic-mode-keymap "\C-c\C-c" 'bat-generic-mode-compile)
+
   ;; Make underscores count as words
   (if bat-generic-mode-syntax-table
       nil
     (setq bat-generic-mode-syntax-table (make-syntax-table))
     (modify-syntax-entry ?_  "w"  bat-generic-mode-syntax-table))
-  
+
   ;; bat-generic-mode doesn't use the comment functionality of generic-mode
   ;; because it has a three-letter comment-string, so we do it
   ;; here manually instead
@@ -380,32 +461,35 @@ you must reload generic-x to enable the specified modes."
 	  comment-start-skip	     "[Rr][Ee][Mm] *"
 	  )
     (set-syntax-table	      bat-generic-mode-syntax-table)
+    ;; Make keywords case-insensitive
+    (setq font-lock-defaults (list 'generic-font-lock-defaults nil t))
+    (use-local-map bat-generic-mode-keymap)
     )
   )
 
 ;;; Mailagent
 ;; Mailagent is a Unix mail filtering program. Anyone wanna do a generic mode
 ;; for procmail?
-(and 
+(and
  (memq 'mailagent-rules-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'mailagent-rules-generic-mode
-   (list ?#)  
+   (list ?#)
    (list "SAVE" "DELETE" "PIPE" "ANNOTATE" "REJECT")
    '(("^\\(\\sw+\\)\\s-*="         1 'font-lock-variable-name-face)
-     ("\\s-/\\([^/]+\\)/[i, \t\n]" 1 'font-lock-reference-face))
+     ("\\s-/\\([^/]+\\)/[i, \t\n]" 1 'font-lock-constant-face))
    (list "\\.rules\\'")
    (list 'mailagent-rules-setup-function)
    "Mode for Mailagent rules files.")
- 
-(defun mailagent-rules-setup-function () 
+
+(defun mailagent-rules-setup-function ()
    (make-local-variable 'imenu-generic-expression)
-   (setq imenu-generic-expression 
+   (setq imenu-generic-expression
 	 '((nil "\\s-/\\([^/]+\\)/[i, \t\n]" 1))))
  )
 
 ;; Solaris/Sys V prototype files
-(and 
+(and
  (memq 'prototype-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'prototype-generic-mode
@@ -413,10 +497,10 @@ you must reload generic-x to enable the specified modes."
    nil
    '(
      ("^\\([0-9]\\)?\\s-*\\([a-z]\\)\\s-+\\([A-Za-z_]+\\)\\s-+\\([^\n\r]*\\)$"
-      (2 font-lock-reference-face)
+      (2 font-lock-constant-face)
       (3 font-lock-keyword-face))
      ("^\\([a-z]\\) \\([A-Za-z_]+\\)=\\([^\n\r]*\\)$"
-      (1 font-lock-reference-face)
+      (1 font-lock-constant-face)
 	  (2 font-lock-keyword-face)
 	  (3 font-lock-variable-name-face))
      ("^\\(!\\s-*\\(search\\|include\\|default\\)\\)\\s-*\\([^\n\r]*\\)$"
@@ -431,7 +515,7 @@ you must reload generic-x to enable the specified modes."
    "Mode for Sys V prototype files."))
 
 ;; Solaris/Sys V pkginfo files
-(and 
+(and
  (memq 'pkginfo-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'pkginfo-generic-mode
@@ -447,29 +531,85 @@ you must reload generic-x to enable the specified modes."
    "Mode for Sys V pkginfo files."))
 
 ;; Javascript mode
+;; Includes extra keywords from Armando Singer [asinger@MAIL.COLGATE.EDU]
 (define-generic-mode 'javascript-generic-mode
   (list "//")
   (list
-   "document"
+   "break"
+   "case"
+   "continue"
+   "default"
+   "delete"
+   "do"
    "else"
-   "function"
+   "export"
+   "for"
    "function"
    "if"
-   "then"
+   "import"
+   "in"
+   "new"
+   "return"
+   "switch"
+   "this"
+   "typeof"
    "var"
+   "void"
+   "while"
+   "with"
+   ;; words reserved for ECMA extensions below
+   "catch"
+   "class"
+   "const"
+   "debugger"
+   "enum"
+   "extends"
+   "finally"
+   "super"
+   "throw"
+   "try"
+   ;; Java Keywords reserved by JavaScript
+   "abstract"
+   "boolean"
+   "byte"
+   "char"
+   "double"
+   "false"
+   "final"
+   "float"
+   "goto"
+   "implements"
+   "instanceof"
+   "int"
+   "interface"
+   "long"
+   "native"
+   "null"
+   "package"
+   "private"
+   "protected"
+   "public"
+   "short"
+   "static"
+   "synchronized"
+   "throws"
+   "transient"
+   "true"
    )
   (list
-   (list "^\\s-*function\\s-+\\([A-Za-z0-9]+\\)"
-	 '(1 font-lock-function-name-face))
-     (list "^\\s-*var\\s-+\\([A-Za-z0-9]+\\)"
-	   '(1 font-lock-variable-name-face))
-     )    
+   (list "^\\s-*function\\s-+\\([A-Za-z0-9_]+\\)"
+	  '(1 font-lock-function-name-face))
+     (list "^\\s-*var\\s-+\\([A-Za-z0-9_]+\\)"
+	      '(1 font-lock-variable-name-face))
+     )
   (list "\\.js\\'")
   (list
-   (function 
+   (function
     (lambda ()
-      (setq imenu-generic-expression 
-	    '((nil "^function\\s-+\\([A-Za-z0-9_]+\\)" 1)))
+      (setq imenu-generic-expression
+	    '((nil "^function\\s-+\\([A-Za-z0-9_]+\\)" 1)
+	      ("*Variables*" "^var\\s-+\\([A-Za-z0-9_]+\\)" 1)
+	      ))
       )))
   "Mode for JavaScript files.")
 
@@ -508,23 +648,23 @@ you must reload generic-x to enable the specified modes."
    )
   (list
    (list "USE\\s-+\\([-A-Za-z0-9_]+\\)"
-	 '(1 font-lock-reference-face))
+	 '(1 font-lock-constant-face))
    (list "DEF\\s-+\\([-A-Za-z0-9_]+\\)\\s-+\\([A-Za-z0-9]+\\)\\s-*{"
 	 '(1 font-lock-type-face)
-	 '(2 font-lock-reference-face))
+	 '(2 font-lock-constant-face))
    (list "^\\s-*\\([-A-Za-z0-9_]+\\)\\s-*{"
 	 '(1 font-lock-function-name-face))
-   (list 
+   (list
     "^\\s-*\\(geometry\\|appearance\\|material\\)\\s-+\\([-A-Za-z0-9_]+\\)"
     '(2 font-lock-variable-name-face))
    )
   (list "\\.wrl\\'")
   (list
-   (function 
+   (function
     (lambda ()
-      (setq imenu-generic-expression 
+      (setq imenu-generic-expression
 	    '((nil "^\\([A-Za-z0-9_]+\\)\\s-*{" 1)
-	      ("*Definitions*" 
+	      ("*Definitions*"
 	       "DEF\\s-+\\([-A-Za-z0-9_]+\\)\\s-+\\([A-Za-z0-9]+\\)\\s-*{"
 	       1)))
       )))
@@ -533,11 +673,11 @@ you must reload generic-x to enable the specified modes."
 ;; Java Manifests
 (define-generic-mode 'java-manifest-generic-mode
   (list ?#)
-  (list 
-   "Name" 
-   "Digest-Algorithms" 
-   "Manifest-Version" 
-   "Required-Version" 
+  (list
+   "Name"
+   "Digest-Algorithms"
+   "Manifest-Version"
+   "Required-Version"
    "Signature-Version"
    "Magic"
    "Java-Bean"
@@ -546,25 +686,48 @@ you must reload generic-x to enable the specified modes."
   '(("^Name:\\s-+\\([^\n\r]*\\)$"
      (1 font-lock-variable-name-face))
     ("^\\(Manifest\\|Required\\|Signature\\)-Version:\\s-+\\([^\n\r]*\\)$"
-     (2 font-lock-reference-face))
+     (2 font-lock-constant-face))
     )
-  (list "manifest\\.mf\\'")
+  (list "[mM][aA][nN][iI][fF][eE][sS][tT]\\.[mM][fF]\\'")
   nil
   "Mode for Java Manifest files")
 
 ;; Java properties files
 (define-generic-mode 'java-properties-generic-mode
-  (list ?#)
-   nil
-   ;; Property and value can be separated with whitespace or an equal sign
-  '(("^\\([\\.A-Za-z0-9_]+\\)\\(\\s-+\\|\\(\\s-*=\\s-*\\)\\)\\([^\r\n]*\\)$" 
-     (1 font-lock-reference-face) (4 font-lock-variable-name-face)))
+  (list ?! ?#)
   nil
+  (let ((java-properties-key
+	 "\\(\\([-A-Za-z0-9_\\./]\\|\\(\\\\[ =:]\\)\\)+\\)")
+	(java-properties-value
+	 "\\([^\r\n]*\\)")
+	)
+    ;; Property and value can be separated in a number of different ways:
+    ;;   * whitespace
+    ;;   * an equal sign
+    ;;   * a colon
+    (mapcar
+     (function
+      (lambda (elt)
+	(list
+	 (concat "^" java-properties-key elt java-properties-value "$")
+	 '(1 font-lock-constant-face)
+	 '(4 font-lock-variable-name-face)
+	 )))
+     ;; These are the separators
+     (list ":\\s-*" "\\s-+" "\\s-*=\\s-*")
+     )
+    )
   nil
+  (list
+   (function
+    (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([^#! \t\n\r=:]+\\)" 1)))
+      )))
   "Mode for Java properties files.")
 
 ;; C shell alias definitions
-(and 
+(and
  (memq 'alias-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'alias-generic-mode
@@ -579,7 +742,7 @@ you must reload generic-x to enable the specified modes."
   (list
    (function
     (lambda ()
-      (setq imenu-generic-expression 
+      (setq imenu-generic-expression
 	    '((nil "^\\(alias\\|unalias\\)\\s-+\\([-a-zA-Z0-9_]+\\)" 2)))
       )))
   "Mode for C Shell alias files.")
@@ -587,7 +750,7 @@ you must reload generic-x to enable the specified modes."
 
 ;;; Windows RC files
 ;; Contributed by ACorreir@pervasive-sw.com (Alfred Correira)
-(and 
+(and
  (memq 'rc-generic-mode generic-extras-enable-list)
 
 (define-generic-mode 'rc-generic-mode
@@ -622,8 +785,8 @@ you must reload generic-x to enable the specified modes."
      "LEFTMARGIN"
      "LISTBOX"
      "LTEXT"
-     "MENUITEM SEPARATOR" 
-     "MENUITEM" 
+     "MENUITEM SEPARATOR"
+     "MENUITEM"
      "MENU"
      "MOVEABLE"
      "POPUP"
@@ -650,37 +813,39 @@ you must reload generic-x to enable the specified modes."
    ;; as is the choice of which value tokens are included, as
    ;; the choice of face for each token group
    (list
-   (generic-make-keywords-list
-    (list
-     "FILEFLAGSMASK"
-     "FILEFLAGS"
-     "FILEOS"
-     "FILESUBTYPE"
-     "FILETYPE"
-     "FILEVERSION"
-     "PRODUCTVERSION"
-     ) 'font-lock-type-face)
-   (generic-make-keywords-list
-    (list
-     "BEGIN"
-     "BLOCK"
-     "END"
-     "VALUE"
-     ) 'font-lock-function-name-face)
-   '("^#[ \t]*include[ \t]+\\(<[^>\"\n]+>\\)" 1 font-lock-string-face)
-   '("^#[ \t]*define[ \t]+\\(\\sw+\\)("       1 font-lock-function-name-face)
-   '("^#[ \t]*\\(elif\\|if\\)\\>"
-     ("\\<\\(defined\\)\\>[ \t]*(?\\(\\sw+\\)?" nil nil
-      (1 font-lock-reference-face) (2 font-lock-variable-name-face nil t)))
-   '("^#[ \t]*\\(\\sw+\\)\\>[ \t]*\\(\\sw+\\)?"
-     (1 font-lock-reference-face) (2 font-lock-variable-name-face nil t)))
+    (eval-when-compile
+      (generic-make-keywords-list
+       (list
+	"FILEFLAGSMASK"
+	"FILEFLAGS"
+	"FILEOS"
+	"FILESUBTYPE"
+	"FILETYPE"
+	"FILEVERSION"
+	"PRODUCTVERSION"
+	) 'font-lock-type-face))
+    (eval-when-compile
+      (generic-make-keywords-list
+       (list
+	"BEGIN"
+	"BLOCK"
+	"END"
+	"VALUE"
+	) 'font-lock-function-name-face))
+    '("^#[ \t]*include[ \t]+\\(<[^>\"\n]+>\\)" 1 font-lock-string-face)
+    '("^#[ \t]*define[ \t]+\\(\\sw+\\)("       1 font-lock-function-name-face)
+    '("^#[ \t]*\\(elif\\|if\\)\\>"
+      ("\\<\\(defined\\)\\>[ \t]*(?\\(\\sw+\\)?" nil nil
+       (1 font-lock-constant-face) (2 font-lock-variable-name-face nil t)))
+    '("^#[ \t]*\\(\\sw+\\)\\>[ \t]*\\(\\sw+\\)?"
+      (1 font-lock-constant-face) (2 font-lock-variable-name-face nil t)))
    (list "\\.[rR][cC]$")
    nil
    "Generic mode for MS-Windows Resource files."))
 
 ;; InstallShield RUL files
 ;; Contributed by  Alfred.Correira@Pervasive.Com
-(and 
+(and
 (memq 'rul-generic-mode generic-extras-enable-list)
 ;;; build the regexp strings using regexp-opt
 (defvar installshield-statement-keyword-list
@@ -738,6 +903,7 @@ you must reload generic-x to enable the specified modes."
    "BatchGetFileName"
    "BatchMoveEx"
    "BatchSetFileName"
+   "ChangeDirectory"
    "CloseFile"
    "CmdGetHwndDlg"
    "ComponentAddItem"                ; differs between IS3 and IS5
@@ -814,6 +980,7 @@ you must reload generic-x to enable the specified modes."
    "GetExtents"
    "GetFileInfo"
    "GetLine"
+   "GetProfInt"
    "GetProfString"
    "GetSystemInfo"
    "GetValidDrivesList"
@@ -822,6 +989,7 @@ you must reload generic-x to enable the specified modes."
    "InstallationInfo"
    "Is"
    "LaunchApp"
+   "LaunchAppAndWait"
    "ListAddItem"
    "ListAddString"
    "ListCount"
@@ -834,6 +1002,7 @@ you must reload generic-x to enable the specified modes."
    "ListGetNextItem"
    "ListGetNextString"
    "ListReadFromFile"
+   "ListSetCurrentItem"
    "ListSetNextItem"
    "ListSetNextString"
    "ListSetIndex"
@@ -857,7 +1026,7 @@ you must reload generic-x to enable the specified modes."
    "PlayMMedia"                      ; IS5 only
    "ProgDefGroupType"
    "RegDBCreateKeyEx"
-   "RegDbDeleteValue"
+   "RegDBDeleteValue"
    "RegDBGetItem"
    "RegDBKeyExist"
    "RegDBSetItem"
@@ -948,6 +1117,7 @@ you must reload generic-x to enable the specified modes."
    "StrLength"
    "StrRemoveLastSlash"
    "StrToLower"
+   "StrToNum"
    "StrToUpper"
    "StrSub"
    "VarRestore"
@@ -964,19 +1134,30 @@ you must reload generic-x to enable the specified modes."
 
 (defvar installshield-system-variables-list
   (list
+   "BATCH_INSTALL"
    "CMDLINE"
+   "COMMONFILES"
    "CORECOMPONENTHANDLING"
+   "DIALOGCACHE"
    "ERRORFILENAME"
+   "FOLDER_DESKTOP"
+   "FOLDER_PROGRAMS"
+   "FOLDER_STARTMENU"
+   "FOLDER_STARTUP"
    "INFOFILENAME"
    "ISRES"
    "ISUSER"
    "ISVERSION"
+   "MEDIA"
    "MODE"
+   "PROGRAMFILES"
+   "SELECTED_LANGUAGE"
    "SRCDIR"
    "SRCDISK"
    "SUPPORTDIR"
    "TARGETDIR"
    "TARGETDISK"
+   "UNINST"
    "WINDIR"
    "WINDISK"
    "WINMAJOR"
@@ -996,7 +1177,9 @@ you must reload generic-x to enable the specified modes."
    "LIST"
    "LONG"
    "LOWORD"
+   "LPSTR"
    "NUMBER"
+   "NUMBERLIST"
    "POINTER"
    "QUAD"
    "RGB"
@@ -1102,6 +1285,7 @@ you must reload generic-x to enable the specified modes."
    "FILENAME"
    "FIXED_DRIVE"
    "FOLDER_DESKTOP"
+   "FOLDER_PROGRAMS"
    "FOLDER_STARTMENU"
    "FOLDER_STARTUP"
    "FREEENVSPACE"
@@ -1110,6 +1294,10 @@ you must reload generic-x to enable the specified modes."
    "FONT_TITLE"
    "GREATER_THAN"
    "GREEN"
+   "HKEY_CLASSES_ROOT"
+   "HKEY_CURRENT_USER"
+   "HKEY_LOCAL_MACHINE"
+   "HKEY_USERS"
    "HOURGLASS"
    "INCLUDE_SUBDIR"
    "INDVFILESTATUS"
@@ -1190,6 +1378,7 @@ you must reload generic-x to enable the specified modes."
    "SW_MINIMIZE"
    "SW_RESTORE"
    "SW_SHOW"
+   "SYS_BOOTMACHINE"
    "TIME"
    "TRUE"
    "TYPICAL"
@@ -1211,7 +1400,7 @@ you must reload generic-x to enable the specified modes."
    )
   "Function argument constants used in InstallShield 3 and 5.")
 
-(define-generic-mode 'rul-generic-mode 
+(define-generic-mode 'rul-generic-mode
   ;; Using "/*" and "*/" doesn't seem to be working right
   (list "//")
   installshield-statement-keyword-list
@@ -1220,15 +1409,15 @@ you must reload generic-x to enable the specified modes."
    '("#[ \t]*include[ \t]+\\(<[^>\"\n]+>\\)"
      1 font-lock-string-face)
    '("#[ \t]*\\(\\sw+\\)\\>[ \t]*\\(\\sw+\\)?"
-     (1 font-lock-reference-face)
+     (1 font-lock-constant-face)
      (2 font-lock-variable-name-face nil t))
    ;; indirect string constants
    '("\\(@[A-Za-z][A-Za-z0-9_]+\\)" 1 font-lock-builtin-face)
    ;; gotos
-   '("[ \t]*\\(\\sw+:\\)" 1 font-lock-reference-face)
-   '("\\<\\(goto\\)\\>[ \t]*\\(\\sw+\\)?" 
+   '("[ \t]*\\(\\sw+:\\)" 1 font-lock-constant-face)
+   '("\\<\\(goto\\)\\>[ \t]*\\(\\sw+\\)?"
      (1 font-lock-keyword-face)
-     (2 font-lock-reference-face nil t))
+     (2 font-lock-constant-face nil t))
    ;; system variables
    (generic-make-keywords-list
     installshield-system-variables-list
@@ -1248,9 +1437,9 @@ you must reload generic-x to enable the specified modes."
    )
   (list "\\.[rR][uU][lL]$")
   (list
-   (function 
+   (function
     (lambda ()
-      (setq imenu-generic-expression 
+      (setq imenu-generic-expression
     '((nil "^function\\s-+\\([A-Za-z0-9_]+\\)" 1)))
       )))
   "Generic mode for InstallShield RUL files.")
@@ -1262,7 +1451,7 @@ you must reload generic-x to enable the specified modes."
    > _ \n
    ( "other condition, %s: "
      > "elseif(" str ") then" \n
-     > \n)   
+     > \n)
    > "else" \n
    > \n
    resume:
@@ -1285,23 +1474,364 @@ you must reload generic-x to enable the specified modes."
 ;; Additions by ACorreir@pervasive-sw.com (Alfred Correira)
 (define-generic-mode 'mailrc-generic-mode
   (list ?#)
-  (list 
-   "alias" 
-   "else" 
-   "endif" 
-   "group" 
-   "if" 
-   "ignore" 
-   "set" 
+  (list
+   "alias"
+   "else"
+   "endif"
+   "group"
+   "if"
+   "ignore"
+   "set"
    "unset"
    )
   '(("^\\s-*\\(alias\\|group\\)\\s-+\\([-A-Za-z0-9_]+\\)\\s-+\\([^\n\r#]*\\)\\(#.*\\)?$"
-     (2 font-lock-reference-face) (3 font-lock-variable-name-face))
+     (2 font-lock-constant-face) (3 font-lock-variable-name-face))
     ("^\\s-*\\(unset\\|set\\|ignore\\)\\s-+\\([-A-Za-z0-9_]+\\)=?\\([^\n\r#]*\\)\\(#.*\\)?$"
-     (2 font-lock-reference-face) (3 font-lock-variable-name-face)))
+     (2 font-lock-constant-face) (3 font-lock-variable-name-face)))
   (list "\\.mailrc\\'")
   nil
   "Mode for mailrc files.")
+
+;; Inetd.conf
+(and
+ (memq 'inetd-conf-generic-mode generic-extras-enable-list)
+
+(define-generic-mode 'inetd-conf-generic-mode
+  (list ?#)
+  (list
+   "stream"
+   "dgram"
+   "tcp"
+   "udp"
+   "wait"
+   "nowait"
+   "internal"
+   )
+  '(
+    ("^\\([-A-Za-z0-9_]+\\)"
+     1 'font-lock-type-face)
+    )
+  '("/etc/inetd.conf\\'")
+  (list
+   (function
+    (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([-A-Za-z0-9_]+\\)" 1)))
+      )))
+  )
+)
+
+;; Services
+(and
+ (memq 'etc-services-generic-mode generic-extras-enable-list)
+
+(define-generic-mode 'etc-services-generic-mode
+  (list ?#)
+  (list
+   "tcp"
+   "udp"
+   "ddp"
+   )
+  '(
+    ("^\\([-A-Za-z0-9_]+\\)\\s-+\\([0-9]+\\)/"
+     (1 'font-lock-type-face)
+     (2 'font-lock-variable-name-face)
+     )
+    )
+  '("/etc/services\\'")
+  (list
+   (function
+    (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([-A-Za-z0-9_]+\\)" 1)))
+      )))
+  )
+)
+
+;; Password and Group files
+(and
+ (memq 'etc-passwd-generic-mode generic-extras-enable-list)
+
+(define-generic-mode 'etc-passwd-generic-mode
+  nil              ;; No comment characters
+  (list "root")    ;; Only one keyword
+  (list
+    (list
+     (concat
+      "^"
+      ;; User name -- Never blank!
+      "\\([^:]+\\)"
+      ":"
+      ;; Password, UID and GID
+      (mapconcat
+       'identity
+       (make-list 3 "\\([^:]+\\)")
+       ":"
+       )
+      ":"
+      ;; GECOS/Name -- might be blank
+      "\\([^:]*\\)"
+      ":"
+      ;; Home directory and shell
+      "\\([^:]+\\)"
+      ":?"
+      "\\([^:]*\\)"
+      "$"
+     )
+     '(1 'font-lock-type-face)
+     '(5 'font-lock-variable-name-face)
+     '(6 'font-lock-constant-face)
+     '(7 'font-lock-warning-face)
+     )
+    '("^\\([^:]+\\):\\([^:]*\\):\\([0-9]+\\):\\(.*\\)$"
+      (1 'font-lock-type-face)
+      (4 'font-lock-variable-name-face)
+     )
+    )
+  '("/etc/passwd\\'" "/etc/group\\'")
+  (list
+   (function
+    (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([-A-Za-z0-9_]+\\):" 1)))
+      )))
+  )
+)
+
+;; Fstab
+(and
+ (memq 'etc-fstab-generic-mode generic-extras-enable-list)
+
+(define-generic-mode 'etc-fstab-generic-mode
+  (list ?#)
+  (list
+   "ext2"
+   "fd"
+   "iso9660"
+   "nfs"
+   "proc"
+   "swap"
+   "ufs"
+   )
+  '(
+    ("^\\([/-A-Za-z0-9_]+\\)\\s-+\\([/-A-Za-z0-9_]+\\)"
+     (1 'font-lock-type-face)
+     (2 'font-lock-variable-name-face)
+     )
+    )
+  '("/etc/[v]*fstab\\'")
+  (list
+   (function
+    (lambda ()
+      (setq imenu-generic-expression
+	    '((nil "^\\([/-A-Za-z0-9_]+\\)\\s-+" 1)))
+      )))
+  )
+)
+
+;; From Jacques Duthen <jacques.duthen@sncf.fr>
+(defvar show-tabs-generic-mode-font-lock-defaults-1
+   '(  ;; trailing spaces must come before...
+       ("[ \t]+$" . 'show-tabs-space-face)
+       ;; ...embedded tabs
+       ("[^\n\t]\\(\t+\\)" (1 'show-tabs-tab-face))))
+
+(defvar show-tabs-generic-mode-font-lock-defaults-2
+   '(  ;; trailing spaces must come before...
+       ("[ \t]+$" . 'show-tabs-space-face)
+       ;; ...tabs
+       ("\t+" . 'show-tabs-tab-face)))
+
+(defface show-tabs-tab-face
+  '((((class grayscale) (background light)) (:foreground "LightGray" :bold t))
+    (((class grayscale) (background dark))  (:foreground "DimGray"   :bold t))
+    (((class color)     (background light)) (:foreground "red"))
+    (((class color)     (background dark))  (:foreground "red"))
+    (t (:bold t)))
+  "Font Lock mode face used to highlight TABs."
+  :group 'show-tabs)
+
+(defface show-tabs-space-face
+  '((((class grayscale) (background light)) (:foreground "LightGray" :bold t))
+    (((class grayscale) (background dark))  (:foreground "DimGray"   :bold t))
+    (((class color)     (background light)) (:foreground "yellow"))
+    (((class color)     (background dark))  (:foreground "yellow"))
+    (t (:bold t)))
+  "Font Lock mode face used to highlight spaces."
+  :group 'show-tabs)
+
+(define-generic-mode 'show-tabs-generic-mode
+  () ;; no comment char
+  () ;; no keywords
+   show-tabs-generic-mode-font-lock-defaults-1
+  () ;; no auto-mode-alist
+  ;; (list 'show-tabs-generic-mode-hook-fun)
+  nil
+  "Generic mode to show tabs and trailing spaces")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DNS modes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-generic-mode 'named-boot-generic-mode
+  ;;List of comment characters
+   (list ?\;)
+  ;;List of keywords
+  (list "cache" "primary" "secondary" "forwarders" "limit" "options"
+	"directory" "check-names")
+  ;;List of additional font-lock-expressions
+  (list
+   (list "\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\\)" 1 'font-lock-constant-face)
+   (list "^directory\\s-+\\(.*\\)" 1 'font-lock-variable-name-face)
+   (list "^\\(primary\\|cache\\)\\s-+\\([.A-Za-z]+\\)\\s-+\\(.*\\)"
+	 (list 2 'font-lock-variable-name-face)
+	 (list 3 'font-lock-constant-face))
+   )
+  ;;List of additional automode-alist expressions
+  (list "/etc/named.boot\\'")
+  ;;List of set up functions to call
+  nil
+  )
+
+(define-generic-mode 'named-database-generic-mode
+  ;;List of comment characters
+  (list ?\;)
+  ;;List of keywords
+  (list "IN" "NS" "CNAME" "SOA" "PTR" "MX" "A")
+  ;;List of additional font-lock-expressions
+  (list
+   (list "\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\\)" 1 'font-lock-constant-face)
+   (list "^\\([.A-Za-z0-9]+\\)" 1 'font-lock-variable-name-face)
+   )
+  ;;List of additional automode-alist expressions
+  nil
+  ;;List of set up functions to call
+  nil
+  )
+
+(defvar named-database-time-string "%Y%m%d%H"
+  "Timestring for named serial numbers.")
+
+(defun named-database-print-serial ()
+  "Print a serial number based on the current date."
+  (interactive)
+  (insert (format-time-string named-database-time-string (current-time)))
+  )
+
+(define-generic-mode 'resolve-conf-generic-mode
+  ;;List of comment characters
+  (list ?#)
+  ;;List of keywords
+  (list "nameserver" "domain" "search" "sortlist" "options")
+  ;;List of additional font-lock-expressions
+  nil
+  ;;List of additional automode-alist expressions
+  (list "/etc/resolv[e]?.conf\\'")
+  ;;List of set up functions to call
+  nil
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Modes for spice and common electrical engineering circuit netlist formats
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-generic-mode 'spice-generic-mode
+  nil
+  (list
+   "and"
+   "cccs"
+   "ccvs"
+   "delay"
+   "nand"
+   "nor"
+   "npwl"
+   "or"
+   "par"
+   "ppwl"
+   "pwl"
+   "vccap"
+   "vccs"
+   "vcr"
+   "vcvs"
+   )
+  '(
+    ("^\\s-*\\([*].*\\)"                1 'font-lock-comment-face)
+    (" \\(\\$ .*\\)$"                   1 'font-lock-comment-face)
+    ("^\\(\\$ .*\\)$"                   1 'font-lock-comment-face)
+    ("\\([*].*\\)"                      1 'font-lock-comment-face)
+    ("^\\([+]\\)"                       1 'font-lock-string-face)
+    ("^\\s-*\\([.]\\w+\\>\\)"           1 'font-lock-keyword-face)
+    ("\\(\\([.]\\|_\\|\\w\\)+\\)\\s-*=" 1 'font-lock-variable-name-face)
+    ("\\('[^']+'\\)"                    1 'font-lock-string-face)
+    ("\\(\"[^\"]+\"\\)"                 1 'font-lock-string-face)
+    )
+  (list "\\.[sS][pP]\\'"
+	"\\.[sS][pP][iI]\\'"
+	"\\.[sS][pP][iI][cC][eE]\\'"
+	"\\.[iI][nN][cC]\\'")
+  (list
+   'generic-bracket-support
+   ;; Make keywords case-insensitive
+   (function
+    (lambda()
+      (setq font-lock-defaults (list 'generic-font-lock-defaults nil t))))
+   )
+  "Generic mode for SPICE circuit netlist files."
+  )
+
+(define-generic-mode 'ibis-generic-mode
+  (list ?|)
+  nil
+  '(
+    ("[[]\\([^]]*\\)[]]"          1 'font-lock-keyword-face)
+    ("\\(\\(_\\|\\w\\)+\\)\\s-*=" 1 'font-lock-variable-name-face)
+    )
+  (list "\\.[iI][bB][sS]\\'")
+  (list 'generic-bracket-support)
+  "Generic mode for IBIS circuit netlist files."
+  )
+
+(define-generic-mode 'astap-generic-mode
+  nil
+  (list
+   "analyze"
+   "description"
+   "elements"
+   "execution"
+   "features"
+   "functions"
+   "ground"
+   "model"
+   "outputs"
+   "print"
+   "run"
+   "controls"
+   "table"
+   )
+  '(
+    ("^\\s-*\\([*].*\\)"      1 'font-lock-comment-face)
+    (";\\s-*\\([*].*\\)"      1 'font-lock-comment-face)
+    ("^\\s-*\\([.]\\w+\\>\\)" 1 'font-lock-keyword-face)
+    ("\\('[^']+'\\)"          1 'font-lock-string-face)
+    ("\\(\"[^\"]+\"\\)"       1 'font-lock-string-face)
+    ("[(,]\\s-*\\(\\([.]\\|_\\|\\w\\)+\\)\\s-*=" 1 'font-lock-variable-name-face)
+    )
+  (list "\\.[aA][pP]\\'"
+	"\\.[aA][sS][xX]\\'"
+	"\\.[aA][sS][tT][aA][pP]\\'"
+	"\\.[pP][sS][pP]\\'"
+	"\\.[dD][eE][cC][kK]\\'"
+	"\\.[gG][oO][dD][aA][tT][aA]")
+  (list
+   'generic-bracket-support
+   ;; Make keywords case-insensitive
+   (function
+    (lambda()
+      (setq font-lock-defaults (list 'generic-font-lock-defaults nil t))))
+   )
+  "Generic mode for ASTAP circuit netlist files."
+  )
+
 
 (provide 'generic-x)
 

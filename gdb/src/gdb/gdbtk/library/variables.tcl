@@ -1,5 +1,5 @@
-# Variable display window for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Variable display window for Insight.
+# Copyright 1997, 1998, 1999, 2001, 2002 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -34,11 +34,12 @@ class VariableWin {
 	build_win $itk_interior
 	gdbtk_idle
 
-	add_hook gdb_update_hook "$this update"
-	add_hook gdb_busy_hook "$this disable_ui"
 	add_hook gdb_no_inferior_hook "$this no_inferior"
-	add_hook gdb_idle_hook [list $this idle]
 	add_hook gdb_clear_file_hook [code $this clear_file]
+        # FIXME: This is too harsh.  We must add to varobj a method
+        # to re-parse the expressions and compute new types so we can
+	# keep the contents of the window whenever possible.
+	add_hook file_changed_hook [code $this clear_file]
     }
 
     # ------------------------------------------------------------------
@@ -46,8 +47,8 @@ class VariableWin {
     # ------------------------------------------------------------------
     method build_win {f} {
 	global tixOption tcl_platform Display
-	#    debug "VariableWin::build_win"
-	set width [font measure src-font "W"]
+	#    debug
+	set width [font measure global/fixed "W"]
 	# Choose the default width to be...
 	set width [expr {40 * $width}]
 	if {$tcl_platform(platform) == "windows"} {
@@ -83,21 +84,21 @@ class VariableWin {
 	set sbg [$Hlist cget -bg]
 	set fg [$Hlist cget -fg]
 	set bg $tixOption(input1_bg)
-	set width [font measure src-font $LengthString]
+	set width [font measure global/fixed $LengthString]
 	$Hlist configure -indent $width -bg $bg \
 	    -selectforeground $fg -selectbackground $sbg \
-	    -selectborderwidth 0 -separator . -font src-font
+	    -selectborderwidth 0 -separator . -font global/fixed
 
 	# Get display styles
 	set normal_fg    [$Hlist cget -fg]
-	set highlight_fg [pref get gdb/variable/highlight_fg]
+	set highlight_fg [pref get gdb/font/highlight_fg]
 	set disabled_fg  [pref get gdb/variable/disabled_fg]
 	set NormalTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				 -bg $bg -fg $normal_fg -font src-font]
+				 -bg $bg -fg $normal_fg -font global/fixed]
 	set HighlightTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				    -bg $bg -fg $highlight_fg -font src-font]
+				    -bg $bg -fg $highlight_fg -font global/fixed]
 	set DisabledTextStyle [tixDisplayStyle text -refwindow $Hlist \
-				   -bg $bg -fg $disabled_fg -font src-font]
+				   -bg $bg -fg $disabled_fg -font global/fixed]
 
 	if {[catch {gdb_cmd "show output-radix"} msg]} {
 	    set Radix 10
@@ -107,7 +108,7 @@ class VariableWin {
 
 
 	# Update the tree display
-	update
+	update dummy
 	pack $Tree -expand yes -fill both
 
 	# Create the popup menu for this widget
@@ -151,7 +152,7 @@ class VariableWin {
     #  DESTRUCTOR - destroy window containing widget
     # ------------------------------------------------------------------
     destructor {
-	#    debug "VariableWin::destructor"
+	#    debug
 	# Make sure to clean up the frame
 	catch {destroy $_frame}
 	
@@ -161,11 +162,9 @@ class VariableWin {
 	destroy $DisabledTextStyle
 
 	# Remove this window and all hooks
-	remove_hook gdb_update_hook "$this update"
-	remove_hook gdb_busy_hook "$this disable_ui"
 	remove_hook gdb_no_inferior_hook "$this no_inferior"
-	remove_hook gdb_idle_hook [list $this idle]
 	remove_hook gdb_clear_file_hook [code $this clear_file]
+	remove_hook file_changed_hook [code $this clear_file]
     }
 
     # ------------------------------------------------------------------
@@ -180,7 +179,7 @@ class VariableWin {
     #  METHOD:  reconfig - used when preferences change
     # ------------------------------------------------------------------
     method reconfig {} {
-	#    debug "VariableWin::reconfig"
+	#    debug
 	foreach win [winfo children $itk_interior] { 
 	    destroy $win
 	}
@@ -204,7 +203,7 @@ class VariableWin {
 		    %s editEntry [%s getSelection]
 		} $this $this]
 	}
-	[namespace tail $this].mmenu.var add cascade -label Format -underline 0 \
+	[namespace tail $this].mmenu.var add cascade -label Format -underline 0 -state disabled \
 	    -menu [namespace tail $this].mmenu.var.format
 
 	menu [namespace tail $this].mmenu.var.format
@@ -300,7 +299,7 @@ class VariableWin {
     }
 
     method updateNow {variable} {
-	# debug "VariableWin::updateNow $variable"
+	# debug "$variable"
 
 	if {!$Running} {
 	    set text [label $variable]
@@ -325,7 +324,7 @@ class VariableWin {
 
     method postMenu {X Y} {
 	global Update Display
-	#    debug "VariableWin::postMenu"
+	#    debug
 
 	# Quicky for menu posting problems.. How to unpost and post??
 
@@ -335,6 +334,9 @@ class VariableWin {
 
 	set variable [getEntry $X $Y]
 	if {[string length $variable] > 0} {
+	  # First things first: highlight the variable we just selected
+	  $Hlist selection set $variable
+
 	    # Configure menu items
 	    # the title is always first..
 	    #set labelIndex [$Popup index "dummy"]
@@ -371,6 +373,16 @@ class VariableWin {
 		    -command "$this setDisplay \{$variable\} $fmt"
 	    }
 
+	    if {$::tcl_platform(platform) == "windows"} {
+	      # Don't ask me why this works, but it does work around
+	      # a Win98/2000 Tcl bug with deleting entries from popups...
+	      set no [$Popup index end]
+	      for { set k 1 } { $k < $no } { incr k } {
+		$Popup insert 1 command 
+	      }
+	      $Popup delete 1 [expr {$no - 1}]
+	    }
+
 	    tk_popup $Popup $X $Y
 	}
     }
@@ -391,8 +403,8 @@ class VariableWin {
 	if {$Editing == ""} {
 	    # Must create the frame
 	    set Editing [frame $Hlist.frame -bg $bg -bd 0 -relief flat]
-	    set lbl [::label $Editing.lbl -fg $fg -bg $bg -font src-font]
-	    set ent [entry $Editing.ent -bg $tixOption(bg) -font src-font]
+	    set lbl [::label $Editing.lbl -fg $fg -bg $bg -font global/fixed]
+	    set ent [entry $Editing.ent -bg $tixOption(bg) -font global/fixed]
 	    pack $lbl $ent -side left
 	}
 
@@ -645,7 +657,7 @@ class VariableWin {
     method open {path} {
 	global Update
 	# We must lookup all the variables for this struct
-	#    debug "VariableWin::open $path"
+	#    debug "$path"
 
 	# Cancel any edits
 	if {[info exists EditEntry]} {
@@ -669,7 +681,7 @@ class VariableWin {
     # ------------------------------------------------------------------
     method close {path} {
 	global Update
-	debug "VariableWin::close $path"
+	debug "$path"
 	# Close the path and destroy all the entry widgets
 
 	# Cancel any edits
@@ -702,7 +714,7 @@ class VariableWin {
 
     # OVERRIDE THIS METHOD
     method getVariablesBlankPath {} {
-	debug "You forgot to override getVariablesBlankPath!!"
+	dbug -W "You forgot to override getVariablesBlankPath!!"
 	return {}
     }
 
@@ -715,7 +727,7 @@ class VariableWin {
     # ------------------------------------------------------------------
     method populate {parent} {
 	global Update
-	debug "VariableWin::populate \"$parent\""
+	debug "$parent"
 
 	if {[string length $parent] == 0} {
 	    set variables [getVariablesBlankPath]
@@ -798,10 +810,13 @@ class VariableWin {
 	return 0
     }
 
+    # ------------------------------------------------------------------
+    # METHOD:   update
     # OVERRIDE THIS METHOD and call it from there
-    method update {} {
+    # ------------------------------------------------------------------
+    method update {event} {
 	global Update
-	debug "VariableWin::update"
+	debug
 
 	# First, reset color on label to black
 	foreach w $ChangeList {
@@ -816,8 +831,27 @@ class VariableWin {
 	set ChangeList {}
 	set variables [$Hlist info children {}]
 	foreach var $variables {
-	    #      debug "VARIABLE: $var ($Update($this,$var))"
-	    set ChangeList [concat $ChangeList [$var update]]
+	    # debug "VARIABLE: $var ($Update($this,$var))"
+            set numchild [$var numChildren]
+	    set UpdatedList [$var update]
+            # FIXME: For now, we can only infer that the type has changed
+            # if the variable is not a scalar; the varobj code will have to
+            # give us an indication that this happened.
+            if {([lindex $UpdatedList 0] == $var)
+                && ($numchild > 0)} {
+              debug "Type changed."
+              # We must fix the tree entry to correspond to the new type
+              $Hlist delete offsprings $var
+              $Hlist entryconfigure $var -text [label $var]
+              if {[$var numChildren] > 0} {
+                $Tree setmode $var open
+              } else {
+                $Tree setmode $var none
+              }
+            } else {
+	      set ChangeList [concat $ChangeList $UpdatedList]
+	      # debug "ChangeList=$ChangeList"
+            }
 	}
 
 	foreach var $ChangeList {
@@ -827,14 +861,14 @@ class VariableWin {
 	}
     }
 
-    method idle {} {
+    method idle {event} {
 	# Re-enable the UI
 	enable_ui
     }
 
     # RECURSION!!
     method displayedVariables {top} {
-	#    debug "VariableWin::displayedVariables"
+	#    debug
 	set variableList {}
 	set variables [$Hlist info children $top]
 	foreach var $variables {
@@ -851,8 +885,7 @@ class VariableWin {
 
     method deleteTree {} {
 	global Update
-	debug "deleteTree"
-	#    debug "VariableWin::deleteTree"
+	debug
 #	set variables [displayedVariables {}]
 
 	# Delete all HList entries
@@ -878,10 +911,10 @@ class VariableWin {
     }
 
     # ------------------------------------------------------------------
-    # METHOD:   disable_ui
+    #   PUBLIC METHOD:  busy - BusyEvent handler
     #           Disable all ui elements that could affect gdb's state
     # ------------------------------------------------------------------
-    method disable_ui {} {
+    method busy {event} {
 
 	# Set fencepost
 	set Running 1

@@ -28,9 +28,9 @@
 
         id name = nil;
 
-	if (column)
+        if (column)
             object = [[self childArrayAtColumn:column] objectAtIndex:row];
-	else
+        else
             object = registryDict;
 
         name = [object objectForKey:@"name"];

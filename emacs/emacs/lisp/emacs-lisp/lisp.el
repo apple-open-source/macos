@@ -1,6 +1,6 @@
 ;;; lisp.el --- Lisp editing commands for Emacs
 
-;; Copyright (C) 1985, 1986, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1994, 2000 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: lisp, languages
@@ -24,56 +24,65 @@
 
 ;;; Commentary:
 
-;; Lisp editing commands to go with Lisp major mode.
+;; Lisp editing commands to go with Lisp major mode.  More-or-less
+;; applicable in other modes too.
 
 ;;; Code:
 
 ;; Note that this variable is used by non-lisp modes too.
 (defcustom defun-prompt-regexp nil
-  "*Non-nil => regexp to ignore, before the character that starts a defun.
+  "*If non-nil, a regexp to ignore before the character that starts a defun.
 This is only necessary if the opening paren or brace is not in column 0.
-See `beginning-of-defun'."
+See function `beginning-of-defun'.
+
+Setting this variable automatically makes it local to the current buffer."
   :type '(choice (const nil)
 		 regexp)
   :group 'lisp)
 (make-variable-buffer-local 'defun-prompt-regexp)
 
 (defcustom parens-require-spaces t
-  "Non-nil => `insert-parentheses' should insert whitespace as needed."
+  "Non-nil means `insert-parentheses' should insert whitespace as needed."
   :type 'boolean
   :group 'lisp)
 
+(defvar forward-sexp-function nil
+  "If non-nil, `forward-sexp' delegates to this function.
+Should take the same arguments and behave similarly to `forward-sexp'.")
+
 (defun forward-sexp (&optional arg)
   "Move forward across one balanced expression (sexp).
-With argument, do it that many times.  Negative arg -N means
+With ARG, do it that many times.  Negative arg -N means
 move backward across N balanced expressions."
   (interactive "p")
   (or arg (setq arg 1))
-  (goto-char (or (scan-sexps (point) arg) (buffer-end arg)))
-  (if (< arg 0) (backward-prefix-chars)))
+  (if forward-sexp-function
+      (funcall forward-sexp-function arg)
+    (goto-char (or (scan-sexps (point) arg) (buffer-end arg)))
+    (if (< arg 0) (backward-prefix-chars))))
 
 (defun backward-sexp (&optional arg)
   "Move backward across one balanced expression (sexp).
-With argument, do it that many times.  Negative arg -N means
+With ARG, do it that many times.  Negative arg -N means
 move forward across N balanced expressions."
   (interactive "p")
   (or arg (setq arg 1))
   (forward-sexp (- arg)))
 
-(defun mark-sexp (arg)
+(defun mark-sexp (&optional arg)
   "Set mark ARG sexps from point.
 The place mark goes is the same place \\[forward-sexp] would
 move to with the same argument."
   (interactive "p")
   (push-mark
     (save-excursion
-      (forward-sexp arg)
+      (forward-sexp (or arg 1))
       (point))
     nil t))
 
 (defun forward-list (&optional arg)
   "Move forward across one balanced group of parentheses.
-With argument, do it that many times.
+With ARG, do it that many times.
 Negative arg -N means move backward across N groups of parentheses."
   (interactive "p")
   (or arg (setq arg 1))
@@ -81,84 +90,109 @@ Negative arg -N means move backward across N groups of parentheses."
 
 (defun backward-list (&optional arg)
   "Move backward across one balanced group of parentheses.
-With argument, do it that many times.
+With ARG, do it that many times.
 Negative arg -N means move forward across N groups of parentheses."
   (interactive "p")
   (or arg (setq arg 1))
   (forward-list (- arg)))
 
-(defun down-list (arg)
+(defun down-list (&optional arg)
   "Move forward down one level of parentheses.
-With argument, do this that many times.
-A negative argument means move backward but still go down a level.
-In Lisp programs, an argument is required."
+With ARG, do this that many times.
+A negative argument means move backward but still go down a level."
   (interactive "p")
+  (or arg (setq arg 1))
   (let ((inc (if (> arg 0) 1 -1)))
     (while (/= arg 0)
       (goto-char (or (scan-lists (point) inc -1) (buffer-end arg)))
       (setq arg (- arg inc)))))
 
-(defun backward-up-list (arg)
+(defun backward-up-list (&optional arg)
   "Move backward out of one level of parentheses.
-With argument, do this that many times.
-A negative argument means move forward but still to a less deep spot.
-In Lisp programs, an argument is required."
+With ARG, do this that many times.
+A negative argument means move forward but still to a less deep spot."
   (interactive "p")
-  (up-list (- arg)))
+  (up-list (- (or arg 1))))
 
-(defun up-list (arg) 
+(defun up-list (&optional arg)
   "Move forward out of one level of parentheses.
-With argument, do this that many times.
-A negative argument means move backward but still to a less deep spot.
-In Lisp programs, an argument is required."
+With ARG, do this that many times.
+A negative argument means move backward but still to a less deep spot."
   (interactive "p")
+  (or arg (setq arg 1))
   (let ((inc (if (> arg 0) 1 -1)))
     (while (/= arg 0)
       (goto-char (or (scan-lists (point) inc 1) (buffer-end arg)))
       (setq arg (- arg inc)))))
 
-(defun kill-sexp (arg)
+(defun kill-sexp (&optional arg)
   "Kill the sexp (balanced expression) following the cursor.
-With argument, kill that many sexps after the cursor.
+With ARG, kill that many sexps after the cursor.
 Negative arg -N means kill N sexps before the cursor."
   (interactive "p")
   (let ((opoint (point)))
-    (forward-sexp arg)
+    (forward-sexp (or arg 1))
     (kill-region opoint (point))))
 
-(defun backward-kill-sexp (arg)
+(defun backward-kill-sexp (&optional arg)
   "Kill the sexp (balanced expression) preceding the cursor.
-With argument, kill that many sexps before the cursor.
+With ARG, kill that many sexps before the cursor.
 Negative arg -N means kill N sexps after the cursor."
   (interactive "p")
-  (kill-sexp (- arg)))
+  (kill-sexp (- (or arg 1))))
 
+(defvar beginning-of-defun-function nil
+  "If non-nil, function for `beginning-of-defun-raw' to call.
+This is used to find the beginning of the defun instead of using the
+normal recipe (see `beginning-of-defun').  Major modes can define this
+if defining `defun-prompt-regexp' is not sufficient to handle the mode's
+needs.
+
+The function should go to the line on which the current defun starts,
+and return non-nil, or should return nil if it can't find the beginning.")
+
 (defun beginning-of-defun (&optional arg)
   "Move backward to the beginning of a defun.
-With argument, do it that many times.  Negative arg -N
+With ARG, do it that many times.  Negative arg -N
 means move forward to Nth following beginning of defun.
 Returns t unless search stops due to beginning or end of buffer.
 
 Normally a defun starts when there is an char with open-parenthesis
 syntax at the beginning of a line.  If `defun-prompt-regexp' is
 non-nil, then a string which matches that regexp may precede the
-open-parenthesis, and point ends up at the beginning of the line."
+open-parenthesis, and point ends up at the beginning of the line.
+
+If variable `beginning-of-defun-function' is non-nil, its value
+is called as a function to find the defun's beginning."
   (interactive "p")
   (and (beginning-of-defun-raw arg)
        (progn (beginning-of-line) t)))
 
 (defun beginning-of-defun-raw (&optional arg)
   "Move point to the character that starts a defun.
-This is identical to beginning-of-defun, except that point does not move
-to the beginning of the line when `defun-prompt-regexp' is non-nil."
+This is identical to function `beginning-of-defun', except that point
+does not move to the beginning of the line when `defun-prompt-regexp'
+is non-nil.
+
+If variable `beginning-of-defun-function' is non-nil, its value
+is called as a function to find the defun's beginning."
   (interactive "p")
-  (and arg (< arg 0) (not (eobp)) (forward-char 1))
-  (and (re-search-backward (if defun-prompt-regexp
-			       (concat "^\\s(\\|"
-				       "\\(" defun-prompt-regexp "\\)\\s(")
-			     "^\\s(")
-			   nil 'move (or arg 1))
-       (progn (goto-char (1- (match-end 0)))) t))
+  (if beginning-of-defun-function
+      (funcall beginning-of-defun-function)
+    (and arg (< arg 0) (not (eobp)) (forward-char 1))
+    (and (re-search-backward (if defun-prompt-regexp
+				 (concat (if open-paren-in-column-0-is-defun-start
+					     "^\\s(\\|" "")
+					 "\\(" defun-prompt-regexp "\\)\\s(")
+			       "^\\s(")
+			     nil 'move (or arg 1))
+	 (progn (goto-char (1- (match-end 0)))) t)))
+
+(defvar end-of-defun-function nil
+  "If non-nil, function for function `end-of-defun' to call.
+This is used to find the end of the defun instead of using the normal
+recipe (see `end-of-defun').  Major modes can define this if the
+normal method is not appropriate.")
 
 (defun buffer-end (arg)
   (if (> arg 0) (point-max) (point-min)))
@@ -167,42 +201,48 @@ to the beginning of the line when `defun-prompt-regexp' is non-nil."
   "Move forward to next end of defun.  With argument, do it that many times.
 Negative argument -N means move back to Nth preceding end of defun.
 
-An end of a defun occurs right after the close-parenthesis that matches
-the open-parenthesis that starts a defun; see `beginning-of-defun'."
+An end of a defun occurs right after the close-parenthesis that
+matches the open-parenthesis that starts a defun; see function
+`beginning-of-defun'.
+
+If variable `end-of-defun-function' is non-nil, its value
+is called as a function to find the defun's end."
   (interactive "p")
-  (if (or (null arg) (= arg 0)) (setq arg 1))
-  (let ((first t))
-    (while (and (> arg 0) (< (point) (point-max)))
-      (let ((pos (point)) npos)
-	(while (progn
-		(if (and first
-			 (progn
-			  (end-of-line 1)
-			  (beginning-of-defun-raw 1)))
-		    nil
-		  (or (bobp) (forward-char -1))
-		  (beginning-of-defun-raw -1))
-		(setq first nil)
-		(forward-list 1)
-		(skip-chars-forward " \t")
-		(if (looking-at "\\s<\\|\n")
-		    (forward-line 1))
-		(<= (point) pos))))
-      (setq arg (1- arg)))
-    (while (< arg 0)
-      (let ((pos (point)))
-	(beginning-of-defun-raw 1)
-	(forward-sexp 1)
-	(forward-line 1)
-	(if (>= (point) pos)
-	    (if (beginning-of-defun-raw 2)
-		(progn
-		  (forward-list 1)
-		  (skip-chars-forward " \t")
-		  (if (looking-at "\\s<\\|\n")
-		      (forward-line 1)))
-	      (goto-char (point-min)))))
-      (setq arg (1+ arg)))))
+  (if end-of-defun-function
+      (funcall end-of-defun-function)
+    (if (or (null arg) (= arg 0)) (setq arg 1))
+    (let ((first t))
+      (while (and (> arg 0) (< (point) (point-max)))
+	(let ((pos (point)) npos)
+	  (while (progn
+		   (if (and first
+			    (progn
+			      (end-of-line 1)
+			      (beginning-of-defun-raw 1)))
+		       nil
+		     (or (bobp) (forward-char -1))
+		     (beginning-of-defun-raw -1))
+		   (setq first nil)
+		   (forward-list 1)
+		   (skip-chars-forward " \t")
+		   (if (looking-at "\\s<\\|\n")
+		       (forward-line 1))
+		   (<= (point) pos))))
+	(setq arg (1- arg)))
+      (while (< arg 0)
+	(let ((pos (point)))
+	  (beginning-of-defun-raw 1)
+	  (forward-sexp 1)
+	  (forward-line 1)
+	  (if (>= (point) pos)
+	      (if (beginning-of-defun-raw 2)
+		  (progn
+		    (forward-list 1)
+		    (skip-chars-forward " \t")
+		    (if (looking-at "\\s<\\|\n")
+			(forward-line 1)))
+		(goto-char (point-min)))))
+	(setq arg (1+ arg))))))
 
 (defun mark-defun ()
   "Put mark at end of this defun, point at beginning.
@@ -216,7 +256,8 @@ The defun marked is the one that contains point or follows point."
 
 (defun narrow-to-defun (&optional arg)
   "Make text outside current defun invisible.
-The defun visible is the one that contains point or follows point."
+The defun visible is the one that contains point or follows point.
+Optional ARG is ignored."
   (interactive)
   (save-excursion
     (widen)
@@ -267,7 +308,7 @@ before and after, depending on the surrounding characters."
 			  state)
 		      (beginning-of-line)
 		      ;; Get state at start of line.
-		      (setq state  (list 0 nil nil 
+		      (setq state  (list 0 nil nil
 					 (null (calculate-lisp-indent))
 					 nil nil nil nil
 					 nil))
@@ -279,33 +320,70 @@ before and after, depending on the surrounding characters."
     (delete-indentation))
   (forward-char 1)
   (newline-and-indent))
+
+(defun check-parens ()			; lame name?
+  "Check for unbalanced parentheses in the current buffer.
+More accurately, check the narrowed part of the buffer for unbalanced
+expressions (\"sexps\") in general.  This is done according to the
+current syntax table and will find unbalanced brackets or quotes as
+appropriate.  (See Info node `(emacs)Lists and Sexps'.)  If imbalance
+is found, an error is signalled and point is left at the first
+unbalanced character."
+  (interactive)
+  (condition-case data
+      ;; Buffer can't have more than (point-max) sexps.
+      (scan-sexps (point-min) (point-max))
+    (scan-error (goto-char (nth 2 data))
+		;; Could print (nth 1 data), which is either
+		;; "Containing expression ends prematurely" or
+		;; "Unbalanced parentheses", but those may not be so
+		;; accurate/helpful, e.g. quotes may actually be
+		;; mismatched.
+  		(error "Unmatched bracket or quote"))
+    (error (cond ((eq 'scan-error (car data))
+		  (goto-char (nth 2 data))
+		  (error "Unmatched bracket or quote"))
+		 (t (signal (car data) (cdr data)))))))
 
-(defun lisp-complete-symbol ()
+(defun lisp-complete-symbol (&optional predicate)
   "Perform completion on Lisp symbol preceding point.
 Compare that symbol against the known Lisp symbols.
 
-The context determines which symbols are considered.
-If the symbol starts just after an open-parenthesis, only symbols
-with function definitions are considered.  Otherwise, all symbols with
-function definitions, values or properties are considered."
+When called from a program, optional arg PREDICATE is a predicate
+determining which symbols are considered, e.g. `commandp'.
+If PREDICATE is nil, the context determines which symbols are
+considered.  If the symbol starts just after an open-parenthesis, only
+symbols with function definitions are considered.  Otherwise, all
+symbols with function definitions, values or properties are
+considered."
   (interactive)
   (let* ((end (point))
-	 (buffer-syntax (syntax-table))
-	 (beg (unwind-protect
-		  (save-excursion
-		    (set-syntax-table emacs-lisp-mode-syntax-table)
-		    (backward-sexp 1)
-		    (while (= (char-syntax (following-char)) ?\')
-		      (forward-char 1))
-		    (point))
-		(set-syntax-table buffer-syntax)))
-	 (pattern (buffer-substring beg end))
+	 (beg (with-syntax-table emacs-lisp-mode-syntax-table
+		(save-excursion
+		  (backward-sexp 1)
+		  (while (= (char-syntax (following-char)) ?\')
+		    (forward-char 1))
+		  (point))))
+	 (pattern (buffer-substring-no-properties beg end))
 	 (predicate
-	  (if (eq (char-after (1- beg)) ?\()
-	      'fboundp
-	    (function (lambda (sym)
-			(or (boundp sym) (fboundp sym)
-			    (symbol-plist sym))))))
+	  (or predicate
+	      (save-excursion
+		(goto-char beg)
+		(if (not (eq (char-before) ?\())
+		    (lambda (sym)	;why not just nil ?   -sm
+		      (or (boundp sym) (fboundp sym)
+			  (symbol-plist sym)))
+		  ;; Looks like a funcall position.  Let's double check.
+		  (if (condition-case nil
+			  (progn (up-list -2) (forward-char 1)
+				 (eq (char-after) ?\())
+			(error nil))
+		      ;; If the first element of the parent list is an open
+		      ;; parenthesis we are probably not in a funcall position.
+		      ;; Maybe a `let' varlist or something.
+		      nil
+		    ;; Else, we assume that a function name is expected.
+		    'fboundp)))))
 	 (completion (try-completion pattern obarray predicate)))
     (cond ((eq completion t))
 	  ((null completion)

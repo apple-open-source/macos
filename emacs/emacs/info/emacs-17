@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1165 +11,1142 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Sending Mail,  Next: Rmail,  Prev: Picture,  Up: Top
+File: emacs,  Node: Comments in C,  Prev: Other C Commands,  Up: C Modes
 
-Sending Mail
-************
-
-   To send a message in Emacs, you start by typing a command (`C-x m')
-to select and initialize the `*mail*' buffer.  Then you edit the text
-and headers of the message in this buffer, and type another command
-(`C-c C-s' or `C-c C-c') to send the message.
-
-`C-x m'
-     Begin composing a message to send (`compose-mail').
-
-`C-x 4 m'
-     Likewise, but display the message in another window
-     (`compose-mail-other-window').
-
-`C-x 5 m'
-     Likewise, but make a new frame (`compose-mail-other-frame').
-
-`C-c C-s'
-     In Mail mode, send the message (`mail-send').
-
-`C-c C-c'
-     Send the message and bury the mail buffer (`mail-send-and-exit').
-
-   The command `C-x m' (`compose-mail') selects a buffer named `*mail*'
-and initializes it with the skeleton of an outgoing message.  `C-x 4 m'
-(`compose-mail-other-window') selects the `*mail*' buffer in a
-different window, leaving the previous current buffer visible.  `C-x 5
-m' (`compose-mail-other-frame') creates a new frame to select the
-`*mail*' buffer.
-
-   Because the mail-composition buffer is an ordinary Emacs buffer, you
-can switch to other buffers while in the middle of composing mail, and
-switch back later (or never).  If you use the `C-x m' command again
-when you have been composing another message but have not sent it, you
-are asked to confirm before the old message is erased.  If you answer
-`n', the `*mail*' buffer is left selected with its old contents, so you
-can finish the old message and send it.  `C-u C-x m' is another way to
-do this.  Sending the message marks the `*mail*' buffer "unmodified,"
-which avoids the need for confirmation when `C-x m' is next used.
-
-   If you are composing a message in the `*mail*' buffer and want to
-send another message before finishing the first, rename the `*mail*'
-buffer using `M-x rename-uniquely' (*note Misc Buffer::).  Then you can
-use `C-x m' or its variants described above to make a new `*mail*'
-buffer.  Once you've done that, you can work with each mail buffer
-independently.
-
-* Menu:
-
-* Format: Mail Format.	     Format of the mail being composed.
-* Headers: Mail Headers.     Details of permitted mail header fields.
-* Aliases: Mail Aliases.     Abbreviating and grouping mail addresses.
-* Mode: Mail Mode.	     Special commands for editing mail being composed.
-* Spook: Distracting NSA.    How to distract the NSA's attention.
-* Mail Methods::             Using alternative mail-composition methods.
-
-
-File: emacs,  Node: Mail Format,  Next: Mail Headers,  Up: Sending Mail
-
-The Format of the Mail Buffer
-=============================
-
-   In addition to the "text" or "body", a message has "header fields"
-which say who sent it, when, to whom, why, and so on.  Some header
-fields, such as `Date' and `Sender', are created automatically when you
-send the message.  Others, such as the recipient names, must be
-specified by you in order to send the message properly.
-
-   Mail mode provides a few commands to help you edit some header
-fields, and some are preinitialized in the buffer automatically at
-times.  You can insert and edit header fields using ordinary editing
-commands.
-
-   The line in the buffer that says
-
-     --text follows this line--
-
-is a special delimiter that separates the headers you have specified
-from the text.  Whatever follows this line is the text of the message;
-the headers precede it.  The delimiter line itself does not appear in
-the message actually sent.  The text used for the delimiter line is
-controlled by the variable `mail-header-separator'.
-
-   Here is an example of what the headers and text in the mail buffer
-might look like.
-
-     To: gnu@gnu.org
-     CC: lungfish@spam.org, byob@spam.org
-     Subject: The Emacs Manual
-     --Text follows this line--
-     Please ignore this message.
-
-
-File: emacs,  Node: Mail Headers,  Next: Mail Aliases,  Prev: Mail Format,  Up: Sending Mail
-
-Mail Header Fields
-==================
-
-   A header field in the mail buffer starts with a field name at the
-beginning of a line, terminated by a colon.  Upper and lower case are
-equivalent in field names (and in mailing addresses also).  After the
-colon and optional whitespace comes the contents of the field.
-
-   You can use any name you like for a header field, but normally people
-use only standard field names with accepted meanings.  Here is a table
-of fields commonly used in outgoing messages.
-
-`To'
-     This field contains the mailing addresses to which the message is
-     addressed.  If you list more than one address, use commas, not
-     spaces, to separate them.
-
-`Subject'
-     The contents of the `Subject' field should be a piece of text that
-     says what the message is about.  The reason `Subject' fields are
-     useful is that most mail-reading programs can provide a summary of
-     messages, listing the subject of each message but not its text.
-
-`CC'
-     This field contains additional mailing addresses to send the
-     message to, like `To' except that these readers should not regard
-     the message as directed at them.
-
-`BCC'
-     This field contains additional mailing addresses to send the
-     message to, which should not appear in the header of the message
-     actually sent.  Copies sent this way are called "blind carbon
-     copies".
-
-     To send a blind carbon copy of every outgoing message to yourself,
-     set the variable `mail-self-blind' to `t'.
-
-`FCC'
-     This field contains the name of one file and directs Emacs to
-     append a copy of the message to that file when you send the
-     message.  If the file is in Rmail format, Emacs writes the message
-     in Rmail format; otherwise, Emacs writes the message in system
-     mail file format.
-
-     To put a fixed file name in the `FCC' field each time you start
-     editing an outgoing message, set the variable
-     `mail-archive-file-name' to that file name.  Unless you remove the
-     `FCC' field before sending, the message will be written into that
-     file when it is sent.
-
-`From'
-     Use the `From' field to say who you are, when the account you are
-     using to send the mail is not your own.  The contents of the `From'
-     field should be a valid mailing address, since replies will
-     normally go there.  If you don't specify the `From' field
-     yourself, Emacs uses the value of `user-mail-address' as the
-     default.
-
-`Reply-to'
-     Use this field to direct replies to a different address.  Most
-     mail-reading programs (including Rmail) automatically send replies
-     to the `Reply-to' address in preference to the `From' address.  By
-     adding a `Reply-to' field to your header, you can work around any
-     problems your `From' address may cause for replies.
-
-     To put a fixed `Reply-to' address into every outgoing message, set
-     the variable `mail-default-reply-to' to that address (as a string).
-     Then `mail' initializes the message with a `Reply-to' field as
-     specified.  You can delete or alter that header field before you
-     send the message, if you wish.  When Emacs starts up, if the
-     environment variable `REPLYTO' is set, `mail-default-reply-to' is
-     initialized from that environment variable.
-
-`In-reply-to'
-     This field contains a piece of text describing a message you are
-     replying to.  Some mail systems can use this information to
-     correlate related pieces of mail.  Normally this field is filled
-     in by Rmail when you reply to a message in Rmail, and you never
-     need to think about it (*note Rmail::).
-
-`References'
-     This field lists the message IDs of related previous messages.
-     Rmail sets up this field automatically when you reply to a message.
-
-   The `To', `CC', `BCC' and `FCC' header fields can appear any number
-of times, and each such header field can contain multiple addresses,
-separated by commas.  This way, you can specify any number of places to
-send the message.  A `To', `CC', or `BCC' field can also have
-continuation lines: one or more lines starting with whitespace,
-following the starting line of the field, are considered part of the
-field.  Here's an example of a `To' field with a continuation line:
-
-     To: foo@here.net, this@there.net,
-       me@gnu.cambridge.mass.usa.earth.spiral3281
-
-   When you send the message, if you didn't write a `From' field
-yourself, Emacs puts in one for you.  The variable `mail-from-style'
-controls the format:
-
-`nil'
-     Use just the email address, as in `king@grassland.com'.
-
-`parens'
-     Use both email address and full name, as in `king@grassland.com
-     (Elvis Parsley)'.
-
-`angles'
-     Use both email address and full name, as in `Elvis Parsley
-     <king@grassland.com>'.
-
-`system-default'
-     Allow the system to insert the `From' field.
-
-
-File: emacs,  Node: Mail Aliases,  Next: Mail Mode,  Prev: Mail Headers,  Up: Sending Mail
-
-Mail Aliases
-============
-
-   You can define "mail aliases" in a file named `~/.mailrc'.  These
-are short mnemonic names which stand for mail addresses or groups of
-mail addresses.  Like many other mail programs, Emacs expands aliases
-when they occur in the `To', `From', `CC', `BCC', and `Reply-to'
-fields, plus their `Resent-' variants.
-
-   To define an alias in `~/.mailrc', write a line in the following
-format:
-
-     alias SHORTADDRESS FULLADDRESSES
-
-Here FULLADDRESSES stands for one or more mail addresses for
-SHORTADDRESS to expand into.  Separate multiple addresses with spaces;
-if an address contains a space, quote the whole address with a pair of
-double-quotes.
-
-   For instance, to make `maingnu' stand for `gnu@gnu.org' plus a local
-address of your own, put in this line:
-
-     alias maingnu gnu@gnu.org local-gnu
-
-   Emacs also recognizes include commands in `.mailrc' files.  They
-look like this:
-
-     source FILENAME
-
-The file `~/.mailrc' is used primarily by other mail-reading programs;
-it can contain various other commands.  Emacs ignores everything in it
-except for alias definitions and include commands.
-
-   Another way to define a mail alias, within Emacs alone, is with the
-`define-mail-alias' command.  It prompts for the alias and then the
-full address.  You can use it to define aliases in your `.emacs' file,
-like this:
-
-     (define-mail-alias "maingnu" "gnu@gnu.org")
-
-   `define-mail-alias' records aliases by adding them to a variable
-named `mail-aliases'.  If you are comfortable with manipulating Lisp
-lists, you can set `mail-aliases' directly.  The initial value of
-`mail-aliases' is `t', which means that Emacs should read `.mailrc' to
-get the proper value.
-
-   You can specify a different file name to use instead of `~/.mailrc'
-by setting the variable `mail-personal-alias-file'.
-
-   Normally, Emacs expands aliases when you send the message.  You do
-not need to expand mail aliases before sending the message, but you can
-expand them if you want to see where the mail will actually go.  To do
-this, use the command `M-x expand-mail-aliases'; it expands all mail
-aliases currently present in the mail headers that hold addresses.
-
-   If you like, you can have mail aliases expand as abbrevs, as soon as
-you type them in (*note Abbrevs::).  To enable this feature, execute the
-following:
-
-     (add-hook 'mail-setup-hook 'mail-abbrevs-setup)
-
-This can go in your `.emacs' file.  *Note Hooks::.  If you use this
-feature, you must use `define-mail-abbrev' instead of
-`define-mail-alias'; the latter does not work with this package.  Note
-that the mail abbreviation package uses the variable `mail-abbrevs'
-instead of `mail-aliases', and that all alias names are converted to
-lower case.
-
-   The mail abbreviation package also provides the `C-c C-a'
-(`mail-interactive-insert-alias') command, which reads an alias name
-(with completion) and inserts its definition at point.  This is useful
-when editing the message text itself or a header field such as
-`Subject' in which Emacs does not normally expand aliases.
-
-   Note that abbrevs expand only if you insert a word-separator
-character afterward.  However, you can rebind `C-n' and `M->' to cause
-expansion as well.  Here's how to do that:
-
-     (add-hook 'mail-setup-hook
-               '(lambda ()
-                  (substitute-key-definition
-                    'next-line 'mail-abbrev-next-line
-                    mail-mode-map global-map)
-                  (substitute-key-definition
-                    'end-of-buffer 'mail-abbrev-end-of-buffer
-                    mail-mode-map global-map)))
-
-
-File: emacs,  Node: Mail Mode,  Next: Distracting NSA,  Prev: Mail Aliases,  Up: Sending Mail
-
-Mail Mode
-=========
-
-   The major mode used in the mail buffer is Mail mode, which is much
-like Text mode except that various special commands are provided on the
-`C-c' prefix.  These commands all have to do specifically with editing
-or sending the message.  In addition, Mail mode defines the character
-`%' as a word separator; this is helpful for using the word commands to
-edit mail addresses.
-
-   Mail mode is normally used in buffers set up automatically by the
-`mail' command and related commands.  However, you can also switch to
-Mail mode in a file-visiting buffer.  That is a useful thing to do if
-you have saved draft message text in a file.
-
-* Menu:
-
-* Mail Sending::        Commands to send the message.
-* Header Editing::      Commands to move to header fields and edit them.
-* Citing Mail::         Copying all or part of a message you are replying to.
-* Mail Mode Misc::      Spell checking, signatures, etc.
-
-
-File: emacs,  Node: Mail Sending,  Next: Header Editing,  Up: Mail Mode
-
-Mail Sending
-------------
-
-   Mail mode has two commands for sending the message you have been
-editing:
-
-`C-c C-s'
-     Send the message, and leave the mail buffer selected (`mail-send').
-
-`C-c C-c'
-     Send the message, and select some other buffer
-     (`mail-send-and-exit').
-
-   `C-c C-s' (`mail-send') sends the message and marks the mail buffer
-unmodified, but leaves that buffer selected so that you can modify the
-message (perhaps with new recipients) and send it again.  `C-c C-c'
-(`mail-send-and-exit') sends and then deletes the window or switches to
-another buffer.  It puts the mail buffer at the lowest priority for
-reselection by default, since you are finished with using it.  This is
-the usual way to send the message.
-
-   In a file-visiting buffer, sending the message does not clear the
-modified flag, because only saving the file should do that.  As a
-result, you don't get a warning if you try to send the same message
-twice.
-
-   When you send a message that contains non-ASCII characters, they need
-to be encoded with a coding system (*note Coding Systems::).  Usually
-the coding system is specified automatically by your chosen language
-environment (*note Language Environments::).  You can explicitly specify
-the coding system for outgoing mail by setting the variable
-`sendmail-coding-system'.
-
-   If the coding system thus determined does not handle the characters
-in a particular message, Emacs asks you to select the coding system to
-use, showing a list of possible coding systems.
-
-
-File: emacs,  Node: Header Editing,  Next: Citing Mail,  Prev: Mail Sending,  Up: Mail Mode
-
-Mail Header Editing
+Comments in C Modes
 -------------------
 
-   Mail mode provides special commands to move to particular header
-fields and to complete addresses in headers.
+   C mode and related modes use a number of variables for controlling
+comment format.
 
-`C-c C-f C-t'
-     Move to the `To' header field, creating one if there is none
-     (`mail-to').
+`c-comment-only-line-offset'
+     Extra offset for line which contains only the start of a comment.
+     It can be either an integer or a cons cell of the form
+     `(NON-ANCHORED-OFFSET . ANCHORED-OFFSET)', where
+     NON-ANCHORED-OFFSET is the amount of offset given to
+     non-column-zero anchored comment-only lines, and ANCHORED-OFFSET
+     is the amount of offset to give column-zero anchored comment-only
+     lines.  Just an integer as value is equivalent to `(VAL . 0)'.
 
-`C-c C-f C-s'
-     Move to the `Subject' header field, creating one if there is none
-     (`mail-subject').
+`c-comment-start-regexp'
+     This buffer-local variable specifies how to recognize the start of
+     a comment.
 
-`C-c C-f C-c'
-     Move to the `CC' header field, creating one if there is none
-     (`mail-cc').
+`c-hanging-comment-ender-p'
+     If this variable is `nil', `c-fill-paragraph' leaves the comment
+     terminator of a block comment on a line by itself.  The default
+     value is `t', which puts the comment-end delimiter `*/' at the end
+     of the last line of the comment text.
 
-`C-c C-f C-b'
-     Move to the `BCC' header field, creating one if there is none
-     (`mail-bcc').
-
-`C-c C-f C-f'
-     Move to the `FCC' header field, creating one if there is none
-     (`mail-fcc').
-
-`M-<TAB>'
-     Complete a mailing address (`mail-complete').
-
-   There are five commands to move point to particular header fields,
-all based on the prefix `C-c C-f' (`C-f' is for "field").  They are
-listed in the table above.  If the field in question does not exist,
-these commands create one.  We provide special motion commands for these
-particular fields because they are the fields users most often want to
-edit.
-
-   While editing a header field that contains mailing addresses, such as
-`To:', `CC:' and `BCC:', you can complete a mailing address by typing
-`M-<TAB>' (`mail-complete').  It inserts the full name corresponding to
-the address, if it can determine the full name.  The variable
-`mail-complete-style' controls whether to insert the full name, and
-what style to use, as in `mail-from-style' (*note Mail Headers::).
-
-   For completion purposes, the valid mailing addresses are taken to be
-the local users' names plus your personal mail aliases.  You can specify
-additional sources of valid addresses; use the customization buffer to
-see the options for this.
-
-   If you type `M-<TAB>' in the body of the message, it invokes
-`ispell-complete-word', as in Text mode.
+`c-hanging-comment-starter-p'
+     If this variable is `nil', `c-fill-paragraph' leaves the starting
+     delimiter of a block comment on a line by itself.  The default
+     value is `t', which puts the comment-start delimiter `/*' at the
+     beginning of the first line of the comment text.
 
 
-File: emacs,  Node: Citing Mail,  Next: Mail Mode Misc,  Prev: Header Editing,  Up: Mail Mode
+File: emacs,  Node: Fortran,  Next: Asm Mode,  Prev: C Modes,  Up: Programs
 
-Citing Mail
------------
+Fortran Mode
+============
 
-   Mail mode also has commands for yanking or "citing" all or part of a
-message that you are replying to.  These commands are active only when
-you started sending a message using an Rmail command.
+   Fortran mode provides special motion commands for Fortran statements
+and subprograms, and indentation commands that understand Fortran
+conventions of nesting, line numbers and continuation statements.
+Fortran mode has its own Auto Fill mode that breaks long lines into
+proper Fortran continuation lines.
 
-`C-c C-y'
-     Yank the selected message from Rmail (`mail-yank-original').
+   Special commands for comments are provided because Fortran comments
+are unlike those of other languages.  Built-in abbrevs optionally save
+typing when you insert Fortran keywords.
 
-`C-c C-r'
-     Yank the region from the Rmail buffer (`mail-yank-region').
+   Use `M-x fortran-mode' to switch to this major mode.  This command
+runs the hook `fortran-mode-hook' (*note Hooks::).
 
-`C-c C-q'
-     Fill each paragraph cited from another message
-     (`mail-fill-yanked-message').
-
-   When mail sending is invoked from the Rmail mail reader using an
-Rmail command, `C-c C-y' can be used inside the mail buffer to insert
-the text of the message you are replying to.  Normally it indents each
-line of that message three spaces and eliminates most header fields.  A
-numeric argument specifies the number of spaces to indent.  An argument
-of just `C-u' says not to indent at all and not to eliminate anything.
-`C-c C-y' always uses the current message from the Rmail buffer, so you
-can insert several old messages by selecting one in Rmail, switching to
-`*mail*' and yanking it, then switching back to Rmail to select another.
-
-   You can specify the text for `C-c C-y' to insert at the beginning of
-each line: set `mail-yank-prefix' to the desired string.  (A value of
-`nil' means to use indentation; this is the default.)  However, `C-u
-C-c C-y' never adds anything at the beginning of the inserted lines,
-regardless of the value of `mail-yank-prefix'.
-
-   To yank just a part of an incoming message, set the region in Rmail
-to the part you want; then go to the `*Mail*' message and type `C-c
-C-r' (`mail-yank-region').  Each line that is copied is indented or
-prefixed according to `mail-yank-prefix'.
-
-   After using `C-c C-y' or `C-c C-r', you can type `C-c C-q'
-(`mail-fill-yanked-message') to fill the paragraphs of the yanked old
-message or messages.  One use of `C-c C-q' fills all such paragraphs,
-each one individually.  To fill a single paragraph of the quoted
-message, use `M-q'.  If filling does not automatically handle the type
-of citation prefix you use, try setting the fill prefix explicitly.
-*Note Filling::.
-
-
-File: emacs,  Node: Mail Mode Misc,  Prev: Citing Mail,  Up: Mail Mode
-
-Mail Mode Miscellany
---------------------
-
-`C-c C-t'
-     Move to the beginning of the message body text (`mail-text').
-
-`C-c C-w'
-     Insert the file `~/.signature' at the end of the message text
-     (`mail-signature').
-
-`C-c C-i FILE <RET>'
-     Insert the contents of FILE at the end of the outgoing message
-     (`mail-attach-file').
-
-`M-x ispell-message'
-     Do spelling correction on the message text, but not on citations
-     from other messages.
-
-   `C-c C-t' (`mail-text') moves point to just after the header
-separator line--that is, to the beginning of the message body text.
-
-   `C-c C-w' (`mail-signature') adds a standard piece of text at the
-end of the message to say more about who you are.  The text comes from
-the file `~/.signature' in your home directory.  To insert your
-signature automatically, set the variable `mail-signature' to `t'; then
-starting a mail message automatically inserts the contents of your
-`~/.signature' file.  If you want to omit your signature from a
-particular message, delete it from the buffer before you send the
-message.
-
-   You can also set `mail-signature' to a string; then that string is
-inserted automatically as your signature when you start editing a
-message to send.  If you set it to some other Lisp expression, the
-expression is evaluated each time, and its value (which should be a
-string) specifies the signature.
-
-   You can do spelling correction on the message text you have written
-with the command `M-x ispell-message'.  If you have yanked an incoming
-message into the outgoing draft, this command skips what was yanked,
-but it checks the text that you yourself inserted.  (It looks for
-indentation or `mail-yank-prefix' to distinguish the cited lines from
-your input.)  *Note Spelling::.
-
-   To include a file in the outgoing message, you can use `C-x i', the
-usual command to insert a file in the current buffer.  But it is often
-more convenient to use a special command, `C-c C-i'
-(`mail-attach-file').  This command inserts the file contents at the
-end of the buffer, after your signature if any, with a delimiter line
-that includes the file name.
-
-   Turning on Mail mode (which `C-x m' does automatically) runs the
-normal hooks `text-mode-hook' and `mail-mode-hook'.  Initializing a new
-outgoing message runs the normal hook `mail-setup-hook'; if you want to
-add special fields to your mail header or make other changes to the
-appearance of the mail buffer, use that hook.  *Note Hooks::.
-
-   The main difference between these hooks is just when they are
-invoked.  Whenever you type `M-x mail', `mail-mode-hook' runs as soon
-as the `*mail*' buffer is created.  Then the `mail-setup' function puts
-in the default contents of the buffer.  After these default contents
-are inserted, `mail-setup-hook' runs.
-
-
-File: emacs,  Node: Distracting NSA,  Next: Mail Methods,  Prev: Mail Mode,  Up: Sending Mail
-
-Distracting the NSA
-===================
-
-   `M-x spook' adds a line of randomly chosen keywords to an outgoing
-mail message.  The keywords are chosen from a list of words that suggest
-you are discussing something subversive.
-
-   The idea behind this feature is the suspicion that the NSA snoops on
-all electronic mail messages that contain keywords suggesting they might
-find them interesting.  (The NSA says they don't, but that's what they
-_would_ say.)  The idea is that if lots of people add suspicious words
-to their messages, the NSA will get so busy with spurious input that
-they will have to give up reading it all.
-
-   Here's how to insert spook keywords automatically whenever you start
-entering an outgoing message:
-
-     (add-hook 'mail-setup-hook 'spook)
-
-   Whether or not this confuses the NSA, it at least amuses people.
-
-
-File: emacs,  Node: Mail Methods,  Prev: Distracting NSA,  Up: Sending Mail
-
-Mail-Composition Methods
-========================
-
-   This chapter describes the usual Emacs mode for editing and sending
-mail--Mail mode.  Emacs has alternative facilities for editing and
-sending mail, including MH-E and Message mode, not documented in this
-manual.  You can choose any of them as your preferred method.  The
-commands `C-x m', `C-x 4 m' and `C-x 5 m' use whichever agent you have
-specified.  So do various other Emacs commands and facilities that send
-mail.
-
-   To specify your mail-composition method, set the variable
-`mail-user-agent'.  Currently legitimate values include
-`sendmail-user-agent', `mh-e-user-agent', and `message-user-agent'.
-
-   If you select a different mail-composition method, the information in
-this chapter about the `*mail*' buffer and Mail mode does not apply;
-other methods may use completely different commands with a different
-format in a differently named buffer.
-
-
-File: emacs,  Node: Rmail,  Next: Dired,  Prev: Sending Mail,  Up: Top
-
-Reading Mail with Rmail
-***********************
-
-   Rmail is an Emacs subsystem for reading and disposing of mail that
-you receive.  Rmail stores mail messages in files called Rmail files.
-Reading the message in an Rmail file is done in a special major mode,
-Rmail mode, which redefines most letters to run commands for managing
-mail.  The command `rmail-mode' is used to switch into Rmail mode, and
-it runs the hook `rmail-mode-hook' as usual, but don't run this command
-by hand; it can't do a reasonable job unless the buffer is visiting a
-proper Rmail file.
+   Fortan mode is meant for editing Fortran77 "fixed format" source
+code.  For editing the modern Fortran90 "free format" source code, use
+F90 mode (`f90-mode').  Emacs normally uses Fortran mode for files with
+extension `.f', `.F' or `.for', and F90 mode for the extension `.f90'.
+GNU Fortran supports both kinds of format.
 
 * Menu:
 
-* Basic: Rmail Basics.       Basic concepts of Rmail, and simple use.
-* Scroll: Rmail Scrolling.   Scrolling through a message.
-* Motion: Rmail Motion.      Moving to another message.
-* Deletion: Rmail Deletion.  Deleting and expunging messages.
-* Inbox: Rmail Inbox.        How mail gets into the Rmail file.
-* Files: Rmail Files.        Using multiple Rmail files.
-* Output: Rmail Output.	     Copying message out to files.
-* Labels: Rmail Labels.      Classifying messages by labeling them.
-* Attrs: Rmail Attributes.   Certain standard labels, called attributes.
-* Reply: Rmail Reply.        Sending replies to messages you are viewing.
-* Summary: Rmail Summary.    Summaries show brief info on many messages.
-* Sort: Rmail Sorting.       Sorting messages in Rmail.
-* Display: Rmail Display.    How Rmail displays a message; customization.
-* Editing: Rmail Editing.    Editing message text and headers in Rmail.
-* Digest: Rmail Digest.      Extracting the messages from a digest message.
-* Out of Rmail::	     Converting an Rmail file to mailbox format.
-* Rot13: Rmail Rot13.	     Reading messages encoded in the rot13 code.
-* Movemail: Movemail.        More details of fetching new mail.
+* Motion: Fortran Motion.	 Moving point by statements or subprograms.
+* Indent: Fortran Indent.	 Indentation commands for Fortran.
+* Comments: Fortran Comments.	 Inserting and aligning comments.
+* Autofill: Fortran Autofill.	 Auto fill minor mode for Fortran.
+* Columns: Fortran Columns.	 Measuring columns for valid Fortran.
+* Abbrev: Fortran Abbrev.	 Built-in abbrevs for Fortran keywords.
 
 
-File: emacs,  Node: Rmail Basics,  Next: Rmail Scrolling,  Up: Rmail
+File: emacs,  Node: Fortran Motion,  Next: Fortran Indent,  Up: Fortran
 
-Basic Concepts of Rmail
-=======================
+Motion Commands
+---------------
 
-   Using Rmail in the simplest fashion, you have one Rmail file
-`~/RMAIL' in which all of your mail is saved.  It is called your
-"primary Rmail file".  The command `M-x rmail' reads your primary Rmail
-file, merges new mail in from your inboxes, displays the first message
-you haven't read yet, and lets you begin reading.  The variable
-`rmail-file-name' specifies the name of the primary Rmail file.
+   In addition to the normal commands for moving by and operating on
+"defuns" (Fortran subprograms--functions and subroutines), Fortran mode
+provides special commands to move by statements.
 
-   Rmail uses narrowing to hide all but one message in the Rmail file.
-The message that is shown is called the "current message".  Rmail
-mode's special commands can do such things as delete the current
-message, copy it into another file, send a reply, or move to another
-message.  You can also create multiple Rmail files and use Rmail to move
-messages between them.
+`C-c C-n'
+     Move to beginning of current or next statement
+     (`fortran-next-statement').
 
-   Within the Rmail file, messages are normally arranged sequentially in
-order of receipt; you can specify other ways to sort them.  Messages are
-assigned consecutive integers as their "message numbers".  The number
-of the current message is displayed in Rmail's mode line, followed by
-the total number of messages in the file.  You can move to a message by
-specifying its message number with the `j' key (*note Rmail Motion::).
-
-   Following the usual conventions of Emacs, changes in an Rmail file
-become permanent only when the file is saved.  You can save it with `s'
-(`rmail-save'), which also expunges deleted messages from the file
-first (*note Rmail Deletion::).  To save the file without expunging,
-use `C-x C-s'.  Rmail also saves the Rmail file after merging new mail
-from an inbox file (*note Rmail Inbox::).
-
-   You can exit Rmail with `q' (`rmail-quit'); this expunges and saves
-the Rmail file and then switches to another buffer.  But there is no
-need to `exit' formally.  If you switch from Rmail to editing in other
-buffers, and never happen to switch back, you have exited.  (The Rmail
-command `b', `rmail-bury', does this for you.)  Just make sure to save
-the Rmail file eventually (like any other file you have changed).  `C-x
-s' is a good enough way to do this (*note Saving::).
+`C-c C-p'
+     Move to beginning of current or previous statement
+     (`fortran-previous-statement').
 
 
-File: emacs,  Node: Rmail Scrolling,  Next: Rmail Motion,  Prev: Rmail Basics,  Up: Rmail
+File: emacs,  Node: Fortran Indent,  Next: Fortran Comments,  Prev: Fortran Motion,  Up: Fortran
 
-Scrolling Within a Message
-==========================
+Fortran Indentation
+-------------------
 
-   When Rmail displays a message that does not fit on the screen, you
-must scroll through it to read the rest.  You could do this with `C-v',
-`M-v' and `M-<', but in Rmail scrolling is so frequent that it deserves
-to be easier to type.
+   Special commands and features are needed for indenting Fortran code
+in order to make sure various syntactic entities (line numbers, comment
+line indicators and continuation line flags) appear in the columns that
+are required for standard Fortran.
 
-`<SPC>'
-     Scroll forward (`scroll-up').
+* Menu:
 
-`<DEL>'
-     Scroll backward (`scroll-down').
-
-`.'
-     Scroll to start of message (`rmail-beginning-of-message').
-
-   Since the most common thing to do while reading a message is to
-scroll through it by screenfuls, Rmail makes <SPC> and <DEL> synonyms of
-`C-v' (`scroll-up') and `M-v' (`scroll-down')
-
-   The command `.' (`rmail-beginning-of-message') scrolls back to the
-beginning of the selected message.  This is not quite the same as `M-<':
-for one thing, it does not set the mark; for another, it resets the
-buffer boundaries to the current message if you have changed them.
+* Commands: ForIndent Commands.  Commands for indenting and filling Fortran.
+* Contline: ForIndent Cont.      How continuation lines indent.
+* Numbers:  ForIndent Num.       How line numbers auto-indent.
+* Conv:     ForIndent Conv.      Conventions you must obey to avoid trouble.
+* Vars:     ForIndent Vars.      Variables controlling Fortran indent style.
 
 
-File: emacs,  Node: Rmail Motion,  Next: Rmail Deletion,  Prev: Rmail Scrolling,  Up: Rmail
+File: emacs,  Node: ForIndent Commands,  Next: ForIndent Cont,  Up: Fortran Indent
 
-Moving Among Messages
-=====================
+Fortran Indentation and Filling Commands
+........................................
 
-   The most basic thing to do with a message is to read it.  The way to
-do this in Rmail is to make the message current.  The usual practice is
-to move sequentially through the file, since this is the order of
-receipt of messages.  When you enter Rmail, you are positioned at the
-first message that you have not yet made current (that is, the first one
-that has the `unseen' attribute; *note Rmail Attributes::).  Move
-forward to see the other new messages; move backward to reexamine old
-messages.
+`C-M-j'
+     Break the current line and set up a continuation line
+     (`fortran-split-line').
 
-`n'
-     Move to the next nondeleted message, skipping any intervening
-     deleted messages (`rmail-next-undeleted-message').
+`M-^'
+     Join this line to the previous line (`fortran-join-line').
 
-`p'
-     Move to the previous nondeleted message
-     (`rmail-previous-undeleted-message').
+`C-M-q'
+     Indent all the lines of the subprogram point is in
+     (`fortran-indent-subprogram').
 
-`M-n'
-     Move to the next message, including deleted messages
-     (`rmail-next-message').
+`M-q'
+     Fill a comment block or statement.
 
-`M-p'
-     Move to the previous message, including deleted messages
-     (`rmail-previous-message').
+   The key `C-M-q' runs `fortran-indent-subprogram', a command to
+reindent all the lines of the Fortran subprogram (function or
+subroutine) containing point.
 
-`j'
-     Move to the first message.  With argument N, move to message
-     number N (`rmail-show-message').
+   The key `C-M-j' runs `fortran-split-line', which splits a line in
+the appropriate fashion for Fortran.  In a non-comment line, the second
+half becomes a continuation line and is indented accordingly.  In a
+comment line, both halves become separate comment lines.
 
-`>'
-     Move to the last message (`rmail-last-message').
+   `M-^' or `C-c C-d' runs the command `fortran-join-line', which joins
+a continuation line back to the previous line, roughly as the inverse
+of `fortran-split-line'.  The point must be on a continuation line when
+this command is invoked.
 
-`<'
-     Move to the first message (`rmail-first-message').
-
-`M-s REGEXP <RET>'
-     Move to the next message containing a match for REGEXP
-     (`rmail-search').
-
-`- M-s REGEXP <RET>'
-     Move to the previous message containing a match for REGEXP.
-
-   `n' and `p' are the usual way of moving among messages in Rmail.
-They move through the messages sequentially, but skip over deleted
-messages, which is usually what you want to do.  Their command
-definitions are named `rmail-next-undeleted-message' and
-`rmail-previous-undeleted-message'.  If you do not want to skip deleted
-messages--for example, if you want to move to a message to undelete
-it--use the variants `M-n' and `M-p' (`rmail-next-message' and
-`rmail-previous-message').  A numeric argument to any of these commands
-serves as a repeat count.
-
-   In Rmail, you can specify a numeric argument by typing just the
-digits.  You don't need to type `C-u' first.
-
-   The `M-s' (`rmail-search') command is Rmail's version of search.
-The usual incremental search command `C-s' works in Rmail, but it
-searches only within the current message.  The purpose of `M-s' is to
-search for another message.  It reads a regular expression (*note
-Regexps::) nonincrementally, then searches starting at the beginning of
-the following message for a match.  It then selects that message.  If
-REGEXP is empty, `M-s' reuses the regexp used the previous time.
-
-   To search backward in the file for another message, give `M-s' a
-negative argument.  In Rmail you can do this with `- M-s'.
-
-   It is also possible to search for a message based on labels.  *Note
-Rmail Labels::.
-
-   To move to a message specified by absolute message number, use `j'
-(`rmail-show-message') with the message number as argument.  With no
-argument, `j' selects the first message.  `<' (`rmail-first-message')
-also selects the first message.  `>' (`rmail-last-message') selects the
-last message.
+   `M-q' in Fortran mode fills the comment block or statement that
+point is in.  This removes any excess statement continuations.
 
 
-File: emacs,  Node: Rmail Deletion,  Next: Rmail Inbox,  Prev: Rmail Motion,  Up: Rmail
+File: emacs,  Node: ForIndent Cont,  Next: ForIndent Num,  Prev: ForIndent Commands,  Up: Fortran Indent
 
-Deleting Messages
-=================
+Continuation Lines
+..................
 
-   When you no longer need to keep a message, you can "delete" it.  This
-flags it as ignorable, and some Rmail commands pretend it is no longer
-present; but it still has its place in the Rmail file, and still has its
-message number.
+   Most modern Fortran compilers allow two ways of writing continuation
+lines.  If the first non-space character on a line is in column 5, then
+that line is a continuation of the previous line.  We call this "fixed
+format".  (In GNU Emacs we always count columns from 0.)  The variable
+`fortran-continuation-string' specifies what character to put on column
+5.  A line that starts with a tab character followed by any digit
+except `0' is also a continuation line.  We call this style of
+continuation "tab format".
 
-   "Expunging" the Rmail file actually removes the deleted messages.
-The remaining messages are renumbered consecutively.  Expunging is the
-only action that changes the message number of any message, except for
-undigestifying (*note Rmail Digest::).
+   Fortran mode can make either style of continuation line, but you
+must specify which one you prefer.  The value of the variable
+`indent-tabs-mode' controls the choice: `nil' for fixed format, and
+non-`nil' for tab format.  You can tell which style is presently in
+effect by the presence or absence of the string `Tab' in the mode line.
 
-`d'
-     Delete the current message, and move to the next nondeleted message
-     (`rmail-delete-forward').
+   If the text on a line starts with the conventional Fortran
+continuation marker `$', or if it begins with any non-whitespace
+character in column 5, Fortran mode treats it as a continuation line.
+When you indent a continuation line with <TAB>, it converts the line to
+the current continuation style.  When you split a Fortran statement
+with `C-M-j', the continuation marker on the newline is created
+according to the continuation style.
 
-`C-d'
-     Delete the current message, and move to the previous nondeleted
-     message (`rmail-delete-backward').
+   The setting of continuation style affects several other aspects of
+editing in Fortran mode.  In fixed format mode, the minimum column
+number for the body of a statement is 6.  Lines inside of Fortran
+blocks that are indented to larger column numbers always use only the
+space character for whitespace.  In tab format mode, the minimum column
+number for the statement body is 8, and the whitespace before column 8
+must always consist of one tab character.
 
-`u'
-     Undelete the current message, or move back to a deleted message and
-     undelete it (`rmail-undelete-previous-message').
-
-`x'
-     Expunge the Rmail file (`rmail-expunge').
-
-   There are two Rmail commands for deleting messages.  Both delete the
-current message and select another message.  `d'
-(`rmail-delete-forward') moves to the following message, skipping
-messages already deleted, while `C-d' (`rmail-delete-backward') moves
-to the previous nondeleted message.  If there is no nondeleted message
-to move to in the specified direction, the message that was just
-deleted remains current.  A numeric argument to either command reverses
-the direction of motion after deletion.
-
-   Whenever Rmail deletes a message, it invokes the function(s) listed
-in `rmail-delete-message-hook'.  When the hook functions are invoked,
-the message has been marked deleted, but it is still the current message
-in the Rmail buffer.
-
-   To make all the deleted messages finally vanish from the Rmail file,
-type `x' (`rmail-expunge').  Until you do this, you can still
-"undelete" the deleted messages.  The undeletion command, `u'
-(`rmail-undelete-previous-message'), is designed to cancel the effect
-of a `d' command in most cases.  It undeletes the current message if
-the current message is deleted.  Otherwise it moves backward to
-previous messages until a deleted message is found, and undeletes that
-message.
-
-   You can usually undo a `d' with a `u' because the `u' moves back to
-and undeletes the message that the `d' deleted.  But this does not work
-when the `d' skips a few already-deleted messages that follow the
-message being deleted; then the `u' command undeletes the last of the
-messages that were skipped.  There is no clean way to avoid this
-problem.  However, by repeating the `u' command, you can eventually get
-back to the message that you intend to undelete.  You can also select a
-particular deleted message with the `M-p' command, then type `u' to
-undelete it.
-
-   A deleted message has the `deleted' attribute, and as a result
-`deleted' appears in the mode line when the current message is deleted.
-In fact, deleting or undeleting a message is nothing more than adding
-or removing this attribute.  *Note Rmail Attributes::.
+   When you enter Fortran mode for an existing file, it tries to deduce
+the proper continuation style automatically from the file contents.
+The first line that begins with either a tab character or six spaces
+determines the choice.  The variable `fortran-analyze-depth' specifies
+how many lines to consider (at the beginning of the file); if none of
+those lines indicates a style, then the variable
+`fortran-tab-mode-default' specifies the style.  If it is `nil', that
+specifies fixed format, and non-`nil' specifies tab format.
 
 
-File: emacs,  Node: Rmail Inbox,  Next: Rmail Files,  Prev: Rmail Deletion,  Up: Rmail
+File: emacs,  Node: ForIndent Num,  Next: ForIndent Conv,  Prev: ForIndent Cont,  Up: Fortran Indent
 
-Rmail Files and Inboxes
-=======================
+Line Numbers
+............
 
-   The operating system places incoming mail for you in a file that we
-call your "inbox".  When you start up Rmail, it runs a C program called
-`movemail' to copy the new messages from your inbox into your primary
-Rmail file, which also contains other messages saved from previous
-Rmail sessions.  It is in this file that you actually read the mail
-with Rmail.  This operation is called "getting new mail".  You can get
-new mail at any time in Rmail by typing `g'.
+   If a number is the first non-whitespace in the line, Fortran
+indentation assumes it is a line number and moves it to columns 0
+through 4.  (Columns always count from 0 in GNU Emacs.)
 
-   The variable `rmail-primary-inbox-list' contains a list of the files
-which are inboxes for your primary Rmail file.  If you don't set this
-variable explicitly, it is initialized from the `MAIL' environment
-variable, or, as a last resort, set to `nil', which means to use the
-default inbox.  The default inbox is `/var/mail/USERNAME',
-`/usr/spool/mail/USERNAME', or `/usr/mail/USERNAME', depending on your
-operating system.
+   Line numbers of four digits or less are normally indented one space.
+The variable `fortran-line-number-indent' controls this; it specifies
+the maximum indentation a line number can have.  Line numbers are
+indented to right-justify them to end in column 4 unless that would
+require more than this maximum indentation.  The default value of the
+variable is 1.
 
-   To see what the default is on your system, use `C-h v
-rmail-primary-inbox <RET>'.  You can specify the inbox file(s) for any
-Rmail file with the command `set-rmail-inbox-list'; see *Note Rmail
-Files::.
-
-   There are two reasons for having separate Rmail files and inboxes.
-
-  1. The inbox file format varies between operating systems and
-     according to the other mail software in use.  Only one part of
-     Rmail needs to know about the alternatives, and it need only
-     understand how to convert all of them to Rmail's own format.
-
-  2. It is very cumbersome to access an inbox file without danger of
-     losing mail, because it is necessary to interlock with mail
-     delivery.  Moreover, different operating systems use different
-     interlocking techniques.  The strategy of moving mail out of the
-     inbox once and for all into a separate Rmail file avoids the need
-     for interlocking in all the rest of Rmail, since only Rmail
-     operates on the Rmail file.
-
-   Rmail was written to use Babyl format as its internal format.  Since
-then, we have recognized that the usual inbox format on Unix and GNU
-systems is adequate for the job, and we plan to change Rmail to use that
-as its internal format.  However, the Rmail file will still be separate
-from the inbox file, even on systems where their format is the same.
+   Simply inserting a line number is enough to indent it according to
+these rules.  As each digit is inserted, the indentation is recomputed.
+To turn off this feature, set the variable
+`fortran-electric-line-number' to `nil'.  Then inserting line numbers
+is like inserting anything else.
 
 
-File: emacs,  Node: Rmail Files,  Next: Rmail Output,  Prev: Rmail Inbox,  Up: Rmail
+File: emacs,  Node: ForIndent Conv,  Next: ForIndent Vars,  Prev: ForIndent Num,  Up: Fortran Indent
 
-Multiple Rmail Files
-====================
+Syntactic Conventions
+.....................
 
-   Rmail operates by default on your "primary Rmail file", which is
-named `~/RMAIL' and receives your incoming mail from your system inbox
-file.  But you can also have other Rmail files and edit them with
-Rmail.  These files can receive mail through their own inboxes, or you
-can move messages into them with explicit Rmail commands (*note Rmail
-Output::).
+   Fortran mode assumes that you follow certain conventions that
+simplify the task of understanding a Fortran program well enough to
+indent it properly:
 
-`i FILE <RET>'
-     Read FILE into Emacs and run Rmail on it (`rmail-input').
+   * Two nested `do' loops never share a `continue' statement.
 
-`M-x set-rmail-inbox-list <RET> FILES <RET>'
-     Specify inbox file names for current Rmail file to get mail from.
+   * Fortran keywords such as `if', `else', `then', `do' and others are
+     written without embedded whitespace or line breaks.
 
-`g'
-     Merge new mail from current Rmail file's inboxes
-     (`rmail-get-new-mail').
+     Fortran compilers generally ignore whitespace outside of string
+     constants, but Fortran mode does not recognize these keywords if
+     they are not contiguous.  Constructs such as `else if' or `end do'
+     are acceptable, but the second word should be on the same line as
+     the first and not on a continuation line.
 
-`C-u g FILE <RET>'
-     Merge new mail from inbox file FILE.
-
-   To run Rmail on a file other than your primary Rmail file, you may
-use the `i' (`rmail-input') command in Rmail.  This visits the file in
-Rmail mode.  You can use `M-x rmail-input' even when not in Rmail.
-
-   The file you read with `i' should normally be a valid Rmail file.
-If it is not, Rmail tries to decompose it into a stream of messages in
-various known formats.  If it succeeds, it converts the whole file to an
-Rmail file.  If you specify a file name that doesn't exist, `i'
-initializes a new buffer for creating a new Rmail file.
-
-   You can also select an Rmail file from a menu.  Choose first the menu
-bar Classify item, then from the Classify menu choose the Input Rmail
-File item; then choose the Rmail file you want.  The variables
-`rmail-secondary-file-directory' and `rmail-secondary-file-regexp'
-specify which files to offer in the menu: the first variable says which
-directory to find them in; the second says which files in that
-directory to offer (all those that match the regular expression).
-These variables also apply to choosing a file for output (*note Rmail
-Output::).
-
-   Each Rmail file can contain a list of inbox file names; you can
-specify this list with `M-x set-rmail-inbox-list <RET> FILES <RET>'.
-The argument can contain any number of file names, separated by commas.
-It can also be empty, which specifies that this file should have no
-inboxes.  Once a list of inboxes is specified, the Rmail file remembers
-it permanently until you specify a different list.
-
-   As a special exception, if your primary Rmail file does not specify
-any inbox files, it uses your standard system inbox.
-
-   The `g' command (`rmail-get-new-mail') merges mail into the current
-Rmail file from its specified inboxes.  If the Rmail file has no
-inboxes, `g' does nothing.  The command `M-x rmail' also merges new
-mail into your primary Rmail file.
-
-   To merge mail from a file that is not the usual inbox, give the `g'
-key a numeric argument, as in `C-u g'.  Then it reads a file name and
-merges mail from that file.  The inbox file is not deleted or changed
-in any way when `g' with an argument is used.  This is, therefore, a
-general way of merging one file of messages into another.
+If you fail to follow these conventions, the indentation commands may
+indent some lines unaesthetically.  However, a correct Fortran program
+retains its meaning when reindented even if the conventions are not
+followed.
 
 
-File: emacs,  Node: Rmail Output,  Next: Rmail Labels,  Prev: Rmail Files,  Up: Rmail
+File: emacs,  Node: ForIndent Vars,  Prev: ForIndent Conv,  Up: Fortran Indent
 
-Copying Messages Out to Files
-=============================
+Variables for Fortran Indentation
+.................................
 
-   These commands copy messages from an Rmail file into another file.
+   Several additional variables control how Fortran indentation works:
 
-`o FILE <RET>'
-     Append a copy of the current message to the file FILE, using Rmail
-     file format by default (`rmail-output-to-rmail-file').
+`fortran-do-indent'
+     Extra indentation within each level of `do' statement (default 3).
 
-`C-o FILE <RET>'
-     Append a copy of the current message to the file FILE, using
-     system inbox file format by default (`rmail-output').
+`fortran-if-indent'
+     Extra indentation within each level of `if' statement (default 3).
+     This value is also used for extra indentation within each level of
+     the Fortran 90 `where' statement.
 
-`w FILE <RET>'
-     Output just the message body to the file FILE, taking the default
-     file name from the message `Subject' header.
+`fortran-structure-indent'
+     Extra indentation within each level of `structure', `union', or
+     `map' statements (default 3).
 
-   The commands `o' and `C-o' copy the current message into a specified
-file.  This file may be an Rmail file or it may be in system inbox
-format; the output commands ascertain the file's format and write the
-copied message in that format.
+`fortran-continuation-indent'
+     Extra indentation for bodies of continuation lines (default 5).
 
-   When copying a message to a file in Unix mail file format, these
-commands include whichever header fields are currently visible.  Use the
-`t' command first, if you wish, to specify which headers to show (and
-copy).
+`fortran-check-all-num-for-matching-do'
+     If this is `nil', indentation assumes that each `do' statement
+     ends on a `continue' statement.  Therefore, when computing
+     indentation for a statement other than `continue', it can save time
+     by not checking for a `do' statement ending there.  If this is
+     non-`nil', indenting any numbered statement must check for a `do'
+     that ends there.  The default is `nil'.
 
-   The `o' and `C-o' commands differ in two ways: each has its own
-separate default file name, and each specifies a choice of format to
-use when the file does not already exist.  The `o' command uses Rmail
-format when it creates a new file, while `C-o' uses system inbox format
-for a new file.  The default file name for `o' is the file name used
-last with `o', and the default file name for `C-o' is the file name
-used last with `C-o'.
+`fortran-blink-matching-if'
+     If this is `t', indenting an `endif' statement moves the cursor
+     momentarily to the matching `if' statement to show where it is.
+     The default is `nil'.
 
-   If the output file is an Rmail file currently visited in an Emacs
-buffer, the output commands copy the message into that buffer.  It is
-up to you to save the buffer eventually in its file.
+`fortran-minimum-statement-indent-fixed'
+     Minimum indentation for fortran statements when using fixed format
+     continuation line style.  Statement bodies are never indented less
+     than this much.  The default is 6.
 
-   Sometimes you may receive a message whose body holds the contents of
-a file.  You can save the body to a file (excluding the message header)
-with the `w' command (`rmail-output-body-to-file').  Often these
-messages contain the intended file name in the `Subject' field, so the
-`w' command uses the `Subject' field as the default for the output file
-name.  However, the file name is read using the minibuffer, so you can
-specify a different name if you wish.
-
-   You can also output a message to an Rmail file chosen with a menu.
-Choose first the menu bar Classify item, then from the Classify menu
-choose the Output Rmail File menu item; then choose the Rmail file you
-want.  This outputs the current message to that file, like the `o'
-command.  The variables `rmail-secondary-file-directory' and
-`rmail-secondary-file-regexp' specify which files to offer in the menu:
-the first variable says which directory to find them in; the second
-says which files in that directory to offer (all those that match the
-regular expression).
-
-   Copying a message gives the original copy of the message the `filed'
-attribute, so that `filed' appears in the mode line when such a message
-is current.  If you like to keep just a single copy of every mail
-message, set the variable `rmail-delete-after-output' to `t'; then the
-`o' and `C-o' commands delete the original message after copying it.
-(You can undelete the original afterward if you wish.)
-
-   Copying messages into files in system inbox format uses the header
-fields that are displayed in Rmail at the time.  Thus, if you use the
-`t' command to view the entire header and then copy the message, the
-entire header is copied.  *Note Rmail Display::.
-
-   The variable `rmail-output-file-alist' lets you specify intelligent
-defaults for the output file, based on the contents of the current
-message.  The value should be a list whose elements have this form:
-
-     (REGEXP . NAME-EXP)
-
-If there's a match for REGEXP in the current message, then the default
-file name for output is NAME-EXP.  If multiple elements match the
-message, the first matching element decides the default file name.  The
-subexpression NAME-EXP may be a string constant giving the file name to
-use, or more generally it may be any Lisp expression that returns a
-file name as a string.  `rmail-output-file-alist' applies to both `o'
-and `C-o'.
+`fortran-minimum-statement-indent-tab'
+     Minimum indentation for fortran statements for tab format
+     continuation line style.  Statement bodies are never indented less
+     than this much.  The default is 8.
 
 
-File: emacs,  Node: Rmail Labels,  Next: Rmail Attributes,  Prev: Rmail Output,  Up: Rmail
+File: emacs,  Node: Fortran Comments,  Next: Fortran Autofill,  Prev: Fortran Indent,  Up: Fortran
 
-Labels
-======
+Fortran Comments
+----------------
 
-   Each message can have various "labels" assigned to it as a means of
-classification.  Each label has a name; different names are different
-labels.  Any given label is either present or absent on a particular
-message.  A few label names have standard meanings and are given to
-messages automatically by Rmail when appropriate; these special labels
-are called "attributes".  (*Note Rmail Attributes::.)  All other labels
-are assigned only by users.
+   The usual Emacs comment commands assume that a comment can follow a
+line of code.  In Fortran, the standard comment syntax requires an
+entire line to be just a comment.  Therefore, Fortran mode replaces the
+standard Emacs comment commands and defines some new variables.
 
-`a LABEL <RET>'
-     Assign the label LABEL to the current message (`rmail-add-label').
+   Fortran mode can also handle the Fortran90 comment syntax where
+comments start with `!' and can follow other text.  Because only some
+Fortran77 compilers accept this syntax, Fortran mode will not insert
+such comments unless you have said in advance to do so.  To do this,
+set the variable `comment-start' to `"!"' (*note Variables::).
 
-`k LABEL <RET>'
-     Remove the label LABEL from the current message
-     (`rmail-kill-label').
+`M-;'
+     Align comment or insert new comment (`fortran-comment-indent').
 
-`C-M-n LABELS <RET>'
-     Move to the next message that has one of the labels LABELS
-     (`rmail-next-labeled-message').
+`C-x ;'
+     Applies to nonstandard `!' comments only.
 
-`C-M-p LABELS <RET>'
-     Move to the previous message that has one of the labels LABELS
-     (`rmail-previous-labeled-message').
+`C-c ;'
+     Turn all lines of the region into comments, or (with argument)
+     turn them back into real code (`fortran-comment-region').
 
-`C-M-l LABELS <RET>'
-     Make a summary of all messages containing any of the labels LABELS
-     (`rmail-summary-by-labels').
+   `M-;' in Fortran mode is redefined as the command
+`fortran-comment-indent'.  Like the usual `M-;' command, this
+recognizes any kind of existing comment and aligns its text
+appropriately; if there is no existing comment, a comment is inserted
+and aligned.  But inserting and aligning comments are not the same in
+Fortran mode as in other modes.
 
-   The `a' (`rmail-add-label') and `k' (`rmail-kill-label') commands
-allow you to assign or remove any label on the current message.  If the
-LABEL argument is empty, it means to assign or remove the same label
-most recently assigned or removed.
+   When a new comment must be inserted, if the current line is blank, a
+full-line comment is inserted.  On a non-blank line, a nonstandard `!'
+comment is inserted if you have said you want to use them.  Otherwise a
+full-line comment is inserted on a new line before the current line.
 
-   Once you have given messages labels to classify them as you wish,
-there are two ways to use the labels: in moving and in summaries.
+   Nonstandard `!' comments are aligned like comments in other
+languages, but full-line comments are different.  In a standard
+full-line comment, the comment delimiter itself must always appear in
+column zero.  What can be aligned is the text within the comment.  You
+can choose from three styles of alignment by setting the variable
+`fortran-comment-indent-style' to one of these values:
 
-   The command `C-M-n LABELS <RET>' (`rmail-next-labeled-message')
-moves to the next message that has one of the labels LABELS.  The
-argument LABELS specifies one or more label names, separated by commas.
-`C-M-p' (`rmail-previous-labeled-message') is similar, but moves
-backwards to previous messages.  A numeric argument to either command
-serves as a repeat count.
+`fixed'
+     Align the text at a fixed column, which is the sum of
+     `fortran-comment-line-extra-indent' and the minimum statement
+     indentation.  This is the default.
 
-   The command `C-M-l LABELS <RET>' (`rmail-summary-by-labels')
-displays a summary containing only the messages that have at least one
-of a specified set of labels.  The argument LABELS is one or more label
-names, separated by commas.  *Note Rmail Summary::, for information on
-summaries.
+     The minimum statement indentation is
+     `fortran-minimum-statement-indent-fixed' for fixed format
+     continuation line style and `fortran-minimum-statement-indent-tab'
+     for tab format style.
 
-   If the LABELS argument to `C-M-n', `C-M-p' or `C-M-l' is empty, it
-means to use the last set of labels specified for any of these commands.
+`relative'
+     Align the text as if it were a line of code, but with an additional
+     `fortran-comment-line-extra-indent' columns of indentation.
+
+`nil'
+     Don't move text in full-line comments automatically at all.
+
+   In addition, you can specify the character to be used to indent
+within full-line comments by setting the variable
+`fortran-comment-indent-char' to the single-character string you want
+to use.
+
+   Fortran mode introduces two variables `comment-line-start' and
+`comment-line-start-skip', which play for full-line comments the same
+roles played by `comment-start' and `comment-start-skip' for ordinary
+text-following comments.  Normally these are set properly by Fortran
+mode, so you do not need to change them.
+
+   The normal Emacs comment command `C-x ;' has not been redefined.  If
+you use `!' comments, this command can be used with them.  Otherwise it
+is useless in Fortran mode.
+
+   The command `C-c ;' (`fortran-comment-region') turns all the lines
+of the region into comments by inserting the string `C$$$' at the front
+of each one.  With a numeric argument, it turns the region back into
+live code by deleting `C$$$' from the front of each line in it.  The
+string used for these comments can be controlled by setting the
+variable `fortran-comment-region'.  Note that here we have an example
+of a command and a variable with the same name; these two uses of the
+name never conflict because in Lisp and in Emacs it is always clear
+from the context which one is meant.
 
 
-File: emacs,  Node: Rmail Attributes,  Next: Rmail Reply,  Prev: Rmail Labels,  Up: Rmail
+File: emacs,  Node: Fortran Autofill,  Next: Fortran Columns,  Prev: Fortran Comments,  Up: Fortran
 
-Rmail Attributes
+Fortran Auto Fill Mode
+----------------------
+
+   Fortran Auto Fill mode is a minor mode which automatically splits
+Fortran statements as you insert them when they become too wide.
+Splitting a statement involves making continuation lines using
+`fortran-continuation-string' (*note ForIndent Cont::).  This splitting
+happens when you type <SPC>, <RET>, or <TAB>, and also in the Fortran
+indentation commands.
+
+   `M-x fortran-auto-fill-mode' turns Fortran Auto Fill mode on if it
+was off, or off if it was on.  This command works the same as `M-x
+auto-fill-mode' does for normal Auto Fill mode (*note Filling::).  A
+positive numeric argument turns Fortran Auto Fill mode on, and a
+negative argument turns it off.  You can see when Fortran Auto Fill mode
+is in effect by the presence of the word `Fill' in the mode line,
+inside the parentheses.  Fortran Auto Fill mode is a minor mode, turned
+on or off for each buffer individually.  *Note Minor Modes::.
+
+   Fortran Auto Fill mode breaks lines at spaces or delimiters when the
+lines get longer than the desired width (the value of `fill-column').
+The delimiters that Fortran Auto Fill mode may break at are `,', `'',
+`+', `-', `/', `*', `=', and `)'.  The line break comes after the
+delimiter if the variable `fortran-break-before-delimiters' is `nil'.
+Otherwise (and by default), the break comes before the delimiter.
+
+   By default, Fortran Auto Fill mode is not enabled.  If you want this
+feature turned on permanently, add a hook function to
+`fortran-mode-hook' to execute `(fortran-auto-fill-mode 1)'.  *Note
+Hooks::.
+
+
+File: emacs,  Node: Fortran Columns,  Next: Fortran Abbrev,  Prev: Fortran Autofill,  Up: Fortran
+
+Checking Columns in Fortran
+---------------------------
+
+`C-c C-r'
+     Display a "column ruler" momentarily above the current line
+     (`fortran-column-ruler').
+
+`C-c C-w'
+     Split the current window horizontally temporarily so that it is 72
+     columns wide (`fortran-window-create-momentarily').  This may help
+     you avoid making lines longer than the 72-character limit that
+     some Fortran compilers impose.
+
+`C-u C-c C-w'
+     Split the current window horizontally so that it is 72 columns wide
+     (`fortran-window-create').  You can then continue editing.
+
+`M-x fortran-strip-sequence-nos'
+     Delete all text in column 72 and beyond.
+
+   The command `C-c C-r' (`fortran-column-ruler') shows a column ruler
+momentarily above the current line.  The comment ruler is two lines of
+text that show you the locations of columns with special significance in
+Fortran programs.  Square brackets show the limits of the columns for
+line numbers, and curly brackets show the limits of the columns for the
+statement body.  Column numbers appear above them.
+
+   Note that the column numbers count from zero, as always in GNU Emacs.
+As a result, the numbers may be one less than those you are familiar
+with; but the positions they indicate in the line are standard for
+Fortran.
+
+   The text used to display the column ruler depends on the value of
+the variable `indent-tabs-mode'.  If `indent-tabs-mode' is `nil', then
+the value of the variable `fortran-column-ruler-fixed' is used as the
+column ruler.  Otherwise, the variable `fortran-column-ruler-tab' is
+displayed.  By changing these variables, you can change the column
+ruler display.
+
+   `C-c C-w' (`fortran-window-create-momentarily') temporarily splits
+the current window horizontally, making a window 72 columns wide, so
+you can see which lines that is too long.  Type a space to restore the
+normal width.
+
+   You can also split the window horizontally and continue editing with
+the split in place.  To do this, use `C-u C-c C-w' (`M-x
+fortran-window-create').  By editing in this window you can immediately
+see when you make a line too wide to be correct Fortran.
+
+   The command `M-x fortran-strip-sequence-nos' deletes all text in
+column 72 and beyond, on all lines in the current buffer.  This is the
+easiest way to get rid of old sequence numbers.
+
+
+File: emacs,  Node: Fortran Abbrev,  Prev: Fortran Columns,  Up: Fortran
+
+Fortran Keyword Abbrevs
+-----------------------
+
+   Fortran mode provides many built-in abbrevs for common keywords and
+declarations.  These are the same sort of abbrev that you can define
+yourself.  To use them, you must turn on Abbrev mode.  *Note Abbrevs::.
+
+   The built-in abbrevs are unusual in one way: they all start with a
+semicolon.  You cannot normally use semicolon in an abbrev, but Fortran
+mode makes this possible by changing the syntax of semicolon to "word
+constituent."
+
+   For example, one built-in Fortran abbrev is `;c' for `continue'.  If
+you insert `;c' and then insert a punctuation character such as a space
+or a newline, the `;c' expands automatically to `continue', provided
+Abbrev mode is enabled.
+
+   Type `;?' or `;C-h' to display a list of all the built-in Fortran
+abbrevs and what they stand for.
+
+
+File: emacs,  Node: Asm Mode,  Prev: Fortran,  Up: Programs
+
+Asm Mode
+========
+
+   Asm mode is a major mode for editing files of assembler code.  It
+defines these commands:
+
+`<TAB>'
+     `tab-to-tab-stop'.
+
+`C-j'
+     Insert a newline and then indent using `tab-to-tab-stop'.
+
+`:'
+     Insert a colon and then remove the indentation from before the
+     label preceding colon.  Then do `tab-to-tab-stop'.
+
+`;'
+     Insert or align a comment.
+
+   The variable `asm-comment-char' specifies which character starts
+comments in assembler syntax.
+
+
+File: emacs,  Node: Building,  Next: Maintaining,  Prev: Programs,  Up: Top
+
+Compiling and Testing Programs
+******************************
+
+   The previous chapter discusses the Emacs commands that are useful for
+making changes in programs.  This chapter deals with commands that
+assist in the larger process of developing and maintaining programs.
+
+* Menu:
+
+* Compilation::         Compiling programs in languages other
+                          than Lisp (C, Pascal, etc.).
+* Grep Searching::      Running grep as if it were a compiler.
+* Compilation Mode::    The mode for visiting compiler errors.
+* Compilation Shell::   Customizing your shell properly
+                          for use in the compilation buffer.
+* Debuggers::	        Running symbolic debuggers for non-Lisp programs.
+* Executing Lisp::      Various modes for editing Lisp programs,
+                          with different facilities for running
+                          the Lisp programs.
+* Libraries: Lisp Libraries.      Creating Lisp programs to run in Emacs.
+* Interaction: Lisp Interaction.  Executing Lisp in an Emacs buffer.
+* Eval: Lisp Eval.      Executing a single Lisp expression in Emacs.
+* External Lisp::         Communicating through Emacs with a separate Lisp.
+
+
+File: emacs,  Node: Compilation,  Next: Grep Searching,  Up: Building
+
+Running Compilations under Emacs
+================================
+
+   Emacs can run compilers for noninteractive languages such as C and
+Fortran as inferior processes, feeding the error log into an Emacs
+buffer.  It can also parse the error messages and show you the source
+lines where compilation errors occurred.
+
+`M-x compile'
+     Run a compiler asynchronously under Emacs, with error messages
+     going to the `*compilation*' buffer.
+
+`M-x recompile'
+     Invoke a compiler with the same command as in the last invocation
+     of `M-x compile'.
+
+`M-x grep'
+     Run `grep' asynchronously under Emacs, with matching lines listed
+     in the buffer named `*grep*'.
+
+`M-x grep-find'
+     Run `grep' via `find', with user-specified arguments, and collect
+     output in the buffer named `*grep*'.
+
+`M-x kill-compilation'
+`M-x kill-grep'
+     Kill the running compilation or `grep' subprocess.
+
+   To run `make' or another compilation command, do `M-x compile'.
+This command reads a shell command line using the minibuffer, and then
+executes the command in an inferior shell, putting output in the buffer
+named `*compilation*'.  The current buffer's default directory is used
+as the working directory for the execution of the command; normally,
+therefore, the compilation happens in this directory.
+
+   When the shell command line is read, the minibuffer appears
+containing a default command line, which is the command you used the
+last time you did `M-x compile'.  If you type just <RET>, the same
+command line is used again.  For the first `M-x compile', the default is
+`make -k'.  The default compilation command comes from the variable
+`compile-command'; if the appropriate compilation command for a file is
+something other than `make -k', it can be useful for the file to
+specify a local value for `compile-command' (*note File Variables::).
+
+   Starting a compilation displays the buffer `*compilation*' in
+another window but does not select it.  The buffer's mode line tells you
+whether compilation is finished, with the word `run' or `exit' inside
+the parentheses.  You do not have to keep this buffer visible;
+compilation continues in any case.  While a compilation is going on, the
+string `Compiling' appears in the mode lines of all windows.  When this
+string disappears, the compilation is finished.
+
+   If you want to watch the compilation transcript as it appears, switch
+to the `*compilation*' buffer and move point to the end of the buffer.
+When point is at the end, new compilation output is inserted above
+point, which remains at the end.  If point is not at the end of the
+buffer, it remains fixed while more compilation output is added at the
+end of the buffer.
+
+   If you set the variable `compilation-scroll-output' to a non-`nil'
+value, then the compilation buffer always scrolls to follow output as
+it comes in.
+
+   To kill the compilation process, do `M-x kill-compilation'.  When
+the compiler process terminates, the mode line of the `*compilation*'
+buffer changes to say `signal' instead of `run'.  Starting a new
+compilation also kills any running compilation, as only one can exist
+at any time.  However, `M-x compile' asks for confirmation before
+actually killing a compilation that is running.
+
+   To rerun the last compilation with the same command, type `M-x
+recompile'.  This automatically reuses the compilation command from the
+last invocation of `M-x compile'.
+
+
+File: emacs,  Node: Grep Searching,  Next: Compilation Mode,  Prev: Compilation,  Up: Building
+
+Searching with Grep under Emacs
+===============================
+
+   Just as you can run a compiler from Emacs and then visit the lines
+where there were compilation errors, you can also run `grep' and then
+visit the lines on which matches were found.  This works by treating
+the matches reported by `grep' as if they were "errors."
+
+   To do this, type `M-x grep', then enter a command line that
+specifies how to run `grep'.  Use the same arguments you would give
+`grep' when running it normally: a `grep'-style regexp (usually in
+single-quotes to quote the shell's special characters) followed by file
+names, which may use wildcards.  The output from `grep' goes in the
+`*grep*' buffer.  You can find the corresponding lines in the original
+files using `C-x `' and <RET>, as with compilation errors.
+
+   If you specify a prefix argument for `M-x grep', it figures out the
+tag (*note Tags::) around point, and puts that into the default `grep'
+command.
+
+   The command `M-x grep-find' is similar to `M-x grep', but it
+supplies a different initial default for the command--one that runs
+both `find' and `grep', so as to search every file in a directory tree.
+See also the `find-grep-dired' command, in *Note Dired and Find::.
+
+
+File: emacs,  Node: Compilation Mode,  Next: Compilation Shell,  Prev: Grep Searching,  Up: Building
+
+Compilation Mode
 ================
 
-   Some labels such as `deleted' and `filed' have built-in meanings and
-are assigned to or removed from messages automatically at appropriate
-times; these labels are called "attributes".  Here is a list of Rmail
-attributes:
+   The `*compilation*' buffer uses a special major mode, Compilation
+mode, whose main feature is to provide a convenient way to look at the
+source line where the error happened.
 
-`unseen'
-     Means the message has never been current.  Assigned to messages
-     when they come from an inbox file, and removed when a message is
-     made current.  When you start Rmail, it initially shows the first
-     message that has this attribute.
+   If you set the variable `compilation-scroll-output' to a non-`nil'
+value, then the compilation buffer always scrolls to follow output as
+it comes in.
 
-`deleted'
-     Means the message is deleted.  Assigned by deletion commands and
-     removed by undeletion commands (*note Rmail Deletion::).
+`C-x `'
+     Visit the locus of the next compiler error message or `grep' match.
 
-`filed'
-     Means the message has been copied to some other file.  Assigned by
-     the file output commands (*note Rmail Files::).
+`<RET>'
+     Visit the locus of the error message that point is on.  This
+     command is used in the compilation buffer.
 
-`answered'
-     Means you have mailed an answer to the message.  Assigned by the
-     `r' command (`rmail-reply').  *Note Rmail Reply::.
+`Mouse-2'
+     Visit the locus of the error message that you click on.
 
-`forwarded'
-     Means you have forwarded the message.  Assigned by the `f' command
-     (`rmail-forward').  *Note Rmail Reply::.
+   You can visit the source for any particular error message by moving
+point in the `*compilation*' buffer to that error message and typing
+<RET> (`compile-goto-error').  Alternatively, you can click `Mouse-2'
+on the error message; you need not switch to the `*compilation*' buffer
+first.
 
-`edited'
-     Means you have edited the text of the message within Rmail.  *Note
-     Rmail Editing::.
+   To parse the compiler error messages sequentially, type `C-x `'
+(`next-error').  The character following the `C-x' is the backquote or
+"grave accent," not the single-quote.  This command is available in all
+buffers, not just in `*compilation*'; it displays the next error
+message at the top of one window and source location of the error in
+another window.
 
-`resent'
-     Means you have resent the message.  Assigned by the command `M-x
-     rmail-resend'.  *Note Rmail Reply::.
+   The first time `C-x `' is used after the start of a compilation, it
+moves to the first error's location.  Subsequent uses of `C-x `'
+advance down to subsequent errors.  If you visit a specific error
+message with <RET> or `Mouse-2', subsequent `C-x `' commands advance
+from there.  When `C-x `' gets to the end of the buffer and finds no
+more error messages to visit, it fails and signals an Emacs error.
 
-   All other labels are assigned or removed only by the user, and have
-no standard meaning.
+   `C-u C-x `' starts scanning from the beginning of the compilation
+buffer.  This is one way to process the same set of errors again.
+
+   To parse messages from the compiler, Compilation mode uses the
+variable `compilation-error-regexp-alist' which lists various formats
+of error messages and tells Emacs how to extract the source file and
+the line number from the text of a message.  If your compiler isn't
+supported, you can tailor Compilation mode to it by adding elements to
+that list.  A similar variable `grep-regexp-alist' tells Emacs how to
+parse output of a `grep' command.
+
+   Compilation mode also redefines the keys <SPC> and <DEL> to scroll
+by screenfuls, and `M-n' and `M-p' to move to the next or previous
+error message.  You can also use `M-{' and `M-}' to move up or down to
+an error message for a different source file.
+
+   The features of Compilation mode are also available in a minor mode
+called Compilation Minor mode.  This lets you parse error messages in
+any buffer, not just a normal compilation output buffer.  Type `M-x
+compilation-minor-mode' to enable the minor mode.  This defines the keys
+<RET> and `Mouse-2', as in the Compilation major mode.
+
+   Compilation minor mode works in any buffer, as long as the contents
+are in a format that it understands.  In an Rlogin buffer (*note Remote
+Host::), Compilation minor mode automatically accesses remote source
+files by FTP (*note File Names::).
+
+
+File: emacs,  Node: Compilation Shell,  Next: Debuggers,  Prev: Compilation Mode,  Up: Building
+
+Subshells for Compilation
+=========================
+
+   Emacs uses a shell to run the compilation command, but specifies the
+option for a noninteractive shell.  This means, in particular, that the
+shell should start with no prompt.  If you find your usual shell prompt
+making an unsightly appearance in the `*compilation*' buffer, it means
+you have made a mistake in your shell's init file by setting the prompt
+unconditionally.  (This init file's name may be `.bashrc', `.profile',
+`.cshrc', `.shrc', or various other things, depending on the shell you
+use.)  The shell init file should set the prompt only if there already
+is a prompt.  In csh, here is how to do it:
+
+     if ($?prompt) set prompt = ...
+
+And here's how to do it in bash:
+
+     if [ "${PS1+set}" = set ]
+     then PS1=...
+     fi
+
+   There may well be other things that your shell's init file ought to
+do only for an interactive shell.  You can use the same method to
+conditionalize them.
+
+   The MS-DOS "operating system" does not support asynchronous
+subprocesses; to work around this lack, `M-x compile' runs the
+compilation command synchronously on MS-DOS.  As a consequence, you must
+wait until the command finishes before you can do anything else in
+Emacs.  *Note MS-DOS::.
+
+
+File: emacs,  Node: Debuggers,  Next: Executing Lisp,  Prev: Compilation Shell,  Up: Building
+
+Running Debuggers Under Emacs
+=============================
+
+   The GUD (Grand Unified Debugger) library provides an interface to
+various symbolic debuggers from within Emacs.  We recommend the debugger
+GDB, which is free software, but you can also run DBX, SDB or XDB if you
+have them.  GUD can also serve as an interface to the Perl's debugging
+mode, the Python debugger PDB, and to JDB, the Java Debugger.  *Note
+The Lisp Debugger: (elisp)Debugger, for information on debugging Emacs
+Lisp programs.
+
+* Menu:
+
+* Starting GUD::	How to start a debugger subprocess.
+* Debugger Operation::	Connection between the debugger and source buffers.
+* Commands of GUD::	Key bindings for common commands.
+* GUD Customization::	Defining your own commands for GUD.
+* GUD Tooltips::        Showing variable values by pointing with the mouse.
+
+
+File: emacs,  Node: Starting GUD,  Next: Debugger Operation,  Up: Debuggers
+
+Starting GUD
+------------
+
+   There are several commands for starting a debugger, each
+corresponding to a particular debugger program.
+
+`M-x gdb <RET> FILE <RET>'
+     Run GDB as a subprocess of Emacs.  This command creates a buffer
+     for input and output to GDB, and switches to it.  If a GDB buffer
+     already exists, it just switches to that buffer.
+
+`M-x dbx <RET> FILE <RET>'
+     Similar, but run DBX instead of GDB.
+
+`M-x xdb <RET> FILE <RET>'
+     Similar, but run XDB instead of GDB.  Use the variable
+     `gud-xdb-directories' to specify directories to search for source
+     files.
+
+`M-x sdb <RET> FILE <RET>'
+     Similar, but run SDB instead of GDB.
+
+     Some versions of SDB do not mention source file names in their
+     messages.  When you use them, you need to have a valid tags table
+     (*note Tags::) in order for GUD to find functions in the source
+     code.  If you have not visited a tags table or the tags table
+     doesn't list one of the functions, you get a message saying `The
+     sdb support requires a valid tags table to work'.  If this
+     happens, generate a valid tags table in the working directory and
+     try again.
+
+`M-x perldb <RET> FILE <RET>'
+     Run the Perl interpreter in debug mode to debug FILE, a Perl
+     program.
+
+`M-x jdb <RET> FILE <RET>'
+     Run the Java debugger to debug FILE.
+
+`M-x pdb <RET> FILE <RET>'
+     Run the Python debugger to debug FILE.
+
+   Each of these commands takes one argument: a command line to invoke
+the debugger.  In the simplest case, specify just the name of the
+executable file you want to debug.  You may also use options that the
+debugger supports.  However, shell wildcards and variables are not
+allowed.  GUD assumes that the first argument not starting with a `-'
+is the executable file name.
+
+   Emacs can only run one debugger process at a time.
+
+
+File: emacs,  Node: Debugger Operation,  Next: Commands of GUD,  Prev: Starting GUD,  Up: Debuggers
+
+Debugger Operation
+------------------
+
+   When you run a debugger with GUD, the debugger uses an Emacs buffer
+for its ordinary input and output.  This is called the GUD buffer.  The
+debugger displays the source files of the program by visiting them in
+Emacs buffers.  An arrow (`=>') in one of these buffers indicates the
+current execution line.(1)  Moving point in this buffer does not move
+the arrow.
+
+   You can start editing these source files at any time in the buffers
+that display them.  The arrow is not part of the file's text; it
+appears only on the screen.  If you do modify a source file, keep in
+mind that inserting or deleting lines will throw off the arrow's
+positioning; GUD has no way of figuring out which line corresponded
+before your changes to the line number in a debugger message.  Also,
+you'll typically have to recompile and restart the program for your
+changes to be reflected in the debugger's tables.
+
+   If you wish, you can control your debugger process entirely through
+the debugger buffer, which uses a variant of Shell mode.  All the usual
+commands for your debugger are available, and you can use the Shell mode
+history commands to repeat them.  *Note Shell Mode::.
+
+   ---------- Footnotes ----------
+
+   (1) Under a window system the arrow is displayed in the marginal
+area of the Emacs window.
+
+
+File: emacs,  Node: Commands of GUD,  Next: GUD Customization,  Prev: Debugger Operation,  Up: Debuggers
+
+Commands of GUD
+---------------
+
+   The GUD interaction buffer uses a variant of Shell mode, so the
+commands of Shell mode are available (*note Shell Mode::).  GUD mode
+also provides commands for setting and clearing breakpoints, for
+selecting stack frames, and for stepping through the program.  These
+commands are available both in the GUD buffer and globally, but with
+different key bindings.
+
+   The breakpoint commands are normally used in source file buffers,
+because that is the easiest way to specify where to set or clear the
+breakpoint.  Here's the global command to set a breakpoint:
+
+`C-x <SPC>'
+     Set a breakpoint on the source line that point is on.
+
+   Here are the other special commands provided by GUD.  The keys
+starting with `C-c' are available only in the GUD interaction buffer.
+The key bindings that start with `C-x C-a' are available in the GUD
+interaction buffer and also in source files.
+
+`C-c C-l'
+`C-x C-a C-l'
+     Display in another window the last line referred to in the GUD
+     buffer (that is, the line indicated in the last location message).
+     This runs the command `gud-refresh'.
+
+`C-c C-s'
+`C-x C-a C-s'
+     Execute a single line of code (`gud-step').  If the line contains
+     a function call, execution stops after entering the called
+     function.
+
+`C-c C-n'
+`C-x C-a C-n'
+     Execute a single line of code, stepping across entire function
+     calls at full speed (`gud-next').
+
+`C-c C-i'
+`C-x C-a C-i'
+     Execute a single machine instruction (`gud-stepi').
+
+`C-c C-r'
+`C-x C-a C-r'
+     Continue execution without specifying any stopping point.  The
+     program will run until it hits a breakpoint, terminates, or gets a
+     signal that the debugger is checking for (`gud-cont').
+
+`C-c C-d'
+`C-x C-a C-d'
+     Delete the breakpoint(s) on the current source line, if any
+     (`gud-remove').  If you use this command in the GUD interaction
+     buffer, it applies to the line where the program last stopped.
+
+`C-c C-t'
+`C-x C-a C-t'
+     Set a temporary breakpoint on the current source line, if any.  If
+     you use this command in the GUD interaction buffer, it applies to
+     the line where the program last stopped.
+
+   The above commands are common to all supported debuggers.  If you are
+using GDB or (some versions of) DBX, these additional commands are
+available:
+
+`C-c <'
+`C-x C-a <'
+     Select the next enclosing stack frame (`gud-up').  This is
+     equivalent to the `up' command.
+
+`C-c >'
+`C-x C-a >'
+     Select the next inner stack frame (`gud-down').  This is
+     equivalent to the `down' command.
+
+   If you are using GDB, these additional key bindings are available:
+
+`<TAB>'
+     With GDB, complete a symbol name (`gud-gdb-complete-command').
+     This key is available only in the GUD interaction buffer, and
+     requires GDB versions 4.13 and later.
+
+`C-c C-f'
+`C-x C-a C-f'
+     Run the program until the selected stack frame returns (or until it
+     stops for some other reason).
+
+   These commands interpret a numeric argument as a repeat count, when
+that makes sense.
+
+   Because <TAB> serves as a completion command, you can't use it to
+enter a tab as input to the program you are debugging with GDB.
+Instead, type `C-q <TAB>' to enter a tab.
+
+
+File: emacs,  Node: GUD Customization,  Next: GUD Tooltips,  Prev: Commands of GUD,  Up: Debuggers
+
+GUD Customization
+-----------------
+
+   On startup, GUD runs one of the following hooks: `gdb-mode-hook', if
+you are using GDB; `dbx-mode-hook', if you are using DBX;
+`sdb-mode-hook', if you are using SDB; `xdb-mode-hook', if you are
+using XDB; `perldb-mode-hook', for Perl debugging mode;
+`pdb-mode-hook', for PDB; `jdb-mode-hook', for JDB.  You can use these
+hooks to define custom key bindings for the debugger interaction
+buffer.  *Note Hooks::.
+
+   Here is a convenient way to define a command that sends a particular
+command string to the debugger, and set up a key binding for it in the
+debugger interaction buffer:
+
+     (gud-def FUNCTION CMDSTRING BINDING DOCSTRING)
+
+   This defines a command named FUNCTION which sends CMDSTRING to the
+debugger process, and gives it the documentation string DOCSTRING.  You
+can then use the command FUNCTION in any buffer.  If BINDING is
+non-`nil', `gud-def' also binds the command to `C-c BINDING' in the GUD
+buffer's mode and to `C-x C-a BINDING' generally.
+
+   The command string CMDSTRING may contain certain `%'-sequences that
+stand for data to be filled in at the time FUNCTION is called:
+
+`%f'
+     The name of the current source file.  If the current buffer is the
+     GUD buffer, then the "current source file" is the file that the
+     program stopped in.
+
+`%l'
+     The number of the current source line.  If the current buffer is
+     the GUD buffer, then the "current source line" is the line that
+     the program stopped in.
+
+`%e'
+     The text of the C lvalue or function-call expression at or
+     adjacent to point.
+
+`%a'
+     The text of the hexadecimal address at or adjacent to point.
+
+`%p'
+     The numeric argument of the called function, as a decimal number.
+     If the command is used without a numeric argument, `%p' stands for
+     the empty string.
+
+     If you don't use `%p' in the command string, the command you define
+     ignores any numeric argument.
+
+
+File: emacs,  Node: GUD Tooltips,  Prev: GUD Customization,  Up: Debuggers
+
+GUD Tooltips
+------------
+
+   The Tooltip facility (*note Tooltips::) provides support for GUD.  If
+GUD support is activated by customizing the `tooltip' group, variable
+values can be displayed in tooltips by pointing at them with the mouse
+in the GUD buffer or in source buffers with major modes in the
+customizable list `tooltip-gud-modes'.
+
+
+File: emacs,  Node: Executing Lisp,  Next: Lisp Libraries,  Prev: Debuggers,  Up: Building
+
+Executing Lisp Expressions
+==========================
+
+   Emacs has several different major modes for Lisp and Scheme.  They
+are the same in terms of editing commands, but differ in the commands
+for executing Lisp expressions.  Each mode has its own purpose.
+
+Emacs-Lisp mode
+     The mode for editing source files of programs to run in Emacs Lisp.
+     This mode defines `C-M-x' to evaluate the current defun.  *Note
+     Lisp Libraries::.
+
+Lisp Interaction mode
+     The mode for an interactive session with Emacs Lisp.  It defines
+     `C-j' to evaluate the sexp before point and insert its value in the
+     buffer.  *Note Lisp Interaction::.
+
+Lisp mode
+     The mode for editing source files of programs that run in Lisps
+     other than Emacs Lisp.  This mode defines `C-M-x' to send the
+     current defun to an inferior Lisp process.  *Note External Lisp::.
+
+Inferior Lisp mode
+     The mode for an interactive session with an inferior Lisp process.
+     This mode combines the special features of Lisp mode and Shell mode
+     (*note Shell Mode::).
+
+Scheme mode
+     Like Lisp mode but for Scheme programs.
+
+Inferior Scheme mode
+     The mode for an interactive session with an inferior Scheme
+     process.
+
+   Most editing commands for working with Lisp programs are in fact
+available globally.  *Note Programs::.
+
+
+File: emacs,  Node: Lisp Libraries,  Next: Lisp Interaction,  Prev: Executing Lisp,  Up: Building
+
+Libraries of Lisp Code for Emacs
+================================
+
+   Lisp code for Emacs editing commands is stored in files whose names
+conventionally end in `.el'.  This ending tells Emacs to edit them in
+Emacs-Lisp mode (*note Executing Lisp::).
+
+   To execute a file of Emacs Lisp code, use `M-x load-file'.  This
+command reads a file name using the minibuffer and then executes the
+contents of that file as Lisp code.  It is not necessary to visit the
+file first; in any case, this command reads the file as found on disk,
+not text in an Emacs buffer.
+
+   Once a file of Lisp code is installed in the Emacs Lisp library
+directories, users can load it using `M-x load-library'.  Programs can
+load it by calling `load-library', or with `load', a more primitive
+function that is similar but accepts some additional arguments.
+
+   `M-x load-library' differs from `M-x load-file' in that it searches
+a sequence of directories and tries three file names in each directory.
+Suppose your argument is LIB; the three names are `LIB.elc', `LIB.el',
+and lastly just `LIB'.  If `LIB.elc' exists, it is by convention the
+result of compiling `LIB.el'; it is better to load the compiled file,
+since it will load and run faster.
+
+   If `load-library' finds that `LIB.el' is newer than `LIB.elc' file,
+it issues a warning, because it's likely that somebody made changes to
+the `.el' file and forgot to recompile it.
+
+   Because the argument to `load-library' is usually not in itself a
+valid file name, file name completion is not available.  Indeed, when
+using this command, you usually do not know exactly what file name will
+be used.
+
+   The sequence of directories searched by `M-x load-library' is
+specified by the variable `load-path', a list of strings that are
+directory names.  The default value of the list contains the directory
+where the Lisp code for Emacs itself is stored.  If you have libraries
+of your own, put them in a single directory and add that directory to
+`load-path'.  `nil' in this list stands for the current default
+directory, but it is probably not a good idea to put `nil' in the list.
+If you find yourself wishing that `nil' were in the list, most likely
+what you really want to do is use `M-x load-file' this once.
+
+   Often you do not have to give any command to load a library, because
+the commands defined in the library are set up to "autoload" that
+library.  Trying to run any of those commands calls `load' to load the
+library; this replaces the autoload definitions with the real ones from
+the library.
+
+   Emacs Lisp code can be compiled into byte-code which loads faster,
+takes up less space when loaded, and executes faster.  *Note Byte
+Compilation: (elisp)Byte Compilation.  By convention, the compiled code
+for a library goes in a separate file whose name consists of the
+library source file with `c' appended.  Thus, the compiled code for
+`foo.el' goes in `foo.elc'.  That's why `load-library' searches for
+`.elc' files first.
+
+   By default, Emacs refuses to load compiled Lisp files which were
+compiled with XEmacs, a modified versions of Emacs--they can cause
+Emacs to crash.  Set the variable `load-dangerous-libraries' to `t' if
+you want to try loading them.
 

@@ -1,0 +1,313 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		014CEA490018CE3211CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA4A0018CE3211CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//030
+//031
+//032
+//033
+//034
+		034768E2FF38A6DC11DB9C8B = {
+			isa = PBXExecutableFileReference;
+			path = Deva;
+			refType = 3;
+		};
+//030
+//031
+//032
+//033
+//034
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildStyles = (
+				014CEA490018CE3211CA2923,
+				014CEA4A0018CE3211CA2923,
+			);
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				08FB779FFE84155DC02AAC07,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				08FB7795FE84155DC02AAC07,
+				08FB779DFE84155DC02AAC07,
+				19C28FBDFE9D53C911CA2CBB,
+			);
+			isa = PBXGroup;
+			name = Deva;
+			refType = 4;
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				08FB7796FE84155DC02AAC07,
+				F5F3CFCE024BECB101CE2351,
+				F5F3CFCF024BECB101CE2351,
+				F5F3CFD2024BEE5301CE2351,
+				F5F3CFD3024BEE5301CE2351,
+				F5F3CFD6024BEED801CE2351,
+				F5F3CFD7024BEED801CE2351,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+		08FB7796FE84155DC02AAC07 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = main.c;
+			refType = 4;
+		};
+		08FB779DFE84155DC02AAC07 = {
+			children = (
+				09AB6884FE841BABC02AAC07,
+				F5F3CFCA024ABDDC01CE2351,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		08FB779FFE84155DC02AAC07 = {
+			buildPhases = (
+				08FB77A0FE84155DC02AAC07,
+				08FB77A1FE84155DC02AAC07,
+				08FB77A3FE84155DC02AAC07,
+				08FB77A5FE84155DC02AAC07,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Deva;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = Deva;
+			productInstallPath = "$(HOME)/bin";
+			productName = Deva;
+			productReference = 034768E2FF38A6DC11DB9C8B;
+			shouldUseHeadermap = 1;
+		};
+		08FB77A0FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5F3CFD0024BECB101CE2351,
+				F5F3CFD4024BEE5301CE2351,
+				F5F3CFD8024BEED801CE2351,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A1FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				08FB77A2FE84155DC02AAC07,
+				F5F3CFD1024BECB101CE2351,
+				F5F3CFD5024BEE5301CE2351,
+				F5F3CFD9024BEED801CE2351,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A2FE84155DC02AAC07 = {
+			fileRef = 08FB7796FE84155DC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		08FB77A3FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				09AB6885FE841BABC02AAC07,
+				F5F3CFCB024ABDDC01CE2351,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A5FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//090
+//091
+//092
+//093
+//094
+		09AB6884FE841BABC02AAC07 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		09AB6885FE841BABC02AAC07 = {
+			fileRef = 09AB6884FE841BABC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//090
+//091
+//092
+//093
+//094
+//190
+//191
+//192
+//193
+//194
+		19C28FBDFE9D53C911CA2CBB = {
+			children = (
+				034768E2FF38A6DC11DB9C8B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5F3CFCA024ABDDC01CE2351 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		F5F3CFCB024ABDDC01CE2351 = {
+			fileRef = F5F3CFCA024ABDDC01CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFCE024BECB101CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = something.h;
+			refType = 4;
+		};
+		F5F3CFCF024BECB101CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = something.c;
+			refType = 4;
+		};
+		F5F3CFD0024BECB101CE2351 = {
+			fileRef = F5F3CFCE024BECB101CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFD1024BECB101CE2351 = {
+			fileRef = F5F3CFCF024BECB101CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFD2024BEE5301CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = deva.h;
+			refType = 4;
+		};
+		F5F3CFD3024BEE5301CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = deva.c;
+			refType = 4;
+		};
+		F5F3CFD4024BEE5301CE2351 = {
+			fileRef = F5F3CFD2024BEE5301CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFD5024BEE5301CE2351 = {
+			fileRef = F5F3CFD3024BEE5301CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFD6024BEED801CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = printInterpretedError.h;
+			refType = 4;
+		};
+		F5F3CFD7024BEED801CE2351 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = printInterpretedError.c;
+			refType = 4;
+		};
+		F5F3CFD8024BEED801CE2351 = {
+			fileRef = F5F3CFD6024BEED801CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5F3CFD9024BEED801CE2351 = {
+			fileRef = F5F3CFD7024BEED801CE2351;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

@@ -1,5 +1,5 @@
-# Kernel Object Display Window for GDBtk.
-# Copyright (C) 1998, 1999 Cygnus Solutions
+# Kernel Object Display Window for Insight.
+# Copyright (C) 1998, 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -31,12 +31,6 @@ body KodWin::constructor {args} {
   gdbtk_busy
   build_win
   gdbtk_idle
-
-  # Add hooks for this object
-  add_hook gdb_update_hook [code $this update]
-  add_hook gdb_busy_hook [code $this busy]
-  add_hook gdb_idle_hook [code $this idle]
-  add_hook gdb_set_hook [code $this set_os]
 }
 
 # ------------------------------------------------------------------
@@ -139,7 +133,7 @@ body KodWin::build_win {} {
   pack $tp.tf -side top -expand yes -fill both -padx 5 -pady 5
   pack $tp.bf -side top -expand no -fill x -padx 5 -pady 5
   pack $itk_interior.pw -side bottom -expand yes -fill both
-  wm minsize $Top 450 500
+  wm minsize $_top 450 500
 
   # Initialize button state variables for idle (called before update)
   set BState(BDisplay) disabled
@@ -149,13 +143,13 @@ body KodWin::build_win {} {
 
   #    window_name "Kernel Objects"
 
-  update
+  update dummy
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  update - update widget when something changes
 # ------------------------------------------------------------------
-body KodWin::update {} {
+body KodWin::update {event} {
 
   debug "updating kod window"
 
@@ -185,7 +179,7 @@ body KodWin::display {} {
     set LevelCmd($level) $LevelCmd([expr $level-1])
     append LevelCmd($level) $object
     debug "kod command for level $level is now: $LevelCmd($level)"
-    update
+    update dummy
     # Run idle hooks and cause all other widgets to update
     gdbtk_idle
   }
@@ -371,7 +365,7 @@ body KodWin::top {} {
   debug "going to top from level $level"
   if {$level > 0} {
     set level 0
-    update
+    update dummy
   }
 }
 
@@ -383,7 +377,7 @@ body KodWin::up {} {
   if {$level > 0} {
     incr level -1
     debug "...to level $level"
-    update
+    update dummy
   }
 }
 
@@ -398,21 +392,19 @@ body KodWin::destructor {} {
   catch {unset pane1_vals}
   catch {unset pane2_vals}
   catch {unset kodActivePane}
-
-  remove_hook gdb_update_hook [code $this update]
-  remove_hook gdb_idle_hook [code $this idle]
-  remove_hook gdb_busy_hook [code $this busy]
-  remove_hook gdb_set_hook [code $this set_os]
 }
 
 # ------------------------------------------------------------------
-#  METHOD:  set - called when user runs `set os' command
+#  PUBLIC METHOD:  set_variable - called when user runs `set os'
+#                   command
 # ------------------------------------------------------------------
-body KodWin::set_os {var value} {
-  if {$var == "os" && $value != ""} {
+body KodWin::set_variable {event} {
+
+  set value [$event get value]
+  if {[$event get variable] == "os" && $value != ""} {
     set LevelCmd(0) "info $value "
     set level 0
-    update
+    update dummy
   }
 }
 
@@ -426,22 +418,23 @@ body KodWin::reconfig {} {
 }
 
 # ------------------------------------------------------------------
-#  METHOD:  busy - gdb_busy_hook
+#  METHOD:  busy - BusyEvent handler
 #
 #        This method should accomplish blocking
 #        - clicks in the window
 #        - change mouse pointer
 # ------------------------------------------------------------------
-body KodWin::busy {} {
+body KodWin::busy {event} {
   set Running 1
   _disable_buttons
   cursor watch
 }
 
 # ------------------------------------------------------------------
-#  METHOD:  idle - idle hook.  Run when the target is not running
+#  METHOD:  idle - idle event handler.  Run when the target is not
+#           running
 # ------------------------------------------------------------------
-body KodWin::idle {} {
+body KodWin::idle {event} {
   set Running 0
   _restore_buttons
   cursor {}
@@ -453,7 +446,7 @@ body KodWin::idle {} {
 #        pointer to the given glyph.
 # ------------------------------------------------------------------
 body KodWin::cursor {glyph} {
-  $Top configure -cursor $glyph
+  $_top configure -cursor $glyph
 }
 
 # ------------------------------------------------------------------

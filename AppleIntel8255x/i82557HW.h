@@ -32,8 +32,6 @@
 #ifndef _I82557HW_H
 #define _I82557HW_H
 
-#include <net/etherdefs.h>
-
 //-------------------------------------------------------------------------
 // Misc definitions.
 //-------------------------------------------------------------------------
@@ -47,6 +45,12 @@
 
 #define PCI_CFID_INTEL82557			0x12298086
 
+#define kPCIPMCSR                   (pmPCICapPtr + 4)
+
+enum {
+    kPCIPMCPMESupportFromD3Cold =   BIT(15),
+};
+    
 typedef enum {
 	MEDIUM_TYPE_10_HD = 0,
 	MEDIUM_TYPE_10_FD,
@@ -324,7 +328,7 @@ typedef struct {
 #define CB_CB19_RX_FC_RESTART		BIT(4)
 #define CB_CB19_RX_FC_RESTOP		BIT(3)
 #define CB_CB19_TX_FC				BIT(2)
-#define CB_CB19_MAGIC_PKT_WAKEUP	BIT(1)
+#define CB_CB19_MAGIC_PKT_DISABLE	BIT(1)
 #define CB_CB19_ADDRESS_WAKEUP		BIT(0)
 
 #define CB_CB20_MULTI_IA			BIT(6)

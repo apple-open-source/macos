@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test to make sure subdirs in EXTRA_DIST work.  Also tests to make
+# sure "./" is ignored.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+EXTRA_DIST = foo/bar ./joe
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '\$(mkinstalldirs).*\.' Makefile.in && exit 1
+grep '\$(mkinstalldirs).*foo' Makefile.in || exit 1
+
+# Check to make sure `foo' isn't made in build directory.
+grep 'mkinstalldirs.*foo.*foo' Makefile.in && exit 1
+exit 0

@@ -111,3 +111,5 @@
 after_install:
 	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man8
 	install -m 644 -o root -g wheel -c quotaon.8 $(DSTROOT)/usr/share/man/man8
+	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/quotaoff
+	$(LN) -f $(DSTROOT)/usr/share/man/man8/quotaon.8 $(DSTROOT)/usr/share/man/man8/quotaoff.8

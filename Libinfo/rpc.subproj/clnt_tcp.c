@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)clnt_tcp.c 1.37 87/10/05 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)clnt_tcp.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: clnt_tcp.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: clnt_tcp.c,v 1.4 2002/03/15 22:07:48 majka Exp $";
 #endif
  
 /*
@@ -76,8 +76,12 @@ static char *rcsid = "$Id: clnt_tcp.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
+#include <sys/fcntl.h>
 #include <netdb.h>
 #include <errno.h>
 #include <rpc/pmap_clnt.h>
@@ -85,6 +89,9 @@ static char *rcsid = "$Id: clnt_tcp.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
 #define MCALL_MSG_SIZE 24
 
 extern int errno;
+
+extern int	bindresvport();
+extern bool_t	xdr_opaque_auth();
 
 static int	readtcp();
 static int	writetcp();
@@ -141,9 +148,10 @@ clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 	u_int recvsz;
 {
 	CLIENT *h;
-	register struct ct_data *ct;
+	register struct ct_data *ct = NULL;
 	struct timeval now;
 	struct rpc_msg call_msg;
+	int rfd;
 
 	h  = (CLIENT *)mem_alloc(sizeof(*h));
 	if (h == NULL) {
@@ -203,8 +211,14 @@ clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 	/*
 	 * Initialize call message
 	 */
-	(void)gettimeofday(&now, (struct timezone *)0);
-	call_msg.rm_xid = getpid() ^ now.tv_sec ^ now.tv_usec;
+	rfd = open("/dev/random", O_RDONLY, 0);
+	if ((rfd < 0) || (read(rfd, &call_msg.rm_xid, sizeof(call_msg.rm_xid)) != sizeof(call_msg.rm_xid)))
+	{
+		gettimeofday(&now, (struct timezone *)0);
+		call_msg.rm_xid = getpid() ^ now.tv_sec ^ now.tv_usec;
+	}
+	if (rfd > 0) close(rfd);
+
 	call_msg.rm_direction = CALL;
 	call_msg.rm_call.cb_rpcvers = RPC_MSG_VERSION;
 	call_msg.rm_call.cb_prog = prog;
@@ -431,7 +445,7 @@ readtcp(ct, buf, len)
 	FD_SET(ct->ct_sock, &mask);
 	while (TRUE) {
 		readfds = mask;
-		switch (select(ct->ct_sock+1, &readfds, (int*)NULL, (int*)NULL,
+		switch (select(ct->ct_sock+1, &readfds, NULL, NULL,
 			       &(ct->ct_wait))) {
 		case 0:
 			ct->ct_error.re_status = RPC_TIMEDOUT;

@@ -1,0 +1,916 @@
+2002-02-04  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/saslpasswd.c: Added -n option (Ken Murchison)
+	* lib/dlopen.c: Removed confusing entry point message.
+	* Ready for 2.1.1
+
+2002-02-01  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: fixed srp_setpass()
+
+2002-01-31  Ken Murchison <ken@oceana.com>
+	* include/sasl.h, lib/server.c,
+	  plugins/digestmd5.c, gssapi.c, kerberos4.c, srp.c:
+	  added SASL_SEC_MUTUAL_AUTH
+	* plugins/srp.c: cleanup error messages and return codes
+	
+2002-01-30  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c, plugins/otp.h: added non-OPIE client/server
+	  implementation (requires OpenSSL)
+	* configure.in: OTP now requires OpenSSL, OPIE is optional
+	* doc/options.html, doc/readme.html, doc/sysadmin.html, doc/TODO:
+	  updated for new OTP implementation
+
+2002-01-25  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/Makefile.am: Correct multiple EXTRA_DIST bug
+	* saslauthd/Makefile.am: small typo fixed (Leena Heino <liinu@uta.fi>)
+
+2002-01-23  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/dbconverter-2.c (main): More intelligent default paths
+	* acconfig.h: #ifndef's for _GNU_SOURCE (Assar <assar@permabit.com>)
+
+2002-01-22  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/common.c: Complete definition of sasl_global_listmech
+	  (from Love <lha@stacken.kth.se>)
+	* lib/client.c: added checks for _sasl_client_active to
+	  sasl_client_new and sasl_client_start
+
+2002-01-21  Ken Murchison <ken@oceana.com>
+	* doc/draft-myers-saslrev-01.txt: moved TOC
+	* doc/draft-ietf-cat-sasl-gssapi-05.txt: moved TOC
+	* doc/draft-nerenberg-sasl-crammd5-01.txt: added
+	* doc/draft-nerenberg-sasl-crammd5-00.txt: deleted
+	* doc/index.html: changed link to updated draft
+	* plugins/login.c (login_client_mech_step): fix client-first
+	  handling
+
+2002-01-21  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/server.c (sasl_server_start): null out *serverout and
+	  *serveroutlen, just in case.
+	* lib/external.c: Added correct required_prompts
+	* saslauthd/testsaslauthd.c: Added simple saslauthd client
+	* saslauthd/Makefile.am: rules for testsaslauthd
+	* doc/sysadmin.html: updated to reference testsaslauthd
+	* saslauthd/saslauthd.c: allow -n 0 (for fork-per-connection)
+	* saslauthd/saslauthd.mdoc: documentation of -n 0
+	* plugins/cram.c (crammd5_client_mech_step): fix client-first
+	  handling
+	* sasldb/db_gdbm.c: improved error reporting
+	  (Courtesy Marshall T. Rose <mrose@dbc.mtview.ca.us>
+	* config/sasldb.m4: improved gdbm configure handling
+	  (Courtesy Marshall T. Rose <mrose@dbc.mtview.ca.us>
+	* config/kerberos_v4.m4: Detect OpenSSL libdes first.
+	  (Courtesy Marshall T. Rose <mrose@dbc.mtview.ca.us>
+	* plugins/cram.c, digestmd5.c, kervberos4.c, login.c,
+	  lib/client.c, server.c, include/saslplug.h:
+	  Cleaner client-first ABI.
+
+2002-01-19  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c: set serverout to NULL where we have nothing to
+	  send instead of the empty string
+	* plugins/srp.c: let glue code handle client-last/server-last
+	  situation by setting serverout appropriately
+
+2002-01-19  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/plain.c, plugins/login.c, plugins/digestmd5.c:
+          set serverout to NULL where we have nothing to send instead of
+	  the empty string
+	* include/saslplug.h, lib/client.c, lib/server.c: eliminated
+	  SASL_FEAT_WANT_SERVER_LAST in favor of clever setting of serverout
+	* plugins/digestmd5.c: removed SASL_FEAT_WANT_SERVER_LAST
+
+2002-01-18  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: updated to draft-burdis-cat-srp-sasl-06
+	* plugins/srp.c: server uses external SSF
+	* plugins/srp.c: server sends mandatory options based on min SSF
+	* doc/draft-burdis-cat-srp-sasl-06.txt: added
+	* doc/draft-burdis-cat-srp-sasl-05.txt: deleted
+	* doc/index.html: changed link to updated draft
+
+2002-01-17  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/kerberos4.c: Actually allocate a mutex on the client side
+
+2002-01-16  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/server.c (mech_permitted): fixed incorrect return value of
+	  SASL_NOMECH that should have been 0.
+	* lib/common.c (sasl_errdetail): fixed core if passed in conn is NULL
+	* plugins/digestmd5.c (encode_tmp_buf): removed unneeded buffer
+
+2002-01-16  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: fixed layer decoding to handle multiple packets
+	* plugins/srp.c: plugged memory leaks (now passes testsuite)
+	* plugins/srp.c: more logging
+	* plugins/srp.c: lots of other nits, bug fixes
+	* utils/testsuite.c: added SSF=0/56 test
+
+2002-01-14  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/auth_krb4.c (auth_krb4): fix tf_name memory leak,
+	  and other efficency fixes
+
+2002-01-11  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* include/saslplug.h: Add flags member to params structures
+	* lib/client.c, lib/server.c: flags parameter to sasl_*_new
+	  now gets to the plugins
+
+2002-01-10  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* include/sasl.h: Update for sasl_global_listmech API
+	* lib/common.c, lib/client.c, lib/server.c: sasl_global_listmech()
+	* lib/dlopen.c (_parse_la): fix parseing of dlname= line
+	* Ready for 2.1.0
+
+2002-01-09  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c: fixed security_flags
+	* plugins/srp.c: corrected integrity layer encoding
+	* plugins/srp.c: finished maxbuffersize handling
+	* plugins/srp.c: fixed security_flags
+	* doc/index.html: added reference to SRP paper
+
+2002-01-09  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/common.c (sasl_decode): Removed maxoutbuf check
+	* man/sasl_setprop.3: Minor clarifications
+	* plugins/digestmd5.c, plugins/gssapi.c, plugins/kerberos4.c:
+	  Assorted security layer fixes (maxoutbuf setting, mech_ssf setting)
+	* lib/common.c, lib/client.c, lib/server.c, lib/saslint.h:
+	  Allowed client-side sasl_listmech calls.
+	* include/sasl.h: Minor cosmetic fix to comments
+	* doc/programming.html: Interaction memory management clarifications
+	* lib/common.c: Fix several crash problems in getprop
+	  (Courtesy Marshall T. Rose <mrose@dbc.mtview.ca.us>)
+
+2002-01-05  Lawrence Greenfield  <leg+@andrew.cmu.edu>
+	* saslauthd/saslauthd.c: F_SETLK doesn't block; F_SETLKW does
+	* saslauthd/saslauthd.c: detect errors somewhat better
+
+2002-01-04  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/common.c: Allow sasl_setprop for SASL_DEFUSERREALM
+
+2002-01-04  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: don't send M2 if using a confidentiality layer
+	* plugins/srp.c: more constraint checks
+	* plugins/otp.c: improve standard hex/word response detection
+	* doc/install.html, doc/sysadmin.html, contrib/opie-2.4-fixes:
+	  add patch for OPIE 2.4 to enable extended responses
+
+2002-01-03  Ken Murchison <ken@oceana.com>
+	* configure.in: removed check fpr gmp
+	* plugins/srp.c: migrated to OpenSSL's BN (removed GNU MP dependency)
+
+2001-12-20  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* sasldb/db_ndbm.c: Fixed small memory leak
+	  (Courtesy  Howard Chu <hyc@highlandsun.com>)
+
+2001-12-18  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: more constraint checks
+
+2001-12-17  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/saslauthd.c: Prefork a number of processes to handle
+	  connections.
+	* saslauthd/auth_krb4.c: Handle concurrent accesses better.
+
+2001-12-15  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: added confidentiality layers
+
+2001-12-14  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: improved client/server layer option handling
+	* plugins/srp.c: added client-side support for mandatory options
+	* plugins/srp.c: added framework for confidentiality layers
+	* plugins/srp.c: added some data sanity checking (thanks to
+	  Tom Holroyd <tomh@po.crl.go.jp> for feedback)
+
+2001-12-13  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/server.c, lib/common.c: Fix handling of
+	  global callbacks so that plugin_list works again
+
+2001-12-12  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* pwcheck/Makefile.am: Added include of ../lib
+	  (from Hajimu UMEMOTO <ume@mahoroba.org>)
+
+2001-12-11  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* sasldb/db_ndbm.c: fix call to dbm_nextkey, from
+	  Scot W. Hetzel <scot@genroco.com>
+
+2001-12-10  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* doc/plugprog.html: Update for new user canonicalization usage.
+	* man/sasl_canon_user.3: Update for new user canonicalization usage.
+	* configure.in: Actually set STATIC_GSSAPIV2 when necessary
+
+2001-12-08  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: make sure we have the HMAC before trying to use it
+	* plugins/srp.c: don't advertise server integrity w/o HMAC-SHA-1
+	* plugins/srp.c: move EVP_cleanup() to mech_free so mech can be reused
+
+2001-12-07  Ken Murchison <ken@oceana.com>
+	* configure.in: SRP now requires OpenSSL
+	* plugins/srp.c: migrated to OpenSSL's MDA/cipher abstraction API 
+	* plugins/srp.c: added RIPEMD-160 support
+	* plugins/srp.c: using "standard ACSII names" for MDA-names as
+	  documented by [SCAN] (until determined otherwise)
+	* plugins/srp.c: using updated canon_user API to allow separate
+	  canonicalization of authid and authzid.
+
+2001-12-06  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/canonusr.c: Better logging when desired plugin is not found.
+	* lib/checkpw.c: spelling error fixed.
+	* lib/canonusr.c, lib/checkpw.c, lib/client.c, lib/external.c,
+	  lib/saslint.h, lib/server.c, include/sasl.h, include/saslplug.h,
+	  plugins/*.c: Updated canon_user API to allow separate
+	  canonicalization of authid and authzid.
+
+2001-12-05  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/Makefile.am, saslauthd/acconfig.h, saslauthd/configure.in:
+	  Solaris 7 and FreeBSD (FreeBSD is courtesy of Claus Assmann
+	  <ca+sasl@sendmail.org>)
+	* sasldb/Makefile.am: link order fix (Courtesy Claus Assmann
+	  <ca+sasl@sendmail.org>)
+
+2001-12-05  Ken Murchison <ken@oceana.com>
+	* configure.in:
+	* plugins/Makefile.am: only build SRP with sasldb libs when
+	  srp_setpass() is enabled
+	* plugins/srp.c: added HMAC-SHA-160 integrity layer
+	* plugins/srp.c: don't offer integrity layers unless HMAC-SHA-160
+	  is available (mandatory)
+	* plugins/srp.c: fixed multiple integrity/confidentiality layer
+	  client-side bug
+	* plugins/srp.c: fixed delete SRP secret bug
+	* plugins/srp.c: removed VL() stuff
+
+2001-12-04  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/Makefile.am, config/sasldb.m4: Build sasldblistusers2
+	  and saslpasswd2.  Default database now /etc/sasldb2
+	* INSTALL, README, doc/index.html, doc/upgrading.html: Update
+	  with upgrading instructions in preparation for release.
+	* doc/, /: Documentation reorganization, convert README and INSTALL to
+	  HTML format.
+	* Bumped appropriate version numbers, Ready for 2.0.5-BETA
+
+2001-12-04  Ken Murchison <ken@oceana.com>
+	* acconfig.h, configure.in: dependency checking for SRP
+	* acconfig.h, configure.in:
+	* plugins/srp.c: made srp_setpass() a compile-time option (default=off)
+	* plugins/srp.c: use auxprop to fetch cmusaslsecretSRP/userPassword
+	* plugins/srp.c: code cleanup
+	* acconfig.h, configure.in:
+	* doc/sysadmin.html:
+	* plugins/otp.c: made otp_setpass() a compile-time option (default=off)
+
+2001-12-02  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: fixed SHA1 support
+	* plugins/srp.c: changed calculation of 'x' to coincide with draft -05
+	* plugins/srp.c: code cleanup
+
+2001-12-01  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: abstracted MDA interface
+	* plugins/srp.c: added SHA1 support (not working)
+
+2001-11-30  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: renumbered steps to start at 1
+	* plugins/srp.c: check plugin API version instead of SRP_VERSION
+	* plugins/srp.c: changed data exchanges to conform to draft -05
+
+2001-11-29  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: code now compiles and runs
+	* plugins/Makefile.am: added sasldb libs to SRP build
+
+2001-11-24  Ken Murchison <ken@oceana.com>
+	* lib/external.c: made EXTERNAL a client-send-first mechanism
+	* doc/index.html: added CRAM-MD5 draft
+
+2001-11-22  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c: fixed otp_setpass() bug
+	* doc/sysadmin.html: OTP additions/changes
+
+2001-11-19  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/saslpasswd.c: Corrected disable handling
+
+2001-11-17  Ken Murchison <ken@oceana.com>
+	* doc/index.html, rfc2945.txt, rfc3174.txt: specification additions
+	* doc/Makefile.am: Updated included RFCs and IDs
+	
+2001-11-14  Ken Murchison <ken@oceana.com>
+	* lib/server.c, doc/options.html: added 'mech_list' option
+
+2001-11-14  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* sasldb/allockey.c: removed an assert() call
+	* sasldb/db_ndmb.c, sasldb/db_gdbm.c: Fixed cntxt's to be conn's 
+
+2001-11-13  Ken Murchison <ken@oceana.com>
+	* acconfig.h, configure.in:
+	* plugins/otp.c: support client-side OTP without OPIE
+
+2001-11-08  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c: allow entry of one-time password via
+	  SASL_CB_ECHOPROMPT callback
+	* plugins/otp.c: code cleanup
+	* doc/index.html, draft*.txt: specification updates/additions
+
+2001-11-08  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/cram.c, digestmd5.c, sasldb.c: Removed all assert()
+	  calls from supported plugins.
+
+2001-11-07  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/testsuite.c: added proxy policy checks
+	* lib/checkpw.c (_sasl_auxprop_verify_apop): correct handling
+	  of seterror calls
+
+2001-11-06  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/canonusr.c (_canonuser_internal): added necessary seterror calls
+	* doc/Makefile.am: Updated included RFCs and IDs
+	* lib/canonusr.c, lib/server.c: Corrected authzid/authid handling
+	* plugins/digestmd5.c: Unconfused authzid/authid in server call to
+	  canon_user
+
+2001-11-01  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/gssapi.c, plugins/kerberos4.c: Get rid of unnecessary
+	  buffer copy in security layer encodes.
+
+2001-10-24  Ken Murchison <ken@oceana.com>
+	* plugins/otp.c: added otp_setpass() so that saslpasswd can
+	  be used instead of opiepasswd on closed systems
+	* doc/sysadmin.html: OTP additions/changes
+
+2001-10-22  Ken Murchison <ken@oceana.com>
+	* acconfig.h, configure.in: detect OPIE, enable/disable OTP
+	* plugins/Makefile.am, makeinit.sh, otp.c: added OTP support
+	  (still need work on RFC2444 compliance - depends on OPIE changes)
+	* doc/index.html, options.html, sysadmin.html, rfc*.txt:
+	  OTP additions/changes
+
+2001-10-18  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/testsuite.c: Test DES harder for DIGEST-MD5
+	* plugins/digestmd5.c (enc_des): Get rid of one buffer copy.
+	* plugins/digestmd5.c (dec_des, dec_3des): correct handling of
+	  padding length check.
+
+2001-10-17  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* config/sasldb.m4: detect berkeley db 4
+	* plugins/gssapi.c, cram.c, kerberos4.c, digestmd5.c: have dispose
+	  calls deal with the possibility of a null context
+
+2001-10-16  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/Makefile.am: Link LIB_PAM  as well, if needed
+	* plugins/digestmd5.c: Don't send a trailing nul on challenge and
+	  responses.
+	* lib/server.c (sasl_server_start, sasl_server_step): Deal with
+	  authentication failures better. (Reported by Larry Rosenbaum
+	  <lmr@ornl.gov>)
+
+2001-10-02  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/Makefile.am, saslauthd/auth_sasldb.c,
+	  saslauthd/configure.in: Changes to allow extraction of saslauthd
+	  as needed.
+
+2001-09-19  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/getaddrinfo.c (getaddrinfo): Correct fix for
+	  AI_PASSIVE bug from Hajimu UMEMOTO <ume@mahoroba.org>
+	* plugins/plugin_common.c, lib/common.c (_*_ipfromstring):
+	  revert to previous versions.
+
+	* plugins/Makefile.am: Include necessry compatibility objects
+	  as needed.
+	* lib/Makefile.am: compatibility code for static libsasl
+	* configure.in: small changes to make compatibility objects easy
+	  to use.
+
+2001-09-18  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/plugin_common.c, lib/common.c (_*_ipfromstring):
+	  no longer use AI_PASSIVE hint for getaddrinfo
+
+2001-09-13  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/auth_sasldb.c, saslauthd/auth_sasldb.h:
+	  Added experimental sasldb saslauthd module
+	* saslauthd/configure.in: sasldb related config changes,
+	  do not config if disabled
+
+2001-09-12  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/*, lib/checkpw.c (saslauthd_verify_password):
+	  merged new saslauthd protocol from Ken Murchison <ken@oceana.com>
+
+2001-08-30  Rob Siemborski <rjs3+@andrew.cmu.edu>
+
+	* configure.in, saslauthd/configure.in: check for inet_aton
+	  in libresolv.so, so as to link it if necessary
+
+	* config/sasldb.m4 (BERKELEY_DB_CHK_LIB): set runpath of library
+	  if necessary
+
+2001-08-29  Rob Siemborski <rjs3+@andrew.cmu.edu>
+
+	* utils/testsuite.c: Minor testsuite fix (include paths)
+
+	* Ready for 2.0.4-BETA
+
+2001-08-24  Rolf Braun <rbraun+@andrew.cmu.edu>
+
+	* Mac OS 9 and X support, including Carbon
+	  Mac OS 9 Classic support based on the SASL v1 code
+	  by Aaron Wohl <n3liw+@andrew.cmu.edu>
+
+	* updated ltconfig and ltmain.sh
+	* acconfig.h:
+	* configure.in:
+	* lib/saslutil.c: use random() when jrand48() isn't available
+
+	* dlcompat-20010505:
+	  dlcompat included for OS X support, compiles separately
+	* lib/dlopen.c: prefix symbols with underscore on OS X, as on OpenBSD
+	  note that this is also detected automatically by configure,
+	  this only helps when cross-compiling (for OS X?)
+
+	* acconfig.h:
+	* configure.in:
+	* config/kerberos_v4.m4
+	  look for libdes524 when libdes doesn't exist.
+	  look for libkrb4 when libkrb doesn't exist.
+
+	* lib/saslint.h:
+	* lib/common.c:
+	* lib/seterror.c:
+	* lib/Makefile.am:
+	  split sasl_seterror() into a new file.
+	  add_string -> _sasl_add_string and made this non-static
+	  so seterror can use it.
+	  added _sasl_get_errorbuf to go into the conn_t struct
+	  so we don't have to know the format of that struct when
+	  seterror.c is linked from glue code (i.e., the Mac OS X CFM glue)
+
+	* acconfig.h:
+	  fix the order of the fake iovec struct for systems that
+	  don't have it (like Mac OS 9) so it's the same order as
+	  most Unixes that do (like Mac OS X) -- the CFM glue needs this
+
+	* acconfig.h:
+	  include <sys/types.h> before we include <sys/uio.h>
+
+	* plugins/kerberos4.c:
+	* lib/checkpw.c:
+	* acconfig.h:
+	* configure.in:
+	  check for krb_get_err_txt in the kerberos 4 library,
+	  and use it instead of the krb_err_txt[] array if available
+
+	* plugins/kerberos4.c:
+	  define KEYFILE to "/etc/srvtab" if not already defined
+	  by the kerberos 4 headers (needed for MIT KfM 4.0)
+
+	* doc/macosx.html: added this
+	* README: point Mac OS X users to doc/macosx.html
+	* doc/Makefile.am: add doc/macosx.html to distfiles
+
+	* Makefile.am:
+	* lib/Makefile.am:
+	* include/Makefile.am:
+	* config/Info.plist:
+	* configure.in:
+	  when building on Mac OS X, install a framework
+	  in /Library/Frameworks
+
+	* mac/*:
+	  projects and support files for Mac OS 9, classic and Carbon
+	* mac/osx_cfm_glue:
+	  the glue to allow CFM Carbon applications under Mac OS X
+	  call the Unix-layer SASL library
+
+	* lib/common.c:
+	* lib/canonusr.c:
+	  don't do the auxprop stuff on Mac OS 9
+
+	* lib/getaddrinfo.c:
+	  don't look up hostnames on Mac OS 9 (we only officially
+	  support passing IP address strings anyway)
+
+	* lib/getaddrinfo.c:
+	* plugins/plugin_common.c:
+	* plugins/plugin_common.h:
+	  don't include headers on Mac OS 9 that we don't have.
+
+	* sample/sample-client.c:
+	  add a cast for Mac OS 9 (different type handling of char)
+
+	* plugins/makeinit.sh:
+	  include the stub header to export the right symbols on Mac OS 9
+
+2001-08-20  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/gssapi.c (gssapi_server_mech_step): fixed accidental
+	  back link into glue code
+
+	* config/kerberos4.m4: Actually link in -lkrb
+
+2001-08-15  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/common.c (_sasl_iptostring): #if 0'd out.
+
+	* lib/server.c (sasl_user_exists): only check the verifier we
+	  are using
+
+	* config/kerberos_v4.m4 (SASL_DES_CHK): added
+	* config/kerberos_v4.m4 (SASL_KERBEROS_V4_CHK): included
+	  entire check from configure.in
+	* configure.in: moved kerberos 4 code completely out.
+	* saslauthd/acconfig.h (WITH_DES, WITH_SSL_DES): Added
+	  DES-related symbols	
+
+2001-08-14  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* configure.in: Check for sys/uio.h
+	* saslauthd/configure.in: Check for sys/uio.h
+	* config.h: Do the Right Thing for struct iovec (and
+	  no longer include sys/uio.h elsewhere)
+	* saslauthd/config.h: Do the Right Thing for struct iovec (and
+	  no longer include sys/uio.h elsewhere)
+
+2001-08-13  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/digestmd5.c (init_des, init_3des, enc_des, dec_des,
+	  enc_3des, dec_3des): fixed interoperability problems,
+	  3des was not decrypting with correct key and des was not
+	  setting up the initial vector.
+
+	* lib/checkpw.c (always_true): log users who log in via this verifier
+
+2001-08-13  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/testsuite.c (giveokpath): fix memory leak
+
+	* lib/common.c (sasl_ipfromstring): add call to freeaddrinfo()
+	* plugins/plugin_common.c (_plug_ipfromstring): add call to
+	  freeaddrinfo()
+
+	* lib/saslutil.c (sasl_randseed): actually initilize the randpool
+
+	* saslauthd/auth_getpwent.c (auth_getpwent): clear a warning
+	* saslauthd/auth_shadow.c (auth_shadow): clear a similar warning
+
+	* utils/Makefile.am (EXTRA_DIST): Actually include the needed files
+
+	* saslauthd/configure.in: Handle shadow passwords correctly
+	* saslauthd/acconfig.h: Handle shadow passwords correctly
+
+	* lib/checkpw.c (always_true): added
+	* configure.in: added check for alwaystrue verifier
+	* acconfig.h: added HAVE_ALWAYSTRUE
+	* doc/options.html: alwaystrue verifier documented
+
+2001-08-11  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/: Now configures separately from SASL, so as
+	  to localize tests for that package within that package
+
+	* utils/dbconverter-2.c (listusers_cb): fix handling of APOP 
+
+2001-08-10  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/Makefile.am (install-data-local):
+	  correct handling of $(DESTDIR) (and create the directory if it
+	  isn't there) [Amos Gouaux <amos@utdallas.edu>]
+
+	* lib/server.c (sasl_server_init): Added plugname to add_plugin
+	  call for EXTERNAL
+
+	* doc/index.html: updated
+	* doc/appconvert.html: cleaned up
+
+2001-08-09  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/digestmd5.c (digestmd5_client_mech_step): handle
+	  missing authorization name
+	* plugins/plain.c (plain_client_mech_step): handle
+	  missing authorization name
+
+	* include/sasl.h: better documentation of SASL_CB_CANON_USER
+
+2001-08-08  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* saslauthd/saslauthd.mdoc: updated re: pam
+	* saslauthd/saslauthd.8: regenerated
+	* saslauthd/Makefile.am: Link against PLAIN_LIBS also
+	  (from Ken Murchison <ken@oceana.com>)
+
+2001-08-07  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/client.c (sasl_server_step): corrected maxoutbuf handleing
+	* lib/server.c (sasl_server_step): corrected maxoutbuf handleing
+	* lib/saslint.h (DEFAULT_MAXOUTBUF): removed
+
+	* lib/common.c (sasl_encodev, sasl_decode): maxbufsize checking
+
+	* utils/testsuite.c (testseclayer,doauth): more security layer
+	  checking.  Added parameter to doauth to disable fatal() calls,
+	  updated all callers.
+
+	* utils/smtptest.c (main): added ability to support LMTP
+
+	* plugins/gssapi.c: conform with draft-ietf-cat-sasl-gssapi-05.txt
+
+	* doc/draft-ietf-cat-sasl-gssapi-05.txt: added
+	* doc/Makefile.am (EXTRA_DIST): added above to EXTRA_DIST
+
+2001-08-06  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/dbconverter-2.c (listusers_cb): handle PLAIN-APOP
+
+	* lib/client.c (sasl_client_add_plugin, client_done):
+	  save plugin name
+	* lib/server.c (sasl_server_add_plugin, server_done):
+	  save plugin name
+	* lib/dlopen.c (_sasl_plugin_load): correctly pass pluginname
+	* lib/common.c (sasl_getprop): implement SASL_AUTHSOURCE properly
+	* lib/saslint.h (cmechanism_t, mechanism_t): added plugname field
+	* lib/canonusr.c (internal_canonuser_init): no longer limit
+	  based on plugname
+	* plugins/sasldb.c (sasldb_auxprop_plug_init): no longer limit
+	  based on plugname
+
+2001-08-01  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* utils/smtptest.c (iptostring): better behaved w.r.t endianness
+
+	* plugins/cram.c (crammd5_server_mech_step): support for old-style
+	  secrets
+	* plugins/digestmd5.c (digestmd5_server_mech_step): support for
+	  old-style secrets
+	* lib/checkpw.c (auxprop_verify_password,_sasl_make_plain_secret):
+	  support for old-style secrets
+	* utils/dbconverter-2.c: added
+	* utils/sasldblistusers.c (listusers): Print out property names
+	  as well as username@realm format.
+	* utils/saslpasswd.c (_sasl_sasldb_set_pass): Correctly handle updates
+	  that concern old-style secrets
+
+	* sasldb/allockey.c: Added a missing null to propName in key parser
+	
+2001-07-31  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/kerberos4.c (mech_avail): made static
+
+	* plugins/kerberos4.c (mech_avail): fixed ipv4 check
+	  (patch from Hajimu UMEMOTO <ume@mahoroba.org>)
+
+	* doc/appconvert.html: vague guide documenting our experience
+	  porting Cyrus IMAPd to use SASLv2
+	* doc/Makefile.am: added appconvert.html
+
+	* lib/client.c (sasl_client_new): fixed ip address setting to hit
+		relevant params structures as well
+	* lib/server.c (sasl_server_new): fixed ip address setting to hit
+		relevant params structures as well
+	* lib/common.c (sasl_setprop): fixed ip address setting to hit
+		relevant params structures as well
+
+	* lib/common.c (sasl_seterror): fixed spelling error
+
+2001-07-30  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* sasldb/db_berkeley.c: utils->seterror() calls
+	* sasldb/db_gdbm.c: utils->seterror() calls
+	* sasldb/db_ndbm.c: utils->seterror() calls
+	* sasldb/allockey.c: utils->seterror() calls
+
+	* lib/common.c (sasl_seterror): still call logging callback with a
+	  null sasl_conn_t
+
+	* plugins/sasldb.c (sasldb_auxprop_lookup): support for multiple
+	  properties
+
+	* plugins/Makefile.am: added -module to LDFLAGS
+
+	* config/sasldb.m4: Allow specification of exact berkeley db
+	  lib and include paths
+	* sasldb/Makefile.am: Add proper include directory
+
+	* sasldb/sasldb.m4 (SASL_DB_BACKEND_STATIC): include allockey.o
+	
+	* Ready for 2.0.3-BETA	
+
+	* plugins/kerberos4.c (kerberos4_server_plug_init): reset
+	  srvtab when we do not load correctly.
+
+	* lib/staticopen.c (_sasl_load_plugins): do not fail
+	  if a single plugin load fails
+
+	* include/sasl.h (SASL_CLIENT_FALLBACK): removed
+
+2001-07-27  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* configure.in: extracted SASLDB-related checking
+	* config/sasldb.m4: added
+
+	* configure.in: now cache the JNI include directory path
+
+	* utils/testsuite.c: switch some sasl_errstrings to sasl_errdetail
+	* plugins/gssapi.c: Fix error reporting
+
+	* plugins/gssapi.c: Required SASL_CB_USER instead of SASL_CB_AUTHNAME
+
+	* plugins/anonymous.c: Function name standardization
+	* plugins/cram.c: Function name standardization
+	* plugins/digestmd5.c: Function name standardization
+	* plugins/gssapi.c: Function name standardization
+	* plugins/kerberos.c: Function name standardization
+	* plugins/login.c: Function name standardization
+	* plugins/plain.c: Function name standardization	
+
+	* sasldb/allockey.c: Generalized SASLdb API
+	* sasldb/db_berkeley.c: Generalized SASLdb API
+	* sasldb/db_gdbm.c: Generalized SASLdb API
+	* sasldb/db_ndbm.c: Generalized SASLdb API
+	* sasldb/db_none.c: Generalized SASLdb API
+	* sasldb/db_testw32.c: Added #error to block compile so the API will
+		be fixed when we do the Win 32 port
+	* plugins/sasldb.c: Use new SASLdb API
+	* utils/saslpasswd.c: Use new SASLdb API
+	
+2001-07-26  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/common.c (_sasl_getcallback): fixed reference to
+	  	possibly NULL conn
+
+	* configure.in: only build saslpasswd and sasldblistusers
+		if we have a meaningfull libsasldb (e.g. not db_none),
+	* utils/Makefile.am: only build saslpasswd and sasldblistusers
+		if we have a meaningfull libsasldb (e.g. not db_none),
+
+	* configure.in: conditionally build smtptest
+	* utils/Makefile.am: conditionally build smtptest
+	
+	* sasldb/allockey.c (_sasldb_parse_key): added
+
+	* sasldb/sasldb.h: New key list access API, added  parameter to
+		sasl_check_db (all callers updated, all callees updated)
+	* sasldb/db_berkeley.c: Implement key list access API
+	* sasldb/db_gdbm.c: Implement key list access API
+	* sasldb/db_ndbm.c: Implement key list access API
+	* sasldb/db_none.c: Implement key list access API
+
+	* utils/sasldblistuser.c: Use libsasldb instead of internal
+	  	functions.
+	
+	* utils/saslpasswd.c: No longer have separate global_utils,
+		call sasl_dispose and sasl_done
+
+	* acconfig.h: check for inttypes.h
+	* configure.in: check for inttypes.h
+	* plugins/plugin_common.c: include, if necessary, inttypes.h,
+		reference uint32_t instead of u_int32_t
+
+2001-07-25  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* lib/saslint.h: changed "sasldb" verifier to "auxprop"
+	* lib/server.c: changed "sasldb" verifier to "auxprop"
+	* lib/checkpw.c: changed "sasldb" verifier to "auxprop"
+	* utils/testsuite.c: changed "sasldb" verifier to "auxprop"
+	* doc/options.html: changed "sasldb" verifier to "auxprop"
+
+	* README: updated upgrade information
+
+	* utils/Makefile.am (CLEANFILES): added
+
+	* sasldb/allockey.c (alloc_key): single place for alloc_key()
+	  Removed alloc_key from other source files.
+	* sasldb/sasldb.h: added declaration of alloc_key()	
+
+	* configure.in: added checks for db-3.3 and db3.3
+
+	* plugins/digestmd5.c (get_realm): now error on empty user_realm
+
+	* plugins/cram.c (client_required_prompts): removed redundant
+	  required_prompts
+
+	* plugins/plain.c (client_continue_step): server-send-last error
+
+	* utils/testsuite.c (main): detailed client-send-first,
+		server-send-last checking
+	
+2001-07-24  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* plugins/sasldb.c: Cleaned up calls into the glue code
+
+	* java/Test/*: Cleaned up java test utilities
+	
+	* configure.in: Minor GSSAPI configure changes
+
+	* utils/saslpasswd.c: Clarfied -d option for saslpasswd
+	* utils/saslpasswd.8: Clarfied -d option for saslpasswd
+	
+	* doc/plugprog.html: Added plugin programmer's guide
+	* doc/index.html: linked to plugin programmer's guide
+	
+        * configure.in: corrected configure checking of Berkeley DB
+          (from Scot W. Hetzel <scot@genroco.com>)
+
+	* configure.in: corrected checking for libcom_err
+	  (from Scot W. Hetzel <scot@genroco.com>)
+
+2001-07-23  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* configure.in: Added check for db3/db.h
+
+	* plugins/kerberos4.c Added mech_avail (checks for IP info)
+	
+	* lib/common.c: Fixed setting of serverFQDN in _sasl_conn_init
+	
+	* lib/server.c: Fully Implemented mech_avail calls in glue code
+	
+	* lib/server.c: Fixed allocation/destruction of sasl_conn_t's
+	* lib/client.c: Fixed allocation/destruction of sasl_conn_t's
+	* lib/common.c: Rely on earlier initialization in server.c and client.c
+
+	* doc/options.html: added
+
+	* ChangeLog: back to standard format
+	
+2001-07-20  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Can now deal with variable client-first mechs such as
+	  DIGEST-MD5, though this interface is subject to change
+	* Modified parseuser to deal better with default realms
+	* Simplified realm handling in DIGEST-MD5 (getrealm callback
+	  is no longer required).
+	* Cleaned up some memory management issues in DIGEST-MD5
+
+2001-07-19  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Fixed prototype of sasl_getpath_t to be in conformance with
+	  memory allocation rules
+	* Fixed up samples directory
+	* Try to dlopen using information in .la file if available
+	  (based on patch from
+	   Stoned Elipot <Stoned.Elipot@script.jussieu.fr>)
+	* Resolution of most of the server-send-first and client-send-last
+	  issues (using mechanism feature flags)
+
+2001-07-18  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Updated config.guess and config.sub
+	* Better underscore checking for dlsym
+	* Resolved possible global_utils namespace collision
+	* Updated sasldb library to be expandable to multiple properties
+	  if the need arises in the future.
+	* IPv6 support from Hajimu UMEMOTO <ume@mahoroba.org>
+
+2001-07-17  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Extricated sasldb support to an auxprop plugin only.
+	  sasldb modifications can now only be done through the saslpasswd
+	  interface.
+
+2001-07-13  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Fixed buffer overrun problem in sasldb auxprop plugin
+	* Removed severe memory leak from testsuite
+	* Version 2.0.2-ALPHA Released
+
+2001-07-11  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* error reporting in KERBEROS_V4 plugin
+	* vague handling of SASL_AUTHSOURCE for getprop
+	* random misc error reporting bugs
+	* basic error messages for GSSAPI plugin
+
+2001-07-10  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* added client-send-first logic in glue code
+	* removed some client-send-first logic in mechanisms
+	* removed IPv4 specifics from sasl_conn_t
+	* Much gluecode error revamping (store the error code
+	  in sasl_conn_t)
+
+2001-07-09  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Removed dependency on "name" in canonuser plugin structure
+	* Update configure.in from a new configure.scan
+	* Update copyright info in man pages, finished all API man pages
+	* Added auxprop tests to testsuite
+	* Added userdb callback support
+
+2001-07-09  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* First attempt at making the java code work again
+	* Minor memory and byte order bugfixes
+	* Added testing support for dmalloc (--with-dmalloc)
+
+2001-07-06  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Loading of auxprop and canonuser plugins from DSOs
+	  (This still sucks performance wise, and will be fixed soon)
+	* Fixed some lack of indirection in the plugins
+	* Reverted to the v1 entry points for the plugins
+	* Cleaned up a good deal of the library loading code so it
+	  now only gets called from the sasl_*_init functions, and
+	  all the cleanup happens in the common sasl_done function
+	* Added SASL_IPREMOTEPORT and SASL_IPLOCALPORT to setprop,
+	  and now _sasl_conn_init calls it to do the same work.
+
+2001-07-05  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Working libsfsasl and smtptest program (--with-sfio)
+	* Fixed sasldblistusers (atleast for Berkeley DB)
+	* seterror() calls in ANONYMOUS, CRAM, PLAIN and LOGIN
+	* Some new manpages
+
+2001-07-03  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Static library compilation now optional (--with-staticsasl)
+	  Note that this is different from --enable-static, which causes
+	  libtool to build static versions of everything is is almost
+	  certainly NOT what you want.
+	* Removed all references to the ancient NANA code.
+	* Updated some documentation.
+
+2001-07-02  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Improved allocation efficiency of KERBEROS_V4, DIGEST-MD5,
+	  and GSSAPI security layers.
+	* Fixed a decode bug in DIGEST-MD5 (and testsuite improvements to
+	  help find similar ones)
+	* Fixed a number of solaris compiler warnings
+	* Static Library Build Support
+
+2001-06-30  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Cleanup of some man pages (added sasl_errors.3)
+
+2001-06-29  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Cleanup of APOP Code + new man page (Ken Murchison <ken@oceana.com>)
+	* Cleanup of comments in some files (Ken Murchison <ken@oceana.com>)
+	* Fixed some compiler errors on Solaris using /opt/SUNWspro/bin/cc
+	  (Reported by Mei-Hui Su <mei@ISI.EDU>
+
+2001-06-28  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Improved memory allocation in default sasl_decode handler
+	* Added ability to disable sasl_checkapop (--disable-checkapop)
+	* Re-initialized kerberos mutex to NULL after it was freed
+
+2001-06-28  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Fixed a severe bug in DIGEST-MD5 Plugin
+	* KERBEROS_V4 plugin now thread safe
+	* Version 2.0.1-ALPHA Released (due to DIGEST-MD5 problem)
+
+2001-06-27  Rob Siemborski <rjs3+@andrew.cmu.edu>
+	* Version 2.0.0-ALPHA Released

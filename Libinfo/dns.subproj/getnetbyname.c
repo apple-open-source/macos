@@ -57,7 +57,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)getnetbyname.c	8.1 (Berkeley) 6/4/93";
 static char sccsid_[] = "from getnetbyname.c	1.1 (Coimbra) 93/06/02";
-static char rcsid[] = "$Id: getnetbyname.c,v 1.2 1999/10/14 21:56:44 wsanchez Exp $";
+static char rcsid[] = "$Id: getnetbyname.c,v 1.3 2002/02/19 20:36:12 epeyton Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <netdb.h>
@@ -73,7 +73,7 @@ _getnetbyname(name)
 	register char **cp;
 
 	setnetent(_net_stayopen);
-	while (p = getnetent()) {
+	while ((p = getnetent())) {
 		if (strcasecmp(p->n_name, name) == 0)
 			break;
 		for (cp = p->n_aliases; *cp != 0; cp++)

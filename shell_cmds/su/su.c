@@ -1,8 +1,6 @@
-/*	$NetBSD: su.c,v 1.26 1998/08/25 20:59:40 ross Exp $	*/
-
 /*
- * Copyright (c) 1988 The Regents of the University of California.
- * All rights reserved.
+ * Copyright (c) 1988, 1993, 1994
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,93 +31,105 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT(
-    "@(#) Copyright (c) 1988 The Regents of the University of California.\n\
- All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1988, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)su.c	8.3 (Berkeley) 4/2/94";*/
-#else
-__RCSID("$NetBSD: su.c,v 1.26 1998/08/25 20:59:40 ross Exp $");
+static char sccsid[] = "@(#)su.c	8.3 (Berkeley) 4/2/94";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/su/su.c,v 1.48 2002/01/24 16:20:17 des Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
+
 #include <err.h>
 #include <errno.h>
 #include <grp.h>
 #include <paths.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
-#ifdef SKEY
-#include <skey.h>
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <time.h>
-#include <tzfile.h>
 #include <unistd.h>
 
-#ifdef KERBEROS
-#include <kerberosIV/des.h>
-#include <kerberosIV/krb.h>
-#include <netdb.h>
+#include <pam/pam_appl.h>
+#include <pam/pam_misc.h>
 
-#define	ARGSTR	"-Kflm"
-
-int use_kerberos = 1;
-
-static int kerberos __P((char *, char *, int));
-static int koktologin __P((char *, char *, char *));
-
-#else
-#define	ARGSTR	"-flm"
-#endif
-
-#ifndef	SUGROUP
-#define	SUGROUP	"wheel"
-#endif
+#define PAM_END() do {						\
+	int local_ret;						\
+	if (pamh != NULL && creds_set) {			\
+		local_ret = pam_setcred(pamh, PAM_DELETE_CRED);	\
+		if (local_ret != PAM_SUCCESS)			\
+			syslog(LOG_ERR, "pam_setcred: %s",	\
+				pam_strerror(pamh, local_ret));	\
+		local_ret = pam_close_session(pamh, 0);         \
+		local_ret = pam_end(pamh, local_ret);		\
+		if (local_ret != PAM_SUCCESS)			\
+			syslog(LOG_ERR, "pam_end: %s",		\
+				pam_strerror(pamh, local_ret));	\
+	}							\
+} while (0)
 
 
-int main __P((int, char **));
+#define PAM_SET_ITEM(what, item) do {				\
+	int local_ret;						\
+	local_ret = pam_set_item(pamh, what, item);		\
+	if (local_ret != PAM_SUCCESS) {				\
+		syslog(LOG_ERR, "pam_set_item(" #what "): %s",	\
+			pam_strerror(pamh, local_ret));		\
+		errx(1, "pam_set_item(" #what "): %s",		\
+			pam_strerror(pamh, local_ret));		\
+	}							\
+} while (0)
 
-static int chshell __P((const char *));
-static char *ontty __P((void));
+enum tristate { UNSET, YES, NO };
 
+static pam_handle_t *pamh = NULL;
+static int	creds_set = 0;
+static char	**environ_pam;
+
+static char	*ontty(void);
+static int	chshell(char *);
+static void	usage(void);
+static int	export_pam_environment(void);
+static int	ok_to_export(const char *);
+
+extern char	**environ;
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
-	extern char *__progname;
-	extern char **environ;
-	struct passwd *pwd;
-	char *p;
-	struct timeval tp;
-	uid_t ruid;
-	gid_t usergid;
-	int asme, ch, asthem, fastlogin, prio;
-	enum { UNSET, YES, NO } iscsh = UNSET;
-	char *user, *shell, *avshell, *username, *cleanenv[10], **np;
-	char shellbuf[MAXPATHLEN], avshellbuf[MAXPATHLEN];
+	struct passwd	*pwd;
+	struct pam_conv	conv = {misc_conv, NULL};
+	enum tristate	iscsh;
+	union {
+		const char	**a;
+		char		* const *b;
+	} 		np;
+	uid_t		ruid;
+	gid_t		gid;
+	int		asme, ch, asthem, fastlogin, prio, i, setwhat, retcode,
+			statusp, child_pid, child_pgrp, ret_pid;
+	char		*username, *cleanenv, *class, shellbuf[MAXPATHLEN];
+	const char	*p, *user, *shell, *mytty, **nargv;
 
-	asme = asthem = fastlogin = 0;
-	shell = NULL;
-	while ((ch = getopt(argc, argv, ARGSTR)) != -1)
-		switch((char)ch) {
-#ifdef KERBEROS
-		case 'K':
-			use_kerberos = 0;
-			break;
-#endif
+	shell = class = cleanenv = NULL;
+	asme = asthem = fastlogin = statusp = 0;
+	user = "root";
+	iscsh = UNSET;
+
+	while ((ch = getopt(argc, argv, "-flmc:")) != -1)
+		switch ((char)ch) {
 		case 'f':
 			fastlogin = 1;
 			break;
@@ -132,373 +142,313 @@ main(argc, argv)
 			asme = 1;
 			asthem = 0;
 			break;
+		case 'c':
+			class = optarg;
+			break;
 		case '?':
 		default:
-			(void)fprintf(stderr,
-			    "Usage: %s [%s] [login [shell arguments]]\n",
-			    __progname, ARGSTR);
-			exit(1);
+			usage();
 		}
+
+	if (optind < argc)
+		user = argv[optind++];
+
+	if (user == NULL)
+		usage();
+
+	if (strlen(user) > MAXLOGNAME - 1)
+		errx(1, "username too long");
+
+	nargv = malloc(sizeof(char *) * (argc + 4));
+	if (nargv == NULL)
+		errx(1, "malloc failure");
+
+	nargv[argc + 3] = NULL;
+	for (i = argc; i >= optind; i--)
+		nargv[i + 3] = argv[i];
+	np.a = &nargv[i + 3];
+
 	argv += optind;
 
 	errno = 0;
 	prio = getpriority(PRIO_PROCESS, 0);
 	if (errno)
 		prio = 0;
-	(void)setpriority(PRIO_PROCESS, 0, -2);
-	openlog("su", LOG_CONS, 0);
 
-	/* get current login name and shell */
+	setpriority(PRIO_PROCESS, 0, -2);
+	openlog("su", LOG_CONS, LOG_AUTH);
+
+	/* get current login name, real uid and shell */
 	ruid = getuid();
 	username = getlogin();
-	if (username == NULL || (pwd = getpwnam(username)) == NULL ||
-	    pwd->pw_uid != ruid)
+	pwd = getpwnam(username);
+	if (username == NULL || pwd == NULL || pwd->pw_uid != ruid)
 		pwd = getpwuid(ruid);
 	if (pwd == NULL)
 		errx(1, "who are you?");
+	gid = pwd->pw_gid;
+
 	username = strdup(pwd->pw_name);
-	usergid = pwd->pw_gid;
 	if (username == NULL)
-		err(1, "strdup");
+		err(1, "strdup failure");
 
 	if (asme) {
-		if (pwd->pw_shell && *pwd->pw_shell) {
+		if (pwd->pw_shell != NULL && *pwd->pw_shell != '\0') {
+			/* must copy - pwd memory is recycled */
 			shell = strncpy(shellbuf, pwd->pw_shell,
-			    sizeof(shellbuf) - 1);
+			    sizeof(shellbuf));
 			shellbuf[sizeof(shellbuf) - 1] = '\0';
-		} else {
+		}
+		else {
 			shell = _PATH_BSHELL;
 			iscsh = NO;
 		}
 	}
-	/* get target login information, default to root */
-	user = *argv ? *argv : "root";
-	np = *argv ? argv : argv-1;
 
-	if ((pwd = getpwnam(user)) == NULL)
-		errx(1, "unknown login %s", user);
-
-	if (ruid
-#ifdef KERBEROS
-	    && (!use_kerberos || kerberos(username, user, pwd->pw_uid))
-#endif
-	   ) {
-                gid_t groups[NGROUPS_MAX];
-                int   numgroups;
-
-		/*
-		 * Only allow those in group SUGROUP to su to root.
-		 */
-                if (pwd->pw_uid == 0 &&
-		    (initgroups(username, usergid) == 0) &&
-                    ((numgroups = getgroups(NGROUPS_MAX, groups)) > 0)) {
-                	int i;
-                    	int wheel = 0;
-                        gid_t wheelgid = 0;
-                        struct group *wheelgroup;
-
-                        if ((wheelgroup = getgrnam(SUGROUP)) != NULL) {
-                        	wheelgid = wheelgroup->gr_gid;
-
-                            	for (i = 0; i < numgroups; i++) {
-                                    	if (groups[i] == wheelgid) {
-                                            	wheel = 1;
-                                            	break;
-                                        }
-                                }
-                        } else {
-                            	/* If we can't get the gid for SUGROUP, then let anyone su */
-                            	warnx("unknown secondary group %s; anyone can su %s.", SUGROUP, user);
-                            	wheel = 1;
-                        }
-
-                        if (!wheel)
-                            	errx(1,
-                                     "you are not listed in the correct secondary group (%s) to su %s.",
-                                     SUGROUP, user);
-                }
-
-		/* if target requires a password, verify it */
-		if (*pwd->pw_passwd) {
-			p = getpass("Password:");
-#ifdef SKEY
-			if (strcasecmp(p, "s/key") == 0) {
-				if (skey_haskey(user))
-					errx(1, "Sorry, you have no s/key.");
-				else {
-					if (skey_authenticate(user)) {
-						goto badlogin;
-					}
-				}
-
-			} else
-#endif
-			if (strcmp(pwd->pw_passwd, crypt(p, pwd->pw_passwd))) {
-#ifdef SKEY
-badlogin:
-#endif
-				fprintf(stderr, "Sorry\n");
-				syslog(LOG_AUTH|LOG_WARNING,
-					"BAD SU %s to %s%s", username,
-					user, ontty());
-				exit(1);
-			}
-		}
+	/* Do the whole PAM startup thing */
+	retcode = pam_start("su", user, &conv, &pamh);
+	if (retcode != PAM_SUCCESS) {
+		syslog(LOG_ERR, "pam_start: %s", pam_strerror(pamh, retcode));
+		errx(1, "pam_start: %s", pam_strerror(pamh, retcode));
 	}
 
+	PAM_SET_ITEM(PAM_RUSER, getlogin());
+
+	mytty = ttyname(STDERR_FILENO);
+	if (!mytty)
+		mytty = "tty";
+	PAM_SET_ITEM(PAM_TTY, mytty);
+
+	retcode = pam_authenticate(pamh, 0);
+	if (retcode != PAM_SUCCESS) {
+		syslog(LOG_ERR, "pam_authenticate: %s",
+		    pam_strerror(pamh, retcode));
+		errx(1, "Sorry");
+	}
+	retcode = pam_get_item(pamh, PAM_USER, (const void **)&p);
+	if (retcode == PAM_SUCCESS)
+		user = p;
+	else
+		syslog(LOG_ERR, "pam_get_item(PAM_USER): %s",
+		    pam_strerror(pamh, retcode));
+
+	retcode = pam_acct_mgmt(pamh, 0);
+	if (retcode == PAM_NEW_AUTHTOK_REQD) {
+		retcode = pam_chauthtok(pamh,
+			PAM_CHANGE_EXPIRED_AUTHTOK);
+		if (retcode != PAM_SUCCESS) {
+			syslog(LOG_ERR, "pam_chauthtok: %s",
+			    pam_strerror(pamh, retcode));
+			errx(1, "Sorry");
+		}
+	}
+	if (retcode != PAM_SUCCESS) {
+		syslog(LOG_ERR, "pam_acct_mgmt: %s",
+			pam_strerror(pamh, retcode));
+		errx(1, "Sorry");
+	}
+
+	/* get target login information, default to root */
+	pwd = getpwnam(user);
+	if (pwd == NULL)
+		errx(1, "unknown login: %s", user);
+
+	/* if asme and non-standard target shell, must be root */
 	if (asme) {
-		/* if asme and non-standard target shell, must be root */
-		if (!chshell(pwd->pw_shell) && ruid)
-			errx(1,"permission denied (shell).");
-	} else if (pwd->pw_shell && *pwd->pw_shell) {
+		if (ruid != 0 && !chshell(pwd->pw_shell))
+			errx(1, "permission denied (shell).");
+	}
+	else if (pwd->pw_shell && *pwd->pw_shell) {
 		shell = pwd->pw_shell;
 		iscsh = UNSET;
-	} else {
+	}
+	else {
 		shell = _PATH_BSHELL;
 		iscsh = NO;
 	}
 
-	if ((p = strrchr(shell, '/')) != NULL)
-		avshell = p+1;
-	else
-		avshell = shell;
-
 	/* if we're forking a csh, we want to slightly muck the args */
-	if (iscsh == UNSET)
-		iscsh = strstr(avshell, "csh") ? YES : NO;
+	if (iscsh == UNSET) {
+		p = strrchr(shell, '/');
+		if (p)
+			++p;
+		else
+			p = shell;
+		iscsh = strcmp(p, "csh") ? (strcmp(p, "tcsh") ? NO : YES) : YES;
+	}
+	setpriority(PRIO_PROCESS, 0, prio);
 
-	/* set permissions */
-	if (setgid(pwd->pw_gid) < 0)
-		err(1, "setgid");
-	if (initgroups(user, pwd->pw_gid))
-		errx(1, "initgroups failed");
-	if (setuid(pwd->pw_uid) < 0)
-		err(1, "setuid");
+	/*
+	 * PAM modules might add supplementary groups in pam_setcred(), so
+	 * initialize them first.
+	 */
+	if( initgroups(user, pwd->pw_gid) )
+		err(1, "initgroups failed");
 
-	if (!asme) {
-		if (asthem) {
-			p = getenv("TERM");
-			cleanenv[0] = NULL;
-			environ = cleanenv;
-			(void)setenv("PATH", _PATH_DEFPATH, 1);
-			if (p)
-				(void)setenv("TERM", p, 1);
-			if (chdir(pwd->pw_dir) < 0)
-				errx(1, "no directory");
+	retcode = pam_open_session(pamh, 0);
+	if( retcode != PAM_SUCCESS ) {
+		syslog(LOG_ERR, "pam_open_session(pamh, 0): %s", 
+			pam_strerror(pamh, retcode));
+	}
+
+	retcode = pam_setcred(pamh, PAM_ESTABLISH_CRED);
+	if (retcode != PAM_SUCCESS)
+		syslog(LOG_ERR, "pam_setcred(pamh, PAM_ESTABLISH_CRED): %s",
+		    pam_strerror(pamh, retcode));
+	else
+		creds_set = 1;
+
+	/*
+	 * We must fork() before setuid() because we need to call
+	 * pam_setcred(pamh, PAM_DELETE_CRED) as root.
+	 */
+
+	statusp = 1;
+	child_pid = fork();
+	switch (child_pid) {
+	default:
+		while ((ret_pid = waitpid(child_pid, &statusp, WUNTRACED)) != -1) {
+			if (WIFSTOPPED(statusp)) {
+				child_pgrp = tcgetpgrp(1);
+				kill(getpid(), SIGSTOP);
+				tcsetpgrp(1, child_pgrp);
+				kill(child_pid, SIGCONT); 
+				statusp = 1;
+				continue;
+			}
+			break;
 		}
-		if (asthem || pwd->pw_uid)
-			(void)setenv("USER", pwd->pw_name, 1);
-		(void)setenv("HOME", pwd->pw_dir, 1);
-		(void)setenv("SHELL", shell, 1);
-	}
+		if (ret_pid == -1)
+			err(1, "waitpid");
+		PAM_END();
+		exit(WEXITSTATUS(statusp));
+	case -1:
+		err(1, "fork");
+		PAM_END();
+		exit(1);
+	case 0:
+		if( setgid(pwd->pw_gid) )
+			err(1, "setgid");
+		if( setuid(pwd->pw_uid) )
+			err(1, "setuid");
 
-	if (iscsh == YES) {
-		if (fastlogin)
-			*np-- = "-f";
-		if (asme)
-			*np-- = "-m";
-	}
+		if (!asme) {
+			if (asthem) {
+				p = getenv("TERM");
+				*environ = NULL;
 
-	if (asthem) {
-		avshellbuf[0] = '-';
-		(void)strncpy(avshellbuf+1, avshell, sizeof(avshellbuf) - 2);
-		avshell = avshellbuf;
-	} else if (iscsh == YES) {
+				/*
+				 * Add any environmental variables that the
+				 * PAM modules may have set.
+				 */
+				environ_pam = pam_getenvlist(pamh);
+				if (environ_pam)
+					export_pam_environment();
+
+				if (p)
+					setenv("TERM", p, 1);
+				if (chdir(pwd->pw_dir) < 0)
+					errx(1, "no directory");
+			}
+			if (asthem || pwd->pw_uid)
+				setenv("USER", pwd->pw_name, 1);
+			setenv("HOME", pwd->pw_dir, 1);
+			setenv("SHELL", shell, 1);
+		}
+
+		if (iscsh == YES) {
+			if (fastlogin)
+				*np.a-- = "-f";
+			if (asme)
+				*np.a-- = "-m";
+		}
 		/* csh strips the first character... */
-		avshellbuf[0] = '_';
-		(void)strncpy(avshellbuf+1, avshell, sizeof(avshellbuf) - 2);
-		avshell = avshellbuf;
+		*np.a = asthem ? "-su" : iscsh == YES ? "_su" : "su";
+
+		if (ruid != 0)
+			syslog(LOG_NOTICE, "%s to %s%s", username, user,
+			    ontty());
+
+		execv(shell, np.b);
+		err(1, "%s", shell);
 	}
-	*np = avshell;
-
-	if (pwd->pw_change || pwd->pw_expire)
-		(void)gettimeofday(&tp, (struct timezone *)NULL);
-	if (pwd->pw_change) {
-		if (tp.tv_sec >= pwd->pw_change) {
-			(void)printf("%s -- %s's password has expired.\n",
-				     (ruid ? "Sorry" : "Note"), user);
-			if (ruid != 0)
-				exit(1);
-		} else if (pwd->pw_change - tp.tv_sec <
-		    _PASSWORD_WARNDAYS * SECSPERDAY)
-			(void)printf("Warning: %s's password expires on %s",
-				     user, ctime(&pwd->pw_change));
-	}
-	if (pwd->pw_expire) {
-		if (tp.tv_sec >= pwd->pw_expire) {
-			(void)printf("%s -- %s's account has expired.\n",
-				     (ruid ? "Sorry" : "Note"), user);
-			if (ruid != 0)
-				exit(1);
-		} else if (pwd->pw_expire - tp.tv_sec <
-		    _PASSWORD_WARNDAYS * SECSPERDAY)
-			(void)printf("Warning: %s's account expires on %s",
-				     user, ctime(&pwd->pw_expire));
- 	}
-	if (ruid != 0)
-		syslog(LOG_NOTICE|LOG_AUTH, "%s to %s%s",
-		    username, user, ontty());
-
-	(void)setpriority(PRIO_PROCESS, 0, prio);
-
-	execv(shell, np);
-	err(1, "%s", shell);
-        /* NOTREACHED */
 }
 
 static int
-chshell(sh)
-	const char *sh;
+export_pam_environment(void)
 {
-	const char *cp;
+	char	**pp;
 
-	while ((cp = getusershell()) != NULL)
-		if (!strcmp(cp, sh))
-			return (1);
-	return (0);
+	for (pp = environ_pam; *pp != NULL; pp++) {
+		if (ok_to_export(*pp))
+			putenv(*pp);
+		free(*pp);
+	}
+	return PAM_SUCCESS;
+}
+
+/*
+ * Sanity checks on PAM environmental variables:
+ * - Make sure there is an '=' in the string.
+ * - Make sure the string doesn't run on too long.
+ * - Do not export certain variables.  This list was taken from the
+ *   Solaris pam_putenv(3) man page.
+ */
+static int
+ok_to_export(const char *s)
+{
+	static const char *noexport[] = {
+		"SHELL", "HOME", "LOGNAME", "MAIL", "CDPATH",
+		"IFS", "PATH", NULL
+	};
+	const char **pp;
+	size_t n;
+
+	if (strlen(s) > 1024 || strchr(s, '=') == NULL)
+		return 0;
+	if (strncmp(s, "LD_", 3) == 0)
+		return 0;
+	for (pp = noexport; *pp != NULL; pp++) {
+		n = strlen(*pp);
+		if (s[n] == '=' && strncmp(s, *pp, n) == 0)
+			return 0;
+	}
+	return 1;
+}
+
+static void
+usage(void)
+{
+
+	fprintf(stderr, "usage: su [-] [-flm] [-c class] [login [args]]\n");
+	exit(1);
+}
+
+static int
+chshell(char *sh)
+{
+	int r;
+	char *cp;
+
+	r = 0;
+	setusershell();
+	do {
+		cp = getusershell();
+		r = strcmp(cp, sh);
+	} while (!r && cp != NULL);
+	endusershell();
+	return r;
 }
 
 static char *
-ontty()
+ontty(void)
 {
 	char *p;
 	static char buf[MAXPATHLEN + 4];
 
 	buf[0] = 0;
-	if ((p = ttyname(STDERR_FILENO)) != NULL)
-		(void)snprintf(buf, sizeof buf, " on %s", p);
-	return (buf);
+	p = ttyname(STDERR_FILENO);
+	if (p)
+		snprintf(buf, sizeof(buf), " on %s", p);
+	return buf;
 }
-
-#ifdef KERBEROS
-static int
-kerberos(username, user, uid)
-	char *username, *user;
-	int uid;
-{
-	KTEXT_ST ticket;
-	AUTH_DAT authdata;
-	struct hostent *hp;
-	int kerno;
-	u_long faddr;
-	char lrealm[REALM_SZ], krbtkfile[MAXPATHLEN];
-	char hostname[MAXHOSTNAMELEN + 1], savehost[MAXHOSTNAMELEN + 1];
-
-	if (krb_get_lrealm(lrealm, 1) != KSUCCESS)
-		return (1);
-	if (koktologin(username, lrealm, user) && !uid) {
-		warnx("kerberos: not in %s's ACL.", user);
-		return (1);
-	}
-	(void)(void)snprintf(krbtkfile, sizeof krbtkfile, "%s_%s_%d", TKT_ROOT,
-	    user, getuid());
-
-	(void)setenv("KRBTKFILE", krbtkfile, 1);
-	(void)krb_set_tkt_string(krbtkfile);
-	/*
-	 * Set real as well as effective ID to 0 for the moment,
-	 * to make the kerberos library do the right thing.
-	 */
-	if (setuid(0) < 0) {
-		warn("setuid");
-		return (1);
-	}
-
-	/*
-	 * Little trick here -- if we are su'ing to root,
-	 * we need to get a ticket for "xxx.root", where xxx represents
-	 * the name of the person su'ing.  Otherwise (non-root case),
-	 * we need to get a ticket for "yyy.", where yyy represents
-	 * the name of the person being su'd to, and the instance is null
-	 *
-	 * We should have a way to set the ticket lifetime,
-	 * with a system default for root.
-	 */
-	kerno = krb_get_pw_in_tkt((uid == 0 ? username : user),
-		(uid == 0 ? "root" : ""), lrealm,
-		"krbtgt", lrealm, DEFAULT_TKT_LIFE, 0);
-
-	if (kerno != KSUCCESS) {
-		if (kerno == KDC_PR_UNKNOWN) {
-			warnx("kerberos: principal unknown: %s.%s@%s",
-				(uid == 0 ? username : user),
-				(uid == 0 ? "root" : ""), lrealm);
-			return (1);
-		}
-		warnx("kerberos: unable to su: %s", krb_err_txt[kerno]);
-		syslog(LOG_NOTICE|LOG_AUTH,
-		    "BAD Kerberos SU: %s to %s%s: %s",
-		    username, user, ontty(), krb_err_txt[kerno]);
-		return (1);
-	}
-
-	if (chown(krbtkfile, uid, -1) < 0) {
-		warn("chown");
-		(void)unlink(krbtkfile);
-		return (1);
-	}
-
-	(void)setpriority(PRIO_PROCESS, 0, -2);
-
-	if (gethostname(hostname, sizeof(hostname)) == -1) {
-		warn("gethostname");
-		dest_tkt();
-		return (1);
-	}
-	hostname[sizeof(hostname) - 1] = '\0';
-
-	(void)strncpy(savehost, krb_get_phost(hostname), sizeof(savehost));
-	savehost[sizeof(savehost) - 1] = '\0';
-
-	kerno = krb_mk_req(&ticket, "rcmd", savehost, lrealm, 33);
-
-	if (kerno == KDC_PR_UNKNOWN) {
-		warnx("Warning: TGT not verified.");
-		syslog(LOG_NOTICE|LOG_AUTH,
-		    "%s to %s%s, TGT not verified (%s); %s.%s not registered?",
-		    username, user, ontty(), krb_err_txt[kerno],
-		    "rcmd", savehost);
-	} else if (kerno != KSUCCESS) {
-		warnx("Unable to use TGT: %s", krb_err_txt[kerno]);
-		syslog(LOG_NOTICE|LOG_AUTH, "failed su: %s to %s%s: %s",
-		    username, user, ontty(), krb_err_txt[kerno]);
-		dest_tkt();
-		return (1);
-	} else {
-		if (!(hp = gethostbyname(hostname))) {
-			warnx("can't get addr of %s", hostname);
-			dest_tkt();
-			return (1);
-		}
-		memmove((char *)&faddr, (char *)hp->h_addr, sizeof(faddr));
-
-		if ((kerno = krb_rd_req(&ticket, "rcmd", savehost, faddr,
-		    &authdata, "")) != KSUCCESS) {
-			warnx("kerberos: unable to verify rcmd ticket: %s\n",
-			    krb_err_txt[kerno]);
-			syslog(LOG_NOTICE|LOG_AUTH,
-			    "failed su: %s to %s%s: %s", username,
-			     user, ontty(), krb_err_txt[kerno]);
-			dest_tkt();
-			return (1);
-		}
-	}
-	return (0);
-}
-
-static int
-koktologin(name, realm, toname)
-	char *name, *realm, *toname;
-{
-	AUTH_DAT *kdata;
-	AUTH_DAT kdata_st;
-
-	kdata = &kdata_st;
-	memset((char *)kdata, 0, sizeof(*kdata));
-	(void)strncpy(kdata->pname, name, sizeof(kdata->pname) - 1);
-	(void)strncpy(kdata->pinst,
-	    ((strcmp(toname, "root") == 0) ? "root" : ""), sizeof(kdata->pinst) - 1);
-	(void)strncpy(kdata->prealm, realm, sizeof(kdata->prealm) - 1);
-	return (kuserok(kdata, toname));
-}
-#endif

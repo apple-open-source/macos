@@ -25,6 +25,15 @@ typedef int boolean_t;
 #endif
 #endif
 
-boolean_t	ufslabel_get(int fd, void * name, int * len);
-boolean_t	ufslabel_set(int fd, void * name, int len);
+#define		UFS_MAX_LABEL_UUID	16
+
+boolean_t	ufslabel_get(int fd, struct ufslabel * label);
+boolean_t	ufslabel_set(int fd, struct ufslabel * label);
+boolean_t	ufslabel_set_name(struct ufslabel * ul_p, char * name, int len);
+void		ufslabel_set_uuid(struct ufslabel * ul_p);
+void		ufslabel_get_name(struct ufslabel * ul_p, char * name, int * len);
+void		ufslabel_get_uuid(struct ufslabel * ul_p, char * uuid);
+void		ufslabel_init(struct ufslabel * ul_p);
+
+
 #endif

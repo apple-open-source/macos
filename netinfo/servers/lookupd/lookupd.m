@@ -64,6 +64,7 @@
 #import <sys/time.h>
 #import <sys/resource.h>
 #import <signal.h>
+#import <mach/mig_errors.h>
 #import "_lu_types.h"
 
 #define forever for (;;)
@@ -72,7 +73,6 @@ extern int getppid(void);
 extern void interactive(FILE *, FILE*);
 
 extern int _lookup_link();
-extern int _lookup_one();
 extern int _lookup_all();
 
 #ifdef _UNIX_BSD_43_
@@ -98,11 +98,7 @@ syslock *rpcLock = NULL;
 syslock *statsLock = NULL;
 char *portName = NULL;
 sys_port_type server_port = SYS_PORT_NULL;
-#ifdef _SHADOW_
-sys_port_type server_port_privileged = SYS_PORT_NULL;
-sys_port_type server_port_unprivileged = SYS_PORT_NULL;
-BOOL shadow_passwords = NO;
-#endif
+BOOL statistics_enabled = NO;
 
 /* Controller.m uses this global */
 BOOL shutting_down = NO;
@@ -160,45 +156,23 @@ detach(void)
 
 	setpgrp(0, getpid());
 #else
-	if (setsid() < 0) system_log(LOG_ERR, "lookupd: setsid() failed: %m");
+	if (setsid() < 0)
+	{
+		system_log(LOG_ERR, "lookupd: setsid() failed: %m");
+	}
 #endif
-}
-
-void
-parentexit(int x)
-{
-	exit(0);
 }
 
 void
 goodbye(int x)
 {
-	exit(1);
+	_exit(0);
 }
 
 void
 handleSIGHUP()
 {
-	system_log(LOG_ERR, "Caught SIGHUP - reset");
-	[controller reset];
-}
-
-void
-handleSIGUSR1()
-{
-	Thread *t;
-
-	/* Ignore USR1 if already restarting */
-	if (shutting_down) return;
-
-	system_log(LOG_ERR, "Caught SIGUSR1 - restarting");
-	shutting_down = YES;
-
-	t = [[Thread alloc] init];
-	[t setName:"Knock Knock"];
-	[t setState:ThreadStateActive];
-	[t shouldTerminate:YES];
-	[t run:@selector(lookupdMessage) context:controller];
+	_exit(0);
 }
 
 static void
@@ -208,6 +182,8 @@ lookupd_startup()
 	BOOL status;
 	struct timeval tv;
 	char *name;
+	LUArray *config;
+	LUDictionary *cglobal;
 
 	gettimeofday(&tv, NULL);
 	srandom((getpid() << 10) + tv.tv_usec);
@@ -218,20 +194,48 @@ lookupd_startup()
 	[t setState:ThreadStateActive];
 
 	rpcLock = syslock_new(0);
+	syslock_set_name(rpcLock, RPCLockName);
+
 	statsLock = syslock_new(0);
+	syslock_set_name(statsLock, StatsLockName);
 
 	configManager = [[Config alloc] init];
 	status = [configManager setConfigSource:configSource path:configPath domain:configDomain];
 
+	if (max_priority == -1)
+	{
+		config = [configManager config];
+		cglobal = [configManager configGlobal:config];
+		max_priority = [configManager intForKey:"LogMaxPriority" dict:cglobal default:-1];
+		[config release];
+	}
+
 	cacheAgent = [[CacheAgent alloc] init];
 
-	name = portName;
-	if (portName == NULL) name = DefaultName;
+	name = NULL;
+	if (portName == NULL)
+	{
+		if (debugMode) name = strdup("lookupd-debug");
+		else name = strdup("lookupd");
+	}
+	else
+	{
+		if (debugMode)
+		{
+			name = malloc(strlen(portName) + 16);
+			sprintf(name, "lookupd.%s", portName);
+		}
+		else name = strdup("lookupd");
+	}
 	
 	system_log_open(name, (LOG_NOWAIT | LOG_PID), LOG_NETINFO, NULL);
+	if (name != NULL) free(name);
+
 	if (max_priority != -1) system_log_set_max_priority(max_priority);
 
 	controller = [[Controller alloc] initWithName:portName];
+
+	signal(SIGHUP, handleSIGHUP);
 
 	if (!status)
 	{
@@ -261,10 +265,12 @@ lookupd_shutdown(int status)
 	configManager = nil;
 
 	system_log(LOG_NOTICE, "lookupd exiting");
-	
+
+	syslock_set_name(rpcLock, NULL);
 	syslock_free(rpcLock);
 	rpcLock = NULL;
 
+	syslock_set_name(statsLock, NULL);
 	syslock_free(statsLock);
 	statsLock = NULL;
 
@@ -272,58 +278,7 @@ lookupd_shutdown(int status)
 
 	[rover release];
 
-	exit(status);
-}
-
-/*
- * Restart everything.
- */
-void
-restart()
-{
-#ifdef _SHADOW_
-	char *Argv[7], portstr2[32];
-#else
-	char *Argv[5];
-#endif
-	char pidstr[32], portstr1[32];
-	int pid;
-
-	if (debugMode) lookupd_shutdown(0);
-
-	system_log(LOG_NOTICE, "Restarting lookupd");
-
-#ifdef _SHADOW_
-	sprintf(pidstr,  "%d", getpid());
-	sprintf(portstr1, "%d", server_port_unprivileged);
-	sprintf(portstr2, "%d", server_port_privileged);
-
-	Argv[0] = "lookupd";
-	Argv[1] = "-r";
-	Argv[2] = portstr1;
-	Argv[3] = portstr2;
-	Argv[4] = pidstr;
-	Argv[5] = shadow_passwords ? NULL : "-u";
-	Argv[6] = NULL;
-#else
-	sprintf(pidstr,  "%d", getpid());
-	sprintf(portstr1, "%d", server_port);
-
-	Argv[0] = "lookupd";
-	Argv[1] = "-r";
-	Argv[2] = portstr1;
-	Argv[3] = pidstr;
-	Argv[4] = NULL;
-#endif
-
-	pid = fork();
-	if (pid > 0)
-	{
-		signal(SIGTERM, parentexit);
-		forever [[Thread currentThread] sleep:1];
-	}
-
-	execv(EXE_FILE, Argv);
+	exit(0);
 }
 
 int
@@ -381,7 +336,7 @@ query_util(char *str)
 	XDR outxdr;
 	XDR inxdr;
 	int proc;
-	unit lookup_buf[MAX_INLINE_UNITS * BYTES_PER_XDR_UNIT];
+	char *lookup_buf;
 	char databuf[_LU_MAXLUSTRLEN * BYTES_PER_XDR_UNIT];
 	int n, i;
 	kern_return_t status;
@@ -417,11 +372,11 @@ query_util(char *str)
 		return;
 	}
 
-	datalen = MAX_INLINE_UNITS * BYTES_PER_XDR_UNIT;
+	datalen = 0;
+	lookup_buf = NULL;
 
-	if (_lookup_one(server_port, proc, (unit *)databuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	status = _lookup_all(server_port, proc, (unit *)databuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen);
+	if (status != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "lookup failed!\n");
@@ -431,6 +386,11 @@ query_util(char *str)
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
+	if ((lookup_buf == NULL) || (datalen == 0))
+	{
+		fprintf(stderr, "lookup returned NULL!\n");
+		return;
+	}
 
 	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
 
@@ -438,6 +398,7 @@ query_util(char *str)
 	if (!xdr_int(&inxdr, &n))
 	{
 		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 		fprintf(stderr, "xdr decoding error!\n");
 		return;
 	}
@@ -450,6 +411,7 @@ query_util(char *str)
 	if (n > 0) printf("\n");
 
 	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 }
 
 void
@@ -459,7 +421,7 @@ query_find(char *cat, char *key, char *val)
 	XDR outxdr;
 	XDR inxdr;
 	int proc;
-	unit lookup_buf[MAX_INLINE_UNITS * BYTES_PER_XDR_UNIT];
+	char *lookup_buf;
 	char databuf[_LU_MAXLUSTRLEN * BYTES_PER_XDR_UNIT];
 	int n, i;
 	kern_return_t status;
@@ -469,7 +431,6 @@ query_find(char *cat, char *key, char *val)
 	status = KERN_SUCCESS;
 
 	status = _lookup_link(server_port, "find", &proc);
-
 	if (status != KERN_SUCCESS)
 	{
 		fprintf(stderr, "can't find lookup procedure\n");
@@ -485,8 +446,6 @@ query_find(char *cat, char *key, char *val)
 		return;
 	}
 
-	datalen = MAX_INLINE_UNITS * BYTES_PER_XDR_UNIT;
-
 	if (!xdr__lu_string(&outxdr, &key))
 	{
 		xdr_destroy(&outxdr);
@@ -501,9 +460,11 @@ query_find(char *cat, char *key, char *val)
 		return;
 	}
 
-	if (_lookup_one(server_port, proc, (unit *)databuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	status = _lookup_all(server_port, proc, (unit *)databuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen);
+	if (status != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "lookup failed!\n");
@@ -513,13 +474,18 @@ query_find(char *cat, char *key, char *val)
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
+	if ((lookup_buf == NULL) || (datalen == 0))
+	{
+		fprintf(stderr, "lookup returned NULL!\n");
+		return;
+	}
 
 	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
-
 
 	if (!xdr_int(&inxdr, &n))
 	{
 		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 		fprintf(stderr, "xdr decoding error!\n");
 		return;
 	}
@@ -532,6 +498,7 @@ query_find(char *cat, char *key, char *val)
 	if (n > 0) printf("\n");
 
 	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 }
 
 void
@@ -543,9 +510,17 @@ query_query(int argc, char *argv[])
 	int proc;
 	char *listbuf;
 	char databuf[_LU_MAXLUSTRLEN * BYTES_PER_XDR_UNIT];
-	int n, i, j, na;
+	int n, i, j, na, cat;
 	kern_return_t status;
-	char *k;
+	char *k, str[16];
+
+	/* check category */
+	cat = [LUAgent categoryWithName:argv[1]];
+	if ((cat < 0) || (cat > NCATEGORIES))
+	{
+		fprintf(stderr, "invalid category %s\n", argv[1]);
+		return;
+	}
 
 	/* check the "-a" options */
 
@@ -605,9 +580,12 @@ query_query(int argc, char *argv[])
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "xdr encoding error!\n");
+		free(k);
 		return;
 	}
+
 	free(k);
+
 	n = 1;
 	if (!xdr_int(&outxdr, &n))
 	{
@@ -615,7 +593,10 @@ query_query(int argc, char *argv[])
 		fprintf(stderr, "xdr encoding error!\n");
 		return;
 	}
-	if (!xdr__lu_string(&outxdr, &argv[1]))
+
+	sprintf(str, "%d", cat);
+	k = str;
+	if (!xdr__lu_string(&outxdr, &k))
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "xdr encoding error!\n");
@@ -654,9 +635,8 @@ query_query(int argc, char *argv[])
 	listbuf = NULL;
 	datalen = 0;
 
-	if (_lookup_all(server_port, proc, (unit *)databuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &listbuf, &datalen)
-		!= KERN_SUCCESS)
+	status = _lookup_all(server_port, proc, (unit *)databuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &listbuf, &datalen);
+	if (status != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "query failed!\n");
@@ -665,9 +645,7 @@ query_query(int argc, char *argv[])
 
 	xdr_destroy(&outxdr);
 
-#ifdef _IPC_TYPED_
 	datalen *= BYTES_PER_XDR_UNIT;
-#endif
 	
 	xdrmem_create(&inxdr, listbuf, datalen, XDR_DECODE);
 
@@ -709,16 +687,16 @@ query_list(char *str)
 	encode_len = 0;
 
 	status = _lookup_link(server_port, "list", &proc);
-	listproc = 1;
-
-	if (streq(str, "-configuration")) str = "config";
-
 	if (status != KERN_SUCCESS)
 	{
 		fprintf(stderr, "can't find lookup procedure\n");
 		return;
 	}
-	
+
+	listproc = 1;
+
+	if (streq(str, "-configuration")) str = "config";
+
 	xdrmem_create(&outxdr, databuf, sizeof(databuf), XDR_ENCODE);
 	
 	if (!xdr__lu_string(&outxdr, &str))
@@ -733,9 +711,8 @@ query_list(char *str)
 	listbuf = NULL;
 	datalen = 0;
 
-	if (_lookup_all(server_port, proc, (unit *)databuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &listbuf, &datalen)
-		!= KERN_SUCCESS)
+	status = _lookup_all(server_port, proc, (unit *)databuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &listbuf, &datalen);
+	if (status != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
 		fprintf(stderr, "lookup failed!\n");
@@ -744,9 +721,7 @@ query_list(char *str)
 
 	xdr_destroy(&outxdr);
 
-#ifdef _IPC_TYPED_
 	datalen *= BYTES_PER_XDR_UNIT;
-#endif
 
 	xdrmem_create(&inxdr, listbuf, datalen, XDR_DECODE);
 
@@ -772,42 +747,24 @@ query_list(char *str)
 int
 main(int argc, char *argv[])
 {
-	int i, pid, qp, fp;
-	BOOL restarting;
-	BOOL customName;
+	int i, pid, qp, fp, status;
+	BOOL customName, initialStartup;
 	struct rlimit rlim;
-	sys_task_port_type old_lu;
-#ifdef _SHADOW_
-	sys_port_type old_port_privileged;
-	sys_port_type old_port_unprivileged;
-#else
 	sys_port_type old_port;
-#endif
 
 	objc_setMultithreaded(YES);
 	
 	pid = -1;
-	restarting = NO;
 	portName = DefaultName;
 	debugMode = NO;
 	customName = NO;
+	initialStartup = NO;
 
 	server_port = SYS_PORT_NULL;
-#ifdef _SHADOW_
-	server_port_unprivileged = SYS_PORT_NULL;
-	old_port_unprivileged = SYS_PORT_NULL;
-	server_port_privileged = SYS_PORT_NULL;
-	old_port_privileged = SYS_PORT_NULL;
-	shadow_passwords = YES;
-#else
 	old_port = SYS_PORT_NULL;
-#endif
 
-	/* Clean up and re-initialize state on SIGHUP */
-	signal(SIGHUP, handleSIGHUP);
-	
-	/* Restart on SIGUSR1 */
-	signal(SIGUSR1, handleSIGUSR1);
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGTERM, goodbye);
 
 	qp = -1;
 	fp = -1;
@@ -823,9 +780,11 @@ main(int argc, char *argv[])
 			if (qp < 0)
 			{
 				fprintf(stderr, "usage: lookupd -q category [-a key [val ...]] ...\n");
-				exit(1);
+				exit(0);
 			}
 		}
+
+		else if (streq(argv[i], "-startup")) initialStartup = YES;
 
 		else if (streq(argv[i], "-flushcache")) qp = i - 1;
 
@@ -846,7 +805,7 @@ main(int argc, char *argv[])
 			if (((argc - i) - 1) < 1) 
 			{				
 				fprintf(stderr,"usage: lookupd -D name\n");
-				exit(1);
+				exit(0);
 			}
 			portName = argv[++i];
 			if (streq(portName, "-")) portName = NULL;
@@ -857,44 +816,17 @@ main(int argc, char *argv[])
 			if (((argc - i) - 1) < 1) 
 			{
 				fprintf(stderr,"usage: lookupd -l max_syslog_priority\n");
-				exit(1);
+				exit(0);
 			}
 			max_priority = atoi(argv[++i]);
 		}
-
-		else if (streq(argv[i], "-r"))
-		{
-			if (((argc - i) - 1) < 2) 
-			{
-#ifdef _SHADOW_
-				fprintf(stderr,"usage: lookupd -r unprivport privport pid\n");
-#else
-				fprintf(stderr,"usage: lookupd -r port pid\n");
-#endif
-				exit(1);
-			}
-
-			restarting = YES;
-
-#ifdef _SHADOW_
-			old_port_unprivileged = (sys_port_type)atoi(argv[++i]);
-			old_port_privileged = (sys_port_type)atoi(argv[++i]);
-#else
-			old_port = (sys_port_type)atoi(argv[++i]);
-#endif
-			pid = atoi(argv[++i]);
-		}
-
-#ifdef _SHADOW_
-		else if (streq(argv[i], "-u")) shadow_passwords = NO;
-#endif
 
 		else if (streq(argv[i], "-c"))
 		{
 			if (((argc - i) - 1) < 1) 
 			{
 				fprintf(stderr,"usage: lookupd -c source [[domain] path]\n");
-				exit(1);
+				exit(0);
 			}
 
 			i++;
@@ -905,7 +837,7 @@ main(int argc, char *argv[])
 				if (((argc - i) - 2) < 1)
 				{
 					fprintf(stderr,"usage: lookupd -c netinfo domain path\n");
-					exit(1);
+					exit(0);
 				}
 
 				configDomain = argv[++i];
@@ -917,7 +849,7 @@ main(int argc, char *argv[])
 				if (((argc - i) - 1) < 1)
 				{
 					fprintf(stderr,"usage: lookupd -c file path\n");
-					exit(1);
+					exit(0);
 				}
 
 				configPath = argv[++i];
@@ -928,14 +860,14 @@ main(int argc, char *argv[])
 				fprintf(stderr, "    default\n");
 				fprintf(stderr, "    netinfo \n");
 				fprintf(stderr, "    file\n");
-				exit(1);
+				exit(0);
 			}
 		}
 
 		else if ((qp < 0) && (fp < 0))
 		{
 			fprintf(stderr, "Unknown option: %s\n", argv[i]);
-			exit(1);
+			exit(0);
 		}
 	}
 
@@ -945,13 +877,13 @@ main(int argc, char *argv[])
 		if (i == 0)
 		{
 			fprintf(stderr, "usage: lookupd -q category [-a key [val ...]] ...\n");
-			exit(1);
+			exit(0);
 		}
 
 		if (portName == NULL)
 		{
 			fprintf(stderr, "Can't query without a port\n");
-			exit(1);
+			exit(0);
 		}
 
 		if (i == 1)
@@ -970,54 +902,57 @@ main(int argc, char *argv[])
 		if (i != 3)
 		{
 			fprintf(stderr, "usage: lookupd -f category key val\n");
-			exit(1);
+			exit(0);
 		}
 
 		if (portName == NULL)
 		{
 			fprintf(stderr, "Can't find without a port\n");
-			exit(1);
+			exit(0);
 		}
 
 		query_find(argv[fp + 1], argv[fp + 2], argv[fp + 3]);
 		exit(0);
 	}
-
-	if (restarting && debugMode)
+	
+	if (debugMode)
 	{
-		fprintf(stderr, "Can't restart in debug mode\n");
-		exit(1);
-	}
-
-	if ((!restarting) && (lookupd_port(portName) != SYS_PORT_NULL))
-	{
-		if (debugMode)
+		if (customName)
 		{
-			if (customName)
+			if (getuid() != 0)
 			{
-				fprintf(stderr, "lookupd -D %s is already running!\n",
-					portName);
+				fprintf(stderr,"\nWarning: lookupd -D %s should run as root\n\n", portName);
 			}
-			else
+
+			status = sys_server_status(portName);
+			if (status == SERVER_STATUS_ACTIVE)
 			{
-				fprintf(stderr, "lookupd -d is already running!\n");
+				fprintf(stderr, "lookupd -D %s is already running!\n", portName);
+				exit(0);
 			}
 		}
-		else
+	}
+	else
+	{
+		status = sys_server_status(portName);
+		if (status == SERVER_STATUS_ACTIVE)
 		{
 			fprintf(stderr, "lookupd is already running!\n");
 			system_log(LOG_ERR, "lookupd is already running!\n");
+			exit(0);
 		}
-		exit(1);
+		else if (status == SERVER_STATUS_INACTIVE) initialStartup = YES;
 	}
 
 	if (debugMode)
 	{
+		statistics_enabled = YES;
+
 		lookupd_startup();
 		if (controller == nil)
 		{
 			fprintf(stderr, "controller didn't init!\n");
-			exit(1);
+			exit(0);
 		}
 
 		printf("lookupd version %s (%s)\n", _PROJECT_VERSION_, _PROJECT_BUILD_INFO_);
@@ -1028,70 +963,36 @@ main(int argc, char *argv[])
 		lookupd_shutdown(0);
 	}
 
-	if (restarting)
-	{
-		if (sys_task_for_pid(sys_task_self(), pid, &old_lu) != KERN_SUCCESS)
-		{
-			system_log(LOG_EMERG, "Can't get port for PID %d", pid);
-			exit(1);
-		}
-#ifdef _SHADOW_
-		if (sys_port_extract_receive_right(old_lu, old_port_unprivileged, &server_port_unprivileged)
-			!= KERN_SUCCESS || 
-		    sys_port_extract_receive_right(old_lu, old_port_privileged, &server_port_privileged)
-			!= KERN_SUCCESS || 
-		    port_set_allocate(task_self(), &server_port)
-			!= KERN_SUCCESS || 
-		    port_set_add(task_self(), server_port, server_port_unprivileged)
-			!= KERN_SUCCESS || 
-		    port_set_add(task_self(), server_port, server_port_privileged)
-			!= KERN_SUCCESS)
-#else
-		if (sys_port_extract_receive_right(old_lu, old_port, &server_port)
-			!= KERN_SUCCESS)
-#endif
-		{
-			system_log(LOG_EMERG, "Can't grab port rights");
-			kill(pid, SIGKILL);
-			exit(1);
-		}
-	}
-	else
+	if (initialStartup)
 	{
 		pid = fork();
 		if (pid > 0)
 		{
-			signal(SIGTERM, parentexit);
 			forever sleep(1);
 		}
-
-		detach();
 	}
 
+	detach();
 	closeall();
 
 	if (!debugMode) writepid();
 
 	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
 	setrlimit(RLIMIT_CORE, &rlim);
-	signal(SIGTERM, goodbye);
 
 	lookupd_startup();
 	if (controller == nil)
 	{
 		system_log(LOG_EMERG, "controller didn't init!");
 		kill(getppid(), SIGTERM);
-		exit(1);
+		exit(0);
 	}
 
-	kill(getppid(), SIGTERM);
+	if (initialStartup) kill(getppid(), SIGTERM);
 
 	[controller serverLoop];
 
 	system_log(LOG_DEBUG, "serverLoop ended");
-
-	/* We get here if the sighup handler got hit. */
-	restart();
 
 	lookupd_shutdown(-1);
 	exit(-1);

@@ -34,6 +34,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <signal.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "as.h"
 #include "input-scrub.h"

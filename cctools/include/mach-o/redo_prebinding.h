@@ -1,3 +1,5 @@
+#define REDO_PREBINDING_VERSION 2
+#include <mach/machine.h>
 /*
  * For all APIs in this file the parameters program_name and error_message
  * are used the same.  For unrecoverable resource errors like being unable to
@@ -36,19 +38,50 @@ const char *file_name,
 const char *program_name,
 char **error_message);
 
+
+/* return values for redo_prebinding() */
+enum redo_prebinding_retval {
+    REDO_PREBINDING_SUCCESS,
+    REDO_PREBINDING_FAILURE,
+    /* the following can only be returned if the parameter only_if_needed set */
+    REDO_PREBINDING_NOT_NEEDED,
+    REDO_PREBINDING_NOT_PREBOUND,
+    REDO_PREBINDING_NEEDS_REBUILDING
+};
+
 /*
  * redo_prebinding() takes a file_name of a binary and redoes the prebinding on
  * it.  If output_file is not NULL the update file is written to output_file,
  * if not it is written to file_name.  If redo_prebinding() is successful it
- * returns 0 otherwise it returns 1.  If not all architectures can be updated
- * it is not successful and nothing is done.
- *
- * The not yet supported slide_to_address parameter should be passed a value of
- * zero. When supported a non-zero value will be the address a dynamic library
- * is to be relocated to as its preferred address.
+ * returns REDO_PREBINDING_SUCCESS otherwise it returns REDO_PREBINDING_FAILURE.
+ * If the parameter allow_missing_architectures is zero and not all
+ * architectures can be updated it is not successful and nothing is done and
+ * this returns REDO_PREBINDING_FAILURE.  If the parameter
+ * allow_missing_architectures is non-zero then only problems with missing
+ * architectures for the architecure of the cputype specified by 
+ * allow_missing_architectures will cause this call to fail.  Other
+ * architectures that could not be prebound due to missing architectures in
+ * depending libraries will not have their prebinding updated but will not
+ * cause this call to fail.
+ * If the slide_to_address parameter is non-zero and the binary is a
+ * dynamic library it is relocated to have that has its prefered address.  If
+ * only_if_needed is non-zero the prebinding is checked first and only done if
+ * needed.  The checking includes checking the prefered address against the
+ * slide_to_address value if it is non-zero.  If only_if_needed is non-zero
+ * and the prebinding does not have to be redone REDO_PREBINDING_NOT_NEEDED is
+ * returned, if the binary is not prebound REDO_PREBINDING_NOT_PREBOUND is
+ * returned and if the new load commands do not fit in the binary and it needs
+ * to be rebuilt REDO_PREBINDING_NEEDS_REBUILDING is returned.
+ * If zero_out_prebind_checksum is non-zero then the cksum field of the
+ * LC_PREBIND_CKSUM load command (if any) is set to zero on output (this should
+ * always be set by B&I tools and never set by the update_prebinding(1)
+ * command).
+ * If throttle is non-NULL it points to a value of the maximum bytes per second
+ * to use for writting the output.  If the value is ULONG_MAX then the actual
+ * bytes per second is returned indirectly through *throttle.
  */
 extern 
-int
+enum redo_prebinding_retval
 redo_prebinding(
 const char *file_name,
 const char *executable_path,
@@ -56,7 +89,11 @@ const char *root_dir,
 const char *output_file,
 const char *program_name,
 char **error_message,
-unsigned long slide_to_address /* not yet supported parameter */ );
+unsigned long slide_to_address,
+int only_if_needed,
+int zero_out_prebind_checksum,
+cpu_type_t allow_missing_architectures,
+unsigned long *throttle);
 
 
 /* return values for needs_redo_prebinding() */
@@ -64,7 +101,8 @@ enum needs_redo_prebinding_retval {
     PREBINDING_UPTODATE,  /* a binary who's prebinding is up todate */
     PREBINDING_OUTOFDATE, /* a binary who's prebinding is out of date */
     NOT_PREBOUND,	  /* a binary, but not built prebound */
-    NOT_PREBINDABLE,	  /* not a binary, prebinding does not apply */
+    NOT_PREBINDABLE,	  /* not a binary or statically linked,
+			     prebinding does not apply */
     PREBINDING_UNKNOWN	  /* a binary who's prebinding can't be determined
 			     because it is malformed, a library it depends
 			     on is missing, etc. */
@@ -73,8 +111,15 @@ enum needs_redo_prebinding_retval {
 /*
  * needs_redo_prebinding() takes a file_name and determines if it is a binary
  * and if its prebinding is uptodate.  It returns one of the return values
- * above depending on the state of the binary and libraries.  The value returned
- * is based on the first architecture for fat files.
+ * above depending on the state of the binary and libraries. If the parameter
+ * allow_missing_architectures is zero then the value returned is based on the
+ * first architecture for fat files.  If the parameter
+ * allow_missing_architectures is non-zero then the value returned is based on
+ * the cputype specified by allow_missing_architectures.  If that architecture
+ * is not present then PREBINDING_UPTODATE is returned.  If the parameter
+ * expected_address is not zero and the binary is a dynamic library then the
+ * library is checked to see if it is at the expected_address if not the
+ * prebinding is assumed to be out of date and PREBINDING_OUTOFDATE is returned.
  */
 extern
 enum needs_redo_prebinding_retval
@@ -82,5 +127,54 @@ needs_redo_prebinding(
 const char *file_name,
 const char *executable_path,
 const char *root_dir,
+const char *program_name,
+char **error_message,
+unsigned long expected_address,
+cpu_type_t allow_missing_architectures);
+
+
+enum object_file_type_retval {
+    OFT_OTHER,
+    OFT_EXECUTABLE,
+    OFT_DYLIB,
+    OFT_BUNDLE,
+    OFT_ARCHIVE,
+    OFT_INCONSISTENT,
+    OFT_FILE_ERROR
+};
+
+/*
+ * object_file_type() takes a file_name and determines what type of object
+ * file it is.  If it is a fat file and the architectures are not of the same
+ * type then OFT_INCONSISTENT is returned.  If the file_name can't be opened,
+ * read or malformed then OFT_FILE_ERROR is returned.
+ */
+extern
+enum object_file_type_retval
+object_file_type(
+const char *file_name,
+const char *program_name,
+char **error_message);
+
+struct prebind_cksum_arch {
+    cpu_type_t cputype;		/* cpu specifier */
+    cpu_subtype_t cpusubtype;	/* machine specifier */
+    unsigned long has_cksum;	/* 1 if the arch as an LC_PREBIND_CKSUM */
+    unsigned long cksum;	/* value of the cksum in LC_PREBIND_CKSUM */
+};
+
+/*
+ * get_prebind_cksums() takes a file_name that is a Mach-O file or fat file
+ * containing Mach-O files and returns a malloc(3)'ed array of
+ * prebind_cksum_arch structs indirectly through the cksums parameter.  The
+ * number of prebind_cksum_arch structs is returned indirectly through the
+ * ncksums parameter.  If successful it returns zero else it returns non-zero.
+ */
+extern
+int
+get_prebind_cksums(
+const char *file_name,
+struct prebind_cksum_arch **cksums,
+unsigned long *ncksums,
 const char *program_name,
 char **error_message);

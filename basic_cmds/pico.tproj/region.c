@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: region.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $";
+static char rcsid[] = "$Id: region.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	Region management routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: region.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -87,7 +87,20 @@ killregion(f, n)
     curwp->w_dotp = region.r_linep;
     curwp->w_doto = region.r_offset;
     curwp->w_markp = NULL;
-    return (ldelete((int)region.r_size, TRUE));
+#ifdef	_WINDOWS
+    mswin_allowcopycut(NULL);
+#endif
+
+    if(ldelete((int)region.r_size, TRUE)){
+	if(curwp->w_dotp == curwp->w_linep && curwp->w_dotp == curbp->b_linep){
+	    curwp->w_force = 0;		/* Center dot. */
+	    curwp->w_flag |= WFFORCE;
+	}
+
+	return(TRUE);
+    }
+
+    return (FALSE);
 }
 
 

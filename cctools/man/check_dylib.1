@@ -1,4 +1,4 @@
-.TH CHECK_DYLIB l "March 30, 2000" "Apple Computer, Inc."
+.TH CHECK_DYLIB l "September 10, 2001" "Apple Computer, Inc."
 .SH NAME
 check_dylib \- perform checks on a dynamic library file
 .SH SYNOPSIS
@@ -7,6 +7,8 @@ filename \-install_name
 .I install_name
 \-seg_addr_table
 .I seg_addr_table
+\-seg_addr_table_filename
+.I path_name
 .sp .5
 .SH DESCRIPTION
 .I Check_dylib
@@ -18,19 +20,25 @@ returns the status of the checks as exit values.
 .PP
 The checks are performed in the following order:
 .PP
-Check the install name of the dynamic library file against the specified
+If the install name of the dynamic library does not start with @executable_path
+check the install name of the dynamic library file against the specified
 .B \-install_name
 argument and if it does not match it exit with a value of 2.
 .PP
 Check the segment address table specified by
 .B \-seg_addr_table
-for an entry with the dynamic library file's install name and if one is not
-found in the table exit with a value of 3.
+for an entry with the
+.I path_name
+argument of the
+.B \-seg_addr_table_filename
+and if one is not found in the table exit with a value of 3.
 .PP
 Check the dynamic library file's address against the address in the matching
 entry in the segment address table specified by
 .B \-seg_addr_table
-and it it does not match exit with a value of 4.
+and
+.B \-seg_addr_table_filename
+and if it does not match exit with a value of 4.
 .PP
 Check the address of the dynamic library and if it is zero exit with a value
 of 5.
@@ -41,4 +49,4 @@ exits with a value of 1. If no checks fail then
 .IR check_dylib (l)
 exits with a value of 0.
 .SH "SEE ALSO"
-seg_addr_table(l), doug(1)
+seg_addr_table(l), doug(0)

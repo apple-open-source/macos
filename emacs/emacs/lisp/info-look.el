@@ -1,10 +1,9 @@
-;;; info-look.el --- major-mode-sensitive Info index lookup facility.
+;;; info-look.el --- major-mode-sensitive Info index lookup facility
 ;; An older version of this was known as libc.el.
 
-;; Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
-;; Author: Ralph Schleicher <rs@purple.UL.BaWue.DE>
-;; Maintainers: FSF (unless Schleicher can be found)
+;; Author: Ralph Schleicher <rs@nunatak.allgaeu.org>
 ;; Keywords: help languages
 
 ;; This file is part of GNU Emacs.
@@ -24,17 +23,14 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
+;; Really cool code to lookup info indexes.
+;; Try especially info-lookup-symbol (aka C-h TAB).
+
 ;;; Code:
 
 (require 'info)
-(eval-and-compile
-  (condition-case nil
-      (require 'custom)
-    (error
-     (defmacro defgroup (&rest arg)
-       nil)
-     (defmacro defcustom (symbol value doc &rest arg)
-       `(defvar ,symbol ,value ,doc ,@arg)))))
 
 (defgroup info-lookup nil
   "Major mode sensitive help agent."
@@ -59,10 +55,8 @@ Setting this variable to nil disables highlighting."
   "Overlay object used for highlighting.")
 
 (defcustom info-lookup-file-name-alist
-  '(("\\`configure\\.in\\'" . autoconf-mode)
-    ("\\`aclocal\\.m4\\'" . autoconf-mode)
-    ("\\`acsite\\.m4\\'" . autoconf-mode)
-    ("\\`acinclude\\.m4\\'" . autoconf-mode))
+  '(("\\`configure\\.in\\'" . autoconf-mode) ;already covered by auto-mode-alist
+    ("\\`ac\\(local\\|site\\|include\\)\\.m4\\'" . autoconf-mode))
   "Alist of file names handled specially.
 List elements are cons cells of the form
 
@@ -133,13 +127,6 @@ OTHER-MODES is a list of cross references to other help modes.")
 (defsubst info-lookup->other-modes (topic mode)
   (nth 5 (info-lookup->mode-value topic mode)))
 
-(eval-and-compile
-  (mapcar (lambda (keyword)
-	    (or (boundp keyword)
-		(set keyword keyword)))
-	  '(:topic :mode :regexp :ignore-case
-	    :doc-spec :parse-rule :other-modes)))
-
 (defun info-lookup-add-help (&rest arg)
   "Add or update a help specification.
 Function arguments are one or more options of the form
@@ -156,7 +143,7 @@ to `symbol', and the help mode defaults to the current major mode."
   (apply 'info-lookup-add-help* nil arg))
 
 (defun info-lookup-maybe-add-help (&rest arg)
-  "Add a help specification iff no one is defined.
+  "Add a help specification iff none is defined.
 See the documentation of the function `info-lookup-add-help'
 for more details."
   (apply 'info-lookup-add-help* t arg))
@@ -264,9 +251,11 @@ system."
 When this command is called interactively, it reads SYMBOL from the minibuffer.
 In the minibuffer, use M-n to yank the default argument value
 into the minibuffer so you can edit it.
-The default symbol is the one found at point."
+The default symbol is the one found at point.
+
+With prefix arg a query for the symbol help mode is offered."
   (interactive
-   (info-lookup-interactive-arguments 'symbol))
+   (info-lookup-interactive-arguments 'symbol current-prefix-arg))
   (info-lookup 'symbol symbol mode))
 
 ;;;###autoload
@@ -275,16 +264,21 @@ The default symbol is the one found at point."
 When this command is called interactively, it reads FILE from the minibuffer.
 In the minibuffer, use M-n to yank the default file name
 into the minibuffer so you can edit it.
-The default file name is the one found at point."
+The default file name is the one found at point.
+
+With prefix arg a query for the file help mode is offered."
   (interactive
-   (info-lookup-interactive-arguments 'file))
+   (info-lookup-interactive-arguments 'file current-prefix-arg))
   (info-lookup 'file file mode))
 
-(defun info-lookup-interactive-arguments (topic)
-  "Read and return argument value (and help mode) for help topic TOPIC."
-  (let* ((mode (if (info-lookup->mode-value topic (info-lookup-select-mode))
-		   info-lookup-mode
-		 (info-lookup-change-mode topic)))
+(defun info-lookup-interactive-arguments (topic &optional query)
+  "Read and return argument value (and help mode) for help topic TOPIC.
+If optional argument QUERY is non-nil, query for the help mode."
+  (let* ((mode (cond (query
+		      (info-lookup-change-mode topic))
+		     ((info-lookup->mode-value topic (info-lookup-select-mode))
+		      info-lookup-mode)
+		     ((info-lookup-change-mode topic))))
 	 (completions (info-lookup->completions topic mode))
 	 (default (info-lookup-guess-default topic mode))
 	 (completion-ignore-case (info-lookup->ignore-case topic mode))
@@ -331,10 +325,21 @@ The default file name is the one found at point."
 	(modes (info-lookup->all-modes topic mode))
 	(window (selected-window))
 	found doc-spec node prefix suffix doc-found)
-    (if (not info-lookup-other-window-flag)
+    (if (or (not info-lookup-other-window-flag)
+	    (eq (current-buffer) (get-buffer "*info*")))
 	(info)
-      (save-window-excursion (info))
-      (switch-to-buffer-other-window "*info*"))
+      (progn
+	(save-window-excursion (info))
+	;; Determine whether or not the Info buffer is visible in
+	;; another frame on the same display.  If it is, simply raise
+	;; that frame.  Otherwise, display it in another window.
+	(let* ((window (get-buffer-window "*info*" t))
+	       (info-frame (and window (window-frame window))))
+	  (if (and info-frame
+		   (display-multi-frame-p)
+		   (memq info-frame (frames-on-display-list)))
+	    (select-frame info-frame)
+	  (switch-to-buffer-other-window "*info*")))))
     (while (and (not found) modes)
       (setq doc-spec (info-lookup->doc-spec topic (car modes)))
       (while (and (not found) doc-spec)
@@ -342,10 +347,10 @@ The default file name is the one found at point."
 	      prefix (nth 2 (car doc-spec))
 	      suffix (nth 3 (car doc-spec)))
 	(when (condition-case error-data
-		  (progn 
+		  (progn
 		    (Info-goto-node node)
 		    (setq doc-found t))
-		(error 
+		(error
 		 (message "Cannot access Info node %s" node)
 		 (sit-for 1)
 		 nil))
@@ -361,7 +366,7 @@ The default file name is the one found at point."
 		      (re-search-forward
 		       (concat prefix (regexp-quote item) suffix))
 		      (goto-char (match-beginning 0))
-		      (and window-system info-lookup-highlight-face
+		      (and (display-color-p) info-lookup-highlight-face
 			   ;; Search again for ITEM so that the first
 			   ;; occurence of ITEM will be highlighted.
 			   (re-search-forward (regexp-quote item))
@@ -400,7 +405,9 @@ The default file name is the one found at point."
 	  (setq refer-modes (nreverse refer-modes))
 	  ;; Build the full completion alist.
 	  (setq completions
-		(nconc (info-lookup-make-completions topic mode)
+		(nconc (condition-case nil
+			   (info-lookup-make-completions topic mode)
+			 (error nil))
 		       (apply 'append
 			      (mapcar (lambda (arg)
 					(info-lookup->completions topic arg))
@@ -439,10 +446,10 @@ The default file name is the one found at point."
       (with-current-buffer buffer
 	(message "Processing Info node `%s'..." node)
 	(when (condition-case error-data
-		  (progn 
+		  (progn
 		    (Info-goto-node node)
 		    (setq doc-found t))
-		(error 
+		(error
 		 (message "Cannot access Info node `%s'" node)
 		 (sit-for 1)
 		 nil))
@@ -456,7 +463,7 @@ The default file name is the one found at point."
 		       ;; `trans' can return nil if the regexp doesn't match.
 		       (when (and item
 				  ;; Sometimes there's more than one Menu:
-				  (not (string= entry "Menu"))) 
+				  (not (string= entry "Menu")))
 			 (and (info-lookup->ignore-case topic mode)
 			      (setq item (downcase item)))
 			 (and (string-equal entry item)
@@ -472,54 +479,57 @@ The default file name is the one found at point."
     result))
 
 (defun info-lookup-guess-default (topic mode)
-  "Pick up default item at point (with favor to look back).
-Return nil if there is nothing appropriate."
+  "Return a guess for a symbol to look up, based on text around point.
+Try all related modes applicable to TOPIC and MODE.
+Return nil if there is nothing appropriate in the buffer near point."
   (let ((modes (info-lookup->all-modes topic mode))
-	(start (point)) guess whitespace)
+	guess)
     (while (and (not guess) modes)
       (setq guess (info-lookup-guess-default* topic (car modes))
-	    modes (cdr modes))
-      (goto-char start))
+	    modes (cdr modes)))
     ;; Collapse whitespace characters.
-    (and guess (concat (delete nil (mapcar (lambda (ch)
-					     (if (or (char-equal ch ? )
-						     (char-equal ch ?\t)
-						     (char-equal ch ?\n))
-						 (if (not whitespace)
-						     (setq whitespace ? ))
-					       (setq whitespace nil) ch))
-					   guess))))))
+    (when guess
+      (let ((pos 0))
+	(while (string-match "[ \t\n]+" guess pos)
+	  (setq pos (1+ (match-beginning 0)))
+	  (setq guess (replace-match " " t t guess)))))
+    guess))
 
 (defun info-lookup-guess-default* (topic mode)
   (let ((case-fold-search (info-lookup->ignore-case topic mode))
 	(rule (or (info-lookup->parse-rule topic mode)
 		  (info-lookup->regexp topic mode)))
 	(start (point)) end regexp subexp result)
-    (if (symbolp rule)
-	(setq result (funcall rule))
-      (if (consp rule)
-	  (setq regexp (car rule)
-		subexp (cdr rule))
-	(setq regexp rule
-	      subexp 0))
-      (skip-chars-backward " \t\n") (setq end (point))
-      (while (and (re-search-backward regexp nil t)
-		  (looking-at regexp)
-		  (>= (match-end 0) end))
-	(setq result (match-string subexp)))
-      (if (not result)
-	  (progn
-	    (goto-char start)
-	    (skip-chars-forward " \t\n")
-	    (and (looking-at regexp)
-		 (setq result (match-string subexp))))))
+    (save-excursion
+      (if (symbolp rule)
+	  (setq result (funcall rule))
+	(if (consp rule)
+	    (setq regexp (car rule)
+		  subexp (cdr rule))
+	  (setq regexp rule
+		subexp 0))
+	;; If at start of symbol, don't go back to end of previous one.
+	(if (save-match-data
+	      (looking-at "[ \t\n]"))
+	    (skip-chars-backward " \t\n"))
+	(setq end (point))
+	(while (and (re-search-backward regexp nil t)
+		    (looking-at regexp)
+		    (>= (match-end 0) end))
+	  (setq result (match-string subexp)))
+	(if (not result)
+	    (progn
+	      (goto-char start)
+	      (skip-chars-forward " \t\n")
+	      (and (looking-at regexp)
+		   (setq result (match-string subexp)))))))
     result))
 
 (defun info-lookup-guess-c-symbol ()
   "Get the C symbol at point."
   (condition-case nil
       (progn
-	(backward-sexp)
+	(skip-syntax-backward "w_")
 	(let ((start (point)) prefix name)
 	  ;; Test for a leading `struct', `union', or `enum' keyword
 	  ;; but ignore names like `foo_struct'.
@@ -593,7 +603,11 @@ Return nil if there is nothing appropriate."
 				   (format "Complete %S: " topic)
 				   completions nil t completion
 				   info-lookup-history)))
-	     (delete-region (- start (length try)) start)
+	     ;; Find the original symbol and zap it.
+	     (end-of-line)
+	     (while (and (search-backward try nil t)
+			 (< start (point))))
+	     (replace-match "")
 	     (insert completion))
 	    (t
 	     (message "%s is complete"
@@ -710,40 +724,38 @@ Return nil if there is nothing appropriate."
  :parse-rule "[$@%]?\\([_a-zA-Z0-9]+\\|[^a-zA-Z]\\)")
 
 (info-lookup-maybe-add-help
+ :mode 'cperl-mode
+ :regexp "[$@%][^a-zA-Z]\\|\\$\\^[A-Z]\\|[$@%]?[a-zA-Z][_a-zA-Z0-9]*"
+ :other-modes '(perl-mode))
+
+(info-lookup-maybe-add-help
  :mode 'latex-mode
  :regexp "\\\\\\([a-zA-Z]+\\|[^a-zA-Z]\\)"
- :doc-spec '(("(latex2e)Command Index" nil
+ :doc-spec '(("(latex)Command Index" nil
 	      "`" "\\({[^}]*}\\)?'")))
 
 (info-lookup-maybe-add-help
  :mode 'emacs-lisp-mode
- :regexp "[^()' \t\n]+"
+ :regexp "[^][()'\" \t\n]+"
  :doc-spec '(("(emacs)Command Index")
 	     ("(emacs)Variable Index")
-	     ("(elisp)Index"
-	      (lambda (item)
-		(let ((sym (intern-soft item)))
-		  (cond ((null sym)
-			 (if (string-equal item "nil") item))
-			((or (boundp sym) (fboundp sym))
-			 item))))
-	      "^[ \t]+- [^:]+:[ \t]*" "\\b")))
+	     ("(elisp)Index")))
 
 (info-lookup-maybe-add-help
  :mode 'lisp-interaction-mode
- :regexp "[^()' \t\n]+"
+ :regexp "[^][()'\" \t\n]+"
  :parse-rule 'ignore
  :other-modes '(emacs-lisp-mode))
 
 (info-lookup-maybe-add-help
  :mode 'lisp-mode
- :regexp "[^()' \t\n]+"
+ :regexp "[^()'\" \t\n]+"
  :parse-rule 'ignore
  :other-modes '(emacs-lisp-mode))
 
 (info-lookup-maybe-add-help
  :mode 'scheme-mode
- :regexp "[^()' \t\n]+"
+ :regexp "[^()'\" \t\n]+"
  :ignore-case t
  ;; Aubrey Jaffer's rendition from <URL:ftp://ftp-swiss.ai.mit.edu/pub/scm>
  :doc-spec '(("(r5rs)Index" nil
@@ -752,10 +764,11 @@ Return nil if there is nothing appropriate."
 (info-lookup-maybe-add-help
  :mode 'octave-mode
  :regexp "[_a-zA-Z0-9]+"
- :doc-spec '(("(octave)Function Index" nil "^ - [^:]+:[ ]+" nil)
+ :doc-spec '(("(octave)Function Index" nil 
+	      "^ - [^:]+:[ ]+\\(\\[[^=]*=[ ]+\\)?" nil)
 	     ("(octave)Variable Index" nil "^ - [^:]+:[ ]+" nil)
 	     ;; Catch lines of the form "xyz statement"
-	     ("(octave)Concept Index" 
+	     ("(octave)Concept Index"
 	      (lambda (item)
 		(cond
 		 ((string-match "^\\([A-Z]+\\) statement\\b" item)

@@ -1,0 +1,126 @@
+<HTML><HEAD>
+<title>Cyrus SASLv2 INSTALL Documentation</title>
+<!-- $Id: install.html,v 1.1 2002/02/28 00:00:05 snsimon Exp $ -->
+</HEAD>
+<BODY>
+<H1>Installation Procedure</H1>
+
+This document offers a general overview of installing the SASL library.
+
+<H2>Quick and Dirty</H2>
+<pre>
+  cd (directory it was untarred into)
+  ./configure
+  make
+  make install
+</pre>
+
+If you're checking this directly out of CVS, you'll need to run "sh
+./SMakefile" to build the configure script first.<p>
+
+<A HREF=sysadmin.html>Read</A> to learn how to configure SASL.  There is
+also a <A HREF=upgrading.html>document</A> that covers upgrade issues.
+
+<H2>Details</H2>
+
+Note that the library looks for plugins in <tt>/usr/lib/sasl2</tt>,
+but installs them into <tt>${prefix}/lib/sasl2</tt>, where
+<tt>${prefix}</tt> is usually something like <tt>/usr/local</tt>.
+This is intentional - we want the plugins installed with the rest of
+the package (wherever things get installed at your site), but we want
+the library to *always* be able to find its plugins under
+<tt>/usr/lib/sasl2</tt>, no matter where you install things, so that
+the SASL plugin ABI on all platforms is roughly the same.<p>
+
+If you don't want to do this for some reason, you can set the location
+where the library will look for plugins by setting the environment
+variable SASL_PATH to the path the library should use.<p>
+
+You'll probably need the GNU make program, available as of this
+writing <a
+href=ftp://ftp.gnu.org/pub/gnu/make/make-3.77.tar.gz>here</a>.<p>
+
+libsasl2 can use gdbm, Berkeley db, or ndbm to implement its
+user/password lookup. Most systems come with ndbm these days; as of
+this writing, gdbm is available as <a
+href=ftp://ftp.gnu.org/pub/gnu/gdbm/gdbm-1.7.3.tar.gz>this file</a>.
+Berkeley DB is available from: <a
+href=http://www.sleepycat.com/>here</a><p>
+
+For Kerberos support, you'll need the kerberos libraries.  At CMU, the
+version we use comes from <a href=http://www.pdc.kth.se/kth-krb/>here</a>.<p>
+
+For GSSAPI support you will need either MIT Kerberos 5 or the
+<a href=http://www.pdc.kth.se/heimdal>Heimdal implementation</a>.<p>
+
+For OTP support you will need
+<a href=http://www.inner.net/~cmetz/opie>OPIE v2.4</a> and <a
+href=../contrib/opie-2.4-fixes>this patch</a>.<p>
+
+This has been tested under Linux 2.2, Linux 2.4, Solaris 2.7 and Solaris 2.8.
+It should work under any platform where dynamic objects can be linked against
+other dynamic objects, and where the dynamic library file extension is
+".so", or where libtool creates the .la files correctly.<p>
+
+You may want to play with your CPPFLAGS and LDFLAGS a little if you're
+using vendor compilers (which we recommend).  You can see what
+compilers we use on our platforms by looking at the "SMakefile".
+
+<hr>
+<h2>Installation under Win32:</h2>
+
+<B>If you are using SASL under Win32 or have compiled it, please let
+us know!</B>
+<br>
+<i>Note: The Win32 port of SASLv2 is Incomplete.</i><p>
+
+We've tested the latest version under Windows and are eager to see
+other people use it!<p>
+
+<ul>
+<li>From within Visual C++, open workspace "sasl\win32\libsasl\libsasl.dsw"
+<li>Select "Batch Build" under the Build menu to build all versions.
+</ul>
+
+At this time, there are no installers available.  To install by hand:
+
+<ul>
+<li>Decide on an installation directory for your plugins (IE: c:\windows\sasl)
+<li>Copy all generated plugins into this directory:
+<pre>
+  cd sasl\win32
+  copy libsasl\Release\*.dll c:\sasl-plugins
+  copy saslANONYMOUS\Release\*.dll c:\sasl-plugins 
+  copy saslCRAM\Release\*.dll c:\sasl-plugins
+  copy saslKERBEROSV4\Release\*.dll c:\sasl-plugins
+  copy saslPLAIN\Release\*.dll c:\sasl-plugins
+</pre>
+<li>Update the registry with these locations.  Example registry settings
+    are in the file:
+<pre>
+  sasl\win32\cmu-sasl.reg
+</pre>
+<li>Add this directory to your path, so that apps will be able to find  
+    the library
+<pre>
+  PATH=c:\sasl-plugins;%PATH%
+</pre>
+</ul>
+
+This has been tested under Windows 2000, using Visual Studio 6 SP1.   
+
+<H3>More notes</H3>
+
+<ul>
+<li>ANONYMOUS, CRAM-MD5, DIGEST-MD5 and KERBEROS_V4 have been tested.
+<li>Kerberos mechanism has been compiled using MIT's kclient package
+<li>PLAIN is currently crippled, and does not support server use.
+<li>GSSAPI has been totally untested.
+</ul>
+
+<hr>
+Back to the <A href=index.html>index</a>
+
+</body>
+</html>
+

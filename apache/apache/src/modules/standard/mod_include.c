@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1959,7 +1959,7 @@ static int handle_if(FILE *in, request_rec *r, const char *error,
     expr = NULL;
     while (1) {
         tag_val = get_tag(r->pool, in, tag, sizeof(tag), 0);
-        if (*tag == '\0') {
+        if (!tag_val || *tag == '\0') {
             return 1;
         }
         else if (!strcmp(tag, "done")) {
@@ -2002,7 +2002,7 @@ static int handle_elif(FILE *in, request_rec *r, const char *error,
     expr = NULL;
     while (1) {
         tag_val = get_tag(r->pool, in, tag, sizeof(tag), 0);
-        if (*tag == '\0') {
+        if (!tag_val || *tag == '\0') {
             return 1;
         }
         else if (!strcmp(tag, "done")) {
@@ -2222,6 +2222,7 @@ static void send_parsed_content(FILE *f, request_rec *r)
                 return;
             }
             if (!strcmp(directive, "if")) {
+                ret = 0;
                 if (!printing) {
                     if_nesting++;
                 }
@@ -2230,23 +2231,23 @@ static void send_parsed_content(FILE *f, request_rec *r)
                                     &printing);
                     if_nesting = 0;
                 }
-                continue;
             }
             else if (!strcmp(directive, "else")) {
+                ret = 0;
                 if (!if_nesting) {
                     ret = handle_else(f, r, error, &conditional_status,
                                       &printing);
                 }
-                continue;
             }
             else if (!strcmp(directive, "elif")) {
+                ret = 0;
                 if (!if_nesting) {
                     ret = handle_elif(f, r, error, &conditional_status,
                                       &printing);
                 }
-                continue;
             }
             else if (!strcmp(directive, "endif")) {
+                ret = 0;
                 if (!if_nesting) {
                     ret = handle_endif(f, r, error, &conditional_status,
                                        &printing);
@@ -2254,12 +2255,11 @@ static void send_parsed_content(FILE *f, request_rec *r)
                 else {
                     if_nesting--;
                 }
+            }
+            else if (!printing) {
                 continue;
             }
-            if (!printing) {
-                continue;
-            }
-            if (!strcmp(directive, "exec")) {
+            else if (!strcmp(directive, "exec")) {
                 if (noexec) {
                     ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
 				  "exec used but not allowed in %s",

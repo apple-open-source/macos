@@ -1,0 +1,55 @@
+#! /bin/sh
+
+# Make sure that installing subdirectory libtool libraries works.
+# PR/300
+
+required=libtoolize
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+lib_LTLIBRARIES = subdir/liba.la
+subdir_liba_la_SOURCES = a.c
+
+nobase_lib_LTLIBRARIES = subdir/libb.la
+subdir_libb_la_SOURCES = a.c
+END
+
+cat > a.c << 'END'
+int i = 3;
+END
+
+## A rule in the Makefile should create subdir
+# mkdir subdir
+
+libtoolize
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --copy --add-missing
+./configure --prefix `pwd`/inst
+$MAKE
+
+test -f subdir/liba.la
+test -f subdir/libb.la
+
+$MAKE install
+
+test -f inst/lib/liba.la
+test -f inst/lib/subdir/libb.la
+
+$MAKE uninstall
+
+test -f inst/lib/liba.la && exit 1
+test -f inst/lib/subdir/libb.la && exit 1
+
+$MAKE install-strip
+
+test -f inst/lib/liba.la
+test -f inst/lib/subdir/libb.la

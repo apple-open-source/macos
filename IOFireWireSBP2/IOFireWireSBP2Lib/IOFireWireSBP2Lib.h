@@ -58,8 +58,8 @@
 
 //////////////////////
 
-#define kIOMessageFWSBP2ReconnectComplete		iokit_fw_err(1000)
-#define kIOMessageFWSBP2ReconnectFailed       	iokit_fw_err(1001)
+#define kIOMessageFWSBP2ReconnectComplete		((UInt32)iokit_fw_err(1000))
+#define kIOMessageFWSBP2ReconnectFailed       	((UInt32)iokit_fw_err(1001))
 
 /*
  * Direction of transfer, with respect to the described memory.

@@ -4,6 +4,10 @@
 <dict>
 	<key>Starting timed execution services</key>
 	<string>Starting timed execution services</string>
+	<key>Stopping timed execution services</key>
+	<string>Stopping timed execution services</string>
+	<key>Restarting timed execution services</key>
+	<string>Restarting timed execution services</string>
 </dict>
 </plist>
 

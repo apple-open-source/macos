@@ -43,7 +43,6 @@ typedef struct {
 
 @interface LUDictionary : Root
 {
-	id agent;
 	lu_property *prop;
 	unsigned int count;
 	void *_data;
@@ -51,9 +50,6 @@ typedef struct {
 }
 
 - (BOOL)isEqual:(LUDictionary *)dict;
-
-- (void)setAgent:(id)source;
-- (id)agent;
 
 - (unsigned int)indexForKey:(char *)key;
 - (char *)keyAtIndex:(unsigned int)where;
@@ -134,3 +130,5 @@ typedef struct {
 - (char *)description;
 
 @end
+
+dsrecord *dictToDSRecord(LUDictionary *dict);

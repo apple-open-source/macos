@@ -87,7 +87,7 @@ enum {
     cclErr_NoOriginateLabel = -6024,	// No @ORIGINATE label
     cclErr_NoAnswerLabel = -6025,	// No @ANSWER label
     cclErr_NoHangUpLabel = -6026,	// No @HANGUP label
-
+    cclErr_NoNumberErr = -6027  	// Can't connect because number is empty.
 };
 
 #endif /* PPP_MSG_H */

@@ -1,10 +1,6 @@
 {
   Description     = "network configuration";
   Provides        = ("Network Configuration");
-  OrderPreference = "None";
-  Messages =
-  {
-    start = "Configuring network";
-    stop  = "Stopping network configuration service";
-  };
+  Uses            = ("System Tuning");
+  OrderPreference = "First";
 }

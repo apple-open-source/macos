@@ -1,12 +1,12 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        H_FILES = (IOHIDLib.h); 
+        H_FILES = (); 
         OTHER_LINKED = (IOHIDLib.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile); 
         PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (IOHIDLib.h); 
-        PUBLIC_HEADERS = (IOHIDLib.h); 
+        PROJECT_HEADERS = (); 
+        PUBLIC_HEADERS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

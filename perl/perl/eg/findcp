@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $RCSfile: findcp,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:11:00 $
+# $RCSfile: findcp,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:14 $
 
 # This is a wrapper around the find command that pretends find has a switch
 # of the form -cp host:destination.  It presumes your find implements -ls.

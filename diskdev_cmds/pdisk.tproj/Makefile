@@ -18,7 +18,7 @@ HFILES = pdisk.h bitfield.h convert.h dump.h errors.h io.h\
 CFILES = bitfield.c cmdline.c convert.c dump.c errors.c io.c\
          partition_map.c pdisk.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble pdisk.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

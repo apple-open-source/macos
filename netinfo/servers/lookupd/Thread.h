@@ -53,6 +53,8 @@
 	BOOL shouldTerminate;
 	BOOL isRunning;
 	void *data;
+	void *server;
+	unsigned long dataLen;
 	unsigned long state;
 }
 
@@ -62,7 +64,6 @@
 
 + (unsigned int)threadCount;
 + (Thread *)threadWithName:(char *)n;
-+ (Thread *)threadWithData:(void *)d;
 
 + (Thread *)threadAtIndex:(unsigned int)i;
 
@@ -79,6 +80,12 @@
 
 - (void *)data;
 - (void)setData:(void *)d;
+
+- (unsigned long)dataLen;
+- (void)setDataLen:(unsigned long)l;
+
+- (void *)server;
+- (void)setServer:(void *)s;
 
 /*
  * Thread objects are created with [[Thread alloc] init]

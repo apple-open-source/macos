@@ -22,6 +22,10 @@ alias word	'grep \!* /usr/share/dict/web2'	# Grep thru dictionary
 alias wordcount	'(cat \!* | tr -s '\'' 	.,;:?\!()[]"'\'' '\''\012'\'' |' \
 		'cat -n | tail -1 | awk '\''{print $1}'\'')' # Histogram words
 
+if ("$TERM_PROGRAM" == "Apple_Terminal") then
+    alias settermtitle 'echo -n "]2;\!:1"'
+endif
+
 ##
 # Read user's aliases
 ##

@@ -10,6 +10,7 @@
  * Configuration file support for fetchmail 4.3.8 by 
  * Frank Damgaard <frda@post3.tele.dk>
  * 
+ * For license terms, see the file COPYING in this directory.
  */
 
 #include "config.h"
@@ -29,7 +30,7 @@ static unsigned char unhex(unsigned char c)
   else if ((c >= 'a') && (c <= 'f'))
     return (c - 'a' + 10);
   else
-    return c;
+      return 16;	/* invalid hex character */
 }
 
 static int qp_char(unsigned char c1, unsigned char c2, unsigned char *c_out)
@@ -70,7 +71,7 @@ void UnMimeHeader(unsigned char *hdr)
   /* Note: Decoding is done "in-situ", i.e. without using an
    * additional buffer for temp. storage. This is possible, since the
    * decoded string will always be shorter than the encoded string,
-   * due to the en- coding scheme.
+   * due to the encoding scheme.
    */
 
   int  state = S_COPY_PLAIN;
@@ -170,7 +171,7 @@ void UnMimeHeader(unsigned char *hdr)
 	  int decoded_count;
 
 	  delimsave = *p; *p = '\r';
-	  decoded_count = from64tobits(p_out, p_in);
+	  decoded_count = from64tobits(p_out, p_in, 0);
 	  *p = delimsave;
 	  if (decoded_count > 0) 
 	    p_out += decoded_count;            

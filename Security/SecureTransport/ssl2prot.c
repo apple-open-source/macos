@@ -91,7 +91,9 @@
 #include "appleCdsa.h"
 #endif
 
+#include "digests.h"
 #include <string.h>
+#include <assert.h>
 
 #if	LOG_HDSK_MSG
 
@@ -155,10 +157,7 @@ SSL2ProcessMessage(SSLRecord rec, SSLContext *ctx)
     
     switch (msg)
     {   case ssl2_mt_error:
-    		#if	_APPLE_CDSA_
-    		/* ref code returned an unitialized local err here */
     		err = SSLConnectionClosedError;
-    		#endif
             break;
         case ssl2_mt_client_hello:
             if (ctx->state != HandshakeServerUninit)
@@ -214,7 +213,7 @@ SSL2ProcessMessage(SSLRecord rec, SSLContext *ctx)
     
     if (err == 0)
     {   	/* FIXME - use requested or negotiated protocol version here? */
-    	if (msg == ssl2_mt_client_hello && ctx->negProtocolVersion == SSL_Version_3_0)
+    	if (msg == ssl2_mt_client_hello && (ctx->negProtocolVersion >= SSL_Version_3_0))
         {   /* Promote this message to SSL 3 protocol */
             if (ERR(err = SSL3ReceiveSSL2ClientHello(rec, ctx)) != 0)
                 return err;
@@ -244,9 +243,12 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
                     SSLChangeHdskState(ctx, HandshakeServerHelloUnknownVersion);
                     break;
                 case SSL_Version_3_0_With_2_0_Hello:
-                    ctx->negProtocolVersion = SSL_Version_3_0;
+					assert((ctx->reqProtocolVersion == SSL_Version_3_0) ||
+						   (ctx->reqProtocolVersion == TLS_Version_1_0));
+                    ctx->negProtocolVersion = ctx->reqProtocolVersion;
 				    #if LOG_NEGOTIATE
-				    dprintf0("===SSL client kickstart: negVersion is 3_0\n");
+				    dprintf2("===SSL client kickstart: negVersion is %d_%d\n",
+						ctx->negProtocolVersion >> 8, ctx->negProtocolVersion & 0xff);
 				    #endif
                   SSLChangeHdskState(ctx, HandshakeServerHello);
                     break;
@@ -255,6 +257,8 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
                     break;
                 case SSL_Version_3_0_Only:
                 case SSL_Version_3_0:
+                case TLS_Version_1_0_Only:
+                case TLS_Version_1_0:
                 default:
                     ASSERTMSG("Bad protocol version for sending SSL 2 Client Hello");
                     break;
@@ -272,6 +276,7 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             {   SSLChangeHdskState(ctx, HandshakeSSL2ClientMasterKey);
                 break;
             }
+			SSLLogResumSess("===RESUMING SSL2 server-side session\n");
             if (ERR(err = SSL2InstallSessionKey(ctx)) != 0)
                 return err;
             /* Fall through for matching session; lame, but true */
@@ -290,7 +295,9 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
                     return err;
             }
             else
-            {   if (ERR(err = SSL2InstallSessionKey(ctx)) != 0)
+            {   
+				SSLLogResumSess("===RESUMING SSL2 client-side session\n");
+				if (ERR(err = SSL2InstallSessionKey(ctx)) != 0)
                     return err;
             }
             if (ERR(err = SSL2InitCiphers(ctx)) != 0)
@@ -303,13 +310,11 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             /* Handshake is complete; turn ciphers on */
             ctx->writeCipher.ready = 1;
             ctx->readCipher.ready = 1;
-            #if	_APPLE_CDSA_
             /* original code never got out of ssl2_mt_client_finished state */
             CASSERT(ctx->protocolSide == SSL_ServerSide);
             SSLChangeHdskState(ctx, HandshakeServerReady);
-            #endif	/* _APPLE_CDSA_ */
             if (ctx->peerID.data != 0)
-                ERR(SSLAddSessionID(ctx));
+                ERR(SSLAddSessionData(ctx));
             break;
         case ssl2_mt_server_verify:
             SSLChangeHdskState(ctx, HandshakeSSL2ServerFinished);
@@ -322,13 +327,11 @@ SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx)
             /* Handshake is complete; turn ciphers on */
             ctx->writeCipher.ready = 1;
             ctx->readCipher.ready = 1;
-            #if	_APPLE_CDSA_
             /* original code never got out of ssl2_mt_server_finished state */
             CASSERT(ctx->protocolSide == SSL_ClientSide);
             SSLChangeHdskState(ctx, HandshakeClientReady);
-            #endif	/* _APPLE_CDSA_ */
             if (ctx->peerID.data != 0)
-                ERR(SSLAddSessionID(ctx));
+                ERR(SSLAddSessionData(ctx));
             break;
         case ssl2_mt_error:
         case ssl2_mt_client_certificate:
@@ -351,7 +354,8 @@ SSL2PrepareAndQueueMessage(EncodeSSL2MessageFunc encodeFunc, SSLContext *ctx)
 
     logSsl2Msg((SSL2MessageType)rec.contents.data[0], 1);
     
-    if (ERR(err = SSLWriteRecord(rec, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+	if (ERR(err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
     {   ERR(SSLFreeBuffer(&rec.contents, &ctx->sysCtx));
         return err;
     }
@@ -376,7 +380,7 @@ SSL2CompareSessionIDs(SSLContext *ctx)
     if (ctx->resumableSession.data == 0)
         return SSLNoErr;
     
-    if (ERR(err = SSLRetrieveSessionIDIdentifier(ctx->resumableSession,
+    if (ERR(err = SSLRetrieveSessionID(ctx->resumableSession,
                                     &sessionIdentifier, ctx)) != 0)
         return err;
     
@@ -396,7 +400,7 @@ SSL2InstallSessionKey(SSLContext *ctx)
     
     CASSERT(ctx->ssl2SessionMatch != 0);
     CASSERT(ctx->resumableSession.data != 0);
-    if (ERR(err = SSLInstallSessionID(ctx->resumableSession, ctx)) != 0)
+    if (ERR(err = SSLInstallSessionFromData(ctx->resumableSession, ctx)) != 0)
         return err;
     return SSLNoErr;
 }
@@ -409,11 +413,7 @@ SSL2GenerateSessionID(SSLContext *ctx)
         return err;
     if (ERR(err = SSLAllocBuffer(&ctx->sessionID, SSL_SESSION_ID_LEN, &ctx->sysCtx)) != 0)
         return err;
-    #ifdef	_APPLE_CDSA_
     if ((err = sslRand(ctx, &ctx->sessionID)) != 0)
-    #else
-    if (ERR(err = ctx->sysCtx.random(ctx->sessionID, ctx->sysCtx.randomRef)) != 0)
-   	#endif
         return err;
     return SSLNoErr;
 }
@@ -440,7 +440,8 @@ SSL2InitCiphers(SSLContext *ctx)
 	
     masterKey.data = ctx->masterSecret;
     masterKey.length = ctx->selectedCipherSpec->cipher->keySize;
-    challenge.data = ctx->clientRandom + 32 - ctx->ssl2ChallengeLength;
+    challenge.data = ctx->clientRandom + SSL_CLIENT_SRVR_RAND_SIZE - 
+			ctx->ssl2ChallengeLength;
     challenge.length = ctx->ssl2ChallengeLength;
     connectionID.data = ctx->serverRandom;
     connectionID.length = ctx->ssl2ConnectionIDLength;
@@ -456,7 +457,7 @@ SSL2InitCiphers(SSLContext *ctx)
     while (keyMaterialLen)
     {   hashDigest.data = progress;
         hashDigest.length = SSLHashMD5.digestSize;
-        if (ERR(err = SSLHashMD5.init(hashContext)) != 0 ||
+        if (ERR(err = SSLHashMD5.init(hashContext, ctx)) != 0 ||
             ERR(err = SSLHashMD5.update(hashContext, masterKey)) != 0 ||
             ERR(err = SSLHashMD5.update(hashContext, variantData)) != 0 ||
             ERR(err = SSLHashMD5.update(hashContext, challenge)) != 0 ||
@@ -478,8 +479,8 @@ SSL2InitCiphers(SSLContext *ctx)
         return err;
     }
     
-    ctx->readPending.hash = ctx->selectedCipherSpec->macAlgorithm;
-    ctx->writePending.hash = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->readPending.macRef = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->writePending.macRef = ctx->selectedCipherSpec->macAlgorithm;
     ctx->readPending.symCipher = ctx->selectedCipherSpec->cipher;
     ctx->writePending.symCipher = ctx->selectedCipherSpec->cipher;
     ctx->readPending.sequenceNum = ctx->readCipher.sequenceNum;

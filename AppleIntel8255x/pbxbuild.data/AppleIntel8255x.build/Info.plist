@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleIntel8255x</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleIntel8255x</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleIntel8255x</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>8255x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleIntel8255x</string>
+			<key>Flow Control</key>
+			<true/>
+			<key>IOClass</key>
+			<string>Intel82557</string>
+			<key>IODefaultMedium</key>
+			<string>00000020</string>
+			<key>IOPCIMatch</key>
+			<string>0x12298086 0x12098086 0x10298086 0x10308086 0x10318086 0x24498086 0x10398086</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>Verbose</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
+</dict>
+</plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,6 +59,7 @@
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/sysctl.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -71,7 +72,10 @@
 #define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
 
 /* debug output on/off */
-static boolean_t 		S_debug = 0;
+static boolean_t 		S_debug = FALSE;
+
+/* are we netbooted?  If so, don't touch the default route */
+static boolean_t		S_netboot = FALSE;
 
 /* dictionary to hold per-service state: key is the serviceID */
 static CFMutableDictionaryRef	S_service_state_dict = NULL;
@@ -97,6 +101,24 @@ static CFStringRef		S_setup_service_prefix = NULL;
 
 #define VAR_RUN_RESOLV_CONF		"/var/run/resolv.conf"
 #define VAR_RUN_NICONFIG_LOCAL_XML	"/var/run/niconfig_local.xml"
+
+#ifndef KERN_NETBOOT
+#define KERN_NETBOOT            40      /* int: are we netbooted? 1=yes,0=no */
+#endif KERN_NETBOOT
+
+static boolean_t
+S_netboot_root()
+{
+    int mib[2];
+    size_t len;
+    int netboot = 0;
+    
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_NETBOOT;
+    len = sizeof(netboot);
+    sysctl(mib, 2, &netboot, &len, NULL, 0);
+    return (netboot);
+}
 
 static void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
@@ -289,6 +311,7 @@ append_netinfo_broadcast_addresses(CFDictionaryRef netinfo_dict,
 						 IP_LIST(&b));
 	    CFArrayAppendValue(ni_addrs, broadcast);
 	    CFArrayAppendValue(ni_tags, tag);
+	    my_CFRelease(&broadcast);
 	}
     }
     return;
@@ -583,6 +606,9 @@ default_route(int cmd, struct in_addr router, char * ifname,
     int len;
     int rtm_seq = 0;
 
+    if (S_netboot) {
+	return (TRUE);
+    }
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
 	SCLog(TRUE, LOG_INFO,
 	      CFSTR("default_route: open routing socket failed, %s"),
@@ -696,7 +722,7 @@ set_dns(CFArrayRef val_search_domains,
     if (f) {
 	int i;
 
-	if (val_domain_name) {
+	if (isA_CFString(val_domain_name)) {
 	    char 	domain_name[256];
 
 	    domain_name[0] = '\0';
@@ -705,36 +731,48 @@ set_dns(CFArrayRef val_search_domains,
 	    fprintf(f, "domain %s\n", domain_name);
 	}
 
-	if (val_search_domains) {
+	if (isA_CFArray(val_search_domains)) {
 	    char 	domain_name[256];
 
 	    fprintf(f, "search");
 	    for (i = 0; i < CFArrayGetCount(val_search_domains); i++) {
-		cfstring_to_cstring(CFArrayGetValueAtIndex(val_search_domains, i),
-				    domain_name, sizeof(domain_name));
-		fprintf(f, " %s", domain_name);
+		CFStringRef	domain;
+
+		domain = CFArrayGetValueAtIndex(val_search_domains, i);
+		if (isA_CFString(domain)) {
+		    cfstring_to_cstring(domain, domain_name, sizeof(domain_name));
+		    fprintf(f, " %s", domain_name);
+		}
 	    }
 	    fprintf(f, "\n");
 	}
 
-	if (val_servers) {
+	if (isA_CFArray(val_servers)) {
 	    for (i = 0; i < CFArrayGetCount(val_servers); i++) {
-		struct in_addr	server;
-		server = cfstring_to_ip(CFArrayGetValueAtIndex(val_servers,
-							       i));
-		fprintf(f, "nameserver " IP_FORMAT "\n",
-			IP_LIST(&server));
+		CFStringRef	nameserver;
+
+		nameserver = CFArrayGetValueAtIndex(val_servers, i);
+		if (isA_CFString(nameserver)) {
+		    struct in_addr	server;
+
+		    server = cfstring_to_ip(nameserver);
+		    fprintf(f, "nameserver " IP_FORMAT "\n", IP_LIST(&server));
+		}
 	    }
 	}
 
-	if (val_sortlist) {
+	if (isA_CFArray(val_sortlist)) {
 	    char 	addrmask[256];
 
 	    fprintf(f, "sortlist");
 	    for (i = 0; i < CFArrayGetCount(val_sortlist); i++) {
-		cfstring_to_cstring(CFArrayGetValueAtIndex(val_sortlist, i),
-				    addrmask, sizeof(addrmask));
-		fprintf(f, " %s", addrmask);
+		CFStringRef	address;
+
+		address = CFArrayGetValueAtIndex(val_sortlist, i);
+		if (isA_CFString(address)) {
+		    cfstring_to_cstring(address, addrmask, sizeof(addrmask));
+		    fprintf(f, " %s", addrmask);
+		}
 	    }
 	    fprintf(f, "\n");
 	}
@@ -872,7 +910,7 @@ update_global(SCDynamicStoreRef session, CFStringRef primary,
 	    }
 	    if_name = CFDictionaryGetValue(ipv4_dict, CFSTR("InterfaceName"));
 	    if (if_name) {
-		CFDictionarySetValue(dict, 
+		CFDictionarySetValue(dict,
 				     kSCDynamicStorePropNetPrimaryInterface,
 				     if_name);
 		if (CFStringGetCString(if_name, ifn, sizeof(ifn),
@@ -1036,18 +1074,18 @@ elect_new_primary(SCDynamicStoreRef session, CFArrayRef order)
 {
     CFIndex		count;
     CFIndex 		i;
-    void * *		keys;
+    const void * *	keys;
     CFStringRef		new_primary = NULL;
     unsigned int 	primary_index = 0;
-    void * *		values;
+    const void * *	values;
 
     count = CFDictionaryGetCount(S_service_state_dict);
     if (count == 0) {
 	return (NULL);
     }
 
-    keys = (void * *)malloc(sizeof(void *) * count);
-    values = (void * *)malloc(sizeof(void *) * count);
+    keys   = (const void * *)malloc(sizeof(void *) * count);
+    values = (const void * *)malloc(sizeof(void *) * count);
 
     if (keys == NULL || values == NULL) {
 	goto done;
@@ -1326,7 +1364,6 @@ ip_handler(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
     return;
 }
 
-
 void
 ip_plugin_init()
 {
@@ -1344,6 +1381,9 @@ ip_plugin_init()
     CFRunLoopSourceRef	rls = NULL;
     SCDynamicStoreRef	session = NULL;
 
+    if (S_netboot_root() != 0) {
+	S_netboot = TRUE;
+    }
     session = SCDynamicStoreCreate(NULL, CFSTR("IPMonitor"), ip_handler, NULL);
     if (session == NULL) {
 	SCLog(TRUE, LOG_ERR, CFSTR("ip_plugin_init SCDynamicStoreCreate failed: %s"),

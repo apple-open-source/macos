@@ -1,8 +1,10 @@
-;;; thingatpt.el --- Get the `thing' at point
+;;; thingatpt.el --- get the `thing' at point
 
-;; Copyright (C) 1991,92,93,94,95,96,97,1998 Free Software Foundation, Inc.
+;; Copyright (C) 1991,92,93,94,95,96,97,1998,2000
+;;  Free Software Foundation, Inc.
 
 ;; Author: Mike Williams <mikew@gopher.dosli.govt.nz>
+;; Maintainer: FSF
 ;; Keywords: extensions, matching, mouse
 ;; Created: Thu Mar 28 13:48:23 1991
 
@@ -54,7 +56,7 @@
   "Move forward to the end of the next THING."
   (let ((forward-op (or (get thing 'forward-op)
 			(intern-soft (format "forward-%s" thing)))))
-    (if (fboundp forward-op)
+    (if (functionp forward-op)
 	(funcall forward-op (or n 1))
       (error "Can't determine how to move over a %s" thing))))
 
@@ -197,9 +199,9 @@ a symbol as a valid THING."
   "Characters allowable in filenames.")
 
 (put 'filename 'end-op    
-     '(lambda () (skip-chars-forward thing-at-point-file-name-chars)))
+     (lambda () (skip-chars-forward thing-at-point-file-name-chars)))
 (put 'filename 'beginning-op
-     '(lambda () (skip-chars-backward thing-at-point-file-name-chars)))
+     (lambda () (skip-chars-backward thing-at-point-file-name-chars)))
 
 (defvar thing-at-point-url-path-regexp
   "[^]\t\n \"'()<>[^`{}]*[^]\t\n \"'()<>[^`{}.,;]+"
@@ -213,7 +215,7 @@ Hostname matching is stricter in this case than for
 
 (defvar thing-at-point-url-regexp
   (concat
-   "\\(https?://\\|ftp://\\|gopher://\\|telnet://\\|wais://\\|file:/\\|s?news:\\|mailto:\\)"
+   "\\<\\(https?://\\|ftp://\\|gopher://\\|telnet://\\|wais://\\|file:/\\|s?news:\\|mailto:\\)"
    thing-at-point-url-path-regexp)
   "A regular expression probably matching a complete URL.")
 
@@ -334,8 +336,8 @@ point."
 
 ;;  Buffer 
 
-(put 'buffer 'end-op '(lambda () (goto-char (point-max))))
-(put 'buffer 'beginning-op '(lambda () (goto-char (point-min))))
+(put 'buffer 'end-op (lambda () (goto-char (point-max))))
+(put 'buffer 'beginning-op (lambda () (goto-char (point-min))))
 
 ;;  Symbols 
 
@@ -384,9 +386,13 @@ Signal an error if the entire string was not used."
 		(error nil))))
     (if (or (not pred) (funcall pred sexp)) sexp)))
 
+;;;###autoload
 (defun sexp-at-point ()   (form-at-point 'sexp))
+;;;###autoload
 (defun symbol-at-point () (form-at-point 'sexp 'symbolp))
+;;;###autoload
 (defun number-at-point () (form-at-point 'sexp 'numberp))
+;;;###autoload
 (defun list-at-point ()   (form-at-point 'list 'listp))
 
-;; thingatpt.el ends here.
+;;; thingatpt.el ends here

@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,7 +18,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
+#include "server.h"
 #include <sys/wait.h>
 #include "frame.h"
 #include "inferior.h"
@@ -33,29 +33,17 @@
 #include <fcntl.h>
 
 /***************Begin MY defs*********************/
-int quit_flag = 0;
 static char my_registers[REGISTER_BYTES];
 char *registers = my_registers;
-
-/* Index within `registers' of the first byte of the space for
-   register N.  */
-
-
-char buf2[MAX_REGISTER_RAW_SIZE];
 /***************End MY defs*********************/
 
 #include <sys/ptrace.h>
 #include <machine/reg.h>
 
-extern char **environ;
 extern int errno;
-extern int inferior_pid;
-void quit (), perror_with_name ();
-int query ();
 
 /* Start an inferior process and returns its pid.
-   ALLARGS is a vector of program-name and args.
-   ENV is the environment vector to pass.  */
+   ALLARGS is a vector of program-name and args. */
 
 int
 create_inferior (char *program, char **allargs)
@@ -93,6 +81,13 @@ kill_inferior (void)
 /*************inferior_died ();****VK**************/
 }
 
+/* Attaching is not supported.  */
+int
+myattach (int pid)
+{
+  return -1;
+}
+
 /* Return nonzero if the given thread is still alive.  */
 int
 mythread_alive (int pid)
@@ -108,7 +103,9 @@ mywait (char *status)
   int pid;
   union wait w;
 
-  pid = wait (&w);
+  enable_async_io ();
+  pid = waitpid (inferior_pid, &w, 0);
+  disable_async_io ();
   if (pid != inferior_pid)
     perror_with_name ("wait");
 
@@ -162,7 +159,7 @@ register_addr (int regno, CORE_ADDR blockend)
 {
   CORE_ADDR addr;
 
-  if (regno < 0 || regno >= ARCH_NUM_REGS)
+  if (regno < 0 || regno >= NUM_REGS)
     error ("Invalid register number %d.", regno);
 
   REGISTER_U_ADDR (addr, blockend, regno);
@@ -284,11 +281,12 @@ store_inferior_registers (int regno)
 /* Copy LEN bytes from inferior's memory starting at MEMADDR
    to debugger memory starting at MYADDR.  */
 
+void
 read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
@@ -315,7 +313,7 @@ write_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);

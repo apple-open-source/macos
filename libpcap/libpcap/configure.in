@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/configure.in,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+dnl @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/configure.in,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
 dnl
 dnl Copyright (c) 1994, 1995, 1996, 1997
 dnl	The Regents of the University of California.  All rights reserved.

@@ -1,0 +1,629 @@
+% Copyright (C) 2001 Python Software Foundation
+% Author: barry@zope.com (Barry Warsaw)
+
+\section{\module{email} ---
+	 An email and MIME handling package}
+
+\declaremodule{standard}{email}
+\modulesynopsis{Package supporting the parsing, manipulating, and
+    generating email messages, including MIME documents.}
+\moduleauthor{Barry A. Warsaw}{barry@zope.com}
+\sectionauthor{Barry A. Warsaw}{barry@zope.com}
+
+\versionadded{2.2}
+
+The \module{email} package is a library for managing email messages,
+including MIME and other \rfc{2822}-based message documents.  It
+subsumes most of the functionality in several older standard modules
+such as \refmodule{rfc822}, \refmodule{mimetools},
+\refmodule{multifile}, and other non-standard packages such as
+\module{mimecntl}.  It is specifically \emph{not} designed to do any
+sending of email messages to SMTP (\rfc{2821}) servers; that is the
+function of the \refmodule{smtplib} module\footnote{For this reason,
+line endings in the \module{email} package are always native line
+endings.  The \module{smtplib} module is responsible for converting
+from native line endings to \rfc{2821} line endings, just as your mail
+server would be responsible for converting from \rfc{2821} line
+endings to native line endings when it stores messages in a local
+mailbox.}.
+
+The primary distinguishing feature of the \module{email} package is
+that it splits the parsing and generating of email messages from the
+internal \emph{object model} representation of email.  Applications
+using the \module{email} package deal primarily with objects; you can
+add sub-objects to messages, remove sub-objects from messages,
+completely re-arrange the contents, etc.  There is a separate parser
+and a separate generator which handles the transformation from flat
+text to the object model, and then back to flat text again.  There
+are also handy subclasses for some common MIME object types, and a few
+miscellaneous utilities that help with such common tasks as extracting
+and parsing message field values, creating RFC-compliant dates, etc.
+
+The following sections describe the functionality of the
+\module{email} package.  The ordering follows a progression that
+should be common in applications: an email message is read as flat
+text from a file or other source, the text is parsed to produce an
+object model representation of the email message, this model is
+manipulated, and finally the model is rendered back into
+flat text.
+
+It is perfectly feasible to create the object model out of whole cloth
+--- i.e. completely from scratch.  From there, a similar progression
+can be taken as above.  
+
+Also included are detailed specifications of all the classes and
+modules that the \module{email} package provides, the exception
+classes you might encounter while using the \module{email} package,
+some auxiliary utilities, and a few examples.  For users of the older
+\module{mimelib} package, from which the \module{email} package is
+descended, a section on differences and porting is provided.
+
+\begin{seealso}
+    \seemodule{smtplib}{SMTP protocol client}
+\end{seealso}
+
+\subsection{Representing an email message}
+\input{emailmessage}
+
+\subsection{Parsing email messages}
+\input{emailparser}
+
+\subsection{Generating MIME documents}
+\input{emailgenerator}
+
+\subsection{Creating email and MIME objects from scratch}
+
+Ordinarily, you get a message object tree by passing some text to a
+parser, which parses the text and returns the root of the message
+object tree.  However you can also build a complete object tree from
+scratch, or even individual \class{Message} objects by hand.  In fact,
+you can also take an existing tree and add new \class{Message}
+objects, move them around, etc.  This makes a very convenient
+interface for slicing-and-dicing MIME messages.
+
+You can create a new object tree by creating \class{Message}
+instances, adding payloads and all the appropriate headers manually.
+For MIME messages though, the \module{email} package provides some
+convenient classes to make things easier.  Each of these classes
+should be imported from a module with the same name as the class, from
+within the \module{email} package.  E.g.:
+
+\begin{verbatim}
+import email.MIMEImage.MIMEImage
+\end{verbatim}
+
+or
+
+\begin{verbatim}
+from email.MIMEText import MIMEText
+\end{verbatim}
+
+Here are the classes:
+
+\begin{classdesc}{MIMEBase}{_maintype, _subtype, **_params}
+This is the base class for all the MIME-specific subclasses of
+\class{Message}.  Ordinarily you won't create instances specifically
+of \class{MIMEBase}, although you could.  \class{MIMEBase} is provided
+primarily as a convenient base class for more specific MIME-aware
+subclasses.
+
+\var{_maintype} is the \mailheader{Content-Type} major type
+(e.g. \mimetype{text} or \mimetype{image}), and \var{_subtype} is the
+\mailheader{Content-Type} minor type 
+(e.g. \mimetype{plain} or \mimetype{gif}).  \var{_params} is a parameter
+key/value dictionary and is passed directly to
+\method{Message.add_header()}.
+
+The \class{MIMEBase} class always adds a \mailheader{Content-Type} header
+(based on \var{_maintype}, \var{_subtype}, and \var{_params}), and a
+\mailheader{MIME-Version} header (always set to \code{1.0}).
+\end{classdesc}
+
+\begin{classdesc}{MIMEAudio}{_audiodata\optional{, _subtype\optional{,
+    _encoder\optional{, **_params}}}}
+
+A subclass of \class{MIMEBase}, the \class{MIMEAudio} class is used to
+create MIME message objects of major type \mimetype{audio}.
+\var{_audiodata} is a string containing the raw audio data.  If this
+data can be decoded by the standard Python module \refmodule{sndhdr},
+then the subtype will be automatically included in the
+\mailheader{Content-Type} header.  Otherwise you can explicitly specify the
+audio subtype via the \var{_subtype} parameter.  If the minor type could
+not be guessed and \var{_subtype} was not given, then \exception{TypeError}
+is raised.
+
+Optional \var{_encoder} is a callable (i.e. function) which will
+perform the actual encoding of the audio data for transport.  This
+callable takes one argument, which is the \class{MIMEAudio} instance.
+It should use \method{get_payload()} and \method{set_payload()} to
+change the payload to encoded form.  It should also add any
+\mailheader{Content-Transfer-Encoding} or other headers to the message
+object as necessary.  The default encoding is \emph{Base64}.  See the
+\refmodule{email.Encoders} module for a list of the built-in encoders.
+
+\var{_params} are passed straight through to the \class{MIMEBase}
+constructor.
+\end{classdesc}
+
+\begin{classdesc}{MIMEImage}{_imagedata\optional{, _subtype\optional{,
+    _encoder\optional{, **_params}}}}
+
+A subclass of \class{MIMEBase}, the \class{MIMEImage} class is used to
+create MIME message objects of major type \mimetype{image}.
+\var{_imagedata} is a string containing the raw image data.  If this
+data can be decoded by the standard Python module \refmodule{imghdr},
+then the subtype will be automatically included in the
+\mailheader{Content-Type} header.  Otherwise you can explicitly specify the
+image subtype via the \var{_subtype} parameter.  If the minor type could
+not be guessed and \var{_subtype} was not given, then \exception{TypeError}
+is raised.
+
+Optional \var{_encoder} is a callable (i.e. function) which will
+perform the actual encoding of the image data for transport.  This
+callable takes one argument, which is the \class{MIMEImage} instance.
+It should use \method{get_payload()} and \method{set_payload()} to
+change the payload to encoded form.  It should also add any
+\mailheader{Content-Transfer-Encoding} or other headers to the message
+object as necessary.  The default encoding is \emph{Base64}.  See the
+\refmodule{email.Encoders} module for a list of the built-in encoders.
+
+\var{_params} are passed straight through to the \class{MIMEBase}
+constructor.
+\end{classdesc}
+
+\begin{classdesc}{MIMEText}{_text\optional{, _subtype\optional{,
+    _charset\optional{, _encoder}}}}
+
+A subclass of \class{MIMEBase}, the \class{MIMEText} class is used to
+create MIME objects of major type \mimetype{text}.  \var{_text} is the
+string for the payload.  \var{_subtype} is the minor type and defaults
+to \mimetype{plain}.  \var{_charset} is the character set of the text and is
+passed as a parameter to the \class{MIMEBase} constructor; it defaults
+to \code{us-ascii}.  No guessing or encoding is performed on the text
+data, but a newline is appended to \var{_text} if it doesn't already
+end with a newline.
+
+The \var{_encoding} argument is as with the \class{MIMEImage} class
+constructor, except that the default encoding for \class{MIMEText}
+objects is one that doesn't actually modify the payload, but does set
+the \mailheader{Content-Transfer-Encoding} header to \code{7bit} or
+\code{8bit} as appropriate.
+\end{classdesc}
+
+\begin{classdesc}{MIMEMessage}{_msg\optional{, _subtype}}
+A subclass of \class{MIMEBase}, the \class{MIMEMessage} class is used to
+create MIME objects of main type \mimetype{message}.  \var{_msg} is used as
+the payload, and must be an instance of class \class{Message} (or a
+subclass thereof), otherwise a \exception{TypeError} is raised.
+
+Optional \var{_subtype} sets the subtype of the message; it defaults
+to \mimetype{rfc822}.
+\end{classdesc}
+
+\subsection{Encoders}
+\input{emailencoders}
+
+\subsection{Exception classes}
+\input{emailexc}
+
+\subsection{Miscellaneous utilities}
+\input{emailutil}
+
+\subsection{Iterators}
+\input{emailiter}
+
+\subsection{Differences from \module{mimelib}}
+
+The \module{email} package was originally prototyped as a separate
+library called
+\ulink{\module{mimelib}}{http://mimelib.sf.net/}.
+Changes have been made so that
+method names are more consistent, and some methods or modules have
+either been added or removed.  The semantics of some of the methods
+have also changed.  For the most part, any functionality available in
+\module{mimelib} is still available in the \refmodule{email} package,
+albeit often in a different way.
+
+Here is a brief description of the differences between the
+\module{mimelib} and the \refmodule{email} packages, along with hints on
+how to port your applications.
+
+Of course, the most visible difference between the two packages is
+that the package name has been changed to \refmodule{email}.  In
+addition, the top-level package has the following differences:
+
+\begin{itemize}
+\item \function{messageFromString()} has been renamed to
+      \function{message_from_string()}.
+\item \function{messageFromFile()} has been renamed to
+      \function{message_from_file()}.
+\end{itemize}
+
+The \class{Message} class has the following differences:
+
+\begin{itemize}
+\item The method \method{asString()} was renamed to \method{as_string()}.
+\item The method \method{ismultipart()} was renamed to
+      \method{is_multipart()}.
+\item The \method{get_payload()} method has grown a \var{decode}
+      optional argument.
+\item The method \method{getall()} was renamed to \method{get_all()}.
+\item The method \method{addheader()} was renamed to \method{add_header()}.
+\item The method \method{gettype()} was renamed to \method{get_type()}.
+\item The method\method{getmaintype()} was renamed to
+      \method{get_main_type()}.
+\item The method \method{getsubtype()} was renamed to
+      \method{get_subtype()}.
+\item The method \method{getparams()} was renamed to
+      \method{get_params()}.
+      Also, whereas \method{getparams()} returned a list of strings,
+      \method{get_params()} returns a list of 2-tuples, effectively
+      the key/value pairs of the parameters, split on the \character{=}
+      sign.
+\item The method \method{getparam()} was renamed to \method{get_param()}.
+\item The method \method{getcharsets()} was renamed to
+      \method{get_charsets()}.
+\item The method \method{getfilename()} was renamed to
+      \method{get_filename()}.
+\item The method \method{getboundary()} was renamed to
+      \method{get_boundary()}.
+\item The method \method{setboundary()} was renamed to
+      \method{set_boundary()}.
+\item The method \method{getdecodedpayload()} was removed.  To get
+      similar functionality, pass the value 1 to the \var{decode} flag
+      of the {get_payload()} method.
+\item The method \method{getpayloadastext()} was removed.  Similar
+      functionality
+      is supported by the \class{DecodedGenerator} class in the
+      \refmodule{email.Generator} module.
+\item The method \method{getbodyastext()} was removed.  You can get
+      similar functionality by creating an iterator with
+      \function{typed_subpart_iterator()} in the
+      \refmodule{email.Iterators} module.
+\end{itemize}
+
+The \class{Parser} class has no differences in its public interface.
+It does have some additional smarts to recognize
+\mimetype{message/delivery-status} type messages, which it represents as
+a \class{Message} instance containing separate \class{Message}
+subparts for each header block in the delivery status
+notification\footnote{Delivery Status Notifications (DSN) are defined
+in \rfc{1894}.}.
+
+The \class{Generator} class has no differences in its public
+interface.  There is a new class in the \refmodule{email.Generator}
+module though, called \class{DecodedGenerator} which provides most of
+the functionality previously available in the
+\method{Message.getpayloadastext()} method.
+
+The following modules and classes have been changed:
+
+\begin{itemize}
+\item The \class{MIMEBase} class constructor arguments \var{_major}
+      and \var{_minor} have changed to \var{_maintype} and
+      \var{_subtype} respectively.
+\item The \code{Image} class/module has been renamed to
+      \code{MIMEImage}.  The \var{_minor} argument has been renamed to
+      \var{_subtype}.
+\item The \code{Text} class/module has been renamed to
+      \code{MIMEText}.  The \var{_minor} argument has been renamed to
+      \var{_subtype}.
+\item The \code{MessageRFC822} class/module has been renamed to
+      \code{MIMEMessage}.  Note that an earlier version of
+      \module{mimelib} called this class/module \code{RFC822}, but
+      that clashed with the Python standard library module
+      \refmodule{rfc822} on some case-insensitive file systems.
+
+      Also, the \class{MIMEMessage} class now represents any kind of
+      MIME message with main type \mimetype{message}.  It takes an
+      optional argument \var{_subtype} which is used to set the MIME
+      subtype.  \var{_subtype} defaults to \mimetype{rfc822}.
+\end{itemize}
+
+\module{mimelib} provided some utility functions in its
+\module{address} and \module{date} modules.  All of these functions
+have been moved to the \refmodule{email.Utils} module.
+
+The \code{MsgReader} class/module has been removed.  Its functionality
+is most closely supported in the \function{body_line_iterator()}
+function in the \refmodule{email.Iterators} module.
+
+\subsection{Examples}
+
+Here are a few examples of how to use the \module{email} package to
+read, write, and send simple email messages, as well as more complex
+MIME messages.
+
+First, let's see how to create and send a simple text message:
+
+\begin{verbatim}
+# Import smtplib for the actual sending function
+import smtplib
+
+# Here are the email pacakge modules we'll need
+from email import Encoders
+from email.MIMEText import MIMEText
+
+# Open a plain text file for reading
+fp = open(textfile)
+# Create a text/plain message, using Quoted-Printable encoding for non-ASCII
+# characters.
+msg = MIMEText(fp.read(), _encoder=Encoders.encode_quopri)
+fp.close()
+
+# me == the sender's email address
+# you == the recipient's email address
+msg['Subject'] = 'The contents of \%s' \% textfile
+msg['From'] = me
+msg['To'] = you
+
+# Send the message via our own SMTP server.  Use msg.as_string() with
+# unixfrom=0 so as not to confuse SMTP.
+s = smtplib.SMTP()
+s.connect()
+s.sendmail(me, [you], msg.as_string(0))
+s.close()
+\end{verbatim}
+
+Here's an example of how to send a MIME message containing a bunch of
+family pictures:
+
+\begin{verbatim}
+# Import smtplib for the actual sending function
+import smtplib
+
+# Here are the email pacakge modules we'll need
+from email.MIMEImage import MIMEImage
+from email.MIMEBase import MIMEBase
+
+COMMASPACE = ', '
+
+# Create the container (outer) email message.
+# me == the sender's email address
+# family = the list of all recipients' email addresses
+msg = MIMEBase('multipart', 'mixed')
+msg['Subject'] = 'Our family reunion'
+msg['From'] = me
+msg['To'] = COMMASPACE.join(family)
+msg.preamble = 'Our family reunion'
+# Guarantees the message ends in a newline
+msg.epilogue = ''
+
+# Assume we know that the image files are all in PNG format
+for file in pngfiles:
+    # Open the files in binary mode.  Let the MIMEIMage class automatically
+    # guess the specific image type.
+    fp = open(file, 'rb')
+    img = MIMEImage(fp.read())
+    fp.close()
+    msg.attach(img)
+
+# Send the email via our own SMTP server.
+s = smtplib.SMTP()
+s.connect()
+s.sendmail(me, family, msg.as_string(unixfrom=0))
+s.close()
+\end{verbatim}
+
+Here's an example\footnote{Thanks to Matthew Dixon Cowles for the
+original inspiration and examples.} of how to send the entire contents
+of a directory as an email message:
+
+\begin{verbatim}
+#!/usr/bin/env python
+
+"""Send the contents of a directory as a MIME message.
+
+Usage: dirmail [options] from to [to ...]*
+
+Options:
+    -h / --help
+        Print this message and exit.
+
+    -d directory
+    --directory=directory
+        Mail the contents of the specified directory, otherwise use the
+        current directory.  Only the regular files in the directory are sent,
+        and we don't recurse to subdirectories.
+
+`from' is the email address of the sender of the message.
+
+`to' is the email address of the recipient of the message, and multiple
+recipients may be given.
+
+The email is sent by forwarding to your local SMTP server, which then does the
+normal delivery process.  Your local machine must be running an SMTP server.
+"""
+
+import sys
+import os
+import getopt
+import smtplib
+# For guessing MIME type based on file name extension
+import mimetypes
+
+from email import Encoders
+from email.Message import Message
+from email.MIMEAudio import MIMEAudio
+from email.MIMEBase import MIMEBase
+from email.MIMEImage import MIMEImage
+from email.MIMEText import MIMEText
+
+COMMASPACE = ', '
+
+
+def usage(code, msg=''):
+    print >> sys.stderr, __doc__
+    if msg:
+        print >> sys.stderr, msg
+    sys.exit(code)
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hd:', ['help', 'directory='])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    dir = os.curdir
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-d', '--directory'):
+            dir = arg
+
+    if len(args) < 2:
+        usage(1)
+
+    sender = args[0]
+    recips = args[1:]
+    
+    # Create the enclosing (outer) message
+    outer = MIMEBase('multipart', 'mixed')
+    outer['Subject'] = 'Contents of directory \%s' \% os.path.abspath(dir)
+    outer['To'] = sender
+    outer['From'] = COMMASPACE.join(recips)
+    outer.preamble = 'You will not see this in a MIME-aware mail reader.\n'
+    # To guarantee the message ends with a newline
+    outer.epilogue = ''
+
+    for filename in os.listdir(dir):
+        path = os.path.join(dir, filename)
+        if not os.path.isfile(path):
+            continue
+        # Guess the Content-Type: based on the file's extension.  Encoding
+        # will be ignored, although we should check for simple things like
+        # gzip'd or compressed files
+        ctype, encoding = mimetypes.guess_type(path)
+        if ctype is None or encoding is not None:
+            # No guess could be made, or the file is encoded (compressed), so
+            # use a generic bag-of-bits type.
+            ctype = 'application/octet-stream'
+        maintype, subtype = ctype.split('/', 1)
+        if maintype == 'text':
+            fp = open(path)
+            # Note: we should handle calculating the charset
+            msg = MIMEText(fp.read(), _subtype=subtype)
+            fp.close()
+        elif maintype == 'image':
+            fp = open(path, 'rb')
+            msg = MIMEImage(fp.read(), _subtype=subtype)
+            fp.close()
+        elif maintype == 'audio':
+            fp = open(path, 'rb')
+            msg = MIMEAudio(fp.read(), _subtype=subtype)
+            fp.close()
+        else:
+            fp = open(path, 'rb')
+            msg = MIMEBase(maintype, subtype)
+            msg.add_payload(fp.read())
+            fp.close()
+            # Encode the payload using Base64
+            Encoders.encode_base64(msg)
+        # Set the filename parameter
+        msg.add_header('Content-Disposition', 'attachment', filename=filename)
+        outer.attach(msg)
+
+    fp = open('/tmp/debug.pck', 'w')
+    import cPickle
+    cPickle.dump(outer, fp)
+    fp.close()
+    # Now send the message
+    s = smtplib.SMTP()
+    s.connect()
+    s.sendmail(sender, recips, outer.as_string(0))
+    s.close()
+
+
+if __name__ == '__main__':
+    main()
+\end{verbatim}
+
+And finally, here's an example of how to unpack a MIME message like
+the one above, into a directory of files:
+
+\begin{verbatim}
+#!/usr/bin/env python
+
+"""Unpack a MIME message into a directory of files.
+
+Usage: unpackmail [options] msgfile
+
+Options:
+    -h / --help
+        Print this message and exit.
+
+    -d directory
+    --directory=directory
+        Unpack the MIME message into the named directory, which will be
+        created if it doesn't already exist.
+
+msgfile is the path to the file containing the MIME message.
+"""
+
+import sys
+import os
+import getopt
+import errno
+import mimetypes
+import email
+
+
+def usage(code, msg=''):
+    print >> sys.stderr, __doc__
+    if msg:
+        print >> sys.stderr, msg
+    sys.exit(code)
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hd:', ['help', 'directory='])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    dir = os.curdir
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-d', '--directory'):
+            dir = arg
+
+    try:
+        msgfile = args[0]
+    except IndexError:
+        usage(1)
+
+    try:
+        os.mkdir(dir)
+    except OSError, e:
+        # Ignore directory exists error
+        if e.errno <> errno.EEXIST: raise
+
+    fp = open(msgfile)
+    msg = email.message_from_file(fp)
+    fp.close()
+
+    counter = 1
+    for part in msg.walk():
+        # multipart/* are just containers
+        if part.get_main_type() == 'multipart':
+            continue
+        # Applications should really sanitize the given filename so that an
+        # email message can't be used to overwrite important files
+        filename = part.get_filename()
+        if not filename:
+            ext = mimetypes.guess_extension(part.get_type())
+            if not ext:
+                # Use a generic bag-of-bits extension
+                ext = '.bin'
+            filename = 'part-\%03d\%s' \% (counter, ext)
+        counter += 1
+        fp = open(os.path.join(dir, filename), 'wb')
+        fp.write(part.get_payload(decode=1))
+        fp.close()
+
+
+if __name__ == '__main__':
+    main()
+\end{verbatim}

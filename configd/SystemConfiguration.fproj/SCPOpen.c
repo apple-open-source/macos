@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,6 +32,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCValidation.h>
 #include "SCPreferencesInternal.h"
 
 #include <fcntl.h>
@@ -208,6 +209,8 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 	prefsPrivate->signature = __SCPSignatureFromStatbuf(&statBuf);
 
 	if (statBuf.st_size > 0) {
+		CFDictionaryRef	dict;
+
 		/*
 		 * extract property list
 		 */
@@ -224,18 +227,17 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		/*
 		 * load preferences
 		 */
-		prefsPrivate->prefs = (CFMutableDictionaryRef)
-				    CFPropertyListCreateFromXMLData(NULL,
-								    xmlData,
-								    kCFPropertyListMutableContainers,
-								    &xmlError);
+		dict = CFPropertyListCreateFromXMLData(NULL,
+						       xmlData,
+						       kCFPropertyListImmutable,
+						       &xmlError);
 		CFRelease(xmlData);
-		if (!prefsPrivate->prefs) {
+		if (!dict) {
 			/* corrupt prefs file, start fresh */
 			if (xmlError) {
-				SCLog(_sc_verbose, LOG_DEBUG,
-				       CFSTR("_SCPOpen CFPropertyListCreateFromXMLData(): %@"),
-				       xmlError);
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("_SCPOpen CFPropertyListCreateFromXMLData(): %@"),
+				      xmlError);
 				CFRelease(xmlError);
 			}
 			goto create_2;
@@ -244,13 +246,15 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		/*
 		 * make sure that we've got a dictionary
 		 */
-		if (CFGetTypeID(prefsPrivate->prefs) != CFDictionaryGetTypeID()) {
+		if (!isA_CFDictionary(dict)) {
 			/* corrupt prefs file, start fresh */
 			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCPOpen CFGetTypeID(): not a dictionary."));
-			CFRelease(prefsPrivate->prefs);
-			prefsPrivate->prefs = NULL;
+			CFRelease(dict);
 			goto create_2;
 		}
+
+		prefsPrivate->prefs = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		CFRelease(dict);
 	}
 
     create_2 :

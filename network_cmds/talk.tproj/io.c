@@ -128,9 +128,6 @@ talk()
 	}
 }
 
-extern	int errno;
-extern	int sys_nerr;
-
 /*
  * p_error prints the system error message on the standard location
  * on the screen and then exits. (i.e. a curses version of perror)

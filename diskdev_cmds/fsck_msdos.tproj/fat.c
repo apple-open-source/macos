@@ -67,15 +67,97 @@
 #include "ext.h"
 #include "fsutil.h"
 
+/*
+ * The following value should be a multiple of the sector size in bytes.  The
+ * Microsoft supported sector sizes are 512, 1024, 2048, and 4096, which means
+ * this should be a multiple of 4096.  It should also be a minimum of 6K so
+ * that a maximal FAT12 FAT can fit in a single chunk (so the code doesn't
+ * have to handle a FAT entry crossing a chunk boundary).  It should be
+ * large enough to make the I/O efficient, without occupying too much memory.
+ */
+#define FAT_CHUNK_SIZE 65536
+
 static int checkclnum __P((struct bootblock *, int, cl_t, cl_t *));
 static int clustdiffer __P((cl_t, cl_t *, cl_t *, int));
 static int tryclear __P((struct bootblock *, struct fatEntry *, cl_t, cl_t *));
-static int _readfat __P((int, struct bootblock *, int, u_char **));
+static int _readchunk(int fd, struct bootblock *boot, u_int32_t chunk, u_char *buffer);
+static int _writechunks(int fd, struct bootblock *boot, u_int32_t chunk, u_char *buffer);
 
 ssize_t	deblock_read(int d, void *buf, size_t nbytes);
 ssize_t	deblock_write(int d, void *buf, size_t nbytes);
 
 
+
+/*
+ * Determine whether a volume is dirty, without reading the entire FAT.
+ */
+int isdirty(int fs, struct bootblock *boot, int fat)
+{
+       int             result;
+       u_char  *buffer;
+       off_t   offset;
+
+       result = 1;             /* In case of error, assume volume was dirty */
+
+       /* FAT12 volumes don't have a "clean" bit, so always assume they are dirty */
+       if (boot->ClustMask == CLUST12_MASK)
+               return 1;
+
+       buffer = malloc(boot->BytesPerSec);
+       if (buffer == NULL) {
+               perror("No space for FAT sector");
+               return 1;               /* Assume it was dirty */
+       }
+
+       offset = boot->ResSectors + fat * boot->FATsecs;
+       offset *= boot->BytesPerSec;
+
+       if (lseek(fs, offset, SEEK_SET) != offset) {
+               perror("Unable to read FAT");
+               goto ERROR;
+       }
+
+       if (deblock_read(fs, buffer, boot->BytesPerSec) != boot->BytesPerSec) {
+               perror("Unable to read FAT");
+               goto ERROR;
+       }
+
+       switch (boot->ClustMask) {
+       case CLUST32_MASK:
+               /* FAT32 uses bit 27 of FAT[1] */
+               if ((buffer[7] & 0x08) != 0)
+                       result = 0;             /* It's clean */
+               break;
+       case CLUST16_MASK:
+               /* FAT16 uses bit 15 of FAT[1] */
+               if ((buffer[3] & 0x80) != 0)
+                       result = 0;             /* It's clean */
+               break;
+       }
+
+ERROR:
+       free(buffer);
+       return result;
+}
+
+
+
+/*
+ * Determine the length of a cluster chain by following its links in the FAT
+ */
+cl_t chainlength(struct bootblock *boot, struct fatEntry *fat, cl_t head)
+{
+    cl_t length;
+    
+    length = 0;
+    while (head >= CLUST_FIRST && head < boot->NumClusters)
+    {
+        ++length;
+        head = fat[head].next;
+    }
+    
+    return length;
+}
 
 /*
  * Check a cluster number for valid value
@@ -113,42 +195,101 @@ checkclnum(boot, fat, cl, next)
 }
 
 /*
- * Read a FAT from disk. Returns 1 if successful, 0 otherwise.
+ * Read one "chunk" of the FAT into the caller's buffer.
+ *
+ * Inputs:
+ *	fd	Raw device's file descriptor
+ *	chunk	Chunk number within the FAT
+ *	buffer	Buffer where chunk should be stored
+ *
+ * Result is non-zero if there was an error.
  */
-static int
-_readfat(fs, boot, no, buffer)
-	int fs;
-	struct bootblock *boot;
-	int no;
-	u_char **buffer;
+static int _readchunk(int fd, struct bootblock *boot, u_int32_t chunk, u_char *buffer)
 {
-	off_t off;
+    int		activeFAT;	/* Which FAT we're actively using */
+    size_t	length;		/* Number of bytes in this chunk */
+    off_t	offset;		/* Offset of given chunk in active FAT (from start of volume) */
+    
+    /* Calculate size of this chunk.  The last chunk may be shorter. */
+    length = boot->FATsecs * boot->BytesPerSec;		/* Size of entire FAT, in bytes */
+    length -= chunk * FAT_CHUNK_SIZE;			/* Start of current chunk to end of FAT */
+    if (length > FAT_CHUNK_SIZE)			/* Not last chunk? */
+        length = FAT_CHUNK_SIZE;			/* Then use a whole chunk */
 
-	*buffer = malloc(boot->FATsecs * boot->BytesPerSec);
-	if (*buffer == NULL) {
-		perror("No space for FAT");
-		return 0;
-	}
+    /*
+     * If the FAT is an exact multiple of FAT_CHUNK_SIZE, we may get asked to read a
+     * chunk number that is out of range.  If that case, length will be zero.  We
+     * can just return without doing anything since the caller will fall out of
+     * their loop anyway.
+     */
+    if (length == 0)
+        return 0;
 
-	off = boot->ResSectors + no * boot->FATsecs;
-	off *= boot->BytesPerSec;
+    /* Find offset of current chunk within active FAT */
+    activeFAT = boot->ValidFat >= 0 ? boot->ValidFat : 0;
+    offset = boot->ResSectors + activeFAT * boot->FATsecs;	/* Starting sector of active FAT */
+    offset *= boot->BytesPerSec;			/* Byte offset of active FAT */
+    offset += chunk * FAT_CHUNK_SIZE;		/* Byte offset of current chunk */
 
-	if (lseek(fs, off, SEEK_SET) != off) {
-		perror("Unable to read FAT");
-		goto err;
-	}
+    if (lseek(fd, offset, SEEK_SET) != offset)
+    {
+        perror("Unable to seek FAT");
+        return 1;
+    }
+    
+    if (deblock_read(fd, buffer, length) != length)
+    {
+        perror("Unable to read FAT");
+        return 1;
+    }
 
-    if (deblock_read(fs, *buffer, boot->FATsecs * boot->BytesPerSec)
-	    != boot->FATsecs * boot->BytesPerSec) {
-		perror("Unable to read FAT");
-		goto err;
-	}
+    return 0;
+}
 
-	return 1;
+/*
+ * Write one "chunk" of the FAT from the caller's buffer to all FATs.
+ *
+ * Inputs:
+ *	fd	Raw device's file descriptor
+ *	chunk	Which chunk number within the FAT
+ *	buffer	Buffer where chunk is stored
+ *
+ * Result is non-zero if there was an error.
+ */
+static int _writechunks(int fd, struct bootblock *boot, u_int32_t chunk, u_char *buffer)
+{
+    int		i;		/* Which FAT we're writing to */
+    off_t	offset;		/* Offset of current chunk in current FAT */
+    size_t	length;		/* Number of bytes in this chunk */
+    
+    /* Calculate size of this chunk.  The last chunk may be shorter. */
+    length = boot->FATsecs * boot->BytesPerSec;		/* Size of entire FAT, in bytes */
+    length -= chunk * FAT_CHUNK_SIZE;			/* Start of current chunk to end of FAT */
+    if (length > FAT_CHUNK_SIZE)			/* Not last chunk? */
+        length = FAT_CHUNK_SIZE;			/* Then use a whole chunk */
 
-    err:
-	free(*buffer);
-	return 0;
+    /* Loop over each FAT */
+    for (i=0; i < boot->FATs; ++i)
+    {
+        /* Find offset of current chunk within current FAT */
+        offset = boot->ResSectors + i * boot->FATsecs;	/* Starting sector of current FAT */
+        offset *= boot->BytesPerSec;			/* Byte offset of current FAT */
+        offset += chunk * FAT_CHUNK_SIZE;		/* Byte offset of current chunk */
+        
+        if (lseek(fd, offset, SEEK_SET) != offset)
+        {
+            perror("Unable to seek FAT");
+            return 1;
+        }
+        
+        if (deblock_write(fd, buffer, length) != length)
+        {
+            perror("Unable to write FAT");
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 /*
@@ -156,21 +297,35 @@ _readfat(fs, boot, no, buffer)
  */
 int
 readfat(fs, boot, no, fp)
-	int fs;
+	int fs;				// file descriptor to raw device
 	struct bootblock *boot;
-	int no;
-	struct fatEntry **fp;
+	int no;				// number of active FATs
+	struct fatEntry **fp;		// returned array
 {
-	struct fatEntry *fat;
-	u_char *buffer, *p;
-	cl_t cl;
+	struct fatEntry *fat;		// fatEntry for current cluster
+	u_char *buffer;			// one "chunk" of the FAT
+        u_char *p;			// pointer to current cluster's FAT entry in chunk
+	cl_t cl;			// current cluster
 	int ret = FSOK;
-
+        u_int32_t chunk;		// offset of current FAT chunk
+        
 	boot->NumFree = boot->NumBad = 0;
 
-	if (!_readfat(fs, boot, no, &buffer))
-		return FSFATAL;
-		
+        buffer = malloc(FAT_CHUNK_SIZE);
+        if (buffer == NULL)
+        {
+            perror("No space for FAT");
+            return FSFATAL;
+        }
+        
+        /* Read the first chunk */
+        chunk = 0;
+        if (_readchunk(fs, boot, chunk, buffer))
+        {
+            free(buffer);
+            return FSFATAL;
+        }
+        
 	fat = calloc(boot->NumClusters, sizeof(struct fatEntry));
 	if (fat == NULL) {
 		perror("No space for FAT");
@@ -197,9 +352,9 @@ readfat(fs, boot, no, fp)
 		    && buffer[2] == 0xff
 		    && ((boot->ClustMask == CLUST16_MASK && buffer[3] == 0x7f)
 			|| (boot->ClustMask == CLUST32_MASK
-			    && buffer[3] == 0x0f && buffer[4] == 0xff
+			    && (buffer[3]&0x0F) == 0x0f && buffer[4] == 0xff
 			    && buffer[5] == 0xff && buffer[6] == 0xff
-			    && buffer[7] == 0x07)))
+			    && (buffer[7]&0x0F) == 0x07)))
 			ret |= FSDIRTY;
 		else {
 			/* just some odd byte sequence in FAT */
@@ -263,6 +418,19 @@ readfat(fs, boot, no, fp)
 			p += 3;
 			break;
 		}
+                
+                if (p == buffer + FAT_CHUNK_SIZE)
+                {
+                    /* Time to read the next chunk of the FAT */
+                    ++chunk;
+                    if (_readchunk(fs, boot, chunk, buffer))
+                    {
+                        free(buffer);
+                        free(fat);
+                        return FSFATAL;
+                    }
+                    p = buffer;
+                }
 	}
 
 	free(buffer);
@@ -383,13 +551,13 @@ clearchain(boot, fat, head)
 	cl_t head;
 {
 	cl_t p, q;
-
+        
 	for (p = head; p >= CLUST_FIRST && p < boot->NumClusters; p = q) {
 		if (fat[p].head != head)
 			break;
 		q = fat[p].next;
 		fat[p].next = fat[p].head = CLUST_FREE;
-		fat[p].length = 0;
+                fat[p].in_use = 0;
 	}
 }
 
@@ -419,7 +587,6 @@ checkfat(boot, fat)
 	struct fatEntry *fat;
 {
 	cl_t head, p, h, n;
-	u_int len;
 	int ret = 0;
 	int conf;
 
@@ -434,15 +601,11 @@ checkfat(boot, fat)
 			continue;		/* skip it. */
 
 		/* follow the chain and mark all clusters on the way */
-		for (len = 0, p = head;
+		for (p = head;
 		     p >= CLUST_FIRST && p < boot->NumClusters;
 		     p = fat[p].next) {
 			fat[p].head = head;
-			len++;
 		}
-
-		/* the head record gets the length */
-		fat[head].length = fat[head].next == CLUST_FREE ? 0 : len;
 	}
 
 	/*
@@ -516,19 +679,37 @@ writefat(fs, boot, fat, correct_fat)
 	struct fatEntry *fat;
 	int correct_fat;
 {
-	u_char *buffer, *p;
-	cl_t cl;
-	int i;
-	u_int32_t fatsz;
-	off_t off;
-	int ret = FSOK;
+	u_char *buffer;		/* Start of current FAT chunk */
+        u_char *p;		/* Current cluster within the buffer */
+	cl_t cl;		/* Current cluster number */
+        u_int32_t chunk;	/* Current chunk number */
+        int activeFAT;		/* Number of active FAT */
 
-	buffer = malloc(fatsz = boot->FATsecs * boot->BytesPerSec);
+        activeFAT = boot->ValidFat >= 0 ? boot->ValidFat : 0;
+        
+        /* Allocate a buffer for the current FAT chunk */
+	buffer = malloc(FAT_CHUNK_SIZE);
 	if (buffer == NULL) {
 		perror("No space for FAT");
 		return FSFATAL;
 	}
-	memset(buffer, 0, fatsz);
+
+        /*
+         * Pre-read the first chunk of the FAT.  We do this for FAT32 volumes
+         * so we can preserve the upper 4 reserved bits of each FAT entry.
+         * We also do this if we were supposed to preserve the first two
+         * entries (the "signature").
+         */
+        chunk = 0;
+        if (boot->ClustMask == CLUST32_MASK || !correct_fat)
+        {
+            if (_readchunk(fs, boot, chunk, buffer))
+            {
+                free(buffer);
+                return FSFATAL;
+            }
+        }
+        
 	boot->NumFree = 0;
 	p = buffer;
 	if (correct_fat) {
@@ -548,31 +729,22 @@ writefat(fs, boot, fat, correct_fat)
 			break;
 		}
 	} else {
-		/* use same FAT signature as the old FAT has */
-		int count;
-		u_char *old_fat;
-
+                /*
+                 * Keep the first two FAT entries (the "signature") unchanged.
+                 * Note that the first chunk was already read into buffer above,
+                 * so all we have to do is skip over the first two entries.
+                 */
 		switch (boot->ClustMask) {
 		case CLUST32_MASK:
-			count = 8;
+			p += 8;
 			break;
 		case CLUST16_MASK:
-			count = 4;
+			p += 4;
 			break;
 		default:
-			count = 3;
+			p += 3;
 			break;
 		}
-
-		if (!_readfat(fs, boot, boot->ValidFat >= 0 ? boot->ValidFat :0,
-					 &old_fat)) {
-			free(buffer);
-			return FSFATAL;
-		}
-
-		memcpy(p, old_fat, count);
-		free(old_fat);
-		p += count;
 	}
 			
 	for (cl = CLUST_FIRST; cl < boot->NumClusters; cl++) {
@@ -604,18 +776,54 @@ writefat(fs, boot, fat, correct_fat)
 			*p++ = (u_char)(fat[++cl].next >> 4);
 			break;
 		}
+                
+                /*
+                 * If we are at the end of the chunk, we need to write it to all
+                 * of the FATs.  And if this is a FAT32 volume, we need to pre-read
+                 * the next chunk (to preserve the reserved bits).
+                 */
+                if (p == buffer + FAT_CHUNK_SIZE)
+                {
+                    /* Write out the current chunk */
+                    if (_writechunks(fs, boot, chunk, buffer))
+                    {
+                        free(buffer);
+                        return FSFATAL;
+                    }
+                    
+                    /* Move to the next chunk and reset "p" */
+                    ++chunk;
+                    p = buffer;
+                    
+                    /* For FAT32, pre-read the next chunk */
+                    if (boot->ClustMask == CLUST32_MASK)
+                    {
+                        if (_readchunk(fs, boot, chunk, buffer))
+                        {
+                            free(buffer);
+                            return FSFATAL;
+                        }
+                    }
+                }
 	}
-	for (i = 0; i < boot->FATs; i++) {
-		off = boot->ResSectors + i * boot->FATsecs;
-		off *= boot->BytesPerSec;
-		if (lseek(fs, off, SEEK_SET) != off
-		    || deblock_write(fs, buffer, fatsz) != fatsz) {
-			perror("Unable to write FAT");
-			ret = FSFATAL; /* Return immediately?		XXX */
-		}
-	}
+        
+        /*
+         * If the last chunk was short, we need to write it out now.
+         * If the FAT was a multiple of the chunk size, the last chunk
+         * was written out just before falling out of the loop above,
+         * in which case p == buffer.
+         */
+        if (p != buffer)	/* Partial chunk left to write? */
+        {
+            if (_writechunks(fs, boot, chunk, buffer))
+            {
+                free(buffer);
+                return FSFATAL;
+            }
+        }
+        
 	free(buffer);
-	return ret;
+	return FSOK;
 }
 
 /*
@@ -637,11 +845,11 @@ checklost(dosfs, boot, fat)
 		    || fat[head].next == CLUST_FREE
 		    || (fat[head].next >= CLUST_RSRVD
 			&& fat[head].next < CLUST_EOFS)
-		    || (fat[head].flags & FAT_USED))
+		    || (fat[head].in_use))
 			continue;
 
 		pwarn("Lost cluster chain at cluster %u\n%d Cluster(s) lost\n",
-		      head, fat[head].length);
+		      head, chainlength(boot, fat, head));
 		mod |= ret = reconnect(dosfs, boot, fat, head);
 		if (mod & FSFATAL)
 			break;
@@ -662,7 +870,11 @@ checklost(dosfs, boot, fat)
 				ret = 1;
 			}
 		}
-		if (boot->NumFree && fat[boot->FSNext].next != CLUST_FREE) {
+		if (boot->NumFree &&
+                        (boot->FSNext < CLUST_FIRST ||
+                        boot->FSNext >= boot->NumClusters ||
+                        fat[boot->FSNext].next != CLUST_FREE))
+                {
 			pwarn("Next free cluster in FSInfo block (%u) not free\n",
 			      boot->FSNext);
 			if (ask(1, "fix"))

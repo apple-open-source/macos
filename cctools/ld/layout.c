@@ -38,6 +38,7 @@
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
 #include <stdarg.h>
 #include <string.h>
+#include <sys/param.h>
 #include "stuff/openstep_mach.h"
 #include <mach-o/fat.h> 
 #include <mach-o/loader.h> 
@@ -56,6 +57,7 @@
 #endif /* defined(RLD) && !defined(SA_RLD) &&
 	  !(defined(KLD) && defined(__STATIC__)) */
 #include "stuff/arch.h"
+#include "stuff/macosx_deployment_target.h"
 
 #include "ld.h"
 #include "specs.h"
@@ -93,6 +95,11 @@ __private_extern__ struct dysymtab_info output_dysymtab_info = { {0} };
  * The output file's two level hints load command.
  */
 __private_extern__ struct hints_info output_hints_info = { { 0 } };
+
+/*
+ * The output file's prebind_cksum load command.
+ */
+__private_extern__ struct cksum_info output_cksum_info = { { 0 } };
 
 /*
  * The output file's thread load command and the machine specific information
@@ -157,6 +164,7 @@ layout(void)
 	memset(&output_symtab_info, '\0', sizeof(struct symtab_info));
 	memset(&output_dysymtab_info, '\0', sizeof(struct dysymtab_info));
 	memset(&output_hints_info, '\0', sizeof(struct hints_info));
+	memset(&output_cksum_info, '\0', sizeof(struct cksum_info));
 	memset(&output_thread_info, '\0', sizeof(struct thread_info));
 	memset(&mc680x0, '\0', sizeof(struct m68k_thread_state_regs));
 	memset(&powerpc,     '\0', sizeof(ppc_thread_state_t));
@@ -253,7 +261,7 @@ layout(void)
 	 */
 	if(nowarnings == FALSE &&
 	   twolevel_namespace == TRUE &&
-	   multiply_defined_flag != MULTIPLY_DEFINED_SUPPRESS)
+	   multiply_defined_unused_flag != MULTIPLY_DEFINED_SUPPRESS)
 	    twolevel_namespace_check_for_unused_dylib_symbols();
 #endif RLD
 
@@ -290,12 +298,12 @@ layout(void)
 	 */
 	layout_segments();
 
+#ifndef RLD
 	/*
 	 * For symbol from dylibs reset the prebound symbols if not prebinding.
 	 */
 	reset_prebound_undefines();
 
-#ifndef RLD
 	if(load_map)
 	    print_load_map();
 #endif !defined(RLD)
@@ -937,6 +945,17 @@ layout_segments(void)
 	while(mdl != NULL){
 	    sizeofcmds += mdl->dl->cmdsize;
 	    ncmds++;
+	    /*
+	     * If -headerpad_max_install_names is specified make sure headerpad 
+	     * is big enough to change all the install name of the dylibs in
+	     * the output to MAXPATHLEN.
+	     */
+	    if(headerpad_max_install_names == TRUE){
+		if(mdl->dl->cmdsize - sizeof(struct dylib_command) < MAXPATHLEN)
+		    headerpad += MAXPATHLEN -
+				 (mdl->dl->cmdsize -
+				  sizeof(struct dylib_command));
+	    }
 	    mdl = mdl->next;
 	}
 
@@ -950,6 +969,20 @@ layout_segments(void)
 		    if(dp->pbdylib != NULL){
 			sizeofcmds += dp->pbdylib->cmdsize;
 			ncmds++;
+			/*
+			 * If -headerpad_max_install_names is specified make
+			 * sure headerpad is big enough to change all the
+			 * install name of the dylibs in the output to
+			 * MAXPATHLEN.
+			 */
+			if(headerpad_max_install_names == TRUE){
+			    if(dp->pbdylib->cmdsize -
+			       sizeof(struct prebound_dylib_command) <
+				MAXPATHLEN)
+				headerpad += MAXPATHLEN -
+				     (dp->pbdylib->cmdsize -
+				      sizeof(struct prebound_dylib_command));
+			}
 		    }
 		}
 	    }
@@ -1002,6 +1035,18 @@ layout_segments(void)
 					sizeof(struct twolevel_hints_command);
 	    ncmds++;
 	    sizeofcmds += output_hints_info.twolevel_hints_command.cmdsize;
+	}
+	/*
+	 * Create the prebind cksum load command.
+	 */
+	if(prebinding == TRUE &&
+	   macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_2){
+	    output_cksum_info.prebind_cksum_command.cmd = LC_PREBIND_CKSUM;
+	    output_cksum_info.prebind_cksum_command.cmdsize =
+					sizeof(struct prebind_cksum_command);
+	    output_cksum_info.prebind_cksum_command.cksum = 0;
+	    ncmds++;
+	    sizeofcmds += output_cksum_info.prebind_cksum_command.cmdsize;
 	}
 	/*
 	 * Create the thread command if this is filetype is to have one.
@@ -1117,20 +1162,21 @@ layout_segments(void)
 	output_mach_header.flags = 0;
 	if(base_obj != NULL)
 	    output_mach_header.flags |= MH_INCRLINK;
-	if(output_for_dyld)
+	if(output_for_dyld){
 	    output_mach_header.flags |= MH_DYLDLINK;
-	if(bind_at_load)
-	    output_mach_header.flags |= MH_BINDATLOAD;
-	if(segs_read_only_addr_specified)
-	    output_mach_header.flags |= MH_SPLIT_SEGS;
-	if(lazy_init)
-	    output_mach_header.flags |= MH_LAZY_INIT;
-	if(twolevel_namespace)
-	    output_mach_header.flags |= MH_TWOLEVEL;
-	if(force_flat_namespace)
-	    output_mach_header.flags |= MH_FORCE_FLAT;
-	if(nomultidefs)
-	    output_mach_header.flags |= MH_NOMULTIDEFS;
+	    if(bind_at_load)
+		output_mach_header.flags |= MH_BINDATLOAD;
+	    if(segs_read_only_addr_specified)
+		output_mach_header.flags |= MH_SPLIT_SEGS;
+	    if(twolevel_namespace)
+		output_mach_header.flags |= MH_TWOLEVEL;
+	    if(force_flat_namespace)
+		output_mach_header.flags |= MH_FORCE_FLAT;
+	    if(nomultidefs)
+		output_mach_header.flags |= MH_NOMULTIDEFS;
+	    if(no_fix_prebinding)
+		output_mach_header.flags |= MH_NOFIXPREBINDING;
+	}
 
 	/*
 	 * The total headers size needs to be known in the case of MH_EXECUTE,
@@ -1571,6 +1617,8 @@ layout_segments(void)
 	    }
 	    p = &(msg->next);
 	}
+	if(i > MAX_SECT)
+	    fatal("too many sections used, maximum is: %d", MAX_SECT);
 
 #ifndef RLD
 	/*

@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
 #ifdef OPENSTEP
 #define CC1_SPEC "-Wno-four-char-constants%{fdump-syms: -fsyntax-only}%{!static: -fPIC -mno-schedule-prologue -fno-optimize-register-move} %{threeThreeMethodEncoding}"
 #else
-#define CC1_SPEC "-Wno-four-char-constants%{fdump-syms: -fsyntax-only}%{!static: -fPIC -mno-schedule-prologue -fno-optimize-register-move}"
+#define CC1_SPEC "-Wno-four-char-constants%{fdump-syms: -fsyntax-only}%{!static: -fPIC -mno-schedule-prologue -fno-optimize-register-move -fno-defer-pop}"
 #endif
 /* The macro definition above had " %(cc1_spec) " at the end,
    but the old gcc driver may not understand this spec syntax.  */

@@ -110,8 +110,6 @@ DEFUN ("category-docstring", Fcategory_docstring, Scategory_docstring, 1, 2, 0,
   (category, table)
      Lisp_Object category, table;
 {
-  Lisp_Object doc;
-
   CHECK_CATEGORY (category, 0);
   table = check_category_table (table);
 
@@ -128,7 +126,6 @@ to modify; it defaults to the current buffer's category table.")
      Lisp_Object table;
 {
   int i;
-  Lisp_Object docstring_vector;
 
   table = check_category_table (table);
 
@@ -253,16 +250,31 @@ It is a copy of the TABLE, which defaults to the standard category table.")
   return copy_category_table (table);
 }
 
+DEFUN ("make-category-table", Fmake_category_table, Smake_category_table,
+       0, 0, 0,
+  "Construct a new and empty category table and return it.")
+  ()
+{
+  Lisp_Object val;
+
+  val = Fmake_char_table (Qcategory_table, Qnil);
+  XCHAR_TABLE (val)->defalt = MAKE_CATEGORY_SET;
+  Fset_char_table_extra_slot (val, make_number (0),
+			      Fmake_vector (make_number (95), Qnil));
+  return val;
+}
+
 DEFUN ("set-category-table", Fset_category_table, Sset_category_table, 1, 1, 0,
   "Specify TABLE as the category table for the current buffer.")
   (table)
      Lisp_Object table;
 {
+  int idx;
   table = check_category_table (table);
   current_buffer->category_table = table;
   /* Indicate that this buffer now has a specified category table.  */
-  current_buffer->local_var_flags
-    |= XFASTINT (buffer_local_flags.category_table);
+  idx = PER_BUFFER_VAR_IDX (category_table);
+  SET_PER_BUFFER_VALUE_P (current_buffer, idx, 1);
   return table;
 }
 
@@ -272,10 +284,6 @@ DEFUN ("char-category-set", Fchar_category_set, Schar_category_set, 1, 1, 0,
   (ch)
      Lisp_Object ch;
 {
-  Lisp_Object val;
-  int charset;
-  unsigned char c1, c2;
-
   CHECK_NUMBER (ch, 0);
   return CATEGORY_SET (XFASTINT (ch));
 }
@@ -379,7 +387,7 @@ If optional fourth argument RESET is non-nil,\n\
       return Qnil;
     }
 
-  SPLIT_NON_ASCII_CHAR (c, charset, c1, c2);
+  SPLIT_CHAR (c, charset, c1, c2);
 
   /* The top level table.  */
   val = XCHAR_TABLE (table)->contents[charset + 128];
@@ -567,11 +575,6 @@ word_boundary_p (c1, c2)
   Lisp_Object tail;
   int default_result;
 
-  if (COMPOSITE_CHAR_P (c1))
-    c1 = cmpchar_component (c1, 0, 1);
-  if (COMPOSITE_CHAR_P (c2))
-    c2 = cmpchar_component (c2, 0, 1);
-
   if (CHAR_CHARSET (c1) == CHAR_CHARSET (c2))
     {
       tail = Vword_separating_categories;
@@ -590,15 +593,15 @@ word_boundary_p (c1, c2)
   if (NILP (category_set2))
     return default_result;
 
-  for (; CONSP (tail); tail = XCONS (tail)->cdr)
+  for (; CONSP (tail); tail = XCDR (tail))
     {
-      Lisp_Object elt = XCONS(tail)->car;
+      Lisp_Object elt = XCAR (tail);
 
       if (CONSP (elt)
-	  && CATEGORYP (XCONS (elt)->car)
-	  && CATEGORYP (XCONS (elt)->cdr)
-	  && CATEGORY_MEMBER (XFASTINT (XCONS (elt)->car), category_set1)
-	  && CATEGORY_MEMBER (XFASTINT (XCONS (elt)->cdr), category_set2))
+	  && CATEGORYP (XCAR (elt))
+	  && CATEGORYP (XCDR (elt))
+	  && CATEGORY_MEMBER (XFASTINT (XCAR (elt)), category_set1)
+	  && CATEGORY_MEMBER (XFASTINT (XCDR (elt)), category_set2))
 	return !default_result;
     }
   return default_result;
@@ -689,6 +692,7 @@ See the documentation of the variable `word-combining-categories'.");
   defsubr (&Scategory_table);
   defsubr (&Sstandard_category_table);
   defsubr (&Scopy_category_table);
+  defsubr (&Smake_category_table);
   defsubr (&Sset_category_table);
   defsubr (&Schar_category_set);
   defsubr (&Scategory_set_mnemonics);

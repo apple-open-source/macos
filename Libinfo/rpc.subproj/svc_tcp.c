@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_tcp.c 1.21 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_tcp.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_tcp.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
+static char *rcsid = "$Id: svc_tcp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
 #endif
 
 /*
@@ -67,11 +67,14 @@ static char *rcsid = "$Id: svc_tcp.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
 #include <errno.h>
-extern bool_t abort();
-extern errno;
+
+extern int		bindresvport();
 
 /*
  * Ops vector for TCP/IP based rpc service handle
@@ -95,15 +98,16 @@ static struct xp_ops svctcp_op = {
 /*
  * Ops vector for TCP/IP rendezvous handler
  */
+static bool_t		rendezvous_abort();
 static bool_t		rendezvous_request();
 static enum xprt_stat	rendezvous_stat();
 
 static struct xp_ops svctcp_rendezvous_op = {
 	rendezvous_request,
 	rendezvous_stat,
-	abort,
-	abort,
-	abort,
+	rendezvous_abort,
+	rendezvous_abort,
+	rendezvous_abort,
 	svctcp_destroy
 };
 
@@ -247,6 +251,13 @@ makefd_xprt(fd, sendsize, recvsize)
 }
 
 static bool_t
+rendezvous_abort()
+{       
+	abort();
+	return (FALSE);
+}
+
+static bool_t
 rendezvous_request(xprt)
 	register SVCXPRT *xprt;
 {
@@ -324,7 +335,7 @@ readtcp(xprt, buf, len)
 	FD_SET(sock, &mask);
 	do {
 		readfds = mask;
-		if (select(sock+1, &readfds, (int*)NULL, (int*)NULL, 
+		if (select(sock+1, &readfds, NULL, NULL, 
 			   &wait_per_try) <= 0) {
 			if (errno == EINTR) {
 				continue;

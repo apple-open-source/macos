@@ -154,7 +154,7 @@ proc gdbtk_read_defs {} {
       tk_messageBox -icon error -message "Cannot load defs file:\n$errTxt" -type ok
       return 0
     } else {
-      puts stdout "cannot load defs files: $errTxt\ntry setting DEFS"
+      puts stderr "cannot load defs files: $errTxt\ntry setting DEFS"
       exit 1
     }
   }
@@ -175,7 +175,7 @@ proc bp_exists {linespec} {
   foreach bpnum $bps {
     set bpinfo [gdb_get_breakpoint_info $bpnum]
     lassign $bpinfo file func line pc type enabled disposition \
-      ignore_count commands cond thread hit_count
+      ignore_count commands cond thread hit_count user_specification
     if {$filename == $file && $function == $func && $addr == $pc} {
       return $bpnum
     }
@@ -213,81 +213,6 @@ proc CygScrolledListbox { win args } {
 proc gridCGet {slave option} {
   set config_list [grid info $slave]
   return [lindex $config_list [expr [lsearch $config_list $option] + 1]] 
-}
-
-# ------------------------------------------------------------------
-# PROC: find_iwidgets_library - Find the IWidgets library.
-#
-# This is a little bit of bogosity which is necessary so we
-# can find the iwidgets libraries if we are not installed:
-# The problem is that the iwidgets are really weird.  The init file is 
-# in the build tree, but all the library files are in the source tree...
-#
-# ------------------------------------------------------------------
-proc find_iwidgets_library {} {
-  global errMsg
-
-  set IwidgetsOK 1
-
-  if {[catch {package require Iwidgets 3.0} errMsg]} {
-
-    # OK, we are not installed or this would have succeeded...
-    # Lets try to do it by hand:
-    set IwidgetsOK 0
-
-    set iwidgetsSrcDir [glob -nocomplain [file join \
-					    [file dirname [file dirname $::tcl_library]] \
-					    itcl iwidgets*]]
-    
-    # Canonicalize the executable's directory name.  It turns out that on Solaris, 
-    # info nameofexecutable returns /foo/bar/real_dir/./gdb when gdb is launched from
-    # another gdb session, so we have to fix this up.
-
-    set exec_name [info nameofexecutable]
-    set curdir [pwd] 
-    if {[string compare [file type $exec_name] "link"] == 0} {
-      set exec_name [file readlink $exec_name]
-      if {[string compare [file pathtype $exec_name] "relative"] == 0} {
-	set exec_name [file join [pwd] $exec_name]
-      }
-    }
-    
-    cd [file dirname $exec_name]
-    set exec_name [pwd]
-    cd $curdir
-
-    set iwidgetsBuildDir [glob -nocomplain [file join \
-					      [file dirname $exec_name] \
-					      itcl iwidgets*]]
-    
-    if {[llength $iwidgetsSrcDir] == 1 && [llength $iwidgetsBuildDir] == 1} {
-      # The lindex is necessary because the path may have spaces in it...
-      set initFile [file join [lindex $iwidgetsBuildDir 0] \
-		      $::tcl_platform(platform) iwidgets.tcl]
-      set libDir [file join [lindex $iwidgetsSrcDir 0] generic]
-      if {[file exists $initFile] && [file isdirectory $libDir]} {
-	if {![catch {source $initFile} err]} {
-	  # Now fix up the stuff the Iwidgets init file got wrong...
-	  set libPos [lsearch $::auto_path [file join $::iwidgets::library scripts]]
-	  if {$libPos >= 0} {
-	    set auto_path [lreplace $::auto_path $libPos $libPos $libDir]
-	  } else {
-	    lappend ::auto_path $libDir
-	  }
-	  set ::iwidgets::library $libDir
-	  set IwidgetsOK 1
-	} else {
-	  append errMsg "\nError in iwidgets.tcl file: $err"
-	}
-      }
-    } else {
-      append errMsg "\nCould not find in-place versions of the Iwidgets files\n"
-      append errMsg "Looked at: $iwidgetsSrcDir\n"
-      append errMsg "and: $iwidgetsBuildDir\n"
-    }
-
-  }
-  return $IwidgetsOK
 }
 
 # ------------------------------------------------------------------
@@ -350,3 +275,23 @@ proc list_element_strcmp {index first second} {
 
   return [string compare $theFirst $theSecond]
 }
+
+# ------------------------------------------------------------------
+#  PROC:  gdbtk_endian - returns BIG or LITTLE depending on target
+#                        endianess
+# ------------------------------------------------------------------
+
+proc gdbtk_endian {} {
+  if {[catch {gdb_cmd "show endian"} result]} {
+    return "UNKNOWN"
+  }
+  if {[regexp {.*big endian} $result]} {
+    set result "BIG"
+  } elseif {[regexp {.*little endian} $result]} {
+    set result "LITTLE"
+  } else {
+    set result "UNKNOWN"
+  }
+  return $result
+}
+

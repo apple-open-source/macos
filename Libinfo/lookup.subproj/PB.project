@@ -6,7 +6,9 @@
             bootparams.h, 
             lookup_types.h, 
             lu_overrides.h, 
+            lu_host.h, 
             lu_utils.h, 
+            netdb_async.h, 
             netgr.h, 
             printerdb.h
         ); 
@@ -17,6 +19,7 @@
             lu_fstab.c, 
             lu_group.c, 
             lu_host.c, 
+            lu_host_async.c, 
             lu_netgroup.c, 
             lu_network.c, 
             lu_printer.c, 

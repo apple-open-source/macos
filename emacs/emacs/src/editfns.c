@@ -1,5 +1,6 @@
 /* Lisp functions pertaining to editing.
-   Copyright (C) 1985,86,87,89,93,94,95,96,97,98 Free Software Foundation, Inc.
+   Copyright (C) 1985,86,87,89,93,94,95,96,97,98, 1999, 2000, 2001
+	Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,18 +20,13 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <sys/types.h>
-
 #include <config.h>
+#include <sys/types.h>
 
 #ifdef VMS
 #include "vms-pwd.h"
 #else
 #include <pwd.h>
-#endif
-
-#ifdef STDC_HEADERS
-#include <stdlib.h>
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -41,9 +37,18 @@ Boston, MA 02111-1307, USA.  */
 #include "intervals.h"
 #include "buffer.h"
 #include "charset.h"
+#include "coding.h"
+#include "frame.h"
 #include "window.h"
 
 #include "systime.h"
+
+#ifdef STDC_HEADERS
+#include <float.h>
+#define MAX_10_EXP	DBL_MAX_10_EXP
+#else
+#define MAX_10_EXP	310
+#endif
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -52,19 +57,41 @@ Boston, MA 02111-1307, USA.  */
 #define NULL 0
 #endif
 
+#ifndef USE_CRT_DLL
 extern char **environ;
-extern Lisp_Object make_time ();
-extern void insert_from_buffer ();
-static int tm_diff ();
-static void update_buffer_properties ();
-size_t emacs_strftime ();
-void set_time_zone_rule ();
+#endif
+
+extern Lisp_Object make_time P_ ((time_t));
+extern size_t emacs_strftimeu P_ ((char *, size_t, const char *,
+				   const struct tm *, int));
+static int tm_diff P_ ((struct tm *, struct tm *));
+static void find_field P_ ((Lisp_Object, Lisp_Object, int *, int *));
+static void update_buffer_properties P_ ((int, int));
+static Lisp_Object region_limit P_ ((int));
+static int lisp_time_argument P_ ((Lisp_Object, time_t *, int *));
+static size_t emacs_memftimeu P_ ((char *, size_t, const char *,
+				   size_t, const struct tm *, int));
+static void general_insert_function P_ ((void (*) (unsigned char *, int),
+					 void (*) (Lisp_Object, int, int, int,
+						   int, int),
+					 int, int, Lisp_Object *));
+static Lisp_Object subst_char_in_region_unwind P_ ((Lisp_Object));
+static Lisp_Object subst_char_in_region_unwind_1 P_ ((Lisp_Object));
+static void transpose_markers P_ ((int, int, int, int, int, int, int, int));
+
+#ifdef HAVE_INDEX
+extern char *index P_ ((const char *, int));
+#endif
 
 Lisp_Object Vbuffer_access_fontify_functions;
 Lisp_Object Qbuffer_access_fontify_functions;
 Lisp_Object Vbuffer_access_fontified_property;
 
-Lisp_Object Fuser_full_name ();
+Lisp_Object Fuser_full_name P_ ((Lisp_Object));
+
+/* Non-nil means don't stop at field boundary in text motion commands.  */
+
+Lisp_Object Vinhibit_field_text_motion;
 
 /* Some static data, and a function to initialize it for each run */
 
@@ -73,11 +100,20 @@ Lisp_Object Vuser_real_login_name;	/* login name of current user ID */
 Lisp_Object Vuser_full_name;		/* full name of current user */
 Lisp_Object Vuser_login_name;		/* user name from LOGNAME or USER */
 
+/* Symbol for the text property used to mark fields.  */
+
+Lisp_Object Qfield;
+
+/* A special value for Qfield properties.  */
+
+Lisp_Object Qboundary;
+
+
 void
 init_editfns ()
 {
   char *user_name;
-  register unsigned char *p, *q, *r;
+  register unsigned char *p;
   struct passwd *pw;	/* password entry for the current user */
   Lisp_Object tem;
 
@@ -121,7 +157,7 @@ init_editfns ()
   tem = Fstring_equal (Vuser_login_name, Vuser_real_login_name);
   Vuser_full_name = Fuser_full_name (NILP (tem)? make_number (geteuid())
 				     : Vuser_login_name);
-  
+
   p = (unsigned char *) getenv ("NAME");
   if (p)
     Vuser_full_name = build_string (p);
@@ -130,16 +166,18 @@ init_editfns ()
 }
 
 DEFUN ("char-to-string", Fchar_to_string, Schar_to_string, 1, 1, 0,
-  "Convert arg CHAR to a string containing that character.")
+  "Convert arg CHARACTER to a string containing that character.")
   (character)
      Lisp_Object character;
 {
   int len;
-  unsigned char workbuf[4], *str;
+  unsigned char str[MAX_MULTIBYTE_LENGTH];
 
   CHECK_NUMBER (character, 0);
 
-  len = CHAR_STRING (XFASTINT (character), workbuf, str);
+  len = (SINGLE_BYTE_CHAR_P (XFASTINT (character))
+	 ? (*str = (unsigned char)(XFASTINT (character)), 1)
+	 : char_to_string (XFASTINT (character), str));
   return make_string_from_bytes (str, 1, len);
 }
 
@@ -214,7 +252,6 @@ except in the case that `enable-multibyte-characters' is nil.")
      register Lisp_Object position;
 {
   int pos;
-  unsigned char *p;
 
   if (MARKERP (position)
       && current_buffer == XMARKER (position)->buffer)
@@ -237,35 +274,44 @@ except in the case that `enable-multibyte-characters' is nil.")
   return position;
 }
 
+
+/* Return the start or end position of the region.
+   BEGINNINGP non-zero means return the start.
+   If there is no region active, signal an error. */
+
 static Lisp_Object
 region_limit (beginningp)
      int beginningp;
 {
   extern Lisp_Object Vmark_even_if_inactive; /* Defined in callint.c. */
-  register Lisp_Object m;
-  if (!NILP (Vtransient_mark_mode) && NILP (Vmark_even_if_inactive)
+  Lisp_Object m;
+  
+  if (!NILP (Vtransient_mark_mode)
+      && NILP (Vmark_even_if_inactive)
       && NILP (current_buffer->mark_active))
     Fsignal (Qmark_inactive, Qnil);
+  
   m = Fmarker_position (current_buffer->mark);
-  if (NILP (m)) error ("There is no region now");
+  if (NILP (m))
+    error ("There is no region now");
+  
   if ((PT < XFASTINT (m)) == beginningp)
-    return (make_number (PT));
-  else
-    return (m);
+    m = make_number (PT);
+  return m;
 }
 
 DEFUN ("region-beginning", Fregion_beginning, Sregion_beginning, 0, 0, 0,
   "Return position of beginning of region, as an integer.")
   ()
 {
-  return (region_limit (1));
+  return region_limit (1);
 }
 
 DEFUN ("region-end", Fregion_end, Sregion_end, 0, 0, 0,
   "Return position of end of region, as an integer.")
   ()
 {
-  return (region_limit (0));
+  return region_limit (0);
 }
 
 DEFUN ("mark-marker", Fmark_marker, Smark_marker, 0, 0, 0,
@@ -276,17 +322,415 @@ If you set the marker not to point anywhere, the buffer will have no mark.")
 {
   return current_buffer->mark;
 }
+
 
-DEFUN ("line-beginning-position", Fline_beginning_position, Sline_beginning_position,
-  0, 1, 0,
+#if 0 /* Not used.  */
+
+/* Return nonzero if POS1 and POS2 have the same value
+   for the text property PROP.  */
+
+static int
+char_property_eq (prop, pos1, pos2)
+     Lisp_Object prop;
+     Lisp_Object pos1, pos2;
+{
+  Lisp_Object pval1, pval2;
+
+  pval1 = Fget_char_property (pos1, prop, Qnil);
+  pval2 = Fget_char_property (pos2, prop, Qnil);
+
+  return EQ (pval1, pval2);
+}
+
+#endif /* 0 */
+
+/* Return the direction from which the text-property PROP would be
+   inherited by any new text inserted at POS: 1 if it would be
+   inherited from the char after POS, -1 if it would be inherited from
+   the char before POS, and 0 if from neither.  */
+
+static int
+text_property_stickiness (prop, pos)
+     Lisp_Object prop;
+     Lisp_Object pos;
+{
+  Lisp_Object front_sticky;
+
+  if (XINT (pos) > BEGV)
+    /* Consider previous character.  */
+    {
+      Lisp_Object prev_pos, rear_non_sticky;
+
+      prev_pos = make_number (XINT (pos) - 1);
+      rear_non_sticky = Fget_text_property (prev_pos, Qrear_nonsticky, Qnil);
+
+      if (EQ (rear_non_sticky, Qnil)
+	  || (CONSP (rear_non_sticky)
+	      && NILP (Fmemq (prop, rear_non_sticky))))
+	/* PROP is not rear-non-sticky, and since this takes precedence over
+	   any front-stickiness, PROP is inherited from before.  */
+	return -1;
+    }
+
+  /* Consider following character.  */
+  front_sticky = Fget_text_property (pos, Qfront_sticky, Qnil);
+
+  if (EQ (front_sticky, Qt)
+      || (CONSP (front_sticky)
+	  && !NILP (Fmemq (prop, front_sticky))))
+    /* PROP is inherited from after.  */
+    return 1;
+
+  /* PROP is not inherited from either side.  */
+  return 0;
+}
+
+
+/* Find the field surrounding POS in *BEG and *END.  If POS is nil,
+   the value of point is used instead.  If BEG or END null,
+   means don't store the beginning or end of the field.
+
+   If MERGE_AT_BOUNDARY is nonzero, then if POS is at the very first
+   position of a field, then the beginning of the previous field is
+   returned instead of the beginning of POS's field (since the end of a
+   field is actually also the beginning of the next input field, this
+   behavior is sometimes useful).  Additionally in the MERGE_AT_BOUNDARY
+   true case, if two fields are separated by a field with the special
+   value `boundary', and POS lies within it, then the two separated
+   fields are considered to be adjacent, and POS between them, when
+   finding the beginning and ending of the "merged" field.
+
+   Either BEG or END may be 0, in which case the corresponding value
+   is not stored.  */
+
+static void
+find_field (pos, merge_at_boundary, beg, end)
+     Lisp_Object pos;
+     Lisp_Object merge_at_boundary;
+     int *beg, *end;
+{
+  /* Fields right before and after the point.  */
+  Lisp_Object before_field, after_field;
+  /* If the fields came from overlays, the associated overlays.
+     Qnil means they came from text-properties.  */
+  Lisp_Object before_overlay = Qnil, after_overlay = Qnil;
+  /* 1 if POS counts as the start of a field.  */
+  int at_field_start = 0;
+  /* 1 if POS counts as the end of a field.  */
+  int at_field_end = 0;
+
+  if (NILP (pos))
+    XSETFASTINT (pos, PT);
+  else
+    CHECK_NUMBER_COERCE_MARKER (pos, 0);
+
+  after_field
+    = get_char_property_and_overlay (pos, Qfield, Qnil, &after_overlay);
+  before_field
+    = (XFASTINT (pos) > BEGV
+       ? get_char_property_and_overlay (make_number (XINT (pos) - 1),
+					Qfield, Qnil,
+					&before_overlay)
+       : Qnil);
+
+  /* See if we need to handle the case where MERGE_AT_BOUNDARY is nil
+     and POS is at beginning of a field, which can also be interpreted
+     as the end of the previous field.  Note that the case where if
+     MERGE_AT_BOUNDARY is non-nil (see function comment) is actually the
+     more natural one; then we avoid treating the beginning of a field
+     specially.  */
+  if (NILP (merge_at_boundary) && !EQ (after_field, before_field))
+    /* We are at a boundary, see which direction is inclusive.  We
+       decide by seeing which field the `field' property sticks to.  */
+    {
+      /* -1 means insertions go into before_field, 1 means they go
+	 into after_field, 0 means neither.  */
+      int stickiness;
+      /* Whether the before/after_field come from overlays.  */
+      int bop = !NILP (before_overlay);
+      int aop = !NILP (after_overlay);
+
+      if (bop && XMARKER (OVERLAY_END (before_overlay))->insertion_type == 1)
+	/* before_field is from an overlay, which expands upon
+	   end-insertions.  Note that it's possible for after_overlay to
+	   also eat insertions here, but then they will overlap, and
+	   there's not much we can do.  */
+	stickiness = -1;
+      else if (aop
+	       && XMARKER (OVERLAY_START (after_overlay))->insertion_type == 0)
+	/* after_field is from an overlay, which expand to contain
+	   start-insertions.  */
+	stickiness = 1;
+      else if (bop && aop)
+	/* Both fields come from overlays, but neither will contain any
+	   insertion here.  */
+	stickiness = 0;
+      else if (bop)
+	/* before_field is an overlay that won't eat any insertion, but
+	   after_field is from a text-property.  Assume that the
+	   text-property continues underneath the overlay, and so will
+	   be inherited by any insertion, regardless of any stickiness
+	   settings.  */
+	stickiness = 1;
+      else if (aop)
+	/* Similarly, when after_field is the overlay.  */
+	stickiness = -1;
+      else
+	/* Both fields come from text-properties.  Look for explicit
+	   stickiness properties.  */
+	stickiness = text_property_stickiness (Qfield, pos);
+
+      if (stickiness > 0)
+	at_field_start = 1;
+      else if (stickiness < 0)
+	at_field_end = 1;
+      else
+	/* STICKINESS == 0 means that any inserted text will get a
+	   `field' char-property of nil, so check to see if that
+	   matches either of the adjacent characters (this being a
+	   kind of "stickiness by default").  */
+	{
+	  if (NILP (before_field))
+	    at_field_end = 1; /* Sticks to the left.  */
+	  else if (NILP (after_field))
+	    at_field_start = 1; /* Sticks to the right.  */
+	}
+    }
+
+  /* Note about special `boundary' fields:
+
+     Consider the case where the point (`.') is between the fields `x' and `y':
+
+	xxxx.yyyy
+
+     In this situation, if merge_at_boundary is true, we consider the
+     `x' and `y' fields as forming one big merged field, and so the end
+     of the field is the end of `y'.
+
+     However, if `x' and `y' are separated by a special `boundary' field
+     (a field with a `field' char-property of 'boundary), then we ignore
+     this special field when merging adjacent fields.  Here's the same
+     situation, but with a `boundary' field between the `x' and `y' fields:
+
+	xxx.BBBByyyy
+
+     Here, if point is at the end of `x', the beginning of `y', or
+     anywhere in-between (within the `boundary' field), we merge all
+     three fields and consider the beginning as being the beginning of
+     the `x' field, and the end as being the end of the `y' field.  */
+
+  if (beg)
+    {
+      if (at_field_start)
+	/* POS is at the edge of a field, and we should consider it as
+	   the beginning of the following field.  */
+	*beg = XFASTINT (pos);
+      else
+	/* Find the previous field boundary.  */
+	{
+	  if (!NILP (merge_at_boundary) && EQ (before_field, Qboundary))
+	    /* Skip a `boundary' field.  */
+	    pos = Fprevious_single_char_property_change (pos, Qfield, Qnil,Qnil);
+
+	  pos = Fprevious_single_char_property_change (pos, Qfield, Qnil, Qnil);
+	  *beg = NILP (pos) ? BEGV : XFASTINT (pos);
+	}
+    }
+
+  if (end)
+    {
+      if (at_field_end)
+	/* POS is at the edge of a field, and we should consider it as
+	   the end of the previous field.  */
+	*end = XFASTINT (pos);
+      else
+	/* Find the next field boundary.  */
+	{
+	  if (!NILP (merge_at_boundary) && EQ (after_field, Qboundary))
+	    /* Skip a `boundary' field.  */
+	    pos = Fnext_single_char_property_change (pos, Qfield, Qnil, Qnil);
+
+	  pos = Fnext_single_char_property_change (pos, Qfield, Qnil, Qnil);
+	  *end = NILP (pos) ? ZV : XFASTINT (pos);
+	}
+    }
+}
+
+
+DEFUN ("delete-field", Fdelete_field, Sdelete_field, 0, 1, 0,
+  "Delete the field surrounding POS.\n\
+A field is a region of text with the same `field' property.\n\
+If POS is nil, the value of point is used for POS.")
+  (pos)
+     Lisp_Object pos;
+{
+  int beg, end;
+  find_field (pos, Qnil, &beg, &end);
+  if (beg != end)
+    del_range (beg, end);
+  return Qnil;
+}
+
+DEFUN ("field-string", Ffield_string, Sfield_string, 0, 1, 0,
+  "Return the contents of the field surrounding POS as a string.\n\
+A field is a region of text with the same `field' property.\n\
+If POS is nil, the value of point is used for POS.")
+  (pos)
+     Lisp_Object pos;
+{
+  int beg, end;
+  find_field (pos, Qnil, &beg, &end);
+  return make_buffer_string (beg, end, 1);
+}
+
+DEFUN ("field-string-no-properties", Ffield_string_no_properties, Sfield_string_no_properties, 0, 1, 0,
+  "Return the contents of the field around POS, without text-properties.\n\
+A field is a region of text with the same `field' property.\n\
+If POS is nil, the value of point is used for POS.")
+  (pos)
+     Lisp_Object pos;
+{
+  int beg, end;
+  find_field (pos, Qnil, &beg, &end);
+  return make_buffer_string (beg, end, 0);
+}
+
+DEFUN ("field-beginning", Ffield_beginning, Sfield_beginning, 0, 2, 0,
+  "Return the beginning of the field surrounding POS.\n\
+A field is a region of text with the same `field' property.\n\
+If POS is nil, the value of point is used for POS.\n\
+If ESCAPE-FROM-EDGE is non-nil and POS is at the beginning of its\n\
+field, then the beginning of the *previous* field is returned.")
+  (pos, escape_from_edge)
+     Lisp_Object pos, escape_from_edge;
+{
+  int beg;
+  find_field (pos, escape_from_edge, &beg, 0);
+  return make_number (beg);
+}
+
+DEFUN ("field-end", Ffield_end, Sfield_end, 0, 2, 0,
+  "Return the end of the field surrounding POS.\n\
+A field is a region of text with the same `field' property.\n\
+If POS is nil, the value of point is used for POS.\n\
+If ESCAPE-FROM-EDGE is non-nil and POS is at the end of its field,\n\
+then the end of the *following* field is returned.")
+  (pos, escape_from_edge)
+     Lisp_Object pos, escape_from_edge;
+{
+  int end;
+  find_field (pos, escape_from_edge, 0, &end);
+  return make_number (end);
+}
+
+DEFUN ("constrain-to-field", Fconstrain_to_field, Sconstrain_to_field, 2, 5, 0,
+  "Return the position closest to NEW-POS that is in the same field as OLD-POS.\n\
+\n\
+A field is a region of text with the same `field' property.\n\
+If NEW-POS is nil, then the current point is used instead, and set to the\n\
+constrained position if that is different.\n\
+\n\
+If OLD-POS is at the boundary of two fields, then the allowable\n\
+positions for NEW-POS depends on the value of the optional argument\n\
+ESCAPE-FROM-EDGE: If ESCAPE-FROM-EDGE is nil, then NEW-POS is\n\
+constrained to the field that has the same `field' char-property\n\
+as any new characters inserted at OLD-POS, whereas if ESCAPE-FROM-EDGE\n\
+is non-nil, NEW-POS is constrained to the union of the two adjacent\n\
+fields.  Additionally, if two fields are separated by another field with\n\
+the special value `boundary', then any point within this special field is\n\
+also considered to be `on the boundary'.\n\
+\n\
+If the optional argument ONLY-IN-LINE is non-nil and constraining\n\
+NEW-POS would move it to a different line, NEW-POS is returned\n\
+unconstrained.  This useful for commands that move by line, like\n\
+\\[next-line] or \\[beginning-of-line], which should generally respect field boundaries\n\
+only in the case where they can still move to the right line.\n\
+\n\
+If the optional argument INHIBIT-CAPTURE-PROPERTY is non-nil, and OLD-POS has\n\
+a non-nil property of that name, then any field boundaries are ignored.\n\
+\n\
+Field boundaries are not noticed if `inhibit-field-text-motion' is non-nil.")
+  (new_pos, old_pos, escape_from_edge, only_in_line, inhibit_capture_property)
+     Lisp_Object new_pos, old_pos;
+     Lisp_Object escape_from_edge, only_in_line, inhibit_capture_property;
+{
+  /* If non-zero, then the original point, before re-positioning.  */
+  int orig_point = 0;
+
+  if (NILP (new_pos))
+    /* Use the current point, and afterwards, set it.  */
+    {
+      orig_point = PT;
+      XSETFASTINT (new_pos, PT);
+    }
+
+  if (NILP (Vinhibit_field_text_motion)
+      && !EQ (new_pos, old_pos)
+      && (!NILP (Fget_char_property (new_pos, Qfield, Qnil))
+	  || !NILP (Fget_char_property (old_pos, Qfield, Qnil)))
+      && (NILP (inhibit_capture_property)
+	  || NILP (Fget_char_property(old_pos, inhibit_capture_property, Qnil))))
+    /* NEW_POS is not within the same field as OLD_POS; try to
+       move NEW_POS so that it is.  */
+    {
+      int fwd, shortage;
+      Lisp_Object field_bound;
+
+      CHECK_NUMBER_COERCE_MARKER (new_pos, 0);
+      CHECK_NUMBER_COERCE_MARKER (old_pos, 0);
+
+      fwd = (XFASTINT (new_pos) > XFASTINT (old_pos));
+
+      if (fwd)
+	field_bound = Ffield_end (old_pos, escape_from_edge);
+      else
+	field_bound = Ffield_beginning (old_pos, escape_from_edge);
+
+      if (/* See if ESCAPE_FROM_EDGE caused FIELD_BOUND to jump to the
+             other side of NEW_POS, which would mean that NEW_POS is
+             already acceptable, and it's not necessary to constrain it
+             to FIELD_BOUND.  */
+	  ((XFASTINT (field_bound) < XFASTINT (new_pos)) ? fwd : !fwd)
+	  /* NEW_POS should be constrained, but only if either
+	     ONLY_IN_LINE is nil (in which case any constraint is OK),
+	     or NEW_POS and FIELD_BOUND are on the same line (in which
+	     case the constraint is OK even if ONLY_IN_LINE is non-nil). */
+	  && (NILP (only_in_line)
+	      /* This is the ONLY_IN_LINE case, check that NEW_POS and
+		 FIELD_BOUND are on the same line by seeing whether
+		 there's an intervening newline or not.  */
+	      || (scan_buffer ('\n',
+			       XFASTINT (new_pos), XFASTINT (field_bound),
+			       fwd ? -1 : 1, &shortage, 1),
+		  shortage != 0)))
+	/* Constrain NEW_POS to FIELD_BOUND.  */
+	new_pos = field_bound;
+
+      if (orig_point && XFASTINT (new_pos) != orig_point)
+	/* The NEW_POS argument was originally nil, so automatically set PT. */
+	SET_PT (XFASTINT (new_pos));
+    }
+
+  return new_pos;
+}
+
+
+DEFUN ("line-beginning-position",
+       Fline_beginning_position, Sline_beginning_position, 0, 1, 0,
   "Return the character position of the first character on the current line.\n\
 With argument N not nil or 1, move forward N - 1 lines first.\n\
 If scan reaches end of buffer, return that position.\n\
+\n\
+The scan does not cross a field boundary unless doing so would move\n\
+beyond there to a different line; if N is nil or 1, and scan starts at a\n\
+field boundary, the scan stops as soon as it starts.  To ignore field\n\
+boundaries bind `inhibit-field-text-motion' to t.\n\
+\n\
 This function does not move point.")
   (n)
      Lisp_Object n;
 {
-  register int orig, orig_byte, end;
+  int orig, orig_byte, end;
 
   if (NILP (n))
     XSETFASTINT (n, 1);
@@ -297,39 +741,56 @@ This function does not move point.")
   orig_byte = PT_BYTE;
   Fforward_line (make_number (XINT (n) - 1));
   end = PT;
+
   SET_PT_BOTH (orig, orig_byte);
 
-  return make_number (end);
+  /* Return END constrained to the current input field.  */
+  return Fconstrain_to_field (make_number (end), make_number (orig),
+			      XINT (n) != 1 ? Qt : Qnil,
+			      Qt, Qnil);
 }
 
-DEFUN ("line-end-position", Fline_end_position, Sline_end_position,
-  0, 1, 0,
+DEFUN ("line-end-position", Fline_end_position, Sline_end_position, 0, 1, 0,
   "Return the character position of the last character on the current line.\n\
 With argument N not nil or 1, move forward N - 1 lines first.\n\
 If scan reaches end of buffer, return that position.\n\
+\n\
+The scan does not cross a field boundary unless doing so would move\n\
+beyond there to a different line; if N is nil or 1, and scan starts at a\n\
+field boundary, the scan stops as soon as it starts.  To ignore field\n\
+boundaries bind `inhibit-field-text-motion' to t.\n\
+\n\
 This function does not move point.")
   (n)
      Lisp_Object n;
 {
+  int end_pos;
+  int orig = PT;
+
   if (NILP (n))
     XSETFASTINT (n, 1);
   else
     CHECK_NUMBER (n, 0);
 
-  return make_number (find_before_next_newline 
-		      (PT, 0, XINT (n) - (XINT (n) <= 0)));
+  end_pos = find_before_next_newline (orig, 0, XINT (n) - (XINT (n) <= 0));
+
+  /* Return END_POS constrained to the current input field.  */
+  return Fconstrain_to_field (make_number (end_pos), make_number (orig),
+			      Qnil, Qt, Qnil);
 }
+
 
 Lisp_Object
 save_excursion_save ()
 {
-  register int visible = (XBUFFER (XWINDOW (selected_window)->buffer)
-			  == current_buffer);
+  int visible = (XBUFFER (XWINDOW (selected_window)->buffer)
+		 == current_buffer);
 
   return Fcons (Fpoint_marker (),
 		Fcons (Fcopy_marker (current_buffer->mark, Qnil),
 		       Fcons (visible ? Qt : Qnil,
-			      current_buffer->mark_active)));		       
+			      Fcons (current_buffer->mark_active,
+				     selected_window))));
 }
 
 Lisp_Object
@@ -338,8 +799,9 @@ save_excursion_restore (info)
 {
   Lisp_Object tem, tem1, omark, nmark;
   struct gcpro gcpro1, gcpro2, gcpro3;
+  int visible_p;
 
-  tem = Fmarker_buffer (Fcar (info));
+  tem = Fmarker_buffer (XCAR (info));
   /* If buffer being returned to is now deleted, avoid error */
   /* Otherwise could get error here while unwinding to top level
      and crash */
@@ -351,15 +813,24 @@ save_excursion_restore (info)
   GCPRO3 (info, omark, nmark);
 
   Fset_buffer (tem);
-  tem = Fcar (info);
+
+  /* Point marker.  */
+  tem = XCAR (info);
   Fgoto_char (tem);
   unchain_marker (tem);
-  tem = Fcar (Fcdr (info));
+
+  /* Mark marker.  */
+  info = XCDR (info);
+  tem = XCAR (info);
   omark = Fmarker_position (current_buffer->mark);
   Fset_marker (current_buffer->mark, tem, Fcurrent_buffer ());
   nmark = Fmarker_position (tem);
   unchain_marker (tem);
-  tem = Fcdr (Fcdr (info));
+
+  /* visible */
+  info = XCDR (info);
+  visible_p = !NILP (XCAR (info));
+  
 #if 0 /* We used to make the current buffer visible in the selected window
 	 if that was true previously.  That avoids some anomalies.
 	 But it creates others, and it wasn't documented, and it is simpler
@@ -370,8 +841,12 @@ save_excursion_restore (info)
     Fswitch_to_buffer (Fcurrent_buffer (), Qnil);
 #endif /* 0 */
 
+  /* Mark active */
+  info = XCDR (info);
+  tem = XCAR (info);
   tem1 = current_buffer->mark_active;
-  current_buffer->mark_active = Fcdr (tem);
+  current_buffer->mark_active = tem;
+
   if (!NILP (Vrun_hooks))
     {
       /* If mark is active now, and either was not active
@@ -385,6 +860,20 @@ save_excursion_restore (info)
       else if (! NILP (tem1))
 	call1 (Vrun_hooks, intern ("deactivate-mark-hook"));
     }
+
+  /* If buffer was visible in a window, and a different window was
+     selected, and the old selected window is still showing this
+     buffer, restore point in that window.  */
+  tem = XCDR (info);
+  if (visible_p
+      && !EQ (tem, selected_window)
+      && (tem1 = XWINDOW (tem)->buffer,
+	  (/* Window is live...  */
+	   BUFFERP (tem1)
+	   /* ...and it shows the current buffer.  */
+	   && XBUFFER (tem1) == current_buffer)))
+    Fset_window_point (tem, make_number (PT));
+
   UNGCPRO;
   return Qnil;
 }
@@ -418,7 +907,7 @@ Executes BODY just like `progn'.")
   (args)
      Lisp_Object args;
 {
-  register Lisp_Object val;
+  Lisp_Object val;
   int count = specpdl_ptr - specpdl;
 
   record_unwind_protect (set_buffer_if_live, Fcurrent_buffer ());
@@ -427,13 +916,20 @@ Executes BODY just like `progn'.")
   return unbind_to (count, val);
 }
 
-DEFUN ("buffer-size", Fbufsize, Sbufsize, 0, 0, 0,
-  "Return the number of characters in the current buffer.")
-  ()
+DEFUN ("buffer-size", Fbufsize, Sbufsize, 0, 1, 0,
+  "Return the number of characters in the current buffer.\n\
+If BUFFER, return the number of characters in that buffer instead.")
+  (buffer)
+     Lisp_Object buffer;
 {
-  Lisp_Object temp;
-  XSETFASTINT (temp, Z - BEG);
-  return temp;
+  if (NILP (buffer))
+    return make_number (Z - BEG);
+  else
+    {
+      CHECK_BUFFER (buffer, 1);
+      return make_number (BUF_Z (XBUFFER (buffer))
+			  - BUF_BEG (XBUFFER (buffer)));
+    }
 }
 
 DEFUN ("point-min", Fpoint_min, Spoint_min, 0, 0, 0,
@@ -520,10 +1016,7 @@ If BYTEPOS is out of range, the value is nil.")
 
 DEFUN ("following-char", Ffollowing_char, Sfollowing_char, 0, 0, 0,
   "Return the character following point, as a number.\n\
-At the end of the buffer or accessible region, return 0.\n\
-If `enable-multibyte-characters' is nil or point is not\n\
- at character boundary,  multibyte form is ignored,\n\
- and only one byte following point is returned as a character.")
+At the end of the buffer or accessible region, return 0.")
   ()
 {
   Lisp_Object temp;
@@ -536,10 +1029,7 @@ If `enable-multibyte-characters' is nil or point is not\n\
 
 DEFUN ("preceding-char", Fprevious_char, Sprevious_char, 0, 0, 0,
   "Return the character preceding point, as a number.\n\
-At the beginning of the buffer or accessible region, return 0.\n\
-If `enable-multibyte-characters' is nil or point is not\n\
- at character boundary, multi-byte form is ignored,\n\
- and only one byte preceding point is returned as a character.")
+At the beginning of the buffer or accessible region, return 0.")
   ()
 {
   Lisp_Object temp;
@@ -597,13 +1087,12 @@ DEFUN ("eolp", Feolp, Seolp, 0, 0, 0,
 
 DEFUN ("char-after", Fchar_after, Schar_after, 0, 1, 0,
   "Return character in current buffer at position POS.\n\
-POS is an integer or a buffer pointer.\n\
+POS is an integer or a marker.\n\
 If POS is out of range, the value is nil.")
   (pos)
      Lisp_Object pos;
 {
   register int pos_byte;
-  register Lisp_Object val;
 
   if (NILP (pos))
     {
@@ -622,7 +1111,7 @@ If POS is out of range, the value is nil.")
       CHECK_NUMBER_COERCE_MARKER (pos, 0);
       if (XINT (pos) < BEGV || XINT (pos) >= ZV)
 	return Qnil;
-      
+
       pos_byte = CHAR_TO_BYTE (XINT (pos));
     }
 
@@ -631,7 +1120,7 @@ If POS is out of range, the value is nil.")
 
 DEFUN ("char-before", Fchar_before, Schar_before, 0, 1, 0,
   "Return character in current buffer preceding position POS.\n\
-POS is an integer or a buffer pointer.\n\
+POS is an integer or a marker.\n\
 If POS is out of range, the value is nil.")
   (pos)
      Lisp_Object pos;
@@ -744,26 +1233,25 @@ name, or nil if there is no such user.")
 {
   struct passwd *pw;
   register unsigned char *p, *q;
-  extern char *index ();
   Lisp_Object full;
 
   if (NILP (uid))
-    return Vuser_full_name; 
+    return Vuser_full_name;
   else if (NUMBERP (uid))
     pw = (struct passwd *) getpwuid (XINT (uid));
-  else if (STRINGP (uid)) 
+  else if (STRINGP (uid))
     pw = (struct passwd *) getpwnam (XSTRING (uid)->data);
   else
     error ("Invalid UID specification");
 
   if (!pw)
     return Qnil;
-  
+
   p = (unsigned char *) USER_FULL_NAME;
   /* Chop off everything after the first comma. */
   q = (unsigned char *) index (p, ',');
   full = make_string (p, q ? q - p : strlen (p));
-  
+
 #ifdef AMPERSAND_FULL_NAME
   p = XSTRING (full)->data;
   q = (unsigned char *) index (p, '&');
@@ -795,6 +1283,7 @@ DEFUN ("system-name", Fsystem_name, Ssystem_name, 0, 0, 0,
 }
 
 /* For the benefit of callers who don't want to include lisp.h */
+
 char *
 get_system_name ()
 {
@@ -835,12 +1324,25 @@ resolution finer than a second.")
 
 
 static int
-lisp_time_argument (specified_time, result)
+lisp_time_argument (specified_time, result, usec)
      Lisp_Object specified_time;
      time_t *result;
+     int *usec;
 {
   if (NILP (specified_time))
-    return time (result) != -1;
+    {
+      if (usec)
+        {
+          EMACS_TIME t;
+
+          EMACS_GET_TIME (t);
+          *usec = EMACS_USECS (t);
+          *result = EMACS_SECS (t);
+          return 1;
+        }
+      else
+        return time (result) != -1;
+    }
   else
     {
       Lisp_Object high, low;
@@ -848,36 +1350,77 @@ lisp_time_argument (specified_time, result)
       CHECK_NUMBER (high, 0);
       low = Fcdr (specified_time);
       if (CONSP (low))
-	low = Fcar (low);
+        {
+          if (usec)
+            {
+              Lisp_Object usec_l = Fcdr (low);
+              if (CONSP (usec_l))
+                usec_l = Fcar (usec_l);
+              if (NILP (usec_l))
+                *usec = 0;
+              else
+                {
+                  CHECK_NUMBER (usec_l, 0);
+                  *usec = XINT (usec_l);
+                }
+            }
+          low = Fcar (low);
+        }
+      else if (usec)
+        *usec = 0;
       CHECK_NUMBER (low, 0);
       *result = (XINT (high) << 16) + (XINT (low) & 0xffff);
       return *result >> 16 == XINT (high);
     }
 }
 
+DEFUN ("float-time", Ffloat_time, Sfloat_time, 0, 1, 0,
+  "Return the current time, as a float number of seconds since the epoch.\n\
+If an argument is given, it specifies a time to convert to float\n\
+instead of the current time.  The argument should have the forms:\n\
+ (HIGH . LOW) or (HIGH LOW USEC) or (HIGH LOW . USEC).\n\
+Thus, you can use times obtained from `current-time'\n\
+and from `file-attributes'.\n\
+\n\
+WARNING: Since the result is floating point, it may not be exact.\n\
+Do not use this function if precise time stamps are required.")
+  (specified_time)
+     Lisp_Object specified_time;
+{
+  time_t sec;
+  int usec;
+
+  if (! lisp_time_argument (specified_time, &sec, &usec))
+    error ("Invalid time specification");
+
+  return make_float ((sec * 1e6 + usec) / 1e6);
+}
+
 /* Write information into buffer S of size MAXSIZE, according to the
    FORMAT of length FORMAT_LEN, using time information taken from *TP.
+   Default to Universal Time if UT is nonzero, local time otherwise.
    Return the number of bytes written, not including the terminating
    '\0'.  If S is NULL, nothing will be written anywhere; so to
    determine how many bytes would be written, use NULL for S and
    ((size_t) -1) for MAXSIZE.
 
-   This function behaves like emacs_strftime, except it allows null
+   This function behaves like emacs_strftimeu, except it allows null
    bytes in FORMAT.  */
 static size_t
-emacs_memftime (s, maxsize, format, format_len, tp)
+emacs_memftimeu (s, maxsize, format, format_len, tp, ut)
       char *s;
       size_t maxsize;
       const char *format;
       size_t format_len;
       const struct tm *tp;
+      int ut;
 {
   size_t total = 0;
 
   /* Loop through all the null-terminated strings in the format
      argument.  Normally there's just one null-terminated string, but
      there can be arbitrarily many, concatenated together, if the
-     format contains '\0' bytes.  emacs_strftime stops at the first
+     format contains '\0' bytes.  emacs_strftimeu stops at the first
      '\0' byte so we must invoke it separately for each such string.  */
   for (;;)
     {
@@ -887,7 +1430,7 @@ emacs_memftime (s, maxsize, format, format_len, tp)
       if (s)
 	s[0] = '\1';
 
-      result = emacs_strftime (s, maxsize, format, tp);
+      result = emacs_strftimeu (s, maxsize, format, tp, ut);
 
       if (s)
 	{
@@ -946,8 +1489,11 @@ by text that describes the specified date and time in TIME:\n\
 Finally, %n is a newline, %t is a tab, %% is a literal %.\n\
 \n\
 Certain flags and modifiers are available with some format controls.\n\
-The flags are `_' and `-'.  For certain characters X, %_X is like %X,\n\
-but padded with blanks; %-X is like %X, but without padding.\n\
+The flags are `_', `-', `^' and `#'.  For certain characters X,\n\
+%_X is like %X, but padded with blanks; %-X is like %X,\n\
+ut without padding.  %^X is like %X but with all textual\n\
+characters up-cased; %#X is like %X but with letter-case of\n\
+all textual characters reversed.\n\
 %NX (where N stands for an integer) is like %X,\n\
 but takes up at least N (a number) positions.\n\
 The modifiers are `E' and `O'.  For certain characters X,\n\
@@ -966,18 +1512,24 @@ DEFUN ("format-time-string", Fformat_time_string, Sformat_time_string, 1, 3, 0,
   time_t value;
   int size;
   struct tm *tm;
+  int ut = ! NILP (universal);
 
   CHECK_STRING (format_string, 1);
 
-  if (! lisp_time_argument (time, &value))
+  if (! lisp_time_argument (time, &value, NULL))
     error ("Invalid time specification");
+
+  format_string = code_convert_string_norecord (format_string,
+						Vlocale_coding_system, 1);
 
   /* This is probably enough.  */
   size = STRING_BYTES (XSTRING (format_string)) * 6 + 50;
 
-  tm = NILP (universal) ? localtime (&value) : gmtime (&value);
+  tm = ut ? gmtime (&value) : localtime (&value);
   if (! tm)
     error ("Specified time is not representable");
+
+  synchronize_system_time_locale ();
 
   while (1)
     {
@@ -985,17 +1537,18 @@ DEFUN ("format-time-string", Fformat_time_string, Sformat_time_string, 1, 3, 0,
       int result;
 
       buf[0] = '\1';
-      result = emacs_memftime (buf, size, XSTRING (format_string)->data,
-			       STRING_BYTES (XSTRING (format_string)),
-			       tm);
+      result = emacs_memftimeu (buf, size, XSTRING (format_string)->data,
+				STRING_BYTES (XSTRING (format_string)),
+				tm, ut);
       if ((result > 0 && result < size) || (result == 0 && buf[0] == '\0'))
-	return make_string (buf, result);
+	return code_convert_string_norecord (make_string (buf, result),
+					     Vlocale_coding_system, 0);
 
       /* If buffer was too small, make it bigger and try again.  */
-      result = emacs_memftime (NULL, (size_t) -1,
-			       XSTRING (format_string)->data,
-			       STRING_BYTES (XSTRING (format_string)),
-			       tm);
+      result = emacs_memftimeu (NULL, (size_t) -1,
+				XSTRING (format_string)->data,
+				STRING_BYTES (XSTRING (format_string)),
+				tm, ut);
       size = result + 1;
     }
 }
@@ -1020,8 +1573,8 @@ ZONE is an integer indicating the number of seconds east of Greenwich.\n\
   struct tm save_tm;
   struct tm *decoded_time;
   Lisp_Object list_args[9];
-  
-  if (! lisp_time_argument (specified_time, &time_spec))
+
+  if (! lisp_time_argument (specified_time, &time_spec, NULL))
     error ("Invalid time specification");
 
   decoded_time = localtime (&time_spec);
@@ -1095,7 +1648,7 @@ If you want them to stand for years in this century, you must do that yourself."
       char tzbuf[100];
       char *tzstring;
       char **oldenv = environ, **newenv;
-      
+
       if (EQ (zone, Qt))
 	tzstring = "UTC0";
       else if (STRINGP (zone))
@@ -1110,7 +1663,7 @@ If you want them to stand for years in this century, you must do that yourself."
       else
 	error ("Invalid time zone specification");
 
-      /* Set TZ before calling mktime; merely adjusting mktime's returned 
+      /* Set TZ before calling mktime; merely adjusting mktime's returned
 	 value doesn't suffice, since that would mishandle leap seconds.  */
       set_time_zone_rule (tzstring);
 
@@ -1153,7 +1706,7 @@ and from `file-attributes'.")
   char buf[30];
   register char *tem;
 
-  if (! lisp_time_argument (specified_time, &value))
+  if (! lisp_time_argument (specified_time, &value, NULL))
     value = -1;
   tem = (char *) ctime (&value);
 
@@ -1213,7 +1766,7 @@ the data it can't find.")
   struct tm *t;
   struct tm gmt;
 
-  if (lisp_time_argument (specified_time, &value)
+  if (lisp_time_argument (specified_time, &value, NULL)
       && (t = gmtime (&value)) != 0
       && (gmt = *t, t = localtime (&value)) != 0)
     {
@@ -1229,6 +1782,20 @@ the data it can't find.")
 	s = tzname[t->tm_isdst];
 #endif
 #endif /* not HAVE_TM_ZONE */
+
+#if defined HAVE_TM_ZONE || defined HAVE_TZNAME
+      if (s)
+	{
+	  /* On Japanese w32, we can get a Japanese string as time
+	     zone name.  Don't accept that.  */
+	  char *p;
+	  for (p = s; *p && (isalnum (*p) || *p == ' '); ++p)
+	    ;
+	  if (p == s || *p)
+	    s = NULL;
+	}
+#endif
+
       if (!s)
 	{
 	  /* No local time zone name is available; use "+-NNNN" instead.  */
@@ -1279,7 +1846,7 @@ If TZ is t, use Universal Time.")
 /* These two values are known to load tz files in buggy implementations,
    i.e. Solaris 1 executables running under either Solaris 1 or Solaris 2.
    Their values shouldn't matter in non-buggy implementations.
-   We don't use string literals for these strings, 
+   We don't use string literals for these strings,
    since if a string in the environment is in readonly
    storage, it runs afoul of bugs in SVR4 and Solaris 2.3.
    See Sun bugs 1113095 and 1114114, ``Timezone routines
@@ -1293,6 +1860,7 @@ static char set_time_zone_rule_tz2[] = "TZ=GMT+1";
 /* Set the local time zone rule to TZSTRING.
    This allocates memory into `environ', which it is the caller's
    responsibility to free.  */
+
 void
 set_time_zone_rule (tzstring)
      char *tzstring;
@@ -1374,7 +1942,7 @@ set_time_zone_rule (tzstring)
    type of object is Lisp_String).  INHERIT is passed to
    INSERT_FROM_STRING_FUNC as the last argument.  */
 
-void
+static void
 general_insert_function (insert_func, insert_from_string_func,
 			 inherit, nargs, args)
      void (*insert_func) P_ ((unsigned char *, int));
@@ -1391,17 +1959,16 @@ general_insert_function (insert_func, insert_from_string_func,
     retry:
       if (INTEGERP (val))
 	{
-	  unsigned char workbuf[4], *str;
+	  unsigned char str[MAX_MULTIBYTE_LENGTH];
 	  int len;
 
 	  if (!NILP (current_buffer->enable_multibyte_characters))
-	    len = CHAR_STRING (XFASTINT (val), workbuf, str);
+	    len = CHAR_STRING (XFASTINT (val), str);
 	  else
 	    {
-	      workbuf[0] = (SINGLE_BYTE_CHAR_P (XINT (val))
-			    ? XINT (val)
-			    : multibyte_char_to_unibyte (XINT (val), Qnil));
-	      str = workbuf;
+	      str[0] = (SINGLE_BYTE_CHAR_P (XINT (val))
+			? XINT (val)
+			: multibyte_char_to_unibyte (XINT (val), Qnil));
 	      len = 1;
 	    }
 	  (*insert_func) (str, len);
@@ -1522,15 +2089,15 @@ from adjoining text, if those properties are sticky.")
   register int strlen;
   register int i, n;
   int len;
-  unsigned char workbuf[4], *str;
+  unsigned char str[MAX_MULTIBYTE_LENGTH];
 
   CHECK_NUMBER (character, 0);
   CHECK_NUMBER (count, 1);
 
   if (!NILP (current_buffer->enable_multibyte_characters))
-    len = CHAR_STRING (XFASTINT (character), workbuf, str);
+    len = CHAR_STRING (XFASTINT (character), str);
   else
-    workbuf[0] = XFASTINT (character), str = workbuf, len = 1;
+    str[0] = XFASTINT (character), len = 1;
   n = XINT (count) * len;
   if (n <= 0)
     return Qnil;
@@ -1617,7 +2184,6 @@ make_buffer_string_both (start, start_byte, end, end_byte, props)
 	 end_byte - start_byte);
 
   /* If desired, update and copy the text properties.  */
-#ifdef USE_TEXT_PROPERTIES
   if (props)
     {
       update_buffer_properties (start, end);
@@ -1629,7 +2195,6 @@ make_buffer_string_both (start, start_byte, end, end_byte, props)
 	copy_intervals_to_string (result, current_buffer, start,
 				  end - start);
     }
-#endif
 
   return result;
 }
@@ -1641,7 +2206,6 @@ static void
 update_buffer_properties (start, end)
      int start, end;
 {
-#ifdef USE_TEXT_PROPERTIES
   /* If this buffer has some access functions,
      call them, specifying the range of the buffer being accessed.  */
   if (!NILP (Vbuffer_access_fontify_functions))
@@ -1666,14 +2230,17 @@ update_buffer_properties (start, end)
       else
 	Frun_hook_with_args (3, args);
     }
-#endif
 }
 
 DEFUN ("buffer-substring", Fbuffer_substring, Sbuffer_substring, 2, 2, 0,
   "Return the contents of part of the current buffer as a string.\n\
 The two arguments START and END are character positions;\n\
 they can be in either order.\n\
-The string returned is multibyte if the buffer is multibyte.")
+The string returned is multibyte if the buffer is multibyte.\n\
+\n\
+This function copies the text properties of that part of the buffer\n\
+into the result string; if you don't want the text properties,\n\
+use `buffer-substring-no-properties' instead.")
   (start, end)
      Lisp_Object start, end;
 {
@@ -1944,30 +2511,43 @@ Both characters must have the same length of multi-byte form.")
 {
   register int pos, pos_byte, stop, i, len, end_byte;
   int changed = 0;
-  unsigned char fromwork[4], *fromstr, towork[4], *tostr, *p;
+  unsigned char fromstr[MAX_MULTIBYTE_LENGTH], tostr[MAX_MULTIBYTE_LENGTH];
+  unsigned char *p;
   int count = specpdl_ptr - specpdl;
-  int maybe_byte_combining = 0;
+#define COMBINING_NO	 0
+#define COMBINING_BEFORE 1
+#define COMBINING_AFTER  2
+#define COMBINING_BOTH (COMBINING_BEFORE | COMBINING_AFTER)
+  int maybe_byte_combining = COMBINING_NO;
+  int last_changed = 0;
+  int multibyte_p = !NILP (current_buffer->enable_multibyte_characters);
 
   validate_region (&start, &end);
   CHECK_NUMBER (fromchar, 2);
   CHECK_NUMBER (tochar, 3);
 
-  if (! NILP (current_buffer->enable_multibyte_characters))
+  if (multibyte_p)
     {
-      len = CHAR_STRING (XFASTINT (fromchar), fromwork, fromstr);
-      if (CHAR_STRING (XFASTINT (tochar), towork, tostr) != len)
+      len = CHAR_STRING (XFASTINT (fromchar), fromstr);
+      if (CHAR_STRING (XFASTINT (tochar), tostr) != len)
 	error ("Characters in subst-char-in-region have different byte-lengths");
-      if (len == 1)
-	/* If *TOSTR is in the range 0x80..0x9F, it may be combined
-           with the after bytes.  If it is in the range 0xA0..0xFF, it
-           may be combined with the before bytes.  */
-	maybe_byte_combining = !ASCII_BYTE_P (*tostr);
+      if (!ASCII_BYTE_P (*tostr))
+	{
+	  /* If *TOSTR is in the range 0x80..0x9F and TOCHAR is not a
+	     complete multibyte character, it may be combined with the
+	     after bytes.  If it is in the range 0xA0..0xFF, it may be
+	     combined with the before and after bytes.  */
+	  if (!CHAR_HEAD_P (*tostr))
+	    maybe_byte_combining = COMBINING_BOTH;
+	  else if (BYTES_BY_CHAR_HEAD (*tostr) > len)
+	    maybe_byte_combining = COMBINING_AFTER;
+	}
     }
   else
     {
       len = 1;
-      fromwork[0] = XFASTINT (fromchar), fromstr = fromwork;
-      towork[0] = XFASTINT (tochar), tostr = towork;
+      fromstr[0] = XFASTINT (fromchar);
+      tostr[0] = XFASTINT (tochar);
     }
 
   pos = XINT (start);
@@ -2002,7 +2582,10 @@ Both characters must have the same length of multi-byte form.")
 	  stop = end_byte;
 	}
       p = BYTE_POS_ADDR (pos_byte);
-      INC_POS (pos_byte_next);
+      if (multibyte_p)
+	INC_POS (pos_byte_next);
+      else
+	++pos_byte_next;
       if (pos_byte_next - pos_byte == len
 	  && p[0] == fromstr[0]
 	  && (len == 1
@@ -2012,7 +2595,8 @@ Both characters must have the same length of multi-byte form.")
 	{
 	  if (! changed)
 	    {
-	      modify_region (current_buffer, XINT (start), XINT (end));
+	      changed = pos;
+	      modify_region (current_buffer, changed, XINT (end));
 
 	      if (! NILP (noundo))
 		{
@@ -2021,17 +2605,18 @@ Both characters must have the same length of multi-byte form.")
 		  if (MODIFF - 1 == current_buffer->auto_save_modified)
 		    current_buffer->auto_save_modified++;
 		}
-
-	      changed = 1;
 	    }
 
 	  /* Take care of the case where the new character
-	     combines with neighboring bytes.  */ 
+	     combines with neighboring bytes.  */
 	  if (maybe_byte_combining
-	      && (CHAR_HEAD_P (*tostr)
-		  ? ! CHAR_HEAD_P (FETCH_BYTE (pos_byte + 1))
-		  : (pos_byte > BEG_BYTE
-		     && ! ASCII_BYTE_P (FETCH_BYTE (pos_byte - 1)))))
+	      && (maybe_byte_combining == COMBINING_AFTER
+		  ? (pos_byte_next < Z_BYTE
+		     && ! CHAR_HEAD_P (FETCH_BYTE (pos_byte_next)))
+		  : ((pos_byte_next < Z_BYTE
+		      && ! CHAR_HEAD_P (FETCH_BYTE (pos_byte_next)))
+		     || (pos_byte > BEG_BYTE
+			 && ! ASCII_BYTE_P (FETCH_BYTE (pos_byte - 1))))))
 	    {
 	      Lisp_Object tem, string;
 
@@ -2040,9 +2625,8 @@ Both characters must have the same length of multi-byte form.")
 	      tem = current_buffer->undo_list;
 	      GCPRO1 (tem);
 
-	      /* Make a multibyte string containing this single-byte
-		  character.  */
-	      string = make_multibyte_string (tostr, 1, 1);
+	      /* Make a multibyte string containing this single character.  */
+	      string = make_multibyte_string (tostr, 1, len);
 	      /* replace_range is less efficient, because it moves the gap,
 		 but it handles combining correctly.  */
 	      replace_range (pos, pos + 1, string,
@@ -2055,7 +2639,7 @@ Both characters must have the same length of multi-byte form.")
 		pos--;
 	      else
 		INC_POS (pos_byte_next);
-		
+
 	      if (! NILP (noundo))
 		current_buffer->undo_list = tem;
 
@@ -2067,14 +2651,18 @@ Both characters must have the same length of multi-byte form.")
 		record_change (pos, 1);
 	      for (i = 0; i < len; i++) *p++ = tostr[i];
 	    }
+	  last_changed =  pos + 1;
 	}
       pos_byte = pos_byte_next;
       pos++;
     }
 
   if (changed)
-    signal_after_change (XINT (start),
-			 XINT (end) - XINT (start), XINT (end) - XINT (start));
+    {
+      signal_after_change (changed,
+			   last_changed - changed, last_changed - changed);
+      update_compositions (changed, last_changed, CHECK_ALL);
+    }
 
   unbind_to (count, Qnil);
   return Qnil;
@@ -2129,9 +2717,8 @@ It returns the number of characters changed.")
 	  if (nc != oc)
 	    {
 	      /* Take care of the case where the new character
-		 combines with neighboring bytes.  */ 
-	      if (multibyte
-		  && !ASCII_BYTE_P (nc)
+		 combines with neighboring bytes.  */
+	      if (!ASCII_BYTE_P (nc)
 		  && (CHAR_HEAD_P (nc)
 		      ? ! CHAR_HEAD_P (FETCH_BYTE (pos_byte + 1))
 		      : (pos_byte > BEG_BYTE
@@ -2158,6 +2745,7 @@ It returns the number of characters changed.")
 		  record_change (pos, 1);
 		  *p = nc;
 		  signal_after_change (pos, 1, 1);
+		  update_compositions (pos, pos + 1, CHECK_BORDER);
 		}
 	      ++cnt;
 	    }
@@ -2179,6 +2767,16 @@ positions (integers or markers) specifying the stretch to be deleted.")
   validate_region (&start, &end);
   del_range (XINT (start), XINT (end));
   return Qnil;
+}
+
+DEFUN ("delete-and-extract-region", Fdelete_and_extract_region,
+       Sdelete_and_extract_region, 2, 2, 0,
+  "Delete the text between START and END and return it.")
+  (start, end)
+     Lisp_Object start, end;
+{
+  validate_region (&start, &end);
+  return del_range_1 (XINT (start), XINT (end), 1, 1);
 }
 
 DEFUN ("widen", Fwiden, Swiden, 0, 0, "",
@@ -2237,53 +2835,71 @@ or markers) bounding the text that should remain visible.")
 Lisp_Object
 save_restriction_save ()
 {
-  register Lisp_Object bottom, top;
-  /* Note: I tried using markers here, but it does not win
-     because insertion at the end of the saved region
-     does not advance mh and is considered "outside" the saved region. */
-  XSETFASTINT (bottom, BEGV - BEG);
-  XSETFASTINT (top, Z - ZV);
+  if (BEGV == BEG && ZV == Z)
+    /* The common case that the buffer isn't narrowed.
+       We return just the buffer object, which save_restriction_restore
+       recognizes as meaning `no restriction'.  */
+    return Fcurrent_buffer ();
+  else
+    /* We have to save a restriction, so return a pair of markers, one
+       for the beginning and one for the end.  */
+    {
+      Lisp_Object beg, end;
 
-  return Fcons (Fcurrent_buffer (), Fcons (bottom, top));
+      beg = buildmark (BEGV, BEGV_BYTE);
+      end = buildmark (ZV, ZV_BYTE);
+
+      /* END must move forward if text is inserted at its exact location.  */
+      XMARKER(end)->insertion_type = 1;
+
+      return Fcons (beg, end);
+    }
 }
 
 Lisp_Object
 save_restriction_restore (data)
      Lisp_Object data;
 {
-  register struct buffer *buf;
-  register int newhead, newtail;
-  register Lisp_Object tem;
-  int obegv, ozv;
-
-  buf = XBUFFER (XCONS (data)->car);
-
-  data = XCONS (data)->cdr;
-
-  tem = XCONS (data)->car;
-  newhead = XINT (tem);
-  tem = XCONS (data)->cdr;
-  newtail = XINT (tem);
-  if (newhead + newtail > BUF_Z (buf) - BUF_BEG (buf))
+  if (CONSP (data))
+    /* A pair of marks bounding a saved restriction.  */
     {
-      newhead = 0;
-      newtail = 0;
+      struct Lisp_Marker *beg = XMARKER (XCAR (data));
+      struct Lisp_Marker *end = XMARKER (XCDR (data));
+      struct buffer *buf = beg->buffer; /* END should have the same buffer. */
+
+      if (beg->charpos != BUF_BEGV(buf) || end->charpos != BUF_ZV(buf))
+	/* The restriction has changed from the saved one, so restore
+	   the saved restriction.  */
+	{
+	  int pt = BUF_PT (buf);
+
+	  SET_BUF_BEGV_BOTH (buf, beg->charpos, beg->bytepos);
+	  SET_BUF_ZV_BOTH (buf, end->charpos, end->bytepos);
+
+	  if (pt < beg->charpos || pt > end->charpos)
+	    /* The point is outside the new visible range, move it inside. */
+	    SET_BUF_PT_BOTH (buf,
+			     clip_to_bounds (beg->charpos, pt, end->charpos),
+			     clip_to_bounds (beg->bytepos, BUF_PT_BYTE(buf),
+					     end->bytepos));
+	  
+	  buf->clip_changed = 1; /* Remember that the narrowing changed. */
+	}
     }
+  else
+    /* A buffer, which means that there was no old restriction.  */
+    {
+      struct buffer *buf = XBUFFER (data);
 
-  obegv = BUF_BEGV (buf);
-  ozv = BUF_ZV (buf);
+      if (BUF_BEGV(buf) != BUF_BEG(buf) || BUF_ZV(buf) != BUF_Z(buf))
+	/* The buffer has been narrowed, get rid of the narrowing.  */
+	{
+	  SET_BUF_BEGV_BOTH (buf, BUF_BEG(buf), BUF_BEG_BYTE(buf));
+	  SET_BUF_ZV_BOTH (buf, BUF_Z(buf), BUF_Z_BYTE(buf));
 
-  SET_BUF_BEGV (buf, BUF_BEG (buf) + newhead);
-  SET_BUF_ZV (buf, BUF_Z (buf) - newtail);
-
-  if (obegv != BUF_BEGV (buf) || ozv != BUF_ZV (buf))
-    current_buffer->clip_changed = 1;
-
-  /* If point is outside the new visible range, move it inside. */
-  SET_BUF_PT_BOTH (buf,
-		   clip_to_bounds (BUF_BEGV (buf), BUF_PT (buf), BUF_ZV (buf)),
-		   clip_to_bounds (BUF_BEGV_BYTE (buf), BUF_PT_BYTE (buf),
-				   BUF_ZV_BYTE (buf)));
+	  buf->clip_changed = 1; /* Remember that the narrowing changed. */
+	}
+    }
 
   return Qnil;
 }
@@ -2300,10 +2916,6 @@ even in case of abnormal exit (throw or error).\n\
 \n\
 The value returned is the value of the last form in BODY.\n\
 \n\
-`save-restriction' can get confused if, within the BODY, you widen\n\
-and then make changes outside the area within the saved restrictions.\n\
-See Info node `(elisp)Narrowing' for details and an appropriate technique.\n\
-\n\
 Note: if you are using both `save-excursion' and `save-restriction',\n\
 use `save-excursion' outermost:\n\
     (save-excursion (save-restriction ...))")
@@ -2318,7 +2930,7 @@ use `save-excursion' outermost:\n\
   return unbind_to (count, val);
 }
 
-/* Buffer for the most recent text displayed by Fmessage.  */
+/* Buffer for the most recent text displayed by Fmessage_box.  */
 static char *message_text;
 
 /* Allocated length of that buffer.  */
@@ -2344,20 +2956,7 @@ minibuffer contents show.")
     {
       register Lisp_Object val;
       val = Fformat (nargs, args);
-      /* Copy the data so that it won't move when we GC.  */
-      if (! message_text)
-	{
-	  message_text = (char *)xmalloc (80);
-	  message_length = 80;
-	}
-      if (STRING_BYTES (XSTRING (val)) > message_length)
-	{
-	  message_length = STRING_BYTES (XSTRING (val));
-	  message_text = (char *)xrealloc (message_text, message_length);
-	}
-      bcopy (XSTRING (val)->data, message_text, STRING_BYTES (XSTRING (val)));
-      message2 (message_text, STRING_BYTES (XSTRING (val)),
-		STRING_MULTIBYTE (val));
+      message3 (val, STRING_BYTES (XSTRING (val)), STRING_MULTIBYTE (val));
       return val;
     }
 }
@@ -2384,6 +2983,10 @@ minibuffer contents show.")
       register Lisp_Object val;
       val = Fformat (nargs, args);
 #ifdef HAVE_MENUS
+      /* The MS-DOS frames support popup menus even though they are
+	 not FRAME_WINDOW_P.  */
+      if (FRAME_WINDOW_P (XFRAME (selected_frame))
+	  || FRAME_MSDOS_P (XFRAME (selected_frame)))
       {
 	Lisp_Object pane, menu, obj;
 	struct gcpro gcpro1;
@@ -2394,7 +2997,7 @@ minibuffer contents show.")
 	UNGCPRO;
 	return val;
       }
-#else /* not HAVE_MENUS */
+#endif /* HAVE_MENUS */
       /* Copy the data so that it won't move when we GC.  */
       if (! message_text)
 	{
@@ -2410,7 +3013,6 @@ minibuffer contents show.")
       message2 (message_text, STRING_BYTES (XSTRING (val)),
 		STRING_MULTIBYTE (val));
       return val;
-#endif /* not HAVE_MENUS */
     }
 }
 #ifdef HAVE_MENUS
@@ -2419,7 +3021,8 @@ extern Lisp_Object last_nonmenu_event;
 
 DEFUN ("message-or-box", Fmessage_or_box, Smessage_or_box, 1, MANY, 0,
   "Display a message in a dialog box or in the echo area.\n\
-If this command was invoked with the mouse, use a dialog box.\n\
+If this command was invoked with the mouse, use a dialog box if\n\
+`use-dialog-box' is non-nil.\n\
 Otherwise, use the echo area.\n\
 The first argument is a format control string, and the rest are data\n\
 to be formatted under control of the string.  See `format' for details.\n\
@@ -2431,7 +3034,8 @@ minibuffer contents show.")
      Lisp_Object *args;
 {
 #ifdef HAVE_MENUS
-  if (NILP (last_nonmenu_event) || CONSP (last_nonmenu_event))
+  if ((NILP (last_nonmenu_event) || CONSP (last_nonmenu_event))
+      && use_dialog_box)
     return Fmessage_box (nargs, args);
 #endif
   return Fmessage (nargs, args);
@@ -2441,10 +3045,46 @@ DEFUN ("current-message", Fcurrent_message, Scurrent_message, 0, 0, 0,
   "Return the string currently displayed in the echo area, or nil if none.")
   ()
 {
-  return (echo_area_glyphs
-	  ? make_string (echo_area_glyphs, echo_area_glyphs_length)
-	  : Qnil);
+  return current_message ();
 }
+
+
+DEFUN ("propertize", Fpropertize, Spropertize, 3, MANY, 0,
+       "Return a copy of STRING with text properties added.\n\
+First argument is the string to copy.\n\
+Remaining arguments form a sequence of PROPERTY VALUE pairs for text\n\
+properties to add to the result ")
+  (nargs, args)
+     int nargs;
+     Lisp_Object *args;
+{
+  Lisp_Object properties, string;
+  struct gcpro gcpro1, gcpro2;
+  int i;
+
+  /* Number of args must be odd.  */
+  if ((nargs & 1) == 0 || nargs < 3)
+    error ("Wrong number of arguments");
+
+  properties = string = Qnil;
+  GCPRO2 (properties, string);
+
+  /* First argument must be a string.  */
+  CHECK_STRING (args[0], 0);
+  string = Fcopy_sequence (args[0]);
+
+  for (i = 1; i < nargs; i += 2)
+    {
+      CHECK_SYMBOL (args[i], i);
+      properties = Fcons (args[i], Fcons (args[i + 1], properties));
+    }
+
+  Fadd_text_properties (make_number (0),
+			make_number (XSTRING (string)->size),
+			properties, string);
+  RETURN_UNGCPRO (string);
+}
+
 
 /* Number of bytes that STRING will occupy when put into the result.
    MULTIBYTE is nonzero if the result should be multibyte.  */
@@ -2462,6 +3102,7 @@ The other arguments are substituted into it to make the result, a string.\n\
 It may contain %-sequences meaning to substitute the next argument.\n\
 %s means print a string argument.  Actually, prints any object, with `princ'.\n\
 %d means print as number in decimal (%o octal, %x hex).\n\
+%X is like %x, but uses upper case.\n\
 %e means print a number in exponential notation.\n\
 %f means print a number in decimal-point notation.\n\
 %g means print a number in exponential notation\n\
@@ -2478,7 +3119,7 @@ Use %% to put a single % into the output.")
   register int total;		/* An estimate of the final length */
   char *buf, *p;
   register unsigned char *format, *end;
-  int length, nchars;
+  int nchars;
   /* Nonzero if the output should be a multibyte string,
      which is true if any of the inputs is one.  */
   int multibyte = 0;
@@ -2490,8 +3131,10 @@ Use %% to put a single % into the output.")
   unsigned char *this_format;
   int longest_format;
   Lisp_Object val;
-
-  extern char *index ();
+  struct info
+  {
+    int start, end;
+  } *info = 0;
 
   /* It should not be necessary to GCPRO ARGS, because
      the caller in the interpreter should take care of that.  */
@@ -2523,17 +3166,45 @@ Use %% to put a single % into the output.")
   while (format != end)
     if (*format++ == '%')
       {
-	int minlen, thissize = 0;
+	int thissize = 0;
 	unsigned char *this_format_start = format - 1;
+	int field_width, precision;
 
-	/* Process a numeric arg and skip it.  */
-	minlen = atoi (format);
-	if (minlen < 0)
-	  minlen = - minlen;
+	/* General format specifications look like
 
-	while ((*format >= '0' && *format <= '9')
-	       || *format == '-' || *format == ' ' || *format == '.')
-	  format++;
+	   '%' [flags] [field-width] [precision] format
+
+	   where
+
+	   flags	::= [#-* 0]+
+	   field-width	::= [0-9]+
+	   precision	::= '.' [0-9]*
+
+	   If a field-width is specified, it specifies to which width
+	   the output should be padded with blanks, iff the output
+	   string is shorter than field-width.
+
+	   if precision is specified, it specifies the number of
+	   digits to print after the '.' for floats, or the max.
+	   number of chars to print from a string.  */
+
+	precision = field_width = 0;
+	
+	while (index ("-*# 0", *format))
+	  ++format;
+
+	if (*format >= '0' && *format <= '9')
+	  {
+	    for (field_width = 0; *format >= '0' && *format <= '9'; ++format)
+	      field_width = 10 * field_width + *format - '0';
+	  }
+
+	if (*format == '.')
+	  {
+	    ++format;
+	    for (precision = 0; *format >= '0' && *format <= '9'; ++format)
+	      precision = 10 * precision + *format - '0';
+	  }
 
 	if (format - this_format_start + 1 > longest_format)
 	  longest_format = format - this_format_start + 1;
@@ -2559,7 +3230,10 @@ Use %% to put a single % into the output.")
 	  }
 	else if (SYMBOLP (args[n]))
 	  {
-	    XSETSTRING (args[n], XSYMBOL (args[n])->name);
+	    /* Use a temp var to avoid problems when ENABLE_CHECKING
+	       is turned on.  */
+	    struct Lisp_String *t = XSYMBOL (args[n])->name;
+	    XSETSTRING (args[n], t);
 	    if (STRING_MULTIBYTE (args[n]) && ! multibyte)
 	      {
 		multibyte = 1;
@@ -2577,7 +3251,6 @@ Use %% to put a single % into the output.")
 	/* Would get MPV otherwise, since Lisp_Int's `point' to low memory.  */
 	else if (INTEGERP (args[n]) && *format != 's')
 	  {
-#ifdef LISP_FLOAT_TYPE
 	    /* The following loop assumes the Lisp type indicates
 	       the proper way to pass the argument.
 	       So make sure we have a flonum if the argument should
@@ -2585,12 +3258,11 @@ Use %% to put a single % into the output.")
 	    if (*format == 'e' || *format == 'f' || *format == 'g')
 	      args[n] = Ffloat (args[n]);
 	    else
-#endif
 	      if (*format != 'd' && *format != 'o' && *format != 'x'
 		  && *format != 'i' && *format != 'X' && *format != 'c')
 		error ("Invalid format operation %%%c", *format);
 
-	    thissize = 30;	
+	    thissize = 30;
 	    if (*format == 'c'
 		&& (! SINGLE_BYTE_CHAR_P (XINT (args[n]))
 		    || XINT (args[n]) == 0))
@@ -2604,14 +3276,16 @@ Use %% to put a single % into the output.")
 		thissize = STRING_BYTES (XSTRING (args[n]));
 	      }
 	  }
-#ifdef LISP_FLOAT_TYPE
 	else if (FLOATP (args[n]) && *format != 's')
 	  {
 	    if (! (*format == 'e' || *format == 'f' || *format == 'g'))
 	      args[n] = Ftruncate (args[n], Qnil);
-	    thissize = 200;
+
+	    /* Note that we're using sprintf to print floats,
+	       so we have to take into account what that function
+	       prints.  */
+	    thissize = MAX_10_EXP + 100 + precision;
 	  }
-#endif
 	else
 	  {
 	    /* Anything but a string, convert to a string using princ.  */
@@ -2625,10 +3299,8 @@ Use %% to put a single % into the output.")
 	    args[n] = tem;
 	    goto string;
 	  }
-	
-	if (thissize < minlen)
-	  thissize = minlen;
 
+	thissize = max (field_width, thissize);
 	total += thissize + 4;
       }
 
@@ -2681,9 +3353,8 @@ Use %% to put a single % into the output.")
 
 	  if (STRINGP (args[n]))
 	    {
-	      int padding, nbytes;
-	      int width = strwidth (XSTRING (args[n])->data,
-				    STRING_BYTES (XSTRING (args[n])));
+	      int padding, nbytes, start, end;
+	      int width = lisp_string_width (args[n], -1, NULL, NULL);
 
 	      /* If spec requires it, pad on right with spaces.  */
 	      padding = minlen - width;
@@ -2691,9 +3362,11 @@ Use %% to put a single % into the output.")
 		while (padding-- > 0)
 		  {
 		    *p++ = ' ';
-		    nchars++;
+		    ++nchars;
 		  }
 
+	      start = nchars;
+	      
 	      if (p > buf
 		  && multibyte
 		  && !ASCII_BYTE_P (*((unsigned char *) p - 1))
@@ -2705,6 +3378,7 @@ Use %% to put a single % into the output.")
 				  STRING_MULTIBYTE (args[n]), multibyte);
 	      p += nbytes;
 	      nchars += XSTRING (args[n])->size;
+	      end = nchars;
 
 	      if (negative)
 		while (padding-- > 0)
@@ -2712,6 +3386,21 @@ Use %% to put a single % into the output.")
 		    *p++ = ' ';
 		    nchars++;
 		  }
+
+	      /* If this argument has text properties, record where
+		 in the result string it appears.  */
+	      if (XSTRING (args[n])->intervals)
+		{
+		  if (!info)
+		    {
+		      int nbytes = nargs * sizeof *info;
+		      info = (struct info *) alloca (nbytes);
+		      bzero (info, nbytes);
+		    }
+
+		  info[n].start = start;
+		  info[n].end = end;
+		}
 	    }
 	  else if (INTEGERP (args[n]) || FLOATP (args[n]))
 	    {
@@ -2724,7 +3413,7 @@ Use %% to put a single % into the output.")
 	      if (INTEGERP (args[n]))
 		sprintf (p, this_format, XINT (args[n]));
 	      else
-		sprintf (p, this_format, XFLOAT (args[n])->data);
+		sprintf (p, this_format, XFLOAT_DATA (args[n]));
 
 	      if (p > buf
 		  && multibyte
@@ -2732,7 +3421,10 @@ Use %% to put a single % into the output.")
 		  && !CHAR_HEAD_P (*((unsigned char *) p)))
 		maybe_combine_byte = 1;
 	      this_nchars = strlen (p);
-	      p += this_nchars;
+	      if (multibyte)
+		p += str_to_multibyte (p, buf + total - p, this_nchars);
+	      else
+		p += this_nchars;
 	      nchars += this_nchars;
 	    }
 	}
@@ -2761,6 +3453,9 @@ Use %% to put a single % into the output.")
 	*p++ = *format++, nchars++;
     }
 
+  if (p > buf + total + 1)
+    abort ();
+
   if (maybe_combine_byte)
     nchars = multibyte_chars_in_text (buf, p - buf);
   val = make_specified_string (buf, nchars, p - buf, multibyte);
@@ -2769,8 +3464,50 @@ Use %% to put a single % into the output.")
   if (total >= 1000)
     xfree (buf);
 
+  /* If the format string has text properties, or any of the string
+     arguments has text properties, set up text properties of the
+     result string.  */
+
+  if (XSTRING (args[0])->intervals || info)
+    {
+      Lisp_Object len, new_len, props;
+      struct gcpro gcpro1;
+
+      /* Add text properties from the format string.  */
+      len = make_number (XSTRING (args[0])->size);
+      props = text_property_list (args[0], make_number (0), len, Qnil);
+      GCPRO1 (props);
+
+      if (CONSP (props))
+	{
+	  new_len = make_number (XSTRING (val)->size);
+	  extend_property_ranges (props, len, new_len);
+	  add_text_properties_from_list (val, props, make_number (0));
+	}
+
+      /* Add text properties from arguments.  */
+      if (info)
+	for (n = 1; n < nargs; ++n)
+	  if (info[n].end)
+	    {
+	      len = make_number (XSTRING (args[n])->size);
+	      new_len = make_number (info[n].end - info[n].start);
+	      props = text_property_list (args[n], make_number (0), len, Qnil);
+	      extend_property_ranges (props, len, new_len);
+	      /* If successive arguments have properites, be sure that
+		 the value of `composition' property be the copy.  */
+	      if (n > 1 && info[n - 1].end)
+		make_composition_value_copy (props);
+	      add_text_properties_from_list (val, props,
+					     make_number (info[n].start));
+	    }
+
+      UNGCPRO;
+    }
+
   return val;
 }
+
 
 /* VARARGS 1 */
 Lisp_Object
@@ -2833,10 +3570,10 @@ Case is ignored if `case-fold-search' is non-nil in the current buffer.")
    Traverses the entire marker list of the buffer to do so, adding an
    appropriate amount to some, subtracting from some, and leaving the
    rest untouched.  Most of this is copied from adjust_markers in insdel.c.
-  
+
    It's the caller's job to ensure that START1 <= END1 <= START2 <= END2.  */
 
-void
+static void
 transpose_markers (start1, end1, start2, end2,
 		   start1_byte, end1_byte, start2_byte, end2_byte)
      register int start1, end1, start2, end2;
@@ -2870,7 +3607,7 @@ transpose_markers (start1, end1, start2, end2,
   /* The difference between the region's lengths */
   diff = (end2 - start2) - (end1 - start1);
   diff_byte = (end2_byte - start2_byte) - (end1_byte - start1_byte);
-  
+
   /* For shifting each marker in a region by the length of the other
      region plus the distance between the regions.  */
   amt1 = (end2 - start2) + (start2 - end1);
@@ -2922,14 +3659,9 @@ Transposing beyond buffer boundaries is an error.")
   int start1_byte, start2_byte, len1_byte, len2_byte;
   int gap, len1, len_mid, len2;
   unsigned char *start1_addr, *start2_addr, *temp;
-  int combined_before_bytes_1, combined_after_bytes_1;
-  int combined_before_bytes_2, combined_after_bytes_2;
-  struct gcpro gcpro1, gcpro2;
 
-#ifdef USE_TEXT_PROPERTIES
   INTERVAL cur_intv, tmp_interval1, tmp_interval_mid, tmp_interval2;
   cur_intv = BUF_INTERVALS (current_buffer);
-#endif /* USE_TEXT_PROPERTIES */
 
   validate_region (&startr1, &endr1);
   validate_region (&startr2, &endr2);
@@ -2963,7 +3695,7 @@ Transposing beyond buffer boundaries is an error.")
      1. Adjacent (contiguous) regions, or separate but equal regions
      (no, really equal, in this case!), or
      2. Separate regions of unequal size.
-     
+
      The worst case is usually No. 2.  It means that (aside from
      potential need for getting the gap out of the way), there also
      needs to be a shifting of the text between the two regions.  So
@@ -2996,61 +3728,31 @@ Transposing beyond buffer boundaries is an error.")
   len1_byte = CHAR_TO_BYTE (end1) - start1_byte;
   len2_byte = CHAR_TO_BYTE (end2) - start2_byte;
 
+#ifdef BYTE_COMBINING_DEBUG
   if (end1 == start2)
     {
-      combined_before_bytes_2
-	= count_combining_before (BYTE_POS_ADDR (start2_byte),
-				  len2_byte, start1, start1_byte);
-      combined_before_bytes_1
-	= count_combining_before (BYTE_POS_ADDR (start1_byte),
-				  len1_byte, end2, start2_byte + len2_byte);
-      combined_after_bytes_1
-	= count_combining_after (BYTE_POS_ADDR (start1_byte),
-				 len1_byte, end2, start2_byte + len2_byte);
-      combined_after_bytes_2 = 0;
+      if (count_combining_before (BYTE_POS_ADDR (start2_byte),
+				  len2_byte, start1, start1_byte)
+	  || count_combining_before (BYTE_POS_ADDR (start1_byte),
+				     len1_byte, end2, start2_byte + len2_byte)
+	  || count_combining_after (BYTE_POS_ADDR (start1_byte),
+				    len1_byte, end2, start2_byte + len2_byte))
+	abort ();
     }
   else
     {
-      combined_before_bytes_2
-	= count_combining_before (BYTE_POS_ADDR (start2_byte),
-				  len2_byte, start1, start1_byte);
-      combined_before_bytes_1
-	= count_combining_before (BYTE_POS_ADDR (start1_byte),
-				  len1_byte, start2, start2_byte);
-      combined_after_bytes_2
-	= count_combining_after (BYTE_POS_ADDR (start2_byte),
-				 len2_byte, end1, start1_byte + len1_byte);
-      combined_after_bytes_1
-	= count_combining_after (BYTE_POS_ADDR (start1_byte),
-				 len1_byte, end2, start2_byte + len2_byte);
+      if (count_combining_before (BYTE_POS_ADDR (start2_byte),
+				  len2_byte, start1, start1_byte)
+	  || count_combining_before (BYTE_POS_ADDR (start1_byte),
+				     len1_byte, start2, start2_byte)
+	  || count_combining_after (BYTE_POS_ADDR (start2_byte),
+				    len2_byte, end1, start1_byte + len1_byte)
+	  || count_combining_after (BYTE_POS_ADDR (start1_byte),
+				    len1_byte, end2, start2_byte + len2_byte))
+	abort ();
     }
+#endif
 
-  /* If any combining is going to happen, do this the stupid way,
-     because replace handles combining properly.  */
-  if (combined_before_bytes_1 || combined_before_bytes_2
-      || combined_after_bytes_1 || combined_after_bytes_2)
-    {
-      Lisp_Object text1, text2;
-
-      text1 = text2 = Qnil;
-      GCPRO2 (text1, text2);
-
-      text1 = make_buffer_string_both (start1, start1_byte,
-				       end1, start1_byte + len1_byte, 1);
-      text2 = make_buffer_string_both (start2, start2_byte,
-				       end2, start2_byte + len2_byte, 1);
-
-      transpose_markers (start1, end1, start2, end2,
-			 start1_byte, start1_byte + len1_byte,
-			 start2_byte, start2_byte + len2_byte);
-
-      replace_range (start2, end2, text1, 1, 0, 0);
-      replace_range (start1, end1, text2, 1, 0, 0);
-
-      UNGCPRO;
-      return Qnil;
-    }
-      
   /* Hmmm... how about checking to see if the gap is large
      enough to use as the temporary storage?  That would avoid an
      allocation... interesting.  Later, don't fool with it now.  */
@@ -3063,12 +3765,10 @@ Transposing beyond buffer boundaries is an error.")
       modify_region (current_buffer, start1, end2);
       record_change (start1, len1 + len2);
 
-#ifdef USE_TEXT_PROPERTIES
       tmp_interval1 = copy_intervals (cur_intv, start1, len1);
       tmp_interval2 = copy_intervals (cur_intv, start2, len2);
       Fset_text_properties (make_number (start1), make_number (end2),
 			    Qnil, Qnil);
-#endif /* USE_TEXT_PROPERTIES */
 
       /* First region smaller than second.  */
       if (len1_byte < len2_byte)
@@ -3090,7 +3790,7 @@ Transposing beyond buffer boundaries is an error.")
           bcopy (start1_addr, start1_addr + len2_byte, len1_byte);
           bcopy (temp, start1_addr, len2_byte);
 	  if (len2_byte > 20000)
-	    free (temp);
+	    xfree (temp);
         }
       else
 	/* First region not smaller than second.  */
@@ -3105,14 +3805,14 @@ Transposing beyond buffer boundaries is an error.")
           bcopy (start2_addr, start1_addr, len2_byte);
           bcopy (temp, start1_addr + len2_byte, len1_byte);
 	  if (len1_byte > 20000)
-	    free (temp);
+	    xfree (temp);
         }
-#ifdef USE_TEXT_PROPERTIES
       graft_intervals_into_buffer (tmp_interval1, start1 + len2,
                                    len1, current_buffer, 0);
       graft_intervals_into_buffer (tmp_interval2, start1,
                                    len2, current_buffer, 0);
-#endif /* USE_TEXT_PROPERTIES */
+      update_compositions (start1, start1 + len2, CHECK_BORDER);
+      update_compositions (start1 + len2, end2, CHECK_TAIL);
     }
   /* Non-adjacent regions, because end1 != start2, bleagh...  */
   else
@@ -3126,14 +3826,12 @@ Transposing beyond buffer boundaries is an error.")
           modify_region (current_buffer, start2, end2);
           record_change (start1, len1);
           record_change (start2, len2);
-#ifdef USE_TEXT_PROPERTIES
           tmp_interval1 = copy_intervals (cur_intv, start1, len1);
           tmp_interval2 = copy_intervals (cur_intv, start2, len2);
           Fset_text_properties (make_number (start1), make_number (end1),
 				Qnil, Qnil);
           Fset_text_properties (make_number (start2), make_number (end2),
 				Qnil, Qnil);
-#endif /* USE_TEXT_PROPERTIES */
 
 	  if (len1_byte > 20000)
 	    temp = (unsigned char *) xmalloc (len1_byte);
@@ -3145,13 +3843,11 @@ Transposing beyond buffer boundaries is an error.")
           bcopy (start2_addr, start1_addr, len2_byte);
           bcopy (temp, start2_addr, len1_byte);
 	  if (len1_byte > 20000)
-	    free (temp);
-#ifdef USE_TEXT_PROPERTIES
+	    xfree (temp);
           graft_intervals_into_buffer (tmp_interval1, start2,
                                        len1, current_buffer, 0);
           graft_intervals_into_buffer (tmp_interval2, start1,
                                        len2, current_buffer, 0);
-#endif /* USE_TEXT_PROPERTIES */
         }
 
       else if (len1_byte < len2_byte)	/* Second region larger than first */
@@ -3159,13 +3855,11 @@ Transposing beyond buffer boundaries is an error.")
         {
           modify_region (current_buffer, start1, end2);
           record_change (start1, (end2 - start1));
-#ifdef USE_TEXT_PROPERTIES
           tmp_interval1 = copy_intervals (cur_intv, start1, len1);
           tmp_interval_mid = copy_intervals (cur_intv, end1, len_mid);
           tmp_interval2 = copy_intervals (cur_intv, start2, len2);
           Fset_text_properties (make_number (start1), make_number (end2),
 				Qnil, Qnil);
-#endif /* USE_TEXT_PROPERTIES */
 
 	  /* holds region 2 */
 	  if (len2_byte > 20000)
@@ -3179,15 +3873,13 @@ Transposing beyond buffer boundaries is an error.")
           safe_bcopy (start1_addr + len1_byte, start1_addr + len2_byte, len_mid);
           bcopy (temp, start1_addr, len2_byte);
 	  if (len2_byte > 20000)
-	    free (temp);
-#ifdef USE_TEXT_PROPERTIES
+	    xfree (temp);
           graft_intervals_into_buffer (tmp_interval1, end2 - len1,
                                        len1, current_buffer, 0);
           graft_intervals_into_buffer (tmp_interval_mid, start1 + len2,
                                        len_mid, current_buffer, 0);
           graft_intervals_into_buffer (tmp_interval2, start1,
                                        len2, current_buffer, 0);
-#endif /* USE_TEXT_PROPERTIES */
         }
       else
 	/* Second region smaller than first.  */
@@ -3195,13 +3887,11 @@ Transposing beyond buffer boundaries is an error.")
           record_change (start1, (end2 - start1));
           modify_region (current_buffer, start1, end2);
 
-#ifdef USE_TEXT_PROPERTIES
           tmp_interval1 = copy_intervals (cur_intv, start1, len1);
           tmp_interval_mid = copy_intervals (cur_intv, end1, len_mid);
           tmp_interval2 = copy_intervals (cur_intv, start2, len2);
           Fset_text_properties (make_number (start1), make_number (end2),
 				Qnil, Qnil);
-#endif /* USE_TEXT_PROPERTIES */
 
 	  /* holds region 1 */
 	  if (len1_byte > 20000)
@@ -3215,16 +3905,17 @@ Transposing beyond buffer boundaries is an error.")
           bcopy (start1_addr + len1_byte, start1_addr + len2_byte, len_mid);
           bcopy (temp, start1_addr + len2_byte + len_mid, len1_byte);
 	  if (len1_byte > 20000)
-	    free (temp);
-#ifdef USE_TEXT_PROPERTIES
+	    xfree (temp);
           graft_intervals_into_buffer (tmp_interval1, end2 - len1,
                                        len1, current_buffer, 0);
           graft_intervals_into_buffer (tmp_interval_mid, start1 + len2,
                                        len_mid, current_buffer, 0);
           graft_intervals_into_buffer (tmp_interval2, start1,
                                        len2, current_buffer, 0);
-#endif /* USE_TEXT_PROPERTIES */
         }
+
+      update_compositions (start1, start1 + len2, CHECK_BORDER);
+      update_compositions (end2 - len1, end2, CHECK_BORDER);
     }
 
   /* When doing multiple transpositions, it might be nice
@@ -3250,6 +3941,10 @@ syms_of_editfns ()
   Qbuffer_access_fontify_functions
     = intern ("buffer-access-fontify-functions");
   staticpro (&Qbuffer_access_fontify_functions);
+
+  DEFVAR_LISP ("inhibit-field-text-motion", &Vinhibit_field_text_motion,
+    "Non-nil means.text motion commands don't notice fields.");
+  Vinhibit_field_text_motion = Qnil;
 
   DEFVAR_LISP ("buffer-access-fontify-functions",
 	       &Vbuffer_access_fontify_functions,
@@ -3279,7 +3974,7 @@ functions if all the text being accessed has this property.");
 
   DEFVAR_LISP ("system-name", &Vsystem_name,
 	       "The name of the machine Emacs is running on.");
-  
+
   DEFVAR_LISP ("user-full-name", &Vuser_full_name,
 	       "The full name of the user logged in.");
 
@@ -3289,6 +3984,7 @@ functions if all the text being accessed has this property.");
   DEFVAR_LISP ("user-real-login-name", &Vuser_real_login_name,
 	       "The user's name, based upon the real uid only.");
 
+  defsubr (&Spropertize);
   defsubr (&Schar_equal);
   defsubr (&Sgoto_char);
   defsubr (&Sstring_to_char);
@@ -3302,6 +3998,17 @@ functions if all the text being accessed has this property.");
   defsubr (&Spoint);
   defsubr (&Sregion_beginning);
   defsubr (&Sregion_end);
+
+  staticpro (&Qfield);
+  Qfield = intern ("field");
+  staticpro (&Qboundary);
+  Qboundary = intern ("boundary");
+  defsubr (&Sfield_beginning);
+  defsubr (&Sfield_end);
+  defsubr (&Sfield_string);
+  defsubr (&Sfield_string_no_properties);
+  defsubr (&Sdelete_field);
+  defsubr (&Sconstrain_to_field);
 
   defsubr (&Sline_beginning_position);
   defsubr (&Sline_end_position);
@@ -3343,6 +4050,7 @@ functions if all the text being accessed has this property.");
   defsubr (&Semacs_pid);
   defsubr (&Scurrent_time);
   defsubr (&Sformat_time_string);
+  defsubr (&Sfloat_time);
   defsubr (&Sdecode_time);
   defsubr (&Sencode_time);
   defsubr (&Scurrent_time_string);
@@ -3360,6 +4068,7 @@ functions if all the text being accessed has this property.");
   defsubr (&Ssubst_char_in_region);
   defsubr (&Stranslate_region);
   defsubr (&Sdelete_region);
+  defsubr (&Sdelete_and_extract_region);
   defsubr (&Swiden);
   defsubr (&Snarrow_to_region);
   defsubr (&Ssave_restriction);

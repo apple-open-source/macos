@@ -68,7 +68,6 @@ static char sccsid[] = "@(#)getprotoent.c	8.1 (Berkeley) 6/4/93";
 #define	MAXALIASES	35
 
 static FILE *protof = NULL;
-static char line[BUFSIZ+1];
 static struct protoent proto;
 static char *proto_aliases[MAXALIASES];
 int _proto_stayopen;
@@ -98,10 +97,17 @@ struct protoent *
 getprotoent()
 {
 	char *p;
+	static char *line = NULL;
 	register char *cp, **q;
 
 	if (protof == NULL && (protof = fopen(_PATH_PROTOCOLS, "r" )) == NULL)
 		return (NULL);
+
+	if (line == NULL) {
+		line = malloc(BUFSIZ+1);
+		if (line == NULL)
+			return (NULL);
+	}
 again:
 	if ((p = fgets(line, BUFSIZ, protof)) == NULL)
 		return (NULL);

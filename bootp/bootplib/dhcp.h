@@ -1,3 +1,7 @@
+
+#ifndef _S_DHCP_H
+#define _S_DHCP_H
+
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -23,11 +27,11 @@
  * dhcp.h
  * - definitions for DHCP (as specified in RFC2132)
  */
-#import <sys/types.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 
 struct dhcp {
     u_char		dp_op;		/* packet opcode type */
@@ -53,7 +57,8 @@ struct dhcp_packet {
     struct dhcp 	dhcp;
 };
 
-#define DHCP_MIN_OPTIONS_SIZE	312
+#define DHCP_PACKET_OPTIONS_MIN	312
+#define DHCP_PACKET_MIN		(sizeof(struct dhcp) + DHCP_PACKET_OPTIONS_MIN)
 
 /* dhcp message types */
 #define DHCPDISCOVER	1
@@ -142,3 +147,5 @@ dhcp_cstate_str(dhcp_cstate_t state)
 	return list[state];
     return ("<undefined>");
 }
+
+#endif _S_DHCP_H

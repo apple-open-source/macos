@@ -105,14 +105,12 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 #  define CURRENT_SYNTAX_TABLE current_buffer->syntax_table
 #endif
 
-#define SYNTAX_ENTRY_INT(c)					\
-  ((c) < CHAR_TABLE_SINGLE_BYTE_SLOTS				\
-   ? SYNTAX_ENTRY_FOLLOW_PARENT (CURRENT_SYNTAX_TABLE,		\
-				 (unsigned char) (c))		\
-   : Faref (CURRENT_SYNTAX_TABLE,				\
-	    make_number (COMPOSITE_CHAR_P (c)			\
-			 ? cmpchar_component ((c), 0, 1)	\
-			 : (c))))
+#define SYNTAX_ENTRY_INT(c)				\
+  ((c) < CHAR_TABLE_SINGLE_BYTE_SLOTS			\
+   ? SYNTAX_ENTRY_FOLLOW_PARENT (CURRENT_SYNTAX_TABLE,	\
+				 (unsigned char) (c))	\
+   : Faref (CURRENT_SYNTAX_TABLE,			\
+	    make_number (c)))
 
 /* Extract the information from the entry for character C
    in the current syntax table.  */
@@ -122,48 +120,50 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
   ({ Lisp_Object temp;							\
      temp = SYNTAX_ENTRY (c);						\
      (CONSP (temp)							\
-      ? (enum syntaxcode) (XINT (XCONS (temp)->car) & 0xff)		\
+      ? (enum syntaxcode) (XINT (XCAR (temp)) & 0xff)		\
       : Swhitespace); })
 
 #define SYNTAX_WITH_FLAGS(c)						\
   ({ Lisp_Object temp;							\
      temp = SYNTAX_ENTRY (c);						\
      (CONSP (temp)							\
-      ? XINT (XCONS (temp)->car)					\
+      ? XINT (XCAR (temp))					\
       : (int) Swhitespace); })
 
 #define SYNTAX_MATCH(c)							\
   ({ Lisp_Object temp;							\
      temp = SYNTAX_ENTRY (c);						\
      (CONSP (temp)							\
-      ? XCONS (temp)->cdr						\
+      ? XCDR (temp)						\
       : Qnil); })
 #else
 #define SYNTAX(c)							\
   (syntax_temp = SYNTAX_ENTRY ((c)),					\
    (CONSP (syntax_temp)							\
-    ? (enum syntaxcode) (XINT (XCONS (syntax_temp)->car) & 0xff)	\
+    ? (enum syntaxcode) (XINT (XCAR (syntax_temp)) & 0xff)	\
     : Swhitespace))
 
 #define SYNTAX_WITH_FLAGS(c)						\
   (syntax_temp = SYNTAX_ENTRY ((c)),					\
    (CONSP (syntax_temp)							\
-    ? XINT (XCONS (syntax_temp)->car)					\
+    ? XINT (XCAR (syntax_temp))					\
     : (int) Swhitespace))
 
 #define SYNTAX_MATCH(c)							\
   (syntax_temp = SYNTAX_ENTRY ((c)),					\
    (CONSP (syntax_temp)							\
-    ? XCONS (syntax_temp)->cdr						\
+    ? XCDR (syntax_temp)						\
     : Qnil))
 #endif
 
-/* Then there are six single-bit flags that have the following meanings:
+/* Then there are seven single-bit flags that have the following meanings:
   1. This character is the first of a two-character comment-start sequence.
   2. This character is the second of a two-character comment-start sequence.
   3. This character is the first of a two-character comment-end sequence.
   4. This character is the second of a two-character comment-end sequence.
   5. This character is a prefix, for backward-prefix-chars.
+  6. see below
+  7. This character is part of a nestable comment sequence.
   Note that any two-character sequence whose first character has flag 1
   and whose second character has flag 2 will be interpreted as a comment start.
 
@@ -188,6 +188,8 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 
 #define SYNTAX_COMMENT_STYLE(c) ((SYNTAX_WITH_FLAGS (c) >> 21) & 1)
 
+#define SYNTAX_COMMENT_NESTED(c) ((SYNTAX_WITH_FLAGS (c) >> 22) & 1)
+
 /* These macros extract specific flags from an integer
    that holds the syntax code and the flags.  */
 
@@ -202,6 +204,8 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 #define SYNTAX_FLAGS_PREFIX(flags) (((flags) >> 20) & 1)
 
 #define SYNTAX_FLAGS_COMMENT_STYLE(flags) (((flags) >> 21) & 1)
+
+#define SYNTAX_FLAGS_COMMENT_NESTED(flags) (((flags) >> 22) & 1)
 
 /* This array, indexed by a character, contains the syntax code which that
  character signifies (as a char).  For example,

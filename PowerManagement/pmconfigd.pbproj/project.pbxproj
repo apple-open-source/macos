@@ -1,0 +1,462 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		014CEA520018CE5811CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildStyles = (
+				014CEA520018CE5811CA2923,
+				014CEA530018CE5811CA2923,
+			);
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				409C6E9901A0B1A80ACA2928,
+				409C6E8801A064020ACA2928,
+				40882BAF019747EA0ACA2928,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				08FB7795FE84155DC02AAC07,
+				40882B98019742A20ACA2928,
+				40882B99019742A20ACA2928,
+				1AB674ADFE9D54B511CA2CBB,
+			);
+			isa = PBXGroup;
+			name = pmconfigd;
+			refType = 4;
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				40413E98025D3BA10ACA2928,
+				40D4F0DB01F4A1F40ACA2928,
+			);
+			isa = PBXGroup;
+			name = pmconfigd;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1AB674ADFE9D54B511CA2CBB = {
+			children = (
+				40882BAE019747EA0ACA2928,
+				409C6E8701A064020ACA2928,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//400
+//401
+//402
+//403
+//404
+		40413E98025D3BA10ACA2928 = {
+			children = (
+				406C5FB6025E53440ACA2928,
+				406C5FB7025E53440ACA2928,
+				406C5FB8025E53440ACA2928,
+				40996DFA028892440ACA2928,
+			);
+			isa = PBXGroup;
+			name = PMUBattery;
+			path = "";
+			refType = 4;
+		};
+		406A7C8602009FD90ACA2928 = {
+			fileRef = 40D4F0DB01F4A1F40ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		406C5FB6025E53440ACA2928 = {
+			isa = PBXFileReference;
+			name = battery.c;
+			path = batteryconfigd/battery.c;
+			refType = 4;
+		};
+		406C5FB7025E53440ACA2928 = {
+			isa = PBXFileReference;
+			name = battery.h;
+			path = batteryconfigd/battery.h;
+			refType = 4;
+		};
+		406C5FB8025E53440ACA2928 = {
+			isa = PBXFileReference;
+			name = batteryconfigd.c;
+			path = batteryconfigd/batteryconfigd.c;
+			refType = 4;
+		};
+		40882B98019742A20ACA2928 = {
+			children = (
+				40D4F0DC01F4A1F40ACA2928,
+				40D4F0DD01F4A1F40ACA2928,
+			);
+			isa = PBXGroup;
+			name = pmset;
+			refType = 4;
+		};
+		40882B99019742A20ACA2928 = {
+			children = (
+				40882BA6019747120ACA2928,
+				40882BA7019747120ACA2928,
+				40882BA8019747120ACA2928,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			path = "";
+			refType = 4;
+		};
+		40882BA6019747120ACA2928 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		40882BA7019747120ACA2928 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		40882BA8019747120ACA2928 = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		40882BAE019747EA0ACA2928 = {
+			isa = PBXExecutableFileReference;
+			path = pmset;
+			refType = 3;
+		};
+		40882BAF019747EA0ACA2928 = {
+			buildPhases = (
+				40882BB0019747EA0ACA2928,
+				40882BB2019747EA0ACA2928,
+				40882BB5019747EA0ACA2928,
+				40882BB9019747EA0ACA2928,
+				40D4F0E001F4A21A0ACA2928,
+			);
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = pmset;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = pmset;
+			productInstallPath = /usr/bin;
+			productName = pmset;
+			productReference = 40882BAE019747EA0ACA2928;
+			shouldUseHeadermap = 0;
+		};
+		40882BB0019747EA0ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40882BB2019747EA0ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				40D4F0DE01F4A1F40ACA2928,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40882BB5019747EA0ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				40882BB6019747EA0ACA2928,
+				40882BB7019747EA0ACA2928,
+				40882BB8019747EA0ACA2928,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40882BB6019747EA0ACA2928 = {
+			fileRef = 40882BA6019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40882BB7019747EA0ACA2928 = {
+			fileRef = 40882BA7019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40882BB8019747EA0ACA2928 = {
+			fileRef = 40882BA8019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40882BB9019747EA0ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40996DFA028892440ACA2928 = {
+			isa = PBXFileReference;
+			name = batteryconfigd.h;
+			path = batteryconfigd/batteryconfigd.h;
+			refType = 4;
+		};
+		40996DFD028893D30ACA2928 = {
+			fileRef = 406C5FB6025E53440ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40996DFE028893D30ACA2928 = {
+			fileRef = 406C5FB8025E53440ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		409C6E8701A064020ACA2928 = {
+			isa = PBXBundleReference;
+			path = PowerManagement.bundle;
+			refType = 3;
+		};
+		409C6E8801A064020ACA2928 = {
+			buildPhases = (
+				409C6E8901A064020ACA2928,
+				409C6E8A01A064020ACA2928,
+				409C6E8B01A064020ACA2928,
+				409C6E8C01A064020ACA2928,
+				409C6E8D01A064020ACA2928,
+			);
+			buildSettings = {
+				INSTALL_PATH = /System/Library/SystemConfiguration;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined error";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PowerManagement;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PowerManagement.bundle;
+			productInstallPath = /System/Library/SystemConfiguration;
+			productName = PowerManagement.bundle;
+			productReference = 409C6E8701A064020ACA2928;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PowerManagement</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.PowerManagement</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PowerManagement configd plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>6.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>6.0</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		409C6E8901A064020ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		409C6E8A01A064020ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		409C6E8B01A064020ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				40996DFD028893D30ACA2928,
+				40996DFE028893D30ACA2928,
+				406A7C8602009FD90ACA2928,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		409C6E8C01A064020ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+				409C6E8F01A065C80ACA2928,
+				409C6E9001A065C80ACA2928,
+				409C6E9101A065C80ACA2928,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		409C6E8D01A064020ACA2928 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		409C6E8F01A065C80ACA2928 = {
+			fileRef = 40882BA6019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		409C6E9001A065C80ACA2928 = {
+			fileRef = 40882BA8019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		409C6E9101A065C80ACA2928 = {
+			fileRef = 40882BA7019747120ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		409C6E9901A0B1A80ACA2928 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				409C6E9A01A0B1A80ACA2928,
+				409C6E9B01A0B1A80ACA2928,
+			);
+			isa = PBXAggregateTarget;
+			name = All;
+			productName = All;
+			shouldUseHeadermap = 0;
+		};
+		409C6E9A01A0B1A80ACA2928 = {
+			isa = PBXTargetDependency;
+			target = 40882BAF019747EA0ACA2928;
+		};
+		409C6E9B01A0B1A80ACA2928 = {
+			isa = PBXTargetDependency;
+			target = 409C6E8801A064020ACA2928;
+		};
+		40D4F0DB01F4A1F40ACA2928 = {
+			isa = PBXFileReference;
+			name = pmconfigd.c;
+			path = pmconfigd/pmconfigd.c;
+			refType = 2;
+		};
+		40D4F0DC01F4A1F40ACA2928 = {
+			isa = PBXFileReference;
+			name = pmset.c;
+			path = pmset/pmset.c;
+			refType = 2;
+		};
+		40D4F0DD01F4A1F40ACA2928 = {
+			isa = PBXFileReference;
+			name = pmset.1;
+			path = pmset/pmset.1;
+			refType = 2;
+		};
+		40D4F0DE01F4A1F40ACA2928 = {
+			fileRef = 40D4F0DC01F4A1F40ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		40D4F0E001F4A21A0ACA2928 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				40D4F0E101F4A21A0ACA2928,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		40D4F0E101F4A21A0ACA2928 = {
+			fileRef = 40D4F0DD01F4A1F40ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

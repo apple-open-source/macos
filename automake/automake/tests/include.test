@@ -1,0 +1,18 @@
+#! /bin/sh
+
+# Test to make sure header vars defined only once when including.
+# Report from Marcus G. Daniels.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+include foo
+END
+
+: > foo
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+len="`grep '^srcdir' Makefile.in | wc -l`"
+echo "len = $len"
+test $len -eq 1

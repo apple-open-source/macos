@@ -1,6 +1,6 @@
 /* movemail foo bar -- move file foo to file bar,
    locking file foo the way /bin/mail respects.
-   Copyright (C) 1986, 1992, 1993, 1994, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1986, 92, 93, 94, 96, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -55,14 +55,21 @@ Boston, MA 02111-1307, USA.  */
  */
 
 #define NO_SHORTNAMES   /* Tell config not to load remap.h */
-#include <../src/config.h>
+#include <config.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <stdio.h>
 #include <errno.h>
-#include <../src/syswait.h>
+
 #include <getopt.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+#include "syswait.h"
 #ifdef MAIL_USE_POP
 #include "pop.h"
 #endif
@@ -95,34 +102,14 @@ Boston, MA 02111-1307, USA.  */
    implemented and used on Unix.  */
 //#define DISABLE_DIRECT_ACCESS
 
-/* Ensure all file i/o is in binary mode. */
 #include <fcntl.h>
-int _fmode = _O_BINARY;
 #endif /* WINDOWSNT */
 
-/* Cancel substitutions made by config.h for Emacs.  */
-#undef open
-#undef read
-#undef write
-#undef close
-
-#ifdef USG
-#include <fcntl.h>
-#include <unistd.h>
 #ifndef F_OK
 #define F_OK 0
 #define X_OK 1
 #define W_OK 2
 #define R_OK 4
-#endif
-#endif /* USG */
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#ifdef STDC_HEADERS
-#include <stdlib.h>
 #endif
 
 #if defined (XENIX) || defined (WINDOWSNT)
@@ -156,7 +143,12 @@ static char *mail_spool_name ();
 extern int errno;
 #endif
 char *strerror ();
-extern char *rindex ();
+#ifdef HAVE_INDEX
+extern char *index __P ((const char *, int));
+#endif
+#ifdef HAVE_RINDEX
+extern char *rindex __P((const char *, int));
+#endif
 
 void fatal ();
 void error ();
@@ -203,6 +195,11 @@ main (argc, argv)
 #else /* ! MAIL_USE_POP */
 # define ARGSTR "p"
 #endif /* MAIL_USE_POP */
+
+#ifdef WINDOWSNT
+  /* Ensure all file i/o is in binary mode. */
+  _fmode = _O_BINARY;
+#endif
 
   delete_lockname = 0;
 
@@ -338,7 +335,7 @@ main (argc, argv)
 	  if (desc < 0)
 	    {
 	      char *message = (char *) xmalloc (strlen (tempname) + 50);
-	      sprintf (message, "%s--see source file lib-src/movemail.c",
+	      sprintf (message, "creating %s, which would become the lock file",
 		       tempname);
 	      pfatal_with_name (message);
 	    }
@@ -609,18 +606,24 @@ fatal (s1, s2)
 {
   if (delete_lockname)
     unlink (delete_lockname);
-  error (s1, s2);
+  error (s1, s2, 0);
   exit (1);
 }
 
-/* Print error message.  `s1' is printf control string, `s2' is arg for it. */
+/* Print error message.  `s1' is printf control string, `s2' and `s3'
+   are args for it or null. */
 
 void
 error (s1, s2, s3)
      char *s1, *s2, *s3;
 {
   fprintf (stderr, "movemail: ");
-  fprintf (stderr, s1, s2, s3);
+  if (s3)
+    fprintf (stderr, s1, s2, s3);
+  else if (s2)
+    fprintf (stderr, s1, s2);
+  else
+    fprintf (stderr, s1);
   fprintf (stderr, "\n");
 }
 
@@ -693,10 +696,24 @@ FILE *sfi;
 FILE *sfo;
 char ibuffer[BUFSIZ];
 char obuffer[BUFSIZ];
-char Errmsg[80];
+char Errmsg[200];		/* POP errors, at least, can exceed
+				   the original length of 80.  */
 
-popmail (user, outfile, preserve, password, reverse_order)
-     char *user;
+/*
+ * The full legal syntax for a POP mailbox specification for movemail
+ * is "po:username:hostname".  The ":hostname" is optional; if it is
+ * omitted, the MAILHOST environment variable will be consulted.  Note
+ * that by the time popmail() is called the "po:" has been stripped
+ * off of the front of the mailbox name.
+ *
+ * If the mailbox is in the form "po:username:hostname", then it is
+ * modified by this function -- the second colon is replaced by a
+ * null.
+ */
+
+int
+popmail (mailbox, outfile, preserve, password, reverse_order)
+     char *mailbox;
      char *outfile;
      int preserve;
      char *password;
@@ -709,17 +726,22 @@ popmail (user, outfile, preserve, password, reverse_order)
   char *getenv ();
   popserver server;
   int start, end, increment;
+  char *user, *hostname;
 
-  server = pop_open (0, user, password, POP_NO_GETPASS);
+  user = mailbox;
+  if ((hostname = index(mailbox, ':')))
+    *hostname++ = '\0';
+
+  server = pop_open (hostname, user, password, POP_NO_GETPASS);
   if (! server)
     {
-      error ("Error connecting to POP server: %s", pop_error);
+      error ("Error connecting to POP server: %s", pop_error, 0);
       return (1);
     }
 
   if (pop_stat (server, &nmsgs, &nbytes))
     {
-      error ("Error getting message count from POP server: %s", pop_error);
+      error ("Error getting message count from POP server: %s", pop_error, 0);
       return (1);
     }
 
@@ -741,7 +763,7 @@ popmail (user, outfile, preserve, password, reverse_order)
   if ((mbf = fdopen (mbfi, "wb")) == NULL)
     {
       pop_close (server);
-      error ("Error in fdopen: %s", strerror (errno));
+      error ("Error in fdopen: %s", strerror (errno), 0);
       close (mbfi);
       unlink (outfile);
       return (1);
@@ -765,7 +787,7 @@ popmail (user, outfile, preserve, password, reverse_order)
       mbx_delimit_begin (mbf);
       if (pop_retr (server, i, mbf) != OK)
 	{
-	  error (Errmsg);
+	  error (Errmsg, 0, 0);
 	  close (mbfi);
 	  return (1);
 	}
@@ -773,7 +795,7 @@ popmail (user, outfile, preserve, password, reverse_order)
       fflush (mbf);
       if (ferror (mbf))
 	{
-	  error ("Error in fflush: %s", strerror (errno));
+	  error ("Error in fflush: %s", strerror (errno), 0);
 	  pop_close (server);
 	  close (mbfi);
 	  return (1);
@@ -796,7 +818,7 @@ popmail (user, outfile, preserve, password, reverse_order)
 
   if (close (mbfi) == -1)
     {
-      error ("Error in close: %s", strerror (errno));
+      error ("Error in close: %s", strerror (errno), 0);
       return (1);
     }
 
@@ -805,7 +827,7 @@ popmail (user, outfile, preserve, password, reverse_order)
       {
 	if (pop_delete (server, i))
 	  {
-	    error ("Error from POP server: %s", pop_error);
+	    error ("Error from POP server: %s", pop_error, 0);
 	    pop_close (server);
 	    return (1);
 	  }
@@ -813,7 +835,7 @@ popmail (user, outfile, preserve, password, reverse_order)
 
   if (pop_quit (server))
     {
-      error ("Error from POP server: %s", pop_error);
+      error ("Error from POP server: %s", pop_error, 0);
       return (1);
     }
     
@@ -906,6 +928,7 @@ mbx_delimit_begin (mbf)
   return (OK);
 }
 
+int
 mbx_delimit_end (mbf)
      FILE *mbf;
 {

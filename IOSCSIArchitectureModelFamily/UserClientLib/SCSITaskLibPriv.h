@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved. 
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved. 
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,24 @@
 #ifndef __SCSI_TASK_LIB_PRIV_H__
 #define __SCSI_TASK_LIB_PRIV_H__
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOSCSIArchitectureModelFamily includes
+#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 #define	kSCSITaskUserClientIniterKey	"SCSITaskUserClientIniter"
 
 enum
@@ -38,49 +56,185 @@ enum
 
 enum
 {
-	kSCSITaskUserClientIsExclusiveAccessAvailable	= 0,
+	
+	kSCSITaskUserClientIsExclusiveAccessAvailable	= 0,	// kIOUCScalarIScalarO, 0, 0
 	kSCSITaskUserClientObtainExclusiveAccess		= 1,	// kIOUCScalarIScalarO, 0, 0
 	kSCSITaskUserClientReleaseExclusiveAccess		= 2,	// kIOUCScalarIScalarO, 0, 0
 	kSCSITaskUserClientCreateTask					= 3,	// kIOUCScalarIScalarO, 0, 1
-	kSCSITaskUserClientReleaseTask					= 4,	// kIOUCScalarIScalar0, 1, 0
-	kSCSITaskUserClientAbortTask					= 5,	// kIOUCScalarIScalar0, 1, 0
-	kSCSITaskUserClientExecuteTaskAsync				= 6,	// kIOUCScalarIScalar0, 1, 0
-	kSCSITaskUserClientExecuteTaskSync				= 7,	// kIOUCScalarIScalar0, 2, 3
-	kSCSITaskUserClientIsTaskActive					= 8,	// kIOUCScalarIScalar0, 1, 1
-	kSCSITaskUserClientSetTransferDirection			= 9,	// kIOUCScalarIScalar0, 2, 0
-	kSCSITaskUserClientSetTaskAttribute				= 10,	// kIOUCScalarIScalar0, 2, 0
-	kSCSITaskUserClientGetTaskAttribute				= 11,	// kIOUCScalarIScalar0, 1, 1
-	kSCSITaskUserClientSetCommandDescriptorBlock	= 12,	// kIOUCScalarIStructureI, 2, sizeof ( SCSICommandDescriptorBlock )
-	kSCSITaskUserClientSetScatterGatherList			= 13,	// kIOUCScalarIStructureI, 5, ( sizeof ( IOVirtualRange ) * 0xFF )
-	kSCSITaskUserClientSetSenseDataBuffer			= 14,	// kIOUCScalarIScalarO, 3, 0
-	kSCSITaskUserClientSetTimeoutDuration			= 15,	// kIOUCScalarIScalarO, 2, 0
-	kSCSITaskUserClientGetTimeoutDuration			= 16,	// kIOUCScalarIScalarO, 1, 1
-	kSCSITaskUserClientGetTaskStatus				= 17,	// kIOUCScalarIScalarO, 1, 1
-	kSCSITaskUserClientGetSCSIServiceResponse		= 18,	// kIOUCScalarIScalarO, 1, 1
-	kSCSITaskUserClientGetTaskState					= 19,	// kIOUCScalarIScalarO, 1, 1
-	kSCSITaskUserClientGetAutoSenseData				= 20,	// kIOUCScalarIStructureO, 1, sizeof ( SCSISenseData )
-	
+	kSCSITaskUserClientReleaseTask					= 4,	// kIOUCScalarIScalarO, 1, 0
+	kSCSITaskUserClientAbortTask					= 5,	// kIOUCScalarIScalarO, 1, 0
+	kSCSITaskUserClientExecuteTask					= 6,	// kIOUCScalarIStructI, 0, 0xFFFFFFFF
+	kSCSITaskUserClientSetBuffers					= 7,	// kIOUCScalarIScalarO, 4, 0
 	// MMC-2 device
-	kMMCDeviceInquiry								= 21,	// kIOUCScalarIStructure0, 0, sizeof ( SCSICmd_INQUIRY_StandardData )
-	kMMCDeviceTestUnitReady							= 22,	// kIOUCScalarIStructureO, 0, sizeof ( SCSISenseData )
-	kMMCDeviceGetPerformance						= 23,	// kIOUCScalarIScalarO, 5, 1
-	kMMCDeviceGetConfiguration						= 24,	// kIOUCScalarIScalarO, 5, 1
-	kMMCDeviceModeSense10							= 25,	// kIOUCScalarIScalarO, 4, 0
-	kMMCDeviceSetWriteParametersModePage			= 26,	// kIOUCScalarIScalarO, 3, 1
-	kMMCDeviceGetTrayState							= 27,	// kIOUCScalarIScalarO, 0, 1
-	kMMCDeviceSetTrayState							= 28,	// kIOUCScalarIScalarO, 1, 0
-	kMMCDeviceReadTableOfContents					= 29,	// kIOUCScalarIScalarO, 5, 0
-	kMMCDeviceReadDiscInformation					= 30,	// kIOUCScalarIScalarO, 2, 0
-	kMMCDeviceReadTrackInformation					= 31,	// kIOUCScalarIScalarO, 4, 0
-	kMMCDeviceReadDVDStructure						= 32,	// kIOUCScalarIScalarO, 5, 0
+	kMMCDeviceInquiry								= 8,	// kIOUCStructIStructO, sizeof ( AppleInquiryStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceTestUnitReady							= 9,	// kIOUCScalarIStructO, 1, sizeof ( SCSITaskStatus )
+	kMMCDeviceGetPerformance						= 10,	// kIOUCStructIStructO, sizeof ( AppleGetPerformanceStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceGetConfiguration						= 11,	// kIOUCStructIStructO, sizeof ( AppleGetConfigurationStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceModeSense10							= 12,	// kIOUCStructIStructO, sizeof ( AppleModeSense10Struct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceSetWriteParametersModePage			= 13,	// kIOUCStructIStructO, sizeof ( AppleWriteParametersModePageStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceGetTrayState							= 14,	// kIOUCScalarIScalarO, 0, 1
+	kMMCDeviceSetTrayState							= 15,	// kIOUCScalarIScalarO, 1, 0
+	kMMCDeviceReadTableOfContents					= 16,	// kIOUCStructIStructO, sizeof ( AppleReadTableOfContentsStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceReadDiscInformation					= 17,	// kIOUCStructIStructO, sizeof ( AppleReadDiscInfoStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceReadTrackInformation					= 18,	// kIOUCStructIStructO, sizeof ( AppleReadTrackInfoStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceReadDVDStructure						= 19,	// kIOUCStructIStructO, sizeof ( AppleReadDVDStructureStruct ), sizeof ( SCSITaskStatus )
 	
 	kSCSITaskUserClientMethodCount
 };
 
 enum
 {
-	kSCSITaskUserClientSetAsyncCallback			= 0,		// kIOUCScalarIScalarO, 2, 0
+	kSCSITaskUserClientSetAsyncCallback				= 0,	// kIOUCScalarIScalarO, 2, 0
 	kSCSITaskUserClientAsyncMethodCount
 };
+
+
+#pragma mark -
+#pragma mark Exclusive Command Structures
+#pragma mark -
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Exclusive Command Structures
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+struct SCSITaskData
+{
+	UInt32							taskReference;
+	bool							isSync;
+	SCSITaskAttribute				taskAttribute;
+	SCSICommandDescriptorBlock		cdbData;
+	UInt8							cdbSize;
+	UInt64							requestedTransferCount;
+	UInt8							transferDirection;
+	UInt32							timeoutDuration;
+	UInt32							scatterGatherEntries;
+	IOVirtualRange					scatterGatherList[1];
+};
+typedef struct SCSITaskData SCSITaskData;
+
+
+struct SCSITaskResults
+{
+	SCSIServiceResponse				serviceResponse;
+	SCSITaskStatus					taskStatus;
+	UInt64							realizedTransferCount;
+};
+typedef struct SCSITaskResults SCSITaskResults;
+
+
+#pragma mark -
+#pragma mark Non-Exclusive Command Structures
+#pragma mark -
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Non-Exclusive Command Structures (MMC)
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
+struct AppleInquiryStruct
+{
+	void *				buffer;
+	SCSICmdField1Byte 	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleInquiryStruct AppleInquiryStruct;
+
+
+struct AppleGetPerformanceStruct
+{
+	SCSICmdField5Bit	DATA_TYPE;
+	SCSICmdField4Byte 	STARTING_LBA;
+	SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS;
+	SCSICmdField1Byte	TYPE;
+	void *				buffer;
+	SCSICmdField2Byte	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleGetPerformanceStruct AppleGetPerformanceStruct;
+
+
+struct AppleGetConfigurationStruct
+{
+	SCSICmdField1Byte 	RT;
+	SCSICmdField2Byte 	STARTING_FEATURE_NUMBER;
+	void *				buffer;
+	SCSICmdField2Byte	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleGetConfigurationStruct AppleGetConfigurationStruct;
+
+
+struct AppleModeSense10Struct
+{
+	SCSICmdField1Bit	LLBAA;
+	SCSICmdField1Bit	DBD;
+	SCSICmdField2Bit	PC;
+	SCSICmdField6Bit	PAGE_CODE;
+	void *				buffer;
+	SCSICmdField2Byte	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleModeSense10Struct AppleModeSense10Struct;
+
+
+struct AppleWriteParametersModePageStruct
+{
+	void *				buffer;
+	SCSICmdField2Byte 	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleWriteParametersModePageStruct AppleWriteParametersModePageStruct;
+
+
+struct AppleReadTableOfContentsStruct
+{
+	SCSICmdField1Bit 	MSF;
+	SCSICmdField4Bit 	FORMAT;
+	SCSICmdField1Byte	TRACK_SESSION_NUMBER;
+	void *				buffer;
+	SCSICmdField2Byte	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleReadTableOfContentsStruct AppleReadTableOfContentsStruct;
+
+
+struct AppleReadDiscInfoStruct
+{
+	void *				buffer;
+	SCSICmdField2Byte 	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleReadDiscInfoStruct AppleReadDiscInfoStruct;
+
+struct AppleReadTrackInfoStruct
+{
+	SCSICmdField1Byte	ADDRESS_NUMBER_TYPE;
+	SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER;
+	void *				buffer;
+	SCSICmdField2Byte 	bufferSize;
+	void *				senseDataBuffer;
+};
+typedef struct AppleReadTrackInfoStruct AppleReadTrackInfoStruct;
+
+
+struct AppleReadDVDStructureStruct
+{
+	SCSICmdField4Byte 			ADDRESS;
+	SCSICmdField1Byte 			LAYER_NUMBER;
+	SCSICmdField1Byte 			FORMAT;
+	void * 						buffer;
+	SCSICmdField2Byte 			bufferSize;
+	SCSICmdField2Bit 			AGID;
+	void *						senseDataBuffer;
+};
+typedef struct AppleReadDVDStructureStruct AppleReadDVDStructureStruct;
+
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* __SCSI_TASK_LIB_PRIV_H__ */

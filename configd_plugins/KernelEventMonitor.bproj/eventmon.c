@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,9 @@
 
 /*
  * Modification History
+ *
+ * January 6, 2002		Jessica Vazquez <vazquez@apple.com>
+ * - added handling for KEV_ATALK_xxx events
  *
  * July 2, 2001			Dieter Siegmund <dieter@apple.com>
  * - added handling for KEV_DL_PROTO_{ATTACHED, DETACHED}
@@ -54,6 +57,12 @@
 #include <net/route.h>
 #include <netinet/in.h>
 #include <netinet/in_var.h>
+#include <netat/appletalk.h>
+#include <netat/at_var.h>
+
+// from <netat/ddp.h>
+#define DDP_MIN_NETWORK         0x0001
+#define DDP_MAX_NETWORK         0xfffe
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -62,6 +71,10 @@
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip, i)	(((u_char *)(ip))[i])
 #define IP_LIST(ip)	IP_CH(ip,0),IP_CH(ip,1),IP_CH(ip,2),IP_CH(ip,3)
+
+#ifndef kSCPropNetAppleTalkNetworkRange
+#define kSCPropNetAppleTalkNetworkRange	SCSTR("NetworkRange") 	/* CFArray[CFNumber] */
+#endif	/* kSCPropNetAppleTalkNetworkRange */
 
 const char *inetEventName[] = {
 	"",
@@ -90,6 +103,17 @@ const char *dlEventName[] = {
 	"KEV_DL_LINK_ON",
 	"KEV_DL_PROTO_ATTACHED",
 	"KEV_DL_PROTO_DETACHED",
+};
+
+const char *atalkEventName[] = {
+	"",
+	"KEV_ATALK_ENABLED",
+	"KEV_ATALK_DISABLED",
+	"KEV_ATALK_ZONEUPDATED",
+	"KEV_ATALK_ROUTERUP",
+	"KEV_ATALK_ROUTERUP_INVALID",
+	"KEV_ATALK_ROUTERDOWN",
+	"KEV_ATALK_ZONELISTCHANGED"
 };
 
 
@@ -202,6 +226,27 @@ appendAddress(CFMutableDictionaryRef dict, CFStringRef key, struct in_addr *addr
 }
 
 
+static int
+get_atalk_interface_cfg(const char *if_name, at_if_cfg_t *cfg)
+{
+	int 	fd;
+
+	/* open socket */
+	if ((fd = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
+		return -1;
+
+	/* get config info for given interface */
+	strncpy(cfg->ifr_name, if_name, sizeof(cfg->ifr_name));
+	if (ioctl(fd, AIOCGETIFCFG, (caddr_t)cfg) < 0) {
+		(void)close(fd);
+		return -1;
+	}
+
+	(void)close(fd);
+	return 0;
+}
+
+
 static void
 logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 {
@@ -232,7 +277,7 @@ interface_update_addresses(const char *if_name)
 	int			entry;
 	char			ifr_name[IFNAMSIZ+1];
 	CFStringRef		interface;
-	boolean_t		interfaceOK	= FALSE;
+	boolean_t		interfaceFound	= FALSE;
 	CFStringRef		key		= NULL;
 	int			mib[6];
 	CFMutableDictionaryRef	newDict		= NULL;
@@ -267,7 +312,7 @@ interface_update_addresses(const char *if_name)
 		ifm = (struct if_msghdr *)&buf[offset];
 
 		if (ifm->ifm_type != RTM_IFINFO) {
-			printf("unexpected data from sysctl buffer\n");
+			SCLog(TRUE, LOG_ERR, CFSTR("unexpected data from sysctl buffer"));
 			break;
 		}
 
@@ -276,12 +321,17 @@ interface_update_addresses(const char *if_name)
 
 		/* get interface name */
 		sdl = (struct sockaddr_dl *)(ifm + 1);
-		strncpy(ifr_name, sdl->sdl_data, IFNAMSIZ);
+		if (sdl->sdl_nlen > IFNAMSIZ) {
+			SCLog(TRUE, LOG_ERR, CFSTR("sdl_nlen > IFNAMSIZ"));
+			break;
+		}
+		bzero(ifr_name, sizeof(ifr_name));
+		memcpy(ifr_name, sdl->sdl_data, sdl->sdl_nlen);
 
 		/* check if this is the requested interface */
 		if (if_name) {
 			if (strncmp(if_name, ifr_name, IFNAMSIZ) == 0) {
-				interfaceOK = TRUE;	/* yes, this is the one I want */
+				interfaceFound = TRUE;	/* yes, this is the one I want */
 			} else {
 				skip = TRUE;		/* sorry, not interested */
 			}
@@ -307,9 +357,9 @@ interface_update_addresses(const char *if_name)
 
 			if (!newDict) {
 				newDict = CFDictionaryCreateMutable(NULL,
-								    0,
-								    &kCFTypeDictionaryKeyCallBacks,
-								    &kCFTypeDictionaryValueCallBacks);
+								      0,
+								      &kCFTypeDictionaryKeyCallBacks,
+								      &kCFTypeDictionaryValueCallBacks);
 			}
 		}
 
@@ -378,11 +428,17 @@ interface_update_addresses(const char *if_name)
 			if (!dict || !CFEqual(dict, newDict)) {
 				if (CFDictionaryGetCount(newDict) > 0) {
 					if (!SCDynamicStoreSetValue(store, key, newDict)) {
-						SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreSetValue() failed: %s"),
+						      SCErrorString(SCError()));
 					}
-				} else {
+				} else if (dict) {
 					if (!SCDynamicStoreRemoveValue(store, key)) {
-						SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreRemoveValue() failed: %s"), SCErrorString(SCError()));
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreRemoveValue() failed: %s"),
+						      SCErrorString(SCError()));
 					}
 				}
 			}
@@ -397,7 +453,7 @@ interface_update_addresses(const char *if_name)
 	}
 
 	/* if the last address[es] were removed from the target interface */
-	if (if_name && !interfaceOK) {
+	if (if_name && !interfaceFound) {
 		interface = CFStringCreateWithCString(NULL, ifr_name, kCFStringEncodingMacRoman);
 		key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 									  kSCDynamicStoreDomainState,
@@ -444,27 +500,405 @@ interface_update_addresses(const char *if_name)
 
 
 static void
-interface_update_status(const char *if_name, CFBooleanRef active)
+interface_update_appletalk(const char *if_name)
+{
+	char			*buf		= NULL;
+	size_t			bufLen;
+	CFDictionaryRef		dict		= NULL;
+	int			entry;
+	char			ifr_name[IFNAMSIZ+1];
+	CFStringRef		interface;
+	boolean_t		interfaceFound	= FALSE;
+	CFStringRef		key		= NULL;
+	int			mib[6];
+	CFMutableDictionaryRef	newDict	= NULL;
+	size_t			offset;
+
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_APPLETALK;
+	mib[4] = NET_RT_IFLIST;
+	mib[5] = 0;
+
+	if (sysctl(mib, 6, NULL, &bufLen, NULL, 0) < 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("sysctl() size failed: %s"), strerror(errno));
+		goto error;
+	}
+
+	buf = (char *)CFAllocatorAllocate(NULL, bufLen, 0);
+
+	if (sysctl(mib, 6, buf, &bufLen, NULL, 0) < 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("sysctl() failed: %s"), strerror(errno));
+		goto error;
+	}
+
+	entry  = 0;
+	offset = 0;
+	while (offset < bufLen) {
+		struct if_msghdr	*ifm;
+		struct sockaddr_dl	*sdl;
+		boolean_t		skip	= FALSE;
+
+		ifm = (struct if_msghdr *)&buf[offset];
+
+		if (ifm->ifm_type != RTM_IFINFO) {
+			SCLog(TRUE, LOG_ERR, CFSTR("unexpected data from sysctl buffer"));
+			break;
+		}
+
+		/* advance to next address/interface */
+		offset += ifm->ifm_msglen;
+
+		/* get interface name */
+		sdl = (struct sockaddr_dl *)(ifm + 1);
+		if (sdl->sdl_nlen > IFNAMSIZ) {
+			SCLog(TRUE, LOG_ERR, CFSTR("sdl_nlen > IFNAMSIZ"));
+			break;
+		}
+		bzero(ifr_name, sizeof(ifr_name));
+		memcpy(ifr_name, sdl->sdl_data, sdl->sdl_nlen);
+
+		/* check if this is the requested interface */
+		if (if_name) {
+			if (strncmp(if_name, ifr_name, IFNAMSIZ) == 0) {
+				interfaceFound = TRUE;	/* yes, this is the one I want */
+			} else {
+				skip = TRUE;		/* sorry, not interested */
+			}
+		}
+
+		if (!skip) {
+			/* get the current cache information */
+			interface = CFStringCreateWithCString(NULL, ifr_name, kCFStringEncodingMacRoman);
+			key     = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+										  kSCDynamicStoreDomainState,
+										  interface,
+										  kSCEntNetAppleTalk);
+			CFRelease(interface);
+
+			dict = SCDynamicStoreCopyValue(store, key);
+			if (isA_CFDictionary(dict)) {
+				newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNetworkID);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNodeID);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNetworkRange);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkDefaultZone);
+			}
+
+			if (!newDict) {
+				newDict = CFDictionaryCreateMutable(NULL,
+								      0,
+								      &kCFTypeDictionaryKeyCallBacks,
+								      &kCFTypeDictionaryValueCallBacks);
+			}
+		}
+
+		while (offset < bufLen) {
+			struct ifa_msghdr	*ifam;
+			struct sockaddr		*a_info[RTAX_MAX];
+			struct sockaddr		*sa;
+
+			ifam = (struct ifa_msghdr *)&buf[offset];
+
+			if (ifam->ifam_type != RTM_NEWADDR) {
+				/* if not an address for this interface */
+				break;
+			}
+
+			/* advance to next address/interface */
+			offset += ifam->ifam_msglen;
+
+			if (skip) {
+				/* if we are not interested in this interface */
+				continue;
+			}
+
+			sa = (struct sockaddr *)(ifam + 1);
+			get_rtaddrs(ifam->ifam_addrs, sa, a_info);
+
+			sa = a_info[RTAX_IFA];
+			if (!sa) {
+				break;
+			}
+
+			switch (sa->sa_family) {
+				case AF_APPLETALK :
+				{
+					at_if_cfg_t		cfg;
+					int			iVal;
+					CFNumberRef		num;
+					struct sockaddr_at      *sat;
+
+					sat = (struct sockaddr_at *)a_info[RTAX_IFA];
+
+					iVal = (int)sat->sat_addr.s_net;
+					num  = CFNumberCreate(NULL, kCFNumberIntType, &iVal);
+					CFDictionarySetValue(newDict, kSCPropNetAppleTalkNetworkID, num);
+					CFRelease(num);
+
+					iVal = (int)sat->sat_addr.s_node;
+					num  = CFNumberCreate(NULL, kCFNumberIntType, &iVal);
+					CFDictionarySetValue(newDict, kSCPropNetAppleTalkNodeID, num);
+					CFRelease(num);
+
+					if (!(get_atalk_interface_cfg(ifr_name, &cfg))) {
+						CFStringRef		zone;
+
+						/*
+						 * Set starting and ending net values
+						 */
+						if (!(((cfg.netStart == 0) && (cfg.netEnd == 0)) ||
+						      ((cfg.netStart == DDP_MIN_NETWORK) && (cfg.netEnd == DDP_MAX_NETWORK)))) {
+							CFMutableArrayRef	array;
+
+							array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+							iVal = cfg.netStart;
+							num  = CFNumberCreate(NULL, kCFNumberIntType, &iVal);
+							CFArrayAppendValue(array, num);
+							CFRelease(num);
+
+							iVal = cfg.netEnd;
+							num  = CFNumberCreate(NULL, kCFNumberIntType, &iVal);
+							CFArrayAppendValue(array, num);
+							CFRelease(num);
+
+							CFDictionarySetValue(newDict, kSCPropNetAppleTalkNetworkRange, array);
+							CFRelease(array);
+						}
+
+						/*
+						 * Set the default zone
+						 */
+						zone = CFStringCreateWithPascalString(NULL,
+										      (ConstStr255Param)&cfg.zonename,
+										      kCFStringEncodingMacRoman);
+						CFDictionarySetValue(newDict, kSCPropNetAppleTalkDefaultZone, zone);
+						CFRelease(zone);
+					}
+
+					break;
+				}
+
+				default :
+				{
+					SCLog(TRUE, LOG_DEBUG, CFSTR("sysctl() returned address w/family=%d"), sa->sa_family);
+					break;
+				}
+			}
+		}
+
+		if (!skip) {
+			if (!dict || !CFEqual(dict, newDict)) {
+				if (CFDictionaryGetCount(newDict) > 0) {
+					if (!SCDynamicStoreSetValue(store, key, newDict)) {
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreSetValue() failed: %s"),
+						      SCErrorString(SCError()));
+					}
+				} else if (dict) {
+					if (!SCDynamicStoreRemoveValue(store, key)) {
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreRemoveValue() failed: %s"),
+						      SCErrorString(SCError()));
+					}
+				}
+			}
+			if (dict) {
+				CFRelease(dict);
+				dict = NULL;
+			}
+			CFRelease(newDict);
+			newDict = NULL;
+			CFRelease(key);
+		}
+	}
+
+	/* if the last address[es] were removed from the target interface */
+	if (if_name && !interfaceFound) {
+		interface = CFStringCreateWithCString(NULL, ifr_name, kCFStringEncodingMacRoman);
+		key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									  kSCDynamicStoreDomainState,
+									  interface,
+									  kSCEntNetAppleTalk);
+		CFRelease(interface);
+
+		dict = SCDynamicStoreCopyValue(store, key);
+		if (dict) {
+			if (isA_CFDictionary(dict)) {
+				newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNetworkID);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNodeID);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkNetworkRange);
+				CFDictionaryRemoveValue(newDict, kSCPropNetAppleTalkDefaultZone);
+				if (CFDictionaryGetCount(newDict) > 0) {
+					if (!SCDynamicStoreSetValue(store, key, newDict)) {
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreSetValue() failed: %s"),
+						      SCErrorString(SCError()));
+					}
+				} else {
+					if (!SCDynamicStoreRemoveValue(store, key)) {
+						SCLog(TRUE,
+						      LOG_DEBUG,
+						      CFSTR("SCDynamicStoreRemoveValue() failed: %s"),
+						      SCErrorString(SCError()));
+					}
+				}
+				CFRelease(newDict);		newDict = NULL;
+			}
+			CFRelease(dict);
+		}
+		CFRelease(key);
+	}
+
+    error :
+
+	if (buf)	CFAllocatorDeallocate(NULL, buf);
+
+	return;
+}
+
+
+static CFMutableDictionaryRef
+copy_entity(CFStringRef key)
+{
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict		= NULL;
+
+	dict = SCDynamicStoreCopyValue(store, key);
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict) != NULL) {
+			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		}
+		CFRelease(dict);
+	}
+	if (newDict == NULL) {
+		newDict = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+	}
+	return (newDict);
+}
+
+static CFStringRef
+create_interface_key(const char * if_name)
 {
 	CFStringRef		interface;
 	CFStringRef		key;
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict		= NULL;
-	CFBooleanRef		state		= NULL;
 
-	/* get the current cache information */
 	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
 	key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 								  kSCDynamicStoreDomainState,
 								  interface,
 								  kSCEntNetLink);
 	CFRelease(interface);
+	return (key);
+}
+
+static void
+interface_update_status(const char *if_name, CFBooleanRef active,
+			boolean_t attach)
+{
+	CFStringRef		key		= NULL;
+	CFMutableDictionaryRef	newDict		= NULL;
+	CFBooleanRef		state		= NULL;
+
+	key = create_interface_key(if_name);
+	newDict = copy_entity(key);
+	state = isA_CFBoolean(CFDictionaryGetValue(newDict,
+						   kSCPropNetLinkActive));
+	/* if new status available, update cache */
+	if (active == NULL) {
+	    CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);
+	}
+	else {
+	    CFDictionarySetValue(newDict, kSCPropNetLinkActive, active);
+	}
+	if (attach == TRUE) {
+		/* the interface was attached, remove stale state */
+		CFDictionaryRemoveValue(newDict, kSCPropNetLinkDetaching);
+	}
+
+	/* update status */
+	if (CFDictionaryGetCount(newDict) == 0) {
+		if (!SCDynamicStoreRemoveValue(store, key)) {
+			if (SCError() != kSCStatusNoKey) {
+				SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreRemoveValue() failed: %s"), SCErrorString(SCError()));
+			}
+		}
+	}
+	else if (!SCDynamicStoreSetValue(store, key, newDict)) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
+	}
+
+	CFRelease(key);
+	CFRelease(newDict);
+	return;
+}
+
+static void
+interface_detaching(const char *if_name)
+{
+	CFStringRef		key		= NULL;
+	CFMutableDictionaryRef	newDict		= NULL;
+
+	key = create_interface_key(if_name);
+	newDict = copy_entity(key);
+	CFDictionarySetValue(newDict, kSCPropNetLinkDetaching,
+			     kCFBooleanTrue);
+	if (!SCDynamicStoreSetValue(store, key, newDict)) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
+	}
+	CFRelease(key);
+	CFRelease(newDict);
+	return;
+}
+
+static void
+interface_remove(const char *if_name)
+{
+	CFStringRef		key		= NULL;
+
+	key = create_interface_key(if_name);
+	if (!SCDynamicStoreRemoveValue(store, key)) {
+		if (SCError() != kSCStatusNoKey) {
+			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreRemoveValue() failed: %s"), SCErrorString(SCError()));
+		}
+	}
+	CFRelease(key);
+	return;
+}
+
+
+static void
+interface_update_atalk_address(struct kev_atalk_data *aEvent, const char *if_name)
+{
+	CFStringRef		interface;
+	CFStringRef		key;
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict = NULL;
+	CFNumberRef		newNode, newNet;
+	int			node;
+	int			net;
+
+	/* get the current cache information */
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+								  kSCDynamicStoreDomainState,
+								  interface,
+								  kSCEntNetAppleTalk);
+	CFRelease(interface);
 
 	dict = SCDynamicStoreCopyValue(store, key);
 	if (dict) {
 		if (isA_CFDictionary(dict)) {
 			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-			state   = isA_CFBoolean(CFDictionaryGetValue(newDict, kSCPropNetLinkActive));
 		}
 		CFRelease(dict);
 	}
@@ -476,24 +910,23 @@ interface_update_status(const char *if_name, CFBooleanRef active)
 						    &kCFTypeDictionaryValueCallBacks);
 	}
 
-	if (active) {
-		/* if new status available, update cache */
-		CFDictionarySetValue(newDict, kSCPropNetLinkActive, active);
-	} else {
-		/* if new status not available */
-		if (!state) {
-			/* if old status was not recorded in the cache */
-			goto done;
-		}
-		CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);
-	}
+	/* Update node/net values in cache */
+	node	= (int)aEvent->node_data.address.s_node;
+	net	= (int)aEvent->node_data.address.s_net;
 
-	/* update status */
+	newNode	= CFNumberCreate(NULL, kCFNumberIntType, &node);
+	newNet 	= CFNumberCreate(NULL, kCFNumberIntType, &net);
+
+	CFDictionarySetValue(newDict, kSCPropNetAppleTalkNodeID, newNode);
+	CFDictionarySetValue(newDict, kSCPropNetAppleTalkNetworkID, newNet);
+
+	CFRelease(newNode);
+	CFRelease(newNet);
+
+	/* update cache */
 	if (!SCDynamicStoreSetValue(store, key, newDict)) {
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
 	}
-
-    done :
 
 	CFRelease(newDict);
 	CFRelease(key);
@@ -502,10 +935,102 @@ interface_update_status(const char *if_name, CFBooleanRef active)
 
 
 static void
+interface_update_atalk_zone(struct kev_atalk_data *aEvent, const char *if_name)
+{
+	CFStringRef		interface;
+	CFStringRef		key;
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict	= NULL;
+	CFStringRef		newZone;
+
+	/* get the current cache information */
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+								  kSCDynamicStoreDomainState,
+								  interface,
+								  kSCEntNetAppleTalk);
+	CFRelease(interface);
+
+	dict = SCDynamicStoreCopyValue(store, key);
+	if (dict) {
+		if (isA_CFDictionary(dict)) {
+			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		}
+		CFRelease(dict);
+	}
+
+	if (!newDict) {
+		newDict = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+	}
+
+	/* Update zone value in cache */
+	newZone = CFStringCreateWithPascalString(NULL, (ConstStr255Param)&(aEvent->node_data.zone), kCFStringEncodingMacRoman);
+
+	CFDictionarySetValue(newDict, kSCPropNetAppleTalkDefaultZone, newZone);
+
+	CFRelease(newZone);
+
+	/* update cache */
+	if (!SCDynamicStoreSetValue(store, key, newDict)) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
+	}
+
+	CFRelease(newDict);
+	CFRelease(key);
+	return;
+}
+
+
+static void
+interface_update_shutdown_atalk()
+{
+	CFStringRef			cacheKey;
+	CFDictionaryRef			dict1;
+	CFArrayRef			ifList = NULL;
+	CFIndex 			count, index;
+	CFStringRef 			interface;
+	CFStringRef			key;
+
+	cacheKey  = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+							    kSCDynamicStoreDomainState);
+
+	dict1 = SCDynamicStoreCopyValue(store, cacheKey);
+	CFRelease(cacheKey);
+
+	if (dict1) {
+		if (isA_CFDictionary(dict1)) {
+			/*get a list of the interfaces*/
+			ifList  = isA_CFArray(CFDictionaryGetValue(dict1, kSCDynamicStorePropNetInterfaces));
+			if (ifList) {
+				count = CFArrayGetCount(ifList);
+
+				/*iterate through list and remove AppleTalk data*/
+				for (index = 0; index < count; index++) {
+					interface = CFArrayGetValueAtIndex(ifList, index);
+					key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+												  kSCDynamicStoreDomainState,
+												  interface,
+												  kSCEntNetAppleTalk);
+					SCDynamicStoreRemoveValue(store, key);
+					CFRelease(key);
+				}
+			}
+		}
+		CFRelease(dict1);
+	}
+
+	return;
+}
+
+
+static void
 link_update_status(const char *if_name)
 {
 	struct ifmediareq	ifm;
-	CFBooleanRef		active;
+	CFBooleanRef		active = NULL;
 	int			sock = -1;
 
 	sock = inet_dgram_socket();
@@ -537,8 +1062,8 @@ link_update_status(const char *if_name)
 		active = kCFBooleanFalse;
 	}
 
-	interface_update_status(if_name, active);
  done:
+	interface_update_status(if_name, active, TRUE);
 	if (sock >= 0)
 		close(sock);
 	return;
@@ -584,23 +1109,16 @@ link_add(const char *if_name)
 
 	if (CFArrayContainsValue(newIFList,
 				 CFRangeMake(0, CFArrayGetCount(newIFList)),
-				 interface)) {
-		/*
-		 * we already know about this interface
-		 */
-		goto done;
+				 interface) == FALSE) {
+		CFArrayAppendValue(newIFList, interface);
+		CFDictionarySetValue(newDict,
+				     kSCDynamicStorePropNetInterfaces,
+				     newIFList);
 	}
-
-	CFArrayAppendValue(newIFList, interface);
-	CFDictionarySetValue(newDict, kSCDynamicStorePropNetInterfaces, newIFList);
 	if (!SCDynamicStoreSetValue(store, cacheKey, newDict)) {
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue() failed: %s"), SCErrorString(SCError()));
 	}
-
 	link_update_status(if_name);
-
-    done:
-
 	CFRelease(cacheKey);
 	CFRelease(interface);
 	if (newDict)	CFRelease(newDict);
@@ -655,7 +1173,7 @@ link_remove(const char *if_name)
 		      SCErrorString(SCError()));
 	}
 
-	interface_update_status(if_name, NULL);
+	interface_remove(if_name);
 
     done:
 
@@ -675,6 +1193,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	int			dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
 	struct net_event_data	*nEvent;
 	struct kev_in_data	*iEvent;
+	struct kev_atalk_data	*aEvent;
 	char			ifr_name[IFNAMSIZ+1];
 
 	switch (ev_msg->kev_subclass) {
@@ -687,7 +1206,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				case KEV_INET_SIFDSTADDR :
 				case KEV_INET_SIFBRDADDR :
 				case KEV_INET_SIFNETMASK :
-					snprintf(ifr_name, IFNAMSIZ, "%s%ld", iEvent->link_data.if_name, iEvent->link_data.if_unit);
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", iEvent->link_data.if_name, iEvent->link_data.if_unit);
 					if (dataLen == sizeof(struct kev_in_data)) {
 						interface_update_addresses(ifr_name);
 					} else {
@@ -715,7 +1234,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					 * new interface added
 					 */
 					if (dataLen == sizeof(struct net_event_data)) {
-						snprintf(ifr_name, IFNAMSIZ, "%s%ld", nEvent->if_name, nEvent->if_unit);
+						snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
 						link_add(ifr_name);
 					} else {
 						logEvent(CFSTR("KEV_DL_IF_ATTACHED"), ev_msg);
@@ -727,11 +1246,16 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					 * interface removed
 					 */
 					if (dataLen == sizeof(struct net_event_data)) {
-						snprintf(ifr_name, IFNAMSIZ, "%s%ld", nEvent->if_name, nEvent->if_unit);
+						snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
 						link_remove(ifr_name);
 					} else {
 						logEvent(CFSTR("KEV_DL_IF_DETACHED"), ev_msg);
 					}
+					break;
+
+				case KEV_DL_IF_DETACHING :
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
+					interface_detaching(ifr_name);
 					break;
 
 				case KEV_DL_SIFFLAGS :
@@ -742,8 +1266,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				case KEV_DL_SIFGENERIC :
 				case KEV_DL_ADDMULTI :
 				case KEV_DL_DELMULTI :
-				case KEV_DL_IF_DETACHING :
-					snprintf(ifr_name, IFNAMSIZ, "%s%ld", nEvent->if_name, nEvent->if_unit);
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
 					evStr = CFStringCreateWithFormat(NULL,
 									 NULL,
 									 CFSTR("%s: %s"),
@@ -756,7 +1279,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				case KEV_DL_PROTO_DETACHED : {
 					struct kev_dl_proto_data *	protoEvent = (struct kev_dl_proto_data *)&ev_msg->event_data[0];
 					if (dataLen == sizeof(*protoEvent)) {
-						snprintf(ifr_name, IFNAMSIZ, "%s%ld", nEvent->if_name, nEvent->if_unit);
+						snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
 						if (protoEvent->proto_remaining_count == 0) {
 							mark_if_down(ifr_name);
 						}
@@ -781,11 +1304,11 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					 * update the link status in the cache
 					 */
 					if (dataLen == sizeof(struct net_event_data)) {
-						snprintf(ifr_name, IFNAMSIZ, "%s%ld", nEvent->if_name, nEvent->if_unit);
+						snprintf(ifr_name, sizeof(ifr_name), "%s%ld", nEvent->if_name, nEvent->if_unit);
 						interface_update_status(ifr_name,
 									(ev_msg->event_code == KEV_DL_LINK_ON)
 									? kCFBooleanTrue
-									: kCFBooleanFalse);
+									: kCFBooleanFalse, FALSE);
 					} else {
 						if (ev_msg->event_code == KEV_DL_LINK_OFF) {
 							logEvent(CFSTR("KEV_DL_LINK_OFF"), ev_msg);
@@ -797,6 +1320,80 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 
 				default :
 					logEvent(CFSTR("New Apple network DL subcode"), ev_msg);
+					break;
+			}
+			break;
+
+		case KEV_ATALK_SUBCLASS:
+			aEvent = (struct kev_atalk_data *)&ev_msg->event_data[0];
+			switch (ev_msg->event_code) {
+				case KEV_ATALK_ENABLED:
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", aEvent->link_data.if_name, aEvent->link_data.if_unit);
+					if (dataLen == sizeof(struct kev_atalk_data)) {
+						interface_update_atalk_address(aEvent, ifr_name);
+					} else {
+						evStr = CFStringCreateWithFormat(NULL,
+										 NULL,
+										 CFSTR("%s: %s"),
+										 ifr_name,
+										 atalkEventName[ev_msg->event_code]);
+						logEvent(evStr, ev_msg);
+						CFRelease(evStr);
+					}
+					break;
+
+				case KEV_ATALK_DISABLED:
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", aEvent->link_data.if_name, aEvent->link_data.if_unit);
+					if (dataLen == sizeof(struct kev_atalk_data)) {
+						interface_update_shutdown_atalk();
+					} else {
+						evStr = CFStringCreateWithFormat(NULL,
+										 NULL,
+										 CFSTR("%s: %s"),
+										 ifr_name,
+										 atalkEventName[ev_msg->event_code]);
+						logEvent(evStr, ev_msg);
+						CFRelease(evStr);
+					}
+					break;
+
+				case KEV_ATALK_ZONEUPDATED:
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", aEvent->link_data.if_name, aEvent->link_data.if_unit);
+					if (dataLen == sizeof(struct kev_atalk_data)) {
+						interface_update_atalk_zone(aEvent, ifr_name);
+					} else {
+						evStr = CFStringCreateWithFormat(NULL,
+										 NULL,
+										 CFSTR("%s: %s"),
+										 ifr_name,
+										 atalkEventName[ev_msg->event_code]);
+						logEvent(evStr, ev_msg);
+						CFRelease(evStr);
+					}
+					break;
+
+				case KEV_ATALK_ROUTERUP:
+				case KEV_ATALK_ROUTERUP_INVALID:
+				case KEV_ATALK_ROUTERDOWN:
+					snprintf(ifr_name, sizeof(ifr_name), "%s%ld", aEvent->link_data.if_name, aEvent->link_data.if_unit);
+					if (dataLen == sizeof(struct kev_atalk_data)) {
+						interface_update_appletalk(ifr_name);
+					} else {
+						evStr = CFStringCreateWithFormat(NULL,
+										 NULL,
+										 CFSTR("%s: %s"),
+										 ifr_name,
+										 atalkEventName[ev_msg->event_code]);
+						logEvent(evStr, ev_msg);
+						CFRelease(evStr);
+					}
+					break;
+
+				case KEV_ATALK_ZONELISTCHANGED:
+					break;
+
+				default :
+					logEvent(CFSTR("New Apple network AT subcode"), ev_msg);
 					break;
 			}
 			break;
@@ -952,8 +1549,17 @@ prime()
 		link_add(ifr->ifr_name);
 	}
 
-	/* update IPv4 addresses */
+	/*
+	 * update IPv4 network addresses already assigned to
+	 * the interfaces.
+	 */
 	interface_update_addresses(NULL);
+
+	/*
+	 * update AppleTalk network addresses already assigned
+	 * to the interfaces.
+	 */
+	interface_update_appletalk(NULL);
 
  done:
 	if (sock >= 0)
@@ -984,8 +1590,8 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
 	if (bundleVerbose) {
 		_verbose = TRUE;
-	}       
- 
+	}
+
 	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
 	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
 
@@ -1058,6 +1664,7 @@ main(int argc, char **argv)
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
+	prime();
 	CFRunLoopRun();
 	/* not reached */
 	exit(0);

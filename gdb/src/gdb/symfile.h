@@ -1,5 +1,6 @@
 /* Definitions for reading symbol files into GDB.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -62,6 +63,7 @@ struct psymbol_allocation_list
    symbol_file_add (). */
  
 #define MAX_SECTIONS 256
+
 struct section_addr_info 
 {
   /* Sections whose names are file format dependent. */
@@ -216,18 +218,27 @@ extern char *obconcat (struct obstack *obstackp, const char *, const char *,
 
 			/*   Variables   */
 
-/* whether to auto load solibs at startup time:  0/1. 
-
-   On all platforms, 0 means "don't auto load".
-
-   On HP-UX, > 0 means a threshhold, in megabytes, of symbol table which will
-   be auto loaded.  When the cumulative size of solib symbol table exceeds
-   this threshhold, solibs' symbol tables will not be loaded.
-
-   On other platforms, > 0 means, "always auto load".
- */
+/* If non-zero, shared library symbols will be added automatically
+   when the inferior is created, new libraries are loaded, or when
+   attaching to the inferior.  This is almost always what users will
+   want to have happen; but for very large programs, the startup time
+   will be excessive, and so if this is a problem, the user can clear
+   this flag and then add the shared library symbols as needed.  Note
+   that there is a potential for confusion, since if the shared
+   library symbols are not loaded, commands like "info fun" will *not*
+   report all the functions that are actually present. */
 
 extern int auto_solib_add;
+
+/* For systems that support it, a threshold size in megabytes.  If
+   automatically adding a new library's symbol table to those already
+   known to the debugger would cause the total shared library symbol
+   size to exceed this threshhold, then the shlib's symbols are not
+   added.  The threshold is ignored if the user explicitly asks for a
+   shlib to be added, such as when using the "sharedlibrary"
+   command. */
+
+extern int auto_solib_limit;
 
 /* From symfile.c */
 
@@ -242,7 +253,11 @@ extern void find_lowest_section (bfd *, asection *, PTR);
 extern bfd *symfile_bfd_open (const char *);
 
 /* Utility functions for overlay sections: */
-extern int overlay_debugging;
+extern enum overlay_debugging_state {
+  ovly_off, 
+  ovly_on, 
+  ovly_auto
+} overlay_debugging;
 extern int overlay_cache_invalid;
 
 /* return the "mapped" overlay section  containing the PC */
@@ -272,6 +287,12 @@ extern CORE_ADDR overlay_unmapped_address (CORE_ADDR, asection *);
 /* convert an address in an overlay section (force into VMA range) */
 extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, asection *);
 
+/* Load symbols from a file. */
+extern void symbol_file_add_main (char *args, int from_tty);
+
+/* Clear GDB symbol tables. */
+extern void symbol_file_clear (int from_tty);
+
 /* From dwarfread.c */
 
 extern void
@@ -283,6 +304,7 @@ dwarf_build_psymtabs (struct objfile *, int, file_ptr, unsigned int,
 extern int dwarf2_has_info (bfd * abfd);
 
 extern void dwarf2_build_psymtabs (struct objfile *, int);
+extern void dwarf2_build_frame_info (struct objfile *);
 
 /* From mdebugread.c */
 

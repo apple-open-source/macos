@@ -213,9 +213,14 @@ protected:
     struct ExpansionData { };
     
     ExpansionData *reserved;
-    
+
+public:
+// This takes the 0th reserved slot:
+    virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioEngine, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
+
     OSMetaClassDeclareReservedUnused(IOAudioEngine, 1);
     OSMetaClassDeclareReservedUnused(IOAudioEngine, 2);
     OSMetaClassDeclareReservedUnused(IOAudioEngine, 3);
@@ -265,7 +270,6 @@ private:
     OSMetaClassDeclareReservedUnused(IOAudioEngine, 47);
 
 public:
-
     /*!
      * @function createDictionaryFromSampleRate
      * @abstract Internal routine used to generate a dictionary matching the given sample rate.

@@ -1,5 +1,6 @@
-/* Native-dependent code for Linux/x86.
-   Copyright 1999, 2000 Free Software Foundation, Inc.
+/* Native-dependent code for GNU/Linux x86.
+
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,7 +22,9 @@
 #include "defs.h"
 #include "inferior.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
+#include "gdb_assert.h"
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/procfs.h>
@@ -30,32 +33,44 @@
 #include <sys/reg.h>
 #endif
 
+#ifdef HAVE_SYS_DEBUGREG_H
+#include <sys/debugreg.h>
+#endif
+
+#ifndef DR_FIRSTADDR
+#define DR_FIRSTADDR 0
+#endif
+
+#ifndef DR_LASTADDR
+#define DR_LASTADDR 3
+#endif
+
+#ifndef DR_STATUS
+#define DR_STATUS 6
+#endif
+
+#ifndef DR_CONTROL
+#define DR_CONTROL 7
+#endif
+
 /* Prototypes for supply_gregset etc.  */
 #include "gregset.h"
 
 /* Prototypes for i387_supply_fsave etc.  */
 #include "i387-nat.h"
 
+/* Defines for XMM0_REGNUM etc. */
+#include "i386-tdep.h"
+
 /* Prototypes for local functions.  */
 static void dummy_sse_values (void);
 
-/* On Linux, threads are implemented as pseudo-processes, in which
-   case we may be tracing more than one process at a time.  In that
-   case, inferior_pid will contain the main process ID and the
-   individual thread (process) ID mashed together.  These macros are
-   used to separate them out.  These definitions should be overridden
-   if thread support is included.  */
-
-#if !defined (PIDGET)	/* Default definition for PIDGET/TIDGET.  */
-#define PIDGET(PID)	PID
-#define TIDGET(PID)	0
-#endif
 
 
-/* The register sets used in Linux ELF core-dumps are identical to the
-   register sets in `struct user' that is used for a.out core-dumps,
-   and is also used by `ptrace'.  The corresponding types are
-   `elf_gregset_t' for the general-purpose registers (with
+/* The register sets used in GNU/Linux ELF core-dumps are identical to
+   the register sets in `struct user' that is used for a.out
+   core-dumps, and is also used by `ptrace'.  The corresponding types
+   are `elf_gregset_t' for the general-purpose registers (with
    `elf_greg_t' the type of a single GP register) and `elf_fpregset_t'
    for the floating-point registers.
 
@@ -77,7 +92,7 @@ static int regmap[] =
 /* Which ptrace request retrieves which registers?
    These apply to the corresponding SET requests as well.  */
 #define GETREGS_SUPPLIES(regno) \
-  (0 <= (regno) && (regno) <= 15)
+  ((0 <= (regno) && (regno) <= 15) || (regno) == I386_LINUX_ORIG_EAX_REGNUM)
 #define GETFPREGS_SUPPLIES(regno) \
   (FP0_REGNUM <= (regno) && (regno) <= LAST_FPU_CTRL_REGNUM)
 #define GETFPXREGS_SUPPLIES(regno) \
@@ -107,6 +122,26 @@ int have_ptrace_getfpxregs =
   0
 #endif
 ;
+
+
+/* Support for the user struct.  */
+
+/* Return the address of register REGNUM.  BLOCKEND is the value of
+   u.u_ar0, which should point to the registers.  */
+
+CORE_ADDR
+register_u_addr (CORE_ADDR blockend, int regnum)
+{
+  return (blockend + 4 * regmap[regnum]);
+}
+
+/* Return the size of the user struct.  */
+
+int
+kernel_u_size (void)
+{
+  return (sizeof (struct user));
+}
 
 
 /* Fetching registers directly from the U area, one at a time.  */
@@ -156,8 +191,8 @@ fetch_register (int regno)
     }
 
   /* Overload thread id onto process id */
-  if ((tid = TIDGET (inferior_pid)) == 0)
-    tid = inferior_pid;		/* no thread id, just use process id */
+  if ((tid = TIDGET (inferior_ptid)) == 0)
+    tid = PIDGET (inferior_ptid);	/* no thread id, just use process id */
 
   offset = U_REGS_OFFSET;
 
@@ -191,7 +226,7 @@ old_fetch_inferior_registers (int regno)
     }
   else
     {
-      for (regno = 0; regno < ARCH_NUM_REGS; regno++)
+      for (regno = 0; regno < NUM_REGS; regno++)
 	{
 	  fetch_register (regno);
 	}
@@ -219,8 +254,8 @@ store_register (int regno)
     }
 
   /* Overload thread id onto process id */
-  if ((tid = TIDGET (inferior_pid)) == 0)
-    tid = inferior_pid;		/* no thread id, just use process id */
+  if ((tid = TIDGET (inferior_ptid)) == 0)
+    tid = PIDGET (inferior_ptid);	/* no thread id, just use process id */
 
   offset = U_REGS_OFFSET;
 
@@ -253,7 +288,7 @@ old_store_inferior_registers (int regno)
     }
   else
     {
-      for (regno = 0; regno < ARCH_NUM_REGS; regno++)
+      for (regno = 0; regno < NUM_REGS; regno++)
 	{
 	  store_register (regno);
 	}
@@ -264,7 +299,7 @@ old_store_inferior_registers (int regno)
 /* Transfering the general-purpose registers between GDB, inferiors
    and core files.  */
 
-/* Fill GDB's register array with the genereal-purpose register values
+/* Fill GDB's register array with the general-purpose register values
    in *GREGSETP.  */
 
 void
@@ -275,6 +310,8 @@ supply_gregset (elf_gregset_t *gregsetp)
 
   for (i = 0; i < NUM_GREGS; i++)
     supply_register (i, (char *) (regp + regmap[i]));
+
+  supply_register (I386_LINUX_ORIG_EAX_REGNUM, (char *) (regp + ORIG_EAX));
 }
 
 /* Fill register REGNO (if it is a general-purpose register) in
@@ -289,7 +326,10 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
 
   for (i = 0; i < NUM_GREGS; i++)
     if ((regno == -1 || regno == i))
-      *(regp + regmap[i]) = *(elf_greg_t *) &registers[REGISTER_BYTE (i)];
+      regcache_collect (i, regp + regmap[i]);
+
+  if (regno == -1 || regno == I386_LINUX_ORIG_EAX_REGNUM)
+    regcache_collect (I386_LINUX_ORIG_EAX_REGNUM, regp + ORIG_EAX);
 }
 
 #ifdef HAVE_PTRACE_GETREGS
@@ -413,7 +453,7 @@ static void store_fpregs (int tid, int regno) {}
 /* Fill GDB's register array with the floating-point and SSE register
    values in *FPXREGSETP.  */
 
-static void
+void
 supply_fpxregset (elf_fpxregset_t *fpxregsetp)
 {
   i387_supply_fxsave ((char *) fpxregsetp);
@@ -423,7 +463,7 @@ supply_fpxregset (elf_fpxregset_t *fpxregsetp)
    *FPXREGSETP with the value in GDB's register array.  If REGNO is
    -1, do this for all registers.  */
 
-static void
+void
 fill_fpxregset (elf_fpxregset_t *fpxregsetp, int regno)
 {
   i387_fill_fxsave ((char *) fpxregsetp, regno);
@@ -469,7 +509,15 @@ store_fpxregs (int tid, int regno)
     return 0;
   
   if (ptrace (PTRACE_GETFPXREGS, tid, 0, &fpxregs) == -1)
-    perror_with_name ("Couldn't read floating-point and SSE registers");
+    {
+      if (errno == EIO)
+	{
+	  have_ptrace_getfpxregs = 0;
+	  return 0;
+	}
+
+      perror_with_name ("Couldn't read floating-point and SSE registers");
+    }
 
   fill_fpxregset (&fpxregs, regno);
 
@@ -546,9 +594,9 @@ fetch_inferior_registers (int regno)
       return;
     }
 
-  /* Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_pid)) == 0)
-    tid = inferior_pid;		/* Not a threaded program.  */
+  /* GNU/Linux LWP ID's are process ID's.  */
+  if ((tid = TIDGET (inferior_ptid)) == 0)
+    tid = PIDGET (inferior_ptid);		/* Not a threaded program.  */
 
   /* Use the PTRACE_GETFPXREGS request whenever possible, since it
      transfers more registers in one system call, and we'll cache the
@@ -592,7 +640,8 @@ fetch_inferior_registers (int regno)
       return;
     }
 
-  internal_error ("Got request for bad register number %d.", regno);
+  internal_error (__FILE__, __LINE__,
+		  "Got request for bad register number %d.", regno);
 }
 
 /* Store register REGNO back into the child process.  If REGNO is -1,
@@ -611,9 +660,9 @@ store_inferior_registers (int regno)
       return;
     }
 
-  /* Linux LWP ID's are process ID's.  */
-  if ((tid = TIDGET (inferior_pid)) == 0)
-    tid = inferior_pid;		/* Not a threaded program.  */
+  /* GNU/Linux LWP ID's are process ID's.  */
+  if ((tid = TIDGET (inferior_ptid)) == 0)
+    tid = PIDGET (inferior_ptid);	/* Not a threaded program.  */
 
   /* Use the PTRACE_SETFPXREGS requests whenever possible, since it
      transfers more registers in one system call.  But remember that
@@ -645,7 +694,83 @@ store_inferior_registers (int regno)
       return;
     }
 
-  internal_error ("Got request to store bad register number %d.", regno);
+  internal_error (__FILE__, __LINE__,
+		  "Got request to store bad register number %d.", regno);
+}
+
+
+static unsigned long
+i386_linux_dr_get (int regnum)
+{
+  int tid;
+  unsigned long value;
+
+  /* FIXME: kettenis/2001-01-29: It's not clear what we should do with
+     multi-threaded processes here.  For now, pretend there is just
+     one thread.  */
+  tid = PIDGET (inferior_ptid);
+
+  /* FIXME: kettenis/2001-03-27: Calling perror_with_name if the
+     ptrace call fails breaks debugging remote targets.  The correct
+     way to fix this is to add the hardware breakpoint and watchpoint
+     stuff to the target vectore.  For now, just return zero if the
+     ptrace call fails.  */
+  errno = 0;
+  value = ptrace (PT_READ_U, tid,
+		  offsetof (struct user, u_debugreg[regnum]), 0);
+  if (errno != 0)
+#if 0
+    perror_with_name ("Couldn't read debug register");
+#else
+    return 0;
+#endif
+
+  return value;
+}
+
+static void
+i386_linux_dr_set (int regnum, unsigned long value)
+{
+  int tid;
+
+  /* FIXME: kettenis/2001-01-29: It's not clear what we should do with
+     multi-threaded processes here.  For now, pretend there is just
+     one thread.  */
+  tid = PIDGET (inferior_ptid);
+
+  errno = 0;
+  ptrace (PT_WRITE_U, tid,
+	  offsetof (struct user, u_debugreg[regnum]), value);
+  if (errno != 0)
+    perror_with_name ("Couldn't write debug register");
+}
+
+void
+i386_linux_dr_set_control (unsigned long control)
+{
+  i386_linux_dr_set (DR_CONTROL, control);
+}
+
+void
+i386_linux_dr_set_addr (int regnum, CORE_ADDR addr)
+{
+  gdb_assert (regnum >= 0 && regnum <= DR_LASTADDR - DR_FIRSTADDR);
+
+  i386_linux_dr_set (DR_FIRSTADDR + regnum, addr);
+}
+
+void
+i386_linux_dr_reset_addr (int regnum)
+{
+  gdb_assert (regnum >= 0 && regnum <= DR_LASTADDR - DR_FIRSTADDR);
+
+  i386_linux_dr_set (DR_FIRSTADDR + regnum, 0L);
+}
+
+unsigned long
+i386_linux_dr_get_status (void)
+{
+  return i386_linux_dr_get (DR_STATUS);
 }
 
 
@@ -654,7 +779,7 @@ store_inferior_registers (int regno)
 /* Provide registers to GDB from a core file.
 
    (We can't use the generic version of this function in
-   core-regset.c, because Linux has *three* different kinds of
+   core-regset.c, because GNU/Linux has *three* different kinds of
    register set notes.  core-regset.c would have to call
    supply_fpxregset, which most platforms don't have.)
 
@@ -667,7 +792,7 @@ store_inferior_registers (int regno)
      2 --- the floating-point register set, in elf_fpregset_t format
      3 --- the extended floating-point register set, in elf_fpxregset_t format
 
-   REG_ADDR isn't used on Linux.  */
+   REG_ADDR isn't used on GNU/Linux.  */
 
 static void
 fetch_core_registers (char *core_reg_sect, unsigned core_reg_size,
@@ -723,7 +848,7 @@ fetch_core_registers (char *core_reg_sect, unsigned core_reg_size,
 }
 
 
-/* The instruction for a Linux system call is:
+/* The instruction for a GNU/Linux system call is:
        int $0x80
    or 0xcd 0x80.  */
 
@@ -752,19 +877,21 @@ static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
    If SIGNAL is nonzero, give it that signal.  */
 
 void
-child_resume (int pid, int step, enum target_signal signal)
+child_resume (ptid_t ptid, int step, enum target_signal signal)
 {
+  int pid = PIDGET (ptid);
+
   int request = PTRACE_CONT;
 
   if (pid == -1)
     /* Resume all threads.  */
     /* I think this only gets used in the non-threaded case, where "resume
-       all threads" and "resume inferior_pid" are the same.  */
-    pid = inferior_pid;
+       all threads" and "resume inferior_ptid" are the same.  */
+    pid = PIDGET (inferior_ptid);
 
   if (step)
     {
-      CORE_ADDR pc = read_pc_pid (pid);
+      CORE_ADDR pc = read_pc_pid (pid_to_ptid (pid));
       unsigned char buf[LINUX_SYSCALL_LEN];
 
       request = PTRACE_SINGLESTEP;
@@ -781,7 +908,8 @@ child_resume (int pid, int step, enum target_signal signal)
       if (read_memory_nobpt (pc, (char *) buf, LINUX_SYSCALL_LEN) == 0
 	  && memcmp (buf, linux_syscall, LINUX_SYSCALL_LEN) == 0)
 	{
-	  int syscall = read_register_pid (LINUX_SYSCALL_REGNUM, pid);
+	  int syscall = read_register_pid (LINUX_SYSCALL_REGNUM,
+	                                   pid_to_ptid (pid));
 
 	  /* Then check the system call number.  */
 	  if (syscall == SYS_sigreturn || syscall == SYS_rt_sigreturn)
@@ -789,7 +917,7 @@ child_resume (int pid, int step, enum target_signal signal)
 	      CORE_ADDR sp = read_register (SP_REGNUM);
 	      CORE_ADDR addr = sp;
 	      unsigned long int eflags;
-	      
+
 	      if (syscall == SYS_rt_sigreturn)
 		addr = read_memory_integer (sp + 8, 4) + 20;
 
@@ -808,7 +936,8 @@ child_resume (int pid, int step, enum target_signal signal)
 }
 
 
-/* Register that we are able to handle Linux ELF core file formats.  */
+/* Register that we are able to handle GNU/Linux ELF core file
+   formats.  */
 
 static struct core_fns linux_elf_core_fns =
 {

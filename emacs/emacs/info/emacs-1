@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,26 +11,22 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
 File: emacs,  Node: Top,  Next: Distrib,  Prev: (dir),  Up: (dir)
@@ -40,8 +36,9 @@ The Emacs Editor
 
    Emacs is the extensible, customizable, self-documenting real-time
 display editor.  This Info file describes how to edit with Emacs and
-some of how to customize it; it corresponds to GNU Emacs version 20.7.
-For information on extending Emacs, see *Note Emacs Lisp: (elisp).
+some of how to customize it; it corresponds to GNU Emacs version
+21.1.  For information on extending Emacs, see *Note Emacs Lisp:
+(elisp).
 
 * Menu:
 
@@ -49,9 +46,11 @@ For information on extending Emacs, see *Note Emacs Lisp: (elisp).
 * Copying::	        The GNU General Public License gives you permission
 			  to redistribute GNU Emacs on certain terms;
 			  it also explains that there is no warranty.
+* GNU Free Documentation License:: The license for this documentation.
 * Intro::	        An introduction to Emacs concepts.
 * Glossary::	        The glossary.
-* Antinews::	        Information about Emacs version 19.
+* Antinews::	        Information about Emacs version 20.
+* Mac OS::              Using Emacs in the Mac.
 * MS-DOS::              Using Emacs on MS-DOS (otherwise known as "MS-DOG").
 * Manifesto::	        What's GNU?  Gnu's Not Unix!
 * Acknowledgments::     Major contributors to GNU Emacs.
@@ -61,6 +60,8 @@ Indexes (nodes containing large menus)
 * Command Index::       An item for each command name.
 * Variable Index::      An item for each documented variable.
 * Concept Index::       An item for each concept.
+
+* Option Index::        An item for every command-line option.
 
 Important General Concepts
 * Screen::	        How to interpret what you see on the screen.
@@ -105,6 +106,7 @@ Advanced Features
 * Text::	        Commands and modes for editing English.
 * Programs::	        Commands and modes for editing programs.
 * Building::	        Compiling, running and debugging programs.
+* Maintaining::         Features for maintaining large programs.
 * Abbrevs::	        How to define text abbreviations to reduce
 			  the number of characters you must type.
 * Picture::	        Editing pictures made up of characters
@@ -117,9 +119,9 @@ Advanced Features
 * Shell::	        Executing shell commands from Emacs.
 * Emacs Server::        Using Emacs as an editing server for `mail', etc.
 * Hardcopy::	        Printing buffers or regions.
-* Postscript::	        Printing buffers or regions as Postscript.
-* Postscript Variables::
-                        Customizing the Postscript printing commands.
+* PostScript::	        Printing buffers or regions as PostScript.
+* PostScript Variables::
+                        Customizing the PostScript printing commands.
 * Sorting::	        Sorting lines, paragraphs or pages within Emacs.
 * Narrowing::	        Restricting display and editing to a portion
 		          of the buffer.
@@ -131,8 +133,9 @@ Advanced Features
                         Saving Emacs state from one session to the next.
 * Recursive Edit::      A command can allow you to do editing
 			  "within the command".  This is called a
-			  `recursive editing level'.
+			  "recursive editing level".
 * Emulation::	        Emulating some other editors with Emacs.
+* Hyperlinking::        Following links in buffers.
 * Dissociated Press::   Dissociating text for fun.
 * Amusements::	        Various games and hacks.
 * Customization::       Modifying the behavior of Emacs.
@@ -229,7 +232,7 @@ Controlling the Display
 * Selective Display::      Hiding lines with lots of indentation.
 * Optional Mode Line::     Optional mode line display features.
 * Text Display::           How text is normally displayed.
-* Display Vars::           Information on variables for customizing display.
+* Display Custom::         Information on variables for customizing display.
 
 Searching and Replacement
 
@@ -294,7 +297,7 @@ Using Multiple Buffers
 
 * Select Buffer::       Creating a new buffer or reselecting an old one.
 * List Buffers::        Getting a list of buffers that exist.
-* Misc Buffer::	        Renaming; changing read-onlyness; copying text.
+* Misc Buffer::	        Renaming; changing read-onliness; copying text.
 * Kill Buffer::	        Killing buffers you no longer need.
 * Several Buffers::     How to go through the list of all buffers
 			  and operate variously on several of them.
@@ -314,30 +317,34 @@ Frames and X Windows
 
 * Mouse Commands::      Moving, cutting, and pasting, with the mouse.
 * Secondary Selection:: Cutting without altering point and mark.
+* Clipboard::           Using the clipboard for selections.
 * Mouse References::    Using the mouse to select an item from a list.
 * Menu Mouse Clicks::   Mouse clicks that bring up menus.
 * Mode Line Mouse::     Mouse clicks on the mode line.
 * Creating Frames::     Creating additional Emacs frames with various contents.
+* Frame Commands::      Iconifying, deleting, and switching frames.
+* Speedbar::            How to make and use a speedbar frame.
 * Multiple Displays::   How one Emacs job can talk to several displays.
 * Special Buffer Frames::  You can make certain buffers have their own frames.
 * Frame Parameters::    Changing the colors and other modes of frames.
 * Scroll Bars::	        How to enable and disable scroll bars; how to use them.
+* Wheeled Mice::        Using mouse wheels for scrolling.
 * Menu Bars::	        Enabling and disabling the menu bar.
+* Tool Bars::           Enabling and disabling the tool bar.
+* Dialog Boxes::        Controlling use of dialog boxes.
 * Faces::	        How to change the display style using faces.
 * Font Lock::           Minor mode for syntactic highlighting using faces.
-* Support Modes::       Font Lock support modes make Font Lock faster.
-* Misc X::	        Iconifying and deleting frames.  Region highlighting.
+* Highlight Changes::   Using colors to show where you changed the buffer.
+* Highlight Interactively:: Tell Emacs what text to highlight.
+* Trailing Whitespace:: Showing possibly-spurious trailing whitespace.
+* Tooltips::            Showing "tooltips", AKA "ballon help" for active text.
+* Mouse Avoidance::     Moving the mouse pointer out of the way.
 * Non-Window Terminals::  Multiple frames on terminals that show only one.
-
-Font Lock Support Modes
-
-* Fast Lock Mode::      Saving font information in files.
-* Lazy Lock Mode::      Fontifying only text that is actually displayed.
-* Fast or Lazy::        Which support mode is best for you?
+* XTerm Mouse::         Using the mouse in an XTerm terminal emulator.
 
 International Character Set Support
 
-* International Intro::     Basic concepts of multibyte characters.
+* International Chars::     Basic concepts of multibyte characters.
 * Enabling Multibyte::      Controlling whether to use multibyte characters.
 * Language Environments::   Setting things up for the language you use.
 * Input Methods::           Entering text characters not on your keyboard.
@@ -349,7 +356,7 @@ International Character Set Support
 * Fontsets::                Fontsets are collections of fonts
                               that cover the whole spectrum of characters.
 * Defining Fontsets::       Defining a new fontset.
-* Single-Byte European Support::
+* Single-Byte Character Support::
                             You can pick one European character set
                             to use without multibyte characters.
 
@@ -389,52 +396,74 @@ Filling Text
 Editing Programs
 
 * Program Modes::       Major modes for editing programs.
-* Lists::	        Expressions with balanced parentheses.
-* List Commands::       The commands for working with list and sexps.
-* Defuns::	        Each program is made up of separate functions.
-			  There are editing commands to operate on them.
+* Defuns::              Commands to operate on major top-level parts
+                          of a program.
 * Program Indent::      Adjusting indentation to show the nesting.
-* Matching::	        Insertion of a close-delimiter flashes matching open.
 * Comments::	        Inserting, killing, and aligning comments.
-* Balanced Editing::    Inserting two matching parentheses at once, etc.
-* Symbol Completion::   Completion on symbol names of your program or language.
+* Parentheses::         Commands that operate on parentheses.
 * Documentation::       Getting documentation of functions you plan to call.
-* Change Log::	        Maintaining a change history for your program.
-* Tags::	        Go directly to any function in your program in one
-			  command.  Tags remembers which file it is in.
-* Emerge::	        A convenient way of merging two versions of a program.
-* C Modes::             Special commands of C, C++, Objective-C and Java modes.
-* Fortran::	        Fortran mode and its special features.
-* Asm Mode::	        Asm mode and its special features.
+* Hideshow::            Displaying blocks selectively.
+* Symbol Completion::   Completion on symbol names of your program or language.
+* Glasses::             Making identifiersLikeThis more readable.
+* Misc for Programs::   Other Emacs features useful for editing programs.
+* C Modes::             Special commands of C, C++, Objective-C,
+                          Java, and Pike modes.
+* Fortran::             Fortran mode and its special features.
+* Asm Mode::            Asm mode and its special features.
+
+Top-Level Definitions, or Defuns
+
+* Left Margin Paren::   An open-paren or similar opening delimiter
+                          starts a defun if it is at the left margin.
+* Moving by Defuns::    Commands to move over or mark a major definition.
+* Imenu::               Making buffer indexes as menus.
+* Which Function::      Which Function mode shows which function you are in.
 
 Indentation for Programs
 
 * Basic Indent::	Indenting a single line.
-* Multi-line Indent::	Commands to reindent many lines at once.
+* Multi-line Indent::   Commands to reindent many lines at once.
 * Lisp Indent::		Specifying how each Lisp function should be indented.
-* C Indent::		Choosing an indentation style for C code.
+* C Indent::		Extra features for indenting C and related modes.
+* Custom C Indent::	Controlling indentation style for C and related modes.
 
-Tags Tables
+Commands for Editing with Parentheses
 
-* Tag Syntax::		Tag syntax for various types of code and text files.
-* Create Tags Table::	Creating a tags table with `etags'.
-* Select Tags Table::	How to visit a tags table.
-* Find Tag::		Commands to find the definition of a specific tag.
-* Tags Search::		Using a tags table for searching and replacing.
-* List Tags::		Listing and finding tags defined in a file.
+* Expressions::         Expressions with balanced parentheses.
+* Moving by Parens::    Commands for moving up, down and across
+                          in the structure of parentheses.
+* Matching::	        Insertion of a close-delimiter flashes matching open.
 
-Merging Files with Emerge
+Manipulating Comments
 
-* Overview of Emerge::	How to start Emerge.  Basic concepts.
-* Submodes of Emerge::	Fast mode vs. Edit mode.
-			  Skip Prefers mode and Auto Advance mode.
-* State of Difference::	You do the merge by specifying state A or B
-			  for each difference.
-* Merge Commands::	Commands for selecting a difference,
-			  changing states of differences, etc.
-* Exiting Emerge::	What to do when you've finished the merge.
-* Combining in Emerge::	    How to keep both alternatives for a difference.
-* Fine Points of Emerge::   Misc.
+* Comment Commands::    Inserting, killing, and indenting comments.
+* Multi-Line Comments:: Commands for adding and editing multi-line comments.
+* Options for Comments::Customizing the comment features.
+
+Documentation Lookup
+
+* Info Lookup::         Looking up library functions and commands
+                          in Info files.
+* Man Page::            Looking up man pages of library functions and commands.
+* Lisp Doc::            Looking up Emacs Lisp functions, etc.
+
+C and Related Modes
+
+* Motion in C::         Commands to move by C statements, etc.
+* Electric C::          Colon and other chars can automatically reindent.
+* Hungry Delete::       A more powerful DEL command.
+* Other C Commands::    Filling comments, viewing expansion of macros,
+                          and other neat features.
+* Comments in C::       Options for customizing comment style.
+
+Fortran Mode
+
+* Motion: Fortran Motion.	 Moving point by statements or subprograms.
+* Indent: Fortran Indent.	 Indentation commands for Fortran.
+* Comments: Fortran Comments.	 Inserting and aligning comments.
+* Autofill: Fortran Autofill.	 Auto fill minor mode for Fortran.
+* Columns: Fortran Columns.	 Measuring columns for valid Fortran.
+* Abbrev: Fortran Abbrev.	 Built-in abbrevs for Fortran keywords.
 
 Compiling and Testing Programs
 
@@ -459,6 +488,36 @@ Running Debuggers Under Emacs
 * Commands of GUD::	Key bindings for common commands.
 * GUD Customization::	Defining your own commands for GUD.
 
+Maintaining Programs
+
+* Change Log::	        Maintaining a change history for your program.
+* Authors::             Maintaining the Emacs `AUTHORS' file.
+* Tags::	        Go direct to any function in your program in one
+			  command.  Tags remembers which file it is in.
+* Emerge::	        A convenient way of merging two versions of a program.
+
+Tags Tables
+
+* Tag Syntax::		Tag syntax for various types of code and text files.
+* Create Tags Table::	Creating a tags table with `etags'.
+* Select Tags Table::	How to visit a tags table.
+* Find Tag::		Commands to find the definition of a specific tag.
+* Tags Search::		Using a tags table for searching and replacing.
+* List Tags::		Listing and finding tags defined in a file.
+
+Merging Files with Emerge
+
+* Overview of Emerge::	How to start Emerge.  Basic concepts.
+* Submodes of Emerge::	Fast mode vs. Edit mode.
+			  Skip Prefers mode and Auto Advance mode.
+* State of Difference::	You do the merge by specifying state A or B
+			  for each difference.
+* Merge Commands::	Commands for selecting a difference,
+			  changing states of differences, etc.
+* Exiting Emerge::	What to do when you've finished the merge.
+* Combining in Emerge::	    How to keep both alternatives for a difference.
+* Fine Points of Emerge::   Misc.
+
 Abbrevs
 
 * Abbrev Concepts::     Fundamentals of defined abbrevs.
@@ -482,7 +541,7 @@ Sending Mail
 * Mail Headers::        Details of permitted mail header fields.
 * Mail Aliases::        Abbreviating and grouping mail addresses.
 * Mail Mode::   	Special commands for editing mail being composed.
-* Distracting NSA::     How to distract the NSA's attention.
+* Mail Amusements::     Distract the NSA's attention; add a fortune to a msg.
 * Mail Methods::        Using alternative mail-composition methods.
 
 Reading Mail with Rmail
@@ -509,7 +568,7 @@ Reading Mail with Rmail
 Dired, the Directory Editor
 
 * Dired Enter:: 	     How to invoke Dired.
-* Dired Commands::           Commands in the Dired buffer.
+* Dired Navigation::         How to move in the Dired buffer.
 * Dired Deletion::           Deleting files with Dired.
 * Flagging Many Files::      Flagging files based on their names.
 * Dired Visiting::           Other file operations through Dired.
@@ -638,7 +697,7 @@ The Init File, `~/.emacs'
 
 Dealing with Emacs Trouble
 
-* DEL Gets Help::       What to do if <DEL> doesn't delete.
+* DEL Does Not Delete:: What to do if <DEL> doesn't delete.
 * Stuck Recursive::     `[...]' in mode line around the parentheses.
 * Screen Garbled::      Garbage on the screen.
 * Text Garbled::        Garbage in the text.
@@ -673,7 +732,7 @@ Command Line Options and Arguments
 * Icons X::             Choosing what sort of icon to use, under X.
 * Resources X::         Advanced use of classes and resources, under X.
 * Lucid Resources::     X resources for Lucid menus.
-* Motif Resources::     X resources for Motif menus.
+* LessTif Resources::   X resources for LessTif and Motif menus.
 
 Environment Variables
 

@@ -27,40 +27,81 @@
 #define _MDSSCHEMA_H
 
 #include <Security/cssmtype.h>
+#include <Security/MDSAttrStrings.h>
+
+namespace Security
+{
 
 // Structure used to store information which is needed to create
-// a relation with indexes.
-
+// a relation with indexes. The info in one of these structs maps to one
+// record type in a CSSM_DBINFO - both record attribute info and index info.
+// The nameValues field refers to an array of MDSNameValuePair array pointers
+// which are used to convert attribute values from strings to uint32s via
+// MDS_StringToUint32. The nameValues array is parallel to the AttributeInfo
+// array.
 struct RelationInfo {
-	CSSM_DB_RECORDTYPE relationId;
+	CSSM_DB_RECORDTYPE DataRecordType;
 	const char *relationName;
-	uint32 numAttributes;
-	const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *attributes;
-	uint32 numIndexes;
-	const CSSM_DB_SCHEMA_INDEX_INFO *indexes;
+	uint32 NumberOfAttributes;
+	const CSSM_DB_ATTRIBUTE_INFO *AttributeInfo;
+	const MDSNameValuePair **nameValues;
+	uint32 NumberOfIndexes;
+	const CSSM_DB_INDEX_INFO *IndexInfo;
 };
 
 // Macros used to simplify declarations of attributes and indexes.
 
-#define SCHEMA_ATTRIBUTE(id, name, type) \
-	{ id, #name, { 0, NULL }, CSSM_DB_ATTRIBUTE_FORMAT_ ## type }
-	
-#define UNIQUE_INDEX_ATTRIBUTE(attributeId) \
-	{ attributeId, 0, CSSM_DB_INDEX_UNIQUE, CSSM_DB_INDEX_ON_ATTRIBUTE }
+// declare a CSSM_DB_ATTRIBUTE_INFO
+#define DB_ATTRIBUTE(name, type) \
+	{  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
+	   {#name}, \
+	   CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
+	}
 
-#define RELATION_INFO(relationId, attributes, indexes) \
+// declare a CSSM_DB_INDEX_INFO
+#define UNIQUE_INDEX_ATTRIBUTE(name, type) \
+	{  CSSM_DB_INDEX_UNIQUE, \
+	   CSSM_DB_INDEX_ON_ATTRIBUTE, \
+	   {  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
+	      {#name}, \
+		  CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
+	   } \
+	}
+
+// declare a RelationInfo
+#define RELATION_INFO(relationId, attributes, nameValues, indexes) \
 	{ relationId, \
 	  #relationId, \
-	  sizeof(attributes) / sizeof(CSSM_DB_SCHEMA_ATTRIBUTE_INFO), \
+	  sizeof(attributes) / sizeof(CSSM_DB_ATTRIBUTE_INFO), \
 	  attributes, \
-	  sizeof(indexes) / sizeof(CSSM_DB_SCHEMA_INDEX_INFO), \
+	  nameValues, \
+	  sizeof(indexes) / sizeof(CSSM_DB_INDEX_INFO), \
 	  indexes }
 
-// Declarations of schema for MDS relations.
-
+// Object directory DB - one built-in schema.
 extern const RelationInfo kObjectRelation;
-extern const RelationInfo kCSSMRelation;
-extern const RelationInfo kKRMMRelation;
-extern const RelationInfo kCommonRelation;
+
+// list of all built-in schema for the CDSA Directory DB.
+extern const RelationInfo kMDSRelationInfo[];
+extern const unsigned kNumMdsRelations;			// size of kMDSRelationInfo[]
+
+// special case "subschema" for parsing CSPCapabilities. 
+extern const RelationInfo CSPCapabilitiesDict1RelInfo;
+extern const RelationInfo CSPCapabilitiesDict2RelInfo;
+extern const RelationInfo CSPCapabilitiesDict3RelInfo;
+
+// special case "subschema" for parsing TPPolicyOids. 
+extern const RelationInfo TpPolicyOidsDict1RelInfo;
+extern const RelationInfo TpPolicyOidsDict2RelInfo;
+
+// Map a CSSM_DB_RECORDTYPE to a RelationInfo *.
+extern const RelationInfo *MDSRecordTypeToRelation(
+	CSSM_DB_RECORDTYPE recordType);
+	
+// same as above, based on record type as string. 
+extern const RelationInfo *MDSRecordTypeNameToRelation(
+	const char *recordTypeName);
+	
+} // end namespace Security
 
 #endif // _MDSSCHEMA_H

@@ -41,7 +41,7 @@ public:
 	/* 
 	 * Generate raw key blob.
 	 * The format argument is an in/out parameter and is optionally used
-	 * to reque4st a specific keyblob format for providers which can generate
+	 * to request a specific keyblob format for providers which can generate
 	 * multiple formats. This value comes from an optional
 	 * CSSM_ATTRIBUTE_{PUBLIC,PRIVATE,SYMMETRIC}_KEY_FORMAT attribute in the current
 	 * context. If so such attribute is present, the default value 

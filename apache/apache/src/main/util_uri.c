@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -428,7 +428,7 @@ API_EXPORT(int) ap_parse_uri_components(pool *p, const char *uri,
         ++s;
         uptr->port_str = ap_pstrndup(p, s, uri - s);
         if (uri != s) {
-            port = strtol(uptr->port_str, &endstr, 10);
+            port = ap_strtol(uptr->port_str, &endstr, 10);
             uptr->port = port;
             if (*endstr == '\0') {
                 goto deal_with_path;
@@ -483,7 +483,7 @@ API_EXPORT(int) ap_parse_hostinfo_components(pool *p, const char *hostinfo,
     ++s;
     uptr->port_str = ap_pstrdup(p, s);
     if (*s != '\0') {
-        uptr->port = (unsigned short)strtol(uptr->port_str, &endstr, 10);
+        uptr->port = (unsigned short)ap_strtol(uptr->port_str, &endstr, 10);
         if (*endstr == '\0') {
             return HTTP_OK;
         }

@@ -1,4 +1,4 @@
-;;; disp-table.el --- functions for dealing with char tables.
+;;; disp-table.el --- functions for dealing with char tables
 
 ;; Copyright (C) 1987, 1994, 1995, 1999 Free Software Foundation, Inc.
 
@@ -23,6 +23,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -121,9 +123,8 @@ Valid symbols are `truncation', `wrap', `escape', `control',
 (defun standard-display-default (l h)
   "Display characters in the range L to H using the default notation."
   (while (<= l h)
-    (if (and (>= l ?\ ) (< l 127))
-	(aset standard-display-table l nil)
-      (aset standard-display-table l nil))
+    (if (and (>= l ?\ ) (char-valid-p l))
+	(aset standard-display-table l nil))
     (setq l (1+ l))))
 
 ;; This function does NOT take terminal-dependent escape sequences.
@@ -139,7 +140,7 @@ Valid symbols are `truncation', `wrap', `escape', `control',
   "Display character C as character SC in the g1 character set.
 This function assumes that your terminal uses the SO/SI characters;
 it is meaningless for an X frame."
-  (if window-system
+  (if (memq window-system '(x w32))
       (error "Cannot use string glyphs in a windowing system"))
   (aset standard-display-table c
 	(vector (create-glyph (concat "\016" (char-to-string sc) "\017")))))
@@ -149,7 +150,7 @@ it is meaningless for an X frame."
   "Display character C as character GC in graphics character set.
 This function assumes VT100-compatible escapes; it is meaningless for an
 X frame."
-  (if window-system
+  (if (memq window-system '(x w32))
       (error "Cannot use string glyphs in a windowing system"))
   (aset standard-display-table c
 	(vector (create-glyph (concat "\e(0" (char-to-string gc) "\e(B")))))
@@ -157,16 +158,15 @@ X frame."
 ;;;###autoload
 (defun standard-display-underline (c uc)
   "Display character C as character UC plus underlining."
-  (if window-system (require 'faces))
   (aset standard-display-table c
 	(vector 
 	 (if window-system
-	     (logior uc (lsh (face-id (internal-find-face 'underline)) 19))
+	     (logior uc (lsh (face-id 'underline) 19))
 	   (create-glyph (concat "\e[4m" (char-to-string uc) "\e[m"))))))
 
-;; Allocate a glyph code to display by sending STRING to the terminal.
 ;;;###autoload
 (defun create-glyph (string)
+  "Allocate a glyph code to display by sending STRING to the terminal."
   (if (= (length glyph-table) 65536)
       (error "No free glyph codes remain"))
   ;; Don't use slots that correspond to ASCII characters.
@@ -176,7 +176,7 @@ X frame."
   (1- (length glyph-table)))
 
 ;;;###autoload
-(defun standard-display-european (arg &optional auto)
+(defun standard-display-european (arg)
   "Semi-obsolete way to toggle display of ISO 8859 European characters.
 
 This function is semi-obsolete; if you want to do your editing with
@@ -199,16 +199,6 @@ selects unibyte mode for all Emacs buffers \(both existing buffers and
 those created subsequently).  This provides increased compatibility
 for users who call this function in `.emacs'."
 
-  ;; If the optional argument AUTO is non-nil, this function
-  ;; does not alter `enable-multibyte-characters'.
-  ;; AUTO also specifies, in this case, the coding system for terminal output.
-  ;; The AUTO argument is meant for use by startup.el only.
-  ;; which is why it is not in the doc string.
-
-  ;; AUTO is `lambda' for an interactive call so that it will not
-  ;; set enable-multibyte-characters but also will not call
-  ;; set-terminal-coding-system.
-  (interactive (list current-prefix-arg 'lambda))
   (if (or (<= (prefix-numeric-value arg) 0)
 	  (and (null arg)
 	       (char-table-p standard-display-table)
@@ -217,12 +207,12 @@ for users who call this function in `.emacs'."
       (progn
 	(standard-display-default 160 255)
 	(unless (or (memq window-system '(x w32))
-		    (eq auto 'lambda))
+		    (interactive-p))
 	  (and (terminal-coding-system)
 	       (set-terminal-coding-system nil))))
     ;; If the user does this explicitly from Lisp (as in .emacs),
     ;; turn off multibyte chars for more compatibility.
-    (unless auto
+    (unless (interactive-p)
       (setq-default enable-multibyte-characters nil)
       (mapcar (lambda (buffer)
 		(with-current-buffer buffer
@@ -232,20 +222,17 @@ for users who call this function in `.emacs'."
     ;; If the user does this explicitly,
     ;; switch to Latin-1 language environment
     ;; unless some other has been specified.
-    (unless auto
+    (unless (interactive-p)
       (if (equal current-language-environment "English")
 	  (set-language-environment "latin-1")))
     (unless (or noninteractive (memq window-system '(x w32))
-		(eq auto 'lambda))
-      ;; Send those codes literally to a non-X terminal.
-      ;; If AUTO is nil, we are using single-byte characters,
-      ;; so it doesn't matter which one we use.
+		(interactive-p))
+      ;; Send those codes literally to a character-based terminal.
+      ;; If we are using single-byte characters,
+      ;; it doesn't matter which coding system we use.
       (set-terminal-coding-system
-       (cond ((not (equal current-language-environment "English"))
-	      (intern (downcase current-language-environment)))
-	     ((eq auto t) 'latin-1)
-	     ((symbolp auto) (or auto 'latin-1))
-	     ((stringp auto) (intern auto)))))
+       (let ((c (intern (downcase current-language-environment))))
+	 (if (coding-system-p c) c 'latin-1))))
     (standard-display-european-internal)))
 
 (provide 'disp-table)

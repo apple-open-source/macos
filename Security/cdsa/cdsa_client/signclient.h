@@ -40,9 +40,11 @@ public:
 	SigningContext(const CSP &csp, CSSM_ALGORITHMS alg, CSSM_ALGORITHMS signOnly = CSSM_ALGID_NONE)
 	: Context(csp, alg), mSignOnly(signOnly) { }
 
-	// preliminary interface
 	Key key() const { assert(mKey); return mKey; }
 	void key(const Key &k) { mKey = k; set(CSSM_ATTRIBUTE_KEY, mKey); }
+    
+    CSSM_ALGORITHMS signOnlyAlgorithm() const	{ return mSignOnly; }
+    void signOnlyAlgorithm(CSSM_ALGORITHMS alg)	{ mSignOnly = alg; }
 
 protected:
 	void activate();
@@ -54,7 +56,8 @@ protected:
 class Sign : public SigningContext
 {
 public:
-	Sign(const CSP &csp, CSSM_ALGORITHMS alg) : SigningContext(csp, alg) { }
+	Sign(const CSP &csp, CSSM_ALGORITHMS alg, CSSM_ALGORITHMS signOnly = CSSM_ALGID_NONE)
+        : SigningContext(csp, alg, signOnly) { }
 	
 	// integrated
 	void sign(const CssmData &data, CssmData &signature) { sign(&data, 1, signature); }
@@ -71,7 +74,8 @@ public:
 class Verify : public SigningContext
 {
 public:
-	Verify(const CSP &csp, CSSM_ALGORITHMS alg) : SigningContext(csp, alg) { }
+	Verify(const CSP &csp, CSSM_ALGORITHMS alg, CSSM_ALGORITHMS verifyOnly = CSSM_ALGID_NONE)
+        : SigningContext(csp, alg, verifyOnly) { }
 	
 	// integrated
 	void verify(const CssmData &data, const CssmData &signature) { verify(&data, 1, signature); }

@@ -5,7 +5,7 @@
  |                           Gdb Support Routines for Plugins                           |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2002                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
  
@@ -28,12 +28,17 @@
 #include "top.h"	// execute_command, get_prompt, instream, line, word brk completer
 #include "gdbtypes.h"	// enum type_code
 #include "gdbcmd.h" 	// cmdlist, execute_user_command, filename_completer
+#include "completer.h"  // cmdlist, execute_user_command, filename_completer
+/* FIXME: We should not have to rely on these details, but there aren't
+   interfaces for all the cmd_list_element bits we need here yet. */
+#include "cli/cli-decode.h"
 #include "expression.h" // parse_expression 
 #include "inferior.h"	// stop_bpstat
 #include "symtab.h"	// struct symtab_and_line, find_pc_line
 #include "frame.h"   	// selected_frame
 #include "parser-defs.h"// target_map_name_to_register
 #include "gdbarch.h"	// gdbarch_register_raw_size
+#include "gdbcore.h"	// memory_error
 
 #define CLASS_BASE 100
 
@@ -249,10 +254,10 @@ Gdb_Cmd_Class gdb_define_class(char *className, char *classTitle)
     new_class = (CLASS_BASE + unique_class++);
     //fprintf(stderr, "gdb_define_class(%s) --> %d\n", className, new_class);
     
-    /* Classes are defined as commands without functions (NO_FUNCTION)...		*/
+    /* Classes are defined as commands without functions...		*/
     
     add_cmd(strcpy((char *)gdb_malloc(strlen(className) + 1), className), new_class,
-    		   NO_FUNCTION, classTitle, &cmdlist);
+    		   NULL, classTitle, &cmdlist);
 	    
     return ((Gdb_Cmd_Class)(new_class));
 }
@@ -1344,11 +1349,11 @@ void gdb_set_string(char *theVariable, char *theString)
  Returns a gdb value pointer representing the evaluated expression result.
 */
 
-static value_ptr expression_to_value_ptr(char *expression)
+static struct value *expression_to_value_ptr(char *expression)
 {
     struct expression *expr;
     struct cleanup    *old_chain;
-    value_ptr         vp;
+    struct value      *vp;
              
     expr = parse_expression(expression);
     old_chain = make_cleanup(free_current_contents, &expr);
@@ -1408,7 +1413,7 @@ double gdb_get_double(char *expression)
 
 char *gdb_get_string(char *theVariable, char *str, int maxlen)
 {
-    value_ptr vp;
+    struct value *vp;
     CORE_ADDR temp;
     int	      i;
     
@@ -1416,7 +1421,7 @@ char *gdb_get_string(char *theVariable, char *str, int maxlen)
     if (!vp)
     	return (strcpy(str, ""));
         
-    temp = value_as_pointer(vp);
+    temp = value_as_address(vp);
     
     for (i = 0; i < maxlen; i++) {
   	QUIT;
@@ -1443,7 +1448,7 @@ char *gdb_get_string(char *theVariable, char *str, int maxlen)
 
 static int is_var_defined(char *theVariable)
 {
-    value_ptr vp = value_of_internalvar(lookup_internalvar(theVariable+1));
+    struct value *vp = value_of_internalvar(lookup_internalvar(theVariable+1));
     
     return ((vp) && VALUE_TYPE(vp) && TYPE_CODE(VALUE_TYPE(vp)) != TYPE_CODE_VOID);
 }
@@ -1491,9 +1496,9 @@ static int is_var_defined(char *theVariable)
  
 char *gdb_set_register(char *theRegister, void *value, int size)
 {
-    int       regnum;
-    char      *start = theRegister, *end;
-    value_ptr vp;
+    int          regnum;
+    char         *start = theRegister, *end;
+    struct value *vp;
     
     if (!target_has_registers)
     	return ("no registers available at this time");
@@ -1602,11 +1607,14 @@ void *gdb_get_register(char *theRegister, void *value, int *size)
 
 unsigned long gdb_read_memory(void *dst, char *src, int n)
 {
-    value_ptr vp = expression_to_value_ptr(src);
+    CORE_ADDR memaddr = parse_and_eval_address(src);
+    int       status;
     
-    target_read_memory(value_as_pointer(vp), dst, n);
+    status = target_read_memory(memaddr, dst, n);
+    if (status != 0)
+	memory_error(status, memaddr);
     
-    return ((unsigned long)value_as_long(vp));
+    return ((CORE_ADDR)memaddr);
 }
 
 
@@ -1620,7 +1628,12 @@ unsigned long gdb_read_memory(void *dst, char *src, int n)
 
 void gdb_write_memory(char *dst, void *src, int n)
 {
-    target_write_memory(parse_and_eval_address(dst), src, n);
+    CORE_ADDR memaddr = parse_and_eval_address(dst);
+    int status;
+    
+    status = target_write_memory(memaddr, src, n);
+    if (status != 0)
+	memory_error(status, memaddr);
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -1896,7 +1909,7 @@ void gdb_verror(const char *fmt, va_list ap)
 
 void gdb_internal_error(char *msg)
 {
-    internal_error(msg);
+    internal_error(__FILE__, __LINE__, msg);
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -2176,7 +2189,7 @@ int gdb_keyword(char *keyword, register char **table)
  
 int gdb_is_string(char *expression)
 {
-    value_ptr 	   vp;
+    struct value   *vp;
     enum type_code type;
     
     if (!expression)

@@ -1,4 +1,4 @@
-.\" Copyright (c) 1983, 1990, 1991, 1993
+.\" Copyright (c) 1983, 1990, 1991, 1993, 2002
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
 .\" This code is derived from software contributed to Berkeley by
@@ -33,7 +33,7 @@
 .\"
 .\"     @(#)quotaon.8	8.2 (Berkeley) 12/11/93
 .\"
-.Dd December 11, 1993
+.Dd March 28, 2002
 .Dt QUOTAON 8
 .Os BSD 4.2
 .Sh NAME
@@ -67,20 +67,31 @@ announces to the system that disk quotas should be enabled on one or more
 filesystems.
 .Nm Quotaoff
 announces to the system that the specified
-filesystems should have any disk quotas
-diskquotas turned off.
-The filesystems specified must have entries in
-.Pa /etc/fstab
-and be mounted.
+filesystems should have disk quotas
+turned off.
+The filesystem must be mounted and it
+must have the
+appropriate mount option file located at its root, the
+.Pa .quota.opts.user
+file for user quota configuration, and the
+.Pa .quota.opts.group
+file for group quota configuration.
 .Nm Quotaon
-expects each filesystem to have quota files named
-.Pa quota.user
-and
-.Pa quota.group
-which are located at the root of the associated file system.
-These defaults may be overridden in
-.Pa /etc/fstab .
-By default both user and group quotas are enabled.
+also expects each filesystem to have the appropriate
+quota data files located at its root, the
+.Pa .quota.user
+file for user data, and the
+.Pa .quota.group
+file for group data.
+These filenames and their root location cannot be overridden.
+By default, 
+.Nm quotaon
+will attempt to enable both 
+user and group quotas.
+By default, 
+.Nm quotaoff
+will disable both
+user and group quotas.
 .Pp
 Available options:
 .Bl -tag -width Ds
@@ -89,20 +100,19 @@ If the
 .Fl a
 flag is supplied in place of any filesystem names,
 .Nm quotaon Ns / Ns Nm quotaoff
-will enable/disable all the filesystems indicated in
-.Pa /etc/fstab
-to be read-write with disk quotas.
-By default only the types of quotas listed in
-.Pa /etc/fstab
-are enabled.
+will enable/disable any filesystems with an existing
+mount option file at its root.  The mount option file
+specifies the types of quotas that are to be configured.
 .It Fl g
-Only group quotas listed in
-.Pa /etc/fstab
-should be enabled/disabled.
+Only group quotas will be enabled/disabled.
+The mount option file,
+.Pa .quota.opts.group ,
+must exist at the root of the filesystem.
 .It Fl u
-Only user quotas listed in
-.Pa /etc/fstab
-should be enabled/disabled.
+Only user quotas will be enabled/disabled.
+The mount option file,
+.Pa .quota.opts.user ,
+must exist at the root of the filesystem.
 .It Fl v
 Causes
 .Nm quotaon
@@ -116,19 +126,29 @@ Specifying both
 and
 .Fl u
 is equivalent to the default.
+.Pp
+Quotas for both users and groups will automatically be turned
+on at filesystem mount if the appropriate mount option file
+and binary data file is in place at its root.
 .Sh FILES
-.Bl -tag -width quota.group -compact
-.It Pa quota.user
-at the filesystem root with user quotas
-.It Pa quota.group
-at the filesystem root with group quotas
-.It Pa /etc/fstab
-filesystem table
+Each of the following quota files is located at the root of the
+mounted filesystem.  The mount option files are empty files
+whose existence indicates that quotas are to be enabled
+for that filesystem.
+.Pp
+.Bl -tag -width .quota.ops.group -compact
+.It Pa .quota.user
+data file containing user quotas
+.It Pa .quota.group
+data file containing group quotas
+.It Pa .quota.ops.user
+mount option file used to enable user quotas
+.It Pa .quota.ops.group
+mount option file used to enable group quotas
 .El
 .Sh SEE ALSO
 .Xr quota 1 ,
 .Xr quotactl 2 ,
-.Xr fstab 5 ,
 .Xr edquota 8 ,
 .Xr quotacheck 8 ,
 .Xr repquota 8

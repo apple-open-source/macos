@@ -1,0 +1,27 @@
+README for Perl extension Curl::easy.
+
+The perl module Curl::easy provides an interface to the cURL library "libcurl".
+See http://curl.haxx.se/ for more information on cURL and libcurl.
+
+This module requires libcurl and the corresponding headerfiles to be
+installed. You then may install this module via the usual way:
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+The module provides the same functionality as libcurl provides to C programs,
+please refer to the documentation of libcurl. Some examples may be found in
+test.pl.
+
+This software is distributed AS IS, WITHOUT WARRANTY OF ANY KIND, either
+express or implied. Send praise, patches, money, beer and pizza to the author.
+Send complaints to /dev/null. ;-)
+
+The author of this software is Georg Horn <horn@koblenz-net.de>
+Parts of the callback support have been added by Cris Bailiff
+<c.bailiff@awayweb.com> and Forrest Cahoon <forrest.cahoon@merrillcorp.com>
+
+The latest version can be downloaded from http://koblenz-net.de/~horn/export/
+

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 33;
+	objectVersion = 34;
 	objects = {
 		0144A1A0FFF0B7F911CA2A1B = {
 			isa = PBXFileReference;
@@ -57,7 +57,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -111,6 +111,7 @@
 				247142CAFF3F8F9811CA285C,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
+				5C55DC5F015FDAC005CE15BF,
 			);
 			isa = PBXGroup;
 			name = AppleMesh;
@@ -135,7 +136,6 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMesh;
 				MODULE_VERSION = 1.1.1;
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -161,7 +161,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMesh</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMesh version 1.1.1, Copyright 2001 Apple Computer, Inc.</string>
+	<string>1.1.1, Copyright 1998-2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -197,6 +197,8 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.iokit.IOSCSIFamily</key>
+		<string>1.0.3</string>
 		<key>com.apple.kernel.iokit</key>
 		<string>1.1.1</string>
 		<key>com.apple.kernel.libkern</key>
@@ -205,7 +207,7 @@
 		<string>1.1.1</string>
 	</dict>
 	<key>OSBundleRequired</key>
-	<string>Root</string>
+	<string>Local-Root</string>
 </dict>
 </plist>
 ";
@@ -323,13 +325,29 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
-				0144A1A0FFF0B7F911CA2A1B,
 				0144A1A1FFF0B7F911CA2A1B,
+				0144A1A0FFF0B7F911CA2A1B,
 			);
 			isa = PBXGroup;
 			name = Source;
 			path = "";
 			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//5C0
+//5C1
+//5C2
+//5C3
+//5C4
+		5C55DC5F015FDAC005CE15BF = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

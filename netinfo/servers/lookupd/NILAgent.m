@@ -100,34 +100,30 @@ static NILAgent *_sharedNILAgent = nil;
 
 - (BOOL)isValid:(LUDictionary *)item
 {
-	time_t now, ttl;
+	time_t now;
 	time_t bestBefore;
 
 	if (item == nil) return NO;
 
-	bestBefore = [item unsignedLongForKey:"_lookup_NIL_timestamp"];
-	ttl = [item unsignedLongForKey:"_lookup_NIL_time_to_live"];
-	bestBefore += ttl;
-
 	now = time(0);
+	bestBefore = [item unsignedLongForKey:"_lookup_NIL_best_before"];
+
 	if (now > bestBefore) return NO;
 	return YES;
 }
 
 - (LUDictionary *)stamp:(LUDictionary *)item
 {
-	time_t now;
+	time_t best_before;
 	char scratch[32];
 
 	[item setNegative:YES];
 
-	now = time(0);
-	sprintf(scratch, "%lu", now);
-	[item setValue:scratch forKey:"_lookup_NIL_timestamp"];
+	best_before = time(0) + timeToLive;
+	sprintf(scratch, "%lu", best_before);
+	[item setValue:scratch forKey:"_lookup_NIL_best_before"];
 
-	[item setValue:"60" forKey:"_lookup_NIL_time_to_live"];
-
-	[item setAgent:self];
+	[item setValue:"NIL" forKey:"_lookup_agent"];
 	[item setValue:"NIL" forKey:"_lookup_info_system"];
 	return item;
 }

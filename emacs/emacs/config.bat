@@ -1,7 +1,8 @@
 @echo off
 rem   ----------------------------------------------------------------------
 rem   Configuration script for MSDOS
-rem   Copyright (C) 1994 Free Software Foundation, Inc.
+rem   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001
+rem   Free Software Foundation, Inc.
 
 rem   This file is part of GNU Emacs.
 
@@ -122,6 +123,19 @@ Goto End
 set djgpp_ver=1
 If ErrorLevel 20 set djgpp_ver=2
 rm -f junk.c junk junk.exe
+rem DJECHO is used by the top-level Makefile
+Echo Checking whether 'djecho' is available...
+redir -o Nul -eo djecho -o junk.$$$ foo
+If Exist junk.$$$ Goto djechoOk
+Echo To build 'Emacs' you need the 'djecho.exe' program!
+Echo 'djecho.exe' is part of 'djdevNNN.zip' basic DJGPP development kit.
+Echo Versions of DJGPP before 2.02 called this program 'echo.exe'.
+Echo Either unpack 'djecho.exe' from the 'djdevNNN.zip' archive,
+Echo or, if you have 'echo.exe', copy it to 'djecho.exe'.
+Echo Then run CONFIG.BAT again with the same arguments you did now.
+Goto End
+:djechoOk
+rm -f junk.$$$
 Echo Configuring for DJGPP Version %DJGPP_VER% ...
 Rem   ----------------------------------------------------------------------
 Echo Configuring the source directory...
@@ -147,12 +161,12 @@ if exist dir.h ren dir.h vmsdir.h
 
 rem   Create "makefile" from "makefile.in".
 rm -f Makefile junk.c
-sed -e "1,/cpp stuff/s@^# .*$@@" <Makefile.in >junk.c
+sed -e "1,/== start of cpp stuff ==/s@^# .*$@@" <Makefile.in >junk.c
 If "%DJGPP_VER%" == "1" Goto mfV1
-gcc -E junk.c | sed -f ../msdos/sed1v2.inp >Makefile
+gcc -E -traditional junk.c | sed -f ../msdos/sed1v2.inp >Makefile
 goto mfDone
 :mfV1
-gcc -E junk.c | sed -f ../msdos/sed1.inp >Makefile
+gcc -E -traditional junk.c | sed -f ../msdos/sed1.inp >Makefile
 :mfDone
 rm -f junk.c
 
@@ -172,8 +186,8 @@ rem   ----------------------------------------------------------------------
 Echo Configuring the library source directory...
 cd lib-src
 rem   Create "makefile" from "makefile.in".
-sed -e "1,/cpp stuff/s@^# .*$@@" <Makefile.in >junk.c
-gcc -E -I. -I../src junk.c | sed -e "s/^ /	/" -e "/^#/d" -e "/^[ 	]*$/d" >makefile.new
+sed -e "1,/== start of cpp stuff ==/s@^# .*$@@" <Makefile.in >junk.c
+gcc -E -traditional -I. -I../src junk.c | sed -e "s/^ /	/" -e "/^#/d" -e "/^[ 	]*$/d" >makefile.new
 If "%DJGPP_VER%" == "2" goto libsrc-v2
 sed -f ../msdos/sed3.inp <makefile.new >Makefile
 Goto libsrc2
@@ -204,6 +218,11 @@ cd man
 sed -f ../msdos/sed6.inp < Makefile.in > Makefile
 cd ..
 rem   ----------------------------------------------------------------------
+Echo Configuring the lisp directory...
+cd lisp
+sed -f ../msdos/sedlisp.inp < Makefile.in > Makefile
+cd ..
+rem   ----------------------------------------------------------------------
 If not Exist leim\quail\latin-pre.el goto maindir
 Echo Configuring the leim directory...
 cd leim
@@ -214,7 +233,7 @@ rem   ----------------------------------------------------------------------
 Echo Configuring the main directory...
 If "%DJGPP_VER%" == "1" goto mainv1
 Echo Looking for the GDB init file...
-If not Exist src\_gdbinit If Exist src\.gdbinit update src/.gdbinit src/_gdbinit
+If Exist src\.gdbinit update src/.gdbinit src/_gdbinit
 If Exist src\_gdbinit goto gdbinitOk
 Echo ERROR:
 Echo I cannot find the GDB init file.  It was called ".gdbinit" in

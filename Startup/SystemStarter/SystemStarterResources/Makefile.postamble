@@ -1,0 +1,4 @@
+remove_info_file:
+	$(RM) -f $(INFO_FILE)
+
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common

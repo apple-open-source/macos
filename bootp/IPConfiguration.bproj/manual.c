@@ -40,35 +40,32 @@
  *   after we ARP
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/sockio.h>
-#import <ctype.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <arpa/inet.h>
-#import <net/if_types.h>
-#import <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/sockio.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <net/if_types.h>
+#include <syslog.h>
 
-#import "interfaces.h"
-#import "util.h"
+#include "interfaces.h"
+#include "util.h"
 
-#import "dprintf.h"
-#import "dhcp_options.h"
-#import "ipconfigd_threads.h"
-
-extern char *  			ether_ntoa(struct ether_addr *e);
+#include "dprintf.h"
+#include "dhcp_options.h"
+#include "ipconfigd_threads.h"
 
 typedef struct {
     arp_client_t *		arp;
@@ -130,7 +127,7 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (result->error) {
 	      my_log(LOG_ERR, "MANUAL %s: arp probe failed, %s", 
 		     if_name(if_p), arp_client_errmsg(manual->arp));
-	      /* continue without it anyways */
+	      break;
 	  }
 	  else {
 	      if (result->in_use) {
@@ -140,7 +137,10 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 			   IP_FORMAT " in use by " EA_FORMAT,
 			   IP_LIST(&manual->our_ip), 
 			   EA_LIST(result->hwaddr));
-		  service_tell_user(service_p, msg);
+		  service_report_conflict(service_p,
+					  &manual->our_ip,
+					  result->hwaddr,
+					  NULL);
 		  my_log(LOG_ERR, "MANUAL %s: %s", 
 			 if_name(if_p), msg);
 		  service_remove_address(service_p);

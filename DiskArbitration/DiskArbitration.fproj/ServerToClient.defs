@@ -20,6 +20,9 @@ type DiskArbDeviceTreePath = c_string[*:1024];
 
 type DiskArbGenericString = c_string[*:1024];
 
+type double 	= struct[2] of integer_t;
+
+
 
 /*
 --	Messages sent by the DiskArbitration Server to the Client
@@ -57,6 +60,18 @@ simpleroutine DiskArbDiskAppeared2_rpc(
 			in	ioContent: DiskArbIOContent;
 			in	deviceTreePath: DiskArbDeviceTreePath;
 			in	sequenceNumber: unsigned);
+
+simpleroutine DiskArbDiskAppearedComplete_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	mountpoint: DiskArbMountpoint;
+			in	ioContent: DiskArbIOContent;
+			in	deviceTreePath: DiskArbDeviceTreePath;
+			in	sequenceNumber: unsigned;
+			in	timeAppeared: double;
+			in	fsType: DiskArbGenericString;
+			in 	fsName: DiskArbGenericString);
 
 /*
 -- Async unmount + eject
@@ -117,6 +132,12 @@ simpleroutine DiskArbPreviousCallFailed_rpc(
 			in	failedCallType: int;
 			in	err: int);
 
+simpleroutine DiskArbPreviousCallSucceeded_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	succeededCallType: int);
+
+
 simpleroutine DiskArbDiskWillBeChecked_rpc(
 				dest: mach_port_t;
 			in	diskIdentifier: DiskArbDiskIdentifier;
@@ -138,22 +159,6 @@ simpleroutine DiskArbNotificationComplete_rpc(
 */
 simpleroutine DiskArbRegistrationComplete_rpc(
 				dest: mach_port_t);
-
-/* -- Printer Arbitration -- */
-
-simpleroutine DiskArbPrinter_FinalRequest_rpc (
-				dest: mach_port_t;
-			in	pid: int;
-			in	locationID: int);
-
-simpleroutine DiskArbPrinter_FinalResponse_rpc (
-				dest: mach_port_t;
-			in	locationID: int;
-			in	answer: int);
-
-simpleroutine DiskArbPrinter_FinalRelease_rpc (
-				dest: mach_port_t;
-			in	locationID: int);
 
 /* -- Image/Device Arbitration -- */
 
@@ -180,6 +185,21 @@ simpleroutine DiskArbWillClientHandleUnrecognizedDisk_rpc (
 			in	isRemovable: int;
 			in	isWhole: int);
 
+/* -- Recognized Disk Notifications (should the disk mount at all?) -- */
+
+simpleroutine DiskArbDiskApprovalPre_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in  volName: DiskArbMountpoint;
+			in	ioContent: DiskArbGenericString;
+			in	deviceTreePath: DiskArbGenericString;
+			in	flags: unsigned;
+			in	isWritable: int;
+			in	isRemovable: int;
+			in	isWhole: int;
+			in	fsType: DiskArbGenericString);
+
+/* 0 for no, 1 for yes, 2 for yes, but needs authentication */
 
 /*
 -- Unknown filesystem inserted ... 

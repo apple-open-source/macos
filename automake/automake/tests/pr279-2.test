@@ -1,0 +1,32 @@
+#! /bin/sh
+
+# Another test related to PR 279.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(foo, 0.1, dev@null)
+AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
+AC_PROG_CC
+AM_CONDITIONAL(FOOTEST, false)
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = foreign
+
+if FOOTEST
+foo_LDADD = zardoz
+else
+foo_LDADD = maude
+endif
+
+bin_PROGRAMS = foo
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '@foo_DEPENDENCIES = zardoz' Makefile.in || exit 1
+grep '@foo_DEPENDENCIES = maude' Makefile.in || exit 1

@@ -19,31 +19,42 @@
 //
 // Utilities
 //
-#ifdef __MWERKS__
-#define _CPP_UTILITIES
-#endif
-
 #include <Security/utilities.h>
+
+#include <Security/cssmerrno.h>
 #include <Security/debugging.h>
+#include <typeinfo>
 #include <stdio.h>
 
 
 //
-// The base of the exception hierarchy
+// The base of the exception hierarchy.
+// Note that the debug output here depends on a particular
+// implementation feature of gcc; to wit, that the exception object
+// is created and then copied (at least once) via its copy constructor.
+// If your compiler does not invoke the copy constructor, you won't get
+// debug output, but nothing worse should happen.
 //
 CssmCommonError::CssmCommonError()
+	IFDEBUG(: mCarrier(true))
 {
-    debug("exception", "constructing exception at %p", this);
 }
 
 CssmCommonError::CssmCommonError(const CssmCommonError &source)
 {
-    debug("exception", "constructing exception at %p from %p", this, &source);
+#if !defined(NDEBUG)
+	source.debugDiagnose(this);
+	mCarrier = source.mCarrier;
+	source.mCarrier = false;
+#endif //NDEBUG
 }
 
-CssmCommonError::~CssmCommonError()
+CssmCommonError::~CssmCommonError() throw ()
 {
-    debug("exception", "destroying exception at %p", this);
+#if !defined(NDEBUG)
+	if (mCarrier)
+		debug("exception", "%p handled", this);
+#endif //NDEBUG
 }
 
 OSStatus CssmCommonError::osStatus() const
@@ -52,13 +63,25 @@ OSStatus CssmCommonError::osStatus() const
 CSSM_RETURN CssmCommonError::cssmError(CSSM_RETURN base) const
 { return CssmError::merge(cssmError(), base); }
 
+// default debugDiagnose gets what it can (virtually)
+void CssmCommonError::debugDiagnose(const void *id) const
+{
+#if !defined(NDEBUG)
+    debug("exception", "%p %s %s/0x%lx osstatus %ld",
+		id,	Debug::typeName(*this).c_str(),
+		cssmErrorString(cssmError()).c_str(), cssmError(),
+		osStatus());
+#endif //NDEBUG
+}
+
 
 //
 // CssmError exceptions
 //
 CssmError::CssmError(CSSM_RETURN err) : error(err) { }
 
-const char *CssmError::what() const { return "CSSM exception"; }
+const char *CssmError::what() const throw ()
+{ return "CSSM exception"; }
 
 CSSM_RETURN CssmError::cssmError() const { return error; }
 
@@ -74,7 +97,7 @@ UnixError::UnixError() : error(errno) { }
 
 UnixError::UnixError(int err) : error(err) { }
 
-const char *UnixError::what() const
+const char *UnixError::what() const throw ()
 { return "UNIX error exception"; }
 
 CSSM_RETURN UnixError::cssmError() const
@@ -113,13 +136,21 @@ void UnixError::throwMe(int err) { throw UnixError(err); }
 // @@@ This is a hack for the Network protocol state machine
 UnixError UnixError::make(int err) { return UnixError(err); }
 
+#if !defined(NDEBUG)
+void UnixError::debugDiagnose(const void *id) const
+{
+    debug("exception", "%p UnixError %s (%d) osStatus %ld",
+		id, strerror(error), error, osStatus());
+}
+#endif //NDEBUG
+
 
 //
 // MacOSError exceptions
 //
 MacOSError::MacOSError(int err) : error(err) { }
 
-const char *MacOSError::what() const
+const char *MacOSError::what() const throw ()
 { return "MacOS error"; }
 
 CSSM_RETURN MacOSError::cssmError() const
@@ -142,6 +173,18 @@ CSSM_RETURN CssmError::merge(CSSM_RETURN error, CSSM_RETURN base)
     } else {
         return error;
     }
+}
+
+
+//
+// CssmData out of line members
+//
+string CssmData::toString() const
+{
+	return data() ?
+		string(reinterpret_cast<const char *>(data()), length())
+		:
+		string();
 }
 
 

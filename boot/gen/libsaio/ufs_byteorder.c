@@ -26,10 +26,10 @@
  * All rights reserved.
  */
 
-#import <bsd/sys/types.h>
-#import <bsd/sys/param.h>
-#import <bsd/sys/vnode.h>
-#import <bsd/ufs/fsdir.h>
+#import <sys/types.h>
+#import <sys/param.h>
+#import <sys/vnode.h>
+#import <ufs/fsdir.h>
 #import <architecture/byte_order.h>
 #import "ufs_byteorder.h"
 #import "libsaio.h"

@@ -51,6 +51,7 @@ public:
     // These are all static methods that use the active() Server of this thread.
     //
 	static Server &active() { return safer_cast<Server &>(MachServer::active()); }
+	static const char *bootstrapName() { return active().mBootstrapName.c_str(); }
 	
 	static Connection &connection(mach_port_t replyPort);
 	static Connection &connection(bool tolerant = false);
@@ -67,12 +68,14 @@ public:
 	static SecurityServerAcl &aclBearer(AclKind kind, CSSM_HANDLE handle);
 	static CssmClient::CSP &csp() { return active().getCsp(); }
 
-    void loadCssm()	{ getCsp(); }
+	void loadCssm();
 	
 public:
-	void setupConnection(Port replyPort, Port taskPort,
+	void setupConnection(Port servicePort, Port replyPort, Port taskPort,
         const security_token_t &securityToken, const char *executablePath);
+#if 0
     Process *resetConnection();
+#endif
 	void endConnection(Port replyPort);
 	
 	static void releaseWhenDone(CssmAllocator &alloc, void *memory)
@@ -84,6 +87,7 @@ protected:
     // implementation methods of MachServer
 	boolean_t handle(mach_msg_header_t *in, mach_msg_header_t *out);
 	void notifyDeadName(Port port);
+	void notifyNoSenders(Port port, mach_port_mscount_t);
     
 private:
     class SleepWatcher : public MachPlusPlus::PortPowerWatcher {
@@ -94,6 +98,9 @@ private:
 	
 private:
 	Mutex lock;					// master lock
+	
+	// mach bootstrap registration name
+	std::string mBootstrapName;
 
 	// map of connections (by client reply port)
 	typedef map<mach_port_t, Connection *> ConnectionMap;

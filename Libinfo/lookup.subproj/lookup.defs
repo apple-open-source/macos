@@ -35,9 +35,9 @@ serverprefix _;
 
 import <netinfo/lookup_types.h>;
 
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
 
-type int = MACH_MSG_TYPE_INTEGER_32;
-type mach_port_t = MACH_MSG_TYPE_COPY_SEND;
 type lookup_name = array [256] of MACH_MSG_TYPE_CHAR;
 type unit = array [4] of MACH_MSG_TYPE_CHAR;
 
@@ -48,24 +48,37 @@ type unit = array [4] of MACH_MSG_TYPE_CHAR;
 type inline_data = array [ * : 4096 ] of unit; 
 type ooline_data = ^ array [] of unit;
 
+routine _lookup_link_secure
+(
+	server : mach_port_t;
+	name : lookup_name;
+	out procno : int;
+	UserSecToken token : security_token_t
+);
 
-routine _lookup_link(	server : mach_port_t;
-			name : lookup_name;
-		out	procno: int);
+routine _lookup_all_secure
+(
+	server : mach_port_t;
+	proc : int;
+	indata : inline_data;
+	out outdata  : ooline_data;
+	UserSecToken token : security_token_t
+);
 
-routine _lookup_all(	server : mach_port_t;
-			proc : int;
-			indata : inline_data;
-		out	outdata  : ooline_data);
+routine _lookup_one_secure
+(
+	server : mach_port_t;
+	proc : int;
+	indata : inline_data;
+	out outdata  : inline_data;
+	UserSecToken token : security_token_t
+);
 
-routine _lookup_one(	server : mach_port_t;
-			proc : int;
-			indata : inline_data;
-		out	outdata  : inline_data);
-
-
-routine _lookup_ooall(	server : mach_port_t;
-			proc : int;
-			indata : ooline_data;
-		out	outdata  : ooline_data);
-
+routine _lookup_ooall_secure
+(
+	server : mach_port_t;
+	proc : int;
+	indata : ooline_data;
+	out outdata  : ooline_data;
+	UserSecToken token : security_token_t
+);

@@ -37,6 +37,7 @@
 #import "errors.h"
 #import "lock.h"
 #import "dyld_init.h"
+#import "trace.h"
 #ifdef __ppc__
 #include "fp_save_restore.h"
 #endif /* __ppc__ */
@@ -78,7 +79,6 @@ enum bool bind_now)
     int facilities_used = -1;
 #endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
 #endif /* __ppc__ */
-
 	/*
 	 * First for the object_images modules that are in the registered state
 	 * call their module initialization routines.  Because objects can be
@@ -194,8 +194,7 @@ enum bool bind_now)
 		SET_LINK_STATE(library_image->modules[j], INITIALIZING);
 
 	    if(delay_mod_init == FALSE || make_delayed_calls == TRUE){
-		if(GET_MODINIT_STATE(library_image->modules[j]) == 0 &&
-		   library_image->image.lazy_init == FALSE){
+		if(GET_MODINIT_STATE(library_image->modules[j]) == 0){
 		    SET_MODINIT_STATE(library_image->modules[j]);
 
 		    for(k = 0;
@@ -226,9 +225,13 @@ enum bool bind_now)
 			}
 #endif /* __ppc__ */
 			func = (void(*)(void))addr;
+			DYLD_TRACE_CALLOUT_START(
+			    DYLD_TRACE_module_init_for_library, func);
 			release_lock();
 			func();
 			set_lock();
+			DYLD_TRACE_CALLOUT_END(
+			    DYLD_TRACE_module_init_for_library, func);
 		    }
 		}
 	    }
@@ -298,9 +301,13 @@ enum bool bind_now)
 			addr = *((long *)
 			     (p->images[i].image.init->addr + slide_value) + j);
 			func = (void(*)(void))addr;
+			DYLD_TRACE_CALLOUT_START(
+			    DYLD_TRACE_module_init_for_object, func);
 			release_lock();
 			func();
 			set_lock();
+			DYLD_TRACE_CALLOUT_END(
+			    DYLD_TRACE_module_init_for_object, func);
 		    }
 		}
 		link_state = GET_LINK_STATE(p->images[i].module);
@@ -343,9 +350,13 @@ struct object_image *object_image)
 	    addr = *((long *)
 		(object_image->image.term->addr + slide_value) + i);
 	    func = (void(*)(void))addr;
+	    DYLD_TRACE_CALLOUT_START( DYLD_TRACE_module_terminator_for_object,
+		func);
 	    release_lock();
 	    func();
 	    set_lock();
+	    DYLD_TRACE_CALLOUT_END(DYLD_TRACE_module_terminator_for_object,
+		 func);
 	}
 }
 
@@ -405,8 +416,10 @@ struct mach_header *mh_dylib_header)
 		     * REGISTERING state.
 		     */
 		    link_state = GET_LINK_STATE(q->images[i].modules[j]);
-		    if(link_state != REGISTERING)
-			continue;
+		    if(link_state != REGISTERING &&
+		       (delay_mod_init == FALSE ||
+			(link_state != LINKED && link_state != FULLY_LINKED)))
+		    continue;
 
 		    if(GET_MODINIT_STATE(q->images[i].modules[j]) != 0)
 			continue;
@@ -415,9 +428,13 @@ struct mach_header *mh_dylib_header)
 		    for(k = 0; k < (dylib_modules[j].ninit_nterm & 0xffff);k++){
 			addr = init[(dylib_modules[j].iinit_iterm & 0xffff)+ k];
 			func = (void(*)(void))addr;
+			DYLD_TRACE_CALLOUT_START(
+			    DYLD_TRACE_module_init_for_dylib, func);
 			release_lock();
 			func();
 			set_lock();
+			DYLD_TRACE_CALLOUT_END(
+			    DYLD_TRACE_module_init_for_dylib, func);
 		    }
 		}
 		/*
@@ -489,9 +506,11 @@ top:
 		    addr = *((long *)
 			 (p->images[i].image.term->addr + slide_value) + j);
 		    func = (void(*)(void))addr;
+		    DYLD_TRACE_CALLOUT_START(DYLD_TRACE_mod_term_func, func);
 		    release_lock();
 		    func();
 		    set_lock();
+		    DYLD_TRACE_CALLOUT_END(DYLD_TRACE_mod_term_func, func);
 		}
 		clean_pass = FALSE;
 	    }
@@ -538,9 +557,11 @@ top:
 			addr = term[((dylib_modules[j].iinit_iterm >> 16)
 				     & 0xffff) + k];
 			func = (void(*)(void))addr;
+			DYLD_TRACE_CALLOUT_START(DYLD_TRACE_mod_term_func,func);
 			release_lock();
 			func();
 			set_lock();
+			DYLD_TRACE_CALLOUT_END(DYLD_TRACE_mod_term_func, func);
 			clean_pass = FALSE;
 		    }
 		}

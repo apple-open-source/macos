@@ -40,12 +40,6 @@
 #    OTHER_YFLAGS, LOCAL_YFLAGS:  additional flags passed to yacc
 #    OTHER_LFLAGS, LOCAL_LFLAGS:  additional flags passed to lex
 
-ifeq "teflon" "$(RC_OS)"
-	OTHER_CFLAGS=-DkMacOSXServer=1
-else
-	OTHER_CFLAGS=-DkMacOSXServer=0
-endif
-
 # These variables provide hooks enabling you to add behavior at almost every 
 # stage of the make:
 #

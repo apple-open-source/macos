@@ -1,3 +1,6 @@
+
+#ifndef _S_BPFLIB_H
+#define _S_BPFLIB_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -31,3 +34,4 @@ int bpf_set_timeout(int fd, struct timeval * tv_p);
 int bpf_write(int fd, void * pkt, int len);
 
 
+#endif _S_BPFLIB_H

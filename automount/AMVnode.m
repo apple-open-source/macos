@@ -51,6 +51,7 @@
 	server = nil;
 	map = nil;
 
+	mountInProgress = NO;
 	mounted = NO;
 	fake = NO;
 	mountPathCreated = NO;
@@ -122,6 +123,8 @@
 	if (src != nil) [src release];
 	if (link != nil) [link release];
 	if (server != nil) [server release];
+	if (vfsType != nil) [vfsType release];
+	if (urlString != nil) [urlString release];
 	if (supernode != nil) [supernode release];
 	if (subnodes != nil) [subnodes release];
 
@@ -263,6 +266,19 @@
 {
 	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
 	attributes.mtime = attributes.atime;
+}
+
+- (void)resetAllTimes
+{
+	struct timeval now;
+	
+	do {
+		gettimeofday(&now, (struct timezone *)0);
+	} while ((now.tv_sec == attributes.atime.seconds) && (now.tv_usec == attributes.atime.useconds));
+	attributes.atime.seconds = now.tv_sec;
+	attributes.atime.useconds = now.tv_usec;
+	attributes.mtime = attributes.atime;
+	attributes.ctime = attributes.atime;
 }
 
 - (int)mntArgs
@@ -558,19 +574,19 @@
 
 - (BOOL)mounted
 {
-	String *urlMountType;
+	String *urlMountType = [String uniqueString:"url"];
+	String *nslEntrySource = [String uniqueString:"*"];
 
-	urlMountType = [String uniqueString:"url"];
-
-	sys_msg(debug_mount, LOG_DEBUG, "Checking type %s for %s", [[self vfsType] value], [[self link] value]);
-
-	if ([[self vfsType] equal:urlMountType])
+	if ([[self vfsType] equal:urlMountType] && !([[self source] equal:nslEntrySource]))	/* Don't try this for mount-all vnodes */
 	{
+		sys_msg(debug_mount, LOG_DEBUG, "Checking type %s for %s", [[self vfsType] value], [[self link] value]);
 		mounted = [self checkPathIsMount:[[self link] value]];
 		if (!mounted) [self setMountPathCreated:NO]; 
 	}
 
+	[nslEntrySource release];
 	[urlMountType release];
+
 	return mounted;
 }
 
@@ -586,10 +602,35 @@
 	else mountTime = 0;
 }
 
+- (struct MountProgressRecord *)mountInfo
+{
+	return &mountInfo;
+}
+
 - (void)setMounted:(BOOL)m
 {
 	mounted = m;
 	[self resetMountTime];
+}
+
+- (BOOL)mountInProgress
+{
+	return mountInProgress;
+}
+
+- (void)setMountInProgress:(BOOL)newMountInProgressState
+{
+	mountInProgress = newMountInProgressState;
+}
+
+- (unsigned long)transactionID
+{
+	return transactionID;
+}
+
+- (void)setTransactionID:(unsigned long)xid
+{
+	transactionID = xid;
 }
 
 - (BOOL)fakeMount
@@ -649,6 +690,11 @@
 	}
 
 	return nil;
+}
+
+- (int)symlinkWithName:(char *)from to:(char *)to attributes:(struct nfsv2_sattr *)attributes;
+{
+	return NFSERR_ROFS;
 }
 
 - (Vnode *)parent
@@ -744,6 +790,12 @@
 
 	return path;
 }
+
+- (void)invalidateRecursively:(BOOL)invalidateDescendants
+{
+    return;
+}
+
 
 @end
 

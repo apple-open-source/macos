@@ -36,6 +36,7 @@
  * problem, otherwise we would have done it already ;-)
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "ni_server.h"
 #include "ni_globals.h"

@@ -1,7 +1,7 @@
 /*
- * /src/NTP/ntp-4/libparse/clk_schmid.c,v 4.4 1998/06/13 12:06:03 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_schmid.c,v 4.5 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *  
- * clk_schmid.c,v 4.4 1998/06/13 12:06:03 kardel RELEASE_19990228_A
+ * clk_schmid.c,v 4.5 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *
  * Schmid clock support
  *
@@ -15,14 +15,11 @@
  */
 
 #if HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_SCHMID)
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/errno.h>
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
@@ -187,7 +184,7 @@ inp_schmid(
 {
 	unsigned int rtc;
 	
-	parseprintf(DD_PARSE, ("inp_schmid(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+	parseprintf(DD_PARSE, ("inp_schmid(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 	
 	switch (ch)
 	{
@@ -211,6 +208,9 @@ int clk_schmid_bs;
  * History:
  *
  * clk_schmid.c,v
+ * Revision 4.5  1999/11/28 09:13:51  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.4  1998/06/13 12:06:03  kardel
  * fix SYSV clock name clash
  *

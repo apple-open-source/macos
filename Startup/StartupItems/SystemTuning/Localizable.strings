@@ -4,6 +4,10 @@
 <dict>
 	<key>Tuning system</key>
 	<string>Tuning system</string>
+	<key>Rebooting with server configuration</key>
+	<string>Rebooting with server configuration</string>
+	<key>Rebooting without server configuration</key>
+	<string>Rebooting without server configuration</string>
 </dict>
 </plist>
 

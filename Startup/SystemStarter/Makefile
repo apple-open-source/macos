@@ -12,11 +12,14 @@ NAME = SystemStarter
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = main.h Log.h SystemStarter.h StartupItems.h StartupDisplay.h
+HFILES = main.h Log.h SystemStarter.h StartupItems.h StartupDisplay.h\
+         SafeBoot.h IPC.h SystemStarterIPC.h
 
-CFILES = main.c Log.c SystemStarter.c StartupItems.c TextDisplay.c
+CFILES = main.c Log.c SystemStarter.c StartupItems.c TextDisplay.c\
+         SafeBoot.c IPC.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble .gdbinit
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble .gdbinit\
+            SystemStarter.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -30,6 +33,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
 NEXTSTEP_PB_CFLAGS = -traditional-cpp -Wall -Werror
 FRAMEWORKS = -framework CoreFoundation
 

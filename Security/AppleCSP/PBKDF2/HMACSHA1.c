@@ -23,14 +23,84 @@
  	Written by:	Michael Brouwer <mb@apple.com>
 */
 #include "HMACSHA1.h"
-#include <CryptKit/SHA1.h>
+#include <MiscCSPAlgs/SHA1.h>
+#include <MiscCSPAlgs/MD5.h>
 #include <string.h>
 #include <stdlib.h>		// for malloc - maybe we should use CssmAllocator?
 #include <Security/cssmerr.h>
 
+#pragma mark --- Common digest class ---
+
+typedef	struct {
+	union {
+		sha1Obj 			sha1Context;	// must be allocd via sha1Alloc
+		struct MD5Context	md5Context;
+	} dig;
+	CSSM_BOOL isSha1;
+} DigestCtx;
+
+/* Ops on a DigestCtx */
+static CSSM_RETURN DigestCtxInit(
+	DigestCtx 	*ctx,
+	CSSM_BOOL	isSha1)
+{
+	if(isSha1) {
+		if(ctx->dig.sha1Context == NULL) {
+			ctx->dig.sha1Context = sha1Alloc();
+			if(ctx->dig.sha1Context == NULL) {
+				return CSSMERR_CSP_MEMORY_ERROR;
+			}
+		}
+		else {
+			sha1Reinit(ctx->dig.sha1Context);
+		}
+	}
+	else {
+		MD5Init(&ctx->dig.md5Context);
+	}
+	ctx->isSha1 = isSha1;
+	return CSSM_OK;
+}
+
+static void DigestCtxFree(
+	DigestCtx 	*ctx)
+{
+	if(ctx->isSha1) {
+		sha1Free(ctx->dig.sha1Context);
+	}
+	memset(ctx, 0, sizeof(DigestCtx));
+}
+
+static void DigestCtxUpdate(
+	DigestCtx 	*ctx,
+	const void *textPtr,
+	UInt32 textLen)
+{
+	if(ctx->isSha1) {
+		sha1AddData(ctx->dig.sha1Context, (unsigned char *)textPtr, textLen);
+	}
+	else {
+		MD5Update(&ctx->dig.md5Context, (unsigned char *)textPtr, textLen);
+	}
+}
+
+static void DigestCtxFinal(
+	DigestCtx 	*ctx,
+	void 		*digest)
+{
+	if(ctx->isSha1) {
+		sha1GetDigest(ctx->dig.sha1Context, (unsigned char *)digest);
+	}
+	else {
+		MD5Final(&ctx->dig.md5Context, (unsigned char *)digest);
+	}
+}
+
+#pragma mark --- HMAC class ---
+
 struct hmacContext {
-	sha1Obj sha1Context;
-	UInt8 	k_opad[kSHA1BlockSize];
+	DigestCtx	digest;
+	UInt8 		k_opad[kSHA1BlockSize];
 };
 
 hmacContextRef hmacAlloc()
@@ -44,9 +114,7 @@ void hmacFree(
 	hmacContextRef hmac)
 {
 	if(hmac != NULL) {
-		if(hmac->sha1Context != NULL) {
-			sha1Free (hmac->sha1Context);
-		}
+		DigestCtxFree(&hmac->digest);
 		memset(hmac, 0, sizeof(struct hmacContext));
 		free(hmac);
 	}
@@ -56,36 +124,30 @@ void hmacFree(
 CSSM_RETURN hmacInit(
 	hmacContextRef hmac,
 	const void *keyPtr,
-	UInt32 keyLen)
+	UInt32 keyLen,
+	CSSM_BOOL isSha1)		// true -> SHA1; false -> MD5
 {	
 	UInt8 	tk[kSHA1DigestSize];
 	UInt8 	*key;
 	UInt32 	byte;
 	UInt8 	k_ipad[kSHA1BlockSize];
-
-	if(hmac->sha1Context == NULL) {
-		hmac->sha1Context = sha1Alloc();
-		if(hmac->sha1Context == NULL) {
-			return CSSMERR_CSP_MEMORY_ERROR;
-		}
-	}
-	else {
-		sha1Reinit(hmac->sha1Context);
-	}
+	UInt32	digestSize = sha1Digest ? kSHA1DigestSize : MD5_DIGEST_SIZE;
 	
-	/* If the key is longer than kSHA1BlockSize reset it to key=SHA1(key) */
+	DigestCtxInit(&hmac->digest, isSha1);
+	
+	/* If the key is longer than kSHA1BlockSize reset it to key=digest(key) */
 	if (keyLen <= kSHA1BlockSize)
 		key = (UInt8*)keyPtr;
 	else {
-		sha1AddData(hmac->sha1Context, (UInt8*)keyPtr, keyLen);
-		memcpy (tk, sha1Digest(hmac->sha1Context), kSHA1DigestSize);
+		DigestCtxUpdate(&hmac->digest, (UInt8*)keyPtr, keyLen);
+		DigestCtxFinal(&hmac->digest, tk);
 		key = tk;
-		keyLen = kSHA1DigestSize;
-		sha1Reinit (hmac->sha1Context);
+		keyLen = digestSize;
+		DigestCtxInit(&hmac->digest, isSha1);
 	}
 	
-	/* The HMAC_SHA_1 transform looks like:
-	   SHA1 (K XOR opad || SHA1 (K XOR ipad || text))
+	/* The HMAC_<DIG> transform looks like:
+	   <DIG> (K XOR opad || <DIG> (K XOR ipad || text))
 	   Where K is a n byte key
 	   ipad is the byte 0x36 repeated 64 times.
 	   opad is the byte 0x5c repeated 64 times.
@@ -103,7 +165,7 @@ CSSM_RETURN hmacInit(
 		memset (k_ipad + keyLen, 0x36, kSHA1BlockSize - keyLen);
 		memset (hmac->k_opad + keyLen, 0x5c, kSHA1BlockSize - keyLen);
 	}
-	sha1AddData (hmac->sha1Context, k_ipad, kSHA1BlockSize);
+	DigestCtxUpdate(&hmac->digest, k_ipad, kSHA1BlockSize);
 	return CSSM_OK;
 }
 
@@ -112,20 +174,23 @@ CSSM_RETURN hmacUpdate(
 	const void *textPtr,
 	UInt32 textLen)
 {
-	sha1AddData (hmac->sha1Context, (UInt8*)textPtr, textLen);
+	DigestCtxUpdate(&hmac->digest, textPtr, textLen);
 	return CSSM_OK;
 }
 
 CSSM_RETURN hmacFinal(
 	hmacContextRef hmac,
-	void *resultPtr)		// caller mallocs, must be HMACSHA1_OUT_SIZE bytes
+	void *resultPtr)		// caller mallocs, must be appropriate output size for
+							// current digest algorithm 
 {
-	memcpy (resultPtr, sha1Digest (hmac->sha1Context), kSHA1DigestSize);
-	sha1Reinit (hmac->sha1Context);
-	/* Perform outer SHA1 */
-	sha1AddData (hmac->sha1Context, hmac->k_opad, kSHA1BlockSize);
-	sha1AddData (hmac->sha1Context, (UInt8*)resultPtr, kSHA1DigestSize);
-	memcpy (resultPtr, sha1Digest (hmac->sha1Context), kSHA1DigestSize);
+	UInt32 digestSize = hmac->digest.isSha1 ? kSHA1DigestSize : kHMACMD5DigestSize;
+	
+	DigestCtxFinal(&hmac->digest, resultPtr);
+	DigestCtxInit(&hmac->digest, hmac->digest.isSha1);
+	/* Perform outer digest */
+	DigestCtxUpdate(&hmac->digest, hmac->k_opad, kSHA1BlockSize);
+	DigestCtxUpdate(&hmac->digest, resultPtr, digestSize);
+	DigestCtxFinal(&hmac->digest, resultPtr);
 	return CSSM_OK;
 }
 
@@ -136,7 +201,7 @@ hmacsha1 (const void *keyPtr, UInt32 keyLen,
 		  void *resultPtr)
 {
 	hmacContextRef hmac = hmacAlloc();
-	hmacInit(hmac, keyPtr, keyLen);
+	hmacInit(hmac, keyPtr, keyLen, CSSM_TRUE);
 	hmacUpdate(hmac, textPtr, textLen);
 	hmacFinal(hmac, resultPtr);
 	hmacFree(hmac);

@@ -21,7 +21,7 @@
 
 	Contains:	memory allocator implementation
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -54,55 +54,7 @@
 #include "sslctx.h"
 #include "sslDebug.h"
 
-#ifdef	_APPLE_CDSA_
-
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
-#pragma mark *** CF Allocators ***
-
-/* copied from CSSMCFUtilities in the AppleCSP:CSPLib project.... */
-
-static void* cfAllocate(CFIndex size, CFOptionFlags hint, void *info)
-{
-	return sslMalloc((Size)size);
-}
-
-static void* cfReallocate(void *ptr, CFIndex newsize, CFOptionFlags hint, void *info)
-{
-	return sslRealloc(ptr, (Size)newsize, (Size)newsize);
-}
-
-static void cfDeallocate(void *ptr, void *info)
-{
-	sslFree(ptr);
-}
-
-/*
- * Set up/tear down CF allocators.
- */
-OSStatus cfSetUpAllocators(SSLContext *ctx)
-{
-	/* Initialize gCFAllocatorContext with the system default
-	   allocator context.  */
-	CFAllocatorGetContext(kCFAllocatorSystemDefault, &ctx->lCFAllocatorContext);
-
-	ctx->lCFAllocatorContext.allocate   = cfAllocate;
-	ctx->lCFAllocatorContext.reallocate = cfReallocate;
-	ctx->lCFAllocatorContext.deallocate = cfDeallocate;
-
-	ctx->cfAllocatorRef = CFAllocatorCreate(kCFAllocatorUseContext, 
-		&ctx->lCFAllocatorContext);
-	if (!ctx->cfAllocatorRef)
-		return memFullErr; 
-
-	return noErr;
-}
-
-void cfTearDownAllocators(SSLContext *ctx)
-{
-	if (ctx->cfAllocatorRef != NULL)
-		CFRelease(ctx->cfAllocatorRef);
-}
 
 #pragma mark *** Basic low-level malloc/free ***
 
@@ -132,12 +84,12 @@ sslRealloc(void *oldPtr, UInt32 oldLen, UInt32 newLen)
 	return realloc(oldPtr, newLen);
 }
 
-#endif
-
 #pragma mark *** SSLBuffer-level alloc/free ***
 
-SSLErr
-SSLAllocBuffer(SSLBuffer *buf, UInt32 length, const SystemContext *ctx)
+SSLErr SSLAllocBuffer(
+	SSLBuffer *buf, 
+	UInt32 length, 
+	const SystemContext *ctx)
 {   
 	buf->data = sslMalloc(length);
 	if(buf->data == NULL) {
@@ -188,3 +140,35 @@ UInt8 *sslAllocCopy(
 	memmove(dst, src, len);
 	return dst;
 } 
+
+SSLErr SSLAllocCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer **dst)		// buffer and data mallocd and returned 
+{   
+	SSLErr serr;
+	
+	SSLBuffer *rtn = sslMalloc(sizeof(SSLBuffer));
+	if(rtn == NULL) {
+		return SSLMemoryErr;
+	}
+	serr = SSLCopyBuffer(src, rtn);
+	if(serr) {
+		sslFree(rtn);
+	}
+	else {
+		*dst = rtn;
+	}
+	return serr;
+}
+
+SSLErr SSLCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer *dst)		// data mallocd and returned 
+{   
+	dst->data = sslAllocCopy(src->data, src->length);
+	if(dst->data == NULL) {
+		return SSLMemoryErr;
+	}
+    dst->length = src->length;
+    return SSLNoErr;
+}

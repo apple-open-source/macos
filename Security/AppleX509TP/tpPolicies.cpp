@@ -35,6 +35,8 @@
 #include <Security/certextensions.h>
 #include <Security/cssmapple.h>
 #include <string.h>
+#include <ctype.h>
+#include <assert.h>
 
 /* 
  * Our private per-extension info. One of these per (understood) extension per
@@ -290,6 +292,7 @@ static void iSignFreeCertInfo(
 	}
 }
 
+#if 	TP_ROOT_CERT_ENABLE
 /*
  * Common code for comparing a root to a list of known embedded roots.
  */
@@ -317,11 +320,11 @@ static CSSM_BOOL tp_isKnownRootCert(
 	 */
 	for(dex=0; dex<numKnownRoots; dex++) {
 		if(!tpCompareCssmData(subjectName, 
-	                          knownRoots[dex].subjectName)) {
+	                          &knownRoots[dex].subjectName)) {
 	    	continue;
 	    }
 		if(!tpCompareCssmData(publicKey,
-	                          knownRoots[dex].publicKey)) {
+	                          &knownRoots[dex].publicKey)) {
 	    	continue;
 	    }
 #if 	ENABLE_APPLE_DEBUG_ROOT
@@ -342,12 +345,19 @@ errOut:
 /*
  * See if specified root cert is a known (embedded) iSign root cert.
  * Returns CSSM_TRUE if the cert is a known root cert. 
+ *
+ * Note as of 6/12/02, we do not distinguish between internally 
+ * cached iSign roots and SSL roots. Maybe someday we will do so again,
+ * so let's leave these two functions separate.
  */
 static CSSM_BOOL tp_isIsignRootCert(
 	CSSM_CL_HANDLE			clHand,
 	TPCertInfo				*rootCert)		// raw cert from cert group
 {
-	return tp_isKnownRootCert(rootCert, iSignRootCerts, numiSignRootCerts);
+	const tpRootCert *roots;
+	unsigned numRoots;
+	roots = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRoots);
+	return tp_isKnownRootCert(rootCert, roots, numRoots);
 }
 
 /*
@@ -358,7 +368,10 @@ static CSSM_BOOL tp_isSslRootCert(
 	CSSM_CL_HANDLE			clHand,
 	TPCertInfo				*rootCert)		// raw cert from cert group
 {
-	return tp_isKnownRootCert(rootCert, sslRootCerts, numSslRootCerts);
+	const tpRootCert *roots;
+	unsigned numRoots;
+	roots = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRoots);
+	return tp_isKnownRootCert(rootCert, roots, numRoots);
 }
 
 /*
@@ -380,7 +393,9 @@ CSSM_BOOL tp_verifyWithSslRoots(
 	CSSM_X509_ALGORITHM_IDENTIFIER_PTR algId;
 	CSSM_DATA_PTR	valToFree = NULL;
 	CSSM_ALGORITHMS	sigAlg;
-	
+	const tpRootCert *rootCerts = NULL;
+	unsigned 		numRootCerts = 0;
+		
 	memset(&rootKey, 0, sizeof(CSSM_KEY));
 	
 	/*
@@ -419,15 +434,17 @@ CSSM_BOOL tp_verifyWithSslRoots(
 	hdr->KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
 	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
 	hdr->KeyUsage = CSSM_KEYUSE_VERIFY;
-
-	for(dex=0; dex<numSslRootCerts; dex++) {
-		/* only variation in key in the loop - raw key bits and size */
-		rootInfo = &sslRootCerts[dex];
-		if(!tpIsSameName(rootInfo->subjectName, certToVfy->issuerName())) {
+	
+	rootCerts = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRootCerts);
+	for(dex=0; dex<numRootCerts; dex++) {
+		rootInfo = &rootCerts[dex];
+		if(!tpIsSameName(&rootInfo->subjectName, certToVfy->issuerName())) {
 			/* not this root */
 			continue;
 		}
-		rootKey.KeyData = *rootInfo->publicKey;
+
+		/* only variation in key in the loop - raw key bits and size */
+		rootKey.KeyData = rootInfo->publicKey;
 		hdr->LogicalKeySizeInBits = rootInfo->keySize;
 		crtn = CSSM_CSP_CreateSignatureContext(cspHand,
 			sigAlg,
@@ -456,6 +473,146 @@ errOut:
 		tp_CertFreeAlgId(clHand, valToFree);
 	}
 	return brtn;
+}
+#endif	/* TP_ROOT_CERT_ENABLE */
+
+/*
+ * Convert a C string to lower case in place. NULL terminator not needed.
+ */
+static void tpToLower(
+	char *str,
+	unsigned strLen)
+{
+	for(unsigned i=0; i<strLen; i++) {
+		*str++ = tolower(*str);
+	}
+}
+
+/*
+ * Verify SSL options. Currently this just consists of matching the 
+ * leaf cert's subject common name against the caller's (optional)
+ * server name.
+ */
+static CSSM_RETURN tp_verifySslOpts(
+	TPCertGroup &certGroup,
+	const CSSM_APPLE_TP_SSL_OPTIONS *sslOpts)
+{
+	if(sslOpts == NULL) {
+		/* optional */
+		return CSSM_OK;
+	}
+
+	CSSM_DATA_PTR subjNameData = NULL;
+	char *serverName = NULL;
+	unsigned serverNameLen = sslOpts->ServerNameLen;
+	char *commonName = NULL;
+	uint32 commonNameLen = 0;
+	
+	if(serverNameLen == 0) {
+		/* optional */
+		return CSSM_OK;
+	}
+	if(sslOpts->ServerName == NULL) {
+		return CSSMERR_TP_INVALID_POINTER;
+	}
+	
+	/* Obtain subject name of leaf cert in CSSM_X509_NAME_PTR form */
+	TPCertInfo *leaf = certGroup.certAtIndex(0);
+	assert(leaf != NULL);
+	CSSM_RETURN crtn;
+	crtn = leaf->fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
+	if(crtn) {
+		/* should never happen, we shouldn't be here if there is no subject */
+		errorLog0("tp_verifySslOpts: error retrieving subject name\n");
+		return crtn;
+	}
+	CSSM_X509_NAME_PTR x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
+	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
+		errorLog0("tp_verifySslOpts: malformed CSSM_X509_NAME\n");
+		crtn = CSSMERR_TP_INVALID_CERTGROUP;
+		goto done;
+	}
+
+	/* Now grunge thru the X509 name looking for a common name */
+	CSSM_X509_TYPE_VALUE_PAIR 	*ptvp;
+	CSSM_X509_RDN_PTR    		rdnp;
+	unsigned					rdnDex;
+	unsigned					pairDex;
+	
+	for(rdnDex=0; rdnDex<x509name->numberOfRDNs; rdnDex++) {
+		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
+		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
+			ptvp = &rdnp->AttributeTypeAndValue[pairDex];
+			if(tpCompareOids(&ptvp->type, &CSSMOID_CommonName)) {
+				commonName = (char *)ptvp->value.Data;
+				commonNameLen = ptvp->value.Length;
+				break;
+			}
+		}
+	}
+	if(commonName == NULL) {
+		errorLog0("tp_verifySslOpts: NO COMMON NAME in subject\n");
+		crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
+		goto done;
+	}
+	
+	/* tolerate optional NULL terminators for both */
+	if(commonName[commonNameLen - 1] == '\0') {
+		commonNameLen--;
+	}
+	if(sslOpts->ServerName[serverNameLen - 1] == '\0') {
+		serverNameLen--;
+	}
+	
+	/* convert both name strings to lower case. The one in the X509 Name can
+	 * be done in place; we have to malloc and copy the caller's string. */
+	tpToLower(commonName, commonNameLen);
+	serverName = (char *)certGroup.alloc().malloc(serverNameLen);
+	memmove(serverName, sslOpts->ServerName, serverNameLen);
+	tpToLower(serverName, serverNameLen);
+	
+	/* case 1: exact match */
+	if((serverNameLen == commonNameLen) &&
+	    !memcmp(commonName, serverName, commonNameLen)) {
+		crtn = CSSM_OK;
+		goto done;
+	}
+	
+	/* case 2: handle optional '*' in cert's common name */
+	if(commonName[0] == '*') {
+		/* last (commonNameLen - 1) chars have to match */
+		unsigned effectLen = commonNameLen - 1;		// skip '*' 
+		if(serverNameLen < effectLen) {
+			errorLog0("tp_verifySslOpts: subject/server name wildcard mismatch (1)\n");
+			crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+		else if(memcmp(commonName+1,		// skip '*'
+		         serverName + serverNameLen - effectLen,
+				 effectLen)) {
+			errorLog0("tp_verifySslOpts: subject/server name wildcard mismatch (2)\n");
+			crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+		else {
+			/* wildcard match */
+			crtn = CSSM_OK;
+		}
+	}
+	else {
+		/* mismatch */
+		errorLog0("tp_verifySslOpts: subject/server name mismatch\n");
+		crtn = CSSMERR_TP_VERIFY_ACTION_FAILED;
+	}
+done:
+	if(subjNameData != NULL) {
+		leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+	}
+	if(serverName != NULL) {
+		certGroup.alloc().free(serverName);	
+	}
+	if(crtn == CSSMERR_TP_VERIFY_ACTION_FAILED) {
+		leaf->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH);
+	}
+	return crtn;
 }
 
 /*
@@ -495,12 +652,15 @@ errOut:
  *   kTPx509Basic: CertGroup of length one allowed. 
  */
 CSSM_RETURN tp_policyVerify(
-	TPPolicy					policy,
-	CssmAllocator				&alloc,
-	CSSM_CL_HANDLE				clHand,
-	CSSM_CSP_HANDLE				cspHand,
-	TPCertGroup 				*certGroup,
-	CSSM_BOOL					verifiedToRoot)		// last cert is good root
+	TPPolicy						policy,
+	CssmAllocator					&alloc,
+	CSSM_CL_HANDLE					clHand,
+	CSSM_CSP_HANDLE					cspHand,
+	TPCertGroup 					*certGroup,
+	CSSM_BOOL						verifiedToRoot,	// last cert is good root
+	const CSSM_APPLE_TP_ACTION_DATA	*actionData,
+	const CSSM_APPLE_TP_SSL_OPTIONS	*sslOpts,
+	void							*policyOpts)	// future options
 {
 	iSignCertInfo 			*certInfo = NULL;
 	uint32					numCerts;
@@ -508,13 +668,13 @@ CSSM_RETURN tp_policyVerify(
 	uint16					expUsage;
 	uint16					actUsage;
 	unsigned				certDex;
-	CSSM_BOOL				cA = CSSM_FALSE;// init for compiler warning
-	CSSM_BOOL				isLeaf;			// end entity
-	CSSM_BOOL				isRoot;			// root cert
+	CSSM_BOOL				cA = CSSM_FALSE;		// init for compiler warning
+	CSSM_BOOL				isLeaf;					// end entity
+	CSSM_BOOL				isRoot;					// root cert
 	CE_ExtendedKeyUsage		*extendUsage;
 	CE_AuthorityKeyID		*authorityId;
-	CSSM_RETURN				outErr = CSSM_OK;
-	TPCertInfo 				*lastCert;
+	CSSM_RETURN				outErr = CSSM_OK;		// for gross, non-policy errors
+	CSSM_BOOL				policyFail = CSSM_FALSE;
 	
 	/* First, kTPDefault is a nop here */
 	if(policy == kTPDefault) {
@@ -548,6 +708,9 @@ CSSM_RETURN tp_policyVerify(
 		if(iSignGetCertInfo(alloc, 
 				certGroup->certAtIndex(certDex),		
 				&certInfo[certDex])) {
+			(certGroup->certAtIndex(certDex))->addStatusCode(
+				CSSMERR_TP_INVALID_CERTIFICATE);
+			/* this one is fatal */
 			outErr = CSSMERR_TP_INVALID_CERTIFICATE;
 			goto errOut;
 		}	
@@ -560,12 +723,13 @@ CSSM_RETURN tp_policyVerify(
 	 */
 	for(certDex=0; certDex<numCerts; certDex++) {
 		thisCertInfo = &certInfo[certDex];
+		TPCertInfo *thisTpCertInfo = certGroup->certAtIndex(certDex);
 		
 		if(thisCertInfo->foundUnknownCritical) {
 			/* illegal for all policies */
 			errorLog0("tp_policyVerify: critical flag in unknown extension\n");
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-			goto errOut; 
+			thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN);
+			policyFail = CSSM_TRUE;
 		}
 		
 		/* 
@@ -608,8 +772,10 @@ CSSM_RETURN tp_policyVerify(
 					case kTPiSign:
 						/* required for iSign in this position */
 						errorLog0("tp_policyVerify: no basicConstraints\n");
-						outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-						goto errOut; 
+						policyFail = CSSM_TRUE;
+						thisTpCertInfo->addStatusCode(
+							CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS);
+						break;
 					default:
 						/* not reached */
 						break;
@@ -623,8 +789,8 @@ CSSM_RETURN tp_policyVerify(
 			if(!thisCertInfo->basicConstraints.critical) {
 				/* per RFC 2459 */
 				errorLog0("tp_policyVerify: basicConstraints marked not critical\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_TP_VERIFY_ACTION_FAILED);
 			}
 			#endif	/* BASIC_CONSTRAINTS_MUST_BE_CRITICAL */
 			cA = thisCertInfo->basicConstraints.extnData->basicConstraints.cA;
@@ -635,13 +801,13 @@ CSSM_RETURN tp_policyVerify(
 			 * both true (kTPx509Basic, kTP_SSL only) */
 			if(cA && !isRoot) {
 				errorLog0("tp_policyVerify: cA true for leaf\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_CA);
 			}
 		} else if(!cA) {
 			errorLog0("tp_policyVerify: cA false for non-leaf\n");
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-			goto errOut; 
+			policyFail = CSSM_TRUE;
+			thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_CA);
 		}
 		
 		/*
@@ -654,14 +820,14 @@ CSSM_RETURN tp_policyVerify(
 		if((policy == kTPiSign) && thisCertInfo->authorityId.present) {
 			if(isRoot) {
 				errorLog0("tp_policyVerify: authorityId in root\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_AUTHORITY_ID); 
 			}
 			if(thisCertInfo->authorityId.critical) {
 				/* illegal per RFC 2459 */
 				errorLog0("tp_policyVerify: authorityId marked critical\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_AUTHORITY_ID); 
 			}
 		}
 
@@ -674,8 +840,8 @@ CSSM_RETURN tp_policyVerify(
 		if(thisCertInfo->subjectId.present) {
 			if((policy == kTPiSign) && thisCertInfo->subjectId.critical) {
 				errorLog0("tp_policyVerify: subjectId marked critical\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_SUBJECT_ID); 
 			}
 		}
 		
@@ -712,8 +878,8 @@ CSSM_RETURN tp_policyVerify(
 			if(!(actUsage & expUsage)) {
 				errorLog2("tp_policyVerify: bad keyUsage (leaf %s; usage 0x%x)\n",
 					(certDex == 0) ? "TRUE" : "FALSE", actUsage);
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE); 
 			}
 		}
 		else if(policy == kTPiSign) {
@@ -727,14 +893,14 @@ CSSM_RETURN tp_policyVerify(
 					
 				if(!(ct & CE_NCT_ObjSign)) {
 					errorLog0("tp_policyVerify: netscape-cert-type, !ObjectSign\n");
-					outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-					goto errOut;
+					policyFail = CSSM_TRUE;
+					thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE);
 				}
 			}
 			else if(!isRoot) {
 				errorLog0("tp_policyVerify: !isRoot, no keyUsage, !(leaf and netscapeCertType)\n");
-				outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-				goto errOut; 
+				policyFail = CSSM_TRUE;
+				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE); 
 			}
 		}				
 	}	/* for certDex, checking presence of extensions */
@@ -750,14 +916,16 @@ CSSM_RETURN tp_policyVerify(
 		if(extendUsage->numPurposes != 1) {
 			errorLog1("tp_policyVerify: bad extendUsage->numPurposes (%d)\n",
 				(int)extendUsage->numPurposes);
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-			goto errOut; 
+			policyFail = CSSM_TRUE;
+			(certGroup->certAtIndex(0))->addStatusCode(
+				CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE); 
 		}
 		if(!tpCompareOids(extendUsage->purposes,
 				&CSSMOID_ExtendedUseCodeSigning)) {
 			errorLog0("tp_policyVerify: bad extendKeyUsage\n");
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-			goto errOut; 
+			policyFail = CSSM_TRUE;
+			(certGroup->certAtIndex(0))->addStatusCode(
+				CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE); 
 		}
 	}
 	
@@ -779,28 +947,49 @@ CSSM_RETURN tp_policyVerify(
 		if(!tpCompareCssmData(&authorityId->keyIdentifier,
 				&certInfo[certDex+1].subjectId.extnData->subjectKeyID)) {
 			errorLog0("tp_policyVerify: bad key ID linkage\n");
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
-			goto errOut; 
+			policyFail = CSSM_TRUE;
+			(certGroup->certAtIndex(certDex))->addStatusCode(
+					CSSMERR_APPLETP_INVALID_ID_LINKAGE); 
+		}
+	}
+	
+	/* 
+	 * SSL: optionally verify common name.
+	 * FIXME - should this be before or after the root cert test? How can
+	 * we return both errors?
+	 */
+	if(policy == kTP_SSL) {
+		CSSM_RETURN cerr = tp_verifySslOpts(*certGroup, sslOpts);
+		if(cerr) {
+			policyFail = CSSM_TRUE;
 		}
 	}
 	
 	/* iSign, SSL: compare root against known root certs */
-	lastCert = certGroup->lastCert();
-	if(policy == kTPiSign) {
-		bool brtn = tp_isIsignRootCert(clHand, lastCert);
-		if(!brtn) {
-			outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
+	/* FIXME - this goes away soon */
+	#if		TP_ROOT_CERT_ENABLE
+	if((outErr == CSSM_OK) &&	// skip if we have a gross error (other than policy failure)
+	   (actionData != NULL) &&
+	   (actionData->ActionFlags & 0x80000000)) {	// The secret "enable root cert check" flag
+		TPCertInfo *lastCert = certGroup->lastCert();
+		if(policy == kTPiSign) {
+			bool brtn = tp_isIsignRootCert(clHand, lastCert);
+			if(!brtn) {
+				policyFail = CSSM_TRUE;
+			}
+		}
+		else if(verifiedToRoot && (policy == kTP_SSL)) {
+			/* note SSL doesn't require root here */
+			bool brtn = tp_isSslRootCert(clHand, lastCert);
+			if(!brtn) {
+				outErr = CSSMERR_TP_INVALID_ANCHOR_CERT;
+			}
 		}
 	}
-	else if(verifiedToRoot && (policy == kTP_SSL)) {
-		/* note SSL doesn't require root here */
-		bool brtn = tp_isSslRootCert(clHand, lastCert);
-		if(!brtn) {
-			outErr = CSSMERR_TP_INVALID_ANCHOR_CERT;
-		}
-	}
-	else {
-		outErr = CSSM_OK;
+	#endif	/* TP_ROOT_CERT_ENABLE */
+	if(policyFail && (outErr == CSSM_OK)) {
+		/* only error in this function was policy failure */
+		outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;
 	}
 errOut:
 	/* free resources */

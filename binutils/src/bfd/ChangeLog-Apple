@@ -1,0 +1,27 @@
+2002-02-20  Jim Ingham <jingham@apple.com>
+
+	* config.bfd: The i386 architecture has to be the FIRST target
+        in the list for the i386 target, since that is how gdb sets the 
+	default_bfd_arch.
+
+2002-01-30  Jim Ingham <jingham@apple.com>
+
+	* opncls.c (bfd_open): Initialize ret to true so we don't return
+	an uninitialized value.
+        * config.bfd: Move the defines for powerpc-apple-macos10 BEFORE the
+	one for powerpc-*-macos*, so that we don't get the classic Mac OS bfd
+	targets for target=powerpc-apple-macos10.
+
+2001-10-31  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_command): process
+	BFD_MACH_O_LC_WEAK_DYLIB as if it were
+	BFD_MACH_O_LC_LOAD_WEAK_DYLIB.
+
+2001-10-30  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_command): recognize (and ignore)
+	BFD_MACH_O_LC_PREBIND_CKSUM and BFD_MACH_O_LC_WEAK_DYLIB.
+
+	* mach-o.h: add BFD_MACH_O_LC_PREBIND_CKSUM and
+	BFD_MACH_O_LC_WEAK_DYLIB

@@ -28,511 +28,514 @@
  *
  */
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/iokitmig.h>
+#import "IOFireWireLibPriv.h"
+#import "IOFireWireLibPsudoAddrSpace.h"
+#import <CoreFoundation/CoreFoundation.h>
+#import <IOKit/IOKitLib.h>
+#import <IOKit/iokitmig.h>
+#import <exception>
 
-#include "IOFireWireLibPriv.h"
-#include "IOFireWireLibPsudoAddrSpace.h"
 
-// ============================================================
-//
-// interface table
-//
-// ============================================================
-
-IOFireWirePseudoAddressSpaceInterface IOFireWirePseudoAddressSpaceImp::sInterface =
-{
-	INTERFACEIMP_INTERFACE,
-	1, 0, // version/revision
-	& IOFireWirePseudoAddressSpaceImp::SSetWriteHandler,
-	& IOFireWirePseudoAddressSpaceImp::SSetReadHandler,
-	& IOFireWirePseudoAddressSpaceImp::SSetSkippedPacketHandler,
-	& IOFireWirePseudoAddressSpaceImp::SNotificationIsOn,
-	& IOFireWirePseudoAddressSpaceImp::STurnOnNotification,
-	& IOFireWirePseudoAddressSpaceImp::STurnOffNotification,
-	& IOFireWirePseudoAddressSpaceImp::SClientCommandIsComplete,
+namespace IOFireWireLib {
 	
-	& IOFireWirePseudoAddressSpaceImp::SGetFWAddress,
-	& IOFireWirePseudoAddressSpaceImp::SGetBuffer,
-	& IOFireWirePseudoAddressSpaceImp::SGetBufferSize,
-	& IOFireWirePseudoAddressSpaceImp::SGetRefCon
-} ;
-
-IUnknownVTbl** 
-IOFireWirePseudoAddressSpaceImp::Alloc(
-	IOFireWireDeviceInterfaceImp& 	inUserClient, 
-	FWKernAddrSpaceRef 				inKernAddrSpaceRef, 
-	void* 							inBuffer, 
-	UInt32 							inBufferSize, 
-	void* 							inBackingStore, 
-	void*							inRefCon)
-{
-    IOFireWirePseudoAddressSpaceImp *	me;
-	IUnknownVTbl** 	interface = NULL;
-	
-    me = new IOFireWirePseudoAddressSpaceImp(inUserClient, inKernAddrSpaceRef, inBuffer, inBufferSize, inBackingStore, inRefCon) ;
-    if( me && (kIOReturnSuccess == me->Init()) )
+	PseudoAddressSpace::Interface PseudoAddressSpace::sInterface =
 	{
-//		me->AddRef();
-        interface = & me->mInterface.pseudoVTable;
-    }
-	else
-		delete me ;
+		INTERFACEIMP_INTERFACE,
+		1, 0, // version/revision
+		& PseudoAddressSpace::SSetWriteHandler,
+		& PseudoAddressSpace::SSetReadHandler,
+		& PseudoAddressSpace::SSetSkippedPacketHandler,
+		& PseudoAddressSpace::SNotificationIsOn,
+		& PseudoAddressSpace::STurnOnNotification,
+		& PseudoAddressSpace::STurnOffNotification,
+		& PseudoAddressSpace::SClientCommandIsComplete,		
+		& PseudoAddressSpace::SGetFWAddress,
+		& PseudoAddressSpace::SGetBuffer,
+		& PseudoAddressSpace::SGetBufferSize,
+		& PseudoAddressSpace::SGetRefCon
+	} ;
 	
-	return interface;
-}
-
-HRESULT STDMETHODCALLTYPE
-IOFireWirePseudoAddressSpaceImp::QueryInterface(REFIID iid, LPVOID* ppv)
-{
-	HRESULT		result = S_OK ;
-	*ppv = nil ;
-
-	CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
-
-	if ( CFEqual(interfaceID, IUnknownUUID) ||  CFEqual(interfaceID, kIOFireWirePseudoAddressSpaceInterfaceID) )
+	IUnknownVTbl** 
+	PseudoAddressSpace::Alloc( Device& inUserClient, FWKernAddrSpaceRef inKernAddrSpaceRef, void* inBuffer, UInt32 inBufferSize, 
+			void* inBackingStore, void* inRefCon )
 	{
-		*ppv = & mInterface ;
-		AddRef() ;
+		PseudoAddressSpace* me = nil ;
+		
+		try {
+			me = new PseudoAddressSpace(inUserClient, inKernAddrSpaceRef, inBuffer, inBufferSize, inBackingStore, inRefCon) ;
+		} catch (...) {
+		}
+		
+		return (nil == me) ? nil : reinterpret_cast<IUnknownVTbl**>(& me->GetInterface()) ;
 	}
-	else
+	
+	HRESULT STDMETHODCALLTYPE
+	PseudoAddressSpace::QueryInterface(REFIID iid, LPVOID* ppv)
 	{
+		HRESULT		result = S_OK ;
 		*ppv = nil ;
-		result = E_NOINTERFACE ;
-	}	
 	
-	CFRelease(interfaceID) ;
-	return result ;
-}
-
-// ============================================================
-//
-// interface table methods
-//
-// ============================================================
-
-const IOFireWirePseudoAddressSpaceWriteHandler
-IOFireWirePseudoAddressSpaceImp::SSetWriteHandler(IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceWriteHandler inWriter)
-{ 
-	return GetThis(self)->SetWriteHandler(inWriter); 
-}
-
-const IOFireWirePseudoAddressSpaceReadHandler
-IOFireWirePseudoAddressSpaceImp::SSetReadHandler(IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceReadHandler inReader)
-{ 
-	return GetThis(self)->SetReadHandler(inReader); 
-}
-
-const IOFireWirePseudoAddressSpaceSkippedPacketHandler
-IOFireWirePseudoAddressSpaceImp::SSetSkippedPacketHandler(IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceSkippedPacketHandler inHandler)
-{ 
-	return GetThis(self)->SetSkippedPacketHandler(inHandler); 
-}
-
-Boolean
-IOFireWirePseudoAddressSpaceImp::SNotificationIsOn(IOFireWireLibPseudoAddressSpaceRef self)
-{
-	return GetThis(self)->mNotifyIsOn; 
-}
-
-Boolean
-IOFireWirePseudoAddressSpaceImp::STurnOnNotification(IOFireWireLibPseudoAddressSpaceRef self)
-{ 
-	return GetThis(self)->TurnOnNotification(self); 
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::STurnOffNotification(IOFireWireLibPseudoAddressSpaceRef self)
-{ 
-	GetThis(self)->TurnOffNotification(); 
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::SClientCommandIsComplete(IOFireWireLibPseudoAddressSpaceRef self, FWClientCommandID commandID, IOReturn status)
-{ 
-	GetThis(self)->ClientCommandIsComplete(commandID, status); 
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::SGetFWAddress(IOFireWireLibPseudoAddressSpaceRef self, FWAddress* outAddr)
-{ 
-	bcopy (&GetThis(self)->mFWAddress, outAddr, sizeof(FWAddress)); 
-}
-
-void*
-IOFireWirePseudoAddressSpaceImp::SGetBuffer(IOFireWireLibPseudoAddressSpaceRef self)
-{ 
-	return GetThis(self)->GetBuffer() ; 
-}
-
-const UInt32
-IOFireWirePseudoAddressSpaceImp::SGetBufferSize(IOFireWireLibPseudoAddressSpaceRef self)
-{ 
-	return GetThis(self)->mBufferSize; 
-}
-
-void*
-IOFireWirePseudoAddressSpaceImp::SGetRefCon(IOFireWireLibPseudoAddressSpaceRef self)
-{
-	return GetThis(self)->mRefCon; 
-}
-
-#pragma mark -
-// ============================================================
-//
-// class methods
-//
-// ============================================================
-
-IOFireWirePseudoAddressSpaceImp::IOFireWirePseudoAddressSpaceImp(
-	IOFireWireDeviceInterfaceImp&	inUserClient,
-	FWKernAddrSpaceRef				inKernAddrSpaceRef,
-	void*							inBuffer,
-	UInt32							inBufferSize,
-	void*							inBackingStore,
-	void*							inRefCon) : IOFireWireIUnknown(), // COM fixup
-												mNotifyIsOn(false),
-												mWriter( nil ),
-												mReader( nil ),
-												mSkippedPacketHandler( nil ),
-												mUserClient(inUserClient), 
-												mKernAddrSpaceRef(inKernAddrSpaceRef),
-												mBuffer(inBuffer),
-												mBufferSize(inBufferSize),
-												mBackingStore(inBackingStore),
-												mRefCon(inRefCon)
-{
-	inUserClient.AddRef() ;
+		CFUUIDRef	interfaceID	= CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, iid) ;
 	
-	mInterface.pseudoVTable = (IUnknownVTbl*) & sInterface ;
-	mInterface.obj = this ;
-}
-
-IOFireWirePseudoAddressSpaceImp::~IOFireWirePseudoAddressSpaceImp()
-{
-	IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-													 kFWPseudoAddrSpace_Release,
-													 1,
-													 0,
-													 mKernAddrSpaceRef) ;
-	IOFireWireLibLogIfErr_(result, ("IOFireWirePseudoAddressSpaceImp::~IOFireWirePseudoAddressSpaceImp: error %x releasing address space!\n", result) ) ;
-
-	mUserClient.Release() ;
-}
-
-IOReturn
-IOFireWirePseudoAddressSpaceImp::Init()
-{
-    IOReturn	err = kIOReturnSuccess ;
-    
-    io_scalar_inband_t	params = {(int)mKernAddrSpaceRef} ;
-    io_scalar_inband_t	output;
-    mach_msg_type_number_t size = 3 ;
-
-    err = io_connect_method_scalarI_scalarO(
-                mUserClient.GetUserClientConnection(),
-                kFWPseudoAddrSpace_GetFWAddrInfo,
-                params,
-                1,
-                output,
-                & size) ;
-    
-    if ( kIOReturnSuccess == err )
-        mFWAddress 		= FWAddress(output[1], output[2], output[0]) ;
-    
-    return err ;
-}
-
-// callback management
-
-#pragma mark -
-#pragma mark --callback management
-
-const IOFireWirePseudoAddressSpaceWriteHandler
-IOFireWirePseudoAddressSpaceImp::SetWriteHandler(
-	IOFireWirePseudoAddressSpaceWriteHandler		inWriter)
-{
-	IOFireWirePseudoAddressSpaceWriteHandler		oldWriter = mWriter ;
-	mWriter = inWriter ;
-	
-	return oldWriter ;
-}
-
-
-const IOFireWirePseudoAddressSpaceReadHandler
-IOFireWirePseudoAddressSpaceImp::SetReadHandler(
-	IOFireWirePseudoAddressSpaceReadHandler		inReader)
-{
-	IOFireWirePseudoAddressSpaceReadHandler		oldReader = mReader ;
-	mReader = inReader ;
-	
-	return oldReader ;
-}
-
-const IOFireWirePseudoAddressSpaceSkippedPacketHandler
-IOFireWirePseudoAddressSpaceImp::SetSkippedPacketHandler(
-	IOFireWirePseudoAddressSpaceSkippedPacketHandler			inHandler)
-{
-	IOFireWirePseudoAddressSpaceSkippedPacketHandler result = mSkippedPacketHandler ;
-	mSkippedPacketHandler = inHandler ;
-
-	return result ;
-}
-
-Boolean
-IOFireWirePseudoAddressSpaceImp::TurnOnNotification(
-//	CFRunLoopRef 			inRunLoop, 
-	void*					callBackRefCon)
-{
-	IOReturn				err					= kIOReturnSuccess ;
-	io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
-	io_scalar_inband_t		params ;
-	io_scalar_inband_t		output ;
-	mach_msg_type_number_t	size = 0 ;
-
-	// if notification is already on, skip out.
-	if (mNotifyIsOn)
-		return kIOReturnSuccess ;
-	
-	if (!connection)
-		err = kIOReturnNoDevice ;
-	
-	if ( kIOReturnSuccess == err )
-	{
-		params[0]	= (UInt32)mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback) & IOFireWirePseudoAddressSpaceImp::Writer ;
-		params[2]	= (UInt32) callBackRefCon;
-	
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_Packet,
-				params,
-				3,
-				output,
-				& size) ;
+		if ( CFEqual(interfaceID, IUnknownUUID) ||  CFEqual(interfaceID, kIOFireWirePseudoAddressSpaceInterfaceID) )
+		{
+			*ppv = & GetInterface() ;
+			AddRef() ;
+		}
+		else
+		{
+			*ppv = nil ;
+			result = E_NOINTERFACE ;
+		}	
 		
+		CFRelease(interfaceID) ;
+		return result ;
 	}
 	
-	if ( kIOReturnSuccess == err)
-	{
-		size=0 ;
-		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback2) & IOFireWirePseudoAddressSpaceImp::SkippedPacketHandler ;
-		params[2]	= (UInt32) callBackRefCon;
-		
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mSkippedPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_SkippedPacket,
-				params,
-				3,
-				output,
-				& size) ;
+	// ============================================================
+	//
+	// interface table methods
+	//
+	// ============================================================
+	
+	const PseudoAddressSpace::WriteHandler
+	PseudoAddressSpace::SSetWriteHandler( AddressSpaceRef self, WriteHandler inWriter )
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->SetWriteHandler(inWriter); 
 	}
 	
-	if ( kIOReturnSuccess == err)
-	{
-		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback) & IOFireWirePseudoAddressSpaceImp::Reader ;
-		params[2]	= (UInt32) callBackRefCon ;
-		
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mReadPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_Read,
-				params,
-				3,
-				params,
-				& size) ;
-	}
-
-	if ( kIOReturnSuccess == err )
-		mNotifyIsOn = true ;
-		
-	return ( kIOReturnSuccess == err ) ;
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::TurnOffNotification()
-{
-	IOReturn				err					= kIOReturnSuccess ;
-	io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
-	io_scalar_inband_t		params ;
-	mach_msg_type_number_t	size = 0 ;
-	
-	// if notification isn't on, skip out.
-	if (!mNotifyIsOn)
-		return ;
-
-	if (!connection)
-		err = kIOReturnNoDevice ;
-
-	if ( kIOReturnSuccess == err )
-	{
-		// set callback for writes to 0
-		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-		params[2]	= (UInt32) this ;
-	
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_Packet,
-				params,
-				3,
-				params,
-				& size) ;
-		
-
-		// set callback for skipped packets to 0
-		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-		params[2]	= (UInt32) this ;
-		
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mSkippedPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_SkippedPacket,
-				params,
-				3,
-				params,
-				& size) ;
-
-		// set callback for skipped packets to 0
-		params[0]	= (UInt32) mKernAddrSpaceRef ;
-		params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-		params[2]	= (UInt32) this ;
-		
-		err = io_async_method_scalarI_scalarO(
-				connection,
-				mUserClient.GetAsyncPort(),
-				mReadPacketAsyncRef,
-				1,
-				kFWSetAsyncRef_Read,
-				params,
-				3,
-				params,
-				& size) ;
+	const PseudoAddressSpace::ReadHandler
+	PseudoAddressSpace::SSetReadHandler(AddressSpaceRef self, ReadHandler inReader)
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->SetReadHandler(inReader); 
 	}
 	
-	mNotifyIsOn = false ;
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::ClientCommandIsComplete(
-	FWClientCommandID				commandID,
-	IOReturn						status)
-{
-	OSStatus err = IOConnectMethodScalarIScalarO(
-						mUserClient.GetUserClientConnection(),
-						kFWPseudoAddrSpace_ClientCommandIsComplete,
-						3,
-						0,
-						mKernAddrSpaceRef, commandID, status) ;
-						
-	IOFireWireLibLogIfErr_(err, ("IOFireWirePseudoAddressSpaceImp::ClientCommandIsComplete: err=0x%08lX\n", err)) ;
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::Writer(
-	IOFireWireLibPseudoAddressSpaceRef refCon,
-	IOReturn						result,
-	void**							args,
-	int								numArgs)
-{
-	IOFireWirePseudoAddressSpaceImp* me =  GetThis(refCon);
-
-	if (me->mWriter)
-		(me->mWriter)(
-			(IOFireWireLibPseudoAddressSpaceRef) refCon,
-			(FWClientCommandID) args[0],						// commandID,
-			(UInt32) args[1],									// packetSize
-			(char*)me->mBuffer + (UInt32)args[2],				// packet
-			(UInt16) args[3],									// nodeID
-			(UInt32)args[5],									// addr.nodeID, addr.addressHi,
-			(UInt32)args[6],
-			(UInt32) me->mRefCon) ;								// refCon
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::SkippedPacketHandler(
-	IOFireWireLibPseudoAddressSpaceRef refCon,
-	IOReturn						result,
-	FWClientCommandID				commandID,
-	UInt32							packetCount)
-{
-	
-	IOFireWirePseudoAddressSpaceImp* me = GetThis(refCon) ;
-
-	if (me->mSkippedPacketHandler)
-		(me->mSkippedPacketHandler)(
-			(IOFireWireLibPseudoAddressSpaceRef) refCon,
-			commandID,
-			packetCount) ;
-}
-
-void
-IOFireWirePseudoAddressSpaceImp::Reader(
-	IOFireWireLibPseudoAddressSpaceRef	refCon,
-	IOReturn							result,
-	void**								args,
-	int									numArgs)
-{
-	IOFireWirePseudoAddressSpaceImp* me = GetThis(refCon) ;
-
-	if (me->mReader)
-	{
-		(me->mReader)( (IOFireWireLibPseudoAddressSpaceRef) refCon,
-					   (FWClientCommandID) args[0],						// commandID,
-					   (UInt32) args[1],								// packetSize
-					   (UInt32) args[2],								// packetOffset
-					   (UInt16) args[3],								// nodeID
-					   (UInt32) args[5],								// addr.nodeID, addr.addressHi,
-					   (UInt32) args[6],
-					   (UInt32) me->mRefCon) ;							// refCon
+	const PseudoAddressSpace::SkippedPacketHandler
+	PseudoAddressSpace::SSetSkippedPacketHandler(AddressSpaceRef self, SkippedPacketHandler inHandler)
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->SetSkippedPacketHandler(inHandler); 
 	}
-	else
-		me->ClientCommandIsComplete( args[0], //commandID
-								 kFWResponseDataError) ;
-}
+	
+	Boolean
+	PseudoAddressSpace::SNotificationIsOn(AddressSpaceRef self)
+	{
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->mNotifyIsOn; 
+	}
+	
+	Boolean
+	PseudoAddressSpace::STurnOnNotification(AddressSpaceRef self)
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->TurnOnNotification(self); 
+	}
+	
+	void
+	PseudoAddressSpace::STurnOffNotification(AddressSpaceRef self)
+	{ 
+		IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->TurnOffNotification(); 
+	}
+	
+	void
+	PseudoAddressSpace::SClientCommandIsComplete(AddressSpaceRef self, FWClientCommandID commandID, IOReturn status)
+	{ 
+		IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->ClientCommandIsComplete(commandID, status); 
+	}
+	
+	void
+	PseudoAddressSpace::SGetFWAddress(AddressSpaceRef self, FWAddress* outAddr)
+	{ 
+		bcopy (&IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->mFWAddress, outAddr, sizeof(FWAddress)); 
+	}
+	
+	void*
+	PseudoAddressSpace::SGetBuffer(AddressSpaceRef self)
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->GetBuffer() ; 
+	}
+	
+	const UInt32
+	PseudoAddressSpace::SGetBufferSize(AddressSpaceRef self)
+	{ 
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->mBufferSize; 
+	}
+	
+	void*
+	PseudoAddressSpace::SGetRefCon(AddressSpaceRef self)
+	{
+		return IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(self)->mRefCon; 
+	}
+	
+	#pragma mark -
+	// ============================================================
+	//
+	// class methods
+	//
+	// ============================================================
+	
+	PseudoAddressSpace::PseudoAddressSpace( Device& inUserClient, FWKernAddrSpaceRef inKernAddrSpaceRef,
+												void* inBuffer, UInt32 inBufferSize, void* inBackingStore, void* inRefCon) 
+	: IOFireWireIUnknown( reinterpret_cast<IUnknownVTbl*>(& sInterface) ),
+		mNotifyIsOn(false),
+		mWriter( nil ),
+		mReader( nil ),
+		mSkippedPacketHandler( nil ),
+		mUserClient(inUserClient), 
+		mKernAddrSpaceRef(inKernAddrSpaceRef),
+		mBuffer((char*)inBuffer),
+		mBufferSize(inBufferSize),
+		mBackingStore(inBackingStore),
+		mRefCon(inRefCon)
+	{
+		inUserClient.AddRef() ;
 
+		mPendingLocks = ::CFDictionaryCreateMutable( kCFAllocatorDefault, 0, NULL, NULL ) ;
+		if (!mPendingLocks)
+			throw std::exception() ;
+	
+		UInt32 nodeID ;
+		UInt32 addressHi ;
+		UInt32 addressLo ;
 
-#pragma mark -
-#pragma mark --accessors
+		IOReturn error ;
+		error = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWPseudoAddrSpace_GetFWAddrInfo, 1, 3, mKernAddrSpaceRef,
+				& nodeID, & addressHi, & addressLo ) ;
+		if (error)
+			throw std::exception() ;
 
-const FWAddress&
-IOFireWirePseudoAddressSpaceImp::GetFWAddress()
-{
-	return mFWAddress ;
-}
+		mFWAddress = FWAddress( (UInt16)addressHi, addressLo, (UInt16)nodeID ) ;
+	}
+	
+	PseudoAddressSpace::~PseudoAddressSpace()
+	{
+		#if IOFIREWIREUSERCLIENTDEBUG > 0
+		IOReturn result = 
+		#endif
+		IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWPseudoAddrSpace_Release, 1, 0, mKernAddrSpaceRef ) ;
+		IOFireWireLibLogIfErr_(result, "PseudoAddressSpace::~PseudoAddressSpace: error %x releasing address space!\n", result) ;
+	
+		mUserClient.Release() ;
+	}
+	
+	// callback management
+	
+	#pragma mark -
+	#pragma mark --callback management
+	
+	const PseudoAddressSpace::WriteHandler
+	PseudoAddressSpace::SetWriteHandler( WriteHandler inWriter )
+	{
+		WriteHandler oldWriter = mWriter ;
+		mWriter = inWriter ;
+		
+		return oldWriter ;
+	}
+	
+	
+	const PseudoAddressSpace::ReadHandler
+	PseudoAddressSpace::SetReadHandler(
+		ReadHandler		inReader)
+	{
+		ReadHandler oldReader = mReader ;
+		mReader = inReader ;
+		
+		return oldReader ;
+	}
+	
+	const PseudoAddressSpace::SkippedPacketHandler
+	PseudoAddressSpace::SetSkippedPacketHandler(
+		SkippedPacketHandler			inHandler)
+	{
+		SkippedPacketHandler result = mSkippedPacketHandler ;
+		mSkippedPacketHandler = inHandler ;
+	
+		return result ;
+	}
+	
+	Boolean
+	PseudoAddressSpace::TurnOnNotification( void* callBackRefCon )
+	{
+		IOReturn				err					= kIOReturnSuccess ;
+		io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
+		io_scalar_inband_t		params ;
+		io_scalar_inband_t		output ;
+		mach_msg_type_number_t	size = 0 ;
+	
+		// if notification is already on, skip out.
+		if (mNotifyIsOn)
+			return true ;
+		
+		if (!connection)
+			err = kIOReturnNoDevice ;
+		
+		if ( kIOReturnSuccess == err )
+		{
+			params[0]	= (UInt32)mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback) & PseudoAddressSpace::Writer ;
+			params[2]	= (UInt32) callBackRefCon;
+		
+			err = io_async_method_scalarI_scalarO(
+					connection,
+					mUserClient.GetAsyncPort(),
+					mPacketAsyncRef,
+					1,
+					kFWSetAsyncRef_Packet,
+					params,
+					3,
+					output,
+					& size) ;
+			
+		}
+		
+		if ( kIOReturnSuccess == err)
+		{
+			size=0 ;
+			params[0]	= (UInt32) mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback2) & SkippedPacket ;
+			params[2]	= (UInt32) callBackRefCon;
+			
+			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mSkippedPacketAsyncRef, 1,
+					kFWSetAsyncRef_SkippedPacket, params, 3, output, & size) ;
+		}
+		
+		if ( kIOReturnSuccess == err)
+		{
+			params[0]	= (UInt32) mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback) & Reader ;
+			params[2]	= (UInt32) callBackRefCon ;
+			
+			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mReadPacketAsyncRef, 1,
+					kFWSetAsyncRef_Read, params, 3, params, & size ) ;
+		}
+	
+		if ( kIOReturnSuccess == err )
+			mNotifyIsOn = true ;
+			
+		return ( kIOReturnSuccess == err ) ;
+	}
+	
+	void
+	PseudoAddressSpace::TurnOffNotification()
+	{
+		IOReturn				err					= kIOReturnSuccess ;
+		io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
+		io_scalar_inband_t		params ;
+		mach_msg_type_number_t	size = 0 ;
+		
+		// if notification isn't on, skip out.
+		if (!mNotifyIsOn)
+			return ;
+	
+		if (!connection)
+			err = kIOReturnNoDevice ;
+	
+		if ( kIOReturnSuccess == err )
+		{
+			// set callback for writes to 0
+			params[0]	= (UInt32) mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
+			params[2]	= (UInt32) this ;
+		
+			err = io_async_method_scalarI_scalarO(
+					connection,
+					mUserClient.GetAsyncPort(),
+					mPacketAsyncRef,
+					1,
+					kFWSetAsyncRef_Packet,
+					params,
+					3,
+					params,
+					& size) ;
+			
+	
+			// set callback for skipped packets to 0
+			params[0]	= (UInt32) mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
+			params[2]	= (UInt32) this ;
+			
+			err = io_async_method_scalarI_scalarO(
+					connection,
+					mUserClient.GetAsyncPort(),
+					mSkippedPacketAsyncRef,
+					1,
+					kFWSetAsyncRef_SkippedPacket,
+					params,
+					3,
+					params,
+					& size) ;
+	
+			// set callback for skipped packets to 0
+			params[0]	= (UInt32) mKernAddrSpaceRef ;
+			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
+			params[2]	= (UInt32) this ;
+			
+			err = io_async_method_scalarI_scalarO(
+					connection,
+					mUserClient.GetAsyncPort(),
+					mReadPacketAsyncRef,
+					1,
+					kFWSetAsyncRef_Read,
+					params,
+					3,
+					params,
+					& size) ;
+		}
+		
+		mNotifyIsOn = false ;
+	}
+	
+	void
+	PseudoAddressSpace::ClientCommandIsComplete(
+		FWClientCommandID				commandID,
+		IOReturn						status)
+	{
+		void**		args ;
+		
+		if (::CFDictionaryGetValueIfPresent( mPendingLocks, commandID, (const void**) &args ) && (status == kIOReturnSuccess) )
+		{
+			::CFDictionaryRemoveValue( mPendingLocks, commandID ) ;
+			AddressSpaceRef 	addressSpaceRef = (AddressSpaceRef) args[0] ;
+	
+			++args ;	// we tacked on an extra arg at the beginning, so we undo that.
+			
+			bool	equal ;
+			UInt32	offset = (UInt32)args[6] ;
+			
+			if ( (UInt32) args[1] == 8 )
+				// 32-bit compare
+				equal = *(UInt32*)((char*)mBackingStore + offset) == *(UInt32*)(mBuffer + (UInt32)args[2]) ;
+			else
+				// 64-bit compare
+				equal = *(UInt64*)((char*)mBackingStore + offset) == *(UInt64*)(mBuffer + (UInt32)args[2]) ;
+	
+			if ( equal )
+			{
+				mWriter(
+					addressSpaceRef,
+					(FWClientCommandID)(args[0]),						// commandID,
+					(UInt32)(args[1]) >> 1,								// packetSize
+					mBuffer + (UInt32)args[2] + ( (UInt32) args[1] == 8 ? 4 : 8),// packet
+					(UInt16)(UInt32)args[3],							// nodeID
+					(UInt32)(args[5]),									// addr.nodeID, addr.addressHi,
+					(UInt32)(args[6]),
+					(UInt32) mRefCon) ;									// refcon
+			}
+			else
+				status = kFWResponseAddressError ;
+				
+			delete[] (args-1) ;
+		}
+	
+		#if IOFIREWIREUSERCLIENTDEBUG > 0
+		OSStatus err = 
+		#endif
+		::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWPseudoAddrSpace_ClientCommandIsComplete,
+				3, 0, mKernAddrSpaceRef, commandID, status) ;
+								
+		IOFireWireLibLogIfErr_(err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08lX\n", err) ;
+	}
+	
+	void
+	PseudoAddressSpace::Writer( AddressSpaceRef refcon, IOReturn result, void** args, int numArgs)
+	{
+		PseudoAddressSpace* me = IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(refcon) ;
+	
+		if ( !me->mWriter || ( (bool)args[7] && !me->mReader) )
+		{
+			me->ClientCommandIsComplete( args[0], kFWResponseTypeError) ;
+			return ;
+		}
+		else if ( (bool)args[7] )
+		{
+			void** lockValues 	= new (void*)[numArgs+1] ;
+	
+			bcopy( args, & lockValues[1], sizeof(void*) * numArgs ) ;
+			lockValues[0] = refcon ;
+		
+			::CFDictionaryAddValue( me->mPendingLocks, args[0], lockValues ) ;
+	
+			UInt32 offset = (UInt32)args[6] ;	// !!! hack - all address spaces have 0 for addressLo
+	
+			(me->mReader)( (AddressSpaceRef) refcon,
+							(FWClientCommandID)(args[0]),					// commandID,
+							(UInt32)(args[1]),								// packetSize
+							offset,											// packetOffset
+							(UInt16)(UInt32)(args[3]),						// nodeID; double cast avoids compiler warning
+							(UInt32)(args[5]),								// addr.addressHi,
+							(UInt32)(args[6]),								// addr.addressLo
+							(UInt32) me->mRefCon) ;							// refcon
+	
+		}
+		else
+		{
+			(me->mWriter)(
+				(AddressSpaceRef) refcon,
+				(FWClientCommandID) args[0],						// commandID,
+				(UInt32)(args[1]),									// packetSize
+				me->mBuffer + (UInt32)(args[2]),					// packet
+				(UInt16)(UInt32)(args[3]),							// nodeID
+				(UInt32)(args[5]),									// addr.addressHi, addr.addressLo
+				(UInt32)(args[6]),
+				(UInt32) me->mRefCon) ;								// refcon
+	
+		}
+	}
+	
+	void
+	PseudoAddressSpace::SkippedPacket( AddressSpaceRef refcon, IOReturn result, FWClientCommandID commandID, UInt32 packetCount)
+	{
+		PseudoAddressSpace* me = IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(refcon) ;
+	
+		if (me->mSkippedPacketHandler)
+			(me->mSkippedPacketHandler)( refcon, commandID, packetCount) ;
+	}
+	
+	void
+	PseudoAddressSpace::Reader( AddressSpaceRef	refcon, IOReturn result, void** args, int numArgs )
+	{
+		PseudoAddressSpace* me = IOFireWireIUnknown::InterfaceMap<PseudoAddressSpace>::GetThis(refcon) ;
 
-void*
-IOFireWirePseudoAddressSpaceImp::GetBuffer()
-{
-	return mBackingStore ;	// I assume this is what the user wants instead of 
-							// the queue buffer stored in mBuffer.
-}
-
-const UInt32
-IOFireWirePseudoAddressSpaceImp::GetBufferSize()
-{
-	return mBufferSize ;
-}
-
-void*
-IOFireWirePseudoAddressSpaceImp::GetRefCon()
-{
-	return mRefCon ;
+	
+		if (me->mReader)
+		{
+			(me->mReader)( (AddressSpaceRef) refcon,
+						(FWClientCommandID) args[0],					// commandID,
+						(UInt32)(args[1]),								// packetSize
+						(UInt32)(args[2]),								// packetOffset
+						(UInt16)(UInt32)(args[3]),						// nodeID
+						(UInt32)(args[5]),								// addr.nodeID, addr.addressHi,
+						(UInt32)(args[6]),
+						(UInt32) me->mRefCon) ;							// refcon
+		}
+		else
+			me->ClientCommandIsComplete( args[0], //commandID
+									kFWResponseTypeError) ;
+	}
+	
+	
+	#pragma mark -
+	#pragma mark --accessors
+	
+	const FWAddress&
+	PseudoAddressSpace::GetFWAddress()
+	{
+		return mFWAddress ;
+	}
+	
+	void*
+	PseudoAddressSpace::GetBuffer()
+	{
+		return mBackingStore ;	// I assume this is what the user wants instead of 
+								// the queue buffer stored in mBuffer.
+	}
+	
+	const UInt32
+	PseudoAddressSpace::GetBufferSize()
+	{
+		return mBufferSize ;
+	}
+	
+	void*
+	PseudoAddressSpace::GetRefCon()
+	{
+		return mRefCon ;
+	}
 }

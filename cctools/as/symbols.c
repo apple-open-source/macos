@@ -239,7 +239,7 @@ char *sym_name) /* symbol name, as a cannonical string */
 	     /* bug #50416 -O causes this not to work for:
 	     && ((symbolP->sy_desc) & (~REFERENCE_TYPE)) == 0
 	     */
-	     && (temp & (~REFERENCE_TYPE)) == 0
+	     && (temp & (~(REFERENCE_TYPE|N_WEAK_REF|N_WEAK_DEF))) == 0
 	     && symbolP -> sy_value == 0)
 	    {
 	      symbolP -> sy_frag  = frag_now;
@@ -248,6 +248,12 @@ char *sym_name) /* symbol name, as a cannonical string */
 	      symbolP -> sy_type |= N_SECT; /* keep N_EXT bit */
 	      symbolP -> sy_other = frchain_now->frch_nsect;
 	      symbolP -> sy_desc &= ~REFERENCE_TYPE;
+	      symbolP -> sy_desc &= ~N_WEAK_REF;
+	      if((symbolP->sy_desc & N_WEAK_DEF) == N_WEAK_DEF &&
+		 (frchain_now->frch_section.flags & S_COALESCED) != S_COALESCED)
+		  as_fatal("symbol: %s can't be a weak_definition (currently "
+			   "only supported in section of type coalesced)",
+			   sym_name);
 #ifdef NeXT_MOD	/* generate stabs for debugging assembly code */
 	      if(flagseen['g'])
 		  make_stab_for_symbol(symbolP);

@@ -1,0 +1,56 @@
+***** BUILDING:
+
+This program's build procedure is fairly standard.  Try:
+
+	./configure
+	make
+	make install
+
+Options to the configure script are up to you.  For details, run:
+
+	./configure --help
+
+Please report build problems at:
+
+	http://sourceforge.net/bugs/?func=addbug&group_id=4664
+
+(yes, even non-Linux problems).
+
+
+***** TIPS AND PROBLEMS:
+
+- Try to use flex as the lexical analyzer.  There may be some problems
+  with using the native lex (due to some problems).  The has been
+  reported as a problem on Solaris.
+
+- On Linux systems (and possibly others) configure may fail if lex is
+  a synomyn for flex.  To fix, do the following:
+
+	make distclean
+	./configure --with-flex
+	make
+
+- On HP-UX 10.20, the default version of curses was observed to be
+  broken.  Get their "cumulative libHcurses patch" (patch PHCO_10947)
+  and then compile like this, to work around that bug:
+
+	make CURSES_LIBS=-lHcurses
+
+  Also on other versions of HP-UX, if the build fails at link time with
+  errors like:
+
+	/usr/ccs/bin/ld: Unsatisfied symbols:
+	initscr (code)
+	wstandend (code)
+	...
+
+  you should delete the file, "config.cache", and re-run configure with
+  the option "--with-vcurses"; for example:
+
+	./configure --with-vcurses
+
+  Note, however, that you should never see this if you build using
+  "make CURSES_LIBS=-lHcurses".
+
+
+Browse to http://cscope.sourceforge.net for more current information.

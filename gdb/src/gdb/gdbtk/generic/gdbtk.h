@@ -1,5 +1,6 @@
 /* Tcl/Tk interface routines header file.
-   Copyright 1994-1998, 2000 Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 2001
+   Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
 
@@ -79,14 +80,8 @@ extern int load_in_progress;
 
 extern Tcl_Interp *gdbtk_interp;
 
-/* These two are lookup tables for elements of the breakpoint structure that
-   gdbtk knows by string name.  They are defined in gdbtk-cmds.c */
-
-extern char *bptypes[];
-extern char *bpdisp[];
-
 /*
- * This structure controls how the gdb output is fed into call_wrapper invoked
+ * This structure controls how the gdb output is fed into gdbtk_call_wrapper invoked
  * commands.  See the explanation of gdbtk_fputs in gdbtk_hooks.c for more details.
  */
 
@@ -116,7 +111,7 @@ struct target_ops;
 				   output of a call wrapped command directly in 
 				   the Tcl result if you want, but beware, it will
 				   not then be preserved across recursive
-				   call_wrapper invocations. */
+				   gdbtk_call_wrapper invocations. */
 #define GDBTK_ERROR_STARTED 8	/* This one is just used in gdbtk_fputs.  If we 
 				   see some output on stderr, we need to clear
 				   the result we have been accumulating, or the 
@@ -129,7 +124,7 @@ struct target_ops;
 /* This is a pointer to the gdbtk_result struct that
    we are currently filling.  We use the C stack to make a stack of these
    structures for nested calls to gdbtk commands that are invoked through
-   the call_wrapper mechanism.  See that function for more details. */
+   the gdbtk_call_wrapper mechanism.  See that function for more details. */
 
 extern gdbtk_result *result_ptr;
 
@@ -157,9 +152,10 @@ extern void gdbtk_ignorable_warning (const char *, const char *);
 extern void gdbtk_interactive (void);
 extern int x_event (int);
 extern int gdbtk_two_elem_cmd (char *, char *);
-extern int call_wrapper (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 extern int target_is_native (struct target_ops *t);
 extern void gdbtk_fputs (const char *, struct ui_file *);
+extern struct ui_file *gdbtk_fileopen (void);
+extern int gdbtk_disable_fputs;
 
 #ifdef _WIN32
 extern void close_bfds ();

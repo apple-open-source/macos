@@ -1,0 +1,39 @@
+#! /bin/sh
+
+# Test for bug in conditionals.
+# Report from Lars J. Aas.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_RANLIB
+AM_CONDITIONAL(COND1, true)
+AM_CONDITIONAL(COND2, true)
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libtest.a
+
+if COND1
+SOURCEVAR1 = 
+SOURCEVAR2 = habla.cpp espanol.cpp
+else
+SOURCEVAR1 = dummy.cpp
+SOURCEVAR2 =
+endif
+
+if COND2
+TESTSOURCES = $(SOURCEVAR1)
+else
+TESTSOURCES = $(SOURCEVAR2)
+endif
+
+libtest_a_SOURCES = $(TESTSOURCES)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'am_libtest_a_OBJECTS = .*$' Makefile.in

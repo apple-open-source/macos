@@ -1,0 +1,4 @@
+Targets='msdosfs
+mount_msdos
+msdos.util
+msdos.fs'

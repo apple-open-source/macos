@@ -1,8 +1,9 @@
-;;; vcursor.el --- manipulate an alternative ("virtual") cursor.
+;;; vcursor.el --- manipulate an alternative ("virtual") cursor
 
 ;; Copyright (C) 1994, 1996, 1998 Free Software Foundation, Inc.
 
 ;; Author:   Peter Stephenson <pws@ibmth.df.unipi.it>
+;; Maintainer: FSF
 ;; Keywords: virtual cursor, convenience
 
 ;; This file is part of GNU Emacs.
@@ -38,7 +39,6 @@
 ;;   or t), which means that copying from the vcursor will be turned
 ;;   off after any operation not involving the vcursor, but the
 ;;   vcursor itself will be left alone.
-;; - should now work unmodified under XEmacs
 ;; - works on dumb terminals with Emacs 19.29 and later
 ;; - new keymap vcursor-map for binding to a prefix key
 ;; - vcursor-compare-windows substantially improved
@@ -321,6 +321,8 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'compare-w))
+
 (defgroup vcursor nil
   "Manipulate an alternative (\"virtual\") cursor."
   :prefix "vcursor-"
@@ -341,14 +343,11 @@ disable the vcursor."
   :group 'vcursor)
 
 ;; Needed for defcustom, must be up here
-(if (not (string-match "XEmacs" emacs-version))
-    (defun vcursor-cs-binding (base &optional meta)
-      (read (concat "[" (if meta "M-" "") "C-S-" base "]")))
-  (require 'overlay)
-  (defun vcursor-cs-binding (base &optional meta)
-    (read (concat "[(" (if meta "meta " "") "control shift "
-		  base ")]")))
-  )
+(defun vcursor-cs-binding (base &optional meta)
+  (vector (let ((key (list 'control 'shift (intern base))))
+	    (if meta
+		(cons 'meta key)
+	      key))))
 
 (defun vcursor-bind-keys (var value)
   "Alter the value of the variable VAR to VALUE, binding keys as required.
@@ -560,7 +559,6 @@ If that's disabled, don't go anywhere but don't complain."
   (and (overlayp vcursor-overlay)
        (overlay-buffer vcursor-overlay)
        (set-buffer (overlay-buffer vcursor-overlay))
-       (overlay-start vcursor-overlay)	; needed for XEmacs
        (goto-char (overlay-start vcursor-overlay)))
   )
 
@@ -654,6 +652,7 @@ another window.  With LEAVE-W, use the current `vcursor-window'."
 	(move-overlay vcursor-overlay pt (+ pt 1) (current-buffer))
       (setq vcursor-overlay (make-overlay pt (+ pt 1)))
       (or window-system
+	  (display-color-p)
 	  (overlay-put vcursor-overlay 'before-string vcursor-string))
       (overlay-put vcursor-overlay 'face 'vcursor))
     (or leave-w (vcursor-find-window nil t))
@@ -809,7 +808,7 @@ out how much to copy."
    ((and (overlayp vcursor-overlay) (overlay-start vcursor-overlay))
     t)
    (arg nil)
-   (t (error "The virtual cursor is not active now.")))
+   (t (error "The virtual cursor is not active now")))
   )
 
 (defun vcursor-disable (&optional arg)
@@ -1162,4 +1161,4 @@ Disabling the vcursor automatically turns this off."
 
 (provide 'vcursor)
 
-;; vcursor.el ends here
+;;; vcursor.el ends here

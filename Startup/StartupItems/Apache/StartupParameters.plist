@@ -1,12 +1,7 @@
 {
   Description     = "Apache web server";
   Provides        = ("Web Server");
-  Requires        = ("Disks", "Resolver");
-  Uses            = ("NFS", "Network Time");
+  Requires        = ("DirectoryServices");
+  Uses            = ("Disks", "NFS", "Network Time");
   OrderPreference = "None";
-  Messages =
-  {
-    start = "Starting Apache web server";
-    stop  = "Stopping Apache web server";
-  };
 }

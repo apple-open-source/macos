@@ -74,6 +74,7 @@
 int alwaysno;		/* assume "no" for all questions */
 int alwaysyes;		/* assume "yes" for all questions */
 int preen;		/* set when preening */
+int quick;		/* set to quickly check if volume is dirty */
 int rdonly;		/* device is opened read only (supersedes above) */
 
 static void usage __P((void));
@@ -82,7 +83,7 @@ int main __P((int, char **));
 static void
 usage()
 {
-	errexit("Usage: fsck_msdos [-fnpy] filesystem ... \n");
+	errexit("Usage: fsck_msdos [-fnpqy] filesystem ... \n");
 }
 
 int
@@ -93,7 +94,7 @@ main(argc, argv)
 	int ret = 0, erg;
 	int ch;
 
-	while ((ch = getopt(argc, argv, "pynf")) != -1) {
+	while ((ch = getopt(argc, argv, "pynfq")) != -1) {
 		switch (ch) {
 		case 'f':
 			/*
@@ -115,6 +116,9 @@ main(argc, argv)
 			alwaysyes = alwaysno = 0;
 			break;
 
+		case 'q':
+			quick = 1;
+			break;
 		default:
 			usage();
 			break;

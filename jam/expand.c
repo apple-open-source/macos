@@ -188,14 +188,14 @@ int	cancopyin;
 
 		strcpy( varname, vars->string );
 
-		if( colon = strchr( varname, MAGIC_COLON ) )
+		if( (colon = strchr( varname, MAGIC_COLON )) != NULL )
 		    *colon = '\0';
 
-		if( bracket = strchr( varname, MAGIC_LEFT ) )
+		if( (bracket = strchr( varname, MAGIC_LEFT )) != NULL )
 		{
 		    char *dash;
 
-		    if( dash = strchr( bracket + 1, '-' ) )
+		    if( (dash = strchr( bracket + 1, '-' )) != NULL )
 		    {
 			*dash = '\0';
 			sub1 = atoi( bracket + 1 );
@@ -249,7 +249,7 @@ int	cancopyin;
 
 		    /* Skip members not in subscript */
 
-		    if( bracket && ( i < sub1 || sub2 && i > sub2 ) )
+		    if( bracket && ( i < sub1 || ( sub2 && i > sub2 ) ) )
 			continue;
 
 		    /* Apply : mods, if present */
@@ -352,6 +352,9 @@ char	*out;
         if( new.f_archive.ptr )
             old.f_archive = new.f_archive;
 
+#ifdef APPLE_EXTENSIONS
+	old.quoting_style = new.quoting_style;
+#endif
 	/* If requested, modify old to point to parent */
 
 	if( acts.parent )
@@ -422,6 +425,9 @@ VAR_ACTS	*acts;
 	int havezeroed = 0;
 	memset( (char *)f, 0, sizeof( *f ) );
 	memset( (char *)acts, 0, sizeof( *acts ) );
+#ifdef APPLE_EXTENSIONS
+	f->quoting_style = NO_QUOTING;
+#endif
 
 	while( *mods )
 	{
@@ -429,7 +435,6 @@ VAR_ACTS	*acts;
 	    struct filepart *fp;
 
 	    /* First take care of :U or :L (upshift, downshift) */
-
 	    if( *mods == 'L' )
 	    {
 		acts->downshift = 1;
@@ -448,6 +453,26 @@ VAR_ACTS	*acts;
 		++mods;
 		continue;
 	    }
+#ifdef APPLE_EXTENSIONS
+	    else if( *mods == 'q' )
+	    {
+		f->quoting_style = SINGLE_QUOTING;
+		++mods;
+		continue;
+	    }
+	    else if( *mods == 'Q' )
+	    {
+		f->quoting_style = DOUBLE_QUOTING;
+		++mods;
+		continue;
+	    }
+	    else if( *mods == 'E' )
+	    {
+		f->quoting_style = BACKSLASH_QUOTING;
+		++mods;
+		continue;
+	    }
+#endif
 
 	    /* Now handle the file component flags */
 
@@ -486,7 +511,7 @@ VAR_ACTS	*acts;
                     f->f_archive.ptr = "";
                 }
 
-		if( p = strchr( mods, MAGIC_COLON ) )
+		if( (p = strchr( mods, MAGIC_COLON )) != NULL )
 		{
 		    fp->ptr = mods;
 		    fp->len = p - mods;

@@ -27,14 +27,28 @@ type Username = c_string[*:80];
 type Choice = struct[2] of unsigned32;
 type MigBoolean = unsigned32;
 
+type Data = array [] of char;
+
+type AuthorizationString = c_string[*:1024];
+type AuthorizationItemSetBlob = Data
+	ctype: AuthorizationItemSetPtr;
+type AuthorizationItemSetPtr = unsigned32;
+type AuthorizationValueVectorBlob = Data
+	ctype: AuthorizationValueVectorPtr;
+type AuthorizationValueVectorPtr = unsigned32;
+
+type AuthorizationResultInt = unsigned32;
+
 
 //
 // Common argument profiles
 //
+
 #define UCSP_PORTS	requestport sport: mach_port_t; \
 					replyport rport: mach_port_t; \
 					out status: OSStatus
-#define IN_BLOB(name)	in name: name##Blob; in name##Base: name##Ptr
+#define IN_BLOB(name,type)	in name: type##Blob; in name##Base: type##Ptr
+#define OUT_BLOB(name,type)	out name: type##Blob; out name##Base: type##Ptr
 
 
 //
@@ -64,9 +78,9 @@ routine retryNewPassphrase(UCSP_PORTS; in reason: Reason; out passphrase: String
 //
 // "Rogue App" alert/confirm function
 //
-routine queryKeychainAccess(UCSP_PORTS; 
+routine queryKeychainAccess(UCSP_PORTS;
 	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
-	in item: ConstString; in operation: AclAuthorization;
+	in item: ConstString; in operation: AclAuthorization; in needPassphrase: MigBoolean;
     out choice: Choice);
     
 //
@@ -96,3 +110,22 @@ routine authorizationAuthenticate(UCSP_PORTS;
         out authenticatedUser: Username; out authenticatedPassword: String);
 routine retryAuthorizationAuthenticate(UCSP_PORTS; in reason: Reason;
 	out authenticatedUser: Username; out authenticatedPassword: String);
+
+routine invokeMechanism(UCSP_PORTS;
+    out stagePort: mach_port_copy_send_t;
+// plugin id 
+    in pluginId: AuthorizationString;
+// mechanism id 
+    in mechanismId: AuthorizationString;
+	IN_BLOB(argumentsIn,AuthorizationValueVector);
+	IN_BLOB(hintsIn,AuthorizationItemSet);
+	IN_BLOB(contextIn,AuthorizationItemSet);
+// result 
+    out resultOut: AuthorizationResultInt;
+	OUT_BLOB(hintsOut,AuthorizationItemSet);
+	OUT_BLOB(contextOut,AuthorizationItemSet)
+);
+
+routine terminate(requestport sport: mach_port_t;
+    replyport rport: mach_port_t);
+

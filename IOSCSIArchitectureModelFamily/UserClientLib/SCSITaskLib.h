@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved. 
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved. 
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #define __SCSI_TASK_LIB_H__
 
 #include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/SCSICmds_REQUEST_SENSE_Defs.h>
 
@@ -37,7 +38,9 @@
 	#include <IOKit/IOTypes.h>
 	#include <IOKit/IOCFPlugIn.h>
 	
-__BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 /*! @header SCSITaskLib
@@ -140,6 +143,23 @@ devices such as CD-R/W and DVD-R/W drives.
 
 #define kIOPropertySCSITaskAuthoringDevice			"SCSITaskAuthoringDevice"
 
+/*!
+	@enum MMCDeviceTrayState
+	@abstract Used to identify the state of an MMCDevice's tray (if applicable).
+	@discussion Used to identify the state of an MMCDevice's tray (if applicable).
+	@constant kMMCDeviceTrayClosed This value means the tray is closed.
+	@constant kMMCDeviceTrayOpen This value means the tray is open.
+ */
+
+enum
+{
+	kMMCDeviceTrayClosed 	= 0,
+	kMMCDeviceTrayOpen		= 1,
+	kMMCDeviceTrayMask		= 0x1
+};
+
+
+
 
 #if !KERNEL
 
@@ -153,10 +173,10 @@ devices such as CD-R/W and DVD-R/W drives.
     @param refCon The refCon passed when the task was executed.
 */
 
-typedef void ( *SCSITaskCallbackFunction ) ( SCSIServiceResponse serviceResponse,
-											 SCSITaskStatus taskStatus,
-											 UInt64 bytesTransferred,
-											 void * refCon );
+typedef void ( *SCSITaskCallbackFunction ) ( SCSIServiceResponse 	serviceResponse,
+											 SCSITaskStatus 		taskStatus,
+											 UInt64 				bytesTransferred,
+											 void *					refCon );
 
 /*! 
 	@struct SCSITaskInterface
@@ -172,8 +192,8 @@ typedef struct SCSITaskInterface
 {
 	IUNKNOWN_C_GUTS;
 	
-	UInt16 version;
-	UInt16 revision;
+	UInt16	version;
+	UInt16	revision;
 	
 	/*! @function IsTaskActive
     @abstract Method to find out if the task is active or not.
@@ -262,11 +282,11 @@ typedef struct SCSITaskInterface
     @result Returns kIOReturnSucces or kIOReturnError.  
 	*/
 
-	IOReturn	( *SetScatterGatherEntries ) ( void * task,
+	IOReturn	( *SetScatterGatherEntries ) ( void * 			task,
 											   IOVirtualRange * inScatterGatherList,
-											   UInt8 inScatterGatherEntries,
-											   UInt64 inTransferCount,
-											   UInt8 inTransferDirection );
+											   UInt8 			inScatterGatherEntries,
+											   UInt64			inTransferCount,
+											   UInt8			inTransferDirection );
 
 	/*! @function SetTimeoutDuration
     @abstract Method to set the timeout duration for the SCSITask.
@@ -303,9 +323,9 @@ typedef struct SCSITaskInterface
     client has not called AddCallbackDispatcherToRunLoop on the SCSITaskDeviceInterface.
 	*/
 	
-	IOReturn	( *SetTaskCompletionCallback ) ( void * task,
-												 SCSITaskCallbackFunction callback,
-												 void * refCon );
+	IOReturn	( *SetTaskCompletionCallback ) ( void *						task,
+												 SCSITaskCallbackFunction	callback,
+												 void *						refCon );
 	/*! @function ExecuteTaskAsync
     @abstract Method to execute the SCSITask asynchronously.
     @discussion This method can be used to execute the SCSITask asynchronously.
@@ -320,17 +340,21 @@ typedef struct SCSITaskInterface
     @abstract Method to execute the SCSITask synchronously.
     @discussion This method can be used to execute the SCSITask synchronously.
     @param task Pointer to an instance of an SCSITaskInterface.
-	@param senseDataBuffer Pointer to a buffer for REQUEST_SENSE data.
-	@param outStatus Pointer to an SCSITaskStatus.
+	@param senseDataBuffer Pointer to a buffer for REQUEST_SENSE data. May
+	be NULL if caller does not wish to have sense data returned. If caller has
+	previously called SetAutoSenseDataBuffer(), this parameter is ignored.
+	@param outStatus Pointer to an SCSITaskStatus. May
+	be NULL if caller does not wish to have task status returned.
 	@param realizedTransferCount Pointer to an UInt64 which reflects how much data was
-	actually transferred.
+	actually transferred. May be NULL if caller does not wish to know
+	how many bytes were transferred.
     @result Returns kIOReturnSuccess or kIOReturnError.
 	*/
 
-	IOReturn	( *ExecuteTaskSync ) ( void * task,
-									   SCSI_Sense_Data * senseDataBuffer,
-									   SCSITaskStatus * outStatus,
-									   UInt64 * realizedTransferCount );
+	IOReturn	( *ExecuteTaskSync ) ( void *				task,
+									   SCSI_Sense_Data *	senseDataBuffer,
+									   SCSITaskStatus *		outStatus,
+									   UInt64 *				realizedTransferCount );
 
 	/*! @function AbortTask
     @abstract Method to abort the SCSITask.
@@ -349,7 +373,7 @@ typedef struct SCSITaskInterface
     @result Returns kIOReturnSuccess or kIOReturnError.
 	*/
 
-	IOReturn	( *GetSCSIServiceResponse ) ( void * task,
+	IOReturn	( *GetSCSIServiceResponse ) ( void * 				task,
 											  SCSIServiceResponse * outServiceResponse );
 
 	/*! @function GetTaskState
@@ -388,12 +412,33 @@ typedef struct SCSITaskInterface
     @discussion This method can be used to get the auto-sense data from the SCSITask.
     @param task Pointer to an instance of an SCSITaskInterface.
 	@param senseDataBuffer Pointer to a buffer the size of the SCSI_Sense_Data structure.
+	If caller has previously called SetAutoSenseDataBuffer(), this routine will return
+	an error.
     @result Returns kIOReturnSuccess if sense data is valid, otherwise kIOReturnError.
 	*/
 
 	IOReturn	( *GetAutoSenseData ) ( void * task, SCSI_Sense_Data * senseDataBuffer );
 	
+	
+	/* Added in 10.2 */
+	
+	
+	/*! @function SetAutoSenseDataBuffer
+    @abstract Method to set the auto-sense data for the SCSITask.
+    @discussion This method can be used to set the auto-sense data buffer for the SCSITask.
+    @param task Pointer to an instance of an SCSITaskInterface.
+	@param senseDataBuffer Pointer to a buffer. May be be NULL if the caller wants to
+	restrict the size to be less than the normal 18 bytes of sense data.
+	@param senseDataLength Amount of sense data to retrieve. Zero is not a valid value.
+    @result Returns kIOReturnSuccess if sense data buffer was set, otherwise kIOReturnError.
+	*/
+	
+	IOReturn	( *SetAutoSenseDataBuffer ) ( void *			task,
+											  SCSI_Sense_Data * senseDataBuffer,
+											  UInt8				senseDataLength );
+	
 } SCSITaskInterface;
+
 
 // Interface for talking to a device which allows raw
 // SCSITask access. Use this interface to create tasks, release tasks,
@@ -407,12 +452,13 @@ typedef struct SCSITaskInterface
     or one of its subclasses, you can create SCSITasks to send to the device. Use the
     CreateSCSITask method to create new SCSITask instances for this device.
 */
+
 typedef struct SCSITaskDeviceInterface
 {
 	IUNKNOWN_C_GUTS;
 
-	UInt16 version;
-	UInt16 revision;
+	UInt16	version;
+	UInt16	revision;
 	
 	/*! @function IsExclusiveAccessAvailable
     @abstract Method to find out if the device can be opened exclusively by the caller.
@@ -495,19 +541,6 @@ typedef struct SCSITaskDeviceInterface
 	
 } SCSITaskDeviceInterface;
 
-/*!
-	@enum MMCDeviceTrayState
-	@abstract Used to identify the state of an MMCDevice's tray (if applicable).
-	@discussion Used to identify the state of an MMCDevice's tray (if applicable).
-	@constant kMMCDeviceTrayClosed This value means the tray is closed.
-	@constant kMMCDeviceTrayOpen This value means the tray is open.
- */
-
-enum
-{
-	kMMCDeviceTrayClosed 	= 0,
-	kMMCDeviceTrayOpen		= 1
-};
 
 /*! 
 	@struct MMCDeviceInterface
@@ -522,8 +555,8 @@ typedef struct MMCDeviceInterface
 {
 	IUNKNOWN_C_GUTS;
 
-	UInt16 version;
-	UInt16 revision;
+	UInt16	version;
+	UInt16	revision;
 	
 	/*! @function Inquiry
     @abstract Issues an INQUIRY command to the device as defined in SPC-2.
@@ -547,9 +580,11 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *Inquiry )( void * self, SCSICmd_INQUIRY_StandardData * inquiryBuffer,
-						   UInt32 inqBufferSize, SCSITaskStatus * taskStatus,
-						   SCSI_Sense_Data * senseDataBuffer );
+	IOReturn ( *Inquiry )(	void *							self,
+							SCSICmd_INQUIRY_StandardData *	inquiryBuffer,
+							UInt32							inqBufferSize,
+							SCSITaskStatus *				taskStatus,
+							SCSI_Sense_Data *				senseDataBuffer );
 	
 	/*! @function TestUnitReady
     @abstract Issues a TEST_UNIT_READY command to the device as defined in SPC-2.
@@ -568,9 +603,16 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
- 	IOReturn ( *TestUnitReady )( void * self, SCSITaskStatus * taskStatus,
- 								 SCSI_Sense_Data * senseDataBuffer  );
-
+ 	IOReturn ( *TestUnitReady )( 	void *				self,
+ 									SCSITaskStatus *	taskStatus,
+ 									SCSI_Sense_Data *	senseDataBuffer  );
+	
+	
+	
+	/* This version of GetPerformance is OBSOLETED by Mt. Fuji 5. Please use the newly
+	 * introduced API at the end of this struct
+	 */
+	
 	/*! @function GetPerformance
     @abstract Issues a GET_PERFORMANCE command to the device as defined in MMC-2.
     @discussion Once an MMCDeviceInterface is opened, the client may send this command
@@ -596,10 +638,16 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 	
-	IOReturn ( *GetPerformance )( void * self, UInt8 TOLERANCE, UInt8 WRITE, UInt8 EXCEPT,
-								  UInt32 STARTING_LBA, UInt16 MAXIMUM_NUMBER_OF_DESCRIPTORS,
-								  void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-								  SCSI_Sense_Data * senseDataBuffer );
+	IOReturn ( *GetPerformance )(	void * 				self,
+									SCSICmdField2Bit	TOLERANCE,
+									SCSICmdField1Bit	WRITE,
+									SCSICmdField2Bit	EXCEPT,
+									SCSICmdField4Byte	STARTING_LBA,
+									SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+									void *				buffer,
+									SCSICmdField2Byte	bufferSize,
+									SCSITaskStatus * 	taskStatus,
+									SCSI_Sense_Data *	senseDataBuffer );
 	
 	/*! @function GetConfiguration
     @abstract Issues a GET_CONFIGURATION command to the device as defined in MMC-2.
@@ -623,9 +671,13 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *GetConfiguration )( void * self, UInt8 RT, UInt16 STARTING_FEATURE_NUMBER,
-									void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-									SCSI_Sense_Data * senseDataBuffer );
+	IOReturn ( *GetConfiguration )(	void *				self,
+									SCSICmdField1Byte	RT,
+									SCSICmdField2Byte	STARTING_FEATURE_NUMBER,
+									void *				buffer,
+									SCSICmdField2Byte	bufferSize,
+									SCSITaskStatus *	taskStatus,
+									SCSI_Sense_Data *	senseDataBuffer );
 
 	/*! @function ModeSense10
     @abstract Issues a MODE_SENSE_10 command to the device as defined in SPC-2.
@@ -650,17 +702,22 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *ModeSense10 )( void * self, UInt8 LLBAA, UInt8 DBD, UInt8 PC, UInt8 PAGE_CODE,
-							   void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-							   SCSI_Sense_Data * senseDataBuffer );
-
-
+	IOReturn ( *ModeSense10 )(	void *				self,
+								SCSICmdField1Bit	LLBAA,
+								SCSICmdField1Bit	DBD,
+								SCSICmdField2Bit	PC,
+								SCSICmdField6Bit	PAGE_CODE,
+								void *				buffer,
+								SCSICmdField2Byte	bufferSize,
+								SCSITaskStatus * 	taskStatus,
+								SCSI_Sense_Data * 	senseDataBuffer );
+	
 	/*! @function SetWriteParametersModePage
 	@abstract Issues a MODE_SELECT command to the device as defined in SPC-2 with the
 	Write Parameters Mode Page Code as defined in MMC-2.
 	@discussion Once an MMCDeviceInterface is opened, the client may send this command
     to set the default values returned in a READ_DISC_INFORMATION call.
-	@param buffer Pointer to an AppleWriteParametersModePageBuffer which must be 56 bytes in length.
+	@param buffer Pointer to buffer (including mode parameter header).
     @param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask
     which was executed. Valid SCSITaskStatus values are defined in
     SCSITask.h
@@ -673,11 +730,13 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 	
-	IOReturn ( *SetWriteParametersModePage )( void * self, void * buffer, UInt8 bufferSize,
-											  SCSITaskStatus * taskStatus,
-											  SCSI_Sense_Data * senseDataBuffer );
-	
-	
+	IOReturn ( *SetWriteParametersModePage )( 	void * 				self,
+												void * 				buffer,
+												SCSICmdField1Byte 	bufferSize,
+												SCSITaskStatus *	taskStatus,
+												SCSI_Sense_Data *	senseDataBuffer );
+
+
 	/*! @function GetTrayState
     @abstract Issues a GET_EVENT_STATUS_NOTIFICATION command to the device as defined in MMC-2.
     @discussion Once an MMCDeviceInterface is opened, the client may send this command to
@@ -715,8 +774,8 @@ typedef struct MMCDeviceInterface
     to read the table of contents from the media.
     @param self Pointer to an MMCDeviceInterface for one IOService.
 	@param MSF The MSF bit as defined in MMC-2/SFF-8020i.
-    @param format The FORMAT field as defined in MMC-2/SFF-8020i.
-	@param trackSessionNumber The TRACK_SESSION_NUMBER field as defined in MMC-2/SFF-8020i.
+    @param FORMAT The FORMAT field as defined in MMC-2/SFF-8020i.
+	@param TRACK_SESSION_NUMBER The TRACK_SESSION_NUMBER field as defined in MMC-2/SFF-8020i.
 	@param buffer Pointer to the buffer to be used for this function.
 	@param bufferSize The size of the data transfer requested.
 	@param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask
@@ -731,11 +790,15 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *ReadTableOfContents )( void * self, UInt8 MSF, UInt8 format,
-									   UInt8 trackSessionNumber, void * buffer,
-									   UInt16 bufferSize, SCSITaskStatus * taskStatus,
-									   SCSI_Sense_Data * senseDataBuffer );
-
+	IOReturn ( *ReadTableOfContents )(	void *				self,
+										SCSICmdField1Bit 	MSF,
+										SCSICmdField4Bit 	FORMAT,
+										SCSICmdField1Byte	TRACK_SESSION_NUMBER,
+										void *				buffer,
+										SCSICmdField2Byte	bufferSize,
+										SCSITaskStatus *	taskStatus,
+										SCSI_Sense_Data *	senseDataBuffer );
+	
 	/*! @function ReadDiscInformation
     @abstract Issues a READ_DISC_INFORMATION command to the device as defined in MMC-2.
     @discussion Once an MMCDeviceInterface is opened the client may send this command
@@ -754,18 +817,20 @@ typedef struct MMCDeviceInterface
     by another client.
 	*/
 
-	IOReturn ( *ReadDiscInformation ) ( void * self, void * buffer, UInt16 bufferSize,
-										SCSITaskStatus * taskStatus,
-										SCSI_Sense_Data * senseDataBuffer );
-
+	IOReturn ( *ReadDiscInformation ) (	void *				self,
+										void *				buffer,
+										SCSICmdField2Byte	bufferSize,
+										SCSITaskStatus *	taskStatus,
+										SCSI_Sense_Data *	senseDataBuffer );
+	
 	/*! @function ReadTrackInformation
     @abstract Issues a READ_TRACK_INFORMATION command to the device as defined in MMC-2.
     @discussion Once an MMCDeviceInterface is opened the client may send this command to
     read information about selected tracks on the disc.
     @param self Pointer to an MMCDeviceInterface for one IOService.
-	@param addressNumberType The ADDRESS/NUMBER_TYPE field as defined in MMC-2.
-    @param lbaTrackSessionNumber The LOGICAL_BLOCK_ADDRESS/SESSION_NUMBER field as
-    defined in MMC-2.
+	@param ADDRESS_NUMBER_TYPE The ADDRESS/NUMBER_TYPE field as defined in MMC-2.
+    @param LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER The LOGICAL_BLOCK_ADDRESS/SESSION_NUMBER
+    field as defined in MMC-2.
 	@param buffer Pointer to the buffer to be used for this function.
 	@param bufferSize The size of the data transfer requested.
 	@param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask which
@@ -779,19 +844,21 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *ReadTrackInformation ) ( void * self, UInt8 addressNumberType,
-										 UInt32 lbaTrackSessionNumber,
-										 void * buffer, UInt16 bufferSize,
-										 SCSITaskStatus * taskStatus,
-										 SCSI_Sense_Data * senseDataBuffer );
-
+	IOReturn ( *ReadTrackInformation ) (	void *				self,
+											SCSICmdField2Bit	ADDRESS_NUMBER_TYPE,
+											SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+											void *				buffer,
+											SCSICmdField2Byte	bufferSize,
+											SCSITaskStatus *	taskStatus,
+											SCSI_Sense_Data *	senseDataBuffer );
+	
 	/*! @function ReadDVDStructure
     @abstract Issues a READ_DVD_STRUCTURE command to the device as defined in MMC-2.
     @discussion Once an MMCDeviceInterface is opened the client may send this command to
     read information about DVD specific structures on the disc.
     @param self Pointer to an MMCDeviceInterface for one IOService.
-	@param logicalBlockAddress The LOGICAL_BLOCK_ADDRESS field as defined in MMC-2.
-    @param layerNumber The LAYER_NUMBER field as defined in MMC-2.
+	@param ADDRESS The ADDRESS field as defined in MMC-2.
+    @param LAYER_NUMBER The LAYER_NUMBER field as defined in MMC-2.
     @param format The FORMAT field as defined in MMC-2.
 	@param buffer Pointer to the buffer to be used for this function.
 	@param bufferSize The size of the data transfer requested.
@@ -807,11 +874,14 @@ typedef struct MMCDeviceInterface
 	by another client.
 	*/
 
-	IOReturn ( *ReadDVDStructure ) ( void * self, UInt32 logicalBlockAddress,
-									 UInt8	layerNumber, UInt8 format,
-									 void * buffer, UInt16 bufferSize,
-									 SCSITaskStatus * taskStatus,
-									 SCSI_Sense_Data * senseDataBuffer );
+	IOReturn ( *ReadDVDStructure ) (	void *				self,
+										SCSICmdField4Byte	ADDRESS,
+										SCSICmdField1Byte	LAYER_NUMBER,
+										SCSICmdField1Byte	FORMAT,
+										void *				buffer,
+										SCSICmdField2Byte	bufferSize,
+										SCSITaskStatus *	taskStatus,
+										SCSI_Sense_Data *	senseDataBuffer );
 	
 	/*! @function GetSCSITaskDeviceInterface
     @abstract Gets a handle to the SCSITaskDeviceInterface without closing the user
@@ -823,13 +893,57 @@ typedef struct MMCDeviceInterface
 	*/
 	
 	SCSITaskDeviceInterface ** 	( *GetSCSITaskDeviceInterface )( void * self );
+
+	
+	
+	
+	
+	/* Added in Mac OS X 10.2 */
+	
+	/*! @function GetPerformanceV2
+    @abstract Issues a GET_PERFORMANCE command to the device as defined in Mt. Fuji 5.
+    @discussion Once an MMCDeviceInterface is opened, the client may send this command
+    to get performance information from the device.
+    @param self Pointer to an MMCDeviceInterface for one IOService.
+	@param DATA_TYPE The DATA_TYPE field as described for the GET_PERFORMANCE command in Mt. Fuji 5.
+	@param STARTING_LBA The STARTING_LBA field as described in Mt. Fuji 5 for the GET_PERFORMANCE command.
+	@param MAXIMUM_NUMBER_OF_DESCRIPTORS The MAXIMUM_NUMBER_OF_DESCRIPTORS field as
+	described in Mt. Fuji 5 for the GET_PERFORMANCE command.
+	@param TYPE The TYPE field as described for the GET_PERFORMANCE command in Mt. Fuji 5.
+	@param buffer Pointer to the buffer where the mode sense data should be placed.
+	@param bufferSize Size of the buffer.
+    @param taskStatus Pointer to a SCSITaskStatus to get the status of the SCSITask
+    which was executed. Valid SCSITaskStatus values are defined in
+    SCSITask.h
+    @param senseDataBuffer Pointer to a buffer the size of the SCSI_Sense_Data struct
+    found in SCSICmds_REQUEST_SENSE_Defs.h.
+	The sense data is only valid if the SCSITaskStatus is kSCSITaskStatus_CHECK_CONDITION.
+    @result Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no
+    connection to an IOService, kIOReturnNoMemory if a SCSITask couldn't be created,
+	or kIOReturnExclusiveAccess if the device is already opened for exclusive access
+	by another client.
+	*/
+	
+	IOReturn ( *GetPerformanceV2 )( void * 				self,
+									SCSICmdField5Bit 	DATA_TYPE,
+									SCSICmdField4Byte	STARTING_LBA,
+									SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+									SCSICmdField1Byte	TYPE,
+									void *				buffer,
+									SCSICmdField2Byte	bufferSize,
+									SCSITaskStatus *	taskStatus,
+									SCSI_Sense_Data *	senseDataBuffer );
 	
 } MMCDeviceInterface;
 	
 #endif
 
 #if !KERNEL
-__END_DECLS
+
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* !KERNEL */
 
 #endif /* __SCSI_TASK_LIB_H__ */

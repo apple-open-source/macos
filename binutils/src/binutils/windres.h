@@ -1,5 +1,5 @@
 /* windres.h -- header file for windres program.
-   Copyright 1997, 1998 Free Software Foundation, Inc.
+   Copyright 1997, 1998, 2000 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
    This file is part of GNU Binutils.
@@ -183,6 +183,8 @@ struct res_resource
   /* Information from a COFF file.  */
   struct res_coff_info coff_info;
 };
+
+#define SUBLANG_SHIFT 10
 
 /* Memory flags in the memflags field of a struct res_resource.  */
 

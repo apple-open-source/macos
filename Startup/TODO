@@ -1,21 +1,19 @@
 High priority:
 
-- Need command line means for bringing up the system to a certain service.
-  In particular, in single-user, one should be able to bring up the
-  network easily.
+- Get status messages out of StartupParameters.plist and into the scripts as they progress.  (Radar 2794954)
 
-- Need to encompass the role of /etc/rc*.
+- Get success/failure messages from startup items.  (Right now, SystemStarter assumes success.)
 
 Medium priority:
 
-- Figure out a way for non-loadable items (scripts and excecutable binaries)
-  to have some UI feedback.
+- Need to encompass the role of /etc/rc*.
+  - In particular, UI progress during fsck of / would be very nice.
+
+- Get rid of hardcoded sizes for boot panel PDF.
 
 Low priority:
 
 - Get the running status of a service without having run it in SystemStarter.
   This is useful for properly re-running SystemStarter and implementing stop.
-
-- Implement stop and restart.
 
 - Search /Network when available.

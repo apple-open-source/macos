@@ -36,6 +36,7 @@
 #import "LUAgent.h"
 #import <NetInfo/dsutil.h>
 #import <stdlib.h>
+#import <string.h>
 #import <sys/types.h>
 #import <sys/time.h>
 

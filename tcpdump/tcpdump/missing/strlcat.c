@@ -30,7 +30,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/missing/strlcat.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/missing/strlcat.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $ (LBL)";
 #endif
 
 #include <config.h>

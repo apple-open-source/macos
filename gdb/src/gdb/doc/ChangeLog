@@ -1,3 +1,606 @@
+2002-04-07  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Bug Reporting): Document that the web is the
+	prefered way of submitting bug reports.
+	(Bug Reporting): Delete the s-mail address as the last resort.
+
+2002-04-05  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	references to TARGET_WRITE_FP and write_fp.
+
+2002-03-27  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo: Document new commands dump, append, and restore.
+
+2002-03-27  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Releasing GDB): Revise the section `Before the
+	Branch'.
+
+2002-03-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo: Change all examples to @smallexample.
+	* gdbint.texinfo: Ditto.
+	
+2002-03-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Releasing GDB): Add section ``Versions and
+	Branches''.
+
+2002-03-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Releasing GDB): Add the section``Branch Commit
+	Policy''.
+
+2002-03-04  Fred Fish  <fnf@redhat.com>
+
+	* gdbint.texinfo: Fix a bunch of typos (alsways, mirrorred,
+	expresson, suports, dependant, trhe, perhaphs, situtations,
+	explictily, taged, oportunity, unfortunatly).
+
+2002-02-24  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.in (gdb.info): Add explicit path to gdb.texinfo.
+	Remove reference to 3.12.
+
+2002-02-23  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo: Include fdl.texi.
+	(Top): Add GNU Free Documentation License.
+	* Makefile.in (SFILES_INCLUDED): Add gpl.texi.
+	(gdbint.dvi, gdbint.pdf, gdbint.info): Add dependency on fdl.texi.
+	(gdbint_toc.html): Add dependency on gdb-cfg.texi and fdl.texi.
+	(gdbint.info): Add srcdir to include path.
+	* gdb.texinfo: Include gpl.texi.
+	(Top): Add Copying.
+	* gpl.texi: New file.
+
+2002-02-23  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Debugging GDB): Remove references to cygnus.com.
+
+2002-02-19  Pierre Muller  <muller@ics.u-strasbg.fr>
+
+	* gdb.texinfo: Document Cygwin native specific commands.
+
+2002-02-15  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdb.texinfo: Document gdbserver ``--attach'' command.
+
+2002-02-07  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (overlays): Change @var(_ovly_debug_event)
+	to @code(_ovly_debug_event).
+
+2002-02-07  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (How Overlays Work): Shrink the overlay diagram.
+
+2002-02-06  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (overlays): Mention new magic symbol
+	'_ovly_debug_event', which allows GDB to keep better track
+	of overlays.
+
+2002-02-03  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Memory Region Attributes): Fix the wording.
+	Suggested by Dmitry Sivachenko.
+
+	* (<many nodes>): Fix the spelling and punctuation of "i.e.".
+
+2002-02-01  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (set trust-readonly): Change value{gdbn} to value{GDBN}.
+
+2002-01-30  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo: (remote protocol): Gramatical fix-up.
+	(set trust-readonly-sections): Document.
+
+2002-01-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Releasing GDB): Revise and update.
+
+2002-01-28  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	description of TARGET_BYTE_ORDER_DEFAULT.
+
+2002-01-27  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo: Fix typos and markup.  From Dmitry Sivachenko
+	<mitya@cavia.pp.ru>.
+
+2002-01-23  Andrew Cagney  <ac131313@redhat.com>
+
+	* libgdb.texinfo: Delete file.
+
+2002-01-22  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo: Remove makeinfo 3.12 hacks.
+	* gdbint.texinfo: Ditto.
+
+Tue Jan 22 11:57:38 2002  Andrew Cagney  <cagney@redhat.com>
+
+	* gdb.texinfo: Fix typo ``Remove' -> ``Remote''.
+
+2002-01-22  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.in: Update copyright.
+	(TEXI2DVI): Define.
+	(gdb.dvi, gdb.pdf, stabs.dvi, stabs.pdf): Use TEXI2DVI.
+	(gdbint.dvi, gdbint.pdf): Use TEXI2DVI.  Add dependency on
+	gdb-cfg.texi.
+	(TEXINDEX, PDFTEX): Delete makefile variables.
+
+2002-01-22  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Protocol): Move section to appendix.
+
+2002-01-21  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Remote Debugging): Create a menu.
+	(Top): Add ``Remote Debugging'' to menu.
+
+2002-01-21  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Remote): Move the sub-section ``The GDB remote
+	serial protocol'' from here.
+	(Remote Debugging): To here.  New chapter.
+
+2002-01-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Delete
+	description of TARGET_BYTE_ORDER_SELECTABLE_P.
+
+2002-01-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Host Definition): Revise.  xm-xyz.h and xyz.mh
+	are no longer needed.
+	(Porting GDB): Add maintainer note about configure.host.
+
+2002-01-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Remove
+	definition of IEEE_FLOAT.
+
+2002-01-20  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo: Beautify copyright years; fix a typo.
+	(DJGPP Native): Fix overfull hboxes in examples.  From Brian Youmans
+	<3diff@gnu.org>
+
+2002-01-19  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Host Definition): Remove references to
+	MALLOC_INCOMPATIBLE.
+
+2002-01-17  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Host Definition): Remove references to XDEPFILES
+	and xyz-xdep.o.
+
+2002-01-17  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo 	(Maintenance Commands): Add appendix.
+	(Set Breaks): Copy ``maint info breakpoint'' doco to
+	``Maintenance Commands'' appendix.  Add reference.
+
+2002-01-17  Andrew Cagney  <ac131313@redhat.com>
+
+	* fdl.texi: Remove next/prev from @node.
+
+2002-01-17  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo: @include fdl.texi.  Fixes for overfull hboxes and
+	for monstrous @multitable (from Brian Youmans).
+
+	* fdl.texi: New file.
+
+	* Makefile.in (SFILES_INCLUDED): Add fdl.texi.
+
+2002-01-15  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Releasing GDB): New chapter.
+
+2002-01-14  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Embedded Processors, Calling program functions):
+	Obsolete references to a29k.
+
+2002-01-13  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Coding): Review Cleanups section.  Examples
+	examples.  Document that a code-block should do or discard its
+	cleanups before exit.
+
+2002-01-11  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (Choosing files): Change @samp to @file.
+
+2002-01-05  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (--pid): Document new command line option (attach).
+
+2002-01-07  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Tracepoints): Clarify that tracepoints need support
+	in the stub.
+
+2002-01-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	BIG_ENDIAN with BFD_ENDIAN_BIG.
+
+2002-01-03  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	value_ptr with struct value pointer.
+
+2002-01-02  Eli Zaretskii  <eliz@gnu.org>
+
+	* gdb.texinfo (Free Software): Fix wording.
+
+2001-12-31  Eli Zaretskii  <eliz@gnu.org>
+
+	* gdb.texinfo (Free Software): New section ``Free Software Needs
+	Free Documentation''.
+
+2001-12-30  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* stabs.texinfo:
+	* gdb.texinfo:
+	* gdbint.texinfo:
+	* libgdb.texinfo:
+	* annotate.texi: Fix the application of GFDL in the Copyright notice.
+
+2001-12-29  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (maint info sections): Fix typo.
+
+2001-12-26  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (maint info sections): Document.
+
+	* gdb.texinfo (info proc): Comment out documentation for 
+	'info proc' sub-options that are currently not implemented.
+
+2001-12-20  Jim Blandy  <jimb@redhat.com>
+
+	* gdbint.texinfo (TARGET_CHAR_SIGNED): Document.
+
+2001-12-15  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Replace
+	LITTLE_ENDIAN with BFD_ENDIAN_LITTLE.
+
+2001-12-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Host Definition): Delete documentation on
+	HOST_BYTE_ORDER.
+
+2001-11-30  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (Overlays): New chapter, documenting GDB's
+        overlay support.  Add to top-level menu.
+
+2001-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.texinfo (Command Syntax): Document C-o binding.
+
+2001-07-26  Christopher Faylor  <cgf@redhat.com>
+
+	* gdb.texinfo (Options): Eliminate attempt to explain .gdbinit/gdb.ini
+	use since it is described in the referenced section.
+
+	From Eli Zaretskii <eliz@is.elta.co.il>
+	* gdb.texinfo (Command Files): Reword to make gdb.ini requirement
+	clearer when using DJGPP.
+
+2001-11-24  Christopher Faylor  <cgf@redhat.com>
+
+	* gdb.texinfo (File Options): Change description of -nx and gdb.ini to
+	specifically refer to MS-DOS.
+	(command files): Mention gdb.ini is only used on MS-DOS.
+
+2001-11-21  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.texinfo (Invoking GDB): Document --args.
+	(Mode Options): Likewise.
+
+2001-11-21  Jim Blandy  <jimb@redhat.com>
+
+	* gdbint.texinfo (TARGET_RANGE_PROFITABLE_FOR_HW_WATCHPOINT):
+ 	Delete documentation; this macro has been removed from the
+ 	sources.
+
+2001-11-13  Jim Blandy  <jimb@redhat.com>
+
+	* gdbint.texinfo (COERCE_FLOAT_TO_DOUBLE): Clarify.
+
+2001-11-06  Corinna Vinschen  <vinschen@redhat.com>
+
+	* gdb.texinfo (gdbarch_in_function_epilogue_p): Add documentation.
+
+2001-11-05  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (info functions): Document use of backslash to 
+	quote regexp chars in function names such as "operator*()".
+
+2001-11-01  Fred Fish  <fnf@redhat.com>
+
+	* gdbint.texinfo (SOLIB_ADD): Document additional new
+	"readsyms" arg.
+
+2001-10-30  Don Howard  <dhoward@redhat.com>
+
+	* gdb.texinfo: (Command Files) Added documentation for the
+	behavior of gdb with input redirected from a file.
+
+2001-10-28  Fred Fish  <fnf@redhat.com>
+
+	* gdb.texinfo (auto-solib-add): Change docs to match
+	implementation change.
+	(auto-solib-limit): Add docs for new variable.
+
+2001-10-15  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Function
+	value_as_pointer renamed to value_as_address.
+
+2001-10-15  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Default
+	POINTER_TO_ADDRESS functions assume unsigned addresses.
+	(INTEGER_TO_ADDRESS): Document.  Derive pragmatics section from a
+	posting by Jim Blandy.
+
+2001-10-12  Jim Blandy  <jimb@redhat.com>
+
+	* Makefile.in (MAKEHTMLFLAGS): Remove -glossary; the most recent
+	version of texi2html (1.64) doesn't support this flag any more.
+
+2001-09-08  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdbint.texinfo (Host Definition): Remove description of
+	MEM_FNS_DECLARED.
+
+	* gdbint.texinfo (Host Definition): Remove description of R_OK.
+
+	* gdbint.texinfo (Host Definition): Remove description of
+	HAVE_SIGSETMASK.
+
+2001-09-04  Elena Zannoni  <ezannoni@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Add
+	explanation of TARGET_PRINT_INSN macro.
+
+2001-08-30  Jim Blandy  <jimb@redhat.com>
+
+	* gdb.texinfo (`add-symbol-file'): Correct synopsis.
+	Explain what it means to load relocatable files.
+
+2001-08-28  Jim Blandy  <jimb@redhat.com>
+
+	* gdbint.texinfo: Bring the HTML `top' menu into sync with the
+	info `top' menu.
+
+Wed Aug 15 10:47:28 2001  Christopher Faylor <cgf@cygnus.com>
+
+	* gdbint.texinfo: Add a cautionary note about macro use.
+
+2001-08-02  Corinna Vinschen  <vinschen@redhat.com>
+ 
+	* gdb.texinfo: Explain omitting the hostname in the
+	`target remote' command.
+
+2001-07-30  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbint.texinfo: Remove extraneous START-INFO-DIR-ENTRY
+	and END-INFO-DIR-ENTRY.
+
+2001-07-28  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* gdb.texinfo (TUI Configuration): Rename tui configuration variables.
+
+2001-07-25  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (libgdb): Rewrite.
+
+2001-07-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Makefile.in (gdbgui.dvi, gdb-gui, gdbgui.info): Targets deleted.
+
+2001-07-24  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* gdb.texinfo (TUI): New chapter, document the TUI.
+	(Mode Options): Document the -tui option.
+
+2001-07-23  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdbint.texinfo (Host Definition): Remove description of
+	NEED_POSIX_SETPGID.
+
+2001-07-23  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.tex (DJGPP Native): New node, with descriptions of
+	DJGPP-specific commands.
+
+2001-07-19  John R. Moore  <jmoore@redhat.com>
+
+	* gdbint.texinfo: Three misspellings.
+
+2001-07-06  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.in (refcard.dvi): Rewrite to avoid problems with empty
+	`test` expressions on bash.  Problem reported by Colin Walters.
+
+2001-07-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (User Interface): Update ui-out documentation to
+	refelect recent UI/MI updates.
+
+2001-07-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Mode Options): Mention the mi0 and mi1
+	interpreters.
+
+2001-06-15  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): GDBARCH is a C
+	structure and not macros.
+	(Host Definition): Document that much of this chapter is obsolete.
+	(Target Architecture Definition): Update list of files that make
+	up a target architecture.
+	(Coding): Update.
+
+2001-06-28  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Update
+	EXTRACT_STRUCT_VALUE_ADDRESS and EXTRACT_STRUCT_VALUE_ADDRESS_P.
+	The latter has been changed to a true predicate.
+
+2001-06-17  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* annotate.texi: Add @noindent where needed.  From Dmitry
+	Sivachenko <dima@Chg.RU>.
+	* gdb.texinfo: Indexing fix.  From Dmitry Sivachenko.
+
+2001-06-16  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Protocol): Fix typo.  Extra parenthesis.
+
+2001-06-14  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdb.texinfo (Remote Protocol): Document that the ``!'' packet
+	returns ``OK''.  Document that the ``R'' packet does not reply.
+
+2001-06-13  Michael Snyder  <msnyder@redhat.com>
+
+	* gdb.texinfo (Protocol): Add doc for new packet "qSymbol:".
+
+2001-06-13  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Signals): Clarify the default setting of signal
+	handling.
+
+2001-05-14  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (CLEAR_DEFERRED_STORES): Delete stray @item
+	(FRAME_ARGS_ADDRESS_CORRECT): Ditto.
+
+2001-05-12  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.in (GDBvn.texi): Set GDBVN from ../version.in.
+
+2001-05-10  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdbint.texinfo (Clean Design and Portable Implementation):
+	Renamed from "Clean Design".
+	(Clean Design and Portable Implementation): Document portable
+	methods of handling file names, and the associated macros.
+
+2001-04-02  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Tracepoint Actions): Mention the "info scope"
+	command and provide a cross-reference to its description.
+	(Symbols): Note that "info scope" is useful for trace experiments.
+
+2001-04-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Symbols): Document "info scope".
+	(Tracepoints): New chapter.
+	(Contributors): Update for v5.1.
+	<All nodes>: Change "C++" to "C@t{++}".
+
+	* gdbint.texinfo (User Interface): A new section about ui_out
+	functions, based on text written by Fernando Nasser.
+
+	* stabs.texinfo: Change Permissions to GFDL.  Update Copyright.
+
+2001-03-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo: Change Permissions to GFDL.  Update Copyright.
+
+	* gdbint.texinfo: Change Permissions to GFDL.  Update Copyright.
+
+	* gdbgui.texinfo: Change Permissions to GFDL.  Update Copyright.
+	Replace "GDB" with "@value{GDBN}".  Fix markup.
+
+	* annotate.texi: Change Permissions to GFDL.  Update Copyright.
+
+	* gdb.texinfo (Output Formats): Mention "info symbol" and provide
+	a cross-reference to its description.
+	(Symbols): Document "info symbol".
+
+2001-03-21  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdbint.texinfo (Algorithms): New section "Watchpoints" and new
+	subsection "x86 Watchpoints".
+	(Target Architecture Definition): Document the macros
+	I386_USE_GENERIC_WATCHPOINTS and TARGET_HAS_HARDWARE_WATCHPOINTS.
+	(Native Debugging): Document I386_USE_GENERIC_WATCHPOINTS.
+
+2001-03-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbint.texinfo (Target Architecture Definition): Update
+	definition of SOFTWARE_SINGLE_STEP_P to include empty parameter
+	list.
+
+2001-03-06  Kevin Buettner  <kevinb@redhat.com>
+
+	* Makefile.in, all-cfg.texi, annotate.texi, gdb.texinfo,
+	gdbint.texinfo, refcard.tex: Update/correct copyright notices.
+
+2001-02-21  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Signals): Document "ignore", "noignore", and "all".
+
+2001-02-11  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Environment): Document that `path' does not change
+	the value of PATH in GDB's own environment (it did in the past,
+	but that was changed on March 15, 1994).  Reported by Doug Evans
+	<dje@transmeta.com>.
+
+	* gdbint.texinfo: Fix up @itemize lists so that @item is alone on
+	its line.  Fix markup of commands and macros.  Add an Index node
+	and index entries.
+
+2001-01-23  J.T. Conklin  <jtc@redback.com>
+
+	* gdb.texinfo (Memory region attributes): New manual section.
+
+2001-01-04  Nicholas Duffek  <nsd@redhat.com>
+
+	* gdbint.texinfo (POP_FRAME): Document use by return_command.
+
+2000-12-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* refcard.tex: Version and copyright fixed.  From Phil Edwards
+	<pedwards@disaster.jaj.com>.
+
+Thu Nov 30 16:57:19 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo (ECOFF_REG_TO_REGNUM, DWARF_REG_TO_REGNUM,
+ 	DWARF2_REG_TO_REGNUM): Document.
+
+Mon Nov 20 21:29:35 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo (Coding): Update current value of
+ 	--enable-build-warnings.  Mention --enable-gdb-build-warnings.
+
+2000-11-19  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdb.texinfo (Continuing and Stepping):  Fixed markup and typos,
+	as suggested by Dmitry Sivachenko <dima@Chg.RU>.
+
+2000-11-10  Christopher Faylor <cgf@cygnus.com>
+
+	* gdb.texinfo: Document new 'set step-mode' command.
+
 2000-10-16  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* gdb.texinfo (Contributors, MIPS Embedded): Minor spelling

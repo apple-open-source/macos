@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -85,9 +85,10 @@ SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean
 	}
 
 	/* serialize the key */
-	xmlKey = CFPropertyListCreateXMLData(NULL, key);
-	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
-	myKeyLen = CFDataGetLength(xmlKey);
+	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
 
 	/* send the key to the server */
 	status = notifyremove(storePrivate->server,

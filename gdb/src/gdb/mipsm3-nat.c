@@ -1,5 +1,5 @@
 /* Definitions to make GDB run on a mips box under Mach 3.0
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1998, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,6 +26,7 @@
 
 #include "defs.h"
 #include "inferior.h"
+#include "regcache.h"
 
 #include <stdio.h>
 

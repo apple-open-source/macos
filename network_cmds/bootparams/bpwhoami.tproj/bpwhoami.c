@@ -66,6 +66,7 @@ void usage __P((void));
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 #include <rpc/rpc.h>
 #include <arpa/inet.h>
 #include "bootparam_prot.h"
@@ -122,76 +123,30 @@ each_whoresult(result, from)
 	return(FALSE);
 }
 
-#define MAX_IF		16
 
 static boolean_t
-getFirstInterface(struct ifreq * ret_p)
+getFirstInterface(struct sockaddr_in *ret_p)
 {
-    struct ifconf 	ifconf;	/* points to ifreq */
-    struct ifreq  *	ifreq = NULL;
-    struct ifreq *	ifrp;
-    int			size = sizeof(struct ifreq) * MAX_IF;
-    int			sockfd;
+    struct ifaddrs *ifap;
+    struct ifaddrs *ifcurrent;
+    getifaddrs(&ifap);
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	fprintf(stderr, "bpwhoami: socket call failed\n");
-	return (FALSE);
+    for (ifcurrent = ifap; ifcurrent; ifcurrent = ifcurrent->ifa_next) {
+        if (ifcurrent->ifa_addr->sa_family == AF_INET) {
+            if ((ifcurrent->ifa_flags & IFF_LOOPBACK)
+                     || !(ifcurrent->ifa_flags & IFF_UP))
+                continue;
+            net_mask = ((struct sockaddr_in*)(ifcurrent->ifa_netmask))->sin_addr;
+            *ret_p = *((struct sockaddr_in*)(ifcurrent->ifa_addr));
+            freeifaddrs(ifap);
+            return (TRUE);
+        }
     }
-
-    while (1) {
-	if (ifreq != NULL)
-	    ifreq = (struct ifreq *)realloc(ifreq, size);
-	else
-	    ifreq = (struct ifreq *)malloc(size);
-
-	if (ifreq == NULL)
-	    goto err;
-
-	ifconf.ifc_len = size;
-	ifconf.ifc_req = ifreq;
-	if (ioctl(sockfd, SIOCGIFCONF, (caddr_t)&ifconf) < 0
-	    || ifconf.ifc_len <= 0) {
-	    fprintf(stderr, "bpwhoami: ioctl SIOCGIFCONF failed\n");
-	    goto err;
-	}
-	if ((ifconf.ifc_len + sizeof(struct ifreq)) < size)
-	    break;
-	size *= 2;
-    }
-#define IFR_NEXT(ifr)	\
-    ((struct ifreq *) ((char *) (ifr) + sizeof(*(ifr)) + \
-		       MAX(0, (int) (ifr)->ifr_addr.sa_len \
-			   - (int) sizeof((ifr)->ifr_addr))))
-    for (ifrp = (struct ifreq *) ifconf.ifc_buf;
-	 (char *) ifrp < &ifconf.ifc_buf[ifconf.ifc_len];
-	 ifrp = IFR_NEXT(ifrp)) {
-	if (ifrp->ifr_addr.sa_family == AF_INET) {
-	    struct ifreq	ifr;
-
-	    strncpy(ifr.ifr_name, ifrp->ifr_name, sizeof(ifr.ifr_name));
-	    if (ioctl(sockfd, SIOCGIFFLAGS, (caddr_t)&ifr) < 0)
-		;
-	    else if ((ifr.ifr_flags & IFF_LOOPBACK)
-		     || !(ifr.ifr_flags & IFF_UP))
-		;
-	    else if (ioctl(sockfd, SIOCGIFNETMASK, (caddr_t)&ifr) < 0) 
-		;
-	    else {
-		net_mask = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-		*ret_p = *ifrp;
-		close(sockfd);
-		if (ifreq)
-		    free(ifreq);
-		return (TRUE);
-	    }
-	}
-    }
-  err:
-    close(sockfd);
-    if (ifreq)
-	free(ifreq);
+    if (ifap)
+        freeifaddrs(ifap);
     return (FALSE);
 }
+
 
 /*
  * Routine: bp_whoami
@@ -203,19 +158,17 @@ int
 bp_whoami()
 {
 	extern enum clnt_stat	clnt_broadcast();
-	struct ifreq		ifr;
-	struct sockaddr_in	*sockin;
+	struct sockaddr_in	sockin;
 	enum clnt_stat		stat;
 	struct bp_whoami_arg	who_arg;
 	struct bp_whoami_res	who_res;
 
-	if (getFirstInterface(&ifr) == FALSE)
+        if (getFirstInterface(&sockin) == FALSE)
 	    return (2);
 
-	sockin = (struct sockaddr_in *) &ifr.ifr_addr;
-	ip_address = sockin->sin_addr;
+	ip_address = sockin.sin_addr;
 	who_arg.client_address.bp_address_u.ip_addr =
-	    *((ip_addr_t *)&sockin->sin_addr);
+	    *((ip_addr_t *)&sockin.sin_addr);
 	who_arg.client_address.address_type = IP_ADDR_TYPE;
 	bzero(&who_res, sizeof (who_res));
 

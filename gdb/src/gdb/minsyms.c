@@ -1,5 +1,6 @@
 /* GDB routines for manipulating the minimal symbol tables.
-   Copyright 1992, 93, 94, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
    This file is part of GDB.
@@ -46,7 +47,8 @@
 #include "symfile.h"
 #include "objfiles.h"
 #include "demangle.h"
-#include "gdb-stabs.h"
+#include "value.h"
+#include "cp-abi.h"
 
 /* Accumulate the minimal symbols for each objfile in bunches of BUNCH_SIZE.
    At the end, copy them all into one newly allocated location on an objfile's
@@ -73,18 +75,6 @@ static int msym_bunch_index;
 
 static int msym_count;
 
-/* Prototypes for local functions. */
-
-static int compare_minimal_symbols (const void *, const void *);
-
-static int
-compact_minimal_symbols (struct minimal_symbol *, int, struct objfile *);
-
-static void add_minsym_to_demangled_hash_table (struct minimal_symbol *sym,
-						struct minimal_symbol **table);
-
-void objfile_demangle_msymbols (struct objfile *objfile);
-
 /* Compute a hash code based using the same criteria as `strcmp_iw'.  */
 
 unsigned int
@@ -96,8 +86,10 @@ msymbol_hash_iw (const char *string)
       while (isspace (*string))
 	++string;
       if (*string && *string != '(')
-	hash = (31 * hash) + *string;
-      ++string;
+	{
+	  hash = hash * 67 + *string - 113;
+	  ++string;
+	}
     }
   return hash % MINIMAL_SYMBOL_HASH_SIZE;
 }
@@ -109,7 +101,7 @@ msymbol_hash (const char *string)
 {
   unsigned int hash = 0;
   for (; *string; ++string)
-    hash = (31 * hash) + *string;
+    hash = hash * 67 + *string - 113;
   return hash % MINIMAL_SYMBOL_HASH_SIZE;
 }
 
@@ -464,7 +456,7 @@ lookup_minimal_symbol_by_pc_section_from_objfile
 	  /* The minimal symbol indexed by hi now is the best one in this
 	     objfile's minimal symbol table.  See if it is the best one
 	     overall. */
-
+	  
 	  /* Skip any absolute symbols.  This is apparently what adb
 	     and dbx do, and is needed for the CM-5.  There are two
 	     known possible problems: (1) on ELF, apparently end, edata,
@@ -482,6 +474,10 @@ lookup_minimal_symbol_by_pc_section_from_objfile
 	  /* This is the new code that distinguishes it from the old function */
 	  if (section)
 	    while (hi >= 0
+		   /* Some types of debug info, such as COFF,
+		      don't fill the bfd_section member, so don't
+		      throw away symbols on those platforms.  */
+		   && SYMBOL_BFD_SECTION (&msymbol[hi]) != NULL
 		   && SYMBOL_BFD_SECTION (&msymbol[hi]) != section)
 	      --hi;
 
@@ -570,14 +566,14 @@ find_stab_function_addr (char *namestring, char *filename,
     {
       /* Try again without the filename. */
       p[n] = 0;
-      msym = lookup_minimal_symbol (p, 0, objfile);
+      msym = lookup_minimal_symbol (p, NULL, objfile);
     }
   if (msym == NULL && filename != NULL)
     {
       /* And try again for Sun Fortran, but without the filename. */
       p[n] = '_';
       p[n + 1] = 0;
-      msym = lookup_minimal_symbol (p, 0, objfile);
+      msym = lookup_minimal_symbol (p, NULL, objfile);
     }
 
   return msym == NULL ? 0 : SYMBOL_VALUE_ADDRESS (msym);
@@ -711,7 +707,7 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
    Within groups with the same address, sort by name.  */
 
 static int
-compare_minimal_symbols (const PTR fn1p, const PTR fn2p)
+compare_minimal_symbols (const void *fn1p, const void *fn2p)
 {
   register const struct minimal_symbol *fn1;
   register const struct minimal_symbol *fn2;
@@ -760,7 +756,7 @@ do_discard_minimal_symbols_cleanup (void *arg)
   while (msym_bunch != NULL)
     {
       next = msym_bunch->next;
-      free ((PTR) msym_bunch);
+      xfree (msym_bunch);
       msym_bunch = next;
     }
 }
@@ -1005,20 +1001,25 @@ install_minimal_symbols (struct objfile *objfile)
       objfile->minimal_symbol_count = mcount;
       objfile->msymbols = msymbols;
 
-#if 0
+      /* Try to guess the appropriate C++ ABI by looking at the names 
+	 of the minimal symbols in the table.  */
+      {
+	int i;
+
+	for (i = 0; i < mcount; i++)
+	  {
+	    const char *name = SYMBOL_NAME (&objfile->msymbols[i]);
+	    if (name[0] == '_' && name[1] == 'Z' && cp_abi_is_auto_p())
+	      {
+		set_cp_abi_as_auto_default ("gnu-v3");
+		break;
+	      }
+	  }
+      }
+      
       /* Now walk through all the minimal symbols, selecting the newly added
          ones and attempting to cache their C++ demangled names. */
-
-      for (; mcount-- > 0; msymbols++)
-	SYMBOL_INIT_DEMANGLED_NAME (msymbols, &objfile->symbol_obstack);
-
-      /* Now build the hash tables; we can't do this incrementally
-         at an earlier point since we weren't finished with the obstack
-	 yet.  (And if the msymbol obstack gets moved, all the internal
-	 pointers to other msymbols need to be adjusted.) */
-      build_minimal_symbol_hash_tables (objfile);
-#endif
-
+      objfile_demangle_msymbols (objfile);
     }
 }
 

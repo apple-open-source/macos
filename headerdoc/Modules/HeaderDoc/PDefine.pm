@@ -5,7 +5,7 @@
 #           are used to comment symbolic constants declared with #define
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/01 07:25:08 $
+# Last Updated: $Date: 2001/11/30 22:43:18 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -32,22 +32,6 @@ use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
 
-
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->SUPER::_initialize();
-    $self->_initialize();
-    return($self);
-}
-
-sub _initialize {
-    my($self) = shift;
-}
-
 sub processPDefineComment {
     my($self) = shift;
     my $fieldArrayRef = shift;
@@ -63,7 +47,6 @@ sub processPDefineComment {
 		}
 	}
 }
-
 
 sub setPDefineDeclaration {
     my($self) = shift;

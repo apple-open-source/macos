@@ -1,0 +1,212 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\froman\fcharset77 Times-Bold;\f1\froman\fcharset77 Times-Roman;\f2\fmodern\fcharset77 Courier;
+\f3\froman\fcharset77 Times-Italic;}
+{\colortbl;\red255\green255\blue255;}
+\vieww13600\viewh16440\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0\b\fs48 \cf0 Linux-PAM 0.75 port to Darwin\
+
+\f1\b0\fs24 \
+
+\fs36 CVS Branches\
+
+\fs24 \
+There are "lukeh-PAM" branches in the following projects, either containing new code or merged in code from FreeBSD (usually braced with -DNO_PAM or -DUSE_PAM).\
+\
+
+\f2 	Commands/NeXT/system_cmds/passwd.tproj\
+	Commands/NeXT/system_cmds/login.tproj\
+	Commands/NeXT/system_cmds/chkpasswd.tproj\
+	Commands/NeXT/network_cmds/ftpd.tproj \
+	Commands/NeXT/network_cmds/rlogind.tproj\
+	Commands/NeXT/network_cmds/rshd.tproj\
+	Commands/NeXT/network_cmds/popper.tproj\
+	Commands/BSD/shell_cmds/su\
+
+\f1 \
+To be done are:\
+\
+
+\f2 	Commands/NeXT/network_cmds/uucpd.tproj (???)\
+	Commands/NeXT/network_cmds/rexecd.tproj\
+
+\f1 \
+
+\fs36 Notes on the Port\
+
+\fs24 \
+1. libpam is building on Rhapsody DR2, I need to upgrade dyld to get thinkgs working (as PAM ABI needs private modules). I'm having some trouble getting this to happen (getting dyld built that is, so I can upgrade Rhapsody's). As long as you're just using one module per type, then things sort of work, as long as you just perform one API call. This should all "just work" on DP4 though, which hopefully I'll be running shortly.\
+\
+2. I think it is wise to keep the number of PAM modules to a minimum, as FreeBSD (and indeed Sun) have. (Not the Linux approach.) There are two "logic" modules, pam_permit and pam_deny; the FreeBSD pam_unix module which performs authentication against the crypted password returned by getpwnam(), and authorization against the password validity fields in the 4.4BSD passwd structure; and (so far) two Apple modules, which perform NetInfo password changing and TIM authentication/password changing (pam_netinfo and pam_tim respectively).\
+\
+3. Loginwindow has an authentication delegate API which is utilised by the Kerberos.loginAuthentication shipped with DP4. The plan is to write a "shim" between this API and the PAM API. To this end, provided is an Objective-C wrapper around the PAM API, in the pamObjC directory. There are also Java wrappers for this in pamJava, but I haven't tested them; perhaps they will be useful to applications that need to access the PAM API for password changing or whatnot.\
+\
+4. We need to PAM-ify /bin/login, ftpd, passwd, rlogind(?), su. FreeBSD have PAM-ified ftpd and /bin/login. One important note: FreeBSD isn't too smart about the way it uses PAM. They've integrated the PAM code without harming too much of theirs', which is cool, but they don't use the pam_setcred(), pam_open_session(), pam_close_session() APIs, or use PAM to manage the user's environment. This is liable to cause problems when we need a Kerberos V PAM module, because those things are important in managing the user's ticket file. (The Linux folk have implemented their applications and modules perhaps more in the spirit of the PAM RFC.) We now have "proper" PAM support in /bin/login. This has meant rewriting the FreeBSD support in several cases, which means, we should get the code back to them!\
+\
+5. FreeBSD's PAM implementation has the idea of a "template" user where modules can change the user name, so tha a single UNIX account may be used for different "logins". We have incorporated most of the current FreeBSD changes but some are still based on our own extensions to the FreeBSD PAM-ified code of a year ago.\
+\
+6. The PAM module "foo.so" is searched for in the following places. Note the support for bundles. We do not use the NSSystemDirectories.h API because it's too insecure (paths are relative to an environment variable). I suggest we use ".pluggableAuthenticator" as a bundle extension. We have the option to use bundles but at the moment just the shared object itself is installed. Any module that expects to stick foo.so in /usr/lib/security should "just work".\
+\
+7. Need to test dealing with expired authentication tokens (set the "password_lifetime" property in the /users directory of NetInfo to the number of seconds you wish passwords to be valid for; then, when a user's password is changed, the "change" property in their NetInfo directory will be updated to (gettimeofday()+password_lifetime). The "change" property is returned by getpwnam() and is respected by pam_unix.\
+\
+8. rlogind will work with Linux-PAM's pam_rhosts_auth but we don't really need this as it does it's own ruserok() checking. However, it made sense to PAM-ify it properly. FreeBSD PAM-ified to request the user-name and user with misc_conv() but this seems to cause tty-related problems on Rhapsody; moreover, why bother, when /bin/login will do this for you? (The only catch is that you can't put pam_unix for rlogin in /etc/pam.conf; you have to put it for login instead.) So PAM support in rlogind is a curiosity for the moment. Tested, though, with pam_rhosts_auth (which we presently install in /Local/Library/Security).\
+\
+
+\fs36 Notes on PAM-ifying\
+
+\fs24 \
+As mentioned before, the FreeBSD PAM-ificiation of various user programs is quite non-intrusive; pam_authenticate() is called and that is about it. Here are some notes on what should be done:\
+\
+1. the application should us pam_misc_setenv() rather than setenv() to set environment variables. The pam_misc_paste_env() environment can be used to import the user's existing environment (int retval = pam_misc_paste_env(pamh, environ)).\
+\
+2. before pam_end() is called, the user environment should be replaced with pam_getenvlist().\
+\
+3. su/rlogin/etc should set the PAM_RUSER and PAM_RHOST PAM items.\
+\
+4. order of PAM service module functions:\
+\
+	
+\f0\b pam_start
+\f1\b0 (
+\f3\i service, username, conversation, &pamh
+\f1\i0 );\
+	
+\f0\b pam_authenticate
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 0);\
+#ifdef __FreeBSD__\
+	// template users\
+	// check if PAM_USER changed, if so, then reset application's user variable\
+	
+\f0\b pam_get_item
+\f1\b0 (
+\f3\i pamh
+\f1\i0 , PAM_USER, 
+\f3\i &item
+\f1\i0 );\
+	if (strcmp(
+\f3\i item, user
+\f1\i0 )) \{\
+		free(
+\f3\i user
+\f1\i0 );\
+		user = strdup(
+\f3\i item
+\f1\i0 );\
+	\}\
+#endif\
+	
+\f0\b pam_acct_mgmt
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 0)\
+	
+\f0\b pam_open_session
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 0)\
+	
+\f0\b pam_setcred
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 PAM_ESTABLISH_CRED)\
+	
+\f3\i ... do stuff (fork etc) ...
+\f1\i0 \
+	
+\f0\b pam_setcred
+\f1\b0 (
+\f3\i pamh
+\f1\i0 , PAM_DELETE_CRED);\
+	
+\f0\b pam_close_session
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 0);\
+	
+\f0\b pam_end
+\f1\b0 (
+\f3\i pamh, 
+\f1\i0 PAM_SUCCESS)\
+	pamh = NULL;\
+
+\fs36 \
+Keychains\
+
+\fs24 \
+There is not-quite-working-yet support for keychains in two places.\
+\
+First, the pam_keychain module presents a means to unlock a user's keychain. Presently, 
+\f0\b pam_sm_authenticate()
+\f1\b0  checks that a given password will unlock the keychain, and if so, saves that password so that the keychain can actually be unlocked by 
+\f0\b pam_sm_setcred()
+\f1\b0 . \
+\
+Secondly, the 
+\f0\b pam_get_pass()
+\f1\b0  function has been modified to accept the "use_mapped_pass" and "try_mapped_pass" standard PAM options. When this is specified, it will use the Keychain API to retrieve the password from the keychain (which is presumably unlocked). This code is presently conditionally with #ifdef HAVE_KEYCHAIN.\
+
+\fs36 \
+Source Tree\
+
+\f2\fs24 \
+Other/\
+	pam/					Linux-PAM port \
+		pam/\
+			libpam/			libpam with FreeBSD extensions\
+			libpam_misc/	libpam_misc \
+			libpamc/		libpamc \
+			modules/		stock modules (unused)\
+	pam_modules/			FreeBSD modules that we use,\
+							plus custom Apple modules\
+	pam_loginwindow/		loginwindow shim\
+    pam_checkpw/			CheckPassword.framework replacement\
+	pam_wrappers/\
+		pamObjC/			Objective-C wrapper framework\
+							(PAM.framework)\
+		pamJava/			Java wrappers\
+							(com.apple.darwin.pam.*)\
+		Tests/				Test of PAM.framework.\
+			PAMTool/		sample application/test harness\
+			checkPassword/	sample chkpasswd-like program\
+			JavaAuthenticator/	sample Java test\
+
+\f1 \
+
+\fs36 Install Tree for Darwin/OS X only\
+
+\fs24 \
+
+\f2 	System/\
+		Library/\
+			PrivateFrameworks/\
+				PAM.framework/			pamObjC wrapper\
+				CheckPassword.framework/	pam_checkpw framework\
+			Authenticators/\
+				PAM.loginAuthenticator/	loginwindowShim\
+			Security/					Modules PAM modules\
+				pam_unix.so				crypt(3) authentication\
+				pam_netinfo.so			NetInfo password changing\
+				pam_directoryservice.so	DirectoryService authentication\
+				pam_securityserver.so	SecurityServer authorization\
+				pam_nis.so				NIS/YP password changing\
+				pam_keychain.so			Keychain unlocking\
+				pam_tim.so				TIM authentication/chpass\
+				pam_deny.so				Deny all\
+				pam_permit.so			Permit all\
+				pam_rootok.so			superuser permitted\
+				pam_wheel.so			wheel group permitted\
+	private/\
+		etc/							PAM config file\
+			security/					Module config files\
+	usr/\
+		lib/							PAM library\
+
+\f1 \
+--\
+Luke Howard <
+\f3\i lukeh@padl.com
+\f1\i0 >\
+}

@@ -1,0 +1,227 @@
+! File TVTRIG.TEXT
+!
+! Tests of sin(x) = x - x^3/6 + x^5/120 - ...
+!
+! NANs
+! Commented out signaling NaN cases <JPO, 5/13/93>
+31	d	Q	0	OK	Q
+31	d	-Q	0	OK	-Q
+!31	 e	  S	   0    i   Q
+!31	 e	  -S   0    i   -Q
+! Infinities are invalid
+31	d	H	0	i	Q
+31	d	-H	0	i	Q
+! Sin of 0 is 0 with the same sign!
+31	d	0	0	OK	0
+31	d	-0	0	OK	-0
+!
+! sin(tiny) is tiny - noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+
+! <scp> Disabled <e and >e variants, since function is computed round-nearest always.
+31	d	E	0	x	E
+31	d	Ei1	0	x	Ei1
+31	d	Ep1	0	x	Ep1
+31	d	Ep1i3	0	x	Ep1i3
+31	d	Ed2	0	ux	Ed2
+31	d	Ep1d5	0	x	Ep1d5
+31	d	0i1	0	ux	0i1
+31	d	0i9	0	ux	0i9
+
+!
+! sin(-tiny) is -tiny + noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+31	d	-E	0	x	-E
+31	d	-Ei1	0	x	-Ei1
+31	d	-Ep1	0	x	-Ep1
+31	d	-Ep1i3	0	x	-Ep1i3
+31	d	-Ed2	0	ux	-Ed2
+31	d	-Ep1d5	0	x	-Ep1d5
+31	d	-0i1	0	ux	-0i1
+31	d	-0i9	0	ux	-0i9
+!
+! Tests of cos(x) = 1 - x^2/2! + x^4/4! - ...
+!
+! NANs
+! Commented out signaling NaN cases <JPO, 5/13/93>
+32	d	Q	0	OK	Q
+32	d	-Q	0	OK	-Q
+!32	 e	  S	   0    i   Q
+!32	 e	  -S   0    i   -Q
+! Infinities are invalid
+32	d	H	0	i	Q
+32	d	-H	0	i	Q
+! Cos of 0 is 1
+32	d	0	0	OK	1
+32	d	-0	0	OK	1
+!
+! cos(tiny) is 1 - noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+32	d	E	0	x	1
+32	d	Ei1	0	x	1
+32	d	Ep1	0	x	1
+32	d	Ep1i3	0	x	1
+32	d	Ed2	0	x	1
+32	d	Ep1d5	0	x	1
+32	d	0i1	0	x	1
+32	d	0i9	0	x	1
+!
+! cos(-tiny) is 1 - noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+32	d	-E	0	x	1
+32	d	-Ei1	0	x	1
+32	d	-Ep1	0	x	1
+32	d	-Ep1i3	0	x	1
+32	d	-Ed2	0	x	1
+32	d	-Ep1d5	0	x	1
+32	d	-0i1	0	x	1
+32	d	-0i9	0	x	1
+!
+! Tests of tan(x) = x + x^3/3 + 2x^5/15 + ...
+!
+! NANs
+! Commented out signaling NaN cases <JPO, 5/13/93>
+33	d	Q	0	OK	Q
+33	d	-Q	0	OK	-Q
+!33	 e	  S	   0    i   Q
+!33	 e	  -S   0    i   -Q
+! Infinities are invalid
+33	d	H	0	i	Q
+33	d	-H	0	i	Q
+! Tan of 0 is 0 with the same sign!
+33	d	0	0	OK	0
+33	d	-0	0	OK	-0
+!
+! Tan(tiny) is tiny + noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+33	d	E	0	x	E
+33	d	Ei1	0	x	Ei1
+33	d	Ep1	0	x	Ep1
+33	d	Ep1i3	0	x	Ep1i3
+33	d	Ed2	0	ux	Ed2
+33	d	Ep1d5	0	x	Ep1d5
+33	d	0i1	0	ux	0i1
+33	d	0i9	0	ux	0i9
+!
+! tan(-tiny) is -tiny - noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+33	d	-E	0	x	-E
+33	d	-Ei1	0	x	-Ei1
+33	d	-Ep1	0	x	-Ep1
+33	d	-Ep1i3	0	x	-Ep1i3
+33	d	-Ed2	0	ux	-Ed2
+33	d	-Ep1d5	0	x	-Ep1d5
+33	d	-0i1	0	ux	-0i1
+33	d	-0i9	0	ux	-0i9
+!
+! Tests of atan(x) = x - x^3/3 + x^5/5 - ...
+!
+! NANs
+! Commented out signaling NaN cases <JPO, 5/13/93>
+34	d	Q	0	OK	Q
+34	d	-Q	0	OK	-Q
+!34	 e	  S	   0    i   Q
+!34	 e	  -S   0    i   -Q
+!
+! atan of 0 is 0 with the same sign!
+34	d	0	0	OK	0
+34	d	-0	0	OK	-0
+!
+! atan(tiny) is tiny - noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+34	d	E	0	x	E
+34	d	Ei1	0	x	Ei1
+34	d	Ep1	0	x	Ep1
+34	d	Ep1i3	0	x	Ep1i3
+34	d	Ed2	0	ux	Ed2
+34	d	Ep1d5	0	x	Ep1d5
+34	d	0i1	0	ux	0i1
+34	d	0i9	0	ux	0i9
+!
+! atan(-tiny) is -tiny + noise
+! Added missing rounding mode cases <JPO, 5/13/93>
+34	d	-E	0	x	-E
+34	d	-Ei1	0	x	-Ei1
+34	d	-Ep1	0	x	-Ep1
+34	d	-Ep1i3	0	x	-Ep1i3
+34	d	-Ed2	0	ux	-Ed2
+34	d	-Ep1d5	0	x	-Ep1d5
+34	d	-0i1	0	ux	-0i1
+34	d	-0i9	0	ux	-0i9
+!
+!	 This section consists of values related to pi.
+!	Unfortunately, a 68881 only gets 4 cases right.
+!
+! Restricted rounding to default mode only <JPO, 5/13/93>
+!
+! Sin
+31	=d	$3FFFC90FDAA22168C235	0	x	1	;pi/2
+31	=d	$BFFFC90FDAA22168C235	0	x	-1	;-pi/2
+
+! <scp> 31	 =e	  $4000C90FDAA22168C235	  0	   x    -0						    ;pi
+! <scp> 31	 =e	  $C000C90FDAA22168C235	  0	   x    -0						    ;-pi
+! <scp> 31	 =e	  $3FFEC90FDAA22168C235	  0	   x    $3FFEB504F333F9DE6485	    ;pi/4
+! <scp> 31	 =e	  $BFFEC90FDAA22168C235	  0	   x    $BFFEB504F333F9DE6485	    ;-pi/4
+! The argument is the 52bit approximation to pi. 
+! The argument reduction in sin() is double double hence
+! the result is (properly) somewhat different than zero. 
+! Similarly for pi/4, the cos and the tan cases.
+41	=d	0x400921fb	0x54442d18	0	0	x	0x3ca1a626	0x33145c07	;pi
+41	=d	0xc00921fb	0x54442d18	0	0	x	0xbca1a626	0x33145c07	;-pi
+41	=d	0x3fe921fb	0x54442d18	0	0	x	0x3fe6a09e	0x667f3bcd	;pi/4
+41	=d	0xbfe921fb	0x54442d18	0	0	x	0xbfe6a09e	0x667f3bcd	;-pi/4
+
+31	=d	$3FFE860A91C16B9B2C23	0	x	1m1	;pi/6
+31	=d	$BFFE860A91C16B9B2C23	0	x	-1m1	;-pi/6
+31	=d	$3FFF860A91C16B9B2C23	0	x	$3FFEDDB3D742C265539D	;pi/3
+31	=d	$BFFF860A91C16B9B2C23	0	x	$BFFEDDB3D742C265539D	;-pi/3
+! Cos
+32	=d	$4000C90FDAA22168C235	0	x	-1	;pi
+32	=d	$C000C90FDAA22168C235	0	x	-1	;-pi
+
+! <scp> 32	 =e	  $3FFFC90FDAA22168C235	  0	   x    -0						    ;pi/2
+! <scp> 32	 =e	  $BFFFC90FDAA22168C235	  0	   x    0						    ;-pi/2
+42	=d	0x3ff921fb	0x54442d18	0	0	x	0x3c91a626	0x33145c07	;pi/2
+42	=d	0xbff921fb	0x54442d18	0	0	x	0x3c91a626	0x33145c07	;-pi/2
+
+32	=d	$3FFEC90FDAA22168C235	0	x	$3FFEB504F333F9DE6484	;pi/4
+32	=d	$BFFEC90FDAA22168C235	0	x	$3FFEB504F333F9DE6484	;-pi/4
+
+! <scp> 32	 =e	  $3FFF860A91C16B9B2C23	  0	   x    1m1+1					    ;pi/3
+! <scp> 32	 =e	  $BFFF860A91C16B9B2C23	  0	   x    1m1+1					    ;-pi/3
+! <scp> 32	 =e	  $3FFE860A91C16B9B2C23	  0	   x    $3FFEDDB3D742C265539E	    ;pi/6
+! <scp> 32	 =e	  $BFFE860A91C16B9B2C23	  0	   x    $3FFEDDB3D742C265539E	    ;-pi/6
+32	=d	$3FFF860A91C16B9B2C23	0	x	1m1i1	;pi/3
+32	=d	$BFFF860A91C16B9B2C23	0	x	1m1i1	;-pi/3
+42	=d	0x3fe0c152	0x382d7365	0	0	x	0x3febb67a	0xe8584cab	;pi/6
+42	=d	0xbfe0c152	0x382d7365	0	0	x	0x3febb67a	0xe8584cab	;-pi/6
+
+! Tan
+! <scp> 33	 =e	  $3FFFC90FDAA22168C235	  0	   xz   H		   FLAGS??????	    ;pi/2
+! <scp> 33	 =e	  $BFFFC90FDAA22168C235	  0	   xz   -H		   FLAGS??????	    ;-pi/2
+! <scp> 33	 =e	  $4000C90FDAA22168C235	  0	   x    0						    ;pi
+! <scp> 33	 =e	  $C000C90FDAA22168C235	  0	   x    -0						    ;-pi
+! <scp> 33	 =e	  $3FFEC90FDAA22168C235	  0	   x    1						    ;pi/4
+! <scp> 33	 =e	  $BFFEC90FDAA22168C235	  0	   x    -1						    ;-pi/4
+! <scp> 33	 =e	  $3FFF860A91C16B9B2C23	  0	   x    $3FFFDDB3D742C265539C	    ;ULP LO
+! <scp> 33	 =e	  $BFFF860A91C16B9B2C23	  0	   x    $BFFFDDB3D742C265539C	    ;ULP LO
+
+43	=d	0x3ff921fb	0x54442d18	0	0	x	0x434d0296	0x7c31cdb5	;pi/2
+43	=d	0xbff921fb	0x54442d18	0	0	x	0xc34d0296	0x7c31cdb5	;-pi/2
+43	=d	0x400921fb	0x54442d18	0	0	x	0xbca1a626	0x33145c07	;pi
+43	=d	0xc00921fb	0x54442d18	0	0	x	0x3ca1a626	0x33145c07	;-pi
+33	=d	$3FFEC90FDAA22168C235	0	x	1d1	;pi/4
+33	=d	$BFFEC90FDAA22168C235	0	x	-1d1	;-pi/4
+43	=d	0x3ff0c152	0x382d7365	0	0	x	0x3ffbb67a	0xe8584ca8	;ULP	LO
+43	=d	0xbff0c152	0x382d7365	0	0	x	0xbffbb67a	0xe8584ca8	;ULP	LO
+! ArcTan
+34	=d	1	0	x	$3FFEC90FDAA22168C235	;pi/4
+34	=d	-1	0	x	$BFFEC90FDAA22168C235	;-pi/4
+
+! <scp> 34	 =e	  H	    0	   OK	  $3FFFC90FDAA22168C235		 FLAGS??????    ;pi/2
+! <scp> 34	 =e	 -H	    0	   OK	  $BFFFC90FDAA22168C235		 FLAGS??????    ;-pi/2
+34	=d	H	0	x	$3FFFC90FDAA22168C235	;pi/2
+34	=d	-H	0	x	$BFFFC90FDAA22168C235	;-pi/2
+
+34	=d	$3FFFDDB3D742C265539E	0	x	$3FFF860A91C16B9B2C24	;pi/3
+34	=d	$BFFFDDB3D742C265539E	0	x	$BFFF860A91C16B9B2C24	;-pi/3

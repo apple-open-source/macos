@@ -2,7 +2,256 @@
 
 Things it might be nice to do someday.  I haven't evaluated all of
 these suggestions... their presence here doesn't imply my endorsement.
--djm
+-djm & his successors.
+
+
+------------------------------------------------------------------------------
+
+* Soon
+
+** --target & AC_ARG_PROGRAM
+Shouldn't *any* `program' be installed as `$target_alias-program' even
+if AC_ARG_PROGRAM is not called?  That would be much more predictable.
+Ian?
+
+** RedHat's Autoconf page
+should be removed.
+
+** AC_CHECK_TOOL...
+Write a test that checks that it honors the values set by the user.
+
+* Autoconf 2.52 or later
+
+** Languages
+Integrate other Fortrans etc.
+
+** AC_CHECK_FUNCS and AC_TRY_LINK_FUNC
+I have still not understood what's the difference  between the two
+which requires to have two different sources: AC_LANG_CALL and
+AC_LANG_FUNC_LINK_TRY (which names seem to be inappropriate).
+Wouldn't one be enough?
+
+** autom4te
+Eve it out of autoconf.  Install support for Autotest, M4sugar, and
+M4sh.  Give a means to trace at the same time as we produce the
+output.  autoconf shall use this feature to make autoheader obsolete,
+and to produce some kind of input file for automake which should no
+longer *ever* try to parse Autoconf files.
+
+** Autotest
+Document it.
+
+** Document AC_COMPILE_IFELSE, AC_LANG_PROGRAM etc.
+And make AC_TRY_COMPILE etc. obsolete.
+
+** Autoscan macros
+Can be introduced even before specializing macros.  It just means that
+specializing macros will call them.  OTOH, this doubles our work,
+since specializing macros will save us from additional typing.  But
+the more powerful autoscan is, the better...
+
+** Libtool
+Define once for all the hooks they need, any redefinition of
+AC_PROG_CC etc. is way too dangerous and too limiting.  The GCC team
+certainly has requirements too.
+
+** Pentateuch
+Heck, there is nothing after `Deuteronomy'!  We're stuck, but we
+_must_ update the `history' section.  Can't go to `New testament', we
+might hurt feelings?  In addition, it means that the Messiah has come,
+which might be slightly presumptuous :).  Still, someone fluent in
+English should write it.
+
+** AC_FUNC_GETLOADAVG
+We must find a solution for this macro which needs to find
+`getloadavg.c'.
+
+** Revamp the language support
+We should probably have a language for C89, and C99.  We must give the
+means to the users to specify some needs over the compilers, and
+actually look for a good compiler, instead of stopping at the first
+compiler we find.
+
+In fact, the AC_CHECK_PROG macro and variations have proved their
+limitation: we really need something more powerful and simpler too.
+
+We must take into account the specific problems of the GCC team.  We
+must extend AC_CHECK_FUNCS in order to use the headers instead of fake
+declarations as we currently do.  Default headers could be triggered
+on when C99, but not with the other languages?
+
+At the end, we should have a simple macro, such as AC_LANG_COMPILER
+for instance, which is built over simpler macros.  Each language
+support should come with these simpler macros, but each language
+should follow the same process.
+
+We also need to check the srcext which are supported by the compiler.
+In fact, this macro is also probably the right place to check for
+objext and exeext.
+
+** AC_PROG_CC_STDC
+Should be: AC_PROG_CC_ISO?  Or even more specific for the ISO version?
+Should include more tests (e.g., AC_C_CONST etc.)?
+
+** AC_SYS_INTERPRETER
+Defines $interpval.  This is not a standard name.  Do we want to keep
+this?  Clarify our policy on those names.
+
+** autoupdate
+We should probably install the files which do not depend upon the
+user, just the Autoconf library files.  But conversely autoupdate must
+be opened to user macros, i.e., for instance libtool itself must be
+able to say that AM_PROG_LIBTOOL is now AC_PROG_LIBTOOL, and have
+autoupdate do its job on old configure.in.
+
+** AC_LIBOBJ_DECL
+Decide with the Automake team whether this macro should list only `.c'
+files, or it should include the `.h' too.  For instance the
+AC_FUNC_GNU_GETOPT macro could provide the three files, likewise for
+the macro which allows to choose a regex engine.
+
+** Allow --recursive to config.status
+So that --recheck does not pass --no-recursive to configure.
+
+** AC_PROG_CC_STDC
+Well, back onto this one :( See Peter for very useful comments on the
+technology.  Should we make this a new language?  AC_LANG(ISO C).  It
+would be great to introduce AC_LANG_COMPILER in this release too.
+
+* autoconf.texi
+Move the specific macro documentation blocks into the source files,
+and use a doc-block extraction/merge technique to get docuemntation
+into texi-file.  This should help avoid bit-rot in the doc, and make
+the doc easier to update when people add/change macros.  The name
+"autodoc" is probably already taken so we probably need another one.
+
+------------------------------------------------------------------------------
+
+* Automake
+
+** missing.m4
+The test for a recent missing doesn't hide the error messages from the
+old missing.
+
+** AU_DEFUN
+The section for old macros is not completely up to date.  For
+instance, there is still AM_PROG_LIBTOOL.  Anyway, since autoupdate
+takes care of them, it is no longer the role of Automake to handle
+this.  Most should be removed.
+
+** AC_EXEXT, AC_OBJEXT
+Support should be enabled by default.
+
+** Macros now swallowed by Autoconf.
+error.m4, obstack.m4, ptrdiff.m4, strtod.m4, termios.m4, winsz.m4.
+
+------------------------------------------------------------------------------
+
+* m4
+
+** I18n
+The error messages for indir and dumpdef are uselessly different.  Fix
+this for translators.
+
+** Tracing `builtin'
+F**k!  --trace FOO does not catch indir([FOO], $@)!
+
+** Tracing builtins
+GNU M4 1.4's tracing of builtins is buggy.  When run on this input:
+
+| divert(-1)
+| changequote([, ])
+| define([m4_eval], defn([eval]))
+| eval(1)
+| m4_eval(2)
+| undefine([eval])
+| m4_eval(3)
+
+it behaves this way:
+
+| % m4 input.m4 -da -t eval
+| m4trace: -1- eval(1)
+| m4trace: -1- m4_eval(2)
+| m4trace: -1- m4_eval(3)
+| %
+
+Conversely:
+
+| % m4 input.m4 -da -t m4_eval
+| %
+
+------------------------------------------------------------------------------
+
+* Autoconf 3
+
+** Cache name spaces.
+Cf the discussion with Kaveh.  One would like to
+AC_CHECK_FUNCS(bar)
+# Do something that changes the environment
+AC_CACHE_PUSH(foo)
+AC_CHECK_FUNCS(bar)
+AC_CACHE_POP
+in order not to erase the results of a check with another.
+
+** Cache var names
+should depend upon the current language.
+
+** Use m4 lists?
+I think one sad decision in Autoconf was to use white space separated
+lists for some arguments.  For instance AC_CHECK_FUNCS(foo bar).  I
+tend to think that, even if it is not as nice, we should use m4 lists,
+i.e., AC_CHECK_FUNCS((foo, bar)) in this case.  This would ease
+specializing loops, and more importantly, make them much more robust.
+
+A typical example of things that can be performed if we use m4 lists
+instead of white space separated lists is the case of things that have
+a space in their names, eg, structures.
+
+With the current scheme it would be extremely difficult to loop over
+AC_CHECK_STRUCTS(struct foo struct bar), while it natural and well
+defined for m4 lists: AC_CHECK_STRUCTS((struct foo, struct bar)).
+
+I know that makes a huge difference in syntax, but a major release
+should be ready to settle a new world.  We *can* provide helping tools
+for the transition.  Considering the benefits, I really think it is
+worth thinking. --akim
+
+** Forbid shell variables as main arguments
+The fact that we have to support shell variables as main argument
+forbids many interesting constructions (specialization are not always
+possible, equally for AC_REQUIRE'ing macros *with their arguments*).
+Any loop should be handled by m4 itself, and nothing should be hidden
+to it.  As a consequence, shell variables on the main arguments become
+useless (the main reason we support shell variables is to allow the
+loop versions of single argument macros, eg, to go from AC_CHECK_FUNC
+to AC_CHECK_FUNCS). --akim
+
+** Use the @SUBST@ technology also for headers instead of #undef.
+This requires that acconfig.h becomes completely obsolete: autoheader
+should generate all the templates.
+
+** Specializing loops.
+For instance, make AC_CHECK_FUNC[S] automatically use any particular
+macros for the listed functions.
+This requires to obsolete the feature `break' in ACTION-IF, since all
+the loops are to be handled by m4, not sh.
+
+** Faces of a test
+Each macro can potentially come with several faces: of course the
+configure snippet (AC_foo), a config.h snippet (AH_foo), a system.h
+snippet (AS_foo), documentation (AD_foo) and, why not, the some C code
+for instance to replace a function.
+
+The motivation for the `faces' is to encapsulate.  It is abnormal that
+once one has a configure macro, then she has to read somewhere to find
+the piece of system.h to use etc.  The macros should come in a
+self-contained way, or, said it another way, PnP.
+
+A major issue is that of specialization.  AC_CHECK_HEADER (or another
+name) for instance, will have as an effect, via system.h to include
+the header.  But if the test for the header is specific, the generic
+AS_CHECK_HEADER will still be used.  Conversely, some headers may not
+require a specific AC_ tests, but a specialized AS_ macro.
 
 ------------------------------------------------------------------------------
 
@@ -14,19 +263,14 @@ these suggestions... their presence here doesn't imply my endorsement.
   actually also take into account whatever value LIBS had when they
   were checked for.
 
+  Isn't this the issue of AC_SEARCH_LIB? --akim
+  How come the list of libraries to browse not an additional parameter
+  of AC_CHECK_FUNC, exactly like for the headers? --akim
+
 ------------------------------------------------------------------------------
 
 * Add AC_PROG_CC_POSIX to replace the current ad-hoc macros for AIX,
   Minix, ISC, etc.
-
-------------------------------------------------------------------------------
-
-* Use AC_EGREP_CPP instead of AC_TRY_LINK to detect structures and members.
-
-------------------------------------------------------------------------------
-
-* Make AC_CHECK_FUNC[S] automatically use any particular macros for the
-  listed functions.
 
 ------------------------------------------------------------------------------
 
@@ -38,24 +282,8 @@ these suggestions... their presence here doesn't imply my endorsement.
 
 ------------------------------------------------------------------------------
 
-* Doc: Add a concept index.
-
-------------------------------------------------------------------------------
-
 * Doc: Centralize information on POSIX, MS-DOS, cross-compiling, and
   other important topics.
-
-------------------------------------------------------------------------------
-
-* Split up AC_SUBST substitutions using a loop to accomodate shells
-  with severely limited here document sizes, if it turns out to be a problem.
-  I'm not sure whether the limit is on lines or bytes; if bytes, it
-  will be less of a problem than it was with the long lines used for
-  creating a header file.
-
-------------------------------------------------------------------------------
-
-* Allow [ and ] in AC_DEFINE args.
 
 ------------------------------------------------------------------------------
 
@@ -76,13 +304,7 @@ config.site.
 
 ------------------------------------------------------------------------------
 
-* autoscan: Tell the files that caused inclusion of each macro,
-in a dnl comment.  (Seems to be hard.)
-
-------------------------------------------------------------------------------
-
 * Look at user contributed macros:
-	prototypes
 	IEEE double precision math
 	more
 
@@ -98,46 +320,10 @@ In config.status comment, put the host/target/build types, if used.
 
 ------------------------------------------------------------------------------
 
-Have AC_CANONICAL_* cache the host/build/target types.
-They have to be overridden by the command line arguments,
-just as for X includes and libraries.  Should they be cached
-all in one variable, or three?  In that case, what if only one
-or two of the cache variables are set?
-
-------------------------------------------------------------------------------
-
-     The argument HELP-STRING is a description of the option which
-     ...
-     Avoid tabs in the help string.  You'll need to enclose it in `['
-     and `]' in order to produce the leading spaces.
-
-Except that [...] is the convention for telling the user the default,
-So I guess a changequote(`,') or something would be in order in some cases.
-From: "K. Berry" <kb@cs.umb.edu>
-
-------------------------------------------------------------------------------
-
-The default of unlimited permission is fine, but there should be some easy
-way for configure to have copyright terms passed through from configure.in.
-Maybe AC_LICENSE([...]).
-From: roland@gnu.ai.mit.edu (Roland McGrath)
-
-------------------------------------------------------------------------------
-
-AC_MSG_CHECKING([checking for ANSI #stringize])
-AC_REVISION([ #(@) revision 2.1 ])
-
-causes bogus code to be generated for whatever immediately follows.  The
-problem goes away if the '#' is removed.  Probably the macros are not
-disabling the m4 "comment" feature when processing user-supplied strings.
--Jim Avera jima@netcom.com
-
-------------------------------------------------------------------------------
-
 on hal.gnu.ai.mit.edu, configure is getting the wrong answer for
 AC_CHECK_FUNCS(select).
 
-The problem here is that there's severe namespace pollution: when
+The problem here is that there's severe name space pollution: when
 conftest.c includes <ctype.h> to pick up any __stub macro definitions,
 it's getting a prototype declaration for select(), which collides
 with the dummy declaration in conftest.c.  (The chain of includes
@@ -161,27 +347,10 @@ Andreas Schwab
 
 ------------------------------------------------------------------------------
 
-put all the config.* stuff somewhere like config/?
-All these extraneous files sure clutter up a toplevel directory.
-From: "Randall S. Winchester" <rsw@eng.umd.edu>
-
-------------------------------------------------------------------------------
-
 It would be nice if I could (in the Makefile.in files) set
-the path to config.h. You have config.h ../config.h ../../config.h's all 
+the path to config.h. You have config.h ../config.h ../../config.h's all
 over the place, in the findutils-4.1 directory.
 From: "Randall S. Winchester" <rsw@eng.umd.edu>
-
-------------------------------------------------------------------------------
-
-In libc and make in aclocal.m4 I have AC_CHECK_SYMBOL, which checks for
-sys_siglist et al.  Using AC_CHECK_FUNC doesn't work on some system that
-winds up caring that you reference it as a function and it is really a
-variable.  My version always declares the symbol as a char *[]; if that
-ends up a bad idea, we can have it take an arg with the C decl, but that is
-a bit verbose to write if it's actually superfluous.
-From Roland McGrath.
-[I'd call it AC_CHECK_VAR, I think. -djm]
 
 ------------------------------------------------------------------------------
 
@@ -207,7 +376,7 @@ AC_PKG_WITH(PACKAGE, HELP_STRING, PACKAGE-ROOT, PACKAGE-LIBS, PACKAGE-DEFS,
 	PACKAGE-CCPFLAGS)
 like
 
-AC_PKG_WITH(kerberos,,/usr/local/athena,-lkrb -ldes,[KERBEROS KRB4 
+AC_PKG_WITH(kerberos,,/usr/local/athena,-lkrb -ldes,[KERBEROS KRB4
 CRYPT],include)
 AC_PKG_WITH(hesiod,
 [if hesiod is not in kerberos-root add --with-hesiod-root=somewhere]
@@ -227,19 +396,19 @@ as order matters.
 
 also an AC_PKG_CHK_HEADER
 and an AC_PKG_CHK_FUNCTION
-so one can give alternate paths to check for stuff ($PKG-ROOT/lib for 
+so one can give alternate paths to check for stuff ($PKG-ROOT/lib for
 example)
 From: Randall Winchester
 
 ------------------------------------------------------------------------------
 
-AC_C_CROSS assumes that configure was
-called like 'CC=target-gcc; ./configure'. I want to write a package
-that has target dependent libraries and host dependent tools. So I
-don't like to lose the distinction between CC and [G]CC_FOR_TARGET. 
-AC_C_CROSS should check for equality of target and host.
+AC_C_CROSS assumes that configure was called like 'CC=target-gcc;
+./configure'. I want to write a package that has target dependent
+libraries and host dependent tools. So I don't like to lose the
+distinction between CC and [G]CC_FOR_TARGET.  AC_C_CROSS should check
+for equality of target and host.
 
-It would be great if 
+It would be great if
 
 GCC_FOR_TARGET
 AR_FOR_TARGET
@@ -276,52 +445,18 @@ probably aren't worried about yet, e.g. shm_open.
 All these functions fail with errno set to ENOSYS (89)
 ``Operation not applicable''.
 
-Perhaps autoconf should have a
-specific macro for fnmatch, another for glob+globfree, another for
-regcomp+regexec+regerror+regfree, and another for wordexp+wordfree.
-This wouldn't solve the problem in general, but it should work for
-Solaris 2.4.  Or autoconf could limit itself to fnmatch and regcomp,
-the only two functions that I know have been a problem so far.
+Perhaps Autoconf should have a specific macro for fnmatch, another for
+glob+globfree, another for regcomp+regexec+regerror+regfree, and
+another for wordexp+wordfree.  This wouldn't solve the problem in
+general, but it should work for Solaris 2.4.  Or Autoconf could limit
+itself to fnmatch and regcomp, the only two functions that I know have
+been a problem so far.
 
 From Paul Eggert.
 
 ------------------------------------------------------------------------------
 
 Make easy macros for checking for X functions and libraries, such as Motif.
-
-------------------------------------------------------------------------------
-
-* Test suite: more things to test:
-** That the shell scripts produce correct output on some simple data.
-** Configuration header files.  That autoheader does the right thing,
-   and so does AC_CONFIG_HEADER when autoconf is run.
-
-------------------------------------------------------------------------------
-
-Autoheader in autoconf-2.4 doesn't produce entries for:
-
-        AC_CHECK_TYPE(ssize_t, int)
-
-and it seems like it could easily do so.
-
-In general, it seems to me like autoconf isn't set up to
-let me periodically run autoheader, and then include my
-"local" tests -- autoheader gets most stuff right, I'd like
-to rerun it periodically without losing my local changes
-to config.h.in.
-
-One of the things that I need is to know is the type to use
-for a fixed size on disk, e.g., what is the system's name
-for an unsigned-32-bit integer?
-
-I can use:
-
-        AC_CHECK_SIZEOF(unsigned int)
-
-and, in fact, that's what I do.  But I still have to build
-sets of #if tests to get from there to the name of the type.
-
-From:    bostic@bsdi.com (Keith Bostic)
 
 ------------------------------------------------------------------------------
 
@@ -334,24 +469,12 @@ From:    Rich Salz <rsalz@osf.org>
 
 ------------------------------------------------------------------------------
 
-It is IMHO a bug that `config.status' cannot handle multiple
-simultaneous invocations.  It should include the process id (`$$' in sh)
-as part of the name of any temporary files it creates.
-
-From:    fjh@kryten.cs.mu.oz.au (Fergus Henderson)
-
-------------------------------------------------------------------------------
-
 Timezone calculations checks.
 
 ------------------------------------------------------------------------------
 
 Support different default filesystem layouts, e.g. SVR4, Linux.
 Of course, this can be done locally with config.site.
-
-------------------------------------------------------------------------------
-
-Mention automake, libtool, etc. in the autoconf manual.
 
 ------------------------------------------------------------------------------
 
@@ -362,14 +485,6 @@ accessing imake variables by autoconf, something like
 AC_DEFINE(WINE_APP_DEFAULTS, AC_IMAKE_VAR(XAPPLOADDIR))
 
 Slaven Rezic <eserte@cabulja.herceg.de>
-
-------------------------------------------------------------------------------
-
-Question: at least one common UNIX variant has a "cc" that is old K&R
-and "c89" for ANSI C.  Is there any reason why AC_PROG_CC couldn't
-check for c89 before cc if it can't find gcc?
-
-hpa@yggdrasil.com (H. Peter Anvin)
 
 ------------------------------------------------------------------------------
 
@@ -389,61 +504,23 @@ From: friedman@splode.com (Noah Friedman)
 
 ------------------------------------------------------------------------------
 
-So how about an option to configure --reset-cache, that says to ignore all
-existing cached values for tests that configure runs, and then update the
-cache normally.  This should be utterly trivial to do in AC_CACHE_VAL;
-check the flag variable and always compute the value if it's set.
-
-------------------------------------------------------------------------------
-
-A number of people have tried to fix configuration problems by editing
-acconfig.h. (Despite comments at the top of the file.) I think they're
-confused because anything.h looks like a regular source file name.
-Maybe acconfig.h could be called acconfig.extra or something?
-
-From: kb@cs.umb.edu (K. Berry)
-
-------------------------------------------------------------------------------
-
-Every user running
-X11 usually has a directory like *X11* in his PATH variable. By replacing
-bin by include, you can find good places to look for the include files
-or libraries.
+Every user running X11 usually has a directory like *X11* in his PATH
+variable. By replacing bin by include, you can find good places to
+look for the include files or libraries.
 
 From: rcb5@win.tue.nl (Richard Verhoeven)
 
 ------------------------------------------------------------------------------
 
-When using CONFIG_FILES= and CONFIG_HEADERS= for controlling
-partial configuration, any AC_LINK_FILES is repeated in each case
-(that is, usually, once for config.h and once per subdirectory).
-This is not elegant.
-
-Maybe Autoconf could use some kind of CONFIG_LINKS=<file-list>,
-having all such AC_LINK(ed)_FILES by default, but usable by each
-Makefile.in in rules for updating the particular links they need.
-
-From: pinard@iro.umontreal.ca
-
-------------------------------------------------------------------------------
-
-Perhaps autoconf could have a single @magic@ frob that gets replaced with
-assignments for all the *dir variables?  There is quite a plethora for each
-Makefile.in to have foodir = @foodir@.
-
-From: Roland McGrath <roland@gnu.ai.mit.edu>
-
-------------------------------------------------------------------------------
-
-In most cases, when autoscan suggests something, using the search
-or index command into the Info reader for autoconf manual quickly
-explains me what the test is about.  However, for header files
-and functions, the search might fail, because the test is not of
-the specific kind.  The Autoconf manual should reflect somewhere
-all header files or functions (non-specific features, generally)
-triggering autoscan to generate tests, and tell in a few words
-what is the problem, and the suggested approach for a solution;
-that is, how one should use the result of testing the feature.
+In most cases, when autoscan suggests something, using the search or
+index command into the Info reader for autoconf manual quickly
+explains me what the test is about.  However, for header files and
+functions, the search might fail, because the test is not of the
+specific kind.  The Autoconf manual should reflect somewhere all
+header files or functions (non-specific features, generally)
+triggering autoscan to generate tests, and tell in a few words what is
+the problem, and the suggested approach for a solution; that is, how
+one should use the result of testing the feature.
 
 From: pinard@iro.umontreal.ca
 
@@ -491,45 +568,16 @@ From: Roland McGrath <roland@gnu.ai.mit.edu>
 
 ------------------------------------------------------------------------------
 
-Use automake to generate autoconf's Makefile.in's?
-
-------------------------------------------------------------------------------
-
-about the idea of using small configure.in/aclocal.m4 snippets:
-this is the one idea in metaconfig (the autoconf-like program used by
-Perl) that I like.  metaconfig looks for a "U" directory, and includes
-each ".U" file into the generated Configure script (according to
-various complicated rules).
-From: Tom Tromey <tromey@creche.cygnus.com>
-
-------------------------------------------------------------------------------
-
-I'd much prefer to see the absolute paths substituted for all the
-standard "dir" variables.  It would be nice to have variables in
-configure that held the absolute paths.  And it is nice to be able to
-substitute them into other files without relying on the destination
-file supporting ${...}  syntax.  (It works in Perl, sh, and make --
-but not guile)
-
-From: Tom Tromey <tromey@creche.cygnus.com>
-
-------------------------------------------------------------------------------
-
-Another thing I wish for is a macro which figures out which libraries are 
-needed for BSD-sytle sockets.  AC_PATH_X already detects this 
+Another thing I wish for is a macro which figures out which libraries are
+needed for BSD-sytle sockets.  AC_PATH_X already detects this
 correctly...so it's just a matter of seperating out the socket-related code.
 From: "Joel N. Weber II" <nemo@koa.iolani.honolulu.hi.us>
 
 ------------------------------------------------------------------------------
 
-Merge the two lex macros, AC_PROG_LEX and AC_DECL_YYTEXT?
-
-------------------------------------------------------------------------------
-
-in order to use the AC_CANONICAL_SYSTEM macro, I have to
-have install-sh somewhere nearby --- why is this?  I have no real
-reason to distribute install-sh, other than that its absence breaks
-this code.
+in order to use the AC_CANONICAL_SYSTEM macro, I have to have
+install-sh somewhere nearby --- why is this?  I have no real reason to
+distribute install-sh, other than that its absence breaks this code.
 
 Shouldn't the above loop be looking for config.sub and config.guess?
 From: jimb@totoro.bio.indiana.edu (Jim Blandy)
@@ -549,24 +597,12 @@ with autoconf scripts.
 
 ------------------------------------------------------------------------------
 
-there is absolutely no guarantee that 'a' to 'z' are
-contiguous, and the ISLOWER macro is not guaranteed to correctly
-reproduce the result of islower. In all variants of ASCII however, it
-will work correctly in the C locale.
-
-There is also no guarantee that toupper(i) - i is the same constant if
-non-zero. TOUPPER, hence, is not correct either. But, in all variants
-of ASCII in the C locale, it works.
-
-Tanmoy Bhattacharya (tanmoy@qcd.lanl.gov>
-
-------------------------------------------------------------------------------
-
 autoreconf doesn't support having (in the same tree) both directories
-that are parts of a larger package (sharing aclocal.m4 and acconfig.h),
-and directories that are independent packages (each with their own ac*).
-It assumes that they are all part of the same package, if you use --localdir,
-or that each directory is a separate package, if you don't use it.
+that are parts of a larger package (sharing aclocal.m4 and
+acconfig.h), and directories that are independent packages (each with
+their own ac*).  It assumes that they are all part of the same
+package, if you use --localdir, or that each directory is a separate
+package, if you don't use it.
 
 autoreconf should automatically figure out which ac* files to use--the
 closest ones up the tree from each directory, probably, unless
@@ -577,4 +613,3 @@ configure.in, not just those given by an AC_CONFIG_SUBDIRS directive.
 This may not be a problem in practice.
 
 ------------------------------------------------------------------------------
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,40 +80,28 @@ _notifychanges(mach_port_t			server,
 	       int				*sc_status
 )
 {
-	kern_return_t		status;
 	serverSessionRef	mySession = getSession(server);
 	CFArrayRef		notifierKeys;	/* array of CFStringRef's */
-	CFDataRef		xmlList;	/* list (XML serialized) */
+	Boolean			ok;
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("List notification keys which have changed."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
+	*listRef = NULL;
+	*listLen = 0;
+
 	*sc_status = __SCDynamicStoreCopyNotifiedKeys(mySession->store, &notifierKeys);
 	if (*sc_status != kSCStatusOK) {
-		*listRef = NULL;
-		*listLen = 0;
 		return KERN_SUCCESS;
 	}
 
-	/*
-	 * serialize the array, copy it into an allocated buffer which will be
-	 * released when it is returned as part of a Mach message.
-	 */
-	xmlList = CFPropertyListCreateXMLData(NULL, notifierKeys);
+	/* serialize the array of keys */
+	ok = _SCSerialize(notifierKeys, NULL, (void **)listRef, (CFIndex *)listLen);
 	CFRelease(notifierKeys);
-	*listLen = CFDataGetLength(xmlList);
-	status = vm_allocate(mach_task_self(), (void *)listRef, *listLen, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
-		CFRelease(xmlList);
-		*listRef = NULL;
-		*listLen = 0;
+	if (!ok) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
-
-	bcopy((char *)CFDataGetBytePtr(xmlList), *listRef, *listLen);
-	CFRelease(xmlList);
 
 	return KERN_SUCCESS;
 }

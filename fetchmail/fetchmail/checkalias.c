@@ -48,7 +48,7 @@ static int is_ip_alias(const char *name1,const char *name2)
     struct hostent *hp;
     char **p;
  
-    hp = gethostbyname(name1);
+    hp = gethostbyname((char*)name1);
  
     dummy_addr = (address_e *)NULL;
 
@@ -63,7 +63,7 @@ static int is_ip_alias(const char *name1,const char *name2)
 	dummy_addr = host_a_addr;
     }
 
-    hp = gethostbyname(name2);
+    hp = gethostbyname((char*)name2);
 
     dummy_addr = (address_e *)NULL;
     for (i=0,p = hp->h_addr_list; *p != 0; i++,p++)
@@ -143,7 +143,7 @@ int is_host_alias(const char *name, struct query *ctl)
 	    continue;
 	ep = (char *)name + (namelen - strlen(idl->id));
 	/* a suffix led by . must match */
-	if (ep[-1] == '.' && !strcmp(ep, idl->id))
+	if (ep[-1] == '.' && !strcasecmp(ep, idl->id))
 	    return(TRUE);
     }
 
@@ -161,22 +161,22 @@ int is_host_alias(const char *name, struct query *ctl)
      * delivering the current message or anything else from the
      * current server until it's back up.
      */
-    if ((he = gethostbyname(name)) != (struct hostent *)NULL)
+    if ((he = gethostbyname((char*)name)) != (struct hostent *)NULL)
     {
 	if (strcasecmp(ctl->server.truename, he->h_name) == 0)
 	    goto match;
         else if (((he_st = gethostbyname(ctl->server.truename)) != (struct hostent *)NULL) && ctl->server.checkalias)
 	{
 	    if (outlevel >= O_DEBUG)
-		report(stdout, _("Checking if %s is really the same node as %s\n"),ctl->server.truename,name);
+		report(stdout, GT_("Checking if %s is really the same node as %s\n"),ctl->server.truename,name);
 	    if (is_ip_alias(ctl->server.truename,name) == TRUE)
 	    {
 		if (outlevel >= O_DEBUG)
-		    report(stdout, _("Yes, their IP addresses match\n"));
+		    report(stdout, GT_("Yes, their IP addresses match\n"));
 		goto match;
 	    }
 	    if (outlevel >= O_DEBUG)
-		report(stdout, _("No, their IP addresses don't match\n"));
+		report(stdout, GT_("No, their IP addresses don't match\n"));
 	    return(FALSE);
 	}
 	else
@@ -196,7 +196,7 @@ int is_host_alias(const char *name, struct query *ctl)
 	    if (outlevel != O_SILENT)
 		report_complete(stdout, "\n");	/* terminate the progress message */
 	    report(stderr,
-		_("nameserver failure while looking for `%s' during poll of %s.\n"),
+		GT_("nameserver failure while looking for `%s' during poll of %s.\n"),
 		name, ctl->server.pollname);
 	    ctl->errcount++;
 	    break;
@@ -222,7 +222,7 @@ int is_host_alias(const char *name, struct query *ctl)
 	case TRY_AGAIN:		/* temporary error on authoritative server */
 	default:
 	    report(stderr,
-		_("nameserver failure while looking for `%s' during poll of %s.\n"),
+		GT_("nameserver failure while looking for `%s' during poll of %s.\n"),
 		name, ctl->server.pollname);
 	    ctl->errcount++;
 	    break;

@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Test to make sure Automake supports implicit rules with dot-less
+# extensions.  Also make sure that `.o' is handled like `.$(OBJEXT)'.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+SUFFIXES = a b .$(OBJEXT) c .o
+bin_PROGRAMS = foo
+foo_SOURCES = fooa fuc
+ab:
+        cp $< $@
+b.$(OBJEXT):
+	cp $< $@
+c.o:
+	cp $< $@
+END
+
+: > fooa
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# Automake must figure that fooa translates to foo.$(OBJEXT) and
+# foo.$(OBJEXT) using the following rules:
+#  fooa --[ab]--> foob --[b.$(OBJEXT)]--> foo.$(OBJEXT)
+grep '_OBJECTS.* foo\.$(OBJEXT)' Makefile.in || exit 1
+#  fuc --[c.o]--> fu.$(OBJEXT)  ## This is really meant !
+grep '_OBJECTS.* fu\.$(OBJEXT)' Makefile.in || exit 1

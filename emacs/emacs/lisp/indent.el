@@ -1,6 +1,6 @@
 ;;; indent.el --- indentation commands for Emacs
 
-;; Copyright (C) 1985, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1995, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 
@@ -40,19 +40,32 @@
 (defvar indent-line-function 'indent-to-left-margin
   "Function to indent current line.")
 
+(defcustom tab-always-indent t
+  "*Controls the operation of the TAB key.
+If t, hitting TAB always just indents the current line.
+If nil, hitting TAB indents the current line if point is at the left margin
+  or in the line's indentation, otherwise it insert a `real' tab character."
+  :group 'indent
+  :type 'boolean)
+
 (defun indent-according-to-mode ()
   "Indent line in proper way for current major mode."
   (interactive)
   (funcall indent-line-function))
 
 (defun indent-for-tab-command (&optional prefix-arg)
-  "Indent line in proper way for current major mode."
+  "Indent line in proper way for current major mode or insert a tab.
+Depending on `tab-always-indent', either insert a tab or indent.
+If initial point was within line's indentation, position after
+the indentation.  Else stay at same point in text.
+The function actually called to indent is determined by the value of
+`indent-line-function'."
   (interactive "P")
-  (if (eq indent-line-function 'indent-to-left-margin)
+  (if (or (eq indent-line-function 'indent-to-left-margin)
+	  (and (not tab-always-indent)
+	       (> (current-column) (current-indentation))))
       (insert-tab prefix-arg)
-    (if prefix-arg
-	(funcall indent-line-function prefix-arg)
-      (funcall indent-line-function))))
+    (funcall indent-line-function)))
 
 (defun insert-tab (&optional prefix-arg)
   (let ((count (prefix-numeric-value prefix-arg)))
@@ -285,11 +298,14 @@ A value of nil means really run `indent-according-to-mode' on each line.")
 
 (defun indent-region (start end column)
   "Indent each nonblank line in the region.
-With no argument, indent each line using `indent-according-to-mode',
+With prefix no argument, indent each line using `indent-according-to-mode',
 or use `indent-region-function' to do the whole region if that's non-nil.
 If there is a fill prefix, make each line start with the fill prefix.
 With argument COLUMN, indent each line to that column.
-Called from a program, takes three args: START, END and COLUMN."
+
+When you call this from a program, START and END specify
+the region to indent, and COLUMN specifies the indentation column.
+If COLUMN is nil, then indent each line according to the mode."
   (interactive "r\nP")
   (if (null column)
       (if fill-prefix
@@ -329,15 +345,25 @@ Called from a program, takes three args: START, END and COLUMN."
       (move-marker end nil))))
 
 (defun indent-relative-maybe ()
-  "Indent a new line like previous nonblank line."
+  "Indent a new line like previous nonblank line.
+If the previous nonblank line has no indent points beyond the
+column point starts at, this command does nothing.
+
+See also `indent-relative'."
   (interactive)
   (indent-relative t))
 
 (defun indent-relative (&optional unindented-ok)
   "Space out to under next indent point in previous nonblank line.
 An indent point is a non-whitespace character following whitespace.
+The following line shows the indentation points in this line.
+    ^         ^    ^     ^   ^           ^      ^  ^    ^
 If the previous nonblank line has no indent points beyond the
-column point starts at, `tab-to-tab-stop' is done instead."
+column point starts at, `tab-to-tab-stop' is done instead, unless
+this command is invoked with a numeric argument, in which case it
+does nothing.
+
+See also `indent-relative-maybe'."
   (interactive "P")
   (if (and abbrev-mode
 	   (eq (char-syntax (preceding-char)) ?w))

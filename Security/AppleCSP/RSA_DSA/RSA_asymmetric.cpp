@@ -23,6 +23,7 @@
 #include "RSA_asymmetric.h"
 #include "RSA_DSA_utils.h"
 #include <Security/debugging.h>
+#include <open_ssl/opensslUtils/opensslUtils.h>
 
 #define rsaCryptDebug(args...)	debug("rsaCrypt", ## args)
 #define rbprintf(args...)		debug("rsaBuf", ## args)
@@ -75,11 +76,25 @@ void RSA_CryptContext::init(const Context &context, bool encoding = true)
 		assert(opStarted());	
 	}
 
-	/* validate context - TBD */
+	unsigned cipherBlockSize = RSA_size(mRsaKey);
+	unsigned plainBlockSize;
+
+	/* padding - not present means value zero, CSSM_PADDING_NONE */
+	uint32 padding = context.getInt(CSSM_ATTRIBUTE_PADDING);
+	switch(padding) {
+		case CSSM_PADDING_NONE:
+			mPadding = RSA_NO_PADDING;
+			plainBlockSize = cipherBlockSize;
+			break;
+		case CSSM_PADDING_PKCS1:
+			mPadding = RSA_PKCS1_PADDING;
+			plainBlockSize = cipherBlockSize - 11;
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
+	}
 	
 	/* finally, have BlockCryptor set up its stuff. */
-	unsigned cipherBlockSize = RSA_size(mRsaKey);
-	unsigned plainBlockSize = cipherBlockSize - 11;
 	setup(encoding ? plainBlockSize  : cipherBlockSize, // blockSizeIn
 		  encoding ? cipherBlockSize : plainBlockSize,	// blockSizeOut
 		  false,										// pkcs5Pad
@@ -104,14 +119,14 @@ void RSA_CryptContext::encryptBlock(
 			(unsigned char *)plainText,
 			(unsigned char *)cipherText, 
 			mRsaKey,
-			RSA_PKCS1_PADDING);
+			mPadding);
 	}
 	else {
 		irtn =	RSA_private_encrypt(plainTextLen, 
 			(unsigned char *)plainText,
 			(unsigned char *)cipherText, 
 			mRsaKey,
-			RSA_PKCS1_PADDING);
+			mPadding);
 	}
 	if(irtn < 0) {
 		throwRsaDsa("RSA_public_encrypt");
@@ -136,14 +151,14 @@ void RSA_CryptContext::decryptBlock(
 			(unsigned char *)cipherText,
 			(unsigned char *)plainText, 
 			mRsaKey,
-			RSA_PKCS1_PADDING);
+			mPadding);
 	}
 	else {
 		irtn = RSA_private_decrypt(inBlockSize(), 
 			(unsigned char *)cipherText,
 			(unsigned char *)plainText, 
 			mRsaKey,
-			RSA_PKCS1_PADDING);
+			mPadding);
 	}
 	if(irtn < 0) {
 		throwRsaDsa("RSA_private_decrypt");

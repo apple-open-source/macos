@@ -22,14 +22,13 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
+;;; Code:
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; IPA (International Phonetic Alphabet)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun setup-ipa-environment ()
-  "Setup multilingual environment (MULE) for IPA."
-  (interactive)
-  (set-language-environment "IPA"))
 
 (set-language-info-alist
  "IPA" '((charset . (ipa))
@@ -42,5 +41,6 @@
 IPA is International Phonetic Alphabet for English, French, German
 and Italian.")))
 
-;;; misc-lang.el ends here
+(provide 'misc-lang)
 
+;;; misc-lang.el ends here

@@ -66,7 +66,7 @@ static void map_name(const char *name, struct query *ctl, struct idlist **xmit_n
     if (lname != (char *)NULL)
     {
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("mapped %s to local %s\n"), name, lname);
+	    report(stdout, GT_("mapped %s to local %s\n"), name, lname);
 	save_str(xmit_names, lname, XMIT_ACCEPT);
 	accept_count++;
     }
@@ -123,7 +123,7 @@ static void find_server_names(const char *hdr,
 			strcasecmp(rhs, idp->id) == 0)
 		    {
 			if (outlevel >= O_DEBUG)
-			    report(stdout, _("passed through %s matching %s\n"), 
+			    report(stdout, GT_("passed through %s matching %s\n"), 
 				  cp, idp->id);
 			save_str(xmit_names, cp, XMIT_ACCEPT);
 			accept_count++;
@@ -190,7 +190,7 @@ static char *parse_received(struct query *ctl, char *bufp)
      * does this when the mail has a single recipient.
      */
     if (outlevel >= O_DEBUG)
-	report(stdout, _("analyzing Received line:\n%s"), bufp);
+	report(stdout, GT_("analyzing Received line:\n%s"), bufp);
 
     /* search for whitepace-surrounded "by" followed by valid address */
     for (base = bufp;  ; base = ok + 2)
@@ -229,13 +229,13 @@ static char *parse_received(struct query *ctl, char *bufp)
 	{
 	    if (outlevel >= O_DEBUG)
 		report(stdout, 
-		      _("line accepted, %s is an alias of the mailserver\n"), rbuf);
+		      GT_("line accepted, %s is an alias of the mailserver\n"), rbuf);
 	}
 	else
 	{
 	    if (outlevel >= O_DEBUG)
 		report(stdout, 
-		      _("line rejected, %s is not an alias of the mailserver\n"), 
+		      GT_("line rejected, %s is not an alias of the mailserver\n"), 
 		      rbuf);
 	    return(NULL);
 	}
@@ -306,7 +306,7 @@ static char *parse_received(struct query *ctl, char *bufp)
     if (!ok)
     {
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("no Received address found\n"));
+	    report(stdout, GT_("no Received address found\n"));
 	return(NULL);
     }
     else
@@ -315,7 +315,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 	    char *lf = rbuf + strlen(rbuf)-1;
 	    *lf = '\0';
 	    if (outlevel >= O_DEBUG)
-		report(stdout, _("found Received address `%s'\n"), rbuf+2);
+		report(stdout, GT_("found Received address `%s'\n"), rbuf+2);
 	    *lf = '\n';
 	}
 	return(rbuf);
@@ -376,6 +376,11 @@ int readheaders(int sock,
      */
     if (msgblk.headers)
        free(msgblk.headers);
+
+    /* initially, no message ID */
+    if (ctl->thisid)
+	free(ctl->thisid);
+    ctl->thisid = NULL;
 
     msgblk.headers = received_for = delivered_to = NULL;
     from_offs = reply_to_offs = resent_from_offs = app_from_offs = 
@@ -483,7 +488,7 @@ int readheaders(int sock,
 	     */
 	    if (!isspace(line[0]) && !strchr(line, ':'))
 	    {
-		headers_ok = TRUE;
+		headers_ok = FALSE;
 		has_nuls = (linelen != strlen(line));
 		free(line);
 		goto process_headers;
@@ -514,44 +519,9 @@ int readheaders(int sock,
 	/* we see an ordinary (non-header, non-message-delimiter line */
 	has_nuls = (linelen != strlen(line));
 
-	/*
-	 * When mail delivered to a multidrop mailbox on the server is
-	 * addressed to multiple people on the client machine, there
-	 * will be one copy left in the box for each recipient.  Thus,
-	 * if the mail is addressed to N people, each recipient will
-	 * get N copies.  This is bad when N > 1.
-	 *
-	 * Foil this by suppressing all but one copy of a message with
-	 * a given Message-ID.  The accept_count test ensures that
-	 * multiple pieces of email with the same Message-ID, each
-	 * with a *single* addressee (the N == 1 case), won't be 
-	 * suppressed.
-	 *
-	 * Note: This implementation only catches runs of successive
-	 * messages with the same ID, but that should be good
-	 * enough. A more general implementation would have to store
-	 * ever-growing lists of seen message-IDs; in a long-running
-	 * daemon this would turn into a memory leak even if the 
-	 * implementation were perfect.
-	 * 
-	 * Don't mess with this code casually.  It would be way too easy
-	 * to break it in a way that blackholed mail.  Better to pass
-	 * the occasional duplicate than to do that...
-	 */
+	/* save the message's ID, we may use it for killing duplicates later */
 	if (MULTIDROP(ctl) && !strncasecmp(line, "Message-ID:", 11))
-	{
-	    if (ctl->lastid && !strcasecmp(ctl->lastid, line))
-	    {
-		if (accept_count > 1)
-		    return(PS_REFUSED);
-	    }
-	    else
-	    {
-		if (ctl->lastid)
-		    free(ctl->lastid);
-		ctl->lastid = strdup(line);
-	    }
-	}
+	    ctl->thisid = xstrdup(line);
 
 	/*
 	 * The University of Washington IMAP server (the reference
@@ -715,6 +685,7 @@ int readheaders(int sock,
 	    oldlen = newlen;
 	}
 
+	/* find offsets of various special headers */
 	if (!strncasecmp("From:", line, 5))
 	    from_offs = (line - msgblk.headers);
 	else if (!strncasecmp("Reply-To:", line, 9))
@@ -741,9 +712,9 @@ int readheaders(int sock,
 	 * (RFC2822 says the condents of Sender must be a valid mailbox
 	 * address, which is also what RFC822 4.4.4 implies.)
 	 */
-	else if (!strncasecmp("Sender:", line, 7) && strchr(line, '@'))
+	else if (!strncasecmp("Sender:", line, 7) && (strchr(line, '@') || strchr(line, '!')))
 	    sender_offs = (line - msgblk.headers);
-	else if (!strncasecmp("Resent-Sender:", line, 14) && strchr(line, '@'))
+	else if (!strncasecmp("Resent-Sender:", line, 14) && (strchr(line, '@') || strchr(line, '!')))
 	    resent_sender_offs = (line - msgblk.headers);
 
 #ifdef __UNUSED__
@@ -764,54 +735,100 @@ int readheaders(int sock,
  	}
 #endif /* __UNUSED__ */
 
-	else if (!MULTIDROP(ctl))
-	    continue;
-
-	else if (!strncasecmp("To:", line, 3)
-			|| !strncasecmp("Cc:", line, 3)
-			|| !strncasecmp("Bcc:", line, 4)
-			|| !strncasecmp("Apparently-To:", line, 14))
+	/* if multidrop is on, gather addressee headers */
+	if (MULTIDROP(ctl))
 	{
-	    *to_chainptr = xmalloc(sizeof(struct addrblk));
-	    (*to_chainptr)->offset = (line - msgblk.headers);
-	    to_chainptr = &(*to_chainptr)->next; 
-	    *to_chainptr = NULL;
-	}
-
-	else if (!strncasecmp("Resent-To:", line, 10)
-			|| !strncasecmp("Resent-Cc:", line, 10)
-			|| !strncasecmp("Resent-Bcc:", line, 11))
-	{
-	    *resent_to_chainptr = xmalloc(sizeof(struct addrblk));
-	    (*resent_to_chainptr)->offset = (line - msgblk.headers);
-	    resent_to_chainptr = &(*resent_to_chainptr)->next; 
-	    *resent_to_chainptr = NULL;
-	}
-
-	else if (ctl->server.envelope != STRING_DISABLED)
-	{
-	    if (ctl->server.envelope 
-			&& strcasecmp(ctl->server.envelope, "Received"))
+	    if (!strncasecmp("To:", line, 3)
+		|| !strncasecmp("Cc:", line, 3)
+		|| !strncasecmp("Bcc:", line, 4)
+		|| !strncasecmp("Apparently-To:", line, 14))
 	    {
-		if (env_offs == -1 && !strncasecmp(ctl->server.envelope,
-						line,
-						strlen(ctl->server.envelope)))
-		{				
+		*to_chainptr = xmalloc(sizeof(struct addrblk));
+		(*to_chainptr)->offset = (line - msgblk.headers);
+		to_chainptr = &(*to_chainptr)->next; 
+		*to_chainptr = NULL;
+	    }
+
+	    else if (!strncasecmp("Resent-To:", line, 10)
+		     || !strncasecmp("Resent-Cc:", line, 10)
+		     || !strncasecmp("Resent-Bcc:", line, 11))
+	    {
+		*resent_to_chainptr = xmalloc(sizeof(struct addrblk));
+		(*resent_to_chainptr)->offset = (line - msgblk.headers);
+		resent_to_chainptr = &(*resent_to_chainptr)->next; 
+		*resent_to_chainptr = NULL;
+	    }
+
+	    else if (ctl->server.envelope != STRING_DISABLED)
+	    {
+		if (ctl->server.envelope 
+		    && strcasecmp(ctl->server.envelope, "Received"))
+		{
+		    if (env_offs == -1 && !strncasecmp(ctl->server.envelope,
+						       line,
+						       strlen(ctl->server.envelope)))
+		    {				
+			if (skipcount++ < ctl->server.envskip)
+			    continue;
+			env_offs = (line - msgblk.headers);
+		    }    
+		}
+		else if (!received_for && !strncasecmp("Received:", line, 9))
+		{
 		    if (skipcount++ < ctl->server.envskip)
 			continue;
-		    env_offs = (line - msgblk.headers);
-		}    
-	    }
-	    else if (!received_for && !strncasecmp("Received:", line, 9))
-	    {
-		if (skipcount++ < ctl->server.envskip)
-		    continue;
-		received_for = parse_received(ctl, line);
+		    received_for = parse_received(ctl, line);
+		}
 	    }
 	}
     }
 
- process_headers:
+ process_headers:    
+    /*
+     * When mail delivered to a multidrop mailbox on the server is
+     * addressed to multiple people on the client machine, there will
+     * be one copy left in the box for each recipient.  This is not a
+     * problem if we have the actual recipient address to dispatch on
+     * (e.g. because we've mined it out of sendmail trace headers, or
+     * a qmail Delivered-To line, or a declared sender envelope line).
+     *
+     * But if we're mining addressees out of the To/Cc/Bcc fields, and
+     * if the mail is addressed to N people, each recipient will
+     * get N copies.  This is bad when N > 1.
+     *
+     * Foil this by suppressing all but one copy of a message with
+     * a given Message-ID.  The accept_count test ensures that
+     * multiple pieces of email with the same Message-ID, each
+     * with a *single* addressee (the N == 1 case), won't be 
+     * suppressed.
+     *
+     * Note: This implementation only catches runs of successive
+     * messages with the same ID, but that should be good
+     * enough. A more general implementation would have to store
+     * ever-growing lists of seen message-IDs; in a long-running
+     * daemon this would turn into a memory leak even if the 
+     * implementation were perfect.
+     * 
+     * Don't mess with this code casually.  It would be way too easy
+     * to break it in a way that blackholed mail.  Better to pass
+     * the occasional duplicate than to do that...
+     */
+    if (!received_for && env_offs == -1 && !delivered_to)
+    {
+	if (ctl->lastid && ctl->thisid && !strcasecmp(ctl->lastid, ctl->thisid))
+	{
+	    if (accept_count > 1)
+		return(PS_REFUSED);
+	}
+	else
+	{
+	    if (ctl->lastid)
+		free(ctl->lastid);
+	    ctl->lastid = ctl->thisid;
+	    ctl->thisid = NULL;
+	}
+    }
+
     /*
      * We want to detect this early in case there are so few headers that the
      * dispatch logic barfs.
@@ -820,7 +837,7 @@ int readheaders(int sock,
     {
 	if (outlevel > O_SILENT)
 	    report(stdout,
-		   _("message delimiter found while scanning headers\n"));
+		   GT_("message delimiter found while scanning headers\n"));
     }
 
     /*
@@ -958,7 +975,7 @@ int readheaders(int sock,
 	    save_str(&msgblk.recipients, run.postmaster, XMIT_ACCEPT);
 	    if (outlevel >= O_DEBUG)
 		report(stdout,
-		      _("no local matches, forwarding to %s\n"),
+		      GT_("no local matches, forwarding to %s\n"),
 		      run.postmaster);
 	}
     }
@@ -973,7 +990,7 @@ int readheaders(int sock,
     {
 	if (outlevel >= O_DEBUG)
 	    report(stdout,
-		   _("forwarding and deletion suppressed due to DNS errors\n"));
+		   GT_("forwarding and deletion suppressed due to DNS errors\n"));
 	free(msgblk.headers);
 	msgblk.headers = NULL;
 	free_str_list(&msgblk.recipients);
@@ -1122,7 +1139,7 @@ int readheaders(int sock,
 
     if (n == -1)
     {
-	report(stdout, _("writing RFC822 msgblk.headers\n"));
+	report(stdout, GT_("writing RFC822 msgblk.headers\n"));
 	release_sink(ctl);
 	free(msgblk.headers);
 	msgblk.headers = NULL;
@@ -1130,7 +1147,7 @@ int readheaders(int sock,
 	return(PS_IOERR);
     }
     else if ((run.poll_interval == 0 || nodetach) && outlevel >= O_VERBOSE && !isafile(2))
-	fputs("#", stderr);
+	fputs("#", stdout);
 
     /* write error notifications */
     if (no_local_matches || has_nuls || bad_addresses)
@@ -1143,13 +1160,13 @@ int readheaders(int sock,
 	if (no_local_matches)
 	{
 	    if (reject_count != 1)
-		strcat(errhd, _("no recipient addresses matched declared local names"));
+		strcat(errhd, GT_("no recipient addresses matched declared local names"));
 	    else
 	    {
 		for (idp = msgblk.recipients; idp; idp = idp->next)
 		    if (idp->val.status.mark == XMIT_REJECT)
 			break;
-		sprintf(errhd+strlen(errhd), _("recipient address %s didn't match any local name"), idp->id);
+		sprintf(errhd+strlen(errhd), GT_("recipient address %s didn't match any local name"), idp->id);
 	    }
 	}
 
@@ -1157,14 +1174,14 @@ int readheaders(int sock,
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
 		strcat(errhd, "; ");
-	    strcat(errhd, _("message has embedded NULs"));
+	    strcat(errhd, GT_("message has embedded NULs"));
 	}
 
 	if (bad_addresses)
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
 		strcat(errhd, "; ");
-	    strcat(errhd, _("SMTP listener rejected local recipient addresses: "));
+	    strcat(errhd, GT_("SMTP listener rejected local recipient addresses: "));
 	    errlen = strlen(errhd);
 	    for (idp = msgblk.recipients; idp; idp = idp->next)
 		if (idp->val.status.mark == XMIT_RCPTBAD)
@@ -1293,7 +1310,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 
 	    if (n < 0)
 	    {
-		report(stdout, _("writing message text\n"));
+		report(stdout, GT_("writing message text\n"));
 		release_sink(ctl);
 		return(PS_IOERR);
 	    }
@@ -1340,7 +1357,7 @@ va_dcl
     va_start(ap);
 #endif
 #ifdef HAVE_VSNPRINTF
-    vsnprintf(buf + strlen(buf), sizeof(buf), fmt, ap);
+    vsnprintf(buf + strlen(buf), sizeof(buf)-strlen(buf), fmt, ap);
 #else
     vsprintf(buf + strlen(buf), fmt, ap);
 #endif
@@ -1430,7 +1447,7 @@ va_dcl
     va_start(ap);
 #endif
 #ifdef HAVE_VSNPRINTF
-    vsnprintf(buf + strlen(buf), sizeof(buf), fmt, ap);
+    vsnprintf(buf + strlen(buf), sizeof(buf)-strlen(buf), fmt, ap);
 #else
     vsprintf(buf + strlen(buf), fmt, ap);
 #endif

@@ -19,23 +19,37 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * IOBlockStorageDevice.h
- *
- * This class is the protocol for generic block storage functionality, independent
- * of the physical connection protocol (e.g. SCSI, ATA, USB).
- *
- * A subclass implements relay methods that translate our requests into
- * calls to a protocol- and device-specific provider.
+
+/*!
+ * @header IOBlockStorageDevice
+ * @abstract
+ * This header contains the IOBlockStorageDevice class definition.
  */
 
-/*!	@language embedded-c++ */
+#ifndef _IOBLOCKSTORAGEDEVICE_H
+#define _IOBLOCKSTORAGEDEVICE_H
 
-#ifndef	_IOBLOCKSTORAGEDEVICE_H
-#define	_IOBLOCKSTORAGEDEVICE_H
-
-#include <IOKit/IOMessage.h>
 #include <IOKit/IOTypes.h>
+
+/*!
+ * @defined kIOBlockStorageDeviceClass
+ * @abstract
+ * kIOBlockStorageDeviceClass is the name of the IOBlockStorageDevice class.
+ * @discussion
+ * kIOBlockStorageDeviceClass is the name of the IOBlockStorageDevice class.
+ */
+
+#define kIOBlockStorageDeviceClass "IOBlockStorageDevice"
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
+/*
+ * Kernel
+ */
+
+#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/IOService.h>
 #include <IOKit/storage/IOMedia.h>
 
@@ -63,15 +77,14 @@
  */
 #define	kIOBlockStorageDeviceTypeGeneric	"Generic"
 
-class IOMemoryDescriptor;
-
 /*!
  * @class
  * IOBlockStorageDevice : public IOService
  * @abstract
- * "Impedance-matcher" class to connect Generic device driver to Transport Driver.
+ * The IOBlockStorageDevice class is a generic block storage device abstraction.
  * @discussion
  * The IOBlockStorageDevice class exports the generic block storage protocol,
+ * independent of the physical connection protocol (e.g. SCSI, ATA, USB),
  * forwarding all requests to its provider (the Transport Driver).
  * Though the nub does no actual processing of requests, it is necessary
  * in a C++ environment. The Transport Driver can be of any type, as
@@ -81,7 +94,8 @@ class IOMemoryDescriptor;
  * communication with the Transport Driver. Thus we achieve polymorphism by 
  * having the Transport Driver instantiate a subclass of IOBlockStorageDevice.
  * A typical implementation for a concrete subclass of IOBlockStorageDevice
- * simply relays all methods to its provider (the Transport Driver).
+ * simply relays all methods to its provider (the Transport Driver), which
+ * implements the protocol- and device-specific behavior.
  * 
  * All pure-virtual functions must be implemented by the Transport Driver, which
  * is responsible for instantiating the Nub.
@@ -134,21 +148,8 @@ public:
                                             UInt32 block,UInt32 nblks,
                                             IOStorageCompletion completion)	= 0;
 
-    /*!
-     * @function doSyncReadWrite
-     * @abstract
-     * Perform a synchronous read or write operation.
-     * @param buffer
-     * An IOMemoryDescriptor describing the data-transfer buffer. The data direction
-     * is contained in the IOMemoryDescriptor. Responsiblity for releasing the descriptor
-     * rests with the caller.
-     * @param block
-     * The starting block number of the data transfer.
-     * @param nblks
-     * The integral number of blocks to be transferred.
-     */    
-    virtual IOReturn	doSyncReadWrite(IOMemoryDescriptor *buffer,
-                                     UInt32 block,UInt32 nblks)			= 0;
+    /* DEPRECATED */ virtual IOReturn	doSyncReadWrite(IOMemoryDescriptor *buffer,
+    /* DEPRECATED */                                 UInt32 block,UInt32 nblks);
 
     /*!
      * @function doEjectMedia
@@ -375,7 +376,28 @@ public:
      */
     virtual IOReturn	reportWriteProtection(bool *isWriteProtected)		= 0;
 
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  0);
+    /*!
+     * @function doAsyncReadWrite
+     * @abstract
+     * Start an asynchronous read or write operation.
+     * @param buffer
+     * An IOMemoryDescriptor describing the data-transfer buffer. The data direction
+     * is contained in the IOMemoryDescriptor. Responsiblity for releasing the descriptor
+     * rests with the caller.
+     * @param block
+     * The starting block number of the data transfer.
+     * @param nblks
+     * The integral number of blocks to be transferred.
+     * @param completion
+     * The completion routine to call once the data transfer is complete.
+     */
+
+    virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
+                                            UInt64 block,UInt64 nblks,
+                                            IOStorageCompletion completion);
+
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 0); /* 10.2.0 */
+
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  3);
@@ -408,4 +430,7 @@ public:
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice, 30);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice, 31);
 };
-#endif
+
+#endif /* __cplusplus */
+#endif /* KERNEL */
+#endif /* !_IOBLOCKSTORAGEDEVICE_H */

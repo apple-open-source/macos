@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -825,7 +825,7 @@ static const char *isapi_cmd_readaheadbuffer(cmd_parms *cmd, void *config,
         return err;
     }
 
-    if (((val = strtol(arg, (char **) &err, 10)) <= 0) || *err)
+    if (((val = ap_strtol(arg, (char **) &err, 10)) <= 0) || *err)
         return "ISAPIReadAheadBuffer must be a legitimate value.";
     
     ReadAheadBuffer = val;

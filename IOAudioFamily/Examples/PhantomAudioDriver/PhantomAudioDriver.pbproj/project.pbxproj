@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		00F55081007288EA11FF4F98 = {
 			isa = PBXFrameworkReference;
@@ -60,31 +60,29 @@
 		011774460071097E7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
+				F6DC3C2E02B7AEF301CD2599,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		011774470071097E7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 				0117744C00710CA77F000001,
+				F6DC3C2D02B7AEF301CD2599,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		011774480071097E7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		011774490071097E7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		0117744A007109A97F000001 = {
 			fileRef = 011774440071097E7F000001;
@@ -146,7 +144,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -178,7 +175,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -394,7 +390,6 @@
 				0117745000710DAB7F000001,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -402,7 +397,6 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -411,7 +405,6 @@
 				0117745100710DAB7F000001,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -419,14 +412,12 @@
 				0117744A007109A97F000001,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -542,11 +533,45 @@
 				0117744E00710DAB7F000001,
 				0117744F00710DAB7F000001,
 				0117744B00710CA77F000001,
+				F6DC3C2B02B7AEF301CD2599,
+				F6DC3C2C02B7AEF301CD2599,
 			);
 			isa = PBXGroup;
 			name = Source;
 			path = "";
 			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//F60
+//F61
+//F62
+//F63
+//F64
+		F6DC3C2B02B7AEF301CD2599 = {
+			isa = PBXFileReference;
+			path = PCMBlitterLibPPC.c;
+			refType = 4;
+		};
+		F6DC3C2C02B7AEF301CD2599 = {
+			isa = PBXFileReference;
+			path = PCMBlitterLibPPC.h;
+			refType = 4;
+		};
+		F6DC3C2D02B7AEF301CD2599 = {
+			fileRef = F6DC3C2B02B7AEF301CD2599;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6DC3C2E02B7AEF301CD2599 = {
+			fileRef = F6DC3C2C02B7AEF301CD2599;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

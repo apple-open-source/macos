@@ -28,13 +28,16 @@ namespace Security
 {
 
 using MachPlusPlus::check;
+using MachPlusPlus::VMGuard;
 
 
 //
-// Utility classes
+// DataOutput helper.
+// This happens "at the end" of a glue method, via the DataOutput destructor.
 //
 DataOutput::~DataOutput()
 {
+	VMGuard _(mData, mLength);
 	if (mData) {	// was assigned to; IPC returned OK
 		if (argument) {	// buffer was provided
 			if (argument.length() < mLength)
@@ -219,6 +222,24 @@ void ClientSession::releaseKey(KeyHandle key)
 }
 
 
+CssmKeySize ClientSession::queryKeySizeInBits(KeyHandle key)
+{
+    CssmKeySize length;
+    IPC(ucsp_client_queryKeySizeInBits(UCSP_ARGS, key, &length));
+    return length;
+}
+
+
+uint32 ClientSession::getOutputSize(const Context &context, KeyHandle key,
+    uint32 inputSize, bool encrypt)
+{
+	SendContext ctx(context);
+    uint32 outputSize;
+    IPC(ucsp_client_getOutputSize(UCSP_ARGS, CONTEXT(ctx), key, inputSize, encrypt, &outputSize));
+    return outputSize;
+}
+
+
 //
 // Random number generation.
 // This interfaces to the secure RNG inside the SecurityServer; it does not access
@@ -239,19 +260,19 @@ void ClientSession::generateRandom(CssmData &data)
 // Signatures and MACs
 //
 void ClientSession::generateSignature(const Context &context, KeyHandle key,
-	const CssmData &data, CssmData &signature, CssmAllocator &alloc)
+	const CssmData &data, CssmData &signature, CssmAllocator &alloc, CSSM_ALGORITHMS signOnlyAlgorithm)
 {
 	SendContext ctx(context);
 	DataOutput sig(signature, alloc);
-	IPC(ucsp_client_generateSignature(UCSP_ARGS, CONTEXT(ctx), key,
+	IPC(ucsp_client_generateSignature(UCSP_ARGS, CONTEXT(ctx), key, signOnlyAlgorithm,
 		DATA(data), DATA(sig)));
 }
 
 void ClientSession::verifySignature(const Context &context, KeyHandle key,
-	const CssmData &data, const CssmData &signature)
+	const CssmData &data, const CssmData &signature, CSSM_ALGORITHMS verifyOnlyAlgorithm)
 {
 	SendContext ctx(context);
-	IPC(ucsp_client_verifySignature(UCSP_ARGS, CONTEXT(ctx), key,
+	IPC(ucsp_client_verifySignature(UCSP_ARGS, CONTEXT(ctx), key, verifyOnlyAlgorithm,
 		DATA(data), DATA(signature)));
 }
 
@@ -327,6 +348,44 @@ void ClientSession::generateKey(DbHandle db, const Context &context,
 
 
 //
+// Key derivation
+// This is a bit strained; the incoming 'param' value may have structure
+// and needs to be handled on a per-algorithm basis, which means we have to
+// know which key derivation algorithms we support for passing to our CSP(s).
+// The default behavior is to handle "flat" data blobs, which is as good
+// a default as we can manage.
+// NOTE: The param-specific handling must be synchronized with the server
+// transition layer code (in transition.cpp).
+//
+void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle baseKey,
+    uint32 keyUsage, uint32 keyAttr, CssmData &param,
+    const AccessCredentials *cred, const AclEntryInput *owner,
+    KeyHandle &newKey, CssmKey::Header &newHeader, CssmAllocator &allocator)
+{
+    SendContext ctx(context);
+	Copier<AccessCredentials> creds(cred, internalAllocator);
+	Copier<AclEntryPrototype> proto(&owner->proto(), internalAllocator);
+    DataOutput paramOutput(param, allocator);
+    switch (context.algorithm()) {
+    case CSSM_ALGID_PKCS5_PBKDF2: {
+        typedef CSSM_PKCS5_PBKDF2_PARAMS Params;
+        Copier<Params> params(param.interpretedAs<Params> (sizeof(Params)), internalAllocator);
+        IPC(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
+            COPY(creds), COPY(proto), COPY(params), DATA(paramOutput),
+            keyUsage, keyAttr, &newKey, &newHeader));
+        break; }
+    default: {
+        IPC(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
+            COPY(creds), COPY(proto),
+            param.data(), param.length(), param.data(),
+            DATA(paramOutput),
+            keyUsage, keyAttr, &newKey, &newHeader));
+        break; }
+    }
+}
+
+
+//
 // Key wrapping and unwrapping
 //
 void ClientSession::wrapKey(const Context &context, KeyHandle wrappingKey,
@@ -372,6 +431,7 @@ void ClientSession::getAcl(AclKind kind, KeyHandle key, const char *tag,
 	IPC(ucsp_client_getAcl(UCSP_ARGS, kind, key,
 		(tag != NULL), tag ? tag : "",
 		&count, COPY_OUT(info)));
+	VMGuard _(info, infoLength);
 	infoCount = count;
 
 	// relocate incoming AclEntryInfo array
@@ -393,9 +453,9 @@ void ClientSession::changeAcl(AclKind kind, KeyHandle key, const AccessCredentia
 {
 	Copier<AccessCredentials> creds(&cred, internalAllocator);
 	//@@@ ignoring callback
-	Copier<AclEntryPrototype> aclEntry(&edit.newEntry()->proto(), internalAllocator);
+	Copier<AclEntryInput> newEntry(edit.newEntry(), internalAllocator);
 	IPC(ucsp_client_changeAcl(UCSP_ARGS, kind, key, COPY(creds),
-		edit.mode(), edit.handle(), COPY(aclEntry)));
+		edit.mode(), edit.handle(), COPY(newEntry)));
 }
 
 void ClientSession::getOwner(AclKind kind, KeyHandle key, AclOwnerPrototype &owner,
@@ -480,6 +540,7 @@ void ClientSession::authCopyRights(const AuthorizationBlob &auth,
 	IPC(ucsp_client_authorizationCopyRights(UCSP_ARGS, auth, COPY(rightSet),
 		flags | (grantedRights ? 0 : kAuthorizationFlagNoData),
 		COPY(environ), COPY_OUT(result)));
+	VMGuard _(result, resultLength);
 	// return rights vector (only) if requested
 	if (grantedRights) {
 		relocate(result, resultBase);
@@ -497,6 +558,7 @@ void ClientSession::authCopyInfo(const AuthorizationBlob &auth,
     else if (tag[0] == '\0')
         MacOSError::throwMe(errAuthorizationInvalidTag);
 	IPC(ucsp_client_authorizationCopyInfo(UCSP_ARGS, auth, tag, COPY_OUT(result)));
+	VMGuard _(result, resultLength);
 	relocate(result, resultBase);
 	info = copy(result, returnAllocator);
 }
@@ -524,10 +586,55 @@ void ClientSession::getSessionInfo(SecuritySessionId &sessionId, SessionAttribut
 
 void ClientSession::setupSession(SessionCreationFlags flags, SessionAttributeBits attrs)
 {
-    IPC(ucsp_client_setupSession(UCSP_ARGS, flags, attrs));
+	mSetupSession = true;		// global flag to Global constructor
+	mGlobal.reset();			// kill existing cache, all threads
+	IPC(ucsp_client_setupSession(UCSP_ARGS, flags, attrs));
+}
+
+
+//
+// Notification subsystem
+//
+void ClientSession::requestNotification(Port receiver, NotifyDomain domain, NotifyEvents events)
+{
+    IPC(ucsp_client_requestNotification(UCSP_ARGS, receiver, domain, events));
+}
+
+void ClientSession::stopNotification(Port port)
+{
+    IPC(ucsp_client_stopNotification(UCSP_ARGS, port.port()));
+}
+
+void ClientSession::postNotification(NotifyDomain domain, NotifyEvent event, const CssmData &data)
+{
+    IPC(ucsp_client_postNotification(UCSP_ARGS, domain, event, DATA(data)));
+}
+
+OSStatus ClientSession::dispatchNotification(const mach_msg_header_t *message,
+    ConsumeNotification *consumer, void *context)
+{
+    struct Message {
+        mach_msg_header_t Head;
+        /* start of the kernel processed data */
+        mach_msg_body_t msgh_body;
+        mach_msg_ool_descriptor_t data;
+        /* end of the kernel processed data */
+        NDR_record_t NDR;
+        uint32 domain;
+        uint32 event;
+        mach_msg_type_number_t dataCnt;
+        uint32 sender;
+    } *msg = (Message *)message;
+    
+    OSStatus status = consumer(msg->domain, msg->event, msg->data.address, msg->dataCnt, context);
+    
+    mig_deallocate((vm_offset_t) msg->data.address, msg->dataCnt);
+    msg->data.address = (vm_offset_t) 0;
+    msg->data.size = (mach_msg_size_t) 0;
+
+    return status;
 }
 
 
 } // end namespace SecurityServer
-
 } // end namespace Security

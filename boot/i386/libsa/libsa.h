@@ -35,11 +35,11 @@
  * string.c
  */
 #ifndef bcopy
-extern void   bcopy(const void * src, void * dst, int len);
+extern void   bcopy(const void * src, void * dst, size_t len);
 #endif
 
 #ifndef bzero
-extern void   bzero(void * dst, int len);
+extern void   bzero(void * dst, size_t len);
 #endif
 
 extern void * memset(void * dst, int c, size_t n);
@@ -49,7 +49,8 @@ extern int    strncmp(const char * s1, const char * s2, size_t n);
 extern char * strcpy(char * s1, const char * s2);
 extern char * strncpy(char * s1, const char * s2, size_t n);
 extern int    atoi(const char * str);
-extern int    ptol(char * str);
+extern int    ptol(const char * str);
+extern int    strlen(const char * str);
 extern char * strcat(char * s1, const char * s2);
 extern char * strncat(char * s1, const char * s2, size_t n);
 
@@ -66,30 +67,20 @@ extern char * strerror(int errnum);
 /*
  * strtol.c
  */
-extern long strtol(const char * nptr,
-                   char **      endptr,
-                   int          base);
-
-extern unsigned long strtoul(const char * nptr,
-                             char **      endptr,
-                             int          base);
+extern long strtol(const char * nptr, char ** endptr, int base);
+extern unsigned long strtoul(const char * nptr, char ** endptr, int base);
 
 /*
  * prf.c
  */
-extern void prf(const char * fmt,
-                va_list      ap,
-                void         (*putfn_p)(),
-                void *       putfn_arg);
+extern void prf(const char * fmt, va_list ap, void (*putfn_p)(),
+                void * putfn_arg);
 
 /*
  * printf.c
  */
 extern int sprintf(char *s, const char * format, ...);
-extern int slvprintf(char *       buffer,
-                     int          len,
-                     const char * fmt,
-                     va_list      arg);
+extern int slvprintf(char * buffer, int len, const char * fmt, va_list arg);
 
 /*
  * zalloc.c
@@ -103,11 +94,6 @@ extern void * realloc(void * ptr, size_t size);
  * getsegbyname.c
  */
 extern struct segment_command *
-	getsegbynamefromheader(struct mach_header * mhp, char * segname);
-
-/*
- * bswap.c
- */
-extern unsigned long bswap32( unsigned long data );
+       getsegbynamefromheader(struct mach_header * mhp, char * segname);
 
 #endif /* !__BOOT_LIBSA_H */

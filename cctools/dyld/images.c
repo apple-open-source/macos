@@ -35,10 +35,13 @@ extern int add_profil(char *, int, int, int);
 #import <sys/stat.h>
 #import <mach/mach.h>
 #import "stuff/openstep_mach.h"
+#import <servers/bootstrap.h>
+#import "_dyld_prebind.h"
 #import <mach-o/fat.h>
 #import <mach-o/loader.h>
 #import <mach-o/dyld_debug.h>
 #import <mach-o/dyld_gdb.h>
+#import "trace.h"
 #ifdef hppa
 #import <mach-o/hppa/reloc.h>
 #endif
@@ -63,9 +66,6 @@ extern char *realpath(const char *pathname, char resolvedname[MAXPATHLEN]);
 #if !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) && defined(__ppc__)
 #include <architecture/ppc/processor_facilities.h>
 #endif
-#ifdef __MACH30__
-#include <pthread.h>
-#endif /* __MACH30__ */
 
 #import "stuff/bool.h"
 #import "stuff/best_arch.h"
@@ -91,6 +91,25 @@ extern char *realpath(const char *pathname, char resolvedname[MAXPATHLEN]);
 
 struct object_images object_images;
 struct library_images library_images;
+
+/*
+ * This library_image (and the image struct in it), the symbol and module are
+ * used for weak libraries and weak symbols.
+ */
+const struct library_image some_weak_library_image = { { 0 } };
+const struct nlist some_weak_symbol = {
+    { 0 }, 	   /* n_un.strx */
+    N_ABS | N_EXT, /* n_type */
+    NO_SECT,       /* n_sect */
+    0,             /* n_desc */
+    0x0,           /* n_value */
+};
+/*
+ * For some_weak_module to be usable it is a fully linked module, in the
+ * FULLYBOUND STATE (0x80), that has had its MODINIT STATE (0x40) set, its
+ * MODTERM STATE (0x20) set, and its IMAGE_INIT_DEPEND_STATE (0x10) state set
+ */
+const module_state some_weak_module = (module_state)(0xf0 | FULLY_LINKED);
 
 /* The name of the executable, argv[0], for error messages */
 char *executables_name = NULL;
@@ -269,6 +288,17 @@ static enum bool map_library_image(
     unsigned long library_size,
     dev_t dev,
     ino_t ino,
+    struct image **image_pointer,
+    enum bool match_filename_by_installname);
+/*
+ * In the rare case that some library filename is to be matched by install name
+ * then some_libraries_match_filename_by_installname is set to TRUE and then
+ * load_library_image() will call is_library_loaded_by_matching_installname().
+ */
+static enum bool some_libraries_match_filename_by_installname = FALSE;
+static enum bool is_library_loaded_by_matching_installname(
+    char *filename,
+    struct dylib_command *dl,
     struct image **image_pointer);
 static enum bool validate_library(
     char *dylib_name,
@@ -355,85 +385,19 @@ static void call_dependent_init_routines(
     struct image *image,
     module_state *module,
     enum bool use_header_dependencies);
-#ifdef __MACH30__
-static void setup_for_lazy_init_routines(
-    void);
+static void notify_prebinding_agent(void);
+#ifdef SYSTEM_REGION_BACKED
 /*
- * These are the values returned by task_get_exception_ports() which we will
- * use to forward exceptions that my exception handler will not be handling.
+ * We do not cause the prebinding to be fixed if the program is not using the
+ * system shared regions.  This information is returned in the flags of the
+ * load_shared_file() call.  Once this information is determined then this
+ * is set to true.  If notify_prebinding_agent() is called and this is not
+ * yet set to TRUE then it will make a nop call to load_shared_file() to
+ * determined if the system shared regions are being used.  If they are not
+ * then it will return and do nothing.
  */
-static exception_mask_t old_exception_masks[1];
-static exception_port_t old_exception_ports[1];
-static exception_behavior_t old_behaviors[1];
-static thread_state_flavor_t old_flavors[1];
-
-/*
- * This could come from <mach/exc_server.h> created with:
- *
- * mig -sheader exc_server.h exc.defs
- *
- * in the libc build so internal_catch_exc_subsystem.maxsize can be used.
- */
-struct internal_catch_exc_subsystem {
-        struct subsystem *      subsystem;      /* Reserved for system use */
-        mach_msg_id_t   start;  /* Min routine number */
-        mach_msg_id_t   end;    /* Max routine number + 1 */
-        unsigned int    maxsize;        /* Max msg size */
-        vm_address_t    base_addr;      /* Base ddress */
-        struct routine_descriptor       /*Array of routine descriptors */
-                routine[3];
-        struct routine_arg_descriptor   /*Array of arg descriptors */
-                arg_descriptor[16];
-};
-extern struct internal_catch_exc_subsystem internal_catch_exc_subsystem;
-/*
- * This is the maximum size of the exception message.
- */
-#define MY_MSG_SIZE internal_catch_exc_subsystem.maxsize
-
-/* These are not declared in any header file */
-extern boolean_t exc_server(
-    mach_msg_header_t * in_msg,
-    mach_msg_header_t * out_msg);
-extern kern_return_t exception_raise(
-    exception_port_t exception_port,
-    thread_port_t thread,
-    task_port_t task, 
-    exception_type_t exception,
-    exception_data_t code,
-    mach_msg_type_number_t code_count);
-extern kern_return_t exception_raise_state(
-    exception_port_t exception_port,
-    exception_type_t exception,
-    exception_data_t code,
-    mach_msg_type_number_t code_count,
-    thread_state_flavor_t *flavor,
-    thread_state_t in_state,
-    mach_msg_type_number_t in_state_count,
-    thread_state_t *out_state,
-    mach_msg_type_number_t *out_state_count);
-extern kern_return_t exception_raise_state_identity(
-    exception_port_t exception_port,
-    thread_port_t thread,
-    task_port_t task, 
-    exception_type_t exception,
-    exception_data_t code,
-    mach_msg_type_number_t code_count,
-    thread_state_flavor_t *flavor,
-    thread_state_t in_state,
-    mach_msg_type_number_t in_state_count,
-    thread_state_t *out_state,
-    mach_msg_type_number_t *out_state_count);
-
-static void exception_server_loop(
-    mach_port_t my_exception_port);
-static enum bool call_lazy_init_routine_for_address(
-    unsigned long address);
-#endif __MACH30__
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-static const char * exception_name(
-    exception_type_t exception);
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
+static enum bool determined_system_region_backed = FALSE;
+#endif /* SYSTEM_REGION_BACKED */
 
 /*
  * The address of these symbols are written in to the (__DATA,__dyld) section
@@ -478,7 +442,7 @@ unsigned long *entry_point)
     struct object_image *object_image;
     enum bool change_protect_on_reloc, cache_sync_on_reloc,
 	      has_coalesced_sections, seg1addr_found;
-    char *dylib_name, *p;
+    char *dylib_name, *p, *passed_dylib_name;
 #ifdef __ppc__
     unsigned long images_dyld_stub_binding_helper;
 
@@ -486,6 +450,7 @@ unsigned long *entry_point)
 	    (unsigned long)(&unlinked_lazy_pointer_handler);
 #endif
 
+	DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_load_executable_image, name);
 	/* set for error reporting in here */
 	executables_name = name;
 
@@ -665,6 +630,9 @@ unsigned long *entry_point)
 		if(hints_cmd == NULL)
 		    hints_cmd = (struct twolevel_hints_command *)lc;
 		break;
+	    /* this has the LC_REQ_DYLD bit in the command */
+	    case LC_LOAD_WEAK_DYLIB:
+		break;
 	    default:
 		if((lc->cmd & LC_REQ_DYLD) == LC_REQ_DYLD){
 		    error("can't launch executable: %s (unknown load command "
@@ -770,12 +738,20 @@ unsigned long *entry_point)
 			   "DYLD_INSERT_LIBRARIES being set\n",
 			   executables_name);
 		prebinding = FALSE;
-		(void)load_library_image(NULL, dylib_name, FALSE, NULL);
+		passed_dylib_name = allocate(strlen(dylib_name) + 1);
+		strcpy(passed_dylib_name, dylib_name);
+		(void)load_library_image(NULL, passed_dylib_name, FALSE, FALSE,
+					 NULL);
 		if(p == NULL){
 		    break;
 		}
 		else{
-		    *p = ':';
+		    /*
+		     * Do not put colons put back in the string as we are using
+		     * a pointer to it as the dylib_name.  Note that
+		     * dyld_insert_libraries is a copy of the environment string
+		     * as made in pickup_enviroment_strings().
+		     */
 		    dylib_name = p + 1;
 		}
 	    }
@@ -819,6 +795,9 @@ unsigned long *entry_point)
 	 * by <mach-o/dyld_gdb.h>
 	 */
 	gdb_dyld_state_changed();
+	
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_executable_image);
+
 }
 
 /*
@@ -899,6 +878,7 @@ char *suffix)
     char *new_dylib_name, *ext;
     struct stat stat_buf;
     long nmlen;
+    int r;
 
 	if(suffix == NULL){
 	    return(NULL);
@@ -916,7 +896,8 @@ char *suffix)
 	    strcpy(new_dylib_name, dylib_name);
 	    strcat(new_dylib_name, suffix);
 	}
-	if(stat(new_dylib_name, &stat_buf) == 0){
+	r = stat(new_dylib_name, &stat_buf);
+	if(r == 0 && (stat_buf.st_mode & S_IFMT) == S_IFREG){
 	    return(new_dylib_name);
 	}
 	free(new_dylib_name);
@@ -935,6 +916,7 @@ char *suffix)
 {
     char *constructed_name, *new_dylib_name;
     struct stat stat_buf;
+    int r;
 
 	constructed_name = NULL;
 	if(strncmp(dylib_name, "@executable_path/",
@@ -947,7 +929,8 @@ char *suffix)
 		    free(constructed_name);
 		    return(new_dylib_name);
 		}
-		if(stat(constructed_name, &stat_buf) == 0){
+		r = stat(constructed_name, &stat_buf);
+		if(r == 0 && (stat_buf.st_mode & S_IFMT) == S_IFREG){
 		    return(constructed_name);
 		}
 		free(constructed_name);
@@ -972,20 +955,22 @@ char *suffix)
  * into memory and added to the dynamic link editor data structures to use it.
  * Specifically this routine takes a pointer to a dylib_command for a library
  * and finds and opens the file corresponding to it (or if that is NULL then
- * the specified dylib_name).  It deals with the file being fat and then calls
- * map_library_image() to have the library's segments mapped into memory.  For
- * two-level images that depend on this library, image_pointer is the address
- * of a pointer to an image struct to be set (if not NULL) after this image is
- * loaded.
+ * the specified passed_dylib_name).  It deals with the file being fat and then
+ * calls map_library_image() to have the library's segments mapped into memory.
+ * For two-level images that depend on this library, image_pointer is the
+ * address of a pointer to an image struct to be set (if not NULL) after this
+ * image is loaded.  If passed_dylib_name is not NULL it is always free()'ed
+ * before returning.
  */
 enum bool
 load_library_image(
 struct dylib_command *dl, /* allow NULL for NSAddLibrary() to use this */
-char *dylib_name,
+char *passed_dylib_name,
 enum bool force_searching,
+enum bool match_filename_by_installname,
 struct image **image_pointer)
 {
-    char *new_dylib_name, *constructed_name;
+    char *dylib_name, *new_dylib_name, *constructed_name;
     int fd, errnum, save_errno;
     struct stat stat_buf;
     unsigned long file_size;
@@ -994,17 +979,37 @@ struct image **image_pointer)
     struct fat_header *fat_header;
     struct fat_arch *fat_archs, *best_fat_arch;
     struct mach_header *mh;
+	enum bool return_value;
 
 	new_dylib_name = NULL;
 	constructed_name = NULL;
+	if(dl != NULL)
+	    dylib_name = (char *)dl + dl->dylib.name.offset;
+	else
+	    dylib_name = passed_dylib_name;
+        
+        DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_load_library_image,dylib_name);
+
+	/*
+	 * If there has previously been a library loaded with
+	 * match_filename_by_installname set and this is a library coming from
+	 * an image see if the filename for this library matches an install name
+	 * for any library marked with match_filename_by_installname.
+	 */
+	if(some_libraries_match_filename_by_installname == TRUE && dl != NULL){
+	    if(is_library_loaded_by_matching_installname(dylib_name, dl,
+		image_pointer) == TRUE){
+		DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+		return(TRUE);
+	    }
+	}
+        
 	/*
 	 * If the dylib_command is not NULL then this is not a result of a call
 	 * to NSAddLibrary() so searching may take place.  Otherwise, just open
 	 * the name passed in.
 	 */
 	if(dl != NULL || force_searching == TRUE){
-	    if(dl != NULL)
-		dylib_name = (char *)dl + dl->dylib.name.offset;
 	    /*
 	     * If the dyld_framework_path is set and this dylib_name is a
 	     * framework name, use the first file that exists in the framework
@@ -1054,17 +1059,18 @@ struct image **image_pointer)
 	    if(new_dylib_name != NULL)
 		dylib_name = new_dylib_name;
 	}
+        
 	/*
 	 * If the library is already loaded just return.
 	 */
 	if(is_library_loaded_by_name(dylib_name, dl, image_pointer) == TRUE){
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+	    if(passed_dylib_name != NULL)
+		free(passed_dylib_name);
 	    if(new_dylib_name != NULL)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
 		free(constructed_name);
-	    /* if dl is NULL free() the NSAddLibrary() allocated dylib_name */
-	    if(dl == NULL)
-		free(dylib_name);
 	    return(TRUE);
 	}
 
@@ -1136,11 +1142,11 @@ struct image **image_pointer)
 	     * then open it.  If no name was ever found put back the errno
 	     * from the original open that failed.
 	     */
-	    if(new_dylib_name != NULL) {
+	    if(new_dylib_name != NULL){
 		dylib_name = new_dylib_name;
 		fd = open(dylib_name, O_RDONLY, 0);
 	    }
-	    else {
+	    else{
 		errno = save_errno;
 	    }
 	}
@@ -1161,8 +1167,18 @@ struct image **image_pointer)
 	     */
 	    if(constructed_name != NULL)
 		dylib_name = constructed_name;
-	    system_error(errnum, "can't open library: %s ", dylib_name);
-	    link_edit_error(DYLD_FILE_ACCESS, errnum, dylib_name);
+	    if(dl != NULL && dl->cmd == LC_LOAD_WEAK_DYLIB){
+		if(image_pointer != NULL)
+		    *image_pointer =
+			(struct image *)&(some_weak_library_image.image);
+	    }
+	    else{
+		system_error(errnum, "can't open library: %s ", dylib_name);
+		link_edit_error(DYLD_FILE_ACCESS, errnum, dylib_name);
+	    }
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+	    if(passed_dylib_name != NULL)
+		free(passed_dylib_name);
 	    if(new_dylib_name != NULL)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
@@ -1188,13 +1204,13 @@ struct image **image_pointer)
 	if(is_library_loaded_by_stat(dylib_name, dl, &stat_buf, image_pointer)
 	   == TRUE){
 	    close(fd);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+	    if(passed_dylib_name != NULL)
+		free(passed_dylib_name);
 	    if(new_dylib_name != NULL)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
 		free(constructed_name);
-	    /* if dl is NULL free() the NSAddLibrary() allocated dylib_name */
-	    if(dl == NULL)
-		free(dylib_name);
 	    return(TRUE);
 	}
 	/*
@@ -1290,10 +1306,14 @@ struct image **image_pointer)
 	     * map_library_image() will close the file descriptor and
 	     * deallocate the mapped in memory.
 	     */
-	    return(map_library_image(dl, dylib_name, fd, file_addr, file_size,
-			             best_fat_arch->offset, best_fat_arch->size,
-			             stat_buf.st_dev, stat_buf.st_ino,
-				     image_pointer));
+	    return_value = map_library_image(dl, dylib_name, fd, file_addr,
+				     file_size, best_fat_arch->offset,
+				     best_fat_arch->size, stat_buf.st_dev,
+				     stat_buf.st_ino, image_pointer,
+				     match_filename_by_installname);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+            return(return_value);
+
 	}
 	else{
 	    if(sizeof(struct mach_header) > file_size){
@@ -1319,9 +1339,15 @@ struct image **image_pointer)
 	     * map_library_image() will close the file descriptor and
 	     * deallocate the mapped in memory.
 	     */
-	    return(map_library_image(dl, dylib_name, fd, file_addr, file_size,
-				     0, file_size, stat_buf.st_dev,
-				     stat_buf.st_ino, image_pointer));
+	    return_value = map_library_image(dl, dylib_name, fd, file_addr,
+				     file_size, 0, file_size, stat_buf.st_dev,
+				     stat_buf.st_ino, image_pointer,
+				     match_filename_by_installname);
+	    if(return_value == FALSE)
+		goto load_library_image_cleanup3;
+	    DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+	    return(return_value);
+
 	}
 
 load_library_image_cleanup1:
@@ -1339,6 +1365,10 @@ load_library_image_cleanup2:
 		 dylib_name);
 	    link_edit_error(DYLD_UNIX_RESOURCE, errnum, dylib_name);
 	}
+load_library_image_cleanup3:
+        DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+	if(passed_dylib_name != NULL)
+	    free(passed_dylib_name);
 	if(new_dylib_name != NULL)
 	    free(new_dylib_name);
 	if(constructed_name != NULL)
@@ -1463,6 +1493,7 @@ char *name,
 unsigned long *short_name_size)
 {
     char *a, *b, *c;
+    enum bool saw_version_letter;
 
 	*short_name_size = 0;
 	/* pull off the suffix after the "." and make a point to it */
@@ -1475,8 +1506,13 @@ unsigned long *short_name_size)
 	    return(NULL);
 
 	/* first pull off the version letter for the form Foo.A.dylib */
-	if(a - name >= 3 && a[-2] == '.')
+	if(a - name >= 3 && a[-2] == '.'){
 	    a = a - 2;
+	    saw_version_letter = TRUE;
+	}
+	else{
+	    saw_version_letter = FALSE;
+	}
 
 	b = look_back_for_slash(name, a);
 	if(b == name)
@@ -1490,6 +1526,11 @@ unsigned long *short_name_size)
 	    }
 	    else
 		*short_name_size = a - name;
+	    /* there are incorrect library names of the form:
+	       libSystem.B_debug.dylib so check for these */
+	    if(saw_version_letter == FALSE &&
+	       *short_name_size >= 3 && name[*short_name_size - 2] == '.')
+		    *short_name_size -= 2;
 	    return(name);
 	}
 	else{
@@ -1501,6 +1542,11 @@ unsigned long *short_name_size)
 	    }
 	    else
 		*short_name_size = a - (b+1);
+	    /* there are incorrect library names of the form:
+	       libSystem.B_debug.dylib so check for these */
+	    if(saw_version_letter == FALSE &&
+	       *short_name_size >= 3 && b[*short_name_size - 1] == '.')
+		    *short_name_size -= 2;
 	    return(b+1);
 	}
 }
@@ -1539,6 +1585,7 @@ char *suffix)
 {
     char *dylib_name, *new_dylib_name, *p;
     struct stat stat_buf;
+    int r;
 
 	dylib_name = allocate(strlen(name) + strlen(path) + 2);
 	for(;;){
@@ -1561,7 +1608,8 @@ char *suffix)
 		    *p = ':';
 		return(new_dylib_name);
 	    }
-	    if(stat(dylib_name, &stat_buf) == 0){
+	    r = stat(dylib_name, &stat_buf);
+	    if(r == 0 && (stat_buf.st_mode & S_IFMT) == S_IFREG){
 		if(p != NULL)
 		    *p = ':';
 		return(dylib_name);
@@ -1660,7 +1708,8 @@ unsigned long library_offset,
 unsigned long library_size,
 dev_t dev,
 ino_t ino,
-struct image **image_pointer)
+struct image **image_pointer,
+enum bool match_filename_by_installname)
 {
     struct mach_header *mh;
     int errnum;
@@ -1685,6 +1734,7 @@ struct image **image_pointer)
 	images_dyld_stub_binding_helper =
 	    (unsigned long)(&unlinked_lazy_pointer_handler);
 #endif
+	DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_map_library_image, dylib_name);
 	/*
 	 * On entry the only checks that have been done are the file_addr and
 	 * file_size have only been checked so that file_size >= sizeof(mach
@@ -1746,6 +1796,7 @@ struct image **image_pointer)
 	    &segs_read_write_addr, &slide_value,
 	    &images_dyld_stub_binding_helper) == FALSE){
 
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_library_image);
 	    return(FALSE);
 	}
 
@@ -1795,6 +1846,10 @@ struct image **image_pointer)
 	library_image->image.umbrella_images_setup = FALSE;
 	if(image_pointer != NULL)
 	    *image_pointer = &(library_image->image);
+	library_image->image.match_filename_by_installname =
+			     match_filename_by_installname;
+	if(match_filename_by_installname)
+	    some_libraries_match_filename_by_installname = TRUE;
 	/*
 	 * Since we can't know if the name may have an underbar in it first
 	 * try to get the name without a suffix then if that fails try it
@@ -1821,11 +1876,12 @@ struct image **image_pointer)
 	 * prebinding and undoes the prebinding
 	 */
 	if(slide_value != 0){
-	    if(dyld_prebind_debug != 0 &&
-	       prebinding == TRUE &&
-	       launched == FALSE)
-		print("dyld: %s: prebinding disabled because library: %s got "
-		       "slid\n", executables_name, dylib_name);
+	    if(prebinding == TRUE && launched == FALSE){
+		if(dyld_prebind_debug != 0)
+		    print("dyld: %s: prebinding disabled because library: %s "
+			  "got slid\n", executables_name, dylib_name);
+		notify_prebinding_agent();
+	    }
 	    if(launched == FALSE)
 		prebinding = FALSE;
 	    local_relocation(&(library_image->image));
@@ -1889,6 +1945,7 @@ struct image **image_pointer)
 			print("dyld: %s: prebinding disabled because time "
 			       "stamp of library: %s did not match\n",
 			       executables_name, dylib_name);
+		    notify_prebinding_agent();
 		    prebinding = FALSE;
 		}
 	    }
@@ -1908,6 +1965,7 @@ struct image **image_pointer)
 	event.arg[0].module_index = 0;
 	send_event(&event);
 
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_library_image);
 	return(TRUE);
 
 map_library_image_cleanup:
@@ -1927,6 +1985,7 @@ map_library_image_cleanup:
 		 dylib_name);
 	    link_edit_error(DYLD_UNIX_RESOURCE, errnum, dylib_name);
 	}
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_library_image);
 	return(FALSE);
 }
 
@@ -1958,7 +2017,7 @@ unsigned long object_size)
 	images_dyld_stub_binding_helper =
 	    (unsigned long)(&unlinked_lazy_pointer_handler);
 #endif
-
+	DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_map_bundle_image, name);
 	/*
 	 * This routine only deals with MH_BUNDLE files that are on page
 	 * boundaries.  The library code for NSloadModule() insures this for
@@ -1969,12 +2028,14 @@ unsigned long object_size)
 	    error("malformed object file image: %s (address of image not on a "
 		"page boundary)", name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 	if(sizeof(struct mach_header) > object_size){
 	    error("truncated or malformed object file image: %s (too small to "
 		"be an object file image)", name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 	mh = (struct mach_header *)object_addr;
@@ -1982,6 +2043,7 @@ unsigned long object_size)
 	    error("malformed object file image: %s (not a Mach-O image, bad "
 		"magic number)", name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 	/*
@@ -1989,8 +2051,10 @@ unsigned long object_size)
 	 */
 	if(check_image(name, "object file image", object_size, mh,
 	    &linkedit_segment, &mach_header_segment, &dyst, &st, NULL, NULL,
-	    &low_addr, &high_addr) == FALSE)
+	    &low_addr, &high_addr) == FALSE){
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
+	}
 	/*
 	 * Do the bundle specific check on the mach header.
 	 */
@@ -1998,6 +2062,7 @@ unsigned long object_size)
 	    error("malformed object file image: %s (not a Mach-O bundle file, "
 		"bad filetype value)", name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 
@@ -2011,6 +2076,7 @@ unsigned long object_size)
 	    &seg1addr, &segs_read_write_addr, &slide_value,
 	    &images_dyld_stub_binding_helper) == FALSE){
 
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 
@@ -2083,12 +2149,14 @@ unsigned long object_size)
 	     */
 	    object_image->image.private = TRUE;
 	    unload_bundle_image(object_image, FALSE, FALSE);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	    return(NULL);
 	}
 
 	/*
 	 * Return the module.
 	 */
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_bundle_image);
 	return(object_image);
 }
 
@@ -2238,6 +2306,8 @@ unsigned long *images_dyld_stub_binding_helper)
     static enum bool first_load_shared_file = TRUE;
 #endif /* SHARED_LIBRARY_SERVER_SUPPORTED */
 
+	DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_map_image, name);
+
 	mach_header_segment_vmaddr = 0;
 
 #ifdef SHARED_LIBRARY_SERVER_SUPPORTED
@@ -2272,7 +2342,8 @@ unsigned long *images_dyld_stub_binding_helper)
 		    if((sg->initprot & VM_PROT_WRITE) == VM_PROT_WRITE &&
 		       sg->vmaddr < *segs_read_write_addr)
 			*segs_read_write_addr = sg->vmaddr;
-		    if(sg->fileoff == 0)
+		    if(sg->fileoff == 0 && sg->filesize != 0 &&
+		       mach_header_segment_vmaddr == 0)
 			mach_header_segment_vmaddr = sg->vmaddr;
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -2332,6 +2403,22 @@ unsigned long *images_dyld_stub_binding_helper)
 #endif /* NEW_LOCAL_SHARED_REGIONS */
 	    ret = load_shared_file(name, (caddr_t)file_addr, file_size,
 		(caddr_t *)&base_address, nsegs, m, &flags);
+#ifdef SYSTEM_REGION_BACKED
+	    if(determined_system_region_backed == FALSE &&
+	       (flags & SYSTEM_REGION_BACKED) != SYSTEM_REGION_BACKED){
+		dyld_no_fix_prebinding = TRUE;
+		if(dyld_prebind_debug != 0)
+		    print("dyld: in map_image() determined the "
+			  "system shared regions are NOT used\n");
+	    }
+	    else{
+		if(determined_system_region_backed == FALSE &&
+		   dyld_prebind_debug != 0)
+		    print("dyld: in map_image() determined the "
+			  "system shared regions ARE used\n");
+	    }
+	    determined_system_region_backed = TRUE;
+#endif /* SYSTEM_REGION_BACKED */
 	    if(ret == -1){
 		flags |= ALTERNATE_LOAD_SITE;
 		ret = load_shared_file(name, (caddr_t)file_addr, file_size,
@@ -2359,6 +2446,7 @@ unsigned long *images_dyld_stub_binding_helper)
 	    error("unsupported Mach-O format file: %s (MH_SPILT_SEGS format "
 		  "not supported in this version of dyld)", name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+            DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_image);
 	    return(FALSE);
 	}
 #endif /* SHARED_LIBRARY_SERVER_SUPPORTED */
@@ -2520,7 +2608,8 @@ unsigned long *images_dyld_stub_binding_helper)
 			goto map_image_cleanup0;
 		    }
 		}
-		if(sg->fileoff == 0)
+		if(sg->fileoff == 0 && sg->filesize != 0 &&
+		   mach_header_segment_vmaddr == 0)
 		    mach_header_segment_vmaddr = sg->vmaddr;
 		break;
 	    }
@@ -2768,6 +2857,7 @@ printf("name = %s segname = %s sg = 0x%x\n", name, sg->segname, sg);
 if(*linkedit_segment != NULL)
 printf("name = %s *linkedit_segment = 0x%x\n", name, *linkedit_segment);
 */
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_image);
 	return(TRUE);
 
 map_image_cleanup0:
@@ -2795,6 +2885,7 @@ map_image_cleanup2:
 		link_edit_error(DYLD_UNIX_RESOURCE, errnum, name);
 	    }
 	}
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_map_image);
 	return(FALSE);
 }
 
@@ -3026,7 +3117,7 @@ struct library_image *const lib)
 	     ((char *)lib->image.mh + sizeof(struct mach_header));
 	j = 0;
 	for(i = 0; i < lib->image.mh->ncmds; i++){
-	    if(lc->cmd == LC_LOAD_DYLIB){
+	    if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
 		dl = (struct dylib_command *)lc;
 		dep_name = (char *)dl + dl->dylib.name.offset;
 		dep_image = lib->image.dependent_images[j++];
@@ -3212,6 +3303,8 @@ void)
     unsigned long i, max_libraries;
     struct library_images *q;
     enum bool some_images_setup;
+		
+	DYLD_TRACE_IMAGES_START(DYLD_TRACE_load_dependent_libraries);
 
 	q = &library_images;
 	do{
@@ -3222,8 +3315,11 @@ void)
 			       q->images[i].image.name);
 		    if(load_images_libraries(q->images[i].image.mh,
 					     &(q->images[i].image)) == FALSE &&
-		       return_on_error == TRUE)
+		       return_on_error == TRUE){
+			DYLD_TRACE_IMAGES_END(
+			    DYLD_TRACE_load_dependent_libraries);
 			return(FALSE);
+		    }
 		    q->images[i].dependent_libraries_loaded = TRUE;
 		}
 	    }
@@ -3398,6 +3494,7 @@ void)
 	    }
 	}
 
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_dependent_libraries);
 	return(TRUE);
 }
 
@@ -3433,6 +3530,7 @@ struct image *image)
 	    for(i = 0; i < mh->ncmds; i++){
 		switch(lc->cmd){
 		case LC_LOAD_DYLIB:
+		case LC_LOAD_WEAK_DYLIB:
 		    ndependent_images++;
 		    break;
 		}
@@ -3451,13 +3549,15 @@ struct image *image)
 	for(i = 0; i < mh->ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl_load = (struct dylib_command *)lc;
 		if(dependent_images != NULL)
 		    image_pointer = &(dependent_images[ndependent_images++]);
 		else
 		    image_pointer = NULL;
-		if(load_library_image(dl_load, NULL, FALSE, image_pointer) ==
-		   FALSE &&
+		if(load_library_image(dl_load, NULL, FALSE, FALSE,
+				      image_pointer) == FALSE &&
+		   dl_load->cmd != LC_LOAD_WEAK_DYLIB &&
 		   return_on_error == TRUE){
 		    unload_remove_on_error_libraries();
 		    return(FALSE);
@@ -3861,9 +3961,10 @@ next_dep:	;
 }
 
 /*
- * check_time_stamp() checks the timestamp for LC_LOAD_DYLIB command in the
- * specified library_image against the time stamp of the LC_ID_DYLIB command for
- * the sub_image.  If they are the same it returns TRUE else it returns FALSE.
+ * check_time_stamp() checks the timestamp for LC_LOAD_DYLIB or
+ * LC_LOAD_WEAK_DYLIB command in the specified library_image against the time
+ * stamp of the LC_ID_DYLIB command for the sub_image.  If they are the same it 
+ * returns TRUE else it returns FALSE.
  */
 static
 enum bool
@@ -3884,6 +3985,7 @@ struct image *sub_image)
 	for(i = 0; i < library_image->image.mh->ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl_load = (struct dylib_command *)lc;
 		name = (char *)dl_load + dl_load->dylib.name.offset;
 		if(strcmp(name, dep_name) == 0){
@@ -4221,7 +4323,7 @@ void)
 }
 
 /*
- * check_linkedit_info() checks the mach_header and load_commands of an image.
+ * check_image() checks the mach_header and load_commands of an image.
  * The image is assumed to be mapped into memory at the mach_header pointer for
  * a sizeof image_size.  The strings name and image_type are used for error
  * messages.  TRUE is returned if everything is ok else FALSE is returned after 
@@ -4393,11 +4495,13 @@ unsigned long *high_addr)
 		break;
 
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl_load = (struct dylib_command *)lc;
 		if(dl_load->cmdsize < sizeof(struct dylib_command)){
 		    error("truncated or malformed %s: %s (cmdsize of load "
-			"command %lu incorrect for LC_LOAD_DYLIB)", image_type,
-			name, i);
+			"command %lu incorrect for %s)", image_type,
+			name, i, lc->cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" : 
+			"LC_LOAD_WEAK_DYLIB");
 		    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
 		    return(FALSE);
 		}
@@ -4430,6 +4534,7 @@ unsigned long *high_addr)
 			  "required for execution)", image_type, name, i,
 			  (unsigned int)(lc->cmd));
 		    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+		    return(FALSE);
 		}
 		break;
 	    }
@@ -4759,7 +4864,7 @@ create_executables_path(
 char *exec_path)
 {
     char *p, *cwd;
-    unsigned long n, max, cwd_len, executables_pathlen;
+    unsigned long n, max, cwd_len;
 
 	/* n is the size of the exec_path not including the trailing '\0' */
 	n = strlen(exec_path);
@@ -5079,12 +5184,13 @@ struct library_image *li)
 	 */
 	if(dl == NULL || 
 	   dl->dylib.timestamp != li->dlid->dylib.timestamp){
-	    if(dyld_prebind_debug != 0 &&
-	       prebinding == TRUE &&
-	       launched == FALSE)
-		print("dyld: %s: prebinding disabled because time stamp of "
-		      "library: %s did not match\n", executables_name,
-		      dylib_name);
+	    if(prebinding == TRUE && launched == FALSE){
+		if(dyld_prebind_debug != 0)
+		    print("dyld: %s: prebinding disabled because time stamp of "
+			  "library: %s did not match\n", executables_name,
+			  dylib_name);
+		notify_prebinding_agent();
+	    }
 	    if(launched == FALSE)
 		prebinding = FALSE;
 	}
@@ -5169,6 +5275,40 @@ struct image **image_pointer)
 }
 
 /*
+ * is_library_loaded_by_matching_installname() returns TRUE if there is a
+ * library already loaded that is to match the filename to install names and
+ * this filename matches that library's installname. For two-level images that
+ * depend on this library, image_pointer is the address of a pointer to an image
+ * struct to be set (if not NULL) after if this image is loaded.
+ */
+static
+enum bool
+is_library_loaded_by_matching_installname(
+char *filename,
+struct dylib_command *dl,
+struct image **image_pointer)
+{
+    unsigned long i;
+    struct library_images *p;
+    char *installname;
+
+	for(p = &library_images; p != NULL; p = p->next_images){
+	    for(i = 0; i < p->nimages; i++){
+		if(p->images[i].image.match_filename_by_installname == TRUE){
+		    installname = (char *)(p->images[i].dlid) +
+				  p->images[i].dlid->dylib.name.offset;
+		    if(strcmp(filename, installname) == 0){
+			if(image_pointer != NULL)
+			    *image_pointer = &(p->images[i].image);
+			return(TRUE);
+		    }
+		}
+	    }
+	}
+	return(FALSE);
+}
+
+/*
  * set_images_to_prebound() is called to set the modules of the images to their
  * prebound state.  If successfull it returns TRUE else FALSE.
  */
@@ -5180,11 +5320,7 @@ void)
     struct load_command *lc;
     struct prebound_dylib_command *pbdylib;
     struct library_images *q;
-#ifdef __MACH30__
-    enum bool lazy_inits;
 
-	lazy_inits = FALSE;
-#endif __MACH30__
 	/*
 	 * Walk through the executable's load commands for LC_PREBOUND_DYLIB
 	 * commands setting the module's state for the specified library.
@@ -5211,10 +5347,6 @@ void)
 	q = &library_images;
 	do{
 	    for(i = 0; i < q->nimages; i++){
-#ifdef __MACH30__
-		if(q->images[i].image.mh->flags & MH_LAZY_INIT)
-		    lazy_inits = TRUE;
-#endif __MACH30__
 		if(q->images[i].image.prebound != TRUE){
 		    if(dyld_prebind_debug != 0)
 			print("dyld: %s: prebinding disabled because no "
@@ -5222,6 +5354,7 @@ void)
 				executables_name,
 				(char *)q->images[i].dlid +
 				q->images[i].dlid->dylib.name.offset);
+		    notify_prebinding_agent();
 		    prebinding = FALSE;
 		    reset_module_states();
 		    return(FALSE);
@@ -5249,11 +5382,6 @@ void)
 	SET_LINK_STATE(object_images.images[0].module, FULLY_LINKED);
 
 	setup_prebound_coalesed_symbols();
-
-#ifdef __MACH30__
-	if(lazy_inits == TRUE)
-	    setup_for_lazy_init_routines();
-#endif __MACH30__
 
 	call_registered_funcs_for_add_images();
 	return(TRUE);
@@ -5291,6 +5419,7 @@ struct prebound_dylib_command *pbdylib)
 			    print("dyld: %s: prebinding disabled because "
 				   "nmodules in LC_PREBOUND_DYLIB for library: "
 				   "%s does not match\n",executables_name,name);
+			notify_prebinding_agent();
 			prebinding = FALSE;
 			return(FALSE);
 		    }
@@ -5331,6 +5460,7 @@ struct prebound_dylib_command *pbdylib)
 	    print("dyld: %s: prebinding disabled because LC_PREBOUND_DYLIB "
 		   "found for library: %s but it was not loaded\n",
 		   executables_name, name);
+	notify_prebinding_agent();
 	prebinding = FALSE;
 	return(FALSE);
 }
@@ -5745,25 +5875,26 @@ enum bool make_delayed_calls)
 			    module,
 			    make_delayed_calls == TRUE && prebinding == TRUE);
 
-			/* do not actually init routines marked lazy here */
-			if(q->images[i].image.lazy_init == FALSE){
-			    addr = q->images[i].image.rc->init_address +
-				   q->images[i].image.vmaddr_slide;
-			    init_routine = (void(*)(void))addr;
+			addr = q->images[i].image.rc->init_address +
+			       q->images[i].image.vmaddr_slide;
+			init_routine = (void(*)(void))addr;
 
-			    if(init_routine_being_called == FALSE)
-				init_routine_being_called = TRUE;
-			    else if(dyld_abort_multiple_inits == TRUE)
-				abort();
+			if(init_routine_being_called == FALSE)
+			    init_routine_being_called = TRUE;
+			else if(dyld_abort_multiple_inits == TRUE)
+			    abort();
 
 /*
 printf("Calling init routine 0x%x in %s\n", init_routine, q->images[i].image.name);
 */
-			    release_lock();
-			    init_routine();
-			    set_lock();
-			    init_routine_being_called = FALSE;
-			}
+			DYLD_TRACE_CALLOUT_START(
+			    DYLD_TRACE_image_init_routine, init_routine);
+			release_lock();
+			init_routine();
+			set_lock();
+			DYLD_TRACE_CALLOUT_END(
+			    DYLD_TRACE_image_init_routine, init_routine);
+			init_routine_being_called = FALSE;
 		    }
 		}
 	    }
@@ -5876,8 +6007,9 @@ printf("call_dependent_init_routines() for %s\n", image->name);
 		i < dyst->iundefsym + dyst->nundefsym;
 		i++){
 		symbol_name = strings + symbols[i].n_un.n_strx;
-		lookup_symbol(symbol_name, get_primary_image(image, symbols+i),
-			      get_hint(image, symbols+i),
+		lookup_symbol(symbol_name, get_primary_image(image, symbols +i),
+			      get_hint(image, symbols + i),
+			      get_weak(symbols + i),
 			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image,
 			      NO_INDR_LOOP);
@@ -5938,7 +6070,8 @@ module_name == NULL ? "NULL" : module_name);
 		lc = (struct load_command *)((char *)image->mh +
 		     sizeof(struct mach_header));
 		for(i = 0; i < image->mh->ncmds; i++){
-		    if(lc->cmd == LC_LOAD_DYLIB){
+		    if(lc->cmd == LC_LOAD_DYLIB ||
+		       lc->cmd == LC_LOAD_WEAK_DYLIB){
 			dl = (struct dylib_command *)lc;
 			dependent_name = (char *)dl + dl->dylib.name.offset;
 			dependent_image = NULL;
@@ -5999,23 +6132,17 @@ module_name == NULL ? "NULL" : module_name);
 				dependent_library_image->image.init_called =
 				    TRUE;
 
-				/*
-				 * Do not actually call init routines marked
-				 * lazy here.
-				 */
-				if(dependent_library_image->image.lazy_init ==
-				   FALSE){
-				    /* now actually call the init routine */
-				    addr = dependent_library_image->
-					       image.rc->init_address +
-					   dependent_library_image->
-					       image.vmaddr_slide;
-				    init_routine = (void(*)(void))addr;
+				/* now actually call the init routine */
+				addr = dependent_library_image->
+					   image.rc->init_address +
+				       dependent_library_image->
+					   image.vmaddr_slide;
+				init_routine = (void(*)(void))addr;
 
-				    if(init_routine_being_called == FALSE)
-					init_routine_being_called = TRUE;
-				    else if(dyld_abort_multiple_inits == TRUE)
-					abort();
+				if(init_routine_being_called == FALSE)
+				    init_routine_being_called = TRUE;
+				else if(dyld_abort_multiple_inits == TRUE)
+				    abort();
 
 /*
 printf("call_dependent_init_routines(use_header_dependencies == TRUE) for "
@@ -6025,11 +6152,16 @@ printf("call_dependent_init_routines(use_header_dependencies == TRUE) for "
 /*
 printf("Calling init routine 0x%x in %s\n", init_routine, dependent_library_image->image.name);
 */
-				    release_lock();
-				    init_routine();
-				    set_lock();
-				    init_routine_being_called = FALSE;
-				}
+				DYLD_TRACE_CALLOUT_START(
+				    DYLD_TRACE_dependent_init_routine,
+				    init_routine);
+				release_lock();
+				init_routine();
+				set_lock();
+				DYLD_TRACE_CALLOUT_END(
+				    DYLD_TRACE_dependent_init_routine,
+				    init_routine);
+				init_routine_being_called = FALSE;
 			    }
 			}
 			/*
@@ -6071,6 +6203,7 @@ printf("Calling init routine 0x%x in %s\n", init_routine, dependent_library_imag
 		lookup_symbol(symbol_name, get_primary_image(image, symbols +
 						    dylib_references[i].isym),
 			      get_hint(image, symbols+dylib_references[i].isym),
+			      get_weak(symbols + dylib_references[i].isym),
 			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image,
 			      NO_INDR_LOOP);
@@ -6120,819 +6253,227 @@ printf("undefined symbol %s in %s(%s)\n", symbol_name, image->name,module_name);
 		    /* mark this image as having its init routine called */
 		    defined_library_image->image.init_called = TRUE;
 
-		    /* do not actually init routines marked lazy here */
-		    if(defined_library_image->image.lazy_init == FALSE){
-			/* now actually call the init routine */
-			addr = defined_library_image->image.rc->init_address +
-			       defined_library_image->image.vmaddr_slide;
-			init_routine = (void(*)(void))addr;
+		    /* now actually call the init routine */
+		    addr = defined_library_image->image.rc->init_address +
+			   defined_library_image->image.vmaddr_slide;
+		    init_routine = (void(*)(void))addr;
 
 /*
 printf("call_dependent_init_routines(use_header_dependencies == FALSE) for "
 "%s(%s)\n", defined_library_image->image.name, module_name);
 */
 
-			if(init_routine_being_called == FALSE)
-			    init_routine_being_called = TRUE;
-			else if(dyld_abort_multiple_inits == TRUE)
-			    abort();
+		    if(init_routine_being_called == FALSE)
+			init_routine_being_called = TRUE;
+		    else if(dyld_abort_multiple_inits == TRUE)
+			abort();
 
 /*
 printf("Calling init routine 0x%x in %s\n", init_routine, defined_library_image->image.name);
 */
-			release_lock();
-			init_routine();
-			set_lock();
-			init_routine_being_called = FALSE;
-		    }
+		    DYLD_TRACE_CALLOUT_START(
+			DYLD_TRACE_dependent_init_routine,
+			init_routine);
+		    release_lock();
+		    init_routine();
+		    set_lock();
+		    DYLD_TRACE_CALLOUT_END(
+			DYLD_TRACE_dependent_init_routine,
+			init_routine);
+		    init_routine_being_called = FALSE;
 		}
 	    }
 	}
 }
 
-#ifdef __MACH30__
 /*
- * setup_for_lazy_init_routines() turns off the vm protection for the writeable
- * segments of libraries that are marked with MH_LAZY_INIT.  It is called
- * when we are launching prebound and there are libraries marked with
- * MH_LAZY_INIT.
- */
+ * notify_prebinding_agent() notifies the prebinding agent that the executable
+ * could not be launched using its prebinding info for some reason.
+ */ 
 static
 void
-setup_for_lazy_init_routines(
+notify_prebinding_agent(
 void)
 {
-    struct library_images *q;
-    unsigned long i, j;
-    struct load_command *lc, *load_commands;
-    struct segment_command *sg;
-    vm_address_t address;
-    kern_return_t r;
-    enum bool set_up_handler;
-    mach_port_t my_exception_port;
-    mach_msg_type_number_t old_exception_count;
-    thread_state_flavor_t my_flavor;
-    int result;
-    pthread_t pthread;
+    struct statfs sb;
+    int ret;
+    struct stat fileStat, rootStat;
 
-	set_up_handler = FALSE;
-	q = &library_images;
-	do{
-	    for(i = 0; i < q->nimages; i++){
-		if((q->images[i].image.mh->flags & MH_LAZY_INIT) != 0 &&
-		    q->images[i].image.rc != NULL){
-		    /*
-		     * Set the initial protection of the segments which are
-		     * writeable to no protection so that they will cause a
-		     * memory fault when accessed.
-		     */
-		    load_commands = (struct load_command *)
-				((char *)q->images[i].image.mh +
-				 sizeof(struct mach_header));
-		    lc = load_commands;
-		    for(j = 0; j < q->images[i].image.mh->ncmds; j++){
-			switch(lc->cmd){
-			case LC_SEGMENT:
-			    sg = (struct segment_command *)lc;
-			    address = sg->vmaddr +
-				      q->images[i].image.vmaddr_slide;
-			    if((sg->initprot & VM_PROT_WRITE) != 0 &&
-			       address != (vm_address_t)q->images[i].image.mh &&
-			       sg != q->images[i].image.linkedit_segment){
-				if((r = vm_protect(mach_task_self(), address,
-					   (vm_size_t)sg->vmsize,
-					   FALSE, VM_PROT_NONE)) !=
-					   KERN_SUCCESS){
-				    mach_error(r, "can't vm_protect segment: "
-					"%.16s for library: %s", sg->segname,
-					q->images[i].image.name);
-				    link_edit_error(DYLD_MACH_RESOURCE, r,
-					q->images[i].image.name);
-				}
-				q->images[i].image.lazy_init = TRUE;
-				set_up_handler = TRUE;
-			    }
-			    break;
-			}
-			lc = (struct load_command *)((char *)lc + lc->cmdsize);
-		    }
-		}
-	    }
-	    q = q->next_images;
-	}while(q != NULL);
+    struct timeval currentTime;
+    struct timezone currentTimezone;
+
+    char *serviceName;
+    port_t serverPort;
+    port_t bootstrapPort;
+
+	DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_notify_prebinding_agent,
+				      executables_path);
 
 	/*
-	 * If we turned off the protections on anything then we need to set up
-	 * a handler to deal with the memory exceptions if not were done.
+	 * If the DYLD_NO_FIX_PREBINDING environment variable was picked up
+	 * or if fix_prebinding was determined not to be done then the variable
+	 * dyld_no_fix_prebinding would have been set to TRUE.  If so then don't
+	 * notify the prebinding agent.
 	 */
-	if(set_up_handler == FALSE)
-	    return;
+	if(dyld_no_fix_prebinding == TRUE)
+	    goto leave_notify_prebinding_agent;
 
+#ifdef SYSTEM_REGION_BACKED
 	/*
-	 * Allocate a port to receive exception messages on.
+ 	 * If we have not determined if the system shared regions are being used
+	 * then make a nop call to load_shared_file() to determined this.  If
+	 * they are not used return and do nothing.
 	 */
-	r = mach_port_allocate(
-		mach_task_self(),
-		MACH_PORT_RIGHT_RECEIVE,
-		&my_exception_port);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't allocate exception port, mach_port_allocate() "
-		       "failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-	/*
-	 * We need to insert send rights on this port or
-	 * task_set_exception_ports() will fail with "(ipc/send) invalid port
-	 * right".
-	 */
-	r = mach_port_insert_right(
-		mach_task_self(),
-		my_exception_port,
-		my_exception_port,
-		MACH_MSG_TYPE_MAKE_SEND);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't insert send rights on exception port, "
-		       "mach_port_insert_right() failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
+	if(determined_system_region_backed == FALSE){
+	    int flags;
+	    vm_address_t base_address;
 
-	/*
-	 * Before we set the new exception port we would like to know the
-	 * thread flavor the old exception port is expecting so that we also
-	 * get that flavor.
-	 *
-	 * We would rather use the atomic task_swap_exception_ports() but
-	 * since we don't know what if any the old exception port wants for its
-	 * thread flavor we have to do a pair of task_get_exception_ports() and
-	 * task_set_exception_ports() calls.
-	 */
-	old_exception_count = 1;
-	r = task_get_exception_ports(
-		mach_task_self(),	/* task */
-		EXC_MASK_BAD_ACCESS,	/* exception_types */
-		old_exception_masks,
-		&old_exception_count,
-		old_exception_ports,
-		old_behaviors,
-		old_flavors);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't get old exception port, "
-		       "task_get_exception_ports() failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-	if(old_exception_count != 1){
-	    error("unexpected value returned from task_get_exception_ports() "
-		  "old_exception_count (%d) value not 1 for a single "
-		  "exception_type (EXC_MASK_BAD_ACCESS)", old_exception_count);
-	    link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_INIT, NULL);
-	}
-	/*
-	 * We have to be careful to set the flavor for our handler to a valid
-	 * thread flavor since we want the EXCEPTION_STATE_IDENTITY behavior.
-	 * If it were set to THREAD_STATE_NONE the kernel will panic when the
-	 * exception occurs.  THREAD_STATE_NONE is what gets returned as the
-	 * old_flavor for the EXCEPTION_DEFAULT behavior.
-	 */
-	if(old_behaviors[0] == EXCEPTION_DEFAULT){
-#ifdef __ppc__
-	    my_flavor = PPC_THREAD_STATE;
-#endif
-#ifdef __i386__
-	    my_flavor = i386_THREAD_STATE;
-#endif
-#ifdef m68k
-	    my_flavor = M68K_THREAD_STATE_REGS;
-#endif
-#ifdef hppa
-	    my_flavor = HPPA_FRAME_THREAD_STATE;
-#endif
-#ifdef sparc
-	    my_flavor = SPARC_THREAD_STATE_REGS;
-#endif
-	}
-	else{
-	    my_flavor = old_flavors[0];
-	}
-	/*
-	 * Set the exception port to the port we just allocated and using
-	 * the thread flavor of the old exception port.
-	 */
-	r = task_set_exception_ports(
-		mach_task_self(),	 /* task */
-		EXC_MASK_BAD_ACCESS,	 /* exception_types */
-		my_exception_port,	 /* exception_port */
-		EXCEPTION_STATE_IDENTITY,/* behavior */
-		my_flavor);		 /* flavor */
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't set exception port, "
-		       "task_set_exception_ports() failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-
-	/*
-	 * Create a pthread to listen on the exception port.
-	 * We do not need to set the attribute of PTHREAD_CREATE_JOINABLE as
-	 * this is the default with a NULL attribute.
-	 */
-	result = pthread_create(
-			&pthread,		/* thread */
-			NULL,			/* attributes */
-			(void *(*)(void *))
-			exception_server_loop,	/* start_routine */
-			(void *)
-			my_exception_port);	/* arg */
-	if(result != 0){
-	    system_error(result, "can't create a pthread for exception server "
-			 "loop");
-	    link_edit_error(DYLD_UNIX_RESOURCE, result, NULL);
-	}
-}
-
-/*
- * exception_server_loop() is where the pthread created to handle the exception
- * starts executing.
- */
-static
-void
-exception_server_loop(
-mach_port_t my_exception_port)
-{
-    unsigned char msg_buf[MY_MSG_SIZE], reply_buf[MY_MSG_SIZE];
-    mach_msg_header_t *msg, *reply;
-    kern_return_t r;
-    boolean_t eret;
-
-    msg = (mach_msg_header_t *) msg_buf;
-    reply = (mach_msg_header_t *) reply_buf;
-
-	/*
-	 * This is the exception server loop which receives messages on the
-	 * exception port, calls the library routine exc_server(), and sends
-	 * a reply to the message.
-	 */
-	for(;;){
-	    r = mach_msg(msg, 			/* msg */
-			 MACH_RCV_MSG, 		/* option */
-			 0,			/* send size */
-			 MY_MSG_SIZE,		/* receive_limit */
-			 my_exception_port,	/* receive_name */
-			 0,			/* timeout */
-			 MACH_PORT_NULL);	/* notify */
-	    if(r != KERN_SUCCESS){
-		mach_error(r, "can't receive exception message in "
-			   "exception_server_loop(), mach_msg() failed");
-		link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	    }
-
-	    /*
-	     * call the exc_server() routine in the library to break out the
-	     * message which will call
-	     * internal_catch_exception_raise_state_identity()
-	     * defined below.  In reading the mig generated code on MacOS X
-	     * this can only happen if exc_server() can call the needed function
-	     * for the behavior which would be a programing error.
-	     */
-	    eret = exc_server(msg, reply);
-	    if(eret == FALSE){
-		error("exc_server() returned FALSE which is an internal error "
-		      "in the way the library and user code got linked up");
-		link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_INIT, NULL);
-	    }
-  
-	    r = mach_msg(reply,
-			 (MACH_SEND_MSG | MACH_MSG_OPTION_NONE),
-			 reply->msgh_size,
-			 0,
-			 MACH_PORT_NULL,
-			 MACH_MSG_TIMEOUT_NONE,
-			 MACH_PORT_NULL);
-	    if(r != KERN_SUCCESS){
-		mach_error(r, "can't send reply exception message in "
-			   "exception_server_loop(), mach_msg() failed");
-		link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	    }
-	}
-}
-
-/*
- * These are needed to avoid pulling things in from libc.a that use
- * _dyld_lookup_and_bind.  This is all because of this odd interface where these
- * functions must be defined if exc_server() is used.
- */
-void internal_catch_exception_raise(void){}
-void internal_catch_exception_raise_state(void){}
-
-/*
- * internal_catch_exception_raise_state_identity() must be global as it is
- * called by the library routine exc_server().  This routine calls
- * call_lazy_init_routine_for_address() to do the real work to fix up the
- * exception by changing the protection on the pages we expect to see
- * exceptions and returns TRUE, if it returns FALSE we forward the exception.
- */
-kern_return_t
-internal_catch_exception_raise_state_identity(
-exception_port_t exception_port,
-thread_port_t thread,
-task_port_t task, 
-exception_type_t exception,
-exception_data_t code,
-mach_msg_type_number_t code_count,
-thread_state_flavor_t *flavor,
-thread_state_t in_state,
-mach_msg_type_number_t in_state_count,
-thread_state_t *out_state,		/* wrong type in documentation */
-mach_msg_type_number_t *out_state_count)/* wrong type in documentation */
-{
-    mach_msg_type_number_t i;
-    boolean_t expected_exception, found_segment;
-    unsigned long exception_address;
-    vm_prot_t protection;
-    kern_return_t r;
-
-    expected_exception = FALSE;
-    exception_address = 0;
-    found_segment = FALSE;
-    protection = VM_PROT_NONE;
-
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	/*
-	 * Print out the exception info for this exception.
-	 */
-	printf("internal_catch_exception_raise_state_identity called\n");
-	printf("        exception_port: 0x%x\n", exception_port);
-	printf("                thread: 0x%x\n", thread);
-	printf("                  task: 0x%x\n", task);
-	printf("             exception: 0x%x (%s)\n", exception,
-	        exception_name(exception));
-	printf( "            code_count: 0x%x\n", code_count);
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-
-	for(i = 0 ; i < code_count; i++){
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	    printf("               code[%d]: 0x%x", i, code[i]);
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-	    /*
-	     * I'm guessing the first word of code is what they call
-	     * the "code" and for EXC_BAD_ACCESS this is a kern_return_t.
-	     */
-	    if(exception == EXC_BAD_ACCESS && i == 0){
-		switch(code[i]){
-		case KERN_PROTECTION_FAILURE:
-		    expected_exception = TRUE;
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-		    printf(" (code, KERN_PROTECTION_FAILURE)\n");
-		    break;
-		case KERN_INVALID_ADDRESS:
-		    printf(" (code, KERN_INVALID_ADDRESS)\n");
-		    break;
-		default:
-		    printf(" (code, unknown)\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-		    break;
-		}
-	    }
-	    /*
-	     * I'm guessing the second word of code is what they call
-	     * the "subcode" and and for EXC_BAD_ACCESS this is the bad memory
-	     * address.
-	     */
-	    else if(exception == EXC_BAD_ACCESS && i == 1){
-		exception_address = code[i];
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-		printf(" (subcode, the bad memory address)\n");
+	    determined_system_region_backed = TRUE;
+	    flags = QUERY_IS_SYSTEM_REGION;
+	    (void)load_shared_file(NULL, (caddr_t)NULL, 0,
+		(caddr_t *)&base_address, 0, NULL, &flags);
+	    if((flags & SYSTEM_REGION_BACKED) != SYSTEM_REGION_BACKED){
+		if(dyld_prebind_debug != 0)
+		    print("dyld: in notify_prebinding_agent() determined the "
+			  "system shared regions are NOT used\n");
+		goto leave_notify_prebinding_agent;
 	    }
 	    else{
-		printf("\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
+		if(dyld_prebind_debug != 0)
+		    print("dyld: in notify_prebinding_agent() determined the "
+			  "system shared regions ARE used\n");
 	    }
 	}
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	printf("                flavor: %d ", *flavor);
-	switch(*flavor){
-#ifdef __ppc__
-	case PPC_THREAD_STATE:
-	    printf("PPC_THREAD_STATE\n");
-	    printf("        in_state_count: %d ", in_state_count);
-	    if(in_state_count == PPC_THREAD_STATE_COUNT)
-		printf("PPC_THREAD_STATE_COUNT\n");
-	    else
-		printf("(not PPC_THREAD_STATE_COUNT)\n");
-	    /* print_ppc_thread_state(in_state, *flavor); */
-	    break;
-	case PPC_FLOAT_STATE:
-	    printf("PPC_FLOAT_STATE\n");
-	    printf("        in_state_count: %d ", in_state_count);
-	    if(in_state_count == PPC_FLOAT_STATE_COUNT)
-		printf("PPC_FLOAT_STATE_COUNT\n");
-	    else
-		printf("(not PPC_FLOAT_STATE_COUNT)\n");
-	    /* print_ppc_thread_state(in_state, *flavor); */
-	    break;
-	case PPC_EXCEPTION_STATE:
-	    printf("PPC_EXCEPTION_STATE\n");
-	    printf("        in_state_count: %d ", in_state_count);
-	    if(in_state_count == PPC_EXCEPTION_STATE_COUNT)
-		printf("PPC_EXCEPTION_STATE_COUNT\n");
-	    else
-		printf("(not PPC_EXCEPTION_STATE_COUNT)\n");
-	    /* print_ppc_thread_state(in_state, *flavor); */
-	    break;
-#endif /* __ppc__ */
-#ifdef __i386__
-	case i386_THREAD_STATE:
-	    printf("i386_THREAD_STATE\n");
-	    printf("        in_state_count: %d\n", in_state_count);
-	    break;
-#endif /* __i386__ */
-	default:
-	    printf("(unknown state)\n");
-	    printf("        in_state_count: %d\n", in_state_count);
-	    break;
-	}
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
+#endif /* SYSTEM_REGION_BACKED */
+
 
 	/*
-	 * If we handle the exception we want the thread to just continue from
-	 * where it was so we need to copy the in_state to the out_state.  And
-	 * if we forward the exception the behavior may not include the state
-	 * but since we did we still have to copy the state.  The exception
-	 * handler we are forwarding can still change this state if the want.
+	 * Check the write access of the root file system.  If it is mounted
+	 * read-only then we're probably still starting up the OS and we won't
+	 * be able to write files so just return.
 	 */
-	memcpy(out_state, in_state,
-	       sizeof(mach_msg_type_number_t) * in_state_count);
-	*out_state_count = in_state_count;
+	ret = statfs("/", &sb);
+	if(ret == -1 || (sb.f_flags & MNT_RDONLY) != 0)
+	    goto leave_notify_prebinding_agent;
 
 	/*
-	 * Here's where we take the memory address of the exception and
-	 * check to see if it is in one of our segments and then change the
-	 * protections on that page.  If we can deal with it we return 
-	 * KERN_SUCCESS else we forward the message on to the old exception
-	 * port.
+	 * Paths longer than PATH_MAX won't trigger prebinding, just so
+	 * we don't need to do anything clever with longer paths and
+	 * mach messages. 
+	 *
+	 * I think that this is not needed as the name is sent in out of line
+	 * data with a length.
 	 */
-	if(expected_exception == TRUE){
-	    if(call_lazy_init_routine_for_address(exception_address) == TRUE)
-		return(KERN_SUCCESS);
-	}
-	
+	if(executables_pathlen >= PATH_MAX)
+	    goto leave_notify_prebinding_agent;
+
 	/*
-	 * This exception is not for a area of memory we have the protection
-	 * turned off so forward it to the old exception port using the old
-	 * behavior.
+	 * Until fix_prebinding is build with the ld(1) flag -nofixprebinding
+	 * we check the name of the executable.  This code will be removed at
+	 * some point.
+	 *
+	 * If the name's too short to be fix_prebinding, or if the compare
+	 * doesn't work, then do the re-prebinding.  We need to do the test
+	 * here because notifying fix_prebinding of a problem with
+	 * fix_prebinding can put us in an endless loop.  fix_prebinding can't
+	 * do the check because it would only be able to check after the
+	 * trouble has been started.
 	 */
-	switch(old_behaviors[0]){
-	case EXCEPTION_DEFAULT:
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	    printf("forwarding the exception with exception_raise()\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-	    r = exception_raise(
-		old_exception_ports[0],
-		thread,
-		task,
-		exception,
-		code,
-		code_count);
-	    if(r != KERN_SUCCESS){
-		mach_error(r, "exception_raise() failed in forwarding "
-			   "exception");
-		link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	    }
-	    break;
-
-	case EXCEPTION_STATE:
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	    printf("forwarding the exception with exception_raise_state()\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-	    r = exception_raise_state(
-		old_exception_ports[0],
-		exception,
-		code,
-		code_count,
-		flavor,
-		in_state,
-		in_state_count,
-		out_state,
-		out_state_count);
-	    if(r != KERN_SUCCESS){
-		mach_error(r, "exception_raise_state() failed in forwarding "
-			   "exception");
-		link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	    }
-	    break;
-
-	case EXCEPTION_STATE_IDENTITY:
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	    printf("forwarding the exception with "
-		   "exception_raise_state_identity()\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-	    r = exception_raise_state_identity(
-		old_exception_ports[0],
-		thread,
-		task,
-		exception,
-		code,
-		code_count,
-		flavor,
-		in_state,
-		in_state_count,
-		out_state,
-		out_state_count);
-	    if(r != KERN_SUCCESS){
-		mach_error(r, "exception_raise_state_identity() failed in "
-			   "forwarding exception");
-		link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	    }
-	    break;
-
-	default:
-	    error("unknown old_behavior (%d) of old exception port (don't know "
-		  "how to forward the exception)\n", old_behaviors[0]);
-	    link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_INIT, NULL);
+	if((executables_pathlen >= sizeof("fix_prebinding")) &&
+	   (strcmp(executables_path +
+		   ((executables_pathlen - 1) - (sizeof("fix_prebinding") -1)),
+	          "fix_prebinding")) == 0){
+	    goto leave_notify_prebinding_agent;
 	}
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-	printf("returning with KERN_SUCCESS from my handler for forwarded "
-	       "exception\n");
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-	return(KERN_SUCCESS);
+
+	/*
+	 * The next bit of code should not be in dyld and it is making policy
+	 * on what will have its prebinding fixed.  Also this has to stat()
+	 * calls that are very expensive in the program launch path.
+	 *
+	 * Determine if the executable is not on the root volume.
+	 * If we ever start re-prebinding remote files (or files on other
+	 * local volumes) this code would have to change.
+	 */
+ 
+	/*
+	 * Get the device number for the root directory. If we get an error
+	 * just return and don't fix the prebinding.
+	 */
+	if(stat("/", &rootStat) != 0)
+	    goto leave_notify_prebinding_agent;
+
+	/*
+	 * Get the device number for the executable.  Again if get an error
+	 * just return and don't fix the prebinding.
+	 */
+	if(stat(executables_path, &fileStat) != 0)
+	    goto leave_notify_prebinding_agent;
+
+	/*
+	 * If the device numbers are not the same it is not on the root volume
+	 * so just return and don't fix the prebinding.
+	 */
+	if(fileStat.st_dev != rootStat.st_dev){
+	    if(dyld_prebind_debug != 0)
+	    print("dyld: %s is not on root volume, not re-prebinding.\n",
+		  executables_path);
+	    goto leave_notify_prebinding_agent;
+	}
+
+	/*
+	 * Collect all the information to send to the prebinding server that
+	 * it needs to decide whether the file's prebinding will be fixed.
+	 * If some part of this information can't be gathered then we just
+	 * return and don't fix the prebinding.
+	 */
+
+	/*
+	 * Get the current time.  This is used this to decide whether the
+	 * problems noted in a queued up prebinding warning might have already
+	 * been fixed by the time fix_prebinding gets to work on the file.  The
+	 * value is will be compared against the modification dates of all
+	 * files that need changing; if any were changed after we noted the
+	 * prebinding problem, we assume the problem may have been fixed, and
+	 * fix_prebinding will choose not to fix the binary.
+	 */
+	if(gettimeofday(&currentTime, &currentTimezone) != 0)
+	    goto leave_notify_prebinding_agent;
+
+	/*
+	 * Find the "PrebindServer" service that we'll send the message to.
+	 * This code should be the same when we're communicating with a service
+	 * started by mach_init.
+	 */
+	ret = task_get_bootstrap_port(mach_task_self(), &bootstrapPort);
+	if(ret != KERN_SUCCESS){
+	    if(dyld_prebind_debug != 0)
+		print("dyld: task_get_bootstrap_port() failed with: %d\n", ret);
+	    goto leave_notify_prebinding_agent;
+	}
+
+	serviceName = "PrebindService";
+	serverPort = PORT_NULL;
+	ret = bootstrap_look_up(bootstrapPort,serviceName,&serverPort);
+	if(ret != KERN_SUCCESS){
+	    if(dyld_prebind_debug != 0)
+		print("dyld: bootstrap_look_up() for: %s failed with: %d\n",
+		      serviceName, ret);
+	    goto leave_notify_prebinding_agent;
+	}
+
+
+	/*
+	 * Call the mig stub to actually get the message sent. The mig-generated
+	 * code will actually send the message to fix_prebinding.
+	 */
+	(void)warnBadlyPrebound(serverPort,
+				currentTime,
+				rootStat.st_dev, rootStat.st_ino,
+				executables_path, strlen(executables_path) + 1,
+				0);
+  
+leave_notify_prebinding_agent:
+
+	DYLD_TRACE_IMAGES_END(DYLD_TRACE_notify_prebinding_agent);
 }
-
-#ifdef DEBUG_LAZY_INIT_EXCEPTIONS
-/*
- * exception_name() returns a string name for the exception type passed to
- * it.
- */
-static
-const char *
-exception_name(
-exception_type_t exception)
-{
-	switch(exception){
-	case EXC_BAD_ACCESS:
-	    return("EXC_BAD_ACCESS");
-	case EXC_BAD_INSTRUCTION:
-	    return("EXC_BAD_INSTRUCTION");
-	case EXC_ARITHMETIC:
-	    return("EXC_ARITHMETIC");
-	case EXC_EMULATION:
-	    return("EXC_EMULATION");
-	case EXC_SOFTWARE:
-	    return("EXC_SOFTWARE");
-	case EXC_BREAKPOINT: 
-	     return("EXC_BREAKPOINT");
-	case EXC_SYSCALL:
-	     return("EXC_SYSCALL");
-	case EXC_MACH_SYSCALL:
-	     return("EXC_MACH_SYSCALL");
-	case EXC_RPC_ALERT:
-	     return("EXC_RPC_ALERT");
-	default:
-	    return("Unknown");
-	}
-}
-#endif /* DEBUG_LAZY_INIT_EXCEPTIONS */
-
-/*
- * call_lazy_init_routine_for_address() is the handler for image init routines
- * to be called when they fault on a address who we have turned off the vm
- * protection for.  If the address pass to us is for such an image then
- * all the threads in the task are suppended but this one, the vm protection is
- * restored, the init routine is called, then the threads in the task are
- * resumed.  This routine returns TRUE if the address is for one of our images
- * that has a lazy init routine else it returns FALSE.
- */
-static
-enum bool
-call_lazy_init_routine_for_address(
-unsigned long address)
-{
-    struct library_images *q;
-    struct library_image *library_image;
-    unsigned long i, j;
-    struct load_command *lc, *load_commands;
-    struct segment_command *sg;
-    kern_return_t r;
-    unsigned long addr;
-    void (*init_routine)(void);
-    mach_port_t my_thread, *threads;
-    unsigned int thread_count;
-#ifdef __ppc__
-    double fp_save_area[N_FP_REGS];
-    /* we can't use -fvec because "bool" is a keyword when -fvec is used */
-    /* vector unsigned long vec_save_area[N_VEC_REGS]; */
-    unsigned long vec_save_area[N_VEC_REGS * 4] __attribute__ ((aligned(16)));
-    enum bool saved_regs = FALSE;
-#if !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__)
-    int facilities_used = -1;
-#endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
-#endif /* __ppc__ */
-
-	/* get the dyld lock */
-	set_lock();
-
-	/*
-	 * First see if this address if for a library we have turned off the
-	 * the protection for.
-	 */
-	library_image = NULL;
-	for(q = &library_images; q != NULL; q = q->next_images){
-	    for(i = 0; i < q->nimages; i++){
-		/*
-		 * Split images are not contiguious in memory and can't be
-		 * tested with vmaddr_size.
-		 */
-		if((q->images[i].image.mh->flags & MH_SPLIT_SEGS) != 0){
-		    lc = (struct load_command *)((char *)q->images[i].image.mh +
-			    sizeof(struct mach_header));
-		    for(j = 0; j < q->images[i].image.mh->ncmds; j++){
-			switch(lc->cmd){
-			case LC_SEGMENT:
-			    sg = (struct segment_command *)lc;
-			    if(address >= sg->vmaddr +
-					  q->images[i].image.vmaddr_slide &&
-			       address < sg->vmaddr + sg->vmsize +
-					 q->images[i].image.vmaddr_slide){
-				library_image = q->images + i;
-				goto down;
-			    }
-			}
-			lc = (struct load_command *)((char *)lc + lc->cmdsize);
-		    }
-		}
-		else{
-		    if(address >= ((unsigned long)q->images[i].image.mh) &&
-		       address < ((unsigned long)q->images[i].image.mh) +
-				 q->images[i].image.vmaddr_size){
-			library_image = q->images + i;
-			goto down;
-		    }
-		}
-	    }
-	}
-	/*
-	 * This address is not for a library we have turned off the the
-	 * protection for so return FALSE so our caller will know to forward
-	 * the exception for this address on.
-	 */
-	if(library_image == NULL){
-	    release_lock();
-	    return(FALSE);
-	}
-
-down:
-	/*
-	 * Suspend all the threads in the task are but this one.  This can't
-	 * be done for sure by the task itself as other threads could get
-	 * started by the theads after the task_threads() call or injected
-	 * into the task by another task.  So this is the best we can do.
-	 */
-	my_thread = mach_thread_self();
-	r = task_threads(mach_task_self(), &threads, &thread_count);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't get thread list, task_threads() failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-	for(i = 0; i < thread_count; i++){
-	    if(threads[i] != my_thread){
-		r = thread_suspend(threads[i]);
-		if(r != KERN_SUCCESS){
-		    mach_error(r, "can't suppend threads, thread_suspend() "
-			       "failed");
-		    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-		}
-	    }
-	}
-
-	/*
-	 * Reset the initial protection of the segments which were writeable to
-	 * back to writeable.
-	 */
-	load_commands = (struct load_command *)
-		    ((char *)library_image->image.mh +
-		     sizeof(struct mach_header));
-	lc = load_commands;
-	for(i = 0; i < library_image->image.mh->ncmds; i++){
-	    switch(lc->cmd){
-	    case LC_SEGMENT:
-		sg = (struct segment_command *)lc;
-		address = sg->vmaddr +
-			  library_image->image.vmaddr_slide;
-		if((sg->initprot & VM_PROT_WRITE) != 0 &&
-		   address != (vm_address_t)library_image->image.mh &&
-		   sg != library_image->image.linkedit_segment){
-		    if((r = vm_protect(mach_task_self(), address,
-			       (vm_size_t)sg->vmsize,
-			       FALSE, sg->initprot)) !=
-			       KERN_SUCCESS){
-			mach_error(r, "can't vm_protect segment: "
-			    "%.16s for library: %s", sg->segname,
-			    library_image->image.name);
-			link_edit_error(DYLD_MACH_RESOURCE, r,
-			    library_image->image.name);
-		    }
-		}
-		break;
-	    }
-	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
-	}
-
-	/*
-	 * Call the image init routine and clear the "to be called lazy" bit.
-	 */
-	if(library_image->image.rc != NULL &&
-	   library_image->image.lazy_init == TRUE){
-
-	    /* clear the indication this is to be called lazy */
-	    library_image->image.lazy_init = FALSE;
-
-	    /* mark this image as having its init routine called */
-	    library_image->image.init_called = TRUE;
-
-	    /* now actually call the init routine */
-	    addr = library_image->image.rc->init_address +
-		   library_image->image.vmaddr_slide;
-	    init_routine = (void(*)(void))addr;
-
-	    if(init_routine_being_called == FALSE)
-		init_routine_being_called = TRUE;
-	    else if(dyld_abort_multiple_inits == TRUE)
-		abort();
-
-/*
-printf("Calling init routine 0x%x in %s\n", init_routine, library_image->image.name);
-*/
-	    release_lock();
-	    init_routine();
-	    set_lock();
-	    init_routine_being_called = FALSE;
-
-	    /*
-	     * Call the module init routines for this library.
-	     */
-	    call_module_initializers_for_library(
-		    library_image,
-#ifdef __ppc__
-		    fp_save_area,
-		    vec_save_area,
-		    &saved_regs,
-#if !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__)
-		    &facilities_used,
-#endif /* !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__) */
-#endif /* __ppc__ */
-		    TRUE  /* make_delayed_calls */,
-		    FALSE /* bind_now */);
-#ifdef __ppc__
-	    if(saved_regs == TRUE){
-#if !defined(__GONZO_BUNSEN_BEAKER__) && !defined(__HERA__)
-		if(facilities_used & floatUsed)
-#endif
-		    ppc_fp_restore(fp_save_area);
-#if defined(__GONZO_BUNSEN_BEAKER__) || defined(__HERA__)
-		if(processor_has_vec == TRUE)
-#else
-		if(_cpu_has_altivec == TRUE && (facilities_used & vectorUsed))
-#endif
-		    ppc_vec_restore(vec_save_area);
-	    }
-#endif /* __ppc__ */
-	}
-
-	/*
-	 * Resume all the threads in the task but this one.
-	 */
-	for(i = 0; i < thread_count; i++){
-	    if(threads[i] != my_thread){
-		r = thread_resume(threads[i]);
-		if(r != KERN_SUCCESS){
-		    mach_error(r, "can't resume threads, thread_resume() "
-			       "failed");
-		    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-		}
-		r = mach_port_deallocate(mach_task_self(), threads[i]);
-		if(r != KERN_SUCCESS){
-		    mach_error(r, "can't deallocate port right, "
-			"mach_port_deallocate() failed");
-		    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-		}
-	    }
-	}
-	r = vm_deallocate(mach_task_self(), (vm_address_t)threads,
-			  sizeof(threads[0]) * thread_count);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't vm_deallocate threads list memory");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-	r = mach_port_deallocate(mach_task_self(), my_thread);
-	if(r != KERN_SUCCESS){
-	    mach_error(r, "can't deallocate port right, "
-		"mach_port_deallocate() failed");
-	    link_edit_error(DYLD_MACH_RESOURCE, r, NULL);
-	}
-
-	/*
-	 * Release the dyld lock and return TRUE to our caller indicating we
-	 * handled the exception and to just let the the thread causing the
-	 * exception to continue.
-	 */
-	release_lock();
-	return(TRUE);
-}
-#endif __MACH30__

@@ -33,7 +33,8 @@
 
 /* PPP message paquets */
 struct ppp_msg_hdr {
-    u_int32_t 		m_type; 	// type of the message
+    u_int16_t 		m_flags; 	// special flags
+    u_int16_t 		m_type; 	// type of the message
     u_int32_t 		m_result; 	// error code of notification message
     u_int32_t 		m_cookie;	// user param
     u_int32_t 		m_link;		// link for this message
@@ -41,7 +42,8 @@ struct ppp_msg_hdr {
 };
 
 struct ppp_msg {
-    u_int32_t 		m_type; 	// type of the message
+    u_int16_t 		m_flags; 	// special flags
+    u_int16_t 		m_type; 	// type of the message
     u_int32_t 		m_result; 	// error code of notification message
     u_int32_t 		m_cookie;	// user param, or error num for event
     u_int32_t 		m_link;		// link for this message
@@ -65,8 +67,22 @@ enum {
     PPP_EVENT,
     PPP_GETNBLINKS,
     PPP_GETLINKBYINDEX,
-    PPP_GETLINKBYSERVICEID
+    PPP_GETLINKBYSERVICEID,
+    PPP_GETLINKBYIFNAME,
+    PPP_SUSPEND,
+    PPP_RESUME
 };
+
+// flags
+
+/* When USE_SERVICEID is set, m_link contains the serviceID length
+   serviceID string is put after m_len field
+   and m_len still contains the data lenght, excluding serviceID string */
+#define USE_SERVICEID	0x8000 
+
+
+/* macro to access real data base on header flags */
+#define MSG_DATAOFF(msg)	(((struct ppp_msg_hdr *)msg)->m_flags & USE_SERVICEID ?                                     ((struct ppp_msg_hdr *)msg)->m_link : 0)
 
 // struct for an option
 struct ppp_opt_hdr {
@@ -119,8 +135,9 @@ enum {
     PPP_OPT_RESERVED2,			// place holder
     PPP_OPT_DEV_CONNECTSPEED,		// 4 bytes, actual connection speed
     PPP_OPT_SERVICEID,			// string, name of the associated service in the cache
-    PPP_OPT_IFNAME			// string, name of the associated interface (ppp0, ...)
+    PPP_OPT_IFNAME,			// string, name of the associated interface (ppp0, ...)
     
+    PPP_OPT_DEV_DIALMODE		// 4 bytes, dial mode, applies to modem connection
 };
 
 // options values
@@ -167,6 +184,13 @@ enum {
     PPP_AUTH_CHAP
 };
 
+// PPP_OPT_DEV_DIALMODE
+enum {
+    PPP_DEV_WAITFORDIALTONE = 0,
+    PPP_DEV_IGNOREDIALTONE,
+    PPP_DEV_MANUALDIAL
+};
+
 // state machine
 enum {
     PPP_IDLE = 0,
@@ -179,7 +203,10 @@ enum {
     PPP_NETWORK,
     PPP_RUNNING,
     PPP_TERMINATE,
-    PPP_DISCONNECTLINK
+    PPP_DISCONNECTLINK,
+    PPP_HOLDOFF,
+    PPP_ONHOLD,
+    PPP_WAITONBUSY
 };
 
 // events
@@ -202,7 +229,9 @@ enum {
     PPP_EVT_CONN_FAILED,
     PPP_EVT_CONN_SUCCEDED,
     PPP_EVT_DISC_STARTED,
-    PPP_EVT_DISC_FINISHED
+    PPP_EVT_DISC_FINISHED,
+    PPP_EVT_STOPPED,
+    PPP_EVT_CONTINUED
 };
 
 struct ppp_opt_echo {		// 0 for the following value will cancel echo option
@@ -228,6 +257,9 @@ struct ppp_status {
         struct disconnected {
             u_int32_t 		lastDiscCause;
         } disc;
+        struct waitonbusy {
+            u_int32_t 		timeRemaining;
+        } busy;
     } s;
 };
 
@@ -247,13 +279,16 @@ enum {
     PPP_ERR_DISCSCRIPTFAILED,
     PPP_ERR_DISCBYPEER,
     PPP_ERR_DISCBYDEVICE,
+    PPP_ERR_NODEVICE,
     
     // modem specific error codes
     PPP_ERR_MOD_NOCARRIER	= 512,
     PPP_ERR_MOD_BUSY,
     PPP_ERR_MOD_NODIALTONE,
     PPP_ERR_MOD_ERROR,
-    PPP_ERR_MOD_HANGUP
+    PPP_ERR_MOD_HANGUP,
+    PPP_ERR_MOD_NOANSWER,
+    PPP_ERR_MOD_NONUMBER
 };
 
 #endif /* PPP_MSG_H */

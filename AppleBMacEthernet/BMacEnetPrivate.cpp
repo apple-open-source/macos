@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -898,7 +901,7 @@ void BMacEnet::_sendPacket(void *pkt, unsigned int pkt_len)
     ns_time_t	currentTime;
     u_int32_t	elapsedTimeMS;
 
-    if (!ready || !pkt || (pkt_len > ETHERMAXPACKET))
+    if (!ready || !pkt || (pkt_len > (kIOEthernetMaxPacketSize - kIOEthernetCRCSize)) )
       return;
 
     /*
@@ -997,18 +1000,21 @@ bool BMacEnet::_receiveInterruptOccurred()
  * Thus function returns true if the packet should be rejected.
  *-------------------------------------------------------------------------*/
 
-bool BMacEnet::_rejectBadUnicastPacket(ether_header_t * etherHeader)
+bool BMacEnet::_rejectBadUnicastPacket(struct ether_header * etherHeader)
 {
 	bool rejectPacket = false;
 
+#define kBMacEnetGroupByte 0
+#define kBMacEnetGroupBit  0x01
+
 	if ( useUnicastFilter && (isPromiscuous == false) &&
-		(etherHeader->ether_dhost[EA_GROUP_BYTE] & EA_GROUP_BIT) == 0) {
+		(etherHeader->ether_dhost[kBMacEnetGroupByte] & kBMacEnetGroupBit) == 0) {
 		//
 		// Destination Ethernet address is not multicast nor broadcast.
 		// Then it must be addresses to the station MAC address,
 		// otherwise reject the packet.
 		//
-		if (bcmp(etherHeader->ether_dhost, &myAddress, NUM_EN_ADDR_BYTES) != 0)
+		if (bcmp(etherHeader->ether_dhost, &myAddress, kIOEthernetAddressSize) != 0)
 			rejectPacket = true;
 	}
 
@@ -1094,10 +1100,10 @@ bool BMacEnet::_receivePackets(bool fDebugger)
 		/*
 		 * Reject packets that are runts or that have other mutations.
 		 */
-		if ( receivedFrameSize < (ETHERMINPACKET - ETHERCRC) || 
-			 receivedFrameSize > (ETHERMAXPACKET + ETHERCRC) ||
+		if ( receivedFrameSize < (kIOEthernetMinPacketSize - kIOEthernetCRCSize) || 
+			 receivedFrameSize > (kIOEthernetMaxPacketSize) ||
 			 rxPktStatus & kRxAbortBit ||
-			 _rejectBadUnicastPacket(mtod(rxMbuf[i], ether_header_t *))
+			 _rejectBadUnicastPacket(mtod(rxMbuf[i], struct ether_header *))
 			 )
 		{
 			if (useNetif) netStats->inputErrors++;

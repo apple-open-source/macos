@@ -22,6 +22,7 @@
 
 #include <machine/limits.h>                  // (ULONG_MAX, ...)
 #include <IOKit/IODeviceTreeSupport.h>       // (gIODTPlane, ...)
+#include <IOKit/IOLib.h>                     // (IONew, ...)
 #include <IOKit/storage/IOMedia.h>
 
 #define super IOStorage
@@ -55,34 +56,19 @@ bool IOMedia::init(UInt64         base,
     // Initialize this object's minimal state.
     //
 
-    if (super::init(properties) == false)  return false;
+    IOMediaAttributeMask attributes = 0;
 
-    _mediaBase          = base;
-    _mediaSize          = size;
-    _isEjectable        = isEjectable;
-    _isWhole            = isWhole;
-    _isWritable         = isWritable;
-    _openLevel          = kIOStorageAccessNone;
-    _openReaders        = OSSet::withCapacity(1);
-    _openReaderWriter   = 0;
-    _preferredBlockSize = preferredBlockSize;
+    attributes |= isEjectable ? kIOMediaAttributeEjectableMask : 0;
+    attributes |= isEjectable ? kIOMediaAttributeRemovableMask : 0;
 
-    if (_openReaders == 0)  return false;
-
-    //
-    // Create the standard media registry properties.
-    //
-
-    setProperty(kIOMediaContentKey,            contentHint ? contentHint : "");
-    setProperty(kIOMediaContentHintKey,        contentHint ? contentHint : "");
-    setProperty(kIOMediaEjectableKey,          isEjectable);
-    setProperty(kIOMediaLeafKey,               true);
-    setProperty(kIOMediaPreferredBlockSizeKey, preferredBlockSize, 64);
-    setProperty(kIOMediaSizeKey,               size, 64);
-    setProperty(kIOMediaWholeKey,              isWhole);
-    setProperty(kIOMediaWritableKey,           isWritable);
-
-    return true;
+    return init( /* base               */ base,
+                 /* size               */ size,
+                 /* preferredBlockSize */ preferredBlockSize,
+                 /* attributes         */ attributes,
+                 /* isWhole            */ isWhole,
+                 /* isWritable         */ isWritable,
+                 /* contentHint        */ contentHint,
+                 /* properties         */ properties );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -316,7 +302,7 @@ bool IOMedia::handleOpen(IOService *  client,
             {
                 if (driver && driver != client)    // (was tear down necessary?)
                 {
-                    registerService(kIOServiceSynchronous);
+                    registerService();
                 }
             }
 
@@ -326,10 +312,6 @@ bool IOMedia::handleOpen(IOService *  client,
 
     //
     // Process the open.
-    //
-    // We make sure our open state is consistent before calling registerService
-    // (if applicable) since this method can be called again on the same thread
-    // (the lock protecting handleOpen is recursive, so access would be given). 
     //
 
     _openLevel = level;
@@ -344,7 +326,7 @@ bool IOMedia::handleOpen(IOService *  client,
 
             if (driver == 0 && isInactive() == false)
             {
-                registerService(kIOServiceSynchronous);   // (re-register media)
+                registerService();                        // (re-register media)
             }
         }
     }
@@ -469,13 +451,9 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
     // will attempt to match storage drivers that may now be interested in this
     // media.
     //
-    // We make sure our open state is consistent before calling registerService
-    // (if applicable) since this method can be called again on the same thread
-    // (the lock protecting handleClose is recursive, so access would be given).
-    //
 
     if (reregister)
-        registerService(kIOServiceSynchronous);           // (re-register media)
+        registerService();                                // (re-register media)
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -510,6 +488,12 @@ void IOMedia::read(IOService *          /* client */,
     if (_mediaSize == 0 || _preferredBlockSize == 0)
     {
         complete(completion, kIOReturnUnformattedMedia);
+        return;
+    }
+
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
         return;
     }
 
@@ -572,6 +556,12 @@ void IOMedia::write(IOService *          client,
         return;
     }
 
+    if (buffer == 0)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
     if (_mediaSize < byteStart + buffer->getLength())
     {
         complete(completion, kIOReturnBadArgument);
@@ -586,6 +576,10 @@ void IOMedia::write(IOService *          client,
 
 IOReturn IOMedia::synchronizeCache(IOService * client)
 {
+    //
+    // Flush the cached data in the storage object, if any, synchronously.
+    //
+
     if (isInactive())
     {
         return kIOReturnNoMedia;
@@ -657,7 +651,7 @@ bool IOMedia::isEjectable() const
     // Ask the media object whether it is ejectable.
     //
 
-    return _isEjectable;
+    return (_attributes & kIOMediaAttributeEjectableMask) ? true : false;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -744,30 +738,126 @@ bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
     // Compare the properties in the supplied table to this object's properties.
     //
 
+    OSCollectionIterator * properties;
+    bool                   success = true;
+
     // Ask our superclass' opinion.
 
     if (super::matchPropertyTable(table, score) == false)  return false;
 
-    // We return success if the following expression is true -- individual
-    // comparisions evaluate to truth if the named property is not present
-    // in the supplied table.
+    // Compare properties.
 
-    return compareProperty(table, kIOMediaContentKey)     &&
-           compareProperty(table, kIOMediaContentHintKey) &&
-           compareProperty(table, kIOMediaEjectableKey)   &&
-           compareProperty(table, kIOMediaLeafKey)        &&
-           compareProperty(table, kIOMediaSizeKey)        &&
-           compareProperty(table, kIOMediaWholeKey)       &&
-           compareProperty(table, kIOMediaWritableKey)    ;
+    properties = OSCollectionIterator::withCollection(table);
+
+    if (properties)
+    {
+        OSSymbol * property;
+
+        while ((property = (OSSymbol *) properties->getNextObject()))
+        {
+///m:2922205:workaround:added:start
+            extern const OSSymbol * gIOMatchCategoryKey;
+            extern const OSSymbol * gIOProbeScoreKey;
+
+            if ( property->isEqualTo(gIOMatchCategoryKey) ||
+                 property->isEqualTo(gIOProbeScoreKey   ) )
+            {
+                continue;
+            }
+///m:2922205:workaround:added:stop
+            OSObject * valueFromMedia = copyProperty(property);
+            OSObject * valueFromTable = table->getObject(property);
+
+            if (valueFromMedia)
+            {
+                success = valueFromMedia->isEqualTo(valueFromTable);
+
+                valueFromMedia->release();
+
+                if (success == false)  break;
+            }
+        }
+
+        properties->release();
+    }
+
+    return success;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOMedia, 0);
+bool IOMedia::init(UInt64               base,
+                   UInt64               size,
+                   UInt64               preferredBlockSize,
+                   IOMediaAttributeMask attributes,
+                   bool                 isWhole,
+                   bool                 isWritable,
+                   const char *         contentHint = 0,
+                   OSDictionary *       properties  = 0)
+{
+    //
+    // Initialize this object's minimal state.
+    //
+
+    bool isEjectable;
+    bool isRemovable;
+
+    // Ask our superclass' opinion.
+
+    if (super::init(properties) == false)  return false;
+
+    // Initialize our state.
+
+    isEjectable = (attributes & kIOMediaAttributeEjectableMask) ? true : false;
+    isRemovable = (attributes & kIOMediaAttributeRemovableMask) ? true : false;
+
+    if (isEjectable)
+    {
+        attributes |= kIOMediaAttributeRemovableMask;
+        isRemovable = true;
+    }
+
+    _attributes         = attributes;
+    _mediaBase          = base;
+    _mediaSize          = size;
+    _isWhole            = isWhole;
+    _isWritable         = isWritable;
+    _openLevel          = kIOStorageAccessNone;
+    _openReaders        = OSSet::withCapacity(1);
+    _openReaderWriter   = 0;
+    _preferredBlockSize = preferredBlockSize;
+
+    if (_openReaders == 0)  return false;
+
+    // Create our registry properties.
+
+    setProperty(kIOMediaContentKey,            contentHint ? contentHint : "");
+    setProperty(kIOMediaContentHintKey,        contentHint ? contentHint : "");
+    setProperty(kIOMediaEjectableKey,          isEjectable);
+    setProperty(kIOMediaLeafKey,               true);
+    setProperty(kIOMediaPreferredBlockSizeKey, preferredBlockSize, 64);
+    setProperty(kIOMediaRemovableKey,          isRemovable);
+    setProperty(kIOMediaSizeKey,               size, 64);
+    setProperty(kIOMediaWholeKey,              isWhole);
+    setProperty(kIOMediaWritableKey,           isWritable);
+
+    return true;
+}
+
+OSMetaClassDefineReservedUsed(IOMedia, 0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOMedia, 1);
+IOMediaAttributeMask IOMedia::getAttributes() const
+{
+    //
+    // Ask the media object for its attributes.
+    //
+
+    return _attributes;
+}
+
+OSMetaClassDefineReservedUsed(IOMedia, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -14,5 +14,4 @@ install::
 install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
-	$(_v) $(INSTALL_DIRECTORY) -m 1777 "$(Destination)/cores"
 	$(_v) $(INSTALL_DIRECTORY) -m 1777 "$(Destination)/tmp"

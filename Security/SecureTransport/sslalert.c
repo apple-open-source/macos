@@ -63,6 +63,8 @@
 #include "sslDebug.h"
 #endif
 
+#include <assert.h>
+
 SSLErr
 SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
 {   SSLErr              err = SSLNoErr;
@@ -91,7 +93,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
          */
         if (level == alert_fatal)
         {   
-        	SSLDeleteSessionID(ctx);
+        	SSLDeleteSessionData(ctx);
             dprintf1("***Fatal alert %d received", desc);
             return SSLFatalAlert;
         }
@@ -105,7 +107,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
                 /* These must always be fatal; if we got here, the level is warning;
                  *  die anyway
                  */
-                SSLDeleteSessionID(ctx);
+                SSLDeleteSessionData(ctx);
                 err = SSLFatalAlert;
                 break;
             case alert_close_notify:
@@ -138,13 +140,12 @@ SSLSendAlert(AlertLevel level, AlertDescription desc, SSLContext *ctx)
 {   SSLRecord       rec;
     SSLErr          err;
     
-    CASSERT((ctx->negProtocolVersion == SSL_Version_3_0) ||
-            (ctx->negProtocolVersion == SSL_Version_Undetermined) ||
-            (ctx->negProtocolVersion == SSL_Version_3_0_Only));
+    CASSERT((ctx->negProtocolVersion != SSL_Version_2_0));
     
     if ((err = SSLEncodeAlert(&rec, level, desc, ctx)) != 0)
         return err;
-    if ((err = SSLWriteRecord(rec, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if ((err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
         return err;
     if ((err = SSLFreeBuffer(&rec.contents, &ctx->sysCtx)) != 0)
         return err;
@@ -157,7 +158,14 @@ SSLEncodeAlert(SSLRecord *rec, AlertLevel level, AlertDescription desc, SSLConte
 {   SSLErr          err;
     
     rec->contentType = SSL_alert;
-    rec->protocolVersion = SSL_Version_3_0;
+    CASSERT((ctx->negProtocolVersion != SSL_Version_2_0));
+	if(ctx->negProtocolVersion == SSL_Version_Undetermined) {
+		/* error while negotiating */
+		rec->protocolVersion = ctx->maxProtocolVersion;
+	}
+	else {
+		rec->protocolVersion = ctx->negProtocolVersion;
+	}
     rec->contents.length = 2;
     if ((err = SSLAllocBuffer(&rec->contents, 2, &ctx->sysCtx)) != 0)
         return err;
@@ -179,7 +187,7 @@ SSLFatalSessionAlert(AlertDescription desc, SSLContext *ctx)
     
     /* Make session unresumable; I'm not stopping if I get an error,
         because I'd like to attempt to send the alert anyway */
-    err1 = SSLDeleteSessionID(ctx);
+    err1 = SSLDeleteSessionData(ctx);
     
     /* Second, send the alert */
     err2 = SSLSendAlert(alert_fatal, desc, ctx);

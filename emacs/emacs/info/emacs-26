@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,617 +11,1174 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Windows Processes,  Next: Windows System Menu,  Prev: MS-DOS Processes,  Up: MS-DOS
+File: emacs,  Node: Rebinding,  Next: Init Rebinding,  Prev: Minibuffer Maps,  Up: Key Bindings
 
-Subprocesses on Windows 95 and NT
-=================================
+Changing Key Bindings Interactively
+-----------------------------------
 
-   Emacs compiled as a native Windows application (as opposed to the DOS
-version) includes full support for asynchronous subprocesses.  In the
-Windows version, synchronous and asynchronous subprocesses work fine on
-both Windows 95 and Windows NT as long as you run only 32-bit Windows
-applications.  However, when you run a DOS application in a subprocess,
-you may encounter problems or be unable to run the application at all;
-and if you run two DOS applications at the same time in two
-subprocesses, you may have to reboot your system.
+   The way to redefine an Emacs key is to change its entry in a keymap.
+You can change the global keymap, in which case the change is effective
+in all major modes (except those that have their own overriding local
+definitions for the same key).  Or you can change the current buffer's
+local map, which affects all buffers using the same major mode.
 
-   Since the standard command interpreter (and most command line
-utilities) on Windows 95 are DOS applications, these problems are
-significant when using that system.  But there's nothing we can do
-about them; only Microsoft can fix them.
+`M-x global-set-key <RET> KEY CMD <RET>'
+     Define KEY globally to run CMD.
 
-   If you run just one DOS application subprocess, the subprocess should
-work as expected as long as it is "well-behaved" and does not perform
-direct screen access or other unusual actions.  If you have a CPU
-monitor application, your machine will appear to be 100% busy even when
-the DOS application is idle, but this is only an artifact of the way CPU
-monitors measure processor load.
+`M-x local-set-key <RET> KEY CMD <RET>'
+     Define KEY locally (in the major mode now in effect) to run CMD.
 
-   You must terminate the DOS application before you start any other DOS
-application in a different subprocess.  Emacs is unable to interrupt or
-terminate a DOS subprocess.  The only way you can terminate such a
-subprocess is by giving it a command that tells its program to exit.
+`M-x global-unset-key <RET> KEY'
+     Make KEY undefined in the global map.
 
-   If you attempt to run two DOS applications at the same time in
-separate subprocesses, the second one that is started will be suspended
-until the first one finishes, even if either or both of them are
-asynchronous.
+`M-x local-unset-key <RET> KEY'
+     Make KEY undefined locally (in the major mode now in effect).
 
-   If you can go to the first subprocess, and tell it to exit, the
-second subprocess should continue normally.  However, if the second
-subprocess is synchronous, Emacs itself will be hung until the first
-subprocess finishes.  If it will not finish without user input, then
-you have no choice but to reboot if you are running on Windows 95.  If
-you are running on Windows NT, you can use a process viewer application
-to kill the appropriate instance of ntvdm instead (this will terminate
-both DOS subprocesses).
+   For example, suppose you like to execute commands in a subshell
+within an Emacs buffer, instead of suspending Emacs and executing
+commands in your login shell.  Normally, `C-z' is bound to the function
+`suspend-emacs' (when not using the X Window System), but you can
+change `C-z' to invoke an interactive subshell within Emacs, by binding
+it to `shell' as follows:
 
-   If you have to reboot Windows 95 in this situation, do not use the
-`Shutdown' command on the `Start' menu; that usually hangs the system.
-Instead, type `CTL-ALT-<DEL>' and then choose `Shutdown'.  That usually
-works, although it may take a few minutes to do its job.
+     M-x global-set-key <RET> C-z shell <RET>
+
+`global-set-key' reads the command name after the key.   After you
+press the key, a message like this appears so that you can confirm that
+you are binding the key you want:
+
+     Set key C-z to command:
+
+   You can redefine function keys and mouse events in the same way; just
+type the function key or click the mouse when it's time to specify the
+key to rebind.
+
+   You can rebind a key that contains more than one event in the same
+way.  Emacs keeps reading the key to rebind until it is a complete key
+(that is, not a prefix key).  Thus, if you type `C-f' for KEY, that's
+the end; the minibuffer is entered immediately to read CMD.  But if you
+type `C-x', another character is read; if that is `4', another
+character is read, and so on.  For example,
+
+     M-x global-set-key <RET> C-x 4 $ spell-other-window <RET>
+
+redefines `C-x 4 $' to run the (fictitious) command
+`spell-other-window'.
+
+   The two-character keys consisting of `C-c' followed by a letter are
+reserved for user customizations.  Lisp programs are not supposed to
+define these keys, so the bindings you make for them will be available
+in all major modes and will never get in the way of anything.
+
+   You can remove the global definition of a key with
+`global-unset-key'.  This makes the key "undefined"; if you type it,
+Emacs will just beep.  Similarly, `local-unset-key' makes a key
+undefined in the current major mode keymap, which makes the global
+definition (or lack of one) come back into effect in that major mode.
+
+   If you have redefined (or undefined) a key and you subsequently wish
+to retract the change, undefining the key will not do the job--you need
+to redefine the key with its standard definition.  To find the name of
+the standard definition of a key, go to a Fundamental mode buffer and
+use `C-h c'.  The documentation of keys in this manual also lists their
+command names.
+
+   If you want to prevent yourself from invoking a command by mistake,
+it is better to disable the command than to undefine the key.  A
+disabled command is less work to invoke when you really want to.  *Note
+Disabling::.
 
 
-File: emacs,  Node: Windows System Menu,  Prev: Windows Processes,  Up: MS-DOS
+File: emacs,  Node: Init Rebinding,  Next: Function Keys,  Prev: Rebinding,  Up: Key Bindings
 
-Using the System Menu on Windows
-================================
+Rebinding Keys in Your Init File
+--------------------------------
 
-   Emacs compiled as a native Windows application normally turns off the
-Windows feature that tapping the <ALT> key invokes the Windows menu.
-The reason is that the <ALT> also serves as <META> in Emacs.  When
-using Emacs, users often press the <META> key temporarily and then
-change their minds; if this has the effect of bringing up the Windows
-menu, it alters the meaning of subsequent commands.  Many users find
-this frustrating.
+   If you have a set of key bindings that you like to use all the time,
+you can specify them in your `.emacs' file by using their Lisp syntax.
+(*Note Init File::.)
 
-   You can reenable Windows's default handling of tapping the <ALT> key
-by setting `w32-pass-alt-to-system' to a non-`nil' value.
+   The simplest method for doing this works for ASCII characters and
+Meta-modified ASCII characters only.  This method uses a string to
+represent the key sequence you want to rebind.  For example, here's how
+to bind `C-z' to `shell':
+
+     (global-set-key "\C-z" 'shell)
+
+This example uses a string constant containing one character, `C-z'.
+The single-quote before the command name, `shell', marks it as a
+constant symbol rather than a variable.  If you omit the quote, Emacs
+would try to evaluate `shell' immediately as a variable.  This probably
+causes an error; it certainly isn't what you want.
+
+   Here is another example that binds a key sequence two characters
+long:
+
+     (global-set-key "\C-xl" 'make-symbolic-link)
+
+   To put <TAB>, <RET>, <ESC>, or <DEL> in the string, you can use the
+Emacs Lisp escape sequences, `\t', `\r', `\e', and `\d'.  Here is an
+example which binds `C-x <TAB>':
+
+     (global-set-key "\C-x\t" 'indent-rigidly)
+
+   These examples show how to write some other special ASCII characters
+in strings for key bindings:
+
+     (global-set-key "\r" 'newline)               ;; <RET>
+     (global-set-key "\d" 'delete-backward-char)  ;; <DEL>
+     (global-set-key "\C-x\e\e" 'repeat-complex-command)  ;; <ESC>
+
+   When the key sequence includes function keys or mouse button events,
+or non-ASCII characters such as `C-=' or `H-a', you must use the more
+general method of rebinding, which uses a vector to specify the key
+sequence.
+
+   The way to write a vector in Emacs Lisp is with square brackets
+around the vector elements.  Use spaces to separate the elements.  If an
+element is a symbol, simply write the symbol's name--no other
+delimiters or punctuation are needed.  If a vector element is a
+character, write it as a Lisp character constant: `?' followed by the
+character as it would appear in a string.
+
+   Here are examples of using vectors to rebind `C-=' (a control
+character not in ASCII), `C-M-=' (not in ASCII because `C-=' is not),
+`H-a' (a Hyper character; ASCII doesn't have Hyper at all), <F7> (a
+function key), and `C-Mouse-1' (a keyboard-modified mouse button):
+
+     (global-set-key [?\C-=] 'make-symbolic-link)
+     (global-set-key [?\M-\C-=] 'make-symbolic-link)
+     (global-set-key [?\H-a] 'make-symbolic-link)
+     (global-set-key [f7] 'make-symbolic-link)
+     (global-set-key [C-mouse-1] 'make-symbolic-link)
+
+   You can use a vector for the simple cases too.  Here's how to
+rewrite the first three examples above, using vectors to bind `C-z',
+`C-x l', and `C-x <TAB>':
+
+     (global-set-key [?\C-z] 'shell)
+     (global-set-key [?\C-x ?l] 'make-symbolic-link)
+     (global-set-key [?\C-x ?\t] 'indent-rigidly)
+     (global-set-key [?\r] 'newline)
+     (global-set-key [?\d] 'delete-backward-char)
+     (global-set-key [?\C-x ?\e ?\e] 'repeat-complex-command)
+
+As you see, you represent a multi-character key sequence with a vector
+by listing each of the characters within the square brackets that
+delimit the vector.
 
 
-File: emacs,  Node: Manifesto,  Prev: MS-DOS,  Up: Top
-
-The GNU Manifesto
-*****************
-
-     The GNU Manifesto which appears below was written by Richard
-     Stallman at the beginning of the GNU project, to ask for
-     participation and support.  For the first few years, it was
-     updated in minor ways to account for developments, but now it
-     seems best to leave it unchanged as most people have seen it.
-
-     Since that time, we have learned about certain common
-     misunderstandings that different wording could help avoid.
-     Footnotes added in 1993 help clarify these points.
-
-     For up-to-date information about the available GNU software,
-     please see the latest issue of the GNU's Bulletin.  The list is
-     much too long to include here.
-
-What's GNU?  Gnu's Not Unix!
-============================
-
-   GNU, which stands for Gnu's Not Unix, is the name for the complete
-Unix-compatible software system which I am writing so that I can give it
-away free to everyone who can use it.(1) Several other volunteers are
-helping me.  Contributions of time, money, programs and equipment are
-greatly needed.
-
-   So far we have an Emacs text editor with Lisp for writing editor
-commands, a source level debugger, a yacc-compatible parser generator,
-a linker, and around 35 utilities.  A shell (command interpreter) is
-nearly completed.  A new portable optimizing C compiler has compiled
-itself and may be released this year.  An initial kernel exists but
-many more features are needed to emulate Unix.  When the kernel and
-compiler are finished, it will be possible to distribute a GNU system
-suitable for program development.  We will use TeX as our text
-formatter, but an nroff is being worked on.  We will use the free,
-portable X window system as well.  After this we will add a portable
-Common Lisp, an Empire game, a spreadsheet, and hundreds of other
-things, plus on-line documentation.  We hope to supply, eventually,
-everything useful that normally comes with a Unix system, and more.
-
-   GNU will be able to run Unix programs, but will not be identical to
-Unix.  We will make all improvements that are convenient, based on our
-experience with other operating systems.  In particular, we plan to
-have longer file names, file version numbers, a crashproof file system,
-file name completion perhaps, terminal-independent display support, and
-perhaps eventually a Lisp-based window system through which several
-Lisp programs and ordinary Unix programs can share a screen.  Both C
-and Lisp will be available as system programming languages.  We will
-try to support UUCP, MIT Chaosnet, and Internet protocols for
-communication.
-
-   GNU is aimed initially at machines in the 68000/16000 class with
-virtual memory, because they are the easiest machines to make it run
-on.  The extra effort to make it run on smaller machines will be left
-to someone who wants to use it on them.
-
-   To avoid horrible confusion, please pronounce the `G' in the word
-`GNU' when it is the name of this project.
-
-Why I Must Write GNU
-====================
-
-   I consider that the golden rule requires that if I like a program I
-must share it with other people who like it.  Software sellers want to
-divide the users and conquer them, making each user agree not to share
-with others.  I refuse to break solidarity with other users in this
-way.  I cannot in good conscience sign a nondisclosure agreement or a
-software license agreement.  For years I worked within the Artificial
-Intelligence Lab to resist such tendencies and other inhospitalities,
-but eventually they had gone too far: I could not remain in an
-institution where such things are done for me against my will.
-
-   So that I can continue to use computers without dishonor, I have
-decided to put together a sufficient body of free software so that I
-will be able to get along without any software that is not free.  I
-have resigned from the AI lab to deny MIT any legal excuse to prevent
-me from giving GNU away.
-
-Why GNU Will Be Compatible with Unix
-====================================
-
-   Unix is not my ideal system, but it is not too bad.  The essential
-features of Unix seem to be good ones, and I think I can fill in what
-Unix lacks without spoiling them.  And a system compatible with Unix
-would be convenient for many other people to adopt.
-
-How GNU Will Be Available
-=========================
-
-   GNU is not in the public domain.  Everyone will be permitted to
-modify and redistribute GNU, but no distributor will be allowed to
-restrict its further redistribution.  That is to say, proprietary
-modifications will not be allowed.  I want to make sure that all
-versions of GNU remain free.
-
-Why Many Other Programmers Want to Help
-=======================================
-
-   I have found many other programmers who are excited about GNU and
-want to help.
-
-   Many programmers are unhappy about the commercialization of system
-software.  It may enable them to make more money, but it requires them
-to feel in conflict with other programmers in general rather than feel
-as comrades.  The fundamental act of friendship among programmers is the
-sharing of programs; marketing arrangements now typically used
-essentially forbid programmers to treat others as friends.  The
-purchaser of software must choose between friendship and obeying the
-law.  Naturally, many decide that friendship is more important.  But
-those who believe in law often do not feel at ease with either choice.
-They become cynical and think that programming is just a way of making
-money.
-
-   By working on and using GNU rather than proprietary programs, we can
-be hospitable to everyone and obey the law.  In addition, GNU serves as
-an example to inspire and a banner to rally others to join us in
-sharing.  This can give us a feeling of harmony which is impossible if
-we use software that is not free.  For about half the programmers I
-talk to, this is an important happiness that money cannot replace.
-
-How You Can Contribute
-======================
-
-   I am asking computer manufacturers for donations of machines and
-money.  I'm asking individuals for donations of programs and work.
-
-   One consequence you can expect if you donate machines is that GNU
-will run on them at an early date.  The machines should be complete,
-ready to use systems, approved for use in a residential area, and not
-in need of sophisticated cooling or power.
-
-   I have found very many programmers eager to contribute part-time
-work for GNU.  For most projects, such part-time distributed work would
-be very hard to coordinate; the independently-written parts would not
-work together.  But for the particular task of replacing Unix, this
-problem is absent.  A complete Unix system contains hundreds of utility
-programs, each of which is documented separately.  Most interface
-specifications are fixed by Unix compatibility.  If each contributor
-can write a compatible replacement for a single Unix utility, and make
-it work properly in place of the original on a Unix system, then these
-utilities will work right when put together.  Even allowing for Murphy
-to create a few unexpected problems, assembling these components will
-be a feasible task.  (The kernel will require closer communication and
-will be worked on by a small, tight group.)
-
-   If I get donations of money, I may be able to hire a few people full
-or part time.  The salary won't be high by programmers' standards, but
-I'm looking for people for whom building community spirit is as
-important as making money.  I view this as a way of enabling dedicated
-people to devote their full energies to working on GNU by sparing them
-the need to make a living in another way.
-
-Why All Computer Users Will Benefit
-===================================
-
-   Once GNU is written, everyone will be able to obtain good system
-software free, just like air.(2)
-
-   This means much more than just saving everyone the price of a Unix
-license.  It means that much wasteful duplication of system programming
-effort will be avoided.  This effort can go instead into advancing the
-state of the art.
-
-   Complete system sources will be available to everyone.  As a result,
-a user who needs changes in the system will always be free to make them
-himself, or hire any available programmer or company to make them for
-him.  Users will no longer be at the mercy of one programmer or company
-which owns the sources and is in sole position to make changes.
-
-   Schools will be able to provide a much more educational environment
-by encouraging all students to study and improve the system code.
-Harvard's computer lab used to have the policy that no program could be
-installed on the system if its sources were not on public display, and
-upheld it by actually refusing to install certain programs.  I was very
-much inspired by this.
-
-   Finally, the overhead of considering who owns the system software
-and what one is or is not entitled to do with it will be lifted.
-
-   Arrangements to make people pay for using a program, including
-licensing of copies, always incur a tremendous cost to society through
-the cumbersome mechanisms necessary to figure out how much (that is,
-which programs) a person must pay for.  And only a police state can
-force everyone to obey them.  Consider a space station where air must
-be manufactured at great cost: charging each breather per liter of air
-may be fair, but wearing the metered gas mask all day and all night is
-intolerable even if everyone can afford to pay the air bill.  And the
-TV cameras everywhere to see if you ever take the mask off are
-outrageous.  It's better to support the air plant with a head tax and
-chuck the masks.
-
-   Copying all or parts of a program is as natural to a programmer as
-breathing, and as productive.  It ought to be as free.
-
-Some Easily Rebutted Objections to GNU's Goals
-==============================================
-
-     "Nobody will use it if it is free, because that means they can't
-     rely on any support."
-
-     "You have to charge for the program to pay for providing the
-     support."
-
-   If people would rather pay for GNU plus service than get GNU free
-without service, a company to provide just service to people who have
-obtained GNU free ought to be profitable.(3)
-
-   We must distinguish between support in the form of real programming
-work and mere handholding.  The former is something one cannot rely on
-from a software vendor.  If your problem is not shared by enough
-people, the vendor will tell you to get lost.
-
-   If your business needs to be able to rely on support, the only way
-is to have all the necessary sources and tools.  Then you can hire any
-available person to fix your problem; you are not at the mercy of any
-individual.  With Unix, the price of sources puts this out of
-consideration for most businesses.  With GNU this will be easy.  It is
-still possible for there to be no available competent person, but this
-problem cannot be blamed on distribution arrangements.  GNU does not
-eliminate all the world's problems, only some of them.
-
-   Meanwhile, the users who know nothing about computers need
-handholding: doing things for them which they could easily do
-themselves but don't know how.
-
-   Such services could be provided by companies that sell just
-hand-holding and repair service.  If it is true that users would rather
-spend money and get a product with service, they will also be willing
-to buy the service having got the product free.  The service companies
-will compete in quality and price; users will not be tied to any
-particular one.  Meanwhile, those of us who don't need the service
-should be able to use the program without paying for the service.
-
-     "You cannot reach many people without advertising, and you must
-     charge for the program to support that."
-
-     "It's no use advertising a program people can get free."
-
-   There are various forms of free or very cheap publicity that can be
-used to inform numbers of computer users about something like GNU.  But
-it may be true that one can reach more microcomputer users with
-advertising.  If this is really so, a business which advertises the
-service of copying and mailing GNU for a fee ought to be successful
-enough to pay for its advertising and more.  This way, only the users
-who benefit from the advertising pay for it.
-
-   On the other hand, if many people get GNU from their friends, and
-such companies don't succeed, this will show that advertising was not
-really necessary to spread GNU.  Why is it that free market advocates
-don't want to let the free market decide this?(4)
-
-     "My company needs a proprietary operating system to get a
-     competitive edge."
-
-   GNU will remove operating system software from the realm of
-competition.  You will not be able to get an edge in this area, but
-neither will your competitors be able to get an edge over you.  You and
-they will compete in other areas, while benefiting mutually in this
-one.  If your business is selling an operating system, you will not
-like GNU, but that's tough on you.  If your business is something else,
-GNU can save you from being pushed into the expensive business of
-selling operating systems.
-
-   I would like to see GNU development supported by gifts from many
-manufacturers and users, reducing the cost to each.(5)
-
-     "Don't programmers deserve a reward for their creativity?"
-
-   If anything deserves a reward, it is social contribution.
-Creativity can be a social contribution, but only in so far as society
-is free to use the results.  If programmers deserve to be rewarded for
-creating innovative programs, by the same token they deserve to be
-punished if they restrict the use of these programs.
-
-     "Shouldn't a programmer be able to ask for a reward for his
-     creativity?"
-
-   There is nothing wrong with wanting pay for work, or seeking to
-maximize one's income, as long as one does not use means that are
-destructive.  But the means customary in the field of software today
-are based on destruction.
-
-   Extracting money from users of a program by restricting their use of
-it is destructive because the restrictions reduce the amount and the
-ways that the program can be used.  This reduces the amount of wealth
-that humanity derives from the program.  When there is a deliberate
-choice to restrict, the harmful consequences are deliberate destruction.
-
-   The reason a good citizen does not use such destructive means to
-become wealthier is that, if everyone did so, we would all become
-poorer from the mutual destructiveness.  This is Kantian ethics; or,
-the Golden Rule.  Since I do not like the consequences that result if
-everyone hoards information, I am required to consider it wrong for one
-to do so.  Specifically, the desire to be rewarded for one's creativity
-does not justify depriving the world in general of all or part of that
-creativity.
-
-     "Won't programmers starve?"
-
-   I could answer that nobody is forced to be a programmer.  Most of us
-cannot manage to get any money for standing on the street and making
-faces.  But we are not, as a result, condemned to spend our lives
-standing on the street making faces, and starving.  We do something
-else.
-
-   But that is the wrong answer because it accepts the questioner's
-implicit assumption: that without ownership of software, programmers
-cannot possibly be paid a cent.  Supposedly it is all or nothing.
-
-   The real reason programmers will not starve is that it will still be
-possible for them to get paid for programming; just not paid as much as
-now.
-
-   Restricting copying is not the only basis for business in software.
-It is the most common basis because it brings in the most money.  If it
-were prohibited, or rejected by the customer, software business would
-move to other bases of organization which are now used less often.
-There are always numerous ways to organize any kind of business.
-
-   Probably programming will not be as lucrative on the new basis as it
-is now.  But that is not an argument against the change.  It is not
-considered an injustice that sales clerks make the salaries that they
-now do.  If programmers made the same, that would not be an injustice
-either.  (In practice they would still make considerably more than
-that.)
-
-     "Don't people have a right to control how their creativity is
-     used?"
-
-   "Control over the use of one's ideas" really constitutes control over
-other people's lives; and it is usually used to make their lives more
-difficult.
-
-   People who have studied the issue of intellectual property rights
-carefully (such as lawyers) say that there is no intrinsic right to
-intellectual property.  The kinds of supposed intellectual property
-rights that the government recognizes were created by specific acts of
-legislation for specific purposes.
-
-   For example, the patent system was established to encourage
-inventors to disclose the details of their inventions.  Its purpose was
-to help society rather than to help inventors.  At the time, the life
-span of 17 years for a patent was short compared with the rate of
-advance of the state of the art.  Since patents are an issue only among
-manufacturers, for whom the cost and effort of a license agreement are
-small compared with setting up production, the patents often do not do
-much harm.  They do not obstruct most individuals who use patented
-products.
-
-   The idea of copyright did not exist in ancient times, when authors
-frequently copied other authors at length in works of non-fiction.  This
-practice was useful, and is the only way many authors' works have
-survived even in part.  The copyright system was created expressly for
-the purpose of encouraging authorship.  In the domain for which it was
-invented--books, which could be copied economically only on a printing
-press--it did little harm, and did not obstruct most of the individuals
-who read the books.
-
-   All intellectual property rights are just licenses granted by society
-because it was thought, rightly or wrongly, that society as a whole
-would benefit by granting them.  But in any particular situation, we
-have to ask: are we really better off granting such license?  What kind
-of act are we licensing a person to do?
-
-   The case of programs today is very different from that of books a
-hundred years ago.  The fact that the easiest way to copy a program is
-from one neighbor to another, the fact that a program has both source
-code and object code which are distinct, and the fact that a program is
-used rather than read and enjoyed, combine to create a situation in
-which a person who enforces a copyright is harming society as a whole
-both materially and spiritually; in which a person should not do so
-regardless of whether the law enables him to.
-
-     "Competition makes things get done better."
-
-   The paradigm of competition is a race: by rewarding the winner, we
-encourage everyone to run faster.  When capitalism really works this
-way, it does a good job; but its defenders are wrong in assuming it
-always works this way.  If the runners forget why the reward is offered
-and become intent on winning, no matter how, they may find other
-strategies--such as, attacking other runners.  If the runners get into
-a fist fight, they will all finish late.
-
-   Proprietary and secret software is the moral equivalent of runners
-in a fist fight.  Sad to say, the only referee we've got does not seem
-to object to fights; he just regulates them ("For every ten yards you
-run, you can fire one shot").  He really ought to break them up, and
-penalize runners for even trying to fight.
-
-     "Won't everyone stop programming without a monetary incentive?"
-
-   Actually, many people will program with absolutely no monetary
-incentive.  Programming has an irresistible fascination for some
-people, usually the people who are best at it.  There is no shortage of
-professional musicians who keep at it even though they have no hope of
-making a living that way.
-
-   But really this question, though commonly asked, is not appropriate
-to the situation.  Pay for programmers will not disappear, only become
-less.  So the right question is, will anyone program with a reduced
-monetary incentive?  My experience shows that they will.
-
-   For more than ten years, many of the world's best programmers worked
-at the Artificial Intelligence Lab for far less money than they could
-have had anywhere else.  They got many kinds of non-monetary rewards:
-fame and appreciation, for example.  And creativity is also fun, a
-reward in itself.
-
-   Then most of them left when offered a chance to do the same
-interesting work for a lot of money.
-
-   What the facts show is that people will program for reasons other
-than riches; but if given a chance to make a lot of money as well, they
-will come to expect and demand it.  Low-paying organizations do poorly
-in competition with high-paying ones, but they do not have to do badly
-if the high-paying ones are banned.
-
-     "We need the programmers desperately.  If they demand that we stop
-     helping our neighbors, we have to obey."
-
-   You're never so desperate that you have to obey this sort of demand.
-Remember: millions for defense, but not a cent for tribute!
-
-     "Programmers need to make a living somehow."
-
-   In the short run, this is true.  However, there are plenty of ways
-that programmers could make a living without selling the right to use a
-program.  This way is customary now because it brings programmers and
-businessmen the most money, not because it is the only way to make a
-living.  It is easy to find other ways if you want to find them.  Here
-are a number of examples.
-
-   A manufacturer introducing a new computer will pay for the porting of
-operating systems onto the new hardware.
-
-   The sale of teaching, hand-holding and maintenance services could
-also employ programmers.
-
-   People with new ideas could distribute programs as freeware, asking
-for donations from satisfied users, or selling hand-holding services.
-I have met people who are already working this way successfully.
-
-   Users with related needs can form users' groups, and pay dues.  A
-group would contract with programming companies to write programs that
-the group's members would like to use.
-
-   All sorts of development can be funded with a Software Tax:
-
-     Suppose everyone who buys a computer has to pay x percent of the
-     price as a software tax.  The government gives this to an agency
-     like the NSF to spend on software development.
-
-     But if the computer buyer makes a donation to software development
-     himself, he can take a credit against the tax.  He can donate to
-     the project of his own choosing--often, chosen because he hopes to
-     use the results when it is done.  He can take a credit for any
-     amount of donation up to the total tax he had to pay.
-
-     The total tax rate could be decided by a vote of the payers of the
-     tax, weighted according to the amount they will be taxed on.
-
-     The consequences:
-
-        * The computer-using community supports software development.
-
-        * This community decides what level of support is needed.
-
-        * Users who care which projects their share is spent on can
-          choose this for themselves.
-
-   In the long run, making programs free is a step toward the
-post-scarcity world, where nobody will have to work very hard just to
-make a living.  People will be free to devote themselves to activities
-that are fun, such as programming, after spending the necessary ten
-hours a week on required tasks such as legislation, family counseling,
-robot repair and asteroid prospecting.  There will be no need to be
-able to make a living from programming.
-
-   We have already greatly reduced the amount of work that the whole
-society must do for its actual productivity, but only a little of this
-has translated itself into leisure for workers because much
-nonproductive activity is required to accompany productive activity.
-The main causes of this are bureaucracy and isometric struggles against
-competition.  Free software will greatly reduce these drains in the
-area of software production.  We must do this, in order for technical
-gains in productivity to translate into less work for us.
+File: emacs,  Node: Function Keys,  Next: Named ASCII Chars,  Prev: Init Rebinding,  Up: Key Bindings
+
+Rebinding Function Keys
+-----------------------
+
+   Key sequences can contain function keys as well as ordinary
+characters.  Just as Lisp characters (actually integers) represent
+keyboard characters, Lisp symbols represent function keys.  If the
+function key has a word as its label, then that word is also the name of
+the corresponding Lisp symbol.  Here are the conventional Lisp names for
+common function keys:
+
+`left', `up', `right', `down'
+     Cursor arrow keys.
+
+`begin', `end', `home', `next', `prior'
+     Other cursor repositioning keys.
+
+`select', `print', `execute', `backtab'
+`insert', `undo', `redo', `clearline'
+`insertline', `deleteline', `insertchar', `deletechar'
+     Miscellaneous function keys.
+
+`f1', `f2', ... `f35'
+     Numbered function keys (across the top of the keyboard).
+
+`kp-add', `kp-subtract', `kp-multiply', `kp-divide'
+`kp-backtab', `kp-space', `kp-tab', `kp-enter'
+`kp-separator', `kp-decimal', `kp-equal'
+     Keypad keys (to the right of the regular keyboard), with names or
+     punctuation.
+
+`kp-0', `kp-1', ... `kp-9'
+     Keypad keys with digits.
+
+`kp-f1', `kp-f2', `kp-f3', `kp-f4'
+     Keypad PF keys.
+
+   These names are conventional, but some systems (especially when using
+X) may use different names.  To make certain what symbol is used for a
+given function key on your terminal, type `C-h c' followed by that key.
+
+   A key sequence which contains function key symbols (or anything but
+ASCII characters) must be a vector rather than a string.  The vector
+syntax uses spaces between the elements, and square brackets around the
+whole vector.  Thus, to bind function key `f1' to the command `rmail',
+write the following:
+
+     (global-set-key [f1] 'rmail)
+
+To bind the right-arrow key to the command `forward-char', you can use
+this expression:
+
+     (global-set-key [right] 'forward-char)
+
+This uses the Lisp syntax for a vector containing the symbol `right'.
+(This binding is present in Emacs by default.)
+
+   *Note Init Rebinding::, for more information about using vectors for
+rebinding.
+
+   You can mix function keys and characters in a key sequence.  This
+example binds `C-x <NEXT>' to the command `forward-page'.
+
+     (global-set-key [?\C-x next] 'forward-page)
+
+where `?\C-x' is the Lisp character constant for the character `C-x'.
+The vector element `next' is a symbol and therefore does not take a
+question mark.
+
+   You can use the modifier keys <CTRL>, <META>, <HYPER>, <SUPER>,
+<ALT> and <SHIFT> with function keys.  To represent these modifiers,
+add the strings `C-', `M-', `H-', `s-', `A-' and `S-' at the front of
+the symbol name.  Thus, here is how to make `Hyper-Meta-<RIGHT>' move
+forward a word:
+
+     (global-set-key [H-M-right] 'forward-word)
+
+
+File: emacs,  Node: Named ASCII Chars,  Next: Non-ASCII Rebinding,  Prev: Function Keys,  Up: Key Bindings
+
+Named ASCII Control Characters
+------------------------------
+
+   <TAB>, <RET>, <BS>, <LFD>, <ESC> and <DEL> started out as names for
+certain ASCII control characters, used so often that they have special
+keys of their own.  Later, users found it convenient to distinguish in
+Emacs between these keys and the "same" control characters typed with
+the <CTRL> key.
+
+   Emacs distinguishes these two kinds of input, when the keyboard
+reports these keys to Emacs.  It treats the "special" keys as function
+keys named `tab', `return', `backspace', `linefeed', `escape', and
+`delete'.  These function keys translate automatically into the
+corresponding ASCII characters _if_ they have no bindings of their own.
+As a result, neither users nor Lisp programs need to pay attention to
+the distinction unless they care to.
+
+   If you do not want to distinguish between (for example) <TAB> and
+`C-i', make just one binding, for the ASCII character <TAB> (octal code
+011).  If you do want to distinguish, make one binding for this ASCII
+character, and another for the "function key" `tab'.
+
+   With an ordinary ASCII terminal, there is no way to distinguish
+between <TAB> and `C-i' (and likewise for other such pairs), because
+the terminal sends the same character in both cases.
+
+
+File: emacs,  Node: Non-ASCII Rebinding,  Next: Mouse Buttons,  Prev: Named ASCII Chars,  Up: Key Bindings
+
+Non-ASCII Characters on the Keyboard
+------------------------------------
+
+   If your keyboard has keys that send non-ASCII characters, such as
+accented letters, rebinding these keys is a bit tricky.  There are two
+solutions you can use.  One is to specify a keyboard coding system,
+using `set-keyboard-coding-system' (*note Specify Coding::).  Then you
+can bind these keys in the usual way(1), like this:
+
+     (global-set-key [?CHAR] 'some-function)
+
+Type `C-q' followed by the key you want to bind, to insert CHAR.
+
+   If you don't specify the keyboard coding system, that approach won't
+work.  Instead, you need to find out the actual code that the terminal
+sends.  The easiest way to do this in Emacs is to create an empty buffer
+with `C-x b temp <RET>', make it unibyte with `M-x
+toggle-enable-multibyte-characters <RET>', then type the key to insert
+the character into this buffer.
+
+   Move point before the character, then type `C-x ='.  This displays a
+message in the minibuffer, showing the character code in three ways,
+octal, decimal and hexadecimal, all within a set of parentheses.  Use
+the second of the three numbers, the decimal one, inside the vector to
+bind:
+
+     (global-set-key [DECIMAL-CODE] 'some-function)
+
+   If you bind 8-bit characters like this in your init file, you may
+find it convenient to specify that it is unibyte.  *Note Enabling
+Multibyte::.
 
    ---------- Footnotes ----------
 
-   (1) The wording here was careless.  The intention was that nobody
-would have to pay for _permission_ to use the GNU system.  But the
-words don't make this clear, and people often interpret them as saying
-that copies of GNU should always be distributed at little or no charge.
-That was never the intent; later on, the manifesto mentions the
-possibility of companies providing the service of distribution for a
-profit.  Subsequently I have learned to distinguish carefully between
-"free" in the sense of freedom and "free" in the sense of price.  Free
-software is software that users have the freedom to distribute and
-change.  Some users may obtain copies at no charge, while others pay to
-obtain copies--and if the funds help support improving the software, so
-much the better.  The important thing is that everyone who has a copy
-has the freedom to cooperate with others in using it.
+   (1) Note that you should avoid the string syntax for binding 8-bit
+characters, since they will be interpreted as meta keys.  *Note Strings
+of Events: (elisp)Strings of Events.
 
-   (2) This is another place I failed to distinguish carefully between
-the two different meanings of "free".  The statement as it stands is
-not false--you can get copies of GNU software at no charge, from your
-friends or over the net.  But it does suggest the wrong idea.
+
+File: emacs,  Node: Mouse Buttons,  Next: Disabling,  Prev: Non-ASCII Rebinding,  Up: Key Bindings
 
-   (3) Several such companies now exist.
+Rebinding Mouse Buttons
+-----------------------
 
-   (4) The Free Software Foundation raises most of its funds from a
-distribution service, although it is a charity rather than a company.
-If _no one_ chooses to obtain copies by ordering from the FSF, it will
-be unable to do its work.  But this does not mean that proprietary
-restrictions are justified to force every user to pay.  If a small
-fraction of all the users order copies from the FSF, that is sufficient
-to keep the FSF afloat.  So we ask users to choose to support us in
-this way.  Have you done your part?
+   Emacs uses Lisp symbols to designate mouse buttons, too.  The
+ordinary mouse events in Emacs are "click" events; these happen when you
+press a button and release it without moving the mouse.  You can also
+get "drag" events, when you move the mouse while holding the button
+down.  Drag events happen when you finally let go of the button.
 
-   (5) A group of computer companies recently pooled funds to support
-maintenance of the GNU C Compiler.
+   The symbols for basic click events are `mouse-1' for the leftmost
+button, `mouse-2' for the next, and so on.  Here is how you can
+redefine the second mouse button to split the current window:
+
+     (global-set-key [mouse-2] 'split-window-vertically)
+
+   The symbols for drag events are similar, but have the prefix `drag-'
+before the word `mouse'.  For example, dragging the first button
+generates a `drag-mouse-1' event.
+
+   You can also define bindings for events that occur when a mouse
+button is pressed down.  These events start with `down-' instead of
+`drag-'.  Such events are generated only if they have key bindings.
+When you get a button-down event, a corresponding click or drag event
+will always follow.
+
+   If you wish, you can distinguish single, double, and triple clicks.
+A double click means clicking a mouse button twice in approximately the
+same place.  The first click generates an ordinary click event.  The
+second click, if it comes soon enough, generates a double-click event
+instead.  The event type for a double-click event starts with
+`double-': for example, `double-mouse-3'.
+
+   This means that you can give a special meaning to the second click at
+the same place, but it must act on the assumption that the ordinary
+single click definition has run when the first click was received.
+
+   This constrains what you can do with double clicks, but user
+interface designers say that this constraint ought to be followed in
+any case.  A double click should do something similar to the single
+click, only "more so."  The command for the double-click event should
+perform the extra work for the double click.
+
+   If a double-click event has no binding, it changes to the
+corresponding single-click event.  Thus, if you don't define a
+particular double click specially, it executes the single-click command
+twice.
+
+   Emacs also supports triple-click events whose names start with
+`triple-'.  Emacs does not distinguish quadruple clicks as event types;
+clicks beyond the third generate additional triple-click events.
+However, the full number of clicks is recorded in the event list, so you
+can distinguish if you really want to.  We don't recommend distinct
+meanings for more than three clicks, but sometimes it is useful for
+subsequent clicks to cycle through the same set of three meanings, so
+that four clicks are equivalent to one click, five are equivalent to
+two, and six are equivalent to three.
+
+   Emacs also records multiple presses in drag and button-down events.
+For example, when you press a button twice, then move the mouse while
+holding the button, Emacs gets a `double-drag-' event.  And at the
+moment when you press it down for the second time, Emacs gets a
+`double-down-' event (which is ignored, like all button-down events, if
+it has no binding).
+
+   The variable `double-click-time' specifies how much time can elapse
+between clicks and still allow them to be grouped as a multiple click.
+Its value is in units of milliseconds.  If the value is `nil', double
+clicks are not detected at all.  If the value is `t', then there is no
+time limit.  The default is 500.
+
+   The variable `double-click-fuzz' specifies how much the mouse can
+move between clicks still allow them to be grouped as a multiple click.
+Its value is in units of pixels on windowed displays and in units of
+1/8 of a character cell on text-mode terminals; the default is 3.
+
+   The symbols for mouse events also indicate the status of the modifier
+keys, with the usual prefixes `C-', `M-', `H-', `s-', `A-' and `S-'.
+These always precede `double-' or `triple-', which always precede
+`drag-' or `down-'.
+
+   A frame includes areas that don't show text from the buffer, such as
+the mode line and the scroll bar.  You can tell whether a mouse button
+comes from a special area of the screen by means of dummy "prefix
+keys."  For example, if you click the mouse in the mode line, you get
+the prefix key `mode-line' before the ordinary mouse-button symbol.
+Thus, here is how to define the command for clicking the first button in
+a mode line to run `scroll-up':
+
+     (global-set-key [mode-line mouse-1] 'scroll-up)
+
+   Here is the complete list of these dummy prefix keys and their
+meanings:
+
+`mode-line'
+     The mouse was in the mode line of a window.
+
+`vertical-line'
+     The mouse was in the vertical line separating side-by-side
+     windows.  (If you use scroll bars, they appear in place of these
+     vertical lines.)
+
+`vertical-scroll-bar'
+     The mouse was in a vertical scroll bar.  (This is the only kind of
+     scroll bar Emacs currently supports.)
+
+   You can put more than one mouse button in a key sequence, but it
+isn't usual to do so.
+
+
+File: emacs,  Node: Disabling,  Prev: Mouse Buttons,  Up: Key Bindings
+
+Disabling Commands
+------------------
+
+   Disabling a command marks the command as requiring confirmation
+before it can be executed.  The purpose of disabling a command is to
+prevent beginning users from executing it by accident and being
+confused.
+
+   An attempt to invoke a disabled command interactively in Emacs
+displays a window containing the command's name, its documentation, and
+some instructions on what to do immediately; then Emacs asks for input
+saying whether to execute the command as requested, enable it and
+execute it, or cancel.  If you decide to enable the command, you are
+asked whether to do this permanently or just for the current session.
+(Enabling permanently works by automatically editing your `.emacs'
+file.)  You can also type `!' to enable _all_ commands, for the current
+session only.
+
+   The direct mechanism for disabling a command is to put a non-`nil'
+`disabled' property on the Lisp symbol for the command.  Here is the
+Lisp program to do this:
+
+     (put 'delete-region 'disabled t)
+
+   If the value of the `disabled' property is a string, that string is
+included in the message displayed when the command is used:
+
+     (put 'delete-region 'disabled
+          "It's better to use `kill-region' instead.\n")
+
+   You can make a command disabled either by editing the `.emacs' file
+directly or with the command `M-x disable-command', which edits the
+`.emacs' file for you.  Likewise, `M-x enable-command' edits `.emacs'
+to enable a command permanently.  *Note Init File::.
+
+   Whether a command is disabled is independent of what key is used to
+invoke it; disabling also applies if the command is invoked using
+`M-x'.  Disabling a command has no effect on calling it as a function
+from Lisp programs.
+
+
+File: emacs,  Node: Keyboard Translations,  Next: Syntax,  Prev: Key Bindings,  Up: Customization
+
+Keyboard Translations
+=====================
+
+   Some keyboards do not make it convenient to send all the special
+characters that Emacs uses.  The most common problem case is the <DEL>
+character.  Some keyboards provide no convenient way to type this very
+important character--usually because they were designed to expect the
+character `C-h' to be used for deletion.  On these keyboards, if you
+press the key normally used for deletion, Emacs handles the `C-h' as a
+prefix character and offers you a list of help options, which is not
+what you want.
+
+   You can work around this problem within Emacs by setting up keyboard
+translations to turn `C-h' into <DEL> and <DEL> into `C-h', as follows:
+
+     ;; Translate `C-h' to <DEL>.
+     (keyboard-translate ?\C-h ?\C-?)
+     
+     ;; Translate <DEL> to `C-h'.
+     (keyboard-translate ?\C-? ?\C-h)
+
+   Keyboard translations are not the same as key bindings in keymaps
+(*note Keymaps::).  Emacs contains numerous keymaps that apply in
+different situations, but there is only one set of keyboard
+translations, and it applies to every character that Emacs reads from
+the terminal.  Keyboard translations take place at the lowest level of
+input processing; the keys that are looked up in keymaps contain the
+characters that result from keyboard translation.
+
+   On a window system, the keyboard key named <DELETE> is a function
+key and is distinct from the ASCII character named <DEL>.  *Note Named
+ASCII Chars::.  Keyboard translations affect only ASCII character
+input, not function keys; thus, the above example used on a window
+system does not affect the <DELETE> key.  However, the translation
+above isn't necessary on window systems, because Emacs can also
+distinguish between the <BACKSPACE> key and `C-h'; and it normally
+treats <BACKSPACE> as <DEL>.
+
+   For full information about how to use keyboard translations, see
+*Note Translating Input: (elisp)Translating Input.
+
+
+File: emacs,  Node: Syntax,  Next: Init File,  Prev: Keyboard Translations,  Up: Customization
+
+The Syntax Table
+================
+
+   All the Emacs commands which parse words or balance parentheses are
+controlled by the "syntax table".  The syntax table says which
+characters are opening delimiters, which are parts of words, which are
+string quotes, and so on.  It does this by assigning each character to
+one of fifteen-odd "syntax classes".  In some cases it specifies some
+additional information also.
+
+   Each major mode has its own syntax table (though related major modes
+sometimes share one syntax table) which it installs in each buffer that
+uses the mode.  The syntax table installed in the current buffer is the
+one that all commands use, so we call it "the" syntax table.
+
+   To display a description of the contents of the current syntax
+table, type `C-h s' (`describe-syntax').  The description of each
+character includes both the string you would have to give to
+`modify-syntax-entry' to set up that character's current syntax,
+starting with the character which designates its syntax class, plus
+some English text to explain its meaning.
+
+   A syntax table is actually a Lisp object, a char-table, whose
+elements are cons cells.  For full information on the syntax table, see
+*Note Syntax Tables: (elisp)Syntax Tables.
+
+
+File: emacs,  Node: Init File,  Prev: Syntax,  Up: Customization
+
+The Init File, `~/.emacs'
+=========================
+
+   When Emacs is started, it normally loads a Lisp program from the file
+`.emacs' or `.emacs.el' in your home directory.  We call this file your
+"init file" because it specifies how to initialize Emacs for you.  You
+can use the command line switch `-q' to prevent loading your init file,
+and `-u' (or `--user') to specify a different user's init file (*note
+Entering Emacs::).
+
+   There can also be a "default init file", which is the library named
+`default.el', found via the standard search path for libraries.  The
+Emacs distribution contains no such library; your site may create one
+for local customizations.  If this library exists, it is loaded
+whenever you start Emacs (except when you specify `-q').  But your init
+file, if any, is loaded first; if it sets `inhibit-default-init'
+non-`nil', then `default' is not loaded.
+
+   Your site may also have a "site startup file"; this is named
+`site-start.el', if it exists.  Like `default.el', Emacs finds this
+file via the standard search path for Lisp libraries.  Emacs loads this
+library before it loads your init file.  To inhibit loading of this
+library, use the option `-no-site-file'.  *Note Initial Options::.
+
+   You can place `default.el' and `site-start.el' in any of the
+directories which Emacs searches for Lisp libraries.  The variable
+`load-path' (*note Lisp Libraries::) specifies these directories.  Many
+sites put these files in the `site-lisp' subdirectory of the Emacs
+installation directory, typically `/usr/local/share/emacs/site-lisp'.
+
+   If you have a large amount of code in your `.emacs' file, you should
+rename it to `~/.emacs.el', and byte-compile it.  *Note Byte
+Compilation: (elisp)Byte Compilation, for more information about
+compiling Emacs Lisp programs.
+
+   If you are going to write actual Emacs Lisp programs that go beyond
+minor customization, you should read the `Emacs Lisp Reference Manual'.
+*Note Emacs Lisp: (elisp)Top.
+
+* Menu:
+
+* Init Syntax::	        Syntax of constants in Emacs Lisp.
+* Init Examples::       How to do some things with an init file.
+* Terminal Init::       Each terminal type can have an init file.
+* Find Init::	        How Emacs finds the init file.
+
+
+File: emacs,  Node: Init Syntax,  Next: Init Examples,  Up: Init File
+
+Init File Syntax
+----------------
+
+   The `.emacs' file contains one or more Lisp function call
+expressions.  Each of these consists of a function name followed by
+arguments, all surrounded by parentheses.  For example, `(setq
+fill-column 60)' calls the function `setq' to set the variable
+`fill-column' (*note Filling::) to 60.
+
+   The second argument to `setq' is an expression for the new value of
+the variable.  This can be a constant, a variable, or a function call
+expression.  In `.emacs', constants are used most of the time.  They
+can be:
+
+Numbers:
+     Numbers are written in decimal, with an optional initial minus
+     sign.
+
+Strings:
+     Lisp string syntax is the same as C string syntax with a few extra
+     features.  Use a double-quote character to begin and end a string
+     constant.
+
+     In a string, you can include newlines and special characters
+     literally.  But often it is cleaner to use backslash sequences for
+     them: `\n' for newline, `\b' for backspace, `\r' for carriage
+     return, `\t' for tab, `\f' for formfeed (control-L), `\e' for
+     escape, `\\' for a backslash, `\"' for a double-quote, or `\OOO'
+     for the character whose octal code is OOO.  Backslash and
+     double-quote are the only characters for which backslash sequences
+     are mandatory.
+
+     `\C-' can be used as a prefix for a control character, as in
+     `\C-s' for ASCII control-S, and `\M-' can be used as a prefix for
+     a Meta character, as in `\M-a' for `Meta-A' or `\M-\C-a' for
+     `Control-Meta-A'.
+
+     If you want to include non-ASCII characters in strings in your init
+     file, you should consider putting a `-*-coding: CODING-SYSTEM-*-'
+     tag on the first line which states the coding system used to save
+     your `.emacs', as explained in *Note Recognize Coding::.  This is
+     because the defaults for decoding non-ASCII text might not yet be
+     set up by the time Emacs reads those parts of your init file which
+     use such strings, possibly leading Emacs to decode those strings
+     incorrectly.
+
+Characters:
+     Lisp character constant syntax consists of a `?' followed by
+     either a character or an escape sequence starting with `\'.
+     Examples: `?x', `?\n', `?\"', `?\)'.  Note that strings and
+     characters are not interchangeable in Lisp; some contexts require
+     one and some contexts require the other.
+
+     *Note Non-ASCII Rebinding::, for information about binding
+     commands to keys which send non-ASCII characters.
+
+True:
+     `t' stands for `true'.
+
+False:
+     `nil' stands for `false'.
+
+Other Lisp objects:
+     Write a single-quote (`'') followed by the Lisp object you want.
+
+
+File: emacs,  Node: Init Examples,  Next: Terminal Init,  Prev: Init Syntax,  Up: Init File
+
+Init File Examples
+------------------
+
+   Here are some examples of doing certain commonly desired things with
+Lisp expressions:
+
+   * Make <TAB> in C mode just insert a tab if point is in the middle
+     of a line.
+
+          (setq c-tab-always-indent nil)
+
+     Here we have a variable whose value is normally `t' for `true' and
+     the alternative is `nil' for `false'.
+
+   * Make searches case sensitive by default (in all buffers that do not
+     override this).
+
+          (setq-default case-fold-search nil)
+
+     This sets the default value, which is effective in all buffers
+     that do not have local values for the variable.  Setting
+     `case-fold-search' with `setq' affects only the current buffer's
+     local value, which is not what you probably want to do in an init
+     file.
+
+   * Specify your own email address, if Emacs can't figure it out
+     correctly.
+
+          (setq user-mail-address "coon@yoyodyne.com")
+
+     Various Emacs packages that need your own email address use the
+     value of `user-mail-address'.
+
+   * Make Text mode the default mode for new buffers.
+
+          (setq default-major-mode 'text-mode)
+
+     Note that `text-mode' is used because it is the command for
+     entering Text mode.  The single-quote before it makes the symbol a
+     constant; otherwise, `text-mode' would be treated as a variable
+     name.
+
+   * Set up defaults for the Latin-1 character set which supports most
+     of the languages of Western Europe.
+
+          (set-language-environment "Latin-1")
+
+   * Turn on Auto Fill mode automatically in Text mode and related
+     modes.
+
+          (add-hook 'text-mode-hook
+            '(lambda () (auto-fill-mode 1)))
+
+     This shows how to add a hook function to a normal hook variable
+     (*note Hooks::).  The function we supply is a list starting with
+     `lambda', with a single-quote in front of it to make it a list
+     constant rather than an expression.
+
+     It's beyond the scope of this manual to explain Lisp functions,
+     but for this example it is enough to know that the effect is to
+     execute `(auto-fill-mode 1)' when Text mode is entered.  You can
+     replace that with any other expression that you like, or with
+     several expressions in a row.
+
+     Emacs comes with a function named `turn-on-auto-fill' whose
+     definition is `(lambda () (auto-fill-mode 1))'.  Thus, a simpler
+     way to write the above example is as follows:
+
+          (add-hook 'text-mode-hook 'turn-on-auto-fill)
+
+   * Load the installed Lisp library named `foo' (actually a file
+     `foo.elc' or `foo.el' in a standard Emacs directory).
+
+          (load "foo")
+
+     When the argument to `load' is a relative file name, not starting
+     with `/' or `~', `load' searches the directories in `load-path'
+     (*note Lisp Libraries::).
+
+   * Load the compiled Lisp file `foo.elc' from your home directory.
+
+          (load "~/foo.elc")
+
+     Here an absolute file name is used, so no searching is done.
+
+   * Tell Emacs to find the definition for the function `myfunction' by
+     loading a Lisp library named `mypackage' (i.e. a file
+     `mypackage.elc' or `mypackage.el'):
+
+          (autoload 'myfunction "mypackage" "Do what I say." t)
+
+     Here the string `"Do what I say."' is the function's documentation
+     string.  You specify it in the `autoload' definition so it will be
+     available for help commands even when the package is not loaded.
+     The last argument, `t', indicates that this function is
+     interactive; that is, it can be invoked interactively by typing
+     `M-x myfunction <RET>' or by binding it to a key.  If the function
+     is not interactive, omit the `t' or use `nil'.
+
+   * Rebind the key `C-x l' to run the function `make-symbolic-link'.
+
+          (global-set-key "\C-xl" 'make-symbolic-link)
+
+     or
+
+          (define-key global-map "\C-xl" 'make-symbolic-link)
+
+     Note once again the single-quote used to refer to the symbol
+     `make-symbolic-link' instead of its value as a variable.
+
+   * Do the same thing for Lisp mode only.
+
+          (define-key lisp-mode-map "\C-xl" 'make-symbolic-link)
+
+   * Redefine all keys which now run `next-line' in Fundamental mode so
+     that they run `forward-line' instead.
+
+          (substitute-key-definition 'next-line 'forward-line
+                                     global-map)
+
+   * Make `C-x C-v' undefined.
+
+          (global-unset-key "\C-x\C-v")
+
+     One reason to undefine a key is so that you can make it a prefix.
+     Simply defining `C-x C-v ANYTHING' will make `C-x C-v' a prefix,
+     but `C-x C-v' must first be freed of its usual non-prefix
+     definition.
+
+   * Make `$' have the syntax of punctuation in Text mode.  Note the
+     use of a character constant for `$'.
+
+          (modify-syntax-entry ?\$ "." text-mode-syntax-table)
+
+   * Enable the use of the command `narrow-to-region' without
+     confirmation.
+
+          (put 'narrow-to-region 'disabled nil)
+
+
+File: emacs,  Node: Terminal Init,  Next: Find Init,  Prev: Init Examples,  Up: Init File
+
+Terminal-specific Initialization
+--------------------------------
+
+   Each terminal type can have a Lisp library to be loaded into Emacs
+when it is run on that type of terminal.  For a terminal type named
+TERMTYPE, the library is called `term/TERMTYPE' and it is found by
+searching the directories `load-path' as usual and trying the suffixes
+`.elc' and `.el'.  Normally it appears in the subdirectory `term' of
+the directory where most Emacs libraries are kept.
+
+   The usual purpose of the terminal-specific library is to map the
+escape sequences used by the terminal's function keys onto more
+meaningful names, using `function-key-map'.  See the file
+`term/lk201.el' for an example of how this is done.  Many function keys
+are mapped automatically according to the information in the Termcap
+data base; the terminal-specific library needs to map only the function
+keys that Termcap does not specify.
+
+   When the terminal type contains a hyphen, only the part of the name
+before the first hyphen is significant in choosing the library name.
+Thus, terminal types `aaa-48' and `aaa-30-rv' both use the library
+`term/aaa'.  The code in the library can use `(getenv "TERM")' to find
+the full terminal type name.
+
+   The library's name is constructed by concatenating the value of the
+variable `term-file-prefix' and the terminal type.  Your `.emacs' file
+can prevent the loading of the terminal-specific library by setting
+`term-file-prefix' to `nil'.
+
+   Emacs runs the hook `term-setup-hook' at the end of initialization,
+after both your `.emacs' file and any terminal-specific library have
+been read in.  Add hook functions to this hook if you wish to override
+part of any of the terminal-specific libraries and to define
+initializations for terminals that do not have a library.  *Note
+Hooks::.
+
+
+File: emacs,  Node: Find Init,  Prev: Terminal Init,  Up: Init File
+
+How Emacs Finds Your Init File
+------------------------------
+
+   Normally Emacs uses the environment variable `HOME' to find
+`.emacs'; that's what `~' means in a file name.  But if you run Emacs
+from a shell started by `su', Emacs tries to find your own `.emacs',
+not that of the user you are currently pretending to be.  The idea is
+that you should get your own editor customizations even if you are
+running as the super user.
+
+   More precisely, Emacs first determines which user's init file to use.
+It gets the user name from the environment variables `LOGNAME' and
+`USER'; if neither of those exists, it uses effective user-ID.  If that
+user name matches the real user-ID, then Emacs uses `HOME'; otherwise,
+it looks up the home directory corresponding to that user name in the
+system's data base of users.
+
+
+File: emacs,  Node: Quitting,  Next: Lossage,  Prev: Customization,  Up: Top
+
+Quitting and Aborting
+=====================
+
+`C-g'
+`C-<BREAK> (MS-DOS only)'
+     Quit: cancel running or partially typed command.
+
+`C-]'
+     Abort innermost recursive editing level and cancel the command
+     which invoked it (`abort-recursive-edit').
+
+`<ESC> <ESC> <ESC>'
+     Either quit or abort, whichever makes sense
+     (`keyboard-escape-quit').
+
+`M-x top-level'
+     Abort all recursive editing levels that are currently executing.
+
+`C-x u'
+     Cancel a previously made change in the buffer contents (`undo').
+
+   There are two ways of canceling commands which are not finished
+executing: "quitting" with `C-g', and "aborting" with `C-]' or `M-x
+top-level'.  Quitting cancels a partially typed command or one which is
+already running.  Aborting exits a recursive editing level and cancels
+the command that invoked the recursive edit.  (*Note Recursive Edit::.)
+
+   Quitting with `C-g' is used for getting rid of a partially typed
+command, or a numeric argument that you don't want.  It also stops a
+running command in the middle in a relatively safe way, so you can use
+it if you accidentally give a command which takes a long time.  In
+particular, it is safe to quit out of killing; either your text will
+_all_ still be in the buffer, or it will _all_ be in the kill ring (or
+maybe both).  Quitting an incremental search does special things
+documented under searching; in general, it may take two successive
+`C-g' characters to get out of a search (*note Incremental Search::).
+
+   On MS-DOS, the character `C-<BREAK>' serves as a quit character like
+`C-g'.  The reason is that it is not feasible, on MS-DOS, to recognize
+`C-g' while a command is running, between interactions with the user.
+By contrast, it _is_ feasible to recognize `C-<BREAK>' at all times.
+*Note MS-DOS Input::.
+
+   `C-g' works by setting the variable `quit-flag' to `t' the instant
+`C-g' is typed; Emacs Lisp checks this variable frequently and quits if
+it is non-`nil'.  `C-g' is only actually executed as a command if you
+type it while Emacs is waiting for input.  In that case, the command it
+runs is `keyboard-quit'.
+
+   If you quit with `C-g' a second time before the first `C-g' is
+recognized, you activate the "emergency escape" feature and return to
+the shell.  *Note Emergency Escape::.
+
+   There may be times when you cannot quit.  When Emacs is waiting for
+the operating system to do something, quitting is impossible unless
+special pains are taken for the particular system call within Emacs
+where the waiting occurs.  We have done this for the system calls that
+users are likely to want to quit from, but it's possible you will find
+another.  In one very common case--waiting for file input or output
+using NFS--Emacs itself knows how to quit, but many NFS implementations
+simply do not allow user programs to stop waiting for NFS when the NFS
+server is hung.
+
+   Aborting with `C-]' (`abort-recursive-edit') is used to get out of a
+recursive editing level and cancel the command which invoked it.
+Quitting with `C-g' does not do this, and could not do this, because it
+is used to cancel a partially typed command _within_ the recursive
+editing level.  Both operations are useful.  For example, if you are in
+a recursive edit and type `C-u 8' to enter a numeric argument, you can
+cancel that argument with `C-g' and remain in the recursive edit.
+
+   The command `<ESC> <ESC> <ESC>' (`keyboard-escape-quit') can either
+quit or abort.  This key was defined because <ESC> is used to "get out"
+in many PC programs.  It can cancel a prefix argument, clear a selected
+region, or get out of a Query Replace, like `C-g'.  It can get out of
+the minibuffer or a recursive edit, like `C-]'.  It can also get out of
+splitting the frame into multiple windows, like `C-x 1'.  One thing it
+cannot do, however, is stop a command that is running.  That's because
+it executes as an ordinary command, and Emacs doesn't notice it until
+it is ready for a command.
+
+   The command `M-x top-level' is equivalent to "enough" `C-]' commands
+to get you out of all the levels of recursive edits that you are in.
+`C-]' gets you out one level at a time, but `M-x top-level' goes out
+all levels at once.  Both `C-]' and `M-x top-level' are like all other
+commands, and unlike `C-g', in that they take effect only when Emacs is
+ready for a command.  `C-]' is an ordinary key and has its meaning only
+because of its binding in the keymap.  *Note Recursive Edit::.
+
+   `C-x u' (`undo') is not strictly speaking a way of canceling a
+command, but you can think of it as canceling a command that already
+finished executing.  *Note Undo::, for more information about the undo
+facility.
+
+
+File: emacs,  Node: Lossage,  Next: Bugs,  Prev: Quitting,  Up: Top
+
+Dealing with Emacs Trouble
+==========================
+
+   This section describes various conditions in which Emacs fails to
+work normally, and how to recognize them and correct them.  For a list
+of additional problems you might encounter, see *Note Bugs and
+problems: (efaq)Bugs and problems, and the file `etc/PROBLEMS' in the
+Emacs distribution.  Type `C-h F' to read the FAQ; type `C-h P' to read
+the `PROBLEMS' file.
+
+* Menu:
+
+* DEL Does Not Delete::  What to do if <DEL> doesn't delete.
+* Stuck Recursive::       `[...]' in mode line around the parentheses.
+* Screen Garbled::        Garbage on the screen.
+* Text Garbled::          Garbage in the text.
+* Unasked-for Search::    Spontaneous entry to incremental search.
+* Memory Full::           How to cope when you run out of memory.
+* After a Crash::         Recovering editing in an Emacs session that crashed.
+* Emergency Escape::      Emergency escape---
+                            What to do if Emacs stops responding.
+* Total Frustration::     When you are at your wits' end.
+
+
+File: emacs,  Node: DEL Does Not Delete,  Next: Stuck Recursive,  Up: Lossage
+
+If <DEL> Fails to Delete
+------------------------
+
+   Every keyboard has a large key, a little ways above the <RET> or
+<ENTER> key, which you normally use outside Emacs to erase the last
+character that you typed.  We call this key "the usual erasure key".
+In Emacs, it is supposed to be equivalent to <DEL>, and when Emacs is
+properly configured for your terminal, it translates that key into the
+character <DEL>.
+
+   When Emacs starts up using a window system, it determines
+automatically which key should be <DEL>.  In some unusual cases Emacs
+gets the wrong information from the system.  If the usual erasure key
+deletes forwards instead of backwards, that is probably what
+happened--Emacs ought to be treating the <DELETE> key as <DEL>, but it
+isn't.
+
+   With a window system, if the usual erasure key is labeled
+<BACKSPACE> and there is a <DELETE> key elsewhere, but the <DELETE> key
+deletes backward instead of forward, that too suggests Emacs got the
+wrong information--but in the opposite sense.  It ought to be treating
+the <BACKSPACE> key as <DEL>, and treating <DELETE> differently, but it
+isn't.
+
+   On a text-only terminal, if you find the usual erasure key prompts
+for a Help command, like `Control-h', instead of deleting a character,
+it means that key is actually sending the <BS> character.  Emacs ought
+to be treating <BS> as <DEL>, but it isn't.
+
+   In all of those cases, the immediate remedy is the same: use the
+command `M-x normal-erase-is-backspace-mode'.  This toggles between the
+two modes that Emacs supports for handling <DEL>, so if Emacs starts in
+the wrong mode, it should switch to the right mode.  On a text-only
+terminal, if you want to ask for help when <BS> is treated as <DEL>,
+use <F1>; `C-?' may also work, if it sends character code 127.
+
+   To fix the problem automatically for every Emacs session, you can
+put one of the following lines into your `.emacs' file (*note Init
+File::).  For the first case above, where <DELETE> deletes forwards
+instead of backwards, use this line to make <DELETE> act as <DEL>
+(resulting in behavior compatible with Emacs 20 and previous versions):
+
+     (normal-erase-is-backspace-mode 0)
+
+For the other two cases, where <BACKSPACE> ought to act as <DEL>, use
+this line:
+
+     (normal-erase-is-backspace-mode 1)
+
+   Another way to fix the problem for every Emacs session is to
+customize the variable `normal-erase-is-backspace': the value `t'
+specifies the mode where <BS> or <BACKSPACE> is <DEL>, and `nil'
+specifies the other mode.  *Note Easy Customization::.
+
+   With a window system, it can also happen that the usual erasure key
+is labeled <BACKSPACE>, there is a <DELETE> key elsewhere, and both
+keys delete forward.  This probably means that someone has redefined
+your <BACKSPACE> key as a <DELETE> key.  With X, this is typically done
+with a command to the `xmodmap' program when you start the server or
+log in.  The most likely motive for this customization was to support
+old versions of Emacs, so we recommend you simply remove it now.
+
+
+File: emacs,  Node: Stuck Recursive,  Next: Screen Garbled,  Prev: DEL Does Not Delete,  Up: Lossage
+
+Recursive Editing Levels
+------------------------
+
+   Recursive editing levels are important and useful features of Emacs,
+but they can seem like malfunctions to the user who does not understand
+them.
+
+   If the mode line has square brackets `[...]' around the parentheses
+that contain the names of the major and minor modes, you have entered a
+recursive editing level.  If you did not do this on purpose, or if you
+don't understand what that means, you should just get out of the
+recursive editing level.  To do so, type `M-x top-level'.  This is
+called getting back to top level.  *Note Recursive Edit::.
+
+
+File: emacs,  Node: Screen Garbled,  Next: Text Garbled,  Prev: Stuck Recursive,  Up: Lossage
+
+Garbage on the Screen
+---------------------
+
+   If the data on the screen looks wrong, the first thing to do is see
+whether the text is really wrong.  Type `C-l' to redisplay the entire
+screen.  If the screen appears correct after this, the problem was
+entirely in the previous screen update.  (Otherwise, see the following
+section.)
+
+   Display updating problems often result from an incorrect termcap
+entry for the terminal you are using.  The file `etc/TERMS' in the Emacs
+distribution gives the fixes for known problems of this sort.
+`INSTALL' contains general advice for these problems in one of its
+sections.  Very likely there is simply insufficient padding for certain
+display operations.  To investigate the possibility that you have this
+sort of problem, try Emacs on another terminal made by a different
+manufacturer.  If problems happen frequently on one kind of terminal
+but not another kind, it is likely to be a bad termcap entry, though it
+could also be due to a bug in Emacs that appears for terminals that
+have or that lack specific features.
+
+
+File: emacs,  Node: Text Garbled,  Next: Unasked-for Search,  Prev: Screen Garbled,  Up: Lossage
+
+Garbage in the Text
+-------------------
+
+   If `C-l' shows that the text is wrong, try undoing the changes to it
+using `C-x u' until it gets back to a state you consider correct.  Also
+try `C-h l' to find out what command you typed to produce the observed
+results.
+
+   If a large portion of text appears to be missing at the beginning or
+end of the buffer, check for the word `Narrow' in the mode line.  If it
+appears, the text you don't see is probably still present, but
+temporarily off-limits.  To make it accessible again, type `C-x n w'.
+*Note Narrowing::.
+
+
+File: emacs,  Node: Unasked-for Search,  Next: Memory Full,  Prev: Text Garbled,  Up: Lossage
+
+Spontaneous Entry to Incremental Search
+---------------------------------------
+
+   If Emacs spontaneously displays `I-search:' at the bottom of the
+screen, it means that the terminal is sending `C-s' and `C-q' according
+to the poorly designed xon/xoff "flow control" protocol.
+
+   If this happens to you, your best recourse is to put the terminal in
+a mode where it will not use flow control, or give it so much padding
+that it will never send a `C-s'.  (One way to increase the amount of
+padding is to set the variable `baud-rate' to a larger value.  Its
+value is the terminal output speed, measured in the conventional units
+of baud.)
+
+   If you don't succeed in turning off flow control, the next best thing
+is to tell Emacs to cope with it.  To do this, call the function
+`enable-flow-control'.
+
+   Typically there are particular terminal types with which you must use
+flow control.  You can conveniently ask for flow control on those
+terminal types only, using `enable-flow-control-on'.  For example, if
+you find you must use flow control on VT-100 and H19 terminals, put the
+following in your `.emacs' file:
+
+     (enable-flow-control-on "vt100" "h19")
+
+   When flow control is enabled, you must type `C-\' to get the effect
+of a `C-s', and type `C-^' to get the effect of a `C-q'.  (These
+aliases work by means of keyboard translations; see *Note Keyboard
+Translations::.)
+
+
+File: emacs,  Node: Memory Full,  Next: After a Crash,  Prev: Unasked-for Search,  Up: Lossage
+
+Running out of Memory
+---------------------
+
+   If you get the error message `Virtual memory exceeded', save your
+modified buffers with `C-x s'.  This method of saving them has the
+smallest need for additional memory.  Emacs keeps a reserve of memory
+which it makes available when this error happens; that should be enough
+to enable `C-x s' to complete its work.
+
+   Once you have saved your modified buffers, you can exit this Emacs
+job and start another, or you can use `M-x kill-some-buffers' to free
+space in the current Emacs job.  If you kill buffers containing a
+substantial amount of text, you can safely go on editing.  Emacs refills
+its memory reserve automatically when it sees sufficient free space
+available, in case you run out of memory another time.
+
+   Do not use `M-x buffer-menu' to save or kill buffers when you run
+out of memory, because the buffer menu needs a fair amount of memory
+itself, and the reserve supply may not be enough.
 

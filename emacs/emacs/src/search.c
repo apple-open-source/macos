@@ -1,5 +1,5 @@
 /* String search routines for GNU Emacs.
-   Copyright (C) 1985, 86, 87, 93, 94, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86,87,93,94,97,98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -20,9 +20,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include <config.h>
-#ifdef STDC_HEADERS
-#include <stdlib.h>
-#endif
 #include "lisp.h"
 #include "syntax.h"
 #include "category.h"
@@ -99,12 +96,6 @@ matcher_overflow ()
 {
   error ("Stack overflow in regexp matcher");
 }
-
-#ifdef __STDC__
-#define CONST const
-#else
-#define CONST
-#endif
 
 /* Compile a regexp and signal a Lisp error if anything goes wrong.
    PATTERN is the pattern to compile.
@@ -189,7 +180,7 @@ compile_pattern_1 (cp, pattern, translate, regp, posix, multibyte)
 void
 shrink_regexp_cache ()
 {
-  struct regexp_cache *cp, **cpp;
+  struct regexp_cache *cp;
 
   for (cp = searchbuf_head; cp != 0; cp = cp->next)
     {
@@ -222,16 +213,27 @@ compile_pattern (pattern, regp, translate, posix, multibyte)
   for (cpp = &searchbuf_head; ; cpp = &cp->next)
     {
       cp = *cpp;
+      /* Entries are initialized to nil, and may be set to nil by
+	 compile_pattern_1 if the pattern isn't valid.  Don't apply
+	 XSTRING in those cases.  However, compile_pattern_1 is only
+	 applied to the cache entry we pick here to reuse.  So nil
+	 should never appear before a non-nil entry.  */
+      if (NILP (cp->regexp))
+	goto compile_it;
       if (XSTRING (cp->regexp)->size == XSTRING (pattern)->size
+	  && STRING_MULTIBYTE (cp->regexp) == STRING_MULTIBYTE (pattern)
 	  && !NILP (Fstring_equal (cp->regexp, pattern))
 	  && EQ (cp->buf.translate, (! NILP (translate) ? translate : make_number (0)))
 	  && cp->posix == posix
 	  && cp->buf.multibyte == multibyte)
 	break;
 
-      /* If we're at the end of the cache, compile into the last cell.  */
+      /* If we're at the end of the cache, compile into the nil cell
+	 we found, or the last (least recently used) cell with a
+	 string value.  */
       if (cp->next == 0)
 	{
+	compile_it:
 	  compile_pattern_1 (cp, pattern, translate, regp, posix, multibyte);
 	  break;
 	}
@@ -311,6 +313,8 @@ looking_at_1 (string, posix)
   i = re_match_2 (bufp, (char *) p1, s1, (char *) p2, s2,
 		  PT_BYTE - BEGV_BYTE, &search_regs,
 		  ZV_BYTE - BEGV_BYTE);
+  immediate_quit = 0;
+  
   if (i == -2)
     matcher_overflow ();
 
@@ -325,7 +329,6 @@ looking_at_1 (string, posix)
 	    = BYTE_TO_CHAR (search_regs.end[i] + BEGV_BYTE);
 	}
   XSETBUFFER (last_thing_searched, current_buffer);
-  immediate_quit = 0;
   return val;
 }
 
@@ -946,7 +949,6 @@ trivial_regexp_p (regexp)
 {
   int len = STRING_BYTES (XSTRING (regexp));
   unsigned char *s = XSTRING (regexp)->data;
-  unsigned char c;
   while (--len >= 0)
     {
       switch (*s++)
@@ -960,7 +962,7 @@ trivial_regexp_p (regexp)
 	    {
 	    case '|': case '(': case ')': case '`': case '\'': case 'b':
 	    case 'B': case '<': case '>': case 'w': case 'W': case 's':
-	    case 'S': case '=':
+	    case 'S': case '=': case '{': case '}':
 	    case 'c': case 'C':	/* for categoryspec and notcategoryspec */
 	    case '1': case '2': case '3': case '4': case '5':
 	    case '6': case '7': case '8': case '9':
@@ -1028,7 +1030,7 @@ search_buffer (string, pos, pos_byte, lim, lim_byte, n,
   /* Null string is found at starting position.  */
   if (len == 0 || n == 0)
     {
-      set_search_regs (pos, 0);
+      set_search_regs (pos_byte, 0);
       return pos;
     }
 
@@ -1191,7 +1193,7 @@ search_buffer (string, pos, pos_byte, lim, lim_byte, n,
 	{
 	  while (--len >= 0)
 	    {
-	      unsigned char workbuf[4], *str;
+	      unsigned char str[MAX_MULTIBYTE_LENGTH];
 	      int c, translated, inverse;
 	      int in_charlen, charlen;
 
@@ -1211,11 +1213,11 @@ search_buffer (string, pos, pos_byte, lim, lim_byte, n,
 	      TRANSLATE (translated, trt, c);
 	      /* If translation changed the byte-length, go back
 		 to the original character.  */
-	      charlen = CHAR_STRING (translated, workbuf, str);
+	      charlen = CHAR_STRING (translated, str);
 	      if (in_charlen != charlen)
 		{
 		  translated = c;
-		  charlen = CHAR_STRING (c, workbuf, str);
+		  charlen = CHAR_STRING (c, str);
 		}
 
 	      /* If we are searching for something strange,
@@ -1241,8 +1243,6 @@ search_buffer (string, pos, pos_byte, lim, lim_byte, n,
 		    /* If two different rows appear, needing translation,
 		       then we cannot use boyer_moore search.  */
 		    boyer_moore_ok = 0;
-		    /* ??? Handa: this must do boyer_moore_ok = 0
-		       if c is a composite character.  */
 		}
 
 	      /* Store this character into the translated pattern.  */
@@ -1526,7 +1526,7 @@ boyer_moore (n, base_pat, len, len_byte, trt, inverse_trt,
 {
   int direction = ((n > 0) ? 1 : -1);
   register int dirlen;
-  int infinity, limit, k, stride_for_teases;
+  int infinity, limit, stride_for_teases = 0;
   register int *BM_tab;
   int *BM_tab_base;
   register unsigned char *cursor, *p_limit;  
@@ -1535,8 +1535,8 @@ boyer_moore (n, base_pat, len, len_byte, trt, inverse_trt,
   int multibyte = ! NILP (current_buffer->enable_multibyte_characters);
 
   unsigned char simple_translate[0400];
-  int translate_prev_byte;
-  int translate_anteprev_byte;
+  int translate_prev_byte = 0;
+  int translate_anteprev_byte = 0;
 
 #ifdef C_ALLOCA
   int BM_tab_space[0400];
@@ -1959,10 +1959,7 @@ wordify (string)
     {
       int c;
       
-      if (STRING_MULTIBYTE (string))
-	FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
-      else
-	c = XSTRING (string)->data[i++];
+      FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
 
       if (SYNTAX (c) != Sword)
 	{
@@ -1997,13 +1994,7 @@ wordify (string)
       int c;
       int i_byte_orig = i_byte;
       
-      if (STRING_MULTIBYTE (string))
-	FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
-      else
-	{
-	  c = XSTRING (string)->data[i++];
-	  i_byte++;
-	}
+      FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
 
       if (SYNTAX (c) == Sword)
 	{
@@ -2038,6 +2029,10 @@ The match found must not extend before that position.\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
  If not nil and not t, position at limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
+\n\
+Search case-sensitivity is determined by the value of the variable\n\
+`case-fold-search', which see.\n\
+\n\
 See also the functions `match-beginning', `match-end' and `replace-match'.")
   (string, bound, noerror, count)
      Lisp_Object string, bound, noerror, count;
@@ -2054,6 +2049,10 @@ The match found must not extend after that position.  nil is equivalent\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
   If not nil and not t, move to limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
+\n\
+Search case-sensitivity is determined by the value of the variable\n\
+`case-fold-search', which see.\n\
+\n\
 See also the functions `match-beginning', `match-end' and `replace-match'.")
   (string, bound, noerror, count)
      Lisp_Object string, bound, noerror, count;
@@ -2102,7 +2101,8 @@ The match found must start at or after that position.\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
   If not nil and not t, move to limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
-See also the functions `match-beginning', `match-end' and `replace-match'.")
+See also the functions `match-beginning', `match-end', `match-string',\n\
+and `replace-match'.")
   (regexp, bound, noerror, count)
      Lisp_Object regexp, bound, noerror, count;
 {
@@ -2118,7 +2118,8 @@ The match found must not extend after that position.\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
   If not nil and not t, move to limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
-See also the functions `match-beginning', `match-end' and `replace-match'.")
+See also the functions `match-beginning', `match-end', `match-string',\n\
+and `replace-match'.")
   (regexp, bound, noerror, count)
      Lisp_Object regexp, bound, noerror, count;
 {
@@ -2137,7 +2138,8 @@ The match found must start at or after that position.\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
   If not nil and not t, move to limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
-See also the functions `match-beginning', `match-end' and `replace-match'.")
+See also the functions `match-beginning', `match-end', `match-string',\n\
+and `replace-match'.")
   (regexp, bound, noerror, count)
      Lisp_Object regexp, bound, noerror, count;
 {
@@ -2154,7 +2156,8 @@ The match found must not extend after that position.\n\
 Optional third argument, if t, means if fail just return nil (no error).\n\
   If not nil and not t, move to limit of search and return nil.\n\
 Optional fourth argument is repeat count--search for successive occurrences.\n\
-See also the functions `match-beginning', `match-end' and `replace-match'.")
+See also the functions `match-beginning', `match-end', `match-string',\n\
+and `replace-match'.")
   (regexp, bound, noerror, count)
      Lisp_Object regexp, bound, noerror, count;
 {
@@ -2180,12 +2183,18 @@ FIXEDCASE and LITERAL are optional arguments.\n\
 Leaves point at end of replacement text.\n\
 \n\
 The optional fourth argument STRING can be a string to modify.\n\
-In that case, this function creates and returns a new string\n\
-which is made by replacing the part of STRING that was matched.\n\
+This is meaningful when the previous match was done against STRING,\n\
+using `string-match'.  When used this way, `replace-match'\n\
+creates and returns a new string made by copying STRING and replacing\n\
+the part of STRING that was matched.\n\
 \n\
-The optional fifth argument SUBEXP specifies a subexpression of the match.\n\
-It says to replace just that subexpression instead of the whole match.\n\
-This is useful only after a regular expression search or match\n\
+The optional fifth argument SUBEXP specifies a subexpression;\n\
+it says to replace just that subexpression with NEWTEXT,\n\
+rather than replacing the entire matched text.\n\
+This is, in a vague sense, the inverse of using `\\N' in NEWTEXT;\n\
+`\\N' copies subexp N into NEWTEXT, but using N as SUBEXP puts\n\
+NEWTEXT in place of subexp N.\n\
+This is useful only after a regular expression search or match,\n\
 since only regular expressions have distinguished subexpressions.")
   (newtext, fixedcase, literal, string, subexp)
      Lisp_Object newtext, fixedcase, literal, string, subexp;
@@ -2341,7 +2350,7 @@ since only regular expressions have distinguished subexpressions.")
 	  for (pos_byte = 0, pos = 0; pos_byte < length;)
 	    {
 	      int substart = -1;
-	      int subend;
+	      int subend = 0;
 	      int delbackslash = 0;
 
 	      FETCH_STRING_CHAR_ADVANCE (c, newtext, pos, pos_byte);
@@ -2349,6 +2358,7 @@ since only regular expressions have distinguished subexpressions.")
 	      if (c == '\\')
 		{
 		  FETCH_STRING_CHAR_ADVANCE (c, newtext, pos, pos_byte);
+		      
 		  if (c == '&')
 		    {
 		      substart = search_regs.start[sub];
@@ -2413,7 +2423,7 @@ since only regular expressions have distinguished subexpressions.")
       return concat3 (before, newtext, after);
     }
 
-  /* Record point, the move (quietly) to the start of the match.  */
+  /* Record point, then move (quietly) to the start of the match.  */
   if (PT >= search_regs.end[sub])
     opoint = PT - ZV;
   else if (PT > search_regs.start[sub])
@@ -2431,42 +2441,122 @@ since only regular expressions have distinguished subexpressions.")
     Finsert_and_inherit (1, &newtext);
   else
     {
-      struct gcpro gcpro1;
       int length = STRING_BYTES (XSTRING (newtext));
+      unsigned char *substed;
+      int substed_alloc_size, substed_len;
+      int buf_multibyte = !NILP (current_buffer->enable_multibyte_characters);
+      int str_multibyte = STRING_MULTIBYTE (newtext);
+      Lisp_Object rev_tbl;
 
-      GCPRO1 (newtext);
+      rev_tbl= (!buf_multibyte && CHAR_TABLE_P (Vnonascii_translation_table)
+		? Fchar_table_extra_slot (Vnonascii_translation_table,
+					  make_number (0))
+		: Qnil);
+
+      substed_alloc_size = length * 2 + 100;
+      substed = (unsigned char *) xmalloc (substed_alloc_size + 1);
+      substed_len = 0;
+
+      /* Go thru NEWTEXT, producing the actual text to insert in
+	 SUBSTED while adjusting multibyteness to that of the current
+	 buffer.  */
 
       for (pos_byte = 0, pos = 0; pos_byte < length;)
 	{
-	  int offset = PT - search_regs.start[sub];
+	  unsigned char str[MAX_MULTIBYTE_LENGTH];
+	  unsigned char *add_stuff = NULL;
+	  int add_len = 0;
+	  int idx = -1;
 
-	  FETCH_STRING_CHAR_ADVANCE (c, newtext, pos, pos_byte);
+	  if (str_multibyte)
+	    {
+	      FETCH_STRING_CHAR_ADVANCE_NO_CHECK (c, newtext, pos, pos_byte);
+	      if (!buf_multibyte)
+		c = multibyte_char_to_unibyte (c, rev_tbl);
+	    }
+	  else
+	    {
+	      /* Note that we don't have to increment POS.  */
+	      c = XSTRING (newtext)->data[pos_byte++];
+	      if (buf_multibyte)
+		c = unibyte_char_to_multibyte (c);
+	    }
+
+	  /* Either set ADD_STUFF and ADD_LEN to the text to put in SUBSTED,
+	     or set IDX to a match index, which means put that part
+	     of the buffer text into SUBSTED.  */
 
 	  if (c == '\\')
 	    {
-	      FETCH_STRING_CHAR_ADVANCE (c, newtext, pos, pos_byte);
+	      if (str_multibyte)
+		{
+		  FETCH_STRING_CHAR_ADVANCE_NO_CHECK (c, newtext,
+						      pos, pos_byte);
+		  if (!buf_multibyte && !SINGLE_BYTE_CHAR_P (c))
+		    c = multibyte_char_to_unibyte (c, rev_tbl);
+		}
+	      else
+		{
+		  c = XSTRING (newtext)->data[pos_byte++];
+		  if (buf_multibyte)
+		    c = unibyte_char_to_multibyte (c);
+		}
+
 	      if (c == '&')
-		Finsert_buffer_substring
-		  (Fcurrent_buffer (),
-		   make_number (search_regs.start[sub] + offset),
-		   make_number (search_regs.end[sub] + offset));
+		idx = sub;
 	      else if (c >= '1' && c <= '9' && c <= search_regs.num_regs + '0')
 		{
 		  if (search_regs.start[c - '0'] >= 1)
-		    Finsert_buffer_substring
-		      (Fcurrent_buffer (),
-		       make_number (search_regs.start[c - '0'] + offset),
-		       make_number (search_regs.end[c - '0'] + offset));
+		    idx = c - '0';
 		}
 	      else if (c == '\\')
-		insert_char (c);
+		add_len = 1, add_stuff = "\\";
 	      else
-		error ("Invalid use of `\\' in replacement text");
+		{
+		  xfree (substed);
+		  error ("Invalid use of `\\' in replacement text");
+		}
 	    }
 	  else
-	    insert_char (c);
+	    {
+	      add_len = CHAR_STRING (c, str);
+	      add_stuff = str;
+	    }
+
+	  /* If we want to copy part of a previous match,
+	     set up ADD_STUFF and ADD_LEN to point to it.  */
+	  if (idx >= 0)
+	    {
+	      int begbyte = CHAR_TO_BYTE (search_regs.start[idx]);
+	      add_len = CHAR_TO_BYTE (search_regs.end[idx]) - begbyte;
+	      if (search_regs.start[idx] < GPT && GPT < search_regs.end[idx])
+		move_gap (search_regs.start[idx]);
+	      add_stuff = BYTE_POS_ADDR (begbyte);
+	    }
+
+	  /* Now the stuff we want to add to SUBSTED
+	     is invariably ADD_LEN bytes starting at ADD_STUFF.  */
+
+	  /* Make sure SUBSTED is big enough.  */
+	  if (substed_len + add_len >= substed_alloc_size)
+	    {
+	      substed_alloc_size = substed_len + add_len + 500;
+	      substed = (unsigned char *) xrealloc (substed,
+						    substed_alloc_size + 1);
+	    }
+
+	  /* Now add to the end of SUBSTED.  */
+	  if (add_stuff)
+	    {
+	      bcopy (add_stuff, substed + substed_len, add_len);
+	      substed_len += add_len;
+	    }
 	}
-      UNGCPRO;
+
+      /* Now insert what we accumulated.  */
+      insert_and_inherit (substed, substed_len);
+
+      xfree (substed);
     }
 
   inslen = PT - (search_regs.start[sub]);
@@ -2556,6 +2646,8 @@ to hold all the values, and if INTEGERS is non-nil, no consing is done.")
   if (NILP (last_thing_searched))
     return Qnil;
 
+  prev = Qnil;
+
   data = (Lisp_Object *) alloca ((2 * search_regs.num_regs)
 				 * sizeof (Lisp_Object));
 
@@ -2599,19 +2691,19 @@ to hold all the values, and if INTEGERS is non-nil, no consing is done.")
   /* If REUSE is a list, store as many value elements as will fit
      into the elements of REUSE.  */
   for (i = 0, tail = reuse; CONSP (tail);
-       i++, tail = XCONS (tail)->cdr)
+       i++, tail = XCDR (tail))
     {
       if (i < 2 * len + 2)
-	XCONS (tail)->car = data[i];
+	XCAR (tail) = data[i];
       else
-	XCONS (tail)->car = Qnil;
+	XCAR (tail) = Qnil;
       prev = tail;
     }
 
   /* If we couldn't fit all value elements into REUSE,
      cons up the rest of them and add them to the end of REUSE.  */
   if (i < 2 * len + 2)
-    XCONS (prev)->cdr = Flist (2 * len + 2 - i, data + i);
+    XCDR (prev) = Flist (2 * len + 2 - i, data + i);
 
   return reuse;
 }
@@ -2659,6 +2751,9 @@ LIST should have been created by calling `match-data' previously.")
 				       length * sizeof (regoff_t));
 	  }
 
+	for (i = search_regs.num_regs; i < length; i++)
+	  search_regs.start[i] = -1;
+
 	search_regs.num_regs = length;
       }
   }
@@ -2673,6 +2768,8 @@ LIST should have been created by calling `match-data' previously.")
 	}
       else
 	{
+	  int from;
+
 	  if (MARKERP (marker))
 	    {
 	      if (XMARKER (marker)->buffer == 0)
@@ -2682,7 +2779,7 @@ LIST should have been created by calling `match-data' previously.")
 	    }
 
 	  CHECK_NUMBER_COERCE_MARKER (marker, 0);
-	  search_regs.start[i] = XINT (marker);
+	  from = XINT (marker);
 	  list = Fcdr (list);
 
 	  marker = Fcar (list);
@@ -2690,6 +2787,7 @@ LIST should have been created by calling `match-data' previously.")
 	    XSETFASTINT (marker, 0);
 
 	  CHECK_NUMBER_COERCE_MARKER (marker, 0);
+	  search_regs.start[i] = from;
 	  search_regs.end[i] = XINT (marker);
 	}
       list = Fcdr (list);

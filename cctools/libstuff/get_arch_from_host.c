@@ -46,6 +46,7 @@ struct arch_flag *specific_arch_flag)
     struct host_basic_info host_basic_info;
     unsigned int count;
     kern_return_t r;
+    mach_port_t my_mach_host_self;
 
 	if(family_arch_flag != NULL)
 	    memset(family_arch_flag, '\0', sizeof(struct arch_flag));
@@ -53,10 +54,14 @@ struct arch_flag *specific_arch_flag)
 	    memset(specific_arch_flag, '\0', sizeof(struct arch_flag));
 
 	count = HOST_BASIC_INFO_COUNT;
-	if((r = host_info(mach_host_self(), HOST_BASIC_INFO,
+	my_mach_host_self = mach_host_self();
+	if((r = host_info(my_mach_host_self, HOST_BASIC_INFO,
 			  (host_info_t)(&host_basic_info),
-			  &count)) != KERN_SUCCESS)
+			  &count)) != KERN_SUCCESS){
+	    mach_port_deallocate(mach_task_self(), my_mach_host_self);
 	    return(0);
+	}
+	mach_port_deallocate(mach_task_self(), my_mach_host_self);
 
 	if(family_arch_flag != NULL){
 	    family_arch_flag->cputype = host_basic_info.cpu_type;

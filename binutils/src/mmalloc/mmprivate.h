@@ -281,29 +281,24 @@ struct mdesc
      it may change each time the region is mapped and unmapped. */
 
   int fd;
+  struct mdesc *child;
 
   /* An array of keys to data within the mapped region, for use by the
      application.  */
 
   PTR keys[MMALLOC_KEYS];
-
 };
 
 /* Bits to look at in the malloc descriptor flags word */
 
 #define MMALLOC_DEVZERO		(1 << 0)	/* Have mapped to /dev/zero */
-#define MMALLOC_INITIALIZED	(1 << 1)	/* Initialized mmalloc */
-#define MMALLOC_MMCHECK_USED	(1 << 2)	/* mmcheckf() called already */
+#define MMALLOC_SHARED		(1 << 1)	/* */
+#define MMALLOC_INITIALIZED	(1 << 2)	/* Initialized mmalloc */
+#define MMALLOC_MMCHECK_USED	(1 << 3)	/* mmcheckf() called already */
 
 /* Internal version of `mfree' used in `morecore'. */
 
 extern void __mmalloc_free PARAMS ((struct mdesc *, PTR));
-
-/* Hooks for debugging versions.  */
-
-extern void (*__mfree_hook) PARAMS ((PTR, PTR));
-extern PTR (*__mmalloc_hook) PARAMS ((PTR, size_t));
-extern PTR (*__mrealloc_hook) PARAMS ((PTR, PTR, size_t));
 
 /* Initialize the first use of the default malloc descriptor, which uses
    an sbrk() region. */
@@ -329,10 +324,12 @@ extern PTR __mmalloc_remap_core PARAMS ((struct mdesc *));
    just cast the user supplied version (which is void *) to the proper type
    (struct mdesc *). */
 
+extern struct mdesc *__mmalloc_default_mdp;
+
 #define MD_TO_MDP(md) \
   ((md) == NULL \
    ? (__mmalloc_default_mdp == NULL \
-      ? (__mmalloc_default_mdp = mmalloc_attach (-1, 0)) \
+      ? (__mmalloc_default_mdp = mmalloc_malloc_create ()) \
      : __mmalloc_default_mdp) \
    : (struct mdesc *) (md))
 

@@ -28,6 +28,7 @@
 #include "Globals.h"
 #include "StorageManager.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecKeychainAPIPriv.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -36,16 +37,16 @@ using namespace CSSMDateTimeUtils;
 //
 // KCCursorImpl
 //
-KCCursorImpl::KCCursorImpl(const DbCursor &dbCursor, SecItemClass itemClass, const SecKeychainAttributeList *attrList)
-: mDbCursor(dbCursor)
+KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecItemClass itemClass, const SecKeychainAttributeList *attrList) :
+	mSearchList(searchList),
+	mCurrent(mSearchList.begin())
 {
+    recordType(Schema::recordTypeFor(itemClass));
+
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
 
-		
-    mDbCursor->recordType(Schema::recordTypeFor(itemClass));
-
-	mDbCursor->conjunctive(CSSM_DB_AND);
+	conjunctive(CSSM_DB_AND);
 	const SecKeychainAttribute *end=&attrList->attr[attrList->count];
 	// Add all the attrs in attrs list to the cursor.
 	for (const SecKeychainAttribute *attr=attrList->attr; attr != end; ++attr)
@@ -75,17 +76,18 @@ KCCursorImpl::KCCursorImpl(const DbCursor &dbCursor, SecItemClass itemClass, con
                 length = 16;
             }
         }
-        mDbCursor->add(CSSM_DB_EQUAL,info, CssmData(buf,length));
+        add(CSSM_DB_EQUAL,info, CssmData(buf,length));
 	}
 }
 
-KCCursorImpl::KCCursorImpl(const DbCursor &dbCursor, const SecKeychainAttributeList *attrList)
-: mDbCursor(dbCursor)
+KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList) :
+	mSearchList(searchList),
+	mCurrent(mSearchList.begin())
 {
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
 
-	mDbCursor->conjunctive(CSSM_DB_AND);
+	conjunctive(CSSM_DB_AND);
 	bool foundClassAttribute=false;
 	const SecKeychainAttribute *end=&attrList->attr[attrList->count];
 	// Add all the attrs in attrs list to the cursor.
@@ -118,7 +120,7 @@ KCCursorImpl::KCCursorImpl(const DbCursor &dbCursor, const SecKeychainAttributeL
                     length = 16;
                 }
             }
-			mDbCursor->add(CSSM_DB_EQUAL,info, CssmData(buf,length));
+			add(CSSM_DB_EQUAL,info, CssmData(buf,length));
 
 			continue;
 		}
@@ -127,8 +129,7 @@ KCCursorImpl::KCCursorImpl(const DbCursor &dbCursor, const SecKeychainAttributeL
 		if (foundClassAttribute || attr->length != sizeof(SecItemClass))
 			MacOSError::throwMe(paramErr); // We have 2 different 'clas' attributes
 
-		mDbCursor->recordType(Schema
-            ::recordTypeFor(*reinterpret_cast<SecItemClass *>(attr->data)));
+		recordType(Schema::recordTypeFor(*reinterpret_cast<SecItemClass *>(attr->data)));
 		foundClassAttribute=true;
 	}
 }
@@ -142,26 +143,57 @@ KCCursorImpl::next(Item &item)
 {
 	DbAttributes dbAttributes;
 	DbUniqueRecord uniqueId;
-	if (!mDbCursor)
-		MacOSError::throwMe(errSecInvalidSearchRef);
 
 	for (;;)
 	{
-		if (!mDbCursor->next(&dbAttributes, NULL, uniqueId))
+		if (!mDbCursor)
 		{
-			// Forget my resources.
-			mDbCursor = DbCursor();
-			return false;
+			if (mCurrent == mSearchList.end())
+			{
+				// No more keychains to search so we are done.
+				return false;
+			}
+
+			mDbCursor = DbCursor((*mCurrent)->database(), *this);
 		}
 
-		// Skip records that we don't have a matching itemClass for,
-		// since we can't do anything with them.
-		if (Schema::itemClassFor(dbAttributes.recordType()))
-			break;
+		bool gotRecord;
+		try
+		{
+			gotRecord = mDbCursor->next(&dbAttributes, NULL, uniqueId);
+		}
+		catch(const CssmCommonError &err)
+		{
+			OSStatus status = err.osStatus();
+			if (status != CSSMERR_DL_DATASTORE_DOESNOT_EXIST
+				&& status != CSSMERR_DL_INVALID_RECORDTYPE)
+				throw;
+
+			gotRecord = false;
+		}
+
+		// If we did not get a record from the current keychain or the current
+		// keychain did not exist skip to the next keychain in the list.
+		if (!gotRecord)
+		{
+			++mCurrent;
+			mDbCursor = DbCursor();
+			continue;
+		}
+
+		// If doing a search for all records skip the db blob added by the
+		// CSP/DL and skip symmetric key items.
+		// @@@ This is wrong since we should only skip symmetric keys that are
+		// group keys and not user generated symmetric keys.
+		if (mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY &&
+			(dbAttributes.recordType() == 0x80008000
+			 || dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY))
+			continue;
+
+		break;
 	}
 
-	Keychain keychain = globals().storageManager.keychain(uniqueId->database()->dlDbIdentifier());
 	// Go though Keychain since item might already exist.
-	item = keychain->item(dbAttributes.recordType(), uniqueId);
+	item = (*mCurrent)->item(dbAttributes.recordType(), uniqueId);
 	return true;
 }

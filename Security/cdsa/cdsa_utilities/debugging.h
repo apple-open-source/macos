@@ -24,10 +24,7 @@
 
 #include <Security/utilities.h>
 #include <cstdarg>
-
-#ifdef _CPP_DEBUGGING
-#pragma export on
-#endif
+#include <typeinfo>
 
 namespace Security {
 namespace Debug {
@@ -74,24 +71,50 @@ private:
 };
 
 
+//
+// Given an object of any type, produce the proper name of its type.
+//
+string makeTypeName(const type_info &info);
+
+template <class Object>
+string typeName(const Object &obj)
+{
+	return makeTypeName(typeid(obj));
+}
+
+
 #else // NDEBUG
 
 
 //
 // If NDEBUG is defined, we try to make all debugging functions weightless
 //
+
+#if __GNUC__ > 2
 inline void debug(const char *, const char *, ...) { }
+#else
+// @@@ Hack to work around the fact that gcc2 can't inline empty varargs functions.
+extern "C" inline void debug() { }
+#endif
+
 inline void vdebug(const char *, const char *, va_list) { }
 inline bool debugging(const char *) { return false; }
 
 class Scope {
 public:
 	Scope(const char *)		{ }
-	void operator () (const char *, ...)	{ }
+
+	// @@@ Hack to work around the fact that gcc can't inline empty varargs functions.
+	//void operator () (const char *, ...)	{ }
+	void operator () (const char *, ...);
 };
 
 inline bool dumping(const char *) { return false; }
-inline void dump(const char *, ...) { }
+
+// @@@ Hack to work around the fact that gcc can't inline empty varargs functions.
+//inline void dump(const char *, ...) { }
+extern "C" inline void dump() { }
+
 inline void dumpData(const void *, size_t) { }
 void dumpData(const char *, const void *, size_t);
 template <class Data> inline void dumpData(const Data &) { }
@@ -104,19 +127,16 @@ template <class Data> inline void dumpData(const char *, const Data &) { }
 # define IFDUMP(code)				/* no-op */
 # define IFDUMPING(scope,code)		/* no-op */
 
+// no debug typeName; don't call this if NDEBUG
+
 #endif // NDEBUG
 
 
 } // end namespace Debug
-
 } // end namespace Security
 
 // We intentionally leak a few functions into the global namespace
 using Security::Debug::debug;
 
-
-#ifdef _CPP_DEBUGGING
-#pragma export off
-#endif
 
 #endif //_H_DEBUGGING

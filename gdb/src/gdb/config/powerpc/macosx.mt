@@ -2,19 +2,19 @@
 
 MT_CFLAGS = \
 	-DTARGET_POWERPC \
-	-I$(srcdir)/../gdb-next
+	-I$(srcdir)/macosx
 
 TDEPFILES = \
 	core-macho.o \
 	xcoffread.o \
-	ppc-next-tdep.o \
-	ppc-frameinfo.o \
-	ppc-frameops.o \
-	ppc-tdep.o \
+	ppc-macosx-tdep.o \
+	ppc-macosx-frameinfo.o \
+	ppc-macosx-frameops.o \
+	ppc-macosx-regs.o \
 	remote-kdp.o \
 	kdp-udp.o \
 	kdp-transactions.o \
 	kdp-protocol.o \
-	nextstep-tdep.o
+	macosx-tdep.o
 
-TM_FILE = tm-ppc-next.h
+TM_FILE = tm-ppc-macosx.h

@@ -1,5 +1,8 @@
 /* Generic remote debugging interface for simulators.
-   Copyright 1993, 1994, 1996, 1997, 2000 Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.
    Steve Chamberlain (sac@cygnus.com).
 
@@ -22,7 +25,6 @@
 
 #include "defs.h"
 #include "inferior.h"
-#include "gdb_wait.h"
 #include "value.h"
 #include "gdb_string.h"
 #include <ctype.h>
@@ -37,6 +39,7 @@
 #include "remote-sim.h"
 #include "remote-utils.h"
 #include "command.h"
+#include "regcache.h"
 
 /* Prototypes */
 
@@ -85,15 +88,16 @@ static void gdbsim_close (int quitting);
 
 static void gdbsim_detach (char *args, int from_tty);
 
-static void gdbsim_resume (int pid, int step, enum target_signal siggnal);
+static void gdbsim_resume (ptid_t ptid, int step, enum target_signal siggnal);
 
-static int gdbsim_wait (int pid, struct target_waitstatus *status);
+static ptid_t gdbsim_wait (ptid_t ptid, struct target_waitstatus *status);
 
 static void gdbsim_prepare_to_store (void);
 
-static int gdbsim_xfer_inferior_memory (CORE_ADDR memaddr,
-					char *myaddr, int len,
-					int write, struct target_ops *target);
+static int gdbsim_xfer_inferior_memory (CORE_ADDR memaddr, char *myaddr, 
+					int len, int write,
+					struct mem_attrib *attrib,
+					struct target_ops *target);
 
 static void gdbsim_files_info (struct target_ops *target);
 
@@ -129,7 +133,9 @@ dump_mem (char *buf, int len)
 	  long l[2];
 	  memcpy (l, buf, len);
 	  printf_filtered ("\t0x%lx", l[0]);
-	  printf_filtered (len == 8 ? " 0x%x\n" : "\n", l[1]);
+	  if (len == 8)
+	    printf_filtered (" 0x%lx", l[1]);
+	  printf_filtered ("\n");
 	}
       else
 	{
@@ -333,7 +339,8 @@ gdbsim_store_register (int regno)
 				     REGISTER_SIM_REGNO (regno),
 				     tmp, REGISTER_RAW_SIZE (regno));
       if (nr_bytes > 0 && nr_bytes != REGISTER_RAW_SIZE (regno))
-	internal_error ("Register size different to expected");
+	internal_error (__FILE__, __LINE__,
+			"Register size different to expected");
       if (sr_get_debug ())
 	{
 	  printf_filtered ("gdbsim_store_register: %d", regno);
@@ -354,7 +361,7 @@ gdbsim_kill (void)
 
   /* There is no need to `kill' running simulator - the simulator is
      not running */
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 }
 
 /* Load an executable file into the target process.  This is expected to
@@ -367,7 +374,7 @@ gdbsim_load (char *prog, int fromtty)
   if (sr_get_debug ())
     printf_filtered ("gdbsim_load: prog \"%s\"\n", prog);
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 
   /* FIXME: We will print two messages on error.
      Need error to either not print anything if passed NULL or need
@@ -382,7 +389,7 @@ gdbsim_load (char *prog, int fromtty)
 }
 
 
-/* Start an inferior process and set inferior_pid to its pid.
+/* Start an inferior process and set inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ARGS is a string containing the arguments to the program.
    ENV is the environment vector to pass.  Errors reported with error().
@@ -425,7 +432,7 @@ gdbsim_create_inferior (char *exec_file, char *args, char **env)
     argv = NULL;
   sim_create_inferior (gdbsim_desc, exec_bfd, argv, env);
 
-  inferior_pid = 42;
+  inferior_ptid = pid_to_ptid (42);
   insert_breakpoints ();	/* Needed to get correct instruction in cache */
 
   clear_proceed_status ();
@@ -467,19 +474,19 @@ gdbsim_open (char *args, int from_tty)
   strcpy (arg_buf, "gdbsim");	/* 7 */
   /* Specify the byte order for the target when it is both selectable
      and explicitly specified by the user (not auto detected). */
-  if (TARGET_BYTE_ORDER_SELECTABLE_P
-      && !TARGET_BYTE_ORDER_AUTO)
+  if (!TARGET_BYTE_ORDER_AUTO)
     {
       switch (TARGET_BYTE_ORDER)
 	{
-	case BIG_ENDIAN:
+	case BFD_ENDIAN_BIG:
 	  strcat (arg_buf, " -E big");
 	  break;
-	case LITTLE_ENDIAN:
+	case BFD_ENDIAN_LITTLE:
 	  strcat (arg_buf, " -E little");
 	  break;
 	default:
-	  internal_error ("Value of TARGET_BYTE_ORDER unknown");
+	  internal_error (__FILE__, __LINE__,
+			  "Value of TARGET_BYTE_ORDER unknown");
 	}
     }
   /* Specify the architecture of the target when it has been
@@ -566,9 +573,9 @@ static enum target_signal resume_siggnal;
 static int resume_step;
 
 static void
-gdbsim_resume (int pid, int step, enum target_signal siggnal)
+gdbsim_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
-  if (inferior_pid != 42)
+  if (PIDGET (inferior_ptid) != 42)
     error ("The program is not being run.");
 
   if (sr_get_debug ())
@@ -605,7 +612,6 @@ gdb_os_poll_quit (host_callback *p)
   if (ui_loop_hook != NULL)
     ui_loop_hook (0);
 
-  notice_quit ();
   if (quit_flag)		/* gdb's idea of quit */
     {
       quit_flag = 0;		/* we've stolen it */
@@ -628,8 +634,8 @@ gdbsim_cntrl_c (int signo)
   gdbsim_stop ();
 }
 
-static int
-gdbsim_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+gdbsim_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   static RETSIGTYPE (*prev_sigint) ();
   int sigrc = 0;
@@ -691,7 +697,7 @@ gdbsim_wait (int pid, struct target_waitstatus *status)
       break;
     }
 
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 /* Get ready to modify the registers array.  On machines which store
@@ -714,7 +720,8 @@ gdbsim_prepare_to_store (void)
 
 static int
 gdbsim_xfer_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len,
-			     int write, struct target_ops *target)
+			     int write, struct mem_attrib *attrib,
+			     struct target_ops *target)
 {
   if (!program_loaded)
     error ("No program loaded.");
@@ -907,7 +914,6 @@ init_gdbsim_ops (void)
   gdbsim_ops.to_thread_alive = 0;
   gdbsim_ops.to_stop = gdbsim_stop;
   gdbsim_ops.to_pid_to_exec_file = NULL;
-  gdbsim_ops.to_core_file_to_sym_file = NULL;
   gdbsim_ops.to_stratum = process_stratum;
   gdbsim_ops.DONT_USE = NULL;
   gdbsim_ops.to_has_all_memory = 1;

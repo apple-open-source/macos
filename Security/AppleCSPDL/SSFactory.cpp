@@ -36,8 +36,13 @@ bool SSFactory::setup(SSCSPSession &session, CSPFullPluginSession::CSPContext * 
 	switch (context.type())
 	{
 	case CSSM_ALGCLASS_SIGNATURE:
+		cspCtx = new SSSignatureContext(session);
+		return true;
 	case CSSM_ALGCLASS_MAC:
-		cspCtx = encoding ? new SSSignContext(session) : new SSVerifyContext(session);
+		cspCtx = new SSMACContext(session);
+		return true;
+	case CSSM_ALGCLASS_DIGEST:
+		cspCtx = new SSDigestContext(session);
 		return true;
 	case CSSM_ALGCLASS_SYMMETRIC:
 	case CSSM_ALGCLASS_ASYMMETRIC:

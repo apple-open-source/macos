@@ -1,5 +1,6 @@
 /* Definitions to make GDB run on a mips box under 4.3bsd.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1993, 1994, 1995, 1996, 1998
+   Free Software Foundation, Inc.
    Contributed by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin
    and by Alessandro Forin(af@cs.cmu.edu) at CMU
 
@@ -35,7 +36,7 @@
 #endif
 #endif
 
-#if ! defined (__STDC__) && ! defined (offsetof)
+#if ! defined (__GNUC__) && ! defined (offsetof)
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
 #endif
 

@@ -6,11 +6,18 @@
 #define __ntp_machine
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
 #endif
 
 #include "ntp_proto.h"
@@ -232,21 +239,21 @@ typedef unsigned long u_long;
  */
 #if defined(SYS_WINNT)
 # if !defined(HAVE_CONFIG_H)  || !defined(__config)
-#   error "NT requires config.h to be included"
+    error "NT requires config.h to be included"
 # endif /* HAVE_CONFIG_H) */
 
-#if defined SYS_WINNT
 # define ifreq _INTERFACE_INFO
 # define ifr_flags iiFlags
 # define ifr_addr iiAddress.AddressIn
 # define ifr_broadaddr iiBroadcastAddress.AddressIn
 # define ifr_mask iiNetmask.AddressIn
-#endif /* SYS_WINNT */
 
 # define isascii __isascii
 # define isatty _isatty
 # define mktemp _mktemp
-# define getpid GetCurrentProcessId
+# if 0
+#  define getpid GetCurrentProcessId
+# endif
 # include <windows.h>
 # include <ws2tcpip.h>
 # undef interface
@@ -426,6 +433,48 @@ struct servent *getservbyname P((char *name, char *type));
 #  define	NTP_SYSCALL_ADJ 236
 # endif
 #endif	/* NTP_SYSCALLS_STD */
+
+#ifdef MPE
+# include <sys/types.h>
+# include <netinet/in.h>
+# include <stdio.h>
+# include <time.h>
+
+/* missing functions that are easily renamed */
+
+# define _getch getchar
+
+/* special functions that require MPE-specific wrappers */
+
+# define bind	__ntp_mpe_bind
+# define fcntl	__ntp_mpe_fcntl
+
+/* standard macros missing from MPE include files */
+
+# define IN_CLASSD(i)	((((long)(i))&0xf0000000)==0xe0000000)
+# define IN_MULTICAST IN_CLASSD
+# define ITIMER_REAL 0
+# define MAXHOSTNAMELEN 64
+
+/* standard structures missing from MPE include files */
+
+struct itimerval { 
+        struct timeval it_interval;    /* timer interval */
+        struct timeval it_value;       /* current value */
+};
+
+/* various declarations to make gcc stop complaining */
+
+extern int __filbuf(FILE *);
+extern int __flsbuf(int, FILE *);
+extern int gethostname(char *, int);
+extern unsigned long inet_addr(char *);
+extern char *strdup(const char *);
+
+/* miscellaneous NTP macros */
+
+# define HAVE_NO_NICE
+#endif /* MPE */
 
 #ifdef HAVE_RTPRIO
 # define HAVE_NO_NICE

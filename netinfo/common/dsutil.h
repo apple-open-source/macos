@@ -36,6 +36,20 @@
 #define IndexNull (unsigned int)-1
 #endif
 
+/*
+ * Characters in names to be escaped before mapping to X.500
+ */
+#define NeedEscapeRDN(c) \
+	 (((c) == '+') || \
+	 ((c) == ',') || \
+	 ((c) == ';') || \
+	 ((c) == '\"') || \
+	 ((c) == '\\') || \
+	 ((c) == '<') || \
+	 ((c) == '>'))
+
+#define NeedEscapeAVA(c) (NeedEscapeRDN(c) || ((c) == '='))
+
 char *copyString(char *);
 char *concatString(char *, char *);
 char **insertString(char *, char **, unsigned int);
@@ -54,6 +68,10 @@ char *itoa(int);
 
 dsrecord *dsutil_parse_netinfo_string_path(char *path);
 dsrecord *dsutil_parse_x500_string_path(char *path);
+
+/* Caller must free returned string */
+char *escape_rdn(dsdata *dsrdn);
+dsstatus unescape_rdn(char *rdn, dsdata **key, dsdata **value);
 
 dsattribute *dsattribute_from_cstrings(char *key, ...);
 void dsattribute_append_cstring_value(dsattribute *a, char *v);

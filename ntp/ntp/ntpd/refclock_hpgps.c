@@ -1,20 +1,20 @@
 /*
  * refclock_hpgps - clock driver for HP 58503A GPS receiver
  */
+
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_HPGPS)
-
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/time.h>
 
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_refclock.h"
 #include "ntp_stdlib.h"
+
+#include <stdio.h>
+#include <ctype.h>
 
 /* Version 0.1 April  1, 1995  
  *         0.2 April 25, 1995
@@ -444,13 +444,13 @@ hpgps_receive(
 
 	/* 
 	 * Compute the day of year from the yyyymmdd format.
-	 * Exception noted for year 2000.
 	 */
 	if (month < 1 || month > 12 || day < 1) {
 		refclock_report(peer, CEVNT_BADTIME);
 		return;
 	}
-	if ((pp->year % 4) || (pp->year == 2000)) {
+
+	if ( ! isleap_4(pp->year) ) {				/* Y2KFixes */
 		/* not a leap year */
 		if (day > day1tab[month - 1]) {
 			refclock_report(peer, CEVNT_BADTIME);
@@ -490,10 +490,10 @@ hpgps_receive(
 		day--;
 		if (day < 1) {
 			pp->year--;
-			if ((pp->year % 4) || (pp->year % 400))
-			    day = 365;
-			else
+			if ( isleap_4(pp->year) )		/* Y2KFixes */
 			    day = 366;
+			else
+			    day = 365;
 		}
 	}
 

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: display.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: display.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Display functions
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: display.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -82,6 +82,36 @@ static char rcsid[] = "$Id: display.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp
     int dumbroot();
     int dumblroot();
 #endif
+
+
+/*
+ * Standard pico keymenus...
+ */
+static KEYMENU menu_pico[] = {
+    {"^G", "Get Help"},	{"^O", "WriteOut"}, 	{"^R", "Read File"},
+    {"^Y", "Prev Pg"},	{"^K", "Cut Text"},	{"^C", "Cur Pos"},
+    {"^X", "Exit"},		{"^J", "Justify"},	{"^W", "Where is"},
+#ifdef	SPELLER
+    {"^V", "Next Pg"},	{"^U", NULL},	{"^T", "To Spell"}
+#else
+    {"^V", "Next Pg"},	{"^U", NULL},	{"^D", "Del Char"}
+#endif
+};
+#define	UNCUT_KEY	10
+
+
+static KEYMENU menu_compose[] = {
+    {"^G", "Get Help"},	{"^X", "Send"}, 	{"^R", "Read File"},
+    {"^Y", "Prev Pg"},	{"^K", "Cut Text"},	{"^O", "Postpone"},
+    {"^C", "Cancel"},	{"^J", "Justify"},	{NULL, NULL},
+#ifdef	SPELLER
+    {"^V", "Next Pg"},	{"^U", NULL},		{"^T", "To Spell"}
+#else
+    {"^V", "Next Pg"},	{"^U", NULL},		{"^D", "Del Char"}
+#endif
+};
+#define	WHERE_KEY	8
+
 
 
 #define WFDEBUG 0                       /* Window flag debug. */
@@ -320,6 +350,13 @@ update()
 	return(TRUE);
 #endif
 
+#ifdef _WINDOWS
+    /* This tells our MS Windows module to not bother updating the
+     * cursor position while a massive screen update is in progress.
+     */
+    mswin_beginupdate ();
+#endif
+
 /*
  * BUG: setting and unsetting whole region at a time is dumb.  fix this.
  */
@@ -421,7 +458,7 @@ update()
 		    if(Pmaster && !ComposerEditing 
 		       && (lback(lp) == wp->w_bufp->b_linep)
 		       && (ComposerTopLine == COMPOSER_TOP_LINE))
-		      j += entry_line(LASTHDR, TRUE);
+		      j += entry_line(1000, TRUE); /* Never > 1000 headers */
 
 		    scrolldown(wp, -1, j);
 		    break;
@@ -437,7 +474,7 @@ update()
 			if(!ComposerEditing 
 			   && (ComposerTopLine != COMPOSER_TOP_LINE))
 			  scrollup(wp, COMPOSER_TOP_LINE, 
-				   j+entry_line(LASTHDR, TRUE));
+				   j+entry_line(1000, TRUE));
 			else
 			  scrollup(wp, -1, j);
 		    }
@@ -670,8 +707,12 @@ out:
         if (j & VFCHG){
 
 #if	TYPEAH
-	    if (typahead())
+	    if (typahead()){
+#ifdef _WINDOWS
+		mswin_endupdate ();
+#endif
 	        return(TRUE);
+	    }
 #endif
             vp2 = pscreen[i];
 
@@ -688,28 +729,14 @@ out:
 	    movecursor(term.t_nrow, 0);
 	    peeol();
 	    if(lastflag&CFFILL){
-#ifdef	SPELLER
-		wkeyhelp("GORYKCXJWVUT",
-		         "Get Help,WriteOut,Read File,Prev Pg,Cut Text,Cur Pos,Exit,Justify,Where is,Next Pg,UnJustify,To Spell");
-
-#else
-		wkeyhelp("GORYKCXJWVUD",
-                         "Get Help,WriteOut,Read File,Prev Pg,Cut Text,Cur Pos,Exit,Justify,Where is,Next Pg,UnJustify,Del Char");
-
-#endif
+		menu_pico[UNCUT_KEY].label = "UnJustify";
 		emlwrite("Can now UnJustify!", NULL);
 		mpresf = HUGE;	/* remove this after next keystroke! */
 	    }
-	    else{
-#ifdef SPELLER
-		wkeyhelp("GORYKCXJWVUT",
-		         "Get Help,WriteOut,Read File,Prev Pg,Cut Text,Cur Pos,Exit,Justify,Where is,Next Pg,UnCut Text,To Spell");
-#else
-		wkeyhelp("GORYKCXJWVUD",
-		         "Get Help,WriteOut,Read File,Prev Pg,Cut Text,Cur Pos,Exit,Justify,Where is,Next Pg,UnCut Text,Del Char");
+	    else
+	      menu_pico[UNCUT_KEY].label = "UnCut Text";
 
-#endif
-	    }
+	    wkeyhelp(menu_pico);
 	    sgarbk = FALSE;
         }
     }
@@ -717,6 +744,9 @@ out:
     /* Finally, update the hardware cursor and flush out buffers. */
 
     movecursor(currow, curcol - lbound);
+#ifdef _WINDOWS
+    mswin_endupdate ();
+#endif
     (*term.t_flush)();
 }
 
@@ -883,23 +913,15 @@ modeline(wp)
 WINDOW *wp;
 {
     if(Pmaster){
-	static char keys[13], labels[160];
-	
         if(ComposerEditing)
 	  ShowPrompt();
 	else{
-#ifdef	SPELLER
-	    sprintf(keys, "GCRYKOXJ%cVUT", 
-		    (Pmaster->alt_ed != NULL) ? '_' : 'W');
-	    sprintf(labels, "Get Help,Cancel,Read File,Prev Pg,Cut Text,Postpone,Send,Justify,%s,Next Pg,%s,To Spell",  
-#else
-	    sprintf(keys, "GCRYKOXJ%cVUD", 
-		    (Pmaster->alt_ed != NULL) ? '_' : 'W');
-	    sprintf(labels, "Get Help,Cancel,Read File,Prev Pg,Cut Text,Postpone,Send,Justify,%s,Next Pg,%s,Del Char",  
-#endif
-		    (Pmaster->alt_ed) ? "Alt Edit" : "Where is",
-		    (thisflag&CFFILL) ? "UnFill" : "UnCut Text");
-	    wkeyhelp(keys, labels);
+	    menu_compose[WHERE_KEY].name  = (Pmaster->alt_ed) ? "^_" : "^W";
+	    menu_compose[WHERE_KEY].label = (Pmaster->alt_ed) ? "Alt Edit" 
+							      : "Where is";
+	    menu_compose[UNCUT_KEY].label = (thisflag&CFFILL) ? "UnFill"
+							      : "UnCut Text";
+	    wkeyhelp(menu_compose);
 	}
     }
     else{
@@ -913,7 +935,7 @@ WINDOW *wp;
 
 	n = 0;
 	c.a = 1;
-#if     MSDOS
+#if	defined(MSDOS) || defined(LINUX)
 	vtmove(1, 0);
 	vteeol();
 #endif
@@ -1032,18 +1054,14 @@ int row, col;
  */
 mlerase()
 {
-    int i;
-
     movecursor(term.t_nrow - 2, 0);
     (*term.t_rev)(0);
     if (eolexist == TRUE)
       peeol();
-    else {
-        for (i = 0; i < term.t_ncol - 1; i++)
-	  (*term.t_putchar)(' ');
-        movecursor(term.t_nrow, 1);	/* force the move! */
-        movecursor(term.t_nrow, 0);
-    }
+    else
+      while(++ttcol < term.t_ncol)		/* track's ttcol */
+	(*term.t_putchar)(' ');
+
     (*term.t_flush)();
     mpresf = FALSE;
 }
@@ -1059,57 +1077,71 @@ mlyesno(prompt, dflt)
 char  *prompt;
 int   dflt;
 {
-    int  c;				/* input character */
+    int     rv;
+    char    buf[NLINE];
+    KEYMENU menu_yesno[12];
 
-#ifdef	MAYBELATER
-    wkeyhelp("0C0000000000", "Cancel");
+    for(rv = 0; rv < 12; rv++)
+      menu_yesno[rv].name = NULL;
+
+    menu_yesno[1].name  = "Y";
+    menu_yesno[1].label = (dflt == TRUE) ? "[Yes]" : "Yes";
+    menu_yesno[6].name  = "^C";
+    menu_yesno[6].label = "Cancel";
+    menu_yesno[7].name  = "N";
+    menu_yesno[7].label = (dflt == FALSE) ? "[No]" : "No";
+    wkeyhelp(menu_yesno);		/* paint generic menu */
+    sgarbk = TRUE;			/* mark menu dirty */
     if(Pmaster)
       curwp->w_flag |= WFMODE;
-    else
-      sgarbf = TRUE;
-#endif
-    if(dflt >= 0)
-      sprintf(s, "%s? [%c] : ", prompt, (dflt) ? 'y' : 'n');
-    else
-      sprintf(s, "%s (y/n)? ", prompt);
 
+    sprintf(buf, "%s ? ", prompt);
+    mlwrite(buf, NULL);
+    (*term.t_rev)(1);
+    rv = -1;
     while(1){
-	mlwrite(s, NULL);
+	switch(GetKey()){
+	  case (CTRL|'M') :		/* default */
+	    if(dflt >= 0){
+		pputs((dflt) ? "Yes" : "No", 1);
+		rv = dflt;
+	    }
+	    else
+	      (*term.t_beep)();
 
-	(*term.t_rev)(1);
-	while((c = GetKey()) == NODATA)
-	  ;				/* don't repaint if timeout */
-	(*term.t_rev)(0);
+	    break;
 
-	if(dflt >= 0 && c == (CTRL|'M')){
-	    (*term.t_rev)(1);
-	    pputs((dflt) ? "Yes" : "No", 1);
-	    (*term.t_rev)(0);
-	    return(dflt);
-	}
-
-	if (c == (CTRL|'C') || c == F3){	/* Bail out! */
-	    (*term.t_rev)(1);
+	  case (CTRL|'C') :		/* Bail out! */
+	  case F2         :
 	    pputs("ABORT", 1);
-	    (*term.t_rev)(0);
-	    return(ABORT);
-	}
+	    rv = ABORT;
+	    break;
 
-	if (c=='y' || c=='Y'){
-	    (*term.t_rev)(1);
+	  case 'y' :
+	  case 'Y' :
+	  case F3  :
 	    pputs("Yes", 1);
-	    (*term.t_rev)(0);
-	    return(TRUE);
+	    rv = TRUE;
+	    break;
+
+	  case 'n' :
+	  case 'N' :
+	  case F4  :
+	    pputs("No", 1);
+	    rv = FALSE;
+	    break;
+
+	  default:
+	    (*term.t_beep)();
+	  case NODATA :
+	    break;
 	}
 
-	if (c=='n' || c=='N'){
-	    (*term.t_rev)(1);
-	    pputs("No", 1);
+	(*term.t_flush)();
+	if(rv != -1){
 	    (*term.t_rev)(0);
-	    return(FALSE);
+	    return(rv);
 	}
-	else
-	  (*term.t_beep)();
     }
 }
 
@@ -1122,11 +1154,12 @@ int   dflt;
  * lets macros run at full speed. The reply is always terminated by a carriage
  * return. Handle erase, kill, and abort keys.
  */
-mlreply(prompt, buf, nbuf, flg)
-char  *prompt, *buf;
-int    nbuf, flg;
+mlreply(prompt, buf, nbuf, flg, extras)
+char    *prompt, *buf;
+int      nbuf, flg;
+KEYMENU *extras;
 {
-    return(mlreplyd(prompt, buf, nbuf, flg|QDEFLT));
+    return(mlreplyd(prompt, buf, nbuf, flg|QDEFLT, extras));
 }
 
 
@@ -1135,9 +1168,9 @@ int    nbuf, flg;
  */
 static int rfkm[12][2] = {
     { F1,  (CTRL|'G')},
-    { F2,  0 },
-    { F3,  (CTRL|'C')},
-    { F4,  (CTRL|'T')},
+    { F2,  (CTRL|'C')},
+    { F3,  0 },
+    { F4,  0 },
     { F5,  0 },
     { F6,  0 },
     { F7,  0 },
@@ -1157,19 +1190,59 @@ static int rfkm[12][2] = {
  *            and ff means for-file which checks that all chars are allowed
  *            in file names.
  */
-mlreplyd(prompt, buf, nbuf, flg)
-char  *prompt;
-char  *buf;
-int    nbuf, flg;
+mlreplyd(prompt, buf, nbuf, flg, extras)
+char    *prompt;
+char    *buf;
+int      nbuf, flg;
+KEYMENU *extras;
 {
     register int    c;				/* current char       */
     register char   *b;				/* pointer in buf     */
-    register int    i;
+    register int    i, j;
     register int    maxl;
     register int    plen;
     int      changed = FALSE;
+    KEYMENU  menu_mlreply[12];
 
-    mlwrite(prompt, NULL);
+    menu_mlreply[0].name = "^G";
+    menu_mlreply[0].label = "Get Help";
+    for(j = 0, i = 1; i < 6; i++){	/* insert odd extras */
+	menu_mlreply[i].name = NULL;
+	rfkm[2*i][1] = 0;
+	if(extras){
+	    for(; extras[j].name && j != 2*(i-1); j++)
+	      ;
+
+	    if(extras[j].name){
+		rfkm[2*i][1] = (extras[j].name[0] == '^')
+				 ? (CTRL | extras[j].name[1])
+				 : extras[j].name[1];
+		menu_mlreply[i].name  = extras[j].name;
+		menu_mlreply[i].label = extras[j].label;
+	    }
+	}
+    }
+
+    menu_mlreply[6].name = "^C";
+    menu_mlreply[6].label = "Cancel";
+    for(j = 0, i = 7; i < 12; i++){	/* insert even extras */
+	menu_mlreply[i].name = NULL;
+	rfkm[2*(i-6)+1][1] = 0;
+	if(extras){
+	    for(; extras[j].name && j != (2*(i-6)) - 1; j++)
+	      ;
+
+	    if(extras[j].name){
+		rfkm[2*(i-6)+1][1] = (extras[j].name[0] == '^')
+				       ? (CTRL | extras[j].name[1])
+				       : extras[j].name[0];
+		menu_mlreply[i].name  = extras[j].name;
+		menu_mlreply[i].label = extras[j].label;
+	    }
+	}
+    }
+
+    mlwrite(prompt, NULL);		/* paint prompt */
     plen = strlen(prompt);
     if(!(flg&QDEFLT))
       *buf = '\0';
@@ -1181,8 +1254,13 @@ int    nbuf, flg;
     pputs(buf, 1);
     b = &buf[strlen(buf)];
     
+    (*term.t_rev)(0);
+    wkeyhelp(menu_mlreply);		/* paint generic menu */
+    sgarbk = 1;				/* mark menu dirty */
+    (*term.t_rev)(1);
+
     for (;;) {
-	movecursor(ttrow, plen+b-buf);
+	movecursor(term.t_nrow - 2, plen + b - buf);
 	(*term.t_flush)();
 
 
@@ -1244,6 +1322,26 @@ int    nbuf, flg;
 	  case (CTRL|'T') :			/* CTRL-T special	*/
 	    (*term.t_rev)(0);
 	    return(CTRL|'T');
+
+	  case (CTRL|'V') :			/* CTRL-V special	*/
+	    if(flg & QPAGE){
+		(*term.t_rev)(0);
+		return(CTRL|'V');
+	    }
+	    else
+	      (*term.t_beep)();
+
+	    break;
+
+	  case (CTRL|'Y') :			/* CTRL-Y special	*/
+	    if(flg & QPAGE){
+		(*term.t_rev)(0);
+		return(CTRL|'Y');
+	    }
+	    else
+	      (*term.t_beep)();
+
+	    break;
 
 	  case (CTRL|'K') :			/* CTRL-K kill line	*/
 	    changed=TRUE;
@@ -2060,74 +2158,87 @@ int      key;
 /*
  *  wkeyhelp - paint list of possible commands on the bottom
  *             of the display (yet another pine clone)
+ *  NOTE: function key mode is handled here since all the labels
+ *        are the same...
  */
-wkeyhelp(keys, helptxt)
-char	*keys;
-char	*helptxt;
+wkeyhelp(keymenu)
+KEYMENU *keymenu;
 {
-    char *obufp, *ibufp = helptxt, *kbufp = HelpKeyNames, *startp;
-    int  i, j, spaces, index, copy, extra;
+    char *obufp, *p, fkey[4], linebuf[NLINE];
+    int   row, slot, tspace, nspace[6], index, n;
 
     /*
-     * make hardware cursor position change known!!
+     * Calculate amount of space for the names column by column...
      */
-#if	defined(DOS) && defined(MOUSE)
-    register_keys(keys, helptxt, NODATA);
-#endif
-    extra  = (kbufp && kbufp[2] == ',') ? 2 : 3;
-    spaces = term.t_ncol/6;
-    for(i=1;i>=0;i--){
-	*s = '\0';
-	obufp = &s[strlen(s)];
-	for(j=1;j<=6;j++){
-	    index = j + (6*(1 - i));
-	    copy = keys[index-1] - '0';
-	    if(kbufp != NULL){
-		do{
-		    if((*kbufp == '~') && (!copy))
-		      kbufp++;
-		    if(copy)
-		      *obufp++ = *kbufp++;
-		    else{
-			*obufp++ = ' ';
-			kbufp++;
-		    }
-		}
-		while((*kbufp != ',')? 1 : !(kbufp++));
-	    }
-	    else{
-		if(copy){
-		    *obufp++ = '~';
-		    *obufp++ = '^';
-		    *obufp++ = '~';
-		    *obufp++ = copy + '0';
-		}
-		else{
-		    *obufp++ = ' ';
-		    *obufp++ = ' ';
-		}
-	    }
+    for(index = 0; index < 6; index++)
+      if(!(gmode&MDFKEY)){
+	  nspace[index] = (keymenu[index].name)
+			    ? strlen(keymenu[index].name) : 0;
+	  if(keymenu[index+6].name 
+	     && (n = strlen(keymenu[index+6].name)) > nspace[index])
+	    nspace[index] = n;
 
-	    *obufp++ = ' ';
-	    startp = obufp;
-	    /*
-	     * we use "spaces-3" because of length key names
-	     */
-	    while(obufp - startp < (spaces-extra)) {
-		if((copy) && ((*ibufp != '\0') && (*ibufp != ',')))
-		  *obufp++ = *ibufp++;
+	  nspace[index]++;
+      }
+      else
+	nspace[index] = (index < 4) ? 3 : 4;
+
+    tspace = term.t_ncol/6;		/* total space for each item */
+    index  = 0;
+    for(row = 0; row <= 1; row++){
+	linebuf[0] = '\0';
+	obufp = &linebuf[0];
+	for(slot = 0; slot < 6; slot++){
+	    if(keymenu[index].name && keymenu[index].label){
+#if	defined(DOS) && defined(MOUSE)
+		register_key(index,
+			     (gmode&MDFKEY) ? F1 + (2 * slot) + row:
+			       (keymenu[index].name[0] == '^')
+				 ? (CTRL | keymenu[index].name[1])
+				 : keymenu[index].name[0],
+			     keymenu[index].label,
+			     term.t_nrow - 1 + row,
+			     (slot * tspace) + nspace[slot],
+			     strlen(keymenu[index].label));
+#endif
+		if(gmode&MDFKEY){
+		    p = fkey;
+		    sprintf(fkey, "F%d", (2 * slot) + row + 1);
+		}
 		else
+		  p = keymenu[index].name;
+
+		n = nspace[slot];
+		while(p && *p && n--){
+		    *obufp++ = '~';	/* insert "invert" token */
+		    *obufp++ = *p++;
+		}
+
+		while(n-- > 0)
+		  *obufp++ = ' ';
+
+		p = keymenu[index].label;
+		n = tspace - nspace[slot];
+		while(p && *p && n-- > 0)
+		  *obufp++ = *p++;
+
+		while(n-- > 0)
 		  *obufp++ = ' ';
 	    }
-	    if(copy){
-		while((*ibufp != ',') && (*ibufp != '\0'))
-		  ibufp++;
-		if(*ibufp != '\0')
-		  ibufp++;
+	    else{
+		n = tspace;
+		while(n--)
+		  *obufp++ = ' ';
+
+#if	defined(DOS) && defined(MOUSE)
+		register_key(index, NODATA, NULL, 0, 0, 0);
+#endif
 	    }
+
 	    *obufp = '\0';
+	    index++;
 	}
-	wstripe(term.t_nrow-i,0,s,'~');
+
+	wstripe(term.t_nrow - 1 + row, 0, linebuf, '~');
     }
 }
-

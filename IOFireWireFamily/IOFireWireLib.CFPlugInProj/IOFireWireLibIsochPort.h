@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,335 +23,302 @@
  *  IOFireWireLibIsochPort.h
  *  IOFireWireFamily
  *
- *  Created by NWG on Mon Mar 12 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Created on Mon Mar 12 2001.
+ *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  */
 
-#ifndef __IOFireWireLibIsochPort_H__
-#define __IOFireWireLibIsochPort_H__
+#import "IOFireWireLib.h"
+#import "IOFireWireLibIsoch.h"
+#import "IOFireWireLibPriv.h"
 
-#include <IOKit/firewire/IOFireWireLib.h>
-#include <IOKit/firewire/IOFireWireLibIsoch.h>
-#include "IOFireWireLibPriv.h"
-
-class IOFireWireLibIsochChannelImp ;
-
-// ============================================================
-//
-// IOFireWireLibCoalesceTree
-//
-// ============================================================
-
-class IOFireWireLibCoalesceTree
-{
-	struct Node
+namespace IOFireWireLib {
+	
+	class IsochChannel ;
+	
+	// ============================================================
+	//
+	// CoalesceTree
+	//
+	// ============================================================
+	
+	class CoalesceTree
 	{
-		Node*				left ;
-		Node*				right ;
-		IOVirtualRange		range ;
+		struct Node
+		{
+			Node*				left ;
+			Node*				right ;
+			IOVirtualRange		range ;
+		} ;
+	
+	public:
+							CoalesceTree() ;
+							~CoalesceTree() ;
+				
+		void	 			CoalesceRange(const IOVirtualRange& inRange) ;
+		const UInt32	 	GetCount() const ;
+		void			 	GetCoalesceList(IOVirtualRange* outRanges) const ;
+
+	protected:
+		void				DeleteNode(Node* inNode) ;
+		void				CoalesceRange(const IOVirtualRange& inRange, Node* inNode) ;
+		const UInt32		GetCount(Node* inNode) const ;
+		void				GetCoalesceList(IOVirtualRange* outRanges, Node* inNode, UInt32* pIndex) const ;
+
+	protected:
+		Node*	mTop ;
+	
 	} ;
-
- public:
-						IOFireWireLibCoalesceTree() ;
-						~IOFireWireLibCoalesceTree() ;
+	
+#pragma mark -
+	class IsochPort: public IOFireWireIUnknown
+	{
+		friend class IsochChannel ;
+		
+		public:
+									IsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, bool allocateKernPort ) ;
+			virtual					~IsochPort() ;
+//			virtual IOReturn		Init(
+//											Boolean				inTalking) ;
 			
-	void	 			CoalesceRange(const IOVirtualRange& inRange) ;
-	const UInt32	 	GetCount() const ;
-	void			 	GetCoalesceList(IOVirtualRange* outRanges) const ;
-
- protected:
-	Node*	mTop ;
-
-	void				DeleteNode(Node* inNode) ;
-	void				CoalesceRange(const IOVirtualRange& inRange, Node* inNode) ;
-	const UInt32		GetCount(Node* inNode) const ;
-	void				GetCoalesceList(IOVirtualRange* outRanges, Node* inNode, UInt32* pIndex) const ;
-} ;
-
-class IOFireWireLibIsochPortImp: public IOFireWireIUnknown
-{
-	friend class IOFireWireLibIsochChannelImp ;
+			// --- methods from kernel isoch port ----------
+			virtual IOReturn		GetSupported(
+											IOFWSpeed& 			maxSpeed, 
+											UInt64& 			chanSupported ) ;
+			virtual IOReturn		AllocatePort(
+											IOFWSpeed 			speed, 
+											UInt32 				chan ) ;
+			virtual IOReturn		ReleasePort() ;
+			virtual IOReturn		Start() ;
+			virtual IOReturn		Stop() ;
 	
- public:
-							IOFireWireLibIsochPortImp(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibIsochPortImp() ;
-	virtual IOReturn		Init(
-									Boolean				inTalking) ;
+			void					SetRefCon(
+											void*				inRefCon)		{ mRefCon = inRefCon ; }
+			void*					GetRefCon() const							{ return mRefCon ; }
+			Boolean					GetTalking() const							{ return mTalking ; }
+			
+		protected:
+			FWKernIsochPortRef		GetKernPortRef()							{ return mKernPortRef; }
 	
-	// --- methods from kernel isoch port ----------
-	virtual IOReturn		GetSupported(
-									IOFWSpeed& 			maxSpeed, 
-									UInt64& 			chanSupported ) ;
-	virtual IOReturn		AllocatePort(
-									IOFWSpeed 			speed, 
-									UInt32 				chan ) ;
-	virtual IOReturn		ReleasePort() ;
-	virtual IOReturn		Start() ;
-	virtual IOReturn		Stop() ;
-								
-	virtual void			SetRefCon(
-									void*				inRefCon) ;
-	virtual void*			GetRefCon() const ;
-	virtual Boolean			GetTalking() const ;
-
- protected:
-	IOFireWireDeviceInterfaceImp&	mUserClient ;
-	FWKernIsochPortRef				mKernPortRef ;
-	void*							mRefCon ;
-	Boolean							mTalking ;
+	protected:
+		Device&							mUserClient ;
+		FWKernIsochPortRef				mKernPortRef ;
+		void*							mRefCon ;
+		Boolean							mTalking ;
+		
 	
-	virtual FWKernIsochPortRef	GetKernPortRef()
-										{ return mKernPortRef; }
-
-} ;
-
-class IOFireWireLibIsochPortCOM: public IOFireWireLibIsochPortImp
-{
- public:
-							IOFireWireLibIsochPortCOM(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibIsochPortCOM() ;
-
-	// --- COM -----------------------------
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*				pseudoVTable ;
- 		IOFireWireLibIsochPortCOM*	obj ;
- 	} ;
-
- 	// --- GetThis() -----------------------
- 	inline static IOFireWireLibIsochPortCOM* GetThis(IOFireWireLibIsochPortRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
-
-	// --- static methods ------------------
-	static IOReturn			SGetSupported(
-									IOFireWireLibIsochPortRef		self, 
-									IOFWSpeed* 						maxSpeed, 
-									UInt64* 						chanSupported ) ;
-	static IOReturn			SAllocatePort(
-									IOFireWireLibIsochPortRef		self, 
-									IOFWSpeed 						speed, 
-									UInt32 							chan ) ;
-	static IOReturn			SReleasePort(
-									IOFireWireLibIsochPortRef		self) ;
-	static IOReturn			SStart(
-									IOFireWireLibIsochPortRef		self) ;
-	static IOReturn			SStop(
-									IOFireWireLibIsochPortRef		self) ;
-	static void				SSetRefCon(
-									IOFireWireLibIsochPortRef		self,
-									void*				inRefCon) ;
-	static void*			SGetRefCon(
-									IOFireWireLibIsochPortRef		self) ;
-	static Boolean			SGetTalking(
-									IOFireWireLibIsochPortRef		self) ;
-} ;
-
-class IOFireWireLibRemoteIsochPortImp: public IOFireWireLibIsochPortCOM
-{
- public:
-							IOFireWireLibRemoteIsochPortImp(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibRemoteIsochPortImp() {}
-//	virtual IOReturn		Init() ;
+	} ;
 	
-	// --- methods from kernel isoch port ----------
-	virtual IOReturn		GetSupported(
-									IOFWSpeed&			maxSpeed,
-									UInt64&				chanSupported) ;
-	virtual IOReturn		AllocatePort(
-									IOFWSpeed 			speed, 
-									UInt32 				chan ) ;
-	virtual IOReturn		ReleasePort() ;
-	virtual IOReturn		Start() ;
-	virtual IOReturn		Stop() ;
-
-	virtual IOFireWireLibIsochPortGetSupportedCallback
-							SetGetSupportedHandler(
-									IOFireWireLibIsochPortGetSupportedCallback inHandler) ;
-	virtual IOFireWireLibIsochPortAllocateCallback
-							SetAllocatePortHandler(
-									IOFireWireLibIsochPortAllocateCallback	inHandler) ;
-	virtual IOFireWireLibIsochPortCallback
-							SetReleasePortHandler(
-									IOFireWireLibIsochPortCallback	inHandler) ;
-	virtual IOFireWireLibIsochPortCallback
-							SetStartHandler(
-									IOFireWireLibIsochPortCallback	inHandler) ;
-	virtual IOFireWireLibIsochPortCallback
-							SetStopHandler(
-									IOFireWireLibIsochPortCallback	inHandler) ;							
-
- protected:	
-	IOFireWireLibIsochPortGetSupportedCallback	mGetSupportedHandler ;
-	IOFireWireLibIsochPortAllocateCallback		mAllocatePortHandler ;
-	IOFireWireLibIsochPortCallback				mReleasePortHandler ;
-	IOFireWireLibIsochPortCallback				mStartHandler ;
-	IOFireWireLibIsochPortCallback				mStopHandler ;
+#pragma mark -
+	class IsochPortCOM: public IsochPort
+	{
+		public:
+									IsochPortCOM( IUnknownVTbl* interface, Device& inUserClient, bool talking, bool allocateKernPort = true ) ;
+			virtual					~IsochPortCOM() ;		
+		
+			// --- static methods ------------------
+			static IOReturn			SGetSupported(
+											IOFireWireLibIsochPortRef		self, 
+											IOFWSpeed* 						maxSpeed, 
+											UInt64* 						chanSupported ) ;
+			static IOReturn			SAllocatePort(
+											IOFireWireLibIsochPortRef		self, 
+											IOFWSpeed 						speed, 
+											UInt32 							chan ) ;
+			static IOReturn			SReleasePort(
+											IOFireWireLibIsochPortRef		self) ;
+			static IOReturn			SStart(
+											IOFireWireLibIsochPortRef		self) ;
+			static IOReturn			SStop(
+											IOFireWireLibIsochPortRef		self) ;
+			static void				SSetRefCon(
+											IOFireWireLibIsochPortRef		self,
+											void*				inRefCon) ;
+			static void*			SGetRefCon(
+											IOFireWireLibIsochPortRef		self) ;
+			static Boolean			SGetTalking(
+											IOFireWireLibIsochPortRef		self) ;
+	} ;
 	
-	IOFireWireLibIsochPortRef					mRefInterface ;
+#pragma mark -
+	class RemoteIsochPort: public IsochPortCOM
+	{
+		protected:
+			typedef ::IOFireWireRemoteIsochPortInterface Interface ;
+			typedef ::IOFireWireLibRemoteIsochPortRef PortRef ;
+
+		public:
+									RemoteIsochPort( IUnknownVTbl* interface, Device& userclient, bool talking ) ;
+			virtual					~RemoteIsochPort() {}
+			
+			// --- methods from kernel isoch port ----------
+			virtual IOReturn		GetSupported(
+											IOFWSpeed&			maxSpeed,
+											UInt64&				chanSupported) ;
+			virtual IOReturn		AllocatePort(
+											IOFWSpeed 			speed, 
+											UInt32 				chan ) ;
+			virtual IOReturn		ReleasePort() ;
+			virtual IOReturn		Start() ;
+			virtual IOReturn		Stop() ;
+		
+			IOFireWireLibIsochPortGetSupportedCallback
+									SetGetSupportedHandler(
+											IOFireWireLibIsochPortGetSupportedCallback inHandler) ;
+			IOFireWireLibIsochPortAllocateCallback
+									SetAllocatePortHandler(
+											IOFireWireLibIsochPortAllocateCallback	inHandler) ;
+			IOFireWireLibIsochPortCallback
+									SetReleasePortHandler(
+											IOFireWireLibIsochPortCallback	inHandler) ;
+			IOFireWireLibIsochPortCallback
+									SetStartHandler(
+											IOFireWireLibIsochPortCallback	inHandler) ;
+			IOFireWireLibIsochPortCallback
+									SetStopHandler(
+											IOFireWireLibIsochPortCallback	inHandler) ;							
+		
+		protected:	
+			IOFireWireLibIsochPortGetSupportedCallback	mGetSupportedHandler ;
+			IOFireWireLibIsochPortAllocateCallback		mAllocatePortHandler ;
+			IOFireWireLibIsochPortCallback				mReleasePortHandler ;
+			IOFireWireLibIsochPortCallback				mStartHandler ;
+			IOFireWireLibIsochPortCallback				mStopHandler ;
+			
+			IOFireWireLibIsochPortRef					mRefInterface ;	
+	} ;
 	
-//	virtual void SetRefInterface(IOFireWireLibIsochPortRef inInterface)
-//				{ mRefInterface = inInterface; }
-} ;
-
-class IOFireWireLibRemoteIsochPortCOM: public IOFireWireLibRemoteIsochPortImp
-{
- public:
-							IOFireWireLibRemoteIsochPortCOM(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibRemoteIsochPortCOM() ;
-
-	// --- COM -----------------------------
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*						pseudoVTable ;
- 		IOFireWireLibRemoteIsochPortCOM*	obj ;
- 	} ;
- 
-	static IOFireWireRemoteIsochPortInterface	sInterface ;
- 	InterfaceMap								mInterface ;
-
- 	// --- GetThis() -----------------------
- 	inline static IOFireWireLibRemoteIsochPortCOM* GetThis(IOFireWireLibRemoteIsochPortRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
-
-	// --- IUNKNOWN support ----------------
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp&	inUserClient,
-									Boolean							inTalking) ;
-	virtual HRESULT			QueryInterface(
-									REFIID 		iid, 
-									void** 		ppv ) ;
-
-	// --- static methods ------------------
-	static IOFireWireLibIsochPortGetSupportedCallback
-							SSetGetSupportedHandler(
-									IOFireWireLibRemoteIsochPortRef		self,
-									IOFireWireLibIsochPortGetSupportedCallback inHandler) ;
-	static IOFireWireLibIsochPortAllocateCallback
-							SSetAllocatePortHandler(
-									IOFireWireLibRemoteIsochPortRef		self,
-									IOFireWireLibIsochPortAllocateCallback	inHandler) ;
-	static IOFireWireLibIsochPortCallback
-							SSetReleasePortHandler(
-									IOFireWireLibRemoteIsochPortRef		self,
-									IOFireWireLibIsochPortCallback	inHandler) ;
-	static IOFireWireLibIsochPortCallback
-							SSetStartHandler(
-									IOFireWireLibRemoteIsochPortRef		self,
-									IOFireWireLibIsochPortCallback	inHandler) ;
-	static IOFireWireLibIsochPortCallback
-							SSetStopHandler(
-									IOFireWireLibRemoteIsochPortRef		self,
-									IOFireWireLibIsochPortCallback	inHandler) ;
-
-} ;
-
-// ============================================================
-//
-// IOFireWireLibLocalIsochPortImp
-//
-// ============================================================
-
-class IOFireWireLibLocalIsochPortImp: public IOFireWireLibIsochPortCOM
-{
-//	friend class IOFireWireLibIsochChannelImp ;
+#pragma mark -
+	class RemoteIsochPortCOM: public RemoteIsochPort
+	{
+		public:
+									RemoteIsochPortCOM( Device& userclient, bool talking ) ;
+			virtual					~RemoteIsochPortCOM() ;
+		
+			static Interface	sInterface ;
+		
+			// --- IUNKNOWN support ----------------
+			static IUnknownVTbl**	Alloc( Device& inUserClient, bool inTalking ) ;
+			virtual HRESULT			QueryInterface( REFIID iid, void** ppv ) ;
+		
+			// --- static methods ------------------
+			static IOFireWireLibIsochPortGetSupportedCallback
+									SSetGetSupportedHandler(
+											PortRef		self,
+											IOFireWireLibIsochPortGetSupportedCallback inHandler) ;
+			static IOFireWireLibIsochPortAllocateCallback
+									SSetAllocatePortHandler(
+											PortRef		self,
+											IOFireWireLibIsochPortAllocateCallback	inHandler) ;
+			static IOFireWireLibIsochPortCallback
+									SSetReleasePortHandler(
+											PortRef		self,
+											IOFireWireLibIsochPortCallback	inHandler) ;
+			static IOFireWireLibIsochPortCallback
+									SSetStartHandler(
+											PortRef		self,
+											IOFireWireLibIsochPortCallback	inHandler) ;
+			static IOFireWireLibIsochPortCallback
+									SSetStopHandler(
+											PortRef		self,
+											IOFireWireLibIsochPortCallback	inHandler) ;
+	} ;
 	
- public:
-							IOFireWireLibLocalIsochPortImp(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibLocalIsochPortImp() ;
-	virtual IOReturn		Init(
-									Boolean				inTalking,
-									DCLCommandStruct*	inDCLProgram,
-									UInt32				inStartEvent,
-									UInt32				inStartState,
-									UInt32				inStartMask,
-									IOVirtualRange		inDCLProgramRanges[],			// optional optimization parameters
-									UInt32				inDCLProgramRangeCount,
-									IOVirtualRange		inBufferRanges[],
-									UInt32				inBufferRangeCount) ;
+	// ============================================================
+	//
+	// LocalIsochPort
+	//
+	// ============================================================
+	
+#pragma mark -
+	class LocalIsochPort: public IsochPortCOM
+	{
+		protected:
+			typedef ::IOFireWireLibLocalIsochPortRef	PortRef ;
+		
+		public:
+									LocalIsochPort( IUnknownVTbl* interface, Device& inUserClient, bool inTalking,
+														DCLCommand* inDCLProgram, UInt32 inStartEvent, UInt32 inStartState,
+														UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], UInt32 inDCLProgramRangeCount,
+														IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount ) ;
+			virtual					~LocalIsochPort() ;
+			virtual ULONG			Release() ;
 
-	// --- local port methods ------------
-	virtual IOReturn		ModifyJumpDCL(
-									DCLJumpStruct* 						inJump, 
-									DCLLabelStruct* 					inLabel) ;
-	static void				DCLCallProcHandler(
-									void*				inRefCon,
-									IOReturn			result) ;
+			// port overrides:
+			virtual IOReturn		Stop() ;
+		
+			// local port methods:
+			IOReturn				ModifyJumpDCL( DCLJumpStruct* inJump, DCLLabelStruct* inLabel ) ;
+			IOReturn				ModifyTransferPacketDCLSize( DCLTransferPacket* dcl, IOByteCount newSize ) ;			
+			static void				DCLCallProcHandler( void* inRefCon, IOReturn result, LocalIsochPort* me) ;
+			void					Lock() ;
+			void					Unlock() ;
+		
+			// utility functions:
+			void					PrintDCLProgram( const DCLCommandStruct* inProgram, UInt32 inLength ) ;
+		
+		protected:
+			DCLCommandStruct*				mDCLProgram ;
+			UInt32							mStartEvent ;
+			UInt32							mStartState ;
+			UInt32							mStartMask ;
+			UInt32							mExpectedStopTokens ;
+			Boolean							mDeferredRelease ;
+			
+			io_async_ref_t					mAsyncRef ;
+		
+			pthread_mutex_t					mMutex ;		
+	} ;
+	
+	// ============================================================
+	//
+	// LocalIsochPortCOM
+	//
+	// ============================================================
+	
+#pragma mark -
+	class LocalIsochPortCOM: public LocalIsochPort
+	{
+		typedef ::IOFireWireLocalIsochPortInterface Interface ;
+		typedef ::IOFireWireLibLocalIsochPortRef PortRef ;
+		
+		public:
+			LocalIsochPortCOM( Device& inUserClient, bool inTalking, DCLCommandStruct* inDCLProgram, UInt32 inStartEvent,
+					UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], 
+					UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount) ;
+			virtual ~LocalIsochPortCOM() ;	
+			
+			// --- IUNKNOWN support ----------------
+			static IUnknownVTbl**	Alloc(
+											Device&	inUserClient, 
+											Boolean							inTalking,
+											DCLCommandStruct*				inDCLProgram,
+											UInt32							inStartEvent,
+											UInt32							inStartState,
+											UInt32							inStartMask,
+											IOVirtualRange					inDCLProgramRanges[],			// optional optimization parameters
+											UInt32							inDCLProgramRangeCount,
+											IOVirtualRange					inBufferRanges[],
+											UInt32							inBufferRangeCount) ;
+			virtual HRESULT			QueryInterface(
+											REFIID 		iid, 
+											void** 		ppv ) ;
+		
+			// --- static methods ------------------
+			static IOReturn			SModifyJumpDCL(
+											PortRef 	self, 
+											DCLJumpStruct* 					inJump, 
+											DCLLabelStruct* 				inLabel) ;
+			static void				SPrintDCLProgram(
+											PortRef						 	self, 
+											const DCLCommandStruct*			inProgram,
+											UInt32							inLength) ;
+			static IOReturn			SModifyTransferPacketDCLSize( PortRef self, DCLTransferPacket* dcl, IOByteCount newSize ) ;
+			static IOReturn			SModifyTransferPacketDCLBuffer( PortRef self, DCLTransferPacket* dcl, void* newBuffer ) ;
+			static IOReturn			SModifyTransferPacketDCL( PortRef self, DCLTransferPacket* dcl, void* newBuffer, IOByteCount newSize ) ;
 
-	// --- utility functions -------------
-	virtual void			PrintDCLProgram(
-									const DCLCommandStruct*	inProgram,
-									UInt32					inLength) ;
-
- protected:
-	DCLCommandStruct*				mDCLProgram ;
-	UInt32							mStartEvent ;
-	UInt32							mStartState ;
-	UInt32							mStartMask ;
-
-	io_async_ref_t					mAsyncRef ;
-} ;
-
-// ============================================================
-//
-// IOFireWireLibLocalIsochPortCOM
-//
-// ============================================================
-
-class IOFireWireLibLocalIsochPortCOM: public IOFireWireLibLocalIsochPortImp
-{
- public:
-							IOFireWireLibLocalIsochPortCOM(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual					~IOFireWireLibLocalIsochPortCOM() ;
-
-	// --- COM -----------------------------
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*				pseudoVTable ;
- 		IOFireWireLibLocalIsochPortCOM*	obj ;
- 	} ;
- 
-	static IOFireWireLocalIsochPortInterface	sInterface ;
- 	InterfaceMap								mInterface ;
-
-	// --- GetThis() -----------------------
-	inline static IOFireWireLibLocalIsochPortCOM* GetThis(IOFireWireLibLocalIsochPortRef self)
-		{ return ((InterfaceMap*)self)->obj ;}
-
-	// --- IUNKNOWN support ----------------
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp&	inUserClient, 
-									Boolean							inTalking,
-									DCLCommandStruct*				inDCLProgram,
-									UInt32							inStartEvent,
-									UInt32							inStartState,
-									UInt32							inStartMask,
-									IOVirtualRange					inDCLProgramRanges[],			// optional optimization parameters
-									UInt32							inDCLProgramRangeCount,
-									IOVirtualRange					inBufferRanges[],
-									UInt32							inBufferRangeCount) ;
-	virtual HRESULT			QueryInterface(
-									REFIID 		iid, 
-									void** 		ppv ) ;
-
-	// --- static methods ------------------
-	static IOReturn			SModifyJumpDCL(
-									IOFireWireLibLocalIsochPortRef 	self, 
-									DCLJumpStruct* 					inJump, 
-									DCLLabelStruct* 				inLabel) ;
-
-	// --- utility functions ----------
-	static void				SPrintDCLProgram(
-									IOFireWireLibLocalIsochPortRef 	self, 
-									const DCLCommandStruct*			inProgram,
-									UInt32							inLength) ;
-									
-} ;
-
-#endif //__IOFireWireLibIsochPort_H__
+		protected:
+			static Interface	sInterface ;
+	} ;
+	
+}

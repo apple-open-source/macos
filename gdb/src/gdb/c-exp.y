@@ -1,5 +1,6 @@
 /* YACC parser for C expressions, for GDB.
-   Copyright (C) 1986, 1989, 1990, 1991, 1993, 1994, 1996, 1997
+   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -45,10 +46,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "parser-defs.h"
 #include "language.h"
 #include "c-lang.h"
+#include "objc-lang.h"
 #include "bfd.h" /* Required by objfiles.h.  */
 #include "symfile.h" /* Required by objfiles.h.  */
 #include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 #include "top.h"
+#include "completer.h"
 
 /* Flag indicating we're dealing with HP-compiled objects */ 
 extern int hp_som_som_object_present;
@@ -135,6 +138,7 @@ void yyerror (char *);
     struct block *bval;
     enum exp_opcode opcode;
     struct internalvar *ivar;
+    struct objc_class_str class;
 
     struct type **tvec;
     int *ivec;
@@ -168,8 +172,11 @@ static int parse_number (char *, int, int, YYSTYPE *);
    nonterminal "name", which matches either NAME or TYPENAME.  */
 
 %token <sval> STRING
-%token <ssym> NAME /* BLOCKNAME defined below to give it higher precedence. */
+%token <sval> NSSTRING		/* Objc Foundation "NSString" literal */ 
+%token <sval> SELECTOR		/* ObjC "@selector" pseudo-operator   */ 
+%token <ssym> NAME		/* BLOCKNAME defined below to give it higher precedence. */
 %token <tsym> TYPENAME
+%token <class> CLASSNAME	/* Objc Class name */ 
 %type <sval> name
 %type <ssym> name_not_typename
 %type <tsym> typename
@@ -319,6 +326,73 @@ exp	:	exp '[' exp1 ']'
 			{ write_exp_elt_opcode (BINOP_SUBSCRIPT); }
 	;
 
+/*
+ * The rules below parse ObjC message calls of the form:
+ *	'[' target selector {':' argument}* ']'
+ */
+
+exp	: 	'[' TYPENAME
+			{
+			  CORE_ADDR class;
+
+			  class = lookup_objc_class (copy_name ($2.stoken));
+			  if (class == 0)
+			    error ("%s is not an ObjC Class", 
+				   copy_name ($2.stoken));
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_longcst ((LONGEST) class);
+			  write_exp_elt_opcode (OP_LONG);
+			  start_msglist();
+			}
+		msglist ']'
+			{ write_exp_elt_opcode (OP_MSGCALL);
+			  end_msglist();
+			  write_exp_elt_opcode (OP_MSGCALL); 
+			}
+	;
+
+exp	:	'[' CLASSNAME
+			{
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_longcst ((LONGEST) $2.class);
+			  write_exp_elt_opcode (OP_LONG);
+			  start_msglist();
+			}
+		msglist ']'
+			{ write_exp_elt_opcode (OP_MSGCALL);
+			  end_msglist();
+			  write_exp_elt_opcode (OP_MSGCALL); 
+			}
+	;
+
+exp	:	'[' exp
+			{ start_msglist(); }
+		msglist ']'
+			{ write_exp_elt_opcode (OP_MSGCALL);
+			  end_msglist();
+			  write_exp_elt_opcode (OP_MSGCALL); 
+			}
+	;
+
+msglist :	name
+			{ add_msglist(&$1, 0); }
+	|	msgarglist
+	;
+
+msgarglist :	msgarg
+	|	msgarglist msgarg
+	;
+
+msgarg	:	name ':' exp
+			{ add_msglist(&$1, 1); }
+	|	':' exp	/* unnamed arg */
+			{ add_msglist(0, 1);   }
+	|	',' exp	/* variable number of args */
+			{ add_msglist(0, 0);   }
+	;
+ 
 exp	:	exp '(' 
 			/* This is to save the value of arglist_len
 			   being accumulated by an outer function call.  */
@@ -494,6 +568,13 @@ exp	:	VARIABLE
 			/* Already written by write_dollar_variable. */
 	;
 
+exp	:	SELECTOR 
+			{
+			  write_exp_elt_opcode (OP_SELECTOR);
+			  write_exp_string ($1);
+			  write_exp_elt_opcode (OP_SELECTOR); }
+
+
 exp	:	SIZEOF '(' type ')'	%prec UNARY
 			{ write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_int);
@@ -524,6 +605,14 @@ exp	:	STRING
 			  write_exp_elt_longcst ((LONGEST) 0);
 			  write_exp_elt_longcst ((LONGEST) ($1.length));
 			  write_exp_elt_opcode (OP_ARRAY); }
+	;
+
+exp     :	NSSTRING	/* ObjC NextStep NSString constant
+				 * of the form '@' '"' string '"'
+				 */
+			{ write_exp_elt_opcode (OP_NSSTRING);
+			  write_exp_string ($1);
+			  write_exp_elt_opcode (OP_NSSTRING); }
 	;
 
 /* C++.  */
@@ -684,14 +773,23 @@ variable:	name_not_typename
 			    }
 			  else if ($1.is_a_field_of_this)
 			    {
-			      /* C++: it hangs off of `this'.  Must
+			      /* C++/ObjC: it hangs off of `this'.  Must
 			         not inadvertently convert from a method call
 				 to data ref.  */
 			      if (innermost_block == 0 || 
 				  contained_in (block_found, innermost_block))
 				innermost_block = block_found;
-			      write_exp_elt_opcode (OP_THIS);
-			      write_exp_elt_opcode (OP_THIS);
+			      if (current_language->la_language == language_cplus)
+				{
+				  write_exp_elt_opcode (OP_THIS);
+				  write_exp_elt_opcode (OP_THIS);
+				}
+			      else if (current_language->la_language == language_objc
+				       || current_language->la_language == language_objcplus)
+				{
+				  write_exp_elt_opcode (OP_SELF);
+				  write_exp_elt_opcode (OP_SELF);
+				}
 			      write_exp_elt_opcode (STRUCTOP_PTR);
 			      write_exp_string ($1.stoken);
 			      write_exp_elt_opcode (STRUCTOP_PTR);
@@ -718,21 +816,26 @@ variable:	name_not_typename
 			}
 	;
 
+space_identifier : '@' NAME
+		{ push_type_address_space (copy_name ($2.stoken));
+		  push_type (tp_space_identifier);
+		}
+	;
 
-ptype	:	typebase
-	/* "const" and "volatile" are curently ignored.  A type qualifier
-	   before the type is currently handled in the typebase rule.
-	   The reason for recognizing these here (shift/reduce conflicts)
-	   might be obsolete now that some pointer to member rules have
-	   been deleted.  */
-	|	typebase CONST_KEYWORD
-	|	typebase VOLATILE_KEYWORD
-	|	typebase abs_decl
-		{ $$ = follow_types ($1); }
-	|	typebase CONST_KEYWORD abs_decl
-		{ $$ = follow_types ($1); }
-	|	typebase VOLATILE_KEYWORD abs_decl
-		{ $$ = follow_types ($1); }
+const_or_volatile: const_or_volatile_noopt
+	|
+	;
+
+cv_with_space_id : const_or_volatile space_identifier const_or_volatile
+	;
+
+const_or_volatile_or_space_identifier_noopt: cv_with_space_id
+	| const_or_volatile_noopt 
+	;
+
+const_or_volatile_or_space_identifier: 
+		const_or_volatile_or_space_identifier_noopt
+	|
 	;
 
 abs_decl:	'*'
@@ -794,6 +897,14 @@ type	:	ptype
 typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 	:	TYPENAME
 			{ $$ = $1.type; }
+	|	CLASSNAME
+			{
+			  if ($1.type == NULL)
+			    error ("No symbol \"%s\" in current context.", 
+				   copy_name($1.stoken));
+			  else
+			    $$ = $1.type;
+			}
 	|	INT_KEYWORD
 			{ $$ = builtin_type_int; }
 	|	LONG
@@ -812,6 +923,10 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			{ $$ = builtin_type_unsigned_long_long; }
 	|	UNSIGNED LONG LONG INT_KEYWORD
 			{ $$ = builtin_type_unsigned_long_long; }
+	|	SIGNED_KEYWORD LONG LONG
+			{ $$ = lookup_signed_typename ("long long"); }
+	|	SIGNED_KEYWORD LONG LONG INT_KEYWORD
+			{ $$ = lookup_signed_typename ("long long"); }
 	|	SHORT INT_KEYWORD
 			{ $$ = builtin_type_short; }
 	|	UNSIGNED SHORT INT_KEYWORD
@@ -847,11 +962,10 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			{ $$ = lookup_template_type(copy_name($2), $4,
 						    expression_context_block);
 			}
-	/* "const" and "volatile" are curently ignored.  A type qualifier
-	   after the type is handled in the ptype rule.  I think these could
-	   be too.  */
-	|	CONST_KEYWORD typebase { $$ = $2; }
-	|	VOLATILE_KEYWORD typebase { $$ = $2; }
+	| const_or_volatile_or_space_identifier_noopt typebase 
+			{ $$ = follow_types ($2); }
+	| typebase const_or_volatile_or_space_identifier_noopt 
+			{ $$ = follow_types ($1); }
 	;
 
 typename:	TYPENAME
@@ -888,10 +1002,30 @@ nonempty_typelist
 		}
 	;
 
+ptype	:	typebase
+	|	ptype const_or_volatile_or_space_identifier abs_decl const_or_volatile_or_space_identifier
+		{ $$ = follow_types ($1); }
+	;
+
+const_and_volatile: 	CONST_KEYWORD VOLATILE_KEYWORD
+	| 		VOLATILE_KEYWORD CONST_KEYWORD
+	;
+
+const_or_volatile_noopt:  	const_and_volatile 
+			{ push_type (tp_const);
+			  push_type (tp_volatile); 
+			}
+	| 		CONST_KEYWORD
+			{ push_type (tp_const); }
+	| 		VOLATILE_KEYWORD
+			{ push_type (tp_volatile); }
+	;
+
 name	:	NAME { $$ = $1.stoken; }
 	|	BLOCKNAME { $$ = $1.stoken; }
 	|	TYPENAME { $$ = $1.stoken; }
-	|	NAME_OR_INT  { $$ = $1.stoken; }
+	|	CLASSNAME { $$ = $1.stoken; }
+	|	NAME_OR_INT { $$ = $1.stoken; }
 	;
 
 name_not_typename :	NAME
@@ -1179,6 +1313,7 @@ yylex ()
   int c;
   int namelen;
   unsigned int i;
+  int tokchr;
   char *tokstart;
   char *tokptr;
   int tempbufindex;
@@ -1212,7 +1347,7 @@ yylex ()
 	return tokentab2[i].token;
       }
 
-  switch (c = *tokstart)
+  switch (tokchr = *tokstart)
     {
     case 0:
       return 0;
@@ -1259,20 +1394,20 @@ yylex ()
     case '(':
       paren_depth++;
       lexptr++;
-      return c;
+      return '(';
 
     case ')':
       if (paren_depth == 0)
 	return 0;
       paren_depth--;
       lexptr++;
-      return c;
+      return ')';
 
     case ',':
       if (comma_terminates && paren_depth == 0)
 	return 0;
       lexptr++;
-      return c;
+      return ',';
 
     case '.':
       /* Might be a floating point number.  */
@@ -1292,19 +1427,23 @@ yylex ()
     case '9':
       {
 	/* It's a number.  */
-	int got_dot = 0, got_e = 0, toktype;
+	int got_dot = 0, got_e = 0, toktype = FLOAT;
+	/* initialize toktype to anything other than ERROR. */
 	register char *p = tokstart;
 	int hex = input_radix > 10;
+	int local_radix = input_radix;
 
-	if (c == '0' && (p[1] == 'x' || p[1] == 'X'))
+	if (tokchr == '0' && (p[1] == 'x' || p[1] == 'X'))
 	  {
 	    p += 2;
 	    hex = 1;
+	    local_radix = 16;
 	  }
-	else if (c == '0' && (p[1]=='t' || p[1]=='T' || p[1]=='d' || p[1]=='D'))
+	else if (tokchr == '0' && (p[1]=='t' || p[1]=='T' || p[1]=='d' || p[1]=='D'))
 	  {
 	    p += 2;
 	    hex = 0;
+	    local_radix = 10;
 	  }
 
 	for (;; ++p)
@@ -1312,25 +1451,42 @@ yylex ()
 	    /* This test includes !hex because 'e' is a valid hex digit
 	       and thus does not indicate a floating point number when
 	       the radix is hex.  */
-	    if (!hex && !got_e && (*p == 'e' || *p == 'E'))
-	      got_dot = got_e = 1;
+
+	    if (!hex && (*p == 'e' || *p == 'E'))
+	      if (got_e)
+		toktype = ERROR;	/* only one 'e' in a float */
+	      else
+		got_e = 1;
 	    /* This test does not include !hex, because a '.' always indicates
 	       a decimal floating point number regardless of the radix.  */
-	    else if (!got_dot && *p == '.')
-	      got_dot = 1;
-	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
-		     && (*p == '-' || *p == '+'))
+	    else if (*p == '.')
+	      if (got_dot)
+		toktype = ERROR;	/* only one '.' in a float */
+	      else
+		got_dot = 1;
+	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E') &&
+		    (*p == '-' || *p == '+'))
 	      /* This is the sign of the exponent, not the end of the
 		 number.  */
 	      continue;
-	    /* We will take any letters or digits.  parse_number will
-	       complain if past the radix, or if L or U are not final.  */
-	    else if ((*p < '0' || *p > '9')
-		     && ((*p < 'a' || *p > 'z')
-				  && (*p < 'A' || *p > 'Z')))
-	      break;
+	    /* Always take decimal digits; parse_number handles radix error */
+	    else if (*p >= '0' && *p <= '9')
+	      continue;
+	    /* We will take letters only if hex is true, and only 
+	       up to what the input radix would permit.  FSF was content
+	       to rely on parse_number to validate; but it leaks. */
+	    else if (*p >= 'a' && *p <= 'z') {
+	      if (!hex || *p >= ('a' + local_radix - 10))
+		toktype = ERROR;
+	    }
+	    else if (*p >= 'A' && *p <= 'Z') {
+	      if (!hex || *p >= ('A' + local_radix - 10))
+		toktype = ERROR;
+	    }
+	    else break;
 	  }
-	toktype = parse_number (tokstart, p - tokstart, got_dot|got_e, &yylval);
+	if (toktype != ERROR)
+	  toktype = parse_number (tokstart, p - tokstart, got_dot|got_e, &yylval);
         if (toktype == ERROR)
 	  {
 	    char *err_copy = (char *) alloca (p - tokstart + 1);
@@ -1353,7 +1509,6 @@ yylex ()
     case '^':
     case '~':
     case '!':
-    case '@':
     case '<':
     case '>':
     case '[':
@@ -1365,7 +1520,44 @@ yylex ()
     case '}':
     symbol:
       lexptr++;
-      return c;
+      return tokchr;
+
+    case '@':
+      if (strncmp(tokstart, "@selector", 9) == 0)
+	{
+	  tokptr = strchr(tokstart, '(');
+	  if (tokptr == NULL)
+	    {
+	      error ("Missing '(' in @selector(...)");
+	    }
+	  tempbufindex = 0;
+	  tokptr++;	/* skip the '(' */
+	  do {
+	    /* Grow the static temp buffer if necessary, including allocating
+	       the first one on demand. */
+	    if (tempbufindex + 1 >= tempbufsize)
+	      {
+		tempbuf = (char *) realloc (tempbuf, tempbufsize += 64);
+	      }
+	    tempbuf[tempbufindex++] = *tokptr++;
+	  } while ((*tokptr != ')') && (*tokptr != '\0'));
+	  if (*tokptr++ != ')')
+	    {
+	      error ("Missing ')' in @selector(...)");
+	    }
+	  tempbuf[tempbufindex] = '\0';
+	  yylval.sval.ptr = tempbuf;
+	  yylval.sval.length = tempbufindex;
+	  lexptr = tokptr;
+	  return SELECTOR;
+	}
+      if (tokstart[1] != '"')
+        {
+          lexptr++;
+          return tokchr;
+        }
+      /* ObjC NextStep NSString constant: fall thru and parse like STRING */
+      tokstart++;
 
     case '"':
 
@@ -1416,11 +1608,11 @@ yylex ()
       yylval.sval.ptr = tempbuf;
       yylval.sval.length = tempbufindex;
       lexptr = tokptr;
-      return (STRING);
+      return (tokchr == '@' ? NSSTRING : STRING);
     }
 
-  if (!(c == '_' || c == '$'
-	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+  if (!(tokchr == '_' || tokchr == '$' || 
+       (tokchr >= 'a' && tokchr <= 'z') || (tokchr >= 'A' && tokchr <= 'Z')))
     /* We must have come across a bad character (e.g. ';').  */
     error ("Invalid character '%c' in expression.", c);
 
@@ -1562,16 +1754,22 @@ yylex ()
     char *tmp = copy_name (yylval.sval);
     struct symbol *sym;
     int is_a_field_of_this = 0;
+    int *need_this;
     int hextype;
 
+    if (current_language->la_language == language_cplus
+	|| current_language->la_language == language_objc
+	|| current_language->la_language == language_objcplus)
+      need_this = &is_a_field_of_this;
+    else
+      need_this = (int *) NULL;
+
     sym = lookup_symbol (tmp, expression_context_block,
-			 VAR_NAMESPACE,
-			 current_language->la_language == language_cplus
-			 ? &is_a_field_of_this : (int *) NULL,
+			 VAR_NAMESPACE, need_this,
 			 (struct symtab **) NULL);
     /* Call lookup_symtab, not lookup_partial_symtab, in case there are
        no psymtabs (coff, xcoff, or some future change to blow away the
-       psymtabs once once symbols are read).  */
+       psymtabs once symbols are read).  */
     if (sym && SYMBOL_CLASS (sym) == LOC_BLOCK)
       {
 	yylval.ssym.sym = sym;
@@ -1682,7 +1880,24 @@ yylex ()
 	  return TYPENAME;
         }
     if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
-	return TYPENAME;
+      return TYPENAME;
+
+    /* see if it's an ObjC classname */
+    if (!sym && should_lookup_objc_class ())  
+      {
+	extern struct symbol *lookup_struct_typedef ();
+	sym = lookup_struct_typedef (tmp, expression_context_block, 1);
+	if (sym)
+	  {
+	    CORE_ADDR Class = lookup_objc_class (tmp);
+	    if (Class)
+	      {
+		yylval.class.class = Class;
+		yylval.class.type = SYMBOL_TYPE (sym);
+		return CLASSNAME;
+	      }
+	  }
+      }
 
     /* Input names that aren't symbols but ARE valid hex numbers,
        when the input radix permits them, can be names or numbers
@@ -1712,5 +1927,8 @@ void
 yyerror (msg)
      char *msg;
 {
-  error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
+  if (*lexptr == '\0')
+    error("A %s near end of expression.",  (msg ? msg : "error"));
+  else
+    error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
 }

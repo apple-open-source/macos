@@ -31,8 +31,54 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-config.h,v 1.3 2001/06/27 23:09:16 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-config.h,v 1.7 2002/06/12 18:36:31 dmitch Exp $
 // $Log: asn-config.h,v $
+// Revision 1.7  2002/06/12 18:36:31  dmitch
+// Radar 2951933: Avoid including iostream in asn-config.h for NDEBUG builds.
+//
+// Revision 1.6.94.4  2002/06/11 22:59:03  dmitch
+// Radar 2951933.
+//
+// Revision 1.6.94.3  2002/06/11 22:34:50  dmitch
+// More endl cleanup.
+//
+// Revision 1.6.94.2  2002/06/11 22:27:28  dmitch
+// Clean up endl declaration for NDEBUG case.
+//
+// Revision 1.6.94.1  2002/06/10 23:19:08  dmitch
+// Radar 2934358 - avoid #include \<iostream\> in asn-config.h
+//
+// Revision 1.6  2002/04/18 18:58:08  dmitch
+// Radar 2904404 - avoid deprecated iostream.h
+//
+// Revision 1.5.24.1  2002/04/17 00:48:53  dmitch
+// Radar 2904404 - avoid deprecated iostream.h.
+//
+// Revision 1.5  2002/03/21 05:38:47  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.4.32.4  2002/03/20 20:56:37  dmitch
+// Further refinements for Radar 2868524: no more BDecPdu or BEncPdu.
+//
+// Revision 1.4.32.3  2002/03/20 02:54:08  dmitch
+// Avoid the unused and uninitialized ENV_TYPE var in BDecPdu.
+//
+// Revision 1.4.32.2  2002/03/20 01:28:02  dmitch
+// Added throw() to SnaccExcep destructor.
+//
+// Revision 1.4.32.1  2002/03/20 00:36:52  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
+// Revision 1.4  2002/02/07 04:30:04  mb
+// Fixes required to build with gcc3.
+// Merged from branch PR-2848996
+// Bug #: 2848996
+// Submitted by:
+// Reviewed by: Turly O'Connor <turly@apple.com>
+//
+// Revision 1.3.10.1  2002/02/06 23:45:04  mb
+// Changes to allow building with gcc3
+//
 // Revision 1.3  2001/06/27 23:09:16  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -94,13 +140,30 @@
 #define _asn_config_h_
 
 #include <ctype.h>  /* for isprint() in <<op on AsnOcts */
-#include <iostream.h>
+
+#ifdef	NDEBUG
+/* just get forward declarations */
+#include <iosfwd>
+namespace std {
+	extern ostream& endl(ostream& outs);
+}
+#else
+#include <iostream>
+#endif
+/* assume these... */
+using std::iostream;
+using std::ostream;
+using std::istream;
+using std::endl;
+
 #include <memory.h>
 #include <string.h>
 #include <setjmp.h>
 #include <math.h> /* to get ieee conversion functions & pow */
 
 #include "snacc.h"
+
+using std::streamsize;
 
 // used not only by AsnInt (asn-int.h), but by AsnNameDesc (meta.h) as well:
 #if SIZEOF_INT == 4
@@ -131,7 +194,7 @@
  *  - configure error handler
  */
 #ifndef	NDEBUG
-#define Asn1Error		cerr
+#define Asn1Error		std::cerr
 #else
 
 /* silent ostream */
@@ -184,8 +247,34 @@ extern Asn1ErrorClass Asn1Error;
 
 #include "asn-buf.h"
 #define BUF_TYPE		AsnBuf &
-#define ENV_TYPE		jmp_buf
 
+/*
+ * Enables throw/catch as replacement for setjmp/longjmp in C++ lib. 
+ * BDecPdu still returns int (1 = OK, 0 = fail) in either config.
+ * The compiler gets this symbol from c-lib/inc/asn-config.h; runtime 
+ * support gets this symbol from this file. There is currently no 
+ * straightforward way to have one symbol used in both environments. 
+ */
+#define SNACC_EXCEPTION_ENABLE	1
+
+/*
+ * With the SNACC_EXCEPTION_ENABLE mods, ENV_TYPE is not used, though
+ * it still appears in the BDec*() function.
+ */
+#if		SNACC_EXCEPTION_ENABLE
+#define ENV_TYPE		int
+#else
+#define ENV_TYPE		jmp_buf
+#endif	/* SNACC_EXCEPTION_ENABLE */
+
+/*
+ * Enable BEncPdu, BDecPdu. Same remarks apply as above w.r.t the 
+ * c++ config file.
+ */
+#define SNACC_ENABLE_PDU		0
+#if		SNACC_ENABLE_PDU
+
+#if 	SNACC_EXCEPTION_ENABLE
 /* return true if succeeded, false otherwise */
 #define PDU_MEMBER_MACROS\
     int BEncPdu (BUF_TYPE b, AsnLen &bytesEncoded)\
@@ -196,7 +285,28 @@ extern Asn1ErrorClass Asn1Error;
 \
     int BDecPdu (BUF_TYPE b, AsnLen &bytesDecoded)\
     {\
-	jmp_buf env;\
+\
+	bytesDecoded = 0;\
+	try\
+	{\
+	    BDec (b, bytesDecoded, 0);\
+	    return !b.ReadError();\
+	}\
+	catch(...) {\
+	    return false;\
+	}\
+    }
+#else	/* SNACC_EXCEPTION_ENABLE */
+#define PDU_MEMBER_MACROS\
+    int BEncPdu (BUF_TYPE b, AsnLen &bytesEncoded)\
+    {\
+	bytesEncoded = BEnc (b);\
+	return !b.WriteError();\
+    }\
+\
+    int BDecPdu (BUF_TYPE b, AsnLen &bytesDecoded)\
+    {\
+	ENV_TYPE env;\
 	int val;\
 \
 	bytesDecoded = 0;\
@@ -208,6 +318,29 @@ extern Asn1ErrorClass Asn1Error;
 	else\
 	    return false;\
     }
+#endif	/* SNACC_EXCEPTION_ENABLE */
+#else	/* !SNACC_ENABLE_PDU */
+/* empty */
+#define PDU_MEMBER_MACROS
+#endif
 
+/*
+ * SNACC exception class
+ */
+#if		SNACC_EXCEPTION_ENABLE
+
+#include <exception>
+
+class SnaccExcep : public std::exception {
+protected:
+    SnaccExcep(int err) : mErrNum(err) { }
+public:
+    virtual ~SnaccExcep() throw() {};
+	virtual int errNum() { return mErrNum; }
+	static void throwMe(int err);		// implemented in cdsaUtils.cpp
+protected:
+	int mErrNum;
+};
+#endif	/* SNACC_EXCEPTION_ENABLE */
 
 #endif /* conditional include */

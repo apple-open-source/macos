@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Test to make sure that pure Fortran 77 sources don't include
+# C-specific code.
+# Matthew D. Langston <langston@SLAC.Stanford.EDU>
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_F77
+END
+
+cat > Makefile.am << 'END'
+sbin_PROGRAMS = anonymous
+anonymous_SOURCES = doe.f jane.f
+END
+
+: > doe.f
+: > jane.f
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '[^F]CC' Makefile.in | grep -v MKDEP && exit 1
+exit 0

@@ -1,9 +1,9 @@
 ;;; lisp-mnt.el --- minor mode for Emacs Lisp maintainers
 
-;; Copyright (C) 1992, 1994, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1994, 1997, 2000, 2001 Free Software Foundation, Inc.
 
 ;; Author: Eric S. Raymond <esr@snark.thyrsus.com>
-;; Maintainer: Eric S. Raymond <esr@snark.thyrsus.com>
+;; Maintainer: FSF
 ;; Created: 14 Jul 1992
 ;; Keywords: docs
 ;; X-Bogus-Bureaucratic-Cruft: Gruad will get you if you don't watch out!
@@ -113,8 +113,6 @@
 
 ;;; Code:
 
-(require 'emacsbug)
-
 ;;; Variables:
 
 (defgroup lisp-mnt nil
@@ -122,17 +120,22 @@
   :prefix "lm-"
   :group 'maint)
 
-(defcustom lm-header-prefix "^;;*[ \t]+\\(@\(#\)\\)?[ \t]*\\([\$]\\)?"
+(defcustom lm-header-prefix "^;+[ \t]+\\(@(#)\\)?[ \t]*\\$?"
   "Prefix that is ignored before the tag.
 For example, you can write the 1st line synopsis string and headers like this
 in your Lisp package:
 
-   ;; @(#) package.el -- pacakge description
+   ;; @(#) package.el -- package description
    ;;
    ;; @(#) $Maintainer:   Person Foo Bar $
 
 The @(#) construct is used by unix what(1) and
 then $identifier: doc string $ is used by GNU ident(1)"
+  :type 'regexp
+  :group 'lisp-mnt)
+
+(defcustom lm-copyright-prefix "^;+[ \t]+Copyright (C) "
+  "Prefix that is ignored before the dates in a copyright."
   :type 'regexp
   :group 'lisp-mnt)
 
@@ -155,16 +158,15 @@ then $identifier: doc string $ is used by GNU ident(1)"
 
 ;; These functions all parse the headers of the current buffer
 
-(defsubst lm-get-header-re (header &optional mode)
+(defun lm-get-header-re (header &optional mode)
   "Return regexp for matching HEADER.
 If called with optional MODE and with value `section',
 return section regexp instead."
-  (cond ((eq mode 'section)
-	 (concat "^;;;;* " header ":[ \t]*$"))
-	(t
-	 (concat lm-header-prefix header ":[ \t]*"))))
+  (if (eq mode 'section)
+      (concat "^;;;;* " header ":[ \t]*$")
+    (concat lm-header-prefix header "[ \t]*:[ \t]*")))
 
-(defsubst lm-get-package-name ()
+(defun lm-get-package-name ()
   "Return package name by looking at the first line."
   (save-excursion
     (goto-char (point-min))
@@ -172,8 +174,7 @@ return section regexp instead."
 	     (progn (goto-char (match-end 0))
 		    (looking-at "\\([^\t ]+\\)")
 		    (match-end 1)))
-	(buffer-substring-no-properties (match-beginning 1) (match-end 1))
-      )))
+	(match-string-no-properties 1))))
 
 (defun lm-section-mark (header &optional after)
   "Return the buffer location of a given section start marker.
@@ -186,8 +187,7 @@ If AFTER is non-nil, return the location of the next line."
 	  (progn
 	    (beginning-of-line)
 	    (if after (forward-line 1))
-	    (point))
-	nil))))
+	    (point))))))
 
 (defsubst lm-code-mark ()
   "Return the buffer location of the `Code' start marker."
@@ -201,16 +201,27 @@ If AFTER is non-nil, return the location of the next line."
   "Return the buffer location of the `History' start marker."
   (lm-section-mark lm-history-header))
 
+(defsubst lm-copyright-mark ()
+  "Return the buffer location of the `Copyright' line."
+  (save-excursion
+    (let ((case-fold-search t))
+      (goto-char (point-min))
+      (if (re-search-forward lm-copyright-prefix nil t)
+	  (point))))
+  )
+
 (defun lm-header (header)
   "Return the contents of the header named HEADER."
   (goto-char (point-min))
   (let ((case-fold-search t))
-    (if (and (re-search-forward (lm-get-header-re header) (lm-code-mark) t)
-	     ;;   RCS ident likes format "$identifier: data$"
-	     (looking-at "\\([^$\n]+\\)")
-	     (match-end 1))
-	(buffer-substring-no-properties (match-beginning 1) (match-end 1))
-      nil)))
+    (when (and (re-search-forward (lm-get-header-re header) (lm-code-mark) t)
+	       ;;   RCS ident likes format "$identifier: data$"
+	       (looking-at
+		(if (save-excursion
+		      (skip-chars-backward "^$" (match-beginning 0))
+		      (= (point) (match-beginning 0)))
+		    "[^\n]+" "[^$\n]+")))
+      (match-string-no-properties 0))))
 
 (defun lm-header-multiline (header)
   "Return the contents of the header named HEADER, with continuation lines.
@@ -218,57 +229,72 @@ The returned value is a list of strings, one per line."
   (save-excursion
     (goto-char (point-min))
     (let ((res (lm-header header)))
-      (cond
-       (res
+      (when res
 	(setq res (list res))
 	(forward-line 1)
-
-	(while (and (looking-at (concat lm-header-prefix "[\t ]+"))
-		    (progn
-		      (goto-char (match-end 0))
-		      (looking-at "\\(.*\\)"))
-		    (match-end 1))
-	  (setq res (cons (buffer-substring-no-properties
-			   (match-beginning 1)
-			   (match-end 1))
-			  res))
-	  (forward-line 1))
-	))
-      res
-      )))
+	(while (and (or (looking-at (concat lm-header-prefix "[\t ]+"))
+			(and (not (looking-at
+				   (lm-get-header-re "\\sw\\(\\sw\\|\\s_\\)*")))
+			     (looking-at lm-header-prefix)))
+		    (goto-char (match-end 0))
+		    (looking-at ".+"))
+	  (setq res (cons (match-string-no-properties 0) res))
+	  (forward-line 1)))
+      (nreverse res))))
 
 ;; These give us smart access to the header fields and commentary
 
+(defmacro lm-with-file (file &rest body)
+  "Make a buffer with FILE current, and execute BODY.
+If FILE isn't in a buffer, load it in, and kill it after BODY is executed."
+  (let ((filesym (make-symbol "file")))
+    `(save-excursion
+       (let ((,filesym ,file))
+	 (if ,filesym (set-buffer (find-file-noselect ,filesym)))
+	 (prog1 (progn ,@body)
+	   (if (and ,filesym (not (get-buffer-window (current-buffer) t)))
+	       (kill-buffer (current-buffer))))))))
+(put 'lm-with-file 'lisp-indent-function 1)
+(put 'lm-with-file 'edebug-form-spec t)
+
+(defun lm-crack-copyright (&optional file)
+  "Return the copyright holder, and a list of copyright years.
+Use the current buffer if FILE is nil.
+Return argument is of the form (\"HOLDER\" \"YEAR1\" ... \"YEARN\")"
+  (lm-with-file file
+    (goto-char (lm-copyright-mark))
+    (let ((holder nil)
+	  (years nil)
+	  (end (line-end-position)))
+      (while (re-search-forward "\\([0-9]+\\),? +" end t)
+	(setq years (cons (match-string-no-properties 1) years)))
+      (if (looking-at ".*$")
+	  (setq holder (match-string-no-properties 0)))
+      (cons holder (nreverse years))
+    )))
+
 (defun lm-summary (&optional file)
   "Return the one-line summary of file FILE, or current buffer if FILE is nil."
-  (save-excursion
-    (if file
-	(find-file file))
+  (lm-with-file file
     (goto-char (point-min))
-    (prog1
-      (if (and
-	   (looking-at lm-header-prefix)
-	   (progn (goto-char (match-end 0))
-		  (looking-at "[^ ]+[ \t]+--+[ \t]+\\(.*\\)")))
-	  (let ((summary (buffer-substring-no-properties (match-beginning 1)
-							 (match-end 1))))
-	    ;; Strip off -*- specifications.
-	    (if (string-match "[ \t]*-\\*-.*-\\*-" summary)
-		(substring summary 0 (match-beginning 0))
-	      summary)))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+    (if (and (looking-at lm-header-prefix)
+	     (progn (goto-char (match-end 0))
+		    (looking-at "[^ ]+[ \t]+--+[ \t]+\\(.*\\)")))
+	(let ((summary (match-string-no-properties 1)))
+	  ;; Strip off -*- specifications.
+	  (if (string-match "[ \t]*-\\*-.*-\\*-" summary)
+	      (substring summary 0 (match-beginning 0))
+	    summary)))))
 
 (defun lm-crack-address (x)
   "Split up an email address X into full name and real email address.
 The value is a cons of the form (FULLNAME . ADDRESS)."
   (cond ((string-match "\\(.+\\) [(<]\\(\\S-+@\\S-+\\)[>)]" x)
-	 (cons (substring x (match-beginning 1) (match-end 1))
-	       (substring x (match-beginning 2) (match-end 2))))
+	 (cons (match-string 1 x)
+	       (match-string 2 x)))
 	((string-match "\\(\\S-+@\\S-+\\) [(<]\\(.*\\)[>)]" x)
-	 (cons (substring x (match-beginning 2) (match-end 2))
-	       (substring x (match-beginning 1) (match-end 1))))
+	 (cons (match-string 2 x)
+	       (match-string 1 x)))
 	((string-match "\\S-+@\\S-+" x)
 	 (cons nil x))
 	(t
@@ -278,144 +304,110 @@ The value is a cons of the form (FULLNAME . ADDRESS)."
   "Return the author list of file FILE, or current buffer if FILE is nil.
 Each element of the list is a cons; the car is the full name,
 the cdr is an email address."
-  (save-excursion
-    (if file
-	(find-file file))
+  (lm-with-file file
     (let ((authorlist (lm-header-multiline "author")))
-      (prog1
-	 (mapcar 'lm-crack-address authorlist)
-	  (if file
-	      (kill-buffer (current-buffer)))
-	))))
+      (mapcar 'lm-crack-address authorlist))))
 
 (defun lm-maintainer (&optional file)
   "Return the maintainer of file FILE, or current buffer if FILE is nil.
 The return value has the form (NAME . ADDRESS)."
-  (save-excursion
-    (if file
-	(find-file file))
-    (prog1
-	(let ((maint (lm-header "maintainer")))
-	  (if maint
-	      (lm-crack-address maint)
-	    (car (lm-authors))))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+  (lm-with-file file
+    (let ((maint (lm-header "maintainer")))
+      (if maint
+	  (lm-crack-address maint)
+	(car (lm-authors))))))
 
 (defun lm-creation-date (&optional file)
   "Return the created date given in file FILE, or current buffer if FILE is nil."
-  (save-excursion
-    (if file
-	(find-file file))
-    (prog1
-	(lm-header "created")
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+  (lm-with-file file
+    (lm-header "created")))
 
-
-(defun lm-last-modified-date (&optional file)
-  "Return the modify-date given in file FILE, or current buffer if FILE is nil."
-  (save-excursion 
-    (if file
-	(find-file file))
-    (prog1
-	(if (progn
-	      (goto-char (point-min))
-	      (re-search-forward
-	       "\\$[I]d: [^ ]+ [^ ]+ \\([^/]+\\)/\\([^/]+\\)/\\([^ ]+\\) "
-	       (lm-code-mark) t))
-	    (format "%s %s %s"
-		    (buffer-substring (match-beginning 3) (match-end 3))
-		    (nth (string-to-int 
-			  (buffer-substring (match-beginning 2) (match-end 2)))
-			 '("" "Jan" "Feb" "Mar" "Apr" "May" "Jun"
-			   "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
-		    (buffer-substring (match-beginning 1) (match-end 1))
-		    ))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+(defun lm-last-modified-date (&optional file iso-date)
+  "Return the modify-date given in file FILE, or current buffer if FILE is nil.
+ISO-DATE non-nil means return the date in ISO 8601 format."
+  (lm-with-file file
+    (when (progn (goto-char (point-min))
+		 (re-search-forward
+		  "\\$[I]d: [^ ]+ [^ ]+ \\([^/]+\\)/\\([^/]+\\)/\\([^ ]+\\) "
+		  (lm-code-mark) t))
+      (let ((dd (match-string 3))
+	    (mm (match-string 2))
+	    (yyyy (match-string 1)))
+	(if iso-date
+	    (format "%s-%s-%s" yyyy mm dd)
+	  (format "%s %s %s"
+		  dd
+		  (nth (string-to-int mm)
+		       '("" "Jan" "Feb" "Mar" "Apr" "May" "Jun"
+			 "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
+		  yyyy))))))
 
 (defun lm-version (&optional file)
   "Return the version listed in file FILE, or current buffer if FILE is nil.
-This can befound in an RCS or SCCS header to crack it out of."
-  (save-excursion 
-    (if file
-	(find-file file))
-    (prog1
-	(or
-	 (lm-header "version")
-	 (let ((header-max (lm-code-mark)))
-	   (goto-char (point-min))
-	   (cond
-	    ;; Look for an RCS header
-	    ((re-search-forward "\\$[I]d: [^ ]+ \\([^ ]+\\) " header-max t)
-	     (buffer-substring-no-properties (match-beginning 1) (match-end 1)))
-
-	    ;; Look for an SCCS header
-	    ((re-search-forward 
-	      (concat
-	       (regexp-quote "@(#)")
-	       (regexp-quote (file-name-nondirectory (buffer-file-name)))
-	       "\t\\([012345679.]*\\)")
-	      header-max t)
-	     (buffer-substring-no-properties (match-beginning 1) (match-end 1)))
-
-	    (t nil))))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+This can be found in an RCS or SCCS header."
+  (lm-with-file file
+    (or (lm-header "version")
+	(let ((header-max (lm-code-mark)))
+	  (goto-char (point-min))
+	  (cond
+	   ;; Look for an RCS header
+	   ((re-search-forward "\\$[I]d: [^ ]+ \\([^ ]+\\) " header-max t)
+	    (match-string-no-properties 1))
+	   ((re-search-forward "\\$Revision: +\\([^ ]+\\) " header-max t)
+	    (match-string-no-properties 1))
+	   ;; Look for an SCCS header
+	   ((re-search-forward
+	     (concat
+	      (regexp-quote "@(#)")
+	      (regexp-quote (file-name-nondirectory (buffer-file-name)))
+	      "\t\\([012345679.]*\\)")
+	     header-max t)
+	    (match-string-no-properties 1)))))))
 
 (defun lm-keywords (&optional file)
   "Return the keywords given in file FILE, or current buffer if FILE is nil."
-  (save-excursion
-    (if file
-	(find-file file))
-    (prog1
-	(let ((keywords (lm-header "keywords")))
-	  (and keywords (downcase keywords)))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+  (lm-with-file file
+    (let ((keywords (lm-header "keywords")))
+      (and keywords (downcase keywords)))))
+
+(defun lm-keywords-list (&optional file)
+  "Return list of keywords given in file FILE."
+  (let ((keywords (lm-keywords file)))
+    (if keywords
+	(split-string keywords ",?[ \t]"))))
+
+(defun lm-keywords-finder-p (&optional file)
+  "Return non-nil if any keywords in FILE are known to finder."
+  (require 'finder)
+  (let ((keys (lm-keywords-list file)))
+    (catch 'keyword-found
+      (while keys
+	(if (assoc (intern (car keys)) finder-known-keywords)
+	    (throw 'keyword-found t))
+	(setq keys (cdr keys)))
+      nil)))
 
 (defun lm-adapted-by (&optional file)
   "Return the adapted-by names in file FILE, or current buffer if FILE is nil.
 This is the name of the person who cleaned up this package for
 distribution."
-  (save-excursion
-    (if file
-	(find-file file))
-    (prog1
-	(lm-header "adapted-by")
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+  (lm-with-file file
+    (lm-header "adapted-by")))
 
 (defun lm-commentary (&optional file)
   "Return the commentary in file FILE, or current buffer if FILE is nil.
 The value is returned as a string.  In the file, the commentary starts
 with the tag `Commentary' or `Documentation' and ends with one of the
 tags `Code', `Change Log' or `History'."
-  (save-excursion
-    (if file
-	(find-file file))
-    (prog1
-	(let ((commentary	(lm-commentary-mark))
-	      (change-log	(lm-history-mark))
-	      (code		(lm-code-mark))
-	      )
-	  (cond
-	   ((and commentary change-log)
-	    (buffer-substring-no-properties commentary change-log))
-	   ((and commentary code)
-	    (buffer-substring-no-properties commentary code))
-	   (t
-	    nil)))
-      (if file
-	  (kill-buffer (current-buffer)))
-      )))
+  (lm-with-file file
+    (let ((commentary (lm-commentary-mark))
+	  (change-log (lm-history-mark))
+	  (code (lm-code-mark)))
+      (cond
+       ((and commentary change-log)
+	(buffer-substring-no-properties commentary change-log))
+       ((and commentary code)
+	(buffer-substring-no-properties commentary code))))))
 
 ;;; Verification and synopses
 
@@ -427,87 +419,69 @@ tags `Code', `Change Log' or `History'."
 
 (defun lm-verify (&optional file showok verb)
   "Check that the current buffer (or FILE if given) is in proper format.
-If FILE is a directory, recurse on its files and generate a report in
-a temporary buffer."
+If FILE is a directory, recurse on its files and generate a report in a
+temporary buffer.
+Optional argument SHOWOK indicates that \"OK\" be displayed in the temp buffer.
+Optional argument VERB specifies verbosity."
   (interactive)
-  (let* ((verb    (or verb (interactive-p)))
-	 ret
-	 name
-	 )
-    (if verb
-	(setq ret "Ok."))		;init value
-
+  (let* ((verb (or verb (interactive-p)))
+	 (ret (and verb "Ok."))
+	 name)
     (if (and file (file-directory-p file))
-	(setq
-	 ret
-	 (progn
-	   (switch-to-buffer (get-buffer-create "*lm-verify*"))
-	   (erase-buffer)
-	   (mapcar
-	    '(lambda (f)
-	       (if (string-match ".*\\.el$" f)
-		   (let ((status (lm-verify f)))
-		     (if status
-			 (progn
-			   (insert f ":")
-			   (lm-insert-at-column lm-comment-column status "\n"))
-		       (and showok
-			    (progn
-			      (insert f ":")
-			      (lm-insert-at-column lm-comment-column "OK\n")))))))
-	    (directory-files file))
-	   ))
-      (save-excursion
-	(if file
-	    (find-file file))
+	(setq ret
+	      (with-temp-buffer
+		(mapcar
+		 (lambda (f)
+		   (if (string-match ".*\\.el\\'" f)
+		       (let ((status (lm-verify f)))
+			 (insert f ":")
+			 (if status
+			     (lm-insert-at-column lm-comment-column status
+						  "\n")
+			   (if showok
+			       (lm-insert-at-column lm-comment-column
+						    "OK\n"))))))
+		 (directory-files file))))
+      (lm-with-file file
 	(setq name (lm-get-package-name))
-
-	(setq
-	 ret
-	 (prog1
-	     (cond
-	      ((null name)
-	       "Can't find a package NAME")
-
-	      ((not (lm-authors))
-	       "Author: tag missing.")
-
-	      ((not (lm-maintainer))
-	       "Maintainer: tag missing.")
-
-	      ((not (lm-summary))
-	       "Can't find a one-line 'Summary' description")
-
-	      ((not (lm-keywords))
-	       "Keywords: tag missing.")
-
-	      ((not (lm-commentary-mark))
-	       "Can't find a 'Commentary' section marker.")
-
-	      ((not (lm-history-mark))
-	       "Can't find a 'History' section marker.")
-
-	      ((not (lm-code-mark))
-	       "Can't find a 'Code' section marker")
-
-	      ((progn
-		 (goto-char (point-max))
-		 (not
-		  (re-search-backward
-		   (concat "^;;;[ \t]+" name "[ \t]+ends here[ \t]*$"
-			   "\\|^;;;[ \t]+ End of file[ \t]+" name)
-		   nil t
-		   )))
-	       (format "Can't find a footer line for [%s]" name))
-	      (t
-	       ret))
-	   (if file
-	       (kill-buffer (current-buffer)))
-	  ))))
+	(setq ret
+	      (cond
+	       ((null name)
+		"Can't find a package NAME")
+	       ((not (lm-authors))
+		"Author: tag missing.")
+	       ((not (lm-maintainer))
+		"Maintainer: tag missing.")
+	       ((not (lm-summary))
+		"Can't find a one-line 'Summary' description")
+	       ((not (lm-keywords))
+		"Keywords: tag missing.")
+	       ((not (lm-keywords-finder-p))
+		"Keywords: no valid finder keywords.")
+	       ((not (lm-commentary-mark))
+		"Can't find a 'Commentary' section marker.")
+	       ((not (lm-history-mark))
+		"Can't find a 'History' section marker.")
+	       ((not (lm-code-mark))
+		"Can't find a 'Code' section marker")
+	       ((progn
+		  (goto-char (point-max))
+		  (not
+		   (re-search-backward
+		    (concat "^;;;[ \t]+" name "[ \t]+ends here[ \t]*$"
+			    "\\|^;;;[ \t]+ End of file[ \t]+" name)
+		    nil t)))
+		(format "Can't find a footer line for [%s]" name))
+	       ((not (and (lm-copyright-mark) (lm-crack-copyright)))
+		"Can't find a valid Copyright")
+	       ((not (string-match "Free Software Foundation"
+				   (car (lm-crack-copyright))))
+		"Copyright Holder is not the Free Software Foundation.")
+	       (t
+		ret)))))
     (if verb
 	(message ret))
-    ret
-    ))
+    ret))
 
 (defun lm-synopsis (&optional file showall)
   "Generate a synopsis listing for the buffer or the given FILE if given.
@@ -519,53 +493,49 @@ which do not include a recognizable synopsis."
     (read-file-name "Synopsis for (file or dir): ")))
 
   (if (and file (file-directory-p file))
-      (progn
-	(switch-to-buffer (get-buffer-create "*lm-verify*"))
-	(erase-buffer)
+      (with-temp-buffer
 	(mapcar
-	 '(lambda (f)
-	    (if (string-match ".*\\.el$" f)
-		(let ((syn (lm-synopsis f)))
-		  (if syn
-		      (progn
-			(insert f ":")
-			(lm-insert-at-column lm-comment-column syn "\n"))
-		    (and showall
-			 (progn
-			   (insert f ":")
-			   (lm-insert-at-column lm-comment-column "NA\n")))))))
-	 (directory-files file))
-	)
+	 (lambda (f)
+	   (if (string-match "\\.el\\'" f)
+	       (let ((syn (lm-synopsis f)))
+		 (if syn
+		     (progn
+		       (insert f ":")
+		       (lm-insert-at-column lm-comment-column syn "\n"))
+		   (when showall
+		     (insert f ":")
+		     (lm-insert-at-column lm-comment-column "NA\n"))))))
+	 (directory-files file)))
     (save-excursion
       (if file
 	  (find-file file))
       (prog1
 	  (lm-summary)
 	(if file
-	    (kill-buffer (current-buffer)))
-	))))
+	    (kill-buffer (current-buffer)))))))
+
+(eval-when-compile (defvar report-emacs-bug-address))
 
 (defun lm-report-bug (topic)
   "Report a bug in the package currently being visited to its maintainer.
 Prompts for bug subject TOPIC.  Leaves you in a mail buffer."
   (interactive "sBug Subject: ")
-  (let ((package	(lm-get-package-name))
-	(addr		(lm-maintainer))
-	(version	(lm-version)))
-    (mail nil
-	  (if addr
-	      (concat (car addr) " <" (cdr addr) ">")
-	    report-emacs-bug-address)
-	  topic)
+  (require 'emacsbug)
+  (let ((package (lm-get-package-name))
+	(addr (lm-maintainer))
+	(version (lm-version)))
+    (compose-mail (if addr
+		      (concat (car addr) " <" (cdr addr) ">")
+		    report-emacs-bug-address)
+		  topic)
     (goto-char (point-max))
-    (insert "\nIn "
-	    package
-	    (if version (concat " version " version) "")
-	    "\n\n")
+    (insert "\nIn " package)
+    (if version
+	(insert " version " version))
+    (newline 2)
     (message
      (substitute-command-keys "Type \\[mail-send] to send bug report."))))
 
 (provide 'lisp-mnt)
 
 ;;; lisp-mnt.el ends here
-

@@ -18,20 +18,21 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/addrtoname.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/addrtoname.h,v 1.1.1.2 2002/05/29 00:05:27 landonf Exp $ (LBL)
  */
 
 /* Name to address translation routines. */
 
-extern char *etheraddr_string(const u_char *);
-extern char *etherproto_string(u_short);
-extern char *tcpport_string(u_short);
-extern char *udpport_string(u_short);
-extern char *getname(const u_char *);
+extern const char *linkaddr_string(const u_char *, const unsigned int);
+extern const char *etheraddr_string(const u_char *);
+extern const char *etherproto_string(u_short);
+extern const char *tcpport_string(u_short);
+extern const char *udpport_string(u_short);
+extern const char *getname(const u_char *);
 #ifdef INET6
-extern char *getname6(const u_char *);
+extern const char *getname6(const u_char *);
 #endif
-extern char *intoa(u_int32_t);
+extern const char *intoa(u_int32_t);
 
 extern void init_addrtoname(u_int32_t, u_int32_t);
 extern struct hnamemem *newhnamemem(void);

@@ -1,5 +1,7 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
-   Copyright 1991, 92, 93, 94, 95, 96, 1998 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002
+   Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
    This file is part of GDB.
@@ -64,29 +66,7 @@ struct complaint stab_info_mismatch_complaint =
 struct complaint stab_info_questionable_complaint =
 {"elf/stab section information questionable for %s", 0, 0};
 
-static void elf_symfile_init (struct objfile *);
-
-static void elf_new_init (struct objfile *);
-
-static void elf_symfile_read (struct objfile *, int);
-
-static void elf_symfile_finish (struct objfile *);
-
-static void elf_symtab_read (struct objfile *, int);
-
 static void free_elfinfo (void *);
-
-static struct minimal_symbol *record_minimal_symbol_and_info (char *,
-							      CORE_ADDR,
-							      enum
-							      minimal_symbol_type,
-							      char *,
-							      asection *
-							      bfd_section,
-							      struct objfile
-							      *);
-
-static void elf_locate_sections (bfd *, asection *, void *);
 
 /* We are called once per section from elf_symfile_read.  We
    need to examine each section we are passed, check to see
@@ -108,7 +88,7 @@ static void elf_locate_sections (bfd *, asection *, void *);
    -kingdon).  */
 
 static void
-elf_locate_sections (bfd *ignore_abfd, asection *sectp, PTR eip)
+elf_locate_sections (bfd *ignore_abfd, asection *sectp, void *eip)
 {
   register struct elfinfo *ei;
 
@@ -171,32 +151,11 @@ record_minimal_symbol_and_info (char *name, CORE_ADDR address,
 				enum minimal_symbol_type ms_type, char *info,	/* FIXME, is this really char *? */
 				asection *bfd_section, struct objfile *objfile)
 {
-  int section;
-
-  /* Guess the section from the type.  This is likely to be wrong in
-     some cases.  */
-  switch (ms_type)
-    {
-    case mst_text:
-    case mst_file_text:
-      section = bfd_section->index;
-#ifdef SMASH_TEXT_ADDRESS
-      SMASH_TEXT_ADDRESS (address);
-#endif
-      break;
-    case mst_data:
-    case mst_file_data:
-    case mst_bss:
-    case mst_file_bss:
-      section = bfd_section->index;
-      break;
-    default:
-      section = -1;
-      break;
-    }
+  if (ms_type == mst_text || ms_type == mst_file_text)
+    address = SMASH_TEXT_ADDRESS (address);
 
   return prim_record_minimal_symbol_and_info
-    (name, address, ms_type, info, section, bfd_section, objfile);
+    (name, address, ms_type, info, bfd_section->index, bfd_section, objfile);
 }
 
 /*
@@ -268,7 +227,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (free, symbol_table);
+      back_to = make_cleanup (xfree, symbol_table);
       if (dynamic)
 	number_of_symbols = bfd_canonicalize_dynamic_symtab (objfile->obfd,
 							     symbol_table);
@@ -428,7 +387,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 		}
 	      else if (sym->section->flags & SEC_ALLOC)
 		{
-		  if (sym->flags & BSF_GLOBAL)
+		  if (sym->flags & (BSF_GLOBAL | BSF_WEAK))
 		    {
 		      if (sym->section->flags & SEC_LOAD)
 			{
@@ -467,7 +426,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 			    {
 			      sectinfo = (struct stab_section_info *)
 				xmmalloc (objfile->md, sizeof (*sectinfo));
-			      memset ((PTR) sectinfo, 0, sizeof (*sectinfo));
+			      memset (sectinfo, 0,
+				      sizeof (*sectinfo));
 			      if (filesym == NULL)
 				{
 				  complain (&section_info_complaint,
@@ -488,7 +448,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 				}
 			    }
 			  else
-			    internal_error ("Section index uninitialized.");
+			    internal_error (__FILE__, __LINE__,
+					    "Section index uninitialized.");
 			  /* Bfd symbols are section relative. */
 			  symaddr = sym->value + sym->section->vma;
 			  /* Relocate non-absolute symbols by the section offset. */
@@ -499,7 +460,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 			  if (index != -1)
 			    sectinfo->sections[index] = symaddr;
 			  else
-			    internal_error ("Section index uninitialized.");
+			    internal_error (__FILE__, __LINE__,
+					    "Section index uninitialized.");
 			  /* The special local symbols don't go in the
 			     minimal symbol table, so ignore this one. */
 			  continue;
@@ -533,14 +495,12 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 	      size = ((elf_symbol_type *) sym)->internal_elf_sym.st_size;
 	      msym = record_minimal_symbol_and_info
 		((char *) sym->name, symaddr,
-		 ms_type, (PTR) size, sym->section, objfile);
+		 ms_type, (void *) size, sym->section, objfile);
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
 	      if (msym != NULL)
 		msym->filename = filesymname;
 #endif
-#ifdef ELF_MAKE_MSYMBOL_SPECIAL
 	      ELF_MAKE_MSYMBOL_SPECIAL (sym, msym);
-#endif
 	    }
 	}
       do_cleanups (back_to);
@@ -596,7 +556,7 @@ elf_symfile_read (struct objfile *objfile, int mainline)
   objfile->sym_stab_info = (struct dbx_symfile_info *)
     xmmalloc (objfile->md, sizeof (struct dbx_symfile_info));
   memset ((char *) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
-  make_cleanup (free_elfinfo, (PTR) objfile);
+  make_cleanup (free_elfinfo, (void *) objfile);
 
   /* Process the normal ELF symbol table first.  This may write some 
      chain of info into the dbx_symfile_info in objfile->sym_stab_info,
@@ -621,7 +581,7 @@ elf_symfile_read (struct objfile *objfile, int mainline)
     }
 
   /* We first have to find them... */
-  bfd_map_over_sections (abfd, elf_locate_sections, (PTR) & ei);
+  bfd_map_over_sections (abfd, elf_locate_sections, (void *) & ei);
 
   /* ELF debugging information is inserted into the psymtab in the
      order of least informative first - most informative last.  Since
@@ -676,6 +636,9 @@ elf_symfile_read (struct objfile *objfile, int mainline)
 			    ei.lnoffset, ei.lnsize);
     }
 
+  if (DWARF2_BUILD_FRAME_INFO_P ())
+    DWARF2_BUILD_FRAME_INFO(objfile);
+
   /* Install any minimal symbols that have been collected as the current
      minimal symbols for this objfile. */
 
@@ -688,7 +651,7 @@ elf_symfile_read (struct objfile *objfile, int mainline)
    stab_section_info's, that might be dangling from it.  */
 
 static void
-free_elfinfo (PTR objp)
+free_elfinfo (void *objp)
 {
   struct objfile *objfile = (struct objfile *) objp;
   struct dbx_symfile_info *dbxinfo = objfile->sym_stab_info;
@@ -698,7 +661,7 @@ free_elfinfo (PTR objp)
   while (ssi)
     {
       nssi = ssi->next;
-      mfree (objfile->md, ssi);
+      xmfree (objfile->md, ssi);
       ssi = nssi;
     }
 
@@ -729,7 +692,7 @@ elf_symfile_finish (struct objfile *objfile)
 {
   if (objfile->sym_stab_info != NULL)
     {
-      mfree (objfile->md, objfile->sym_stab_info);
+      xmfree (objfile->md, objfile->sym_stab_info);
     }
 }
 

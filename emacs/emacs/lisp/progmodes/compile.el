@@ -1,8 +1,8 @@
-;;; compile.el --- run compiler as inferior of Emacs, parse error messages.
+;;; compile.el --- run compiler as inferior of Emacs, parse error messages
 
-;; Copyright (C) 1985, 86, 87, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 86, 87, 93, 94, 95, 96, 97, 98, 1999, 2001 Free Software Foundation, Inc.
 
-;; Author: Roland McGrath <roland@prep.ai.mit.edu>
+;; Author: Roland McGrath <roland@gnu.org>
 ;; Maintainer: FSF
 ;; Keywords: tools, processes
 
@@ -63,6 +63,26 @@ will be parsed and highlighted as soon as you try to move to them."
   :type '(choice (const :tag "All" t)
 		 (const :tag "None" nil)
 		 (integer :tag "First N lines"))
+  :group 'compilation)
+
+(defcustom grep-command nil
+  "The default grep command for \\[grep].
+The default value of this variable is set up by `grep-compute-defaults';
+call that function before using this variable in your program."
+  :type 'string
+  :get '(lambda (symbol)
+	  (or grep-command
+	      (progn (grep-compute-defaults) grep-command)))
+  :group 'compilation)
+
+(defcustom grep-find-command nil
+  "The default find command for \\[grep-find].
+The default value of this variable is set up by `grep-compute-defaults';
+call that function before using this variable in your program."
+  :type 'string
+  :get (lambda (symbol)
+	 (or grep-find-command
+	     (progn (grep-compute-defaults) grep-find-command)))
   :group 'compilation)
 
 (defvar compilation-error-list nil
@@ -132,7 +152,7 @@ or when it is used with \\[next-error] or \\[compile-goto-error].")
 				 minor-mode-alist)))
 
 (defvar compilation-parsing-end nil
-  "Position of end of buffer when last error messages were parsed.")
+  "Marker position of end of buffer when last error messages were parsed.")
 
 (defvar compilation-error-message "No more errors"
   "Message to print when no more matches are found.")
@@ -264,10 +284,10 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2)
     ;; E, file.cc(35,52) Illegal operation on pointers
     ("[EW], \\([^(\n]*\\)(\\([0-9]+\\),[ \t]*\\([0-9]+\\)" 1 2 3)
 
-;;; This seems to be superfluous because the first pattern matches it.
-;;;    ;; GNU messages with program name and optional column number.
-;;;    ("[a-zA-Z]?:?[^0-9 \n\t:]+[^ \n\t:]*:[ \t]*\\([^ \n\t:]+\\):\
-;;;\\([0-9]+\\):\\(\\([0-9]+\\)[: \t]\\)?" 1 2 4)
+    ;; This seems to be superfluous because the first pattern matches it.
+    ;; ;; GNU messages with program name and optional column number.
+    ;; ("[a-zA-Z]?:?[^0-9 \n\t:]+[^ \n\t:]*:[ \t]*\\([^ \n\t:]+\\):\
+    ;;\\([0-9]+\\):\\(\\([0-9]+\\)[: \t]\\)?" 1 2 4)
 
     ;; Cray C compiler error messages
     ("\\(cc\\| cft\\)-[0-9]+ c\\(c\\|f77\\): ERROR \\([^,\n]+, \\)* File = \
@@ -290,7 +310,9 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2)
 
     ;; Perl -w:
     ;; syntax error at automake line 922, near "':'"
-    (".* at \\([^ ]+\\) line \\([0-9]+\\)," 1 2)
+    ;; Perl debugging traces
+    ;; store::odrecall('File_A', 'x2') called at store.pm line 90
+    (".* at \\([^ \n]+\\) line \\([0-9]+\\)[,.\n]" 1 2)
 
     ;; Oracle pro*c:
     ;; Semantic error at line 528, column 5, file erosacqdb.pc:
@@ -301,11 +323,17 @@ of[ \t]+\"?\\([a-zA-Z]?:?[^\":\n]+\\)\"?:" 3 2)
     ;; Error 24 at (2:progran.f90) : syntax error
     ("Error [0-9]+ at (\\([0-9]*\\):\\([^)\n]+\\))" 2 1)
 
+    ;; SGI IRIX MipsPro 7.3 compilers:
+    ;; cc-1070 cc: ERROR File = linkl.c, Line = 38
+    (".*: ERROR File = \\(.+\\), Line = \\([0-9]+\\)" 1 2)
+    (".*: WARNING File = \\(.+\\), Line = \\([0-9]+\\)" 1 2)
+
     ;; Sun F90 error messages:
-    ;; cf90-113 f90comp: ERROR NSE, File = Hoved.f90, Line = 16, Column = 3 
+    ;; cf90-113 f90comp: ERROR NSE, File = Hoved.f90, Line = 16, Column = 3
     (".* ERROR [a-zA-Z0-9 ]+, File = \\(.+\\), Line = \\([0-9]+\\), Column = \\([0-9]+\\)"
      1 2 3)
     )
+
   "Alist that specifies how to match errors in compiler output.
 Each elt has the form (REGEXP FILE-IDX LINE-IDX [COLUMN-IDX FILE-FORMAT...])
 If REGEXP matches, the FILE-IDX'th subexpression gives the file name, and
@@ -336,7 +364,7 @@ The default value matches lines printed by the `-w' option of GNU Make.")
 Note that the match is done at the beginning of lines.
 Each elt has the form (REGEXP IDX).
 If REGEXP matches, the IDX'th subexpression gives the name of the directory
-being moved from. If IDX is nil, the last directory entered \(by a line
+being moved from.  If IDX is nil, the last directory entered \(by a line
 matching `compilation-enter-directory-regexp-alist'\) is assumed.
 
 The default value matches lines printed by the `-w' option of GNU Make.")
@@ -350,7 +378,7 @@ The default value matches lines printed by the `-w' option of GNU Make.")
   "Alist specifying how to match lines that indicate a new current file.
 Note that the match is done at the beginning of lines.
 Each elt has the form (REGEXP IDX).
-If REGEXP matches, the IDX'th subexpression gives the file name. This is
+If REGEXP matches, the IDX'th subexpression gives the file name.  This is
 used with compilers that don't indicate file name in every error message.")
 
 ;; There is no generally useful regexp that will match non messages, but
@@ -362,7 +390,7 @@ used with compilers that don't indicate file name in every error message.")
     )
   "Alist specifying how to match lines that have no message.
 Note that the match is done at the beginning of lines.
-Each elt has the form (REGEXP). This alist is by default empty, but if
+Each elt has the form (REGEXP).  This alist is by default empty, but if
 you have some good regexps here, the parsing of messages will be faster.")
 
 (defcustom compilation-error-screen-columns t
@@ -377,42 +405,41 @@ especially the TAB character."
   :version "20.4")
 
 (defcustom compilation-read-command t
-  "*If not nil, M-x compile reads the compilation command to use.
-Otherwise, M-x compile just uses the value of `compile-command'."
+  "*Non-nil means \\[compile] reads the compilation command to use.
+Otherwise, \\[compile] just uses the value of `compile-command'."
   :type 'boolean
   :group 'compilation)
 
 ;;;###autoload
 (defcustom compilation-ask-about-save t
-  "*If not nil, M-x compile asks which buffers to save before compiling.
+  "*Non-nil means \\[compile] asks which buffers to save before compiling.
 Otherwise, it saves all modified buffers without asking."
   :type 'boolean
   :group 'compilation)
 
+;; Note: the character class after the optional drive letter does not
+;; include a space to support file names with blanks.
 (defvar grep-regexp-alist
-  '(("\\([a-zA-Z]?:?[^:( \t\n]+\\)[:( \t]+\\([0-9]+\\)[:) \t]" 1 2))
+  '(("\\([a-zA-Z]?:?[^:(\t\n]+\\)[:( \t]+\\([0-9]+\\)[:) \t]" 1 2))
   "Regexp used to match grep hits.  See `compilation-error-regexp-alist'.")
 
 (defvar grep-program
   ;; Currently zgrep has trouble.  It runs egrep instead of grep,
   ;; and it doesn't pass along long options right.
   "grep"
-;;;  (if (equal (condition-case nil	; in case "zgrep" isn't in exec-path
-;;;		 (call-process "zgrep" nil nil nil
-;;;			       "foo" null-device)
-;;;	       (error nil))
-;;;	     1)
-;;;      "zgrep"
-;;;    "grep")
+  ;; (if (equal (condition-case nil	; in case "zgrep" isn't in exec-path
+  ;; 		 (call-process "zgrep" nil nil nil
+  ;; 			       "foo" null-device)
+  ;; 	       (error nil))
+  ;; 	     1)
+  ;;     "zgrep"
+  ;;   "grep")
   "The default grep program for `grep-command' and `grep-find-command'.
 This variable's value takes effect when `grep-compute-defaults' is called.")
 
-;; Use -e if grep supports it,
-;; because that avoids lossage if the pattern starts with `-'.
-(defvar grep-command nil
-  "The default grep command for \\[grep].
-The real default value of this variable is set up by `grep-compute-defaults';
-call that function before using this variable.")
+(defvar find-program "find"
+  "The default find program for `grep-find-command'.
+This variable's value takes effect when `grep-compute-defaults' is called.")
 
 (defvar grep-find-use-xargs nil
   "Whether \\[grep-find] uses the `xargs' utility by default.
@@ -421,11 +448,6 @@ If nil, it uses `grep -exec'; if `gnu', it uses `find -print0' and `xargs -0';
 if not nil and not `gnu', it uses `find -print' and `xargs'.
 
 This variable's value takes effect when `grep-compute-defaults' is called.")
-
-(defvar grep-find-command nil
-  "The default find command for \\[grep-find].
-The default value of this variable is set up by `grep-compute-defaults';
-call that function before using this variable.")
 
 ;;;###autoload
 (defcustom compilation-search-path '(nil)
@@ -443,14 +465,12 @@ Sometimes it is useful for files to supply local values for this variable.
 You might also use mode hooks to specify it in certain modes, like this:
 
     (add-hook 'c-mode-hook
-      (function
        (lambda ()
 	 (unless (or (file-exists-p \"makefile\")
 		     (file-exists-p \"Makefile\"))
-	   (make-local-variable 'compile-command)
-	   (setq compile-command
-		 (concat \"make -k \"
-			 (file-name-sans-extension buffer-file-name)))))))"
+	   (set (make-local-variable 'compile-command)
+		(concat \"make -k \"
+		        (file-name-sans-extension buffer-file-name))))))"
   :type 'string
   :group 'compilation)
 
@@ -525,19 +545,20 @@ to a function that generates a unique name."
   (interactive
    (if (or compilation-read-command current-prefix-arg)
        (list (read-from-minibuffer "Compile command: "
-                                 compile-command nil nil
+                                 (eval compile-command) nil nil
                                  '(compile-history . 1)))
-     (list compile-command)))
-  (setq compile-command command)
+     (list (eval compile-command))))
+  (unless (equal command (eval compile-command))
+    (setq compile-command command))
   (save-some-buffers (not compilation-ask-about-save) nil)
-  (compile-internal compile-command "No more errors"))
+  (compile-internal command "No more errors"))
 
-;;; run compile with the default command line
+;; run compile with the default command line
 (defun recompile ()
   "Re-compile the program including the current buffer."
   (interactive)
   (save-some-buffers (not compilation-ask-about-save) nil)
-  (compile-internal compile-command "No more errors"))
+  (compile-internal (eval compile-command) "No more errors"))
 
 (defun grep-process-setup ()
   "Set up `compilation-exit-message-function' for `grep'."
@@ -553,14 +574,15 @@ to a function that generates a unique name."
 	   (cons msg code)))))
 
 (defun grep-compute-defaults ()
-  (setq grep-command
-	(if (equal (condition-case nil	; in case "grep" isn't in exec-path
-		       (call-process grep-program nil nil nil
-				     "-e" "foo" null-device)
-		     (error nil))
-		   1)
-	    (format "%s -n -e " grep-program)
-	  (format "%s -n " grep-program)))
+  (unless grep-command
+    (setq grep-command
+	  (if (equal (condition-case nil ; in case "grep" isn't in exec-path
+			 (call-process grep-program nil nil nil
+				       "-e" "foo" null-device)
+		       (error nil))
+		     1)
+	      (format "%s -n -e " grep-program)
+	    (format "%s -n " grep-program))))
   (unless grep-find-use-xargs
     (setq grep-find-use-xargs
 	  (if (and
@@ -571,15 +593,17 @@ to a function that generates a unique name."
                                     "-0" "-e" "echo")
 		     0))
 	      'gnu)))
-  (setq grep-find-command
-	(cond ((eq grep-find-use-xargs 'gnu)
-	       (format "find . -type f -print0 | xargs -0 -e %s"
-		       grep-command))
-	      (grep-find-use-xargs
-	       (format "find . -type f -print | xargs %s" grep-command))
-	      (t (cons (format "find . -type f -exec %s {} /dev/null \\;"
-			       grep-command)
-		       (+ 22 (length grep-command)))))))
+  (unless grep-find-command
+    (setq grep-find-command
+	  (cond ((eq grep-find-use-xargs 'gnu)
+		 (format "%s . -type f -print0 | xargs -0 -e %s"
+			 find-program grep-command))
+		(grep-find-use-xargs
+		 (format "%s . -type f -print | xargs %s"
+                         find-program grep-command))
+		(t (cons (format "%s . -type f -exec %s {} %s \\;"
+				 find-program grep-command null-device)
+			 (+ 22 (length grep-command))))))))
 
 ;;;###autoload
 (defun grep (command-args)
@@ -589,7 +613,7 @@ or \\<compilation-minor-mode-map>\\[compile-goto-error] in the grep \
 output buffer, to go to the lines
 where grep found matches.
 
-This command uses a special history list for its arguments, so you can
+This command uses a special history list for its COMMAND-ARGS, so you can
 easily repeat a grep command.
 
 A prefix argument says to default the argument based upon the current
@@ -601,17 +625,20 @@ if that history list is empty)."
      (unless grep-command
        (grep-compute-defaults))
      (when arg
-       (let* ((tag-default
-	       (funcall (or find-tag-default-function
-			    (get major-mode 'find-tag-default-function)
-			    ;; We use grep-tag-default instead of
-			    ;; find-tag-default, to avoid loading etags.
-			    'grep-tag-default))))
+       (let ((tag-default
+	      (funcall (or find-tag-default-function
+			   (get major-mode 'find-tag-default-function)
+			   ;; We use grep-tag-default instead of
+			   ;; find-tag-default, to avoid loading etags.
+			   'grep-tag-default))))
 	 (setq grep-default (or (car grep-history) grep-command))
 	 ;; Replace the thing matching for with that around cursor
-	 (if (string-match "[^ ]+\\s +\\(-[^ ]+\\s +\\)*\\(\"[^\"]+\"\\|[^ ]+\\)" grep-default)
-	     (setq grep-default (replace-match tag-default t t
-					       grep-default 2)))))
+	 (when (string-match "[^ ]+\\s +\\(-[^ ]+\\s +\\)*\\(\"[^\"]+\"\\|[^ ]+\\)\\(\\s-+\\S-+\\)?" grep-default)
+	   (unless (or (match-beginning 3) (not (stringp buffer-file-name)))
+	     (setq grep-default (concat grep-default "*."
+					(file-name-extension buffer-file-name))))
+	   (setq grep-default (replace-match (or tag-default "")
+					     t t grep-default 2)))))
      (list (read-from-minibuffer "Run grep (like this): "
 				 (or grep-default grep-command)
 				 nil nil 'grep-history))))
@@ -646,7 +673,8 @@ if that history list is empty)."
 
 ;;;###autoload
 (defun grep-find (command-args)
-  "Run grep via find, with user-specified args, and collect output in a buffer.
+  "Run grep via find, with user-specified args COMMAND-ARGS.
+Collect output in a buffer.
 While find runs asynchronously, you can use the \\[next-error] command
 to find the text that grep hits refer to.
 
@@ -755,11 +783,12 @@ Returns the compilation buffer created."
       (if (eq outbuf (current-buffer))
 	  (goto-char (point-max)))
       ;; Pop up the compilation buffer.
-      (setq outwin (display-buffer outbuf))
+      (setq outwin (display-buffer outbuf nil t))
       (save-excursion
 	(set-buffer outbuf)
 	(compilation-mode name-of-mode)
-	;; (setq buffer-read-only t)  ;;; Non-ergonomic.
+	;; In what way is it non-ergonomic ?  -stef
+	;; (toggle-read-only 1) ;;; Non-ergonomic.
 	(set (make-local-variable 'compilation-parse-errors-function) parser)
 	(set (make-local-variable 'compilation-error-message) error-message)
 	(set (make-local-variable 'compilation-error-regexp-alist)
@@ -778,10 +807,9 @@ Returns the compilation buffer created."
 		   error-regexp-alist name-function
 		   enter-regexp-alist leave-regexp-alist
 		   file-regexp-alist nomessage-regexp-alist))
-        (make-local-variable 'lazy-lock-defer-on-scrolling)
         ;; This proves a good idea if the buffer's going to scroll
         ;; with lazy-lock on.
-        (setq lazy-lock-defer-on-scrolling t)
+        (set (make-local-variable 'lazy-lock-defer-on-scrolling) t)
 	(setq default-directory thisdir
 	      compilation-directory-stack (list default-directory))
 	(set-window-start outwin (point-min))
@@ -792,7 +820,11 @@ Returns the compilation buffer created."
 	    (funcall compilation-process-setup-function))
 	;; Start the compilation.
 	(if (fboundp 'start-process)
-	    (let* ((process-environment (cons "EMACS=t" process-environment))
+	    (let* ((process-environment
+		    ;; Don't override users' setting of $EMACS.
+		    (if (getenv "EMACS")
+			process-environment
+		      (cons "EMACS=t" process-environment)))
 		   (proc (start-process-shell-command (downcase mode-name)
 						      outbuf
 						      command)))
@@ -829,8 +861,8 @@ exited abnormally with code %d\n"
     ;; Make it so the next C-x ` will use this buffer.
     (setq compilation-last-buffer outbuf)))
 
-;; Set the height of WINDOW according to compilation-window-height.
 (defun compilation-set-window-height (window)
+  "Set the height of WINDOW according to `compilation-window-height'."
   (and compilation-window-height
        (= (window-width window) (frame-width (window-frame window)))
        ;; If window is alone in its frame, aside from a minibuffer,
@@ -940,19 +972,20 @@ Runs `compilation-mode-hook' with `run-hooks' (which see)."
   (if (or noconfirm (yes-or-no-p (format "Restart compilation? ")))
       (apply 'compile-internal compilation-arguments)))
 
-;; Prepare the buffer for the compilation parsing commands to work.
 (defun compilation-setup ()
+  "Prepare the buffer for the compilation parsing commands to work."
   ;; Make the buffer's mode line show process state.
   (setq mode-line-process '(":%s"))
   (set (make-local-variable 'compilation-error-list) nil)
   (set (make-local-variable 'compilation-old-error-list) nil)
-  (set (make-local-variable 'compilation-parsing-end) 1)
+  (set (make-local-variable 'compilation-parsing-end) (copy-marker 1))
   (set (make-local-variable 'compilation-directory-stack)
        (list default-directory))
+  (make-local-variable 'compilation-error-screen-columns)
   (setq compilation-last-buffer (current-buffer)))
 
 (defvar compilation-shell-minor-mode nil
-  "Non-nil when in compilation-shell-minor-mode.
+  "Non-nil when in `compilation-shell-minor-mode'.
 In this minor mode, all the error-parsing commands of the
 Compilation major mode are available but bound to keys that don't
 collide with Shell mode.")
@@ -968,7 +1001,7 @@ collide with Shell mode.")
 				     minor-mode-map-alist)))
 
 (defvar compilation-minor-mode nil
-  "Non-nil when in compilation-minor-mode.
+  "Non-nil when in `compilation-minor-mode'.
 In this minor mode, all the error-parsing commands of the
 Compilation major mode are available.")
 (make-variable-buffer-local 'compilation-minor-mode)
@@ -1009,8 +1042,8 @@ Turning the mode on runs the normal hook `compilation-minor-mode-hook'."
 	(compilation-setup)
 	(run-hooks 'compilation-minor-mode-hook))))
 
-;; Write msg in the current buffer and hack its mode-line-process.
 (defun compilation-handle-exit (process-status exit-status msg)
+  "Write msg in the current buffer and hack its mode-line-process."
   (let ((buffer-read-only nil)
 	(status (if compilation-exit-message-function
 		    (funcall compilation-exit-message-function
@@ -1080,15 +1113,19 @@ Just inserts the text, but uses `insert-before-markers'."
   (if (buffer-name (process-buffer proc))
       (save-excursion
 	(set-buffer (process-buffer proc))
-	(let ((buffer-read-only nil))
+	(let ((buffer-read-only nil)
+	      (end (marker-position compilation-parsing-end)))
 	  (save-excursion
 	    (goto-char (process-mark proc))
 	    (insert-before-markers string)
+	    (set-marker compilation-parsing-end end) ;don't move it
 	    (run-hooks 'compilation-filter-hook)
-	    (set-marker (process-mark proc) (point)))))))
+	    ;; this seems redundant since we insert-before-marks   -stefan
+	    ;;(set-marker (process-mark proc) (point))
+	    )))))
 
-;; Return the cdr of compilation-old-error-list for the error containing point.
 (defun compile-error-at-point ()
+  "Return the cdr of `compilation-old-error-list' for error containing point."
   (compile-reinitialize-errors nil (point))
   (let ((errors compilation-old-error-list))
     (while (and errors
@@ -1104,10 +1141,12 @@ Just inserts the text, but uses `insert-before-markers'."
 
 (defun compilation-next-error (n)
   "Move point to the next error in the compilation buffer.
+Prefix arg N says how many error messages to move forwards (or
+backwards, if negative).
 Does NOT find the source line like \\[next-error]."
   (interactive "p")
   (or (compilation-buffer-p (current-buffer))
-      (error "Not in a compilation buffer."))
+      (error "Not in a compilation buffer"))
   (setq compilation-last-buffer (current-buffer))
 
   (let ((errors (compile-error-at-point)))
@@ -1131,6 +1170,8 @@ Does NOT find the source line like \\[next-error]."
 
 (defun compilation-previous-error (n)
   "Move point to the previous error in the compilation buffer.
+Prefix arg N says how many error messages to move backwards (or
+forwards, if negative).
 Does NOT find the source line like \\[next-error]."
   (interactive "p")
   (compilation-next-error (- n)))
@@ -1157,7 +1198,7 @@ Does NOT find the source line like \\[next-error]."
   "Move point to the next error for a different file than the current one."
   (interactive "p")
   (or (compilation-buffer-p (current-buffer))
-      (error "Not in a compilation buffer."))
+      (error "Not in a compilation buffer"))
   (setq compilation-last-buffer (current-buffer))
 
   (let ((reversed (< n 0))
@@ -1221,7 +1262,7 @@ Does NOT find the source line like \\[next-error]."
   (let ((buffer (compilation-find-buffer)))
     (if (get-buffer-process buffer)
 	(interrupt-process (get-buffer-process buffer))
-      (error "The compilation process is not running."))))
+      (error "The compilation process is not running"))))
 
 
 ;; Parse any new errors in the compilation buffer,
@@ -1277,9 +1318,10 @@ Does NOT find the source line like \\[next-error]."
 		  (error-list compilation-error-list))
 	      (while error-list
 		(save-excursion
-		  (put-text-property (goto-char (car (car error-list)))
-				     (progn (end-of-line) (point))
-				     'mouse-face 'highlight))
+		  (add-text-properties (goto-char (car (car error-list)))
+				       (progn (end-of-line) (point))
+				       '(mouse-face highlight help-echo "\
+mouse-2: visit this file and line")))
 		(setq error-list (cdr error-list))))
 	    )))))
 
@@ -1293,7 +1335,7 @@ at the end of the line."
     (goto-char (posn-point (event-end event)))
 
     (or (compilation-buffer-p (current-buffer))
-	(error "Not in a compilation buffer."))
+	(error "Not in a compilation buffer"))
     (setq compilation-last-buffer (current-buffer))
     ;; `compile-reinitialize-errors' needs to see the complete filename
     ;; on the line where they clicked the mouse.  Since it only looks
@@ -1329,7 +1371,7 @@ Use this command in a compilation log buffer.  Sets the mark at point there.
 other kinds of prefix arguments are ignored."
   (interactive "P")
   (or (compilation-buffer-p (current-buffer))
-      (error "Not in a compilation buffer."))
+      (error "Not in a compilation buffer"))
   (setq compilation-last-buffer (current-buffer))
   (compile-reinitialize-errors (consp argp) (point))
 
@@ -1388,9 +1430,9 @@ other kinds of prefix arguments are ignored."
 If all the error messages parsed so far have been processed already,
 the message buffer is checked for new ones.
 
-A prefix arg specifies how many error messages to move;
+A prefix ARGP specifies how many error messages to move;
 negative means move back to previous error messages.
-Just C-u as a prefix means reparse the error message buffer
+Just \\[universal-argument] as a prefix means reparse the error message buffer
 and start at the first error.
 
 \\[next-error] normally uses the most recently started compilation or
@@ -1610,6 +1652,13 @@ Selects a window with point at SOURCE, with another window displaying ERROR."
       (progn
 	(widen)
 	(goto-char (cdr next-error))))
+  ;; If hideshow got in the way of
+  ;; seeing the right place, open permanently.
+  (mapcar (function (lambda (ov)
+		      (when (eq 'hs (overlay-get ov 'invisible))
+			(delete-overlay ov)
+			(goto-char (cdr next-error)))))
+	  (overlays-at (point)))
 
   ;; Show compilation buffer in other window, scrolled to this error.
   (let* ((pop-up-windows t)
@@ -1621,51 +1670,59 @@ Selects a window with point at SOURCE, with another window displaying ERROR."
     (set-window-start w (car next-error))
     (compilation-set-window-height w)))
 
-;; Find a buffer for file FILENAME.
-;; Search the directories in compilation-search-path.
-;; A nil in compilation-search-path means to try the
-;; current directory, which is passed in DIR.
-;; If FILENAME is not found at all, ask the user where to find it.
-;; Pop up the buffer containing MARKER and scroll to MARKER if we ask the user.
 (defun compilation-find-file (marker filename dir &rest formats)
+  "Find a buffer for file FILENAME.
+Search the directories in `compilation-search-path'.
+A nil in `compilation-search-path' means to try the
+current directory, which is passed in DIR.
+If FILENAME is not found at all, ask the user where to find it.
+Pop up the buffer containing MARKER and scroll to MARKER if we ask the user."
   (or formats (setq formats '("%s")))
-  (let ((dirs compilation-search-path)
-	buffer thisdir fmts name)
-    (if (file-name-absolute-p filename)
-	;; The file name is absolute.  Use its explicit directory as
-	;; the first in the search path, and strip it from FILENAME.
-	(setq filename (abbreviate-file-name (expand-file-name filename))
-	      dirs (cons (file-name-directory filename) dirs)
-	      filename (file-name-nondirectory filename)))
-    ;; Now search the path.
-    (while (and dirs (null buffer))
-      (setq thisdir (or (car dirs) dir)
-	    fmts formats)
-      ;; For each directory, try each format string.
-      (while (and fmts (null buffer))
-	(setq name (expand-file-name (format (car fmts) filename) thisdir)
-	      buffer (and (file-exists-p name)
-			  (find-file-noselect name))
-	      fmts (cdr fmts)))
-      (setq dirs (cdr dirs)))
-    (or buffer
-	;; The file doesn't exist.
-	;; Ask the user where to find it.
-	;; If he hits C-g, then the next time he does
-	;; next-error, he'll skip past it.
-	(let* ((pop-up-windows t)
-	       (w (display-buffer (marker-buffer marker))))
-	  (set-window-point w marker)
-	  (set-window-start w marker)
-	  (let ((name (expand-file-name
-		       (read-file-name
-			(format "Find this error in: (default %s) "
-				filename)
-			dir filename t))))
-	    (if (file-directory-p name)
-		(setq name (expand-file-name filename name)))
-	    (and (file-exists-p name)
-		 (find-file-noselect name)))))))
+  (save-excursion
+    (let ((dirs compilation-search-path)
+	  buffer thisdir fmts name)
+      (if (file-name-absolute-p filename)
+	  ;; The file name is absolute.  Use its explicit directory as
+	  ;; the first in the search path, and strip it from FILENAME.
+	  (setq filename (abbreviate-file-name (expand-file-name filename))
+		dirs (cons (file-name-directory filename) dirs)
+		filename (file-name-nondirectory filename)))
+      ;; Now search the path.
+      (while (and dirs (null buffer))
+	(setq thisdir (or (car dirs) dir)
+	      fmts formats)
+	;; For each directory, try each format string.
+	(while (and fmts (null buffer))
+	  (setq name (expand-file-name (format (car fmts) filename) thisdir)
+		buffer (and (file-exists-p name)
+			    (find-file-noselect name))
+		fmts (cdr fmts)))
+	(setq dirs (cdr dirs)))
+      (or buffer
+	  ;; The file doesn't exist.
+	  ;; Ask the user where to find it.
+	  ;; If he hits C-g, then the next time he does
+	  ;; next-error, he'll skip past it.
+	  (let* ((pop-up-windows t)
+		 (w (display-buffer (marker-buffer marker))))
+	    (set-window-point w marker)
+	    (set-window-start w marker)
+	    (let ((name (expand-file-name
+			 (read-file-name
+			  (format "Find this error in: (default %s) "
+				  filename)
+			  dir filename t))))
+	      (if (file-directory-p name)
+		  (setq name (expand-file-name filename name)))
+	      (setq buffer (and (file-exists-p name)
+				(find-file name))))))
+      ;; Make intangible overlays tangible.
+      (mapcar (function (lambda (ov)
+			  (when (overlay-get ov 'intangible)
+			    (overlay-put ov 'intangible nil))))
+	      (overlays-in (point-min) (point-max)))
+      buffer)))
+
 
 ;; Set compilation-error-list to nil, and unchain the markers that point to the
 ;; error messages and their text, so that they no longer slow down gap motion.
@@ -1679,14 +1736,14 @@ Selects a window with point at SOURCE, with another window displaying ERROR."
 	  (set-marker (cdr next-error) nil)))
     (setq compilation-old-error-list (cdr compilation-old-error-list)))
   (setq compilation-error-list nil
-	compilation-directory-stack (list default-directory)
-	compilation-parsing-end 1)
+	compilation-directory-stack (list default-directory))
+  (set-marker compilation-parsing-end 1)
   ;; Remove the highlighting added by compile-reinitialize-errors:
   (let ((inhibit-read-only t)
 	(buffer-undo-list t)
 	deactivate-mark)
-    (remove-text-properties (point-min) (point-max) '(mouse-face highlight)))
-  )
+    (remove-text-properties (point-min) (point-max)
+			    '(mouse-face highlight help-echo nil))))
 
 
 ;; This function is not needed any more by compilation mode.
@@ -1717,7 +1774,7 @@ Selects a window with point at SOURCE, with another window displaying ERROR."
     groupings))
 
 (defvar compilation-current-file nil
-  "Used by compilation-parse-errors to store filename for file being compiled")
+  "Used by `compilation-parse-errors' to store filename for file being compiled.")
 
 ;; This variable is not used as a global variable. It's defined here just to
 ;; shut up the byte compiler. It's bound and used by compilation-parse-errors
@@ -1750,13 +1807,13 @@ See variable `compilation-parse-errors-function' for the interface it uses."
     (compile-collect-regexps 'leave compilation-leave-directory-regexp-alist)
     (compile-collect-regexps 'enter compilation-enter-directory-regexp-alist)
     (compile-collect-regexps 'file compilation-file-regexp-alist)
-    (compile-collect-regexps 'nomessage compilation-nomessage-regexp-alist)
     (compile-collect-regexps 'error compilation-error-regexp-alist)
+    (compile-collect-regexps 'nomessage compilation-nomessage-regexp-alist)
 
     ;; Don't reparse messages already seen at last parse.
     (goto-char compilation-parsing-end)
     (when (and (bobp)
-	       (eq major-mode 'compilation-mode))
+	       (compilation-buffer-p (current-buffer)))
       (setq compilation-current-file nil) ; No current file at start.
       ;; Don't parse the first two lines as error messages.
       ;; This matters for grep.
@@ -1804,7 +1861,7 @@ See variable `compilation-parse-errors-function' for the interface it uses."
 			;; No file name in message, we must have seen it before
 			(setq filename compilation-current-file)
 			(error "\
-An error message with no file name and no file name has been seen earlier."))
+An error message with no file name and no file name has been seen earlier"))
 
 		    ;; Check for a comint-file-name-prefix and prepend it if
 		    ;; appropriate.  (This is very useful for
@@ -1843,7 +1900,7 @@ An error message with no file name and no file name has been seen earlier."))
 			    ;; descriptor or nil (meaning no position).
 			    (save-excursion
 			      (funcall linenum filename column))))
-			
+
 		    ;; We have an error position descriptor.
 		    ;; If we have found as many new errors as the user
 		    ;; wants, or if we are past the buffer position he
@@ -1860,9 +1917,17 @@ An error message with no file name and no file name has been seen earlier."))
 					  find-at-least))
 				 (and limit-search
 				      (>= end-of-match limit-search)))
-			     (not (equal ; Same filename?
-				   (car (cdr (car compilation-error-list)))
-				   (car (cdr this-error)))))
+			     ;; `this-error' could contain a pair of
+			     ;; markers already.
+			     (let ((thispos (cdr this-error))
+				   (lastpos (cdar compilation-error-list)))
+			       (not (equal
+				     (if (markerp thispos)
+					 (marker-buffer thispos)
+				       (car thispos))
+				     (if (markerp lastpos)
+					 (marker-buffer lastpos)
+				       (car lastpos))))))
 			;; We are past the limits and the last error
 			;; parsed, didn't belong to the same source file
 			;; as the earlier ones i.e. we have seen all the
@@ -1941,25 +2006,22 @@ An error message with no file name and no file name has been seen earlier."))
 
 	(forward-line 1)))		; End of while loop. Look at next line.
 
-    (setq compilation-parsing-end (point))
+    (set-marker compilation-parsing-end (point))
     (setq compilation-error-list (nreverse compilation-error-list))
-;;; (message "Parsing error messages...done. %d found. %.0f%% of buffer seen."
-;;;	     compilation-num-errors-found
-;;;	     (/ (* 100.0 (point)) (point-max)))
+    ;; (message "Parsing error messages...done. %d found. %.0f%% of buffer seen."
+    ;;	     compilation-num-errors-found
+    ;;	     (/ (* 100.0 (point)) (point-max)))
     (message "Parsing error messages...done.")))
 
 (defun compile-collect-regexps (type this)
   ;; Add elements to variable compilation-regexps that is bound in
   ;; compilation-parse-errors.
   (and (not (eq this t))
-       (while this
-	 (setq compilation-regexps
-	       (cons (cons (car (car this)) (cons type (cdr (car this))))
-		     compilation-regexps))
-	 (setq this (cdr this)))))
+       (dolist (el this)
+	 (push (cons (car el) (cons type (cdr el))) compilation-regexps))))
 
 (defun compile-buffer-substring (index)
-  ;; Get substring matched by INDEXth subexpression.
+  "Get substring matched by INDEXth subexpression."
   (if index
       (let ((beg (match-beginning index)))
 	(if beg (buffer-substring beg (match-end index))))))
@@ -1995,6 +2057,8 @@ An error message with no file name and no file name has been seen earlier."))
 		   (directory-file-name orig))
 		  (substring dir (length parent-expanded)))))
   dir)
+
+(add-to-list 'debug-ignored-errors "^No more errors\\( yet\\|\\)$")
 
 (provide 'compile)
 

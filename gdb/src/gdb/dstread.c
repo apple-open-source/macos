@@ -1,6 +1,7 @@
 /* Read apollo DST symbol tables and convert to internal format, for GDB.
    Contributed by Troy Rollo, University of NSW (troy@cbme.unsw.edu.au).
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -107,7 +108,7 @@ dst_start_symtab (void)
   /* Initialize the source file line number information for this file.  */
 
   if (line_vector)		/* Unlikely, but maybe possible? */
-    free ((PTR) line_vector);
+    xfree (line_vector);
   line_vector_index = 0;
   line_vector_length = 1000;
   prev_line_number = -2;	/* Force first line number to be explicit */
@@ -861,13 +862,13 @@ decode_dst_structure (struct objfile *objfile, dst_rec_ptr_t entry, int code,
   type = find_dst_structure (name);
   if (type)
     {
-      free ((PTR) name);
+      xfree (name);
       return type;
     }
   type = create_new_type (objfile);
   TYPE_NAME (type) = obstack_copy0 (&objfile->symbol_obstack,
 				    name, strlen (name));
-  free ((PTR) name);
+  xfree (name);
   TYPE_CODE (type) = code;
   TYPE_LENGTH (type) = DST_record (entry).size;
   TYPE_NFIELDS (type) = DST_record (entry).nfields;
@@ -1401,7 +1402,7 @@ process_dst_block (struct objfile *objfile, dst_rec_ptr_t entry)
 
       block->sym[symnum] = symlist->symbol;
 
-      free ((PTR) symlist);
+      xfree (symlist);
       symlist = nextsym;
       symnum++;
     }
@@ -1497,7 +1498,7 @@ read_dst_symtab (struct objfile *objfile)
 	      global_block->sym[symnum] =
 		dst_global_symbols->symbol;
 
-	      free ((PTR) dst_global_symbols);
+	      xfree (dst_global_symbols);
 	      dst_global_symbols = nextsym;
 	    }
 	  dst_global_symbols = NULL;
@@ -1534,7 +1535,7 @@ read_dst_symtab (struct objfile *objfile)
     {
       element = struct_list;
       struct_list = element->next;
-      free ((PTR) element);
+      xfree (element);
     }
 }
 

@@ -1,5 +1,3 @@
-/*	$NetBSD: rcv.h,v 1.4 1996/06/08 19:48:38 christos Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,7 +31,8 @@
  * SUCH DAMAGE.
  *
  *	@(#)rcv.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: rcv.h,v 1.4 1996/06/08 19:48:38 christos Exp $
+ *
+ * $FreeBSD: src/usr.bin/mail/rcv.h,v 1.2 2001/03/25 04:57:04 mikeh Exp $
  */
 
 /*

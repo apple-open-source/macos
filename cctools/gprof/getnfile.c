@@ -66,7 +66,9 @@ static int valcmp(
 
 static void count_N_SO_stabs(
     struct nlist *symbols,
-    unsigned long nsymbols);
+    unsigned long nsymbols,
+    char *strings,
+    unsigned long strsize);
 
 static void load_files(
     struct nlist *symbols,
@@ -186,7 +188,8 @@ done1:		;
 				   (ofile.object_addr + st->symoff), st->nsyms,
 				   ofile.object_addr + st->stroff, st->strsize);
 		count_N_SO_stabs((struct nlist *)
-				 (ofile.object_addr + st->symoff), st->nsyms);
+				 (ofile.object_addr + st->symoff), st->nsyms,
+				 ofile.object_addr + st->stroff, st->strsize);
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
@@ -567,13 +570,25 @@ static
 void
 count_N_SO_stabs(
 struct nlist *symbols,
-unsigned long nsymbols)
+unsigned long nsymbols,
+char *strings,
+unsigned long strsize)
 {
-    unsigned long i;
+    unsigned long i, len;
+    char *name;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_type == N_SO)
+	    if(symbols[i].n_type == N_SO){
+		/* skip the N_SO for the directory name that ends in a '/' */
+		if(symbols[i].n_un.n_strx != 0 &&
+		   symbols[i].n_un.n_strx < strsize){
+		    name = strings + symbols[i].n_un.n_strx;
+		    len = strlen(name);
+		    if(len != 0 && name[len-1] == '/')
+			continue;
+		}
 		n_files++;
+	    }
 	}
 }
 
@@ -586,13 +601,21 @@ char *strings,
 unsigned long strsize)
 {
     unsigned long i;
-    char *s;
+    char *s, *name;
     int len;
     int oddeven;
 
 	oddeven = 0;
 	for(i = 0; i < nsymbols; i++){
 	    if(symbols[i].n_type == N_SO){
+		/* skip the N_SO for the directory name that ends in a '/' */
+		if(symbols[i].n_un.n_strx != 0 &&
+		   symbols[i].n_un.n_strx < strsize){
+		    name = strings + symbols[i].n_un.n_strx;
+		    len = strlen(name);
+		    if(len != 0 && name[len-1] == '/')
+			continue;
+		}
 		if(oddeven){
 		    files[n_files++].lastpc = symbols[i].n_value;
 		    oddeven = 0;
@@ -608,6 +631,12 @@ unsigned long strsize)
 		}
 	    }
 	}
+#ifdef notdef
+	for(i = 0; i < n_files; i++){
+	    fprintf(stderr, "files[%lu] firstpc = 0x%x name = %s\n", i,
+		    (unsigned int)(files[i].firstpc), files[i].name);
+	}
+#endif
 }
 
 void

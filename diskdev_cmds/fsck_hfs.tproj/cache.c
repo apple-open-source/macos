@@ -47,7 +47,8 @@ void *CacheAllocBlock (Cache_t *cache);
  *
  *  Release an active cache block.
  */
-void CacheFreeBlock (Cache_t *cache, void *block);
+static int 
+CacheFreeBlock( Cache_t *cache, Tag_t *tag );
 
 /*
  * CacheLookup
@@ -131,7 +132,8 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	cache->FD_R = fdRead;
 	cache->FD_W = fdWrite;
 	cache->DevBlockSize = devBlockSize;
-	cache->Hash = (Tag_t **)malloc (sizeof (Tag_t *) * hashSize);
+	/* CacheFlush requires cleared cache->Hash  */
+	cache->Hash = (Tag_t **) calloc( 1, (sizeof (Tag_t *) * hashSize) );
 	cache->HashSize = hashSize;
 	cache->BlockSize = cacheBlockSize;
 
@@ -162,6 +164,12 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	}
 	cache->FreeBufs = &buf[0];
 
+#if CACHE_DEBUG
+	printf( "%s - cacheSize %d cacheBlockSize %d hashSize %d \n", 
+			__FUNCTION__, cacheSize, cacheBlockSize, hashSize );
+	printf( "%s - cache memory %d \n", __FUNCTION__, (cacheSize * cacheBlockSize) );
+#endif  
+
 	return (LRUInit (&cache->LRU));
 }
 
@@ -173,14 +181,16 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
  */
 int CacheDestroy (Cache_t *cache)
 {
+	CacheFlush( cache );
+
 #if CACHE_DEBUG
 	/* Print cache report */
 	printf ("Cache Report:\n");
-	printf ("\tRead Requests:  %ld\n", cache->ReqRead);
-	printf ("\tWrite Requests: %ld\n", cache->ReqWrite);
-	printf ("\tDisk Reads:     %ld\n", cache->DiskRead);
-	printf ("\tDisk Writes:    %ld\n", cache->DiskWrite);
-	printf ("\tSpans:          %ld\n", cache->Span);
+	printf ("\tRead Requests:  %d\n", cache->ReqRead);
+	printf ("\tWrite Requests: %d\n", cache->ReqWrite);
+	printf ("\tDisk Reads:     %d\n", cache->DiskRead);
+	printf ("\tDisk Writes:    %d\n", cache->DiskWrite);
+	printf ("\tSpans:          %d\n", cache->Span);
 #endif	
 	/* Shutdown the LRU */
 	LRUDestroy (&cache->LRU);
@@ -357,7 +367,7 @@ int CacheRead (Cache_t *cache, uint64_t off, uint32_t len, Buf_t **bufp)
  *
  *  Writes a buffer through the cache.
  */
-int CacheWrite (Cache_t *cache, Buf_t *buf, int age)
+int CacheWrite ( Cache_t *cache, Buf_t *buf, int age, uint32_t writeOptions )
 {
 	Tag_t *		tag;
 	uint32_t	coff = (buf->Offset % cache->BlockSize);
@@ -371,11 +381,19 @@ int CacheWrite (Cache_t *cache, Buf_t *buf, int age)
 	/* If the buffer was a direct reference */
 	if (!(buf->Flags & BUF_SPAN)) {
 		/* Commit the dirty block */
-		error = CacheRawWrite (cache,
-		                       tag->Offset,
-		                       cache->BlockSize,
-		                       tag->Buffer);
-		if (error != EOK) return (error);
+		if ( (writeOptions & kLazyWrite) != 0 ) 
+		{
+			/* flag this for lazy write */
+			tag->Flags |= kLazyWrite;
+		}
+		else
+		{
+			error = CacheRawWrite (cache,
+								   tag->Offset,
+								   cache->BlockSize,
+								   tag->Buffer);
+			if (error != EOK) return (error);
+		}
 		
 		/* Release the reference */
 		tag->Refs--;
@@ -395,11 +413,19 @@ int CacheWrite (Cache_t *cache, Buf_t *buf, int age)
 		memcpy (tag->Buffer + coff, buf->Buffer, boff);
 		
 		/* Commit the dirty block */
-		error = CacheRawWrite (cache,
-		                       tag->Offset,
-		                       cache->BlockSize,
-		                       tag->Buffer);
-		if (error != EOK) return (error);
+		if ( (writeOptions & kLazyWrite) != 0 ) 
+		{
+			/* flag this for lazy write */
+			tag->Flags |= kLazyWrite;
+		}
+		else
+		{
+			error = CacheRawWrite (cache,
+								   tag->Offset,
+								   cache->BlockSize,
+								   tag->Buffer);
+			if (error != EOK) return (error);
+		}
 		
 		/* Release the cache block reference */
 		tag->Refs--;
@@ -423,11 +449,19 @@ int CacheWrite (Cache_t *cache, Buf_t *buf, int age)
 					temp);
 
 			/* Commit the dirty block */
-			error = CacheRawWrite (cache,
-			                       tag->Offset,
-			                       cache->BlockSize,
-			                       tag->Buffer);
-			if (error != EOK) return (error);
+			if ( (writeOptions & kLazyWrite) != 0 ) 
+			{
+				/* flag this for lazy write */
+				tag->Flags |= kLazyWrite;
+			}
+			else
+			{
+				error = CacheRawWrite (cache,
+									   tag->Offset,
+									   cache->BlockSize,
+									   tag->Buffer);
+				if (error != EOK) return (error);
+			}
 
 			/* Update counters */
 			boff += temp;
@@ -549,6 +583,8 @@ int CacheRelease (Cache_t *cache, Buf_t *buf, int age)
  */
 int CacheRemove (Cache_t *cache, Tag_t *tag)
 {
+	int			error;
+
 	/* Make sure it's not busy */
 	if (tag->Refs) return (EBUSY);
 	
@@ -570,7 +606,11 @@ int CacheRemove (Cache_t *cache, Tag_t *tag)
 	
 	/* Release it's buffer (if it has one) */
 	if (tag->Buffer != NULL)
-		CacheFreeBlock (cache, tag->Buffer);
+	{
+		error = CacheFreeBlock (cache, tag);
+		if ( EOK != error )
+			return( error );
+	}
 
 	/* Zero the tag (for easy debugging) */
 	memset (tag, 0x00, sizeof (Tag_t));
@@ -588,12 +628,18 @@ int CacheRemove (Cache_t *cache, Tag_t *tag)
  */
 int CacheEvict (Cache_t *cache, Tag_t *tag)
 {
+	int			error;
+
 	/* Make sure it's not busy */
 	if (tag->Refs) return (EBUSY);
 
 	/* Release the buffer */
 	if (tag->Buffer != NULL)
-		CacheFreeBlock (cache, tag->Buffer);
+	{
+		error = CacheFreeBlock (cache, tag);
+		if ( EOK != error )
+			return( error );
+	}
 	tag->Buffer = NULL;
 
 	return (EOK);
@@ -625,12 +671,79 @@ void *CacheAllocBlock (Cache_t *cache)
  *
  *  Release an active cache block.
  */
-void CacheFreeBlock (Cache_t *cache, void *block)
+static int 
+CacheFreeBlock( Cache_t *cache, Tag_t *tag )
 {
-	*((void **)block) = cache->FreeHead;
-	cache->FreeHead = (void **)block;
+	int			error;
+	
+	if ( (tag->Flags & kLazyWrite) != 0 )
+	{
+		/* this cache block has been marked for lazy write - do it now */
+		error = CacheRawWrite( cache,
+							   tag->Offset,
+							   cache->BlockSize,
+							   tag->Buffer );
+		if ( EOK != error ) 
+		{
+#if CACHE_DEBUG
+			printf( "%s - CacheRawWrite failed with error %d \n", __FUNCTION__, error );
+#endif 
+			return ( error );
+		}
+		tag->Flags &= ~kLazyWrite;
+	}
+
+	*((void **)tag->Buffer) = cache->FreeHead;
+	cache->FreeHead = (void **)tag->Buffer;
 	cache->FreeSize++;
+	
+	return( EOK );
 }
+
+
+/*
+ * CacheFlush
+ *
+ *  Write out any blocks that are marked for lazy write.
+ */
+
+int 
+CacheFlush( Cache_t *cache )
+{
+	int			error;
+	int			i;
+	Tag_t *		myTagPtr;
+	
+	for ( i = 0; i < cache->HashSize; i++ )
+	{
+		myTagPtr = cache->Hash[ i ];
+		
+		while ( NULL != myTagPtr )
+		{
+			if ( (myTagPtr->Flags & kLazyWrite) != 0 )
+			{
+				/* this cache block has been marked for lazy write - do it now */
+				error = CacheRawWrite( cache,
+									   myTagPtr->Offset,
+									   cache->BlockSize,
+									   myTagPtr->Buffer );
+				if ( EOK != error ) 
+				{
+#if CACHE_DEBUG
+					printf( "%s - CacheRawWrite failed with error %d \n", __FUNCTION__, error );
+#endif 
+					return( error );
+				}
+				myTagPtr->Flags &= ~kLazyWrite;
+			}
+			myTagPtr = myTagPtr->Next; 
+		} /* while */
+	} /* for */
+
+	return( EOK );
+		
+} /* CacheFlush */
+
 
 /*
  * CacheLookup

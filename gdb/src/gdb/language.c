@@ -1,5 +1,6 @@
 /* Multiple source language support for GDB.
-   Copyright 1991, 1992, 2000 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
 
@@ -36,7 +37,6 @@
 #include "gdbtypes.h"
 #include "value.h"
 #include "gdbcmd.h"
-#include "frame.h"
 #include "expression.h"
 #include "language.h"
 #include "target.h"
@@ -96,11 +96,10 @@ static int unk_lang_val_print (struct type *, char *, int, CORE_ADDR,
 			       struct ui_file *, int, int, int,
 			       enum val_prettyprint);
 
-static int unk_lang_value_print (value_ptr, struct ui_file *, int, enum val_prettyprint);
+static int unk_lang_value_print (struct value *, struct ui_file *, int, enum val_prettyprint);
 
 /* Forward declaration */
 extern const struct language_defn unknown_language_defn;
-extern char *warning_pre_print;
 
 /* The current (default at startup) state of type and range checking.
    (If the modes are set to "auto", though, these are changed based
@@ -231,7 +230,7 @@ set_language_command (char *ignore, int from_tty)
   /* Reset the language (esp. the global string "language") to the 
      correct values. */
   err_lang = savestring (language, strlen (language));
-  make_cleanup (free, err_lang);	/* Free it after error */
+  make_cleanup (xfree, err_lang);	/* Free it after error */
   set_language (current_language->la_language);
   error ("Unknown language `%s'.", err_lang);
 }
@@ -421,7 +420,7 @@ set_lang_str (void)
   char *prefix = "";
 
   if (language)
-    free (language);
+    xfree (language);
   if (language_mode == language_mode_auto)
     prefix = "auto; currently ";
 
@@ -434,7 +433,7 @@ set_type_str (void)
   char *tmp = NULL, *prefix = "";
 
   if (type)
-    free (type);
+    xfree (type);
   if (type_mode == type_mode_auto)
     prefix = "auto; currently ";
 
@@ -480,7 +479,7 @@ set_range_str (void)
     }
 
   if (range)
-    free (range);
+    xfree (range);
   range = concat (pref, tmp, NULL);
 }
 
@@ -504,7 +503,7 @@ set_case_str()
      error ("Unrecognized case-sensitive setting.");
    }
 
-   free (case_sensitive);
+   xfree (case_sensitive);
    case_sensitive = concat (prefix, tmp, NULL);
 }
 
@@ -537,7 +536,7 @@ language_info (int quietly)
 #if 0				/* Currently unused */
 
 struct type *
-binop_result_type (value_ptr v1, value_ptr v2)
+binop_result_type (struct value *v1, struct value *v2)
 {
   int size, uns;
   struct type *t1 = check_typedef (VALUE_TYPE (v1));
@@ -551,6 +550,7 @@ binop_result_type (value_ptr v1, value_ptr v2)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       if (TYPE_CODE (t1) == TYPE_CODE_FLT)
 	return TYPE_CODE (t2) == TYPE_CODE_FLT && l2 > l1 ?
 	  VALUE_TYPE (v2) : VALUE_TYPE (v1);
@@ -572,7 +572,7 @@ binop_result_type (value_ptr v1, value_ptr v2)
     case language_chill:
       error ("Missing Chill support in function binop_result_check.");	/*FIXME */
     }
-  abort ();
+  internal_error (__FILE__, __LINE__, "failed internal consistency check");
   return (struct type *) 0;	/* For lint */
 }
 
@@ -596,29 +596,6 @@ local_hex_format_custom (char *pre)
   strcat (form, local_hex_format_suffix ());
   return form;
 }
-
-#if 0
-/* FIXME: cagney/2000-03-04: This function does not appear to be used.
-   It can be deleted once 5.0 has been released. */
-/* FIXME: cagney/2000-03-04: This code assumes that the compiler
-   supports ``long long''. */
-/* Converts a number to hexadecimal (without leading "0x") and stores it in a
-   static string.  Returns a pointer to this string. */
-
-char *
-longest_raw_hex_string (LONGEST num)
-{
-  static char res_longest_raw_hex_string[50];
-  long long ll = num;		/* MERGEBUG ?? see below */
-  res_longest_raw_hex_string[0] = 0;
-  /* MERGEBUG ?? As a quick fix I am replacing this with sprintf 
-     strcat_address_numeric (num, 0, res_longest_raw_hex_string, 50); 
-  */
-
-  sprintf (res_longest_raw_hex_string, "%llx", ll);
-  return res_longest_raw_hex_string;
-}
-#endif
 
 /* Converts a number to hexadecimal and stores it in a static
    string.  Returns a pointer to this string. */
@@ -686,21 +663,10 @@ longest_local_hex_string_custom (LONGEST num, char *width)
   sprintf (res2, format, num);
   return res2;
 #else /* !defined (PRINTF_HAS_LONG_LONG) */
-  /* Use strcat_address_numeric to print the number into a string, then
+  /* Use phex_nz to print the number into a string, then
      build the result string from local_hex_format_prefix, padding and 
      the hex representation as indicated by "width".  */
-
-  temp_nbr_buf[0] = 0;
-  /* With use_local == 0, we don't get the leading "0x" prefix. */
-  /* MERGEBUG ?? As a quick fix I am replacing this call to
-     strcat_address_numeric with sprintf
-     strcat_address_numeric(num, 0, temp_nbr_buf, RESULT_BUF_LEN);
-   */
-
-  {
-    long long ll = num;
-    sprintf (temp_nbr_buf, "%llx", ll);
-  }
+  strcpy (temp_nbr_buf, phex_nz (num, sizeof (num)));
   /* parse width */
   parse_ptr = width;
   pad_on_left = 1;
@@ -721,8 +687,9 @@ longest_local_hex_string_custom (LONGEST num, char *width)
   num_pad_chars = field_width - strlen (temp_nbr_buf);	/* possibly negative */
 
   if (strlen (local_hex_format_prefix ()) + num_len + num_pad_chars
-      < RESULT_BUF_LEN)		/* paranoia */
-    internal_error ("longest_local_hex_string_custom: insufficient space to store result");
+      >= RESULT_BUF_LEN)		/* paranoia */
+    internal_error (__FILE__, __LINE__,
+		    "longest_local_hex_string_custom: insufficient space to store result");
 
   strcpy (res2, local_hex_format_prefix ());
   if (pad_on_left)
@@ -863,6 +830,7 @@ integral_type (struct type *type)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       return (TYPE_CODE (type) != TYPE_CODE_INT) &&
 	(TYPE_CODE (type) != TYPE_CODE_ENUM) ? 0 : 1;
     case language_m2:
@@ -906,6 +874,7 @@ character_type (struct type *type)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       return (TYPE_CODE (type) == TYPE_CODE_INT) &&
 	TYPE_LENGTH (type) == sizeof (char)
       ? 1 : 0;
@@ -929,6 +898,7 @@ string_type (struct type *type)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       /* C does not have distinct string type. */
       return (0);
     default:
@@ -948,6 +918,7 @@ boolean_type (struct type *type)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       /* Might be more cleanly handled by having a TYPE_CODE_INT_NOT_BOOL
          for CHILL and such languages, or a TYPE_CODE_INT_OR_BOOL for C.  */
       if (TYPE_CODE (type) == TYPE_CODE_INT)
@@ -984,6 +955,7 @@ structured_type (struct type *type)
     case language_c:
     case language_cplus:
     case language_objc:
+    case language_objcplus:
       return (TYPE_CODE (type) == TYPE_CODE_STRUCT) ||
 	(TYPE_CODE (type) == TYPE_CODE_UNION) ||
 	(TYPE_CODE (type) == TYPE_CODE_ARRAY);
@@ -1054,7 +1026,7 @@ lang_bool_type (void)
 
 /* Returns non-zero if the value VAL represents a true value. */
 int
-value_true (value_ptr val)
+value_true (struct value *val)
 {
   /* It is possible that we should have some sort of error if a non-boolean
      value is used in this context.  Possibly dependent on some kind of
@@ -1071,7 +1043,7 @@ value_true (value_ptr val)
 #if 0				/* Currently unused */
 
 void
-binop_type_check (value_ptr arg1, value_ptr arg2, int op)
+binop_type_check (struct value *arg1, struct value *arg2, int op)
 {
   struct type *t1, *t2;
 
@@ -1203,6 +1175,7 @@ binop_type_check (value_ptr arg1, value_ptr arg2, int op)
 	case language_c:
 	case language_cplus:
 	case language_objc:
+	case language_objcplus:
 	  switch (op)
 	    {
 	    case BINOP_DIV:
@@ -1274,47 +1247,63 @@ op_error (char *fmt, enum exp_opcode op, int fatal)
     }
 }
 
-/* These are called when a language fails a type- or range-check.
-   The first argument should be a printf()-style format string, and
-   the rest of the arguments should be its arguments.  If
-   [type|range]_check is [type|range]_check_on, then return_to_top_level()
-   is called in the style of error ().  Otherwise, the message is prefixed
-   by the value of warning_pre_print and we do not return to the top level. */
+/* These are called when a language fails a type- or range-check.  The
+   first argument should be a printf()-style format string, and the
+   rest of the arguments should be its arguments.  If
+   [type|range]_check is [type|range]_check_on, an error is printed;
+   if [type|range]_check_warn, a warning; otherwise just the
+   message. */
 
 void
-type_error (char *string,...)
+type_error (const char *string,...)
 {
   va_list args;
   va_start (args, string);
 
-  if (type_check == type_check_warn)
-    fprintf_filtered (gdb_stderr, warning_pre_print);
-  else
-    error_begin ();
-
-  vfprintf_filtered (gdb_stderr, string, args);
-  fprintf_filtered (gdb_stderr, "\n");
+  switch (type_check)
+    {
+    case type_check_warn:
+      vwarning (string, args);
+      break;
+    case type_check_on:
+      verror (string, args);
+      break;
+    case type_check_off:
+      /* FIXME: cagney/2002-01-30: Should this function print anything
+         when type error is off?  */
+      vfprintf_filtered (gdb_stderr, string, args);
+      fprintf_filtered (gdb_stderr, "\n");
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
   va_end (args);
-  if (type_check == type_check_on)
-    return_to_top_level (RETURN_ERROR);
 }
 
 void
-range_error (char *string,...)
+range_error (const char *string,...)
 {
   va_list args;
   va_start (args, string);
 
-  if (range_check == range_check_warn)
-    fprintf_filtered (gdb_stderr, warning_pre_print);
-  else
-    error_begin ();
-
-  vfprintf_filtered (gdb_stderr, string, args);
-  fprintf_filtered (gdb_stderr, "\n");
+  switch (range_check)
+    {
+    case range_check_warn:
+      vwarning (string, args);
+      break;
+    case range_check_on:
+      verror (string, args);
+      break;
+    case range_check_off:
+      /* FIXME: cagney/2002-01-30: Should this function print anything
+         when range error is off?  */
+      vfprintf_filtered (gdb_stderr, string, args);
+      fprintf_filtered (gdb_stderr, "\n");
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
   va_end (args);
-  if (range_check == range_check_on)
-    return_to_top_level (RETURN_ERROR);
 }
 
 
@@ -1390,7 +1379,7 @@ add_language (const struct language_defn *lang)
     {
       fprintf_unfiltered (gdb_stderr, "Magic number of %s language struct wrong\n",
 			  lang->la_name);
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 
   if (!languages)
@@ -1463,13 +1452,13 @@ unk_lang_val_print (struct type *type, char *valaddr, int embedded_offset,
 }
 
 static int
-unk_lang_value_print (value_ptr val, struct ui_file *stream, int format,
+unk_lang_value_print (struct value *val, struct ui_file *stream, int format,
 		      enum val_prettyprint pretty)
 {
   error ("internal error - unimplemented function unk_lang_value_print called.");
 }
 
-static struct type **CONST_PTR (unknown_builtin_types[]) =
+static struct type **const (unknown_builtin_types[]) =
 {
   0
 };
@@ -1580,17 +1569,17 @@ _initialize_language (void)
 		     "Set the current source language.",
 		     &setlist);
   show = add_show_from_set (set, &showlist);
-  set->function.cfunc = set_language_command;
-  show->function.cfunc = show_language_command;
+  set_cmd_cfunc (set, set_language_command);
+  set_cmd_cfunc (show, show_language_command);
 
   add_prefix_cmd ("check", no_class, set_check,
-		  "Set the status of the type/range checker",
+		  "Set the status of the type/range checker.",
 		  &setchecklist, "set check ", 0, &setlist);
   add_alias_cmd ("c", "check", no_class, 1, &setlist);
   add_alias_cmd ("ch", "check", no_class, 1, &setlist);
 
   add_prefix_cmd ("check", no_class, show_check,
-		  "Show the status of the type/range checker",
+		  "Show the status of the type/range checker.",
 		  &showchecklist, "show check ", 0, &showlist);
   add_alias_cmd ("c", "check", no_class, 1, &showlist);
   add_alias_cmd ("ch", "check", no_class, 1, &showlist);
@@ -1600,16 +1589,16 @@ _initialize_language (void)
 		     "Set type checking.  (on/warn/off/auto)",
 		     &setchecklist);
   show = add_show_from_set (set, &showchecklist);
-  set->function.cfunc = set_type_command;
-  show->function.cfunc = show_type_command;
+  set_cmd_cfunc (set, set_type_command);
+  set_cmd_cfunc (show, show_type_command);
 
   set = add_set_cmd ("range", class_support, var_string_noescape,
 		     (char *) &range,
 		     "Set range checking.  (on/warn/off/auto)",
 		     &setchecklist);
   show = add_show_from_set (set, &showchecklist);
-  set->function.cfunc = set_range_command;
-  show->function.cfunc = show_range_command;
+  set_cmd_cfunc (set, set_range_command);
+  set_cmd_cfunc (show, show_range_command);
 
   set = add_set_cmd ("case-sensitive", class_support, var_string_noescape,
                      (char *) &case_sensitive,
@@ -1617,8 +1606,8 @@ _initialize_language (void)
 For Fortran the default is off; for other languages the default is on.",
                      &setlist);
   show = add_show_from_set (set, &showlist);
-  set->function.cfunc = set_case_command;
-  show->function.cfunc = show_case_command;
+  set_cmd_cfunc (set, set_case_command);
+  set_cmd_cfunc (show, show_case_command);
 
   add_language (&unknown_language_defn);
   add_language (&local_language_defn);

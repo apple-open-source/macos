@@ -5,8 +5,7 @@
 # Export the sources into ~/Library/cvs-submit.
 # Run submitproject on the result; delete the exported tree.
 ##
-# Wilfredo Sanchez Jr. | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 ##

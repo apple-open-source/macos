@@ -63,7 +63,7 @@ OSMetaClassDefineReservedUnused(IOPCIDevice, 15);
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static IOPMPowerState powerStates[ kIOPCIDevicePowerStateCount ] = {
-    { 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 },
+    { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 0, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -118,41 +118,6 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
         parent->setDevicePowerState( this, 0 );
 
     return( IOPMAckImplied);
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// addPowerChild
-//
-//
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-IOReturn IOPCIDevice::addPowerChild( IOService * theChild )
-{
-  IOReturn result = IOPMNoErr;
-  
-  // our consumption will track their consumption
-  powerStates[kIOPCIDeviceOffState].staticPower = 0;
-
-  result = super::addPowerChild( theChild );
-
-  return result;
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// joinPMtree
-//
-// A policy-maker for our PCI device calls here when initializing,
-// to be attached into the power management hierarchy.
-// We  attach this driver as our child so we can save and restore its config
-// space across power cycles.
-//
-// This overrides the default function of the IOService joinPMtree.
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-void IOPCIDevice::joinPMtree( IOService * driver )
-{
-    // hook it into the tree
-    pm_vars->thePlatform->PMRegisterDevice( this, driver);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

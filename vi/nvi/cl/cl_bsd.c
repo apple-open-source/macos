@@ -114,7 +114,6 @@ idlok(win, bf)
 }
 #endif /* !HAVE_CURSES_IDLOK */
 
-#ifndef	HAVE_CURSES_KEYPAD
 /*
  * keypad --
  *	Put the keypad/cursor arrows into or out of application mode.
@@ -124,7 +123,7 @@ idlok(win, bf)
  * PUBLIC: #endif
  */
 int
-keypad(a, on)
+nvi_keypad(a, on)
 	void *a;
 	int on;
 {
@@ -136,7 +135,6 @@ keypad(a, on)
 	}
 	return (0);
 }
-#endif /* !HAVE_CURSES_KEYPAD */
 
 #ifndef	HAVE_CURSES_NEWTERM
 /*

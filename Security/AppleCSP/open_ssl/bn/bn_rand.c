@@ -1,21 +1,3 @@
-/*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
- * 
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please obtain
- * a copy of the License at http://www.apple.com/publicsource and read it before
- * using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
- * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the
- * specific language governing rights and limitations under the License.
- */
-
-
 /* crypto/bn/bn_rand.c */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
@@ -84,13 +66,17 @@ static int bnrand(int pseudorand, BIGNUM *rnd, int bits, int top, int bottom)
 	{
 	unsigned char *buf=NULL;
 	int ret=0,bit,bytes,mask;
-	#ifndef	__APPLE__
 	time_t tim;
-	#endif
-	
+
+	if (bits == 0)
+		{
+		BN_zero(rnd);
+		return 1;
+		}
+
 	bytes=(bits+7)/8;
 	bit=(bits-1)%8;
-	mask=0xff<<bit;
+	mask=0xff<<(bit+1);
 
 	buf=(unsigned char *)Malloc(bytes);
 	if (buf == NULL)
@@ -100,12 +86,9 @@ static int bnrand(int pseudorand, BIGNUM *rnd, int bits, int top, int bottom)
 		}
 
 	/* make a random number and set the top and bottom bits */
-	#ifndef	__APPLE__
-	/* we really don't need to do this, we have a good RNG */
 	time(&tim);
 	RAND_add(&tim,sizeof(tim),0);
-	#endif	/* __APPLE__ */
-	
+
 	if (pseudorand)
 		{
 		if (RAND_pseudo_bytes(buf, bytes) == -1)
@@ -117,25 +100,48 @@ static int bnrand(int pseudorand, BIGNUM *rnd, int bits, int top, int bottom)
 			goto err;
 		}
 
-	if (top)
+#if 1
+	if (pseudorand == 2)
 		{
-		if (bit == 0)
+		/* generate patterns that are more likely to trigger BN
+		   library bugs */
+		int i;
+		unsigned char c;
+
+		for (i = 0; i < bytes; i++)
 			{
-			buf[0]=1;
-			buf[1]|=0x80;
+			RAND_pseudo_bytes(&c, 1);
+			if (c >= 128 && i > 0)
+				buf[i] = buf[i-1];
+			else if (c < 42)
+				buf[i] = 0;
+			else if (c < 84)
+				buf[i] = 255;
+			}
+		}
+#endif
+
+	if (top != -1)
+		{
+		if (top)
+			{
+			if (bit == 0)
+				{
+				buf[0]=1;
+				buf[1]|=0x80;
+				}
+			else
+				{
+				buf[0]|=(3<<(bit-1));
+				}
 			}
 		else
 			{
-			buf[0]|=(3<<(bit-1));
-			buf[0]&= ~(mask<<1);
+			buf[0]|=(1<<bit);
 			}
 		}
-	else
-		{
-		buf[0]|=(1<<bit);
-		buf[0]&= ~(mask<<1);
-		}
-	if (bottom) /* set bottom bits to whatever odd is */
+	buf[0] &= ~mask;
+	if (bottom) /* set bottom bit if requested */
 		buf[bytes-1]|=1;
 	if (!BN_bin2bn(buf,bytes,rnd)) goto err;
 	ret=1;
@@ -156,4 +162,62 @@ int     BN_rand(BIGNUM *rnd, int bits, int top, int bottom)
 int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top, int bottom)
 	{
 	return bnrand(1, rnd, bits, top, bottom);
+	}
+
+#if 1
+int     BN_bntest_rand(BIGNUM *rnd, int bits, int top, int bottom)
+	{
+	return bnrand(2, rnd, bits, top, bottom);
+	}
+#endif
+
+/* random number r:  0 <= r < range */
+int	BN_rand_range(BIGNUM *r, BIGNUM *range)
+	{
+	int n;
+
+	if (range->neg || BN_is_zero(range))
+		{
+		BNerr(BN_F_BN_RAND_RANGE, BN_R_INVALID_RANGE);
+		return 0;
+		}
+
+	n = BN_num_bits(range); /* n > 0 */
+
+	if (n == 1)
+		{
+		if (!BN_zero(r)) return 0;
+		}
+	else if (BN_is_bit_set(range, n - 2))
+		{
+		do
+			{
+			/* range = 11..._2, so each iteration succeeds with probability >= .75 */
+			if (!BN_rand(r, n, -1, 0)) return 0;
+			}
+		while (BN_cmp(r, range) >= 0);
+		}
+	else
+		{
+		/* range = 10..._2,
+		 * so  3*range (= 11..._2)  is exactly one bit longer than  range */
+		do
+			{
+			if (!BN_rand(r, n + 1, -1, 0)) return 0;
+			/* If  r < 3*range,  use  r := r MOD range
+			 * (which is either  r, r - range,  or  r - 2*range).
+			 * Otherwise, iterate once more.
+			 * Since  3*range = 11..._2, each iteration succeeds with
+			 * probability >= .75. */
+			if (BN_cmp(r ,range) >= 0)
+				{
+				if (!BN_sub(r, r, range)) return 0;
+				if (BN_cmp(r, range) >= 0)
+					if (!BN_sub(r, r, range)) return 0;
+				}
+			}
+		while (BN_cmp(r, range) >= 0);
+		}
+
+	return 1;
 	}

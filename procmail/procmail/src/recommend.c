@@ -2,7 +2,7 @@
  *	recommend	Analyses the installation, and makes		*
  *			recommendations about suid/sgid modes		*
  ************************************************************************/
-/*$Id: recommend.c,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $*/
+/*$Id: recommend.c,v 1.2 2002/05/13 18:44:33 bbraun Exp $*/
 #include "includes.h"
 
 #define PERMIS	(S_IRWXU|S_IRWXG&~S_IWGRP|S_IRWXO&~S_IWOTH)
@@ -47,8 +47,10 @@ int main(argc,argv)const int argc;const char*const argv[];
      printf("chmod %lo %s\n",(unsigned long)(sgid|PERMIS),argv[2]);
   else if(chmdir==1)
      goto nogchmod;
+#ifndef __APPLE__
   if(chmdir)
      printf("chmod %c+w %s/.\n",chmdir==1?'g':'a',mailspooldir);
+#endif
 nogchmod:
   return EXIT_SUCCESS;
 }

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #if NS_TARGET_MAJOR == 3
 #include <libc.h>
 #endif

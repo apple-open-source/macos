@@ -1,4 +1,4 @@
-;;; vms-patch.el --- override parts of files.el for VMS.
+;;; vms-patch.el --- override parts of files.el for VMS
 
 ;; Copyright (C) 1986, 1992 Free Software Foundation, Inc.
 
@@ -21,6 +21,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -168,7 +170,7 @@ spawned Emacs and doing things like \"emacs -l myfile.el -f doit\""
       "/SIZE/DATE/OWNER/WIDTH=(FILENAME=32,SIZE=5)")
 
 (setq print-region-function
-      '(lambda (start end command ign1 ign2 ign3 &rest switches)
+      (lambda (start end command ign1 ign2 ign3 &rest switches)
 	 (write-region start end "sys$login:delete-me.txt")
 	 (send-command-to-subprocess
 	  1

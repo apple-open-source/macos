@@ -250,64 +250,64 @@ int  atalk_outfltr(caddr_t cookie,
     register struct blueCtlBlock *ifb = (struct blueCtlBlock *)cookie;
     register struct BlueFilter *bf;
     register unsigned char *p;
-    register unsigned short *s;
     struct mbuf * m0, *m = *m_orig;
     int total;
+    int	reqlen = (((*dest)->sa_data[0] & 0x01) == 0) ? 17 : 0;
 
-    /* do what splitter used to do */
-    MDATA_ETHER_START(m);
     /* the following is needed if the packet proto headers
      * are constructed using several mbufs (can happen with AppleTalk)
      */
-    if (FILTER_LEN > m->m_pkthdr.len)
+    if (reqlen > m->m_pkthdr.len)
         return(1);
-    while ((FILTER_LEN > m->m_len) && m->m_next) {
+    while ((reqlen > m->m_len) && m->m_next) {
         total = m->m_len + (m->m_next)->m_len;
-        if ((m = m_pullup(m, min(FILTER_LEN, total))) == 0)
+		if ((*m_orig = m_pullup(*m_orig, min(reqlen, total))) == 0)
                 return(-1);
+		m = *m_orig;
     }
     bf = &ifb->filter[BFS_ATALK];  /* find AppleTalk filter */
-    s = (unsigned short *)m->m_data;
     p = (unsigned char *)m->m_data;
-    /* Check SNAP header for EtherTalk packets */
-#if SIP_DEBUG_FLOW
-    if (!bf->BF_flags)
-       	log(LOG_WARNING, "atalk_outfltr: p0=%x %x, %x, ... %x, net/node %x.%x\n",
-                 p[0],s[6], s[7], s[10], s[13], p[30]);
-#endif
     /* See if we're filtering Appletalk.
      * We already know it's an AppleTalk packet
      */
     if (bf->BF_flags & SIP_PROTO_ENABLE) {
-        if (((p[0] & 0x01) == 0) &&
-            (p[17] == 0x08) &&
-            (ntohl(*((unsigned long*)&p[18])) == 0x0007809b)) {
-            if (bf->BF_flags & SIP_PROTO_RCV_FILT) {
-                if ((ntohs(s[13]) == bf->BF_address &&
-                        p[30] == bf->BF_node)) {
-#if SIP_DEBUG_FLOW
-                    log(LOG_WARNING, "atalk_outfltr: Filter match %x.%x ! p[0]=%x m=%x m_flags=%x\n",
-                        s[13], p[30], p[0], m, m->m_flags);
-#endif
-                    MDATA_ETHER_END(m);
-                    if (!my_frameout(&m, *ifnet_ptr, dest_linkaddr, frame_type))
-                        blue_inject(ifb, m);
-                    *m_orig = 0;
-                    return(EJUSTRETURN); /* packet swallowed by bbox*/
-                } else {
-                    /* puts the packet back together as expected by X*/
-                    MDATA_ETHER_END(m);
-#if SIP_DEBUG_FLOW
-                    log(LOG_WARNING, "atalk_outfltr: direct packet not matched: p[0]=%x m=%x %x.%x\n",
-                        p[0], m, s[13], p[30]);
-#endif
-                    *m_orig = m;
-                    return(0); /* filtering and no match, let MacOS X have it */
+        if (((*dest)->sa_data[0] & 0x01) == 0) {
+            if (bf->BF_flags & SIP_PROTO_RCV_FILT)
+            {
+                /* Check for AppleTalk packet for Classic */
+                u_int32_t	snap1 = ntohl(*(u_int32_t*)(p));
+                u_int32_t	snap2 = ntohl(*(u_int32_t*)(p + 4));
+                if ((snap1 == 0xaaaa0308) && (snap2 == 0x0007809B))
+                {
+                    if ((ntohs(*(u_int16_t*)(p + 12)) == bf->BF_address &&
+                        p[16] == bf->BF_node))
+                    {
+                        if (!my_frameout(&m, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
+                            blue_inject(ifb, m);
+                        *m_orig = 0;
+                        return(EJUSTRETURN); /* packet swallowed by bbox*/
+                    }
                 }
-#if SIP_DEBUG
-            log(LOG_WARNING, "atalk_outfltr: SIP_PROTO_RCV_FILT == FALSE\n");
-#endif
+                else if ((snap1 == 0xaaaa0300) && (snap2 == 0x000080F3) &&
+                         (m->m_len >= 36))
+                {
+                    /* AARP */
+                    /* Network number is at odd offset, copy it out */
+                    u_int16_t	net = ((u_int16_t)p[33]) << 8 | p[34];
+                    
+                    if ((net == bf->BF_address) &&
+                        (p[35] == bf->BF_node))
+                    {
+                        if (!my_frameout(&m, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
+                            blue_inject(ifb, m);
+                        *m_orig = 0;
+                        return(EJUSTRETURN); /* packet swallowed by bbox*/
+                    }
+                }
             }
+            
+            /* Unicast packet, not destined for Classic, just return 0 */
+            return 0;
         }
         /*
         * Either a multicast, or AARP or we don't filter on node address.
@@ -320,23 +320,14 @@ int  atalk_outfltr(caddr_t cookie,
             log(LOG_WARNING, "atalk_outfltr: m_dup failed\n");
 #endif
             ifb->no_bufs1++;
-            /* puts the packet back together as expected */
-            MDATA_ETHER_END(m);
             *m_orig = m;
             /* MacOS X will still get the packet if it needs to*/
             return(0);
         }
-#if SIP_DEBUG_FLOW
-        log(LOG_WARNING, "atalk_outfilter: inject for bluebox p0=%x m0=%x type=%x so=%x \n",
-            p[0], m0,  s[10], ifb->ifb_so);
-#endif
-        MDATA_ETHER_END(m0);
-        if (!my_frameout(&m0, *ifnet_ptr, dest_linkaddr, frame_type))
+        if (!my_frameout(&m0, *ifnet_ptr, &(*dest)->sa_data[0], frame_type))
                 blue_inject(ifb, m0);
     }
     /* this is for MacOS X, DLIL will hand the mbuf to AppleTalk */
-    /* puts the packet back together as expected */
-    MDATA_ETHER_END(m);
     *m_orig = m;
     return (0);
 }
@@ -444,54 +435,45 @@ si_send_eth_atalk(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
         log(LOG_WARNING, "si_send packet: p0=%x len=%x, m_len=%x snap? %x %x:%x, Add:%x.%x\n",
                 p[0], m->m_len, s[6], s[7], *l, s[10], s[13], p[30]);
 #endif
-        if (s[6] <= ETHERMTU) {
-            if (s[7] == 0xaaaa) /* Is SNAP, could be ATalk.*/ {
-                /* Verify SNAP header is AppleTalk */
-                if (ntohl(*l) == 0x03080007 && ntohs(s[10]) == 0x809b) {
-                    if (ntohs(s[13]) == sap->sat_addr.s_net &&
-                        p[30] == sap->sat_addr.s_node)
-                    {
+        /* Verify SNAP header is AppleTalk */
+        if (ntohl(*l) == 0x03080007 && ntohs(s[10]) == 0x809b) {
+            if (ntohs(s[13]) == sap->sat_addr.s_net &&
+                p[30] == sap->sat_addr.s_node)
+            {
 #if SIP_DEBUG_FLOW
-                        log(LOG_WARNING, "si_send: packet is for X side %x.%x m=%x\n",
-                                s[13], p[30], m);
+                log(LOG_WARNING, "si_send: packet is for X side %x.%x m=%x\n",
+                        s[13], p[30], m);
 #endif
-                        MDATA_ETHER_END(m);
-                        /* send this packet to the X AT stack, not the network */
-		                m->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-                        dlil_inject_pr_input(m, p, ifb->atalk_proto_filter_id);
-                        return(EJUSTRETURN);
-                    } else
-                        return(0);
-                } else if (ntohl(*l) == 0x03000000 && ntohs(s[10]) == 0x80f3) {
-                    /* AARP SNAP (0x00000080F3) */
-                    /* AARP pkts aren't net-addressed */
-                    /* Send to both X AT and network */
-                    m1 = m_dup(m, M_NOWAIT);
-#if SIP_DEBUG_FLOW
-                    log(LOG_WARNING, "si_send:  AARP m=%x m1=%x send to X\n", m, m1);
-#endif
-                    if (m1)
-                    {
-                        p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
-                        MDATA_ETHER_END(m1);
-                        m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
-                        dlil_inject_pr_input(m1, p1, ifb->atalk_proto_filter_id);
-                    } else
-                        ifb->no_bufs2++;
-                    
-                    return(0);
-                }
-#if SIP_DEBUG_FLOW
-                log(LOG_WARNING, "si_send: not an Atalk nor AARP...\n");
-#endif
+                MDATA_ETHER_END(m);
+                /* send this packet to the X AT stack, not the network */
+                m->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
+                dlil_inject_pr_input(m, p, ifb->atalk_proto_filter_id);
+                return(EJUSTRETURN);
+            } else
                 return(0);
-            } else { /* Not for X AT, dump to network */
+        } else if (ntohl(*l) == 0x03000000 && ntohs(s[10]) == 0x80f3) {
+            /* AARP SNAP (0x00000080F3) */
+            /* AARP pkts aren't net-addressed */
+            /* Send to both X AT and network */
+            m1 = m_dup(m, M_NOWAIT);
 #if SIP_DEBUG_FLOW
-                log(LOG_WARNING, "si_send: not a SNAP...s[7]=%x\n", s[7]);
+            log(LOG_WARNING, "si_send:  AARP m=%x m1=%x send to X\n", m, m1);
 #endif
-                return(0);
-            }
-        } /* Fall through */
+            if (m1)
+            {
+                p1 = mtod(m1, unsigned char *);   /* Point to destination media addr */
+                MDATA_ETHER_END(m1);
+                m1->m_pkthdr.rcvif = ndrv_get_ifp(ifb->ifb_so->so_pcb);
+                dlil_inject_pr_input(m1, p1, ifb->atalk_proto_filter_id);
+            } else
+                ifb->no_bufs2++;
+            
+            return(0);
+        }
+#if SIP_DEBUG_FLOW
+        log(LOG_WARNING, "si_send: not an Atalk nor AARP...\n");
+#endif
+        return(0);
     }
     return(0);
 }

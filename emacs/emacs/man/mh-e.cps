@@ -1,8 +1,8 @@
 \initial {.}
-\entry {\file {.emacs}}{5, 21, 27, 28, 39, 46}
+\entry {\file {.emacs}}{5, 21, 27, 28, 39, 45}
 \entry {\file {.mh_profile}}{40}
 \entry {\file {.signature}}{17, 36}
-\initial {{\tt\char '176}}
+\initial {{\tt\char 126}}
 \entry {~}{5}
 \initial {B}
 \entry {bugs}{45}
@@ -11,7 +11,7 @@
 \entry {checking recipients}{17}
 \entry {\code {comp}}{33}
 \entry {\file {components}}{33}
-\entry {content description}{18}
+\entry {content description}{17}
 \entry {content types}{17}
 \initial {D}
 \entry {deleting}{22, 39}
@@ -42,7 +42,7 @@
 \initial {F}
 \entry {FAQ}{45}
 \entry {file completion}{4}
-\entry {files, \file {.emacs}}{5, 21, 27, 28, 39, 46}
+\entry {files, \file {.emacs}}{5, 21, 27, 28, 39, 45}
 \entry {files, \file {.mh_profile}}{40}
 \entry {files, \file {.signature}}{17, 36}
 \entry {files, \file {components}}{33}
@@ -56,7 +56,7 @@
 \entry {forwarding}{14, 34}
 \entry {\code {ftp}}{18}
 \initial {G}
-\entry {Gildea, Stephen}{45, 48}
+\entry {Gildea, Stephen}{47, 48}
 \initial {H}
 \entry {history}{1}
 \entry {history of mh-e}{47}
@@ -65,7 +65,7 @@
 \entry {\code {inc}}{6, 39, 41}
 \entry {incorporating}{21, 39}
 \entry {info}{27}
-\entry {inserting messages}{16, 17, 36}
+\entry {inserting messages}{16, 36}
 \entry {inserting signature}{17, 36}
 \entry {\code {install-mh}}{4}
 \entry {interrupting}{4}
@@ -90,7 +90,8 @@
 \entry {MH commands, \code {install-mh}}{4}
 \entry {MH commands, \code {mark}}{26}
 \entry {MH commands, \code {mhl}}{14, 22, 31}
-\entry {MH commands, \code {mhn}}{12, 17, 19}
+\entry {MH commands, \code {mhn}}{17, 19}
+\entry {MH commands, \code {mhshow}}{12}
 \entry {MH commands, \code {pick}}{24, 25}
 \entry {MH commands, \code {refile}}{22}
 \entry {MH commands, \code {repl}}{14, 33}
@@ -101,16 +102,16 @@
 \entry {MH commands, \code {whom}}{17}
 \entry {MH FAQ}{45}
 \entry {MH profile components, \code {sortm}}{40}
-\entry {\code {mh-e}: comparison between versions}{49}
 \entry {MH-Folder mode}{6, 8, 11, 13, 25, 30, 32}
 \entry {MH-Folder Show mode}{12, 13}
 \entry {MH-Letter mode}{5, 6, 13, 14, 15}
 \entry {MH-Show mode}{32}
 \entry {\code {mhl}}{14, 22, 31}
 \entry {\file {mhl.reply}}{14}
-\entry {\code {mhn}}{12, 17, 19}
-\entry {MIME}{12, 17, 37}
-\entry {MIME, content description}{18}
+\entry {\code {mhn}}{17, 19}
+\entry {\code {mhshow}}{12}
+\entry {MIME}{12, 17, 36}
+\entry {MIME, content description}{17}
 \entry {MIME, content types}{17}
 \entry {MIME, \code {ftp}}{18}
 \entry {MIME, images}{18}
@@ -123,8 +124,8 @@
 \entry {modes, MH-Folder Show}{12, 13}
 \entry {modes, MH-Letter}{5, 6, 13, 14, 15}
 \entry {modes, MH-Show}{32}
-\entry {moving between messages}{13, 32}
-\entry {multimedia mail}{12, 17, 37}
+\entry {moving between messages}{12, 32}
+\entry {multimedia mail}{12, 17, 36}
 \initial {N}
 \entry {new mail}{21}
 \entry {news}{46}
@@ -143,7 +144,7 @@
 \initial {R}
 \entry {re-editing drafts}{15, 35}
 \entry {reading mail}{6, 11, 28}
-\entry {redistributing}{15, 35}
+\entry {redistributing}{14, 35}
 \entry {\code {refile}}{22}
 \entry {region}{4, 16}
 \entry {regular expressions}{35}
@@ -155,7 +156,7 @@
 \entry {\code {scan}}{6, 40, 41}
 \entry {searching}{23, 43}
 \entry {\code {send}}{35, 38}
-\entry {sending mail}{5, 13, 20, 33, 38}
+\entry {sending mail}{5, 13, 20, 32, 37}
 \entry {sequences}{25}
 \entry {setting variables}{27}
 \entry {\code {shar}}{23, 42}
@@ -163,7 +164,8 @@
 \entry {signature}{17, 36}
 \entry {\code {sortm}}{40}
 \entry {sound}{18}
-\entry {spell check}{38}
+\entry {SourceForge}{45, 47}
+\entry {spell check}{37}
 \entry {starting from command line}{13}
 \initial {T}
 \entry {\code {tar}}{18}
@@ -174,13 +176,14 @@
 \entry {Unix commands, \code {shar}}{23, 42}
 \entry {Unix commands, \code {tar}}{18}
 \entry {Unix commands, \code {uuencode}}{23, 42}
-\entry {using files}{23, 42}
+\entry {using files}{22, 42}
 \entry {using folders}{22, 39}
-\entry {using pipes}{23, 42}
+\entry {using pipes}{22, 42}
 \entry {\code {uuencode}}{23, 42}
 \initial {V}
 \entry {video}{18}
 \initial {W}
 \entry {\code {whom}}{17}
+\entry {Wohler, Bill}{45}
 \initial {X}
 \entry {\code {xmh}, in mh-e history}{48}

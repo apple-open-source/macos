@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,35 +20,95 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include "SCSITask.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 												0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SCSITask"
+
+#if DEBUG
+#define SCSI_TASK_DEBUGGING_LEVEL							0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+#if ( SCSI_TASK_DEBUGGING_LEVEL >= 1 )
+#define PANIC_NOW(x)		IOPanic x
+#else
+#define PANIC_NOW(x)
+#endif
+
+#if ( SCSI_TASK_DEBUGGING_LEVEL >= 2 )
+#define ERROR_LOG(x)		IOLog x
+#else
+#define ERROR_LOG(x)
+#endif
+
+#if ( SCSI_TASK_DEBUGGING_LEVEL >= 3 )
+#define STATUS_LOG(x)		IOLog x
+#else
+#define STATUS_LOG(x)
+#endif
+
 
 #define super IOCommand
 OSDefineMetaClassAndStructors ( SCSITask, IOCommand );
 
 
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ init - Initializes the object									   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 SCSITask::init ( void )
 {
 	
-	if ( super::init ( ) == false )
-	{
-		return false;
-	}
- 
+	bool	result = false;
+	
+	require ( super::init ( ), ErrorExit );
+	
  	// Clear the owner here since it should be set when the object
  	// is instantiated and never reset.
  	fOwner					= NULL;
-
 	fAutosenseDescriptor 	= NULL;
-
+	
  	// Set this task to the default task state.  
 	fTaskState = kSCSITaskState_NEW_TASK;
-
+	
 	// Reset all the task's fields to their defaults.
-	return ResetForNewTask ( );
+	result = ResetForNewTask ( );
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Called to free any resources allocated					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 SCSITask::free ( void )
@@ -67,24 +127,36 @@ SCSITask::free ( void )
 		
 	}
 	
+	if ( ( fAutosenseTaskMap == kernel_task ) && ( fAutoSenseData != NULL ) )
+	{
+		
+		IOFree ( fAutoSenseData, fAutoSenseDataSize );
+		fAutoSenseData = NULL;
+		
+	}
+	
 	super::free ( );
 	
 }
 
 
-// Utility method to reset the object so that it may be used for a new
-// Task.  This method will return true if the reset was successful
-// and false if it failed because it represents an active task.
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ResetForNewTask - Utility method to reset the object so that it may be
+//						used for a new Task. This method will return true if
+//						the reset was successful and false if it failed because
+//						it represents an active task				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::ResetForNewTask ( void )
 {
 	
+	bool				result = false;
+	SCSI_Sense_Data *	buffer = NULL;
+	
 	// If this is a pending task, do not allow it to be reset until
 	// it has completed.
-	if ( IsTaskActive ( ) == true )
-	{
-		return false;
-	}
+	require ( ( IsTaskActive ( ) == false ), ErrorExit );
 	
 	fTaskAttribute 					= kSCSITask_SIMPLE;
    	fTaskState 						= kSCSITaskState_NEW_TASK;
@@ -99,7 +171,7 @@ SCSITask::ResetForNewTask ( void )
   	fDataBufferOffset 				= 0;
 	fRequestedByteCountOfTransfer	= 0;
    	fRealizedByteCountOfTransfer	= 0;
-
+	
 	fTimeoutDuration				= 0;
 	fCompletionCallback				= NULL;
 	fServiceResponse				= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
@@ -115,77 +187,116 @@ SCSITask::ResetForNewTask ( void )
 	fAutoSenseDataIsValid			= false;
 	
 	bzero ( &fAutosenseCDB, kSCSICDBSize_Maximum );
-	bzero ( &fAutoSenseData, sizeof ( SCSI_Sense_Data ) );
 	
-	if ( fAutosenseDescriptor == NULL )
+	if ( fAutoSenseData == NULL )
 	{
 		
-		fAutosenseDescriptor = IOMemoryDescriptor::withAddress ( 
-						( void * ) &fAutoSenseData, sizeof ( SCSI_Sense_Data ), kIODirectionIn );
+		fAutoSenseDataSize = sizeof ( SCSI_Sense_Data );
+		buffer = ( SCSI_Sense_Data * ) IOMalloc ( fAutoSenseDataSize );
+		require_nonzero ( buffer, ErrorExit );
+		bzero ( buffer, fAutoSenseDataSize );
+		result = SetAutoSenseDataBuffer ( buffer, fAutoSenseDataSize, kernel_task );
+		require ( result, ErrorExit );
 		
 	}
- 		
-	fAutoSenseRealizedByteCountOfTransfer = 0;
 	
-	return true;
+	fAutoSenseRealizedByteCountOfTransfer = 0;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-// Utility methods for setting and retreiving the Object that owns the
-// instantiation of the SCSI Task
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskOwner - Utility method for setting the OSObject that owns
+//					 the instantiation of the SCSI Task				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 SCSITask::SetTaskOwner ( OSObject * taskOwner )
 {
 	
 	if ( fOwner != NULL )
 	{
+		
 		// If this already has an owner, release
 		// the retain on that one.
 		fOwner->release ( );
+		
 	}
 	
 	fOwner = taskOwner;
 	fOwner->retain ( );
+	
 	return true;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskOwner - Utility method for retreiving the OSObject that owns the
+//					 instantiation of the SCSI Task					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 OSObject *
 SCSITask::GetTaskOwner ( void )
 {
+	
+	check ( fOwner );
 	return fOwner;
+	
 }
 
 
-// Utility method to check if this task represents an active.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskOwner - Utility method to check if this task represents an active.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool	
 SCSITask::IsTaskActive ( void )
 {
 	
 	// If the state of this task is either new or it is an ended task,
 	// return false since this does not qualify as active.
-	
 	if ( ( fTaskState == kSCSITaskState_NEW_TASK ) ||
 		 ( fTaskState == kSCSITaskState_ENDED ) )
 	{
 		return false;
 	}
-
+	
 	// If the task is in any other state, it is considered active.	
 	return true;
 	
 }
 
-// Utility Methods for managing the Logical Unit Number for which this Task 
-// is intended.
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetLogicalUnitNumber - 	Utility method for setting the Logical Unit
+//								Number for which this Task is intended.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-SCSITask::SetLogicalUnitNumber( UInt8 newLUN )
+SCSITask::SetLogicalUnitNumber ( UInt8 newLUN )
 {
+	
 	fLogicalUnitNumber = newLUN;
 	return true;
+	
 }
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetLogicalUnitNumber - 	Utility method for getting the Logical Unit
+//								Number for which this Task is intended.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt8
 SCSITask::GetLogicalUnitNumber( void )
@@ -193,13 +304,24 @@ SCSITask::GetLogicalUnitNumber( void )
 	return fLogicalUnitNumber;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskAttribute - Sets the SCSITaskAttribute to the new value.  [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool	
 SCSITask::SetTaskAttribute ( SCSITaskAttribute newAttributeValue )
 {
+	
 	fTaskAttribute = newAttributeValue;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskAttribute - Gets the SCSITaskAttribute. 				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskAttribute	
 SCSITask::GetTaskAttribute ( void )
@@ -208,13 +330,21 @@ SCSITask::GetTaskAttribute ( void )
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskState - Sets the SCSITaskState to the new value. 		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetTaskState ( SCSITaskState newTaskState )
 {
 	fTaskState = newTaskState;
 	return true;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskState - Gets the SCSITaskState. 						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskState	
 SCSITask::GetTaskState ( void )
@@ -223,13 +353,23 @@ SCSITask::GetTaskState ( void )
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskStatus - Sets the SCSITaskStatus to the new value. 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetTaskStatus ( SCSITaskStatus newTaskStatus )
 {
+	
 	fTaskStatus = newTaskStatus;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskStatus - Gets the SCSITaskStatus.					 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskStatus	
 SCSITask::GetTaskStatus ( void )
@@ -238,7 +378,11 @@ SCSITask::GetTaskStatus ( void )
 }
 
 
-// Populate the 6 Byte Command Descriptor Block
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetCommandDescriptorBlock - Populate the 6 Byte Command Descriptor Block
+//																 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
 SCSITask::SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
@@ -265,14 +409,18 @@ SCSITask::SetCommandDescriptorBlock (
 	fCommandDescriptorBlock[13] = 0x00;
 	fCommandDescriptorBlock[14] = 0x00;
 	fCommandDescriptorBlock[15] = 0x00;
-
+	
 	fCommandSize = kSCSICDBSize_6Byte;
 	return true;
 	
 }
 
 
-// Populate the 10 Byte Command Descriptor Block
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetCommandDescriptorBlock - Populate the 10 Byte Command Descriptor Block
+//																 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
 SCSITask::SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
@@ -303,14 +451,18 @@ SCSITask::SetCommandDescriptorBlock (
 	fCommandDescriptorBlock[13] = 0x00;
 	fCommandDescriptorBlock[14] = 0x00;
 	fCommandDescriptorBlock[15] = 0x00;
-
+	
 	fCommandSize = kSCSICDBSize_10Byte;
 	return true;
 	
 }
 
 
-// Populate the 12 Byte Command Descriptor Block
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetCommandDescriptorBlock - Populate the 12 Byte Command Descriptor Block
+//																 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
 SCSITask::SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
@@ -343,14 +495,18 @@ SCSITask::SetCommandDescriptorBlock (
 	fCommandDescriptorBlock[13] = 0x00;
 	fCommandDescriptorBlock[14] = 0x00;
 	fCommandDescriptorBlock[15] = 0x00;
-
+	
 	fCommandSize = kSCSICDBSize_12Byte;
 	return true;
 	
 }
 
 
-// Populate the 16 Byte Command Descriptor Block
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetCommandDescriptorBlock - Populate the 16 Byte Command Descriptor Block
+//																 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool 
 SCSITask::SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
@@ -387,233 +543,456 @@ SCSITask::SetCommandDescriptorBlock (
 	fCommandDescriptorBlock[13] = cdbByte13;
 	fCommandDescriptorBlock[14] = cdbByte14;
 	fCommandDescriptorBlock[15] = cdbByte15;
-
-	fCommandSize = kSCSICDBSize_16Byte;
 	
+	fCommandSize = kSCSICDBSize_16Byte;
 	return true;
 	
 }
 
 
-UInt8	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetCommandDescriptorBlockSize - Gets the Command Descriptor Block size.
+//																 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
 SCSITask::GetCommandDescriptorBlockSize ( void )
 {
 	return fCommandSize;
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetCommandDescriptorBlock - Gets the Command Descriptor Block.   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::GetCommandDescriptorBlock ( SCSICommandDescriptorBlock * cdbData )
 {
-	bcopy ( fCommandDescriptorBlock, cdbData, sizeof ( SCSICommandDescriptorBlock ) );
+	
+	bcopy ( fCommandDescriptorBlock,
+			cdbData,
+			sizeof ( SCSICommandDescriptorBlock ) );
+	
 	return true;
+	
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetDataTransferDirection - Sets the data transfer direction.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetDataTransferDirection ( UInt8 newDataTransferDirection )
 {
+	
 	fTransferDirection = newDataTransferDirection;
 	return true;
+	
 }
 
 
-UInt8	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataTransferDirection - Gets the data transfer direction.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
 SCSITask::GetDataTransferDirection ( void )
 {
 	return fTransferDirection;
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetRequestedDataTransferCount - 	Sets the requested data transfer count
+//										in bytes.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool	
 SCSITask::SetRequestedDataTransferCount ( UInt64 requestedTransferCountInBytes )
 {
+	
 	fRequestedByteCountOfTransfer = requestedTransferCountInBytes;
 	return true;
+	
 }
 
 
-UInt64	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRequestedDataTransferCount - 	Gets the requested data transfer count
+//										in bytes.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
 SCSITask::GetRequestedDataTransferCount ( void )
 {
 	return fRequestedByteCountOfTransfer;
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetRealizedDataTransferCount - Sets the realized data transfer count
+//									 in bytes.						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetRealizedDataTransferCount ( UInt64 realizedTransferCountInBytes )
 {
+	
 	fRealizedByteCountOfTransfer = realizedTransferCountInBytes;
 	return true;
+	
 }
 
 
-UInt64	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetRealizedDataTransferCount - Gets the realized data transfer count
+//									 in bytes.						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
 SCSITask::GetRealizedDataTransferCount ( void )
 {
 	return fRealizedByteCountOfTransfer;
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetDataBuffer - Sets the data transfer buffer.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetDataBuffer ( IOMemoryDescriptor * newDataBuffer )
 {
+	
 	fDataBuffer = newDataBuffer;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataBuffer - Gets the data transfer buffer.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOMemoryDescriptor *
 SCSITask::GetDataBuffer ( void )
 {
+	
 	return fDataBuffer;
+	
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetDataBufferOffset - Sets the data transfer buffer offset.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetDataBufferOffset ( UInt64 newDataBufferOffset )
 {
+	
 	fDataBufferOffset = newDataBufferOffset;
 	return true;
+	
 }
 
 
-UInt64	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetDataBufferOffset - Gets the data transfer buffer offset.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
 SCSITask::GetDataBufferOffset ( void )
 {
 	return fDataBufferOffset;
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTimeoutDuration - 	Sets the command timeout value in milliseconds.
+//							Timeout values of zero indicate the largest
+//							possible timeout on that transport.		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetTimeoutDuration ( UInt32 timeoutValue )
 {
+	
 	fTimeoutDuration = timeoutValue;
  	return true;
+ 	
 }
 
 
-UInt32	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTimeoutDuration - 	Gets the command timeout value in milliseconds.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
 SCSITask::GetTimeoutDuration ( void )
 {
 	return fTimeoutDuration;
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskCompletionCallback - Sets the command completion routine.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetTaskCompletionCallback ( SCSITaskCompletion newCallback )
 {
+	
 	fCompletionCallback = newCallback;
 	return true;
+	
 }
 
 
-void	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TaskCompletedNotification - Calls the command completion routine.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
 SCSITask::TaskCompletedNotification ( void )
 {
-	fCompletionCallback( this );
+	fCompletionCallback ( this );
 }
 
 
-bool	
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetServiceResponse - Sets the SCSIServiceResponse.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::SetServiceResponse ( SCSIServiceResponse serviceResponse )
 {
-	fServiceResponse = serviceResponse;
 	
+	fServiceResponse = serviceResponse;
 	return true;
+	
 }
 
 
-SCSIServiceResponse 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetServiceResponse - Gets the SCSIServiceResponse.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
 SCSITask::GetServiceResponse ( void )
 {
 	return fServiceResponse;
 }
 
 
-// Set the auto sense data that was returned for the SCSI Task.
-// A return value if true indicates that the data copied to the member 
-// sense data structure, false indicates that the data could not be saved.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutoSenseDataBuffer - Sets the auto sense data buffer.		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool	
-SCSITask::SetAutoSenseData ( SCSI_Sense_Data * senseData )
+SCSITask::SetAutoSenseDataBuffer ( SCSI_Sense_Data * 	senseData,
+								   UInt8				senseDataSize,
+								   task_t				task )
 {
 	
-	bcopy ( senseData, &fAutoSenseData, kSenseDefaultSize );
+	// Release any old memory descriptors
+	if ( fAutosenseDescriptor != NULL )
+	{
+		
+		fAutosenseDescriptor->release ( );
+		fAutosenseDescriptor = NULL;
+		
+	}
+	
+	// Release any old memory
+	if ( ( fAutosenseTaskMap == kernel_task ) && ( fAutoSenseData != NULL ) )
+	{
+		
+		IOFree ( fAutoSenseData, fAutoSenseDataSize );
+		fAutoSenseData = NULL;
+		
+	}
+	
+	// Set the new memory
+	fAutoSenseData			= senseData;
+	fAutoSenseDataSize		= senseDataSize;
+	fAutoSenseDataIsValid	= false;
+	fAutosenseTaskMap		= task;
+	
+	fAutosenseDescriptor = IOMemoryDescriptor::withAddress (
+						( vm_address_t ) fAutoSenseData,
+						fAutoSenseDataSize,
+						kIODirectionIn,
+						fAutosenseTaskMap );
+	
+	check ( fAutosenseDescriptor );
+	
+	return ( fAutosenseDescriptor != NULL ) ? true : false;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutoSenseData - Sets the auto sense data.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+SCSITask::SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize )
+{
+	
+	UInt8	size = min ( fAutoSenseDataSize, senseDataSize );
+	
+	require_nonzero ( size, Exit );
+	require_nonzero ( fAutosenseDescriptor, Exit );
+	
+	fAutosenseDescriptor->writeBytes ( 0, senseData, size );
 	fAutoSenseDataIsValid = true;
 	
+	
+Exit:
+	
+	
 	return true;
 	
 }
 
 
-// Get the auto sense data that was returned for the SCSI Task.  A return value
-// of true indicates that valid auto sense data has been returned in the receivingBuffer.
-// A return value of false indicates that there is no auto sense data for this SCSI Task,
-// and the receivingBuffer does not have valid data.
-// If the receivingBuffer is NULL, this routine will return whether the autosense data is valid
-// without tryiing to copy it to the receivingBuffer.
-bool	
-SCSITask::GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutoSenseData - Gets the auto sense data.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSITask::GetAutoSenseData ( SCSI_Sense_Data *	receivingBuffer,
+							 UInt8				senseDataSize )
 {
 	
-	if ( fAutoSenseDataIsValid == false )
-	{
-		return false;
-	}
+	bool	result 	= false;
+	UInt8	size	= 0;
 	
-	if ( receivingBuffer != NULL )
-	{
-		bcopy ( &fAutoSenseData, receivingBuffer, kSenseDefaultSize );
-	}
+	require ( fAutoSenseDataIsValid, Exit );
+	require_nonzero_action ( receivingBuffer, Exit, result = fAutoSenseDataIsValid );
+	require_nonzero ( fAutosenseDescriptor, Exit );
 	
-	return true;
+	size = min ( fAutoSenseDataSize, senseDataSize );
+	require_nonzero ( size, Exit );
+	
+	// Copy the data, but don't overflow the buffer
+	fAutosenseDescriptor->readBytes ( 0, receivingBuffer, size );
+	result = true;
+	
+	
+Exit:
+	
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutoSenseDataSize - Gets the auto sense data size.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
+SCSITask::GetAutoSenseDataSize ( void )
+{
+	
+	return fAutoSenseDataSize;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetProtocolLayerReference - Sets the protocol layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool	
 SCSITask::SetProtocolLayerReference ( void * newReferenceValue )
 {
+	
+	check ( newReferenceValue );
 	fProtocolLayerReference = newReferenceValue;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetProtocolLayerReference - Gets the protocol layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void *
 SCSITask::GetProtocolLayerReference ( void )
 {
+	
+	check ( fProtocolLayerReference );
 	return fProtocolLayerReference;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetApplicationLayerReference - Sets the application layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool	
 SCSITask::SetApplicationLayerReference ( void * newReferenceValue )
 {
+	
+	check ( newReferenceValue );
 	fApplicationLayerReference = newReferenceValue;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetApplicationLayerReference - Gets the application layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void *
 SCSITask::GetApplicationLayerReference ( void )
 {
+
+	check ( fApplicationLayerReference );
 	return fApplicationLayerReference;
+	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Protocol Layer Mode methods
-// These methods are only for the SCSI Protocol Layer to set the command execution
-// mode of the command.  There currently are two modes, standard command execution
-// for executing the command for which the task was created, and the autosense command
-// execution mode for executing the Request Sense command for retrieving sense data.
+#pragma mark ¥ SCSI Protocol Layer Mode methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaskExecutionMode - Sets the SCSITaskMode.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 SCSITask::SetTaskExecutionMode ( SCSITaskMode newTaskMode )
 {
+	
 	fTaskExecutionMode = newTaskMode;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaskExecutionMode - Gets the SCSITaskMode.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskMode
 SCSITask::GetTaskExecutionMode ( void )
@@ -622,6 +1001,11 @@ SCSITask::GetTaskExecutionMode ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsAutosenseRequested - Reports whether autosense data is requested.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 SCSITask::IsAutosenseRequested ( void )
 {
@@ -629,28 +1013,52 @@ SCSITask::IsAutosenseRequested ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutosenseIsValid - Sets the auto sense validity flag.		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool				
 SCSITask::SetAutosenseIsValid ( bool newAutosenseState )
 {
+	
 	fAutoSenseDataIsValid = newAutosenseState;
 	return true;
+	
 }
 
 
-UInt8				
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseCommandDescriptorBlockSize - Gets the auto sense
+//											   Command Descriptor Block Size.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
 SCSITask::GetAutosenseCommandDescriptorBlockSize ( void )
 {
 	return fAutosenseCDBSize;
 }
 
 
-bool				
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseCommandDescriptorBlock -	Gets the auto sense
+//											Command Descriptor Block.  [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 SCSITask::GetAutosenseCommandDescriptorBlock ( SCSICommandDescriptorBlock * cdbData )
 {
+	
 	bcopy ( &fAutosenseCDB, cdbData, sizeof ( SCSICommandDescriptorBlock ) );
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseDataTransferDirection -	Gets the auto sense data transfer
+//											direction. 				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt8
 SCSITask::GetAutosenseDataTransferDirection ( void )
@@ -659,20 +1067,37 @@ SCSITask::GetAutosenseDataTransferDirection ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseRequestedDataTransferCount -	Gets the auto sense requested
+//												data transfer count.   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt64
-SCSITask::GetAutosenseRequestedDataTransferCount( void )
+SCSITask::GetAutosenseRequestedDataTransferCount ( void )
 {
 	return sizeof ( SCSI_Sense_Data );
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutosenseRealizedDataCount -	Sets the auto sense realized data
+//										transfer count.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 SCSITask::SetAutosenseRealizedDataCount ( UInt64 realizedTransferCountInBytes )
 {
+	
 	fAutoSenseRealizedByteCountOfTransfer = realizedTransferCountInBytes;
 	return true;
+	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseRealizedDataCount -	Gets the auto sense realized data
+//										transfer count.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt64
 SCSITask::GetAutosenseRealizedDataCount ( void )
@@ -681,12 +1106,20 @@ SCSITask::GetAutosenseRealizedDataCount ( void )
 }
 
 
-IOMemoryDescriptor	*
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseDataBuffer -	Gets the auto sense data buffer.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOMemoryDescriptor *
 SCSITask::GetAutosenseDataBuffer ( void )
 {
 	return fAutosenseDescriptor;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetAutosenseCommand -	Sets the auto sense command.	 		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSITask::SetAutosenseCommand (
@@ -714,7 +1147,7 @@ SCSITask::SetAutosenseCommand (
 	fAutosenseCDB[13] = 0x00;
 	fAutosenseCDB[14] = 0x00;
 	fAutosenseCDB[15] = 0x00;
-
+	
 	fAutosenseCDBSize = kSCSICDBSize_6Byte;
 	fAutosenseDataRequested = true;
 	
@@ -723,34 +1156,50 @@ SCSITask::SetAutosenseCommand (
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Task Queue Management Methods
+#pragma mark ¥ SCSI Task Queue Management Methods
+#pragma mark -
+#endif
+
 // These are the methods used for adding and removing the SCSI Task object
 // to a queue.  These are mainly for use by the SCSI Protocol Layer, but can be
 // used by the SCSI Application Layer if the task is currently not active (the
 // Task state is kSCSITaskState_NEW_TASK or kSCSITaskState_ENDED).
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EnqueueFollowingSCSITask - Enqueues the specified Task after this one.
+//															 		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-// This method queues the specified Task after this one
-void	
+void
 SCSITask::EnqueueFollowingSCSITask ( SCSITask * followingTask )
 {
 	fNextTaskInQueue = followingTask;
 }
 
 
-// Returns the pointer to the SCSI Task that is queued after
-// this one.  Returns NULL if one is not currently queued.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetFollowingSCSITask - Returns the pointer to the SCSI Task that is
+//							 queued after this one. Returns NULL if one is not
+//							 currently queued.				 		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSITask *
 SCSITask::GetFollowingSCSITask ( void )
 {
+	
 	return fNextTaskInQueue;
+	
 }
 
 
-// Returns the pointer to the SCSI Task that is queued after
-// this one and removes it from the queue.  Returns NULL if 
-// one is not currently queued.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ DequeueFollowingSCSITask - Returns the pointer to the SCSI Task that is
+//							 	 queued after this one. Returns NULL if one is
+//							 	 not currently queued.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSITask *
 SCSITask::DequeueFollowingSCSITask ( void )
 {
@@ -765,16 +1214,19 @@ SCSITask::DequeueFollowingSCSITask ( void )
 }
 
 
-// Returns the pointer to the SCSI Task that is queued after
-// this one and removes it from the queue.  Returns NULL if 
-// one is not currently queued.  After dequeueing the following
-// Task, the specified newFollowingTask will be enqueued after this
-// task.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReplaceFollowingSCSITask - Returns the pointer to the SCSI Task that is
+//								 queued after this one and removes it from the
+//								 queue.  Returns NULL if one is not currently
+//								 queued.  After dequeueing the following Task,
+//								 the specified newFollowingTask will be
+//								 enqueued after this task.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 SCSITask *
 SCSITask::ReplaceFollowingSCSITask ( SCSITask * newFollowingTask )
 {
 	
-	SCSITask *	returnTask;
+	SCSITask *	returnTask = NULL;
 	
 	returnTask 			= fNextTaskInQueue;
 	fNextTaskInQueue 	= newFollowingTask;
@@ -783,12 +1235,20 @@ SCSITask::ReplaceFollowingSCSITask ( SCSITask * newFollowingTask )
 	
 }
 
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( SCSITask, 1 );
-OSMetaClassDefineReservedUnused( SCSITask, 2 );
-OSMetaClassDefineReservedUnused( SCSITask, 3 );
-OSMetaClassDefineReservedUnused( SCSITask, 4 );
-OSMetaClassDefineReservedUnused( SCSITask, 5 );
-OSMetaClassDefineReservedUnused( SCSITask, 6 );
-OSMetaClassDefineReservedUnused( SCSITask, 7 );
-OSMetaClassDefineReservedUnused( SCSITask, 8 );
+OSMetaClassDefineReservedUnused ( SCSITask, 1 );
+OSMetaClassDefineReservedUnused ( SCSITask, 2 );
+OSMetaClassDefineReservedUnused ( SCSITask, 3 );
+OSMetaClassDefineReservedUnused ( SCSITask, 4 );
+OSMetaClassDefineReservedUnused ( SCSITask, 5 );
+OSMetaClassDefineReservedUnused ( SCSITask, 6 );
+OSMetaClassDefineReservedUnused ( SCSITask, 7 );
+OSMetaClassDefineReservedUnused ( SCSITask, 8 );

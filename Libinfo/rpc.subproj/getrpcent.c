@@ -53,7 +53,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)getrpcent.c 1.14 91/03/11 Copyr 1984 Sun Micro";*/
-static char *rcsid = "$Id: getrpcent.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: getrpcent.c,v 1.3 2002/02/19 20:36:23 epeyton Exp $";
 #endif
 
 /*
@@ -61,6 +61,7 @@ static char *rcsid = "$Id: getrpcent.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $"
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <string.h>
 #include <rpc/rpc.h>
@@ -105,7 +106,7 @@ getrpcbynumber(number)
 	if (d == 0)
 		return (0);
 	setrpcent(0);
-	while (p = getrpcent()) {
+	while ((p = getrpcent())) {
 		if (p->r_number == number)
 			break;
 	}
@@ -125,7 +126,7 @@ getrpcbyname(name)
 	char **rp;
 
 	setrpcent(0);
-	while (rpc = getrpcent()) {
+	while ((rpc = getrpcent())) {
 		if (strcmp(rpc->r_name, name) == 0)
 			return (rpc);
 		for (rp = rpc->r_aliases; *rp != NULL; rp++) {
@@ -168,8 +169,6 @@ endrpcent()
 struct rpcent *
 getrpcent()
 {
-	struct rpcent *hp;
-	int reason;
 	register struct rpcdata *d = _rpcdata();
 
 	if (d == 0)

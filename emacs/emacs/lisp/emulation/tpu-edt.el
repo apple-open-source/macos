@@ -1,10 +1,10 @@
 ;;; tpu-edt.el --- Emacs emulating TPU emulating EDT
 
-;; Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
 
 ;; Author: Rob Riepel <riepel@networking.stanford.edu>
 ;; Maintainer: Rob Riepel <riepel@networking.stanford.edu>
-;; Version: 4.2
+;; Version: 4.5
 ;; Keywords: emulations
 
 ;; This file is part of GNU Emacs.
@@ -77,10 +77,11 @@
 ;;    In some cases, Emacs doesn't support text highlighting, so selected
 ;;    regions are not shown in inverse video.  Emacs uses the concept of "the
 ;;    mark".  The mark is set at one end of a selected region; the cursor is
-;;    at the other.  The letter "M" appears in the mode line when the mark is
-;;    set.  The native emacs command ^X^X (Control-X twice) exchanges the
-;;    cursor with the mark; this provides a handy way to find the location of
-;;    the mark.
+;;    at the other.  In cases where the selected region cannot be shown in
+;;    inverse video an at sign (@) appears in the mode line when mark is set.
+;;    The native emacs command ^X^X (Control-X twice) exchanges the cursor
+;;    with the mark; this provides a handy way to find the location of the
+;;    mark.
 
 ;;    In TPU the cursor can be either bound or free.  Bound means the cursor
 ;;    cannot wander outside the text of the file being edited.  Free means
@@ -184,7 +185,7 @@
 ;;    (tpu-edt)
 
 ;;    ; Set scroll margins 10% (top) and 15% (bottom).
-;;    (tpu-set-scroll-margins "10%" "15%")       
+;;    (tpu-set-scroll-margins "10%" "15%")
 
 ;;    ; Load the vtxxx terminal control functions.
 ;;    (load "vt-control" t)
@@ -275,7 +276,7 @@
 ;;;
 ;;;  Version Information
 ;;;
-(defconst tpu-version "4.2" "TPU-edt version number.")
+(defconst tpu-version "4.5" "TPU-edt version number.")
 
 
 ;;;
@@ -369,6 +370,13 @@ GOLD is the ASCII 7-bit escape sequence <ESC>OP.")
   "If non-nil, TPU-edt is searching in the forward direction.")
 (defvar tpu-search-last-string ""
   "Last text searched for by the TPU-edt search commands.")
+(defvar tpu-search-overlay (make-overlay 1 1)
+  "Search highlight overlay.")
+(overlay-put tpu-search-overlay 'face 'bold)
+
+(defvar tpu-replace-overlay (make-overlay 1 1)
+  "Replace highlight overlay.")
+(overlay-put tpu-replace-overlay 'face 'highlight)
 
 (defvar tpu-regexp-p nil
   "If non-nil, TPU-edt uses regexp search and replace routines.")
@@ -419,40 +427,21 @@ GOLD is the ASCII 7-bit escape sequence <ESC>OP.")
 ;;;
 ;;;  Mode Line - Modify the mode line to show the following
 ;;;
-;;;     o  If the mark is set.
+;;;     o  Mark state.
 ;;;     o  Direction of motion.
 ;;;     o  Active rectangle mode.
+;;;     o  Active auto indent mode.
 ;;;
-(defvar tpu-original-mode-line mode-line-format)
 (defvar tpu-original-mm-alist minor-mode-alist)
 
-(defvar tpu-mark-flag " ")
+(defvar tpu-mark-flag "")
 (make-variable-buffer-local 'tpu-mark-flag)
 
 (defun tpu-set-mode-line (for-tpu)
-  "Set the mode for TPU-edt, or reset it to default Emacs."
+  "Set ``minor-mode-alist'' for TPU-edt, or reset it to default Emacs."
   (cond ((not for-tpu)
-	 (setq mode-line-format tpu-original-mode-line)
-	 (setq minor-mode-alist tpu-original-mm-alist))
+         (setq minor-mode-alist tpu-original-mm-alist))
 	(t
-	 (setq-default mode-line-format
-		       (list (purecopy "-")
-			     'mode-line-mule-info
-			     'mode-line-modified
-			     'mode-line-frame-identification
-			     'mode-line-buffer-identification
-			     (purecopy "  ")
-			     'global-mode-string
-			     (purecopy "  ")
-			     'tpu-mark-flag
-			     (purecopy " %[(")
-			     'mode-name 'mode-line-process 'minor-mode-alist
-			     (purecopy "%n")
-			     (purecopy ")%]--")
-			     (purecopy '(line-number-mode "L%l--"))
-			     (purecopy '(column-number-mode "C%c--"))
-			     (purecopy '(-3 . "%p"))
-			     (purecopy "-%-")))
 	 (or (assq 'tpu-newline-and-indent-p minor-mode-alist)
 	     (setq minor-mode-alist
 		   (cons '(tpu-newline-and-indent-p
@@ -465,11 +454,15 @@ GOLD is the ASCII 7-bit escape sequence <ESC>OP.")
 	 (or (assq 'tpu-direction-string minor-mode-alist)
 	     (setq minor-mode-alist
 		   (cons '(tpu-direction-string tpu-direction-string)
+			 minor-mode-alist)))
+	 (or (assq 'tpu-mark-flag minor-mode-alist)
+	     (setq minor-mode-alist
+		   (cons '(tpu-mark-flag tpu-mark-flag)
 			 minor-mode-alist))))))
 
 (defun tpu-update-mode-line nil
   "Make sure mode-line in the current buffer reflects all changes."
-  (setq tpu-mark-flag (if (tpu-mark) "M" " "))
+  (setq tpu-mark-flag (if transient-mark-mode "" (if (tpu-mark) " @" "  ")))
   (cond (tpu-emacs19-p (force-mode-line-update))
 	(t (set-buffer-modified-p (buffer-modified-p)) (sit-for 0))))
 
@@ -750,7 +743,7 @@ This is useful for inserting control characters."
 (defun tpu-get (file)
   "TPU-like get file"
   (interactive "FFile to get: ")
-  (find-file file))
+  (find-file file find-file-wildcards))
 
 (defun tpu-what-line nil
   "Tells what line the point is on,
@@ -759,9 +752,10 @@ This is useful for inserting control characters."
   (if (eobp)
       (message "You are at the End of Buffer.  The last line is %d."
 	       (count-lines 1 (point-max)))
-    (message "Line %d of %d"
-	     (count-lines 1 (1+ (point)))
-	     (count-lines 1 (point-max)))))
+    (let* ((cur (count-lines 1 (1+ (point))))
+	   (max (count-lines 1 (point-max)))
+	   (pct (/ (* 100 (+ cur (/ max 200))) max)))
+      (message "You are on line %d out of %d (%d%%)." cur max pct))))
 
 (defun tpu-exit nil
   "Exit the way TPU does, save current buffer and ask about others."
@@ -821,6 +815,10 @@ This is useful for inserting control characters."
 ;; So it is really necessary to redefine this.
 (fset 'help 'tpu-help)
 (fset 'HELP 'tpu-help)
+
+;; Real TPU error messages end in periods.
+;; Define this to avoid openly flouting Emacs coding standards.
+(defalias 'tpu-error 'error)
 
 (fset 'set\ cursor\ free 'tpu-set-cursor-free)
 (fset 'SET\ CURSOR\ FREE 'tpu-set-cursor-free)
@@ -1001,6 +999,7 @@ This is useful for inserting control characters."
 	        	  (scroll-other-window -8)
 	        	(error nil)))
 	             (t
+	              (forward-line -1)
 	              (backward-page)
 	              (forward-line 1)
 	              (tpu-line-to-top-of-window))))
@@ -1077,7 +1076,7 @@ kills modified buffers without asking."
   (interactive)
   (let ((list (tpu-make-file-buffer-list (buffer-list))))
     (setq list (delq (current-buffer) list))
-    (if (not list) (error "No other buffers."))
+    (if (not list) (tpu-error "No other buffers."))
     (switch-to-buffer (car (reverse list)))))
 
 (defun tpu-make-file-buffer-list (buffer-list)
@@ -1118,6 +1117,14 @@ kills modified buffers without asking."
     (if tpu-emacs19-p
 	(read-from-minibuffer re-prompt nil nil nil 'tpu-regexp-prompt-hist)
       (read-string re-prompt))))
+
+(defun tpu-search-highlight nil
+  (if (tpu-check-match)
+      (move-overlay tpu-search-overlay
+                    (tpu-match-beginning) (tpu-match-end) (current-buffer))
+    (unless (equal (overlay-start tpu-search-overlay)
+		   (overlay-end tpu-search-overlay))
+      (move-overlay tpu-search-overlay 1 1 (current-buffer)))))
 
 (defun tpu-search nil
   "Search for a string or regular expression.
@@ -1279,6 +1286,7 @@ Used for reversing a search in progress."
 (defun tpu-unselect (&optional quiet)
   "Removes the mark to unselect the current region."
   (interactive "P")
+  (deactivate-mark)
   (setq mark-ring nil)
   (tpu-set-mark nil)
   (tpu-update-mode-line)
@@ -1340,7 +1348,7 @@ The text is saved for the tpu-paste command."
 	   (delete-region beg end)
 	   (tpu-unset-match)))
 	(t
-	 (error "No selection active."))))
+	 (tpu-error "No selection active."))))
 
 (defun tpu-store-text nil
   "Copy the selected region to the cut buffer without deleting it.
@@ -1362,7 +1370,7 @@ The text is saved for the tpu-paste command."
 	       (buffer-substring (tpu-match-beginning) (tpu-match-end)))
 	 (tpu-unset-match))
 	(t
-	 (error "No selection active."))))
+	 (tpu-error "No selection active."))))
 
 (defun tpu-cut (arg)
   "Copy selected region to the cut buffer.  In the absence of an
@@ -1389,7 +1397,7 @@ argument, delete the selected region too."
 	   (if (not arg) (delete-region beg end))
 	   (tpu-unset-match)))
 	(t
-	 (error "No selection active."))))
+	 (tpu-error "No selection active."))))
 
 (defun tpu-delete-current-line (num)
   "Delete one or specified number of lines after point.
@@ -1529,7 +1537,7 @@ With argument reinserts the character that many times."
 			  (not case-replace) (not tpu-regexp-p))
 	   (tpu-unset-match)))
 	(t
-	 (error "No selection active."))))
+	 (tpu-error "No selection active."))))
 
 (defun tpu-substitute (num)
   "Replace the selected region with the contents of the cut buffer, and
@@ -1545,7 +1553,7 @@ A negative argument means replace all occurrences of the search string."
 	       (tpu-search-internal-core tpu-search-last-string)))
 	   (setq num (1- num))))
 	(t
-	 (error "No selection active."))))
+	 (tpu-error "No selection active."))))
 
 (defun tpu-lm-replace (from to)
   "Interactively search for OLD-string and substitute NEW-string."
@@ -1555,7 +1563,7 @@ A negative argument means replace all occurrences of the search string."
   (let ((doit t) (strings 0))
 
     ;; Can't replace null strings
-    (if (string= "" from) (error "No string to replace."))
+    (if (string= "" from) (tpu-error "No string to replace."))
 
     ;; Find the first occurrence
     (tpu-set-search)
@@ -1564,46 +1572,50 @@ A negative argument means replace all occurrences of the search string."
     ;; Loop on replace question - yes, no, all, last, or quit.
     (while doit
       (if (not (tpu-check-match)) (setq doit nil)
-	(progn (message "Replace? Type Yes, No, All, Last, or Quit: ")
-	       (let ((ans (read-char)))
+	(progn
+	  (move-overlay tpu-replace-overlay
+			(tpu-match-beginning) (tpu-match-end) (current-buffer))
+	  (message "Replace? Type Yes, No, All, Last, or Quit: ")
+	  (let ((ans (read-char)))
 
-		 (cond ((or (= ans ?y) (= ans ?Y) (= ans ?\r) (= ans ?\ ))
-			(let ((beg (point)))
-			  (replace-match to (not case-replace) (not tpu-regexp-p))
-			  (setq strings (1+ strings))
-			  (if tpu-searching-forward (forward-char -1) (goto-char beg)))
-			(tpu-search-internal from t))
+	    (cond ((or (= ans ?y) (= ans ?Y) (= ans ?\r) (= ans ?\ ))
+		   (let ((beg (point)))
+		     (replace-match to (not case-replace) (not tpu-regexp-p))
+		     (setq strings (1+ strings))
+		     (if tpu-searching-forward (forward-char -1) (goto-char beg)))
+		   (tpu-search-internal from t))
 
-		       ((or (= ans ?n) (= ans ?N) (= ans ?\C-?))
-			(tpu-search-internal from t))
+		  ((or (= ans ?n) (= ans ?N) (= ans ?\C-?))
+		   (tpu-search-internal from t))
 
-		       ((or (= ans ?a) (= ans ?A))
-			(save-excursion
-			  (let ((beg (point)))
-			    (replace-match to (not case-replace) (not tpu-regexp-p))
-			    (setq strings (1+ strings))
-			    (if tpu-searching-forward (forward-char -1) (goto-char beg)))
-			  (tpu-search-internal-core from t)
-			  (while (tpu-check-match)
-			    (let ((beg (point)))
-			      (replace-match to (not case-replace) (not tpu-regexp-p))
-			      (setq strings (1+ strings))
-			      (if tpu-searching-forward (forward-char -1) (goto-char beg)))
-			    (tpu-search-internal-core from t)))
-			(setq doit nil))
+		  ((or (= ans ?a) (= ans ?A))
+		   (save-excursion
+		     (let ((beg (point)))
+		       (replace-match to (not case-replace) (not tpu-regexp-p))
+		       (setq strings (1+ strings))
+		       (if tpu-searching-forward (forward-char -1) (goto-char beg)))
+		     (tpu-search-internal-core from t)
+		     (while (tpu-check-match)
+		       (let ((beg (point)))
+			 (replace-match to (not case-replace) (not tpu-regexp-p))
+			 (setq strings (1+ strings))
+			 (if tpu-searching-forward (forward-char -1) (goto-char beg)))
+		       (tpu-search-internal-core from t)))
+		   (setq doit nil))
 
-		       ((or (= ans ?l) (= ans ?L))
-			(let ((beg (point)))
-			  (replace-match to (not case-replace) (not tpu-regexp-p))
-			  (setq strings (1+ strings))
-			  (if tpu-searching-forward (forward-char -1) (goto-char beg)))
-			(setq doit nil))
+		  ((or (= ans ?l) (= ans ?L))
+		   (let ((beg (point)))
+		     (replace-match to (not case-replace) (not tpu-regexp-p))
+		     (setq strings (1+ strings))
+		     (if tpu-searching-forward (forward-char -1) (goto-char beg)))
+		   (setq doit nil))
 
-		       ((or (= ans ?q) (= ans ?Q))
-			(setq doit nil)))))))
+		  ((or (= ans ?q) (= ans ?Q))
+		   (tpu-unset-match)
+		   (setq doit nil)))))))
 
-    (message "Replaced %s occurrence%s." strings
-	     (if (not (= 1 strings)) "s" ""))))
+    (move-overlay tpu-replace-overlay 1 1 (current-buffer))
+    (message "Replaced %s occurrence%s." strings (if (not (= 1 strings)) "s" ""))))
 
 (defun tpu-emacs-replace (&optional dont-ask)
   "A TPU-edt interface to the emacs replace functions.  If TPU-edt is
@@ -1624,7 +1636,7 @@ are performed without asking.  Only works in forward direction."
 or each line in the entire buffer if no region is selected."
   (interactive
    (list (tpu-string-prompt "String to add: " 'tpu-add-at-bol-hist)))
-  (if (string= "" text) (error "No string specified."))
+  (if (string= "" text) (tpu-error "No string specified."))
   (cond ((tpu-mark)
 	 (save-excursion
 	   (if (> (point) (tpu-mark)) (exchange-point-and-mark))
@@ -1642,7 +1654,7 @@ or each line in the entire buffer if no region is selected."
 or each line of the entire buffer if no region is selected."
   (interactive
    (list (tpu-string-prompt "String to add: " 'tpu-add-at-eol-hist)))
-  (if (string= "" text) (error "No string specified."))
+  (if (string= "" text) (tpu-error "No string specified."))
   (cond ((tpu-mark)
 	 (save-excursion
 	   (if (> (point) (tpu-mark)) (exchange-point-and-mark))
@@ -1660,7 +1672,11 @@ or each line of the entire buffer if no region is selected."
 (defun tpu-trim-line-ends nil
   "Removes trailing whitespace from every line in the buffer."
   (interactive)
-  (picture-clean))
+  (save-match-data
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "[ \t][ \t]*$" nil t)
+	(delete-region (match-beginning 0) (match-end 0))))))
 
 
 ;;;
@@ -1788,7 +1804,7 @@ Prefix argument serves as a repeat count."
 Accepts a prefix argument for the number of lines to move."
   (interactive "p")
   (backward-char 1)
-  (forward-line (- 1 num)))
+  (forward-visible-line (- 1 num)))
 
 (defun tpu-end-of-line (num)
   "Move to the next end of line in the current direction.
@@ -1943,7 +1959,7 @@ Accepts a prefix argument for the number of tpu-pan-columns to scroll."
   "Move point to ARG percentage of the buffer."
   (interactive "NGoto-percentage: ")
   (if (or (> perc 100) (< perc 0))
-      (error "Percentage %d out of range 0 < percent < 100" perc)
+      (tpu-error "Percentage %d out of range 0 < percent < 100." perc)
     (goto-char (/ (* (point-max) perc) 100))))
 
 (defun tpu-beginning-of-window nil
@@ -1987,6 +2003,11 @@ Accepts a prefix argument for the number of tpu-pan-columns to scroll."
   (setq tpu-reverse t)
   (tpu-set-search)
   (tpu-update-mode-line))
+
+(defun tpu-toggle-direction nil
+  "Change the current TPU direction."
+  (interactive)
+  (if tpu-advance (tpu-backup-direction) (tpu-advance-direction)))
 
 
 ;;;
@@ -2452,7 +2473,7 @@ If FILE is nil, try to load a default file.  The default file names are
     (and (tpu-y-or-n-p "Copy key definitions to the new file now? ")
 	 (condition-case conditions
              (copy-file oldname newname)
-	   (error (message "Sorry, couldn't copy - %s" (cdr conditions)))))
+	   (tpu-error (message "Sorry, couldn't copy - %s." (cdr conditions)))))
     (kill-buffer "*TPU-Notice*")))
 
 
@@ -2468,15 +2489,10 @@ If FILE is nil, try to load a default file.  The default file names are
     ;; we use picture-mode functions
     (require 'picture)
     (tpu-set-control-keys)
-    (cond (tpu-emacs19-p
-	   (and window-system (tpu-load-xkeys nil))
-	   (tpu-arrow-history))
-	  (t
-	   ;; define ispell functions
-	   (autoload 'ispell-word "ispell" "Check spelling of word at or before point" t)
-	   (autoload 'ispell-complete-word "ispell" "Complete word at or before point" t)
-	   (autoload 'ispell-buffer "ispell" "Check spelling of entire buffer" t)
-	   (autoload 'ispell-region "ispell" "Check spelling of region" t)))
+    (and window-system (tpu-load-xkeys nil))
+    (tpu-arrow-history)
+    (transient-mark-mode t)
+    (add-hook 'post-command-hook 'tpu-search-highlight)
     (tpu-set-mode-line t)
     (tpu-advance-direction)
     ;; set page delimiter, display line truncation, and scrolling like TPU
@@ -2491,6 +2507,7 @@ If FILE is nil, try to load a default file.  The default file names are
   (cond
    (tpu-edt-mode
     (tpu-reset-control-keys nil)
+    (remove-hook 'post-command-hook 'tpu-search-highlight)
     (tpu-set-mode-line nil)
     (setq-default page-delimiter "^\f")
     (setq-default truncate-lines nil)

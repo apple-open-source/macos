@@ -1,47 +1,43 @@
 # Host: IA86 running Mac OS X
 
-TERMCAP =
+TERMCAP = -lcurses
 
 SER_HARDWIRE = ser-unix.o ser-tcp.o
 
 XM_FILE = xm-i386-macosx.h
 
 XDEPFILES = \
-	nextstep-nat-cmds-load.o \
-	nextstep-nat-cmds-pb.o \
-	nextstep-nat-cmds-pbx.o \
-	nextstep-nat-utils-pb.o \
-	nextstep-xdep.o
+	macosx-nat-cmds-load.o \
+	macosx-xdep.o
 
-NEXT_FILES = \
-        nextstep-nat-watchpoint.o \
-        nextstep-nat-dyld.o \
-        nextstep-nat-dyld-path.o \
-        nextstep-nat-dyld-info.o \
-        nextstep-nat-dyld-process.o \
-        nextstep-nat-dyld-io.o \
-        nextstep-nat-inferior.o \
-        nextstep-nat-inferior-stubs.o \
-        nextstep-nat-inferior-util.o \
-        nextstep-nat-inferior-debug.o \
-        nextstep-nat-sigthread.o \
-        nextstep-nat-excthread.o \
-        nextstep-nat-mutils.o \
-        nextstep-nat-threads.o \
-	nextstep-nat-infthread.o \
-        nextstep-nat-info.o
+MACOSX_FILES = \
+        macosx-nat-watchpoint.o \
+        macosx-nat-dyld.o \
+        macosx-nat-dyld-path.o \
+        macosx-nat-dyld-info.o \
+        macosx-nat-dyld-process.o \
+        macosx-nat-dyld-io.o \
+        macosx-nat-inferior.o \
+        macosx-nat-inferior-stubs.o \
+        macosx-nat-inferior-util.o \
+        macosx-nat-inferior-debug.o \
+        macosx-nat-sigthread.o \
+        macosx-nat-excthread.o \
+        macosx-nat-mutils.o \
+        macosx-nat-threads.o \
+	macosx-nat-infthread.o \
+        macosx-nat-info.o \
+	excServer.o \
+	excUser.o
 
-IA86_FILES = i386-next-nat-exec.o 
+IA86_FILES = i386-macosx-nat-exec.o 
 
-MACOSX_FILES = excServer.o excUser.o
-
-NAT_FILE = nm-i386-next.h
+NAT_FILE = nm-i386-macosx.h
 
 NATDEPFILES = \
 	fork-child.o \
 	inftarg.o \
 	$(IA86_FILES) \
-	$(NEXT_FILES) \
 	$(MACOSX_FILES) \
 	$(CFM_FILES)
 
@@ -49,32 +45,20 @@ XM_CLIBS = $(CFM_LIBS)
 
 MH_CFLAGS = \
 	-DNS_TARGET_MAJOR=5 \
-	-I$(srcdir)/../gdb-next \
+	-I$(srcdir)/macosx \
 	$(CFM_CFLAGS)
 
-ifeq ("$(WITHOUT_CFM)", "")
-
 CFM_FILES = \
-	nextstep-nat-cfm.o \
-	nextstep-nat-cfm-io.o \
-	nextstep-nat-cfm-process.o \
-        nextstep-nat-cfmthread.o \
+	macosx-nat-cfm.o \
+	macosx-nat-cfm-io.o \
+        macosx-nat-cfmthread.o \
 	macosx-metrowerks.o
 
 CFM_CFLAGS = -DWITH_CFM=1
 
-else
-CFM_FILES =
-CFM_CFLAGS =
-endif
-
 CFM_LIBS = 
 
-ifneq ("$(USE_CTHREADS)", "")
-MH_CFLAGS += -DUSE_CTHREADS=1
-else
 MH_CFLAGS += -DUSE_PTHREADS=1
-endif
 
 _all: all
 

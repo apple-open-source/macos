@@ -1,0 +1,13 @@
+#! /bin/sh
+
+# Test to make sure configure is included in distribution.  Report
+# from Eleftherios Gkioulekas.
+
+. $srcdir/defs || exit 1
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^DIST_COMMON.*configure ' Makefile.in

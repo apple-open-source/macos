@@ -73,6 +73,9 @@ struct arch {
     /* if this is an unknown file: the addr and size of the file */
     char *unknown_addr;
     unsigned long unknown_size;
+
+    /* don't update LC_ID_DYLIB timestamp */
+    enum bool dont_update_LC_ID_DYLIB_timestamp;
 };
 
 struct member {
@@ -115,9 +118,18 @@ struct object {
     struct dysymtab_command *dyst;  /* the dynamic symbol table command */
     struct twolevel_hints_command   /* the two-level namespace hints command */
 	*hints_cmd;
+    struct prebind_cksum_command *cs;/* the prebind check sum command */
     struct segment_command
 	*seg_linkedit;	    	    /* the link edit segment command */
     struct section **sections;	    /* array of section structs */
+
+    /*
+     * This is only used for redo_prebinding and is calculated by breakout()
+     * if the calculate_input_prebind_cksum parameter is TRUE and there is an
+     * LC_PREBIND_CKSUM load command that has a zero value for the cksum field
+     * (if so this will be value of the cksum field on output).
+     */
+    unsigned long calculated_input_prebind_cksum;
 
     unsigned long input_sym_info_size;
     unsigned long output_sym_info_size;
@@ -151,7 +163,8 @@ struct object {
 __private_extern__ struct ofile * breakout(
     char *filename,
     struct arch **archs,
-    unsigned long *narchs);
+    unsigned long *narchs,
+    enum bool calculate_input_prebind_cksum);
 
 __private_extern__ void free_archs(
     struct arch *archs,
@@ -164,7 +177,8 @@ __private_extern__ void writeout(
     unsigned short mode,
     enum bool sort_toc,
     enum bool commons_in_toc,
-    enum bool library_warnings);
+    enum bool library_warnings,
+    unsigned long *throttle);
 
 __private_extern__ void checkout(
     struct arch *archs,

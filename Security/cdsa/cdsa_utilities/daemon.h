@@ -24,25 +24,14 @@
 
 #include <Security/utilities.h>
 
-#ifdef _CPP_DEMON
-#pragma export on
-#endif
 
-
-namespace Security
-{
-
-namespace Daemon
-{
+namespace Security {
+namespace Daemon {
 
 bool incarnate();
+bool executeSelf(char **argv);
 
 } // end namespace Daemon
-
 } // end namespace Security
-
-#ifdef _CPP_DEMON
-#pragma export off
-#endif
 
 #endif //_H_DEMON

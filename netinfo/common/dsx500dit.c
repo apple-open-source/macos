@@ -188,9 +188,12 @@ dsx500dit_domainof(void *ni, void *parent)
 			if (dom != NULL)
 			{
 				ni_name_free(&tag);
+				sys_interfaces_release(ilist);
 				return dom;
 			}
 		}
+
+		sys_interfaces_release(ilist);
 	}
 
 	dom = malloc(strlen(tag) + 256);
@@ -342,11 +345,12 @@ static dsdata *
 servesdotdot(void *ni, ni_entry entry)
 {
 	ni_name name, sep;
-	ni_namelist nl;
+	ni_namelist nl, ip;
 	ni_index i;
 	ni_id id;
 	char *ref;
 	dsdata *ret;
+	int broadcast;
 
 	if (entry.names == NULL) return NULL;
 
@@ -367,11 +371,21 @@ servesdotdot(void *ni, ni_entry entry)
 			continue;
 		}
 
-		ref = (char *)malloc(sizeof("ldap:///") + strlen(nl.ninl_val[0]));
-		sprintf(ref, "ldap://%s/", nl.ninl_val[0]);
+		broadcast = 0;
+
+		if (ni_lookupprop(ni, &id, NAME_IP_ADDRESS, &ip) == NI_OK)
+		{
+			if (ni_namelist_match(ip, "255.255.255.255") != NI_INDEX_NULL)
+				broadcast = 1;
+			ni_namelist_free(&ip);
+		}
+
+		ref = (char *)malloc(broadcast + sizeof("ldap:///") + strlen(nl.ninl_val[0]));
+		sprintf(ref, "%sldap://%s/", broadcast ? "c" : "", nl.ninl_val[0]);
 		ni_namelist_free(&nl);
 
-		ret = cstring_to_dsdata(ref);
+		/* referrals are case-insensitive */
+		ret = casecstring_to_dsdata(ref);
 		free(ref);
 		return ret;
 	}
@@ -418,7 +432,7 @@ dsx500dit_getparents(void *ni, char *parent_suffix, dsattribute **refs)
 		{
 			if (*refs == NULL)
 			{
-				dsdata *key = cstring_to_dsdata(parent_suffix);
+				dsdata *key = casecstring_to_dsdata(parent_suffix);
 
 				*refs = dsattribute_new(key);
 				dsdata_release(key);
@@ -490,13 +504,13 @@ serveschild(void *nip, char *base, ni_entry entry, dsattribute ***refs, u_int32_
 		}
 
 		dn = dsx500_make_dn(base, domain);
-		_key = cstring_to_dsdata(dn);
+		_key = casecstring_to_dsdata(dn);
 		free(domain);
 		free(dn);
 
 		url = (char *)malloc(sizeof("ldap:///") + strlen(nl_name.ninl_val[0]));
 		sprintf(url, "ldap://%s/", nl_name.ninl_val[0]);
-		_url = cstring_to_dsdata(url);
+		_url = casecstring_to_dsdata(url);
 		free(url);
 
 		if (*count == 0)
@@ -665,6 +679,7 @@ dsx500dit *dsx500dit_new(dsengine *s)
 			if (ni_parse_server_tag(p, &server, &tag) == NI_PARSE_OK)
 			{
 				ni = ni_connect(&server, tag);
+				free(tag);
 			}
 		}
 		
@@ -674,7 +689,7 @@ dsx500dit *dsx500dit_new(dsengine *s)
 		/* Couldn't parse master attribute. */
 		if (ni == NULL)
 		{
-			info->local_suffix = cstring_to_dsdata("");
+			info->local_suffix = casecstring_to_dsdata("");
 			return info;
 		}
 
@@ -715,7 +730,7 @@ dsx500dit *dsx500dit_new(dsengine *s)
 		ni_free(nip);
 	}
 
-	info->local_suffix = cstring_to_dsdata(local_suffix);
+	info->local_suffix = casecstring_to_dsdata(local_suffix);
 
 	(void) dsx500dit_getparents(ni, parent_suffix, &info->parent_referrals);
 	(void) dsx500dit_getchildren(ni, local_suffix, &info->child_referrals, &info->child_count);

@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Test for an odd conditional bug.  Report from Matt Leach.
+
+. $srcdir/defs || exit 1
+
+echo 'AM_CONDITIONAL(FOO, true)' >> configure.in
+
+cat > Makefile.am << 'END'
+
+if FOO
+
+helpdir = $(prefix)/Help
+# The continuation line below must start with a Tab to see the bug.
+help_DATA = a b c d e \
+	f g h
+
+else
+
+helpdir = $(prefix)/help
+help_DATA = foo
+
+endif
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

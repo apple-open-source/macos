@@ -1,0 +1,86 @@
+-*- Text -*-
+This is the file .../info/dir, which contains the topmost node of the
+Info hierarchy.  The first time you invoke Info you start off
+looking at that node, which is (dir)Top.
+
+File: dir	Node: Top	This is the top of the INFO tree
+  This (the Directory node) gives a menu of major topics. 
+  Typing "d" returns here, "q" exits, "?" lists all INFO commands, "h" 
+  gives a primer for first-timers, "mEmacs<Return>" visits the Emacs topic,
+  etc.
+  In Emacs, you can click mouse button 2 on a menu item or cross reference
+  to select it.
+  --- PLEASE ADD DOCUMENTATION TO THIS TREE. (See INFO topic first.) ---
+
+* Menu: The list of major topics begins on the next line.
+
+Emacs
+* Ada mode: (ada-mode). The GNU Emacs mode for editing Ada.
+* Autotype: (autotype). Convenient features for text that you enter frequently
+                          in Emacs.
+* CC Mode: (ccmode).   Emacs mode for editing C, C++, Objective-C,
+                          Java, Pike, and IDL code.
+* CL: (cl).		Partial Common Lisp support for Emacs Lisp.
+* Dired-X: (dired-x).   Dired Extra Features.
+* EUDC: (eudc).   A client for directory servers (LDAP, PH)
+* Ebrowse: (ebrowse).   A C++ class browser for Emacs.
+* Ediff: (ediff).       A visual interface for comparing and merging programs.
+* Emacs: (emacs).	The extensible self-documenting text editor.
+* Emacs FAQ: (efaq).	Frequently Asked Questions about Emacs.
+* Emacs MIME: (emacs-mime).   The MIME de/composition library.
+* Eshell: (eshell).     A command shell implemented in Emacs Lisp.
+* Forms: (forms).	Emacs package for editing data bases
+			  by filling in forms.
+* Gnus: (gnus).         The newsreader Gnus.
+* IDLWAVE: (idlwave).	Major mode and shell for IDL and WAVE/CL files.
+
+* MH-E: (mh-e).		Emacs interface to the MH mail system.
+* Message: (message).   Mail and news composition mode that goes with Gnus.
+* PCL-CVS: (pcl-cvs).	Emacs front-end to CVS.
+* RefTeX: (reftex).	Emacs support for LaTeX cross-references and citations.
+* SC: (sc).		Supercite lets you cite parts of messages you're
+			  replying to, in flexible ways.
+
+
+
+* Speedbar: (speedbar).        File/Tag summarizing utility.
+* VIP: (vip).		An older VI-emulation for Emacs.
+* VIPER: (viper).       The newest Emacs VI-emulation mode.
+                          (also, A VI Plan for Emacs Rescue
+                           or the VI PERil.)
+* Widget: (widget).      Documenting the "widget" package used by the
+                           Emacs Custom facility.
+* WoMan: (woman).       Browse UN*X Manual Pages `Wo (without) Man'.
+
+
+Texinfo documentation system
+* Info: (info).                 Documentation browsing system.
+
+
+Miscellaneous
+* Screen: (screen).             Full-screen window manager.
+* Standards: (standards).        GNU coding standards.
+
+GNU admin
+* Autoconf: (autoconf).         Create source code configuration scripts
+
+Individual utilities
+* aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
+* autoconf: (autoconf)autoconf Invocation.
+                                How to create configuration scripts
+* autoreconf: (autoconf)autoreconf Invocation.
+                                Remaking multiple `configure' scripts
+* autoscan: (autoconf)autoscan Invocation.
+                                Semi-automatic `configure.ac' writing
+* config.status: (autoconf)config.status Invocation.
+                                Recreating a configuration
+* configure: (autoconf)configure Invocation.
+                                Configuring a package
+* ifnames: (autoconf)ifnames Invocation.
+                                Listing the conditionals in source code
+
+GNU programming tools
+* automake: (automake).		Making Makefile.in's
+
+Utilities
+* Bash: (bash).                     The GNU Bourne-Again SHell.

@@ -29,18 +29,24 @@
 #include <sys/modem.h>
 #endif
 
+#if 0 /* If you need that, include ntp_io.h instead */
 #if defined(STREAM)
 #include <stropts.h>
-#if defined(CLK)
+#if defined(CLK) /* This is never defined, except perhaps by a system header file */
 #include <sys/clkdefs.h>
 #endif /* CLK */
 #endif /* STREAM */
+#endif
 
 #include "recvbuff.h"
 
 #if !defined(SYSV_TTYS) && !defined(STREAM) & !defined(BSD_TTYS)
 #define BSD_TTYS
 #endif /* SYSV_TTYS STREAM BSD_TTYS */
+
+#define SAMPLE(x)	pp->filter[pp->coderecv++ % MAXSTAGE] = (x); \
+			if (pp->coderecv % MAXSTAGE == pp->codeproc % MAXSTAGE) \
+				pp->codeproc++;
 
 /*
  * Macros to determine the clock type and unit numbers from a
@@ -160,8 +166,8 @@ struct refclockbug {
 #define LDISC_CLK	0x1	/* tty_clk \n intercept */
 #define LDISC_CLKPPS	0x2	/* tty_clk \377 intercept */
 #define LDISC_ACTS	0x4	/* tty_clk #* intercept */
-#define LDISC_CHU	0x8	/* tty_chu */
-#define LDISC_PPS	0x10	/* ppsclock */
+#define LDISC_CHU	0x8	/* depredated */
+#define LDISC_PPS	0x10	/* ppsclock, ppsapi */
 #define LDISC_RAW	0x20	/* raw binary */
 
 struct refclockproc {
@@ -183,15 +189,14 @@ struct refclockproc {
 	int	second;		/* second of minute */
 	int	msec;		/* millisecond of second */
 	long	usec;		/* microsecond of second (alt) */
-	int	nstages;	/* median filter stages */
-	int	nskeep;		/* trimmed filter stages */
 	u_long	yearstart;	/* beginning of year */
-	u_long	coderecv;	/* sample counter */
+	int	coderecv;	/* put pointer */
+	int	codeproc;	/* get pointer */
 	l_fp	lastref;	/* timecode timestamp */
 	l_fp	lastrec;	/* local timestamp */
 	double	offset;		/* mean offset */
 	double	disp;		/* sample dispersion */
-	double	variance;	/* sample variance */
+	double	jitter;		/* jitter (mean squares) */
 	double	filter[MAXSTAGE]; /* median filter */
 
 	/*
@@ -237,10 +242,7 @@ struct refclock {
 /*
  * auxiliary PPS interface (implemented by refclock_atom())
  */
-#ifdef PPS_SAMPLE
-extern int pps_sample P((l_fp *));
-#endif
-
+extern	int	pps_sample P((l_fp *));
 extern	int	io_addclock_simple P((struct refclockio *));
 extern	int	io_addclock	P((struct refclockio *));
 extern	void	io_closeclock	P((struct refclockio *));
@@ -255,8 +257,7 @@ extern	int	refclock_open	P((char *, int, int));
 extern	void	refclock_transmit P((struct peer *));
 extern	int	refclock_ioctl	P((int, int));
 extern 	int	refclock_process P((struct refclockproc *));
-extern 	int	refclock_process_offset P((struct refclockproc *, l_fp, l_fp, double));
-extern 	void	refclock_sample P((struct refclockproc *));
+extern 	void	refclock_process_offset P((struct refclockproc *, l_fp, l_fp, double));
 extern	void	refclock_report	P((struct peer *, int));
 extern	int	refclock_gtlin	P((struct recvbuf *, char *, int,
 				    l_fp *));

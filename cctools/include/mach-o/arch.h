@@ -21,6 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef _MACH_O_ARCH_H_
+#define _MACH_O_ARCH_H_
 /*
  * Copyright (c) 1997 Apple Computer, Inc.
  *
@@ -28,8 +30,8 @@
  *
  */
 
-#import <mach/machine.h>
-#import <architecture/byte_order.h>
+#include <mach/machine.h>
+#include <architecture/byte_order.h>
 
 /* The NXArchInfo structs contain the architectures symbolic name
  * (such as "ppc"), its CPU type and CPU subtype as defined in
@@ -99,3 +101,5 @@ extern cpu_subtype_t NXCombineCpuSubtypes(cpu_type_t cputype,
 #if __cplusplus
 };
 #endif /* __cplusplus */
+
+#endif /* _MACH_O_ARCH_H_ */

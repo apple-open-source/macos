@@ -4,14 +4,20 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifeq "mwcc" "$(notdir $(CC))"
+
+ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I../include
 else
   CFLAGS = $(OFLAG) -g -Wall -I../include -Wno-precomp $(X_CFLAGS)
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -46,10 +52,15 @@ all:	$(OFILE_DIR) $(SYMROOT) mkshlib.NEW cmpshlib.NEW hack_libgcc.NEW
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) mkshlib > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 mkshlib.NEW: $(MKOBJS) vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \

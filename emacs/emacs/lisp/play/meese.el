@@ -3,8 +3,18 @@
 ;; This is in the public domain on account of being distributed since
 ;; 1985 or 1986 without a copyright notice.
 
+;; This file is part of GNU Emacs.
+
 ;; Maintainer: FSF
 ;; Keywords: games
+
+;;; Commentary:
+
+;; Adds a hook to protect the impressionable young minds of America
+;; from reading certain files in the Emacs distribution using Emacs.
+
+;; This file is named after Ed Meese, the US Attorney General
+;; under President Reagan, because of his support for censorship.
 
 ;;; Code:
 

@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacResource.r,v 1.1.1.3 2000/04/12 02:02:40 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacResource.r,v 1.1.1.4 2002/04/05 16:13:47 jevans Exp $
  */
 
 #include <Types.r>
@@ -40,20 +40,6 @@
 #   define MINOR_VERSION TCL_MINOR_VERSION * 16
 #endif
 
-resource 'vers' (1) {
-	TCL_MAJOR_VERSION, MINOR_VERSION,
-	RELEASE_LEVEL, 0x00, verUS,
-	TCL_PATCH_LEVEL,
-	TCL_PATCH_LEVEL ", by Ray Johnson & Jim Ingham © Scriptics Inc."
-};
-
-resource 'vers' (2) {
-	TCL_MAJOR_VERSION, MINOR_VERSION,
-	RELEASE_LEVEL, 0x00, verUS,
-	TCL_PATCH_LEVEL,
-	"Simple Tcl Shell " TCL_PATCH_LEVEL " © 1996 - 1999"
-};
-
 
 /* 
  * The mechanisim below loads Tcl source into the resource fork of the
@@ -68,23 +54,4 @@ resource 'vers' (2) {
  */
 
 #include "tclMacTclCode.r"
-
-/*
- * The following resource is used when creating the 'env' variable in
- * the Macintosh environment.  The creation mechanisim looks for the
- * 'STR#' resource named "Tcl Environment Variables" rather than a
- * specific resource number.  (In other words, feel free to change the
- * resource id if it conflicts with your application.)  Each string in
- * the resource must be of the form "KEYWORD=SOME STRING".  See Tcl
- * documentation for futher information about the env variable.
- *
- * A good example of something you may want to set is: "TCL_LIBRARY=My
- * disk:etc."
- */
- 
-resource 'STR#' (128, "Tcl Environment Variables") {
-	{	"SCHEDULE_NAME=Agent Controller Schedule",
-		"SCHEDULE_PATH=Lozoya:System Folder:Tcl Lib:Tcl-Scheduler"
-	};
-};
 

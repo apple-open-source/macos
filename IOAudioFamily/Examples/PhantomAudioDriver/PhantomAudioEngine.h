@@ -53,8 +53,10 @@ class PhantomAudioEngine : public IOAudioEngine
 {
     OSDeclareDefaultStructors(PhantomAudioEngine)
     
-    UInt32							bufSize;
-    void							*commonBuffer;
+    UInt32							outputBufferSize;
+    UInt32							inputBufferSize;
+    void							*outputBuffer;
+    void							*inputBuffer;
     
     IOTimerEventSource				*timerEventSource;
     
@@ -62,6 +64,8 @@ class PhantomAudioEngine : public IOAudioEngine
     UInt32							numBlocks;
     UInt32							currentBlock;
     UInt32							blockTimeoutUS;
+    
+    bool							duringHardwareInit;
     
 public:
 

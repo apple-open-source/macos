@@ -1,3 +1,5 @@
+#ifndef _S_NICACHE_H
+#define _S_NICACHE_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -156,3 +158,4 @@ PLCacheEntry_t *
 				      struct timeval * tv_p, 
 				      struct in_addr iaddr);
 
+#endif _S_NICACHE_H

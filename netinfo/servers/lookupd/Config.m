@@ -29,12 +29,12 @@
  * Written by Marc Majka
  */
 
-
 #import "Config.h"
-#import "NIAgent.h"
-#import "FFParser.h"
+#import "LUAgent.h"
+#import "Thread.h"
 #import "sys.h"
 #import <NetInfo/dsutil.h>
+#import <netinfo/ni.h>
 #import <NetInfo/nilib2.h>
 #import <string.h>
 #import <stdlib.h>
@@ -43,14 +43,6 @@
 #import <sys/param.h>
 #import <sys/dir.h>
 #import <arpa/inet.h>
-
-#ifdef NOTYET
-static int
-configd_running()
-{
-	return sys_server_running("System Configuration Server");
-}
-#endif
 
 @implementation Config
 
@@ -86,12 +78,12 @@ configd_running()
 	[d setBanner:"Global Configuration"];
 	[d setValue:"Global Configuration" forKey:"_config_name"];
 	[d setValue:"default" forKey:"ConfigSource"];
-	[d setValue:"CacheAgent" forKey:"LookupOrder"];
-	[d addValue:"NIAgent" forKey:"LookupOrder"];
-	[d addValue:"DSAgent" forKey:"LookupOrder"];
-	[d setValue:"16" forKey:"MaxThreads"];
-	[d setValue:"16" forKey:"MaxIdleThreads"];
-	[d setValue:"16" forKey:"MaxIdleServers"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
+	[d setValue:"64" forKey:"MaxThreads"];
+	[d setValue:"2" forKey:"MaxIdleThreads"];
+	[d setValue:"4" forKey:"MaxIdleServers"];
 	[d setValue:"YES" forKey:"ValidateCache"];
 	[d setValue:"15" forKey:"ValidationLatency"];
 	[d setValue:"43200" forKey:"TimeToLive"];
@@ -102,10 +94,41 @@ configd_running()
 	[cdict addObject:d];
 	[d setBanner:"Host Configuration"];
 	[d setValue:"Host Configuration" forKey:"_config_name"];
-	[d setValue:"CacheAgent" forKey:"LookupOrder"];
-	[d addValue:"DNSAgent" forKey:"LookupOrder"];
-	[d addValue:"NIAgent" forKey:"LookupOrder"];
-	[d addValue:"DSAgent" forKey:"LookupOrder"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"FF" forKey:"LookupOrder"];
+	[d addValue:"DNS" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
+	[d release];
+
+	d = [[LUDictionary alloc] init];
+	[cdict addObject:d];
+	[d setBanner:"Service Configuration"];
+	[d setValue:"Service Configuration" forKey:"_config_name"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"FF" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
+	[d release];
+
+	d = [[LUDictionary alloc] init];
+	[cdict addObject:d];
+	[d setBanner:"Protocol Configuration"];
+	[d setValue:"Protocol Configuration" forKey:"_config_name"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"FF" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
+	[d release];
+
+	d = [[LUDictionary alloc] init];
+	[cdict addObject:d];
+	[d setBanner:"Rpc Configuration"];
+	[d setValue:"Rpc Configuration" forKey:"_config_name"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"FF" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
 	[d release];
 
 	d = [[LUDictionary alloc] init];
@@ -118,19 +141,21 @@ configd_running()
 
 	d = [[LUDictionary alloc] init];
 	[cdict addObject:d];
-	[d setBanner:"Network Configuration"];
-	[d setValue:"Network Configuration" forKey:"_config_name"];
-	[d setValue:"CacheAgent" forKey:"LookupOrder"];
-	[d addValue:"DNSAgent" forKey:"LookupOrder"];
-	[d addValue:"NIAgent" forKey:"LookupOrder"];
-	[d addValue:"DSAgent" forKey:"LookupOrder"];
+	[d setBanner:"Initgroup Configuration"];
+	[d setValue:"Initgroup Configuration" forKey:"_config_name"];
+	[d setValue:"NO" forKey:"ValidateCache"];
+	[d addValue:"300" forKey:"TimeToLive"];
 	[d release];
 
 	d = [[LUDictionary alloc] init];
 	[cdict addObject:d];
-	[d setBanner:"NIAgent Configuration"];
-	[d setValue:"NIAgent Configuration" forKey:"_config_name"];
-	[d setValue:"300" forKey:"ConnectTimeout"];
+	[d setBanner:"Network Configuration"];
+	[d setValue:"Network Configuration" forKey:"_config_name"];
+	[d setValue:"Cache" forKey:"LookupOrder"];
+	[d addValue:"FF" forKey:"LookupOrder"];
+	[d addValue:"DNS" forKey:"LookupOrder"];
+	[d addValue:"NI" forKey:"LookupOrder"];
+	[d addValue:"DS" forKey:"LookupOrder"];
 	[d release];
 }
 
@@ -273,6 +298,8 @@ configd_running()
 			c = [self dictForAgent:agent category:LUCategoryAlias fromConfig:cdict];
 		else if (streq(name, "netgroups"))
 			c = [self dictForAgent:agent category:LUCategoryNetgroup fromConfig:cdict];
+		else if (streq(name, "initgroups"))
+			c = [self dictForAgent:agent category:LUCategoryInitgroups fromConfig:cdict];
 
 		if (c != nil) [self readDict:c fromNetInfo:el.ni_entrylist_val[i].id];
 	}
@@ -383,31 +410,103 @@ configd_running()
 	return s;
 }
 
+- (char **)tokensFromLine:(const char *)data separator:(const char *)sep
+	stopAtPound:(BOOL)trail
+{
+	char **tokens = NULL;
+	const char *p;
+	int i, j, len;
+	char buf[4096];
+	BOOL scanning;
+
+	if (data == NULL) return NULL;
+	if (sep == NULL)
+	{
+		tokens = appendString((char *)data, tokens);
+		return tokens;
+	}
+
+	len = strlen(sep);
+
+	p = data;
+
+	while (p[0] != '\0')
+	{
+		/* skip leading white space */
+		while ((p[0] == ' ') || (p[0] == '\t') || (p[0] == '\n')) p++;
+
+		/* check for end of line */
+		if ((trail == YES && p[0] == '#') || p[0] == '\0')
+			break;
+
+		/* copy data */
+		i = 0;
+		scanning = YES;
+		for (j = 0; (j < len) && scanning; j++)
+		{
+			if (p[0] == sep[j] || (p[0] == '\0')) scanning = NO;
+		}
+
+		while (scanning)
+		{
+			buf[i++] = p[0];
+			p++;
+			for (j = 0; (j < len) && scanning; j++)
+			{
+				if (p[0] == sep[j] || (p[0] == '\0')) scanning = NO;
+			}
+		}
+	
+		/* back over trailing whitespace */
+		i--;
+		while ((buf[i] == ' ') || (buf[i] == '\t') || (buf[i] == '\n')) i--;
+		buf[++i] = '\0';
+	
+		tokens = appendString(buf, tokens);
+
+		/* check for end of line */
+		if (p[0] == '\0') break;
+
+		/* skip separator */
+		scanning = YES;
+		for (j = 0; (j < len) && scanning; j++)
+		{
+			if (p[0] == sep[j])
+			{
+				p++;
+				scanning = NO;
+			}
+		}
+
+		if ((!scanning) && p[0] == '\0')
+		{
+			/* line ended at a separator - add a null member */
+			tokens = appendString("", tokens);
+			return tokens;
+		}
+	}
+	return tokens;
+}
+
 - (void)readDict:(LUDictionary *)dict fromFile:(FILE *)fp
 {
 	char *line;
 	char **tokens;
-	FFParser *parser;
 
 	if (fp == NULL) return;
 	if (dict == nil) return;
-
-	parser = [[FFParser alloc] init];
-	[parser setBanner:"configForFilePath parser"];
 
 	while (NULL != (line = [self getLineFromFile:fp]))
 	{
 		if (line[0] == '#') continue;
 
-		tokens = [parser tokensFromLine:line separator:" \t"];
+		tokens = [self tokensFromLine:line separator:" \t" stopAtPound:NO];
 		if (tokens == NULL) continue;
 
 		[dict setValues:(tokens+1) forKey:tokens[0]];
 		freeList(tokens);
 		tokens = NULL;
 	}
-
-	[parser release];
 }
 
 - (void)loadAgent:(char *)agent fromFile:(char *)path
@@ -456,6 +555,8 @@ configd_running()
 			c = [self dictForAgent:agent category:LUCategoryAlias fromConfig:cdict];
 		else if (streq(d->d_name, "netgroups"))
 			c = [self dictForAgent:agent category:LUCategoryNetgroup fromConfig:cdict];
+		else if (streq(d->d_name, "initgroups"))
+			c = [self dictForAgent:agent category:LUCategoryInitgroups fromConfig:cdict];
 
 		if (c != nil)
 		{
@@ -521,34 +622,22 @@ configd_running()
 /*
  * Finds a source for configuration info.
  *
- * If configd is running, use configd.
+ * If there is a directory named "/etc/lookupd", use that
  * else if NetInfo has a directory named "/config/lookupd", use that
  * else if NetInfo has a directory named "/locations/lookupd", use that
- * else if there is a directory named "/etc/lookupd", use that
  * else use defaults.
  */
 - (void)selectConfigSource
 {
-	void *d;
 	ni_id nid;
 	struct stat st;
-	BOOL found;
-	NIAgent *ni;
+	ni_status status;
 
 	source = configSourceDefault;
 	if (sourcePath != NULL) freeString(sourcePath);
 	sourcePath = NULL;
 	if (sourceDomain != NULL) ni_free(sourceDomain);
 	sourceDomain = NULL;
-
-#ifdef NOTYET
-	/* Check configd */
-	if (configd_running())
-	{
-		source = configSourceConfigd;
-		return;
-	}
-#endif
 
 	/* Check file:/etc/lookupd */
 	if (stat("/etc/lookupd", &st) == 0)
@@ -561,37 +650,33 @@ configd_running()
 		}
 	}
 
-#ifndef WE_DONT_NEED_NO_STINKING_NETINFO
-	ni = [[NIAgent alloc] init];
-
 	/* Check netinfo:/config/lookupd */
-	found = [ni findDirectory:"/config/lookupd" domain:&d nidir:&nid];
-	if (found)
+	syslock_lock(rpcLock);
+	status = ni_find(&sourceDomain, &nid, "/config/lookupd", 30);
+	syslock_unlock(rpcLock);
+	if (status == NI_OK)
 	{
 		source = configSourceNetInfo;
 		sourcePath = copyString("/config/lookupd");
-		ni_open(d, ".", &sourceDomain);
-		[ni release];
 		return;
 	}
 
 	/* Check netinfo:/locations/lookupd */
-	found = [ni findDirectory:"/locations/lookupd" domain:&d nidir:&nid];
-	if (found)
+	syslock_lock(rpcLock);
+	status = ni_find(&sourceDomain, &nid, "/locations/lookupd", 30);
+	syslock_unlock(rpcLock);
+	if (status == NI_OK)
 	{
 		source = configSourceNetInfo;
 		sourcePath = copyString("/locations/lookupd");
-		ni_open(d, ".", &sourceDomain);
-		[ni release];
 		return;
 	}
-
-	[ni release];
-#endif
 }
 
 - (BOOL)setConfigSource:(int)src path:(char *)path domain:(char *)domain
 {
+	ni_status status; 
+
 	if (didSetConfig) return NO;
 
 	didSetConfig = YES;
@@ -617,7 +702,7 @@ configd_running()
 		if (domain != NULL)
 		{
 			syslock_lock(rpcLock);
-			sourceDomain = niHandleForName(domain);
+			status = ni_open(NULL, domain, &sourceDomain);
 			syslock_unlock(rpcLock);
 		}
 	}
@@ -711,10 +796,9 @@ configd_running()
 {
 	[super init];
 
-	generation = 0;
-
 	cdict = [[LUArray alloc] init];
-	[cdict setBanner:"Configuration 0"];
+	[cdict setBanner:"Configuration"];
+
 	[self initDefaults];
 
 	didSetConfig = NO;
@@ -728,33 +812,4 @@ configd_running()
 	return self;
 }
 
-- (unsigned int)generation
-{
-	return generation;
-}
-
-- (void)reset
-{
-	char *path, *domain;
-	char str[64];
-
-	generation++;
-
-	if (cdict != nil) [cdict release];
-	cdict = [[LUArray alloc] init];
-	sprintf(str, "Configuration %u", generation);
-	[cdict setBanner:str];
-	[self initDefaults];
-
-	didSetConfig = NO;
-
-	path = copyString(sourcePath);
-	domain = copyString(sourceDomainName);
-
-	[self setConfigSource:initsource path:path domain:domain];
-
-	free(path);
-	free(domain);
-}
-	
 @end

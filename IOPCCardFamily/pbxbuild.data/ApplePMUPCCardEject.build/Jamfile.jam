@@ -1,20 +1,27 @@
-# Jamfile for target ApplePMUPCCardEject of project IOPCCardFamily
+# Jamfile for target "ApplePMUPCCardEject" of project "IOPCCardFamily"
 
-
-PROJECT = IOPCCardFamily ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# ApplePMUPCCardEject target
-export deferred TARGET_NAME = ApplePMUPCCardEject ;
-export deferred PRODUCT_NAME = ApplePMUPCCardEject ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOPCCardFamily ;
 
-export deferred PKGINFO_FILE_CONTENTS = "KEXT????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/pbdevelopment.plist" ;
+# User-defined project-wide settings for project
 
+# Target "ApplePMUPCCardEject"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "ApplePMUPCCardEject"
 export deferred CLONE_HEADERS = NO ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = ApplePMUPCCardEject ;
+
+# User-defined build settings for target "ApplePMUPCCardEject"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
@@ -41,13 +48,14 @@ if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
 commitdeferred ;
 
 
 BeginBundle "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -67,7 +75,7 @@ FRAMEWORKS_AND_LIBRARIES = ;
 ProcessFrameworksAndLibraries "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePMUPCCardEject.build/BPTag005-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag005-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag004 : BPTag005 ;
 
 EndBundle "<ApplePMUPCCardEject>ApplePMUPCCardEject.kext" ;

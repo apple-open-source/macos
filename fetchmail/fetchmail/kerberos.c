@@ -69,9 +69,9 @@ int do_rfc1731(int sock, char *command, char *truename)
 	return result;
     }
 
-    len = from64tobits(challenge1.cstr, buf1);
+    len = from64tobits(challenge1.cstr, buf1, sizeof(challenge1.cstr));
     if (len < 0) {
-	report(stderr, _("could not decode initial BASE64 challenge\n"));
+	report(stderr, GT_("could not decode initial BASE64 challenge\n"));
 	return PS_AUTHFAIL;
     }
 
@@ -136,7 +136,7 @@ int do_rfc1731(int sock, char *command, char *truename)
      */
     if (strcmp(tktuser, user) != 0) {
 	report(stderr, 
-	       _("principal %s in ticket does not match -u %s\n"), tktuser,
+	       GT_("principal %s in ticket does not match -u %s\n"), tktuser,
 		user);
 	return PS_AUTHFAIL;
     }
@@ -144,7 +144,7 @@ int do_rfc1731(int sock, char *command, char *truename)
 
     if (tktinst[0]) {
 	report(stderr, 
-	       _("non-null instance (%s) might cause strange behavior\n"),
+	       GT_("non-null instance (%s) might cause strange behavior\n"),
 		tktinst);
 	strcat(tktuser, ".");
 	strcat(tktuser, tktinst);
@@ -208,16 +208,16 @@ int do_rfc1731(int sock, char *command, char *truename)
      * process is complete.
      */
 
-    len = from64tobits(buf2, buf1);
+    len = from64tobits(buf2, buf1, sizeof(buf2));
     if (len < 0) {
-	report(stderr, _("could not decode BASE64 ready response\n"));
+	report(stderr, GT_("could not decode BASE64 ready response\n"));
 	return PS_AUTHFAIL;
     }
 
     des_ecb_encrypt((des_cblock *)buf2, (des_cblock *)buf2, schedule, 0);
     memcpy(challenge2.cstr, buf2, 4);
     if (ntohl(challenge2.cint) != challenge1.cint + 1) {
-	report(stderr, _("challenge mismatch\n"));
+	report(stderr, GT_("challenge mismatch\n"));
 	return PS_AUTHFAIL;
     }	    
 

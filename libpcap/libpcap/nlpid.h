@@ -15,7 +15,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/nlpid.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (Juniper)
+ * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/nlpid.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (Juniper)
  */
 
 /* Types missing from some systems */

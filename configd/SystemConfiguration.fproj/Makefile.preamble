@@ -137,7 +137,7 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # DSTROOT = $(HOME)
 
 # Additional flags for MiG generated files
-OTHER_PROJECT_HEADERS += config.defs config.h
+OTHER_PRIVATE_HEADERS += config.defs config.h
 
 OTHER_PRIVATE_HEADERS += SCPrivate.h
 OTHER_PRIVATE_HEADERS += SCDynamicStorePrivate.h
@@ -145,8 +145,7 @@ OTHER_PRIVATE_HEADERS += SCDynamicStoreSetSpecificPrivate.h
 OTHER_PRIVATE_HEADERS += SCPreferencesPrivate.h
 OTHER_PRIVATE_HEADERS += SCValidation.h
 OTHER_PRIVATE_HEADERS += SCDPlugin.h
-OTHER_PRIVATE_HEADERS += SCDynamicStoreCopyDHCPInfo.h
-OTHER_PRIVATE_HEADERS += DHCPClientPreferences.h
+OTHER_PRIVATE_HEADERS += DeviceOnHold.h
 
 #  
 # XXX INSTALL V1 COMPATIBILITY HEADERS XXX

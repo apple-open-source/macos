@@ -1,0 +1,140 @@
+\section{\module{math} ---
+         Mathematical functions}
+
+\declaremodule{builtin}{math}
+\modulesynopsis{Mathematical functions (\function{sin()} etc.).}
+
+This module is always available.  It provides access to the
+mathematical functions defined by the C standard.
+
+These functions cannot be used with complex numbers; use the functions
+of the same name from the \refmodule{cmath} module if you require
+support for complex numbers.  The distinction between functions which
+support complex numbers and those which don't is made since most users
+do not want to learn quite as much mathematics as required to
+understand complex numbers.  Receiving an exception instead of a
+complex result allows earlier detection of the unexpected complex
+number used as a parameter, so that the programmer can determine how
+and why it was generated in the first place.
+
+The following functions provided by this module:
+
+\begin{funcdesc}{acos}{x}
+Return the arc cosine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{asin}{x}
+Return the arc sine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{atan}{x}
+Return the arc tangent of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{atan2}{y, x}
+Return \code{atan(\var{y} / \var{x})}.
+\end{funcdesc}
+
+\begin{funcdesc}{ceil}{x}
+Return the ceiling of \var{x} as a float.
+\end{funcdesc}
+
+\begin{funcdesc}{cos}{x}
+Return the cosine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{cosh}{x}
+Return the hyperbolic cosine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{exp}{x}
+Return \code{e**\var{x}}.
+\end{funcdesc}
+
+\begin{funcdesc}{fabs}{x}
+Return the absolute value of the floating point number \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{floor}{x}
+Return the floor of \var{x} as a float.
+\end{funcdesc}
+
+\begin{funcdesc}{fmod}{x, y}
+Return \code{fmod(\var{x}, \var{y})}, as defined by the platform C library.
+Note that the Python expression \code{\var{x} \%\ \var{y}} may not return
+the same result.
+\end{funcdesc}
+
+\begin{funcdesc}{frexp}{x}
+% Blessed by Tim.
+Return the mantissa and exponent of \var{x} as the pair
+\code{(\var{m}, \var{e})}.  \var{m} is a float and \var{e} is an
+integer such that \code{\var{x} == \var{m} * 2**\var{e}}.
+If \var{x} is zero, returns \code{(0.0, 0)}, otherwise
+\code{0.5 <= abs(\var{m}) < 1}.
+\end{funcdesc}
+
+\begin{funcdesc}{hypot}{x, y}
+Return the Euclidean distance, \code{sqrt(\var{x}*\var{x} + \var{y}*\var{y})}.
+\end{funcdesc}
+
+\begin{funcdesc}{ldexp}{x, i}
+Return \code{\var{x} * (2**\var{i})}.
+\end{funcdesc}
+
+\begin{funcdesc}{log}{x}
+Return the natural logarithm of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{log10}{x}
+Return the base-10 logarithm of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{modf}{x}
+Return the fractional and integer parts of \var{x}.  Both results
+carry the sign of \var{x}.  The integer part is returned as a float.
+\end{funcdesc}
+
+\begin{funcdesc}{pow}{x, y}
+Return \code{\var{x}**\var{y}}.
+\end{funcdesc}
+
+\begin{funcdesc}{sin}{x}
+Return the sine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{sinh}{x}
+Return the hyperbolic sine of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{sqrt}{x}
+Return the square root of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{tan}{x}
+Return the tangent of \var{x}.
+\end{funcdesc}
+
+\begin{funcdesc}{tanh}{x}
+Return the hyperbolic tangent of \var{x}.
+\end{funcdesc}
+
+Note that \function{frexp()} and \function{modf()} have a different
+call/return pattern than their C equivalents: they take a single
+argument and return a pair of values, rather than returning their
+second return value through an `output parameter' (there is no such
+thing in Python).
+
+The module also defines two mathematical constants:
+
+\begin{datadesc}{pi}
+The mathematical constant \emph{pi}.
+\end{datadesc}
+
+\begin{datadesc}{e}
+The mathematical constant \emph{e}.
+\end{datadesc}
+
+\begin{seealso}
+  \seemodule{cmath}{Complex number versions of many of these functions.}
+\end{seealso}

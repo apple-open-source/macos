@@ -80,30 +80,7 @@ OSErr SearchBTreeRecord(SFCB *fcb, const void* key, UInt32 hint, void* foundKey,
 	
 	resultIterator = &btcb->lastIterator;
 
-	//	We only optimize for catalog records
-#if 0
-	if( btRecord.itemSize == sizeof(CatalogRecord) )
-	{
-		UInt32	heuristicHint;
-		UInt32	*cachedHint;
-		Ptr		hintCachePtr = ((SVCB*)fcb->fcbVolume)->hintCachePtr;
-
-		//	We pass a 2nd hint/guess into BTSearchRecord.  The heuristicHint is a mapping of
-		//	dirID and nodeNumber, in hopes that the current search will be in the same node
-		//	as the last search with the same parentID.
-		result = GetMRUCacheBlock( ((HFSCatalogKey *)key)->parentID, hintCachePtr, (Ptr *)&cachedHint );
-		heuristicHint = (result == noErr) ? *cachedHint : kInvalidMRUCacheKey;
-
-		result = BTSearchRecord( fcb, &searchIterator, heuristicHint, &btRecord, dataSize, resultIterator );
-
-		InsertMRUCacheBlock( hintCachePtr, ((HFSCatalogKey *)key)->parentID, (Ptr) &(resultIterator->hint.nodeNum) );
-	}
-	else
-#endif
-	{
-		result = BTSearchRecord( fcb, &searchIterator, kInvalidMRUCacheKey, &btRecord, dataSize, resultIterator );
-	}
-
+	result = BTSearchRecord( fcb, &searchIterator, kInvalidMRUCacheKey, &btRecord, dataSize, resultIterator );
 	if (result == noErr)
 	{
 		if (newHint != NULL)
@@ -328,9 +305,10 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 
 	OSStatus	result;
 	UInt32		actualSectorsAdded;
-	UInt32		bytesToAdd;
-	UInt32		fileSize;				//	in sectors
+	UInt64		bytesToAdd;
+	UInt64		fileSize;				//	in sectors
 	SVCB *		vcb;
+	UInt32		flags;
 
 
 	if ( minEOF > filePtr->fcbLogicalSize )
@@ -348,7 +326,18 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 	}
 
 	vcb = filePtr->fcbVolume;
-	result = ExtendFileC ( vcb, filePtr, (bytesToAdd+511)>>9, kEFNoClumpMask, &actualSectorsAdded );
+	
+	flags = kEFNoClumpMask;
+	
+	// Due to time contraints we force the new rebuilt catalog file to be contiguous.
+	// It's hard to handle catalog file in extents because we have to do a swap 
+	// of the old catalog file with the rebuilt catalog file at the end of
+	// the rebuild process.  Extent records use the file ID as part of the key so 
+	// it would be messy to fix them after the swap.
+	if ( filePtr->fcbFileID == kHFSRepairCatalogFileID )
+		flags |= kEFContigMask;
+	
+	result = ExtendFileC ( vcb, filePtr, (bytesToAdd+511)>>9, flags, &actualSectorsAdded );
 	ReturnIfError(result);
 
 	filePtr->fcbLogicalSize = filePtr->fcbPhysicalSize;	// new B-tree looks at fcbEOF
@@ -371,6 +360,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 		if (	(filePtr->fcbFileID == kHFSExtentsFileID) 
 			 ||	(filePtr->fcbFileID == kHFSCatalogFileID)
 			 ||	(filePtr->fcbFileID == kHFSStartupFileID)
+			 ||	(filePtr->fcbFileID == kHFSRepairCatalogFileID)
 			 ||	(filePtr->fcbFileID == kHFSAttributesFileID) )
 		{
 			MarkVCBDirty( vcb );
@@ -391,7 +381,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 			if ( result == noErr )
 				result = ZeroFileBlocks( vcb, filePtr, fileSize - actualSectorsAdded, actualSectorsAdded );
 		}
-		else if ( filePtr->fcbFileID == kHFSCatalogFileID )
+		else if ( filePtr->fcbFileID == kHFSCatalogFileID || filePtr->fcbFileID == kHFSRepairCatalogFileID )
 		{
 		//	vcb->vcbCTAlBlks = filePtr->fcbPhysicalSize / vcb->vcbBlockSize;
 			MarkVCBDirty( vcb );

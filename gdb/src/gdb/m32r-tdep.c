@@ -1,5 +1,5 @@
 /* Target-dependent code for the Mitsubishi m32r for GDB, the GNU debugger.
-   Copyright 1996, Free Software Foundation, Inc.
+   Copyright 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,6 +28,7 @@
 #include "gdb_string.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "regcache.h"
 
 /* Function: m32r_use_struct_convention
    Return nonzero if call_function should allocate stack space for a
@@ -59,7 +60,7 @@ dump_insn (char *commnt, CORE_ADDR pc, int insn)
 {
   printf_filtered ("  %s %08x %08x ",
 		   commnt, (unsigned int) pc, (unsigned int) insn);
-  (*tm_print_insn) (pc, &tm_print_insn_info);
+  TARGET_PRINT_INSN (pc, &tm_print_insn_info);
   printf_filtered ("\n");
 }
 #define insn_debug(args) { printf_filtered args; }
@@ -417,7 +418,7 @@ m32r_init_extra_frame_info (struct frame_info *fi)
     }
 }
 
-/* Function: mn10300_virtual_frame_pointer
+/* Function: m32r_virtual_frame_pointer
    Return the register that the function uses for a frame pointer, 
    plus any necessary offset to be applied to the register before
    any frame pointer offsets.  */
@@ -591,7 +592,7 @@ m32r_frame_saved_pc (struct frame_info *fi)
    passed as an implicit first argument, always in R0. */
 
 CORE_ADDR
-m32r_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+m32r_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     unsigned char struct_return, CORE_ADDR struct_addr)
 {
   int stack_offset, stack_alloc;
@@ -674,7 +675,7 @@ m32r_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 
 void
 m32r_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun, int nargs,
-		     value_ptr *args, struct type *type, int gcc_p)
+		     struct value **args, struct type *type, int gcc_p)
 {
   /* ld24 r8, <(imm24) fun> */
   *(unsigned long *) (dummy) = (fun & 0x00ffffff) | 0xe8000000;

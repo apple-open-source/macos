@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: basic.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: basic.c,v 1.2 2002/01/03 22:16:38 jevans Exp $";
 #endif
 /*
  * Program:	Cursor manipulation functions
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: basic.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -50,6 +50,7 @@ static char rcsid[] = "$Id: basic.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
 #include	"estruct.h"
 #include        "edef.h"
 #include        "pico.h"
+#include        "efunc.h"
 
 
 #ifdef	ANSI
@@ -82,31 +83,26 @@ int             f;
 register int    n;
 {
     register LINE   *lp;
-    register int    status;
 
     if (n < 0)
       return (forwchar(f, -n));
 
     while (n--) {
 	if (curwp->w_doto == 0) {
-	    if ((lp=lback(curwp->w_dotp)) == curbp->b_linep)
-	      if(Pmaster){
-		  /*
-		   * go up into editing the mail header if on 
-		   * the top line and the user hits the left arrow!!!
-		   *
-		   * if the editor returns anything except -1, the 
-		   * user requested something special, so let 
-		   * pico know...
-		   */
-		  if((status = HeaderEditor(2, 1)) != -1){
-		      return(META|status);
-		  }
-		  else
-		    return (FALSE);
-	      }
-	      else
-		return (FALSE);
+	    if ((lp=lback(curwp->w_dotp)) == curbp->b_linep){
+		if(Pmaster)
+		    /*
+		     * go up into editing the mail header if on 
+		     * the top line and the user hits the left arrow!!!
+		     *
+		     * if the editor returns anything except -1, the 
+		     * user requested something special, so let 
+		     * pico know...
+		     */
+		  return((HeaderEditor(2, 1) == -2) ? forwpage(0, 1) : FALSE);
+		else
+		  return (FALSE);
+	    }
 
 	    curwp->w_dotp  = lp;
 	    curwp->w_doto  = llength(lp);
@@ -247,7 +243,7 @@ backline(f, n)
 int f, n;
 {
     register LINE   *dlp;
-    register int    status;
+    register int    status = 0;
 
     if (n < 0)
       return (forwline(f, -n));
@@ -257,15 +253,12 @@ int f, n;
 	 * go up into editing the mail header if on the top line
 	 * and the user hits the up arrow!!!
 	 */
-	if (lback(curwp->w_dotp) == curbp->b_linep){
-	    /*
-	     * if the editor returns anything except -1 then the user
-	     * has requested something special, so let pico know...
-	     */
-	    if((status = HeaderEditor(1, 1)) != -1){
-		return(META|status);
-	    }
-	}
+	if (lback(curwp->w_dotp) == curbp->b_linep)
+	  /*
+	   * if the editor returns anything except -1 then the user
+	   * has requested something special, so let pico know...
+	   */
+	  status = HeaderEditor(1, 1);
     }
 
     if ((lastflag&CFCPCN) == 0)             /* Reset goal if the    */
@@ -476,6 +469,7 @@ register int    n;
 {
     register LINE   *lp;
     register int    nl;
+    int             status = 0;
 
     if (f == FALSE) {
 	n = curwp->w_ntrows - 2;        /* Default scroll.      */
@@ -487,6 +481,20 @@ register int    n;
     else                                    /* Convert from pages   */
       n *= curwp->w_ntrows;           /* to lines.            */
 #endif
+    if(Pmaster){
+	/*
+	 * go up into editing the mail header if on the top line
+	 * and the user hits the up arrow!!!
+	 */
+	if (lback(curwp->w_dotp) == curbp->b_linep){
+	    /*
+	     * if the editor returns anything except -1 then the user
+	     * has requested something special, so let pico know...
+	     */
+	    status = HeaderEditor(1, 1);
+	}
+    }
+
     nl = n;
     lp = curwp->w_linep;
     while (n-- && lback(lp)!=curbp->b_linep)
@@ -506,7 +514,7 @@ register int    n;
 	 */
     if(Pmaster){
 	if((lback(lp)==curbp->b_linep) && (ComposerTopLine==COMPOSER_TOP_LINE))
-	  n -= entry_line(LASTHDR, TRUE);
+	  n -= entry_line(1000, TRUE); /* never more than 1000 headers */
 	if(nl-n-1 < curwp->w_ntrows)
 	  if(optimize)
 	    scrolldown(curwp, -1, nl-n-1);
@@ -551,6 +559,9 @@ int f, n;
 	emlwrite("Mark UNset", NULL);
     }
 
+#ifdef	_WINDOWS
+    mswin_allowcopycut(curwp->w_markp ? kremove : NULL);
+#endif
     return (TRUE);
 }
 
@@ -569,7 +580,7 @@ int f, n;
 
     if (curwp->w_markp == NULL) {
 	if(Pmaster == NULL)
-	  mlwrite("No mark in this window");
+	  emlwrite("No mark in this window", NULL);
 	return (FALSE);
     }
 
@@ -612,7 +623,7 @@ int f, n;
 
     if (curwp->w_imarkp == NULL) {
 	if(Pmaster == NULL)
-	  emlwrite("Programmer botch! No mark in this window");
+	  emlwrite("Programmer botch! No mark in this window", NULL);
 	return (FALSE);
     }
 

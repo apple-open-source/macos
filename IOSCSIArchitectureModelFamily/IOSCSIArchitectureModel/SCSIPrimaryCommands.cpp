@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,460 +20,81 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Libkern includes
 #include <libkern/OSByteOrder.h>
 
-// SCSI Command set related headers
+// SCSI Architecture Model Family includes
 #include "SCSIPrimaryCommands.h"
 #include "SCSICommandOperationCodes.h"
 
-#define DEBUG			0
-#define DEBUG_LEVEL		0	// Eventually we'll use this to limit
-							// the amount of debugging info we see
 
-#if ( DEBUG == 1 )
-#define STATUS_LOG( x )		IOLog x
-#define DEBUG_ASSERT( x )	assert x
-#else
-#define STATUS_LOG( x )
-#define DEBUG_ASSERT( x )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SPC Command Set"
+
+#if DEBUG
+#define SCSI_SPC_COMMANDS_DEBUGGING_LEVEL		0
 #endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+#if ( SCSI_SPC_COMMANDS_DEBUGGING_LEVEL >= 1 )
+#define PANIC_NOW(x)		IOPanic x
+#define DEBUG_ASSERT(x)		assert x
+#else
+#define PANIC_NOW(x)
+#define DEBUG_ASSERT(x)
+#endif
+
+#if ( SCSI_SPC_COMMANDS_DEBUGGING_LEVEL >= 2 )
+#define ERROR_LOG(x)		IOLog x
+#else
+#define ERROR_LOG(x)
+#endif
+
+#if ( SCSI_SPC_COMMANDS_DEBUGGING_LEVEL >= 3 )
+#define STATUS_LOG(x)		IOLog x
+#else
+#define STATUS_LOG(x)
+#endif
+
 
 #define super OSObject
 OSDefineMetaClassAndStructors ( SCSIPrimaryCommands, OSObject );
 
 
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject
-//
-//----------------------------------------------------------------------
-//
-//		get an instance of the command builder
-//
-//----------------------------------------------------------------------
-
-SCSIPrimaryCommands *
-SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject ( void )
-{
-	return new SCSIPrimaryCommands;
-}
-
-
-#pragma mark Utility Methods
-
-// Utility routines used by all SCSI Command Set objects
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 1 bit to 1 byte paramaters
-//
-//----------------------------------------------------------------------
-
-inline bool
-SCSIPrimaryCommands::IsParameterValid ( SCSICmdField1Byte param,
-										SCSICmdField1Byte mask )
-{
-	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::IsParameterValid called\n" ) );
-	
-	if ( ( param | mask ) != mask )
-	{
-		
-		STATUS_LOG ( ( "param = %x not valid, mask = %x\n", param, mask ) );
-		return false;
-		
-	}
-	
-	return true;
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 9 bit to 2 byte paramaters
-//
-//----------------------------------------------------------------------
-
-inline bool
-SCSIPrimaryCommands::IsParameterValid ( SCSICmdField2Byte param,
-										SCSICmdField2Byte mask )
-{
-	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::IsParameterValid called\n" ) );
-	
-	if ( ( param | mask ) != mask )
-	{
-		
-		STATUS_LOG ( ( "param = %x not valid, mask = %x\n", param, mask ) );
-		return false;
-		
-	}
-	
-	return true;
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::IsParameterValid
-//
-//----------------------------------------------------------------------
-//
-//		Validate Parameter used for 17 bit to 4 byte paramaters
-//
-//----------------------------------------------------------------------
-
-inline bool
-SCSIPrimaryCommands::IsParameterValid ( SCSICmdField4Byte param,
-										SCSICmdField4Byte mask )
-{
-	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::IsParameterValid called\n" ) );
-	
-	if ( ( param | mask ) != mask )
-	{
-		
-		STATUS_LOG ( ( "param = %x not valid, mask = %x\n", param, mask ) );
-		return false;
-		
-	}
-	
-	return true;
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::IsBufferAndCapacityValid
-//
-//----------------------------------------------------------------------
-//
-//		Check that the buffer is valid and of the required size
-//
-//----------------------------------------------------------------------
-
-inline bool
-SCSIPrimaryCommands::IsBufferAndCapacityValid (
-				IOMemoryDescriptor *		dataBuffer,
-				UInt32						requiredSize )
-{
-	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::IsBufferAndCapacityValid called\n" ) );
-	
-	if ( dataBuffer == NULL )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid\n", dataBuffer ) );
-		return false;
-		
-	}
-	
-	if ( dataBuffer->getLength ( ) < requiredSize )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer length = %x not valid, requiredSize = %x\n",
-						dataBuffer->getLength ( ), requiredSize ) );
-		
-		return false;
-		
-	}
-	
-	return true;
-	
-}
-
-
-// ---- Methods for accessing the SCSITask attributes ----
-// The setCommandDescriptorBlock methods will populate the CDB of the
-// appropriate size.  These methods will returns true if the CDB could 
-// be filled out, false if it couldn't.
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::SetCommandDescriptorBlock
-//
-//----------------------------------------------------------------------
-//
-//		Populate the 6 Byte Command Descriptor Block
-//
-//----------------------------------------------------------------------
-
-bool
-SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
-							SCSITask *		request,
-							UInt8			cdbByte0,
-							UInt8			cdbByte1,
-							UInt8			cdbByte2,
-							UInt8			cdbByte3,
-							UInt8			cdbByte4,
-							UInt8			cdbByte5 )
-{
-	
-	DEBUG_ASSERT ( ( request != NULL ) );
-	
-	return request->SetCommandDescriptorBlock (
-					cdbByte0,
-					cdbByte1,
-					cdbByte2,
-					cdbByte3,
-					cdbByte4,
-					cdbByte5 );
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::SetCommandDescriptorBlock
-//
-//----------------------------------------------------------------------
-//
-//		Populate the 10 Byte Command Descriptor Block
-//
-//----------------------------------------------------------------------
-
-bool
-SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
-							SCSITask *		request,
-							UInt8			cdbByte0,
-							UInt8			cdbByte1,
-							UInt8			cdbByte2,
-							UInt8			cdbByte3,
-							UInt8			cdbByte4,
-							UInt8			cdbByte5,
-							UInt8			cdbByte6,
-							UInt8			cdbByte7,
-							UInt8			cdbByte8,
-							UInt8			cdbByte9 )
-{
-	
-	DEBUG_ASSERT ( ( request != NULL ) );
-	
-	return request->SetCommandDescriptorBlock (
-					cdbByte0,
-					cdbByte1,
-					cdbByte2,
-					cdbByte3,
-					cdbByte4,
-					cdbByte5,
-					cdbByte6,
-					cdbByte7,
-					cdbByte8,
-					cdbByte9 );
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::SetCommandDescriptorBlock
-//
-//----------------------------------------------------------------------
-//
-//		Populate the 12 Byte Command Descriptor Block
-//
-//----------------------------------------------------------------------
-
-bool
-SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
-							SCSITask *		request,
-							UInt8			cdbByte0,
-							UInt8			cdbByte1,
-							UInt8			cdbByte2,
-							UInt8			cdbByte3,
-							UInt8			cdbByte4,
-							UInt8			cdbByte5,
-							UInt8			cdbByte6,
-							UInt8			cdbByte7,
-							UInt8			cdbByte8,
-							UInt8			cdbByte9,
-							UInt8			cdbByte10,
-							UInt8			cdbByte11 )
-{
-	
-	DEBUG_ASSERT ( ( request != NULL ) );
-	
-	return request->SetCommandDescriptorBlock (
-					cdbByte0,
-					cdbByte1,
-					cdbByte2,
-					cdbByte3,
-					cdbByte4,
-					cdbByte5,
-					cdbByte6,
-					cdbByte7,
-					cdbByte8,
-					cdbByte9,
-					cdbByte10,
-					cdbByte11 );
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::SetCommandDescriptorBlock
-//
-//----------------------------------------------------------------------
-//
-//		Populate the 16 Byte Command Descriptor Block
-//
-//----------------------------------------------------------------------
-
-bool
-SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
-							SCSITask *		request,
-							UInt8			cdbByte0,
-							UInt8			cdbByte1,
-							UInt8			cdbByte2,
-							UInt8			cdbByte3,
-							UInt8			cdbByte4,
-							UInt8			cdbByte5,
-							UInt8			cdbByte6,
-							UInt8			cdbByte7,
-							UInt8			cdbByte8,
-							UInt8			cdbByte9,
-							UInt8			cdbByte10,
-							UInt8			cdbByte11,
-							UInt8			cdbByte12,
-							UInt8			cdbByte13,
-							UInt8			cdbByte14,
-							UInt8			cdbByte15 )
-{
-	
-	DEBUG_ASSERT ( ( request != NULL ) );
-	
-	return request->SetCommandDescriptorBlock (
-					cdbByte0,
-					cdbByte1,
-					cdbByte2,
-					cdbByte3,
-					cdbByte4,
-					cdbByte5,
-					cdbByte6,
-					cdbByte7,
-					cdbByte8,
-					cdbByte9,
-					cdbByte10,
-					cdbByte11,
-					cdbByte12,
-					cdbByte13,
-					cdbByte14,
-					cdbByte15 );
-	
-}
-
-
-//----------------------------------------------------------------------
-//
-//		SCSIPrimaryCommands::SetDataTransferControl
-//
-//----------------------------------------------------------------------
-//
-//		Set up the control information for the transfer, including
-//		the transfer direction and the number of bytes to transfer.
-//
-//----------------------------------------------------------------------
-
-bool
-SCSIPrimaryCommands::SetDataTransferControl ( 
-							SCSITask *				request,
-						    UInt32					timeoutDuration,
-							UInt8					dataTransferDirection,
-							IOMemoryDescriptor *	dataBuffer = NULL,
-							UInt64					transferCountInBytes = 0 )
-{
-	
-	bool	result = false;
-		
-	STATUS_LOG ( ( "SCSIPrimaryCommands::SetDataTransferControl called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
-	
-	// Needs to do more extensive checking based on buffer count and control values
-	if ( ( transferCountInBytes != 0 ) && ( dataBuffer == NULL ) )
-	{
-		
-		STATUS_LOG ( ( "transferCountInBytes = %x not valid, dataBuffer = %x\n",
-						transferCountInBytes, dataBuffer ) );
-		return result;
-		
-	}
-	
-	result = request->SetTimeoutDuration ( timeoutDuration );
-	if ( result == false )
-	{
-		
-		STATUS_LOG ( ( "SetTimeoutDuration failed, timeoutDuration = %x\n",
-						timeoutDuration ) );
-		return result;
-		
-	}
-	
-	result = request->SetDataTransferDirection ( dataTransferDirection );
-	if ( result == false )
-	{
-		
-		STATUS_LOG ( ( "SetDataTransferDirection failed, dataTransferDirection = %x\n",
-						dataTransferDirection ) );
-		return result;
-		
-	}
-	
-	result = request->SetDataBuffer ( dataBuffer );
-	if ( result == false )
-	{
-		
-		STATUS_LOG ( ( "SetDataBuffer failed, dataBuffer = %x\n",
-						dataBuffer ) );
-		return result;
-		
-	}
-	
-	result = request->SetRequestedDataTransferCount ( transferCountInBytes );
-	if ( result == false )
-	{
-		
-		STATUS_LOG ( ( "SetRequestedDataTransferCount failed, transferCountInBytes = %x\n",
-						transferCountInBytes ) );
-		return result;
-		
-	}
-	
-	return true;
-	
-}
-
-
+#if 0
 #pragma mark -
-#pragma mark SPC Methods
+#pragma mark ¥ SPC Command Methods
+#pragma mark -
+#endif
+
 
 // SCSI Primary Commands as defined in T10:1236D SPC-2,
 // Revision 18, dated 21 May 2000
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::CHANGE_DEFINITION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The CHANGE_DEFINITION command as defined in SPC
 //		revision 11a, section 7.1.  SPC-2 obsoleted this command.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::CHANGE_DEFINITION (
@@ -485,49 +106,15 @@ SCSIPrimaryCommands::CHANGE_DEFINITION (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::CHANGE_DEFINITION *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SAVE, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SAVE = %x not valid\n", SAVE ) );
-		return false;
-	
-	}
-
-	if ( IsParameterValid ( DEFINITION_PARAMETER, kSCSICmdFieldMask7Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "DEFINITION_PARAMETER = %x not valid\n", DEFINITION_PARAMETER ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_DATA_LENGTH, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_DATA_LENGTH = %x not valid\n", PARAMETER_DATA_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_DATA_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_DATA_LENGTH = %x\n",
-						dataBuffer, PARAMETER_DATA_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SAVE, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( DEFINITION_PARAMETER, kSCSICmdFieldMask7Bit ), ErrorExit );	
+	require ( IsParameterValid ( PARAMETER_DATA_LENGTH, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_DATA_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -548,20 +135,26 @@ SCSIPrimaryCommands::CHANGE_DEFINITION (
 								dataBuffer,
 								PARAMETER_DATA_LENGTH );
 	
-    return true;
-    
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::COMPARE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The COMPARE command as defined in section 7.2.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::COMPARE (
@@ -572,41 +165,14 @@ SCSIPrimaryCommands::COMPARE (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::COMPARE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAD = %x not valid\n", PAD ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n", PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -626,21 +192,27 @@ SCSIPrimaryCommands::COMPARE (
 								kSCSIDataTransfer_FromInitiatorToTarget,
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
-    
-    return true;
-    
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::COPY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The COPY command as defined in section 7.3.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::COPY (
@@ -651,43 +223,14 @@ SCSIPrimaryCommands::COPY (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
 	STATUS_LOG ( ( "SCSIPrimaryCommands::COPY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ) == false )
-	{
-
-		STATUS_LOG ( ( "PAD = %x not valid\n", PAD ) );
-		return false;
-
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n", PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-
-		return false;
-
-	}
-
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
  								kSCSICmd_COPY,
@@ -703,20 +246,26 @@ SCSIPrimaryCommands::COPY (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-    return true;
-    
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::COPY_AND_VERIFY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The COPY_AND_VERIFY command as defined in section 7.4.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::COPY_AND_VERIFY (
@@ -727,50 +276,16 @@ SCSIPrimaryCommands::COPY_AND_VERIFY (
     			SCSICmdField3Byte 			PARAMETER_LIST_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::COPY_AND_VERIFY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
-
-	if ( IsParameterValid ( BYTCHK, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "BYTCHK = %x not valid\n", BYTCHK ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAD = %x not valid\n", PAD ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n", PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-	
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-	
-	}
+	require ( IsParameterValid ( BYTCHK, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PAD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -791,20 +306,26 @@ SCSIPrimaryCommands::COPY_AND_VERIFY (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::EXTENDED_COPY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The EXTENDED_COPY command as defined in section 7.5.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::EXTENDED_COPY (
@@ -814,33 +335,13 @@ SCSIPrimaryCommands::EXTENDED_COPY (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::EXTENDED_COPY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n", PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	bool	result = false;
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIPrimaryCommands::EXTENDED_COPY called\n" ) );
+	
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 16-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -867,20 +368,26 @@ SCSIPrimaryCommands::EXTENDED_COPY (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::INQUIRY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The INQUIRY command as defined in section 7.6.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::INQUIRY (
@@ -893,70 +400,24 @@ SCSIPrimaryCommands::INQUIRY (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::INQUIRY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
-
-	if ( IsParameterValid ( CMDDT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "CMDDT = %x not valid\n", CMDDT ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( EVPD, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "EVPD = %x not valid\n", EVPD ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAGE_OR_OPERATION_CODE, kSCSICmdFieldMask1Byte ) == false )
-	{
-
-		STATUS_LOG ( ( "PAGE_OR_OPERATION_CODE = %x not valid\n",
-						PAGE_OR_OPERATION_CODE ) );
-		return false;
-
-	}
 	
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ) == false )
-	{
-
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n", ALLOCATION_LENGTH ) );
-		return false;
-
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-	
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-	
-	}
+	require ( IsParameterValid ( CMDDT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EVPD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PAGE_OR_OPERATION_CODE, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// If the PAGE_OR_OPERATION_CODE parameter is not zero and both the CMDDT
 	// and EVPD parameters are, indicate that the PAGE_OR_OPERATION_CODE is not 
 	// valid.
-	if ( ( CMDDT == 0 ) && ( EVPD == 0 ) && ( PAGE_OR_OPERATION_CODE != 0 ) )
+	if ( PAGE_OR_OPERATION_CODE != 0 )
     {
 		
-		// A valid CDB could not be created, return false to let the
-		// client know.
-		STATUS_LOG ( ( "combo not valid, CMDDT = %x, EVPD = %x, PAGE_OR_OPERATION_CODE = %x\n",
-						CMDDT, EVPD, PAGE_OR_OPERATION_CODE ) );
-		return false;
+		require ( ( CMDDT != 0 ) && ( EVPD != 0 ), ErrorExit );
 		
     }
 	
@@ -975,20 +436,26 @@ SCSIPrimaryCommands::INQUIRY (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::LOG_SELECT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The LOG_SELECT command as defined in section 7.7.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::LOG_SELECT (
@@ -1001,58 +468,16 @@ SCSIPrimaryCommands::LOG_SELECT (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::LOG_SELECT called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
-
-	if ( IsParameterValid ( PCR, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PCR = %x not valid\n", PCR ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SP = %x not valid\n", SP ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PC = %x not valid\n", PC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PCR, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1073,20 +498,26 @@ SCSIPrimaryCommands::LOG_SELECT (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }  
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::LOG_SENSE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The LOG_SENSE command as defined in section 7.8.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::LOG_SENSE (
@@ -1100,76 +531,19 @@ SCSIPrimaryCommands::LOG_SENSE (
     			SCSICmdField2Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::LOG_SENSE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PPC, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PPC = %x not valid\n", PPC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SP = %x not valid\n", SP ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PC = %x not valid\n", PC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAGE_CODE = %x not valid\n", PAGE_CODE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_POINTER, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_POINTER = %x not valid\n",
-						PARAMETER_POINTER ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PPC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_POINTER, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1189,21 +563,27 @@ SCSIPrimaryCommands::LOG_SENSE (
 								kSCSIDataTransfer_FromTargetToInitiator,
 								dataBuffer,
 								ALLOCATION_LENGTH );
-
-	return true;
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }  
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::MODE_SELECT_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MODE_SELECT(6) command as defined in section 7.9.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::MODE_SELECT_6 (
@@ -1214,51 +594,16 @@ SCSIPrimaryCommands::MODE_SELECT_6 (
     			SCSICmdField1Byte 			PARAMETER_LIST_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::MODE_SELECT_6 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PF = %x not valid\n", PF ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SP = %x not valid\n", SP ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1275,20 +620,26 @@ SCSIPrimaryCommands::MODE_SELECT_6 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }  
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::MODE_SELECT_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MODE_SELECT(10) command as defined in section 7.10.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::MODE_SELECT_10 (
@@ -1299,51 +650,16 @@ SCSIPrimaryCommands::MODE_SELECT_10 (
     			SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::MODE_SELECT_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PF = %x not valid\n", PF ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SP = %x not valid\n", SP ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SP, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1364,20 +680,26 @@ SCSIPrimaryCommands::MODE_SELECT_10 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }  
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::MODE_SENSE_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MODE_SENSE(6) command as defined in section 7.11.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::MODE_SENSE_6 (
@@ -1389,59 +711,17 @@ SCSIPrimaryCommands::MODE_SENSE_6 (
    				SCSICmdField1Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::MODE_SENSE_6 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( DBD, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "DBD = %x not valid\n", DBD ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PC = %x not valid\n", PC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAGE_CODE = %x not valid\n", PAGE_CODE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( DBD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1458,20 +738,26 @@ SCSIPrimaryCommands::MODE_SENSE_6 (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::MODE_SENSE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MODE_SENSE(10) command as defined in section 7.12.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::MODE_SENSE_10 (
@@ -1484,67 +770,18 @@ SCSIPrimaryCommands::MODE_SENSE_10 (
 				SCSICmdField2Byte 			ALLOCATION_LENGTH,
 				SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::MODE_SENSE_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( LLBAA, kSCSICmdFieldMask1Bit ) == false )
-	{
-	
-		STATUS_LOG ( ( "LLBAA = %x not valid\n", LLBAA ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( DBD, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "DBD = %x not valid\n", DBD ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PC = %x not valid\n", PC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAGE_CODE = %x not valid\n", PAGE_CODE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-
-	}
+	require ( IsParameterValid ( LLBAA, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( DBD, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PC, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1565,20 +802,26 @@ SCSIPrimaryCommands::MODE_SENSE_10 (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::PERSISTENT_RESERVE_IN
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PERSISTENT_RESERVE_IN command as defined in section 7.13.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::PERSISTENT_RESERVE_IN (
@@ -1588,44 +831,15 @@ SCSIPrimaryCommands::PERSISTENT_RESERVE_IN (
    				SCSICmdField2Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::PERSISTENT_RESERVE_IN called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SERVICE_ACTION = %x not valid\n",
-						SERVICE_ACTION ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1646,16 +860,22 @@ SCSIPrimaryCommands::PERSISTENT_RESERVE_IN (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::PERSISTENT_RESERVE_OUT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PERSISTENT_RESERVE_OUT command as defined in section 7.14.
 //		
@@ -1663,7 +883,7 @@ SCSIPrimaryCommands::PERSISTENT_RESERVE_IN (
 // 		always 0x18 for the SPC version of this command. The buffer for
 //		the data must be at least of that size.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::PERSISTENT_RESERVE_OUT (
@@ -1674,50 +894,16 @@ SCSIPrimaryCommands::PERSISTENT_RESERVE_OUT (
    				SCSICmdField4Bit 			TYPE,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::PERSISTENT_RESERVE_OUT called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SERVICE_ACTION = %x not valid\n",
-						SERVICE_ACTION ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( SCOPE, kSCSICmdFieldMask4Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SCOPE = %x not valid\n", SCOPE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( TYPE, kSCSICmdFieldMask4Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "TYPE = %x not valid\n", TYPE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, 0x18 ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid = %x\n", dataBuffer ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ), ErrorExit );
+	require ( IsParameterValid ( SCOPE, kSCSICmdFieldMask4Bit ), ErrorExit );
+	require ( IsParameterValid ( TYPE, kSCSICmdFieldMask4Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, 0x18 ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1738,21 +924,27 @@ SCSIPrimaryCommands::PERSISTENT_RESERVE_OUT (
 								dataBuffer,
 								0x18 );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::PREVENT_ALLOW_MEDIUM_REMOVAL
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PREVENT_ALLOW_MEDIUM_REMOVAL command as defined in
 //		section 7.15.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::PREVENT_ALLOW_MEDIUM_REMOVAL ( 
@@ -1760,25 +952,13 @@ SCSIPrimaryCommands::PREVENT_ALLOW_MEDIUM_REMOVAL (
      			SCSICmdField2Bit 			PREVENT,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::PREVENT_ALLOW_MEDIUM_REMOVAL called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PREVENT, kSCSICmdFieldMask2Bit ) == false )
-	{
-
-		STATUS_LOG ( ( "PREVENT = %x not valid\n", PREVENT ) );
-		return false;
-
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PREVENT, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1793,20 +973,26 @@ SCSIPrimaryCommands::PREVENT_ALLOW_MEDIUM_REMOVAL (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::READ_BUFFER
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ_BUFFER command as defined in section 7.16.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::READ_BUFFER ( 
@@ -1818,60 +1004,17 @@ SCSIPrimaryCommands::READ_BUFFER (
 				SCSICmdField3Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::READ_BUFFER called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( MODE, kSCSICmdFieldMask4Bit ) == false )
-	{
-
-		STATUS_LOG ( ( "MODE = %x not valid\n", MODE ) );
-		return false;
-
-	}
-
-	if ( IsParameterValid ( BUFFER_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "BUFFER_ID = %x not valid\n", BUFFER_ID ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( BUFFER_OFFSET, kSCSICmdFieldMask3Byte ) == false )
-	{
-	
-		STATUS_LOG ( ( "BUFFER_OFFSET = %x not valid\n",
-						BUFFER_OFFSET ) );
-		return false;
-	
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-	
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-	
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( MODE, kSCSICmdFieldMask4Bit ), ErrorExit );
+	require ( IsParameterValid ( BUFFER_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( BUFFER_OFFSET, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1880,10 +1023,10 @@ SCSIPrimaryCommands::READ_BUFFER (
 								BUFFER_ID,
 								( BUFFER_OFFSET >> 16 ) & 0xFF,
 								( BUFFER_OFFSET >> 8 )  & 0xFF,
-								BUFFER_OFFSET & 0xFF,
+								  BUFFER_OFFSET			& 0xFF,
 								( ALLOCATION_LENGTH >> 16 ) & 0xFF,
 								( ALLOCATION_LENGTH >> 8 )  & 0xFF,
-								ALLOCATION_LENGTH & 0xFF,
+								  ALLOCATION_LENGTH			& 0xFF,
 								CONTROL );
 	
 	SetDataTransferControl ( 	request,
@@ -1892,20 +1035,26 @@ SCSIPrimaryCommands::READ_BUFFER (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RECEIVE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RECEIVE command as defined in section 9.2.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RECEIVE ( 
@@ -1914,35 +1063,14 @@ SCSIPrimaryCommands::RECEIVE (
 	 			SCSICmdField3Byte 			TRANSFER_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RECEIVE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "TRANSFER_LENGTH = %x not valid\n",
-						TRANSFER_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, TRANSFER_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, TRANSFER_LENGTH = %x\n",
-						dataBuffer, TRANSFER_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, TRANSFER_LENGTH ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1959,20 +1087,26 @@ SCSIPrimaryCommands::RECEIVE (
 								dataBuffer,
 								TRANSFER_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RECEIVE_COPY_RESULTS
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RECEIVE_COPY_RESULTS command as defined in section 7.17.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RECEIVE_COPY_RESULTS (
@@ -1983,53 +1117,16 @@ SCSIPrimaryCommands::RECEIVE_COPY_RESULTS (
  				SCSICmdField4Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RECEIVE_COPY_RESULTS called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SERVICE_ACTION = %x not valid\n",
-						SERVICE_ACTION ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( LIST_IDENTIFIER, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "LIST_IDENTIFIER = %x not valid\n",
-						LIST_IDENTIFIER ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ), ErrorExit );
+	require ( IsParameterValid ( LIST_IDENTIFIER, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 16-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2056,21 +1153,27 @@ SCSIPrimaryCommands::RECEIVE_COPY_RESULTS (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RECEIVE_DIAGNOSTICS_RESULTS
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RECEIVE_DIAGNOSTICS_RESULTS command as defined in
 //		section 7.18.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RECEIVE_DIAGNOSTICS_RESULTS ( 
@@ -2081,51 +1184,16 @@ SCSIPrimaryCommands::RECEIVE_DIAGNOSTICS_RESULTS (
 	 			SCSICmdField2Byte 			ALLOCATION_LENGTH,
     			SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RECEIVE_DIAGNOSTICS_RESULTS called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PCV, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PCV = %x not valid\n", PCV ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PAGE_CODE = %x not valid\n", PAGE_CODE ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PCV, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2142,20 +1210,26 @@ SCSIPrimaryCommands::RECEIVE_DIAGNOSTICS_RESULTS (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RELEASE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RELEASE(10) command as defined in section 7.19.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RELEASE_10 ( 
@@ -2167,60 +1241,17 @@ SCSIPrimaryCommands::RELEASE_10 (
 				SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 				SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RELEASE_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "THRDPTY = %x not valid\n", THRDPTY ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "LONGID = %x not valid\n", LONGID ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "THIRD_PARTY_DEVICE_ID = %x not valid\n",
-						THIRD_PARTY_DEVICE_ID ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2241,16 +1272,22 @@ SCSIPrimaryCommands::RELEASE_10 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RELEASE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //	¥¥¥ OBSOLETE ¥¥¥
 //
@@ -2258,7 +1295,7 @@ SCSIPrimaryCommands::RELEASE_10 (
 //		section 7.17. The SPC-2 specification obsoleted the EXTENT and
 //		RESERVATION_IDENTIFICATION fields.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RELEASE_10 ( 
@@ -2272,77 +1309,19 @@ SCSIPrimaryCommands::RELEASE_10 (
 				SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 				SCSICmdField1Byte 			CONTROL )
 {
-
+	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RELEASE_10 *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "THRDPTY = %x not valid\n", THRDPTY ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "LONGID = %x not valid\n", LONGID ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "EXTENT = %x not valid\n", EXTENT ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "RESERVATION_IDENTIFICATION = %x not valid\n",
-						RESERVATION_IDENTIFICATION ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "THIRD_PARTY_DEVICE_ID = %x not valid\n",
-						THIRD_PARTY_DEVICE_ID ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2363,20 +1342,26 @@ SCSIPrimaryCommands::RELEASE_10 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RELEASE_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RELEASE(6) command as defined in section 7.20
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RELEASE_6 ( 
@@ -2384,16 +1369,11 @@ SCSIPrimaryCommands::RELEASE_6 (
 				SCSICmdField1Byte			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::RELEASE_6 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIPrimaryCommands::RELEASE_6 called\n" ) );
+	
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2408,16 +1388,22 @@ SCSIPrimaryCommands::RELEASE_6 (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RELEASE_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //	¥¥¥ OBSOLETE ¥¥¥
 //
@@ -2425,7 +1411,7 @@ SCSIPrimaryCommands::RELEASE_6 (
 //		section 7.18. The SPC-2 specification obsoleted the EXTENT and
 //		RESERVATION_IDENTIFICATION fields.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RELEASE_6 ( 
@@ -2435,33 +1421,13 @@ SCSIPrimaryCommands::RELEASE_6 (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RELEASE_6 *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "EXTENT = %x not valid\n", EXTENT ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "RESERVATION_IDENTIFICATION = %x not valid\n",
-						RESERVATION_IDENTIFICATION ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2476,23 +1442,29 @@ SCSIPrimaryCommands::RELEASE_6 (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::REPORT_DEVICE_IDENTIFIER
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The REPORT_DEVICE_IDENTIFIER command as defined in section 7.21.
 //
 //	NB:	There is no SERVICE_ACTION parameter as the value for this field
 //		for the SPC version of this command is defined to always be 0x05.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::REPORT_DEVICE_IDENTIFIER ( 
@@ -2502,25 +1474,12 @@ SCSIPrimaryCommands::REPORT_DEVICE_IDENTIFIER (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::REPORT_DEVICE_IDENTIFIER called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 12-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2543,20 +1502,26 @@ SCSIPrimaryCommands::REPORT_DEVICE_IDENTIFIER (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::REPORT_LUNS
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The REPORT_LUNS command as defined in section 7.22.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::REPORT_LUNS ( 
@@ -2566,34 +1531,13 @@ SCSIPrimaryCommands::REPORT_LUNS (
 			 	SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::REPORT_LUNS called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ) == false )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );	
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );	
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 12-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2616,20 +1560,26 @@ SCSIPrimaryCommands::REPORT_LUNS (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::REQUEST_SENSE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The REQUEST_SENSE command as defined in section 7.23.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::REQUEST_SENSE (
@@ -2639,25 +1589,12 @@ SCSIPrimaryCommands::REQUEST_SENSE (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::REQUEST_SENSE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "ALLOCATION_LENGTH = %x not valid\n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2674,20 +1611,26 @@ SCSIPrimaryCommands::REQUEST_SENSE (
 								dataBuffer,
 								ALLOCATION_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RESERVE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RESERVE(10) command as defined in section 7.24.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RESERVE_10 ( 
@@ -2700,59 +1643,16 @@ SCSIPrimaryCommands::RESERVE_10 (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RESERVE_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "THRDPTY = %x not valid\n", THRDPTY ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "LONGID = %x not valid\n", LONGID ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "THIRD_PARTY_DEVICE_ID = %x not valid\n",
-						THIRD_PARTY_DEVICE_ID ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ) )
-	{
-		
-		STATUS_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );	
+	require ( IsBufferAndCapacityValid ( dataBuffer, PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2773,16 +1673,22 @@ SCSIPrimaryCommands::RESERVE_10 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RESERVE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //	¥¥¥ OBSOLETE ¥¥¥
 //
@@ -2790,7 +1696,7 @@ SCSIPrimaryCommands::RESERVE_10 (
 //		section 7.21. The SPC-2 specification obsoleted the EXTENT and 
 //		RESERVATION_IDENTIFICATION fields.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RESERVE_10 ( 
@@ -2805,67 +1711,17 @@ SCSIPrimaryCommands::RESERVE_10 (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RESERVE_10 *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "THRDPTY = %x not valid\n", THRDPTY ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "LONGID = %x not valid\n", LONGID ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "EXTENT = %x not valid\n", EXTENT ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "RESERVATION_IDENTIFICATION = %x not valid\n",
-						RESERVATION_IDENTIFICATION ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "THIRD_PARTY_DEVICE_ID = %x not valid\n",
-						THIRD_PARTY_DEVICE_ID ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( THRDPTY, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LONGID, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( THIRD_PARTY_DEVICE_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2886,20 +1742,26 @@ SCSIPrimaryCommands::RESERVE_10 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RESERVE_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RESERVE(6) command as defined in section 7.25.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RESERVE_6 ( 
@@ -2907,16 +1769,11 @@ SCSIPrimaryCommands::RESERVE_6 (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::RESERVE_6 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIPrimaryCommands::RESERVE_6 called\n" ) );
+	
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2931,16 +1788,22 @@ SCSIPrimaryCommands::RESERVE_6 (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::RESERVE_6
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //	¥¥¥ OBSOLETE ¥¥¥
 //
@@ -2948,7 +1811,7 @@ SCSIPrimaryCommands::RESERVE_6 (
 //		section 7.22. The SPC-2 specification obsoleted the EXTENT,
 //		RESERVATION_IDENTIFICATION and PARAMETER_LIST_LENGTH fields.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::RESERVE_6 ( 
@@ -2960,42 +1823,14 @@ SCSIPrimaryCommands::RESERVE_6 (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::RESERVE_6 *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "EXTENT = %x not valid\n", EXTENT ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "RESERVATION_IDENTIFICATION = %x not valid\n",
-						RESERVATION_IDENTIFICATION ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( EXTENT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( RESERVATION_IDENTIFICATION, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3012,20 +1847,26 @@ SCSIPrimaryCommands::RESERVE_6 (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::SEND
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND command as defined in section 9.3.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::SEND ( 
@@ -3036,33 +1877,13 @@ SCSIPrimaryCommands::SEND (
     			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::SEND called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( AER, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "AER = %x not valid\n", AER ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "TRANSFER_LENGTH = %x not valid\n",
-						TRANSFER_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( AER, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3079,20 +1900,26 @@ SCSIPrimaryCommands::SEND (
 								dataBuffer,
 								TRANSFER_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::SEND_DIAGNOSTICS
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND_DIAGNOSTICS command as defined in section 7.26.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::SEND_DIAGNOSTICS ( 
@@ -3107,74 +1934,22 @@ SCSIPrimaryCommands::SEND_DIAGNOSTICS (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::SEND_DIAGNOSTICS called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SELF_TEST_CODE, kSCSICmdFieldMask3Bit ) == false )
+	require ( IsParameterValid ( SELF_TEST_CODE, kSCSICmdFieldMask3Bit ), ErrorExit );
+	require ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SELF_TEST, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( DEVOFFL, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( UNITOFFL, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+
+	if ( SELF_TEST == 1 )
 	{
 		
-		STATUS_LOG ( ( "SELF_TEST_CODE = %x not valid\n",
-						SELF_TEST_CODE ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "PF = %x not valid\n", PF ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( SELF_TEST, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SELF_TEST = %x not valid\n", SELF_TEST ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( DEVOFFL, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "DEVOFFL = %x not valid\n", DEVOFFL ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( UNITOFFL, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "UNITOFFL = %x not valid\n", UNITOFFL ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( ( SELF_TEST == 1 ) && ( SELF_TEST_CODE != 0x00 ) )
-	{
-		
-		// When SELF_TEST bit is zero, SELF_TEST_CODE MUST be zero
-		STATUS_LOG ( ( "combo not valid, SELF_TEST = %x, SELF_TEST_CODE = %x\n",
-						SELF_TEST, SELF_TEST_CODE ) );
-		return false;
+		require ( ( SELF_TEST_CODE == 0x00 ), ErrorExit );
 		
 	}
 	
@@ -3194,20 +1969,26 @@ SCSIPrimaryCommands::SEND_DIAGNOSTICS (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::SET_DEVICE_IDENTIFIER
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SET_DEVICE_IDENTIFIER command as defined in section 7.27.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::SET_DEVICE_IDENTIFIER ( 
@@ -3218,35 +1999,13 @@ SCSIPrimaryCommands::SET_DEVICE_IDENTIFIER (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::SET_DEVICE_IDENTIFIER called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ) == false )
-	{
-		
-		STATUS_LOG ( ( "SERVICE_ACTION = %x not valid\n",
-						SERVICE_ACTION ) );
-		return false;
-		
-	}
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SERVICE_ACTION, kSCSICmdFieldMask5Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 12-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3269,20 +2028,26 @@ SCSIPrimaryCommands::SET_DEVICE_IDENTIFIER (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::TEST_UNIT_READY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The TEST_UNIT_READY command as defined in section 7.28.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::TEST_UNIT_READY (
@@ -3290,16 +2055,11 @@ SCSIPrimaryCommands::TEST_UNIT_READY (
     			SCSICmdField1Byte			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIPrimaryCommands::TEST_UNIT_READY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIPrimaryCommands::TEST_UNIT_READY called\n" ) );
+	
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 6-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3314,20 +2074,26 @@ SCSIPrimaryCommands::TEST_UNIT_READY (
 								10 * 1000,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIPrimaryCommands::WRITE_BUFFER
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The TEST_UNIT_READY command as defined in section 7.29.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIPrimaryCommands::WRITE_BUFFER ( 
@@ -3340,52 +2106,15 @@ SCSIPrimaryCommands::WRITE_BUFFER (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIPrimaryCommands::WRITE_BUFFER called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( MODE, kSCSICmdFieldMask4Bit ) == false )
-	{
-
-		STATUS_LOG ( ( "MODE = %x not valid\n", MODE ) );
-		return false;
-
-	}
-	
-	if ( IsParameterValid ( BUFFER_ID, kSCSICmdFieldMask1Byte ) == false )
-	{
-
-		STATUS_LOG ( ( "BUFFER_ID = %x not valid\n", BUFFER_ID ) );
-		return false;
-
-	}
-	
-	if ( IsParameterValid ( BUFFER_OFFSET, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "BUFFER_OFFSET = %x not valid\n",
-						BUFFER_OFFSET ) );
-		return false;
-		
-	}
-	
-	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid\n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		STATUS_LOG ( ( "CONTROL = %x not valid\n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( MODE, kSCSICmdFieldMask4Bit ), ErrorExit );
+	require ( IsParameterValid ( BUFFER_ID, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( BUFFER_OFFSET, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// This is a 10-Byte command, fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3406,6 +2135,395 @@ SCSIPrimaryCommands::WRITE_BUFFER (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
 	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Utility Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 1 bit to 1 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::IsParameterValid ( SCSICmdField1Byte param,
+										SCSICmdField1Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 9 bit to 2 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::IsParameterValid ( SCSICmdField2Byte param,
+										SCSICmdField2Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::IsParameterValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Validate Parameter used for 17 bit to 4 byte paramaters
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::IsParameterValid ( SCSICmdField4Byte param,
+										SCSICmdField4Byte mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( param | mask ) == mask, ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::IsBufferAndCapacityValid
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Check that the buffer is valid and of the required size
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::IsBufferAndCapacityValid (
+				IOMemoryDescriptor *		dataBuffer,
+				UInt32						requiredSize )
+{
+	
+	bool	valid = false;
+	require_nonzero ( dataBuffer, ErrorExit );
+	require ( ( dataBuffer->getLength ( ) >= requiredSize ), ErrorExit );
+	valid = true;
+	
+	
+ErrorExit:
+	
+	
+	return valid;
+	
+}
+
+
+// ---- Methods for accessing the SCSITask attributes ----
+// The SetCommandDescriptorBlock methods will populate the CDB of the
+// appropriate size.  These methods will returns true if the CDB could 
+// be filled out, false if it couldn't.
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::SetCommandDescriptorBlock
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Populate the 6 Byte Command Descriptor Block
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
+							SCSITask *		request,
+							UInt8			cdbByte0,
+							UInt8			cdbByte1,
+							UInt8			cdbByte2,
+							UInt8			cdbByte3,
+							UInt8			cdbByte4,
+							UInt8			cdbByte5 )
+{
+	
+	check ( request != NULL );
+	
+	return request->SetCommandDescriptorBlock (
+					cdbByte0,
+					cdbByte1,
+					cdbByte2,
+					cdbByte3,
+					cdbByte4,
+					cdbByte5 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::SetCommandDescriptorBlock
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Populate the 10 Byte Command Descriptor Block
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
+							SCSITask *		request,
+							UInt8			cdbByte0,
+							UInt8			cdbByte1,
+							UInt8			cdbByte2,
+							UInt8			cdbByte3,
+							UInt8			cdbByte4,
+							UInt8			cdbByte5,
+							UInt8			cdbByte6,
+							UInt8			cdbByte7,
+							UInt8			cdbByte8,
+							UInt8			cdbByte9 )
+{
+	
+	check ( request != NULL );
+	
+	return request->SetCommandDescriptorBlock (
+					cdbByte0,
+					cdbByte1,
+					cdbByte2,
+					cdbByte3,
+					cdbByte4,
+					cdbByte5,
+					cdbByte6,
+					cdbByte7,
+					cdbByte8,
+					cdbByte9 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::SetCommandDescriptorBlock
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Populate the 12 Byte Command Descriptor Block
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
+							SCSITask *		request,
+							UInt8			cdbByte0,
+							UInt8			cdbByte1,
+							UInt8			cdbByte2,
+							UInt8			cdbByte3,
+							UInt8			cdbByte4,
+							UInt8			cdbByte5,
+							UInt8			cdbByte6,
+							UInt8			cdbByte7,
+							UInt8			cdbByte8,
+							UInt8			cdbByte9,
+							UInt8			cdbByte10,
+							UInt8			cdbByte11 )
+{
+	
+	check ( request != NULL );
+	
+	return request->SetCommandDescriptorBlock (
+					cdbByte0,
+					cdbByte1,
+					cdbByte2,
+					cdbByte3,
+					cdbByte4,
+					cdbByte5,
+					cdbByte6,
+					cdbByte7,
+					cdbByte8,
+					cdbByte9,
+					cdbByte10,
+					cdbByte11 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::SetCommandDescriptorBlock
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Populate the 16 Byte Command Descriptor Block
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::SetCommandDescriptorBlock ( 
+							SCSITask *		request,
+							UInt8			cdbByte0,
+							UInt8			cdbByte1,
+							UInt8			cdbByte2,
+							UInt8			cdbByte3,
+							UInt8			cdbByte4,
+							UInt8			cdbByte5,
+							UInt8			cdbByte6,
+							UInt8			cdbByte7,
+							UInt8			cdbByte8,
+							UInt8			cdbByte9,
+							UInt8			cdbByte10,
+							UInt8			cdbByte11,
+							UInt8			cdbByte12,
+							UInt8			cdbByte13,
+							UInt8			cdbByte14,
+							UInt8			cdbByte15 )
+{
+	
+	check ( request != NULL );
+	
+	return request->SetCommandDescriptorBlock (
+					cdbByte0,
+					cdbByte1,
+					cdbByte2,
+					cdbByte3,
+					cdbByte4,
+					cdbByte5,
+					cdbByte6,
+					cdbByte7,
+					cdbByte8,
+					cdbByte9,
+					cdbByte10,
+					cdbByte11,
+					cdbByte12,
+					cdbByte13,
+					cdbByte14,
+					cdbByte15 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::SetDataTransferControl
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Set up the control information for the transfer, including
+//		the transfer direction and the number of bytes to transfer.
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIPrimaryCommands::SetDataTransferControl ( 
+							SCSITask *				request,
+						    UInt32					timeoutDuration,
+							UInt8					dataTransferDirection,
+							IOMemoryDescriptor *	dataBuffer,
+							UInt64					transferCountInBytes )
+{
+	
+	bool	result = false;
+	
+	check ( request != NULL );
+	
+	if ( transferCountInBytes != 0 )
+	{
+		
+		require_nonzero ( dataBuffer, ErrorExit );
+		
+	}
+	
+	result = request->SetTimeoutDuration ( timeoutDuration );
+	require ( result, ErrorExit );
+	
+	result = request->SetDataTransferDirection ( dataTransferDirection );
+	require ( result, ErrorExit );
+	
+	result = request->SetDataBuffer ( dataBuffer );
+	require ( result, ErrorExit );
+	
+	result = request->SetRequestedDataTransferCount ( transferCountInBytes );
+	require ( result, ErrorExit );
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		Factory method for getting an instance of the command builder
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIPrimaryCommands *
+SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject ( void )
+{
+	return new SCSIPrimaryCommands;
 }

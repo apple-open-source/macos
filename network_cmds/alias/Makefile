@@ -15,7 +15,7 @@ PROJECT_TYPE = Library
 HFILES = alias.h alias_local.h
 
 CFILES = alias.c alias_cuseeme.c alias_db.c alias_ftp.c alias_irc.c\
-         alias_nbt.c alias_proxy.c alias_util.c
+         alias_nbt.c alias_pptp.c alias_proxy.c alias_smedia.c alias_util.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

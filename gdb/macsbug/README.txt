@@ -1,5 +1,5 @@
                            MacsBug Interface for GDB
-                                    6/8/01
+                                   1/18/02
 
 1. Introduction
 
@@ -253,7 +253,36 @@
    the proper display.
 
 
-7. Changes in MacsBug 1.1
+7. Changes in MacsBug 1.3
+   
+   * Fixed typeo in the FB help info in the reference to FUTURE-BREAK.
+
+   * Fixed memory write commands (e.g., SB, SW, etc.) to detect when the
+     memory is inaccessible.
+
+
+8. Changes in MacsBug 1.2
+   
+   * Fixed all commands that potentially bcak up over gdb prompt to produce
+     a contiguous display to ensure the line is cleared before writing.
+     Previously, under certain conditions, a portion of the gdb prompt
+     would remain.  Commands affect are: list, next, step, nexti, stepi, db,
+     dw, dl, dm, dma, dp, id, il, ip.
+
+   * Added two new SET commands:
+
+     SET mb-hexdump-width w
+     SET mb-hexdump-group g
+
+     These control the hexdump display width and byte grouping (e.g., the
+     output of the DM command).  The width is the number of bytes shown per
+     line.  The grouping is the number of bytes shown without intervening
+     spaces.  The default is a width of 16 bytes per line in 4 groups of 4
+     bytes each.  The width must be a multiple of the group.  Previously
+     the width was fixed at 16 in groups of 2.
+
+
+9. Changes in MacsBug 1.1
 
    * Removed all references to the install-MacsBug script which was documented
      but never installed in 1.0.

@@ -1,0 +1,24 @@
+#!/bin/sh -x
+
+SRCROOT=/tmp/$(basename $(pwd))
+
+echo Exporting to ${SRCROOT}
+mkdir -p ${SRCROOT}
+
+gnutar cf - --exclude=CVS --exclude=build --exclude=\*~ \
+--exclude=.#\* --exclude=.gdb\* --exclude=\*.APPLE . | \
+(cd ${SRCROOT}; gnutar xf - )
+
+cd ${SRCROOT}
+pbxbuild export SRCROOT=${SRCROOT}
+
+# Filter out !DARWIN source
+
+for file in `find . -type f -name \*.\[ch\] -exec echo {} \; `; do
+    /usr/bin/sed -e '/^#if !defined(DARWIN)/,/^#endif .*!DARWIN/d' \
+	-e '/^#if defined(DARWIN)/d' \
+	-e '/^#endif .*DARWIN/d' \
+	"$file" > "$file".temp
+
+    mv "$file".temp "$file"
+done

@@ -27,6 +27,7 @@
 #include <Security/globalizer.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
+#include <set>
 
 // yes, we use some UNIX (non-mach) headers...
 #include <sys/types.h>
@@ -44,7 +45,7 @@ protected:
 	// actually, kern_return_t can be just about any subsystem type return code
 	Error(kern_return_t err);
 public:
-	virtual ~Error();
+	virtual ~Error() throw();
 
     virtual CSSM_RETURN cssmError() const;
     virtual OSStatus osStatus() const;
@@ -53,11 +54,24 @@ public:
 	
 	static void check(kern_return_t err);
     static void throwMe(kern_return_t err) __attribute__((noreturn));
+
+private:
+	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 // generic return code checker
 inline void check(kern_return_t status)
 { Error::check(status); }
+
+
+//
+// Simple vm_allocate/deallocate glue
+//
+void *allocate(size_t size);
+void deallocate(vm_address_t addr, size_t size);
+
+inline void deallocate(const void *addr, size_t size)
+{ deallocate(reinterpret_cast<vm_address_t>(addr), size); }
 
 
 //
@@ -100,13 +114,8 @@ public:
 	mach_port_urefs_t getRefs(mach_port_right_t right);
 
 	// port notification interface
-	mach_port_t requestNotify(mach_port_t notify, mach_msg_id_t type, mach_port_mscount_t sync = 1)
-	{
-		mach_port_t previous;
-		check(mach_port_request_notification(self(), mPort, type, sync, notify,
-			MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous));
-		return previous;
-	}
+	mach_port_t requestNotify(mach_port_t notify, mach_msg_id_t type, mach_port_mscount_t sync = 1);
+    mach_port_t cancelNotify(mach_msg_id_t type);
 	
     IFDUMP(void dump(const char *name = NULL));
 	
@@ -128,6 +137,9 @@ public:
     
     void operator -= (const Port &port)
     { check(mach_port_move_member(self(), port, MACH_PORT_NULL)); }
+	
+	set<Port> members() const;
+	bool contains(Port member) const;	// relatively slow
 };
 
 
@@ -184,9 +196,9 @@ public:
 //
 class ReceivePort : public Port {
 public:
-	ReceivePort() { allocate(); }
+	ReceivePort()	{ allocate(); }
 	ReceivePort(const char *name, const Bootstrap &bootstrap);
-	~ReceivePort() { destroy(); }
+	~ReceivePort()	{ destroy(); }
 };
 
 
@@ -207,6 +219,21 @@ private:
     TaskPort mTask;
     StLock<Mutex> locker;
     static ModuleNexus<Mutex> critical; // critical region guard (of a sort)
+};
+
+
+//
+// A Mach-level memory guard.
+// This will vm_deallocate its argument when it gets destroyed.
+//
+class VMGuard {
+public:
+	VMGuard(void *addr, size_t length) : mAddr(addr), mLength(length) { }
+	~VMGuard()	{ deallocate(mAddr, mLength); }
+
+private:
+	void *mAddr;
+	size_t mLength;
 };
 
 
@@ -238,19 +265,22 @@ public:
     void remotePort(mach_port_t p)			{ mBuffer->Head.msgh_remote_port = p; }
     
 public:
-    void send(mach_msg_option_t options = 0,
+    bool send(mach_msg_option_t options = 0,
         mach_msg_timeout_t timeout = MACH_MSG_TIMEOUT_NONE,
         mach_port_name_t notify = MACH_PORT_NULL);
-    void receive(mach_port_t receivePort,
+    bool receive(mach_port_t receivePort,
         mach_msg_option_t options = 0,
         mach_msg_timeout_t timeout = MACH_MSG_TIMEOUT_NONE,
         mach_port_name_t notify = MACH_PORT_NULL);
-    void sendReceive(mach_port_t receivePort,
+    bool sendReceive(mach_port_t receivePort,
         mach_msg_option_t options = 0,
         mach_msg_timeout_t timeout = MACH_MSG_TIMEOUT_NONE,
         mach_port_name_t notify = MACH_PORT_NULL);
     
     void destroy()		{ mach_msg_destroy(*this); }
+    
+private:
+    bool check(kern_return_t status);
 
 private:
     mig_reply_error_t *mBuffer;

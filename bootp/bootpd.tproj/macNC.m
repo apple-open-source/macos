@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,10 +22,7 @@
 /* 
  * macNC.c
  * - macNC boot server
- * - supports netboot clients by:
- *   + allocating IP addresses
- *   + locating/creating disk image files
- *   + creating/providing AFP login
+ * - supports Mac OS 9 AKA Classic netboot clients
  */
 
 /*
@@ -40,103 +37,52 @@
  * - removed code that creates sharepoints
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <sys/types.h>
-#import <sys/stat.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/file.h>
-#import	<pwd.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <netinet/bootp.h>
-#import <netinet/if_ether.h>
-#import <stdio.h>
-#import <strings.h>
-#import <errno.h>
-#import <fcntl.h>
-#import <ctype.h>
-#import <netdb.h>
-#import <syslog.h>
-#import <sys/param.h>
-#import <sys/mount.h>
-#import <arpa/inet.h>
-#import <mach/boolean.h>
-#import <sys/wait.h>
-#import <sys/resource.h>
-#import <ctype.h>
-#import <grp.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <pwd.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/bootp.h>
+#include <netinet/if_ether.h>
+#include <stdio.h>
+#include <strings.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <netdb.h>
+#include <syslog.h>
+#include <sys/param.h>
+#include <sys/mount.h>
+#include <arpa/inet.h>
+#include <mach/boolean.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+#include <ctype.h>
 
-#import "dhcp.h"
-#import "netinfo.h"
-#import "rfc_options.h"
+#include "dhcp.h"
+#include "netinfo.h"
+#include "rfc_options.h"
 #import "subnetDescr.h"
-#import "interfaces.h"
-#import "bootpd.h"
-#import "macnc_options.h"
-#import "macNC.h"
-#import "host_identifier.h"
-#import "NICache.h"
-#import "hfsvols.h"
-#import "nbsp.h"
-#import "AFPUsers.h"
-#import "NetBootServer.h"
-
-#define AGE_TIME_SECONDS	(60 * 60 * 24)
-#define AFP_USERS_MAX		50
-#define ADMIN_GROUP_NAME	"admin"
-#define ROOT_UID		0
-
-/* external functions */
-char *  	ether_ntoa(struct ether_addr *e);
-
-/* globals */
-gid_t		netboot_gid;
-int		afp_users_max = AFP_USERS_MAX;
-u_int32_t	age_time_seconds = AGE_TIME_SECONDS;
-
-/* local defines/variables */
-#define NIPROP__CREATOR		"_creator"
-
-#define MAX_RETRY		5
-
-#define SHARED_DIR_PERMS	0775
-#define SHARED_FILE_PERMS	0664
-
-#define CLIENT_DIR_PERMS	0770
-#define CLIENT_FILE_PERMS	0660
-
-/*
- * Define: SHADOW_SIZE_SAME
- * Meaning:
- *   Make the shadow size file exactly the same size as the file
- *   being shadowed (default behaviour required by NetBoot in Mac OS 8.5).
- */ 
-#define SHADOW_SIZE_SAME	0 
-#define SHADOW_SIZE_DEFAULT	48
-#define MACOSROM	"Mac OS ROM"
-static gid_t		S_admin_gid;
-
-static nbspList_t	S_sharepoints = NULL;
-static boolean_t	S_disk_space_warned = FALSE;
-static boolean_t	S_init_done = FALSE;
-static u_long		S_shadow_size_meg = SHADOW_SIZE_DEFAULT;
-
-/* strings retrieved from the configuration directory: */
-static ni_name		S_client_image_dir = "Clients";
-static ni_name		S_default_bootfile = MACOSROM;
-static ni_name		S_images_dir = "Images";
-static ni_name		S_private_image_name = "Applications HD.img";
-static ni_name		S_shadow_name = "Shadow";
-static nbspEntry_t *	S_private_image_volume = NULL;
-static ni_name		S_shared_image_name = "NetBoot HD.img";
-static nbspEntry_t *	S_shared_image_volume = NULL;
-
-static PropList_t 	S_config_netboot;
+#include "interfaces.h"
+#include "bootpd.h"
+#include "bsdpd.h"
+#include "macnc_options.h"
+#include "macNC.h"
+#include "host_identifier.h"
+#include "NICache.h"
+#include "nbsp.h"
+#include "hfsvols.h"
+#include "nbimages.h"
+#include "AFPUsers.h"
+#include "NetBootServer.h"
 
 static __inline__ void
 S_timestamp(char * msg)
@@ -145,28 +91,9 @@ S_timestamp(char * msg)
 	timestamp_syslog(msg);
 }
 
-static __inline__ boolean_t
-S_gid_taken(ni_entrylist * id_list, gid_t gid)
-{
-    int 		i;
-
-    for (i = 0; i < id_list->niel_len; i++) {
-	ni_namelist * 	nl_p = id_list->niel_val[i].names;
-	gid_t		group_id;
-
-	if (nl_p == NULL || nl_p->ninl_len == 0)
-	    continue;
-
-	group_id = strtoul(nl_p->ninl_val[0], NULL, NULL);
-	if (group_id == gid)
-	    return (TRUE);
-    }
-    return (FALSE);
-}
-
 static boolean_t
-S_set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
-		    mode_t mode, boolean_t lock)
+set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+		  mode_t mode, boolean_t lock)
 {
     boolean_t		needs_chown = FALSE;
     boolean_t		needs_chmod = FALSE;
@@ -208,343 +135,14 @@ S_set_privs_no_stat(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
     return (TRUE);
 }
 
-static boolean_t
-S_set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
-	    mode_t mode, boolean_t lock)
+boolean_t
+set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+	  mode_t mode, boolean_t lock)
 {
     if (stat(path, sb_p) != 0) {
 	return (FALSE);
     }
-    return (S_set_privs_no_stat(path, sb_p, uid, gid, mode, lock));
-}
-
-static boolean_t
-S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
-{
-    ni_id		dir;
-    ni_entrylist	id_list;
-    ni_proplist		pl;
-    boolean_t		ret = FALSE;
-    ni_status		status;
-    gid_t		scan;
-
-    *actual_gid = NULL;
-    NI_INIT(&id_list);
-    NI_INIT(&pl);
-
-    status = ni_pathsearch(NIDomain_handle(ni_local), &dir,
-			   NIDIR_GROUPS);
-    if (status != NI_OK) {
-	syslog(LOG_INFO, "macNC: ni_pathsearch '%s' failed, %s",
-	       NIDIR_GROUPS, ni_error(status));
-	return (FALSE);
-    }
-    status = ni_list(NIDomain_handle(ni_local), &dir,
-		     NIPROP_GID, &id_list);
-    if (status != NI_OK) {
-	syslog(LOG_INFO, "macNC: ni_list '%s' failed, %s",
-	       NIDIR_GROUPS, ni_error(status));
-	return (FALSE);
-    }
-    
-    ni_set_prop(&pl, NIPROP_NAME, NETBOOT_GROUP, NULL);
-    ni_set_prop(&pl, NIPROP_PASSWD, "*", NULL);
-
-    for (scan = preferred_gid; TRUE; scan++) {
-	char		buf[64];
-	ni_id		child;
-
-	if (S_gid_taken(&id_list, scan)) {
-	    continue;
-	}
-	snprintf(buf, sizeof(buf), "%d", scan);
-	ni_set_prop(&pl, NIPROP_GID, buf, NULL);
-	{
-	    int		i;
-
-	    for (i = 0; i < MAX_RETRY; i++) {
-		status = ni_create(NIDomain_handle(ni_local), 
-				   &dir, pl, &child, NI_INDEX_NULL);
-		if (status == NI_STALE) {
-		    ni_self(NIDomain_handle(ni_local),
-			    &dir);
-		    continue;
-		}
-		*actual_gid = scan;
-		ret = TRUE;
-		goto done;
-	    }
-	}
-
-	if (status != NI_OK) {
-	    syslog(LOG_INFO, "macNC: create " NETBOOT_GROUP 
-		   " group failed, %s", ni_error(status));
-	    goto done;
-	}
-    }
-
- done:
-    ni_proplist_free(&pl);
-    ni_entrylist_free(&id_list);
-    return (ret);
-
-}
-
-static void
-S_read_config()
-{
-    ni_namelist *	nl_p;
-
-    S_shadow_size_meg = SHADOW_SIZE_DEFAULT;
-    afp_users_max = AFP_USERS_MAX;
-    age_time_seconds = AGE_TIME_SECONDS;
-
-    if (PropList_read(&S_config_netboot) == TRUE) {
-	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_SHADOW_SIZE_MEG);
-	if (nl_p && nl_p->ninl_len) {
-	    S_shadow_size_meg = strtol(nl_p->ninl_val[0], 0, 0);
-	}
-	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_AFP_USERS_MAX);
-	if (nl_p && nl_p->ninl_len) {
-	    afp_users_max = strtol(nl_p->ninl_val[0], 0, 0);
-	}
-	nl_p = PropList_lookup(&S_config_netboot, CFGPROP_AGE_TIME_SECONDS);
-	if (nl_p && nl_p->ninl_len) {
-	    age_time_seconds = strtoul(nl_p->ninl_val[0], 0, 0);
-	}
-    }
-    if (S_shadow_size_meg == SHADOW_SIZE_SAME) {
-	syslog(LOG_INFO, 
-	       "macNC: shadow file size will be set to image file size");
-    }
-    else {
-	syslog(LOG_INFO, 
-	       "macNC: shadow file size will be set to %d megabytes",
-	       S_shadow_size_meg);
-    }
-    {
-	u_int32_t	hours = 0;
-	u_int32_t	minutes = 0;
-	u_int32_t	seconds = 0;
-	u_int32_t	remainder = age_time_seconds;
-
-#define SECS_PER_MINUTE	60
-#define SECS_PER_HOUR	(60 * SECS_PER_MINUTE)
-
-	hours = remainder / SECS_PER_HOUR;
-	remainder = remainder % SECS_PER_HOUR;
-	if (remainder > 0) {
-	    minutes = remainder / SECS_PER_MINUTE;
-	    remainder = remainder % SECS_PER_MINUTE;
-	    seconds = remainder;
-	}
-	syslog(LOG_INFO,
-	       "macNC: age time %02u:%02u:%02u", hours, minutes, seconds);
-    }
-    return;
-}
-
-static void
-S_update_bootfile_symlink(char * path)
-{
-    (void)mkdir("/private/tftpboot", 0755);
-    (void)symlink(path, "/private/tftpboot/" MACOSROM);
-    return;
-}
-
-static nbspEntry_t *
-S_find_images(nbspList_t list)
-{
-    nbspEntry_t * images = NULL;
-    int i;
-
-    for (i = 0; i < nbspList_count(list); i++) {
-	nbspEntry_t * 	entry = nbspList_element(list, i);
-	char		path[PATH_MAX];
-	struct stat	sb;
-
-	snprintf(path, sizeof(path), "%s/%s/%s",
-		 entry->path, S_images_dir, S_shared_image_name);
-	if (stat(path, &sb) < 0) {
-	    continue;
-	}
-	snprintf(path, sizeof(path), "%s/%s/%s",
-		 entry->path, S_images_dir, S_default_bootfile);
-	if (stat(path, &sb) < 0) {
-	    continue;
-	}
-	snprintf(path, sizeof(path), "%s/%s", entry->path, S_images_dir);
-	if (S_set_privs(path, &sb, ROOT_UID, S_admin_gid, SHARED_DIR_PERMS, FALSE)
-	    == FALSE) {
-	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
-		   path);
-	    continue;
-	}
-	images = entry;
-	snprintf(path, sizeof(path), "%s/%s/%s",
-		 entry->path, S_images_dir, S_default_bootfile);
-	S_update_bootfile_symlink(path);
-	break;
-    }
-    return (images);
-}
-
-boolean_t
-S_set_sharepoint_permissions(nbspList_t list, uid_t user, gid_t group)
-{
-    boolean_t		ret = TRUE;
-    int 		i;
-	
-    for (i = 0; i < nbspList_count(list); i++) {
-	nbspEntry_t * 	entry = nbspList_element(list, i);
-	char		path[PATH_MAX];
-	struct stat	sb;
-
-	/*
-	 * Verify permissions/ownership
-	 */
-	if (S_set_privs(entry->path, &sb, user, group, SHARED_DIR_PERMS, 
-			FALSE) == FALSE) {
-	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
-		   entry->path);
-	    ret = FALSE;
-	}
-	snprintf(path, sizeof(path), "%s/%s", entry->path, S_client_image_dir);
-	(void)mkdir(path, SHARED_DIR_PERMS);
-	if (S_set_privs(path, &sb, user, group, SHARED_DIR_PERMS, FALSE)
-	    == FALSE) {
-	    syslog(LOG_INFO, "macNC: setting permissions on '%s' failed: %m", 
-		   path);
-	    ret = FALSE;
-	}
-    }
-
-    return (ret);
-}
-
-/*
- * Function: S_cfg_init
- *
- * Purpose:
- *   This function does all of the variable initialization needed by the
- *   boot server.  It can be called multiple times if necessary.
- */
-static boolean_t
-S_cfg_init()
-{
-    nbspList_t new_list;
-
-    syslog(LOG_INFO, "macNC: re-reading configuration");
-
-    S_read_config();
-
-    /* get the list of sharepoints */
-    new_list = nbspList_init();
-    if (new_list) {
-	if (S_sharepoints)
-	    nbspList_free(&S_sharepoints);
-	S_sharepoints = new_list;
-	S_shared_image_volume = S_find_images(S_sharepoints);
-	if (S_shared_image_volume == NULL) {
-	    syslog(LOG_INFO, "macNC: NetBoot images not found");
-	    return (FALSE);
-	}
-	S_private_image_volume = S_shared_image_volume;
-    }
-    else if (S_sharepoints == NULL) {
-	return (FALSE);
-    }
-
-    if (S_set_sharepoint_permissions(S_sharepoints, ROOT_UID, 
-				     S_admin_gid) == FALSE) {
-	return (FALSE);
-    }
-
-    if (debug) {
-	nbspList_print(S_sharepoints);
-    }
-
-    return (TRUE);
-}
-
-/*
- * Function: S_init
- *
- * Purpose:
- *   Initialize state for dealing with macNC's:
- * Returns:
- *   TRUE if success, FALSE if failure
- */
-static boolean_t
-S_init()
-{
-    struct group *	group_ent_p;
-    struct timeval 	tv;
-
-    /* one-time initialization */
-    if (S_init_done)
-	return (TRUE);
-
-    if (ni_local == NULL) {
-	syslog(LOG_INFO,
-	       "macNC: local netinfo domain not yet open");
-	return (FALSE);
-    }
-
-    PropList_init(&S_config_netboot, "/config/NetBootServer");
-
-    /* get the netboot group id, or create the group if necessary */
-    group_ent_p = getgrnam(NETBOOT_GROUP);
-    if (group_ent_p == NULL) {
-#define NETBOOT_GID	120
-	if (S_create_netboot_group(NETBOOT_GID, &netboot_gid) == FALSE) {
-	    return (FALSE);
-	}
-    }
-    else {
-	netboot_gid = group_ent_p->gr_gid;
-    }
-
-    /* get the admin group id */
-    group_ent_p = getgrnam(ADMIN_GROUP_NAME);
-    if (group_ent_p == NULL) {
-	syslog(LOG_INFO, "macNC: getgrnam " ADMIN_GROUP_NAME " failed");
-	return (FALSE);
-    }
-    S_admin_gid = group_ent_p->gr_gid;
-
-    /* read the configuration directory */
-    if (S_cfg_init() == FALSE) {
-	return (FALSE);
-    }
-
-    /* use microseconds for the random seed: password is a random number */
-    gettimeofday(&tv, 0);
-    srandom(tv.tv_usec);
-
-    /* one-time initialization */
-    S_init_done = TRUE;
-    return (TRUE);
-}
-
-/*
- * Function: macNC_init
- *
- * Purpose:
- *   Called from bootp if we received a SIGHUP.
- */
-boolean_t
-macNC_init()
-{
-    S_disk_space_warned = FALSE;
-
-    if (S_init_done == TRUE)
-	(void)S_cfg_init(); /* subsequent initialization */
-    else if (S_init() == FALSE) {  /* one-time initialization */
-	syslog(LOG_INFO, "macNC: NetBoot service turned off");
-	return (FALSE);
-    }
-    return (TRUE);
+    return (set_privs_no_stat(path, sb_p, uid, gid, mode, lock));
 }
 
 /*
@@ -633,7 +231,7 @@ S_make_finder_info(u_char * shadow_path, u_char * real_path)
  *   Format a volume pathname given a volume, directory and file name.
  */
 static void
-S_get_volpath(u_char * path, nbspEntry_t * entry, u_char * dir, u_char * file)
+S_get_volpath(u_char * path, NBSPEntry * entry, u_char * dir, u_char * file)
 {
     snprintf(path, PATH_MAX, "%s%s%s%s%s",
 	     entry->path,
@@ -651,13 +249,13 @@ S_get_volpath(u_char * path, nbspEntry_t * entry, u_char * dir, u_char * file)
  *   Create the given directory path on the given volume.
  */
 static boolean_t
-S_create_volume_dir(nbspEntry_t * entry, u_char * dirname, mode_t mode)
+S_create_volume_dir(NBSPEntry * entry, u_char * dirname, mode_t mode)
 {
     u_char 		path[PATH_MAX];
 
     S_get_volpath(path, entry, dirname, NULL);
     if (create_path(path, mode) < 0) {
-	syslog(LOG_INFO, "macNC: create_volume_dir: create_path(%s)"
+	my_log(LOG_INFO, "macNC: create_volume_dir: create_path(%s)"
 	       " failed, %m",  path);
 	return (FALSE);
     }
@@ -682,11 +280,11 @@ S_create_shadow_file(u_char * shadow_path, u_char * real_path,
 
     fd = open(shadow_path, O_CREAT | O_TRUNC | O_WRONLY, CLIENT_FILE_PERMS);
     if (fd < 0) {
-	syslog(LOG_INFO, "macNC: couldn't create file '%s': %m", shadow_path);
+	my_log(LOG_INFO, "macNC: couldn't create file '%s': %m", shadow_path);
 	return (FALSE);
     }
     if (hfs_set_file_size(fd, size)) {
-	syslog(LOG_INFO, "macNC: hfs_set_file_size '%s' failed: %m",
+	my_log(LOG_INFO, "macNC: hfs_set_file_size '%s' failed: %m",
 	       shadow_path);
 	goto err;
     }
@@ -699,7 +297,7 @@ S_create_shadow_file(u_char * shadow_path, u_char * real_path,
 
     /* correct the owner of the path */
     if (S_set_uid_gid(shadow_path, uid, gid)) {
-	syslog(LOG_INFO, "macNC: setuidgid '%s' to %ld,%ld failed: %m", 
+	my_log(LOG_INFO, "macNC: setuidgid '%s' to %ld,%ld failed: %m", 
 	       shadow_path, uid, gid);
 	return (FALSE);
     }
@@ -712,7 +310,7 @@ S_create_shadow_file(u_char * shadow_path, u_char * real_path,
 
 static boolean_t
 S_add_afppath_option(struct in_addr servip, dhcpoa_t * options, 
-		     nbspEntry_t * entry, u_char * dir, u_char * file, int tag)
+		     NBSPEntry * entry, u_char * dir, u_char * file, int tag)
 {
     u_char		buf[DHCP_OPTION_SIZE_MAX];
     u_char		err[256];
@@ -729,12 +327,12 @@ S_add_afppath_option(struct in_addr servip, dhcpoa_t * options,
     if (macNCopt_encodeAFPPath(servip, AFP_PORT_NUMBER, entry->name,
 			       AFP_DIRID_NULL, AFP_PATHTYPE_LONG,
 			       path, '/', buf, &len, err) == FALSE) {
-	syslog(LOG_INFO, "macNC: couldn't encode %s:%s, %s", entry->name, path,
+	my_log(LOG_INFO, "macNC: couldn't encode %s:%s, %s", entry->name, path,
 	       err);
 	return (FALSE);
     }
     if (dhcpoa_add(options, tag, len, buf) != dhcpoa_success_e) {
-	syslog(LOG_INFO, "macNC: couldn't add option %d failed: %s", tag,
+	my_log(LOG_INFO, "macNC: couldn't add option %d failed: %s", tag,
 	       dhcpoa_err(options));
 	return (FALSE);
     }
@@ -749,7 +347,7 @@ S_add_afppath_option(struct in_addr servip, dhcpoa_t * options,
  *   Return the stat structure for the given volume/dir/file.
  */
 static __inline__ int
-S_stat_path_vol_file(u_char * path, nbspEntry_t * entry, 
+S_stat_path_vol_file(u_char * path, NBSPEntry * entry, 
 		     u_char * dir, u_char * file,
 		     struct stat * sb_p)
 {
@@ -758,40 +356,13 @@ S_stat_path_vol_file(u_char * path, nbspEntry_t * entry,
 }
 
 
-static __inline__ boolean_t
-S_stat_shared(u_char * shared_path, struct stat * sb_p)
-{
-    S_get_volpath(shared_path, S_shared_image_volume, S_images_dir,
-		  S_shared_image_name);
-    return (S_set_privs(shared_path, sb_p, ROOT_UID, S_admin_gid,
-			SHARED_FILE_PERMS, TRUE));
-}
-
-static __inline__ boolean_t
-S_stat_private(u_char * private_path, struct stat * sb_p)
-{
-    S_get_volpath(private_path, S_private_image_volume, S_images_dir,
-		  S_private_image_name);
-    return (S_set_privs(private_path, sb_p, ROOT_UID, S_admin_gid,
-			SHARED_FILE_PERMS, TRUE));
-}
-
-static __inline__ boolean_t
-S_stat_bootfile(u_char * bootfile_path, struct stat * sb_p)
-{
-    S_get_volpath(bootfile_path, S_shared_image_volume, S_images_dir,
-		  S_default_bootfile);
-    return (S_set_privs(bootfile_path, sb_p, ROOT_UID, S_admin_gid,
-			SHARED_FILE_PERMS, TRUE));
-}
-
 static boolean_t
 S_freespace(u_char * path, unsigned long long * size)
 {
     struct statfs 	fsb;
 
     if (statfs(path, &fsb) != 0) {
-	syslog(LOG_INFO, "macNC: statfs on '%s' failed %m", path);
+	my_log(LOG_INFO, "macNC: statfs on '%s' failed %m", path);
 	return (FALSE);
     }
     *size = ((unsigned long long)fsb.f_bavail) 	
@@ -802,18 +373,18 @@ S_freespace(u_char * path, unsigned long long * size)
     return (TRUE);
 }
 
-static nbspEntry_t *
+static NBSPEntry *
 S_find_volume_with_space(unsigned long long needspace, int def_vol_index)
 {
     unsigned long long	freespace;
     int 		i;
-    nbspEntry_t *	entry = NULL;
+    NBSPEntry *	entry = NULL;
     u_char		path[PATH_MAX];
     int			vol_index;
 
-    for (i = 0, vol_index = def_vol_index; i < nbspList_count(S_sharepoints);
+    for (i = 0, vol_index = def_vol_index; i < NBSPList_count(G_client_sharepoints);
 	 i++) {
-	nbspEntry_t * shp = nbspList_element(S_sharepoints, vol_index);
+	NBSPEntry * shp = NBSPList_element(G_client_sharepoints, vol_index);
 	
 	S_get_volpath(path, shp, NULL, NULL);
 	if (S_freespace(path, &freespace) == TRUE) {
@@ -826,13 +397,13 @@ S_find_volume_with_space(unsigned long long needspace, int def_vol_index)
 		break; /* out of for */
 	    }
 	}
-	vol_index = (vol_index + 1) % nbspList_count(S_sharepoints);
+	vol_index = (vol_index + 1) % NBSPList_count(G_client_sharepoints);
     }
     return (entry);
 }
 
 static boolean_t
-S_remove_shadow(u_char * shadow_path, nbspEntry_t * entry, u_char * dir)
+S_remove_shadow(u_char * shadow_path, NBSPEntry * entry, u_char * dir)
 {
     u_char path[PATH_MAX];
 
@@ -862,7 +433,8 @@ S_remove_shadow(u_char * shadow_path, nbspEntry_t * entry, u_char * dir)
  *   response options.
  */
 static boolean_t
-S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip, 
+S_add_image_options(NBImageEntryRef image_entry,
+		    uid_t uid, gid_t gid, struct in_addr servip, 
 		    dhcpoa_t * options, int host_number, 
 		    u_char * afp_hostname)
 {
@@ -871,119 +443,151 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
     struct stat		dir_statb;
     int			i;
     u_char		nc_images_dir[PATH_MAX];
-    nbspEntry_t *	nc_volume = NULL;
+    NBSPEntry *		nc_volume = NULL;
     u_char		path[PATH_MAX];
     struct stat		statb;
     int			vol_index;
 
-    if (S_stat_bootfile(path, &statb) == FALSE) {
+    /* make sure the bootfile exists and the permissions are correct */
+    snprintf(path, sizeof(path), "%s/%s/%s",
+	     image_entry->sharepoint.path,
+	     image_entry->dir_name,
+	     image_entry->bootfile);
+    if (set_privs(path, &statb, ROOT_UID, G_admin_gid,
+		  SHARED_FILE_PERMS, TRUE) == FALSE) {
 	syslog(LOG_INFO, "macNC: '%s' does not exist", path);
 	return (FALSE);
     }
+
     snprintf(nc_images_dir, sizeof(nc_images_dir),
-	     "%s/%s", S_client_image_dir, afp_hostname);
+	     "%s", afp_hostname);
 
     /* attempt to round-robin images across multiple volumes */
-    def_vol_index = (host_number - 1) % nbspList_count(S_sharepoints);
+    def_vol_index = (host_number - 1) % NBSPList_count(G_client_sharepoints);
 
     /* check all volumes for a client image directory starting at default */
     nc_volume = NULL;
-    for (i = 0, vol_index = def_vol_index; i < nbspList_count(S_sharepoints);
+    for (i = 0, vol_index = def_vol_index; i < NBSPList_count(G_client_sharepoints);
 	 i++) {
-	nbspEntry_t * entry = nbspList_element(S_sharepoints, vol_index);
+	NBSPEntry * entry = NBSPList_element(G_client_sharepoints, vol_index);
 	if (S_stat_path_vol_file(dir_path, entry,
 				 nc_images_dir, NULL, &dir_statb) == 0) {
 	    nc_volume = entry;
 	    break;
 	}
-	vol_index = (vol_index + 1) % nbspList_count(S_sharepoints);
+	vol_index = (vol_index + 1) % NBSPList_count(G_client_sharepoints);
     }
 
     /* if the client has its own private copy of the image file, use it */
     if (nc_volume != NULL
 	&& S_stat_path_vol_file(path, nc_volume, nc_images_dir, 
-				S_shared_image_name, &statb) == 0) {
+				image_entry->type_info.classic.shared, 
+				&statb) == 0) {
 	/* set the image file perms */
-	if (S_set_privs_no_stat(path, &statb, uid, gid, CLIENT_FILE_PERMS, 
-				FALSE) == FALSE) {
-	    syslog(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
+	if (set_privs_no_stat(path, &statb, uid, gid, CLIENT_FILE_PERMS, 
+			      FALSE) == FALSE) {
+	    my_log(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
 		   path);
 	    return (FALSE);
 	}
 	/* set the client dir perms */
-	if (S_set_privs_no_stat(dir_path, &dir_statb, uid, gid, 
-				CLIENT_DIR_PERMS, FALSE) == FALSE) {
-	    syslog(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
+	if (set_privs_no_stat(dir_path, &dir_statb, uid, gid, 
+			      CLIENT_DIR_PERMS, FALSE) == FALSE) {
+	    my_log(LOG_INFO, "macNC: couldn't set permissions on path %s: %m",
 		   dir_path);
 	    return (FALSE);
 	}
 	if (S_add_afppath_option(servip, options, nc_volume, nc_images_dir,
-				 S_shared_image_name,
+				 image_entry->type_info.classic.shared,
 				 macNCtag_shared_system_file_e) == FALSE) {
 	    return (FALSE);
 	}
 	/* does the client have its own Private image? */
-	if (S_stat_path_vol_file(path, nc_volume, nc_images_dir,
-				 S_private_image_name, &statb) == 0) {
-	    if (S_set_privs_no_stat(path, &statb, uid, gid, 
-				    CLIENT_FILE_PERMS, FALSE) == FALSE) {
-		syslog(LOG_INFO, 
-		       "macNC: couldn't set permissions on path %s: %m", path);
-		return (FALSE);
-	    }
-	    /*
-	     * We use macNCtag_page_file_e instead of 
-	     * macNCtag_private_system_file_e as you would expect.
-	     * The reason is that the client ROM software assumes
-	     * that the private_system_file is read-only. It also
-	     * assumes that page_file is read-write.  Since we don't
-	     * use page_file for anything else, we use that instead.
-	     * This is a hack/workaround.
-	     */
-	    if (S_add_afppath_option(servip, options, nc_volume, 
-				     nc_images_dir, S_private_image_name,
-				     macNCtag_page_file_e) == FALSE){
-		return (FALSE);
+	if (image_entry->type_info.classic.private != NULL) {
+	    if (S_stat_path_vol_file(path, nc_volume, nc_images_dir,
+				     image_entry->type_info.classic.private, 
+				     &statb) == 0) {
+		if (set_privs_no_stat(path, &statb, uid, gid, 
+				      CLIENT_FILE_PERMS, FALSE) == FALSE) {
+		    my_log(LOG_INFO, 
+			   "macNC: couldn't set permissions on path %s: %m", 
+			   path);
+		    return (FALSE);
+		}
+		/*
+		 * We use macNCtag_page_file_e instead of 
+		 * macNCtag_private_system_file_e as you would expect.
+		 * The reason is that the client ROM software assumes
+		 * that the private_system_file is read-only. It also
+		 * assumes that page_file is read-write.  Since we don't
+		 * use page_file for anything else, we use that instead.
+		 * This is a hack/workaround.
+		 */
+		if (S_add_afppath_option(servip, options, nc_volume, 
+					 nc_images_dir, 
+					 image_entry->type_info.classic.private,
+					 macNCtag_page_file_e) == FALSE){
+		    return (FALSE);
+		}
 	    }
 	}
     }
     else { /* client gets shadow file(s) */
 	unsigned long long	needspace;
-	u_char			private_path[PATH_MAX];
-	struct stat		sb_shared;
-	struct stat		sb_private;
+	u_char 			private_path[PATH_MAX];
 	u_char 			shadow_path[PATH_MAX];
 	u_char 			shared_path[PATH_MAX];
 
-	/* make sure that the shared system image exists */
-	if (S_stat_shared(shared_path, &sb_shared) == FALSE) {
+	snprintf(shared_path, sizeof(shared_path),
+		 "%s/%s/%s",
+		 image_entry->sharepoint.path,
+		 image_entry->dir_name,
+		 image_entry->type_info.classic.shared);
+	/* set the shared system image permissions */
+	if (set_privs(shared_path, &statb, ROOT_UID, G_admin_gid,
+		      SHARED_FILE_PERMS, TRUE) == FALSE) {
 	    syslog(LOG_INFO, "macNC: '%s' does not exist", shared_path);
 	    return (FALSE);
 	}
+
 	/* add the shared system image option */
-	if (S_add_afppath_option(servip, options, S_shared_image_volume,
-				 S_images_dir, S_shared_image_name, 
-				 macNCtag_shared_system_file_e) == FALSE)
+	if (S_add_afppath_option(servip, options, 
+				 &image_entry->sharepoint,
+				 image_entry->dir_name, 
+				 image_entry->type_info.classic.shared,
+				 macNCtag_shared_system_file_e) == FALSE) {
 	    return (FALSE);
-	if (S_stat_private(private_path, &sb_private)) {
-	    if (S_add_afppath_option(servip, options, S_private_image_volume,
-				     S_images_dir, S_private_image_name, 
-				     macNCtag_private_system_file_e) == FALSE)
-		return (FALSE);
+	}
+	if (image_entry->type_info.classic.private != NULL) {
+	    /* check for the private system image, set its permissions */
+	    snprintf(private_path, sizeof(private_path),
+		     "%s/%s/%s",
+		     image_entry->sharepoint.path,
+		     image_entry->dir_name,
+		     image_entry->type_info.classic.private);
+	    if (set_privs(private_path, &statb, ROOT_UID, G_admin_gid,
+			  SHARED_FILE_PERMS, TRUE) == TRUE) {
+		/* add the private image option */
+		if (S_add_afppath_option(servip, options, 
+					 &image_entry->sharepoint,
+					 image_entry->dir_name, 
+					 image_entry->type_info.classic.private,
+					 macNCtag_private_system_file_e) 
+		    == FALSE) {
+		    return (FALSE);
+		}
+	    }
 	}
 
 #define ONE_MEG		(1024UL * 1024UL)
-	needspace = (S_shadow_size_meg == SHADOW_SIZE_SAME) 
-	    ? sb_shared.st_size
-	    : ((unsigned long long)S_shadow_size_meg) * ONE_MEG;
-
+	needspace = ((unsigned long long)G_shadow_size_meg) * ONE_MEG;
 	if (nc_volume != NULL) {
 	    struct stat		sb_shadow;
 	    boolean_t		set_file_size = FALSE;
 	    boolean_t		set_owner_perms = FALSE;
 	    
 	    S_get_volpath(shadow_path, nc_volume, nc_images_dir, 
-			  S_shadow_name);
+			  kNetBootShadowName);
 	    if (stat(shadow_path, &sb_shadow) == 0) { /* shadow exists */
 		S_timestamp("shadow file exists");
 		if (debug)
@@ -995,30 +599,28 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 		    || (sb_shadow.st_mode & ACCESSPERMS) != CLIENT_FILE_PERMS)
 		    set_owner_perms = TRUE;
 
-		if (sb_shadow.st_size != needspace) {
-		    set_file_size = TRUE;
-		    if (sb_shadow.st_size < needspace) {
-			unsigned long long  	difference;
-			unsigned long long	freespace = 0;
+		if (sb_shadow.st_size < needspace) {
+		    unsigned long long  	difference;
+		    unsigned long long	freespace = 0;
 			
-			S_timestamp("shadow file needs to be grown");
-			/* check for enough space */
-			(void)S_freespace(shadow_path, &freespace);
-			difference = (needspace - sb_shadow.st_size);
-			if (freespace < difference) {
-			    syslog(LOG_INFO, "macNC: device full, "
-				   "attempting to relocate %s",
-				   shadow_path);
-			    /* blow away the shadow */
-			    if (S_remove_shadow(shadow_path, nc_volume,
-						nc_images_dir) == FALSE) {
-				syslog(LOG_INFO, "macNC: couldn't remove"
-				       " shadow %s, %m", shadow_path);
-				return (FALSE);
-			    }
-			    /* start fresh */
-			    nc_volume = NULL;
+		    set_file_size = TRUE;
+		    S_timestamp("shadow file needs to be grown");
+		    /* check for enough space */
+		    (void)S_freespace(shadow_path, &freespace);
+		    difference = (needspace - sb_shadow.st_size);
+		    if (freespace < difference) {
+			my_log(LOG_INFO, "macNC: device full, "
+			       "attempting to relocate %s",
+			       shadow_path);
+			/* blow away the shadow */
+			if (S_remove_shadow(shadow_path, nc_volume,
+					    nc_images_dir) == FALSE) {
+			    my_log(LOG_INFO, "macNC: couldn't remove"
+				   " shadow %s, %m", shadow_path);
+			    return (FALSE);
 			}
+			/* start fresh */
+			nc_volume = NULL;
 		    }
 		}
 	    }
@@ -1026,18 +628,18 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 		/* start fresh */
 		if (S_remove_shadow(shadow_path, nc_volume, nc_images_dir)
 		    == FALSE) {
-		    syslog(LOG_INFO, "macNC: couldn't remove"
+		    my_log(LOG_INFO, "macNC: couldn't remove"
 			   " shadow %s, %m", shadow_path);
 		    return (FALSE);
 		}
 		nc_volume = NULL;
 	    }
-	    if (nc_volume) {
+	    if (nc_volume != NULL) {
 		if (set_file_size) {
 		    S_timestamp("setting shadow file size");
 		    if (S_create_shadow_file(shadow_path, shared_path, 
 					     uid, gid, needspace) == FALSE) {
-			syslog(LOG_INFO, "macNC: couldn't create %s, %m",
+			my_log(LOG_INFO, "macNC: couldn't create %s, %m",
 			       shadow_path);
 			return (FALSE);
 		    }
@@ -1054,22 +656,22 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 	if (nc_volume == NULL) { /* locate the client's image dir */
 	    nc_volume = S_find_volume_with_space(needspace, def_vol_index);
 	    if (nc_volume == NULL) {
-		if (S_disk_space_warned == FALSE)
-		    syslog(LOG_INFO, "macNC: can't create client image: "
+		if (G_disk_space_warned == FALSE)
+		    my_log(LOG_INFO, "macNC: can't create client image: "
 			   "OUT OF DISK SPACE");
-		S_disk_space_warned = TRUE; /* don't keep complaining */
+		G_disk_space_warned = TRUE; /* don't keep complaining */
 		return (FALSE);
 	    }
 	    S_get_volpath(shadow_path, nc_volume, nc_images_dir, 
-			  S_shadow_name);
-	    S_disk_space_warned = FALSE;
+			  kNetBootShadowName);
+	    G_disk_space_warned = FALSE;
 	    if (S_create_volume_dir(nc_volume, nc_images_dir,
 				    CLIENT_DIR_PERMS) == FALSE) {
 		return (FALSE);
 	    }
 	    if (S_create_shadow_file(shadow_path, shared_path, 
 				     uid, gid, needspace) == FALSE) {
-		syslog(LOG_INFO, "macNC: couldn't create %s, %m",
+		my_log(LOG_INFO, "macNC: couldn't create %s, %m",
 		       shadow_path);
 		return (FALSE);
 	    }
@@ -1077,7 +679,7 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 
 	/* add the shadow file option */
 	if (S_add_afppath_option(servip, options, nc_volume, 
-				 nc_images_dir, S_shadow_name,
+				 nc_images_dir, kNetBootShadowName,
 				 macNCtag_shared_system_shadow_file_e) 
 	    == FALSE) {
 	    return (FALSE);
@@ -1087,33 +689,24 @@ S_add_image_options(uid_t uid, gid_t gid, struct in_addr servip,
 }
 
 boolean_t
-macNC_allocate(struct dhcp * reply, u_char * hostname, struct in_addr servip, 
+macNC_allocate(NBImageEntryRef image_entry,
+	       struct dhcp * reply, u_char * hostname, struct in_addr servip, 
 	       int host_number, dhcpoa_t * options,
 	       uid_t uid, u_char * afp_user, u_char * passwd)
 {
-    if (bootp_add_bootfile(NULL, hostname, S_default_bootfile, 
-			   reply->dp_file) == FALSE) {
-	syslog(LOG_INFO, "macNC: bootp_add_bootfile failed");
-	return (FALSE);
-    }
-
     if (dhcpoa_add(options, macNCtag_user_name_e, strlen(afp_user),
 		   afp_user) != dhcpoa_success_e) {
-	if (!quiet) {
-	    syslog(LOG_INFO, 
-		   "macNC: afp user name option add %s failed, %s",
-		   afp_user, dhcpoa_err(options));
-	}
+	my_log(LOG_INFO, 
+	       "macNC: afp user name option add %s failed, %s",
+	       afp_user, dhcpoa_err(options));
 	return (FALSE);
     }
     /* add the Mac OS machine name option */
     if (dhcpoa_add(options, macNCtag_MacOS_machine_name_e, 
 		   strlen(hostname), hostname) != dhcpoa_success_e) {
-	if (!quiet) {
-	    syslog(LOG_INFO, 
-		   "macNC: machine name option add client %s failed, %s",
-		   hostname, dhcpoa_err(options));
-	}
+	my_log(LOG_INFO, 
+	       "macNC: machine name option add client %s failed, %s",
+	       hostname, dhcpoa_err(options));
 	return (FALSE);
     }
     {
@@ -1124,19 +717,16 @@ macNC_allocate(struct dhcp * reply, u_char * hostname, struct in_addr servip,
 				 buf, &buf_len, NULL) == FALSE
 	    || dhcpoa_add(options, macNCtag_password_e,
 			  buf_len, buf) != dhcpoa_success_e) {
-	    if (!quiet) {
-		syslog(LOG_INFO, "macNC: failed add afp password for %d",
-		       host_number);
-	    }
+	    my_log(LOG_INFO, "macNC: failed add afp password for %d",
+		   host_number);
 	    return (FALSE);
 	}
     }
-    if (S_add_image_options(uid, S_admin_gid, servip, 
+    if (S_add_image_options(image_entry, uid, G_admin_gid, servip, 
 			    options, host_number, hostname) == FALSE) {
-	if (!quiet) {
-	    syslog(LOG_INFO, 
-		   "macNC: S_add_image_options for %s failed", afp_user);
-	}
+	my_log(LOG_INFO, 
+	       "macNC: S_add_image_options for %s failed", afp_user);
+	return (FALSE);
     }
     return (TRUE);
 }
@@ -1147,32 +737,30 @@ macNC_unlink_shadow(int host_number, u_char * hostname)
     int			def_vol_index;
     int			i;
     u_char		nc_images_dir[PATH_MAX];
-    nbspEntry_t *	nc_volume = NULL;
+    NBSPEntry *	nc_volume = NULL;
     struct stat		shadow_statb;
     u_char		shadow_path[PATH_MAX];
     int			vol_index;
 
     snprintf(nc_images_dir, sizeof(nc_images_dir),
-	     "%s/%s", S_client_image_dir, hostname);
+	     "%s", hostname);
 
-    def_vol_index = (host_number - 1) % nbspList_count(S_sharepoints);
+    def_vol_index = (host_number - 1) % NBSPList_count(G_client_sharepoints);
 
     /* check all volumes for a client image directory starting at default */
     nc_volume = NULL;
-    for (i = 0, vol_index = def_vol_index; i < nbspList_count(S_sharepoints);
-	 i++) {
-	nbspEntry_t * entry = nbspList_element(S_sharepoints, vol_index);
+    for (i = 0, vol_index = def_vol_index; 
+	 i < NBSPList_count(G_client_sharepoints); i++) {
+	NBSPEntry * entry = NBSPList_element(G_client_sharepoints, vol_index);
 	if (S_stat_path_vol_file(shadow_path, entry, nc_images_dir, 
-				 S_shadow_name, &shadow_statb) == 0) {
+				 kNetBootShadowName, &shadow_statb) == 0) {
 	    if (unlink(shadow_path) < 0) {
-		if (verbose) {
-		    syslog(LOG_INFO, 
-			   "macNC: unlink(%s) failed, %m", shadow_path);
-		}
+		my_log(LOG_DEBUG, 
+		       "macNC: unlink(%s) failed, %m", shadow_path);
 	    }
 	    return;
 	}
-	vol_index = (vol_index + 1) % nbspList_count(S_sharepoints);
+	vol_index = (vol_index + 1) % NBSPList_count(G_client_sharepoints);
     }
     return;
 }

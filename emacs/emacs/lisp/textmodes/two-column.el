@@ -4,6 +4,9 @@
 
 ;; Author: Daniel Pfeiffer <occitan@esperanto.org>
 ;; Adapted-By: ESR, Daniel Pfeiffer
+;; Keywords: wp
+
+;; This file is part of GNU Emacs.
 
 ;; Esperanto:				 English:
 
@@ -33,6 +36,7 @@
 ;; Free Software Foundation, 59 Temple Place - Suite 330
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
 
 ;;; Komentario:				 Commentary:
 
@@ -284,7 +288,7 @@ minus this value."
 		(kill-local-variable '2C-mode)
 		(kill-local-variable 'mode-line-format)
 		nil)))
-      (if req (error "You must first set two-column minor mode."))))
+      (if req (error "You must first set two-column minor mode"))))
 
 
 
@@ -363,7 +367,7 @@ first and the associated buffer to its right."
 		    (generate-new-buffer (concat "2C/" (buffer-name)))))
 	       (or buffer
 		   (run-hooks '2C-other-buffer-hook))))
-    
+
     (2C-mode (prog1 (point-marker)
 	       (other-window -1)))))
 
@@ -385,7 +389,7 @@ accepting the proposed default buffer.
       (set-buffer b2)
       (and (2C-other)
 	   (not (eq b1 (2C-other)))
-	   (error "Buffer already associated with buffer `%s'."
+	   (error "Buffer already associated with buffer `%s'"
 		  (buffer-name (2C-other))))
       (setq b1 (and (assq '2C-window-width (buffer-local-variables))
 		    2C-window-width)))
@@ -503,7 +507,7 @@ this one, then this one becomes the left column.
 
 If you want `2C-separator' on empty lines in the second column,
 you should put just one space in them.  In the final result, you can strip
-off trailing spaces with \\[beginning-of-buffer] \\[replace-regexp] [ SPC TAB ] + $ RET RET"
+off trailing spaces with \\[delete-trailing-whitespace]."
   (interactive)
   (and (> (car (window-edges)) 0)	; not touching left edge of screen
        (eq (window-buffer (previous-window))

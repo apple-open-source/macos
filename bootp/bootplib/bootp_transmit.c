@@ -31,28 +31,30 @@
  * - created
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <ctype.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <arpa/inet.h>
-#import <syslog.h>
-#import "ts_log.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <net/if_arp.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <syslog.h>
 
-#import "bootp_transmit.h"
-#import "bpflib.h"
-#import "in_cksum.h"
+#include "bootp_transmit.h"
+#include "bpflib.h"
+#include "in_cksum.h"
 
+extern void
+my_log(int priority, const char *message, ...);
 
 static struct ether_addr ether_broadcast = { 
     {0xff, 0xff, 0xff, 0xff, 0xff, 0xff} 
@@ -80,17 +82,17 @@ get_bpf_fd(char * if_name)
     bpf_fd = bpf_new();
     if (bpf_fd < 0) {
 	/* BPF transmit unavailable */
-	ts_log(LOG_ERR, "Transmitter: bpf_fd() failed, %s (%d)",
+	my_log(LOG_ERR, "Transmitter: bpf_fd() failed, %s (%d)",
 	       strerror(errno), errno);
     }
     else if (bpf_filter_receive_none(bpf_fd) < 0) {
-	ts_log(LOG_ERR,  "Transmitter: failed to set filter, %s (%d)",
+	my_log(LOG_ERR,  "Transmitter: failed to set filter, %s (%d)",
 	       strerror(errno), errno);
 	bpf_dispose(bpf_fd);
 	bpf_fd = -1;
     }
     else if (bpf_setif(bpf_fd, if_name) < 0) {
-	ts_log(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)", if_name,
+	my_log(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)", if_name,
 	       strerror(errno), errno);
 	bpf_dispose(bpf_fd);
 	bpf_fd = -1;
@@ -184,7 +186,7 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 			       sizeof(*eh_p) + sizeof(*ip_udp) + len);
 	    
 	    if (status < 0) {
-		ts_log(LOG_ERR, 
+		my_log(LOG_ERR, 
 		       "bootp_session_transmit: bpf_write(%s) failed: %s (%d)",
 		       if_name, strerror(errno), errno);
 	    }
@@ -207,7 +209,7 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 
     }
     else {
-	ts_log(LOG_ERR, 
+	my_log(LOG_ERR, 
 	       "bootp_session_transmit: neither bpf nor socket send available");
     }
 

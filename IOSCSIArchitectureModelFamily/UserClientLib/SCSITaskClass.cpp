@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,73 +20,94 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+//—————————————————————————————————————————————————————————————————————————————
+//	Includes
+//—————————————————————————————————————————————————————————————————————————————
+
+// Private includes
+#include "SCSITaskIUnknown.h"
 #include "SCSITaskClass.h"
 #include "SCSITaskDeviceClass.h"
 #include "MMCDeviceUserClientClass.h"
 
-__BEGIN_DECLS
+// Since mach headers don’t have C++ wrappers we have to
+// declare extern “C” before including them.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
-__END_DECLS
 
-#define SCSI_TASK_CLASS_DEBUGGING_LEVEL 0
+#ifdef __cplusplus
+}
+#endif
 
-#if ( SCSI_TASK_CLASS_DEBUGGING_LEVEL > 0 )
-#define PRINT(x)	printf x
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Macros
+//—————————————————————————————————————————————————————————————————————————————
+
+#define DEBUG									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SCSITaskClass"
+
+#if DEBUG
+#define PRINT(x)								printf x
 #else
 #define PRINT(x)
 #endif
 
-//
-// static interface table for SCSITaskInterface
-//
+
+#define kSCSITaskNULLReference					( UInt32 ) -1
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Static variable initialization
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskInterface
 SCSITaskClass::sSCSITaskInterface =
 {
     0,
-	&SCSITaskClass::staticQueryInterface,
-	&SCSITaskClass::staticAddRef,
-	&SCSITaskClass::staticRelease,
+	&SCSITaskClass::sQueryInterface,
+	&SCSITaskClass::sAddRef,
+	&SCSITaskClass::sRelease,
 	1, 0, // version/revision
-	&SCSITaskClass::staticIsTaskActive,
-	&SCSITaskClass::staticSetTaskAttribute,
-	&SCSITaskClass::staticGetTaskAttribute,
-	&SCSITaskClass::staticSetCommandDescriptorBlock,
-	&SCSITaskClass::staticGetCommandDescriptorBlockSize,
-	&SCSITaskClass::staticGetCommandDescriptorBlock,
-	&SCSITaskClass::staticSetScatterGatherEntries,
-	&SCSITaskClass::staticSetTimeoutDuration,
-	&SCSITaskClass::staticGetTimeoutDuration,
-	&SCSITaskClass::staticSetTaskCompletionCallback,
-	&SCSITaskClass::staticExecuteTaskAsync,
-	&SCSITaskClass::staticExecuteTaskSync,
-	&SCSITaskClass::staticAbortTask,
-	&SCSITaskClass::staticGetServiceResponse,
-	&SCSITaskClass::staticGetTaskState,
-	&SCSITaskClass::staticGetTaskStatus,
-	&SCSITaskClass::staticGetRealizedDataTransferCount,
-	&SCSITaskClass::staticGetAutoSenseData
+	&SCSITaskClass::sIsTaskActive,
+	&SCSITaskClass::sSetTaskAttribute,
+	&SCSITaskClass::sGetTaskAttribute,
+	&SCSITaskClass::sSetCommandDescriptorBlock,
+	&SCSITaskClass::sGetCommandDescriptorBlockSize,
+	&SCSITaskClass::sGetCommandDescriptorBlock,
+	&SCSITaskClass::sSetScatterGatherEntries,
+	&SCSITaskClass::sSetTimeoutDuration,
+	&SCSITaskClass::sGetTimeoutDuration,
+	&SCSITaskClass::sSetTaskCompletionCallback,
+	&SCSITaskClass::sExecuteTaskAsync,
+	&SCSITaskClass::sExecuteTaskSync,
+	&SCSITaskClass::sAbortTask,
+	&SCSITaskClass::sGetServiceResponse,
+	&SCSITaskClass::sGetTaskState,
+	&SCSITaskClass::sGetTaskStatus,
+	&SCSITaskClass::sGetRealizedDataTransferCount,
+	&SCSITaskClass::sGetAutoSenseData,
+	&SCSITaskClass::sSetSenseDataBuffer
 };
 
 
-void *
-SCSITaskUserClientLibFactory ( CFAllocatorRef allocator, CFUUIDRef typeID )
-{
-	
-	PRINT ( ( "SCSITaskUserClientLibFactory called\n" ) );
-	
-	if ( CFEqual ( typeID, kIOSCSITaskDeviceUserClientTypeID ) )
-		return ( void * ) SCSITaskDeviceClass::alloc ( );
-	
-	else if ( CFEqual ( typeID, kIOMMCDeviceUserClientTypeID ) )
-		return ( void * ) MMCDeviceUserClientClass::alloc ( );
-	
-	else
-		return NULL;
-	
-}
+#if 0
+#pragma mark -
+#pragma mark Public Methods
+#pragma mark -
+#endif
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• alloc - Called to allocate an instance of the class			[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskInterface **
 SCSITaskClass::alloc ( SCSITaskDeviceClass * scsiTaskDevice,
@@ -98,31 +119,34 @@ SCSITaskClass::alloc ( SCSITaskDeviceClass * scsiTaskDevice,
 	SCSITaskClass *			task		= NULL;
 	SCSITaskInterface **	interface 	= NULL;
 	
+	PRINT ( ( "SCSITaskClass::alloc called\n" ) );
+	
+	// Use new to create a new instance of the class.
 	task = new SCSITaskClass ( );
-	if ( task == NULL )
-		goto Error_Exit;
-		
+	require_nonzero ( task, Error_Exit );
+	
+	// Allocation succeeded in user space. Now Init the class. Init
+	// will do everything necessary to create our copy in the kernel
+	// and take care of setting up our buffers. If any of that fails,
+	// Init fails, and we return NULL.
 	status = task->Init ( scsiTaskDevice, connection, asyncPort );
+	require_success_action ( status, Error_Exit, delete task );
 	
-	if ( status != kIOReturnSuccess )
-	{
-		
-		delete task;
-		goto Error_Exit;
+	// Everything went ok if we got here. Set the interface up.
+	interface = ( SCSITaskInterface ** ) &task->fInterfaceMap.pseudoVTable;
 	
-	}
 	
-	// We return an interface here. queryInterface will not be called.
-	// Call AddRef here to bump the refcount
-	task->AddRef ( );
-	interface = ( SCSITaskInterface ** ) &task->fSCSITaskInterfaceMap.pseudoVTable;
+Error_Exit:
 	
-Error_Exit :
 	
 	return interface;
 	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetConnectionAndPort - C->C++ glue code.						[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 void
 SCSITaskClass::sSetConnectionAndPort ( const void * task, void * context )
@@ -130,59 +154,113 @@ SCSITaskClass::sSetConnectionAndPort ( const void * task, void * context )
 	
 	SCSITaskClass *					myTask;
 	MyConnectionAndPortContext *	myContext;
-
-	PRINT ( ( "sSetConnectionAndPort called, task = %p, context = %p\n", task, context ) );
 	
 	myTask 		= getThis ( ( void * ) task );
 	myContext 	= ( MyConnectionAndPortContext * ) context;
 	
-	(void) myTask->SetConnectionAndPort ( myContext->connection, myContext->asyncPort );
+	PRINT ( ( "sSetConnectionAndPort called, task = %p, context = %p\n", myTask, myContext ) );
+	
+	// Glue through.
+	( void ) myTask->SetConnectionAndPort ( myContext->connection, myContext->asyncPort );
 	
 }
 
 
-IOReturn
-SCSITaskClass::SetConnectionAndPort ( io_connect_t connection, mach_port_t asyncPort )
+//—————————————————————————————————————————————————————————————————————————————
+//	• sAbortAndReleaseTasks - Static function for C->C++ glue.		[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
+
+void
+SCSITaskClass::sAbortAndReleaseTasks ( const void * value, void * context )
 {
 	
-	IOReturn	status = kIOReturnSuccess;
+	SCSITaskClass *		task = NULL;
 	
+	require_nonzero ( value, Error_Exit );
+	
+	task = getThis ( ( void * ) value );
+	
+	PRINT ( ( "SCSITaskClass::sAbortAndReleaseTasks\n" ) );
+	
+	// Sanity checks. Make sure it is non-NULL and that it is active.
+	require_nonzero ( task, Error_Exit );
+	nrequire ( task->IsTaskActive ( ), Error_Exit );
+	
+	// Abort it.
+	( void ) task->AbortTask ( );
+	
+	
+Error_Exit:
+	
+	
+	return;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetConnectionAndPort - 	Called to set the connection and async
+//								notification port for a task.		[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::SetConnectionAndPort ( 	io_connect_t 	connection,
+										mach_port_t 	asyncPort )
+{
+	
+	IOReturn				status 		= kIOReturnSuccess;
+	io_async_ref_t 			asyncRef	= { 0 };
+	io_scalar_inband_t		params		= { 0 };
+	mach_msg_type_number_t	size		= 0;
+		
+	PRINT ( ( "SCSITaskClass::SetConnectionAndPort called\n" ) );
+	
+	check ( connection != 0 );
+	
+	// Set the connection
 	fConnection = connection;
 	
-	if ( asyncPort != MACH_PORT_NULL )
-	{
-		
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		asyncRef[0] = 0;
-		params[0]	= ( UInt32 ) fTaskReference;
-		params[1]	= ( UInt32 ) ( IOAsyncCallback ) &SCSITaskClass::staticTaskCompletion;
-		params[2]	= ( UInt32 ) this;
-		
-		status = io_async_method_scalarI_scalarO ( fConnection, asyncPort, 
-												   asyncRef, 1, 
-												   kSCSITaskUserClientSetAsyncCallback,
-												   params, 3,
-												   NULL, &size );	
-		
-		PRINT ( ( "SetAsyncCallback : status = 0x%08x\n", status ) );
-		
-		if ( status == kIOReturnSuccess )
-		{ 
-			fAsyncPort = asyncPort;
-		}
-		
-	}
+	// Make sure the async port is non-NULL
+	require_action_quiet ( asyncPort != MACH_PORT_NULL,
+						   Error_Exit,
+						   fAsyncPort = MACH_PORT_NULL );
 	
-	else
-		fAsyncPort = MACH_PORT_NULL;
+	// We got a port to use, so call the async method to set the callback
+	// and pass the async port to it.
+	
+	asyncRef[0] = 0;
+	params[0]	= ( UInt32 ) fTaskArguments.taskReference;
+	params[1]	= ( UInt32 ) ( IOAsyncCallback ) &SCSITaskClass::sTaskCompletion;
+	params[2]	= ( UInt32 ) this;
+	
+	status = io_async_method_scalarI_scalarO ( 	fConnection,
+												asyncPort,
+												asyncRef,
+												1,
+												kSCSITaskUserClientSetAsyncCallback,
+												params,
+												3,
+												NULL,
+												&size );	
+	
+	PRINT ( ( "SetAsyncCallback : status = 0x%08x\n", status ) );
+	require_success ( status, Error_Exit );
+	
+	// Success. Good, save the port for further reference.
+	fAsyncPort = asyncPort;	
+	
+	
+Error_Exit:
+	
 	
 	return status;
 	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Init - Called to initialize a task.							[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::Init ( SCSITaskDeviceClass * scsiTaskDevice,
@@ -192,100 +270,132 @@ SCSITaskClass::Init ( SCSITaskDeviceClass * scsiTaskDevice,
 	
 	IOReturn	status = kIOReturnSuccess;
 	
-	if ( !connection )
-		return kIOReturnBadArgument;
+	PRINT ( ( "SCSITaskClass::Init called\n" ) );
 	
+	// Sanity check
+	require_nonzero_action ( scsiTaskDevice, Error_Exit, status = kIOReturnBadArgument );
+	require_nonzero_action ( connection, Error_Exit, status = kIOReturnBadArgument );
+	
+	// Save the device for further reference.
 	fSCSITaskDevice = scsiTaskDevice;
 	
-	if ( status == kIOReturnSuccess )
-	{
-		
-		mach_msg_type_number_t len = 1;
-		status = io_connect_method_scalarI_scalarO ( connection, 					 
-													 kSCSITaskUserClientCreateTask, 
-													 NULL, 0, ( int * ) &fTaskReference, &len );
-		
-		if ( status != kIOReturnSuccess )
-			fTaskReference = 0; // just to make sure
-		else
-			status = SetConnectionAndPort ( connection, asyncPort );
-		
-		PRINT ( ( "SCSITaskClass : fConnection %d, fAsyncPort %d, fSCSITaskDevice = %p\n", 
-					fConnection, fAsyncPort, fSCSITaskDevice ) );
-		
-		PRINT ( ( "SCSITaskClass :  status = 0x%08x = fTaskReference 0x%08lx\n",
-					status, fTaskReference ) );
-		
-	}
+	// Create a task. Call the method to create a task and save the
+	// reference to it in our slot for it in the fTaskArguments structure.
+	status = IOConnectMethodScalarIScalarO ( connection,
+											 kSCSITaskUserClientCreateTask,
+											 0,
+											 1,
+											 &fTaskArguments.taskReference );
+	require_success ( status, Error_Exit );
+	
+	PRINT ( ( "fTaskArguments.taskReference = %ld\n", fTaskArguments.taskReference ) );
+	
+	// Ok. Good, now we can set the connection and port passed in.
+	status = SetConnectionAndPort ( connection, asyncPort );
+	require_success ( status, Error_Exit );
+	
+	// Ok. That part worked. Now, we need to set the buffers for our results
+	// and our sense data. Do that now, or we can’t be guaranteed it won’t fail.
+	status = SetSenseDataBuffer ( &fSenseData, sizeof ( fSenseData ) );
+	require_success ( status, Error_Exit );
+	
+	PRINT ( ( "SetBuffers succeeded\n" ) );
+	
+	PRINT ( ( "SCSITaskClass : fConnection %d, fAsyncPort %d, fSCSITaskDevice = %p\n", 
+				fConnection, fAsyncPort, fSCSITaskDevice ) );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "SCSITaskClass :  status = 0x%08x\n", status ) );
 	
 	return status;
 	
 }
 
 
-// Constructor
+#if 0
+#pragma mark -
+#pragma mark Protected Methods
+#pragma mark -
+#endif
 
-SCSITaskClass::SCSITaskClass ( void )
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Constructor - Called on allocation				[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+
+SCSITaskClass::SCSITaskClass ( void ) :
+			SCSITaskIUnknown ( &sSCSITaskInterface )
 {
-		
-	fRefCount 			= 0;
-	fConnection 		= 0;
-	fTaskReference 		= 0;
+	
+	// Set some fields to zero.
+	fConnection 	= 0;
+	fTaskState		= kSCSITaskState_NEW_TASK;
+	
+	PRINT ( ( "SCSITaskClass constructor called\n" ) );
+	
+	// set the args and results to known values (zero).
+	memset ( &fTaskArguments, 0, sizeof ( fTaskArguments ) );
+	memset ( &fTaskResults, 0, sizeof ( fTaskResults ) );
+	
+	// NULL out these members.
 	fCallbackFunction	= NULL;
 	fCallbackRefCon 	= NULL;
 	fAsyncPort			= NULL;
+	fExternalSenseData	= NULL;
 	
-	// create test driver interface map
-	fSCSITaskInterfaceMap.pseudoVTable 	= ( IUnknownVTbl * ) &sSCSITaskInterface;
-	fSCSITaskInterfaceMap.obj 			= this;
+	// Set the task reference to an invalid reference
+	fTaskArguments.taskReference = kSCSITaskNULLReference;
 	
 }
 
 
-// Destructor
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Destructor - Called on deallocation				[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskClass::~SCSITaskClass ( void )
 {
 
 	IOReturn 	status = kIOReturnSuccess;
-		
-	if ( fSCSITaskDevice )
+	
+	PRINT ( ( "SCSITaskClass destructor called\n" ) );
+	
+	if ( fSCSITaskDevice != NULL )
 	{
-		fSCSITaskDevice->RemoveTaskFromTaskSet ( ( SCSITaskInterface ** ) fSCSITaskInterfaceMap.pseudoVTable );
+		
+		// Remove the task from the working task set.
+		PRINT ( ( "Removing task from set\n" ) );
+		fSCSITaskDevice->RemoveTaskFromTaskSet (
+				( SCSITaskInterface ** ) &fInterfaceMap.pseudoVTable );
+		
 	}
 	
-	if ( fTaskReference )
+	if ( fTaskArguments.taskReference != kSCSITaskNULLReference )
 	{
 		
-		mach_msg_type_number_t 	len = 0;
-		
-		status = io_connect_method_scalarI_scalarO ( fConnection, 	
-													 kSCSITaskUserClientReleaseTask, 
-													 ( int * ) &fTaskReference, 1, NULL, &len );
+		// Delete the task in the kernel.
+		PRINT ( ( "Releasing task\n" ) );
+		status = IOConnectMethodScalarIScalarO ( fConnection, 	
+												 kSCSITaskUserClientReleaseTask,
+												 1,
+												 0,
+												 fTaskArguments.taskReference );
 		
 		PRINT ( ( "SCSITaskClass : release task status = 0x%08x\n", status ) );
 		
 	}
-		
+	
 }
 
 
-//////////////////////////////////////////////////////////////////
-// IUnknown methods
-//
-
-// staticQueryInterface
-//
-
-HRESULT
-SCSITaskClass::staticQueryInterface ( void * self, REFIID iid, void ** ppv )
-{
-	return getThis ( self )->QueryInterface ( iid, ppv );
-}
-
-
-// QueryInterface
-//
+//—————————————————————————————————————————————————————————————————————————————
+//	• QueryInterface - Called to obtain the presence of an interface
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 HRESULT
 SCSITaskClass::QueryInterface ( REFIID iid, void ** ppv )
@@ -293,21 +403,29 @@ SCSITaskClass::QueryInterface ( REFIID iid, void ** ppv )
 	
 	CFUUIDRef 	uuid 	= CFUUIDCreateFromUUIDBytes ( NULL, iid );
 	HRESULT 	result 	= S_OK;
-
-	if ( CFEqual ( uuid, IUnknownUUID ) || CFEqual ( uuid, kIOSCSITaskInterfaceID ) ) 
+	
+	PRINT ( ( "SCSITaskClass::QueryInterface\n" ) );
+	
+	// Is it the unknown or the one we know? If so, pass back the map
+	// and add a refcount.
+	if ( CFEqual ( uuid, IUnknownUUID ) || CFEqual ( uuid, kIOSCSITaskInterfaceID ) )
 	{
         
-		*ppv = &fSCSITaskInterfaceMap;
+		*ppv = &fInterfaceMap;
         AddRef ( );
 		
     }
 	
     else
+    {
+		
+		// Not something we expected, so pass back zero.
 		*ppv = 0;
-	
-	if ( !*ppv )
 		result = E_NOINTERFACE;
+		
+	}
 	
+	// Be good and cleanup what we allocated above.
 	CFRelease ( uuid );
 	
 	return result;
@@ -315,250 +433,147 @@ SCSITaskClass::QueryInterface ( REFIID iid, void ** ppv )
 }
 
 
-// staticAddRef
-//
-
-UInt32
-SCSITaskClass::staticAddRef ( void * self )
-{
-	return getThis ( self )->AddRef ( );
-}
-
-
-// AddRef
-//
-
-UInt32
-SCSITaskClass::AddRef ( void )
-{
-	
-	fRefCount += 1;
-	return fRefCount;
-	
-}
-
-// staticRelease
-//
-
-UInt32
-SCSITaskClass::staticRelease ( void * self )
-{
-	return getThis ( self )->Release ( );
-}
-
-
-// Release
-//
-
-UInt32
-SCSITaskClass::Release ( void )
-{
-	
-	UInt32		retVal = fRefCount;
-	
-	if ( 1 == fRefCount-- ) 
-	{
-		delete this;
-    }
-	
-    else if ( fRefCount < 0 )
-	{
-        fRefCount = 0;
-	}
-	
-	return retVal;
-	
-}
-
-
-//////////////////////////////////////	
-// SCSITask Interface methods
-
-Boolean
-SCSITaskClass::staticIsTaskActive ( void * task )
-{
-	return getThis ( task )->IsTaskActive ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• IsTaskActive - Called to find out if a task is active or not.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 Boolean
 SCSITaskClass::IsTaskActive ( void )
 {
 	
-	Boolean						isActive;
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						active = 0;
+	Boolean		isActive;
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientIsTaskActive, 
-												 ( int * ) &fTaskReference, 1, ( int * ) &active, &len );
+	// Find out if the task is active. A task is active if it is not in the
+	// kSCSITaskState_NEW_TASK state and is not in the kSCSITaskState_ENDED
+	// state.
+	isActive = ( ( fTaskState != kSCSITaskState_NEW_TASK ) &&
+				 ( fTaskState != kSCSITaskState_ENDED ) ) ? true : false;
 	
-	if ( status != kIOReturnSuccess )
-		return false;
-	
-	isActive = ( active != 0 );
-	
-	PRINT ( ( "SCSITaskClass : IsTaskActive status = 0x%08x, isActive = %d\n",
-			  status, isActive ) );
+	PRINT ( ( "SCSITaskClass : IsTaskActive isActive = %d\n", isActive ) );
 	
 	return isActive;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticSetTaskAttribute ( void * task, SCSITaskAttribute inAttributeValue )
-{
-	return getThis ( task )->SetTaskAttribute ( inAttributeValue );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetTaskAttribute - Called to set the SCSITaskAttribute value.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
+void
 SCSITaskClass::SetTaskAttribute ( SCSITaskAttribute inAttributeValue )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 0;
-	int							params[2];
-	
-	params[0] = ( int ) fTaskReference;
-	params[1] = ( int ) inAttributeValue;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientSetTaskAttribute, 
-												 ( int * ) params, 2, NULL, &len );
-			
-	PRINT ( ( "SCSITaskClass : SetTaskAttribute status = 0x%08x\n", status ) );
-	
-	return status;
+	PRINT ( ( "SCSITaskClass : SetTaskAttribute\n" ) );
+	PRINT ( ( "taskAttribute = %d\n", inAttributeValue ) );
+	fTaskArguments.taskAttribute = inAttributeValue;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticGetTaskAttribute ( void * task, SCSITaskAttribute * outAttribute )
-{
-	return getThis ( task )->GetTaskAttribute ( outAttribute );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetTaskAttribute - Called to get the SCSITaskAttribute value.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
-SCSITaskClass::GetTaskAttribute ( SCSITaskAttribute * outAttribute )
+SCSITaskAttribute
+SCSITaskClass::GetTaskAttribute ( void )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						attribute = 0;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientGetTaskAttribute, 
-												 ( int * ) &fTaskReference, 1, ( int * ) &attribute, &len );
-	
-	PRINT ( ( "SCSITaskClass : GetTaskAttribute status = 0x%08x, attribute = %ld\n",
-			  status, attribute ) );
-	
-	*outAttribute = ( SCSITaskAttribute ) attribute;
-	
-	return status;
+	PRINT ( ( "SCSITaskClass : GetTaskAttribute\n" ) );
+	PRINT ( ( "taskAttribute = %d\n", fTaskArguments.taskAttribute ) );
+	return fTaskArguments.taskAttribute;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticSetCommandDescriptorBlock ( void * task, UInt8 * inCDB, UInt8 inSize )
-{
-	return getThis ( task )->SetCommandDescriptorBlock ( inCDB, inSize );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetCommandDescriptorBlock - Called to set the CDB.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::SetCommandDescriptorBlock ( UInt8 * inCDB, UInt8 inSize )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	SCSICommandDescriptorBlock	cdb;
-	int							params[2];
+	IOReturn	status = kIOReturnBadArgument;
 	
+	PRINT ( ( "SCSITaskClass : SetCommandDescriptorBlock\n" ) );
+	
+	require_nonzero ( inCDB, Error_Exit );
+	
+	// Sanity check
 	switch ( inSize )
 	{
 		
-		case 6:
-		case 10:
-		case 12:
-		case 16:
+		case kSCSICDBSize_6Byte:
+		case kSCSICDBSize_10Byte:
+		case kSCSICDBSize_12Byte:
+		case kSCSICDBSize_16Byte:
 			break;
 		
 		default:
-			return kIOReturnBadArgument;
+			goto Error_Exit;
 			break;
 		
 	}
 	
-	memset ( cdb, 0, sizeof ( SCSICommandDescriptorBlock ) );
-	memcpy ( cdb, inCDB, inSize );
-	memcpy ( fCDB, inCDB, inSize );
+	// Copy the CDB. Make sure to clean out any stale data.
+	memset ( fTaskArguments.cdbData, 0, sizeof ( SCSICommandDescriptorBlock ) );
+	memcpy ( fTaskArguments.cdbData, inCDB, inSize );
 	
-	fCDBSize = inSize;
+	// Be sure to set the size as well.
+	fTaskArguments.cdbSize = inSize;
+	status = kIOReturnSuccess;
 	
-	params[0] = fTaskReference;
-	params[1] = inSize;
 	
-	status = io_connect_method_scalarI_structureI ( fConnection, 	
-												    kSCSITaskUserClientSetCommandDescriptorBlock, 
-												   ( int * ) params, 2, ( char * ) cdb, sizeof ( SCSICommandDescriptorBlock ) );
+Error_Exit:
 	
-	PRINT ( ( "SCSITaskClass : SetCommandDescriptorBlock status = 0x%08x\n", status ) );
-		
+	
 	return status;
 	
 }
 
 
-UInt8
-SCSITaskClass::staticGetCommandDescriptorBlockSize ( void * task )
-{
-	return getThis ( task )->GetCommandDescriptorBlockSize ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetCommandDescriptorBlockSize - Called to obtain the CDB size.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 UInt8
 SCSITaskClass::GetCommandDescriptorBlockSize ( void )
 {
-	return fCDBSize;	
+	
+	check ( fTaskArguments.cdbSize != 0 );
+	return fTaskArguments.cdbSize;
+	
 }
 
 
-IOReturn
-SCSITaskClass::staticGetCommandDescriptorBlock ( void * task, UInt8 * outCDB )
-{
-	return getThis ( task )->GetCommandDescriptorBlock ( outCDB );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetCommandDescriptorBlock - Called to obtain the CDB.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
+void
 SCSITaskClass::GetCommandDescriptorBlock ( UInt8 * outCDB )
 {
 	
-	memcpy ( outCDB, fCDB, fCDBSize );
-	return kIOReturnSuccess;
+	// Copy the data to the supplied buffer. This assumes a correct-
+	// sized destination buffer as documented in the SCSITaskLib
+	// header file.
+	check ( outCDB != NULL );
+	memcpy ( outCDB, fTaskArguments.cdbData, fTaskArguments.cdbSize );
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticSetScatterGatherEntries ( void * task,
-									   IOVirtualRange * inScatterGatherList,
-									   UInt8 inScatterGatherEntries,
-									   UInt64 transferCount,
-									   UInt8 transferDirection )
-{
-	return getThis ( task )->SetScatterGatherEntries ( inScatterGatherList,
-											   inScatterGatherEntries,
-											   transferCount,
-											   transferDirection );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetScatterGatherEntries - Called to set the scatter-gather entries.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::SetScatterGatherEntries ( IOVirtualRange * inScatterGatherList,
@@ -567,136 +582,111 @@ SCSITaskClass::SetScatterGatherEntries ( IOVirtualRange * inScatterGatherList,
 										 UInt8 transferDirection )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 0;
-	int							params[5];
+	IOReturn 		status 	= kIOReturnSuccess;
 	
-	params[0] = ( int ) fTaskReference;
-	params[1] = ( int ) inScatterGatherEntries;
-	params[2] = ( int ) ( ( transferCount >> 32 ) & 0xFFFFFFFF );
-	params[3] = ( int ) ( transferCount & 0xFFFFFFFF );
-	params[4] = ( int ) transferDirection;
+	PRINT ( ( "SCSITaskClass : SetScatterGatherEntries\n" ) );
 	
-	len = inScatterGatherEntries * sizeof ( IOVirtualRange );
+	check ( inScatterGatherList != NULL );
 	
-	status =io_connect_method_scalarI_structureI ( fConnection, 	
-												 kSCSITaskUserClientSetScatterGatherList, 
-												 ( int * ) params, 5,
-												 ( char * ) inScatterGatherList, len );
-			
-	PRINT ( ( "SCSITaskClass : SetScatterGatherEntries status = 0x%08x\n", status ) );
+	fSGList 								= inScatterGatherList;
+	fTaskArguments.scatterGatherEntries 	= inScatterGatherEntries;
+	fTaskArguments.requestedTransferCount 	= transferCount;
+	fTaskArguments.transferDirection		= transferDirection;
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticSetTimeoutDuration ( void * task, UInt32 timeoutDurationMS )
-{
-	return getThis ( task )->SetTimeoutDuration ( timeoutDurationMS );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetTimeoutDuration - Called to set the timeout duration in milliseconds.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
+void
 SCSITaskClass::SetTimeoutDuration ( UInt32 timeoutDurationMS )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 0;
-	int							params[2];
-	
-	params[0] = ( int ) fTaskReference;
-	params[1] = ( int ) timeoutDurationMS;
-	
-	fTimeoutDuration = timeoutDurationMS;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientSetTimeoutDuration, 
-												 ( int * ) params, 2, NULL, &len );
-			
-	PRINT ( ( "SCSITaskClass : SetTimeoutDuration status = 0x%08x\n", status ) );
-	
-	return status;
+	PRINT ( ( "SCSITaskClass : SetTimeoutDuration\n" ) );
+	PRINT ( ( "duration = %ldms\n", timeoutDurationMS ) );
+	fTaskArguments.timeoutDuration = timeoutDurationMS;
 	
 }
 
 
-UInt32
-SCSITaskClass::staticGetTimeoutDuration ( void * task )
-{
-	return getThis ( task )->GetTimeoutDuration ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetTimeoutDuration - Called to get the timeout duration in milliseconds.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 UInt32
 SCSITaskClass::GetTimeoutDuration ( void )
 {
-	return fTimeoutDuration;
+	
+	PRINT ( ( "SCSITaskClass : GetTimeoutDuration\n" ) );
+	return fTaskArguments.timeoutDuration;
+	
 }
 
 
-IOReturn
-SCSITaskClass::staticSetTaskCompletionCallback ( void * task,
-												 SCSITaskCallbackFunction callback,
-												 void * refCon )
-{
-	return getThis ( task )->SetTaskCompletionCallback ( callback, refCon );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetTaskCompletionCallback - Called to set the callback routine.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
+void
 SCSITaskClass::SetTaskCompletionCallback ( SCSITaskCallbackFunction callback,
 										   void * refCon )
 {
-
+	
+	PRINT ( ( "SCSITaskClass : SetTaskCompletionCallback\n" ) );
+	
 	fCallbackFunction 	= callback;
 	fCallbackRefCon 	= refCon;
 	
-	return kIOReturnSuccess;
-	
 }
 
 
-IOReturn
-SCSITaskClass::staticExecuteTaskAsync ( void * task )
-{
-	return getThis ( task )->ExecuteTaskAsync ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ExecuteTaskAsync - Called to execute the task asynchronously.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::ExecuteTaskAsync ( void )
 {
 	
-	IOReturn 				status = kIOReturnSuccess;
-	mach_msg_type_number_t 	len = 0;
+	IOReturn	status = kIOReturnNotPermitted;
 	
-	if ( fAsyncPort == MACH_PORT_NULL )
-		return kIOReturnNotPermitted;
+	PRINT ( ( "SCSITaskClass : ExecuteTaskAsync\n" ) );
 	
-	fIsTaskSynch = false;
+	// Sanity checks. Check for a valid async notification port.
+	require ( fAsyncPort != MACH_PORT_NULL, Error_Exit );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientExecuteTaskAsync, 
-												 ( int * ) &fTaskReference, 1, NULL, &len );
+	// Check for a valid callback function.
+	require_nonzero ( fCallbackFunction, Error_Exit );
 	
-	fRealizedTransferCount = 0;
+	// Not synchronous.
+	fTaskArguments.isSync = false;
 	
-	PRINT ( ( "SCSITaskClass : ExecuteTask status = 0x%08x\n", status ) );
+	// Call through to the helper function which does the real work.
+	status = ExecuteTask ( );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "SCSITaskClass : ExecuteTaskAsync status = 0x%08x\n", status ) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticExecuteTaskSync ( void * task, SCSI_Sense_Data * senseDataBuffer,
-									   SCSITaskStatus * taskStatus, UInt64 * realizedTransferCount )
-{
-	return getThis ( task )->ExecuteTaskSync ( senseDataBuffer, taskStatus, realizedTransferCount );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ExecuteTaskSync - Called to execute the task synchronously.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::ExecuteTaskSync ( SCSI_Sense_Data * senseDataBuffer,
@@ -704,33 +694,54 @@ SCSITaskClass::ExecuteTaskSync ( SCSI_Sense_Data * senseDataBuffer,
 								 UInt64 * realizedTransferCount )
 {
 	
-	IOReturn 				status = kIOReturnSuccess;
-	mach_msg_type_number_t 	len = 3;
-	int						params[2];
-	int						outParams[3];
+	IOReturn 	status 	= kIOReturnSuccess;
 	
-	fIsTaskSynch = true;
+	PRINT ( ( "SCSITaskClass : ExecuteTaskSync\n" ) );
 	
-	params[0] = ( int ) fTaskReference;
-	params[1] = ( int ) senseDataBuffer;
-
-	fRealizedTransferCount = 0;
+	// Is synchronous.
+	fTaskArguments.isSync = true;
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientExecuteTaskSync, 
-												 ( int * ) params, 2,
-												 ( int * ) outParams, &len );
+	// Call through to the helper function which does the real work.
+	status = ExecuteTask ( );
+	
+	// Set the task state.
+	fTaskState = kSCSITaskState_ENDED;
 	
 	PRINT ( ( "SCSITaskClass : ExecuteTaskSync status = 0x%08x\n", status ) );
 	
-	*taskStatus 			= ( SCSITaskStatus ) outParams[0];
-	*realizedTransferCount	= ( ( UInt64 ) outParams[1] << 32 );
-	*realizedTransferCount	+= ( UInt32 ) outParams[2];
+	// Make sure to set the incoming vars to the results we just got.
+	if ( taskStatus != NULL )
+	{
+		*taskStatus = fTaskResults.taskStatus;
+	}
 	
-	if ( fTaskStatus == kSCSITaskStatus_CHECK_CONDITION )
+	if ( realizedTransferCount != NULL )
+	{
+		*realizedTransferCount = fTaskResults.realizedTransferCount;
+	}
+	
+	if ( senseDataBuffer != NULL )
 	{
 		
-		status = GetAutoSenseData ( senseDataBuffer );
+		// Check if we need to copy the sense data or not.
+		if ( ( fTaskResults.serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( fTaskResults.taskStatus == kSCSITaskStatus_CHECK_CONDITION ) )
+		{
+			
+			if ( fExternalSenseData == NULL )
+			{
+				
+				// Yes, copy it to the supplied buffer
+				memcpy ( senseDataBuffer, &fSenseData, sizeof ( SCSI_Sense_Data ) );
+				
+				PRINT ( ( "SENSE_KEY_CODE: 0x%02x, ASC: 0x%02x, ASCQ: 0x%02x\n",
+					   senseDataBuffer->SENSE_KEY & kSENSE_KEY_Mask,
+					   senseDataBuffer->ADDITIONAL_SENSE_CODE,
+					   senseDataBuffer->ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
+		}
 		
 	}
 	
@@ -739,176 +750,148 @@ SCSITaskClass::ExecuteTaskSync ( SCSI_Sense_Data * senseDataBuffer,
 }
 
 
-IOReturn
-SCSITaskClass::staticAbortTask ( void * task )
-{
-	return getThis ( task )->AbortTask ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• AbortTask - Called to abort the task.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::AbortTask ( void )
 {
 	
-	IOReturn 				status = kIOReturnSuccess;
-	mach_msg_type_number_t 	len = 0;
+	IOReturn 	status = kIOReturnSuccess;
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientAbortTask, 
-												 ( int * ) &fTaskReference, 1, NULL, &len );
+	PRINT ( ( "SCSITaskClass : AbortTask\n" ) );
+	
+	// Send an abort to the kernel task.
+	status = IOConnectMethodScalarIScalarO (	fConnection, 	
+												kSCSITaskUserClientAbortTask, 
+												1,
+												0,
+												fTaskArguments.taskReference );
 	
 	PRINT ( ( "SCSITaskClass : AbortTask status = 0x%08x\n", status ) );
 	
 	return status;
-
+	
 }
 
 
-IOReturn
-SCSITaskClass::staticGetTaskState ( void * task, SCSITaskState * outState )
-{
-	return getThis ( task )->GetTaskState ( outState );
-}
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetTaskState - Called to obtain the SCSITaskState.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
-
-IOReturn
-SCSITaskClass::GetTaskState ( SCSITaskState * outState )
-{
-		
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						taskState = 0;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientGetTaskState, 
-												 ( int * ) &fTaskReference, 1,
-												 ( int * ) &taskState, &len );
-	
-	PRINT ( ( "SCSITaskClass : GetTaskState status = 0x%08x, taskState = %ld\n",
-			  status, taskState ) );
-	
-	*outState = ( SCSITaskState ) taskState;
-	
-	return status;
-	
-
-}
-
-
-IOReturn
-SCSITaskClass::staticGetTaskStatus ( void * task, SCSITaskStatus * outStatus )
-{
-	return getThis ( task )->GetTaskStatus ( outStatus );
-}
-
-
-IOReturn
-SCSITaskClass::GetTaskStatus ( SCSITaskStatus * outStatus )
+SCSITaskState
+SCSITaskClass::GetTaskState ( void )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						taskStatus = 0;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientGetTaskStatus, 
-												 ( int * ) &fTaskReference, 1,
-												 ( int * ) &taskStatus, &len );
-	
-	PRINT ( ( "SCSITaskClass : GetTaskStatus status = 0x%08x, taskStatus = %ld\n",
-			  status, taskStatus ) );
-	
-	*outStatus = ( SCSITaskStatus ) taskStatus;
-	
-	return status;
+	PRINT ( ( "SCSITaskClass : GetTaskState taskState = %d\n", fTaskState ) );
+	return fTaskState;
 	
 }
 
 
-UInt64
-SCSITaskClass::staticGetRealizedDataTransferCount ( void * task )
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetTaskStatus - Called to obtain the SCSITaskStatus.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+SCSITaskStatus
+SCSITaskClass::GetTaskStatus ( void )
 {
-	return getThis ( task )->GetRealizedDataTransferCount ( );
+	
+	PRINT ( ( "SCSITaskClass : GetTaskStatus taskStatus = %d\n", fTaskResults.taskStatus ) );
+	return fTaskResults.taskStatus;
+	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetRealizedDataTransferCount - 	Called to obtain the actual amount of
+//										data transferred in bytes.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 UInt64
 SCSITaskClass::GetRealizedDataTransferCount ( void )
 {
-	return fRealizedTransferCount;
+	
+	PRINT ( ( "SCSITaskClass : GetRealizedDataTransferCount\n" ) );
+	PRINT ( ( "0x%lx 0x%lx\n", fTaskResults.realizedTransferCount >> 32,
+			  fTaskResults.realizedTransferCount & 0xFFFFFFFF ) );
+	
+	return fTaskResults.realizedTransferCount;
+	
 }
 
 
-IOReturn
-SCSITaskClass::staticGetServiceResponse ( void * task, SCSIServiceResponse * outResponse )
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetServiceResponse - 	Called to obtain the SCSIServiceResponse.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+SCSIServiceResponse
+SCSITaskClass::GetServiceResponse ( void )
 {
-	return getThis ( task )->GetServiceResponse ( outResponse );
-}
-
-
-IOReturn
-SCSITaskClass::GetServiceResponse ( SCSIServiceResponse * outResponse )
-{
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						serviceResponse = 0;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kSCSITaskUserClientGetSCSIServiceResponse, 
-												 ( int * ) &fTaskReference, 1,
-												 ( int * ) &serviceResponse, &len );
-	
-	PRINT ( ( "SCSITaskClass : GetServiceResponse status = 0x%08x, serviceResponse = %ld\n",
-			  status, serviceResponse ) );
-	
-	*outResponse = ( SCSIServiceResponse ) serviceResponse;
-	
-	return status;
+	PRINT ( ( "SCSITaskClass : GetServiceResponse\n" ) );
+	PRINT ( ( "serviceResponse = %d\n", fTaskResults.serviceResponse ) );
+	return fTaskResults.serviceResponse;
 	
 }
 
 
-IOReturn
-SCSITaskClass::staticGetAutoSenseData ( void * task, SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( task )->GetAutoSenseData ( senseDataBuffer );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetAutoSenseData - Called to obtain the SCSI Sense Data.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskClass::GetAutoSenseData ( SCSI_Sense_Data * senseDataBuffer )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = sizeof ( SCSI_Sense_Data );
+	IOReturn	status = kIOReturnNotPermitted;
 	
-	status = io_connect_method_scalarI_structureO ( fConnection, 	
-												    kSCSITaskUserClientGetAutoSenseData, 
-												    ( int * ) &fTaskReference, 1,
-													( char * ) senseDataBuffer, &len );
+	require_nonzero ( senseDataBuffer, ErrorExit );
 	
-	PRINT ( ( "SCSITaskClass : GetAutoSenseData status = 0x%08x\n", status ) );
-	PRINT ( ( "SENSE_KEY_CODE: 0x%08x, ASC: 0x%08x, ASCQ: 0x%08x\n",
+	// Should we copy it?
+	if ( ( fTaskResults.serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( fTaskResults.taskStatus == kSCSITaskStatus_CHECK_CONDITION ) )
+	{
+		
+		// Yes. Copy it and set the status to success.
+		if ( fExternalSenseData == NULL )
+		{
+			
+			// Yes, copy it to the supplied buffer
+			memcpy ( senseDataBuffer, &fSenseData, sizeof ( SCSI_Sense_Data ) );
+			status = kIOReturnSuccess;
+			
+		}
+		
+		PRINT ( ( "SENSE_KEY_CODE: 0x%02x, ASC: 0x%02x, ASCQ: 0x%02x\n",
 			   senseDataBuffer->SENSE_KEY & kSENSE_KEY_Mask,
 			   senseDataBuffer->ADDITIONAL_SENSE_CODE,
 			   senseDataBuffer->ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+		
+	}
+	
+	
+ErrorExit:
+	
 	
 	return status;
 	
 }
 
 
-// callback routines
-void
-SCSITaskClass::staticTaskCompletion ( void * refcon, IOReturn result,
-									  void ** args, int numArgs )
-{
-
-	PRINT ( ( "SCSITaskClass : staticTaskCompletion, numArgs = %d\n", numArgs ) );
-	( ( SCSITaskClass * ) refcon )->TaskCompletion ( result, args, numArgs );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• TaskCompletion - 	Internal async callback routine called by
+//						IODispatchCalloutFromMessage. It calls the
+//						user-supplied callback method.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 void
 SCSITaskClass::TaskCompletion ( IOReturn result, void ** args, int numArgs )
@@ -917,49 +900,483 @@ SCSITaskClass::TaskCompletion ( IOReturn result, void ** args, int numArgs )
 	PRINT ( ( "SCSITaskClass : TaskCompletion, numArgs = %d\n", numArgs ) );
 	PRINT ( ( "SCSITaskClass : TaskCompletion, result = %d\n", result ) );
 	
-	SCSIServiceResponse		serviceResponse;
-	SCSITaskStatus			taskStatus;
-	UInt64					bytesTransferred;
+	// Set the state
+	fTaskState = kSCSITaskState_ENDED;
 	
-	if ( numArgs == 4 )
-	{
-		
-		serviceResponse 	= ( SCSIServiceResponse ) ( UInt32 ) args[0];
-		taskStatus 			= ( SCSITaskStatus ) ( UInt32 ) ( args[1] );
-		bytesTransferred	= ( ( ( UInt64 )( args[2] ) ) << 32 );
-		bytesTransferred	+= ( UInt32 ) ( args[3] );
-		
-		fRealizedTransferCount = bytesTransferred;
-		
-		PRINT ( ( "serviceResponse = %d, taskStatus = %d, bytesTransferred = %ld\n",
-				   serviceResponse, taskStatus, ( UInt32 ) bytesTransferred ) );
-				
-		if ( fCallbackFunction != NULL )
-			( fCallbackFunction )( serviceResponse, taskStatus, bytesTransferred, fCallbackRefCon );
-		
-	}
+	// Call the supplied callback if it exists. It should ALWAYS exist, but
+	// just in case, we check here.
+	if ( fCallbackFunction != NULL )
+		( fCallbackFunction )( 	fTaskResults.serviceResponse,
+								fTaskResults.taskStatus,
+								fTaskResults.realizedTransferCount,
+								fCallbackRefCon );
 	
 }
 
-void
-SCSITaskClass::sAbortAndReleaseTasks ( const void * value, void * context )
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• ExecuteTask - Internal method called by ExecuteTaskSync and
+//					ExecuteTaskAsync which handles the user-kernel transition.
+//																	[PRIVATE]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::ExecuteTask ( void )
 {
 	
-	if ( value == NULL )
-		return;
+	IOReturn				status				= kIOReturnSuccess;
+	UInt32					size 				= 0;
+	UInt8					commandData[4096]	= { 0 };
+	SCSITaskData *			args;
 	
-	SCSITaskClass *		task = getThis ( ( void * ) value );
+	PRINT ( ( "SCSITaskClass::ExecuteTask\n" ) );
 	
-	if ( task != NULL )
+	// Init the transfer count.
+	fTaskResults.realizedTransferCount 	= 0;
+	fTaskState							= kSCSITaskState_ENABLED;
+	
+	args = ( SCSITaskData * ) commandData;
+	*args = fTaskArguments;
+	
+	PRINT ( ( "Copying SG entries\n" ) );
+	
+	// Copy the scatter-gather entries.
+	memcpy ( &args->scatterGatherList[0], fSGList, fTaskArguments.scatterGatherEntries * sizeof ( IOVirtualRange ) );
+	
+	PRINT ( ( "Determining size\n" ) );
+	
+	PRINT ( ( "Struct size = %ld\n", sizeof ( SCSITaskData ) ) );
+	
+	// Get the size. Subtract the pointer value of where the last arg
+	// is to the original buffer to get the size.
+	size = ( ( char * ) &args->scatterGatherList[fTaskArguments.scatterGatherEntries] ) - ( char * ) commandData;
+	
+	PRINT ( ( "size = %ld\n", size ) );
+	
+	// Call into the kernel to do the magic!
+	status = IOConnectMethodScalarIStructureI ( fConnection,
+												kSCSITaskUserClientExecuteTask,
+												0,
+												size,
+												commandData );
+	
+	PRINT ( ( "ExecuteTask status = 0x%08x\n", status ) );
+	
+	return status;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetSenseDataBuffer - 	Called to set a sense data buffer to use instead
+//							of the one provided by the class.
+//																	[PRIVATE]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::SetSenseDataBuffer ( void * buffer, UInt8 bufferSize )
+{
+	
+	IOReturn	status 	= kIOReturnBadArgument;
+	UInt8		size	= 0;
+	
+	PRINT ( ( "SCSITaskClass::SetSenseDataBuffer\n" ) );
+	
+	require_nonzero ( bufferSize, ErrorExit );
+	
+	// Sanity check
+	if ( buffer == NULL )
 	{
 		
-		if ( task->IsTaskActive ( ) )
-		{
-			
-			( void ) task->AbortTask ( );
-			
-		}
+		PRINT ( ( "buffer == NULL\n" ) );
+		
+		buffer	= ( void * ) &fSenseData;
+		size	= sizeof ( fSenseData );
+		
+		bufferSize = ( bufferSize < size ) ? bufferSize : size;
 		
 	}
+	
+	if ( buffer != &fSenseData )
+	{	
+		fExternalSenseData = ( SCSI_Sense_Data * ) buffer;	
+	}
+	
+	else
+	{
+		fExternalSenseData = NULL;
+	}
+	
+	PRINT ( ( "taskReference = %ld\n", fTaskArguments.taskReference ) );
+	PRINT ( ( "fTaskResultsBuffer = %x\n", &fTaskResults ) );
+	PRINT ( ( "senseDataBuffer = %x\n", buffer ) );
+	PRINT ( ( "senseDataBufferSize = %ld\n", bufferSize ) );
+	
+	// Call into the kernel to set the buffers.
+	status = IOConnectMethodScalarIScalarO ( fConnection,
+											 kSCSITaskUserClientSetBuffers,
+											 4,
+											 0,
+											 fTaskArguments.taskReference,
+											 &fTaskResults,
+											 buffer,
+											 bufferSize );
+	
+	PRINT ( ( "SetBuffers returned status = 0x%08x\n", status ) );
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark Static C->C++ Glue Functions
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sIsTaskActive - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+Boolean
+SCSITaskClass::sIsTaskActive ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->IsTaskActive ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetTaskAttribute - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetTaskAttribute (
+						void *				task,
+						SCSITaskAttribute 	inAttributeValue )
+{
+	
+	check ( task != NULL );
+	getThis ( task )->SetTaskAttribute ( inAttributeValue );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTaskAttribute - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetTaskAttribute (
+						void * 				task,
+						SCSITaskAttribute * outTaskAttributeValue )
+{
+	
+	check ( task != NULL );
+	*outTaskAttributeValue = getThis ( task )->GetTaskAttribute ( );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetCommandDescriptorBlock - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetCommandDescriptorBlock ( void *		task,
+											UInt8 * 	inCDB,
+											UInt8		inSize )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->SetCommandDescriptorBlock ( inCDB, inSize );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetCommandDescriptorBlockSize - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+UInt8
+SCSITaskClass::sGetCommandDescriptorBlockSize ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->GetCommandDescriptorBlockSize ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetCommandDescriptorBlock - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetCommandDescriptorBlock ( void * task, UInt8 * outCDB )
+{
+	
+	check ( task != NULL );
+	getThis ( task )->GetCommandDescriptorBlock ( outCDB );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetScatterGatherEntries - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetScatterGatherEntries (
+							void * 				task,
+							IOVirtualRange * 	inScatterGatherList,
+							UInt8				inScatterGatherEntries,
+							UInt64				transferCount,
+							UInt8				transferDirection )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->SetScatterGatherEntries (
+												inScatterGatherList,
+												inScatterGatherEntries,
+												transferCount,
+												transferDirection );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetTimeoutDuration - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetTimeoutDuration ( void * task, UInt32 timeoutDurationMS )
+{
+	
+	check ( task != NULL );
+	getThis ( task )->SetTimeoutDuration ( timeoutDurationMS );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTimeoutDuration - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+UInt32
+SCSITaskClass::sGetTimeoutDuration ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->GetTimeoutDuration ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTimeoutDuration - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetTaskCompletionCallback (
+					void *						task,
+					SCSITaskCallbackFunction 	callback,
+					void *						refCon )
+{
+	
+	check ( task != NULL );
+	getThis ( task )->SetTaskCompletionCallback ( callback, refCon );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sExecuteTaskAsync - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sExecuteTaskAsync ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->ExecuteTaskAsync ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sExecuteTaskSync - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sExecuteTaskSync (
+							void * 				task,
+							SCSI_Sense_Data * 	senseDataBuffer,
+							SCSITaskStatus * 	taskStatus,
+							UInt64 *			realizedTransferCount )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->ExecuteTaskSync ( 	senseDataBuffer,
+												taskStatus,
+												realizedTransferCount );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sAbortTask - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sAbortTask ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->AbortTask ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTaskState - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetTaskState ( void * task, SCSITaskState * outTaskState )
+{
+	
+	check ( task != NULL );
+	*outTaskState = getThis ( task )->GetTaskState ( );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTaskStatus - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetTaskStatus ( void * task, SCSITaskStatus * outTaskStatus )
+{
+	
+	check ( task != NULL );
+	*outTaskStatus = getThis ( task )->GetTaskStatus ( );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetRealizedDataTransferCount - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+UInt64
+SCSITaskClass::sGetRealizedDataTransferCount ( void * task )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->GetRealizedDataTransferCount ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetServiceResponse - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetServiceResponse (
+							void *					task,
+							SCSIServiceResponse * 	serviceResponse )
+{
+	
+	check ( task != NULL );
+	*serviceResponse = getThis ( task )->GetServiceResponse ( );
+	return kIOReturnSuccess;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetAutoSenseData - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sGetAutoSenseData (
+							void *				task,
+							SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->GetAutoSenseData ( senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sTaskCompletion - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+void
+SCSITaskClass::sTaskCompletion ( 	void *		refcon,
+									IOReturn	result,
+									void **		args,
+									int			numArgs )
+{
+	
+	PRINT ( ( "SCSITaskClass : sTaskCompletion, numArgs = %d\n", numArgs ) );
+	check ( refcon != NULL );
+	( ( SCSITaskClass * ) refcon )->TaskCompletion ( result, args, numArgs );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetSenseDataBuffer - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskClass::sSetSenseDataBuffer ( 	void * 				task,
+										SCSI_Sense_Data * 	buffer,
+										UInt8				bufferSize )
+{
+	
+	check ( task != NULL );
+	return getThis ( task )->SetSenseDataBuffer ( ( void * ) buffer, bufferSize );
 	
 }

@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)ring.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/crypto/telnet/telnet/ring.h,v 1.1.1.1.8.1 2002/04/13 10:59:08 markm Exp $
  */
 
 #if defined(P)
@@ -95,34 +73,35 @@ typedef struct {
 
 /* Initialization routine */
 extern int
-	ring_init P((Ring *ring, unsigned char *buffer, int count));
+	ring_init(Ring *ring, unsigned char *buffer, int count);
 
 /* Data movement routines */
 extern void
-	ring_supply_data P((Ring *ring, unsigned char *buffer, int count));
+	ring_supply_data(Ring *ring, unsigned char *buffer, int count);
 #ifdef notdef
 extern void
-	ring_consume_data P((Ring *ring, unsigned char *buffer, int count));
+	ring_consume_data(Ring *ring, unsigned char *buffer, int count);
 #endif
 
 /* Buffer state transition routines */
 extern void
-	ring_supplied P((Ring *ring, int count)),
-	ring_consumed P((Ring *ring, int count));
+	ring_supplied(Ring *ring, int count),
+	ring_consumed(Ring *ring, int count);
 
 /* Buffer state query routines */
 extern int
-	ring_empty_count P((Ring *ring)),
-	ring_empty_consecutive P((Ring *ring)),
-	ring_full_count P((Ring *ring)),
-	ring_full_consecutive P((Ring *ring));
+	ring_at_mark(Ring *),
+	ring_empty_count(Ring *ring),
+	ring_empty_consecutive(Ring *ring),
+	ring_full_count(Ring *ring),
+	ring_full_consecutive(Ring *ring);
 
 #ifdef	ENCRYPTION
 extern void
-	ring_encrypt P((Ring *ring, void (*func)())),
-	ring_clearto P((Ring *ring));
+	ring_encrypt(Ring *ring, void (*func)(unsigned char *, int)),
+	ring_clearto(Ring *ring);
 #endif	/* ENCRYPTION */
 
 extern void
-    ring_clear_mark(),
-    ring_mark();
+	ring_clear_mark(Ring *),
+	ring_mark(Ring *);

@@ -1,5 +1,6 @@
 /* Print Motorola 68k instructions.
-   Copyright 1986, 87, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 2000
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify
@@ -36,7 +37,7 @@ static int
 fetch_arg PARAMS ((unsigned char *, int, int, disassemble_info *));
 
 static void
-print_base PARAMS ((int, bfd_vma, disassemble_info*));
+print_base PARAMS ((int, bfd_vma, disassemble_info *));
 
 static unsigned char *
 print_indexed PARAMS ((int, unsigned char *, bfd_vma, disassemble_info *));
@@ -46,19 +47,21 @@ print_insn_arg PARAMS ((const char *, unsigned char *, unsigned char *,
 			bfd_vma, disassemble_info *));
 
 CONST char * CONST fpcr_names[] = {
-  "", "%fpiar", "%fpsr", "%fpiar/%fpsr", "%fpcr",
-  "%fpiar/%fpcr", "%fpsr/%fpcr", "%fpiar/%fpsr/%fpcr"};
+    "", "%fpiar", "%fpsr", "%fpiar/%fpsr", "%fpcr",
+    "%fpiar/%fpcr", "%fpsr/%fpcr", "%fpiar/%fpsr/%fpcr"
+};
 
 static char *const reg_names[] = {
-  "%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7",
-  "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%fp", "%sp",
-  "%ps", "%pc"};
+    "%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7",
+    "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%fp", "%sp",
+    "%ps", "%pc"
+};
 
 /* Sign-extend an (unsigned char). */
 #if __STDC__ == 1
-#define COERCE_SIGNED_CHAR(ch) ((signed char)(ch))
+#define COERCE_SIGNED_CHAR(ch) ((signed char) (ch))
 #else
-#define COERCE_SIGNED_CHAR(ch) ((int)(((ch) ^ 0x80) & 0xFF) - 128)
+#define COERCE_SIGNED_CHAR(ch) ((int) (((ch) ^ 0x80) & 0xFF) - 128)
 #endif
 
 /* Get a 1 byte signed integer.  */
@@ -102,15 +105,13 @@ static char *const reg_names[] = {
    there should be a special case to handle this... */
 #define NEXTPACKED(p) \
   (p += 12, FETCH_DATA (info, p), 0.0)
-
 
 /* Maximum length of an instruction.  */
 #define MAXLEN 22
 
 #include <setjmp.h>
 
-struct private
-{
+struct private {
   /* Points to first byte not fetched.  */
   bfd_byte *max_fetched;
   bfd_byte the_buffer[MAXLEN];
@@ -122,7 +123,7 @@ struct private
    to ADDR (exclusive) are valid.  Returns 1 for success, longjmps
    on error.  */
 #define FETCH_DATA(info, addr) \
-  ((addr) <= ((struct private *)(info->private_data))->max_fetched \
+  ((addr) <= ((struct private *) (info->private_data))->max_fetched \
    ? 1 : fetch_data ((info), (addr)))
 
 static int
@@ -151,12 +152,15 @@ fetch_data (info, addr)
 /* This function is used to print to the bit-bucket. */
 static int
 #ifdef __STDC__
-dummy_printer (FILE * file ATTRIBUTE_UNUSED,
-	       const char * format ATTRIBUTE_UNUSED, ...)
+dummy_printer (FILE *file ATTRIBUTE_UNUSED,
+	       const char *format ATTRIBUTE_UNUSED, ...)
 #else
-dummy_printer (file) FILE *file ATTRIBUTE_UNUSED;
+dummy_printer (file)
+     FILE *file ATTRIBUTE_UNUSED;
 #endif
- { return 0; }
+{
+  return 0;
+}
 
 static void
 dummy_print_address (vma, info)
@@ -178,12 +182,12 @@ print_insn_m68k (memaddr, info)
   unsigned char *save_p;
   register const char *d;
   register unsigned long bestmask;
-  const struct m68k_opcode *best = 0;
+  const struct m68k_opcode *best;
   unsigned int arch_mask;
   struct private priv;
   bfd_byte *buffer = priv.the_buffer;
   fprintf_ftype save_printer = info->fprintf_func;
-  void (*save_print_address) PARAMS((bfd_vma, struct disassemble_info*))
+  void (*save_print_address) PARAMS ((bfd_vma, struct disassemble_info *))
     = info->print_address_func;
   int major_opcode;
   static int numopcodes[16];
@@ -228,6 +232,7 @@ print_insn_m68k (memaddr, info)
     /* Error return.  */
     return -1;
 
+  best = NULL;
   switch (info->mach)
     {
     default:
@@ -254,6 +259,18 @@ print_insn_m68k (memaddr, info)
       break;
     case bfd_mach_m68060:
       arch_mask = m68060;
+      break;
+    case bfd_mach_mcf5200:
+      arch_mask = mcf5200;
+      break;
+    case bfd_mach_mcf5206e:
+      arch_mask = mcf5206e;
+      break;
+    case bfd_mach_mcf5307:
+      arch_mask = mcf5307;
+      break;
+    case bfd_mach_mcf5407:
+      arch_mask = mcf5407;
       break;
     }
 
@@ -319,7 +336,7 @@ print_insn_m68k (memaddr, info)
 	}
     }
 
-  if (best == 0)
+  if (best == NULL)
     goto invalid;
 
   /* Point at first word of argument data,
@@ -338,7 +355,7 @@ print_insn_m68k (memaddr, info)
 	{
 	  if (d[1] == 'l' && p - buffer < 6)
 	    p = buffer + 6;
-	  else if (p - buffer < 4 && d[1] != 'C' && d[1] != '8' )
+	  else if (p - buffer < 4 && d[1] != 'C' && d[1] != '8')
 	    p = buffer + 4;
 	}
       if ((d[0] == 'L' || d[0] == 'l') && d[1] == 'w' && p - buffer < 4)
@@ -397,8 +414,8 @@ print_insn_m68k (memaddr, info)
 
   save_p = p;
   info->print_address_func = dummy_print_address;
-  info->fprintf_func = (fprintf_ftype)dummy_printer;
-  for ( ; *d; d += 2)
+  info->fprintf_func = (fprintf_ftype) dummy_printer;
+  for (; *d; d += 2)
     {
       int eaten = print_insn_arg (d, buffer, p, memaddr + (p - buffer), info);
       if (eaten >= 0)
@@ -407,11 +424,11 @@ print_insn_m68k (memaddr, info)
 	goto invalid;
       else
 	{
-	  (*info->fprintf_func)(info->stream,
-				/* xgettext:c-format */
-				_("<internal error in opcode table: %s %s>\n"),
-				best->name,
-				best->args);
+	  (*info->fprintf_func) (info->stream,
+				 /* xgettext:c-format */
+				 _("<internal error in opcode table: %s %s>\n"),
+				 best->name,
+				 best->args);
 	  goto invalid;
 	}
 
@@ -483,7 +500,7 @@ print_insn_arg (d, buffer, p0, addr, info)
         (*info->fprintf_func)
 	  (info->stream,
 	   "%s@",
-	   reg_names [fetch_arg (buffer, place, 3, info) + 8]);
+	   reg_names[fetch_arg (buffer, place, 3, info) + 8]);
         break;
       }
 
@@ -607,7 +624,7 @@ print_insn_arg (d, buffer, p0, addr, info)
     case 'O':
       val = fetch_arg (buffer, place, 6, info);
       if (val & 0x20)
-	(*info->fprintf_func) (info->stream, "%s", reg_names [val & 7]);
+	(*info->fprintf_func) (info->stream, "%s", reg_names[val & 7]);
       else
 	(*info->fprintf_func) (info->stream, "%d", val);
       break;
@@ -632,7 +649,7 @@ print_insn_arg (d, buffer, p0, addr, info)
       else if (place == 'C')
 	{
 	  val = fetch_arg (buffer, place, 7, info);
-	  if ( val > 63 )		/* This is a signed constant. */
+	  if (val > 63)		/* This is a signed constant. */
 	    val -= 128;
 	  (*info->fprintf_func) (info->stream, "{#%d}", val);
 	}
@@ -666,7 +683,7 @@ print_insn_arg (d, buffer, p0, addr, info)
       if (place == 'b')
 	disp = NEXTBYTE (p);
       else if (place == 'B')
-	disp = COERCE_SIGNED_CHAR(buffer[1]);
+	disp = COERCE_SIGNED_CHAR (buffer[1]);
       else if (place == 'w' || place == 'W')
 	disp = NEXTWORD (p);
       else if (place == 'l' || place == 'L' || place == 'C')
@@ -800,7 +817,7 @@ print_insn_arg (d, buffer, p0, addr, info)
 
 	    case 4:
 	      flt_p = 1;	/* Assume it's a float... */
-	      switch( place )
+	      switch (place)
 	      {
 		case 'b':
 		  val = NEXTBYTE (p);
@@ -818,25 +835,25 @@ print_insn_arg (d, buffer, p0, addr, info)
 		  break;
 
 		case 'f':
-		  NEXTSINGLE(flval, p);
+		  NEXTSINGLE (flval, p);
 		  break;
 
 		case 'F':
-		  NEXTDOUBLE(flval, p);
+		  NEXTDOUBLE (flval, p);
 		  break;
 
 		case 'x':
-		  NEXTEXTEND(flval, p);
+		  NEXTEXTEND (flval, p);
 		  break;
 
 		case 'p':
-		  flval = NEXTPACKED(p);
+		  flval = NEXTPACKED (p);
 		  break;
 
 		default:
 		  return -1;
 	      }
-	      if ( flt_p )	/* Print a float? */
+	      if (flt_p)	/* Print a float? */
 		(*info->fprintf_func) (info->stream, "#%g", flval);
 	      else
 		(*info->fprintf_func) (info->stream, "#%d", val);
@@ -1188,7 +1205,7 @@ print_indexed (basereg, p, addr, info)
      disassemble_info *info;
 {
   register int word;
-  static char *const scales[] = {"", ":2", ":4", ":8"};
+  static char *const scales[] = { "", ":2", ":4", ":8" };
   bfd_vma base_disp;
   bfd_vma outer_disp;
   char buf[40];

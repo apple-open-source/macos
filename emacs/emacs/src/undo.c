@@ -1,5 +1,5 @@
 /* undo handling for GNU Emacs.
-   Copyright (C) 1990, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1993, 1994, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -54,7 +54,8 @@ record_insert (beg, length)
   if (NILP (pending_boundary))
     pending_boundary = Fcons (Qnil, Qnil);
 
-  if (current_buffer != XBUFFER (last_undo_buffer))
+  if (!BUFFERP (last_undo_buffer)
+      || current_buffer != XBUFFER (last_undo_buffer))
     Fundo_boundary ();
   XSETBUFFER (last_undo_buffer, current_buffer);
 
@@ -66,13 +67,13 @@ record_insert (beg, length)
   if (CONSP (current_buffer->undo_list))
     {
       Lisp_Object elt;
-      elt = XCONS (current_buffer->undo_list)->car;
+      elt = XCAR (current_buffer->undo_list);
       if (CONSP (elt)
-	  && INTEGERP (XCONS (elt)->car)
-	  && INTEGERP (XCONS (elt)->cdr)
-	  && XINT (XCONS (elt)->cdr) == beg)
+	  && INTEGERP (XCAR (elt))
+	  && INTEGERP (XCDR (elt))
+	  && XINT (XCDR (elt)) == beg)
 	{
-	  XSETINT (XCONS (elt)->cdr, beg + length);
+	  XSETINT (XCDR (elt), beg + length);
 	  return;
 	}
     }
@@ -101,7 +102,8 @@ record_delete (beg, string)
   if (NILP (pending_boundary))
     pending_boundary = Fcons (Qnil, Qnil);
 
-  if (current_buffer != XBUFFER (last_undo_buffer))
+  if (BUFFERP (last_undo_buffer)
+      && current_buffer != XBUFFER (last_undo_buffer))
     Fundo_boundary ();
   XSETBUFFER (last_undo_buffer, current_buffer);
 
@@ -114,10 +116,13 @@ record_delete (beg, string)
 
       while (1)
 	{
-	  elt = XCONS (tail)->car;
-	  if (NILP (elt) || ! (CONSP (elt) && MARKERP (XCONS (elt)->car)))
+	  if (NILP (tail))
+	    elt = Qnil;
+	  else
+	    elt = XCAR (tail);
+	  if (NILP (elt) || ! (CONSP (elt) && MARKERP (XCAR (elt))))
 	    break;
-	  tail = XCONS (tail)->cdr;
+	  tail = XCDR (tail);
 	}
       at_boundary = NILP (elt);
     }
@@ -136,6 +141,8 @@ record_delete (beg, string)
      point wasn't at start of deleted range, record where it was.  */
   if (at_boundary
       && last_point_position != XFASTINT (sbeg)
+      /* If we're called from batch mode, this could be nil.  */
+      && BUFFERP (last_point_position_buffer)
       && current_buffer == XBUFFER (last_point_position_buffer))
     current_buffer->undo_list
       = Fcons (make_number (last_point_position), current_buffer->undo_list);
@@ -161,7 +168,8 @@ record_marker_adjustment (marker, adjustment)
   if (NILP (pending_boundary))
     pending_boundary = Fcons (Qnil, Qnil);
 
-  if (current_buffer != XBUFFER (last_undo_buffer))
+  if (!BUFFERP (last_undo_buffer) 
+      || current_buffer != XBUFFER (last_undo_buffer))
     Fundo_boundary ();
   XSETBUFFER (last_undo_buffer, current_buffer);
 
@@ -195,7 +203,8 @@ record_first_change ()
   if (EQ (current_buffer->undo_list, Qt))
     return;
 
-  if (current_buffer != XBUFFER (last_undo_buffer))
+  if (!BUFFERP (last_undo_buffer)
+      || current_buffer != XBUFFER (last_undo_buffer))
     Fundo_boundary ();
   XSETBUFFER (last_undo_buffer, current_buffer);
 
@@ -264,7 +273,7 @@ but another undo command will undo to the previous boundary.")
 	{
 	  /* If we have preallocated the cons cell to use here,
 	     use that one.  */
-	  XCONS (pending_boundary)->cdr = current_buffer->undo_list;
+	  XCDR (pending_boundary) = current_buffer->undo_list;
 	  current_buffer->undo_list = pending_boundary;
 	  pending_boundary = Qnil;
 	}
@@ -298,33 +307,33 @@ truncate_undo_list (list, minsize, maxsize)
      Skip, skip, skip the undo, skip, skip, skip the undo,
      Skip, skip, skip the undo, skip to the undo bound'ry. 
      (Get it?  "Skip to my Loo?")  */
-  if (CONSP (next) && NILP (XCONS (next)->car))
+  if (CONSP (next) && NILP (XCAR (next)))
     {
       /* Add in the space occupied by this element and its chain link.  */
       size_so_far += sizeof (struct Lisp_Cons);
 
       /* Advance to next element.  */
       prev = next;
-      next = XCONS (next)->cdr;
+      next = XCDR (next);
     }
-  while (CONSP (next) && ! NILP (XCONS (next)->car))
+  while (CONSP (next) && ! NILP (XCAR (next)))
     {
       Lisp_Object elt;
-      elt = XCONS (next)->car;
+      elt = XCAR (next);
 
       /* Add in the space occupied by this element and its chain link.  */
       size_so_far += sizeof (struct Lisp_Cons);
       if (CONSP (elt))
 	{
 	  size_so_far += sizeof (struct Lisp_Cons);
-	  if (STRINGP (XCONS (elt)->car))
+	  if (STRINGP (XCAR (elt)))
 	    size_so_far += (sizeof (struct Lisp_String) - 1
-			    + XSTRING (XCONS (elt)->car)->size);
+			    + XSTRING (XCAR (elt))->size);
 	}
 
       /* Advance to next element.  */
       prev = next;
-      next = XCONS (next)->cdr;
+      next = XCDR (next);
     }
   if (CONSP (next))
     last_boundary = prev;
@@ -332,7 +341,7 @@ truncate_undo_list (list, minsize, maxsize)
   while (CONSP (next))
     {
       Lisp_Object elt;
-      elt = XCONS (next)->car;
+      elt = XCAR (next);
 
       /* When we get to a boundary, decide whether to truncate
 	 either before or after it.  The lower threshold, MINSIZE,
@@ -352,14 +361,14 @@ truncate_undo_list (list, minsize, maxsize)
       if (CONSP (elt))
 	{
 	  size_so_far += sizeof (struct Lisp_Cons);
-	  if (STRINGP (XCONS (elt)->car))
+	  if (STRINGP (XCAR (elt)))
 	    size_so_far += (sizeof (struct Lisp_String) - 1
-			    + XSTRING (XCONS (elt)->car)->size);
+			    + XSTRING (XCAR (elt))->size);
 	}
 
       /* Advance to next element.  */
       prev = next;
-      next = XCONS (next)->cdr;
+      next = XCDR (next);
     }
 
   /* If we scanned the whole list, it is short enough; don't change it.  */
@@ -369,7 +378,7 @@ truncate_undo_list (list, minsize, maxsize)
   /* Truncate at the boundary where we decided to truncate.  */
   if (!NILP (last_boundary))
     {
-      XCONS (last_boundary)->cdr = Qnil;
+      XCDR (last_boundary) = Qnil;
       return list;
     }
   else
@@ -384,8 +393,9 @@ Return what remains of the list.")
 {
   struct gcpro gcpro1, gcpro2;
   Lisp_Object next;
-  int count = specpdl_ptr - specpdl;
+  int count = BINDING_STACK_SIZE ();
   register int arg;
+  
 #if 0  /* This is a good feature, but would make undo-start
 	  unable to do what is expected.  */
   Lisp_Object tem;
@@ -402,9 +412,13 @@ Return what remains of the list.")
   next = Qnil;
   GCPRO2 (next, list);
 
-  /* Don't let read-only properties interfere with undo.  */
+  /* In a writable buffer, enable undoing read-only text that is so
+     because of text properties.  */
   if (NILP (current_buffer->read_only))
     specbind (Qinhibit_read_only, Qt);
+
+  /* Don't let `intangible' properties interfere with undo.  */
+  specbind (Qinhibit_point_motion_hooks, Qt);
 
   while (arg > 0)
     {
@@ -448,7 +462,6 @@ Return what remains of the list.")
 #endif /* CLASH_DETECTION */
 		  Fset_buffer_modified_p (Qnil);
 		}
-#ifdef USE_TEXT_PROPERTIES
 	      else if (EQ (car, Qnil))
 		{
 		  /* Element (nil prop val beg . end) is property change.  */
@@ -463,11 +476,9 @@ Return what remains of the list.")
 
 		  Fput_text_property (beg, end, prop, val, Qnil);
 		}
-#endif /* USE_TEXT_PROPERTIES */
 	      else if (INTEGERP (car) && INTEGERP (cdr))
 		{
 		  /* Element (BEG . END) means range was inserted.  */
-		  Lisp_Object end;
 
 		  if (XINT (car) < BEGV
 		      || XINT (cdr) > ZV)

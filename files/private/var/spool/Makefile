@@ -15,5 +15,4 @@ install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) -c -m 775 -o daemon -g daemon "$(Destination)/Faxes"
-	$(_v) $(INSTALL_DIRECTORY) -c -m 770 -o daemon -g daemon "$(Destination)/lpd"
 	$(_v) $(INSTALL_DIRECTORY) -c -m 750                     "$(Destination)/mqueue"

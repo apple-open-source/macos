@@ -20,10 +20,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * This header contains the IOApplePartitionScheme class definition.
+ */
+
 #ifndef _IOAPPLEPARTITIONSCHEME_H
 #define _IOAPPLEPARTITIONSCHEME_H
 
 #include <IOKit/IOTypes.h>
+
+/*
+ * kIOApplePartitionSchemeClass is the name of the IOApplePartitionScheme class.
+ */
+
+#define kIOApplePartitionSchemeClass "IOApplePartitionScheme"
 
 /*
  * Apple Partition Map Definitions
@@ -108,11 +118,12 @@ typedef struct Block0
 
 #pragma options align=reset              /* (reset to default struct packing) */
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOPartitionScheme.h>
 
@@ -240,6 +251,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOApplePartitionScheme, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOAPPLEPARTITIONSCHEME_H */

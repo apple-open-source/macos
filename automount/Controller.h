@@ -37,6 +37,7 @@
 @class Map;
 @class Server;
 @class String;
+struct MountProgressRecord;
 
 typedef struct
 {
@@ -98,13 +99,17 @@ typedef struct
 - (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir;
 - (unsigned int)mountmap:(String *)mapname directory:(String *)dir;
 - (unsigned int)nfsmount:(Vnode *)v withUid:(int)uid;
+- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID;
+- (void)completeMountInProgressBy:(pid_t)mountPID exitStatus:(int)exitStatus;
 
 - (Server *)serverWithName:(String *)name;
 
 - (void)timeout;
 - (void)unmountAutomounts:(int)use_force;
+- (void)flushMaps;
 - (void)reInit;
 - (unsigned int)attemptUnmount:(Vnode *)v;
+
 - (void)printTree;
 - (void)printNode:(Vnode *)v level:(unsigned int)l;
 

@@ -39,7 +39,6 @@
 #import "LUArray.h"
 #import "LUGlobal.h"
 #import "LUServer.h"
-#import "NIAgent.h"
 #import <NetInfo/syslock.h>
 
 #ifdef _IPC_UNTYPED_
@@ -144,14 +143,15 @@ typedef struct lookup_request_msg {
 @interface Controller : Root
 {
 	syslock *serverLock;
+	syslock *threadCountLock;
 	LUDictionary *globalDict;
 	LUDictionary *configDict[NCATEGORIES];
 	LUArray *serverList;
+	int threadCount;
+	int idleThreads;
 	int maxThreads;
 	int maxIdleThreads;
 	int maxIdleServers;
-	int threadCount;
-	int idleThreadCount;
 	LUDictionary *loginUser;
 	char **agentNames;
 	char **dnsSearchList;
@@ -166,11 +166,9 @@ typedef struct lookup_request_msg {
 - (void)startServerThread;
 - (LUServer *)checkOutServer;
 - (void)checkInServer:(LUServer *)server;
-- (void)serviceRequest:(lookup_request_msg *)request;
 
 - (void)setLoginUser:(int)uid;
 - (void)flushCache;
-- (void)reset;
 - (void)suspend;
 
 - (char *)portName;

@@ -141,7 +141,7 @@ public:
     static const bool needsSize = false;
 
 private:
-    set<void *> freeSet;
+    std::set<void *> freeSet;
 };
 
 
@@ -181,6 +181,7 @@ size_t size(T obj)
     return w;
 }
 
+
 template <class T>
 T *copy(const T *obj, void *addr)
 {
@@ -206,6 +207,22 @@ T *copy(const T *obj, CssmAllocator &alloc, size_t size)
 }
 
 template <class T>
+void copy(const T *obj, CssmAllocator &alloc, CssmData &data)
+{
+    if (obj == NULL) {
+        data.Length = 0;
+        return;
+    }
+    if (data.data() == NULL) {
+        size_t length = size(obj);
+        data = CssmData(alloc.malloc(length), length);
+    } else
+        assert(size(obj) <= data.length());
+    copy(obj, data.data());
+}
+
+
+template <class T>
 void relocate(T *obj, T *base)
 {
 	if (obj) {
@@ -213,6 +230,7 @@ void relocate(T *obj, T *base)
 		walk(w, base);
 	}
 }
+
 
 template <class T>
 T *chunkCopy(const T *obj, CssmAllocator &alloc = CssmAllocator::standard())

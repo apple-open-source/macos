@@ -1,9 +1,10 @@
-;;; picture.el --- "Picture mode" -- editing using quarter-plane screen model.
+;;; picture.el --- "Picture mode" -- editing using quarter-plane screen model
 
 ;; Copyright (C) 1985, 1994 Free Software Foundation, Inc.
 
 ;; Author: K. Shane Hartman
 ;; Maintainer: FSF
+;; Keywords: convenience wp
 
 ;; This file is part of GNU Emacs.
 
@@ -24,7 +25,7 @@
 
 ;;; Commentary:
 
-;; This code provides the picture-mode commands documented in the Emacs 
+;; This code provides the picture-mode commands documented in the Emacs
 ;; manual.  The screen is treated as a semi-infinite quarter-plane with
 ;; support for rectangle operations and `etch-a-sketch' character
 ;; insertion in any of eight directions.
@@ -32,7 +33,7 @@
 ;;; Code:
 
 (defgroup picture nil
-  "Picture mode  --- editing using quarter-plane screen model."
+  "Picture mode --- editing using quarter-plane screen model."
   :prefix "picture-"
   :group 'editing)
 
@@ -87,9 +88,7 @@ If scan reaches end of buffer, stop there without error."
   (interactive "P")
   (if arg (forward-line (1- (prefix-numeric-value arg))))
   (beginning-of-line)
-  (setq picture-desired-column 0)
-  ;; This call will go away when Emacs gets real horizontal autoscrolling
-  (hscroll-point-visible))
+  (setq picture-desired-column 0))
 
 (defun picture-end-of-line (&optional arg)
   "Position point after last non-blank character on current line.
@@ -99,9 +98,7 @@ If scan reaches end of buffer, stop there without error."
   (if arg (forward-line (1- (prefix-numeric-value arg))))
   (beginning-of-line)
   (skip-chars-backward " \t" (prog1 (point) (end-of-line)))
-  (setq picture-desired-column (current-column))
-  ;; This call will go away when Emacs gets real horizontal autoscrolling
-  (hscroll-point-visible))
+  (setq picture-desired-column (current-column)))
 
 (defun picture-forward-column (arg)
   "Move cursor right, making whitespace if necessary.
@@ -306,9 +303,7 @@ always moves to the beginning of a line."
     (while (> arg 0)
       (end-of-line)
       (if (eobp) (newline) (forward-char 1))
-      (setq arg (1- arg))))
-  ;; This call will go away when Emacs gets real horizontal autoscrolling
-  (hscroll-point-visible))
+      (setq arg (1- arg)))))
 
 (defun picture-open-line (arg)
   "Insert an empty line after the current line.
@@ -316,9 +311,7 @@ With positive argument insert that many lines."
   (interactive "p")
   (save-excursion
    (end-of-line)
-   (open-line arg))
-  ;; This call will go away when Emacs gets real horizontal autoscrolling
-  (hscroll-point-visible))
+   (open-line arg)))
 
 (defun picture-duplicate-line ()
   "Insert a duplicate of the current line, below it."
@@ -404,7 +397,7 @@ stops computed are displayed in the minibuffer with `:' at each stop."
 	      (skip-chars-forward " \t")
 	      (setq tabs (cons (current-column) tabs)))
 	    (if (null tabs)
-		(error "No characters in set %s on this line."
+		(error "No characters in set %s on this line"
 		       (regexp-quote picture-tab-chars))))))
       (setq tab-stop-list tabs)
       (let ((blurb (make-string (1+ (nth (1- (length tabs)) tabs)) ?\ )))
@@ -456,7 +449,7 @@ See also documentation for variable `picture-tab-chars'."
 
 ;; Picture Rectangles
 
-(defconst picture-killed-rectangle nil
+(defvar picture-killed-rectangle nil
   "Rectangle killed or copied by \\[picture-clear-rectangle] in Picture mode.
 The contents can be retrieved by \\[picture-yank-rectangle]")
 
@@ -493,7 +486,7 @@ shifting existing text.  Leaves mark at one corner of rectangle and
 point at the other (diagonally opposed) corner."
   (interactive "P")
   (if (not (consp picture-killed-rectangle))
-      (error "No rectangle saved.")
+      (error "No rectangle saved")
     (picture-insert-rectangle picture-killed-rectangle insertp)))
 
 (defun picture-yank-at-click (click arg)
@@ -515,7 +508,7 @@ of rectangle and point at the other (diagonally opposed) corner."
   (interactive "cRectangle from register: \nP")
   (let ((rectangle (get-register register)))
     (if (not (consp rectangle))
-	(error "Register %c does not contain a rectangle." register)
+	(error "Register %c does not contain a rectangle" register)
       (picture-insert-rectangle rectangle insertp))))
 
 (defun picture-insert-rectangle (rectangle &optional insertp)
@@ -705,7 +698,7 @@ Note that Picture mode commands will work outside of Picture mode, but
 they are not defaultly assigned to keys."
   (interactive)
   (if (eq major-mode 'picture-mode)
-      (error "You are already editing a picture.")
+      (error "You are already editing a picture")
     (make-local-variable 'picture-mode-old-local-map)
     (setq picture-mode-old-local-map (current-local-map))
     (use-local-map picture-mode-map)
@@ -742,21 +735,14 @@ With no argument strips whitespace from end of every line in Picture buffer
   otherwise just return to previous mode."
   (interactive "P")
   (if (not (eq major-mode 'picture-mode))
-      (error "You aren't editing a Picture.")
-    (if (not nostrip) (picture-clean))
+      (error "You aren't editing a Picture")
+    (if (not nostrip) (delete-trailing-whitespace))
     (setq mode-name picture-mode-old-mode-name)
     (use-local-map picture-mode-old-local-map)
     (setq major-mode picture-mode-old-major-mode)
     (kill-local-variable 'tab-stop-list)
     (setq truncate-lines picture-mode-old-truncate-lines)
     (force-mode-line-update)))
-
-(defun picture-clean ()
-  "Eliminate whitespace at ends of lines."
-  (save-excursion
-   (goto-char (point-min))
-   (while (re-search-forward "[ \t][ \t]*$" nil t)
-     (delete-region (match-beginning 0) (point)))))
 
 (provide 'picture)
 

@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.8 1998/02/21 22:47:20 christos Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -32,7 +30,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)extern.h	8.3 (Berkeley) 4/16/94
+ *	@(#)extern.h	8.3 (Berkeley) 4/16/94
+ *	$FreeBSD: src/usr.bin/find/extern.h,v 1.9.2.4 2001/05/06 09:53:22 phk Exp $
  */
 
 #include <sys/cdefs.h>
@@ -42,42 +41,75 @@ void	*emalloc __P((unsigned int));
 PLAN	*find_create __P((char ***));
 int	 find_execute __P((PLAN *, char **));
 PLAN	*find_formplan __P((char **));
-int	 f_expr __P((PLAN *, FTSENT *));
 PLAN	*not_squish __P((PLAN *));
 PLAN	*or_squish __P((PLAN *));
 PLAN	*paren_squish __P((PLAN *));
 struct stat;
 void	 printlong __P((char *, char *, struct stat *));
 int	 queryuser __P((char **));
+OPTION	*option __P((char *));
 
-PLAN	*c_atime __P((char ***, int));
-PLAN	*c_ctime __P((char ***, int));
-PLAN	*c_depth __P((char ***, int));
-PLAN	*c_exec __P((char ***, int));
-PLAN	*c_follow __P((char ***, int));
-PLAN	*c_fstype __P((char ***, int));
-PLAN	*c_group __P((char ***, int));
-PLAN	*c_inum __P((char ***, int));
-PLAN	*c_links __P((char ***, int));
-PLAN	*c_ls __P((char ***, int));
-PLAN	*c_name __P((char ***, int));
-PLAN	*c_newer __P((char ***, int));
-PLAN	*c_nogroup __P((char ***, int));
-PLAN	*c_nouser __P((char ***, int));
-PLAN	*c_path __P((char ***, int));
-PLAN	*c_perm __P((char ***, int));
-PLAN	*c_print __P((char ***, int));
-PLAN	*c_print0 __P((char ***, int));
-PLAN	*c_prune __P((char ***, int));
-PLAN	*c_size __P((char ***, int));
-PLAN	*c_type __P((char ***, int));
-PLAN	*c_user __P((char ***, int));
-PLAN	*c_xdev __P((char ***, int));
-PLAN	*c_openparen __P((char ***, int));
-PLAN	*c_closeparen __P((char ***, int));
-PLAN	*c_mtime __P((char ***, int));
-PLAN	*c_not __P((char ***, int));
-PLAN	*c_or __P((char ***, int));
-PLAN	*c_null __P((char ***, int));
+creat_f	c_Xmin;
+creat_f	c_Xtime;
+creat_f	c_and;
+creat_f	c_delete;
+creat_f	c_depth;
+creat_f	c_empty;
+creat_f	c_exec;
+creat_f	c_flags;
+creat_f	c_follow;
+#if !defined(__NetBSD__)
+creat_f	c_fstype;
+#endif
+creat_f	c_group;
+creat_f	c_inum;
+creat_f	c_links;
+creat_f	c_ls;
+creat_f	c_mXXdepth;
+creat_f	c_name;
+creat_f	c_newer;
+creat_f	c_nogroup;
+creat_f	c_nouser;
+creat_f	c_perm;
+creat_f	c_print;
+creat_f	c_regex;
+creat_f	c_simple;
+creat_f	c_size;
+creat_f	c_type;
+creat_f	c_user;
+creat_f	c_xdev;
 
-extern int ftsoptions, isdeprecated, isdepth, isoutput, isxargs;
+exec_f	f_Xmin;
+exec_f	f_Xtime;
+exec_f	f_always_true;
+exec_f	f_closeparen;
+exec_f	f_delete;
+exec_f	f_empty;
+exec_f	f_exec;
+exec_f	f_expr;
+exec_f	f_flags;
+exec_f	f_fstype;
+exec_f	f_group;
+exec_f	f_inum;
+exec_f	f_links;
+exec_f	f_ls;
+exec_f	f_name;
+exec_f	f_newer;
+exec_f	f_nogroup;
+exec_f	f_not;
+exec_f	f_nouser;
+exec_f	f_openparen;
+exec_f	f_or;
+exec_f	f_path;
+exec_f	f_perm;
+exec_f	f_print;
+exec_f	f_print0;
+exec_f	f_prune;
+exec_f	f_regex;
+exec_f	f_size;
+exec_f	f_type;
+exec_f	f_user;
+
+extern int ftsoptions, isdeprecated, isdepth, isoutput, issort, isxargs;
+extern int mindepth, maxdepth;
+extern int regexp_flags;

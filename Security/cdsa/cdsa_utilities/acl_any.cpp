@@ -54,7 +54,7 @@ AnyAclSubject *AnyAclSubject::Maker::make(const TypedList &list) const
 	return new AnyAclSubject();
 }
 
-AnyAclSubject *AnyAclSubject::Maker::make(Reader &, Reader &) const
+AnyAclSubject *AnyAclSubject::Maker::make(Version, Reader &, Reader &) const
 {
     return new AnyAclSubject();
 }

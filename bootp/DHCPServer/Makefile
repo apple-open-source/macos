@@ -32,6 +32,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+HEADER_PATHS = -I../bootplib
 FRAMEWORKS = -framework CoreFoundation
 
 

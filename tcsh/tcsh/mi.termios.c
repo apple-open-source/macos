@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/mi.termios.c,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/mi.termios.c,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
 /* termios.c - fake termios interface using sgtty interface 
  * 	       by Magnus Doell and Bruce Evans.
  *

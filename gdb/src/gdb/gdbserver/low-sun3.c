@@ -1,5 +1,6 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1986, 1987, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1993, 1994, 1995, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,7 +19,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
+#include "server.h"
 #include "<sys/wait.h>"
 #include "frame.h"
 #include "inferior.h"
@@ -33,15 +34,8 @@
 #include <fcntl.h>
 
 /***************Begin MY defs*********************/
-int quit_flag = 0;
 static char my_registers[REGISTER_BYTES];
 char *registers = my_registers;
-
-/* Index within `registers' of the first byte of the space for
-   register N.  */
-
-
-char buf2[MAX_REGISTER_RAW_SIZE];
 /***************End MY defs*********************/
 
 #include <sys/ptrace.h>
@@ -49,15 +43,10 @@ char buf2[MAX_REGISTER_RAW_SIZE];
 
 extern int sys_nerr;
 extern char **sys_errlist;
-extern char **environ;
 extern int errno;
-extern int inferior_pid;
-void quit (), perror_with_name ();
-int query ();
 
 /* Start an inferior process and returns its pid.
-   ALLARGS is a vector of program-name and args.
-   ENV is the environment vector to pass.  */
+   ALLARGS is a vector of program-name and args. */
 
 int
 create_inferior (char *program, char **allargs)
@@ -81,6 +70,13 @@ create_inferior (char *program, char **allargs)
     }
 
   return pid;
+}
+
+/* Attaching is not supported.  */
+int
+myattach (int pid)
+{
+  return -1;
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -221,11 +217,12 @@ store_inferior_registers (int ignored)
 /* Copy LEN bytes from inferior's memory starting at MEMADDR
    to debugger memory starting at MYADDR.  */
 
+void
 read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
@@ -252,7 +249,7 @@ write_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);

@@ -303,13 +303,10 @@ OSStatus	ExtendBTree	(BTreeControlBlockPtr	btreePtr,
 		
 	/////////////////////// Extend LEOF If Necessary ////////////////////////////
 
-	minEOF = newTotalNodes * nodeSize;
+	minEOF = (UInt64)newTotalNodes * (UInt64)nodeSize;
 	if ( filePtr->fcbLogicalSize < minEOF )
 	{
-		//ее
-		//ее	???? Does this B*Tree pack stop working when LEOF > 2^32-1?
-		//ее
-		maxEOF = ((UInt32)0xFFFFFFFFL);
+		maxEOF = ((UInt64)0xFFFFFFFFFFFFFFFF);  
 
 		err = btreePtr->setEndOfForkProc (btreePtr->fcbPtr, minEOF, maxEOF);
 		M_ExitOnError (err);

@@ -37,6 +37,7 @@
 #include <IOKit/pccard/IOPCCard.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOUserClient.h>
 
 #ifdef PCMCIA_DEBUG
 extern int ds_debug;
@@ -114,6 +115,33 @@ IOCardBusDevice::setPowerState(unsigned long powerState,
     }
 
     return IOPMAckImplied;
+}
+
+IOReturn
+IOCardBusDevice::setProperties(OSObject * properties)
+{
+    OSDictionary * dict;
+    int rc;
+
+//    if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
+//	IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
+//	return kIOReturnNotPrivileged;
+//    }
+
+    dict = OSDynamicCast(OSDictionary, properties);
+    if (dict) {
+
+	if (dict->getObject("eject request")) {
+	    rc = IOPCCardBridge::requestCardEjection(parent->getProvider());
+	    if (rc) {
+		IOLog("IOCardBusDevice::setProperties(eject request) failed with error = %d\n", rc);
+		return kIOReturnError;
+	    }
+	    return kIOReturnSuccess;
+	}
+    }
+
+    return kIOReturnBadArgument;
 }
 
 u_int
@@ -517,6 +545,33 @@ IOPCCard16Device::setPowerState(unsigned long powerState,
     DEBUG(1, "IOPCCard16Device:setPowerState state=%d\n", powerState);
 
     return enabler ? enabler->setPowerState(powerState, whatDevice) : IOPMAckImplied;
+}
+
+IOReturn
+IOPCCard16Device::setProperties(OSObject * properties)
+{
+    OSDictionary * dict;
+    int rc;
+
+//    if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
+//	IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
+//	return kIOReturnNotPrivileged;
+//    }
+
+    dict = OSDynamicCast(OSDictionary, properties);
+    if (dict) {
+
+	if (dict->getObject("eject request")) {
+	    rc = IOPCCardBridge::requestCardEjection(bridge->getProvider());
+	    if (rc) {
+		IOLog("IOPCCard16Device::setProperties(eject request) failed with error = %d\n", rc);
+		return kIOReturnError;
+	    }
+	    return kIOReturnSuccess;
+	}
+    }
+
+    return kIOReturnBadArgument;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

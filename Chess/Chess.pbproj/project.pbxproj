@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 36;
 	objects = {
 		0145C6BE000FA8B211CA1586 = {
 			buildStyles = (
@@ -781,11 +781,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>NSMainNibFile</key>
 	<string>Chess</string>
 	<key>NSPrincipalClass</key>
@@ -811,7 +811,6 @@
 				0145C732000FA8B211CA1586,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		0145C728000FA8B211CA1586 = {
 			fileRef = 0145C6CA000FA8B211CA1586;
@@ -919,7 +918,6 @@
 				0D378EBA00263F6411CA14D0,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		0145C734000FA8B211CA1586 = {
 			fileRef = 0145C6D8000FA8B211CA1586;
@@ -1117,7 +1115,6 @@
 				0145C75D000FA8B211CA1586,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		0145C753000FA8B211CA1586 = {
 			fileRef = 0145C6C1000FA8B211CA1586;
@@ -1214,7 +1211,6 @@
 				0145C765000FA98111CA1586,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		0145C75F000FA8B211CA1586 = {
 			fileRef = 0145C720000FA8B211CA1586;
@@ -1227,7 +1223,6 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		0145C764000FA98111CA1586 = {
 			isa = PBXFrameworkReference;

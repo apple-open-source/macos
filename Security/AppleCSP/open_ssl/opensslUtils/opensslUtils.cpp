@@ -24,6 +24,10 @@
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/sha.h>
+#include <openssl/rsa.h>
+#include <openssl/dsa.h>
+#include <openssl/dh.h>
+#include <openssl/err.h>
 #include <Security/debugging.h>
 #include <Security/cssmerr.h>
 #include "opensslUtils.h"
@@ -115,5 +119,96 @@ unsigned char *SHA1(const unsigned char *d, unsigned long n,unsigned char *md)
 	}
 	cspGenSha1Hash(d, n, md);
 	return md;
+}
+
+void throwRsaDsa(
+	const char *op)
+{
+	unsigned long e = logSslErrInfo(op);
+	CSSM_RETURN cerr = CSSM_OK;
+	
+	/* try to parse into something meaningful */
+	int reason = ERR_GET_REASON(e);
+	int lib = ERR_GET_LIB(e);
+	
+	/* first try the global ones */
+	switch(reason) {
+		case ERR_R_MALLOC_FAILURE:
+			cerr = CSSMERR_CSP_MEMORY_ERROR; break;
+		case ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED:
+			/* internal */ break;
+		case ERR_R_PASSED_NULL_PARAMETER:
+			cerr = CSSMERR_CSP_INVALID_POINTER; break;
+		case ERR_R_NESTED_ASN1_ERROR:
+		case ERR_R_BAD_ASN1_OBJECT_HEADER:
+		case ERR_R_BAD_GET_ASN1_OBJECT_CALL:
+		case ERR_R_EXPECTING_AN_ASN1_SEQUENCE:
+		case ERR_R_ASN1_LENGTH_MISMATCH:
+		case ERR_R_MISSING_ASN1_EOS:
+			/* ASN - shouldn't happen, right? */
+			cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
+		default:
+			break;
+	}
+	if(cerr != CSSM_OK) {
+		CssmError::throwMe(cerr);
+	}
+	
+	/* now the lib-specific ones */
+	switch(lib) {
+		case ERR_R_BN_LIB:
+			/* all indicate serious internal error...right? */
+			cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
+		case ERR_R_RSA_LIB:
+			switch(reason) {
+				case RSA_R_ALGORITHM_MISMATCH:
+					cerr = CSSMERR_CSP_ALGID_MISMATCH; break;
+				case RSA_R_BAD_SIGNATURE:
+					cerr = CSSMERR_CSP_VERIFY_FAILED; break;
+				case RSA_R_DATA_TOO_LARGE:
+				case RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE:
+				case RSA_R_DATA_TOO_SMALL:
+				case RSA_R_DATA_TOO_SMALL_FOR_KEY_SIZE:
+				case RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY:
+					cerr = CSSMERR_CSP_INPUT_LENGTH_ERROR; break;
+				case RSA_R_KEY_SIZE_TOO_SMALL:
+					cerr = CSSMERR_CSP_INVALID_ATTR_KEY_LENGTH; break;
+				case RSA_R_PADDING_CHECK_FAILED:
+					cerr = CSSMERR_CSP_INVALID_DATA; break;
+				case RSA_R_RSA_OPERATIONS_NOT_SUPPORTED:
+					cerr = CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED; break;
+				case RSA_R_UNKNOWN_ALGORITHM_TYPE:
+					cerr = CSSMERR_CSP_INVALID_ALGORITHM; break;
+				case RSA_R_WRONG_SIGNATURE_LENGTH:
+					cerr = CSSMERR_CSP_VERIFY_FAILED; break;
+				default:
+					cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
+			}
+			break;
+		case ERR_R_DSA_LIB:
+			switch(reason) {
+				case DSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE:
+					cerr = CSSMERR_CSP_INPUT_LENGTH_ERROR; break;
+				default:
+					cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
+			}
+			break;
+		case ERR_R_DH_LIB:
+			/* actually none of the DH errors make sense at the CDSA level */
+			cerr = CSSMERR_CSP_INTERNAL_ERROR; 
+			break;
+		default:
+			cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
+	}
+	CssmError::throwMe(cerr);
+}
+
+/*
+ * given an openssl-style error, throw appropriate CssmError.
+ */
+void throwOpensslErr(int irtn)
+{
+	/* FIXME */
+	CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
 }
 

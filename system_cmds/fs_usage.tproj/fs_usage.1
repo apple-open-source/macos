@@ -1,7 +1,7 @@
 
 .\" Copyright (c) 2000, Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd March 28, 2000
+.Dd November 26, 2001
 .Dt FS_USAGE 1
 .Os "Mac OS X"
 .Sh NAME
@@ -17,7 +17,7 @@ information pertaining to filesystem activity.  By default
 this includes all system processes except the running
 fs_usage process,
 Terminal, telnetd, sshd, rlogind, tcsh, csh and sh.
-These defaluts can be overridden such that output is limited to
+These defaults can be overridden such that output is limited to
 include or exclude a list of processes specified by the user.
 .Pp
 The output presented by
@@ -55,8 +55,12 @@ option has the opposite effect, excluding sampled data
 relating to the given list of process ids or commands.
 .El
 .Pp
-If "/tmp/FileTracing" is present when a Carbon Application
-is launched, then the high level Carbon FileManager
+If you set the DYLD_IMAGE_SUFFIX environment variable 
+to "_debug", then an application will use 
+the debug version of all libraries including the 
+Carbon FileManager.  See dyld(1).  When
+fs_usage is run against a Carbon Application launched
+in this environment, then the high level Carbon FileManager
 calls will be displayed bracketing the system calls that they
 are built on.
 .Pp
@@ -65,9 +69,9 @@ The data columns displayed are as follows:
 .Pp
 .It TIMESTAMP
 TOD when call occurred. Wide mode will
-have millesecond granularity.
+have millisecond granularity.
 .It CALL
-the name of the filesystem call or page-in.
+the name of the filesystem call, page-in, page-out or physical disk access.
 .It FILE DESCRIPTOR
 Of the form F=x, x is a file descriptor. Depending
 on the type of system call, this will be either
@@ -81,6 +85,9 @@ Pathname of the file accessed (up to the last 28 bytes).
 .It FAULT ADDRESS
 Of the form A=0xnnnnnnnn, where 0xnnnnnnnn is the
 address being faulted.
+.It DISK BLOCK NUMBER
+Of the form D=0xnnnnnnnn, where 0xnnnnnnnn is the block number
+of the physical disk block being read or written.
 .It TIME INTERVAL(W)
 The elapsed time spent in the system call.
 A 'W' after the elapsed time indicates
@@ -103,3 +110,4 @@ data output will be displayed in the window.
 .Xr top 1
 .Xr sc_usage 1
 .Xr latency 1
+.Xr dyld 1

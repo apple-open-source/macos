@@ -26,7 +26,7 @@ resource 'STR ' (kControlCodecNameID, "control name")
 };
 
 /* vendor ID to name matching resource, STR# to vnid */
-resource 'STR#' ( -20775, "Vendor Names", purgeable)
+resource 'STR#' ( -20775, "Vendor Names")
 {
 	{
 		"Canon",
@@ -38,7 +38,7 @@ resource 'STR#' ( -20775, "Vendor Names", purgeable)
 	}
 };
 
-data 'vnid' (-20775, "Vendor IDs", purgeable) {
+data 'vnid' (-20775, "Vendor IDs") {
 	$"00000006"		/* count of IDs is 6 */
 	$"00000085"		/* Canon vendor ID */
 	$"00008088"		/* JVC vendor ID */

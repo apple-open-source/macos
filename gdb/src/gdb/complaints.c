@@ -1,5 +1,6 @@
 /* Support for complaint handling during symbol reading in GDB.
-   Copyright (C) 1990, 1991, 1992  Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1995, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -50,9 +51,6 @@ static unsigned int stop_whining = 0;
 
 static int complaint_series = 0;
 
-/* External variables and functions referenced. */
-
-extern int info_verbose;
 
 
 /* Functions to handle complaints during symbol reading.  */
@@ -83,30 +81,45 @@ complain (struct complaint *complaint,...)
 
       /* Isolated messages, must be self-explanatory.  */
     case 0:
-      begin_line ();
-      fputs_filtered ("During symbol reading, ", gdb_stderr);
-      wrap_here ("");
-      vfprintf_filtered (gdb_stderr, complaint->message, args);
-      fputs_filtered (".\n", gdb_stderr);
+      if (warning_hook)
+        (*warning_hook) (complaint->message, args);
+      else
+        {
+          begin_line ();
+          fputs_filtered ("During symbol reading, ", gdb_stderr);
+          wrap_here ("");
+          vfprintf_filtered (gdb_stderr, complaint->message, args);
+          fputs_filtered (".\n", gdb_stderr);
+        }
       break;
 
       /* First of a series, without `set verbose'.  */
     case 1:
-      begin_line ();
-      fputs_filtered ("During symbol reading...", gdb_stderr);
-      vfprintf_filtered (gdb_stderr, complaint->message, args);
-      fputs_filtered ("...", gdb_stderr);
-      wrap_here ("");
-      complaint_series++;
+      if (warning_hook)
+        (*warning_hook) (complaint->message, args);
+      else
+        {
+          begin_line ();
+          fputs_filtered ("During symbol reading...", gdb_stderr);
+          vfprintf_filtered (gdb_stderr, complaint->message, args);
+          fputs_filtered ("...", gdb_stderr);
+          wrap_here ("");
+          complaint_series++;
+        }
       break;
 
       /* Subsequent messages of a series, or messages under `set verbose'.
          (We'll already have produced a "Reading in symbols for XXX..."
          message and will clean up at the end with a newline.)  */
     default:
-      vfprintf_filtered (gdb_stderr, complaint->message, args);
-      fputs_filtered ("...", gdb_stderr);
-      wrap_here ("");
+      if (warning_hook)
+        (*warning_hook) (complaint->message, args);
+      else
+        {
+          vfprintf_filtered (gdb_stderr, complaint->message, args);
+          fputs_filtered ("...", gdb_stderr);
+          wrap_here ("");
+        }
     }
   /* If GDB dumps core, we'd like to see the complaints first.  Presumably
      GDB will not be sending so many complaints that this becomes a
@@ -133,7 +146,7 @@ clear_complaints (int sym_reading, int noisy)
       p->counter = 0;
     }
 
-  if (!sym_reading && !noisy && complaint_series > 1)
+  if (!sym_reading && !noisy && complaint_series > 1 && !warning_hook)
     {
       /* Terminate previous series, since caller won't.  */
       puts_filtered ("\n");

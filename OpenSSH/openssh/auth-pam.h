@@ -1,4 +1,4 @@
-/* $Id: auth-pam.h,v 1.1.1.4 2001/05/03 16:50:59 zarzycki Exp $ */
+/* $Id: auth-pam.h,v 1.1.1.5 2002/05/28 18:23:41 zarzycki Exp $ */
 
 #include "includes.h"
 #ifdef USE_PAM
@@ -7,7 +7,7 @@
 
 void start_pam(const char *user);
 void finish_pam(void);
-int auth_pam_password(struct passwd *pw, const char *password);
+int auth_pam_password(Authctxt *authctxt, const char *password);
 char **fetch_pam_environment(void);
 int do_pam_authenticate(int flags);
 int do_pam_account(char *username, char *remote_user);

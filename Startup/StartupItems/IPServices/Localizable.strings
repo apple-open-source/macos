@@ -4,6 +4,8 @@
 <dict>
 	<key>Starting internet services</key>
 	<string>Starting internet services</string>
+	<key>Starting host configuration services</key>
+	<string>Starting host configuration services</string>
 </dict>
 </plist>
 

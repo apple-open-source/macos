@@ -1,11 +1,12 @@
 {
     DOCICONFILES = (); 
     FILESTABLE = {
+        FRAMEWORKS = (CoreFoundation.framework, IOKit.framework); 
         C_FILES = (); 
         H_FILES = (); 
         OTHER_LIBS = (); 
         OTHER_LINKED = (iostat.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, iostat.8, names.c); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, iostat.8); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 

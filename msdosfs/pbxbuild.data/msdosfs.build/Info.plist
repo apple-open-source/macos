@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>msdosfs</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.msdosfs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>msdosfs</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>

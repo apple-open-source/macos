@@ -1,5 +1,5 @@
-# Breakpoint window class definition for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Breakpoint window class definition for Insight
+# Copyright 1997, 1998, 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -26,13 +26,15 @@ class BpWin {
     method bp_restore {}
     method bp_store {}
     method bp_type { i }
-    method update {action bpnum addr {linenum {}} {file {}} {type 0} args}
     method bp_all { command }
     method get_actions {bpnum}
     method toggle_threads {}
     method reconfig {} 
     method goto_bp {r}
 
+    # GDB Events
+    method breakpoint {event}
+    method tracepoint {event}
   }
 
   private {
@@ -48,9 +50,10 @@ class BpWin {
     variable show_threads	;#cached copy of [pref get gdb/bp/show_threads]
     
     method build_win {}
-    method bp_add { bpnum {tracepoint 0}}
-    method bp_modify { bpnum {tracepoint 0} } 
-    method bp_delete { bpnum }
+    method bp_add {bp_event {tracepoint 0}}
+    method bp_modify {bp_event {tracepoint 0}} 
+    method bp_delete {bp_event}
+    method _select_and_popup {bp X Y}
   }
 
 }

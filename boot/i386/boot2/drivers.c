@@ -29,10 +29,7 @@
  *  DRI: Josh de Cesare
  */
 
-#include "libsaio.h"
-#include "memory.h"
-#include "kernBootStruct.h"
-#include "nbp.h"
+#include "sl.h"
 #include "boot.h"
 
 enum {
@@ -107,10 +104,15 @@ struct DriversPackage {
 };
 typedef struct DriversPackage DriversPackage;
 
+enum {
+  kCFBundleType2,
+  kCFBundleType3
+};
+
 static long FileLoadDrivers(char *dirSpec, long plugin);
 static long NetLoadDrivers(char *dirSpec);
 static long LoadDriverMKext(char *fileSpec);
-static long LoadDriverPList(char *dirSpec, char *name);
+static long LoadDriverPList(char *dirSpec, char *name, long bundleType);
 static long LoadMatchedModules(void);
 static long MatchPersonalities(void);
 static long MatchLibraries(void);
@@ -138,40 +140,14 @@ static TagPtr    gPersonalityHead, gPersonalityTail;
 static char *    gExtensionsSpec;
 static char *    gDriverSpec;
 static char *    gFileSpec;
+static char *    gTempSpec;
+static char *    gFileName;
 
 //==========================================================================
 // BootX shim functions.
 
-#include <ufs/ufs/dir.h>
-
-#define kLoadAddr     TFTP_ADDR
-#define kLoadSize     TFTP_LEN
-
 #define kPageSize     4096
 #define RoundPage(x)  ((((unsigned)(x)) + kPageSize - 1) & ~(kPageSize - 1))
-
-static long
-LoadFile( char * fileSpec )
-{
-    unsigned long count = TFTP_LEN;
-    unsigned long addr  = TFTP_ADDR;
-
-	if ( gBootDev == kBootDevNetwork )
-    {
-        if ( nbpTFTPReadFile(fileSpec, &count, addr) != nbpStatusSuccess )
-            return -1;
-    }
-    else
-    {
-        int fd = open( fileSpec, 0 );
-        if ( fd < 0 )
-            return -1;
-
-        count = read( fd, (char *) addr, count );
-        close(fd);
-    }
-    return count;
-}
 
 static long  gImageFirstBootXAddr;
 static long  gImageLastKernelAddr;
@@ -183,7 +159,7 @@ AllocateBootXMemory( long size )
   
 	if ( addr < gImageLastKernelAddr ) return 0;
 
-    bzero(addr, size);
+    bzero((void *)addr, size);
 
 	gImageFirstBootXAddr = addr;
   
@@ -224,76 +200,14 @@ AllocateMemoryRange(char * rangeName, long start, long length, long type)
     return 0;
 }
 
-// Map BootX file types to UFS file types defined in ufs/ufs/dir.h.
-
-enum {
-	kUnknownFileType    = DT_UNKNOWN,
-	kFlatFileType       = DT_REG,
-	kDirectoryFileType  = DT_DIR,
-	kLinkFileType       = DT_LNK
-};
-
-static long 
-GetFileInfo( char * dirSpec, char * name, long * flags, long * time )
-{
-    struct dirstuff * dir;
-    struct direct *   entry = 0;
-
-    dir = opendir(dirSpec);
-    if ( dir )
-    {
-        while (( entry = readdir(dir) ))
-        {
-            if ( strcmp( entry->d_name, name ) == 0 )
-            {
-                *flags = entry->d_type;
-                *time  = 0;
-                break;
-            }
-        }
-        closedir(dir);
-    }
-    return ( entry ) ? 0 : -1;
-}
-
 // Map BootX types to boot counterparts.
 
-#define gBootFileType    gBootDev
+#define gBootFileType    BIOS_DEV_TYPE(gBIOSDev)
 enum {
-    kNetworkDeviceType = kBootDevNetwork,
-    kBlockDeviceType   = kBootDevHardDisk
+    kNetworkDeviceType = kBIOSDevTypeNetwork,
+    kBlockDeviceType   = kBIOSDevTypeHardDrive
 };
 
-static struct dirstuff *
-OpenDir( char * dirSpec )
-{
-    return opendir(dirSpec);
-}
-
-static void
-CloseDir( struct dirstuff * dirStuff )
-{
-    closedir(dirStuff);
-}
-
-static long
-GetDirEntry( struct dirstuff * dir, long * dirIndex, char ** name, 
-             long * flags, long * time)
-{
-    if ( dir )
-    {
-        struct direct * entry = readdir(dir);
-    
-        if ( entry )
-        {
-            *name  = entry->d_name;
-            *flags = entry->d_type;
-            *time  = 0;
-            return 0;
-        }
-    }
-    return (-1);
-}
 
 static long
 InitDriverSupport()
@@ -301,9 +215,11 @@ InitDriverSupport()
     gExtensionsSpec = (char *) malloc( 4096 );
     gDriverSpec     = (char *) malloc( 4096 );
     gFileSpec       = (char *) malloc( 4096 );
+    gTempSpec       = (char *) malloc( 4096 );
+    gFileName       = (char *) malloc( 4096 );
 
-    if ( !gExtensionsSpec || !gDriverSpec || !gFileSpec )
-        stop( "InitDriverSupport error" );
+    if ( !gExtensionsSpec || !gDriverSpec || !gFileSpec || !gTempSpec || !gFileName )
+        stop("InitDriverSupport error");
 
     gImageLastKernelAddr = RoundPage( kernBootStruct->kaddr +
                                       kernBootStruct->ksize );
@@ -368,7 +284,7 @@ long LoadDrivers( char * dirSpec )
 #endif
 
     MatchPersonalities();
-  
+
     MatchLibraries();
 
     LoadMatchedModules();
@@ -382,19 +298,19 @@ long LoadDrivers( char * dirSpec )
 static long
 FileLoadDrivers( char * dirSpec, long plugin )
 {
-    long   ret, length, index, flags, time;
-    char * name;
-    struct dirstuff * dir;
+    long         ret, length, index, flags, time, bundleType;
+    const char * name;
 
     if ( !plugin )
     {
         long time2;
 
         ret = GetFileInfo(dirSpec, "Extensions.mkext", &flags, &time);
-        if ((ret == 0) && (flags == kFlatFileType))
+        if ((ret == 0) && ((flags & kFileTypeMask) == kFileTypeFlat))
         {
             ret = GetFileInfo(dirSpec, "Extensions", &flags, &time2);
-            if ((ret != 0) || (flags == kDirectoryFileType) || (time > time2))
+            if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeDirectory) ||
+                (((gBootMode & kBootModeSafe) == 0) && (time > time2)))
             {
                 sprintf(gDriverSpec, "%sExtensions.mkext", dirSpec);
                 verbose("LoadDrivers: Loading from [%s]\n", gDriverSpec);
@@ -407,26 +323,32 @@ FileLoadDrivers( char * dirSpec, long plugin )
 
     verbose("LoadDrivers: Loading from [%s]\n", dirSpec);
 
-    // INTEL addition
-    dir = OpenDir( dirSpec );
-
     index = 0;
     while (1) {
-        // INTEL modification
-        ret = GetDirEntry(dir, &index, &name, &flags, &time);
+        ret = GetDirEntry(dirSpec, &index, &name, &flags, &time);
         if (ret == -1) break;
 
         // Make sure this is a directory.
-        if (flags != kDirectoryFileType) continue;
+        if ((flags & kFileTypeMask) != kFileTypeDirectory) continue;
         
         // Make sure this is a kext.
         length = strlen(name);
         if (strcmp(name + length - 5, ".kext")) continue;
 
-        if (!plugin)
-            sprintf(gDriverSpec, "%s/%s/Contents/PlugIns", dirSpec, name);
+        // Save the file name.
+        strcpy(gFileName, name);
+    
+        // Determine the bundle type.
+        sprintf(gTempSpec, "%s/%s", dirSpec, gFileName);
+        ret = GetFileInfo(gTempSpec, "Contents", &flags, &time);
+        if (ret == 0) bundleType = kCFBundleType2;
+        else bundleType = kCFBundleType3;
 
-        ret = LoadDriverPList(dirSpec, name);
+        if (!plugin)
+            sprintf(gDriverSpec, "%s/%s/%sPlugIns", dirSpec, gFileName,
+                    (bundleType == kCFBundleType2) ? "Contents/" : "");
+
+        ret = LoadDriverPList(dirSpec, gFileName, bundleType);
         if (ret != 0)
         {
             // printf("LoadDrivers: failed\n");
@@ -436,9 +358,6 @@ FileLoadDrivers( char * dirSpec, long plugin )
             ret = FileLoadDrivers(gDriverSpec, 1);
     }
 
-    // INTEL addition
-    if ( dir ) CloseDir( dir );
-    
     return 0;
 }
 
@@ -488,7 +407,7 @@ LoadDriverMKext( char * fileSpec )
     char             segName[32];
     DriversPackage * package = (DriversPackage *)kLoadAddr;
 
-#define GetPackageElement(e)     bswap32(package-> ## e)
+#define GetPackageElement(e)     NXSwapBigLongToHost(package->e)
 
     // Load the MKext.
     if (LoadFile(fileSpec) == -1) return -1;
@@ -522,7 +441,7 @@ LoadDriverMKext( char * fileSpec )
 // LoadDriverPList
 
 static long
-LoadDriverPList( char * dirSpec, char * name )
+LoadDriverPList( char * dirSpec, char * name, long bundleType )
 {
     long      length, driverPathLength;
     ModulePtr module;
@@ -534,7 +453,8 @@ LoadDriverPList( char * dirSpec, char * name )
     do {
         // Save the driver path.
         
-        sprintf(gFileSpec, "%s/%s/Contents/MacOS/", dirSpec, name);
+        sprintf(gFileSpec, "%s/%s/%s", dirSpec, name,
+                (bundleType == kCFBundleType2) ? "Contents/MacOS/" : "");
         driverPathLength = strlen(gFileSpec);
 
         tmpDriverPath = malloc(driverPathLength + 1);
@@ -544,7 +464,8 @@ LoadDriverPList( char * dirSpec, char * name )
   
         // Construct the file spec to the plist, then load it.
 
-        sprintf(gFileSpec, "%s/%s/Contents/Info.plist", dirSpec, name);
+        sprintf(gFileSpec, "%s/%s/%sInfo.plist", dirSpec, name,
+                (bundleType == kCFBundleType2) ? "Contents/" : "");
 
         length = LoadFile(gFileSpec);
         if (length == -1) break;

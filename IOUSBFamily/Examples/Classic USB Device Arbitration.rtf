@@ -1,0 +1,365 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;\f2\fmodern\fcharset77 Courier;
+}
+{\colortbl;\red255\green255\blue255;}
+\pard\ql\qnatural
+
+\f0\b\fs36 \cf0 User Mode USB Device Arbitration
+\f1\b0\fs24 \
+Last Updated: (6-Feb-2002) for MacOS X 10.2 and later.\
+\
+\pard\ql\qnatural
+
+\f0\b \cf0 Introduction
+\f1\b0 \
+\
+This document describes a new feature in Mac OS X 10.1: USB Device Arbitration.  It is aimed at developers writing user-mode USB drivers/applications (of which Classic is a notable example).  The basic principles described herein also apply to kernel drivers although some of the details of the implementation differ (e.g., use of the 
+\f2 ::message()
+\f1  method instead of General Interest Notification.)\
+\
+
+\f0\b Background / The Problem
+\f1\b0 \
+\
+The Mac OS 8.x/9.x USB stack was implemented with the expectation that it had exclusive access to the USB bus and the devices connected to it.  As a result, any application that wanted to communicate with any USB device would have to go through that API.  This same code runs inside Classic on top of Mac OS X, but that assumption is no longer true: the Mac OS X kernel now "owns" the hardware and non-Classic applications can communicate with USB devices without going through the Classic USB API.\
+\
+One consequence of this is that Classic will "acquire" all USB devices for which it might have a driver as soon as it sees them.  It acquires them by calling 
+\f2 USBDeviceOpen()
+\f1  and 
+\f2 USBInterfaceOpen()
+\f1  which in turn prevents other user-mode applications from opening them.  If some other application tries to open a device/interface that Classic has opened, it will get a 
+\f2 kIOReturnExclusiveAccess
+\f1  error and will not be allowed to communicate with the device.\
+\
+This causes problems for developers trying to develop Mac OS X versions of their drivers and applications.\
+\
+What devices will be acquired by Classic?  Any device that fits any of the following criteria (or has an interface that fits any of the following criteria):\
+\
+deviceClass == 255 (vendor-specific)\
+deviceClass == 0 && interfaceClass == 16 (composite device with an interface of class 16)\
+interfaceClass == 255 (vendor-specific)\
+interfaceClass == 7 (printer)\
+interfaceClass == 0 && interfaceSubclass == 0 (deprecated vendor-specific)\
+\
+
+\f0\b Workarounds
+\f1\b0 \
+\
+The only reasonable workarounds in Mac OS X 10.0.x are to not run Classic if you are attempting to access one of these kinds of devices from a non-Classic application, or to launch your non-Classic application before launching Classic.  Shutting down Classic will also cause it to release its hold on these devices.\
+\
+\pard\ql\qnatural
+
+\f0\b\fs28 \cf0 USB Device Arbitration Mechanisms
+\f1\b0\fs24 \
+\
+There are two mechanisms for USB device arbitration that will be available starting in the 10.1 release of Mac OS X.\
+\
+\pard\ql\qnatural
+
+\f0\b \cf0 USB Device Arbitration Mechanism #1: Static
+\f1\b0 \
+\
+The first mechanism is more static and is intended for devices where you would like to prevent Classic from ever opening the device at all, or for forcing Classic to open it even though it might not do so otherwise.  This mechanism works via a "skeleton" kext that contains no code but has a personality to match each USB device you're interested in.\
+\
+All it does is cause a Boolean property "ClassicMustNotSeize" or "ClassicMustSeize" to be set to "True" ("Yes") on the IOUSBDevice or IOUSBInterface node in the IORegistry inside the kernel.  Classic looks for these properties when iterating through the devices on the system.\
+\
+You might be tempted to set the property programmatically, but you need to set it via a kext if you want to be sure to avoid the race condition that will occur between Classic and your code -- Classic might open the device before your code gets a chance to set the property.  Another thing to keep in mind is that the IORegistry is never stored persistently and thus any properties you add to a node will not exist after a reboot.  An example of this technique is included in the Mac OS X USB DDK.\
+\
+You can set the property on either the device or, starting with MacOS X 10.2, one of the interfaces on the device that you are interested in.  If you set the property on an interface, the entire device will be affected; there is no per-interface granularity; it is simply another way to communicate your intentions for the entire device.\
+\
+Classic considers interfaces as well as devices in order to make it easier to write your "skeleton" kext.  If your device is a Composite device (deviceClass == 0), Mac OS X IOUSBFamily's Composite Driver will match against your device "first" and prevent your 'Seize property from being considered, unless you also set the "OSBundleRequired" property to "Root" so that your kext loads earlier (see the Inside Macintosh document "Loading Kernel Extensions at Boot Time").  This is probably not a good use of the OSBundleRequired mechanism.  If the property is set on an interface, your 'Seize property will be added to the registry even if it refers to a Composite device.\
+\
+The following is an example of the kind of 
+\f2 Info.plist
+\f1  text file you might place in your "skeleton" kext.  You can edit it manually or use the PropertyListEditor tool.  The values for 
+\f2 idProduct
+\f1 , 
+\f2 idVendor
+\f1 , 
+\f2 bConfigurationValue
+\f1  and 
+\f2 bInterfaceNumber
+\f1  are used for matching against an interface; only 
+\f2 idProduct
+\f1  and 
+\f2 idVendor
+\f1  are used for matching against a device.  You may wish to use the IORegistryExplorer tool, observing the "IOService" service plane with your device connected, for help in determining these values.\
+\
+To test your "skeleton" kext, be sure to delete the cache file 
+\f2\fs20 /System/Library/Extensions.mkext
+\f1\fs24  and then reboot.\
+\
+\pard\ql\qnatural
+
+\f2\fs20 \cf0 <?xml version="1.0" encoding="UTF-8"?>\
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">\
+<plist version="0.9">\
+<dict>\
+	   <key>CFBundleDevelopmentRegion</key>\
+   <string>English</string>\
+	   <key>CFBundleIdentifier</key>\
+   <string>com.apple.driver.test</string>\
+	   <key>CFBundleInfoDictionaryVersion</key>\
+	   <string>6.0</string>\
+	   <key>CFBundlePackageType</key>\
+	   <string>KEXT</string>\
+	   <key>CFBundleSignature</key>\
+	   <string>????</string>\
+	   <key>CFBundleVersion</key>\
+	   <string>1.5.1</string>\
+	   <key>IOKitPersonalities</key>\
+   <dict>\
+	      <key>
+\f1 TestSeizeOrUnseizeAnInterface
+\f2 </key>\
+	      <dict>\
+	         <key>CFBundleIdentifier</key>\
+	         <string>com.apple.driver.AppleUSBMergeNub</string>\
+	         <key>IOClass</key>\
+	         <string>AppleUSBMergeNub</string>\
+	         <key>IOProviderClass</key>\
+	         <string>IOUSBInterface</string>\
+	         <key>IOProviderMergeProperties</key>\
+	         <dict>\
+	            <key>ClassicMustNotSeize
+\f1  or 
+\f2 ClassicMustSeize</key>\
+            <true/>	         </dict>	         <key>idProduct</key>\
+         <integer>
+\f1 NumberInDecimal
+\f2 </integer>	         <key>idVendor</key>\
+	         <integer>
+\f1 NumberInDecimal
+\f2 </integer>	         <key>bConfigurationValue</key>	         <integer>
+\f1 NumberInDecimal, often 1
+\f2 </integer>\
+	         <key>bInterfaceNumber</key>\
+	         <integer>
+\f1 NumberInDecimal, often 0
+\f2 </integer>\
+      </dict>\
+   </dict>\
+	   <key>OSBundleLibraries</key>\
+	   <dict>\
+	      <key>com.apple.driver.AppleUSBMergeNub</key>\
+	      <string>1.8.3b1</string>\
+	      <key>com.apple.iokit.IOUSBFamily</key>	      <string>1.8</string>\
+	   </dict>\
+</dict>\
+</plist>
+\f1\fs24 \
+\
+\pard\ql\qnatural
+
+\f0\b \cf0 USB Device Arbitration Mechanism #2: Dynamic
+\f1\b0 \
+\
+The second mechanism is more dynamic and is intended for devices where you would like Classic and non-Classic applications to be able to \'d2take turns\'d3 accessing the device.  This mechanism is more complex than the first mechanism but is also more flexible.\
+\
+A note about Devices vs. Interfaces: everything in this section applies symmetrically to Devices and Interfaces.  I will write Open() to stand for any of 
+\f2 USBDeviceOpen()
+\f1 , 
+\f2 USBInterfaceOpen()
+\f1 , 
+\f2 USBDeviceOpenSeize()
+\f1 , or 
+\f2 USBInterfaceOpenSeize()
+\f1 .  Similarly, if I write Close() then it could stand for 
+\f2 USBDeviceClose()
+\f1  or 
+\f2 USBInterfaceClose()
+\f1 .\
+\
+Registering for General Interest Notifications is very similar for registering for Service Matching notifications, which you are already doing in order to find Devices or Interfaces of interest.  Here is the prototype for the function you use to do this:\
+\
+\pard\tx1460\tx6980\ql\qnatural
+
+\f2 \cf0 #include <IOKit/IOKitLib.h>\
+#include <IOKit/IOKitKeys.h>
+\f1 \
+
+\f2 \
+kern_return_t\
+IOServiceAddInterestNotification(\
+	IONotificationPortRef	notifyPort,	io_service_t	service,\
+	const io_name_t	interestType,\
+	IOServiceInterestCallback 	callback,\
+	void *	refCon,\
+	io_object_t *	notification );\
+\pard\ql\qnatural
+\cf0 \
+\pard\ql\qnatural
+
+\f1 \cf0 The 
+\f2 notifyPort
+\f1  is the same one you used to register for Service Matching notifications.  The 
+\f2 service
+\f1  is the 
+\f2 io_service_t
+\f1   representing the IOUSBDevice or IOUSBInterface.  We\'d5ll be using 
+\f2 interestType
+\f1  = 
+\f2 kIOGeneralInterest
+\f1 , which is defined in 
+\f2 IOKitKeys.h
+\f1 .  The 
+\f2 callback
+\f1  is your callback function whose prototype matches the one below.  The 
+\f2 refCon
+\f1  will be passed to your callback function each time it is invoked.  (One use for this, for example, might be a pointer to your record describing the device/interface.  If you do this, be careful to validate the pointer somehow before using it!)  The 
+\f2 notification
+\f1  is an output parameter that represents the notification.  If you want to dispose of the notification (i.e., because you no longer wish to receive these notifications) then invoke 
+\f2 IOObjectRelease()
+\f1  on it.\
+\
+\pard\tx1460\tx6980\ql\qnatural
+
+\f2 \cf0 typedef void\
+(*IOServiceInterestCallback)(\
+	void *	refcon,\
+	io_service_t	service,\
+	natural_t	messageType,\
+	void *	messageArgument );\
+\pard\ql\qnatural
+
+\f1 \cf0 \
+The 
+\f2 refcon
+\f1  and the 
+\f2 service
+\f1  are just the ones you supplied when you registered for notifications.  The 
+\f2 messageType
+\f1  and 
+\f2 messageArgument
+\f1  is one of the ones listed below, and described in detail in what follows.\
+\
+\pard\ql\qnatural
+
+\f2 \cf0 #include <IOKit/Message.h>\
+\pard\ql\qnatural
+
+\f1 \cf0 \
+\pard\ql\qnatural
+
+\f2 \cf0 kIOMessageServiceIsAttemptingOpen
+\f1 \
+
+\f2 kIOMessageServiceIsRequestingClose
+\f1  (kernel only)\
+
+\f2 kIOMessageServiceWasClosed
+\f1 \
+\
+
+\f0\b USBDeviceOpen()/USBInterfaceOpen() -> AttemptingOpen(0)
+\f1\b0 \
+\
+When someone (including your own code) calls Open(), your callback will be called with 
+\f2 messageType == kIOMessageServiceIsAttemptingOpen
+\f1  and 
+\f2 messageArgument == 0
+\f1 .  Classic listens for this message in order to be a "good citizen" but other applications may want to release devices only if the extra argument is non-zero, in response to the more serious 
+\f2 USBDeviceOpenSeize()
+\f1  or 
+\f2 USBInterfaceOpenSeize()
+\f1 .  Before releasing a device in response to this message Classic first checks an "activity timer" which it keeps for each device.  If no I/O has been done to/from the device in the last five (5) seconds, then Classic will release the device.  From inside Classic it will appear as though the device had been unplugged.\
+\
+
+\f0\b USBDeviceOpenSeize()/USBInterfaceOpenSeize() -> AttemptingOpen(1)
+\f1\b0 \
+\
+This works just the same as Open(), except the 
+\f2 kIOMessageServiceIsRequestingClose
+\f1  message gets sent to whatever kernel driver is holding the IOUSBDevice/Interface object open instead of the 
+\f2 kIOMessageServiceIsAttemptingOpen
+\f1  message.  Outside the kernel, a user-mode application which has registered for General Interest Notifications on this IOUSBDevice/Interface will only receive a callback with 
+\f2 messageType == kIOMessageServiceIsAttemptingOpen 
+\f1 and 
+\f2 messageArgument != 0
+\f1 .  The way to distinguish whether Open() or OpenSeize() was called is to check the 
+\f2 messageArgument
+\f1 .    We use this distinction in order to distinguish between two levels of "seriousness".  A casual request to open a device or interface should be treated differently than a "seize" request.  You should use the ...Seize() variation of these calls only when you're sure you want the application that's holding the device/interface open to release it as soon as possible, without regard for any ongoing I/O.  If your kernel driver receives a 
+\f2 kIOMessageServiceIsRequestingClose 
+\f1 message then it should close the IOUSBDevice/Interface as soon as possible (if possible).  The same is true for a user-mode driver that receives a General Interest Notification callback with 
+\f2 messageType == kIOMessageServiceIsAttemptingOpen 
+\f1 and 
+\f2 messageArgument != 0
+\f1 .\
+\
+
+\f0\b USBDeviceClose()/USBInterfaceClose() -> WasClosed\
+\pard\ql\qnatural
+
+\f1\b0 \cf0 \
+When the IOUSBDevice/Interface is closed, your callback will be called with the 
+\f2 kIOMessageServiceWasClosed
+\f1  message.  If you recently got an 
+\f2 kIOReturnExclusiveAccess
+\f1  error this is your signal to re-try the Open() that failed.  For example, Classic listens for this message after releasing a device (in respond to an 
+\f2 kIOMessageServiceIsAttemptingOpen
+\f1  message) to know when to attempt to reacquire the device.  When it reacquires the device it simulates a hot plug so that from inside Classic it appears that the device has been plugged in.\
+\
+Warning: be careful to ignore messages that you caused to be sent.  Set a flag or increment a counter when you Open or Close.  That way you'll know when the next AttemptingOpen or WasClosed message arrives that you were the one who caused it to be sent.  Otherwise you could go into an infinite loop arbitrating access to the device between yourself and yourself.\
+\
+\pard\ql\qnatural
+
+\f0\b \cf0 Scenarios
+\f1\b0 \
+\
+Consider a vendor-specific USB device that has been noticed by Classic.  And imagine that you have a user-mode application or driver that would like to access the device from outside Classic.  The first time this entity attempts to 
+\f2 USBDeviceOpen
+\f1 () (similarly, 
+\f2 USBDeviceOpenSeize()
+\f1 , 
+\f2 USBInterfaceOpen()
+\f1 , or 
+\f2 USBInterfaceOpenSeize()
+\f1 ) it will get a 
+\f2 kIOReturnExclusiveAccess
+\f1  error.  Shortly thereafter, Classic will 
+\f2 USBDeviceClose()
+\f1  the device.  To applications running inside Classic, the device will appear to have been unplugged.  At this point, anyone can attempt the 
+\f2 USBDeviceOpen()
+\f1  again and it ought to succeed.  And when you are done using the device and you 
+\f2 USBDeviceClose()
+\f1  it, Classic will reopen it.  It will then re-appear to applications running inside Classic, just as if it had been hot-plugged.\
+\
+This should provide a workaround for existing Mac OS X USB software: the user can simply retry the failed operation without needing to quit Classic.\
+\
+The most complete way to handle arbitration is to register for general interest notifications and handle 
+\f2 kIOMessageServiceIsAttemptingOpen
+\f1 , and 
+\f2 kIOMessageServiceWasClosed
+\f1  messages as described above.\
+\
+In some situations, the following simplified mechanism might suffice:\
+\
+\pard\tx620\tx1400\ql\qnatural
+
+\f2 \cf0 for (sleepCount = 5; sleepCount > 0; sleepCount--)\
+\{\
+	// Attempt to open the device.\
+	err = (*device)->DeviceOpen(device);\
+	if ( kIOReturnExclusiveAccess == err )\
+	\{\
+		// Someone else has the device open.\
+		// But they might release it in a few seconds.\
+		// So sleep for a second and try again.\
+	     	// Update user interface to warn the user that\
+		// you're waiting for the device.\
+	     	sleep(1);\
+		continue;\
+	\}\
+	else\
+	if ( kIOReturnSuccess != err )\
+	\{\
+          		// Unexpected error.  Break out of the loop.\
+          		break;\
+     	\}\
+	else\
+	\{\
+		// Success.  Break out of the loop.\
+		break;\
+	\}\
+\}\
+// Check <err> here to see whether you got access or not.}

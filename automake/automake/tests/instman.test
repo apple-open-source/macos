@@ -1,0 +1,18 @@
+#! /bin/sh
+
+# Test to make sure mkinstalldirs invocation correct in install-man
+# target.  Bug reported by Gordon Irlam <gordoni@cygnus.com>.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'EOF'
+man_MANS = frob.8
+EOF
+
+: > frob.8
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '[^(/]mkinstalldirs' Makefile.in > out || exit 1
+test `wc -l < out` -eq 1

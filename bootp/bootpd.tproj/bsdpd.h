@@ -1,5 +1,9 @@
+
+#ifndef _S_BSDPD_H
+#define _S_BSDPD_H
+
 /*
- * Copyright (c) 1999, 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,15 +36,37 @@
  * - created
  */
 
+#include "bsdp.h"
+#include "nbsp.h"
+#include "bootpd.h"
+
+#define ROOT_UID		0
+
+#define SHADOW_SIZE_DEFAULT	48
+
 boolean_t
 bsdp_init();
 
-void
-bsdp_request(dhcp_msgtype_t dhcp_msgtype, interface_t * intface,
-	     u_char * rxpkt, int n, dhcpol_t * rq_options, 
-	     struct in_addr * dstaddr_p, struct timeval * time_in_p);
 boolean_t
-old_netboot_request(interface_t * intface,
-		    u_char * rxpkt, int n, dhcpol_t * rq_options, 
-		    struct in_addr * dstaddr_p, struct timeval * time_in_p);
+is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
+	       dhcpol_t * rq_vsopt, bsdp_version_t * client_version,
+	       boolean_t * is_old_netboot);
 
+void
+bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
+	     char * arch, char * sysid, dhcpol_t * rq_vsopt,
+	     bsdp_version_t client_version);
+
+boolean_t
+old_netboot_request(request_t * request);
+
+/**
+ ** Globals
+ **/
+extern u_int32_t	G_age_time_seconds;
+extern gid_t		G_admin_gid;
+extern boolean_t	G_disk_space_warned; 
+extern u_long		G_shadow_size_meg;
+extern NBSPListRef	G_client_sharepoints;
+
+#endif _S_BSDPD_H

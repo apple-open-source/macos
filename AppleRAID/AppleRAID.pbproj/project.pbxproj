@@ -1,0 +1,463 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleRAID;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRAID;
+				MODULE_VERSION = 1.2.3;
+				OTHER_CFLAGS = "-fpermissive";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleRAID;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleRAID;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleRAID</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleRAID</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.3</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleRAID</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleRAID</string>
+			<key>IOClass</key>
+			<string>AppleRAID</string>
+			<key>IOMatchCategory</key>
+			<string>IOStorage</string>
+			<key>IOProbeScore</key>
+			<integer>500</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Apple_Boot_RAID</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOMedia</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOStorageFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				24484B9900A31C3B11CA295E,
+				3E287D2200FA976511CA295E,
+				49CBF47E0250F98203CA295E,
+				49CBF4820250FD3A03CA295E,
+				49267F540275CC6603CA295E,
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+				239CC7D00118692111CA295E,
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				1A224C41FF42367911CA2CB7,
+				49CBF47F0250F98203CA295E,
+				49CBF4830250FD3A03CA295E,
+				49267F560275CC7603CA295E,
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+				239CC7CF0118692111CA295E,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleRAID.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3EFF42367911CA2CB7 = {
+			isa = PBXFileReference;
+			path = AppleRAID.h;
+			refType = 4;
+		};
+		1A224C3FFF42367911CA2CB7 = {
+			isa = PBXFileReference;
+			path = AppleRAID.cpp;
+			refType = 4;
+		};
+		1A224C41FF42367911CA2CB7 = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//230
+//231
+//232
+//233
+//234
+		239CC7CF0118692111CA295E = {
+			isa = PBXBundleReference;
+			path = MKRaid.bundle;
+			refType = 4;
+		};
+		239CC7D00118692111CA295E = {
+			fileRef = 239CC7CF0118692111CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//230
+//231
+//232
+//233
+//234
+//240
+//241
+//242
+//243
+//244
+		24484B9800A31C3B11CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDHeader.h;
+			refType = 4;
+		};
+		24484B9900A31C3B11CA295E = {
+			fileRef = 24484B9800A31C3B11CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				1A224C3EFF42367911CA2CB7,
+				1A224C3FFF42367911CA2CB7,
+				49CBF4800250FD3A03CA295E,
+				49CBF4810250FD3A03CA295E,
+				49CBF47C0250F98203CA295E,
+				49CBF47D0250F98203CA295E,
+				49267F530275CC6603CA295E,
+				49267F550275CC7603CA295E,
+				24484B9800A31C3B11CA295E,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//3E0
+//3E1
+//3E2
+//3E3
+//3E4
+		3E287D2200FA976511CA295E = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//3E0
+//3E1
+//3E2
+//3E3
+//3E4
+//490
+//491
+//492
+//493
+//494
+		49267F530275CC6603CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDEventSource.h;
+			refType = 4;
+		};
+		49267F540275CC6603CA295E = {
+			fileRef = 49267F530275CC6603CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		49267F550275CC7603CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDEventSource.cpp;
+			refType = 4;
+		};
+		49267F560275CC7603CA295E = {
+			fileRef = 49267F550275CC7603CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		49CBF47C0250F98203CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDController.h;
+			refType = 4;
+		};
+		49CBF47D0250F98203CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDController.cpp;
+			refType = 4;
+		};
+		49CBF47E0250F98203CA295E = {
+			fileRef = 49CBF47C0250F98203CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		49CBF47F0250F98203CA295E = {
+			fileRef = 49CBF47D0250F98203CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		49CBF4800250FD3A03CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDGlobals.h;
+			refType = 4;
+		};
+		49CBF4810250FD3A03CA295E = {
+			isa = PBXFileReference;
+			path = AppleRAIDGlobals.cpp;
+			refType = 4;
+		};
+		49CBF4820250FD3A03CA295E = {
+			fileRef = 49CBF4800250FD3A03CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		49CBF4830250FD3A03CA295E = {
+			fileRef = 49CBF4810250FD3A03CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

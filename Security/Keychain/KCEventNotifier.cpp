@@ -33,6 +33,7 @@
 #include "KCEventNotifier.h"
 #include "KCExceptions.h"
 #include "Keychains.h"
+#include <Security/cfutilities.h>
 
 using namespace KeychainCore;
 
@@ -64,6 +65,11 @@ void KCEventNotifier::PostKeychainEvent(SecKeychainEvent whichEvent,
     KCThrowIfMemFail_(CFNumberRef(theEventData));
     CFDictionarySetValue(mutableDict, kSecEventTypeKey, theEventData);
 
+	pid_t thePid = getpid();
+    CFRef<CFNumberRef> thePidData(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &thePid));
+    KCThrowIfMemFail_(CFNumberRef(thePidData));
+    CFDictionarySetValue(mutableDict, kSecEventPidKey, thePidData);
+
 	if (dlDbIdentifier)
 	{
 		CFRef<CFDictionaryRef> dict(DLDbListCFPref::dlDbIdentifierToCFDictionaryRef(dlDbIdentifier));
@@ -77,6 +83,7 @@ void KCEventNotifier::PostKeychainEvent(SecKeychainEvent whichEvent,
 		KCThrowIfMemFail_(CFDataRef(data));
 		CFDictionarySetValue(mutableDict, kSecEventItemKey, data);
     }
+
 
     // 'name' has to be globally unique (could be KCLockEvent, etc.)
     // 'object' is just information or a context that can be used.

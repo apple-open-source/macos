@@ -32,6 +32,7 @@ includes
 #include <unistd.h>
 #include <sys/errno.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <sys/signal.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -44,13 +45,11 @@ includes
 #include <net/dlil.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/IOMessage.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
+#include <mach/mach_time.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/SCDPlugin.h>
+//#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
+#define SCLog
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
@@ -66,81 +65,43 @@ includes
 Definitions
 ----------------------------------------------------------------------------- */
 
-#define PATH_PPPD 		"/usr/sbin/pppd"
-#define PPPD_PRGM 		"pppd"
-#define PATH_CCL	  	"/usr/libexec/CCLEngine"
-#define PATH_MINITERM	  	"/usr/libexec/MiniTerm.app/Contents/MacOS/MiniTerm"
-
-
-// pppd error codes
-#define EXIT_OK                  	0
-#define EXIT_FATAL_ERROR 		1
-#define EXIT_OPTION_ERROR        	2
-#define EXIT_NOT_ROOT            	3
-#define EXIT_NO_KERNEL_SUPPORT   	4
-#define EXIT_USER_REQUEST        	5
-#define EXIT_LOCK_FAILED 		6
-#define EXIT_OPEN_FAILED 		7
-#define EXIT_CONNECT_FAILED      	8
-#define EXIT_PTYCMD_FAILED       	9
-#define EXIT_NEGOTIATION_FAILED  	10
-#define EXIT_PEER_AUTH_FAILED    	11
-#define EXIT_IDLE_TIMEOUT        	12
-#define EXIT_CONNECT_TIME        	13
-#define EXIT_CALLBACK            	14
-#define EXIT_PEER_DEAD           	15
-#define EXIT_HANGUP              	16
-#define EXIT_LOOPBACK            	17
-#define EXIT_INIT_FAILED 		18
-#define EXIT_AUTH_TOPEER_FAILED  	19
-#define EXIT_TERMINAL_FAILED  		20
 
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
 TAILQ_HEAD(, ppp) 	ppp_head;
-SCDSessionRef		gCfgCache;
-extern char 		*gPluginsDir;
 io_connect_t		gIOPort;
 io_connect_t		gSleeping;
 long			gSleepArgument;
 CFUserNotificationRef 	gSleepNotification;
+double	 		gTimeScaleSeconds;
 
 /* -----------------------------------------------------------------------------
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int start_program(char *program, char **cmdarg);
-static u_int32_t ppp_translate_error(struct ppp *ppp, u_int32_t native_error);
-static int ppp_getdeviceerror(struct ppp *ppp, u_int32_t *error);
 static void ppp_display_error(struct ppp *ppp);
 static void ppp_sleep(void * x, io_service_t y, natural_t messageType, void *messageArgument);
+static void exec_callback(pid_t pid, int status, struct rusage *rusage, void *context);
+
+u_int32_t ppp_translate_error(u_int16_t subtype, u_int32_t native_ppp_error, u_int32_t native_dev_error);
+int get_str (struct ppp *ppp, struct opt_str *option, 
+        CFStringRef entity, CFStringRef property,
+        u_char *opt, u_int32_t *outlen, CFDictionaryRef setupdict, u_char lookinsetup, u_char *defaultval);
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_long ppp_init_all() {
 
-    SCDStatus			status;
     IONotificationPortRef	notify;
     io_object_t			iterator;
+    mach_timebase_info_data_t   timebaseInfo;
 
     gSleeping = 0;	// obviously we are not sleeping :-)
     gSleepNotification = 0;    
     
     TAILQ_INIT(&ppp_head);
-
-    printf("size of ppp = %ld\n", sizeof(struct ppp));
-    printf("MAXPATHLEN = %d\n", MAXPATHLEN);
-    printf("sizeof client = %ld\n", sizeof(struct client));
-    printf("sizeof options = %ld\n", sizeof(struct options));
-
-    /* opens now our session to the cache */
-    status = SCDOpen(&gCfgCache, CFSTR("PPPController"));
-    if (status != SCD_OK) {
-        printf("SCDOpen failed,  %s\n", SCDError(status));
-        return 1;
-    }
 
     /* install the power management callback */
     gIOPort = IORegisterForSystemPower(0, &notify, ppp_sleep, &iterator);
@@ -149,12 +110,20 @@ u_long ppp_init_all() {
         return 1;
     }
     
+    if (mach_timebase_info(&timebaseInfo) != KERN_SUCCESS) {	// returns scale factor for ns
+        printf("mach_timebase_info failed\n");
+        return 1;
+    }
+    gTimeScaleSeconds = ((double) timebaseInfo.numer / (double) timebaseInfo.denom) / 1000000000;
+
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
                         IONotificationPortGetRunLoopSource(notify),
                         kCFRunLoopDefaultMode);
                         
     /* read configuration from database */
-    options_init_all(gCfgCache);
+    if (options_init_all()) {
+        return 1;
+    }
 
     return 0;
 }
@@ -165,7 +134,6 @@ void ppp_dispose_all()
 {
 
     // dispose ppp data structures
-    SCDClose(&gCfgCache);
 }
 
 /* -----------------------------------------------------------------------------
@@ -204,7 +172,19 @@ struct ppp *ppp_findbyserviceID(CFStringRef serviceID)
     struct ppp		*ppp;
 
     TAILQ_FOREACH(ppp, &ppp_head, next) 
-        if (CFStringCompare(ppp->serviceID, serviceID, 0) ==  kCFCompareEqualTo) 
+        if (CFEqual(ppp->serviceID, serviceID)) 
+            return ppp;
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+struct ppp *ppp_findbysid(u_char *data, int len)
+{
+    struct ppp		*ppp;
+
+    TAILQ_FOREACH(ppp, &ppp_head, next) 
+        if (ppp->sid && !strncmp(ppp->sid, data, len)) 
             return ppp;
     return 0;
 }
@@ -224,8 +204,6 @@ void ppp_setorder(struct ppp *ppp, u_int16_t order)
             break;
         }
 }
-
-
 
 /* -----------------------------------------------------------------------------
 find the ppp structure corresponding to the reference
@@ -248,14 +226,28 @@ struct ppp *ppp_findbyref(u_long ref)
 }
 
 /* -----------------------------------------------------------------------------
+find the ppp structure corresponding to the message
+----------------------------------------------------------------------------- */
+struct ppp *ppp_find(struct msg *msg)
+{
+    
+    if (msg->hdr.m_flags & USE_SERVICEID)
+        return ppp_findbysid(msg->data, msg->hdr.m_link);
+    else
+        return ppp_findbyref(msg->hdr.m_link);
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void ppp_printlist()
 {
     struct ppp		*ppp;
 
-    SCDLog(LOG_INFO, CFSTR("Printing list of ppp services : \n"));
+    SCLog(TRUE, LOG_INFO, CFSTR("Printing list of ppp services : \n"));
     TAILQ_FOREACH(ppp, &ppp_head, next) {
-        SCDLog(LOG_INFO, CFSTR("Service : %@, subtype = %d\n"), ppp->serviceID, ppp->subtype);
+        SCLog(TRUE, LOG_INFO, CFSTR("Service : %@, subtype = %d\n"), ppp->serviceID, ppp->subtype);
     }
 }
 
@@ -309,19 +301,25 @@ unit is the ppp managed unit, not the ifunit
 struct ppp *ppp_new(CFStringRef serviceID , CFStringRef subtypeRef)
 {
     struct ppp 		*ppp;
-    u_short 		unit, subtype;
+    u_short 		unit, subtype, len;
+    CFURLRef		url;
+    u_char 		str[MAXPATHLEN], str2[32];
 
-    //SCDLog(LOG_INFO, CFSTR("ppp_new, subtype = %%@, serviceID = %@\n"), subtypeRef, serviceID);
+    //SCLog(LOG_INFO, CFSTR("ppp_new, subtype = %%@, serviceID = %@\n"), subtypeRef, serviceID);
 
-    if (CFStringCompare(subtypeRef, kSCValNetInterfaceSubTypePPPSerial, 0) == kCFCompareEqualTo) 
+    if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPPSerial)) 
         subtype = PPP_TYPE_SERIAL;
-    else if (CFStringCompare(subtypeRef, kSCValNetInterfaceSubTypePPPoE, 0) == kCFCompareEqualTo)
+    else if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPPoE))
         subtype = PPP_TYPE_PPPoE;
-//  else if (CFStringCompare(subtypeRef, kSCValNetInterfaceSubTypePPPoA, 0) == kCFCompareEqualTo)
+    else if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPTP))
+        subtype = PPP_TYPE_PPTP;
+    else if (CFEqual(subtypeRef, CFSTR("L2TP")/*kSCValNetInterfaceSubTypeL2TP*/))
+        subtype = PPP_TYPE_L2TP;
+//  else if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPPoA))
 //      subtype = PPP_TYPE_PPPoA;
-//  else if (CFStringCompare(subtypeRef, kSCValNetInterfaceSubTypePPPISDN, 0) == kCFCompareEqualTo)
+//  else if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPPISDN))
 //      subtype = PPP_TYPE_ISDN;
-//  else if (CFStringCompare(subtypeRef, kSCValNetInterfaceSubTypePPPOther, 0) == kCFCompareEqualTo)
+//  else if (CFEqual(subtypeRef, kSCValNetInterfaceSubTypePPPOther))
 //      subtype = PPP_TYPE_OTHER;
     else 
         subtype = PPP_TYPE_OTHER;
@@ -336,17 +334,12 @@ struct ppp *ppp_new(CFStringRef serviceID , CFStringRef subtypeRef)
 
     bzero(ppp, sizeof(struct ppp));
 
-    ppp->serviceID = CFStringCreateCopy(NULL, serviceID);
-    if (!ppp->serviceID) {
-        free(ppp);
-        return 0;	// very bad...
-    }
-
-    ppp->subtypeRef = CFStringCreateCopy(NULL, subtypeRef);
-    if (!ppp->subtypeRef) {
-        CFRelease(ppp->serviceID);
-        free(ppp);
-        return 0;	// very bad...
+    ppp->serviceID = CFRetain(serviceID);
+    ppp->subtypeRef = CFRetain(subtypeRef);
+    // keep a C version of the service ID
+    len = CFStringGetLength(serviceID) + 1;
+    if (ppp->sid = malloc(len)) {
+        CFStringGetCString(serviceID, ppp->sid, len, kCFStringEncodingUTF8);
     }
     
     ppp->unit = unit;
@@ -354,7 +347,18 @@ struct ppp *ppp_new(CFStringRef serviceID , CFStringRef subtypeRef)
     strncpy(ppp->name, "ppp", IFNAMSIZ);
     ppp->subtype = subtype;
     ppp->phase = PPP_IDLE;
-    ppp->alertenable = PPP_ALERT_ENABLEALL;
+    ppp->alertenable = OPT_ALERT_DEF;
+
+    strcpy(str, DIR_KEXT);
+    str2[0] = 0;
+    CFStringGetCString(ppp->subtypeRef, str2, sizeof(str2), kCFStringEncodingUTF8);
+    strcat(str, str2);
+    strcat(str, ".ppp");	// add plugin suffix
+    url = CFURLCreateFromFileSystemRepresentation(NULL, str, strlen(str), TRUE);
+    if (url) {
+        ppp->bundle = CFBundleCreate(0, url);
+        CFRelease(url);
+    }
 
     TAILQ_INSERT_TAIL(&ppp_head, ppp, next);
 
@@ -371,19 +375,24 @@ void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service)
     u_char	str[16];
     struct ppp 	*ppp2;
 
-    ppp->phase = PPP_IDLE;
-    if (!getNumber(service, CFSTR("Status"), &lval)) {
-        ppp->phase = lval;
-       
-        //CFStringGetCString(ppp->serviceID, str, sizeof(str), kCFStringEncodingUTF8);
-        //printf("service '%s', state = %d\n", str, lval);
+    if (!getNumber(service, kSCPropNetPPPStatus, &lval)) {
+
+        // just started and status not yet published
+        if (ppp->started_link == 0 || lval) {
+                    
+            ppp->started_link = 0;
+            ppp->phase = lval;
         
-        ppp->ifunit = 0xFFFF;
-        if (ppp->phase == PPP_RUNNING || ppp->phase == PPP_STATERESERVED) {
-            // should get the interfce name at the right place 
-            if (!getString(service, CFSTR("InterfaceName"), str, sizeof(str))) {
-                sscanf(str, "ppp%d", &val);
-                ppp->ifunit = val;
+            //CFStringGetCString(ppp->serviceID, str, sizeof(str), kCFStringEncodingUTF8);
+            //printf("service '%s', state = %d\n", str, lval);
+            
+            ppp->ifunit = 0xFFFF;
+            if (ppp->phase == PPP_RUNNING || ppp->phase == PPP_ONHOLD || ppp->phase == PPP_STATERESERVED) {
+                // should get the interfce name at the right place 
+                if (!getString(service, kSCPropInterfaceName, str, sizeof(str))) {
+                    sscanf(str, "ppp%d", &val);
+                    ppp->ifunit = val;
+                }
             }
         }
     }
@@ -396,28 +405,34 @@ void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service)
         ppp_dodisconnect(ppp, val);
     }
 
-    if (getNumber(service, CFSTR("LastCause"), &lval))
+    if (ppp->needdispose && !ppp_dispose(ppp))
+        return;
+
+    if (getNumber(service, kSCPropNetPPPDeviceLastCause, &ppp->lastdevstatus))
+        ppp->lastdevstatus = 0;
+        
+    if (getNumber(service, kSCPropNetPPPLastCause, &ppp->laststatus))
         ppp->laststatus = 0;
-    else {
-        ppp->laststatus = ppp_translate_error(ppp, lval);
-    }
     
-    if (getNumber(service, CFSTR("ConnectTime"), &ppp->conntime)) 
+    if (getNumber(service, kSCPropNetPPPConnectTime, &ppp->conntime)) 
         ppp->conntime = 0;
 
-    if (getNumber(service, CFSTR("SessionTimer")/*kSCPropNetPPPSessionTimer*/, &ppp->maxtime)) 
-        ppp->maxtime = 0;
+    if (getNumber(service, CFSTR("DisconnectTime")/*kSCPropNetPPPDisconnectTime*/, &ppp->disconntime))
+        ppp->disconntime = 0;
         
     if (ppp->phase != ppp->oldphase) {
         switch (ppp->phase) {
  	    case PPP_STATERESERVED:
+ 	    case PPP_HOLDOFF:
 	      // forget about the last error when we rearm the dial on demand
-	      if (ppp->oldphase != PPP_INITIALIZE)
+	      if (ppp->oldphase != PPP_INITIALIZE && ppp->oldphase != PPP_HOLDOFF)
                 ppp_display_error(ppp);
 	      break;
  
             case PPP_IDLE:
-                ppp_display_error(ppp);
+                ppp->kill_sent = 0;
+	      if (ppp->oldphase != PPP_STATERESERVED && ppp->oldphase != PPP_HOLDOFF)
+                    ppp_display_error(ppp);
 
                 if (gSleeping) {
                     TAILQ_FOREACH(ppp2, &ppp_head, next)
@@ -435,7 +450,7 @@ void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service)
                 
                 if (ppp->needconnect) {
                     ppp->needconnect = 0;
-                    ppp_doconnect(ppp, 0, 0);
+                    ppp_doconnect(ppp, ppp->needconnectopts, 0);
                     if (ppp->needconnectopts) {
                         free(ppp->needconnectopts);
                         ppp->needconnectopts = 0;
@@ -443,11 +458,11 @@ void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service)
                 }
                 else {
                     // check if last error != MAXFAIL
-                    if ((!getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                    if ((!getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                         kSCEntNetPPP, kSCPropNetPPPDialOnDemand, &lval) && lval)
-                         && (getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                         && (getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                             kSCEntNetPPP, kSCPropNetPPPDisconnectOnLogout, &lval) || !lval
-                            || gLoggedInUser[0])) {
+                            || gLoggedInUser)) {
                         ppp_doconnect(ppp, 0, 1);
                     }
                 }
@@ -461,163 +476,90 @@ void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_display_error(struct ppp *ppp) 
+CFStringRef ppp_copyUserLocalizedString(CFBundleRef bundle,
+    CFStringRef key, CFStringRef value, CFArrayRef userLanguages) 
 {
-    CFStringRef 	msg = NULL;
-    
-    switch (ppp->laststatus) {
-        /* PPP errors */
-        case PPP_ERR_GEN_ERROR:
-            msg = CFSTR("PPP_ERR_GEN_ERROR");
-            break;
-        case PPP_ERR_CONNSCRIPTFAILED:
-            msg = CFSTR("PPP_ERR_CONNSCRIPTFAILED");
-            break;
-        case PPP_ERR_TERMSCRIPTFAILED:
-            msg = CFSTR("PPP_ERR_TERMSCRIPTFAILED");
-            break;
-        case PPP_ERR_LCPFAILED:
-            msg = CFSTR("PPP_ERR_LCPFAILED");
-            break;
-        case PPP_ERR_AUTHFAILED:
-            msg = CFSTR("PPP_ERR_AUTHFAILED");
-            break;
-        case PPP_ERR_IDLETIMEOUT:
-            msg = CFSTR("PPP_ERR_IDLETIMEOUT");
-            break;
-        case PPP_ERR_SESSIONTIMEOUT:
-            msg = CFSTR("PPP_ERR_SESSIONTIMEOUT");
-            break;
-        case PPP_ERR_LOOPBACK:
-            msg = CFSTR("PPP_ERR_LOOPBACK");
-            break;
-        case PPP_ERR_PEERDEAD:
-            msg = CFSTR("PPP_ERR_PEERDEAD");
-            break;
-        case PPP_ERR_DISCSCRIPTFAILED:
-            msg = CFSTR("PPP_ERR_DISCSCRIPTFAILED");
-            break;
-        case PPP_ERR_DISCBYPEER:
-            msg = CFSTR("PPP_ERR_DISCBYPEER");
-            break;
-        case PPP_ERR_DISCBYDEVICE:
-            msg = CFSTR("PPP_ERR_DISCBYDEVICE");
-            break;
+    CFStringRef 	result = NULL, errStr= NULL;
+    CFDictionaryRef 	stringTable;
+    CFDataRef 		tableData;
+    SInt32 		errCode;
+    CFURLRef 		tableURL;
+    CFArrayRef		locArray, prefArray;
 
-        /* Modem errors */
-        case PPP_ERR_MOD_NOCARRIER:
-            msg = CFSTR("PPP_ERR_MOD_NOCARRIER");
-            break;
-        case PPP_ERR_MOD_BUSY:
-            msg = CFSTR("PPP_ERR_MOD_BUSY");
-            break;
-        case PPP_ERR_MOD_NODIALTONE:
-            msg = CFSTR("PPP_ERR_MOD_NODIALTONE");
-            break;
-        case PPP_ERR_MOD_ERROR:
-            msg = CFSTR("PPP_ERR_MOD_ERROR");
-            break;
-        case PPP_ERR_MOD_HANGUP:
-            msg = CFSTR("PPP_ERR_MOD_HANGUP");
-            break;
-    }
+    if (userLanguages == NULL)
+        return CFBundleCopyLocalizedString(bundle, key, value, NULL);
 
-    if (msg && (ppp->alertenable & PPP_ALERT_ERRORS))
-        CFUserNotificationDisplayNotice(30, kCFUserNotificationNoteAlertLevel, 
-            gIconURLRef, NULL, gBundleURLRef, CFSTR("Internet Connect"), msg, NULL);
+    if (key == NULL)
+        return (value ? CFRetain(value) : CFRetain(CFSTR("")));
 
-}
-
-/* -----------------------------------------------------------------------------
-translate a pppd native cause into a PPP API cause
------------------------------------------------------------------------------ */
-u_int32_t ppp_translate_error(struct ppp *ppp, u_int32_t native_error)
-{
-    u_int32_t	error = PPP_ERR_GEN_ERROR; 
-    
-    switch (native_error) {
-        case EXIT_USER_REQUEST:
-            error = 0;
-            break;
-        case EXIT_CONNECT_FAILED:
-            ppp_getdeviceerror(ppp, &error);
-            break;
-        case EXIT_TERMINAL_FAILED:
-            error = PPP_ERR_TERMSCRIPTFAILED;
-            break;
-        case EXIT_NEGOTIATION_FAILED:
-            error = PPP_ERR_LCPFAILED;
-            break;
-        case EXIT_AUTH_TOPEER_FAILED:
-            error = PPP_ERR_AUTHFAILED;
-            break;
-        case EXIT_IDLE_TIMEOUT:
-            error = PPP_ERR_IDLETIMEOUT;
-            break;
-        case EXIT_CONNECT_TIME:
-            error =  PPP_ERR_SESSIONTIMEOUT;
-            break;
-        case EXIT_LOOPBACK:
-            error =  PPP_ERR_LOOPBACK;
-            break;
-        case EXIT_PEER_DEAD:
-            error =  PPP_ERR_PEERDEAD;
-            break;
-        case EXIT_OK:
-            error = PPP_ERR_DISCBYPEER;
-            break;
-        case EXIT_HANGUP:
-            error = PPP_ERR_DISCBYDEVICE;
-            if (ppp->subtype == PPP_TYPE_SERIAL)
-                error = PPP_ERR_MOD_HANGUP;
-            break;
-    }
-    
-    return error;
-}
-
-/* -----------------------------------------------------------------------------
-translate a pppd native cause into a PPP API cause
------------------------------------------------------------------------------ */
-int ppp_getdeviceerror(struct ppp *ppp, u_int32_t *error)
-{
-    int 	ret = ENODEV;	// ???
-    u_int32_t 	lval;
-
-    switch (ppp->subtype) {
-        case PPP_TYPE_SERIAL:
-            ret = 0;
-            *error = PPP_ERR_CONNSCRIPTFAILED;
-            if (!getNumberFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, 
-                kSCEntNetModem, CFSTR("LastCause"), &lval)) {
-                switch (lval) {
-                    case cclErr_NoCarrierErr:
-                        *error = PPP_ERR_MOD_NOCARRIER;
-                        break;
-                    case cclErr_LineBusyErr:
-                        *error = PPP_ERR_MOD_BUSY;
-                        break;
-                    case cclErr_NoDialTone:
-                        *error = PPP_ERR_MOD_NODIALTONE;
-                        break;
-                    case cclErr_ModemErr:
-                        *error = PPP_ERR_MOD_ERROR;
-                        break;
-                    default:
-                        ret = ENODEV; // ???
+    locArray = CFBundleCopyBundleLocalizations(bundle);
+    if (locArray) {
+        prefArray = CFBundleCopyLocalizationsForPreferences(locArray, userLanguages);
+        if (prefArray) {
+            if (CFArrayGetCount(prefArray)) {
+                tableURL = CFBundleCopyResourceURLForLocalization(bundle, CFSTR("Localizable"), CFSTR("strings"), NULL, 
+                                    CFArrayGetValueAtIndex(prefArray, 0));
+                if (tableURL) {
+                    if (CFURLCreateDataAndPropertiesFromResource(NULL, tableURL, &tableData, NULL, NULL, &errCode)) {
+                        stringTable = CFPropertyListCreateFromXMLData(NULL, tableData, kCFPropertyListImmutable, &errStr);
+                        if (errStr)
+                            CFRelease(errStr);
+                        if (stringTable) {
+                            result = CFDictionaryGetValue(stringTable, key);
+                            CFRetain(result);
+                            CFRelease(stringTable);
+                        }
+                        CFRelease(tableData);
+                    }
+                    CFRelease(tableURL);
                 }
             }
-            break;
+            CFRelease(prefArray);
+        }
+        CFRelease(locArray);
+    }
+        
+    if (result == NULL)
+        result = (value && !CFEqual(value, CFSTR(""))) ?  CFRetain(value) : CFRetain(key);
+    
+    return result;
+}
 
-        case PPP_TYPE_PPPoE:
-            ret = 0;
-            // nee to handle PPPoE specific error codes
-            break;
-        default:
-            ret = 0;
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void ppp_display_error(struct ppp *ppp) 
+{
+    CFStringRef 	ppp_msg = NULL, dev_msg = NULL, msg = NULL;
+    CFPropertyListRef	langRef = NULL;
+
+    if ((ppp->alertenable & PPP_ALERT_ERRORS) == 0)
+        return;
+
+    if (gLoggedInUser) {
+	langRef = CFPreferencesCopyValue(CFSTR("AppleLanguages"), 
+            kCFPreferencesAnyApplication, gLoggedInUser, kCFPreferencesAnyHost);
     }
 
-    return ret;
+    if (ppp->lastdevstatus && ppp->bundle) {            
+        dev_msg = CFStringCreateWithFormat(0, 0, CFSTR("Device Error %d"), ppp->lastdevstatus);
+        if (dev_msg)
+            msg = ppp_copyUserLocalizedString(ppp->bundle, dev_msg, dev_msg, langRef);
+    }
+    
+    if (msg == NULL) {
+        ppp_msg = CFStringCreateWithFormat(0, 0, CFSTR("PPP Error %d"), ppp->laststatus);
+        if (ppp_msg)
+            msg = ppp_copyUserLocalizedString(gBundleRef, ppp_msg, ppp_msg, langRef) ;
+    }
+
+    if (msg && CFStringGetLength(msg))
+        CFUserNotificationDisplayNotice(120, kCFUserNotificationNoteAlertLevel, 
+            gIconURLRef, NULL, gBundleURLRef, CFSTR("Internet Connect"), msg, NULL);
+
+    if (msg) CFRelease(msg);
+    if (ppp_msg) CFRelease(ppp_msg);
+    if (dev_msg) CFRelease(dev_msg);
+    if (langRef) CFRelease(langRef);
 }
 
 /* -----------------------------------------------------------------------------
@@ -643,21 +585,26 @@ void ppp_postupdatesetup()
     TAILQ_FOREACH(ppp, &ppp_head, next) {
         if (ppp->dosetup) {
             ppp->dosetup = 0;
+            ppp->needdispose = 0;
             switch (ppp->phase) {
                 case PPP_IDLE:
                     //printf("ppp_updatesetup : unit %d, PPP_IDLE\n", ppp->unit);
-                    if ((!getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                    if ((!getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                         kSCEntNetPPP, kSCPropNetPPPDialOnDemand, &lval) && lval)
-                         && (getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                         && (getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                             kSCEntNetPPP, kSCPropNetPPPDisconnectOnLogout, &lval) || !lval
-                            || gLoggedInUser[0])) {
-                     
+                            || gLoggedInUser)) {
                             ppp_doconnect(ppp, 0, 1);
                     }
                     break;
+                case PPP_STATERESERVED:
+                case PPP_HOLDOFF:
+                    ppp_dodisconnect(ppp, 15);
+                    break;
                 default :
                     //printf("ppp_updatesetup : unit %d, NOT IDLE, state = %d\n", ppp->unit, ppp->phase);
-                    ppp_dodisconnect(ppp, 15);
+                    //ppp_dodisconnect(ppp, 15);
+                    ;
             }
 	}
     }
@@ -687,12 +634,13 @@ void ppp_sleep(void * x, io_service_t y, natural_t messageType, void *messageArg
             TAILQ_FOREACH(ppp, &ppp_head, next) {
 	       if (ppp->phase != PPP_IDLE
                     // by default, disconnect on sleep
-                    && (getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
-                        kSCEntNetPPP, CFSTR("DisconnectOnSleep")/*kSCPropNetPPPDisconnectOnSleep*/, &disc)
+                    && (getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+                        kSCEntNetPPP, kSCPropNetPPPDisconnectOnSleep, &disc)
 			|| disc	
-                        || ppp->phase == PPP_STATERESERVED)) { 
+                        || ppp->phase == PPP_STATERESERVED 
+                        || ppp->phase == PPP_HOLDOFF)) { 
                     allow = 0;
-                    if (ppp->phase != PPP_STATERESERVED)
+                    if (ppp->phase != PPP_STATERESERVED && ppp->phase != PPP_HOLDOFF)
                         alerte = 1;
                     ppp_dodisconnect(ppp, 15);
                 }
@@ -723,7 +671,8 @@ void ppp_sleep(void * x, io_service_t y, natural_t messageType, void *messageArg
             // I refuse idle sleep if ppp is connected
             TAILQ_FOREACH(ppp, &ppp_head, next) {
                 if (ppp->phase != PPP_IDLE
-                    && ppp->phase != PPP_STATERESERVED) {
+                    && ppp->phase != PPP_STATERESERVED 
+                    && ppp->phase != PPP_HOLDOFF) {
                     IOCancelPowerChange(gIOPort, (long)messageArgument);
                     return;
                 }
@@ -744,16 +693,16 @@ void ppp_sleep(void * x, io_service_t y, natural_t messageType, void *messageArg
                 gSleepNotification = 0;
             }
             TAILQ_FOREACH(ppp, &ppp_head, next) {
-                service = getEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, kSCEntNetPPP);
+                service = copyEntity(kSCDynamicStoreDomainState, ppp->serviceID, kSCEntNetPPP);
                 if (service) {
                     ppp_updatestate(ppp, service);
                     CFRelease(service);
                     if (ppp->phase == PPP_IDLE) {
-                        if ((!getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                        if ((!getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                             kSCEntNetPPP, kSCPropNetPPPDialOnDemand, &lval) && lval)
-                            && (getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+                            && (getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                                 kSCEntNetPPP, kSCPropNetPPPDisconnectOnLogout, &lval) || !lval
-                                || gLoggedInUser[0])) {
+                                || gLoggedInUser)) {
                      
                                 ppp_doconnect(ppp, 0, 1);
                         }
@@ -776,7 +725,7 @@ int ppp_logout()
 
     TAILQ_FOREACH(ppp, &ppp_head, next) {
         if (ppp->phase != PPP_IDLE
-            && !getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+            && !getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                 kSCEntNetPPP, kSCPropNetPPPDisconnectOnLogout, &disc) 
             && disc)
             ppp_dodisconnect(ppp, 15);
@@ -795,7 +744,7 @@ int ppp_login()
 
     TAILQ_FOREACH(ppp, &ppp_head, next) {
         if (ppp->phase == PPP_IDLE
-            && !getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+            && !getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                 kSCEntNetPPP, kSCPropNetPPPDialOnDemand, &val) 
             && val)
             ppp_doconnect(ppp, 0, 1);
@@ -807,59 +756,28 @@ int ppp_login()
 an interface is come down, dispose the ppp structure
 unit is the ppp managed unit, not the ifunit 
 ----------------------------------------------------------------------------- */
-void ppp_dispose(struct ppp *ppp)
+int ppp_dispose(struct ppp *ppp)
 {
 
-    TAILQ_REMOVE(&ppp_head, ppp, next);
-    
     // need to close the protocol first
     ppp_dodisconnect(ppp, 15);
 
+    if (ppp->phase != PPP_IDLE) {
+        ppp->needdispose = 1;
+        return 1;
+    }
+    
+    TAILQ_REMOVE(&ppp_head, ppp, next);    
+
     // then free the structure
+    if (ppp->sid)
+        free(ppp->sid);
+    if (ppp->bundle) 
+        CFRelease(ppp->bundle);
     CFRelease(ppp->serviceID);
     CFRelease(ppp->subtypeRef);
     free(ppp);
-    return;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void ppp_event(struct client *client, struct msg *msg)
-{
-    u_int32_t		event = *(u_int32_t *)&msg->data[0];
-    u_int32_t		error = *(u_int32_t *)&msg->data[4];
-    u_char 		*serviceid = &msg->data[8];
-    CFStringRef		ref;
-    struct ppp		*ppp;
-    CFDictionaryRef	service = NULL;
-
-    serviceid[msg->hdr.m_len - 8] = 0;	// need to zeroterminate the serviceid
-    msg->hdr.m_len = 0xFFFFFFFF; // no reply
-    //printf("ppp_event, event = 0x%x, cause = 0x%x, serviceid = '%s'\n", event, error, serviceid);
-
-    ref = CFStringCreateWithCString(NULL, serviceid, kCFStringEncodingUTF8);
-    if (ref) {
-        ppp = ppp_findbyserviceID(ref);
-        if (ppp) {
-        
-           // update status information first
-            service = getEntity(gCfgCache, kSCCacheDomainState, ref, kSCEntNetPPP);
-            if (service) {
-                ppp_updatestate(ppp, service);
-                CFRelease(service);
-            }
-        
-            if (event == PPP_EVT_DISCONNECTED) {
-                //if (error == EXIT_USER_REQUEST)
-                //    return;	// PPP API generates PPP_EVT_DISCONNECTED only for unrequested disconnections
-                error = ppp_translate_error(ppp, error);
-            }
-            else 
-                error = 0;
-            client_notify(ppp_makeref(ppp), event, error);
-        }
-        CFRelease(ref);
-    }
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -909,31 +827,33 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
 {
 #define MAXARG 100
     char 			str[MAXPATHLEN], str2[256], *cmdarg[MAXARG];
-    int 			error, ret, needpasswd = 0;
+    int 			needpasswd = 0;
     u_char 			sopt[OPT_STR_LEN];
     u_int32_t			len, lval, lval1, i, argi = 0;
     CFDictionaryRef		service = NULL;
-    CFStringRef			ref = NULL;
+    CFArrayRef			array = NULL;
+    CFStringRef			string = NULL;
 
-    // (!getNumberFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, kSCEntNetPPP, CFSTR("pid") /*kSCPropNetPPPpid*/, &lval)) 
     if (gSleeping) 
         return EIO;	// not the right time to dial
 
     switch (ppp->phase) {
         case PPP_IDLE:
             break;
-        case PPP_STATERESERVED:	// dial on demand waiting, just trigger the connection
+        case PPP_STATERESERVED:	// kill dormant process and post connection flag
+        case PPP_HOLDOFF:
             //return ppp_triggerdemand(ppp);
             // since pppd is in dormant phase, it should immediatly quit.
             // FIx me : there is a small window of conflict where pppd is changing state, but it's 
             // not yet published
             if (opts) {
-                ppp->needconnectopts = malloc(sizeof(struct client_opts));
+                ppp->needconnectopts = malloc(sizeof(struct options));
                 if (!ppp->needconnectopts) {
-                    ppp->laststatus = ENOMEM;
-                    return ENOMEM;
+                    ppp->laststatus = EXIT_FATAL_ERROR;
+                    ppp->lastdevstatus = 0;
+                    return EXIT_FATAL_ERROR;
                 }
-                bcopy(opts, ppp->needconnectopts, sizeof(struct client_opts));
+                bcopy(opts, ppp->needconnectopts, sizeof(struct options));
             }
             ppp_dodisconnect(ppp, 15);
             ppp->needconnect = 1;
@@ -944,7 +864,7 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
             return EIO;	// not the right time to dial
     }
 
-    service = getEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, kSCEntNetPPP);
+    service = copyEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, kSCEntNetPPP);
     if (!service)
         return 0;
 
@@ -965,9 +885,19 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
 /* ************************************************************************* */
     /* then some basic admin options */
     
+    // add the dialog plugin
+    if (gPluginsDir) {
+        addparam(cmdarg, &argi, "plugin");
+        CFStringGetCString(gPluginsDir, str, sizeof(str), kCFStringEncodingUTF8);
+        strcat(str, "PPPDialogs.ppp");
+        addparam(cmdarg, &argi, str);
+    }
+
     if (!getNumber(service, kSCPropNetPPPVerboseLogging, &lval) && lval)
         addparam(cmdarg, &argi, "debug");
         
+    ppp_getoptval(ppp, opts, PPP_OPT_ALERTENABLE, &ppp->alertenable, &len, service);
+                
 /* ************************************************************************* */
 
     if (!ppp_getoptval(ppp, opts, PPP_OPT_LOGFILE, sopt, &len, service) && sopt[0]) {
@@ -987,356 +917,104 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
     }
 
 /* ************************************************************************* */
-    /* then device specific options */
-    
+    /* then device specific options */    
+
+    /* connect plugin parameter */    
+    addparam(cmdarg, &argi, "plugin");
+    CFStringGetCString(ppp->subtypeRef, str2, sizeof(str2) - 4, kCFStringEncodingUTF8);
+    strcat(str2, ".ppp");	// add plugin suffix
+    addparam(cmdarg, &argi, str2);
+        
+    if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_NAME, sopt, &len, service) && sopt[0]) {
+        addparam(cmdarg, &argi, "device");
+        addparam(cmdarg, &argi, sopt);
+    }
+
+    if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_SPEED, &lval, &len, service) && lval) {
+        sprintf(str, "%d", lval);
+        addparam(cmdarg, &argi, str);
+    }
+        
     switch (ppp->subtype) {
     
     case PPP_TYPE_SERIAL: 
-           // the controller has a built-in knowledge of serial connections
-    
-#if 0
-        if (!getString(service, CFSTR("PtyCommand"), str, sizeof(str)) && str[0]) {
-        
-            addparam(cmdarg, &argi, "pty");
-            addparam(cmdarg, &argi, str);
 
-            if (!getNumber(service, CFSTR("PtyDelay"), &lval)) {
-                addparam(cmdarg, &argi, "pty-delay");
-                sprintf(str, "%d", lval*1000);		// let's give some time to connect the pty
-                addparam(cmdarg, &argi, str);
-            }
+        // the controller has a built-in knowledge of serial connections
 
-            break;
-            // we are done
-        }
-#endif
         /*  PPPSerial currently supports Modem
             in case of Modem, the DeviceName key will contain the actual device,
             while the Modem dictionnary will contain the modem settings.
             if Hardware is undefined, or different from Modem, 
             we expect to find external configuration files. 
-            (This is the case for ppp over ssh or pptp) 
+            (This is the case for ppp over ssh) 
         */
-        if (getStringFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+        if (getStringFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
             kSCEntNetInterface, kSCPropNetInterfaceHardware, sopt, OPT_STR_LEN) 
             || strcmp(sopt, "Modem")) {
                 // we are done
                 break;
         }
-
-        if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_NAME, sopt, &len, service)) {
-            str[0] = 0;
-            if (sopt[0] != '/') {
-                strcat(str, DIR_TTYS);
-                if ((sopt[0] != 't')
-                    || (sopt[1] != 't')
-                    || (sopt[2] != 'y')
-                    || (sopt[3] != 'd'))
-                    strcat(str, "cu.");
-            }
-            strcat(str, sopt);
-            addparam(cmdarg, &argi, str);
     
-            if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_SPEED, &lval, &len, service) && lval) {
-                sprintf(str, "%d", lval);
-                addparam(cmdarg, &argi, str);
-            }
-        }
-        
         if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_CONNECTSCRIPT, sopt, &len, service) && sopt[0]) {
             // ---------- connect script parameter ----------
-            addparam(cmdarg, &argi, "connect");
-    
-            CFStringGetCString(ppp->serviceID, str2, sizeof(str2), kCFStringEncodingUTF8);
-            sprintf(str, "%s -l %s -f '%s%s' ", PATH_CCL, str2, sopt[0] == '/' ? "" :  DIR_MODEMS, sopt);
-    
-            if (!getNumber(service, kSCPropNetPPPVerboseLogging, &lval) && lval)
-                strcat(str, " -v ");
-    
-            if (!ppp_getoptval(ppp, opts, PPP_OPT_COMM_REMOTEADDR, sopt, &len, service) && sopt[0]) {
-                sprintf(str2, " -T '%s' ", sopt);
-                strcat(str, str2);
-            }
-    
-            if (!ppp_getoptval(ppp, opts, PPP_OPT_LOGFILE, sopt, &len, service) && sopt[0]) {
-                // if logfile start with /, it's a full path
-                // otherwise it's relative to the logs folder (convention)
-                // the default path is /var/log
-    
-                sprintf(str2, " -E ");
-                strcat(str, str2);
-            }
+            addparam(cmdarg, &argi, "modemscript");
+            addparam(cmdarg, &argi, sopt);
             
-            // specify syslog facility
-            sprintf(str2, " -S %d ", LOG_INFO | LOG_LOCAL2);// LOG_PPP == LOG_LOCAL2
-            strcat(str, str2); 
-    
             // add all the ccl flags
             lval = 1;
-            getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+            getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                 kSCEntNetModem, kSCPropNetModemSpeaker, &lval) ;
-            sprintf(str2, " -s %d ",lval ? 1 : 0);
-            strcat(str, str2);
+            addparam(cmdarg, &argi, lval ? "modemsound" : "nomodemsound");
     
-             lval = 1;
-            getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
-                kSCEntNetModem, CFSTR("ErrorCorrection"), &lval);
-            sprintf(str2, " -e %d ",lval ? 1 : 0);
-            strcat(str, str2);
+            lval = 1;
+            getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+                kSCEntNetModem, kSCPropNetModemErrorCorrection, &lval);
+            addparam(cmdarg, &argi, lval ? "modemreliable" : "nomodemreliable");
 
             lval = 1;
-            getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
-                kSCEntNetModem, CFSTR("DataCompression"), &lval);
-            sprintf(str2, " -c %d ",lval ? 1 : 0);
-            strcat(str, str2);
+            getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+                kSCEntNetModem, kSCPropNetModemDataCompression, &lval);
+            addparam(cmdarg, &argi, lval ? "modemcompress" : "nomodemcompress");
 
             lval = 0;
-            getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+            getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
                 kSCEntNetModem, kSCPropNetModemPulseDial, &lval);
-            sprintf(str2, " -p %d ",lval ? 1 : 0);
-            strcat(str, str2);
+            addparam(cmdarg, &argi, lval ? "modempulse" : "modemtone");
     
             // dialmode : 0 = normal, 1 = blind(ignoredialtone), 2 = manual
             lval = 0;
-            if (!getStringFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
-                kSCEntNetModem, kSCPropNetModemDialMode, sopt, OPT_STR_LEN)) {
-                str2[0] = 0;
-                CFStringGetCString(kSCValNetModemDialModeIgnoreDialTone, str2, sizeof(str2), kCFStringEncodingUTF8);
-                if (!strcmp(str2, sopt))
-                    lval = 1;
-                else {
-                    str2[0] = 0;
-                    CFStringGetCString(kSCValNetModemDialModeManual, str2, sizeof(str2), kCFStringEncodingUTF8);
-                    if (!strcmp(str2, sopt))
-                        lval = 2;
-                }
-            }
-            sprintf(str2, " -d %d ",lval);
-            strcat(str, str2);
-    
-           // add the notification strings
-            if (gCancelRef) {
-                strcat(str, " -C '");
-                CFStringGetCString(gCancelRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-    
-            if (gInternetConnectRef && (ppp->alertenable & PPP_ALERT_PASSWORDS)) {
-                strcat(str, " -I '");
-                CFStringGetCString(gInternetConnectRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-            
-            if (gIconURLRef && (ref = CFURLGetString(gIconURLRef))) {
-                strcat(str, " -i '");
-                CFStringGetCString(ref, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-
+            ppp_getoptval(ppp, opts, PPP_OPT_DEV_DIALMODE, &lval, &len, service);
+            addparam(cmdarg, &argi, "modemdialmode");
+            sprintf(str, "%d", lval);
             addparam(cmdarg, &argi, str);
-            
-            // ---------- add the redial options ----------
-            // right now, this option only works in the scope of the ppp modem connection
-            if (!getNumber(service, kSCPropNetPPPCommRedialEnabled, &lval) && lval) {
-                    
-                if (!getString(service, kSCPropNetPPPCommAlternateRemoteAddress, sopt, sizeof(sopt)) && sopt[0]) {
-                    addparam(cmdarg, &argi, "redialalternate");
-                    addparam(cmdarg, &argi, "altconnect");
-                    // just reuse the same connect command and add an other remote addres option at the end
-                    sprintf(str2, " -T '%s' ", sopt);
-                    strcat(str, str2);
-                    addparam(cmdarg, &argi, str);
-                }
-        
-                addparam(cmdarg, &argi, "busycode");
-                //Fix me : we only get the 8 low bits return code from the wait_pid
-                sprintf(str, "%d", 122 /*cclErr_LineBusyErr*/);
-                addparam(cmdarg, &argi, str);
-        
-                if (!getNumber(service, kSCPropNetPPPCommRedialCount, &lval)) {
-                    addparam(cmdarg, &argi, "redialcount");
-                    sprintf(str, "%d", lval);
-                    addparam(cmdarg, &argi, str);
-                }
-        
-                if (!getNumber(service, kSCPropNetPPPCommRedialInterval, &lval)) {
-                    addparam(cmdarg, &argi, "redialtimer");
-                    sprintf(str, "%d", lval);
-                    addparam(cmdarg, &argi, str);
-                }
-            }
-
-        }
-        
-        // ---------- disconnect script parameter ----------
-        if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_CONNECTSCRIPT, sopt, &len, service) && sopt[0]) {
-            addparam(cmdarg, &argi, "disconnect");
-    
-            CFStringGetCString(ppp->serviceID, str2, sizeof(str2), kCFStringEncodingUTF8);
-            sprintf(str, "%s -m 1 -l %s -f '%s%s' ", PATH_CCL, str2, sopt[0] == '/' ? "" :  DIR_MODEMS, sopt);
-    
-            if (!getNumber(service, kSCPropNetPPPVerboseLogging, &lval) && lval)
-                strcat(str, " -v ");
-    
-            if (!ppp_getoptval(ppp, opts, PPP_OPT_LOGFILE, sopt, &len, service) && sopt[0]) {
-                // if logfile start with /, it's a full path
-                // otherwise it's relative to the logs folder (convention)
-                // the default path is /var/log
-    
-                sprintf(str2, " -E ");
-                strcat(str, str2);
-            }
-            
-            // specify syslog facility
-            sprintf(str2, " -S %d ", LOG_INFO | LOG_LOCAL2);// LOG_PPP == LOG_LOCAL2
-            strcat(str, str2); 
-    
-            // add the notification strings
-            if (gCancelRef) {
-                strcat(str, " -C '");
-                CFStringGetCString(gCancelRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-    
-            if (gInternetConnectRef && (ppp->alertenable & PPP_ALERT_PASSWORDS)) {
-                strcat(str, " -I '");
-                CFStringGetCString(gInternetConnectRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-
-            if (gIconURLRef && (ref = CFURLGetString(gIconURLRef))) {
-                strcat(str, " -i '");
-                CFStringGetCString(ref, str2, sizeof(str2), kCFStringEncodingUTF8);
-                strcat(str, str2);
-                strcat(str, "'");
-            }
-
-            addparam(cmdarg, &argi, str);
-        }
-     break;
-
-    case PPP_TYPE_PPPoE: 
- 	// ---------- connect plugin parameter ----------
-        addparam(cmdarg, &argi, "plugin");
-        CFStringGetCString(ppp->subtypeRef, str2, sizeof(str2) - 4, kCFStringEncodingUTF8);
-        strcat(str2, ".ppp");	// add plugin suffix
-        addparam(cmdarg, &argi, str2);
-        
-        if (!ppp_getoptval(ppp, opts, PPP_OPT_DEV_NAME, sopt, &len, service)) {
-            addparam(cmdarg, &argi, "pppoeinterface");
-            addparam(cmdarg, &argi, sopt);
         }
         break;
         
-    default:
-
- 	// ---------- connect plugin parameter ----------
-        addparam(cmdarg, &argi, "plugin");
-        CFStringGetCString(ppp->subtypeRef, str2, sizeof(str2) - 4, kCFStringEncodingUTF8);
-        strcat(str2, ".ppp");	// add plugin suffix
-        addparam(cmdarg, &argi, str2);
-/*        
-    if (ppp->subtype == PPP_TYPE_PPPoE) {
- 	// ---------- connect plugin parameter ----------
-       addparam(cmdarg, &argi, "plugin");
-       addparam(cmdarg, &argi, "PPPoE.ppp");
-
-        if (!ppp_getoptval(ppp, opts, PPP_OPT_COMM_REMOTEADDR, sopt, &len, service) && sopt[0]) {
-            addparam(cmdarg, &argi, "pppoeservicename");
-            sprintf(str, "%s", sopt);
-            addparam(cmdarg, &argi, str);
-       }
-       }
- */       
     }
-
+    
 /* ************************************************************************* */
     /* then COMM options */
 
     if (!ppp_getoptval(ppp, opts, PPP_OPT_COMM_TERMINALMODE, &lval, &len, service)) {
-    
+
+        /* add the PPPSerial plugin if not already present
+         Fix me : terminal mode is only supported in PPPSerial types of connection
+         but subtype using ptys can use it the same way */    
+        if (lval != PPP_COMM_TERM_NONE && ppp->subtype != PPP_TYPE_SERIAL) {
+            addparam(cmdarg, &argi, "plugin");
+            addparam(cmdarg, &argi, "PPPSerial.ppp");
+        }
+
         if (lval == PPP_COMM_TERM_WINDOW) {
-            addparam(cmdarg, &argi, "terminal");
-            addparam(cmdarg, &argi, PATH_MINITERM);
-            // use console user to run the terminal window application
-            addparam(cmdarg, &argi, "useconsoleuser");	
+            addparam(cmdarg, &argi, "terminalwindow");
         }
         else if (lval == PPP_COMM_TERM_SCRIPT) {
             if (!ppp_getoptval(ppp, opts, PPP_OPT_COMM_TERMINALSCRIPT, sopt, &len, service) && sopt[0]) {
-                addparam(cmdarg, &argi, "terminal");
-        
-                // shall we use service id for the terminal script ???
-                //CFStringGetCString(ppp->serviceID, str2, sizeof(str2), kCFStringEncodingUTF8);
-                //sprintf(str, "%s -l %s -f '%s%s' ", PATH_CCL, str2,
-                //    sopt[0] == '/' ? "" :  DIR_MODEMS, sopt);
-                sprintf(str, "%s -f '%s%s' ", PATH_CCL,
-                    sopt[0] == '/' ? "" :  DIR_MODEMS, sopt);
-        
-                if (!getNumber(service, kSCPropNetPPPVerboseLogging, &lval) && lval)
-                    strcat(str, " -v ");
-        
-                if (!ppp_getoptval(ppp, opts, PPP_OPT_AUTH_NAME, sopt, &len, service) && sopt[0]) {
-                    sprintf(str2, " -U '%s' ", sopt);
-                    strcat(str, str2);
-                }
-        
-                if (!ppp_getoptval(ppp, opts, PPP_OPT_AUTH_PASSWD, sopt, &len, service) && sopt[0]) {
-                    sprintf(str2, " -P '%s' ", sopt);
-                    strcat(str, str2);
-                }
-        
-                if (!ppp_getoptval(ppp, opts, PPP_OPT_LOGFILE, sopt, &len, service) && sopt[0]) {
-                    // if logfile start with /, it's a full path
-                    // otherwise it's relative to the logs folder (convention)
-                    // the default path is /var/log
-        
-                    sprintf(str2, " -E ");
-                    strcat(str, str2);
-                }
-                        
-                // specify syslog facility
-                sprintf(str2, " -S %d ", LOG_INFO | LOG_LOCAL2);// LOG_PPP == LOG_LOCAL2
-                strcat(str, str2); 
-        
-                // add the notification strings
-                if (gCancelRef) {
-                    strcat(str, " -C '");
-                    CFStringGetCString(gCancelRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                    strcat(str, str2);
-                    strcat(str, "'");
-                }
-        
-                if (gInternetConnectRef && (ppp->alertenable & PPP_ALERT_PASSWORDS)) {
-                    strcat(str, " -I '");
-                    CFStringGetCString(gInternetConnectRef, str2, sizeof(str2), kCFStringEncodingUTF8);
-                    strcat(str, str2);
-                    strcat(str, "'");
-                }
-
-                if (gIconURLRef && (ref = CFURLGetString(gIconURLRef))) {
-                    strcat(str, " -i '");
-                    CFStringGetCString(ref, str2, sizeof(str2), kCFStringEncodingUTF8);
-                    strcat(str, str2);
-                    strcat(str, "'");
-                }
-
-                addparam(cmdarg, &argi, str);
+                addparam(cmdarg, &argi, "terminalscript");
+                addparam(cmdarg, &argi, sopt);
             }
         }
     }
-
-#if 0
-    if (!getNumber(service, CFSTR("CommConnectDelay"), &lval)) {
-        addparam(cmdarg, &argi, "connect-delay");
-        sprintf(str, "%d", lval*1000);		// let's give some time to connect the pty
-        addparam(cmdarg, &argi,str);
-    }
-#endif
 
 /* ************************************************************************* */
 
@@ -1346,11 +1024,28 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
         sprintf(str, "%s", sopt);
         addparam(cmdarg, &argi, str);
     }
+    
+    // ---------- add the redial options ----------
+    if (!getNumber(service, kSCPropNetPPPCommRedialEnabled, &lval) && lval) {
+            
+        if (!getString(service, kSCPropNetPPPCommAlternateRemoteAddress, sopt, sizeof(sopt)) && sopt[0]) {
+            addparam(cmdarg, &argi, "altremoteaddress");
+            sprintf(str, "%s", sopt);
+            addparam(cmdarg, &argi, str);
+        }
+        
+        if (!getNumber(service, kSCPropNetPPPCommRedialCount, &lval)) {
+            addparam(cmdarg, &argi, "redialcount");
+            sprintf(str, "%d", lval);
+            addparam(cmdarg, &argi, str);
+        }
 
-    addparam(cmdarg, &argi, "cancelcode");
-    //Fix me : we only get the 8 low bits return code from the wait_pid
-    sprintf(str, "%d", 136 /*cclErr_ScriptCancelled*/);
-    addparam(cmdarg, &argi, str);
+        if (!getNumber(service, kSCPropNetPPPCommRedialInterval, &lval)) {
+            addparam(cmdarg, &argi, "redialtimer");
+            sprintf(str, "%d", lval);
+            addparam(cmdarg, &argi, str);
+        }
+    }
 
 /* ************************************************************************* */
 
@@ -1373,7 +1068,7 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
         !ppp_getoptval(ppp, opts, PPP_OPT_AUTOCONNECT, &lval, &len, service) && lval) {
         addparam(cmdarg, &argi, "demand");
         addparam(cmdarg, &argi, "holdoff");
-        sprintf(str, "%d", 0);
+        sprintf(str, "%d", 30);
         addparam(cmdarg, &argi, str);
     }
 
@@ -1461,12 +1156,18 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
     }
 #endif
     
-    if (!getStringFromEntity(gCfgCache, kSCCacheDomainState, 0, 
+    if (!getStringFromEntity(kSCDynamicStoreDomainState, 0, 
         kSCEntNetIPv4, kSCPropNetIPv4Router, sopt, OPT_STR_LEN) && sopt[0]) {
         addparam(cmdarg, &argi, "ipparam");
         addparam(cmdarg, &argi, sopt);
     }
     
+    // OverridePrimary option not handled yet in Setup by IPMonitor
+    if (!getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+        kSCEntNetIPv4, CFSTR("OverridePrimary"), &lval) && lval) {
+        addparam(cmdarg, &argi, "defaultroute");
+    }
+
 /* ************************************************************************* */
 
      if (! (!ppp_getoptval(ppp, opts, PPP_OPT_IPCP_HDRCOMP, &lval, &len, service) && lval))
@@ -1496,7 +1197,7 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
 
     // usepeerdns is there is a no dns value
     // setting 0 in the dns field will disable the usepeerdns option
-    if (getAddressFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+    if (getAddressFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
         kSCEntNetDNS, kSCPropNetDNSServerAddresses, &lval))
         addparam(cmdarg, &argi, "usepeerdns");
 
@@ -1510,7 +1211,8 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
         if (!ppp_getoptval(ppp, opts, PPP_OPT_AUTH_NAME, sopt, &len, service) && sopt[0]) {
             addparam(cmdarg, &argi, "user");
             addparam(cmdarg, &argi, sopt);
-            if (!ppp_getoptval(ppp, opts, PPP_OPT_AUTH_PASSWD, sopt, &len, service) && sopt[0]) {
+
+            if (!get_str(ppp, opts ? &opts->auth.passwd : 0, kSCEntNetPPP, kSCPropNetPPPAuthPassword, sopt, &len, service, 1, "") && sopt[0]) {
                 addparam(cmdarg, &argi, "password");
                 addparam(cmdarg, &argi, sopt);
             }
@@ -1528,29 +1230,65 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
     // if the user has setup bad config files
      addparam(cmdarg, &argi, "forcedetach");
 
-    // no compression protocol
-    addparam(cmdarg, &argi, "noccp");	
-
-    // add the dialog plugin
-    if (gPluginsDir) {
-        addparam(cmdarg, &argi, "plugin");
-        sprintf(str, "%sPPPDialogs.ppp", gPluginsDir);
-        addparam(cmdarg, &argi, str);
+    if (!getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+                kSCEntNetPPP, kSCPropNetPPPCCPEnabled, &lval) && lval
         
-        //ppp_getoptval(ppp, opts, PPP_OPT_ALERTENABLE, &lval, &len, service);
+        // Fix me : to enforce use of MS-CHAP, refuse any alteration of default auth proto 
+        // a dialer specifying PAP or CHAP will works without CCP/MPPE
+        // even is CCP is enabled in the configuration.
+        // Will be revisited when addition compression modules and
+        // authentication modules will be added 
+        && !ppp_getoptval(ppp, opts, PPP_OPT_AUTH_PROTO, &lval, &len, service) 
+                && (lval == OPT_AUTH_PROTO_DEF)) {
 
-        if (!(ppp->alertenable & PPP_ALERT_PASSWORDS) || !needpasswd)
-            addparam(cmdarg, &argi, "noaskpassword");
+        // Fix me : mppe is the only currently supported compression 
+        // if the CCPAccepted and CCPRequired array are not there, 
+        // assume we accept all types of compression we support
 
-        // reminder option must be specified after PPPDialogs plugin option
-        if (!getNumber(service, kSCPropNetPPPIdleReminder, &lval) && lval) {
-            if (!getNumber(service, kSCPropNetPPPIdleReminderTimer, &lval) && lval) {
-                addparam(cmdarg, &argi, "reminder");
-                sprintf(str, "%d", lval);
+        addparam(cmdarg, &argi, "mppe-stateless");
+        addparam(cmdarg, &argi, "mppe-128");        
+        addparam(cmdarg, &argi, "mppe-40");        
+
+        // Fix me : also enforce the use of MS-CHAP
+        // A better authentication protocol needs to be implemented 
+        // this will also be necessary for good EAP support 
+        addparam(cmdarg, &argi, "refuse-pap");
+        addparam(cmdarg, &argi, "refuse-chap-md5");
+    }
+    else {
+        // no compression protocol
+        addparam(cmdarg, &argi, "noccp");	
+    }
+    
+    // loop local traffic destined to the local ip address
+    addparam(cmdarg, &argi, "looplocal");       
+
+    if (!(ppp->alertenable & PPP_ALERT_PASSWORDS) || !needpasswd)
+        addparam(cmdarg, &argi, "noaskpassword");
+
+    // reminder option must be specified after PPPDialogs plugin option
+    if (!getNumber(service, kSCPropNetPPPIdleReminder, &lval) && lval) {
+        if (!getNumber(service, kSCPropNetPPPIdleReminderTimer, &lval) && lval) {
+            addparam(cmdarg, &argi, "reminder");
+            sprintf(str, "%d", lval);
+            addparam(cmdarg, &argi, str);
+        }
+    }
+
+    /* add any additional plugin we want to load */
+    array = CFDictionaryGetValue(service, kSCPropNetPPPPlugins);
+    if (array && (CFGetTypeID(array) == CFArrayGetTypeID())) {
+        lval = CFArrayGetCount(array);
+        for (i = 0; i < lval; i++) {
+            string = CFArrayGetValueAtIndex(array, i);
+            if (string && (CFGetTypeID(string) == CFStringGetTypeID())) {
+                addparam(cmdarg, &argi, "plugin");
+                CFStringGetCString(string, str, sizeof(str) - 4, kCFStringEncodingUTF8);
+                strcat(str, ".ppp");	// add plugin suffix
                 addparam(cmdarg, &argi, str);
             }
         }
-    }    
+    }
 
     // always try to use options defined in /etc/ppp/peers/[service provider] 
     // they can override what have been specified by the PPPController
@@ -1559,11 +1297,10 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
         addparam(cmdarg, &argi, "call");
         addparam(cmdarg, &argi, str);
     }
-
+    
 /* ************************************************************************* */
 
     CFRelease(service);
-
 #if 0
     printf("/usr/sbin/pppd ");
     for (i = 1; i < MAXARG; i++) {
@@ -1575,8 +1312,19 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
     printf("\n");
 #endif
 
-    error = start_program(PATH_PPPD, cmdarg);
+    ppp->lastdevstatus = 0;
 
+    if (_SCDPluginExecCommand(exec_callback, (void*)ppp_makeref(ppp), 0, 0, PATH_PPPD, cmdarg) == -1) {
+        ppp->laststatus =  EXIT_FATAL_ERROR;
+        ppp_display_error(ppp);
+    }
+    else {
+        ppp->laststatus = EXIT_OK;
+        ppp->started_link = 1;
+        ppp->phase = PPP_INITIALIZE;
+        ppp->oldphase = PPP_INITIALIZE;
+    }
+    
     for (i = 0; i < MAXARG; i++) {
         if (cmdarg[i]) {
             free(cmdarg[i]);
@@ -1584,95 +1332,36 @@ int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand)
         }
     }
 
-    //if (error != EXIT_OK)
-    //    SCDLog(LOG_INFO, CFSTR("Error starting pppd for serviceID '%@', error code = %d \n"), ppp->serviceID, error);
-
-    ret = 0;
-    // translate into the appropriate error code
-    // only a subset of the error code can happen at this time
-    switch (error) {
-        case EXIT_OK:
-            ppp->phase = PPP_INITIALIZE;
-            break;
-        case EXIT_NO_KERNEL_SUPPORT:
-            ret = EPROTONOSUPPORT;
-            break;
-        case EXIT_OPTION_ERROR:
-            ret = EINVAL;
-            break;
-        default:
-            ret = EIO;
-    }
-
-    ppp->laststatus = ret;
-    return ret;
+    return ppp->laststatus;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void closeall()
+void exec_callback(pid_t pid, int status, struct rusage *rusage, void *context)
 {
-    int i;
-
-    for (i = getdtablesize() - 1; i >= 0; i--) close(i);
-    open("/dev/null", O_RDWR, 0);
-    dup(0);
-    dup(0);
-    return;
-}
-
-/* -----------------------------------------------------------------------------
-* run a program to talk to the serial device
-* (e.g. to run the connector or disconnector script).
-program contain only the path to the program
-command contains the full commanf to execute (prgrname+parameters)
------------------------------------------------------------------------------ */
-int start_program(char *program, char **cmdarg)
-{
-    int 	pid;
-    int 	error;
-
-#if 0
-    pid = fork();
-    if (pid < 0) {
-        //       error(ppp, "Failed to create child process: %m");
-        return -1;
-    }
-
-    if (pid == 0) {
-
-        closeall();
-#endif        
-        // double fork, because configd doesn't handle SIGCHLD
-        pid = fork();
-        if (pid < 0) {
-            return -1;
-        }
-
-        if (pid == 0) {
-        closeall();
-            // need to exec a tool, with complete parameters list
-            execv(program, cmdarg);
-
-            // grandchild exits
-            exit(0);
-            /* NOTREACHED */
-        }
-#if 0
-        // child exits
-        exit(0);
-        /* NOTREACHED */
-    }
-#endif
-    // grand parents wait for child's completion, that occurs immediatly since grandchild does the job
-    while (waitpid(pid, &error, 0) < 0) {
-	if (errno == EINTR)
-            continue;
-        return -1;
-    }
+    struct ppp 	*ppp;
+    u_int32_t	error;
     
-    error = (error >> 8) & 0xFF;
-    return error;
+    if (status == 0)	// everything is fine...
+        return;
+        
+    ppp = ppp_findbyref((u_int32_t)context);
+    if (ppp == 0)		// the service has disappeared
+        return;	
+        
+    if (ppp->started_link == 0)	// ignore the callback.
+        return;
+    
+    /* an error occured while parsing arguments */
+    /* the dynamic store will not be updated */
+    /* we also don't want to restart dialondemand */
+    ppp->laststatus =  (status >> 8) & 0xFF;
+    ppp->phase = PPP_IDLE;
+    ppp->started_link = 0;
+    ppp_display_error(ppp);
+
+    error = ppp_translate_error(ppp->subtype, ppp->laststatus, 0);
+    client_notify(ppp->sid, (u_int32_t)context, PPP_EVT_DISCONNECTED, error);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1681,7 +1370,7 @@ int ppp_dodisconnect(struct ppp *ppp, int sig)
 {
     int			pid, dokill = 1;
 
-    if (ppp->phase != PPP_IDLE && !ppp->kill_link) {
+    if (ppp->phase != PPP_IDLE && !ppp->kill_link && !ppp->kill_sent) {
     
 	// anticipate next phase
          switch (ppp->phase) {
@@ -1698,14 +1387,19 @@ int ppp_dodisconnect(struct ppp *ppp, int sig)
             case PPP_CONNECTLINK:
                 ppp->phase = PPP_DISCONNECTLINK;
                 break;
+            case PPP_DISCONNECTLINK:
+            case PPP_TERMINATE:
+                return 0;
             default:
                 ppp->phase = PPP_TERMINATE;
         }
    
         if (dokill 
-            && !getNumberFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, kSCEntNetPPP, 
+            && !getNumberFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, kSCEntNetPPP, 
                 CFSTR("pid") /*kSCPropNetPPPpid*/, &pid)) {
          //printf("ppp_dodisconnect : unit %d, kill pid %d\n", ppp->unit, pid);
+            ppp->started_link = 0;
+            ppp->kill_sent = 1;
             kill(pid, sig);
             }
         else {
@@ -1715,6 +1409,38 @@ int ppp_dodisconnect(struct ppp *ppp, int sig)
             }
             
    }
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_dosuspend(struct ppp *ppp)
+{
+    int		pid;
+
+    if (ppp->phase != PPP_IDLE
+        && !getNumberFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, kSCEntNetPPP, 
+                CFSTR("pid") /*kSCPropNetPPPpid*/, &pid)) {
+    
+        kill(pid, SIGTSTP);
+    }
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_doresume(struct ppp *ppp)
+{
+    int		pid;
+
+    if (ppp->phase != PPP_IDLE
+        && !getNumberFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, kSCEntNetPPP, 
+                CFSTR("pid") /*kSCPropNetPPPpid*/, &pid)) {
+    
+        kill(pid, SIGCONT);
+    }
 
     return 0;
 }

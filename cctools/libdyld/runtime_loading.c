@@ -25,6 +25,7 @@
 #include "shlib.h"
 #endif
 #import <stdio.h>
+#import "stuff/bool.h"
 #import <mach-o/dyld.h>
 
 #import "ofi.h"

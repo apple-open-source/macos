@@ -35,6 +35,7 @@
 #include "ni_globals.h"
 #include <NetInfo/system_log.h>
 #include <NetInfo/mm.h>
+#include <NetInfo/dsstore.h>
 #include "index.h"
 #include "index_manager.h"
 
@@ -292,6 +293,13 @@ ni_init(char *rootdir, void **handle)
 	}
 
 	ni->im_hdl = im_alloc();
+
+	/*
+	 * Make sure the index manager cache is flushed
+	 * when the store is changed by another process.
+	 */
+	dsstore_set_sync_delegate((dsstore *)ni->file_hdl, (void (*)(void *))im_forget, &ni->im_hdl);
+
 	*handle = ni;
 
 	return status;

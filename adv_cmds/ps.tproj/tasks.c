@@ -22,7 +22,7 @@
 #include <pwd.h>
 
 #include "ps.h"
-
+#include <mach/shared_memory_server.h>
 
 extern kern_return_t task_for_pid(task_port_t task, pid_t pid, task_port_t *target);
 
@@ -101,12 +101,14 @@ int get_task_info (KINFO *ki)
 	 error = task_info(ki->task, TASK_BASIC_INFO, &ki->tasks_info, &info_count);
 	 if (error != KERN_SUCCESS) {
 		 ki->invalid_tinfo=1;
+#ifdef DEBUG
 		 mach_error("Error calling task_info()", error);
+#endif
 		return(1);
 	}
 	{
 	        vm_region_basic_info_data_64_t    b_info;
-		vm_address_t	                  address = 0x70000000;
+		vm_address_t	                  address = GLOBAL_SHARED_TEXT_SEGMENT;
 		vm_size_t		          size;
 		mach_port_t		          object_name;
 
@@ -119,16 +121,18 @@ int get_task_info (KINFO *ki)
 		error = vm_region_64(ki->task, &address, &size, VM_REGION_BASIC_INFO,
 				     (vm_region_info_t)&b_info, &info_count, &object_name);
 	        if (error == KERN_SUCCESS) {
-		        if (b_info.reserved && size == (256 * 1024 * 1024) &&
-			    ki->tasks_info.virtual_size > (512 * 1024 * 1024))
-			        ki->tasks_info.virtual_size -= (512 * 1024 * 1024);
+		        if (b_info.reserved && size == (SHARED_TEXT_REGION_SIZE) &&
+			    ki->tasks_info.virtual_size > (SHARED_TEXT_REGION_SIZE + SHARED_DATA_REGION_SIZE))
+			        ki->tasks_info.virtual_size -= (SHARED_TEXT_REGION_SIZE + SHARED_DATA_REGION_SIZE);
 		}
 	}
 	info_count = TASK_THREAD_TIMES_INFO_COUNT;
         error = task_info(ki->task, TASK_THREAD_TIMES_INFO, &ki->times, &info_count);
         if (error != KERN_SUCCESS) {
                  ki->invalid_tinfo=1;
+#ifdef DEBUG
                  mach_error("Error calling task_info()", error);
+#endif
                 return(1);
         }
 	switch(ki->tasks_info.policy) {
@@ -137,7 +141,9 @@ int get_task_info (KINFO *ki)
 		error = task_info(ki->task, TASK_SCHED_TIMESHARE_INFO, &ki->schedinfo.tshare, &info_count);
 			if (error != KERN_SUCCESS) {
 				ki->invalid_tinfo=1;
+#ifdef DEBUG
 				mach_error("Error calling task_info()", error);
+#endif
 				return(1);
 				}
 
@@ -149,7 +155,9 @@ int get_task_info (KINFO *ki)
 		error = task_info(ki->task, TASK_SCHED_RR_INFO, &ki->schedinfo.rr, &info_count);
 			if (error != KERN_SUCCESS) {
 				ki->invalid_tinfo=1;
+#ifdef DEBUG
 				mach_error("Error calling task_info()", error);
+#endif
 				return(1);
 				}
 
@@ -162,7 +170,9 @@ int get_task_info (KINFO *ki)
 		error = task_info(ki->task, TASK_SCHED_FIFO_INFO, &ki->schedinfo.fifo, &info_count);
 			if (error != KERN_SUCCESS) {
 				ki->invalid_tinfo=1;
+#ifdef DEBUG
 				mach_error("Error calling task_info()", error);
+#endif
 				return(1);
 				}
 
@@ -177,7 +187,9 @@ int get_task_info (KINFO *ki)
 	error = task_threads(ki->task, &ki->thread_list, &ki->thread_count);
 	if (error != KERN_SUCCESS) {
 		mach_port_deallocate(mach_task_self(),ki->task);
+#ifdef DEBUG
 		mach_error("Call to task_threads() failed", error);
+#endif
 		return(1);
 	}
 	err=0;
@@ -193,13 +205,17 @@ int get_task_info (KINFO *ki)
 			 (thread_info_t)&ki->thval[j].tb,
 			&thread_info_count);
 		if (error != KERN_SUCCESS) {
+#ifdef DEBUG
 			mach_error("Call to thread_info() failed", error);
+#endif
 			err=1;
 			}
 		error = thread_schedinfo(ki, ki->thread_list[j],
 			ki->thval[j].tb.policy, &ki->thval[j].schedinfo);
 		if (error != KERN_SUCCESS) {
+#ifdef DEBUG
 			mach_error("Call to thread_info() failed", error);
+#endif
 			err=1;
 			}
 		ki->cpu_usage += ki->thval[j].tb.cpu_usage;
@@ -218,7 +234,9 @@ int get_task_info (KINFO *ki)
 		(vm_address_t)(ki->thread_list),
 		 sizeof(thread_port_array_t) * ki->thread_count);
 	if (error != KERN_SUCCESS) {
+#ifdef DEBUG
 		 mach_error("Trouble freeing thread_list", error);
+#endif
 	}
 
 	mach_port_deallocate(mach_task_self(),ki->task);

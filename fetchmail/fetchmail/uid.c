@@ -94,7 +94,7 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
    if (lstat(idfile, &statbuf) < 0) {
      if (errno == ENOTDIR) 
     {
-      report(stderr, _("lstat: %s: %s\n"), idfile, strerror(errno));
+      report(stderr, GT_("lstat: %s: %s\n"), idfile, strerror(errno));
       exit(PS_IOERR);
     }
    }
@@ -172,8 +172,7 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 
 		    }
 		    for (ctl = hostlist; ctl; ctl = ctl->next) {
-			if (ctl->server.truename &&
-			    strcasecmp(host, ctl->server.truename) == 0
+			if (strcasecmp(host, ctl->server.queryname) == 0
 			    && strcasecmp(user, ctl->remotename) == 0) {
 	
 			    save_str(&ctl->oldsaved, id, UID_SEEN);
@@ -209,23 +208,23 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	for (ctl = hostlist; ctl; ctl = ctl->next)
 	    if (ctl->server.uidl)
 	    {
-		report_build(stdout, _("Old UID list from %s:"), 
+		report_build(stdout, GT_("Old UID list from %s:"), 
 			     ctl->server.pollname);
 		for (idp = ctl->oldsaved; idp; idp = idp->next)
 		    report_build(stdout, " %s", idp->id);
 		if (!idp)
-		    report_build(stdout, _(" <empty>"));
+		    report_build(stdout, GT_(" <empty>"));
 		report_complete(stdout, "\n");
 		uidlcount++;
 	    }
 
 	if (uidlcount)
 	{
-	    report_build(stdout, _("Scratch list of UIDs:"));
+	    report_build(stdout, GT_("Scratch list of UIDs:"));
 	    for (idp = scratchlist; idp; idp = idp->next)
 		report_build(stdout, " %s", idp->id);
 	    if (!idp)
-		report_build(stdout, _(" <empty>"));
+		report_build(stdout, GT_(" <empty>"));
 	    report_complete(stdout, "\n");
 	}
     }
@@ -448,11 +447,11 @@ void uid_swap_lists(struct query *ctl)
     {
 	struct idlist *idp;
 
-	report_build(stdout, _("New UID list from %s:"), ctl->server.pollname);
+	report_build(stdout, GT_("New UID list from %s:"), ctl->server.pollname);
 	for (idp = ctl->newsaved; idp; idp = idp->next)
 	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
 	if (!idp)
-	    report_build(stdout, _(" <empty>"));
+	    report_build(stdout, GT_(" <empty>"));
 	report_complete(stdout, "\n");
     }
 
@@ -476,13 +475,13 @@ void uid_swap_lists(struct query *ctl)
     {
 	/* old state of mailbox may now be irrelevant */
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("swapping UID lists\n"));
+	    report(stdout, GT_("swapping UID lists\n"));
 	free_str_list(&ctl->oldsaved);
 	ctl->oldsaved = ctl->newsaved;
 	ctl->newsaved = (struct idlist *) NULL;
     }
     else if (outlevel >= O_DEBUG)
-	report(stdout, _("not swapping UID lists, no UIDs seen this query\n"));
+	report(stdout, GT_("not swapping UID lists, no UIDs seen this query\n"));
 }
 
 void write_saved_lists(struct query *hostlist, const char *idfile)
@@ -506,20 +505,20 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
     if (!idcount && !scratchlist)
     {
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("Deleting fetchids file.\n"));
+	    report(stdout, GT_("Deleting fetchids file.\n"));
 	unlink(idfile);
     }
     else
     {
 	if (outlevel >= O_DEBUG)
-	    report(stdout, _("Writing fetchids file.\n"));
+	    report(stdout, GT_("Writing fetchids file.\n"));
 	if ((tmpfp = fopen(idfile, "w")) != (FILE *)NULL) {
 	    for (ctl = hostlist; ctl; ctl = ctl->next) {
 		for (idp = ctl->oldsaved; idp; idp = idp->next)
 		    if (idp->val.status.mark == UID_SEEN
 				|| idp->val.status.mark == UID_DELETED)
 			fprintf(tmpfp, "%s@%s %s\n", 
-			    ctl->remotename, ctl->server.truename, idp->id);
+			    ctl->remotename, ctl->server.queryname, idp->id);
 	    }
 	    for (idp = scratchlist; idp; idp = idp->next)
 		fputs(idp->id, tmpfp);

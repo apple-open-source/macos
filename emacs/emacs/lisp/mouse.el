@@ -1,9 +1,10 @@
 ;;; mouse.el --- window system-independent mouse support
 
-;; Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1999, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
-;; Keywords: hardware
+;; Keywords: hardware, mouse
 
 ;; This file is part of GNU Emacs.
 
@@ -44,38 +45,89 @@
 
 ;; Provide a mode-specific menu on a mouse button.
 
+(defun popup-menu (menu &optional position prefix)
+  "Popup the given menu and call the selected option.
+MENU can be a keymap, an easymenu-style menu or a list of keymaps as for
+`x-popup-menu'.
+POSITION can be a click event or ((XOFFSET YOFFSET) WINDOW) and defaults to
+  the current mouse position.
+PREFIX is the prefix argument (if any) to pass to the command."
+  (let* ((map (cond
+	       ((keymapp menu) menu)
+	       ((and (listp menu) (keymapp (car menu))) menu)
+	       (t (let* ((map (easy-menu-create-menu (car menu) (cdr menu)))
+			 (filter (when (symbolp map)
+				   (plist-get (get map 'menu-prop) :filter))))
+		    (if filter (funcall filter (symbol-function map)) map)))))
+	 event cmd)
+    (unless position
+      (let ((mp (mouse-pixel-position)))
+	(setq position (list (list (cadr mp) (cddr mp)) (car mp)))))
+    ;; The looping behavior was taken from lmenu's popup-menu-popup
+    (while (and map (setq event
+			  ;; map could be a prefix key, in which case
+			  ;; we need to get its function cell
+			  ;; definition.
+			  (x-popup-menu position (indirect-function map))))
+      ;; Strangely x-popup-menu returns a list.
+      ;; mouse-major-mode-menu was using a weird:
+      ;; (key-binding (apply 'vector (append '(menu-bar) menu-prefix events)))
+      (setq cmd
+	    (if (and (not (keymapp map)) (listp map))
+		;; We were given a list of keymaps.  Search them all
+		;; in sequence until a first binding is found.
+		(let ((mouse-click (apply 'vector event))
+		      binding)
+		  (while (and map (null binding))
+		    (setq binding (lookup-key (car map) mouse-click))
+		    (if (numberp binding) ; `too long'
+			(setq binding nil))
+		    (setq map (cdr map)))
+		  binding)
+	      ;; We were given a single keymap.
+	      (lookup-key map (apply 'vector event))))
+      ;; Clear out echoing, which perhaps shows a prefix arg.
+      (message "")
+      ;; Maybe try again but with the submap.
+      (setq map (if (keymapp cmd) cmd)))
+    (when (functionp cmd)
+      (setq prefix-arg prefix)
+      ;; `setup-specified-language-environment', for instance,
+      ;; expects this to be set from a menu keymap.
+      (setq last-command-event (car (last event)))
+      ;; mouse-major-mode-menu was using `command-execute' instead.
+      (call-interactively cmd))))
+
+(defvar mouse-major-mode-menu-prefix)	; dynamically bound
+
 (defun mouse-major-mode-menu (event prefix)
-  "Pop up a mode-specific menu of mouse commands."
+  "Pop up a mode-specific menu of mouse commands.
+Default to the Edit menu if the major mode doesn't define a menu."
   ;; Switch to the window clicked on, because otherwise
   ;; the mode's commands may not make sense.
   (interactive "@e\nP")
   ;; Let the mode update its menus first.
-  (run-hooks 'activate-menubar-hook)
-  (let (;; This is where mouse-major-mode-menu-prefix
-	;; returns the prefix we should use (after menu-bar).
-	;; It is either nil or (SOME-SYMBOL).
-	(mouse-major-mode-menu-prefix nil)
-	;; Make a keymap in which our last command leads to a menu
-	(newmap (make-sparse-keymap (concat mode-name " Mode")))
-	result)
-    ;; Make our menu inherit from the desired keymap
-    ;; which we want to display as the menu now.
-    (set-keymap-parent newmap
-		       (mouse-major-mode-menu-1
-			(and (current-local-map)
-			     (lookup-key (current-local-map) [menu-bar]))))
-    (setq result (x-popup-menu t (list newmap)))
-    (if result
-	(let ((command (key-binding
-			(apply 'vector (append '(menu-bar)
-					       mouse-major-mode-menu-prefix
-					       result)))))
-	  ;; Clear out echoing, which perhaps shows a prefix arg.
-	  (message "")
-	  (if command
-	      (progn
-		(setq prefix-arg prefix)
-		(command-execute command)))))))
+  (run-hooks 'activate-menubar-hook 'menu-bar-update-hook)
+  (let* (;; This is where mouse-major-mode-menu-prefix
+	 ;; returns the prefix we should use (after menu-bar).
+	 ;; It is either nil or (SOME-SYMBOL).
+	 (mouse-major-mode-menu-prefix nil)
+	 ;; Keymap from which to inherit; may be null.
+	 (ancestor (mouse-major-mode-menu-1
+		    (and (current-local-map)
+			 (local-key-binding [menu-bar]))))
+	 ;; Make a keymap in which our last command leads to a menu or
+	 ;; default to the edit menu.
+	 (newmap (if ancestor
+		     (make-sparse-keymap (concat mode-name " Mode"))
+		   menu-bar-edit-menu))
+	 result)
+    (if ancestor
+	;; Make our menu inherit from the desired keymap which we want
+	;; to display as the menu now.
+	(set-keymap-parent newmap ancestor))
+    (popup-menu newmap event prefix)))
+
 
 ;; Compute and cache the equivalent keys in MENU and all its submenus.
 ;;;(defun mouse-major-mode-menu-compute-equiv-keys (menu)
@@ -109,7 +161,65 @@
 	(if (eq submap t)
 	    menubar
 	  (setq mouse-major-mode-menu-prefix (list (car submap)))
-	  (cdr (cdr submap))))))
+	  (lookup-key menubar (vector (car submap)))))))
+
+(defun mouse-popup-menubar (event prefix)
+  "Pops up a menu equiavlent to the menu bar a keyboard EVENT with PREFIX.
+The contents are the items that would be in the menu bar whether or
+not it is actually displayed."
+  (interactive "@e \nP")
+  (run-hooks 'activate-menubar-hook 'menu-bar-update-hook)
+  (let* ((local-menu (and (current-local-map)
+			  (lookup-key (current-local-map) [menu-bar])))
+	 (global-menu (lookup-key global-map [menu-bar]))
+	 ;; If a keymap doesn't have a prompt string (a lazy
+	 ;; programmer didn't bother to provide one), create it and
+	 ;; insert it into the keymap; each keymap gets its own
+	 ;; prompt.  This is required for non-toolkit versions to
+	 ;; display non-empty menu pane names.
+	 (minor-mode-menus
+	  (mapcar
+	   (function
+	    (lambda (menu)
+	      (let* ((minor-mode (car menu))
+		     (menu (cdr menu))
+		     (title-or-map (cadr menu)))
+		(or (stringp title-or-map)
+		    (setq menu
+			  (cons 'keymap
+				(cons (concat
+				       (capitalize (subst-char-in-string
+						    ?- ?\  (symbol-name
+							    minor-mode)))
+				       " Menu")
+				      (cdr menu)))))
+		menu)))
+	   (minor-mode-key-binding [menu-bar])))
+	 (local-title-or-map (and local-menu (cadr local-menu)))
+	 (global-title-or-map (cadr global-menu)))
+    (or (null local-menu)
+	(stringp local-title-or-map)
+	(setq local-menu (cons 'keymap
+			       (cons (concat mode-name " Mode Menu")
+				     (cdr local-menu)))))
+    (or (stringp global-title-or-map)
+	(setq global-menu (cons 'keymap
+			        (cons "Global Menu"
+				      (cdr global-menu)))))
+    ;; Supplying the list is faster than making a new map.
+    (popup-menu (append (list global-menu)
+			(if local-menu
+			    (list local-menu))
+			minor-mode-menus)
+		event prefix)))
+
+(defun mouse-popup-menubar-stuff (event prefix)
+  "Popup a menu like either `mouse-major-mode-menu' or `mouse-popup-menubar'.
+Use the former if the menu bar is showing, otherwise the latter."
+  (interactive "@e \nP")
+  (if (zerop (assoc-default 'menu-bar-lines (frame-parameters) 'eq 0))
+      (mouse-popup-menubar event prefix)
+    (mouse-major-mode-menu event prefix)))
 
 ;; Commands that operate on windows.
 
@@ -123,11 +233,10 @@
 
 (defun mouse-delete-window (click)
   "Delete the window you click on.
-If the frame has just one window, bury the current buffer instead.
+Do nothing if the frame has just one window.
 This command must be bound to a mouse click."
   (interactive "e")
-  (if (one-window-p t)
-      (bury-buffer)
+  (unless (one-window-p t)
     (mouse-minibuffer-check click)
     (delete-window (posn-window (event-start click)))))
 
@@ -155,7 +264,7 @@ This command must be bound to a mouse click."
     (delete-window window)))
 
 (defun mouse-delete-other-windows ()
-  "Delete all window except the one you click on."
+  "Delete all windows except the one you click on."
   (interactive "@")
   (delete-other-windows))
 
@@ -191,39 +300,43 @@ This command must be bound to a mouse click."
 	(split-window-horizontally
 	 (min (max new-width first-col) last-col))))))
 
-(defun mouse-drag-mode-line (start-event)
-  "Change the height of a window by dragging on the mode line."
-  (interactive "e")
+(defun mouse-drag-mode-line-1 (start-event mode-line-p)
+  "Change the height of a window by dragging on the mode or header line.
+START-EVENT is the starting mouse-event of the drag action.
+MODE-LINE-P non-nil means a mode line is dragged."
   ;; Give temporary modes such as isearch a chance to turn off.
   (run-hooks 'mouse-leave-buffer-hook)
-  (let ((done nil)
-	(echo-keystrokes 0)
-	(start-event-frame (window-frame (car (car (cdr start-event)))))
-	(start-event-window (car (car (cdr start-event))))
-	(start-nwindows (count-windows t))
-	(old-selected-window (selected-window))
-	should-enlarge-minibuffer
-	event mouse minibuffer y top bot edges wconfig params growth)
-    (setq params (frame-parameters))
-    (setq minibuffer (cdr (assq 'minibuffer params)))
+  (let* ((done nil)
+	 (echo-keystrokes 0)
+	 (start (event-start start-event))
+	 (start-event-window (posn-window start))
+	 (start-event-frame (window-frame start-event-window))
+	 (start-nwindows (count-windows t))
+	 (old-selected-window (selected-window))
+	 (minibuffer (frame-parameter nil 'minibuffer))
+	 should-enlarge-minibuffer event mouse y top bot edges wconfig growth)
     (track-mouse
       (progn
 	;; enlarge-window only works on the selected window, so
 	;; we must select the window where the start event originated.
 	;; unwind-protect will restore the old selected window later.
 	(select-window start-event-window)
+	
 	;; if this is the bottommost ordinary window, then to
 	;; move its modeline the minibuffer must be enlarged.
 	(setq should-enlarge-minibuffer
 	      (and minibuffer
+		   mode-line-p
 		   (not (one-window-p t))
 		   (= (nth 1 (window-edges minibuffer))
 		      (nth 3 (window-edges)))))
+	
 	;; loop reading events and sampling the position of
 	;; the mouse.
 	(while (not done)
 	  (setq event (read-event)
 		mouse (mouse-position))
+	  
 	  ;; do nothing if
 	  ;;   - there is a switch-frame event.
 	  ;;   - the mouse isn't in the frame that we started in
@@ -237,35 +350,47 @@ This command must be bound to a mouse click."
 	  ;;     unknown event.
 	  (cond ((integerp event)
 		 (setq done t))
+		
 		((eq (car event) 'switch-frame)
 		 nil)
-		((not (memq (car event)
-			    '(mouse-movement scroll-bar-movement)))
-		 (if (consp event)
-		     (setq unread-command-events
-			   (cons event unread-command-events)))
+		
+		((not (memq (car event) '(mouse-movement scroll-bar-movement)))
+		 (when (consp event)
+		   (push event unread-command-events))
 		 (setq done t))
+		
 		((not (eq (car mouse) start-event-frame))
 		 nil)
+		
 		((null (car (cdr mouse)))
 		 nil)
+		
 		(t
 		 (setq y (cdr (cdr mouse))
 		       edges (window-edges)
 		       top (nth 1 edges)
 		       bot (nth 3 edges))
-		 ;; scale back a move that would make the
-		 ;; window too short.
-		 (cond ((< (- y top -1) window-min-height)
-			(setq y (+ top window-min-height -1))))
+		 
 		 ;; compute size change needed
-		 (setq growth (- y bot -1)
-		       wconfig (current-window-configuration))
+		 (cond (mode-line-p
+			;; Scale back a move that would make the
+			;; window too short.
+			(when (< (- y top -1) window-min-height)
+			  (setq y (+ top window-min-height -1)))
+			(setq growth (- y bot -1)))
+		       (t	; header line
+			(when (< (- bot y) window-min-height)
+			  (setq y (- bot window-min-height)))
+			;; The window's top includes the header line!
+			(setq growth (- top y))))
+		 (setq wconfig (current-window-configuration))
+		 
 		 ;; Check for an error case.
-		 (if (and (/= growth 0)
-			  (not minibuffer)
-			  (one-window-p t))
-		     (error "Attempt to resize sole window"))
+		 (when (and (/= growth 0)
+			    (not minibuffer)
+			    (one-window-p t))
+		   (error "Attempt to resize sole window"))
+		 
 		 ;; grow/shrink minibuffer?
 		 (if should-enlarge-minibuffer
 		     (progn
@@ -284,21 +409,48 @@ This command must be bound to a mouse click."
 		       (enlarge-window (- growth))
 		       (select-window start-event-window))
 		   ;; no.  grow/shrink the selected window
+		   ;(message "growth = %d" growth)
 		   (enlarge-window growth))
+		 
 		 ;; if this window's growth caused another
 		 ;; window to be deleted because it was too
 		 ;; short, rescind the change.
 		 ;;
 		 ;; if size change caused space to be stolen
 		 ;; from a window above this one, rescind the
-		 ;; change, but only if we didn't grow/srhink
+		 ;; change, but only if we didn't grow/shrink
 		 ;; the minibuffer.  minibuffer size changes
 		 ;; can cause all windows to shrink... no way
 		 ;; around it.
-		 (if (or (/= start-nwindows (count-windows t))
-			 (and (not should-enlarge-minibuffer)
-			      (/= top (nth 1 (window-edges)))))
-		     (set-window-configuration wconfig)))))))))
+		 (when (or (/= start-nwindows (count-windows t))
+			   (and (not should-enlarge-minibuffer)
+				mode-line-p
+				(/= top (nth 1 (window-edges)))))
+		   (set-window-configuration wconfig)))))))))
+
+(defun mouse-drag-mode-line (start-event)
+  "Change the height of a window by dragging on the mode line."
+  (interactive "e")
+  (mouse-drag-mode-line-1 start-event t))
+
+(defun mouse-drag-header-line (start-event)
+  "Change the height of a window by dragging on the header line.
+Windows whose header-lines are at the top of the frame cannot be
+resized by dragging their header-line."
+  (interactive "e")
+  ;; Changing the window's size by dragging its header-line when the
+  ;; header-line is at the top of the frame is somewhat strange,
+  ;; because the header-line doesn't move, so don't do it.
+  (let* ((start (event-start start-event))
+	 (window (posn-window start))
+	 (frame (window-frame window))
+	 (first-window (frame-first-window frame)))
+    (when (or (eq window first-window)
+	      (= (nth 1 (window-edges window))
+		 (nth 1 (window-edges first-window))))
+      (error "Cannot move header-line at the top of the frame"))
+    (mouse-drag-mode-line-1 start-event nil)))
+
 
 (defun mouse-drag-vertical-line (start-event)
   "Change the width of a window by dragging on the vertical line."
@@ -524,6 +676,7 @@ remains active.  Otherwise, it remains until the next input event."
 	 (start-point (posn-point start-posn))
 	 (start-window (posn-window start-posn))
 	 (start-frame (window-frame start-window))
+	 (start-hscroll (window-hscroll start-window))
 	 (bounds (window-edges start-window))
 	 (top (nth 1 bounds))
 	 (bottom (if (window-minibuffer-p start-window)
@@ -646,9 +799,10 @@ remains active.  Otherwise, it remains until the next input event."
 			 (mouse-set-region-1))))
 	      (delete-overlay mouse-drag-overlay)
 	      ;; Run the binding of the terminating up-event.
-	      (if (fboundp fun)
-		  (setq unread-command-events
-			(cons event unread-command-events)))))
+	      (when (and (functionp fun)
+			 (= start-hscroll (window-hscroll start-window)))
+		(setq unread-command-events
+		      (cons event unread-command-events)))))
 	(delete-overlay mouse-drag-overlay)))))
 
 ;; Commands to handle xterm-style multiple clicks.
@@ -796,59 +950,57 @@ If DIR is positive skip forward; if negative, skip backward."
 
 (defun mouse-show-mark ()
   (if transient-mark-mode
-      (if window-system
-	  (delete-overlay mouse-drag-overlay))
-    (if window-system
-	(let ((inhibit-quit t)
-	      (echo-keystrokes 0)
-	      event events key ignore
-	      x-lost-selection-hooks)
-	  (add-hook 'x-lost-selection-hooks
-		    '(lambda (seltype)
-		       (if (eq seltype 'PRIMARY)
-			   (progn (setq ignore t)
-				  (throw 'mouse-show-mark t)))))
-	  (move-overlay mouse-drag-overlay (point) (mark t))
-	  (catch 'mouse-show-mark
-	    ;; In this loop, execute scroll bar and switch-frame events.
-	    ;; Also ignore down-events that are undefined.
-	    (while (progn (setq event (read-event))
-			  (setq events (append events (list event)))
-			  (setq key (apply 'vector events))
-			  (or (and (consp event)
-				   (eq (car event) 'switch-frame))
-			      (and (consp event)
-				   (eq (posn-point (event-end event))
-				       'vertical-scroll-bar))
-			      (and (memq 'down (event-modifiers event))
-				   (not (key-binding key))
-				   (not (mouse-undouble-last-event events))
-				   (not (member key mouse-region-delete-keys)))))
-	      (and (consp event)
-		   (or (eq (car event) 'switch-frame)
-		       (eq (posn-point (event-end event))
-			   'vertical-scroll-bar))
-		   (let ((keys (vector 'vertical-scroll-bar event)))
-		     (and (key-binding keys)
-			  (progn
-			    (call-interactively (key-binding keys)
-						nil keys)
-			    (setq events nil)))))))
-	  ;; If we lost the selection, just turn off the highlighting.
-	  (if ignore
-	      nil
-	    ;; For certain special keys, delete the region.
-	    (if (member key mouse-region-delete-keys)
-		(delete-region (overlay-start mouse-drag-overlay)
-			       (overlay-end mouse-drag-overlay))
-	      ;; Otherwise, unread the key so it gets executed normally.
-	      (setq unread-command-events
-		    (nconc events unread-command-events))))
-	  (setq quit-flag nil)
-	  (delete-overlay mouse-drag-overlay))
-      (save-excursion
-       (goto-char (mark t))
-       (sit-for 1)))))
+      (delete-overlay mouse-drag-overlay)
+    (let ((inhibit-quit t)
+	  (echo-keystrokes 0)
+	  event events key ignore
+	  x-lost-selection-hooks)
+      (add-hook 'x-lost-selection-hooks
+		(lambda (seltype)
+		  (if (eq seltype 'PRIMARY)
+		      (progn (setq ignore t)
+			     (throw 'mouse-show-mark t)))))
+      (move-overlay mouse-drag-overlay (point) (mark t))
+      (catch 'mouse-show-mark
+	;; In this loop, execute scroll bar and switch-frame events.
+	;; Also ignore down-events that are undefined.
+	(while (progn (setq event (read-event))
+		      (setq events (append events (list event)))
+		      (setq key (apply 'vector events))
+		      (or (and (consp event)
+			       (eq (car event) 'switch-frame))
+			  (and (consp event)
+			       (eq (posn-point (event-end event))
+				   'vertical-scroll-bar))
+			  (and (memq 'down (event-modifiers event))
+			       (not (key-binding key))
+			       (not (mouse-undouble-last-event events))
+			       (not (member key mouse-region-delete-keys)))))
+	  (and (consp event)
+	       (or (eq (car event) 'switch-frame)
+		   (eq (posn-point (event-end event))
+		       'vertical-scroll-bar))
+	       (let ((keys (vector 'vertical-scroll-bar event)))
+		 (and (key-binding keys)
+		      (progn
+			(call-interactively (key-binding keys)
+					    nil keys)
+			(setq events nil)))))))
+      ;; If we lost the selection, just turn off the highlighting.
+      (if ignore
+	  nil
+	;; For certain special keys, delete the region.
+	(if (member key mouse-region-delete-keys)
+	    (delete-region (overlay-start mouse-drag-overlay)
+			   (overlay-end mouse-drag-overlay))
+	  ;; Otherwise, unread the key so it gets executed normally.
+	  (setq unread-command-events
+		(nconc events unread-command-events))))
+      (setq quit-flag nil)
+      (delete-overlay mouse-drag-overlay))
+    (save-excursion
+      (goto-char (mark t))
+      (sit-for 1))))
 
 (defun mouse-set-mark (click)
   "Set mark at the position clicked on with the mouse.
@@ -880,7 +1032,8 @@ The text is saved in the kill ring, as with \\[kill-region]."
 
 (defun mouse-yank-at-click (click arg)
   "Insert the last stretch of killed text at the position clicked on.
-Also move point to one end of the text thus inserted (normally the end).
+Also move point to one end of the text thus inserted (normally the end),
+and set mark at the beginning..
 Prefix arguments are interpreted as with \\[yank].
 If `mouse-yank-at-point' is non-nil, insert at point
 regardless of where you click."
@@ -920,14 +1073,12 @@ This does not delete the region; it acts like \\[kill-ring-save]."
     ;; Delete, but make the undo-list entry share with the kill ring.
     ;; First, delete just one char, so in case buffer is being modified
     ;; for the first time, the undo list records that fact.
-    (let (before-change-function after-change-function
-	  before-change-functions after-change-functions)
+    (let (before-change-functions after-change-functions)
       (delete-region beg
 		     (+ beg (if (> end beg) 1 -1))))
     (let ((buffer-undo-list buffer-undo-list))
       ;; Undo that deletion--but don't change the undo list!
-      (let (before-change-function after-change-function
-	    before-change-functions after-change-functions)
+      (let (before-change-functions after-change-functions)
 	(primitive-undo 1 buffer-undo-list))
       ;; Now delete the rest of the specified region,
       ;; but don't record it.
@@ -1025,7 +1176,7 @@ If you do this twice in the same position, the selection is killed."
 		    (progn
 		      ;; Move whichever end of the region is closer to the click.
 		      ;; That is what xterm does, and it seems reasonable.
-		      (if (< (abs (- new (point))) (abs (- new (mark t))))
+		      (if (<= (abs (- new (point))) (abs (- new (mark t))))
 			  (goto-char new)
 			(set-mark new))
 		      (setq deactivate-mark nil)))
@@ -1037,8 +1188,7 @@ If you do this twice in the same position, the selection is killed."
 		(goto-char before-scroll))
 	    (exchange-point-and-mark)
 	    (kill-new (buffer-substring (point) (mark t)))
-	    (if window-system
-		(mouse-show-mark)))
+	    (mouse-show-mark))
 	  (mouse-set-region-1)
 	  (setq mouse-save-then-kill-posn
 		(list (car kill-ring) (point) click-posn)))))))
@@ -1421,26 +1571,29 @@ and selects that window."
 	  (while (and split-by-major-mode
 		      (and (> (length (car split-by-major-mode)) 3)
 			   (> (* buffers-left 10) (length buffers))))
-	    (setq subdivided-menus
-		  (cons (cons
-			 (nth 1 (car split-by-major-mode))
-			 (mouse-buffer-menu-alist
-			  (cdr (cdr (car split-by-major-mode)))))
-			subdivided-menus))
+	    (let ((this-mode-list (mouse-buffer-menu-alist
+				   (cdr (cdr (car split-by-major-mode))))))
+	      (and this-mode-list
+		   (setq subdivided-menus
+			 (cons (cons
+				(nth 1 (car split-by-major-mode))
+				this-mode-list)
+			       subdivided-menus))))
 	    (setq buffers-left
 		  (- buffers-left (length (cdr (car split-by-major-mode)))))
 	    (setq split-by-major-mode (cdr split-by-major-mode)))
 	  ;; If any major modes are left over,
 	  ;; make a single submenu for them.
 	  (if split-by-major-mode
-	      (setq subdivided-menus
-		    (cons (cons
-			   "Others"
-			   (mouse-buffer-menu-alist
-			    ;; we don't need split-by-major-mode any
-			    ;; more, so we can ditch it with nconc.
-			    (apply 'nconc (mapcar 'cddr split-by-major-mode))))
-			  subdivided-menus)))
+	      (let ((others-list
+		     (mouse-buffer-menu-alist
+		      ;; we don't need split-by-major-mode any more,
+		      ;; so we can ditch it with nconc.
+		      (apply 'nconc (mapcar 'cddr split-by-major-mode)))))
+		(and others-list
+		     (setq subdivided-menus
+			   (cons (cons "Others" others-list)
+				 subdivided-menus)))))
 	  (setq menu (cons "Buffer Menu" (nreverse subdivided-menus))))
       (progn
 	(setq alist (mouse-buffer-menu-alist buffers))
@@ -1887,8 +2040,7 @@ and selects that window."
     (if (assoc "Default" elt)
 	(delete (assoc "Default" elt) elt))
     (setcdr elt
-	    (cons (list "Default"
-			(cdr (assq 'font (frame-parameters (selected-frame)))))
+	    (cons (list "Default" default)
 		  (cdr elt)))))
 
 (defvar x-fixed-font-alist
@@ -1922,15 +2074,17 @@ and selects that window."
      ("clean 8x16"
       "-schumacher-clean-medium-r-normal--16-*-*-*-c-80-iso8859-1")
      ("")
-     ("sony 8x16" "-sony-fixed-medium-r-normal--16-*-*-*-c-80-iso8859-1"))
+     ("sony 8x16" "-sony-fixed-medium-r-normal--16-*-*-*-c-80-iso8859-1")
 ;;; We don't seem to have these; who knows what they are.
 ;;;    ("fg-18" "fg-18")
 ;;;    ("fg-25" "fg-25")
-;;;    ("lucidasanstypewriter-12" "lucidasanstypewriter-12")
-;;;    ("lucidasanstypewriter-bold-14" "lucidasanstypewriter-bold-14")
-;;;    ("lucidasanstypewriter-bold-24" "lucidasanstypewriter-bold-24")
+     ("lucidasanstypewriter-12" "-b&h-lucidatypewriter-medium-r-normal-sans-*-120-*-*-*-*-iso8859-1")
+     ("lucidasanstypewriter-bold-14" "-b&h-lucidatypewriter-bold-r-normal-sans-*-140-*-*-*-*-iso8859-1")
+     ("lucidasanstypewriter-bold-24"
+      "-b&h-lucidatypewriter-bold-r-normal-sans-*-240-*-*-*-*-iso8859-1")
 ;;;    ("lucidatypewriter-bold-r-24" "-b&h-lucidatypewriter-bold-r-normal-sans-24-240-75-75-m-140-iso8859-1")
 ;;;    ("fixed-medium-20" "-misc-fixed-medium-*-*-*-20-*-*-*-*-*-*-*")
+     )
     ("Courier"
      ;; For these, we specify the point height.
      ("8" "-adobe-courier-medium-r-normal--*-80-*-*-m-*-iso8859-1")
@@ -1999,15 +2153,21 @@ and selects that window."
 (if (not (eq system-type 'ms-dos))
     (global-set-key [S-down-mouse-1] 'mouse-set-font))
 ;; C-down-mouse-2 is bound in facemenu.el.
-(global-set-key [C-down-mouse-3] 'mouse-major-mode-menu)
+(global-set-key [C-down-mouse-3] 'mouse-popup-menubar-stuff)
 
 
 ;; Replaced with dragging mouse-1
 ;; (global-set-key [S-mouse-1]	'mouse-set-mark)
 
+;; Binding mouse-1 to mouse-select-window when on mode-, header-, or
+;; vertical-line prevents Emacs from signaling an error when the mouse
+;; button is released after dragging these lines, on non-toolkit
+;; versions.
 (global-set-key [mode-line mouse-1] 'mouse-select-window)
 (global-set-key [mode-line drag-mouse-1] 'mouse-select-window)
 (global-set-key [mode-line down-mouse-1] 'mouse-drag-mode-line)
+(global-set-key [header-line down-mouse-1] 'mouse-drag-header-line)
+(global-set-key [header-line mouse-1] 'mouse-select-window)
 (global-set-key [mode-line mouse-2] 'mouse-delete-other-windows)
 (global-set-key [mode-line mouse-3] 'mouse-delete-window)
 (global-set-key [mode-line C-mouse-2] 'mouse-split-window-horizontally)
@@ -2017,5 +2177,12 @@ and selects that window."
 (global-set-key [vertical-line mouse-1] 'mouse-select-window)
 
 (provide 'mouse)
+
+;; This file contains the functionality of the old mldrag.el.
+(defalias 'mldrag-drag-mode-line 'mouse-drag-mode-line)
+(defalias 'mldrag-drag-vertical-line 'mouse-drag-vertical-line)
+(make-obsolete 'mldrag-drag-mode-line 'mouse-drag-mode-line "21.1")
+(make-obsolete 'mldrag-drag-vertical-line 'mouse-drag-vertical-line "21.1")
+(provide 'mldrag)
 
 ;;; mouse.el ends here

@@ -1,9 +1,9 @@
-;;; mh-pick --- make a search pattern and search for a message in mh-e
-;; Time-stamp: <95/08/19 16:45:16 gildea>
+;;; mh-pick.el --- make a search pattern and search for a message in mh-e
+;; Time-stamp: <2001-07-14 13:09:34 pavel>
 
 ;; Copyright (C) 1993, 1995 Free Software Foundation, Inc.
 
-;; This file is part of mh-e, part of GNU Emacs.
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 
 ;;; Change Log:
 
-;; $Id: mh-pick.el,v 1.1.1.2 2000/06/30 17:52:41 wsanchez Exp $
+;; $Id: mh-pick.el,v 1.1.1.3 2001/10/31 17:57:16 jevans Exp $
 
 ;;; Code:
 
@@ -193,3 +193,5 @@ Add the messages found to the sequence named `search'."
 (define-key mh-pick-mode-map "\C-c\C-fr" 'mh-to-field)
 (define-key mh-pick-mode-map "\C-c\C-fs" 'mh-to-field)
 (define-key mh-pick-mode-map "\C-c\C-ft" 'mh-to-field)
+
+;;; mh-pick.el ends here

@@ -1,6 +1,6 @@
 This is ../info/sc, produced by makeinfo version 4.0 from sc.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * SC: (sc).		Supercite lets you cite parts of messages you're
 			  replying to, in flexible ways.
@@ -10,62 +10,75 @@ END-INFO-DIR-ENTRY
 and attributing the replies for various GNU Emacs mail and news reading
 subsystems.
 
-   Copyright (C) 1993 Barry A. Warsaw
+   Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 Indirect:
-sc-1: 594
-sc-2: 48099
-sc-3: 97575
+sc-1: 1358
+sc-2: 48574
+sc-3: 98050
 
 Tag Table:
 (Indirect)
-Node: Top594
-Node: Introduction1294
-Node: Usage Overview3260
-Node: What Supercite Does Not Do4417
-Node: What Supercite Does5546
-Node: Citations8373
-Node: Citation Elements10662
-Node: Recognizing Citations12540
-Node: Information Keys and the Info Alist14585
-Node: Reference Headers17176
-Node: The Built-in Header Rewrite Functions18741
-Node: Electric References21186
-Node: Getting Connected24061
-Node: Emacs 19 MUAs27578
-Node: Emacs 18 MUAs28409
-Node: MH-E with any Emacsen29764
-Node: VM with any Emacsen31524
-Node: GNEWS with any Emacsen32587
-Node: Overloading for Non-conforming MUAs33309
-Node: Replying and Yanking36558
-Node: Reply Buffer Initialization36893
-Node: Filling Cited Text43774
-Node: Selecting an Attribution47242
-Node: Attribution Preferences48099
-Node: Anonymous Attributions52010
-Node: Author Names55046
-Node: Configuring the Citation Engine57529
-Node: Using Regi59253
-Node: Frames You Can Customize63123
-Node: Post-yank Formatting Commands65647
-Node: Citing Commands66792
-Node: Insertion Commands69504
-Node: Variable Toggling Shortcuts70439
-Node: Mail Field Commands72793
-Node: Miscellaneous Commands75160
-Node: Hints to MUA Authors76424
-Node: Version 3 Changes80463
-Node: Thanks and History83159
-Node: The Supercite Mailing List84755
-Node: Concept Index85866
-Node: Command Index92024
-Node: Key Index97575
-Node: Variable Index99566
+Node: Top1358
+Node: Introduction2058
+Node: Usage Overview4024
+Node: What Supercite Does Not Do5181
+Node: What Supercite Does6310
+Node: Citations9137
+Node: Citation Elements11426
+Node: Recognizing Citations13304
+Node: Information Keys and the Info Alist15058
+Node: Reference Headers17649
+Node: The Built-in Header Rewrite Functions19214
+Node: Electric References21659
+Node: Getting Connected24534
+Node: Emacs 19 MUAs28051
+Node: Emacs 18 MUAs28882
+Node: MH-E with any Emacsen30237
+Node: VM with any Emacsen31997
+Node: GNEWS with any Emacsen33060
+Node: Overloading for Non-conforming MUAs33782
+Node: Replying and Yanking37031
+Node: Reply Buffer Initialization37366
+Node: Filling Cited Text44249
+Node: Selecting an Attribution47717
+Node: Attribution Preferences48574
+Node: Anonymous Attributions52485
+Node: Author Names55521
+Node: Configuring the Citation Engine58004
+Node: Using Regi59728
+Node: Frames You Can Customize63598
+Node: Post-yank Formatting Commands66122
+Node: Citing Commands67267
+Node: Insertion Commands69979
+Node: Variable Toggling Shortcuts70914
+Node: Mail Field Commands73268
+Node: Miscellaneous Commands75635
+Node: Hints to MUA Authors76899
+Node: Version 3 Changes80938
+Node: Thanks and History83634
+Node: The Supercite Mailing List85230
+Node: Concept Index86341
+Node: Command Index92499
+Node: Key Index98050
+Node: Variable Index100041
 
 End Tag Table

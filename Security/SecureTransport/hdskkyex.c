@@ -79,14 +79,18 @@
 #include "digests.h"
 #endif
 
+#include <assert.h>
 #include <string.h>
 
-#if	_APPLE_CDSA_
 /*
- * For this config, just for this file, we'll do this typedef....
+ * Client RSA Key Exchange msgs actually start with a two-byte
+ * length field, contrary to the first version of RFC 2246, dated
+ * January 1999. See RFC 2246, March 2002, section 7.4.7.1 for 
+ * updated requirements. 
  */
+#define RSA_CLIENT_KEY_ADD_LENGTH		1
+
 typedef	CSSM_KEY_PTR	SSLRSAPrivateKey;
-#endif
 
 static SSLErr SSLEncodeRSAServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx);
 static SSLErr SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLRSAPrivateKey *key, SSLContext *ctx);
@@ -135,37 +139,21 @@ SSLEncodeRSAServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
     exportKey.data = 0;
     hashCtx.data = 0;
     
-    #if	_APPLE_CDSA_
     /* we have a public key here... */
     CASSERT(ctx->encryptPubKey != NULL);
     CASSERT(ctx->protocolSide == SSL_ServerSide);
     
     if ((err = SSLEncodeRSAKeyParams(&exportKey, &ctx->encryptPubKey, ctx)) != 0)
-    #else
-    if (ERR(err = SSLEncodeRSAKeyParams(&exportKey, &ctx->exportKey, ctx)) != 0)
-    #endif
         goto fail;
     
-#if RSAREF
-    localKeyModulusLen = (ctx->localKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->localKey, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        localKeyModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	CASSERT(ctx->signingPubKey != NULL);
 	localKeyModulusLen = sslKeyLengthInBytes(ctx->signingPubKey);
-#else
-#error No Asymmetric crypto specified 
-#endif /* RSAREF / BSAFE */
     
     length = exportKey.length + 2 + localKeyModulusLen;     /* RSA ouputs a block as long as the modulus */
     
-    keyExch->protocolVersion = SSL_Version_3_0;
+ 	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    keyExch->protocolVersion = ctx->negProtocolVersion;
     keyExch->contentType = SSL_handshake;
     if (ERR(err = SSLAllocBuffer(&keyExch->contents, length+4, &ctx->sysCtx)) != 0)
         goto fail;
@@ -178,9 +166,9 @@ SSLEncodeRSAServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
     progress += exportKey.length;
     
     clientRandom.data = ctx->clientRandom;
-    clientRandom.length = 32;
+    clientRandom.length = SSL_CLIENT_SRVR_RAND_SIZE;
     serverRandom.data = ctx->serverRandom;
-    serverRandom.length = 32;
+    serverRandom.length = SSL_CLIENT_SRVR_RAND_SIZE;
     
     hash.data = &hashes[0];
     hash.length = 16;
@@ -213,32 +201,6 @@ SSLEncodeRSAServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
         goto fail;
     
     progress = SSLEncodeInt(progress, localKeyModulusLen, 2);
-#if RSAREF
-    if (RSAPrivateEncrypt(progress, &outputLen, hashes, 36, &ctx->localKey) != 0)   /* Sign the structure */
-        return ERR(SSLUnknownErr);
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_ENCRYPT, &AM_RSA_CRT_ENCRYPT, 0 };
-        int                 rsaResult;
-        UInt32        		encryptedOut;
-        
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPrivate, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptInit(rsa, ctx->localKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptUpdate(rsa, progress,
-                    &encryptedOut, localKeyModulusLen, hashes, 36, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = encryptedOut;
-        if ((rsaResult = B_EncryptFinal(rsa, progress+outputLen,
-                    &encryptedOut, localKeyModulusLen-outputLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += encryptedOut;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
 	err = sslRsaRawSign(ctx,
 		ctx->signingPrivKey,
 		ctx->signingKeyCsp,
@@ -250,7 +212,6 @@ SSLEncodeRSAServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 	if(err) {
 		goto fail;
 	}
-#endif /* RSAREF / BSAFE */
     CASSERT(outputLen == localKeyModulusLen);
     
     err = SSLNoErr;
@@ -268,30 +229,6 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLRSAPrivateKey *key, SSLContext *c
     SSLBuffer   modulus, exponent;
     UInt8       *progress;
     
-#if RSAREF
-    keyParams->data = 0;
-    modulus.length = (key->bits + 7) / 8;
-    modulus.data = key->modulus + MAX_RSA_MODULUS_LEN - modulus.length;
-    
-    exponent.length = MAX_RSA_MODULUS_LEN;
-    exponent.data = key->publicExponent;            /* Point at first byte */
-    
-    while (*exponent.data == 0)
-    {   ++exponent.data;
-        --exponent.length;
-    }
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, *key, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        modulus.data = keyInfo->modulus.data;
-        modulus.length = keyInfo->modulus.len;
-        exponent.data = keyInfo->exponent.data;
-        exponent.length = keyInfo->exponent.len;
-    }   
-#elif	_APPLE_CDSA_
 	err = sslGetPubKeyBits(ctx,
 		*key,
 		ctx->encryptKeyCsp,
@@ -302,9 +239,6 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLRSAPrivateKey *key, SSLContext *c
 		SSLFreeBuffer(&exponent, &ctx->sysCtx);
 		return err;
 	}
-#else
-#error No assymetric crypto specified
-#endif /* RSAREF / BSAFE */
     
     if (ERR(err = SSLAllocBuffer(keyParams, modulus.length + exponent.length + 4, &ctx->sysCtx)) != 0)
         return err;
@@ -315,11 +249,9 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLRSAPrivateKey *key, SSLContext *c
     progress = SSLEncodeInt(progress, exponent.length, 2);
     memcpy(progress, exponent.data, exponent.length);
 
-#if	_APPLE_CDSA_
 	/* these were mallocd by sslGetPubKeyBits() */
 	SSLFreeBuffer(&modulus, &ctx->sysCtx);
 	SSLFreeBuffer(&exponent, &ctx->sysCtx);
-#endif
     return SSLNoErr;
 }
 
@@ -336,7 +268,9 @@ SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
     length = 6 + ctx->dhAnonParams.primeLen + ctx->dhAnonParams.generatorLen +
                     ctx->dhExchangePublic.length;
     
-    keyExch->protocolVersion = SSL_Version_3_0;
+ 	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    keyExch->protocolVersion = ctx->negProtocolVersion;
     keyExch->contentType = SSL_handshake;
     if (ERR(err = SSLAllocBuffer(&keyExch->contents, length+4, &ctx->sysCtx)) != 0)
         return err;
@@ -390,7 +324,9 @@ SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
         
         length = 6 + params->prime.len + params->base.len + ctx->dhExchangePublic.length;
         
-        keyExch->protocolVersion = SSL_Version_3_0;
+		assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+			   (ctx->negProtocolVersion == TLS_Version_1_0));
+        keyExch->protocolVersion = ctx->negProtocolVersion;
         keyExch->contentType = SSL_handshake;
         if (ERR(err = SSLAllocBuffer(&keyExch->contents, length+4, &ctx->sysCtx)) != 0)
             return err;
@@ -450,12 +386,7 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
     SSLBuffer       tempPubKey, hashOut, hashCtx, clientRandom, serverRandom;
     UInt16          modulusLen, exponentLen, signatureLen;
     UInt8           *progress, *modulus, *exponent, *signature;
-	#if	_APPLE_CDSA_
     UInt8           hash[36];
-    #else
-    UInt8           hash[20];
-    UInt32    		outputLen;
-    #endif	/* _APPLE_CDSA_ */
     SSLBuffer       signedHashes;
     
     signedHashes.data = 0;
@@ -487,63 +418,10 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
         return ERR(SSLProtocolErr);
     }
     
-#if RSAREF
-    {   /* Allocate room for the signed hashes; RSA can encrypt data
-            as long as the modulus */
-        if (ERR(err = SSLAllocBuffer(&signedHashes, (ctx->peerKey.bits + 7)/8, &ctx->sysCtx)) != 0)
-            return err;
-
-        if ((RSAPublicDecrypt(signedHashes.data, &outputLen, signature, signatureLen,
-                            &ctx->peerKey)) != 0)
-        {   ERR(err = SSLUnknownErr);
-            goto fail;
-        }
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_MD2, &AM_MD5, &AM_RSA_DECRYPT, 0 };
-        int                 rsaResult;
-        unsigned int        decryptLen;
-        
-        /* Allocate room for the signed hashes; BSAFE makes sure we don't decode too much data */
-        if (ERR(err = SSLAllocBuffer(&signedHashes, 36, &ctx->sysCtx)) != 0)
-            return err; 
-    
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPublic, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptInit(rsa, ctx->peerKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptUpdate(rsa, signedHashes.data, &decryptLen, 36,
-                    signature, signatureLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = decryptLen;
-        if ((rsaResult = B_DecryptFinal(rsa, signedHashes.data+outputLen,
-                    &decryptLen, 36-outputLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += decryptLen;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
-	
-	/* not yet - calculate the hashes and then do a sig verify */
-		
-#else
-#error No Asymmetric crypto module
-#endif
-
-	#ifndef	_APPLE_CDSA_
-    if (outputLen != 36)
-    {   ERR(err = SSLProtocolErr);
-        goto fail;
-    }
-    #endif
-    
     clientRandom.data = ctx->clientRandom;
-    clientRandom.length = 32;
+    clientRandom.length = SSL_CLIENT_SRVR_RAND_SIZE;
     serverRandom.data = ctx->serverRandom;
-    serverRandom.length = 32;
+    serverRandom.length = SSL_CLIENT_SRVR_RAND_SIZE;
     tempPubKey.data = message.data;
     tempPubKey.length = modulusLen + exponentLen + 4;
     hashOut.data = hash;
@@ -560,18 +438,10 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
     if (ERR(err = SSLHashMD5.final(hashCtx, hashOut)) != 0)
         goto fail;
         
-    #if		_APPLE_CDSA_
     /* 
      * SHA hash goes right after the MD5 hash 
      */
     hashOut.data = hash + 16; 
-    #else
-    if ((memcmp(hash, signedHashes.data, 16)) != 0)
-    {   ERR(err = SSLProtocolErr);
-        goto fail;
-    }
-    #endif	/* _APPLE_CDSA_ */
-
     hashOut.length = 20;
     if (ERR(err = SSLFreeBuffer(&hashCtx, &ctx->sysCtx)) != 0)
         goto fail;
@@ -587,8 +457,6 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
     if (ERR(err = SSLHashSHA1.final(hashCtx, hashOut)) != 0)
         goto fail;
 
-	#if	_APPLE_CDSA_
-
 	err = sslRsaRawVerify(ctx,
 		ctx->peerPubKey,
 		ctx->peerPubKeyCsp,
@@ -601,54 +469,8 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 			err);
 		goto fail;
 	}
-	
-	#else	/* old BSAFE/RSAREF */
-	
-    if ((memcmp(hash, signedHashes.data + 16, 20)) != 0)
-    {   ERR(err = SSLProtocolErr);
-        goto fail;
-    }
-
-	#endif
     
-/* Signature matches; now replace server key with new key */
-#if RSAREF
-    memset(&ctx->peerKey, 0, sizeof(R_RSA_PUBLIC_KEY));
-    memcpy(ctx->peerKey.modulus + (MAX_RSA_MODULUS_LEN - modulusLen),
-            modulus, modulusLen);
-    memcpy(ctx->peerKey.exponent + (MAX_RSA_MODULUS_LEN - exponentLen),
-            exponent, exponentLen);
-    
-/* Adjust bit length for leading zeros in value; assume no more than 8 leading zero bits */
-    {   unsigned int    bitAdjust;
-        UInt8           c;
-        
-        c = modulus[0];
-        
-        bitAdjust = 8;
-        while (c != 0)
-        {   --bitAdjust;
-            c >>= 1;
-        }
-        ctx->peerKey.bits = modulusLen * 8 - bitAdjust;
-    }
-    err = SSLNoErr;
-#elif BSAFE
-    {   A_RSA_KEY   pubKeyInfo;
-        int         rsaErr;
-        
-        pubKeyInfo.modulus.data = modulus;
-        pubKeyInfo.modulus.len = modulusLen;
-        pubKeyInfo.exponent.data = exponent;
-        pubKeyInfo.exponent.len = exponentLen;
-        
-        if ((rsaErr = B_CreateKeyObject(&ctx->peerKey)) != 0)
-            return SSLUnknownErr;
-        if ((rsaErr = B_SetKeyInfo(ctx->peerKey, KI_RSAPublic, (POINTER)&pubKeyInfo)) != 0)
-            return SSLUnknownErr;
-    }
-    err = SSLNoErr;
-#elif _APPLE_CDSA_
+	/* Signature matches; now replace server key with new key */
 	{
 		SSLBuffer modBuf;
 		SSLBuffer expBuf;
@@ -669,9 +491,6 @@ SSLProcessRSAServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 			&ctx->peerPubKey,
 			&ctx->peerPubKeyCsp);
 	}
-#else
-#error No Assymmetric crypto module
-#endif /* RSAREF / BSAFE */
 fail:
     ERR(SSLFreeBuffer(&signedHashes, &ctx->sysCtx));
     ERR(SSLFreeBuffer(&hashCtx, &ctx->sysCtx));
@@ -816,133 +635,86 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 {   SSLErr              err;
     SSLBuffer           result;
     UInt32        		outputLen, localKeyModulusLen;
-    SSLRSAPrivateKey    *key;
+    CSSM_KEY_PTR    	*key;
     SSLProtocolVersion  version;
     Boolean				useEncryptKey = false;
+	UInt8				*src = NULL;
+	
     
-    #if	_APPLE_CDSA_
+	/* different key names, also need CSP handle */
+	CSSM_CSP_HANDLE		cspHand;
+	
+	CASSERT(ctx->protocolSide == SSL_ServerSide);
+	
+	/* 
+	 * FIXME - The original SSLRef looked at 
+	 * ctx->selectedCipherSpec->keyExchangeMethod to decide which 
+	 * key to use (exportKey or localKey). I really don't think we 
+	 * want to use that - it's constant. We need to look at 
+	 * whether the app specified encrypting certs, right?
+	 */
+	#if		SSL_SERVER_KEYEXCH_HACK
+		/* 
+		 * the way we work with Netscape.
+		 * FIXME - maybe we should *require* an encryptPrivKey in this
+		 * situation?
+		 */
+		if((ctx->selectedCipherSpec->keyExchangeMethod == SSL_RSA_EXPORT) &&
+			(ctx->encryptPrivKey != NULL)) {
+			useEncryptKey = true;
+		}
+		
+	#else	/* !SSL_SERVER_KEYEXCH_HACK */
+		/* The "correct" way, I think, which doesn't work with Netscape */
+		if (ctx->encryptPrivKey) {
+			useEncryptKey = true;
+		}
+	#endif	/* SSL_SERVER_KEYEXCH_HACK */
+	if (useEncryptKey) {
+		key = &ctx->encryptPrivKey;
+		cspHand = ctx->encryptKeyCsp;
+	} 
+	else {
+		key = &ctx->signingPrivKey;
+		cspHand = ctx->signingKeyCsp;
+	}
     
-	    /* different key names, also need CSP handle */
-	    CSSM_CSP_HANDLE		cspHand;
-	    
-	    CASSERT(ctx->protocolSide == SSL_ServerSide);
-	    
-	    /* 
-	     * FIXME - The original SSLRef looked at 
-	     * ctx->selectedCipherSpec->keyExchangeMethod to decide which 
-	     * key to use (exportKey or localKey). I really don't think we 
-	     * want to use that - it's constant. We need to look at 
-	     * whether the app specified encrypting certs, right?
-	     */
-	    #if		SSL_SERVER_KEYEXCH_HACK
-	    	/* 
-	    	 * the way we work with Netscape.
-	    	 * FIXME - maybe we should *require* an encryptPrivKey in this
-	    	 * situation?
-	    	 */
-	    	if((ctx->selectedCipherSpec->keyExchangeMethod == SSL_RSA_EXPORT) &&
-	    	   (ctx->encryptPrivKey != NULL)) {
-	    	   	useEncryptKey = true;
-	    	}
-	    	
-	    #else	/* !SSL_SERVER_KEYEXCH_HACK */
-	    	/* The "correct" way, I think, which doesn't work with Netscape */
-	    	if (ctx->encryptPrivKey) {
-	    		useEncryptKey = true;
-	    	}
-	    #endif	/* SSL_SERVER_KEYEXCH_HACK */
-	    if (useEncryptKey) {
-	        key = &ctx->encryptPrivKey;
-	        cspHand = ctx->encryptKeyCsp;
-	    } 
-	    else {
-	        key = &ctx->signingPrivKey;
-	        cspHand = ctx->signingKeyCsp;
-	    }
-    #else	/* original SSLRef3 */
-	    if (ctx->selectedCipherSpec->keyExchangeMethod == SSL_RSA_EXPORT)
-	        key = &ctx->exportKey;
-	    else
-	        key = &ctx->localKey;
-    #endif	/* _APPLE_CDSA_ */
-    result.data = 0;
-    
-#if RSAREF
-    localKeyModulusLen = (key->bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, *key, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        localKeyModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	localKeyModulusLen = sslKeyLengthInBytes(*key);
-#else
-#error No assymetric crypto module
-#endif /* RSAREF / BSAFE */
-    
-    if (keyExchange.length != localKeyModulusLen) {
-    	errorLog0("SSLDecodeRSAKeyExchange: length error\n");
+
+	/* 
+	 * We have to tolerate incoming key exchange msgs with and without the 
+	 * two-byte "encrypted length" field.
+	 */
+    if (keyExchange.length == localKeyModulusLen) {
+		/* no length encoded */
+		src = keyExchange.data;
+	}
+	else if((keyExchange.length == (localKeyModulusLen + 2)) &&
+		(ctx->negProtocolVersion >= TLS_Version_1_0)) {
+		/* TLS only - skip the length bytes */
+		src = keyExchange.data + 2;
+	}
+	else {
+    	errorLog2("SSLDecodeRSAKeyExchange: length error (exp %u got %u)\n",
+			(unsigned)localKeyModulusLen, (unsigned)keyExchange.length);
         return ERR(SSLProtocolErr);
 	}
-	
-#if RSAREF
-    if (ERR(err = SSLAllocBuffer(&result, localKeyModulusLen, &ctx->sysCtx)) != 0)
+    err = SSLAllocBuffer(&result, localKeyModulusLen, &ctx->sysCtx);
+	if(err != 0) {
         return err;
-    if ((RSAPrivateDecrypt(result.data, &outputLen, keyExchange.data, keyExchange.length, key)) != 0)
-    {   ERR(err = SSLUnknownErr);
-        goto fail;
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_DECRYPT, &AM_RSA_CRT_DECRYPT, 0 };
-        int                 rsaResult;
-        unsigned int        decryptLen;
-        
-        /* Allocate room for the premaster secret; BSAFE makes sure we don't decode too much data */
-        if (ERR(err = SSLAllocBuffer(&result, 48, &ctx->sysCtx)) != 0)
-            return err; 
-    
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPrivate, 0)) != 0)
-            return SSLUnknownErr;
-        #ifdef	macintosh
-        /* 
-         * I think this is an SSLRef bug - we need to use the right key here,
-         * as the RSAREF case above does!
-         */
-         if ((rsaResult = B_DecryptInit(rsa, *key, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-       #else	/* the SSLRef way */
-        if ((rsaResult = B_DecryptInit(rsa, ctx->localKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        #endif	/* mac/SSLREF */
-        if ((rsaResult = B_DecryptUpdate(rsa, result.data, &decryptLen, 48,
-                    keyExchange.data, keyExchange.length, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = decryptLen;
-        if ((rsaResult = B_DecryptFinal(rsa, result.data+outputLen,
-                    &decryptLen, 48-outputLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += decryptLen;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
+	}
+	
 	err = sslRsaDecrypt(ctx,
 		*key,
 		cspHand,
-		keyExchange.data, 
-		keyExchange.length,
+		src, 
+		localKeyModulusLen,
 		result.data,
 		48,
 		&outputLen);
 	if(err) {
 		goto fail;
 	}
-#endif
     
     if (outputLen != 48)
     {   
@@ -959,9 +731,11 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
     	ERR(err = SSLProtocolErr);
         goto fail;
     }
-    if (ERR(err = SSLAllocBuffer(&ctx->preMasterSecret, 48, &ctx->sysCtx)) != 0)
+    if (ERR(err = SSLAllocBuffer(&ctx->preMasterSecret, 
+			SSL_RSA_PREMASTER_SECRET_SIZE, &ctx->sysCtx)) != 0)
         goto fail;
-    memcpy(ctx->preMasterSecret.data, result.data, 48);
+    memcpy(ctx->preMasterSecret.data, result.data, 
+		SSL_RSA_PREMASTER_SECRET_SIZE);
     
     err = SSLNoErr;
 fail:
@@ -1041,97 +815,60 @@ static SSLErr
 SSLEncodeRSAKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 {   SSLErr              err;
     UInt32        		outputLen, peerKeyModulusLen;
-    #if	!_APPLE_CDSA_
-    SSLRandomCtx        rsaRandom;
-    int                 rsaResult;
-    #endif
-    
+    UInt32				bufLen;
+	UInt8				*dst;
+	bool				encodeLen = false;
+	
     if (ERR(err = SSLEncodeRSAPremasterSecret(ctx)) != 0)
         return err;
     
-    #if	!_APPLE_CDSA_
-    if (ERR(err = ReadyRandom(&rsaRandom, ctx)) != 0)
-        return err;
-    #endif
-    
     keyExchange->contentType = SSL_handshake;
-    keyExchange->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+			(ctx->negProtocolVersion == TLS_Version_1_0));
+    keyExchange->protocolVersion = ctx->negProtocolVersion;
         
-#if RSAREF
-    peerKeyModulusLen = (ctx->peerKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->peerKey, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        peerKeyModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	peerKeyModulusLen = sslKeyLengthInBytes(ctx->peerPubKey);
-#else
-#error No Assymetric Crypto
-#endif /* RSAREF / BSAFE */
-    if (ERR(err = SSLAllocBuffer(&keyExchange->contents,peerKeyModulusLen + 4,&ctx->sysCtx)) != 0)
+	bufLen = peerKeyModulusLen + 4;
+	#if 	RSA_CLIENT_KEY_ADD_LENGTH
+	if(ctx->negProtocolVersion >= TLS_Version_1_0) {
+		bufLen += 2;
+		encodeLen = true;
+	}
+	#endif
+    if (ERR(err = SSLAllocBuffer(&keyExchange->contents, 
+		bufLen,&ctx->sysCtx)) != 0)
     {   
-#if RSAREF
-        R_RandomFinal(&rsaRandom);
-#elif BSAFE
-        B_DestroyAlgorithmObject(&rsaRandom);
-#endif
         return err;
     }
+	dst = keyExchange->contents.data + 4;
+	if(encodeLen) {
+		dst += 2;
+	}
     keyExchange->contents.data[0] = SSL_client_key_exchange;
-    SSLEncodeInt(keyExchange->contents.data + 1, peerKeyModulusLen, 3);
-#if RSAREF
-    if ((rsaResult = RSAPublicEncrypt(keyExchange->contents.data+4, &outputLen,
-                                ctx->preMasterSecret.data, 48,
-                                &ctx->peerKey,&rsaRandom)) != 0)
-    {   R_RandomFinal(&rsaRandom);
-        return ERR(SSLUnknownErr);
-    }
-    
-    R_RandomFinal(&rsaRandom);
-
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_ENCRYPT, 0 };
-        int                 rsaResult;
-        unsigned int        encryptedOut;
-        
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPublic, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptInit(rsa, ctx->peerKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_EncryptUpdate(rsa, keyExchange->contents.data+4,
-                    &encryptedOut, peerKeyModulusLen, ctx->preMasterSecret.data, 48, rsaRandom, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = encryptedOut;
-        if ((rsaResult = B_EncryptFinal(rsa, keyExchange->contents.data+4+outputLen,
-                    &encryptedOut, peerKeyModulusLen-outputLen, rsaRandom, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += encryptedOut;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-    
-    B_DestroyAlgorithmObject(&rsaRandom);
-#elif _APPLE_CDSA_
+	
+	/* this is the record payload length */
+    SSLEncodeInt(keyExchange->contents.data + 1, bufLen - 4, 3);
+	if(encodeLen) {
+		/* the length of the encrypted pre_master_secret */
+		SSLEncodeInt(keyExchange->contents.data + 4, 			
+			peerKeyModulusLen, 2);
+	}
 	err = sslRsaEncrypt(ctx,
 		ctx->peerPubKey,
 		/* FIXME - maybe this should be ctx->cspHand */
 		ctx->peerPubKeyCsp,
 		ctx->preMasterSecret.data, 
-		48,
-		keyExchange->contents.data+4,
+		SSL_RSA_PREMASTER_SECRET_SIZE,
+		dst,
 		peerKeyModulusLen,
 		&outputLen);
 	if(err) {
 		return err;
 	}
-#endif  
     
-    CASSERT(outputLen + 4 == keyExchange->contents.length);
+    CASSERT(outputLen == encodeLen ? 
+		keyExchange->contents.length - 6 :
+		keyExchange->contents.length - 4 );
     
     return SSLNoErr;
 }
@@ -1148,7 +885,9 @@ SSLEncodeDHanonKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
     outputLen = ctx->dhExchangePublic.length + 2;
     
     keyExchange->contentType = SSL_handshake;
-    keyExchange->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+			(ctx->negProtocolVersion == TLS_Version_1_0));
+    keyExchange->protocolVersion = ctx->negProtocolVersion;
     
     if (ERR(err = SSLAllocBuffer(&keyExchange->contents,outputLen + 4,&ctx->sysCtx)) != 0)
         return err;

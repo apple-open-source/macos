@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,17 +45,19 @@
 #include <mach/exception.h>
 
 #import <sys/ioctl.h>
+#import <sys/types.h>
+#import <sys/wait.h>
+#import <pthread.h>
 #import	<string.h>
 #import	<ctype.h>
 #import	<stdio.h>
 #import <libc.h>
 
-#include "bootstrap.h"
+#import "bootstrap.h"
 
 #import "bootstrap_internal.h"
 #import "lists.h"
 #import "error_log.h"
-#import "parser.h"
 
 /* Mig should produce a declaration for this,  but doesn't */
 extern boolean_t bootstrap_server(mach_msg_header_t *InHeadP, mach_msg_header_t *OutHeadP);
@@ -65,41 +67,19 @@ extern boolean_t bootstrap_server(mach_msg_header_t *InHeadP, mach_msg_header_t 
  */
 const char *program_name;	/* our name for error messages */
 
-#ifndef CONF_FILE
-#define	CONF_FILE	"/etc/bootstrap.conf"	/* default config file */
-#endif CONF_FILE
-
-const char *conf_file = CONF_FILE;
-
-const unsigned BOOTSTRAP_REPLY_TIMEOUT = 10 * 1000; // 10 sec reply timeout
-#ifdef notyet
-port_all_t backup_port;
-#endif /* notyet */
-/*
- * Last resort configuration
- *
- * If we can't find a /etc/bootstrap.conf, we use this configuration.
- * The services defined here are compatable with the old mach port stuff,
- * and of course, the names for these services should not be modified without
- * modifying mach_init in libc.
- */
-const char *default_conf =
-	"init \"/sbin/init\";"
-	"services NetMessage;";
+#ifndef INIT_PATH
+#define INIT_PATH	"/sbin/init"			/* default init path */
+#endif  INIT_PATH
 	
+uid_t inherited_uid;
 mach_port_t inherited_bootstrap_port = MACH_PORT_NULL;
 boolean_t forward_ok = FALSE;
+boolean_t shutdown_in_progress = FALSE;
 boolean_t debugging = FALSE;
 boolean_t register_self = FALSE;
-int init_priority = BASEPRI_USER;
-char *register_name = NULL;
-mach_port_t	bootstrap_master_device_port;	/* local name */
-mach_port_t	bootstrap_master_host_port;	/* local name */
-mach_port_t	bootstrap_notification_port;	/* local name */
-mach_port_t	security_port;
-mach_port_t	root_ledger_wired;
-mach_port_t	root_ledger_paged;
-task_port_t	bootstrap_self;
+boolean_t force_fork = FALSE;
+const char *register_name;
+task_t	bootstrap_self;
 
 #ifndef ASSERT
 #define ASSERT(p)
@@ -115,15 +95,20 @@ task_port_t	bootstrap_self;
 /*
  * Private declarations
  */	
-static void add_init_arg(const char *arg);
 static void wait_for_go(mach_port_t init_notify_port);
 static void init_ports(void);
 static void start_server(server_t *serverp);
-static void unblock_init(task_port_t task, mach_port_t newBootstrap);
+static void unblock_init(mach_port_t init_notify_port, mach_port_t newBootstrap);
 static void exec_server(server_t *serverp);
 static char **argvize(const char *string);
+static void *demand_loop(void *arg);
 static void server_loop(void);
-static void msg_destroy(mach_msg_header_t *m);
+extern kern_return_t bootstrap_register
+(
+	mach_port_t bootstrap_port,
+	name_t service_name,
+	mach_port_t service_port
+);
 
 /*
  * Private ports we hold receive rights for.  We also hold receive rights
@@ -131,35 +116,134 @@ static void msg_destroy(mach_msg_header_t *m);
  * structs.
  */
 mach_port_t bootstrap_port_set;
-mach_port_t notify_port;
+mach_port_t demand_port_set;
+pthread_t	demand_thread;
 
-static int init_pid;
-static int running_servers;
-static char init_args[BOOTSTRAP_MAX_CMD_LEN];
+mach_port_t notify_port;
+mach_port_t backup_port;
+
+static void
+notify_server_loop(mach_port_name_t about)
+{
+	mach_port_destroyed_notification_t not;
+	mach_msg_return_t nresult;
+
+	not.not_header.msgh_id = DEMAND_REQUEST;
+	not.not_header.msgh_remote_port = backup_port;
+	not.not_header.msgh_local_port = MACH_PORT_NULL;
+	not.not_header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MAKE_SEND, 0);
+	not.not_header.msgh_size = sizeof(not) - sizeof(not.trailer);
+	not.not_body.msgh_descriptor_count = 1;
+	not.not_port.type = MACH_MSG_PORT_DESCRIPTOR;
+	not.not_port.disposition = MACH_MSG_TYPE_PORT_NAME;
+	not.not_port.name = about;
+	nresult = mach_msg_send(&not.not_header);
+	if (nresult != MACH_MSG_SUCCESS) {
+		kern_error(nresult, "notify_server: mach_msg_send()");
+	}
+}
 
 void _myExit(int arg)
 {
     exit(arg);
 }
 
-/* It was a bozo who made main return a value!  Civil disobedience, here. */
-void
-main(int argc, const char * const argv[])
+void toggle_debug(int signal)
+{
+	debugging = (debugging) ? FALSE : TRUE;
+}
+
+void start_shutdown(int signal)
+{
+	debug("received SIGTERM");
+	shutdown_in_progress = TRUE;
+	notify_server_loop(MACH_PORT_DEAD);
+}
+
+int
+main(int argc, char * argv[])
 {
 	const char *argp;
 	char c;
-	server_t *init_serverp;
 	server_t *serverp;
-	mach_port_t init_notify_port;
 	kern_return_t result;
+	mach_port_t init_notify_port;
+	pthread_attr_t  attr;
+	sigset_t mask;
 	int pid;
-	int force_fork = FALSE;
-	mach_port_t prev_port;
-#if defined(__APPLE__)
-        extern void exit(int);
-	
-	/* signal (SIGUSR2, _myExit); */
-#endif
+
+	/*
+	 * If we are pid one, we have to exec init.  Before doing so, we'll
+	 * fork a child, and that will become the true mach_init.  But we have
+	 * to be very careful about ports.  They aren't inherited across fork,
+	 * so we have to avoid storing port names in memory before the fork that
+	 * might not be valid after.
+	 */
+	pid = getpid();
+	if (pid == 1)
+	{
+		close(0);
+		freopen("/dev/console", "r", stdin);
+		setbuf(stdin, NULL);
+		close(1);
+		freopen("/dev/console", "w", stdout);
+		setbuf(stdout, NULL);
+		close(2);
+		freopen("/dev/console", "w", stderr);
+		setbuf(stderr, NULL);
+
+		result = mach_port_allocate(
+						mach_task_self(),
+						MACH_PORT_RIGHT_RECEIVE,
+						&init_notify_port);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "mach_port_allocate");
+
+		result = mach_port_insert_right(
+						mach_task_self(),
+						init_notify_port,
+						init_notify_port,
+						MACH_MSG_TYPE_MAKE_SEND);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "mach_port_insert_right");
+
+		result = task_set_bootstrap_port(
+						mach_task_self(),
+						init_notify_port);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "task_set_bootstrap_port");
+
+		pid = fork();
+
+		if (pid < 0)
+			unix_fatal("fork");
+
+		else if (pid != 0) {  /* PARENT - will become init when ready */
+			int fd;
+
+			/*
+			 * Wait for mach_init ot give us a real bootstrap port
+			 */
+			wait_for_go(init_notify_port);
+			info("Execing init");
+
+			close(0);
+			close(1);
+			close(2);
+			fd = open("/dev/tty", O_RDONLY);
+			if (fd >= 0) {
+				ioctl(fd, TIOCNOTTY, 0);
+				close(fd);
+			}
+			
+			/* pass our arguments on to init */
+			argv[0] = INIT_PATH;
+			execv(argv[0], argv);
+			exit(1);  /* will likely trigger a panic */
+
+		}
+	} else
+		init_notify_port = MACH_PORT_NULL;
 
 	/* Initialize error handling */
  	program_name = rindex(*argv, '/');
@@ -169,35 +253,8 @@ main(int argc, const char * const argv[])
 		program_name = *argv;
  	argv++; argc--;
 
-	init_pid = getpid();
-	init_errlog(init_pid == 1);
-
-	/*
-	 * Get master host and device ports
-	 */
-#if 0
-	result = bootstrap_ports(bootstrap_port,
-			     &bootstrap_master_host_port,
-			     &bootstrap_master_device_port,
-			     &root_ledger_wired,
-			     &root_ledger_paged,
-			     &security_port);
-	if (result != KERN_SUCCESS) {
-	printf("bootstrap_ports failed \n");
-		kern_error(result, "bootstrap_ports");
-	}
-#endif /* 0 */
-	/*
-	 *	This task will become the bootstrap task.
-	 */
-	bootstrap_self = mach_task_self();
-
-	/* Initialize globals */
-	init_lists();
-
 	/* Parse command line args */
 	while (argc > 0 && **argv == '-') {
-		boolean_t init_arg = FALSE;
 		argp = *argv++ + 1; argc--;
 		while (*argp) {
 			switch (c = *argp++) {
@@ -210,15 +267,6 @@ main(int argc, const char * const argv[])
 			case 'F':
 				force_fork = TRUE;
 				break;
-			case 'f':
-				if (argc > 0) {
-					conf_file = *argv++; argc--;
-				} else
-					fatal("-f requires config file name");
-				break;
-			case '-':
-				init_arg = TRUE;
-				break;
 			case 'r':
 				register_self = forward_ok = TRUE;
 				if (argc > 0) {
@@ -226,232 +274,265 @@ main(int argc, const char * const argv[])
 				} else
 					fatal("-r requires name");
 				break;
+			case '-':
 			default:
-				init_arg = TRUE;
 				break;
 			}
 		}
-		if (init_arg) {
-			add_init_arg(argv[-1]);
-			goto copyargs;
-		}
 	}
-    copyargs:
-	while (argc != 0) {
-		argc--;
-		add_init_arg(*argv++);
-	}
-
-	log("Started");
-
-	/* Parse the config file */
-	init_config();
-
-	/* set_default_policy(bootstrap_master_host_port); */
 
 	/*
-	 * If we have to run init as pid 1, use notify port to
-	 * synchronize init and bootstrap
+	 * If we must fork, do it now before we get Mach ports in use
 	 */
-	if ((init_serverp = find_init_server()) != NULL) {
-		if (init_pid != 1 && ! debugging)
-			fatal("Can't start init server if not pid 1");
-            result = mach_port_allocate(bootstrap_self, MACH_PORT_RIGHT_RECEIVE,
-                                    &init_notify_port);
-            if (result != KERN_SUCCESS)
-                    kern_fatal(result, "mach_port_allocate");
-            result = mach_port_insert_right(mach_task_self(), init_notify_port, init_notify_port, MACH_MSG_TYPE_MAKE_SEND);
-            if (result != KERN_SUCCESS)
-                kern_fatal(result, "mach_port_insert_right");
-            task_set_bootstrap_port(bootstrap_self, init_notify_port);
-            if (result != KERN_SUCCESS)
-                kern_fatal(result, "task_set_bootstrap_port");
-	    /*
-	     *  XXX restart the service if it dies?
-	     */
-                result = mach_port_request_notification(mach_task_self(),
-						mach_task_self(),
-						MACH_NOTIFY_DEAD_NAME,
-						0,
-						init_notify_port,
-						MACH_MSG_TYPE_MAKE_SEND_ONCE,
-						&prev_port);
-	    if (result != KERN_SUCCESS)
-			kern_fatal(result, "mach_port_request_notification");
-		debug("Set port %d for parent proc notify port",
-		      init_notify_port);
-                } else if (init_args[0] != '\0')
-		fatal("Extraneous command line arguments");
-	
-	/* Fork if either not debugging or running /etc/init */
-	if (force_fork || !debugging || init_serverp != NULL) {
+	if (force_fork) {
 		pid = fork();
 		if (pid < 0)
 			unix_fatal("fork");
-	} else
-		pid = 0;
-	
-	/* Bootstrap service runs in child (if there is one) */
-	if (pid == 0) {	/* CHILD */
-		/*
-		 * If we're initiated by pid 1, we shouldn't get ever get 
-		 * killed; designate ourselves as an "init process".
-		 *
-		 * This should go away with new signal stuff!
-		 */
-            if (init_pid == 1)
-			init_process();
-
-            /* Create declared service ports, our service port, etc */	
-		init_ports();
-
-		/* Kick off all server processes */
-		for (  serverp = FIRST(servers)
-		     ; !IS_END(serverp, servers)
-		     ; serverp = NEXT(serverp))
-			start_server(serverp);
-		
-		/*
-		 * If our priority's to be changed, set it up here.
-		 */
-#ifdef notyet
-		if (init_priority >= 0) {
-			result = task_priority(mach_task_self(), init_priority,
-				TRUE);
-			if (result != KERN_SUCCESS)
-				kern_error(result, "task_priority %d",
-					init_priority);
-		}
-#endif /* notyet */
-		/* Process bootstrap service requests */
-		server_loop();	/* Should never return */
-                exit(1);
+		else if (pid != 0) /* PARENT: just exit */
+			exit(0);
 	}
-	
-	/* PARENT */
-	if (init_serverp != NULL) {
-		int i;
 
-		strncat(init_serverp->cmd,
-			init_args,
-			sizeof(init_serverp->cmd));
-		/*
-		 * Wait, then either exec /etc/init or exit
-		 * (which panics the system)
-		 */
-		for (i = 3; i; i--)
-			close(i);
-		wait_for_go(init_notify_port);
-                exec_server(init_serverp);
+	/* block all but SIGHUP and SIGTERM and mark us as an init process */
+	setsid();
+	sigfillset(&mask);
+	sigdelset(&mask, SIGHUP);
+	signal(SIGHUP, toggle_debug);
+	sigdelset(&mask, SIGTERM);
+	signal(SIGTERM, start_shutdown);
+	(void) sigprocmask(SIG_SETMASK, &mask, (sigset_t *)NULL);
+
+	init_errlog(pid == 0); /* are we a daemon? */
+	init_lists();
+
+	/*
+	 *	This task will become the bootstrap task, so go ahead and
+	 *	initialize the ports now.
+	 */
+	bootstrap_self = mach_task_self();
+	inherited_uid = getuid();
+	init_ports();
+	
+	log("Started with uid=%d%s%s%s",
+		inherited_uid,
+		(register_self) ? " registered-as=" : "",
+		(register_self) ? register_name : "",
+		(debugging) ? " in debug-mode" : "");
+
+
+	/*
+	 * If we are supposed to coordinate with init, we have to
+	 * get that port again, because we only have a (probably wrong)
+	 * name in memory, not a proper right.
+ 	 */
+	if (init_notify_port != MACH_PORT_NULL) {
+		result = task_get_bootstrap_port(
+						 	bootstrap_self,
+						 	&init_notify_port);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "task_get_bootstrap_port");
+
+		unblock_init(init_notify_port, bootstraps.bootstrap_port);
+
+		result = task_set_bootstrap_port(
+							bootstrap_self,
+							MACH_PORT_NULL);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "task_set_bootstrap_port");
+
+		result = mach_port_deallocate(
+							bootstrap_self,
+							init_notify_port);  
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "mach_port_deallocate");
+
+		forward_ok = FALSE;
+		inherited_bootstrap_port = MACH_PORT_NULL;
+
+	} else {
+
+		/* get inherited bootstrap port */
+		result = task_get_bootstrap_port(
+							bootstrap_self,
+							&inherited_bootstrap_port);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "task_get_bootstrap_port");
+
+		/* We set this explicitly as we start each child */
+		task_set_bootstrap_port(bootstrap_self, MACH_PORT_NULL);
+		if (inherited_bootstrap_port == MACH_PORT_NULL)
+			forward_ok = FALSE;
+
+		/* register "self" port with anscestor */		
+		if (register_self && forward_ok) {
+			result = bootstrap_register(
+							inherited_bootstrap_port,
+							(char *)register_name,
+							bootstraps.bootstrap_port);
+			if (result != KERN_SUCCESS)
+				kern_fatal(result, "register self");
+		}
+	}
+
+
+	/* Kick off all continuously running server processes */
+	for (  serverp = FIRST(servers)
+		; !IS_END(serverp, servers)
+		; serverp = NEXT(serverp))
+		if (serverp->servertype != DEMAND)
+			start_server(serverp);
+
+	pthread_attr_init (&attr);
+	pthread_attr_setdetachstate ( &attr, PTHREAD_CREATE_DETACHED );
+	result = pthread_create(
+						&demand_thread,
+						&attr,
+						demand_loop,
+						NULL);
+	if (result) {
+		unix_error("pthread_create()");
 		exit(1);
 	}
-	exit(0);
-}
 
-static void
-add_init_arg(const char *arg)
-{
-	strncat(init_args, " ", sizeof(init_args));
-	strncat(init_args, arg, sizeof(init_args));
+	/* Process bootstrap service requests */
+	server_loop();	/* Should never return */
+	exit(1);
 }
 
 static void
 wait_for_go(mach_port_t init_notify_port)
 {
-        struct {
+	struct {
             mach_msg_header_t hdr;
             mach_msg_trailer_t trailer;
-        } init_go_msg;
+	} init_go_msg;
 	kern_return_t result;
 
-        /*
+	/*
 	 * For now, we just blindly wait until we receive a message or
 	 * timeout.  We don't expect any notifications, and if we get one,
 	 * it probably means something dire has happened; so we might as
 	 * well give a shot at letting init run.
 	 */	
-        result = mach_msg(&init_go_msg.hdr, MACH_RCV_MSG, 0, sizeof(init_go_msg), init_notify_port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-        if (result != KERN_SUCCESS) {
-            kern_error(result, "mach_msg(receive) failed in wait_for_go");
-        }
-        result = task_set_bootstrap_port(mach_task_self(), init_go_msg.hdr.msgh_remote_port);
-        if (result != KERN_SUCCESS) {
-            kern_error(result, "task_get_bootstrap_port()");
-        }
+	result = mach_msg(
+						&init_go_msg.hdr, MACH_RCV_MSG,
+						0, sizeof(init_go_msg), init_notify_port,
+						MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+	if (result != KERN_SUCCESS) {
+		kern_error(result, "mach_msg(receive) failed in wait_for_go");
+	}
+	result = task_set_bootstrap_port(
+						mach_task_self(),
+						init_go_msg.hdr.msgh_remote_port);
+	if (result != KERN_SUCCESS) {
+		kern_error(result, "task_get_bootstrap_port()");
+	}
 }
+
+
+static void
+unblock_init(mach_port_t init_notify_port, 
+			 mach_port_t newBootstrap)
+{
+	mach_msg_header_t init_go_msg;
+	kern_return_t result;
+
+	/*
+	 * Proc 1 is blocked in a msg_receive on its notify port, this lets
+	 * it continue, and we hand off its new bootstrap port
+	 */
+	init_go_msg.msgh_remote_port = init_notify_port;
+	init_go_msg.msgh_local_port = newBootstrap;
+        init_go_msg.msgh_bits = MACH_MSGH_BITS(
+								MACH_MSG_TYPE_COPY_SEND,
+								MACH_MSG_TYPE_MAKE_SEND);
+	init_go_msg.msgh_size = sizeof(init_go_msg);
+        result = mach_msg_send(&init_go_msg);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "unblock_init mach_msg_send() failed");
+	debug("sent go message");
+}
+
 
 static void
 init_ports(void)
 {
 	kern_return_t result;
 	service_t *servicep;
-	mach_port_name_t previous;
-	mach_port_t pport;
 
 	/*
 	 *	This task will become the bootstrap task.
 	 */
-	bootstrap_self = mach_task_self();
-
-	/* get inherited bootstrap port */
-	result = task_get_bootstrap_port(bootstrap_self,
-					 &inherited_bootstrap_port);
-	if (result != KERN_SUCCESS)
-		kern_fatal(result, "task_get_bootstrap_port");
-
-	/* We set this explicitly as we start each child */
-	task_set_bootstrap_port(bootstrap_self, MACH_PORT_NULL);
-	if (inherited_bootstrap_port == MACH_PORT_NULL)
-		forward_ok = FALSE;
-	
 	/* Create port set that server loop listens to */
-	result = mach_port_allocate(bootstrap_self, MACH_PORT_RIGHT_PORT_SET,
-				&bootstrap_port_set);
+	result = mach_port_allocate(
+						bootstrap_self,
+						MACH_PORT_RIGHT_PORT_SET,
+						&bootstrap_port_set);
 	if (result != KERN_SUCCESS)
 		kern_fatal(result, "port_set_allocate");
+
+	/* Create demand port set that second thread listens to */
+	result = mach_port_allocate(
+						bootstrap_self,
+						MACH_PORT_RIGHT_PORT_SET,
+						&demand_port_set);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "port_set_allocate");
+
 	/* Create notify port and add to server port set */
-	result = mach_port_allocate(bootstrap_self, MACH_PORT_RIGHT_RECEIVE,
-				&notify_port);
+	result = mach_port_allocate(
+						bootstrap_self,
+						MACH_PORT_RIGHT_RECEIVE,
+						&notify_port);
 	if (result != KERN_SUCCESS)
 		kern_fatal(result, "mach_port_allocate");
 
-	result = mach_port_request_notification(bootstrap_self,
+	result = mach_port_move_member(
 						bootstrap_self,
-						MACH_NOTIFY_DEAD_NAME,
-						0,
 						notify_port,
-						MACH_MSG_TYPE_MAKE_SEND_ONCE,
-						&pport);
+						bootstrap_port_set);
 	if (result != KERN_SUCCESS)
-		kern_fatal(result, "task_set_notify_port");
+		kern_fatal(result, "mach_port_move_member");
+	
+	/* Create backup port and add to server port set */
+	result = mach_port_allocate(
+						bootstrap_self,
+						MACH_PORT_RIGHT_RECEIVE,
+						&backup_port);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "mach_port_allocate");
 
-	result = mach_port_move_member(bootstrap_self,
-				   notify_port,
-				   bootstrap_port_set);
+	result = mach_port_move_member(
+						bootstrap_self,
+						backup_port,
+						bootstrap_port_set);
 	if (result != KERN_SUCCESS)
 		kern_fatal(result, "mach_port_move_member");
 	
 	/* Create "self" port and add to server port set */
-	result = mach_port_allocate(bootstrap_self, MACH_PORT_RIGHT_RECEIVE,
-				&bootstraps.bootstrap_port);
+	result = mach_port_allocate(
+						bootstrap_self,
+						MACH_PORT_RIGHT_RECEIVE,
+						&bootstraps.bootstrap_port);
 	if (result != KERN_SUCCESS)
 		kern_fatal(result, "mach_port_allocate");
-        result = mach_port_insert_right(mach_task_self(), bootstraps.bootstrap_port, bootstraps.bootstrap_port, MACH_MSG_TYPE_MAKE_SEND);
-        if (result != KERN_SUCCESS)
-            kern_fatal(result, "mach_port_insert_right");
-	result = mach_port_move_member(bootstrap_self,
-				   bootstraps.bootstrap_port,
-				   bootstrap_port_set);
+	result = mach_port_insert_right(
+						bootstrap_self,
+						bootstraps.bootstrap_port,
+						bootstraps.bootstrap_port,
+						MACH_MSG_TYPE_MAKE_SEND);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "mach_port_insert_right");
+
+	/* keep the root bootstrap port "active" */
+	bootstraps.requestor_port = bootstraps.bootstrap_port;
+
+	result = mach_port_move_member(
+						bootstrap_self,
+						bootstraps.bootstrap_port,
+						bootstrap_port_set);
 	if (result != KERN_SUCCESS)
 		kern_fatal(result, "mach_port_move_member");
-#ifdef notyet 
-	/* register "self" port with anscestor */		
-	if (register_self && forward_ok) {
-		result = bootstrap_register(inherited_bootstrap_port, register_name, bootstraps.bootstrap_port);
-		if (result != KERN_SUCCESS)
-			kern_fatal(result, "register self");
-	}
-#endif /* notyet*/
+
 	/*
 	 * Allocate service ports for declared services.
 	 */
@@ -461,32 +542,45 @@ init_ports(void)
 	{
 	 	switch (servicep->servicetype) {
 		case DECLARED:
-			result = mach_port_allocate(bootstrap_self, MACH_PORT_RIGHT_RECEIVE,
-				&(servicep->port));
+			result = mach_port_allocate(
+							bootstrap_self,
+							MACH_PORT_RIGHT_RECEIVE,
+							&(servicep->port));
 			if (result != KERN_SUCCESS)
 				kern_fatal(result, "mach_port_allocate");
-			result = mach_port_insert_right(bootstrap_self, servicep->port, servicep->port, MACH_MSG_TYPE_MAKE_SEND);
+
+			result = mach_port_insert_right(
+							bootstrap_self,
+							servicep->port,
+							servicep->port,
+							MACH_MSG_TYPE_MAKE_SEND);
 			if (result != KERN_SUCCESS)
 				kern_fatal(result, "mach_port_insert_right");
-			debug("Declared port %d for service %s",
+			info("Declared port %x for service %s",
 			      servicep->port,
 			      servicep->name);
-#ifdef notyet
-			result = port_set_backup(task_self(),
-						 servicep->port,
-						 backup_port,
-						 &previous);
-			if (result != KERN_SUCCESS)
-				kern_fatal(result, "port_set_backup");
-#endif /* notyet */
+
+			if (servicep->server != NULL_SERVER &&
+				servicep->server->servertype == DEMAND) {
+				result = mach_port_move_member(
+								bootstrap_self,
+								servicep->port,
+								demand_port_set);
+				if (result != KERN_SUCCESS)
+					kern_fatal(result, "mach_port_move_member");
+			}
 			break;
+
 		case SELF:
 			servicep->port = bootstraps.bootstrap_port;
-			servicep->server = new_server(MACHINIT,
-				program_name, init_priority);
-			info("Set port %d for self port",
+			servicep->server = new_server(&bootstraps,
+							program_name,
+							inherited_uid,
+							MACHINIT);
+			info("Set port %x for self port",
 			      bootstraps.bootstrap_port);
 			break;
+
 		case REGISTERED:
 			fatal("Can't allocate REGISTERED port!?!");
 			break;
@@ -494,152 +588,278 @@ init_ports(void)
 	}
 }
 
+boolean_t
+active_bootstrap(bootstrap_info_t *bootstrap)
+{
+	return (bootstrap->requestor_port != MACH_PORT_NULL);
+}
+
+boolean_t
+useless_server(server_t *serverp)
+{
+	return (	!active_bootstrap(serverp->bootstrap) || 
+				!lookup_service_by_server(serverp) ||
+				!serverp->activity);
+}
+
+boolean_t
+active_server(server_t *serverp)
+{
+	return (
+#ifdef DELAYED_BOOTSTRAP_DESTROY
+			serverp->port ||
+#else
+			(serverp->port && serverp->pid == NO_PID) ||
+#endif
+			serverp->task_port || serverp->active_services);
+}
+
+static void
+reap_server(server_t *serverp)
+{
+	kern_return_t result;
+	pid_t	presult;
+	int		wstatus;
+
+	/*
+	 * Reap our children.
+	 */
+	presult = waitpid(serverp->pid, &wstatus, WNOHANG);
+	if (presult != serverp->pid) {
+		unix_error("waitpid: cmd = %s", serverp->cmd);
+	} else if (wstatus) {
+		log("Server %x in bootstrap %x uid %d: \"%s\": %s %d [pid %d]",
+			serverp->port, serverp->bootstrap->bootstrap_port,
+			serverp->uid, serverp->cmd, 
+			((WIFEXITED(wstatus)) ? 
+			 "exited with non-zero status" :
+			 "exited as a result of signal"),
+			((WIFEXITED(wstatus)) ? WEXITSTATUS(wstatus) : WTERMSIG(wstatus)),
+			serverp->pid);
+	}
+	serverp->pid = 0;
+
+	/*
+	 * Release the server task port reference, if we ever
+	 * got it in the first place.
+	 */
+	if (serverp->task_port != MACH_PORT_NULL) {
+		result = mach_port_deallocate(
+					mach_task_self(),
+					serverp->task_port);
+		if (result != KERN_SUCCESS)
+			kern_error(result, "mach_port_deallocate");
+		serverp->task_port = MACH_PORT_NULL;
+	}
+}
+
+static void
+demand_server(server_t *serverp)
+{
+	service_t *servicep;
+	kern_return_t result;
+
+	/*
+	 * For on-demand servers, make sure that the service ports are
+	 * back in on-demand portset.  Active service ports should come
+	 * back through a PORT_DESTROYED notification.  We only have to
+	 * worry about the inactive ports that may have been previously
+	 * pulled from the set but never checked-in by the server.
+	 */
+
+	for (  servicep = FIRST(services)
+			   ; !IS_END(servicep, services)
+			   ; servicep = NEXT(servicep))
+	{
+		if (serverp == servicep->server && !servicep->isActive) {
+			result = mach_port_move_member(
+							mach_task_self(),
+							servicep->port,
+							demand_port_set);
+			if (result != KERN_SUCCESS)
+				kern_fatal(result, "mach_port_move_member");
+		}
+	}
+}
+
+static
+void dispatch_server(server_t *serverp)
+{
+	if (!active_server(serverp)) {
+		if (useless_server(serverp))
+			delete_server(serverp);
+		else if (serverp->servertype == RESTARTABLE)
+			start_server(serverp);
+		else if (serverp->servertype == DEMAND)
+			demand_server(serverp);
+	}
+}
+
+void
+setup_server(server_t *serverp)
+{
+	kern_return_t result;
+	mach_port_t old_port;
+	
+	/* Allocate privileged port for requests from service */
+	result = mach_port_allocate(mach_task_self(),
+						MACH_PORT_RIGHT_RECEIVE ,
+						&serverp->port);
+	info("Allocating port %x for server %s", serverp->port, serverp->cmd);
+	if (result != KERN_SUCCESS)	
+		kern_fatal(result, "port_allocate");
+
+	/* Request no-senders notification so we can tell when server dies */
+	result = mach_port_request_notification(mach_task_self(),
+						serverp->port,
+						MACH_NOTIFY_NO_SENDERS,
+						1,
+						serverp->port,
+						MACH_MSG_TYPE_MAKE_SEND_ONCE,
+						&old_port);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "mach_port_request_notification");
+
+	/* Add privileged server port to bootstrap port set */
+	result = mach_port_move_member(mach_task_self(),
+						serverp->port,
+						bootstrap_port_set);
+	if (result != KERN_SUCCESS)
+		kern_fatal(result, "mach_port_move_member");
+}
+
 static void
 start_server(server_t *serverp)
 {
 	kern_return_t result;
 	mach_port_t old_port;
-	task_port_t init_task;
 	int pid;
-	
-	/* get rid of any old server port (this might be a restart) */
-	old_port = serverp->port;
-	serverp->port = MACH_PORT_NULL;
-        if (old_port != MACH_PORT_NULL) {
-            msg_destroy_port(old_port);
-        }
-	/* Allocate privileged port for requests from service */
-	result = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE ,&serverp->port);
-	info("Allocating port %d for server %s", serverp->port, serverp->cmd);
-	if (result != KERN_SUCCESS)	
-		kern_fatal(result, "port_allocate");
-
-        result = mach_port_insert_right(mach_task_self(), serverp->port, serverp->port, MACH_MSG_TYPE_MAKE_SEND);
-        if (result != KERN_SUCCESS)
-            kern_fatal(result, "mach_port_insert_right");
-	/* Add privileged server port to bootstrap port set */
-	result = mach_port_move_member(mach_task_self(),
-				   serverp->port,
-				   bootstrap_port_set);
-	if (result != KERN_SUCCESS)
-		kern_fatal(result, "mach_port_move_member");
 
 	/*
 	 * Do what's appropriate to get bootstrap port setup in server task
 	 */
 	switch (serverp->servertype) {
-	case ETCINIT:
-		/*
-		 * This is pid 1 init program -- need to punch stuff
-		 * back into pid 1 task rather than create a new task
-		 */
-		result = task_for_pid(mach_task_self(), init_pid, &init_task);
-                if (result != KERN_SUCCESS)
-                    kern_fatal(result, "task_for_pid");
-		serverp->task_port = init_task;
-                unblock_init(init_task, serverp->port);
-		break;
 
 	case MACHINIT:
 		break;
 
 	case SERVER:
+	case DEMAND:
 	case RESTARTABLE:
+#ifdef DELAYED_BOOTSTRAP_DESTROY
+	  if (!serverp->port)
+#endif
+	      setup_server(serverp);
+
+	  serverp->activity = 0;
+
+	  /* Insert a send right */
+	  result = mach_port_insert_right(mach_task_self(),
+						serverp->port,
+						serverp->port,
+						MACH_MSG_TYPE_MAKE_SEND);
+	  if (result != KERN_SUCCESS)
+	  	kern_fatal(result, "mach_port_insert_right");
+
 		/* Give trusted service a unique bootstrap port */
-		result = task_set_bootstrap_port(mach_task_self(), serverp->port);
+		result = task_set_bootstrap_port(mach_task_self(),
+						 serverp->port);
 		if (result != KERN_SUCCESS)
 			kern_fatal(result, "task_set_bootstrap_port");
 
+		result = mach_port_deallocate(mach_task_self(),
+					      serverp->port);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "mach_port_deallocate");
+
 		pid = fork();
-		if (pid < 0)
+		if (pid < 0) {
 			unix_error("fork");
-		else if (pid == 0) {	/* CHILD */
+		} else if (pid == 0) {	/* CHILD */
 			exec_server(serverp);
 			exit(1);
 		} else {		/* PARENT */
-			result = task_set_bootstrap_port(mach_task_self(),
-							 MACH_PORT_NULL);
+
+			result = task_set_bootstrap_port(
+							mach_task_self(),
+							MACH_PORT_NULL);
 			if (result != KERN_SUCCESS)
 				kern_fatal(result, "task_set_bootstrap_port");
 
-			result = task_for_pid(mach_task_self(),
-						  pid,
-						  &serverp->task_port);
-			if (result != KERN_SUCCESS)
-				kern_fatal(result, "getting server task port");
-			running_servers += 1;
+			info("Launched server %x in bootstrap %x uid %d: \"%s\": [pid %d]",
+			     serverp->port, serverp->bootstrap->bootstrap_port,
+				 serverp->uid, serverp->cmd, pid);
+			serverp->pid = pid;
+			result = task_for_pid(
+							mach_task_self(),
+							pid,
+							&serverp->task_port);
+			if (result != KERN_SUCCESS) {
+				kern_error(result, "getting server task port");
+				reap_server(serverp);
+				dispatch_server(serverp);
+				break;
+			}
+				
+			/* Request dead name notification to tell when task dies */
+			result = mach_port_request_notification(
+							mach_task_self(),
+							serverp->task_port,
+							MACH_NOTIFY_DEAD_NAME,
+							0,
+							notify_port,
+							MACH_MSG_TYPE_MAKE_SEND_ONCE,
+							&old_port);
+			if (result != KERN_SUCCESS) {
+				kern_error(result, "mach_port_request_notification");
+				reap_server(serverp);
+				dispatch_server(serverp);
+			}
 		}
 		break;
 	}
 }
 
 static void
-unblock_init(task_port_t task, mach_port_t newBootstrap)
-{
-	mach_msg_header_t init_go_msg;
-	kern_return_t result;
-
-	/*
-	 * Proc 1 is blocked in a msg_receive on its notify port, this lets
-	 * it continue, and we hand off its new bootstrap port
-	 */
-	init_go_msg.msgh_remote_port = inherited_bootstrap_port;
-	init_go_msg.msgh_local_port = newBootstrap;
-        init_go_msg.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND);
-        result = mach_msg(&init_go_msg, MACH_SEND_MSG, sizeof(init_go_msg), 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-	if (result != KERN_SUCCESS)
-		kern_fatal(result, "unblock_init mach_msg(send) failed");
-	debug("sent go message");
-}
-
-static void
 exec_server(server_t *serverp)
 {
-	int nfds, fd;
-        char **argv;
-	
+	char **argv;
+	sigset_t mask;
+
 	/*
 	 * Setup environment for server, someday this should be Mach stuff
 	 * rather than Unix crud
 	 */
-	log("Initiating server %s [pid %d]", serverp->cmd, getpid());
 	argv = argvize(serverp->cmd);
-	nfds = getdtablesize();
-
-#ifdef notyet 
-	/*
-	 * If our priority's to be changed, set it up here.
-	 */
-	if (serverp->priority >= 0) {
-		kern_return_t result;
-		result = task_priority(mach_task_self(), serverp->priority,
-					 TRUE);
-		if (result != KERN_SUCCESS)
-			kern_error(result, "task_priority %d",
-				serverp->priority);
-	}
-#endif /* notyet */
 	close_errlog();
 
-	/*
-	 * Mark this process as an "init process" so that it won't be
-	 * blown away by init when it starts up (or changes states).
-	 */
-	if (init_pid == 1) {
-		debug("marking process %s as init_process\n", argv[0]);
-		init_process();
+	if (serverp->uid != inherited_uid)
+		if (setuid(serverp->uid) < 0)
+			unix_fatal("Disabled server %x bootstrap %x: \"%s\": setuid(%d)",
+					 serverp->port, serverp->bootstrap->bootstrap_port,
+					   serverp->cmd, serverp->uid);
+
+	if (setsid() < 0) {
+	  	/*
+		 * We can't keep this from happening, but we shouldn't start
+		 * the server not as a process group leader.  So, just fake like
+		 * there was real activity, and exit the child.  If needed,
+		 * we'll re-launch it under another pid.
+		 */
+		serverp->activity = 1;
+		unix_fatal("Temporary failure server %x bootstrap %x: \"%s\": setsid()",
+			   serverp->port, serverp->bootstrap->bootstrap_port,
+			   serverp->cmd);
 	}
 
-        for (fd =  debugging ? 3 : 0; fd < nfds; fd++)
-		close(fd);
-	fd = open("/dev/tty", O_RDONLY);
-	if (fd >= 0) {
-		ioctl(fd, TIOCNOTTY, 0);
-		close(fd);
-	}
+	sigemptyset(&mask);
+	(void) sigprocmask(SIG_SETMASK, &mask, (sigset_t *)NULL);
 
-        execv(argv[0], argv);
-	unix_error("Can't exec %s", argv[0]);
+	execv(argv[0], argv);
+	unix_fatal("Disabled server %x bootstrap %x: \"%s\": exec()",
+			   serverp->port,
+			   serverp->bootstrap->bootstrap_port,
+			   serverp->cmd);
 }	
 
 static char **
@@ -676,6 +896,304 @@ argvize(const char *string)
 	return argv;
 }
 
+static void *
+demand_loop(void *arg)
+{
+	mach_msg_empty_rcv_t dummy;
+	kern_return_t dresult;
+
+
+	for(;;) {
+		mach_port_name_array_t members;
+		mach_msg_type_number_t membersCnt;
+		mach_port_status_t status;
+		mach_msg_type_number_t statusCnt;
+		int i;
+
+		/*
+		 * Receive indication of message on demand service
+		 * ports without actually receiving the message (we'll
+		 * let the actual server do that.
+		 */
+		dresult = mach_msg(
+							&dummy.header,
+							MACH_RCV_MSG|MACH_RCV_LARGE,
+							0,
+							0,
+							demand_port_set,
+							0,
+							MACH_PORT_NULL);
+		if (dresult != MACH_RCV_TOO_LARGE) {
+			kern_error(dresult, "demand_loop: mach_msg()");
+			continue;
+		}
+
+		/*
+		 * If we are shutting down, there is no use processing
+		 * any more of these messages.
+		 */
+		if (shutdown_in_progress == TRUE)
+			return arg;	
+
+		/*
+		 * Some port(s) now have messages on them, find out
+		 * which ones (there is no indication of which port
+		 * triggered in the MACH_RCV_TOO_LARGE indication).
+		 */
+		dresult = mach_port_get_set_status(
+							mach_task_self(),
+							demand_port_set,
+							&members,
+							&membersCnt);
+		if (dresult != KERN_SUCCESS) {
+			kern_error(dresult, "demand_loop: mach_port_get_set_status()");
+			continue;
+		}
+
+		for (i = 0; i < membersCnt; i++) {
+			statusCnt = MACH_PORT_RECEIVE_STATUS_COUNT;
+			dresult = mach_port_get_attributes(
+								mach_task_self(),
+								members[i],
+								MACH_PORT_RECEIVE_STATUS,
+								(mach_port_info_t)&status,
+								&statusCnt);
+			if (dresult != KERN_SUCCESS) {
+				kern_error(dresult, "demand_loop: mach_port_get_attributes()");
+				continue;
+			}
+
+			/*
+			 * For each port with messages, take it out of the
+			 * demand service portset, and inform the main thread
+			 * that it might have to start the server responsible
+			 * for it.
+			 */
+			if (status.mps_msgcount) {
+				dresult = mach_port_move_member(
+								mach_task_self(),
+								members[i],
+								MACH_PORT_NULL);
+				if (dresult != KERN_SUCCESS) {
+					kern_error(dresult, "demand_loop: mach_port_move_member()");
+					continue;
+				}
+				notify_server_loop(members[i]);
+			}
+		}
+
+		dresult = vm_deallocate(
+						mach_task_self(),
+						(vm_address_t) members,
+						(vm_size_t) membersCnt * sizeof(mach_port_name_t));
+		if (dresult != KERN_SUCCESS) {
+			kern_error(dresult, "demand_loop: vm_deallocate()");
+			continue;
+		}
+	}
+	return NULL;
+}
+								
+/*
+ * server_demux -- processes requests off our service port
+ * Also handles notifications
+ */
+
+static boolean_t
+server_demux(
+	mach_msg_header_t *Request,
+	mach_msg_header_t *Reply)
+{
+    bootstrap_info_t *bootstrap;
+    service_t *servicep;
+    server_t *serverp;
+    kern_return_t result;
+	mig_reply_error_t *reply;
+        
+	debug("received message on port %x\n", Request->msgh_local_port);
+
+	/*
+	 * Do minimal cleanup and then exit.
+	 */
+	if (shutdown_in_progress == TRUE) {
+		log("Shutting down. Deactivating root bootstrap (%x) ...",
+			bootstraps.bootstrap_port);
+		deactivate_bootstrap(&bootstraps);
+		log("Done.");
+		exit(0);
+	}
+					
+	reply = (mig_reply_error_t *)Reply;
+
+	/*
+	 * Pick off notification messages
+	 */
+	if (Request->msgh_local_port == notify_port) {
+		mach_port_name_t np;
+
+		memset(reply, 0, sizeof(*reply));
+		switch (Request->msgh_id) {
+		case MACH_NOTIFY_DEAD_NAME:
+			np = ((mach_dead_name_notification_t *)Request)->not_port;
+			debug("Notified dead name %x", np);
+
+			if (np == inherited_bootstrap_port) {
+				inherited_bootstrap_port = MACH_PORT_NULL;
+				forward_ok = FALSE;
+			}
+		
+			/*
+			 * Check to see if a subset requestor port was deleted.
+			 */
+			while (bootstrap = lookup_bootstrap_by_req_port(np)) {
+				debug("Received dead name notification for bootstrap subset %x requestor port %x",
+					 bootstrap->bootstrap_port, bootstrap->requestor_port);
+				mach_port_deallocate(
+									 mach_task_self(),
+									 bootstrap->requestor_port);
+				bootstrap->requestor_port = MACH_PORT_NULL;
+				deactivate_bootstrap(bootstrap);
+			}
+
+			/*
+			 * Check to see if a defined service has gone
+			 * away.
+			 */
+			while (servicep = lookup_service_by_port(np)) {
+				/*
+				 * Port gone, registered service died.
+				 */
+				debug("Received dead name notification for service %s "
+					  "on bootstrap port %x\n",
+					  servicep->name, servicep->bootstrap);
+				debug("Service %s failed - deallocate", servicep->name);
+				delete_service(servicep);
+			}
+
+			/*
+			 * Check to see if a launched server task has gone
+			 * away.
+			 */
+			if (serverp = lookup_server_by_task_port(np)) {
+				/*
+				 * Port gone, server died.
+				 */
+				debug("Received task death notification for server %s ",
+					  serverp->cmd);
+				reap_server(serverp);
+				dispatch_server(serverp);
+			}
+
+			mach_port_deallocate(mach_task_self(), np);
+			reply->RetCode = KERN_SUCCESS;
+			break;
+
+		case MACH_NOTIFY_PORT_DELETED:
+			np = ((mach_port_deleted_notification_t *)Request)->not_port;
+			debug("port deleted notification on 0x%x\n", np);
+			reply->RetCode = KERN_SUCCESS;
+			break;
+
+		case MACH_NOTIFY_SEND_ONCE:
+			debug("notification send-once right went unused\n");
+			reply->RetCode = KERN_SUCCESS;
+			break;
+
+		default:
+			error("Unexpected notification: %d", Request->msgh_id);
+			reply->RetCode = KERN_FAILURE;
+			break;
+		}
+	}
+
+	else if (Request->msgh_local_port == backup_port) {
+		mach_port_name_t np;
+
+		memset(reply, 0, sizeof(*reply));
+
+		np = ((mach_port_destroyed_notification_t *)Request)->not_port.name; 
+		servicep = lookup_service_by_port(np);
+		if (servicep != NULL) {
+			server_t *serverp = servicep->server;
+
+			switch (Request->msgh_id) {
+
+			case MACH_NOTIFY_PORT_DESTROYED:
+				/*
+				 * Port sent back to us, server died.
+				 */
+				debug("Received destroyed notification for service %s",
+					  servicep->name);
+				debug("Service %x bootstrap %x backed up: %s",
+				     servicep->port, servicep->bootstrap->bootstrap_port,
+					 servicep->name);
+				ASSERT(canReceive(servicep->port));
+				servicep->isActive = FALSE;
+				serverp->active_services--;
+				dispatch_server(serverp);
+				reply->RetCode = KERN_SUCCESS;
+				break;
+
+			case DEMAND_REQUEST:
+				/* message reflected over from demand start thread */
+				if (!active_server(serverp))
+					start_server(serverp);
+				reply->RetCode = KERN_SUCCESS;
+				break;
+
+			default:
+				debug("Mysterious backup_port notification %d", Request->msgh_id);
+				reply->RetCode = KERN_FAILURE;
+				break;
+			}
+		} else {
+			debug("Backup_port notification - previously deleted service");
+			reply->RetCode = KERN_FAILURE;
+		}
+	}
+
+	else if (Request->msgh_id == MACH_NOTIFY_NO_SENDERS) {
+		mach_port_t ns = Request->msgh_local_port;
+
+		if ((serverp = lookup_server_by_port(ns)) != NULL_SERVER) {
+	  		/*
+			 * A server we launched has released his bootstrap
+			 * port send right.  We won't re-launch him unless
+			 * his services came back to roost.  But we need to
+			 * destroy the bootstrap port for fear of leaking.
+			 */
+			debug("server %s dropped server port", serverp->cmd);
+			serverp->port = MACH_PORT_NULL;
+			dispatch_server(serverp);
+		} else if (bootstrap = lookup_bootstrap_by_port(ns)) {
+			/*
+			 * The last direct user of a deactivated bootstrap went away.
+			 * We can finally free it.
+			 */
+			debug("Deallocating bootstrap %x: no more clients", ns);
+			bootstrap->bootstrap_port = MACH_PORT_NULL;
+			deallocate_bootstrap(bootstrap);
+		}
+		
+		result = mach_port_mod_refs(
+						mach_task_self(),
+						ns,
+						MACH_PORT_RIGHT_RECEIVE,
+						-1);
+		if (result != KERN_SUCCESS)
+			kern_fatal(result, "mach_port_mod_refs");
+
+		memset(reply, 0, sizeof(*reply));
+		reply->RetCode = KERN_SUCCESS;
+	}
+     
+	else {	/* must be a service request */
+		debug("Handled request.");
+		return bootstrap_server(Request, Reply);
+	}
+	return TRUE;
+}
+
 /*
  * server_loop -- pick requests off our service port and process them
  * Also handles notifications
@@ -686,274 +1204,18 @@ argvize(const char *string)
 static void
 server_loop(void)
 {
-    bootstrap_info_t *bootstrap;
-    service_t *servicep;
-    server_t *serverp;
-    kern_return_t result;
-    mach_port_name_t previous;
-    mach_port_array_t array;
-    mach_msg_type_number_t count;
-    int i;
-        
-    union {
-    	mach_msg_header_t hdr;
-	char body[bootstrapMaxRequestSize];
-    } msg;
-    union {
-    	mach_msg_header_t hdr;
-#ifdef notyet
-	death_pill_t death;
-#endif /* notyet */
-	char body[bootstrapMaxReplySize];
-    } reply;
-	    
-    for (;;) {
-	memset(&msg, 0, sizeof(msg));
-        result = mach_msg_overwrite_trap(&msg.hdr, MACH_RCV_MSG|MACH_RCV_INTERRUPT|MACH_RCV_TIMEOUT, 0, sizeof(msg), bootstrap_port_set, 500, MACH_PORT_NULL, MACH_MSG_NULL, 0);
-	if (result != KERN_SUCCESS) {
-            if (result != MACH_RCV_TIMED_OUT) {
-                kern_error(result, "server_loop: msg_receive()");
-            }
-	    continue;
+	mach_msg_return_t mresult;
+
+	for (;;) {
+		mresult = mach_msg_server(
+						server_demux,
+						bootstrapMaxRequestSize,
+						bootstrap_port_set,
+                        MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER)|
+                        MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
+		if (mresult != MACH_MSG_SUCCESS)
+				kern_error(mresult, "mach_msg_server");
 	}
-
-#if	DEBUG
-	debug("received message on port %d\n", msg.hdr.msgh_local_port);
-#endif	DEBUG
-
-	/*
-	 * Pick off notification messages
-	 */
-	if (msg.hdr.msgh_local_port == notify_port) {
-	    mach_port_name_t np;
-
-            switch (msg.hdr.msgh_id) {
-	    case MACH_NOTIFY_DEAD_NAME:
-                np = ((mach_dead_name_notification_t *)&msg)->not_port;
-#if	DEBUG
-		info("Notified dead name %d", np);
-#endif	DEBUG
-		if (np == inherited_bootstrap_port)
-		{
-		    inherited_bootstrap_port = MACH_PORT_NULL;
-		    forward_ok = FALSE;
-		    break;
-		}
-		
-		/*
-		 * This may be notification that the task_port associated
-		 * with a task we've launched has been deleted.  This
-		 * happens only when the server dies.
-		 */
-		serverp = lookup_server_by_task_port(np);
-		if (serverp != NULL) {
-		    info("Notified that server %s died\n", serverp->cmd);
-		    if (running_servers <= 0) {
-			    /* This "can't" happen */
-			    running_servers = 0;
-			    error("task count error");
-		    } else {
-			    running_servers -= 1;
-			    log("server %s died",
-				serverp != NULL ? serverp->cmd : "Unknown");
-			    if (serverp != NULL) {
-				    /*
-				     * FIXME: need to control execs
-				     * when server fails immediately
-				     */
-				    if (   serverp->servertype == RESTARTABLE
-					/*
-					&& haven't started this recently */)
-					    start_server(serverp);
-			    }
-		    }
-		    break;
-		}
-
-		/*
-		 * Check to see if a subset requestor port was deleted.
-		 */
-		while (bootstrap = lookup_bootstrap_req_by_port(np)) {
-			info("notified that requestor of subset %d died",
-				bootstrap->bootstrap_port);
-			delete_bootstrap(bootstrap);
-		}
-
-		/*
-		 * Check to see if a defined service has gone
-		 * away.
-		 */
-		while (servicep = lookup_service_by_port(np)) {
-		    /*
-		     * Port gone, server died.
-		     */
-		    debug("Received destroyed notification for service %s "
-			  "on bootstrap port %d\n",
-			  servicep->name, servicep->bootstrap);
-		    if (servicep->servicetype == REGISTERED) {
-			debug("Service %s failed - deallocate", servicep->name);
-			mach_port_deallocate(mach_task_self(),np);
-			mach_port_deallocate(mach_task_self(),servicep->port);
-			delete_service(servicep);
-		    } else {
-			/*
-			 * Allocate a new, backed-up port for this service.
-			 */
-			log("Service %s failed - re-initialize",
-			    servicep->name);
-			msg_destroy_port(servicep->port);
-			result = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &servicep->port);
-			if (result != KERN_SUCCESS)
-				kern_fatal(result, "port_allocate");
-                        result = mach_port_insert_right(bootstrap_self, servicep->port, servicep->port, MACH_MSG_TYPE_MAKE_SEND);
-                        if (result != KERN_SUCCESS)
-                                kern_fatal(result, "mach_port_insert_right");
-#if 0
-                        result = port_set_backup(mach_task_self(),
-						    servicep->port,
-						    backup_port,
-						    &previous);
-			if (result != KERN_SUCCESS)
-				kern_fatal(result, "port_set_backup");
-#endif
-                        servicep->isActive = FALSE;
-		    }
-		}
-		break;
-	    default:
-		error("Unexpected notification: %d", msg.hdr.msgh_id);
-		break;
-	    }
-	}
-#if 0
-        else if (msg.hdr.msg_local_port == backup_port) {
-	    notification_t *not = (notification_t *) &msg.hdr;
-	    mach_port_name_t np = not->notify_port;
-
-	    /*
-	     * Port sent back to us, server died.
-	     */
-	    info("port %d returned via backup", np);
-	    servicep = lookup_service_by_port(np);
-	    if (servicep != NULL) {
-	        debug("Received %s notification for service %s",
-		      not->notify_header.msg_id
-		      == NOTIFY_PORT_DESTROYED
-		      ? "destroyed" : "receive rights",
-		      servicep->name);
-		log("Service %s failed - port backed-up", servicep->name);
-		ASSERT(canReceive(servicep->port));
-		servicep->isActive = FALSE;
-		result = port_set_backup(mach_task_self(),
-					 servicep->port,
-					 backup_port,
-					 &previous);
-		if (result != KERN_SUCCESS)
-			kern_fatal(result, "port_set_backup");
-	    } else
-	    	msg_destroy_port(np);
-	}
-#endif
-        else
-            {	/* must be a service request */
-            bootstrap_server(&msg.hdr, &reply.hdr);
-#ifdef	DEBUG
-	    debug("Handled request.");
-#endif	DEBUG
-		reply.hdr.msgh_local_port = MACH_PORT_NULL;
-                result = mach_msg(&reply.hdr, MACH_SEND_MSG|MACH_SEND_TIMEOUT, reply.hdr.msgh_size, 0, MACH_PORT_NULL,
-				  BOOTSTRAP_REPLY_TIMEOUT, MACH_PORT_NULL);
-#ifdef	DEBUG
-		debug("Reply sent.");
-#endif	DEBUG
-                if (result != MACH_MSG_SUCCESS) {
-		    kern_error(result, "msg_send");
-                }
-            }
-	/* deallocate uninteresting ports received in message */
-	msg_destroy(&msg.hdr);
-    }
-}
-
-/*
- * msg_destroy -- walk through a received message and deallocate any
- * useless ports or out-of-line memory
- */
-static void
-msg_destroy(mach_msg_header_t *m)
-{
-#ifdef notyet /* [ */
-	msg_type_t *mtp;
-	msg_type_long_t *mtlp;
-	void *dp;
-	unsigned type, size, num;
-	boolean_t inlne;
-	mach_port_t *pp;
-	kern_return_t result;
-
-	msg_destroy_port(m->msg_remote_port);
-	for (  mtp = (msg_type_t *)(m + 1)
-	     ; (unsigned)mtp - (unsigned)m < m->msg_size
-	     ;)
-	{
-		inlne = mtp->msg_type_inline;
-		if (mtp->msg_type_longform) {
-			mtlp = (msg_type_long_t *)mtp;
-			type = mtlp->msg_type_long_name;
-			size = mtlp->msg_type_long_size;
-			num = mtlp->msg_type_long_number;
-			dp = (void *)(mtlp + 1);
-		} else {
-			type = mtp->msg_type_name;
-			size = mtp->msg_type_size;
-			num = mtp->msg_type_number;
-			dp = (void *)(mtp + 1);
-		}
-		if (inlne)
-			mtp = (msg_type_t *)(dp + num * (size/BITS_PER_BYTE));
-		else {
-			mtp = (msg_type_t *)(dp + sizeof(void *));
-			dp = *(char **)dp;
-		}
-		if (MSG_TYPE_PORT_ANY(type)) {
-			for (pp = (mach_port_t *)dp; num-- > 0; pp++)
-				msg_destroy_port(*pp);
-		}
-		if ( ! inlne ) {
-			result = vm_deallocate(mach_task_self(), (vm_address_t)dp,
-			 num * (size/BITS_PER_BYTE));
-			if (result != KERN_SUCCESS)
-				kern_error(result,
-					   "vm_deallocate: msg_destroy");
-		}
-	}
-#endif /* notyet ] */
-}
-
-/*
- * msg_destroy_port -- deallocate port if it's not important to bootstrap
- * Bad name, this is used for things other than msg_destroy.
- */
-void
-msg_destroy_port(mach_port_t p)
-{
-	if (   p == MACH_PORT_NULL
-	    || p == mach_task_self()
-	    || p == mig_get_reply_port()
-	    || p == bootstrap_port_set
-	    || p == inherited_bootstrap_port
-	    || lookup_service_by_port(p)
-	    || lookup_server_by_port(p)
-	    || lookup_bootstrap_by_port(p) != &bootstraps
-	    || lookup_bootstrap_req_by_port(p) != &bootstraps
-	    || p == bootstraps.bootstrap_port
-	    || p == bootstraps.requestor_port)
-		return;
-
-#if	DEBUG
-	debug("Deallocating port %d", p);
-#endif	DEBUG
-	(void) mach_port_deallocate(mach_task_self(), p);
 }
 
 boolean_t
@@ -983,45 +1245,4 @@ canSend(mach_port_t port)
 		return FALSE;
 	}
 	return ((p_type & MACH_PORT_TYPE_PORT_RIGHTS) != 0);
-}
-void
-set_default_policy(
-	mach_port_t master_host_port)
-{
-#if 0
-    host_priority_info_data_t	host_pri_info;
-	mach_port_t		default_processor_set_name;
-	mach_port_t		default_processor_set;
-	policy_rr_base_data_t	rr_base;
-	policy_rr_limit_data_t	rr_limit;
-	kern_return_t		result;
-	mach_msg_type_number_t	count;
-	static char here[] = "default_pager_set_policy";
-
-	count = HOST_PRIORITY_INFO_COUNT;
-	result = host_info(mach_host_self(),
-		      HOST_PRIORITY_INFO,
-		      (host_info_t) &host_pri_info,
-		      &count);
-	if (result != KERN_SUCCESS)
-		kern_fatal(result, "Could not get host priority info");
-
-	rr_base.quantum = 0;
-	rr_base.base_priority = host_pri_info.system_priority;
-	rr_limit.max_priority = host_pri_info.system_priority;
-
-	(void)processor_set_default(mach_host_self(),
-				    &default_processor_set_name);
-	(void)host_processor_set_priv(master_host_port,
-				      default_processor_set_name,
-				      &default_processor_set);
-
-	result = task_set_policy(mach_host_self(), default_processor_set,
-			    POLICY_RR,
-			    (policy_base_t) & rr_base, POLICY_RR_BASE_COUNT,
-			    (policy_limit_t) & rr_limit, POLICY_RR_LIMIT_COUNT,
-			    TRUE);
-	if (result != KERN_SUCCESS)
-		kern_fatal(result, "Could not set task policy ");
-#endif
 }

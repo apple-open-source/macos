@@ -26,6 +26,7 @@
 
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
+#include <openssl/dh.h>
 #include <Security/cssmtype.h>
 #include <Security/cssmdata.h>
 #include <Security/asn-incl.h>
@@ -47,6 +48,13 @@ void bnToBigIntStr(
 
 /* estimate size of encoded BigIntegerStr */
 unsigned sizeofBigInt(
+	BigIntegerStr 	&bigInt);
+
+/*
+ * int --> BigIntegerStr
+ */
+void snaccIntToBigIntegerStr(
+	int 			i,
 	BigIntegerStr 	&bigInt);
 
 /*
@@ -96,6 +104,14 @@ CSSM_RETURN DSASigDecode(
 	DSA_SIG 		*openSig, 
 	const void 		*p, 
 	unsigned		length);
+
+CSSM_RETURN DHPrivateKeyDecode(
+	DH	 			*openKey, 
+	unsigned char 	*p, 
+	unsigned 		length);
+CSSM_RETURN	DHPrivateKeyEncode(
+	DH	 			*openKey, 
+	CssmOwnedData	&encodedKey);
 
 
 #ifdef	__cplusplus

@@ -19,11 +19,12 @@
 //
 // cssmacl - core ACL management interface.
 //
-// Statement of strategy:
-// Beyond the enhanced POD Wrappers for the various CSSM types, we find pure C++ classes
-// that implement ACLs in the local address space. ObjectAcl is the abstract interface
-// to an implementation of a CSSM ACL. It supports the CSSM interfaces for ACL manipulation.
-// @@@ TBA @@@
+// This file contains a set of C++ classes that implement ACLs in the local address space.
+// ObjectAcl is the abstract interface to an implementation of a CSSM ACL. It supports
+// the CSSM interfaces for ACL manipulation. AclSubject is the common parent of all
+// types of ACL Subjects (in the CSSM sense); subclass this to implement a new subject type.
+// AclValidationContext is an extensible, structured way of passing context information
+// from the evaluation environment into particular subjects whose validation is context sensitive.
 //
 #ifndef _CSSMACL
 #define _CSSMACL
@@ -38,12 +39,8 @@
 #include <string>
 #include <limits.h>
 
-#ifdef _CPP_CSSMACL
-#pragma export on
-#endif
 
-namespace Security
-{
+namespace Security {
 
 class AclValidationContext;
 
@@ -54,10 +51,15 @@ class AclValidationContext;
 // Note that it does contain some common code to make everybody's life easier.
 //
 class AclSubject : public RefCount {
+public:
     typedef LowLevelMemoryUtilities::Writer Writer;
     typedef LowLevelMemoryUtilities::Reader Reader;
-public:
-    AclSubject(uint32 type) : mType(type) { }
+	
+	typedef uint8 Version;		// binary version marker
+	static const int versionShift = 24;	// highest-order byte of type is version
+	static const uint32 versionMask = 0xff000000;
+
+    AclSubject(uint32 type) : mType(type), mVersion(0) { assert(!(type & versionMask)); }
     virtual ~AclSubject();
     uint32 type() const { return mType; }
     
@@ -71,11 +73,16 @@ public:
     virtual void exportBlob(Writer &pub, Writer &priv);
     virtual void importBlob(Reader &pub, Reader &priv);
 	
-	// debug suupport
-	IFDUMP(virtual void debugDump() const);
+	// binary compatibility version management. The version defaults to zero
+	Version version() const	{ return mVersion; }
+	void version(Version v)	{ mVersion = v; }
+	
+	// debug suupport (dummied out but present for -UDEBUGDUMP)
+	virtual void debugDump() const;
     
 private:
     CSSM_ACL_SUBJECT_TYPE mType;
+	Version mVersion;
     
 public:
     class Maker {
@@ -85,7 +92,7 @@ public:
         
         uint32 type() const { return myType; }
         virtual AclSubject *make(const TypedList &list) const = 0;
-        virtual AclSubject *make(Reader &pub, Reader &priv) const = 0;
+        virtual AclSubject *make(Version version, Reader &pub, Reader &priv) const = 0;
             
     protected:
         // list parsing helpers
@@ -213,8 +220,8 @@ public:
     void exportBlob(CssmData &publicBlob, CssmData &privateBlob);
     void importBlob(const void *publicBlob, const void *privateBlob);
 	
-	// debugging support
-	IFDUMP(virtual void debugDump(const char *what = NULL) const);
+	// debugging support (always there but stubbed out unless DEBUGDUMP)
+	virtual void debugDump(const char *what = NULL) const;
 
 public:
     class Entry {
@@ -230,13 +237,12 @@ public:
         virtual bool authorizes(AclAuthorization auth) const = 0;
         virtual bool validate(const AclValidationContext &ctx) const = 0;
 
-        template <class Action>
-        void exportBlob(Action &pub, Action &priv)
-        {
-            pub(delegate);
-			CSSM_ACL_SUBJECT_TYPE type = subject->type(); pub(type);
-            subject->exportBlob(pub, priv);
-        }
+		template <class Action>
+		void ObjectAcl::Entry::exportBlob(Action &pub, Action &priv)
+		{
+			uint32 del = delegate; pub(del);	// 4 bytes delegate flag
+			exportSubject(subject, pub, priv);	// subject itself (polymorphic)
+		}
         void importBlob(Reader &pub, Reader &priv);
 		
 		IFDUMP(virtual void debugDump() const);
@@ -265,13 +271,13 @@ public:
     
     class AclEntry : public Entry {
     public:
-        string tag;						// entry tag
-        AclAuthorizationSet authorizations;	 // set of authorizations
-        bool authorizesAnything;		// has the _ANY authorization tag
+        std::string tag;						// entry tag
+		AclAuthorizationSet authorizations;		// set of authorizations
+        bool authorizesAnything;				// has the _ANY authorization tag
         //@@@ time range not yet implemented
-        uint32 handle;					// entry handle
+        uint32 handle;							// entry handle
         
-		AclEntry() { }					// invalid AclEntry
+		AclEntry() { }							// invalid AclEntry
         AclEntry(const AclSubjectPointer &subject);
         AclEntry(const AclEntryPrototype &proto);
         
@@ -286,7 +292,7 @@ public:
         {
             Entry::exportBlob(pub, priv);
             const char *s = tag.c_str(); pub(s);
-            pub(authorizesAnything);
+            uint32 aa = authorizesAnything; pub(aa);
             if (!authorizesAnything) {
                 uint32 count = authorizations.size(); pub(count);
                 for (AclAuthorizationSet::iterator it = authorizations.begin();
@@ -300,22 +306,35 @@ public:
 		
 		IFDUMP(void debugDump() const);
     };
+	
+public:
+	// These helpers deal with transferring one subject from/to reader/writer streams.
+	// You'd usually only call those from complex subject implementations (e.g. threshold)
+	template <class Action>
+	static void ObjectAcl::exportSubject(AclSubject *subject, Action &pub, Action &priv)
+	{
+		uint32 typeAndVersion = subject->type() | subject->version() << AclSubject::versionShift;
+		pub(typeAndVersion);
+		subject->exportBlob(pub, priv);
+	}
+	static AclSubject *importSubject(Reader &pub, Reader &priv);
 
-    typedef multimap<string, AclEntry> EntryMap;
+public:
+    typedef std::multimap<string, AclEntry> EntryMap;
     typedef EntryMap::iterator Iterator;
     typedef EntryMap::const_iterator ConstIterator;
-    
+
     Iterator begin() { return entries.begin(); }
     Iterator end() { return entries.end(); }
     ConstIterator begin() const { return entries.begin(); }
     ConstIterator end() const { return entries.end(); }
-    
+
     unsigned int getRange(const char *tag, pair<ConstIterator, ConstIterator> &range) const;	
     Iterator findEntryHandle(CSSM_ACL_HANDLE handle);
-    
+
     // construct an AclSubject through the Maker registry (by subject type)
     static AclSubject *make(const TypedList &list);	// make from CSSM form
-    static AclSubject *make(CSSM_ACL_SUBJECT_TYPE type,
+    static AclSubject *make(uint32 typeAndVersion,
                             Reader &pub, Reader &priv); // make from export form
     
 private:
@@ -341,15 +360,14 @@ public:
     ResourceControlContext(const AclEntryInput &initial, AccessCredentials *cred = NULL)
     { InitialAclEntry = initial; AccessCred = cred; }
     
-    operator AclEntryInput &() { return AclEntryInput::overlay(InitialAclEntry); }
-    AccessCredentials *credentials() { return AccessCredentials::overlay(AccessCred); }
+	AclEntryInput &input()		{ return AclEntryInput::overlay(InitialAclEntry); }
+    operator AclEntryInput &()	{ return input(); }
+    AccessCredentials *credentials() const { return AccessCredentials::overlay(AccessCred); }
+	void credentials(const CSSM_ACCESS_CREDENTIALS *creds)
+		{ AccessCred = const_cast<CSSM_ACCESS_CREDENTIALS *>(creds); }
 };
 
 } // end namespace Security
-
-#ifdef _CPP_CSSMACL
-#pragma export off
-#endif
 
 
 #endif //_CSSMACL

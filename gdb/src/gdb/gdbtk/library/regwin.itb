@@ -1,5 +1,8 @@
-# Register display window for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Register display window for Insight.
+# Copyright 1998, 1999, 2001, 2002 Red Hat, Inc.
+#
+# Written by Keith Seitz (keiths@redhat.com)
+# based on work by Martin Hunt (hunt@redhat.com)
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -11,683 +14,1161 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+# TODO
+#
+# Must fix:
+# o Edit menus -- weirdo interaction with tkTable. Seems okay on windows.
+#                 Needs more testing on unix (popup edit menu item).
+#
+# Want really badly:
+# o Multiple selections
+# o Register groups (gdb and user-defined)
+# o format register values before inserting into table?
+#   (Instead of displaying "0x0", we should use "0x00000000" on
+#    machines with 32-bit regs, "0x0000000000000000" on machines
+#    with 64-bit regs, etc. Maybe user-defined formats, i.e.,
+#    "0x0000 0000 0000 0000 0000 0000"?)
+
 # ------------------------------------------------------------------
-#  CONSTRUCTOR - create new register window
+#  NAME:         RegWin::constructor
+#  DESCRIPTION:  Create a new register window
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
 # ------------------------------------------------------------------
 body RegWin::constructor {args} {
-  global tixOption
-  debug "RegWin::constructor"
-  wm withdraw [winfo toplevel $itk_interior]
-  gdbtk_busy
-  
-  set NormalForeground $tixOption(fg)
-  set HighlightForeground [pref get gdb/reg/highlight_fg]
-  
-  if {[pref getd gdb/reg/menu] != ""} {
-    set mbar 0
-  }
-  
-  init_reg_display_vars 1
-  build_win
+
   eval itk_initialize $args    
-  
+
+  gdbtk_busy
+
+  window_name "Registers" "Regs"
+  _build_win
+  _layout_table
+
+  # Clear gdb's changed list
+  catch {gdb_reginfo changed}
+
   gdbtk_idle
-  add_hook gdb_update_hook "$this update"
-  add_hook gdb_busy_hook [list $this busy]
-  add_hook gdb_idle_hook [list $this idle]
-  if {[get_disassembly_flavor] != ""} {
-    add_hook gdb_set_hook [code $this handle_set_hook]
-  }
 }
 
 # ------------------------------------------------------------------
-#  DESTRUCTOR - destroy window containing widget
+#  NAME:         RegWin::destructor
+#  DESCRIPTION:  Destroys the register window
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
 # ------------------------------------------------------------------
 body RegWin::destructor {} {
-  debug "RegWin::destructor"
-  save_reg_display_vars
-  remove_hook gdb_update_hook "$this update"
-  remove_hook gdb_busy_hook [list $this busy]
-  remove_hook gdb_idle_hook [list $this idle]
-  if {[get_disassembly_flavor] != ""} {
-    remove_hook gdb_set_hook [code $this handle_set_hook]
-  }
-}
-  
-
-# ------------------------------------------------------------------
-#  METHOD:  build_win - build the main register window
-# ------------------------------------------------------------------
-body RegWin::build_win {} {
-  global reg_display tixOption tcl_platform
-  
-  set dim [dimensions]
-  set nRows [lindex $dim 0]
-  set nCols [lindex $dim 1]
-  if {$tcl_platform(platform) == "windows"} {
-    tixScrolledWindow $itk_interior.scrolled -scrollbar both -sizebox 1
-  } else {
-    tixScrolledWindow $itk_interior.scrolled -scrollbar auto
-  }
-  set ScrolledWin [$itk_interior.scrolled subwidget window]
-  
-  # Calculate the maximum length of a register name
-  set regMaxLen 0
-  foreach r [gdb_regnames] {
-    set l [string length $r]
-    if {$l > $regMaxLen} {
-      set regMaxLen $l
-    }
-  }
-  
-  # Calculate the minimum size for each column so that the register values fit.
-  set row 0
-  set col 0
-  foreach r $reg_display_list {
-    if {$row == 0} {
-      # A minimum of 10 so the appearence is nice
-      set vmax($col) 10
-    }
-
-    # Typed registers natural values start with a brace (escaped by a slash)
-    if {[catch {gdb_fetch_registers {} $r} valtest]} {
-      set values($r) ""
-    } else {
-      if {[string index $valtest 1] == "\{"} {
-        # If it is a typed register, we print it raw
-        set format r
-        set reg_display($r,format) r
-        set reg_display($r,typed) 1
-        set reg_display($r,editable) 0
-      } else {
-        set format $reg_display($r,format)
-        set reg_display($r,editable) 1
-      }
-      if {[catch {gdb_fetch_registers $format $r} values($r)]} {
-        set values($r) ""
-      } else {
-        set values($r) [string trim $values($r) \ ]
-      }
-    }
-
-    set l [string length $values($r)]
-    if {$l > $vmax($col)} {
-      set vmax($col) $l
-    }
-    incr row
-    if {$row == $nRows} {
-      set row 0
-      incr col
-    }
-  }
-  
-  # Create labels
-  set row 0
-  set col 0
-  foreach r $reg_display_list {
-    if {$row == $nRows} {
-      grid columnconfigure $ScrolledWin $col -weight 1
-      set row 0
-      incr col
-    }
-    
-    frame $ScrolledWin.$r -takefocus 1
-    bind $ScrolledWin.$r <Up> "$this reg_select_up"
-    bind $ScrolledWin.$r <Down> "$this reg_select_down"
-    bind $ScrolledWin.$r <Tab> "$this reg_select_down"
-    bind $ScrolledWin.$r <Left> "$this reg_select_left"
-    bind $ScrolledWin.$r <Right> "$this reg_select_right"
-    if {![pref get gdb/mode]} {
-      bind $ScrolledWin.$r <Return> "$this edit $r"
-    }
-    
-    label $ScrolledWin.$r.lbl -text [fixLength $reg_display($r,name) $regMaxLen left] \
-      -relief solid -bd 1 -font src-font 
-    label $ScrolledWin.$r.val -anchor e -text [fixLength $values($r) $vmax($col) right] \
-      -relief ridge -bd 1 -font src-font -bg $tixOption(input1_bg)
-    
-    grid $ScrolledWin.$r.lbl $ScrolledWin.$r.val -sticky nsew
-    grid columnconfigure $ScrolledWin.$r 1 -weight 1
-    grid $ScrolledWin.$r -colum $col -row $row -sticky nsew
-    #      grid rowconfigure $ScrolledWin $row -weight 1
-    bind $ScrolledWin.$r.val <1> "$this reg_select $r"
-    bind $ScrolledWin.$r.lbl <1> "$this reg_select $r"
-    bind $ScrolledWin.$r.val <3> "$this but3 $r %X %Y"
-    bind $ScrolledWin.$r.lbl <3> "$this but3 $r %X %Y"
-    if {![pref get gdb/mode]} {
-      bind $ScrolledWin.$r.lbl <Double-1> "$this edit $r"
-      bind $ScrolledWin.$r.val <Double-1> "$this edit $r"
-    }
-    incr row
-  }
-  grid columnconfigure $ScrolledWin $col -weight 1
-  
-  
-  if { $mbar } {
-    menu $itk_interior.m -tearoff 0
-    [winfo toplevel $itk_interior] configure -menu $itk_interior.m
-    $itk_interior.m add cascade -menu $itk_interior.m.reg -label "Register" -underline 0
-    set m [menu $itk_interior.m.reg]
-    if {![pref get gdb/mode]} {
-      $m add command -label "Edit" -underline 0 -state disabled
-    }
-    $m add cascade -menu $itk_interior.m.reg.format -label "Format" -underline 0
-    set f [menu $itk_interior.m.reg.format]
-    $f add radio -label "Hex" -value x -underline 0 -state disabled \
-      -command "$this update"
-    $f add radio -label "Decimal" -value d -underline 0 -state disabled \
-      -command "$this update"
-    $f add radio -label "Natural" -value {} -underline 0 -state disabled \
-      -command "$this update"
-    $f add radio -label "Binary" -value t -underline 0 -state disabled \
-      -command "$this update"
-    $f add radio -label "Octal" -value o -underline 0 -state disabled \
-      -command "$this update"
-    $f add radio -label "Raw" -value r -underline 0 -state disabled \
-      -command "$this update"
-    $m add command -label "Remove from Display" -underline 0 -state disabled
-    $m add separator
-    $m add command -label "Add to Watch" -underline 7 -state disabled
-    $m add separator
-    $m add command -label "Display All Registers" -underline 0 -state disabled \
-			      -command "$this display_all"
-    set disp_all_menu_item [$m index last]
-
-    if {!$all_regs_shown} {
-      $m entryconfigure $disp_all_menu_item -state normal
-    }
-  }
-  
-  set Menu [menu $ScrolledWin.pop -tearoff 0]
-  set disabled_fg [$Menu cget -fg]
-  $Menu configure -disabledforeground $disabled_fg
-  
-  # Clear gdb's changed list
-  catch {gdb_changed_register_list}
-  
-  pack $itk_interior.scrolled -anchor nw -fill both -expand yes
-  
-  window_name "Registers" "Regs"
+  debug
 }
 
-# ------------------------------------------------------------------------------
-# NAME: init_reg_display_vars
-# DESC: Initialize the list of registers displayed.
-#	args - not used
-# RETURNS:
-# NOTES:
-# ------------------------------------------------------------------------------
-body RegWin::init_reg_display_vars {args} {
-  global reg_display max_regs
-  set reg_display_list {}
-  set regnames [gdb_regnames -numbers]
 
-  set i 1
+#
+# Table layout/display methods
+#
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_build_win
+#  DESCRIPTION:  Builds the register window from widgets
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        This method should only be called once for
+#                each RegWin. To change the layout of the table
+#                in the window, use RegWin::_layout_table.
+# ------------------------------------------------------------------
+body RegWin::_build_win {} {
+ 
+  # Create scrollbars and table
+  itk_component add vscroll {
+    scrollbar $itk_interior.vs -orient vertical
+  } {}
+  itk_component add hscroll {
+    scrollbar $itk_interior.hs -orient horizontal
+  } {}
+
+  itk_component add table {
+    ::table $itk_interior.tbl -variable [scope _data] \
+      -bg [pref get gdb/font/normal_bg] -fg [pref get gdb/font/normal_fg] \
+      -browsecmd [code $this _select_cell %S] -font global/fixed \
+      -colstretch unset -rowstretch unset -selectmode single \
+      -resizeborders none -multiline false -colwidth 18 \
+      -autoclear 0 -bg [pref get gdb/font/normal_bg] \
+      -padx 5 -xscrollcommand [code $itk_component(hscroll) set] \
+      -yscrollcommand [code $itk_component(vscroll) set]
+  } {}
+  bind $itk_component(table) <Up>       \
+    [format "%s; break" [code $this _move up]]
+  bind $itk_component(table) <Down>     \
+    [format "%s; break" [code $this _move down]]
+  bind $itk_component(table) <Left>     \
+    [format "%s; break" [code $this _move left]]
+  bind $itk_component(table) <Right>    \
+    [format "%s; break" [code $this _move right]]
+  bind $itk_component(table) <3>        \
+    [code $this _but3 %x %y %X %Y]
+  bind $itk_component(table) <Double-1> \
+    [code $this _edit %x %y]
+  bind $itk_component(table) <Return>   \
+    [format "%s; break" [code $this _accept_edit]]
+  bind $itk_component(table) <KP_Enter>   \
+    [format "%s; break" [code $this _accept_edit]]
+  bind $itk_component(table) <Escape>   \
+    [code $this _unedit]
+
+  $itk_component(hscroll) configure -command [code $itk_component(table) xview]
+  $itk_component(vscroll) configure -command [code $itk_component(table) yview]
+
+  grid $itk_component(table) -row 0 -col 0 -sticky news
+  grid $itk_component(vscroll) -row 0 -col 1 -sticky ns
+  grid $itk_component(hscroll) -row 1 -col 0 -sticky ew
+  grid columnconfigure $itk_interior 0 -weight 1
+  grid rowconfigure $itk_interior 0 -weight 1
+
+  # Add sizebox for windows
+  if {[string compare $::tcl_platform(platform) "windows"] == 0} {
+    ide_sizebox $itk_interior.sbox
+    place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
+  }
+
+  # Create/configure tags for various display styles
+  # normal    - the "normal" display style
+  # highlight - changed registers are highlighted
+  # sel       - the selection fg/bg should conform to standard
+  # header    - used on the register name cells and empty cells
+  # edit      - used on a cell being edited
+  $itk_component(table) tag configure normal  \
+    -foreground [pref get gdb/font/normal_fg] \
+    -background [pref get gdb/font/normal_bg] \
+    -state disabled
+  $itk_component(table) tag configure highlight  \
+    -foreground [pref get gdb/font/highlight_fg] \
+    -background [pref get gdb/font/highlight_bg]
+  $itk_component(table) tag raise highlight
+  $itk_component(table) tag configure sel     \
+    -foreground [pref get gdb/font/select_fg]
+  $itk_component(table) tag configure header  \
+    -foreground [pref get gdb/font/header_fg] \
+    -background [pref get gdb/font/header_bg] \
+    -anchor w -state disabled -relief raised
+  $itk_component(table) tag configure disabled \
+    -state disabled
+  $itk_component(table) tag raise active
+  $itk_component(table) tag configure edit \
+    -state normal
+  $itk_component(table) tag raise edit
+  $itk_component(table) tag raise sel
+
+  # Register to receive notifications on preference changes
+  # (Note that these are not supported by the preference dialogs, but...)
+  foreach opt [list highlight select header] {
+    pref add_hook gdb/font/${opt}_fg [code $this _prefs_changed]
+    pref add_hook gdb/font/${opt}_bg [code $this _prefs_changed]
+  }
+
+  # Create toplevel menubar
+  itk_component add menubar {
+    menu $itk_interior.m -tearoff false
+  } {
+    ignore -tearoff
+  }
+  $_top configure -menu $itk_component(menubar)
+
+  # Create register menu
+  itk_component add reg_menu {
+    menu $itk_component(menubar).reg -tearoff false \
+      -postcommand [code $this _post_menu]
+  } {
+    ignore -tearoff
+  }
+  $itk_component(menubar) add cascade -menu $itk_component(reg_menu) \
+    -label "Register" -underline 0
+
+  if {![pref get gdb/mode]} {
+    $itk_component(reg_menu) add command -label "Edit" \
+      -underline 0 -state disabled
+    set _menuitems(edit) [$itk_component(reg_menu) index last]
+  }
+
+  # Create register->format cascade menu
+  itk_component add reg_format {
+    menu $itk_component(reg_menu).format -tearoff false
+  } {
+    ignore -tearoff
+  }
+
+  $itk_component(reg_menu) add cascade -menu $itk_component(reg_format) \
+    -label "Format" -underline 0
+  $itk_component(reg_format) add radio -label "Hex" -value x \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Decimal" -value d \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Unsigned" -value u \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Natural" -value {} \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Binary" -value t \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Octal" -value o \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Raw" -value r \
+    -underline 0 -state disabled -command [code $this update dummy]
+  $itk_component(reg_format) add radio -label "Floating Point" -value f \
+    -underline 0 -state disabled -command [code $this update dummy]
+
+  $itk_component(reg_menu) add command -label "Add to Watch" \
+    -underline 7 -state disabled
+  set _menuitems(add_to_watch) [$itk_component(reg_menu) index last]
+  $itk_component(reg_menu) add separator
+  $itk_component(reg_menu) add command -label "Remove from Display" \
+    -underline 0 -state disabled
+  set _menuitems(remove_from_display) [$itk_component(reg_menu) index last]
+  $itk_component(reg_menu) add command -label "Display all Registers" \
+    -underline 0 -state disabled -command [code $this _display_all]
+  set _menuitems(display_all_registers) [$itk_component(reg_menu) index last]
+  $itk_component(reg_menu) add separator
+  $itk_component(reg_menu) add command -label "Close" \
+    -underline 0 -command [code delete object $this]
+
+  # Add popup menu - we populate it in the event handler
+  itk_component add popup {
+    menu $itk_interior.pop -tearoff 0
+  } {}
+  $itk_component(popup) configure \
+    -disabledforeground [$itk_component(menubar) cget -fg]
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_dimensions
+#  DESCRIPTION:  Determine dimensions for the table
+#
+#  ARGUMENTS:    None
+#  RETURNS:      A list of {cols,rows} which may be used to
+#                configure the table
+#
+#  NOTES:        I don't like this. (KRS 20010718)
+# ------------------------------------------------------------------
+body RegWin::_dimensions {} {
+
+  # Always layout the table based on the TOTAL number
+  # of registers (not just the shown ones).
+  set num [llength [gdb_reginfo name]]
+  set rows [pref get gdb/reg/rows]
+  set cols [expr {$num / $rows}]
+  if {[expr {$num % $rows}] != 0} {
+    incr cols
+  }
+
+  return [list [expr {2 * $cols}] $rows]
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_layout_table
+#  DESCRIPTION:  Configures and lays out the table
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        Uses preferences to determine if/how a register
+#                is displayed
+# ------------------------------------------------------------------
+body RegWin::_layout_table {} {
+
+  # Set table dimensions
+  lassign [_dimensions] cols rows
+  $itk_component(table) configure -cols $cols -rows $rows
+
+  if {[info exists _cell]} {
+    unset _cell
+    unset _register
+  }
+  set _register(hidden) {}
+
+  # Find out largest register name length and register size length.
+  set width 0;				# for reg values
+  set max_width 0;			# for reg labels
+  foreach r [gdb_reginfo name -numbers] {
+    set nm [lindex $r 0]
+    set rn [lindex $r 1]
+
+    set size [string length $nm]
+    if {$size > $max_width} {
+      set max_width $size
+    }
+
+    set size [gdb_reginfo size $rn]
+    if {$size > $width} {
+      set width $size
+    }
+  }
+  incr max_width 2;			# padding
+
+  # Minwidth = size * 2 (hex) + 2 ("0x") + 2 (padding, one space each side)
+  set minwidth [expr {$size * 2 + 2 + 2}]
+
+  # Clear any column spans
+  foreach span [$itk_component(table) spans] {
+    $itk_component(table) spans $span 0,0
+  }
+
+  # Fill data array with register names.
+  # 
+  # The table is indexed by (row,col). All odd columns will contain
+  # register values and all even columns will contain the labels.
+  #
+  # This loop will also initialize _typed and _editable arrays.
   set x 0
-  foreach r $regnames {
-    incr x
+  set y 0
+  set _reg_display_list {}
+  foreach r [gdb_reginfo name -numbers] {
+
     set name [lindex $r 0]
-    set rn   [lindex $r 1]
-    set reg_display($rn,name) $name
+    set rn [lindex $r 1]
 
     # All registers shall be considered editable
     # and non-typed until proved otherwise
-    set reg_display($rn,typed) 0
-    set reg_display($rn,editable) 0
+    set _typed($rn) 0
+    set _editable($rn) 0
 
     # If user has no preference, show register in hex (if we can)
-    set format [pref getd gdb/reg/$name-format]
+    set format [pref getd gdb/reg/${name}-format]
     if {$format == ""} { set format x }
-    set reg_display($rn,format) $format
+    set _format($rn) $format
 
     # Check if the user prefers not to show this register
-    if {$args != "" && [pref getd gdb/reg/$name] == "no"} {
-      set all_regs_shown 0
-      set reg_display($rn,line) 0
+    if {[pref getd gdb/reg/$name] == "no"} {
+      set _cell($rn) hidden
+      lappend _register(hidden) $rn
     } else {
-      set reg_display($rn,line) $i
-      lappend reg_display_list $rn
-      incr i
+      lappend _reg_display_list $rn
+      set _cell($rn) "$y,[expr {$x+1}]"
+      set _register($_cell($rn)) $rn
+      set _data($y,$x) $name
+      _update_register $rn
+
+      $itk_component(table) width $x $max_width
+      $itk_component(table) width [expr {$x+1}] $width
+      $itk_component(table) tag col header $x
+      $itk_component(table) tag col normal [expr {$x+1}]
+
+      # Go to next row/column
+      incr y
+      if {$y == $rows} {
+	set _col_size([expr {$x+1}]) 0
+
+	# Size the column
+	if {$::gdb_running} {
+	  _size_column [expr {$x+1}] 1
+	}
+
+	set y 0
+	incr x 2
+      }
     }
   }
 
-  set num_regs [expr {$i - 1}]
-  set max_regs $x
-  set reg_names_dirty 0
+  # Mark empty cells
+  while {$y != $rows && $x != $cols} {
+    set _data($y,$x) ""
+    set _data($y,[expr {$x+1}]) ""
+    $itk_component(table) spans $y,$x 0,1
+    $itk_component(table) tag cell header $y,$x
+    set _col_size([expr {$x+1}]) 0
+
+    incr y
+    if {$y == $rows} {
+      # Size the column
+      if {$::gdb_running} {
+	_size_column [expr {$x+1}] 1
+      }
+
+      set y 0
+      incr x 2
+    }
+  }
+
+  # Update register menu
+  if {[llength $_register(hidden)] != 0} {
+    $itk_component(reg_menu) entryconfigure $_menuitems(display_all_registers) \
+      -state normal
+  }
 }
 
-body RegWin::handle_set_hook {var value} {
-  switch $var {
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_size_cell_column
+#  DESCRIPTION:  Resize the column for a given cell.
+#
+#  ARGUMENTS:
+#                cell  - the cell whose column is to be resized
+#                down  - whether the resizing should size the column
+#                        down or just up.
+#  RETURNS:      Nothing
+#
+#  NOTES:        See _size_column for the reasoning for the "down"
+#                option.
+# ------------------------------------------------------------------
+body RegWin::_size_cell_column {cell down} {
+
+  set col [string trim [lindex [split $cell ,] 1] ()]
+  _size_column $col $down
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_size_column
+#  DESCRIPTION:  Resize the given column
+#
+#  ARGUMENTS:
+#                col  - the column to be resized
+#                down - whether the resizing should size the column
+#  RETURNS:             down or just up.
+#
+#  NOTES:        The down option allows column sizes to change down
+#                as well as up. For most cases, this is what is
+#                wanted. However, when the user is stepping, it is
+#                really annoying to see the column sizes changing.
+#                It's bad enough we must size up, but going down
+#                is just too much. Consequently, when updating the
+#                contents of the table, we specify that the columns
+#                should not downsize. This helps mitigate the
+#                annoyance.
+# ------------------------------------------------------------------
+body RegWin::_size_column {col down} {
+
+  set max 0
+  foreach cell [array names _data *,$col] {
+    set len [string length $_data($cell)]
+    if {$len > $max} { set max $len }
+  }
+
+  if {($down && $max != $_col_size($col))
+      || (!$down && $max > $_col_size($col))} {
+    set _col_size($col) $max
+    $itk_component(table) width $col [expr {$max + 2}]
+
+    # Force the table to update itself
+    after idle event generate $itk_component(table) <Configure> \
+      -width [winfo width $itk_component(table)]
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_prefs_changed
+#  DESCRIPTION:  Reconfigures register window when a preference
+#                changes.
+#
+#  ARGUMENTS:
+#                pref   - the preference which changed
+#                value  - preference's new value
+#  RETURNS:      Nothing
+#
+#  NOTES:        Callback from pref system
+# ------------------------------------------------------------------
+body RegWin::_prefs_changed {pref value} {
+
+  switch $pref {
+    gdb/font/highlight_fg {
+      $itk_component(table) tag configure highlight -fg $value
+    }
+
+    gdb/font/highlight_bg {
+      $itk_component(table) tag configure highlight -bg $value
+    }
+
+    gdb/font/select_fg {
+      $itk_component(table) tag configure sel -bg $value
+    }
+
+    gdb/font/select_bg {
+      $itk_component(table) tag configure sel -bg $value
+    }
+
+    gdb/font/header_fg {
+      $itk_component(table) tag configure header -bg $value
+    }
+
+    gdb/font/header_bg {
+      $itk_component(table) tag configure header -bg $value
+    }
+  }
+}
+
+
+#
+# Table event handlers and related methods
+#
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_accept_edit
+#  DESCRIPTION:  Change a register's value
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        Event handler for <Enter> and <KP_Enter>
+#                in table
+# ------------------------------------------------------------------
+body RegWin::_accept_edit {} {
+
+  set cell [$itk_component(table) tag cell edit]
+  if {[llength $cell] == 1 && [info exists _register($cell)]} {
+    # Select the same cell again. This forces the table
+    # to keep this value. Otherwise, we'll never see it...
+    _select_cell $cell
+    set n [gdb_reginfo name $_register($cell)]
+    set v [string trim [$itk_component(table) curvalue] \ \r\n]
+    if {$v != ""} {
+      if {[catch {gdb_cmd "set \$${n}=$v"} result]} {
+	tk_messageBox -icon error -type ok -message $result \
+	  -title "Error in Expression" -parent $_top
+      }
+    }
+
+    # Always update the register, even for error conditions. This
+    # will ensure that the cell's old value is restored to the table.
+    _update_register $_register($cell)
+    _size_cell_column $cell 1
+  }
+
+  # Reset the table bindings (see RegWin::_edit comments)
+  bind $itk_component(table) <1> {}
+  bind $itk_component(table) <ButtonRelease-1> {}
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_add_to_watch
+#  DESCRIPTION:  Add a register to the watch window
+#
+#  ARGUMENTS:    rn  - the register number to add to the WatchWin
+#  RETURNS:      Nothing
+#
+#  NOTES:        Only works with one WatchWin...
+# ------------------------------------------------------------------
+body RegWin::_add_to_watch {rn} {
+  [ManagedWin::open WatchWin] add "\$[gdb_reginfo name $rn]"
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_but3
+#  DESCRIPTION:  Configure the popup menu before posting it
+#
+#  ARGUMENTS:    x  - x-coordinate of buttonpress
+#                y  - y-coordinate
+#                X  - x-root coordinate
+#                Y  - y-root coordinate
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_but3 {x y X Y} {
+
+  # Only post the menu when we're not executing the inferior,
+  # the inferior is in a runnable state, and we're not in a disabled
+  # cell.
+  if {!$_running && $::gdb_running} {
+
+    # Select the register
+    set cell [_select_cell [$itk_component(table) index @$x,$y]]
+    if {[info exists _register($cell)]} {
+      set rn $_register($cell)
+      set name [gdb_reginfo name $rn]
+      $itk_component(popup) delete 0 end
+      $itk_component(popup) add command -label $name -state disabled
+      $itk_component(popup) add separator
+      if {!$_typed($rn)} {
+	$itk_component(popup) add radio -label "Hex"            \
+	  -variable [scope _format($rn)] -value x               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Decimal"        \
+	  -variable [scope _format($rn)] -value d               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Unsigned"       \
+	  -variable [scope _format($rn)] -value u               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Natural"        \
+	  -variable [scope _format($rn)] -value {}              \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Binary"         \
+	  -variable [scope _format($rn)] -value t               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Octal"          \
+	  -variable [scope _format($rn)] -value o               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Raw"            \
+	  -variable [scope _format($rn)] -value r               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add radio -label "Floating Point" \
+	  -variable [scope _format($rn)] -value f               \
+	  -command [code $this _change_format $rn]
+	$itk_component(popup) add separator
+      }
+      if {$_editable($rn)} {
+	set state normal
+      } else {
+	set state disabled
+      }
+      
+      # I'm disabling this, since it doesn't work very well.
+      # All kinds of goofy interactions with the insertion cursor
+      # and focus when editing is invoked from a menu. (KRS 20010717)
+      if {1} {
+	$itk_component(popup) add command  \
+	  -label "Edit" -command "after idle [code $this _edit $x $y]" -state $state
+      }
+      $itk_component(popup) add command    \
+	-label "Add to Watch" -command [code $this _add_to_watch $rn]
+      $itk_component(popup) add separator
+      $itk_component(popup) add command    \
+	-label "Remove from Display" \
+	-command [code $this _delete_from_display $rn]
+      if {[llength $_register(hidden)] != 0} {
+	$itk_component(popup) add command -label "Display all Registers" \
+	  -command [code $this _display_all]
+      }
+      tk_popup $itk_component(popup) $X $Y
+    }
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_delete_from_display
+#  DESCRIPTION:  Remove a register from the display
+#
+#  ARGUMENTS:    rn  - the register number to remove
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_delete_from_display {rn} {
+
+  # Mark the cell as hidden
+  set index [lsearch $_reg_display_list $rn]
+  if {$index != -1} {
+    pref setd gdb/reg/[gdb_reginfo name $rn] no
+    set _reg_display_list [lreplace $_reg_display_list $index $index]
+
+    # Relayout table
+    _layout_table
+
+    $itk_component(reg_menu) entryconfigure $_menuitems(display_all_registers) \
+      -state normal
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_display_all
+#  DESCRIPTION:  Display all registers in the window
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_display_all {} {
+
+  $itk_component(reg_menu) entryconfigure $_menuitems(display_all_registers) \
+    -state disabled
+
+  # Unhide all hidden registers
+  foreach r $_register(hidden) {
+    pref setd gdb/reg/[gdb_reginfo name $r] {}
+  }
+  set _register(hidden) {}
+
+  # Note which register is active and restore it
+  if {[catch {$itk_component(table) index active} cell]} {
+    set active {}
+  } else {
+    set active $_register($cell)
+  }
+  _layout_table
+  if {$active != ""} {
+    $itk_component(table) activate $_cell($active)
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_edit
+#  DESCRIPTION:  Enables a cell for editing
+#
+#  ARGUMENTS:
+#                x  - the x coordinate of the button press
+#                y  - the y coordinate of the button press
+#  RETURNS:      Nothing
+#
+#  NOTES:        Event handler for <Double-1> in table.
+#                Sets special bindings for <1> and <ButtonRelease-1>.
+# ------------------------------------------------------------------
+body RegWin::_edit {x y} {
+  global gdb_running
+
+  focus $itk_component(table)
+
+  # Get and select the cell and set the edit tag on it
+  set cell [_select_cell [$itk_component(table) index @$x,$y]]
+
+  # Ugh. In order to click on the label and keep the value
+  # focused, we need to disrupt the ButtonRelease-1 event.
+  bind $itk_component(table) <ButtonRelease-1> break
+  
+  # Disable the <1> binding while editing
+  bind $itk_component(table) <1> break
+
+  # Now mark the cell as being edited.
+  if {$gdb_running && [info exists _register($cell)]} {
+    $itk_component(table) tag cell edit $cell
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_edit_menu
+#  DESCRIPTION:  Enables a cell for editing when invoked from
+#                a menu
+#
+#  ARGUMENTS:
+#                rn  - the register to edit
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body RegWin::_edit_menu {rn} {
+
+  set bbox [$itk_component(table) bbox $_cell($rn)]
+  _edit [lindex $bbox 0] [lindex $bbox 1]
+  event generate $_top <Enter>
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method _move
+#  DESCRIPTION:  Handle arrow key events in table
+#
+#  ARGUMENTS:    direction  - "up", "down", "left", "right"
+#  RETURNS:      Nothing
+#
+#  NOTES:        Event handler for <Up>, <Down>, <Left>, <Right>
+#                in table. This is needed because the table
+#                has some rather strange bindings for moving
+#                the insertion cursor when editing a cell.
+#                This method will move to the next cell when
+#                we're not editing, or it will move the icursor
+#                if we are editing.
+# ------------------------------------------------------------------
+body RegWin::_move {direction} {
+
+  # If there is no active cell, the table will call error
+  if {[catch {$itk_component(table) index active row} row]} {
+    return
+  }
+
+  if {[$itk_component(table) tag cell edit] != ""} {
+    # Editing
+
+    switch $direction {
+      up {
+	# Go to beginning
+	$itk_component(table) icursor 0
+      }
+
+      down {
+	# Go to end
+	$itk_component(table) icursor end
+      }
+
+      left {
+	# Go left one character
+	set ic [$itk_component(table) icursor]
+	if {$ic > 0} {
+	  $itk_component(table) icursor [expr {$ic - 1}]
+	}
+      }
+
+      right {
+	# Go right one character
+	set ic [$itk_component(table) icursor]
+	if {$ic < [$itk_component(table) icursor end] } {
+	  $itk_component(table) icursor [expr {$ic + 1}]
+	}
+      }
+    }
+
+  } else {
+    # Not editing
+
+    set col [$itk_component(table) index active col]
+    lassign [_dimensions] cols rows
+
+    switch $direction {
+      up {
+	incr row -1
+	if {$row < 0} {
+	  # go to bottom
+	  set row $rows
+	}
+      }
+
+      down {
+	incr row 1
+	if {$row == $rows} {
+	  # go to top
+	  set row 0
+	}
+      }
+
+      left {
+	incr col -2
+	if {$col < 0} {
+	  # go to right
+	  set col [expr {$cols -1}]
+	}
+      }
+
+      right {
+	incr col 2
+	if {$col > $cols} {
+	  # go to left
+	  set col 0
+	}
+      }
+    }
+
+    # clear the selection
+    # FIXME: multiple selections?
+    $itk_component(table) selection clear all
+
+    _select_cell $row,$col
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_post_menu
+#  DESCRIPTION:  Configures the Register menu before it is posted
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_post_menu {} {
+  global gdb_running
+
+  # Configure the menu for the active cell
+  if {![catch {$itk_component(table) index active} cell]
+      && [info exists _register($cell)] && $gdb_running} {
+    $itk_component(reg_menu) entryconfigure $_menuitems(remove_from_display) \
+      -state normal -command [code $this _delete_from_display $_register($cell)]
+
+    if {$_typed($_register($cell))} {
+      set state disabled
+    } else {
+      set state normal
+    }
+    for {set i 0} {$i <= [$itk_component(reg_format) index end]} {incr i} {
+      $itk_component(reg_format) entryconfigure $i \
+	-state $state \
+	-variable [scope _format($_register($cell))] \
+	-command [code $this _change_format $_register($cell)]
+    }
+
+    $itk_component(reg_menu) entryconfigure $_menuitems(add_to_watch) \
+      -state normal -command [code $this _add_to_watch $_register($cell)]
+
+    # This doesn't seem to work on my linux box. It works fine on
+    # Cygwin, though... (KRS 010806)
+    if {$_editable($_register($cell))} {
+      $itk_component(reg_menu) entryconfigure $_menuitems(edit) \
+	-state normal -command [code $this _edit_menu $_register($cell)]
+    }
+  } else {
+    # Disable everything
+    $itk_component(reg_menu) entryconfigure $_menuitems(remove_from_display) \
+      -state disabled -command {}
+
+    for {set i 0} {$i <= [$itk_component(reg_format) index end]} {incr i} {
+      $itk_component(reg_format) entryconfigure $i -state disabled \
+	-variable {}
+    }
+
+    $itk_component(reg_menu) entryconfigure $_menuitems(add_to_watch) \
+      -state disabled -command {}
+
+    if {0} {
+      $itk_component(reg_menu) entryconfigure $_menuitems(edit) \
+	-state disabled -command {}
+    }
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_select
+#  DESCRIPTION:  Selects the cell with the given coordinates
+#
+#  ARGUMENTS:
+#                x - the x-coordinate of the cell to select
+#                y - the y-coordinate of the cell to select
+#  RETURNS:      The actual cell selected
+# ------------------------------------------------------------------
+body RegWin::_select {x y} {
+  return [_select_cell [$itk_component(table) index @$x,$y]]
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_select_cell
+#  DESCRIPTION:  Selects a given cell in the table
+#
+#  ARGUMENTS:
+#                cell  - the table index to select
+#  RETURNS:      The actual cell selected
+#
+#  NOTES:        Adjusts the cell index so that it always
+#                selects the value cell for a register
+# ------------------------------------------------------------------
+body RegWin::_select_cell {cell} {
+
+  # Abort an edit
+  _unedit
+
+  # check if going to label. If so, highlight next
+  set row [lindex [split $cell ,] 0]
+  set col [lindex [split $cell ,] 1]
+  if {[expr {$col % 2}] == 0} {
+    # going onto a label
+    incr col 1
+  }
+
+  # Make the selected cell the active one
+  $itk_component(table) activate $row,$col
+  $itk_component(table) see active
+
+  # Select this cell and its label
+  # FIXME: multiple selections?
+  $itk_component(table) selection clear all
+  $itk_component(table) selection set $row,$col $row,[expr {$col-1}]
+
+  return $row,$col
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_unedit
+#  DESCRIPTION:  Cancels an edit
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_unedit {} {
+
+  # clear the tag
+  set cell [$itk_component(table) tag cell edit]
+  $itk_component(table) tag cell normal $cell
+
+  # Reset the table binding (see RegWin::_edit comments)
+  bind $itk_component(table) <ButtonRelease-1> {}
+  bind $itk_component(table) <1> {}
+}
+
+#
+# Register operations
+#
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_get_value
+#  DESCRIPTION:  Get the value of a register
+#
+#  ARGUMENTS:    rn  - the register number whose value should be
+#                      fetched
+#  RETURNS:      The register's value or ""
+#
+#  NOTES:        This function uses RegWin::_format to determine
+#                how the value is returned
+#                It also does some other weird stuff...
+# ------------------------------------------------------------------
+body RegWin::_get_value {rn} {
+
+  # Typed registers natural values start with a brace (escaped by a slash)
+  if {[catch {gdb_reginfo value {} $rn} valtest]} {
+    set value ""
+  } else {
+    if {[string index $valtest 1] == "\{"} {
+      # If it is a typed register, we print it raw
+      set format r
+      set _format($rn) r
+      set _typed($rn) 1
+      set _editable($rn) 0
+    } else {
+      set format $_format($rn)
+      set _editable($rn) 1
+    }
+    if {[catch {gdb_reginfo value $format $rn} value]} {
+      set value ""
+    } else {
+      set value [string trim $value \ ]
+    }
+  }
+
+  return $value
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private method RegWin::_change_format
+#  DESCRIPTION:  Change the display format of the register
+#
+#  ARGUMENTS:    rn  - the register number to change
+#  RETURNS:      Nothing
+#
+#  NOTES:        Assumes that hex, "x", is the default
+# ------------------------------------------------------------------
+body RegWin::_change_format {rn} {
+
+  # Set the new format. Hex (x) is the default.
+  set name [gdb_reginfo name $rn]
+  if {$_format($rn) == "x"} {
+    set fmt ""
+  } else {
+    set fmt $_format($rn)
+  }
+
+  pref setd gdb/reg/${name}-format $fmt
+  _update_register $rn
+  _size_cell_column $_cell($rn) 1
+
+  # Show the active cell in case it's moved as a result
+  # of resizing the columns.
+  $itk_component(table) see active
+}
+
+# ------------------------------------------------------------------
+#  NAME:         private_method RegWin::_update_register
+#  DESCRIPTION:  Updates the value of a register and refreshes
+#                the table
+#
+#  ARGUMENTS:
+#                rn  - the register number to update
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::_update_register {rn} {
+
+  set _data($_cell($rn)) [_get_value $rn]
+}
+
+
+#
+# Gdb Events
+#
+
+# ------------------------------------------------------------------
+#  NAME:         public method RegWin::arch_changed
+#  DESCRIPTION:  ArchChangedEvent handler
+#
+#  ARGUMENTS:    event  - the ArchChangedEvent (not used)
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::arch_changed {event} {
+
+  # When the arch changes, gdb will callback into gdbtk-register.c
+  # to swap out the old register set, so we need only redraw the
+  # window, updating the register names and numbers.
+  _layout_table
+
+  # Clear gdb's change list
+  catch {gdb_reginfo changed}
+}
+
+# ------------------------------------------------------------------
+#  NAME:         public method RegWin::busy
+#  DESCRIPTION:  BusyEvent handler
+#
+#  ARGUMENTS:    event  - the BusyEvent (not used)
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::busy {event} {
+
+  # Abort any edit. Need to check if the table is constructed,
+  # since we call gdbtk_busy when we're created...
+  if {[info exists itk_component(table)]} {
+    _unedit
+  }
+
+  # Set fencepost
+  set _running 1
+
+  # Set cursor
+  $_top configure -cursor watch
+}
+
+# ------------------------------------------------------------------
+#  NAME:         public method RegWin::idle
+#  DESCRIPTION:  IdleEvent handler
+#
+#  ARGUMENTS:    event  - the IdleEvent (not used)
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::idle {event} {
+
+  # Clear fencepost
+  set _running 0
+
+  # Reset cursor
+  $_top configure -cursor {}
+}
+
+# ------------------------------------------------------------------
+#  NAME:         public method RegWin::set_variable
+#  DESCRIPTION:  SetVariableEvent handler
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::set_variable {event} {
+  switch [$event get variable] {
     disassembly-flavor {
-        disassembly_changed
+      _layout_table
     } 
   }
 }
 
-body RegWin::disassembly_changed {} {
-  set reg_names_dirty 1
-}
-# ------------------------------------------------------------------------------
-# NAME: save_reg_display_vars
-# DESC: save the list of displayed registers to the preferences file.
-# ------------------------------------------------------------------------------
-body RegWin::save_reg_display_vars {} {
-  global reg_display max_regs
-  set regnames [gdb_regnames -numbers]
-  foreach r $regnames {
-    set rn   [lindex $r 1]
-    set name $reg_display($rn,name)
-    if {$reg_display($rn,line) == 0} {
-      pref setd gdb/reg/$name no
-      } else {
-	pref setd gdb/reg/$name {}
-      }
-    if {$reg_display($rn,format) != "x"} {
-      pref setd gdb/reg/$name-format $reg_display($rn,format)
-    } else {
-      pref setd gdb/reg/$name-format {}
-    }
-  }
-  pref_save ""
-}
-
 # ------------------------------------------------------------------
-#  PUBLIC METHOD:  reg_select_up
-# ------------------------------------------------------------------
-body RegWin::reg_select_up { } {
-  if { $selected == -1 || $Running} {
-    return
-  }
-  set current_index [lsearch -exact $reg_display_list $selected]
-  set new_reg [lindex $reg_display_list [expr {$current_index - 1}]]
-  if { $new_reg != {} } {
-    $this reg_select $new_reg
-  }
-}
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  reg_select_down
-# ------------------------------------------------------------------
-body RegWin::reg_select_down { } {
-  if { $selected == -1 || $Running} {
-    return
-  }
-  set current_index [lsearch -exact $reg_display_list $selected]
-  set new_reg [lindex $reg_display_list [expr {$current_index + 1}]]
-  if { $new_reg != {} } {
-      $this reg_select $new_reg
-  }
-}
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  reg_select_right
-# ------------------------------------------------------------------
-body RegWin::reg_select_right { } {
-  if { $selected == -1 || $Running} {
-    return
-  }
-  set current_index [lsearch -exact $reg_display_list $selected]
-  set new_reg [lindex $reg_display_list [expr {$current_index + $nRows}]]
-  if { $new_reg != {} } {
-    $this reg_select $new_reg
-  }
-}
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  reg_select_left
-# ------------------------------------------------------------------
-body RegWin::reg_select_left { } {
-  if { $selected == -1 || $Running} {
-    return
-  }
-  set current_index [lsearch -exact $reg_display_list $selected]
-  set new_reg [lindex $reg_display_list [expr {$current_index - $nRows}]]
-  if { $new_reg != {} } {
-    $this reg_select $new_reg
-  }
-}
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  reg_select - select a register
-# ------------------------------------------------------------------
-body RegWin::reg_select { r } {
-  global reg_display tixOption 
-  
-  if {$Running} { return }
-  if {$selected != -1} {
-    catch {$ScrolledWin.$selected.lbl configure -fg $tixOption(fg) -bg $tixOption(bg)}
-    catch {$ScrolledWin.$selected.val configure -fg $tixOption(fg) \
-	     -bg $tixOption(input1_bg)}
-  }
-  
-  # if we click on the same line, unselect it and return
-  if {$selected == $r} {
-    set selected -1
-    $itk_interior.m.reg entryconfigure 0 -state disabled
-    $itk_interior.m.reg entryconfigure 2 -state disabled
-    for {set i 0} {$i < 6} {incr i} {
-      $itk_interior.m.reg.format entryconfigure $i -state disabled
-    }
-    return
-  }
-  
-  if {$Editing != -1} {
-    unedit
-  }
-  
-  $ScrolledWin.$r.lbl configure -fg $tixOption(select_fg) -bg $tixOption(select_bg)
-  $ScrolledWin.$r.val configure -fg $tixOption(fg) -bg $tixOption(bg)
-  
-  if {![pref get gdb/mode] && $reg_display($r,editable)} {
-    $itk_interior.m.reg entryconfigure 0 -state normal -command "$this edit $r"
-  }
-  $itk_interior.m.reg entryconfigure 2 -state normal \
-    -command "$this delete_from_display_list $r"
-  if {$reg_display($r,typed)} {
-    set state disabled
-  } else {
-    set state normal
-  }
-  for {set i 0} {$i < 6} {incr i} {
-    debug "RegWin format $i $state"
-    $itk_interior.m.reg.format entryconfigure $i -state $state \
-      -variable reg_display($r,format)
-  }
-  $itk_interior.m.reg entryconfigure 4 -state normal \
-    -command "$this addToWatch $r"
-  focus -force $ScrolledWin.$r
-  set selected $r
-}
-
-# ------------------------------------------------------------------
-# PRIVATE METHOD:  dimensions - determine square-like dimensions for
-#          register window
-# ------------------------------------------------------------------
-body RegWin::dimensions {} {
-  set rows [pref get gdb/reg/rows]
-  #    set rows [expr int(floor(sqrt($num_regs)))]
-  set cols [expr {int(ceil(sqrt($num_regs)))}]
-  
-  return [list $rows $cols]
-}
-
-# ------------------------------------------------------------------------------
-# NAME: 
-#	private method RegWin::fixLength
+#  NAME:         public method RegWin::update
+#  DESCRIPTION:  UpdateEvent handler
 #
-# SYNOPSIS:
-#	fixLength {s size where}
-#	
-# DESC: 
-#	Makes a string into a fixed-length string, inserting spaces as
-#	necessary. If 'where' is "left" spaces will be added to the left,
-#	if 'where' is "right" spaces will be added to the right.
-# ARGS:
-#	s - input string
-#	size - size of string to output
-#	where - "left" or "right"
-#
-# RETURNS: 
-#	Padded string of length 'size'
-#
-# NOTES: 
-#	This should really be a proc, not a method.
-# ------------------------------------------------------------------------------
-body RegWin::fixLength {s size where} {
-  set blank "                                                                   "
-  set len [string length $s]
-  set bl  [expr {$size - $len}]
-  set b [string range $blank 0 $bl]
-  
-  switch $where {
-    left  { set fl "$s$b"}
-    right { set fl "$b$s"}
-  }
-  return $fl
-}
+#  ARGUMENTS:    event  - the UpdateEvent (not used)
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body RegWin::update {event} {
 
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  but3 - generate and display a popup window on button 3 
-#  over the register value
-# ------------------------------------------------------------------
-body RegWin::but3 {rn X Y} {
-  global reg_display max_regs
-  
-  if {!$Running} {
-    $Menu delete 0 end
-    $Menu add command -label $reg_display($rn,name) -state disabled
-    $Menu add separator
-    if {!$reg_display($rn,typed)} {
-      $Menu add radio -label "Hex" -command "$this update" \
-        -value x -variable reg_display($rn,format)
-      $Menu add radio -label "Decimal" -command "$this update" \
-        -value d -variable reg_display($rn,format)
-      $Menu add radio -label "Natural" -command "$this update" \
-        -value {} -variable reg_display($rn,format)
-      $Menu add radio -label "Binary" -command "$this update" \
-        -value t -variable reg_display($rn,format) -underline 0
-      $Menu add radio -label "Octal" -command "$this update" \
-        -value o -variable reg_display($rn,format)
-      $Menu add radio -label "Raw" -command "$this update" \
-        -value r -variable reg_display($rn,format)
-      $Menu add separator
-    }
-    $Menu add command  -command "$this addToWatch $rn" \
-      -label "Add $reg_display($rn,name) to Watch"
-    $Menu add separator
-    $Menu add command  -command "$this delete_from_display_list $rn" \
-      -label "Remove $reg_display($rn,name) from Display"
-    if {$max_regs != $num_regs} {
-      $Menu add separator
-      $Menu add command -command "$this display_all" \
-	-label "Display all registers"
-    }
-    tk_popup $Menu $X $Y
-  }
-}
+  dbug I "START REGISTER UPDATE CALLBACK"
 
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  display_all - add all registers to the display list
-# ------------------------------------------------------------------
-body RegWin::display_all {} {
-  init_reg_display_vars
-  $itk_interior.m.reg entryconfigure $disp_all_menu_item -state disabled
-  set all_regs_shown 1
-  reconfig
-}
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  delete_from_display_list - remove a register from the
-#  display list
-# ------------------------------------------------------------------
-body RegWin::delete_from_display_list {rn} {
-  global reg_display max_regs
-  set reg_display($rn,line) 0
-  set reg_display_list {}
-  set regnames [gdb_regnames -numbers]
-  set i 0
-  foreach r $regnames {
-    set rnx [lindex $r 1]
-    if {$reg_display($rnx,line) > 0} {
-      lappend reg_display_list $rnx
-      incr i
-      set reg_display($rnx,line) $i
+  # Change anything on the old change list back to normal
+  foreach r $_change_list {
+    if {$_cell($r) != "hidden"} {
+      $itk_component(table) tag cell normal $_cell($r)
     }
   }
-  set num_regs $i
-  reconfig
-  $itk_interior.m.reg entryconfigure 6 -state normal
-}
 
-
-
-# ------------------------------------------------------------------
-#  PUBLIC METHOD:  edit - edit a cell
-# ------------------------------------------------------------------
-body RegWin::edit {r} {
-  global reg_display
-  if {$Running} { return }
-  if {!$reg_display($r,editable)} {return}
-  unedit
-  
-  set Editing $r
-  set txt [$ScrolledWin.$r.val cget -text]
-  set len [string length $txt]
-  set entry [entry $ScrolledWin.$r.ent -width $len -bd 0 -font src-font]
-  $entry insert 0 $txt
-  
-  grid remove $ScrolledWin.$r.val
-  grid $entry -row 0 -col 1
-  bind $entry <Return> "$this acceptEdit $r"
-  bind $entry <Escape> "$this unedit"
-  $entry selection to end
-  focus $entry    
-}
-
-# ------------------------------------------------------------------
-# PUBLIC METHOD:  acceptEdit - callback invoked when enter key pressed
-#          in an editing entry
-# ------------------------------------------------------------------
-body RegWin::acceptEdit {r} {
-  global reg_display
-  
-  set value [string trimleft [$ScrolledWin.$r.ent get]]
-  debug "value=${value}="
-  if {$value == ""} {
-    set value 0
+  # Now update and highlight the newly changed values
+  set _change_list {}
+  if {![catch {eval gdb_reginfo changed $_reg_display_list} changed]} {
+    set _change_list $changed
   }
-  if {[catch {gdb_cmd "set \$$reg_display($r,name)=$value"} result]} {
-    tk_messageBox -icon error -type ok -message $result \
-      -title "Error in Expression" -parent [winfo toplevel $itk_interior]
-    focus $ScrolledWin.$r.ent
-    $ScrolledWin.$r.ent selection to end
-  } else {
-    unedit
-    gdbtk_update
-  }
-}
 
-# ------------------------------------------------------------------
-# PUBLIC METHOD:  addToWatch - add a register to the watch window
-# ------------------------------------------------------------------
-body RegWin::addToWatch {reg} {
-  global reg_display
-  [ManagedWin::open WatchWin] add "\$$reg_display($reg,name)"
-}
-
-# ------------------------------------------------------------------
-# PUBLIC METHOD:  unedit - clear any editing entry on the screen
-# ------------------------------------------------------------------
-body RegWin::unedit {} {
-  if {$Editing != -1} {
-    destroy $ScrolledWin.$Editing.ent
-    
-    # Fill the entry with the old label, updating value
-    grid $ScrolledWin.$Editing.val -column 1 -row 0
-    focus -force $ScrolledWin.$Editing
-    set Editing -1
-    update
-  }
-}
-
-# ------------------------------------------------------------------
-#  PRIVATE METHOD:  update - update widget when PC changes
-# ------------------------------------------------------------------
-body RegWin::update {} {
-  global reg_display
-  debug "START REGISTER UPDATE CALLBACK"
-  if {$reg_display_list == ""
-      || [catch {eval gdb_changed_register_list $reg_display_list} changed_reg_list]} {
-    set changed_reg_list {}
-  }
-  
-  set row 0
-  set col 0
-  foreach r $reg_display_list {
-    if {$row == 0} {
-      # A minimum of 10 so the appearence is nice
-      set vmax($col) 10
-    }
-
-    # Typed registers natural values start with a brace (escaped by a slash)
-    if {[catch {gdb_fetch_registers {} $r} valtest]} {
-      set values($r) ""
-    } else {
-      if {[string index $valtest 1] == "\{"} {
-        # If it is a typed register, we print it raw
-        set format r
-        set reg_display($r,format) r
-        set reg_display($r,typed) 1
-        set reg_display($r,editable) 0
-      } else {
-        set format $reg_display($r,format)
-        set reg_display($r,editable) 1
-      }
-      if {[catch {gdb_fetch_registers $format $r} values($r)]} {
-        set values($r) ""
-      } else {
-        set values($r) [string trim $values($r) \ ]
-      }
-    }
-
-    set l [string length $values($r)]
-    if {$l > $vmax($col)} {
-      set vmax($col) $l
-    }
-    incr row
-    if {$row == $nRows} {
-      set row 0
-      incr col
+  # Problem: if the register was invalid (i.e, we were not running),
+  # its old value will probably be "0x0". Now if we run and its real
+  # value is "0x0", then it will appear as a blank in the register
+  # window. Safegaurd against that here by adding any such register
+  # which is not already in the change list.
+  foreach r $_reg_display_list {
+    if {$_data($_cell($r)) == "" && [lsearch $_change_list $r] == -1} {
+      lappend _change_list $r
     }
   }
-  
-  set row 0
-  set col 0
-  foreach r $reg_display_list {
-    if {[lsearch -exact $changed_reg_list $r] != -1} {
-      set fg $HighlightForeground
-    } else {
-      set fg $NormalForeground
-    }
-    $ScrolledWin.$r.val configure -text [fixLength $values($r) $vmax($col) right] \
-      -fg $fg
-    incr row
-    if {$row == $nRows} {
-      set row 0
-      incr col
+
+  # Tag the changed cells and resize the columns
+  set cols {}
+  foreach r $_change_list {
+    _update_register $r
+    $itk_component(table) tag cell highlight $_cell($r)
+    set col [lindex [split $_cell($r) ,] 1]
+    if {[lsearch $cols $col] == -1} {
+      lappend cols $col
     }
   }
-  debug "END REGISTER UPDATE CALLBACK" 
-}
 
-body RegWin::idle {} {
-  [winfo toplevel $itk_interior] configure -cursor {}
-  set Running 0
-}
-
-# ------------------------------------------------------------------
-#  PRIVATE METHOD:  reconfig - used when preferences change
-# ------------------------------------------------------------------
-body RegWin::reconfig {} {
-  if {$reg_names_dirty} {
-    init_reg_display_vars
+  foreach col $cols {
+    set col [string trim $col ()]
+    _size_column $col 0
   }
-  destroy $Menu $itk_interior.g $itk_interior.scrolled $itk_interior.m
-  gdbtk_busy
-  build_win
-  gdbtk_idle
-}
-  
-# ------------------------------------------------------------------
-#  PRIVATE METHOD:  busy - gdb_busy_hook
-# ------------------------------------------------------------------
-body RegWin::busy {} {
-  # Cancel edits
-  unedit
-  
-  # Fencepost
-  set Running 1
-  
-  # cursor
-  [winfo toplevel $itk_interior] configure -cursor watch
+
+
+  dbug I "END REGISTER UPDATE CALLBACK" 
 }

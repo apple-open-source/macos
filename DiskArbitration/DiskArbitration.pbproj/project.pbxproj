@@ -1,0 +1,1145 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		1239F11902759FC103A87B01 = {
+			children = (
+				1239F11C0275A01303A87B01,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		1239F11C0275A01303A87B01 = {
+			isa = PBXFileReference;
+			path = autodiskmount.8;
+			refType = 4;
+		};
+		1239F11E0275A04603A87B01 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				1239F11F0275A05303A87B01,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1239F11F0275A05303A87B01 = {
+			fileRef = 1239F11C0275A01303A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//120
+//121
+//122
+//123
+//124
+//650
+//651
+//652
+//653
+//654
+		651D934201CFB68C00000110 = {
+			buildStyles = (
+				651D93BC01CFB68D00000110,
+				651D93BD01CFB68D00000110,
+			);
+			isa = PBXProject;
+			mainGroup = 651D934301CFB68C00000110;
+			productRefGroup = 651D938001CFB68D00000110;
+			projectDirPath = "";
+			targets = (
+				651D938401CFB68D00000110,
+				651D938601CFB68D00000110,
+				651D939601CFB68D00000110,
+				651D93B101CFB68D00000110,
+				65662820022D30FF000001CF,
+			);
+		};
+		651D934301CFB68C00000110 = {
+			children = (
+				651D934901CFB68C00000110,
+				651D935A01CFB68C00000110,
+				651D937101CFB68D00000110,
+				65662825022D320D000001CF,
+				651D937801CFB68D00000110,
+				651D938001CFB68D00000110,
+			);
+			isa = PBXGroup;
+			name = DiskArbitration;
+			refType = 4;
+		};
+		651D934901CFB68C00000110 = {
+			children = (
+				651D934F01CFB68C00000110,
+				651D934B01CFB68C00000110,
+				651D934C01CFB68C00000110,
+				651D934D01CFB68C00000110,
+				651D935001CFB68C00000110,
+			);
+			isa = PBXGroup;
+			name = "DiskArbitration Framework";
+			path = DiskArbitration.fproj;
+			refType = 4;
+		};
+		651D934B01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitration.h;
+			refType = 4;
+		};
+		651D934C01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationTypes.h;
+			refType = 4;
+		};
+		651D934D01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationPublicAPI.h;
+			refType = 4;
+		};
+		651D934F01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitration.c;
+			refType = 4;
+		};
+		651D935001CFB68C00000110 = {
+			children = (
+				651D935901CFB68C00000110,
+				651D935101CFB68C00000110,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		651D935101CFB68C00000110 = {
+			children = (
+				651D935201CFB68C00000110,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			refType = 4;
+		};
+		651D935201CFB68C00000110 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		651D935701CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = ClientToServer.defs;
+			refType = 4;
+		};
+		651D935801CFB68C00000110 = {
+			isa = PBXFileReference;
+			name = ServerToClient.defs;
+			path = DiskArbitration.fproj/ServerToClient.defs;
+			refType = 2;
+		};
+		651D935901CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = CustomInfo.plist;
+			refType = 4;
+		};
+		651D935A01CFB68C00000110 = {
+			children = (
+				651D936201CFB68C00000110,
+				651D935B01CFB68C00000110,
+				1239F11902759FC103A87B01,
+			);
+			isa = PBXGroup;
+			name = autodiskmount;
+			path = autodiskmount.tproj;
+			refType = 4;
+		};
+		651D935B01CFB68C00000110 = {
+			children = (
+				65662846022D32AD000001CF,
+				651D935C01CFB68C00000110,
+				651D935E01CFB68C00000110,
+				651D935F01CFB68C00000110,
+				651D936001CFB68C00000110,
+				651D936101CFB68C00000110,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		651D935C01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationServerMain.h;
+			refType = 4;
+		};
+		651D935E01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskVolume.h;
+			refType = 4;
+		};
+		651D935F01CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = GetRegistry.h;
+			refType = 4;
+		};
+		651D936001CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = FSParticular.h;
+			refType = 4;
+		};
+		651D936101CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = Configuration.h;
+			refType = 4;
+		};
+		651D936201CFB68C00000110 = {
+			children = (
+				651D936301CFB68C00000110,
+				651D936401CFB68C00000110,
+				651D936501CFB68D00000110,
+				651D936601CFB68D00000110,
+				651D936701CFB68D00000110,
+				651D936801CFB68D00000110,
+				651D936901CFB68D00000110,
+				651D936A01CFB68D00000110,
+				65662844022D32AD000001CF,
+				65662845022D32AD000001CF,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			refType = 4;
+		};
+		651D936301CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = autodiskmount.c;
+			refType = 4;
+		};
+		651D936401CFB68C00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationServer.c;
+			refType = 4;
+		};
+		651D936501CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationServerMain.c;
+			refType = 4;
+		};
+		651D936601CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = DiskVolume.c;
+			refType = 4;
+		};
+		651D936701CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = GetRegistry.c;
+			refType = 4;
+		};
+		651D936801CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = FSParticular.c;
+			refType = 4;
+		};
+		651D936901CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = vsdbutil.c;
+			refType = 4;
+		};
+		651D936A01CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = Configuration.c;
+			refType = 4;
+		};
+		651D937101CFB68D00000110 = {
+			children = (
+				651D937301CFB68D00000110,
+			);
+			isa = PBXGroup;
+			name = disktool;
+			path = disktool.tproj;
+			refType = 4;
+		};
+		651D937301CFB68D00000110 = {
+			isa = PBXFileReference;
+			path = DiskArbitrationClient.c;
+			refType = 4;
+		};
+		651D937801CFB68D00000110 = {
+			children = (
+				651D937901CFB68D00000110,
+				651D937A01CFB68D00000110,
+				651D937B01CFB68D00000110,
+				651D937C01CFB68D00000110,
+				651D937D01CFB68D00000110,
+				651D937E01CFB68D00000110,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		651D937901CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		651D937A01CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		651D937B01CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+		};
+		651D937C01CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = Foundation.framework;
+			path = /System/Library/Frameworks/Foundation.framework;
+			refType = 0;
+		};
+		651D937D01CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		651D937E01CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		651D938001CFB68D00000110 = {
+			children = (
+				651D938101CFB68D00000110,
+				651D938201CFB68D00000110,
+				651D938301CFB68D00000110,
+				6566281F022D30FF000001CF,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		651D938101CFB68D00000110 = {
+			isa = PBXFrameworkReference;
+			path = DiskArbitration.framework;
+			refType = 3;
+		};
+		651D938201CFB68D00000110 = {
+			isa = PBXExecutableFileReference;
+			path = autodiskmount;
+			refType = 3;
+		};
+		651D938301CFB68D00000110 = {
+			isa = PBXExecutableFileReference;
+			path = disktool;
+			refType = 3;
+		};
+		651D938401CFB68D00000110 = {
+			buildPhases = (
+				651D93B901CFB68D00000110,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DiskArbitration;
+				SECTORDER_FLAGS = "-sectorder __TEXT __text /usr/local/lib/OrderFiles/DiskArbitration.order";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				651D938501CFB68D00000110,
+				651D939501CFB68D00000110,
+				651D93B001CFB68D00000110,
+			);
+			isa = PBXAggregateTarget;
+			name = "DiskArbitration (Aggregate)";
+			productName = "DiskArbitration (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		651D938501CFB68D00000110 = {
+			isa = PBXTargetDependency;
+			target = 651D938601CFB68D00000110;
+		};
+		651D938601CFB68D00000110 = {
+			buildPhases = (
+				651D938701CFB68D00000110,
+				651D938B01CFB68D00000110,
+				651D938D01CFB68D00000110,
+				651D939101CFB68D00000110,
+				651D939401CFB68D00000110,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal profile";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = ..;
+				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DiskArbitration;
+				SECTORDER_FLAGS = "-sectorder __TEXT __text /usr/local/lib/OrderFiles/DiskArbitration.order";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+				65662826022D320D000001CF,
+			);
+			isa = PBXFrameworkTarget;
+			name = "DiskArbitration (Framework)";
+			productInstallPath = /System/Library/PrivateFrameworks;
+			productName = "DiskArbitration (Framework)";
+			productReference = 651D938101CFB68D00000110;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DiskArbitration</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Disk Arbitration v 1.2, Copyright 1999-2002 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DiskArbitration</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DiskArbitration</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		651D938701CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D938801CFB68D00000110,
+				651D938901CFB68D00000110,
+				651D938A01CFB68D00000110,
+				65662834022D323F000001CF,
+				65662835022D323F000001CF,
+				65662836022D323F000001CF,
+				65662837022D323F000001CF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D938801CFB68D00000110 = {
+			fileRef = 651D934B01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+					Project,
+				);
+			};
+		};
+		651D938901CFB68D00000110 = {
+			fileRef = 651D934C01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+					Project,
+				);
+			};
+		};
+		651D938A01CFB68D00000110 = {
+			fileRef = 651D934D01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+					Project,
+				);
+			};
+		};
+		651D938B01CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D938C01CFB68D00000110,
+				65662829022D320D000001CF,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D938C01CFB68D00000110 = {
+			fileRef = 651D935101CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D938D01CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D938E01CFB68D00000110,
+				65662839022D323F000001CF,
+				6566283A022D323F000001CF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D938E01CFB68D00000110 = {
+			fileRef = 651D934F01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D939101CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D939201CFB68D00000110,
+				651D939301CFB68D00000110,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D939201CFB68D00000110 = {
+			fileRef = 651D937901CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939301CFB68D00000110 = {
+			fileRef = 651D937A01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939401CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D939501CFB68D00000110 = {
+			isa = PBXTargetDependency;
+			target = 651D939601CFB68D00000110;
+		};
+		651D939601CFB68D00000110 = {
+			buildPhases = (
+				651D939701CFB68D00000110,
+				651D939E01CFB68D00000110,
+				651D93A901CFB68D00000110,
+				651D93AF01CFB68D00000110,
+				1239F11E0275A04603A87B01,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-Werror";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = autodiskmount;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				6566282A022D320D000001CF,
+			);
+			isa = PBXToolTarget;
+			name = "autodiskmount (Tool)";
+			productInstallPath = /sbin/autodiskmount;
+			productName = "autodiskmount (Tool)";
+			productReference = 651D938201CFB68D00000110;
+			shouldUseHeadermap = 0;
+		};
+		651D939701CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D939801CFB68D00000110,
+				651D939A01CFB68D00000110,
+				651D939B01CFB68D00000110,
+				651D939C01CFB68D00000110,
+				651D939D01CFB68D00000110,
+				651D93BE01CFB6E300000110,
+				6566283C022D323F000001CF,
+				6566283D022D323F000001CF,
+				6566283E022D323F000001CF,
+				6566283F022D323F000001CF,
+				65662847022D32AD000001CF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D939801CFB68D00000110 = {
+			fileRef = 651D935C01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939A01CFB68D00000110 = {
+			fileRef = 651D935E01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939B01CFB68D00000110 = {
+			fileRef = 651D935F01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939C01CFB68D00000110 = {
+			fileRef = 651D936001CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939D01CFB68D00000110 = {
+			fileRef = 651D936101CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D939E01CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D939F01CFB68D00000110,
+				651D93A001CFB68D00000110,
+				651D93A101CFB68D00000110,
+				651D93A201CFB68D00000110,
+				651D93A301CFB68D00000110,
+				651D93A401CFB68D00000110,
+				651D93A501CFB68D00000110,
+				651D93A601CFB68D00000110,
+				65662840022D323F000001CF,
+				65662843022D323F000001CF,
+				65662848022D32AD000001CF,
+				65662849022D32AD000001CF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D939F01CFB68D00000110 = {
+			fileRef = 651D936301CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A001CFB68D00000110 = {
+			fileRef = 651D936401CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A101CFB68D00000110 = {
+			fileRef = 651D936501CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A201CFB68D00000110 = {
+			fileRef = 651D936601CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A301CFB68D00000110 = {
+			fileRef = 651D936701CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A401CFB68D00000110 = {
+			fileRef = 651D936801CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A501CFB68D00000110 = {
+			fileRef = 651D936901CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A601CFB68D00000110 = {
+			fileRef = 651D936A01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93A901CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D93AA01CFB68D00000110,
+				651D93AB01CFB68D00000110,
+				651D93AC01CFB68D00000110,
+				651D93AD01CFB68D00000110,
+				651D93AE01CFB68D00000110,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93AA01CFB68D00000110 = {
+			fileRef = 651D937901CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93AB01CFB68D00000110 = {
+			fileRef = 651D937A01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93AC01CFB68D00000110 = {
+			fileRef = 651D937B01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93AD01CFB68D00000110 = {
+			fileRef = 651D937D01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93AE01CFB68D00000110 = {
+			fileRef = 651D937E01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93AF01CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93B001CFB68D00000110 = {
+			isa = PBXTargetDependency;
+			target = 651D93B101CFB68D00000110;
+		};
+		651D93B101CFB68D00000110 = {
+			buildPhases = (
+				651D93B201CFB68D00000110,
+				651D93B301CFB68D00000110,
+				651D93B501CFB68D00000110,
+				651D93B801CFB68D00000110,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-Werror";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = disktool;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = "disktool (Tool)";
+			productInstallPath = /usr/sbin/disktool;
+			productName = "disktool (Tool)";
+			productReference = 651D938301CFB68D00000110;
+			shouldUseHeadermap = 0;
+		};
+		651D93B201CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93B301CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D93B401CFB68D00000110,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93B401CFB68D00000110 = {
+			fileRef = 651D937301CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		651D93B501CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+				651D93B601CFB68D00000110,
+				651D93B701CFB68D00000110,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93B601CFB68D00000110 = {
+			fileRef = 651D937C01CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93B701CFB68D00000110 = {
+			fileRef = 651D938101CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93B801CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93B901CFB68D00000110 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				651D93BA01CFB68D00000110,
+				651D93BB01CFB68D00000110,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		651D93BA01CFB68D00000110 = {
+			fileRef = 651D938201CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93BB01CFB68D00000110 = {
+			fileRef = 651D938301CFB68D00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		651D93BC01CFB68D00000110 = {
+			buildRules = (
+			);
+			buildSettings = {
+				BUILD_VARIANTS = normal;
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		651D93BD01CFB68D00000110 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		651D93BE01CFB6E300000110 = {
+			fileRef = 651D934C01CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566281F022D30FF000001CF = {
+			isa = PBXExecutableFileReference;
+			path = GenerateMIG;
+			refType = 3;
+		};
+		65662820022D30FF000001CF = {
+			buildPhases = (
+				65662822022D30FF000001CF,
+				6566284A022D368C000001CF,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = GenerateMIG;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = GenerateMIG;
+			productInstallPath = /usr/local/bin;
+			productName = GenerateMIG;
+			productReference = 6566281F022D30FF000001CF;
+			shouldUseHeadermap = 0;
+		};
+		65662822022D30FF000001CF = {
+			buildActionMask = 2147483647;
+			files = (
+				65662827022D320D000001CF,
+				65662828022D320D000001CF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65662825022D320D000001CF = {
+			children = (
+				651D935701CFB68C00000110,
+				651D935801CFB68C00000110,
+				6566282C022D323F000001CF,
+				6566282D022D323F000001CF,
+				6566282E022D323F000001CF,
+				6566282F022D323F000001CF,
+				65662830022D323F000001CF,
+				65662831022D323F000001CF,
+				65662832022D323F000001CF,
+				65662833022D323F000001CF,
+			);
+			isa = PBXGroup;
+			name = "GenerateMIG Files";
+			path = DiskArbitration.fproj;
+			refType = 4;
+		};
+		65662826022D320D000001CF = {
+			isa = PBXTargetDependency;
+			target = 65662820022D30FF000001CF;
+		};
+		65662827022D320D000001CF = {
+			fileRef = 651D935701CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Server,
+					Client,
+				);
+			};
+		};
+		65662828022D320D000001CF = {
+			fileRef = 651D935801CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Server,
+					Client,
+				);
+			};
+		};
+		65662829022D320D000001CF = {
+			fileRef = 651D935901CFB68C00000110;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566282A022D320D000001CF = {
+			isa = PBXTargetDependency;
+			target = 65662820022D30FF000001CF;
+		};
+		6566282C022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ClientToServer.h;
+			path = MigFiles/ClientToServer.h;
+			refType = 2;
+		};
+		6566282D022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ClientToServerServer.c;
+			path = MigFiles/ClientToServerServer.c;
+			refType = 2;
+		};
+		6566282E022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ClientToServerServer.h;
+			path = MigFiles/ClientToServerServer.h;
+			refType = 2;
+		};
+		6566282F022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ClientToServerUser.c;
+			path = MigFiles/ClientToServerUser.c;
+			refType = 2;
+		};
+		65662830022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ServerToClient.h;
+			path = MigFiles/ServerToClient.h;
+			refType = 2;
+		};
+		65662831022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ServerToClientServer.c;
+			path = MigFiles/ServerToClientServer.c;
+			refType = 2;
+		};
+		65662832022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ServerToClientServer.h;
+			path = MigFiles/ServerToClientServer.h;
+			refType = 2;
+		};
+		65662833022D323F000001CF = {
+			isa = PBXFileReference;
+			name = ServerToClientUser.c;
+			path = MigFiles/ServerToClientUser.c;
+			refType = 2;
+		};
+		65662834022D323F000001CF = {
+			fileRef = 6566282C022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662835022D323F000001CF = {
+			fileRef = 6566282E022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662836022D323F000001CF = {
+			fileRef = 65662830022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662837022D323F000001CF = {
+			fileRef = 65662832022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662839022D323F000001CF = {
+			fileRef = 6566282F022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566283A022D323F000001CF = {
+			fileRef = 65662831022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566283C022D323F000001CF = {
+			fileRef = 6566282C022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566283D022D323F000001CF = {
+			fileRef = 6566282E022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566283E022D323F000001CF = {
+			fileRef = 65662830022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566283F022D323F000001CF = {
+			fileRef = 65662832022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662840022D323F000001CF = {
+			fileRef = 6566282D022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662843022D323F000001CF = {
+			fileRef = 65662833022D323F000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662844022D32AD000001CF = {
+			isa = PBXFileReference;
+			path = fstab.c;
+			refType = 4;
+		};
+		65662845022D32AD000001CF = {
+			isa = PBXFileReference;
+			path = FSTableLookup.c;
+			refType = 4;
+		};
+		65662846022D32AD000001CF = {
+			isa = PBXFileReference;
+			path = FSTableLookup.h;
+			refType = 4;
+		};
+		65662847022D32AD000001CF = {
+			fileRef = 65662846022D32AD000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662848022D32AD000001CF = {
+			fileRef = 65662844022D32AD000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		65662849022D32AD000001CF = {
+			fileRef = 65662845022D32AD000001CF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6566284A022D368C000001CF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "chmod 755 ${SRCROOT}/MigFiles\ncp -rp ${DERIVED_SOURCES_DIR}/* ${SRCROOT}/MigFiles";
+		};
+	};
+	rootObject = 651D934201CFB68C00000110;
+}

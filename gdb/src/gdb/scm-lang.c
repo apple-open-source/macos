@@ -1,5 +1,6 @@
 /* Scheme/Guile language support routines for GDB, the GNU debugger.
-   Copyright 1995, 2000 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1998, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -32,15 +33,15 @@
 #include "gdbcore.h"
 
 extern void _initialize_scheme_language (void);
-static value_ptr evaluate_subexp_scm (struct type *, struct expression *,
+static struct value *evaluate_subexp_scm (struct type *, struct expression *,
 				      int *, enum noside);
-static value_ptr scm_lookup_name (char *);
+static struct value *scm_lookup_name (char *);
 static int in_eval_c (void);
 static void scm_printstr (struct ui_file * stream, char *string,
 			  unsigned int length, int width,
 			  int force_ellipses);
 
-extern struct type **CONST_PTR (c_builtin_types[]);
+extern struct type **const (c_builtin_types[]);
 
 struct type *builtin_type_scm;
 
@@ -146,12 +147,13 @@ in_eval_c (void)
    First lookup in Scheme context (using the scm_lookup_cstr inferior
    function), then try lookup_symbol for compiled variables. */
 
-static value_ptr
+static struct value *
 scm_lookup_name (char *str)
 {
-  value_ptr args[3];
+  struct value *args[3];
   int len = strlen (str);
-  value_ptr func, val;
+  struct value *func;
+  struct value *val;
   struct symbol *sym;
   args[0] = value_allocate_space_in_inferior (len);
   args[1] = value_from_longest (builtin_type_int, len);
@@ -178,14 +180,14 @@ scm_lookup_name (char *str)
 		       (struct symtab **) NULL);
   if (sym)
     return value_of_variable (sym, NULL);
-  error ("No symbol \"%s\" in current context.");
+  error ("No symbol \"%s\" in current context.", str);
 }
 
-value_ptr
+struct value *
 scm_evaluate_string (char *str, int len)
 {
-  value_ptr func;
-  value_ptr addr = value_allocate_space_in_inferior (len + 1);
+  struct value *func;
+  struct value *addr = value_allocate_space_in_inferior (len + 1);
   LONGEST iaddr = value_as_long (addr);
   write_memory (iaddr, str, len);
   /* FIXME - should find and pass env */
@@ -194,7 +196,7 @@ scm_evaluate_string (char *str, int len)
   return call_function_by_hand (func, 1, &addr);
 }
 
-static value_ptr
+static struct value *
 evaluate_subexp_scm (struct type *expect_type, register struct expression *exp,
 		     register int *pos, enum noside noside)
 {

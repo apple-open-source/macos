@@ -30,13 +30,16 @@
 #include <AppleCSP/BlockCryptor.h>
 #include <openssl/rsa.h>
 
+#define RSA_ASYM_PADDING_DEFAULT		RSA_PKCS1_PADDING
+
 class RSA_CryptContext : public BlockCryptor {
 public:
 	RSA_CryptContext(AppleCSPSession &session) :
 		BlockCryptor(session),
 		mRsaKey(NULL),
 		mAllocdRsaKey(false),
-		mInitFlag(false) 	{ }
+		mInitFlag(false),
+		mPadding(RSA_ASYM_PADDING_DEFAULT) 	{ }
 		
 	~RSA_CryptContext();
 	
@@ -64,6 +67,7 @@ private:
 		RSA				*mRsaKey;
 		bool			mAllocdRsaKey;
 		bool			mInitFlag;			// allows easy reuse
+	int					mPadding;			// RSA_NO_PADDING, RSA_PKCS1_PADDING
 };	/* RSA_CryptContext */
 
 

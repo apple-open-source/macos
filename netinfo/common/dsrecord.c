@@ -107,11 +107,9 @@ dsrecord_to_dsdata(dsrecord *r)
 		}
 	}
 
-	d = dsdata_alloc();
+	d = dsdata_alloc(len);
 	d->retain = 1;
 	d->type = DataTypeDSRecord;
-	d->length = len;
-	d->data = malloc(len);
 
 	p = d->data;
 
@@ -231,17 +229,15 @@ dsdata *
 deserialize_dsdata(char **p)
 {
 	dsdata *udata;
+	u_int32_t t, l;
 
-	udata = dsdata_alloc();
+	t = deserialize_32(p);
+	l = deserialize_32(p);
+
+	udata = dsdata_alloc(l);
+	udata->type = t;
 	udata->retain = 1;
-	udata->type = deserialize_32(p);
-	udata->length = deserialize_32(p);
-	udata->data = NULL;
-	if (udata->length > 0)
-	{
-		udata->data = malloc(udata->length);
-		memmove(udata->data, *p, udata->length);
-	}
+	if (udata->length > 0) memmove(udata->data, *p, udata->length);
 
 	*p += udata->length;
 
@@ -421,15 +417,16 @@ dsrecord_retain(dsrecord *r)
 	return r;
 }	
 
-void
-dsrecord_release(dsrecord *r)
+static dsrecord *
+dsrecord_release_worker(dsrecord *r)
 {
 	u_int32_t i;
+	dsrecord *n;
 
-	if (r == NULL) return;
+	if (r == NULL) return NULL;
 	
 	r->retain--;
-	if (r->retain > 0) return;
+	if (r->retain > 0) return NULL;
 
 	if (r->sub_count > 0) free(r->sub);
 
@@ -442,9 +439,24 @@ dsrecord_release(dsrecord *r)
 	if (r->meta_count > 0) free(r->meta_attribute);
 
 	if (r->index != NULL) dsindex_free(r->index);
-	if (r->next != NULL) dsrecord_release(r->next);
+
+	n = r->next;
 
 	free(r);
+	
+	return n;
+}
+
+void
+dsrecord_release(dsrecord *r)
+{
+	dsrecord *n;
+
+	n = r;
+	while (n != NULL)
+	{
+		n = dsrecord_release_worker(n);
+	}
 }
 
 dsrecord *
@@ -709,6 +721,8 @@ dsrecord_remove_attribute_index(dsrecord *r, u_int32_t x, u_int32_t asel)
 
 	if (x >= len) return;
 
+	dsattribute_release(attribute[x]);
+
 	if (len == 1)
 	{
 		if (asel == SELECT_ATTRIBUTE)
@@ -924,6 +938,43 @@ dsrecord_match(dsrecord *r, dsrecord *pattern)
 		if (x == IndexNull) return 0;
 		ra = r->meta_attribute[x];
 		
+		if (dsattribute_match(ra, pa) == 0) return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * Match just attributes or just meta-attributes
+ */
+int
+dsrecord_match_select(dsrecord *r, dsrecord *pattern, u_int32_t asel)
+{
+	u_int32_t i, x, count;
+	dsattribute *pa, *ra;
+
+	if (r == pattern) return 1;
+	if (r == NULL) return 0;
+	if (pattern == NULL) return 1;
+	
+	/* check each (meta)attribute in the pattern */
+	count = 0;
+	if (asel == SELECT_ATTRIBUTE) count = pattern->count;
+	else count = pattern->meta_count;
+
+	for (i = 0; i < count; i++)
+	{
+		pa = NULL;
+		if (asel == SELECT_ATTRIBUTE) pa = pattern->attribute[i];
+		else pa = pattern->meta_attribute[i];
+
+		x = dsrecord_attribute_index(r, pa->key, asel);
+		if (x == IndexNull) return 0;
+
+		ra = NULL;
+		if (asel == SELECT_ATTRIBUTE) ra = r->attribute[x];
+		else ra = r->meta_attribute[x];
+
 		if (dsattribute_match(ra, pa) == 0) return 0;
 	}
 

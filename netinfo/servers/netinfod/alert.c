@@ -93,7 +93,7 @@ void alert_open(const char *language)
 #include <NetInfo/system_log.h>
 
 #define KERNEL_PRIVATE
-#include <bsd/dev/kmreg_com.h>
+#include <dev/kmreg_com.h>
 #undef KERNEL_PRIVATE
 
 #define MAXLINE 4096

@@ -1,0 +1,309 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+################################################################
+# Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# 3. The name "Carnegie Mellon University" must not be used to
+#    endorse or promote products derived from this software without
+#    prior written permission. For permission or any other legal
+#    details, please contact  
+#      Office of Technology Transfer
+#      Carnegie Mellon University
+#      5000 Forbes Avenue
+#      Pittsburgh, PA  15213-3890
+#      (412) 268-4387, fax: (412) 268-7395
+#      tech-transfer@andrew.cmu.edu
+#
+# 4. Redistributions of any form whatsoever must retain the following
+#    acknowledgment:
+#    "This product includes software developed by Computing Services
+#     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+#
+# CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+# THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+# FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+# AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+# OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+################################################################
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ../../../../..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AS = @AS@
+AWK = @AWK@
+CC = @CC@
+CPP = @CPP@
+DIRS = @DIRS@
+DLLTOOL = @DLLTOOL@
+DMALLOC_LIBS = @DMALLOC_LIBS@
+DYNSASLFLAGS = @DYNSASLFLAGS@
+GETADDRINFOOBJS = @GETADDRINFOOBJS@
+GETNAMEINFOOBJS = @GETNAMEINFOOBJS@
+GETSUBOPT = @GETSUBOPT@
+GSSAPIBASE_LIBS = @GSSAPIBASE_LIBS@
+GSSAPI_LIBS = @GSSAPI_LIBS@
+JAVAC = @JAVAC@
+JAVADOC = @JAVADOC@
+JAVAH = @JAVAH@
+JAVAROOT = @JAVAROOT@
+JAVA_INCLUDES = @JAVA_INCLUDES@
+LIBOBJS = @LIBOBJS@
+LIBTOOL = @LIBTOOL@
+LIB_CRYPT = @LIB_CRYPT@
+LIB_DES = @LIB_DES@
+LIB_DYN_SASL = @LIB_DYN_SASL@
+LIB_PAM = @LIB_PAM@
+LIB_SASL = @LIB_SASL@
+LIB_SOCKET = @LIB_SOCKET@
+LN_S = @LN_S@
+LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
+LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
+LTLIBOBJS = @LTLIBOBJS@
+LTSNPRINTFOBJS = @LTSNPRINTFOBJS@
+MAKEINFO = @MAKEINFO@
+NM = @NM@
+OBJDUMP = @OBJDUMP@
+OTP_LIBS = @OTP_LIBS@
+PACKAGE = @PACKAGE@
+PLAIN_LIBS = @PLAIN_LIBS@
+PURECOV = @PURECOV@
+PURIFY = @PURIFY@
+PWCHECKMETH = @PWCHECKMETH@
+RANLIB = @RANLIB@
+SASLFLAGS = @SASLFLAGS@
+SASL_DB_BACKEND = @SASL_DB_BACKEND@
+SASL_DB_BACKEND_STATIC = @SASL_DB_BACKEND_STATIC@
+SASL_DB_INC = @SASL_DB_INC@
+SASL_DB_LIB = @SASL_DB_LIB@
+SASL_DB_MANS = @SASL_DB_MANS@
+SASL_DB_UTILS = @SASL_DB_UTILS@
+SASL_DL_LIB = @SASL_DL_LIB@
+SASL_KRB_LIB = @SASL_KRB_LIB@
+SASL_MECHS = @SASL_MECHS@
+SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
+SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
+SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
+SFIO_INC_FLAGS = @SFIO_INC_FLAGS@
+SFIO_LIB_FLAGS = @SFIO_LIB_FLAGS@
+SMTPTEST_PROGRAM = @SMTPTEST_PROGRAM@
+SNPRINTFOBJS = @SNPRINTFOBJS@
+SRP_LIBS = @SRP_LIBS@
+VERSION = @VERSION@
+plugindir = @plugindir@
+
+javasasldir = $(prefix)/lib/java/classes/sasl/javax/security/auth/callback
+javahtmldir = $(prefix)/html/sasl
+
+javasasl_JAVA = PasswordCallback.java 	Callback.java 	RealmCallback.java 	CallbackHandler.java 	UnsupportedCallbackException.java 	NameCallback.java
+
+
+CLASSES = $(javasasl_JAVA:.java=.class)
+mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
+CONFIG_HEADER = ../../../../../config.h
+CONFIG_CLEAN_FILES = 
+JAVACFLAGS = 
+CLASSPATH_ENV = CLASSPATH=$(JAVAROOT):$(srcdir)/$(JAVAROOT):$$CLASSPATH
+DIST_COMMON =  $(javasasl_JAVA) Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+all: all-redirect
+.SUFFIXES:
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps java/javax/security/auth/callback/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-javasaslJAVA:
+
+clean-javasaslJAVA:
+	-rm *.class classjavasasl.stamp
+
+distclean-javasaslJAVA:
+
+maintainer-clean-javasaslJAVA:
+
+install-javasaslJAVA: classjavasasl.stamp
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(javasasldir)
+	for p in *.class; do \
+	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(javasasldir)/$$p"; \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(javasasldir)/$$p; \
+	done
+
+uninstall-javasaslJAVA:
+	@$(NORMAL_UNINSTALL)
+	for p in *.class; do \
+	  rm -f $(DESTDIR)$(javasasldir)/$$p; \
+	done
+classjavasasl.stamp: $(javasasl_JAVA)
+	$(CLASSPATH_ENV) $(JAVAC) -d $(JAVAROOT) $(JAVACFLAGS) $?
+	echo timestamp > classjavasasl.stamp
+tags: TAGS
+TAGS:
+
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = java/javax/security/auth/callback
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am:
+install-exec: install-exec-am
+
+install-data-am: install-javasaslJAVA
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-javasaslJAVA
+uninstall: uninstall-am
+all-am: Makefile classjavasasl.stamp
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(javasasldir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+mostlyclean-am:  mostlyclean-javasaslJAVA mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-javasaslJAVA clean-generic mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-javasaslJAVA distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-javasaslJAVA \
+		maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-javasaslJAVA distclean-javasaslJAVA \
+clean-javasaslJAVA maintainer-clean-javasaslJAVA uninstall-javasaslJAVA \
+install-javasaslJAVA tags distdir info-am info dvi-am dvi check \
+check-am installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
+
+
+$(CLASSES): callback.stamp
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

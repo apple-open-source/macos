@@ -3,7 +3,7 @@ Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: Cyclic Software
 Version: 1.10
 URL: http://www.cyclic.com/cvs/info.html
-Build-Depends: build-base, perl, texi2html
+Build-Depends: build-base, perl, texi2html, yacc
 Description: Concurrent Versions System
  CVS is a version control system, which allows you to keep old versions
  of files (usually source code), keep a log of who, when, and why

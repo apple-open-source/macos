@@ -32,8 +32,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-oid.cpp,v 1.3 2001/06/27 23:09:15 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-oid.cpp,v 1.4 2002/03/21 05:38:45 dmitch Exp $
 // $Log: asn-oid.cpp,v $
+// Revision 1.4  2002/03/21 05:38:45  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.3.44.1  2002/03/20 00:36:50  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.3  2001/06/27 23:09:15  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -198,7 +204,7 @@ void AsnOid::Set (unsigned long int a1, unsigned long int a2, long int a3, long 
     // write bytes except the last/least significant of the head arc number
     // more bit is on
     totalLen = elmtLen;
-    int i;
+    unsigned i;
     for (i = 1; i < elmtLen; i++)
     {
         *(tmpBuf++) = 0x80 | (headArcNum >> ((elmtLen-i)*7));
@@ -215,7 +221,7 @@ void AsnOid::Set (unsigned long int a1, unsigned long int a2, long int a3, long 
 	    ;
         totalLen += elmtLen;
         tmpArcNum = arcNumArr[i];
-        for (int j = 1; j < elmtLen; j++)
+        for (unsigned j = 1; j < elmtLen; j++)
         {
             *(tmpBuf++) = 0x80 | (tmpArcNum >> ((elmtLen-j)*7));
         }
@@ -280,7 +286,7 @@ void AsnOid::ReSet (unsigned long int a1, unsigned long int a2, long int a3, lon
 // returns the number of arc numbers in the OID value
 unsigned long int AsnOid::NumArcs() const
 {
-    int i;
+    unsigned i;
     int numArcs;
 
     for (numArcs=0, i=0; i < octetLen; )
@@ -324,7 +330,11 @@ void AsnOid::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byte
     if (b.ReadError())
     {
         Asn1Error << "BDecOctetString: ERROR - decoded past end of data" << endl;
+		#if SNACC_EXCEPTION_ENABLE
+		SnaccExcep::throwMe(-17);
+		#else
         longjmp (env, -17);
+		#endif
     }
     bytesDecoded += elmtLen;
 } /* AsnOid::BDecContent */
@@ -344,7 +354,11 @@ void AsnOid::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
     if (BDecTag (b, bytesDecoded, env) != MAKE_TAG_ID (UNIV, PRIM, OID_TAG_CODE))
     {
 	Asn1Error << "AsnOid::BDec: ERROR tag on OBJECT IDENTIFIER is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-57);
+	#else
 	longjmp (env,-57);
+	#endif
     }
     elmtLen = BDecLen (b, bytesDecoded, env);
 
@@ -364,7 +378,7 @@ void AsnOid::Print (ostream &os) const
 #ifndef	NDEBUG
   unsigned short int firstArcNum;
   unsigned long int arcNum;
-  int i;
+  unsigned i;
 
   // print oid in
   os << "{";

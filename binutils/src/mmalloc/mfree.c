@@ -224,7 +224,7 @@ mfree (md, ptr)
 	}      
       if (mdp -> mfree_hook != NULL)
 	{
-	  (*mdp -> mfree_hook) (md, ptr);
+	  (*mdp -> mfree_hook) (mdp, ptr);
 	}
       else
 	{

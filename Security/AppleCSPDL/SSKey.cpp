@@ -36,7 +36,8 @@ SSKey::SSKey(SSCSPSession &session, KeyHandle keyHandle, CssmKey &ioKey,
 			 SSDatabase &inSSDatabase, uint32 inKeyAttr,
 			 const CssmData *inKeyLabel)
 : ReferencedKey(session.mSSCSPDLSession),
-mAllocator(session), mKeyHandle(keyHandle)
+mAllocator(session), mKeyHandle(keyHandle),
+mClientSession(session.clientSession())
 {
 	CssmKey::Header &header = ioKey.header();
 	if (inKeyAttr & CSSM_KEYATTR_PERMANENT)
@@ -45,7 +46,7 @@ mAllocator(session), mKeyHandle(keyHandle)
 			CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_DL_DB_HANDLE);
 
 		// EncodeKey and store it in the db.
-		CssmDataContainer blob(clientSession().returnAllocator);
+		CssmDataContainer blob(mAllocator);
 		clientSession().encodeKey(keyHandle, blob);
 
 		assert(header.HeaderVersion == CSSM_KEYHEADER_VERSION);
@@ -138,7 +139,8 @@ SSKey::SSKey(SSDLSession &session, CssmKey &ioKey, SSDatabase &inSSDatabase,
 			 CssmData &keyBlob)
 : ReferencedKey(session.mSSCSPDLSession),
 mAllocator(session.allocator()), mKeyHandle(noKey), mUniqueId(uniqueId),
-mRecordType(recordType)
+mRecordType(recordType),
+mClientSession(session.clientSession())
 {
 	CssmKey::Header &header = ioKey.header();
 	memset(&header, 0, sizeof(header)); // Clear key header
@@ -264,7 +266,7 @@ SSKey::free(const AccessCredentials *accessCred, CssmKey &ioKey,
 SecurityServer::ClientSession &
 SSKey::clientSession()
 {
-	return keyPool<SSCSPDLSession>().clientSession();
+	return mClientSession;
 }
 
 KeyHandle
@@ -276,7 +278,7 @@ SSKey::keyHandle()
 		if (!mUniqueId || !mUniqueId->database())
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 
-		CssmDataContainer blob;
+		CssmDataContainer blob(mAllocator);
 		mUniqueId->get(NULL, &blob);
 		CssmKey::Header dummyHeader; // @@@ Unused
 		mKeyHandle =
@@ -307,7 +309,7 @@ SSKey::changeOwner(const AccessCredentials &accessCred,
 	if (mUniqueId == true)
 	{
 		// The key is persistant, make the change on disk.
-		CssmDataContainer keyBlob(clientSession().returnAllocator);
+		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
 		mUniqueId->modify(mRecordType, NULL, &keyBlob,
 						  CSSM_DB_MODIFY_ATTRIBUTE_NONE);
@@ -329,7 +331,7 @@ SSKey::changeAcl(const AccessCredentials &accessCred, const AclEdit &aclEdit)
 	if (mUniqueId == true)
 	{
 		// The key is persistant, make the change on disk.
-		CssmDataContainer keyBlob(clientSession().returnAllocator);
+		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
 		mUniqueId->modify(mRecordType, NULL, &keyBlob,
 						  CSSM_DB_MODIFY_ATTRIBUTE_NONE);

@@ -1,5 +1,5 @@
 /* Dynamic architecture support for GDB, the GNU debugger.
-   Copyright 1998-2000, Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,6 +27,8 @@ extern int gdbarch_debug;
 /* Fallback for register convertible. */
 extern gdbarch_register_convertible_ftype generic_register_convertible_not;
 
+extern CORE_ADDR generic_cannot_extract_struct_value_address (char *dummy);
+
 /* Helper function for targets that don't know how my arguments are
    being passed */
 extern gdbarch_frame_num_args_ftype frame_num_args_unknown;
@@ -46,6 +48,9 @@ extern gdbarch_return_value_on_stack_ftype generic_return_value_on_stack_not;
 
 /* Map onto old REGISTER_NAMES. */
 extern char *legacy_register_name (int i);
+
+/* Accessor for old global function pointer for disassembly. */
+extern int legacy_print_insn (bfd_vma vma, disassemble_info *info);
 
 /* Backward compatible call_dummy_words. */
 extern LONGEST legacy_call_dummy_words[];
@@ -93,8 +98,66 @@ extern int (*target_architecture_hook) (const struct bfd_arch_info *);
 
 extern int default_register_sim_regno (int reg_nr);
 
-/* Default conversion of function pointer address - returns address.  */
+/* Identity function on a CORE_ADDR.  Just returns its parameter.  */
 
-extern CORE_ADDR default_convert_from_func_ptr_addr (CORE_ADDR addr);
+extern CORE_ADDR core_addr_identity (CORE_ADDR addr);
+
+/* No-op conversion of reg to regnum. */
+
+extern int no_op_reg_to_regnum (int reg);
+
+/* Default frame_args_address and frame_locals_address.  */
+
+extern CORE_ADDR default_frame_address (struct frame_info *);
+
+/* Default prepare_to_procced. */
+
+extern int default_prepare_to_proceed (int select_it);
+
+extern int generic_prepare_to_proceed (int select_it);
+
+/* Versions of init_frame_pc().  Do nothing; do the default. */
+
+void init_frame_pc_noop (int fromleaf, struct frame_info *prev);
+
+void init_frame_pc_default (int fromleaf, struct frame_info *prev);
+
+/* Do nothing version of elf_make_msymbol_special. */
+
+void default_elf_make_msymbol_special (asymbol *sym, struct minimal_symbol *msym);
+
+/* Do nothing version of coff_make_msymbol_special. */
+
+void default_coff_make_msymbol_special (int val, struct minimal_symbol *msym);
+
+/* Version of cannot_fetch_register() / cannot_store_register() that
+   always fails. */
+
+int cannot_register_not (int regnum);
+
+/* Legacy version of target_virtual_frame_pointer().  Assumes that
+   there is an FP_REGNUM and that it is the same, cooked or raw.  */
+
+extern gdbarch_virtual_frame_pointer_ftype legacy_virtual_frame_pointer;
+
+extern CORE_ADDR generic_skip_trampoline_code (CORE_ADDR pc);
+
+extern int generic_in_solib_call_trampoline (CORE_ADDR pc, char *name);
+
+extern int generic_in_function_epilogue_p (struct gdbarch *gdbarch, CORE_ADDR pc);
+
+extern void default_print_float_info (void);
+
+/* Assume all registers are the same size and a size identical to that
+   of the integer type.  */
+extern int generic_register_raw_size (int regnum);
+
+/* Assume the virtual size of registers corresponds to the virtual type.  */
+
+extern int generic_register_virtual_size (int regnum);
+
+/* Initialize a ``struct info''.  Can't use memset(0) since some
+   default values are not zero.  */
+extern void gdbarch_info_init (struct gdbarch_info *info);
 
 #endif

@@ -14,7 +14,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclCmdIL.c,v 1.1.1.4 2000/12/06 23:03:23 wsanchez Exp $
+ * RCS: @(#) $Id: tclCmdIL.c,v 1.1.1.5 2002/04/05 16:13:16 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -71,6 +71,13 @@ typedef struct SortInfo {
 #define SORTMODE_REAL       2
 #define SORTMODE_COMMAND    3
 #define SORTMODE_DICTIONARY 4
+
+/*
+ * Magic values for the index field of the SortInfo structure.
+ * Note that the index "end-1" will be translated to SORTIDX_END-1, etc.
+ */
+#define SORTIDX_NONE	-1		/* Not indexed; use whole value. */
+#define SORTIDX_END	-2		/* Indexed from end. */
 
 /*
  * Forward declarations for procedures defined in this file:
@@ -562,23 +569,17 @@ InfoBodyCmd(dummy, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    /*
-     * We should not return a bytecompiled body.  If it is precompiled,
-     * then the bodyPtr's string representation is bogus, since sources
-     * are not available.  If it was just a bytecompiled body, then it
-     * is likely to not be of any use to the caller, as it was compiled
-     * for a separate procedure context [Bug: 3412], and noone else can
-     * reasonably use it.
-     * In order to make sure that later manipulations of the object do not
-     * invalidate the internal representation, we make a copy of the string
-     * representation and return that one, instead.
+    /* 
+     * Here we used to return procPtr->bodyPtr, except when the body was
+     * bytecompiled - in that case, the return was a copy of the body's
+     * string rep. In order to better isolate the implementation details
+     * of the compiler/engine subsystem, we now always return a copy of 
+     * the string rep. It is important to return a copy so that later 
+     * manipulations of the object do not invalidate the internal rep.
      */
 
     bodyPtr = procPtr->bodyPtr;
-    resultPtr = bodyPtr;
-    if (bodyPtr->typePtr == &tclByteCodeType) {
-	resultPtr = Tcl_NewStringObj(bodyPtr->bytes, bodyPtr->length);
-    }
+    resultPtr = Tcl_NewStringObj(bodyPtr->bytes, bodyPtr->length);
     
     Tcl_SetObjResult(interp, resultPtr);
     return TCL_OK;
@@ -1506,19 +1507,19 @@ InfoProcsCmd(dummy, interp, objc, objv)
 	            || Tcl_StringMatch(cmdName, simplePattern)) {
 		cmdPtr = (Command *) Tcl_GetHashValue(entryPtr);
 
-		if (specificNsInPattern) {
-		    elemObjPtr = Tcl_NewObj();
-		    Tcl_GetCommandFullName(interp, (Tcl_Command) cmdPtr,
-		            elemObjPtr);
-		} else {
-		    elemObjPtr = Tcl_NewStringObj(cmdName, -1);
-		}
-
 		realCmdPtr = (Command *)
 		    TclGetOriginalCommand((Tcl_Command) cmdPtr);
 
 		if (TclIsProc(cmdPtr)
 		        || ((realCmdPtr != NULL) && TclIsProc(realCmdPtr))) {
+		    if (specificNsInPattern) {
+			elemObjPtr = Tcl_NewObj();
+			Tcl_GetCommandFullName(interp, (Tcl_Command) cmdPtr,
+				elemObjPtr);
+		    } else {
+			elemObjPtr = Tcl_NewStringObj(cmdName, -1);
+		    }
+
 		    Tcl_ListObjAppendElement(interp, listPtr, elemObjPtr);
 		}
 	    }
@@ -2019,8 +2020,7 @@ Tcl_LinsertObjCmd(dummy, interp, objc, objv)
     register int objc;		/* Number of arguments. */
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
-    Tcl_Obj *listPtr, *resultPtr;
-    Tcl_ObjType *typePtr;
+    Tcl_Obj *listPtr;
     int index, isDuplicate, len, result;
    
     if (objc < 4) {
@@ -2038,68 +2038,53 @@ Tcl_LinsertObjCmd(dummy, interp, objc, objv)
 	return result;
     }
 
-    result = TclGetIntForIndex(interp, objv[2], /*endValue*/ len, &index);
+    /*
+     * Get the index.  "end" is interpreted to be the index after the last
+     * element, such that using it will cause any inserted elements to be
+     * appended to the list.
+     */
+
+    result = TclGetIntForIndex(interp, objv[2], /*end*/ len, &index);
     if (result != TCL_OK) {
 	return result;
+    }
+    if (index > len) {
+	index = len;
     }
 
     /*
      * If the list object is unshared we can modify it directly. Otherwise
-     * we create a copy to modify: this is "copy on write". We create the
-     * duplicate directly in the interpreter's object result.
+     * we create a copy to modify: this is "copy on write".
      */
-    
+
     listPtr = objv[1];
     isDuplicate = 0;
     if (Tcl_IsShared(listPtr)) {
-	/*
-	 * The following code must reflect the logic in Tcl_DuplicateObj()
-	 * except that it must duplicate the list object directly into the
-	 * interpreter's result.
-	 */
-	
-	Tcl_ResetResult(interp);
-	resultPtr = Tcl_GetObjResult(interp);
-	typePtr = listPtr->typePtr;
-	if (listPtr->bytes == NULL) {
-	    resultPtr->bytes = NULL;
-	} else if (listPtr->bytes != tclEmptyStringRep) {
-	    len = listPtr->length;
-	    TclInitStringRep(resultPtr, listPtr->bytes, len);
-	}
-	if (typePtr != NULL) {
-	    if (typePtr->dupIntRepProc == NULL) {
-		resultPtr->internalRep = listPtr->internalRep;
-		resultPtr->typePtr = typePtr;
-	    } else {
-		(*typePtr->dupIntRepProc)(listPtr, resultPtr);
-	    }
-	}
-	listPtr = resultPtr;
+	listPtr = Tcl_DuplicateObj(listPtr);
 	isDuplicate = 1;
     }
-    
-    if ((objc == 4) && (index == INT_MAX)) {
+
+    if ((objc == 4) && (index == len)) {
 	/*
 	 * Special case: insert one element at the end of the list.
 	 */
-
 	result = Tcl_ListObjAppendElement(interp, listPtr, objv[3]);
     } else if (objc > 3) {
 	result = Tcl_ListObjReplace(interp, listPtr, index, 0,
 				    (objc-3), &(objv[3]));
     }
     if (result != TCL_OK) {
+	if (isDuplicate) {
+	    Tcl_DecrRefCount(listPtr); /* free unneeded obj */
+	}
 	return result;
     }
-    
+
     /*
      * Set the interpreter's object result.
      */
 
-    if (!isDuplicate) {
-	Tcl_SetObjResult(interp, listPtr);
-    }
+    Tcl_SetObjResult(interp, listPtr);
     return TCL_OK;
 }
 
@@ -2306,9 +2291,7 @@ Tcl_LreplaceObjCmd(dummy, interp, objc, objv)
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
     register Tcl_Obj *listPtr;
-    int createdNewObj, first, last, listLen, numToDelete;
-    int firstArgLen, result;
-    char *firstArg;
+    int isDuplicate, first, last, listLen, numToDelete, result;
 
     if (objc < 4) {
 	Tcl_WrongNumArgs(interp, 1, objv,
@@ -2316,53 +2299,43 @@ Tcl_LreplaceObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    /*
-     * If the list object is unshared we can modify it directly, otherwise
-     * we create a copy to modify: this is "copy on write".
-     */
-    
-    listPtr = objv[1];
-    createdNewObj = 0;
-    if (Tcl_IsShared(listPtr)) {
-	listPtr = Tcl_DuplicateObj(listPtr);
-	createdNewObj = 1;
-    }
-    result = Tcl_ListObjLength(interp, listPtr, &listLen);
+    result = Tcl_ListObjLength(interp, objv[1], &listLen);
     if (result != TCL_OK) {
-        errorReturn:
-	if (createdNewObj) {
-	    Tcl_DecrRefCount(listPtr); /* free unneeded obj */
-	}
 	return result;
     }
 
     /*
-     * Get the first and last indexes.
+     * Get the first and last indexes.  "end" is interpreted to be the index
+     * for the last element, such that using it will cause that element to
+     * be included for deletion.
      */
 
-    result = TclGetIntForIndex(interp, objv[2], /*endValue*/ (listLen - 1),
-	    &first);
+    result = TclGetIntForIndex(interp, objv[2], /*end*/ (listLen - 1), &first);
     if (result != TCL_OK) {
-	goto errorReturn;
+	return result;
     }
-    firstArg = Tcl_GetStringFromObj(objv[2], &firstArgLen);
 
-    result = TclGetIntForIndex(interp, objv[3], /*endValue*/ (listLen - 1),
-	    &last);
+    result = TclGetIntForIndex(interp, objv[3], /*end*/ (listLen - 1), &last);
     if (result != TCL_OK) {
-	goto errorReturn;
+	return result;
     }
 
     if (first < 0)  {
     	first = 0;
     }
-    if ((first >= listLen) && (listLen > 0)
-	    && (strncmp(firstArg, "end", (unsigned) firstArgLen) != 0)) {
+
+    /*
+     * Complain if the user asked for a start element that is greater than the
+     * list length.  This won't ever trigger for the "end*" case as that will
+     * be properly constrained by TclGetIntForIndex because we use listLen-1
+     * (to allow for replacing the last elem).
+     */
+
+    if ((first >= listLen) && (listLen > 0)) {
 	Tcl_AppendStringsToObj(Tcl_GetObjResult(interp),
 		"list doesn't contain element ",
 		Tcl_GetString(objv[2]), (int *) NULL);
-	result = TCL_ERROR;
-	goto errorReturn;
+	return TCL_ERROR;
     }
     if (last >= listLen) {
     	last = (listLen - 1);
@@ -2373,6 +2346,17 @@ Tcl_LreplaceObjCmd(dummy, interp, objc, objv)
 	numToDelete = 0;
     }
 
+    /*
+     * If the list object is unshared we can modify it directly, otherwise
+     * we create a copy to modify: this is "copy on write".
+     */
+
+    listPtr = objv[1];
+    isDuplicate = 0;
+    if (Tcl_IsShared(listPtr)) {
+	listPtr = Tcl_DuplicateObj(listPtr);
+	isDuplicate = 1;
+    }
     if (objc > 4) {
 	result = Tcl_ListObjReplace(interp, listPtr, first, numToDelete,
 	        (objc-4), &(objv[4]));
@@ -2381,7 +2365,10 @@ Tcl_LreplaceObjCmd(dummy, interp, objc, objv)
 		0, NULL);
     }
     if (result != TCL_OK) {
-	goto errorReturn;
+	if (isDuplicate) {
+	    Tcl_DecrRefCount(listPtr); /* free unneeded obj */
+	}
+	return result;
     }
 
     /*
@@ -2533,7 +2520,7 @@ Tcl_LsortObjCmd(clientData, interp, objc, objv)
 
     sortInfo.isIncreasing = 1;
     sortInfo.sortMode = SORTMODE_ASCII;
-    sortInfo.index = -1;
+    sortInfo.index = SORTIDX_NONE;
     sortInfo.interp = interp;
     sortInfo.resultCode = TCL_OK;
     cmdPtr = NULL;
@@ -2574,11 +2561,10 @@ Tcl_LsortObjCmd(clientData, interp, objc, objv)
 			    -1);
 		    return TCL_ERROR;
 		}
-		if (TclGetIntForIndex(interp, objv[i+1], -2, &sortInfo.index)
-			!= TCL_OK) {
+		if (TclGetIntForIndex(interp, objv[i+1], SORTIDX_END,
+			&sortInfo.index) != TCL_OK) {
 		    return TCL_ERROR;
 		}
-		cmdPtr = objv[i+1];
 		i++;
 		break;
 	    case 6:			/* -integer */
@@ -2616,11 +2602,8 @@ Tcl_LsortObjCmd(clientData, interp, objc, objv)
 
     sortInfo.resultCode = Tcl_ListObjGetElements(interp, objv[objc-1],
 	    &length, &listObjPtrs);
-    if (sortInfo.resultCode != TCL_OK) {
+    if (sortInfo.resultCode != TCL_OK || length <= 0) {
 	goto done;
-    }
-    if (length <= 0) {
-        return TCL_OK;
     }
     elementArray = (SortElement *) ckalloc(length * sizeof(SortElement));
     for (i=0; i < length; i++){
@@ -2832,20 +2815,20 @@ SortCompare(objPtr1, objPtr2, infoPtr)
 
 	return order;
     }
-    if (infoPtr->index != -1) {
+    if (infoPtr->index != SORTIDX_NONE) {
 	/*
 	 * The "-index" option was specified.  Treat each object as a
 	 * list, extract the requested element from each list, and
-	 * compare the elements, not the lists.  The special index "end"
-	 * is signaled here with a large negative index.
+	 * compare the elements, not the lists.  "end"-relative indices
+	 * are signaled here with large negative values.
 	 */
 
 	if (Tcl_ListObjLength(infoPtr->interp, objPtr1, &listLen) != TCL_OK) {
 	    infoPtr->resultCode = TCL_ERROR;
 	    return order;
 	}
-	if (infoPtr->index < -1) {
-	    index = listLen - 1;
+	if (infoPtr->index < SORTIDX_NONE) {
+	    index = listLen + infoPtr->index + 1;
 	} else {
 	    index = infoPtr->index;
 	}
@@ -2871,8 +2854,8 @@ SortCompare(objPtr1, objPtr2, infoPtr)
 	    infoPtr->resultCode = TCL_ERROR;
 	    return order;
 	}
-	if (infoPtr->index < -1) {
-	    index = listLen - 1;
+	if (infoPtr->index < SORTIDX_NONE) {
+	    index = listLen + infoPtr->index + 1;
 	} else {
 	    index = infoPtr->index;
 	}

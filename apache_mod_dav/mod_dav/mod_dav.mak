@@ -78,7 +78,7 @@ CLEAN :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\include" /I "$(APACHE)\src\lib\expat-lite" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\mod_dav.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\include" /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\lib\expat-lite" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\mod_dav.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -118,7 +118,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\mod_dav.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib $(APACHE)\src\corer\apachecore.lib sdbm\release\sdbm.lib $(APACHE)\src\lib\expat-lite\Release\xmlparse.lib $(APACHE)\src\lib\expat-lite\Release\xmltok.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_dav.pdb" /machine:I386 /out:"$(OUTDIR)\mod_dav.dll" /implib:"$(OUTDIR)\mod_dav.lib" 
+LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib $(APACHE)\src\release\apachecore.lib sdbm\release\sdbm.lib $(APACHE)\src\lib\expat-lite\Release\xmlparse.lib $(APACHE)\src\lib\expat-lite\Release\xmltok.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_dav.pdb" /machine:I386 /out:"$(OUTDIR)\mod_dav.dll" /implib:"$(OUTDIR)\mod_dav.lib" 
 LINK32_OBJS= \
 	"$(INTDIR)\dav_fs_dbm.obj" \
 	"$(INTDIR)\dav_fs_lock.obj" \
@@ -182,7 +182,7 @@ CLEAN :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "$(APACHE)\src\include" /I "$(APACHE)\src\lib\expat-lite" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\mod_dav.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "$(APACHE)\src\include" /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\lib\expat-lite" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\mod_dav.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -222,7 +222,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\mod_dav.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib $(APACHE)\src\cored\apachecore.lib sdbm\debug\sdbm.lib $(APACHE)\src\lib\expat-lite\Debug\xmlparse.lib $(APACHE)\src\lib\expat-lite\Debug\xmltok.lib /nologo /subsystem:windows /dll /incremental:yes /pdb:"$(OUTDIR)\mod_dav.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_dav.dll" /implib:"$(OUTDIR)\mod_dav.lib" /pdbtype:sept 
+LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib $(APACHE)\src\debug\apachecore.lib sdbm\debug\sdbm.lib $(APACHE)\src\lib\expat-lite\Debug\xmlparse.lib $(APACHE)\src\lib\expat-lite\Debug\xmltok.lib /nologo /subsystem:windows /dll /incremental:yes /pdb:"$(OUTDIR)\mod_dav.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_dav.dll" /implib:"$(OUTDIR)\mod_dav.lib" /pdbtype:sept 
 LINK32_OBJS= \
 	"$(INTDIR)\dav_fs_dbm.obj" \
 	"$(INTDIR)\dav_fs_lock.obj" \

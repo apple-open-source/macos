@@ -54,7 +54,7 @@ public:
     public:
     	Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_PASSWORD) { }
     	PasswordAclSubject *make(const TypedList &list) const;
-    	PasswordAclSubject *make(Reader &pub, Reader &priv) const;
+    	PasswordAclSubject *make(Version, Reader &pub, Reader &priv) const;
     };
     
 private:

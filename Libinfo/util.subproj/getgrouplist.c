@@ -73,7 +73,6 @@ getgrouplist(uname, agroup, groups, grpcnt)
 	int *grpcnt;
 {
 	register struct group *grp;
-	register struct passwd *pw;
 	register int i, ngroups;
 	int ret, maxgroups;
 
@@ -92,7 +91,7 @@ getgrouplist(uname, agroup, groups, grpcnt)
 	 * Scan the group file to find additional groups.
 	 */
 	setgrent();
-	while (grp = getgrent()) {
+	while ((grp = getgrent())) {
 		if (grp->gr_gid == agroup)
 			continue;
 		for (i = 0; grp->gr_mem[i]; i++) {

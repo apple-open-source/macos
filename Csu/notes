@@ -1,3 +1,10 @@
+Changes for the 5.11 release (the Csu-45 release):
+- To avoid "relocation overflow" errors from the static link editor we want
+  to make sure that the .text section and the stub sections don't have any 
+  sections between them (like the .cstring section).  To do this the an ordered
+  list of the section directives was added to the start of the sources of the
+  first object loaded (start.s, dylib.s and bundle1.s).  Radar bug #2949170.
+
 Changes for the 5.7 release (the Csu-33 release): Radar bug #2466821.
 - Added the flag -arch_errors_fatal to the linking of crt1.o, gcrt1.o and
   pscrt1.o to avoid creating a bad fat version of the file when linked on a

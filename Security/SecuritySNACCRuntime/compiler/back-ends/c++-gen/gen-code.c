@@ -39,8 +39,20 @@
  * INSERT_VDA_COMMENTS
  *
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-code.c,v 1.3 2001/06/27 23:51:42 dmitch Exp $
+ * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-code.c,v 1.4 2002/03/21 05:38:53 dmitch Exp $
  * $Log: gen-code.c,v $
+ * Revision 1.4  2002/03/21 05:38:53  dmitch
+ * Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+ *
+ * Revision 1.3.44.3  2002/03/20 20:56:39  dmitch
+ * Further refinements for Radar 2868524: no more BDecPdu or BEncPdu.
+ *
+ * Revision 1.3.44.2  2002/03/20 02:53:09  dmitch
+ * Avoid the unused and uninitialized jmp_buf var in BDecPdu.
+ *
+ * Revision 1.3.44.1  2002/03/20 00:36:59  dmitch
+ * Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+ *
  * Revision 1.3  2001/06/27 23:51:42  dmitch
  * Reimplement partial fix for Radar 2664258: Print() routines are now empty stubs in NDEBUG config.
  *
@@ -472,7 +484,6 @@ PrintMakeTag PARAMS ((f, tag),
 
 } /* PrintMakeTag */
 
-
 static void
 PrintPduMemberFcns PARAMS ((src, hdr, r, cln),
     FILE *src _AND_
@@ -480,6 +491,7 @@ PrintPduMemberFcns PARAMS ((src, hdr, r, cln),
     CxxRules *r _AND_
     char *cln)
 {
+#if SNACC_ENABLE_PDU
     if (printEncodersG)
     {
         fprintf (hdr, "  int			B%s (%s b, %s &bytesEncoded);\n", r->encodePduBaseName, bufTypeNameG, lenTypeNameG);
@@ -497,9 +509,22 @@ PrintPduMemberFcns PARAMS ((src, hdr, r, cln),
 
         fprintf (src, "int %s::B%s (%s b, %s &bytesDecoded)\n", cln, r->decodePduBaseName, bufTypeNameG, lenTypeNameG);
 	fprintf (src, "{\n");
+		#if		!SNACC_EXCEPTION_ENABLE
         fprintf (src, "    %s env;\n", envTypeNameG);
         fprintf (src, "    int val;\n\n");
+		#endif
         fprintf (src, "    bytesDecoded = 0;\n");
+		#if		SNACC_EXCEPTION_ENABLE
+        fprintf (src, "    try\n");
+        fprintf (src, "    {\n");
+        fprintf (src, "         BDec (b, bytesDecoded, 0);\n");
+        fprintf (src, "         return !b.ReadError();\n");
+        fprintf (src, "    }\n");
+        fprintf (src, "    catch(...)\n");
+        fprintf (src, "    {\n");
+        fprintf (src, "        return false;\n");
+        fprintf (src, "    }\n");
+		#else	/* SNACC_EXCEPTION_ENABLE */
         fprintf (src, "    if ((val = setjmp (env)) == 0)\n");
         fprintf (src, "    {\n");
         fprintf (src, "         BDec (b, bytesDecoded, env);\n");
@@ -511,11 +536,12 @@ PrintPduMemberFcns PARAMS ((src, hdr, r, cln),
         fprintf (src, "    { cerr << \"longjmp return value is \" << val << endl;\n");
         fprintf (src, "        return false; }\n");
 */
+		#endif	/* SNACC_EXCEPTION_ENABLE */
         fprintf (src, "}\n\n");
     }
 
     fprintf (hdr, "\n");
-
+#endif	/* SNACC_ENABLE_PDU */
 } /* PrintPduMemberFcns */
 
 
@@ -1055,7 +1081,11 @@ PrintCxxSimpleDef PARAMS ((hdr, src, if_IBM_ENC (hdrdb COMMA srcdb COMMA) if_MET
                         }
                         fprintf (src, "    {\n");
             		fprintf (src, "        Asn1Error << \"%s::B%s: ERROR - wrong tag\" << endl;\n", td->cxxTypeDefInfo->className, r->decodeBaseName);
+						#if SNACC_EXCEPTION_ENABLE
+                        fprintf (src, "        SnaccExcep::throwMe(%d);\n", longJmpValG--);
+						#else
                         fprintf (src, "        longjmp (env, %d);\n", longJmpValG--);
+						#endif	/* SNACC_EXCEPTION_ENABLE */
                         fprintf (src, "    }\n");
 
                         fprintf (src, "    elmtLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
@@ -1737,7 +1767,11 @@ else
 
                         fprintf (src, "      {\n");
                         fprintf (src, "         Asn1Error << \"Unexpected Tag\" << endl;\n");
-                        fprintf (src, "         longjmp (env, %d);\n", longJmpValG--);
+ 						#if SNACC_EXCEPTION_ENABLE
+                        fprintf (src, "        SnaccExcep::throwMe(%d);\n", longJmpValG--);
+						#else
+                        fprintf (src, "        longjmp (env, %d);\n", longJmpValG--);
+						#endif	/* SNACC_EXCEPTION_ENABLE */
                         fprintf (src, "      }\n\n");
 
                         fprintf (src, "      elmtLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
@@ -1866,7 +1900,11 @@ else
 
         fprintf (src, "    default:\n");
         fprintf (src, "      Asn1Error << \"ERROR - unexpected tag in CHOICE\" << endl;\n");
-        fprintf (src, "      longjmp (env, %d);\n", longJmpValG--);
+		#if SNACC_EXCEPTION_ENABLE
+		fprintf (src, "      SnaccExcep::throwMe(%d);\n", longJmpValG--);
+		#else
+		fprintf (src, "      longjmp (env, %d);\n", longJmpValG--);
+		#endif	/* SNACC_EXCEPTION_ENABLE */
         fprintf (src, "      break;\n");
 
         fprintf (src, "  } // end switch\n");
@@ -1933,7 +1971,11 @@ else
                 fprintf (src, "MAKE_TAG_ID (%s, %s, %d))", classStr, formStr, tag->code);
             fprintf (src, "    {\n");
 	    fprintf (src, "        Asn1Error << \"%s::B%s: ERROR - wrong tag\" << endl;\n", td->cxxTypeDefInfo->className, r->decodeBaseName);
-            fprintf (src, "        longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "        SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "        longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "    }\n");
             fprintf (src, "    extraLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
         }
@@ -2567,7 +2609,11 @@ else
             fprintf (src, "  else if (elmtLen0 != 0)\n");
             fprintf (src, "  {\n");
             fprintf (src, "     Asn1Error << \"Expected an empty sequence\" << endl;\n");
-            fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "     SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
 /*
@@ -2745,7 +2791,11 @@ else
 
                             fprintf (src, "    {\n");
                             fprintf (src, "       Asn1Error << \"Unexpected Tag\" << endl;\n");
-                            fprintf (src, "       longjmp (env, %d);\n", longJmpValG--);
+							#if SNACC_EXCEPTION_ENABLE
+							fprintf (src, "       SnaccExcep::throwMe(%d);\n", longJmpValG--);
+							#else
+							fprintf (src, "       longjmp (env, %d);\n", longJmpValG--);
+							#endif	/* SNACC_EXCEPTION_ENABLE */
                             fprintf (src, "    }\n\n");
                             fprintf (src, "    elmtLen%d = BDecLen (b, seqBytesDecoded, env);\n", ++elmtLevel);
                         }
@@ -2948,7 +2998,11 @@ else
                     fprintf (src, "  else\n");
                     fprintf (src, "  {\n");
                     fprintf (src, "    Asn1Error << \"ERROR - SEQUENCE is missing non-optional elmt.\" << endl;\n");
-                    fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+					#if SNACC_EXCEPTION_ENABLE
+					fprintf (src, "    SnaccExcep::throwMe(%d);\n", longJmpValG--);
+					#else
+					fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+					#endif	/* SNACC_EXCEPTION_ENABLE */
                     fprintf (src, "  }\n\n");
                 }
                 else
@@ -2967,7 +3021,11 @@ else
             fprintf (src, "  else if (seqBytesDecoded != elmtLen0)\n");
             fprintf (src, "  {\n");
             fprintf (src, "    Asn1Error << \"ERROR - Length discrepancy on sequence.\" << endl;\n");
-            fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+ 			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "    SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
             fprintf (src, "  else\n");
             fprintf (src, "    return;\n");
@@ -3036,7 +3094,11 @@ else
                 fprintf (src, "MAKE_TAG_ID (%s, %s, %d))\n", classStr, formStr, tag->code);
             fprintf (src, "  {\n");
 	    fprintf (src, "    Asn1Error << \"%s::B%s: ERROR - wrong tag\" << endl;\n", td->cxxTypeDefInfo->className, r->decodeBaseName);
-            fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "    SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
             fprintf (src, "  elmtLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
@@ -3768,7 +3830,11 @@ else
             fprintf (src, "  else if (elmtLen0 != 0)\n");
             fprintf (src, "  {\n");
             fprintf (src, "     Asn1Error << \"Expected an empty sequence\" << endl;\n");
-            fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "     SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
 /*   forget about potential extension types for now
@@ -3908,7 +3974,11 @@ else
 
                             fprintf (src, "        {\n");
                             fprintf (src, "           Asn1Error << \"Unexpected Tag\" << endl;\n");
-                            fprintf (src, "           longjmp (env, %d);\n", longJmpValG--);
+							#if SNACC_EXCEPTION_ENABLE
+							fprintf (src, "           SnaccExcep::throwMe(%d);\n", longJmpValG--);
+							#else
+							fprintf (src, "           longjmp (env, %d);\n", longJmpValG--);
+							#endif	/* SNACC_EXCEPTION_ENABLE */
                             fprintf (src, "        }\n\n");
 
                             fprintf (src, "        elmtLen%d = BDecLen (b, setBytesDecoded, env);\n", ++elmtLevel);
@@ -4040,14 +4110,22 @@ else
             } /* for each elmt */
             fprintf (src, "       default:\n");
             fprintf (src, "         Asn1Error << \"Unexpected Tag on SET elmt.\" << endl;\n");
-            fprintf (src, "         longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "         SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "         longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "    } // end switch\n");
             fprintf (src, "  } // end for loop\n");
             fprintf (src, "  bytesDecoded += setBytesDecoded;\n");
             fprintf (src, "  if (mandatoryElmtsDecoded != %d)\n", mandatoryElmtCount);
             fprintf (src, "  {\n");
             fprintf (src, "     Asn1Error << \"ERROR - non-optional SET element missing.\" << endl;\n");
-            fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "     SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "     longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
         } /* if not empty set clause */
@@ -4115,7 +4193,11 @@ else
                 fprintf (src, "MAKE_TAG_ID (%s, %s, %d))\n", classStr, formStr, tag->code);
             fprintf (src, "  {\n");
 	    fprintf (src, "    Asn1Error << \"%s::B%s: ERROR - wrong tag\" << endl;\n", td->cxxTypeDefInfo->className, r->decodeBaseName);
-            fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "    SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
             fprintf (src, "  elmtLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
@@ -4526,7 +4608,11 @@ PrintCxxListClass PARAMS ((src, hdr, if_IBM_ENC (srcdb COMMA hdrdb COMMA) mods, 
                 fprintf (src, "MAKE_TAG_ID (%s, %s, %d))\n", classStr, formStr, tag->code);
             fprintf (src, "  {\n");
 	    fprintf (src, "    Asn1Error << \"%s::B%s: ERROR - wrong tag\" << endl;\n", td->cxxTypeDefInfo->className, r->decodeBaseName);
-            fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "    SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "    longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "  }\n");
 
             fprintf (src, "  elmtLen%d = BDecLen (b, bytesDecoded, env);\n", ++elmtLevel);
@@ -4612,7 +4698,11 @@ PrintCxxListTagAndLenDecCode PARAMS ((src, td, t),
         fprintf (src, "))\n");
         fprintf (src, "        {\n");
         fprintf (src, "            Asn1Error << \"Unexpected Tag\" << endl;\n");
-        fprintf (src, "            longjmp (env, %d);\n", longJmpValG--);
+		#if SNACC_EXCEPTION_ENABLE
+		fprintf (src, "            SnaccExcep::throwMe(%d);\n", longJmpValG--);
+		#else
+		fprintf (src, "            longjmp (env, %d);\n", longJmpValG--);
+		#endif	/* SNACC_EXCEPTION_ENABLE */
         fprintf (src, "        }\n\n");
         fprintf (src, "        elmtLen%d = BDecLen (b, listBytesDecoded, env);\n", ++elmtLevel);
     }
@@ -4638,7 +4728,11 @@ PrintCxxListTagAndLenDecCode PARAMS ((src, td, t),
 
             fprintf (src, "        {\n");
             fprintf (src, "            Asn1Error << \"Unexpected Tag\" << endl;\n");
-            fprintf (src, "            longjmp (env, %d);\n", longJmpValG--);
+			#if SNACC_EXCEPTION_ENABLE
+			fprintf (src, "            SnaccExcep::throwMe(%d);\n", longJmpValG--);
+			#else
+			fprintf (src, "            longjmp (env, %d);\n", longJmpValG--);
+			#endif	/* SNACC_EXCEPTION_ENABLE */
             fprintf (src, "        }\n\n");
             fprintf (src, "        elmtLen%d = BDecLen (b, listBytesDecoded, env);\n", ++elmtLevel);
 

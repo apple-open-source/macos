@@ -37,7 +37,7 @@ class Error : public Security::MacOSError {
 protected:
 	Error(OSStatus err);
 public:
-	virtual ~Error();
+	virtual ~Error() throw();
     //@@@ -1 == internal error?!
     static void throwMe(OSStatus err = -1) __attribute__((noreturn));
 };

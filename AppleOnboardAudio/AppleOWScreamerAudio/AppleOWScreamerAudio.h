@@ -39,7 +39,6 @@ struct awacsOW_regmap_t;
 struct IODBDMAChannelRegisters;
 struct IODBDMADescriptor;
 
-
 class IOAudioLevelControl;
 
 // temp values for volume until rolled into uber class
@@ -57,6 +56,8 @@ enum {
     kPassThruToggle = 3,
     kInGainLeft = 4,
     kInGainRight = 5,
+	kHeadphoneInsert = 6,
+	kInputInsert = 7,
     kNumControls
 };
 
@@ -74,13 +75,16 @@ protected:
 
     bool			updateStatus;
 
-        //this is the basic set of ports
-    IOAudioToggleControl	*outMute;
-    IOAudioToggleControl	*playthruToggle;
-    IOAudioLevelControl		*outVolLeft;
-    IOAudioLevelControl		*outVolRight;
-    IOAudioLevelControl		*inGainLeft;
-    IOAudioLevelControl		*inGainRight;
+	// this is the basic set of ports
+	IOAudioToggleControl *		outMute;
+	IOAudioToggleControl *		playthruToggle;
+	IOAudioToggleControl *		headphoneConnection;
+	IOAudioToggleControl *		inputConnection;
+	IOAudioLevelControl *		outVolLeft;
+	IOAudioLevelControl *		outVolRight;
+	IOAudioLevelControl *		inGainLeft;
+	IOAudioLevelControl *		inGainRight;
+	IOAudioSelectorControl *	outputSelector;			// This is a read only selector
 
     UInt32 			gVolLeft, gVolRight;
     UInt32			numDetects;

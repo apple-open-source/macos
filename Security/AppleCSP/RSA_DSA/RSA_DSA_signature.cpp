@@ -48,6 +48,23 @@ void RSASigner::signerInit(
 {
 	setIsSigning(isSigning);
 	keyFromContext(context);
+	
+	/* optional padding attribute */
+	uint32 padding;
+	bool padPresent = context.getInt(CSSM_ATTRIBUTE_PADDING, padding);
+	if(padPresent) {
+		/* padding specified in context, convert to openssl style */
+		switch(padding) {
+			case CSSM_PADDING_NONE:
+				mPadding = RSA_NO_PADDING;
+				break;
+			case CSSM_PADDING_PKCS1:
+				mPadding = RSA_PKCS1_PADDING;
+				break;
+			default:
+				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
+		}
+	}
 	setInitFlag(true);
 }
 
@@ -79,7 +96,7 @@ void RSASigner::sign(
 		(unsigned char *)encodedInfo.data(),
 		(unsigned char *)sig, 
 		mRsaKey,
-		RSA_PKCS1_PADDING);
+		mPadding);
 	if(irtn < 0) {
 		throwRsaDsa("RSA_private_encrypt");
 	}
@@ -126,7 +143,7 @@ void RSASigner::verify(
 		(unsigned char *)sig,
 		decryptSig, 
 		mRsaKey,
-		RSA_PKCS1_PADDING);
+		mPadding);
 	if(irtn < 0) {
 		op = "RSA_public_decrypt";
 		throwSigVerify = true;

@@ -1,0 +1,4 @@
+Package: appleps2keyboard
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: PS2 Keyboard Driver
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, text-cmds, shell-cmds, system-cmds, grep, jam, xnu, appleps2controller, iohidsystem, iographics

@@ -21,10 +21,15 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 ;;;###autoload
-(defvar default-korean-keyboard ""
+(defvar default-korean-keyboard
+  (if (string-match "3" (or (getenv "HANGUL_KEYBOARD_TYPE") ""))
+      "3"
+    "")
   "*The kind of Korean keyboard for Korean input method.
 \"\" for 2, \"3\" for 3.")
 
@@ -96,12 +101,6 @@
     (,isearch-mode-map [f9] isearch-hangul-switch-hanja nil)))
 
 ;;;###autoload
-(defun setup-korean-environment ()
-  "Setup multilingual environment (MULE) for Korean."
-  (interactive)
-  (set-language-environment "Korean"))
-
-;;;###autoload
 (defun setup-korean-environment-internal ()
   (let ((key-bindings korean-key-bindings))
     (while key-bindings
@@ -136,4 +135,4 @@
 ;;
 (provide 'korea-util)
 
-;;; korean-util.el ends here
+;;; korea-util.el ends here

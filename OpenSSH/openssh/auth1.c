@@ -10,7 +10,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth1.c,v 1.35 2002/02/03 17:53:25 markus Exp $");
+RCSID("$OpenBSD: auth1.c,v 1.41 2002/06/19 00:27:55 deraadt Exp $");
 
 #include "xmalloc.h"
 #include "rsa.h"
@@ -24,8 +24,8 @@ RCSID("$OpenBSD: auth1.c,v 1.35 2002/02/03 17:53:25 markus Exp $");
 #include "auth.h"
 #include "channels.h"
 #include "session.h"
-#include "misc.h"
 #include "uidswap.h"
+#include "monitor_wrap.h"
 
 /* import */
 extern ServerOptions options;
@@ -84,13 +84,7 @@ do_authloop(Authctxt *authctxt)
 #if defined(KRB4) || defined(KRB5)
 	    (!options.kerberos_authentication || options.kerberos_or_local_passwd) &&
 #endif
-#ifdef USE_PAM
-	    auth_pam_password(pw, "")) {
-#elif defined(HAVE_OSF_SIA)
-	    0) {
-#else
-	    auth_password(authctxt, "")) {
-#endif
+	    PRIVSEP(auth_password(authctxt, ""))) {
 		auth_log(authctxt, 1, "without authentication", "");
 		return;
 	}
@@ -209,7 +203,7 @@ do_authloop(Authctxt *authctxt)
 			if (bits != BN_num_bits(client_host_key->rsa->n))
 				verbose("Warning: keysize mismatch for client_host_key: "
 				    "actual %d, announced %d",
-				     BN_num_bits(client_host_key->rsa->n), bits);
+				    BN_num_bits(client_host_key->rsa->n), bits);
 			packet_check_eom();
 
 			authenticated = auth_rhosts_rsa(pw, client_user,
@@ -246,17 +240,8 @@ do_authloop(Authctxt *authctxt)
 			password = packet_get_string(&dlen);
 			packet_check_eom();
 
-#ifdef USE_PAM
-			/* Do PAM auth with password */
-			authenticated = auth_pam_password(pw, password);
-#elif defined(HAVE_OSF_SIA)
-			/* Do SIA auth with password */
-			authenticated = auth_sia_password(authctxt->user, 
-			    password);
-#else /* !USE_PAM && !HAVE_OSF_SIA */
 			/* Try authentication with the password. */
-			authenticated = auth_password(authctxt, password);
-#endif /* USE_PAM */
+			authenticated = PRIVSEP(auth_password(authctxt, password));
 
 			memset(password, 0, strlen(password));
 			xfree(password);
@@ -321,7 +306,8 @@ do_authloop(Authctxt *authctxt)
 			authenticated = 0;
 #endif
 #ifdef USE_PAM
-		if (authenticated && !do_pam_account(pw->pw_name, client_user))
+		if (!use_privsep && authenticated && 
+		    !do_pam_account(pw->pw_name, client_user))
 			authenticated = 0;
 #endif
 
@@ -338,6 +324,7 @@ do_authloop(Authctxt *authctxt)
 
 		if (authctxt->failures++ > AUTH_FAIL_MAX) {
 #ifdef WITH_AIXAUTHENTICATE
+			/* XXX: privsep */
 			loginfailed(authctxt->user,
 			    get_canonical_hostname(options.verify_reverse_mapping),
 			    "ssh");
@@ -355,13 +342,12 @@ do_authloop(Authctxt *authctxt)
  * Performs authentication of an incoming connection.  Session key has already
  * been exchanged and encryption is enabled.
  */
-void
+Authctxt *
 do_authentication(void)
 {
 	Authctxt *authctxt;
-	struct passwd *pw;
 	u_int ulen;
-	char *p, *user, *style = NULL;
+	char *user, *style = NULL;
 
 	/* Get the name of the user that we wish to log in as. */
 	packet_read_expect(SSH_CMSG_USER);
@@ -373,29 +359,31 @@ do_authentication(void)
 	if ((style = strchr(user, ':')) != NULL)
 		*style++ = '\0';
 
+#ifdef KRB5
 	/* XXX - SSH.com Kerberos v5 braindeath. */
-	if ((p = strchr(user, '@')) != NULL)
-		*p = '\0';
+	if ((datafellows & SSH_BUG_K5USER) &&
+	    options.kerberos_authentication) {
+		char *p;
+		if ((p = strchr(user, '@')) != NULL)
+			*p = '\0';
+	}
+#endif
 
 	authctxt = authctxt_new();
 	authctxt->user = user;
 	authctxt->style = style;
 
 	/* Verify that the user is a valid user. */
-	pw = getpwnam(user);
-	if (pw && allowed_user(pw)) {
+	if ((authctxt->pw = PRIVSEP(getpwnamallow(user))) != NULL)
 		authctxt->valid = 1;
-		pw = pwcopy(pw);
-	} else {
+	else
 		debug("do_authentication: illegal user %s", user);
-		pw = NULL;
-	}
-	authctxt->pw = pw;
 
-	setproctitle("%s", pw ? user : "unknown");
+	setproctitle("%s%s", authctxt->pw ? user : "unknown",
+	    use_privsep ? " [net]" : "");
 
 #ifdef USE_PAM
-	start_pam(pw == NULL ? "NOUSER" : user);
+	PRIVSEP(start_pam(authctxt->pw == NULL ? "NOUSER" : user));
 #endif
 
 	/*
@@ -403,7 +391,8 @@ do_authentication(void)
 	 * the server. (Unless you are running Windows)
 	 */
 #ifndef HAVE_CYGWIN
-	if (getuid() != 0 && pw && pw->pw_uid != getuid())
+	if (!use_privsep && getuid() != 0 && authctxt->pw &&
+	    authctxt->pw->pw_uid != getuid())
 		packet_disconnect("Cannot change user when server not running as root.");
 #endif
 
@@ -418,6 +407,5 @@ do_authentication(void)
 	packet_send();
 	packet_write_wait();
 
-	/* Perform session preparation. */
-	do_authenticated(authctxt);
+	return (authctxt);
 }

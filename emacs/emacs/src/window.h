@@ -1,5 +1,6 @@
 /* Window definitions for GNU Emacs.
-   Copyright (C) 1985, 1986, 1993, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 1995, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,6 +19,10 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef WINDOW_H_INCLUDED
+#define WINDOW_H_INCLUDED
+
+#include "dispextern.h"
 
 /* Windows are allocated as if they were vectors, but then the
 Lisp data type is changed to Lisp_Window.  They are garbage
@@ -72,6 +77,15 @@ one and the same, so its prev and next members are nil.
 
 A dead window has its buffer, hchild, and vchild windows all nil.  */
 
+struct cursor_pos
+{
+  /* Pixel position.  These are always window relative.  */
+  int x, y;
+
+  /* Glyph matrix position.  */
+  int hpos, vpos;
+};
+
 struct window
   {
     /* The first two fields are really the header of a vector */
@@ -113,10 +127,15 @@ struct window
        set up for it in advance.  Set by scrolling commands.  */
     Lisp_Object force_start;
     /* Non-nil means we have explicitly changed the value of start,
-       but that the next redisplay is not obliged to use the new value.  */
+       but that the next redisplay is not obliged to use the new value.
+       This is used in Fdelete_other_windows to force a call to
+       Vwindow_scroll_functions.  */
     Lisp_Object optional_new_start;
     /* Number of columns display within the window is scrolled to the left.  */
     Lisp_Object hscroll;
+    /* Minimum hscroll for automatic hscrolling.  This is the value
+       the user has set, by set-window-hscroll for example.  */
+    Lisp_Object min_hscroll;
     /* Number saying how recently window was selected */
     Lisp_Object use_time;
     /* Unique number of window assigned when it was created */
@@ -139,26 +158,27 @@ struct window
        it yet, or if the frame doesn't have any scroll bars, this is nil.  */
     Lisp_Object vertical_scroll_bar;
 
-    /* Some of these are currently not used or only half used */
-    /* Frame coords of point at that time */
-    Lisp_Object last_point_x;
-    Lisp_Object last_point_y;
+    /* Width of left and right marginal areas.  A value of nil means
+       no margin.  */
+    Lisp_Object left_margin_width;
+    Lisp_Object right_margin_width;
+
+/* The rest are currently not used or only half used */
     /* Frame coords of mark as of last time display completed */
     /* May be nil if mark does not exist or was not on frame */
     Lisp_Object last_mark_x;
     Lisp_Object last_mark_y;
-
-    /* Number of characters in buffer past bottom of window,
-       as of last redisplay that finished. */
+    /* Z - the buffer position of the last glyph in the current matrix
+       of W.  Only valid if WINDOW_END_VALID is not nil.  */
     Lisp_Object window_end_pos;
+    /* Glyph matrix row of the last glyph in the current matrix
+       of W.  Only valid if WINDOW_END_VALID is not nil.  */
+    Lisp_Object window_end_vpos;
     /* t if window_end_pos is truly valid.
        This is nil if nontrivial redisplay is preempted
        since in that case the frame image that window_end_pos
        did not get onto the frame.  */
     Lisp_Object window_end_valid;
-    /* Vertical position (relative to window top) of that buffer position
-       of the first of those characters */
-    Lisp_Object window_end_vpos;
     /* Non-nil means must regenerate mode line of this window */
     Lisp_Object update_mode_line;
     /* Non-nil means current value of `start'
@@ -188,13 +208,80 @@ struct window
     Lisp_Object redisplay_end_trigger;
     /* Non-nil means don't delete this window for becoming "too small".  */
     Lisp_Object too_small_ok;
-  };
+
+    /* Original window height and top before mini-window was
+       enlarged. */
+    Lisp_Object orig_height, orig_top;
+    
+    /* No Lisp data may follow below this point without changing
+       mark_object in alloc.c.  The member current_matrix must be the
+       first non-Lisp member.  */
+
+    /* Glyph matrices.  */
+    struct glyph_matrix *current_matrix;
+    struct glyph_matrix *desired_matrix;
+
+    /* Cursor position as of last update that completed without
+       pause.  This is the position of last_point.  */
+    struct cursor_pos last_cursor;
+
+    /* Intended cursor position.   This is a position within the
+       glyph matrix.  */
+    struct cursor_pos cursor;
+    
+    /* Where the cursor actually is.  */
+    struct cursor_pos phys_cursor;
+    
+    /* Cursor type last drawn on the window.  Used for X frames; -1
+       initially.  */
+    int phys_cursor_type;
+
+    /* This is handy for undrawing the cursor.  */
+    int phys_cursor_ascent, phys_cursor_height;
+    
+    /* Non-zero means the cursor is currently displayed.  This can be
+       set to zero by functions overpainting the cursor image.  */
+    unsigned phys_cursor_on_p : 1;
+
+    /* 0 means cursor is logically on, 1 means it's off.  Used for
+       blinking cursor.  */
+    unsigned cursor_off_p : 1;
+
+    /* Value of cursor_off_p as of the last redisplay.  */
+    unsigned last_cursor_off_p : 1;
+
+    /* 1 means desired matrix has been build and window must be
+       updated in update_frame.  */
+    unsigned must_be_updated_p : 1;
+
+    /* Flag indicating that this window is not a real one.
+       Currently only used for menu bar windows of frames.  */
+    unsigned pseudo_window_p : 1;
+
+    /* Amount by which lines of this window are scrolled in
+       y-direction (smooth scrolling).  */
+    int vscroll;
+    
+    /* Z_BYTE - the buffer position of the last glyph in the current matrix
+       of W.  Only valid if WINDOW_END_VALID is not nil.  */
+    int window_end_bytepos;
+
+    /* 1 means the window start of this window is frozen and may not
+       be changed during redisplay.  If point is not in the window,
+       accept that.  */
+    unsigned frozen_window_start_p : 1;
+
+    /* 1 means that this window's height is temporarily fixed.  Used
+       in resize_mini_window to precent resizing selected_window, if
+       possible.  */
+    unsigned height_fixed_p : 1;
+};
 
 /* 1 if W is a minibuffer window.  */
 
-#define MINI_WINDOW_P(W)  (!EQ ((W)->mini_p, Qnil))
+#define MINI_WINDOW_P(W)	(!EQ ((W)->mini_p, Qnil))
 
-/* Return the frame column at which the text in window W starts.
+/* Return the window column at which the text in window W starts.
    This is different from the `left' field because it does not include
    a left-hand scroll bar if any.  */
    
@@ -202,23 +289,21 @@ struct window
      (XFASTINT ((W)->left) \
       + FRAME_LEFT_SCROLL_BAR_WIDTH (XFRAME (WINDOW_FRAME (W))))
 
-/* Return the frame column before window W ends.
+/* Return the window column before which window W ends.
    This includes a right-hand scroll bar, if any.  */
 
 #define WINDOW_RIGHT_EDGE(W) \
      (XFASTINT ((W)->left) + XFASTINT ((W)->width))
 
-/* Return the frame column before which the text in window W ends.
+/* Return the window column before which the text in window W ends.
    This is different from WINDOW_RIGHT_EDGE because it does not include
    a scroll bar or window-separating line on the right edge.  */
 
-#define WINDOW_RIGHT_MARGIN(W)						    \
-  (WINDOW_RIGHT_EDGE (W)						    \
-   - (! FRAME_HAS_VERTICAL_SCROLL_BARS (XFRAME (WINDOW_FRAME (W)))	    \
-      ? ((WINDOW_RIGHTMOST_P (W)) ? 0 : 1)			    	    \
-      : FRAME_HAS_VERTICAL_SCROLL_BARS_ON_RIGHT (XFRAME (WINDOW_FRAME (W))) \
-      ? FRAME_SCROLL_BAR_COLS (XFRAME (WINDOW_FRAME (W)))		    \
-      : 0))
+#define WINDOW_RIGHT_MARGIN(W) \
+     (WINDOW_RIGHT_EDGE (W) \
+      - (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_RIGHT (XFRAME (WINDOW_FRAME (W))) \
+         ? FRAME_SCROLL_BAR_COLS (XFRAME (WINDOW_FRAME (W))) \
+         : 0))
 
 /* 1 if window W takes up the full width of its frame.  */ 
 
@@ -230,6 +315,7 @@ struct window
 #define WINDOW_RIGHTMOST_P(W) \
      (WINDOW_RIGHT_EDGE (W) == FRAME_WINDOW_WIDTH (XFRAME (WINDOW_FRAME (W))))
      
+
 /* This is the window in which the terminal's cursor should
    be left when nothing is being done with it.  This must
    always be a leaf window, and its buffer is selected by
@@ -252,104 +338,118 @@ extern int window_select_count;
 
 extern Lisp_Object minibuf_window;
 
-/* Non-nil => window to for C-M-v to scroll
-   when the minibuffer is selected.  */
+/* Non-nil => window to for C-M-v to scroll when the minibuffer is
+   selected.  */
+
 extern Lisp_Object Vminibuf_scroll_window;
 
-/* nil or a symbol naming the window system
-   under which emacs is running
-   ('x is the only current possibility) */
+/* Nil or a symbol naming the window system under which emacs is
+   running ('x is the only current possibility) */
+
 extern Lisp_Object Vwindow_system;
 
 /* Version number of X windows: 10, 11 or nil.  */
+
 extern Lisp_Object Vwindow_system_version;
 
 /* Window that the mouse is over (nil if no mouse support).  */
+
 extern Lisp_Object Vmouse_window;
 
 /* Last mouse-click event (nil if no mouse support).  */
+
 extern Lisp_Object Vmouse_event;
 
 EXFUN (Fnext_window, 3);
 EXFUN (Fselect_window, 1);
 EXFUN (Fdisplay_buffer, 3);
 EXFUN (Fset_window_buffer, 2);
+EXFUN (Fset_window_hscroll, 2);
+EXFUN (Fwindow_hscroll, 1);
+EXFUN (Fset_window_vscroll, 2);
+EXFUN (Fwindow_vscroll, 1);
+EXFUN (Fset_window_margins, 3);
+EXFUN (Fwindow_live_p, 1);
+EXFUN (Fset_window_point, 2);
 extern Lisp_Object make_window P_ ((void));
 extern void delete_window P_ ((Lisp_Object));
-extern Lisp_Object window_from_coordinates P_ ((struct frame *, int, int, int *));
+extern Lisp_Object window_from_coordinates P_ ((struct frame *, int, int, int *, int));
 EXFUN (Fwindow_dedicated_p, 1);
 extern int window_height P_ ((Lisp_Object));
 extern int window_width P_ ((Lisp_Object));
 extern void set_window_height P_ ((Lisp_Object, int, int));
 extern void set_window_width P_ ((Lisp_Object, int, int));
-extern void change_window_height P_ ((int, int));
 extern void delete_all_subwindows P_ ((struct window *));
+extern void freeze_window_starts P_ ((struct frame *, int));
+extern void foreach_window P_ ((struct frame *,
+				int (* fn) (struct window *, void *),
+				void *));
+extern void grow_mini_window P_ ((struct window *, int));
+extern void shrink_mini_window P_ ((struct window *));
+
+
+/* Make WINDOW display BUFFER as its contents.  RUN_HOOKS_P non-zero
+   means it's allowed to run hooks.  See make_frame for a case where
+   it's not allowed.  */
+
+void set_window_buffer P_ ((Lisp_Object window, Lisp_Object buffer,
+			    int run_hooks_p));
 
 /* Prompt to display in front of the minibuffer contents.  */
+
 extern Lisp_Object minibuf_prompt;
 
 /* The visual width of the above.  */
+
 extern int minibuf_prompt_width;
 
-/* Message to display instead of minibuffer contents. 
-   This is what the functions error and message make,
-   and command echoing uses it as well. It overrides the
-   minibuf_prompt as well as the buffer.  */
-extern char *echo_area_glyphs;
+/* This is the window where the echo area message was displayed.  It
+   is always a minibuffer window, but it may not be the same window
+   currently active as a minibuffer.  */
 
-/* This is the length of the message in echo_area_glyphs.  */
-extern int echo_area_glyphs_length;
-
-/* Value of echo_area_glyphs when it was last acted on.
-  If this is nonzero, there is a message on the frame
-  in the minibuffer and it should be erased as soon
-  as it is no longer requested to appear. */
-extern char *previous_echo_glyphs;
-
-/* This is the window where the echo area message was displayed.
-   It is always a minibuffer window, but it may not be the
-   same window currently active as a minibuffer.  */
 extern Lisp_Object echo_area_window;
 
 /* Depth in recursive edits.  */
+
 extern int command_loop_level;
 
 /* Depth in minibuffer invocations.  */
+
 extern int minibuf_level;
 
 /* true iff we should redraw the mode lines on the next redisplay.  */
+
 extern int update_mode_lines;
 
-/* Minimum value of GPT - BEG since last redisplay that finished.  */
+/* Nonzero if BEGV - BEG or Z - ZV of current buffer has changed since
+   last redisplay that finished.  */
 
-extern int beg_unchanged;
-
-/* Minimum value of Z - GPT since last redisplay that finished.  */
-
-extern int end_unchanged;
-
-/* MODIFF as of last redisplay that finished;
-   if it matches MODIFF, beg_unchanged and end_unchanged
-   contain no useful information.  */
-extern int unchanged_modified;
-
-/* BUF_OVERLAY_MODIFF of current buffer, as of last redisplay that finished;
-   if it matches BUF_OVERLAY_MODIFF, beg_unchanged and end_unchanged
-   contain no useful information.  */
-extern int overlay_unchanged_modified;
-
-/* Nonzero if BEGV - BEG or Z - ZV of current buffer has changed
-   since last redisplay that finished.  */
 extern int clip_changed;
 
-/* Nonzero if window sizes or contents have changed
- since last redisplay that finished */
+/* Nonzero if window sizes or contents have changed since last
+   redisplay that finished */
+
 extern int windows_or_buffers_changed;
 
-/* Number of windows displaying the selected buffer.
-   Normally this is 1, but it can be more.  */
+/* Number of windows displaying the selected buffer.  Normally this is
+   1, but it can be more.  */
+
 extern int buffer_shared;
 
 /* If *ROWS or *COLS are too small a size for FRAME, set them to the
    minimum allowable size.  */
+
 extern void check_frame_size P_ ((struct frame *frame, int *rows, int *cols));
+
+/* Return a pointer to the glyph W's physical cursor is on.  Value is
+   null if W's current matrix is invalid, so that no meaningfull glyph
+   can be returned.  */
+
+struct glyph *get_phys_cursor_glyph P_ ((struct window *w));
+
+/* Value is non-zero if WINDOW is a live window.  */
+
+#define WINDOW_LIVE_P(WINDOW) \
+     (WINDOWP ((WINDOW)) && !NILP (XWINDOW ((WINDOW))->buffer))
+
+#endif /* not WINDOW_H_INCLUDED */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,6 +31,8 @@
 class OSArray;
 class OSData;
 
+/*! @class IOLocalConfigDirectory
+*/
 class IOLocalConfigDirectory : public IOConfigDirectory
 {
     OSDeclareDefaultStructors(IOLocalConfigDirectory);
@@ -75,9 +77,15 @@ public:
     virtual IOReturn addEntry(int key, OSData *value, OSString *desc = NULL);
     virtual IOReturn addEntry(int key, FWAddress value, OSString *desc = NULL);
     virtual IOReturn removeSubDir(IOLocalConfigDirectory *value);
-    const OSArray *getEntries() const
-    			{ return fEntries; };
+    const OSArray *getEntries() const;
 
+protected:
+
+	virtual const UInt32 * lockData( void );
+	virtual void unlockData( void );
+	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length );
+	virtual IOReturn checkROMState( void );
+		
 private:
     OSMetaClassDeclareReservedUnused(IOLocalConfigDirectory, 0);
     OSMetaClassDeclareReservedUnused(IOLocalConfigDirectory, 1);

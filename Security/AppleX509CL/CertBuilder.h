@@ -63,6 +63,9 @@ public:
 		DirectoryString::ChoiceIdEnum	stringType,	// printableStringCid, etc.
 													//   from sm_x520sa
 		bool							primaryDistinguished = true);   
+		
+	void addX509Name  (
+		const CSSM_X509_NAME 			*x509Name);
 };
 
 

@@ -27,9 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-
-#define UTC_TIME_STRLEN				13
-#define GENERALIZED_TIME_STRLEN		15
+#include <stdbool.h>
 
 /*
  * Given a string containing either a UTC-style or "generalized time"
@@ -42,7 +40,8 @@ int timeStringToTm(
 	struct tm			*tmp)
 {
 	char 		szTemp[5];
-	unsigned 	isUtc;
+	bool 		isUtc = false;			// 2-digit year
+	bool		isCssmTime = false;		// no trailing 'Z'
 	unsigned 	x;
 	unsigned 	i;
 	char 		*cp;
@@ -57,10 +56,12 @@ int timeStringToTm(
   	}
   	switch(len) {
   		case UTC_TIME_STRLEN:			// 2-digit year, not Y2K compliant
-  			isUtc = 1;
+  			isUtc = true;
   			break;
+		case CSSM_TIME_STRLEN:
+			isCssmTime = true;
+			break;
   		case GENERALIZED_TIME_STRLEN:	// 4-digit year
-  			isUtc = 0;
   			break;
   		default:						// unknown format 
   			return 1;
@@ -75,11 +76,18 @@ int timeStringToTm(
 		}
 	}
 
-  	/* check last character is a 'Z' */
-  	if(cp[len - 1] != 'Z' )	{
-		return 1;
-  	}
-
+  	/* check last character is a 'Z' or digit as appropriate */
+	if(isCssmTime) {
+		if(!isdigit(cp[len - 1])) {
+			return 1;
+		}
+	}
+	else {
+		if(cp[len - 1] != 'Z' )	{
+			return 1;
+		}
+	}
+	
   	/* YEAR */
 	szTemp[0] = *cp++;
 	szTemp[1] = *cp++;
@@ -169,7 +177,10 @@ int timeStringToTm(
 	return 0;
 }
 
-/* return current GMT time as a struct tm */
+/* 
+ * Return current GMT time as a struct tm.
+ * Caller must hold tpTimeLock.
+ */
 void nowTime(
 	struct tm *now)
 {
@@ -232,3 +243,38 @@ int compareTimes(
 	return 0;
 }
 
+/*
+ * Create a time string, in either UTC (2-digit) or or Generalized (4-digit)
+ * year format. Caller mallocs the output string whose length is at least
+ * (UTC_TIME_STRLEN+1) or (GENERALIZED_TIME_STRLEN+1) respectively.
+ * Caller must hold tpTimeLock.
+ */
+void timeAtNowPlus(unsigned secFromNow, 
+	TpTimeSpec timeSpec,
+	char *outStr)
+{
+	struct tm utc;
+	time_t baseTime;
+	
+	baseTime = time(NULL);
+	baseTime += (time_t)secFromNow;
+	utc = *gmtime(&baseTime);
+	
+	if(timeSpec == TIME_UTC) {
+		/* UTC - 2 year digits - code which parses this assumes that
+		 * (2-digit) years between 0 and 49 are in century 21 */
+		if(utc.tm_year >= 100) {
+			utc.tm_year -= 100;
+		}
+		sprintf(outStr, "%02d%02d%02d%02d%02d%02dZ",
+			utc.tm_year /* + 1900 */, utc.tm_mon + 1,
+			utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+	}
+	else {
+		sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
+			/* note year is relative to 1900, hopefully it'll have 
+			 * four valid digits! */
+			utc.tm_year + 1900, utc.tm_mon + 1,
+			utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+	}
+}

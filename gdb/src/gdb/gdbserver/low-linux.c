@@ -1,5 +1,6 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,7 +19,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
+#include "server.h"
 #include <sys/wait.h>
 #include "frame.h"
 #include "inferior.h"
@@ -33,15 +34,8 @@
 #include <fcntl.h>
 
 /***************Begin MY defs*********************/
-int quit_flag = 0;
 static char my_registers[REGISTER_BYTES];
 char *registers = my_registers;
-
-/* Index within `registers' of the first byte of the space for
-   register N.  */
-
-
-char buf2[MAX_REGISTER_RAW_SIZE];
 /***************End MY defs*********************/
 
 #ifdef HAVE_SYS_REG_H
@@ -53,17 +47,12 @@ char buf2[MAX_REGISTER_RAW_SIZE];
 #define PTRACE_XFER_TYPE int
 #endif
 
-extern char **environ;
 extern int errno;
-extern int inferior_pid;
-void quit (), perror_with_name ();
-int query ();
 
 static void initialize_arch (void);
 
 /* Start an inferior process and returns its pid.
-   ALLARGS is a vector of program-name and args.
-   ENV is the environment vector to pass.  */
+   ALLARGS is a vector of program-name and args. */
 
 int
 create_inferior (char *program, char **allargs)
@@ -87,6 +76,23 @@ create_inferior (char *program, char **allargs)
     }
 
   return pid;
+}
+
+/* Attach to an inferior process.  */
+
+int
+myattach (int pid)
+{
+  if (ptrace (PTRACE_ATTACH, pid, 0, 0) != 0)
+    {
+      fprintf (stderr, "Cannot attach to process %d: %s (%d)\n", pid,
+	       errno < sys_nerr ? sys_errlist[errno] : "unknown error",
+	       errno);
+      fflush (stderr);
+      _exit (0177);
+    }
+
+  return 0;
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -116,7 +122,9 @@ mywait (char *status)
   int pid;
   union wait w;
 
-  pid = wait (&w);
+  enable_async_io ();
+  pid = waitpid (inferior_pid, &w, 0);
+  disable_async_io ();
   if (pid != inferior_pid)
     perror_with_name ("wait");
 
@@ -166,8 +174,26 @@ myresume (int step, int signal)
 #endif
 
 #ifdef I386_GNULINUX_TARGET
-/* i386_register_raw_size[i] is the number of bytes of storage in the
-   actual machine representation for register i.  */
+/* This module only supports access to the general purpose registers.
+   Adjust the relevant constants accordingly.
+
+   FIXME: kettenis/2001-03-28: We should really use PTRACE_GETREGS to
+   get at the registers.  Better yet, we should try to share code with
+   i386-linux-nat.c.  */
+#undef NUM_FREGS
+#define NUM_FREGS 0
+#undef NUM_REGS
+#define NUM_REGS NUM_GREGS
+
+/* This stuff comes from i386-tdep.c.  */
+
+/* i386_register_byte[i] is the offset into the register file of the
+   start of register number i.  We initialize this from
+   i386_register_raw_size.  */
+int i386_register_byte[MAX_NUM_REGS];
+
+/* i386_register_raw_size[i] is the number of bytes of storage in
+   GDB's register array occupied by register i.  */
 int i386_register_raw_size[MAX_NUM_REGS] = {
    4,  4,  4,  4,
    4,  4,  4,  4,
@@ -181,8 +207,6 @@ int i386_register_raw_size[MAX_NUM_REGS] = {
   16, 16, 16, 16,
    4
 };
-
-int i386_register_byte[MAX_NUM_REGS];
 
 static void
 initialize_arch (void)
@@ -201,36 +225,25 @@ initialize_arch (void)
   }
 }
 
-/* this table must line up with REGISTER_NAMES in tm-i386v.h */
-/* symbols like 'EAX' come from <sys/reg.h> */
-static int regmap[] =
+/* This stuff comes from i386-linux-nat.c.  */
+
+/* Mapping between the general-purpose registers in `struct user'
+   format and GDB's register array layout.  */
+static int regmap[] = 
 {
   EAX, ECX, EDX, EBX,
   UESP, EBP, ESI, EDI,
   EIP, EFL, CS, SS,
-  DS, ES, FS, GS,
+  DS, ES, FS, GS
 };
 
-int
-i386_register_u_addr (int blockend, int regnum)
-{
-#if 0
-  /* this will be needed if fp registers are reinstated */
-  /* for now, you can look at them with 'info float'
-   * sys5 wont let you change them with ptrace anyway
-   */
-  if (regnum >= FP0_REGNUM && regnum <= FP7_REGNUM)
-    {
-      int ubase, fpstate;
-      struct user u;
-      ubase = blockend + 4 * (SS + 1) - KSTKSZ;
-      fpstate = ubase + ((char *) &u.u_fpstate - (char *) &u);
-      return (fpstate + 0x1c + 10 * (regnum - FP0_REGNUM));
-    }
-  else
-#endif
-    return (blockend + 4 * regmap[regnum]);
+/* Return the address of register REGNUM.  BLOCKEND is the value of
+   u.u_ar0, which should point to the registers.  */
 
+CORE_ADDR
+register_u_addr (CORE_ADDR blockend, int regnum)
+{
+  return (blockend + 4 * regmap[regnum]);
 }
 #elif defined(TARGET_M68K)
 static void
@@ -545,6 +558,19 @@ initialize_arch (void)
 {
   return;
 }
+
+#elif defined(ARM_GNULINUX_TARGET)
+int arm_register_u_addr(blockend, regnum)
+     int blockend;
+     int regnum;
+{
+  return blockend + REGISTER_BYTE(regnum);  
+}
+
+static void
+initialize_arch ()
+{
+}
 #endif
 
 CORE_ADDR
@@ -552,7 +578,7 @@ register_addr (int regno, CORE_ADDR blockend)
 {
   CORE_ADDR addr;
 
-  if (regno < 0 || regno >= ARCH_NUM_REGS)
+  if (regno < 0 || regno >= NUM_REGS)
     error ("Invalid register number %d.", regno);
 
   REGISTER_U_ADDR (addr, blockend, regno);
@@ -679,7 +705,7 @@ read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (PTRACE_XFER_TYPE);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (PTRACE_XFER_TYPE);
   /* Round ending address up; get number of longwords that makes.  */
   register int count 
     = (((memaddr + len) - addr) + sizeof (PTRACE_XFER_TYPE) - 1) 
@@ -708,7 +734,7 @@ write_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (PTRACE_XFER_TYPE);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (PTRACE_XFER_TYPE);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (PTRACE_XFER_TYPE) - 1) / sizeof (PTRACE_XFER_TYPE);

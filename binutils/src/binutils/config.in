@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader.  */
+/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define if using alloca.c.  */
 #undef C_ALLOCA
@@ -16,9 +16,6 @@
 /* Define if you have <sys/wait.h> that is POSIX.1 compatible.  */
 #undef HAVE_SYS_WAIT_H
 
-/* Define if you need to in order for stat and other things to work.  */
-#undef _POSIX_SOURCE
-
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
    automatically deduced at run-time.
@@ -31,6 +28,9 @@
 /* Define if lex declares yytext as a char * by default, not a char[].  */
 #undef YYTEXT_POINTER
 
+/* Define if you have the getc_unlocked function.  */
+#undef HAVE_GETC_UNLOCKED
+
 /* Define if you have the sbrk function.  */
 #undef HAVE_SBRK
 
@@ -39,6 +39,9 @@
 
 /* Define if you have the utimes function.  */
 #undef HAVE_UTIMES
+
+/* Define if you have the <dlfcn.h> header file.  */
+#undef HAVE_DLFCN_H
 
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
@@ -69,6 +72,12 @@
 
 /* Suffix used for executables, if any. */
 #undef EXECUTABLE_SUFFIX
+
+/* Is fopen64 available? */
+#undef HAVE_FOPEN64
+
+/* Enable LFS */
+#undef _LARGEFILE64_SOURCE
 
 /* Is the type time_t defined in <time.h>? */
 #undef HAVE_TIME_T_IN_TIME_H

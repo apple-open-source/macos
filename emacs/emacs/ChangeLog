@@ -1,42 +1,782 @@
-2000-06-13  Gerd Moellmann  <gerd@gnu.org>
+2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
-	* Version 20.7 released.
+	* Version 21.1 released.
+
+2001-10-19  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* aclocal.m4: Remove the commented-out AC_PREREQ (it caused
+	trouble on Debian woody with both Autoconf 2.13 and 2.52
+	installed: the wrong version would be selected by Debian).
+
+2001-10-19  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Use `=' instead of `=='.  From Kenichi Handa
+	<handa@etl.go.jp>.
+
+2001-10-18  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: If --with-hesiod is given, look for
+	hes_getmailhost and res_send or __res_send; check hesiod and
+	resolv libraries respectively if system libraries don't supply
+	them.
+
+2001-09-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Avoid `$@' which is handled specially in
+	Autoconf 2.52.  From "Adam J. Richter" <adam@yggdrasil.com>.
 	
-2000-06-05  Gerd Moellmann  <gerd@gnu.org>
+2001-09-01  Eli Zaretskii  <eliz@is.elta.co.il>
 
-	* configure.in: Add powerpc*-*-linux-gnu*.
+	* make-dist (nt): Add subdirs.el to the list of distributed files.
+
+2001-08-14  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.in (machine): Add an entry for
+	hppa1.1-hitachi-hiuxwe2*.
+
+2001-05-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist (LANG): Set LC_ALL and LANGUAGE to C, unset
+	LC_MESSAGES and LANG.  From Karl Eichwalder <keichwa@gmx.net>.
+
+2001-05-14  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Copy texinfo.tex unconditionally.
+
+2001-04-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Makefile.in (install-arch-indep): Add gfdl.1 to the man pages
+	that are installed.
+
+2001-04-06  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Copy only `[a-z]*.{el,elc}' from leim/quail.
+	Don't copy quick-b5, quick-cns, tsang-b5, and tsang-cns files.
+	
+	* make-dist: Handle leim/MISC-DIC.  Only include
+	`[a-zA-Z]*.{el,elc}' from leim/quail.
+
+2001-04-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (install-arch-indep): Remove .cvsignore files.
+
+2001-03-30  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (.PHONY): Add for bootstrap targets.
+	(bootstrap-clean): New target.
+	(bootstrap): Use it instead of `clean'.
+
+2001-03-29  Eli Zaretskii  <a34785@is.elta.co.il>
+
+	* Makefile.in (SUBDIR): Remove leim.
+	(all, .RECURSIVE, extraclean): Add leim explicitly.
+	(leim): Provide separate rule which exports PARALLEL=0 into the
+	environment.
+
+2001-03-20  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_XPM): Don't print the result of the check for
+	XpmReturnAllocPixels if we don't have an xpm.h.
+
+2001-03-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* COPYING: New file.
+
+2001-03-04  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* config.bat: Update the copyright.
+
+2001-02-23  Kenichi Handa  <handa@etl.go.jp>
+
+	* configure.in: Use AC_EGREP_CPP to check if the C preprocessor
+	converts `..' to `. .'.  If it converts, set CPP_NEED_TRADITIONAL
+	to `yes'.  Later in AC_OUTPUT, check this variable.
+
+2001-02-09  Dave Love  <fx@gnu.org>
+
+	* AUTHORS: Updated.
+
+2001-02-06  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir (Ebrowse): Fix the entry (was missing a dot).
+
+2001-02-02  Gerd Moellmann  <gerd@gnu.org>
+
+	* mkinstalldirs (errstatus): Chmod a+rx directories we create.
+
+	* Makefile.in (uninstall): Ignore exit code of `rm'.
+	
+	* Makefile.in (uninstall): Remove more info files.  Remove
+	${libexecdir}/emacs/${version}.  Remove ${archlibdir}/fns-*.
+
+2001-01-31  Gerd Moellmann  <gerd@gnu.org>
+
+	* noleim-Makefile.in (extraclean): Add.
+
+2001-01-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (extraclean): Added -f to -rm config-tmp-* to keep
+	it quiet.
+
+2001-01-24  Colin Walters  <walters@cis.ohio-state.edu>
+
+	* Makefile.in (tags): Fix typo.
+
+2001-01-13  Kenichi Handa  <handa@etl.go.jp>
+
+	* configure.in: Fix typo in the code setting x_search_path.
+
+2001-01-10  Dave Love  <fx@gnu.org>
+
+	* configure.in: Don't reset LIBS at end of -lXmu test.  Test for
+	-lXext.
+	(HAVE_XKBGETKEYBOARD): Fix reporting of result.
+	(HAVE_LIBXP): Remove -lXt from AC_CHECK_LIB.
+	(HAVE_XAW3D, HAVE_XPM, HAVE_JPEG, HAVE_PNG, HAVE_TIFF, HAVE_GIF):
+	Don't frob CFLAGS.  Remove extra X libs from AC_CHECK_LIB
+	(now in $LIBS).
+
+2001-01-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* config.bat: Run the preprocessor with -traditional.
+
+2001-01-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Move copying conditions to end of file.
+
+2000-12-27  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Add basic installation procedure which assumes
+	`configure' does its job.  Elaborate on image support libraries.
+	Add a pointer to Xaw3d library.  Add advice about solving
+	configure-time problems by looking in config.log and setting
+	variables in the environment.
+
+2000-12-27  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (install-arch-indep): If tar fails, exit with
+	exit code 1.
+
+2000-12-19  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Test for XkbGetKeyboard with an AC_TRY_LINK whose
+	source file includes XKBlib.h.  On some broken Solaris systems,
+	there is an XKBlib.h, reportedly, but header files included by
+	XKBlib.h are missing.
+
+2000-12-14  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: AC_CHECK_FUNC XkbGetKeyboard.
+
+2000-12-11  Dave Love  <fx@gnu.org>
+
+	* configure.in <alpha*-dec-osf*>: Use full path for NON_GNU_CPP.
+
+2000-12-11  Paul Eggert  <eggert@twinsun.com>
+
+	* aclocal.m4 (AC_SYS_LARGEFILE, AC_SYS_LARGEFILE_MACRO_VALUE):
+	Merge fixes from latest GNU tar version.  These macros no longer
+	futz with _XOPEN_SOURCE, as that was not portable in practice.
+	(AC_FUNC_FSEEKO): New macro.
+	
+	* configure.in: Use it instead of invoking AC_CHECK_FUNCS on
+	ftello.
+	
+2000-12-05  Dave Love  <fx@gnu.org>
+
+	* Makefile.in (TAGS, info): Avoid tab-prefixed comments in rules.
+
+2000-12-02  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir: Change the category to "Emacs".
+
+2000-12-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist (tempdir): Remove epaths.h from the distribution
+	instead of paths.h.
+
+2000-11-23  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* config.bat: Check for existence of djecho.exe, and print an
+	error message if it is not available.
+
+	* INSTALL: Describe possible problem with djecho.exe in old
+	versions of DJGPP v2.x.
+
+2000-11-23  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Initialize HAVE_LIBXP to no.
+
+2000-11-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Use m/macppc.h instead of the non-existent 
+	m/powerpc.h.
+
+2000-11-21  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (install-arch-indep): Also install info/eshell*
+	and info/speedbar*.
+
+	* configure.in (HAVE_PNG): Check for the presence of
+	png_get_channels to rule out older PNG libs.
+
+	* configure.in (AC_OUTPUT): Arrange to emit definitions of
+	GCC and NON_GNU_CPP into config.status.
+
+2000-11-20  Dave Love  <fx@gnu.org>
+
+	* configure.in: Fix last change.
+
+	* GETTING.GNU.SOFTWARE: Deleted.
+	* FTP: New file to replace it.
+	* make-dist: Add FTP, remove GETTING.GNU.SOFTWARE.
+
+2000-11-20  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Use -traditional with GNU cpp.
+
+2000-11-17  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Handle the Mac port.  Distribute all makefile.w32-in.
+	Distribute more files from the nt/ subdir.  Distribute PBM
+	image files from subdirs of lisp/.  Distribute old change logs
+	from subdirs of lisp/.  Distribute play/5x5.el.
+
+2000-11-11  Dave Love  <fx@gnu.org>
+
+	* config.sub, config.guess: Updated from master source.
+
+2000-11-07  Dave Love  <fx@gnu.org>
+
+	* configure.in: Test for mkstemp.
+
+2000-11-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir (Top): Rearrange menu items more logically, and put
+	them into a single category.  Add menu items for RefTeX and
+	Widget.
+
+2000-10-29  Kai Gro,A_(Bjohann  <Kai.Grossjohann@CS.Uni-Dortmund.DE>
+
+	* Makefile.in (install-arch-indep): Use --info-dir instead of
+	--dir-file, and a simple argument instead of --info-file, so that
+	the Debian version of install-info also works.
+
+2000-10-19  Eric M. Ludlam  <zappo@ultranet.com>
+
+	* info/dir (Speedbar): Add entry.
+
+2000-10-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* INSTALL: Describe the new image-support options to the configure
+	script.  List URLs where image support libraries can be found.
+
+2000-10-14  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir (Top): Add an entry for Eshell.
+
+2000-10-02  Dave Love  <fx@gnu.org>
+
+	* configure.in: Check for gai_strerror.
+
+2000-10-01  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (install-arch-indep): Update list of installed info
+	files.
+
+2000-09-30  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Support `sparc*-*-netbsd*'.
+
+2000-09-29  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir (MIME): Add entry for emacs-mime.
+
+2000-09-29  Dave Love  <fx@gnu.org>
+
+	* configure.in: Fix alpha*-dec-osf4 using the osf5 config.
+
+2000-09-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Adapt to the change of leim/Makefile which was
+	necessary to ensure a reasonably working `make dist'.
+
+	* leim-Makefile.in: Moved to leim/Makefile.in..
+
+	* noleim-Makefile.in: New file, formerly leim/Makefile.in.
+
+2000-09-21  Kenichi Handa  <handa@etl.go.jp>
+
+	* leim-Makefile.in (TIT-GB, TIT-BIG5, NON-TIT-GB, NON-TIT-BIG5) 
+	(NON-TIT-CNS, JAPANESE, KOREAN, THAI, VIETNAMESE, LAO, INDIAN) 
+	(TIBETAN, LATIN, SLAVIC, GREEK, RUSSIAN, MISC): Rename all .el
+	files to .elc.
+	(${TIT}): Adjusted for the above change.
+	(clean mostlyclean): Likewise.
+	(.el.elc): New target.
+
+2000-09-19  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Include XPM and XBM files in lisp/ and subdirs
+	in the distribution.
+
+2000-09-18  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist (skk): Rename to `ja-dic' because the leim directory
+	was renamed.
+
+2000-09-14  Dave Love  <fx@gnu.org>
+
+	* configure.in: Fix spurion in last change.
+
+2000-09-14  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (USE_MMAP_FOR_BUFFERS): Recognize in system
+	configuration files instead of REL_ALLOC_MMAP.  Set REL_ALLOC
+	to `no' if defined.  Change result report.
+
+2000-09-08  Dave Love  <fx@gnu.org>
+
+	* configure.in: Remove spurious `@'s.
+
+	* aclocal.m4 (AC_FUNC_MMAP): Use fixed version from development
+	autoconf.
+
+2000-09-06  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (REL_ALLOC_MMAP): Recognize in system configuration
+	file and print informational message.
+	
+	* configure.in (AC_FUNC_MMAP): Add.
+
+2000-09-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add ``checking'' messages for
+	XpmReturnAllocPixels.
+
+2000-08-28  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Check <strings.h>; check `index' and `rindex'
+	functions.
+
+2000-08-26  Kenichi Handa  <handa@etl.go.jp>
+
+	* configure.in <alpha*-dec-osf*>: Move "NON_GNU_CPP='cpp'" before
+	"case "${canonical}" in".
+
+2000-08-25  Dave Love  <fx@gnu.org>
+
+	* configure.in <osf>: Use NON_GNU_CPP='cpp' always.
+
+2000-08-25  Kenichi Handa  <handa@etl.go.jp>
+
+	* leim-Makefile.in: Rename skk to ja-dic throughout the file.
+
+2000-08-24  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in <making srcdir absolute>: Unset CDPATH in case $PWD
+	contains a relative path.  Protect against unusable values of
+	$PWD.
+
+2000-08-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* info/dir (WoMan): Add entry.
+
+	* config.bat (maindir): Update src/_gdbinit even if it does
+	already exist.
+
+2000-08-07  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (config.status): Prepend `$(srcdir)/' to
+	`configure'.
+
+2000-08-03  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add support for ia64*-*-linux*.
+
+2000-07-27  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist (aclocal.m4): Include in distribution.
+
+2000-07-26  Dave Love  <fx@gnu.org>
+
+	* configure.in (AC_SYS_LARGEFILE): Moved earlier.
+
+2000-07-24  Dave Love  <fx@gnu.org>
+
+	* configure.in: Add AC_SIZE_T.
+
+2000-07-18  Dave Love  <fx@gnu.org>
+
+	* configure.in: Reorder so that most tests are done after CPPFLAGS
+	is set from the C_SWITCH_... definitions.
+
+2000-07-10  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_XPM): Undo previous change.  Check for
+	preprocessor define XpmReturnAllocPixels.
+
+2000-07-06  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_XPM): Check for XpmReturnAllocPixels
+	instead of XpmReadFileToPixmap.
+
+2000-07-05  Ken Raeburn  <raeburn@gnu.org>
+
+	* configure.in: Check for <soundcard.h>.  Look for ossaudio
+	library, and set LIBSOUND accordingly.
+
+2000-07-05  Dave Love  <fx@gnu.org>
+
+	* configure.in: Use AC_HEADER_SYS_WAIT.
+
+2000-07-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Check DONTCOMPILE in lisp/Makefile.in instead of
+	lisp/Makefile.  Distribute lisp/Makefile.in instead of
+	lisp/Makefile.
+
+2000-06-30  Ken Raeburn  <raeburn@gnu.org>
+
+	* configure.in: Add ${C_SWITCH_X_SITE} temporarily to CPPFLAGS,
+	while searching for image-handling libraries.
+
+2000-06-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (--with-xim): New option.
+
+2000-06-23  Dave Love  <fx@gnu.org>
+
+	* configure.in [HAVE_TIMEVAL]: Move gettimeofday test here, test
+	for struct timezone and test how we can call gettimeofday.
+	Check for OSF 5+.  Check for term.h.
+
+	* aclocal.m4: Define the post-2.13 stuff conditionally on autoconf
+	version.
+
+2000-06-23  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_LIBXP): Change test for libXp.
+
+2000-06-21  Dave Love  <fx@gnu.org>
+
+	* configure.in: Check for fcntl.h.  Use AC_FUNC_GETLOADAVG, not
+	simple test for getloadavg and substitute GETLOADAVG_LIBS.
+	Simplify test for GETTIMEOFDAY_ONE_ARGUMENT.
+
+2000-06-19  Dave Love  <fx@gnu.org>
+
+	* configure.in (GETTIMEOFDAY_ONE_ARGUMENT): Fix in case
+	_XOPEN_SOURCE is defined.
+
+2000-06-16  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (distclean): Also make distclean in lisp/. 
+
+2000-06-15  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* config.bat: Generate lisp/Makefile from lisp/Makefile.in.
+
+2000-06-15  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Add --help and --snapshot options.
+
+2000-06-14  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Generate lisp/Makefile.
+	
+	* configure.in: Add support for `*-lynxos*'.
+	Use `cpp' as NON_GNU_CPP for `alpha*-dec-osf[5-9]*', as
+	recommended by <Karen.Dorhamer@compaq.com> to fix problems
+	on Tru64 UNIX v5.0.
+
+2000-06-13  Ken Raeburn  <raeburn@gnu.org>
+
+	* Makefile.in (install-arch-indep): Don't use "-unset CDPATH" when
+	it's on a continuation line.
+
+2000-06-02  Dave Love  <fx@gnu.org>
+
+	* Makefile.in: (install-arch-indep): Add pcl-cvs to list of info
+	files.
+
+	* configure.in: Don't specify -n32 flag for mips-sgi-irix6.5.
+	Check for struct exception.  Use AC_SYS_LARGEFILE and move ftello
+	test.
+
+	* aclocal.m4 (AC_SYS_LARGEFILE_TEST_INCLUDES)
+	(AC_SYS_LARGEFILE_MACRO_VALUE, AC_SYS_LARGEFILE): New.
+
+2000-05-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add check for speed_t typedef.
+
+2000-05-25  Ken Raeburn  <raeburn@gnu.org>
+
+	* Makefile.in (install-arch-dep): Install fns-*.el only if it
+	exists; it won't in the CANNOT_DUMP case.
+
+2000-05-25  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in: Ignore exit status of `unset CDPATH' everywhere.
+	On FreeBSD, the exit status is 1 if CDPATH is not set.
+	(install-arch-indep): Install ebrowse.info.
 
 2000-05-20  NIIBE Yutaka  <gniibe@mri.co.jp>
 
 	* configure.in: Check for grandpt and getpt.
 
-2000-02-26  Gerd Moellmann  <gerd@gnu.org>
+2000-05-09  Dave Love  <fx@gnu.org>
 
-	* Version 20.6 released.
+	* Makefile.in (install-arch-indep): Filter CVS as well as RCS.
+
+2000-05-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Make a link for lib-src/grep-changelog.  Copy
+	install-sh.
+
+2000-05-01  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* config.bat: Identify the beginning of the cpp stuff in
+	src/Makefile.in and lib-src/Makefile.in more accurately.
+
+2000-04-27  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add support for `powerpc*-*-linux-gnu*'.
+
+2000-04-19  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add support for `powerpc-*-netbsd*'.
+
+2000-04-19  Dave Love  <fx@gnu.org>
+
+	* configure.in: Don't use AC_FUNC_GETLOADAVG.
+
+	* aclocal.m4 (AC_FUNC_MKTIME): Use AC_SUBST.
+
+2000-04-16  Dave Love  <fx@gnu.org>
+
+	* Makefile.in (${srcdir}/configure): Depend on aclocal.m4.
+
+2000-04-14  Dave Love  <fx@gnu.org>
+
+	* configure.in: Use AC_FUNC_GETLOADAVG, AC_FUNC_MKTIME.
+
+	* aclocal.m4 (AC_FUNC_MKTIME): New.
+
+2000-03-28  Ken Raeburn  <raeburn@gnu.org>
+
+	* configure.in: Line up "--help" output a little better.
+
+2000-03-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (bootstrap-lisp-1, bootstrap-lisp, bootstrap-src):
+	New targets.
+	(bootstrap): Rewritten in terms of the new targets above.  Make
+	info files, too.
 	
+2000-03-12  Gerd Moellmann  <gerd@gnu.org>
+
+	* config.guess, config.sub: Use the versions of the files from
+	subversions.
+
+2000-03-08  Dave Love  <fx@gnu.org>
+
+	* configure.in: Use AC_PROG_RANLIB, AC_C_PROTOTYPES,
+	AC_C_VOLATILE.  Define POINTER_TYPE.
+
+	* aclocal.m4: New file.
+
+2000-03-02  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (machine): Add `mipsel-*-netbsd*' and
+	`arm-*-netbsd*'.
+	
+2000-03-01  Gerd Moellmann  <gerd@gnu.org>
+	
+	* configure.in (machine): Add support for `*-auspex-sunos*'.
+	
+2000-02-29  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (C_OPTIMIZE_SWITCH) [__GNUC__]: Use -O2.
+
 2000-02-18  Dave Love  <fx@gnu.org>
 
 	* configure.in: Define NON_GNU_CPP on alpha-dec-osf5+.
 
-2000-02-15  Gerd Moellmann  <gerd@gnu.org>
+2000-02-18  Andreas Schwab  <schwab@suse.de>
 
-	* configure.in: Add support for arm*-g*-linux-gnu* systems.
+	* Makefile.in (install-arch-indep): Add eudc to list of installed
+	info files.
 
-1999-12-04  Gerd Moellmann  <gerd@gnu.org>
+2000-02-17  Ken Raeburn  <raeburn@gnu.org>
 
-	* Version 20.5 released.
-	
-1999-11-28  Dave Love  <fx@gnu.org>
+	* configure.in: Include -lz and -ljpeg (if it's available) when
+	testing for the tiff library.
 
-	* configure.in: Recognize sparc64-*-linux-gnu*.
+2000-02-17  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Remove LISP_FLOAT_TYPE.
+
+2000-02-12  Dave Love  <fx@gnu.org>
+
+	* configure.in: Use AC_FUNC_VFORK.
+
+2000-02-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* make-dist: Various fixes for new development tree.
+
+	* leim-Makefile.in: New file.
+
+2000-01-31  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (dist): Call ./make-dist.
+
+2000-01-24  Dave Love  <fx@gnu.org>
+
+	* configure.in: Remove -G0 from Irix NON_GCC_TEST_OPTIONS.
+
+2000-01-18  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_GIF): Check for DGifOpen instead of
+	DGifOpenFileName.
+
+2000-01-11  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (install-arch-indep): Update list of info files to
+	be installed.
+
+2000-01-05  Dave Love  <fx@gnu.org>
+
+	* configure.in: Check for jerror.h as well as libjpeg.
+
+2000-01-03  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (install-arch-indep): Install autotype*.  Run
+	install-info on autotype and emacs-faq.info.
+
+1999-12-04  Dave Love  <fx@gnu.org>
+
+	* Makefile.in: (install-arch-indep): Depend on `info'.
+	(install-strip): Use `install' as sub-make target.
+
+1999-11-23  Ken Raeburn  <raeburn@gnu.org>
+
+	* configure.in: Restore Kerberos code deleted on 1999-05-29 that
+	didn't need to be deleted.  Check for the k5crypto library as well
+	as the crypto library; MIT Kerberos 1.1 changed the name.
+
+1999-11-18  Dave Love  <fx@gnu.org>
+
+	* configure.in: Fix NON_GNU_CPP for Irix 6 to avoid failing tests.
 
 1999-11-11  Erik Naggum  <erik@naggum.no>
 
 	* configure.in (bitmapdir): Allow for both "bitmaps" directories.
 
+1999-11-08  Dave Love  <fx@gnu.org>
+
+	* configure.in: Fix change for --with-pop default.
+
+1999-11-04  Dave Love  <fx@gnu.org>
+
+	* configure.in: Default to --with-pop.  Change sense of with-gcc
+	and with-toolkit-scroll-bars messages to reflect the defaults.
+
+1999-11-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* INSTALL: Mention the Emacs Lisp Reference.
+
+1999-10-27  Noah Friedman  <friedman@splode.com>
+
+	* configure.in: Check for dynamic ptys (/dev/ptmx, /dev/pts/).
+
+1999-10-23  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (bootstrap): New target.
+
+1999-10-19  Paul Eggert  <eggert@twinsun.com>
+
+	Add support for large files.  Merge glibc 2.1.2.
+
+	* configure.in (AC_CHECK_HEADERS): Add stdio_ext.h.
+	(HAVE_TM_GMTOFF): New symbol.
+	(AC_CHECK_FUNCS): Add __fpending, ftello, getloadavg, mblen,
+	mbrlen, strsignal.
+	(LOCALTIME_CACHE): Don't include stdlib.h, as config.h does this now.
+	
+1999-10-09  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* make-dist (dontcompile): look for the DONTCOMPILE variable rather
+	  than the obsolete dontcompilefiles pseudo-rule in lisp/Makefile.
+
+1999-10-09  Richard M. Stallman  <rms@gnu.org>
+
+	* Makefile.in (uninstall, install-arch-indep, install-arch-dep): 
+	Unset CDPATH to prevent cd from generating output.
+
+1999-10-08  Stefan Monnier  <monnier@cs.yale.edu>
+
+	* update-subdirs: also ignore CVS subdirs.
+
+1999-10-07  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (install-arch-indep): Add ada-mode.
+	
+1999-10-06  Dave Love  <fx@gnu.org>
+
+	* Makefile.in: Add rules for config.status, configure.
+
+1999-09-07  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (--with-sound): Removed.
+
+1999-08-30  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (USE_TOOLKIT_SCROLL_BARS): Move the test down after
+	the test for Xaw3d.
+	(HAVE_TIFF): Add -lm to library check.
+
+1999-08-28  Richard Stallman  <rms@gnu.org>
+
+	* configure.in (USE_TOOLKIT_SCROLL_BARS): Move tests for
+	-lXaw3d, -lXpm, -ljpeg, -lpng, -ltiff, and -lgif, down
+	after the other X-related libraries.
+
+1999-08-21  Dave Love  <fx@gnu.org>
+
+	* configure.in: Don't check for jpeglib.h.
+
+1999-08-20  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in (HAVE_TIFF): Remove tiff34 prefix from tiffio.h.
+	(HAVE_XAW3D): Don't check for Xaw3d if USE_X_TOOLKIT=none.
+
+1999-08-18  Dave Love  <fx@gnu.org>
+
+	* configure.in: : Check for termcap.h.
+
+1999-08-15  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Add --with-toolkit-scroll-bars.  If "no",
+	use Emacs' scroll bars, even if configured for Motif or when
+	Xaw3d is available.
+
+1999-08-12  Wolfgang Rupprecht  <wolfgang@wsrcc.com>
+
+	* configure.in: Check for getaddrinfo.
+
 1999-08-04  Eli Zaretskii  <eliz@gnu.org>
 
 	* config.bat: Make --no-debug work again by removing -gcoff.
+
+1999-07-30  Dave Love  <fx@gnu.org>
+
+	* configure.in: Check for stdlib.h.
+
+1999-07-19  Dave Love  <fx@gnu.org>
+
+	* configure.in: Grok sparc64-*-linux-gnu*.
 
 1999-07-12  Richard Stallman  <rms@gnu.org>
 
@@ -950,7 +1690,7 @@
 1996-04-10  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* config.bat: Set djgpp-ver, and unset it at the end.
-	Add a number ofconditionals for DJGPP version 2.
+	Add a number of conditionals for DJGPP version 2.
 	Rename label libsrc2 to libsrc3.
 	Substitute for LDFLAGS in src/Makefile.
 	Substitute for ALL_CFLAGS in lib-src/Makefile.
@@ -4257,3 +4997,12 @@
 
 	* Makefile: Changed LIBDIR and BINDIR back to /usr/local/{emacs,bin}
 	to match build-install and paths.h.
+
+;; Local Variables:
+;; coding: iso-2022-7bit-unix
+;; End:
+
+    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001
+	Free Software Foundation, Inc.
+  Copying and distribution of this file, with or without modification,
+  are permitted provided the copyright notice and this notice are preserved.

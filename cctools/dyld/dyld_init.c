@@ -48,6 +48,7 @@ extern const struct section *getsectbynamefromheader(
 #import "reloc.h"
 #import "lock.h"
 #import "debug.h"
+#import "trace.h"
 
 /*
  * This is set in _dyld_init() and used for the cputype and cpusubtype.
@@ -123,6 +124,7 @@ char *dyld_image_suffix = NULL;
 char *dyld_insert_libraries = NULL;
 
 enum bool dyld_print_libraries = FALSE;
+enum bool dyld_trace = FALSE;
 enum bool dyld_mem_protect = FALSE;
 enum bool dyld_ebadexec_only = FALSE;
 enum bool dyld_dead_lock_hang = FALSE;
@@ -133,6 +135,7 @@ enum bool dyld_executable_path_debug = FALSE;
 enum bool dyld_two_level_debug = FALSE;
 enum bool dyld_abort_multiple_inits = FALSE;
 enum bool dyld_new_local_shared_regions = FALSE;
+enum bool dyld_no_fix_prebinding = FALSE;
 
 /*
  * This indicates if the profile server for shared pcsample buffers exists.
@@ -171,6 +174,7 @@ static void get_data_segment(
  * create_executables_path().
  */
 char *executables_path = NULL;
+unsigned long executables_pathlen = 0;
 char *exec_path = NULL;
 
 static void pickup_environment_variables(
@@ -198,6 +202,7 @@ char **envp)
     unsigned int count;
     kern_return_t r;
     unsigned long entry_point;
+    mach_port_t my_mach_host_self;
 #ifndef __MACH30__
     struct section *s;
 #endif
@@ -206,6 +211,7 @@ char **envp)
 
 	cthread_init();
 #endif
+	
 	/* set lock for dyld data structures */
 	set_lock();
 
@@ -213,13 +219,17 @@ char **envp)
 	 * Get the cputype and cpusubtype of the machine we're running on.
 	 */
 	count = HOST_BASIC_INFO_COUNT;
-	if((r = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)
+	my_mach_host_self = mach_host_self();
+	if((r = host_info(my_mach_host_self, HOST_BASIC_INFO, (host_info_t)
 			  (&host_basic_info), &count)) != KERN_SUCCESS){
+	    mach_port_deallocate(mach_task_self(), my_mach_host_self);
 	    mach_error(r, "can't get host basic info");
 	}
+	mach_port_deallocate(mach_task_self(), my_mach_host_self);
 #if defined(__GONZO_BUNSEN_BEAKER__) && defined(__ppc__)
 	if(host_basic_info.cpu_type == CPU_TYPE_POWERPC &&
-	   host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7400)
+	   (host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7400 ||
+	    host_basic_info.cpu_subtype == CPU_SUBTYPE_POWERPC_7450))
 	    processor_has_vec = TRUE;
 #endif
 
@@ -227,6 +237,11 @@ char **envp)
 	 * Pickup the environment variables for the dynamic link editor.
 	 */
 	pickup_environment_variables(envp);
+	
+	/*
+	 * Make initial trace entry if requested.
+	 */
+	DYLD_TRACE_INIT_START(0);
 
 	/*
 	 * Create the executable's path from the exec_path and the current
@@ -273,6 +288,8 @@ char **envp)
 	if((mh->flags & MH_FORCE_FLAT) != 0 ||
 	   dyld_force_flat_namespace == TRUE)
 	    force_flat_namespace = TRUE;
+	if((mh->flags & MH_NOFIXPREBINDING) == MH_NOFIXPREBINDING)
+	    dyld_no_fix_prebinding = TRUE;
 	executable_prebound = (mh->flags & MH_PREBOUND) == MH_PREBOUND;
 	load_executable_image(argv[0], mh, &entry_point);
 
@@ -357,6 +374,8 @@ char **envp)
 
 	/* release lock for dyld data structures */
 	release_lock();
+	
+	DYLD_TRACE_INIT_END(0);
 
 	/*
 	 * Return the address of the executable's entry point which is used if
@@ -395,9 +414,11 @@ char *envp[])
 		    if(getuid() != 0 &&
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_FRAMEWORK_PATH=") - 1] = '\0';
-		    else if(*(*p + sizeof("DYLD_FRAMEWORK_PATH=") - 1) != '\0')
+		    else if(*(*p + sizeof("DYLD_FRAMEWORK_PATH=") - 1) != '\0'){
 			dyld_framework_path =
 				*p + sizeof("DYLD_FRAMEWORK_PATH=") - 1;
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_FALLBACK_FRAMEWORK_PATH=",
 		           sizeof("DYLD_FALLBACK_FRAMEWORK_PATH=") - 1) == 0){
@@ -405,9 +426,11 @@ char *envp[])
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_FALLBACK_FRAMEWORK_PATH=")- 1] = '\0';
 		    else if(*(*p + sizeof(
-				"DYLD_FALLBACK_FRAMEWORK_PATH=") - 1) != '\0')
+				"DYLD_FALLBACK_FRAMEWORK_PATH=") - 1) != '\0'){
 			dyld_fallback_framework_path =
 			    *p + sizeof("DYLD_FALLBACK_FRAMEWORK_PATH=") - 1;
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_LIBRARY_PATH=",
 		                sizeof("DYLD_LIBRARY_PATH=") - 1) == 0){
@@ -423,9 +446,11 @@ char *envp[])
 		    if(getuid() != 0 &&
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_LIBRARY_PATH=") - 1] = '\0';
-		    else if(*(*p + sizeof("DYLD_LIBRARY_PATH=") - 1) != '\0')
+		    else if(*(*p + sizeof("DYLD_LIBRARY_PATH=") - 1) != '\0'){
 			dyld_library_path =
 				*p + sizeof("DYLD_LIBRARY_PATH=") - 1;
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_FALLBACK_LIBRARY_PATH=",
 			    sizeof("DYLD_FALLBACK_LIBRARY_PATH=") - 1) == 0){
@@ -433,9 +458,11 @@ char *envp[])
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_FALLBACK_LIBRARY_PATH=") - 1] = '\0';
 		    else if(*(*p + sizeof(
-				"DYLD_FALLBACK_LIBRARY_PATH=") - 1) != '\0')
+				"DYLD_FALLBACK_LIBRARY_PATH=") - 1) != '\0'){
 			dyld_fallback_library_path =
 				*p + sizeof("DYLD_FALLBACK_LIBRARY_PATH=") - 1;
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_IMAGE_SUFFIX=",
 		                sizeof("DYLD_IMAGE_SUFFIX=") - 1) == 0){
@@ -451,9 +478,11 @@ char *envp[])
 		    if(getuid() != 0 &&
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_IMAGE_SUFFIX=") - 1] = '\0';
-		    else if(*(*p + sizeof("DYLD_IMAGE_SUFFIX=") - 1) != '\0')
+		    else if(*(*p + sizeof("DYLD_IMAGE_SUFFIX=") - 1) != '\0'){
 			dyld_image_suffix =
 				*p + sizeof("DYLD_IMAGE_SUFFIX=") - 1;
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_INSERT_LIBRARIES=",
 		                sizeof("DYLD_INSERT_LIBRARIES=") - 1) == 0){
@@ -468,9 +497,13 @@ char *envp[])
 		    if(getuid() != 0 &&
 		       (getuid() != geteuid() || getgid() != getegid()))
 			(*p)[sizeof("DYLD_INSERT_LIBRARIES=") - 1] = '\0';
-		    else if(*(*p + sizeof("DYLD_INSERT_LIBRARIES=")- 1) != '\0')
-			dyld_insert_libraries =
-				*p + sizeof("DYLD_INSERT_LIBRARIES=") - 1;
+		    else if(*(*p + sizeof("DYLD_INSERT_LIBRARIES=")- 1) !='\0'){
+			dyld_insert_libraries = malloc(strlen(
+				*p + sizeof("DYLD_INSERT_LIBRARIES=") - 1) + 1);
+			strcpy(dyld_insert_libraries,
+			       *p + sizeof("DYLD_INSERT_LIBRARIES=") - 1);
+			dyld_no_fix_prebinding = TRUE;
+		    }
 		}
 		else if(strncmp(*p, "DYLD_DEBUG_TRACE=",
 		                sizeof("DYLD_DEBUG_TRACE=") - 1) == 0){
@@ -483,6 +516,10 @@ char *envp[])
 		else if(strncmp(*p, "DYLD_PRINT_LIBRARIES=",
 		                sizeof("DYLD_PRINT_LIBRARIES=") - 1) == 0){
 		    dyld_print_libraries = TRUE;
+		}
+		else if(strncmp(*p, "DYLD_TRACE=",
+		                sizeof("DYLD_TRACE=") - 1) == 0){
+		    dyld_trace = TRUE;
 		}
 		else if(strncmp(*p, "DYLD_MEM_PROTECT=",
 		                sizeof("DYLD_MEM_PROTECT=") - 1) == 0){
@@ -516,6 +553,11 @@ char *envp[])
 		else if(strncmp(*p, "DYLD_NEW_LOCAL_SHARED_REGIONS=",
 			    sizeof("DYLD_NEW_LOCAL_SHARED_REGIONS=") - 1) == 0){
 		    dyld_new_local_shared_regions = TRUE;
+		    dyld_no_fix_prebinding = TRUE;
+		}
+		else if(strncmp(*p, "DYLD_NO_FIX_PREBINDING=",
+			    sizeof("DYLD_NO_FIX_PREBINDING=") - 1) == 0){
+		    dyld_no_fix_prebinding = TRUE;
 		}
 		else if(strncmp(*p, "DYLD_PREBIND_DEBUG=",
 		                sizeof("DYLD_PREBIND_DEBUG") - 1) == 0){
@@ -561,21 +603,7 @@ char *envp[])
 	 * just after the trailing 0 of the envp[] array.  If exec_path is left
 	 * as NULL other code will use argv[0] as a guess.
 	 */
-
-	/*
-	 * This feature was added to MacOS X PR2.  So in case we are running
-	 * with a kernel that does not set this we do a few checks on the
-	 * address of the pointer and the value of the pointer.  These checks
-	 * are temporary hacks and only work on PowerPC and i386 knowing the
-	 * address of the top of the stack (0xc0000000) and the stack grows
-	 * to lower addresses and that the bytes of the exec path should be
-	 * on the stack above the pointer.
-	 */
-	if((unsigned long)(p + 1) < 0xc0000000 &&
-	   (unsigned long)(p[1]) > (unsigned long)(p + 1) &&
-	   (unsigned long)(p[1]) < 0xc0000000){
-	    exec_path = p[1];
-	}
+	exec_path = p[1];
 	if(dyld_executable_path_debug == TRUE)
 	    printf("exec_path = %s\n", exec_path == NULL ? "NULL" : exec_path);
 #endif

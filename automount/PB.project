@@ -12,10 +12,12 @@
             NIMap.m, 
             RRObject.m, 
             Server.m,
-            StaticMap.m
+            StaticMap.m,
+			UserMap.m,
+			UserVnode.m
         ); 
         C_FILES = (); 
-        FRAMEWORKS = (AppleShareClientCore.framework, System.framework); 
+        FRAMEWORKS = (System.framework, URLMount.framework, AppleShareClientCore.framework); 
         FRAMEWORKSEARCH = (/System/Library/PrivateFrameworks); 
         HEADERSEARCH = (.); 
         H_FILES = (
@@ -32,6 +34,8 @@
             RRObject.h, 
             Server.h, 
             StaticMap.h, 
+			UserMap.h, 
+			UserVnode.h, 
             automount.h, 
             config.h, 
             log.h, 

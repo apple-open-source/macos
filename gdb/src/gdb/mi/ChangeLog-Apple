@@ -1,0 +1,177 @@
+2002-06-10  Jim Ingham <jingham@apple.com>
+
+      * mi-stack-cmd.c (list_args_or_locals): endaddr should be a 
+      CORE_ADDR.
+      
+2002-06-07  Jim Ingham <jingham@apple.com>
+
+      * mi-out.c: Add the mi versions of notify_begin and
+      notify_end.
+
+2002-05-30  Rab Hagy <rhagy@apple.com>
+
+      * mi-main.c (mi_verify_command): clean up output
+      * mi-cmd-var.c: added "unsigned" format specification
+      
+2002-04-24  James Ingham <jingham@apple.com>
+
+      * mi-cmd-var.c (mi_report_var_creation): Use varobj_in_scope_p to figure
+      out whether a variable is in scope.
+
+2002-04-17  James Ingham <jingham@apple.com>
+
+	* mi-cmd-var.c: Mutatis mutandi for new block parameter to
+	varobj_create.
+	* mi_cmd_stack.c: ditto.
+
+2002-04-17  James Ingham <jingham@apple.com>
+
+	* mi-var-cmd.c (mi_cmd_var_update): use
+	make_cleanup_ui_out_tuple_begin_end to start the list, so we can
+	clean up on error.
+
+	* mi-cmd-stack.c (print_syms_for_block): Move the start of the
+	list for the create_varobj case till after we have created the
+	varobj, so we can handle errors in the creation better.
+	
+2002-04-15  James Ingham <jingham@apple.com>
+
+	mi-cmd-var.c (print_typecode): The type might be null.  Return UNDEF
+	in this case.
+
+2002-04-11  James Ingham <jingham@apple.com>
+
+	mi-cmds.c: Add exec-metrowerk-step command
+	mi-cmds.h: Add the declaration of mi_cmd_exec_metrowerks_next.
+	mi-main.c (mi_cmd_exec_metrowerks_next): New function, routes
+	through to metrowerks_next...
+
+2002-03-28  James Ingham <jingham@apple.com>
+
+	* mi-cmds.h: Added def'n of mi_cmd_var_info_path_expression.
+	* mi-cmds.c: Added var-info-path-expression to command list.
+	* mi-cmd-var.c (mi_cmd_var_info_path_expression) New function,
+	the MI interface to varobj_get_path_expression.
+
+2002-03-05  James Ingham <jingham@apple.com>
+	
+	* mi-main.c (mi_cmd_data_evaluate_expression): Add "-u" flag to this
+	command - sets unwindonsignal for the evaluation.
+
+2002-01-31 James Ingham <jingham@inghji.apple.com>
+	* mi-main.c (mi_create_interpreter): Dopey bug, actually return
+	the new interpreter!
+
+2001-01-29  James Ingham <jingham@inghji.apple.com>
+	* mi-main.c (mi_create_interpreter): Added function to clean up
+	creating mi0 & mi1 interpreters.  Also stick the mi_version in
+	the client data field in case we need it.
+	* mi_command_loop: get the ui_out from the interpreter, rather
+	than making a new one.
+
+2001-12-03  James Ingham <jingham@inghji.apple.com>
+
+	* mi-main.c (mi_exec_async_cli_cmd_continuation): rearrange
+	how we output status & run the breakpoint commands so the
+	output makes more sense if the breakpoint command continues
+	the inferior.
+	(mi_interpreter_exec_continuation): ditto
+
+	* mi-cmd-stack.c (mi_cmd_stack_info_depth): use the
+        FAST_COUNT_STACK_DEPTH function if it is defined.
+
+2001-11-01  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_info_depth): if the architecture
+	has a FAST_COUNT_STACK_DEPTH macro defined, use it.  This counts
+	the stack without building up the frame caches.
+
+2001-08-14  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-main.c (mi_exec_async_cli_cmd_continuation): Need to call
+	bpstat_do_actions in the async_cli_cmd continuation, so that
+	breakpoint commands will get tripped if the mi commands are used
+	to start the inferior.
+
+2001-07-06  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-stack.c (print_syms_for_block): use safe varobj_get_value
+	so you don't mess up the stack printing if there is an error in
+	the printing the value of the varobj.
+
+2001-01-25  James Ingham  <jingham@inghji.apple.com>
+
+	FIXME: This is a hack for PB.  Change this back when we
+	get PB to run the target asynchronously.
+	* mi-main.c (mi_interpreter_resume): Set the default execution
+	mode to async for the mi.
+
+2001-01-17  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-var.c (varobj_update_one): Handle the out of scope
+	return from varobj_update.
+
+2001-01-10  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-stack.c (mi_print_frame_more_info): New function - adds
+	the directory in which the file is found to the stack output.
+	* mi-main.c (mi_interpreter_resume): initialize the
+	print_frame_more_info hook.
+
+2000-12-15  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-var.c (mi_cmd_var_info_block): New function, implements
+	the new mi command var-info-block - reporting the valid block for
+	a varobj.
+	(mi_report_var_creation): New function, standardize the mi output 
+	for varobj creation.  Add the in_scope field to the output.
+	(mi_cmd_var_list_children): Added a SHOW_VALUE argument to add the
+	variable value to the output of var-list-children.
+	* mi-cmds.c, mi-cmds.h: add the new command var-info-block.
+
+	* mi-cmd-stack.c (list_args_or_locals): extend to create the
+	varobj's for the args or locals and return those as part of the
+	result.  Also add a flag to list locals for ALL blocks in the
+	current function.
+	(print_syms_for_block): This is where the work to implement the 
+	varobj creation is done.
+	(mi_cmd_stack_list_args): Change the argument parsing to accept the
+	SHOW_VALUE argument = 2, which means create the varobj as well.
+	(mi_cmd_stack_list_locals): Add the ALL_BLOCKS parameter, and 
+	give the same meaning to SHOW_VALUE as for stack_list_args.
+	
+2000-11-22  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-var.c (varobj_update_one): print out the stringified typecode
+	if the type has changed.
+
+	* mi-main.c (mi_exec_async_cli_cmd_continuation): Do a gdb_flush
+	after continuation output, otherwise this won't show up when
+	you are not using a line-buffered device.
+
+	* mi-cmd-var.c (mi_cmd_var_create): print out a stringified
+	version of the typecode as well.
+	(print_typecode): New function - stringifies the enum typecode.
+	(mi_cmd_var_update): Allow this to take a list of varobj's to update.
+	(varobj_update_one): Output the varobj's as a list of lists, where 
+	each varobj gets its own label.  This makes the output easier to 
+	parse.
+	
+	* mi-cmd-stack.c (mi_cmd_stack_list_locals): Allow ALL_BLOCKS flag,
+	and change use of list_args_or_locals accordingly.
+	(mi_cmd_stack_list_args): Add new argument for 
+	list_args_or_locals.
+	(list_args_or_locals): Add a mode which searches all lexical blocks
+	in the current function for locals and lists them all.
+
+2000-11-09  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmd-break.c (mi_cmd_break_insert): Add a "-f" flag to set a
+	future breakpoint.
+
+2000-11-08  James Ingham  <jingham@inghji.apple.com>
+
+	* mi-cmds.c, mi-cmds.h: Add "interpreter-exec" to the command set.
+	* mi-main.c (mi_cmd_interpreter_exec): execute a command in a given 
+	interpreter.
+

@@ -1,0 +1,34 @@
+!
+! Test vectors for rinttol conversions:
+!
+3k	    ALL	    1	    0	    OK	    1
+3k	    ALL	    0	    0	    OK	    0
+3k	    ALL	    0i1	    0	    x	    0
+3k	    ALL	    1d1	    0	    x	    1
+3k	    ALL	    1m1	    0	    x	    1
+3k	    ALL	    3m1	    0	    x	    2
+3k	    ALL	    -1		 0		 OK	    -1
+3k	    ALL	    -0		 0		 OK		 0
+3k	    ALL	    -0i1	 0		 x		 0
+3k	    ALL	    -1d1	 0		 x	    -1
+3k	    ALL	    -1m1	 0		 x		-1
+3k	    ALL	    -3m1	 0		 x	    -2
+! Special cases (1p31 = 2^31) :
+3k	dd	Q	0	i	2147483647
+!3k	    de	    S	    0	    i	    2147483647 
+3k	dd	H	0	i	2147483647
+3k	dd	1p31	0	i	2147483647
+3k	dd	1p31d1	0	i	2147483647
+3k	dd	2147483647i1	0	x	2147483647
+3k	dd	2147483647	0	OK	2147483647
+3k	dd	Hd1	0	i	2147483647
+3k	    ALL	    -H		 0		 i		 -1p31
+3k	dd	-1p31	0	OK	-1p31
+3k	dd	-1p31i1	0	x	-1p31
+3k	    ALL	    -Hd1    0	    i	    -1p31
+3k	dd	-2147483649d1	0	i	-1p31
+3k	d	$401DFFFFFFFEFFFFFFFF	0	x	2147483647
+3k	d	$401DFFFFFFFF00000000	0	i	2147483647
+3k	d	$c01E800000007FFFFFFF	0	x	-1p31
+3k	d	$c01E8000000080000000	0	i	-1p31
+

@@ -50,6 +50,8 @@ enum {
     kNetworkHttpMoreHeaders			= PARAMKEY(0x02003,string),	// arbitrary more headers
     kNetworkHttpAcceptExpiredCerts	= PARAMKEY(0x02004,bool),	// accept expired certs
     kNetworkHttpAcceptUnknownRoots	= PARAMKEY(0x02005,bool),	// accept untrusted root certificates
+    kNetworkHttpPostContentType		= PARAMKEY(0x02006,string),	// Content-Type: for posted data
+    kNetworkHttpUseVersion			= PARAMKEY(0x02007,integer), // subversion of HTTP/1 to use
     
     // Legacy interface use ONLY. Not valid for modern use
     kNetworkLegacyIsSecure			= PARAMKEY(0x100001,bool),	// secure connection (SSL)

@@ -24,6 +24,7 @@
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
+#import <limits.h>
 #import <mach/mach.h>
 #import "stuff/openstep_mach.h"
 #import <mach-o/loader.h>
@@ -40,6 +41,7 @@
 #import "mod_init_funcs.h"
 #import "lock.h"
 #import "dyld_init.h"
+#import "trace.h"
 
 /*
  * The head of the undefined list, the list of symbols being linked and a free
@@ -106,6 +108,9 @@ static enum bool are_symbols_coalesced(
     struct nlist *symbol1,
     struct image *image2,
     struct nlist *symbol2);
+static enum bool is_symbol_coalesced_and_weak(
+    struct image *image,
+    struct nlist *symbol);
 static enum bool is_section_coalesced(
     struct image *image,
     unsigned int nsect);
@@ -252,6 +257,21 @@ struct nlist *symbol)
 }
 
 /*
+ * get_weak() is passed a symbol pointer and it the pointer is not NULL and the
+ * weak bit of the symbol is set then TRUE is returned indicating the symbol is
+ * weak.  Else FALSE is returned.
+ */
+/* TODO make this "static inline" moving it to symbols.h after debugging it */
+enum bool
+get_weak(
+struct nlist *symbol)
+{
+	if(symbol != NULL && (symbol->n_desc & N_WEAK_REF) == N_WEAK_REF)
+	    return(TRUE);
+	return(FALSE);
+}
+
+/*
  * setup_initial_undefined_list() builds the initial list of non-lazy symbol
  * references based on the executable's symbols.
  */
@@ -330,6 +350,10 @@ void)
     struct relocation_info *relocs;
     struct dylib_table_of_contents *tocs, *toc;
     enum bool flat_reference;
+    int number_of_global_coalesced_symbols;
+    int total_number_of_global_coalesced_symbols;
+
+    total_number_of_global_coalesced_symbols = 0;
 
 	/*
 	 * The executable is the first object on the object_image list.  So
@@ -337,6 +361,7 @@ void)
 	 */
 	image = &object_images.images[0].image;
 	if(image->has_coalesced_sections == TRUE){
+	    number_of_global_coalesced_symbols = 0;
 	    linkedit_segment = image->linkedit_segment;
 	    st = image->st;
 	    dyst = image->dyst;
@@ -345,7 +370,8 @@ void)
 				  MH_TWOLEVEL) != MH_TWOLEVEL;
 	    else
 		flat_reference = TRUE;
-	    if(linkedit_segment != NULL && st != NULL && dyst != NULL){
+	    if(linkedit_segment != NULL && st != NULL && dyst != NULL &&
+	       flat_reference == TRUE){
 		/*
 		 * The vmaddr_slide of an executable is always 0, no need to add
 		 * it when figuring out these pointers.
@@ -366,11 +392,14 @@ void)
 		    if((symbol->n_type & N_TYPE) == N_SECT &&
 		       is_section_coalesced(image, symbol->n_sect - 1) == TRUE){
 			symbol_name = strings + symbol->n_un.n_strx;
+			number_of_global_coalesced_symbols += 1;
 			add_to_being_linked_list(symbol_name, symbol, image,
 						 flat_reference);
 		    }
 		}
 	    }
+	    total_number_of_global_coalesced_symbols +=
+		number_of_global_coalesced_symbols;
 	}
 
 	/*
@@ -380,8 +409,16 @@ void)
 	q = &library_images;
 	do{
 	    for(i = 0; i < q->nimages; i++){
+		number_of_global_coalesced_symbols = 0;
 		image = &(q->images[i].image);
 		if(image->has_coalesced_sections == FALSE)
+		    continue;
+		if(force_flat_namespace == FALSE)
+		    flat_reference = (image->mh->flags &
+				      MH_TWOLEVEL) != MH_TWOLEVEL;
+		else
+		    flat_reference = TRUE;
+		if(flat_reference == FALSE)
 		    continue;
 		linkedit_segment = image->linkedit_segment;
 		st = image->st;
@@ -406,11 +443,6 @@ void)
 		     linkedit_segment->vmaddr +
 		     dyst->extrefsymoff -
 		     linkedit_segment->fileoff);
-		if(force_flat_namespace == FALSE)
-		    flat_reference = (image->mh->flags &
-				      MH_TWOLEVEL) != MH_TWOLEVEL;
-		else
-		    flat_reference = TRUE;
 		for(j = 0; j < image->dyst->nmodtab; j++){
 		    link_state = GET_LINK_STATE(q->images[i].modules[j]);
 		    if(link_state != FULLY_LINKED)
@@ -428,6 +460,7 @@ void)
 				TRUE){
 
 			    symbol_name = strings + symbol->n_un.n_strx;
+			    number_of_global_coalesced_symbols += 1;
 
 			    /* check being_linked_list of symbols */
 			    found = FALSE;
@@ -447,9 +480,18 @@ void)
 			}
 		    }
 		}
+		total_number_of_global_coalesced_symbols +=
+		    number_of_global_coalesced_symbols;
 	    }
 	    q = q->next_images;
 	}while(q != NULL);
+
+	/*
+	 * If there were no global coalesed symbols in two-level namespace
+	 * images then nothing should need to be done.
+	 */
+	if(total_number_of_global_coalesced_symbols == 0)
+	    return;
 
 	/*
 	 * Get the symbol pointers relocated to the coalesced symbols being
@@ -948,10 +990,10 @@ enum bool launching_with_prebound_libraries)
 	    undefined != &undefined_list;
 	    /* no increment expression */){
 	    bind_fully = undefined->bind_fully;
-
 	    lookup_symbol(undefined->name,
 		get_primary_image(undefined->image, undefined->symbol),
 		get_hint(undefined->image, undefined->symbol),
+		get_weak(undefined->symbol),
 		&symbol, &module, &image, &library_image, NO_INDR_LOOP);
 	    if(symbol != NULL){
 		/*
@@ -967,12 +1009,20 @@ enum bool launching_with_prebound_libraries)
 		undefined = next_undefined;
 
 		/* fill in the pointers for the defined symbol */
-		defined->name = (char *)
-		    (image->vmaddr_slide +
-		     image->linkedit_segment->vmaddr +
-		     image->st->stroff -
-		     image->linkedit_segment->fileoff) +
-		    symbol->n_un.n_strx;
+		/*
+		 * If the looked up symbol returned is not the "weak symbol"
+		 * then change the name field for the defined symbol_list to
+		 * point the string in the image with the defined symbol.
+		 * Otherwise leave it pointing into the referenced image.
+		 */
+		if(symbol != &some_weak_symbol){
+		    defined->name = (char *)
+			(image->vmaddr_slide +
+			 image->linkedit_segment->vmaddr +
+			 image->st->stroff -
+			 image->linkedit_segment->fileoff) +
+			symbol->n_un.n_strx;
+		}
 		defined->symbol = symbol;
 		defined->image = image;
 
@@ -1204,7 +1254,7 @@ struct nlist *symbol2)
 }
 
 /*
- * is_symbol_coalesced() is passed a pointer to an image and a symbols in that
+ * is_symbol_coalesced() is passed a pointer to an image and a symbol in that
  * image.  If the symbol is a coalesced symbol then TRUE is returned else FALSE
  * is returned.
  */
@@ -1216,6 +1266,26 @@ struct nlist *symbol)
 	if((symbol->n_type & N_TYPE) != N_SECT)
 	    return(FALSE);
 	return(is_section_coalesced(image, symbol->n_sect - 1));
+}
+
+/*
+ * is_symbol_coalesced_and_weak() is passed a pointer to an image and a symbol
+ * in that image.  If the symbol is a coalesced weak symbol then TRUE is
+ * returned else FALSE is returned.
+ */
+static
+enum bool
+is_symbol_coalesced_and_weak(
+struct image *image,
+struct nlist *symbol)
+{
+	if((symbol->n_type & N_TYPE) != N_SECT)
+	    return(FALSE);
+	if(is_section_coalesced(image, symbol->n_sect - 1) == FALSE)
+	    return(FALSE);
+	if((symbol->n_desc & N_WEAK_DEF) != N_WEAK_DEF)
+	    return(FALSE);
+	return(TRUE);
 }
 
 /*
@@ -1399,8 +1469,9 @@ enum bool launching_with_prebound_libraries)
 	    i < dylib_module->iextdefsym + dylib_module->nextdefsym;
 	    i++){
 	    symbol_name = strings + symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name, NULL, NULL, &prev_symbol, &prev_module,
-			  &prev_image, &prev_library_image, NO_INDR_LOOP);
+	    lookup_symbol(symbol_name, NULL, NULL, FALSE, &prev_symbol,
+			  &prev_module, &prev_image, &prev_library_image,
+			  NO_INDR_LOOP);
 	    /*
 	     * The symbol maybe found in this module which is not an error.
 	     * or the symbol may be in a two-level namespace image which is
@@ -1450,9 +1521,13 @@ enum bool launching_with_prebound_libraries)
 			prev_library_name = NULL;
 			prev_module_name = prev_image->name;
 		    }
-		    if(image->has_coalesced_sections == TRUE &&
-		       are_symbols_coalesced(image, symbols + i, 
-					     prev_image, prev_symbol) == TRUE){
+		    if((image->has_coalesced_sections == TRUE &&
+		        (are_symbols_coalesced(image, symbols + i, 
+					prev_image,prev_symbol) == TRUE ||
+		        is_symbol_coalesced_and_weak(image, symbols + i))) ||
+			(prev_image->has_coalesced_sections == TRUE &&
+			 is_symbol_coalesced_and_weak(prev_image,
+					prev_symbol) == TRUE) ){
 			/* check being_linked_list of symbols */
 			found = FALSE;
 			for(being_linked = being_linked_list.next;
@@ -1463,9 +1538,52 @@ enum bool launching_with_prebound_libraries)
 				break;
 			    }
 			}
-			if(found == FALSE)
-			    add_to_being_linked_list(symbol_name, prev_symbol,
-						     prev_image,flat_reference);
+			/*
+			 * If one the previous symbol is a weak coalesced symbol
+			 * then use this one.
+			 */
+			if(prev_image->has_coalesced_sections == TRUE &&
+			   is_symbol_coalesced_and_weak(prev_image,
+				prev_symbol) == TRUE){
+			    /* remove prev_symbol from being_linked,
+			       only if the flat_reference matches? */
+			    if(found == TRUE){
+				/* take this off the being_linked list */
+				being_linked->prev->next = being_linked->next;
+				being_linked->next->prev = being_linked->prev;
+
+				/* put this at the end of the free_list list */
+				being_linked->prev = free_list.prev;
+				being_linked->next = &free_list;
+
+				/* clear the pointers */
+				being_linked->name = NULL;
+				being_linked->symbol = NULL;
+				being_linked->image = NULL;
+				being_linked->remove_on_error = FALSE;
+				being_linked->bind_fully = FALSE;
+				being_linked->flat_reference = FALSE;
+			    }
+			    /* add (image,symbols[i]) to being linked list */
+			    /* check being_linked_list of symbols */
+			    found = FALSE;
+			    for(being_linked = being_linked_list.next;
+				being_linked != &being_linked_list;
+				being_linked = being_linked->next){
+				if(being_linked->symbol == symbols + i){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				add_to_being_linked_list(symbol_name,
+				    symbols + i, image, flat_reference);
+			}
+			else{
+			    if(found == FALSE)
+				add_to_being_linked_list(symbol_name,
+				    prev_symbol, prev_image, flat_reference);
+			}
 			continue;
 		    }
 
@@ -1727,8 +1845,8 @@ enum bool bind_fully)
 	 *     If it is not then add it to the undefined list.
 	 */
 	lookup_symbol(symbol_name, get_primary_image(image, symbol),
-		      get_hint(image, symbol), &ref_symbol, &ref_module,
-		      &ref_image, &ref_library_image, NO_INDR_LOOP);
+		      get_hint(image, symbol), get_weak(symbol), &ref_symbol,
+		      &ref_module, &ref_image, &ref_library_image,NO_INDR_LOOP);
 	if(ref_symbol != NULL){
 	    ref_link_state = GET_LINK_STATE(*ref_module);
 
@@ -1946,7 +2064,7 @@ enum bool bind_fully)
 	    i < dyst->iextdefsym + dyst->nextdefsym;
 	    i++){
 	    symbol_name = strings + symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name, NULL, NULL,
+	    lookup_symbol(symbol_name, NULL, NULL, FALSE,
 			  &prev_symbol, &prev_module, &prev_image,
 			  &prev_library_image, NO_INDR_LOOP);
 	    /*
@@ -1998,10 +2116,14 @@ enum bool bind_fully)
 			prev_library_name = NULL;
 			prev_module_name = prev_image->name;
 		    }
-		    if(object_image->image.has_coalesced_sections == TRUE &&
-		       are_symbols_coalesced(&(object_image->image), symbols+i, 
-					     prev_image, prev_symbol) == TRUE){
-			discard_symbol(&(object_image->image), symbols + i);
+		    if((object_image->image.has_coalesced_sections == TRUE &&
+		        (are_symbols_coalesced(&(object_image->image),
+				symbols + i, prev_image, prev_symbol) == TRUE ||
+		        is_symbol_coalesced_and_weak(&(object_image->image),
+				symbols + i))) ||
+			(prev_image->has_coalesced_sections == TRUE &&
+			 is_symbol_coalesced_and_weak(prev_image,
+					prev_symbol) == TRUE) ){
 			/* check being_linked_list of symbols */
 			found = FALSE;
 			for(being_linked = being_linked_list.next;
@@ -2012,9 +2134,54 @@ enum bool bind_fully)
 				break;
 			    }
 			}
-			if(found == FALSE)
-			    add_to_being_linked_list(symbol_name, prev_symbol,
-						     prev_image,flat_reference);
+			/*
+			 * If one the previous symbol is a weak coalesced symbol
+			 * then use this one.
+			 */
+			if(prev_image->has_coalesced_sections == TRUE &&
+			   is_symbol_coalesced_and_weak(prev_image,
+				prev_symbol) == TRUE){
+			    /* remove prev_symbol from being_linked,
+			       only if the flat_reference matches? */
+			    if(found == TRUE){
+				/* take this off the being_linked list */
+				being_linked->prev->next = being_linked->next;
+				being_linked->next->prev = being_linked->prev;
+
+				/* put this at the end of the free_list list */
+				being_linked->prev = free_list.prev;
+				being_linked->next = &free_list;
+
+				/* clear the pointers */
+				being_linked->name = NULL;
+				being_linked->symbol = NULL;
+				being_linked->image = NULL;
+				being_linked->remove_on_error = FALSE;
+				being_linked->bind_fully = FALSE;
+				being_linked->flat_reference = FALSE;
+			    }
+			    /* add (image,symbols[i]) to being linked list */
+			    /* check being_linked_list of symbols */
+			    found = FALSE;
+			    for(being_linked = being_linked_list.next;
+				being_linked != &being_linked_list;
+				being_linked = being_linked->next){
+				if(being_linked->symbol == symbols + i){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE)
+				add_to_being_linked_list(symbol_name,
+				    symbols + i, &(object_image->image),
+				    flat_reference);
+			}
+			else{
+			    discard_symbol(&(object_image->image), symbols + i);
+			    if(found == FALSE)
+				add_to_being_linked_list(symbol_name,
+				    prev_symbol, prev_image, flat_reference);
+			}
 			continue;
 		    }
 		    multiply_defined_error(symbol_name,
@@ -2217,6 +2384,7 @@ lookup_symbol(
 char *symbol_name,
 struct image *primary_image,    /* the primary_image for two-level name space */
 struct twolevel_hint *hint,	/* the two-level hint if not NULL */
+enum bool weak_symbol,		/* the symbol is allowed to be missing, weak */
 struct nlist **defined_symbol,	/* the defined symbol */
 module_state **defined_module,	/* the module the symbol is in */
 struct image **defined_image,	/* the image the module is in */
@@ -2228,7 +2396,8 @@ struct indr_loop_list *indr_loop)
     struct library_images *q;
     struct library_image *outer_library_image;
     struct object_image *outer_object_image;
-
+    
+        DYLD_TRACE_SYMBOLS_NAMED_START(DYLD_TRACE_lookup_symbol, symbol_name);
 	/*
 	 * This is done first so that if executable_bind_at_load is set it can
 	 * set these to the first definition found and keep looking for the
@@ -2247,14 +2416,26 @@ struct indr_loop_list *indr_loop)
 	 * only.
 	 */
 	if(primary_image != NULL){
+	    /*
+	     * For weak libraries that are missing the primary image is a
+	     * pointer to the image in some_weak_library_image. Every symbol
+	     * referenced in this library should be a weak_symbol.
+	     */
+	    if(primary_image ==
+	       (struct image *)&(some_weak_library_image.image)){
+		weak_symbol = TRUE;
+		goto weak_library_symbol;
+	    }
 	    if(primary_image->mh->filetype != MH_DYLIB){
 		outer_object_image = (struct object_image *)
 				     primary_image->outer_image;
 		if(lookup_symbol_in_object_image(symbol_name, primary_image,
 			&(outer_object_image->module), defined_symbol,
 			defined_module, defined_image, defined_library_image,
-			indr_loop) == TRUE)
+			indr_loop) == TRUE){
+                    DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 		    return;
+		}
 	    }
 	    else{
 		/*
@@ -2299,6 +2480,8 @@ struct indr_loop_list *indr_loop)
 					      primary_image->sub_images[
 						hint->isub_image - 1]->name,
 					      primary_image->name);
+                                    DYLD_TRACE_SYMBOLS_END(
+					DYLD_TRACE_lookup_symbol);
 				    return;
 			        }
 			    }
@@ -2326,6 +2509,7 @@ struct indr_loop_list *indr_loop)
 		    if(dyld_hints_debug > 1 && itoc != ULONG_MAX)
 			print("hint for symbol: %s into image: %s worked\n",
 			      symbol_name, primary_image->name);
+                    DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 		    return;
 		}
 		if(dyld_hints_debug > 1 && itoc != ULONG_MAX)
@@ -2340,8 +2524,10 @@ struct indr_loop_list *indr_loop)
 			    primary_image->sub_images[i],
 			    &(outer_object_image->module), defined_symbol,
 			    defined_module, defined_image,
-			    defined_library_image, indr_loop) == TRUE)
+			    defined_library_image, indr_loop) == TRUE){
+			DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 			return;
+		    }
 		}
 		else{
 		    outer_library_image = (struct library_image *)
@@ -2350,8 +2536,10 @@ struct indr_loop_list *indr_loop)
 			    primary_image->sub_images[i],
 			    outer_library_image->modules, outer_library_image,
 			    defined_symbol, defined_module, defined_image,
-			    defined_library_image, indr_loop) == TRUE)
+			    defined_library_image, indr_loop) == TRUE){
+			DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 			return;
+		    }
 		}
 	    }
 	    /*
@@ -2359,8 +2547,31 @@ struct indr_loop_list *indr_loop)
 	     * primary_image and its sub-images so it is undefined for a
 	     * two-level name space lookup.  Or we were doing a bind at load
 	     * operation and the defined_* return values were set to the first
-	     * unbound definition.
+	     * unbound definition.  Or the symbol could have been a weak symbol
+	     * that is missing and if so return the constant values for a
+	     * weak symbol lookup.
 	     */
+weak_library_symbol:
+	    if(defined_symbol != NULL && weak_symbol == TRUE){
+    		*defined_symbol = (struct nlist *)&some_weak_symbol;
+    		*defined_module = (module_state *)&some_weak_module;;
+		if(primary_image ==
+		   (struct image *)&(some_weak_library_image.image)){
+		    *defined_image =
+			(struct image *)&(some_weak_library_image.image);
+		    *defined_library_image =
+			(struct library_image *)&some_weak_library_image;
+		}
+		else{
+		    *defined_image = primary_image;
+		    if(primary_image->mh->filetype == MH_DYLIB)
+			*defined_library_image = (struct library_image *)
+			      primary_image->outer_image;
+		    else
+			*defined_library_image = NULL;
+		}
+	    }
+            DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 	    return;
 	}
 
@@ -2378,8 +2589,10 @@ struct indr_loop_list *indr_loop)
 		if(lookup_symbol_in_object_image(symbol_name,
 			&(p->images[i].image), &(p->images[i].module),
 			defined_symbol, defined_module, defined_image,
-			defined_library_image, indr_loop) == TRUE)
+			defined_library_image, indr_loop) == TRUE){
+                    DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 		    return;
+		}
 	    }
 	    p = p->next_images;
 	}while(p != NULL);
@@ -2394,11 +2607,28 @@ struct indr_loop_list *indr_loop)
 		if(lookup_symbol_in_library_image(symbol_name, ULONG_MAX,
 			&(q->images[i].image), q->images[i].modules,
 			&(q->images[i]), defined_symbol, defined_module,
-			defined_image, defined_library_image, indr_loop) ==TRUE)
+			defined_image, defined_library_image, indr_loop) ==
+		    TRUE){
+                    DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 		    return;
+		}
 	    }
 	    q = q->next_images;
 	}while(q != NULL);
+
+	/*
+	 * If we aren't doing a executable_bind_at_load and previously found
+	 * a symbol definition check to see if this is a weak_symbol that is
+	 * missing.  If so return the constant values for a weak symbol lookup.
+	 */
+	if(defined_symbol != NULL && weak_symbol == TRUE){
+	    *defined_symbol = (struct nlist *)&some_weak_symbol;
+	    *defined_module = (module_state *)&some_weak_module;;
+	    *defined_image = (struct image *)&(some_weak_library_image.image);
+	    *defined_library_image =
+		(struct library_image *)&some_weak_library_image;
+	}
+	DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_lookup_symbol);
 }
 
 /*
@@ -2629,8 +2859,8 @@ struct indr_loop_list *indr_loop)
 		symbol_name = nlist_bsearch_strings + symbol->n_value;
 		indr_image = get_indr_image(symbol_name,
 					new_indr_loop.defined_image);
-		lookup_symbol(symbol_name, indr_image, NULL, defined_symbol,
-			      defined_module, defined_image,
+		lookup_symbol(symbol_name, indr_image, NULL, FALSE,
+			      defined_symbol, defined_module, defined_image,
 			      defined_library_image, &new_indr_loop);
 		return(defined_symbol != NULL);
 	    }
@@ -2828,8 +3058,8 @@ struct indr_loop_list *indr_loop)
 		symbol_name = toc_bsearch_strings + symbol->n_value;
 		indr_image = get_indr_image(symbol_name,
 					    new_indr_loop.defined_image);
-		lookup_symbol(symbol_name, indr_image, NULL, defined_symbol,
-			      defined_module, defined_image,
+		lookup_symbol(symbol_name, indr_image, NULL, FALSE,
+			      defined_symbol, defined_module, defined_image,
 			      defined_library_image, &new_indr_loop);
 		return(defined_symbol != NULL);
 	    }
@@ -3522,6 +3752,7 @@ struct image *image)
 			      get_primary_image(symbol_list->image,
 						symbol_list->symbol),
 			      get_hint(symbol_list->image, symbol_list->symbol),
+			      get_weak(symbol_list->symbol),
 			      &defined_symbol, &defined_module, &defined_image,
 			      &defined_library_image, NULL);
 		nlist_bsearch_strings = strings;
@@ -3684,6 +3915,7 @@ struct image *image)
 			      get_primary_image(symbol_list->image,
 						symbol_list->symbol),
 			      get_hint(symbol_list->image, symbol_list->symbol),
+			      get_weak(symbol_list->symbol),
 			      &defined_symbol, &defined_module, &defined_image,
 			      &defined_library_image, NULL);
 		toc_bsearch_symbols = symbols;
@@ -3895,14 +4127,6 @@ enum bool only_lazy_pointers)
 	    value = image->dyld_stub_binding_helper;
 #endif
 	/*
-	 * If the lazy_init is set on this image it symbol pointers are
-	 * currently read only so we can't update them.  Let the handler
-	 * deal with them.
-	 */
-	if(image->lazy_init == TRUE)
-	    return;
-
-	/*
 	 * A symbol being linked is in this image at the symbol_index. Walk
 	 * the headers looking for indirect sections.  Then for each indirect
 	 * section scan the indirect table entries for this symbol_index and
@@ -4045,6 +4269,9 @@ unsigned long lazy_symbol_pointer_address)
 	/* set lock for dyld data structures */
 	set_lock();
 
+	DYLD_TRACE_SYMBOLS_ADDRESSED_START(
+	    DYLD_TRACE_bind_lazy_symbol_reference, lazy_symbol_pointer_address);
+        
 	/*
 	 * Figure out which image this mach header is for.
 	 */
@@ -4079,6 +4306,8 @@ unsigned long lazy_symbol_pointer_address)
 	if(image == NULL){
 	    error("bad mach header passed to stub_binding_helper");
 	    link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_BIND, NULL);
+            DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_lazy_symbol_reference);
+	    halt();
 	    exit(DYLD_EXIT_FAILURE_BASE + DYLD_OTHER_ERROR);
 	}
 
@@ -4128,6 +4357,8 @@ unsigned long lazy_symbol_pointer_address)
 	    error("bad address of lazy symbol pointer passed to "
 		  "stub_binding_helper");
 	    link_edit_error(DYLD_OTHER_ERROR, DYLD_LAZY_BIND, NULL);
+            DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_lazy_symbol_reference);
+	    halt();
 	    exit(DYLD_EXIT_FAILURE_BASE + DYLD_OTHER_ERROR);
 	}
 
@@ -4184,6 +4415,10 @@ unsigned long lazy_symbol_pointer_address)
 		    if((symbol->n_type & N_TYPE) != N_ABS)
 			value += image->vmaddr_slide;
 		    *((long *)lazy_symbol_pointer_address) = value;
+                    
+                    DYLD_TRACE_SYMBOLS_END(
+			DYLD_TRACE_bind_lazy_symbol_reference);
+                    
 		    /* release lock for dyld data structures */
 		    release_lock();
 		    return(value);
@@ -4194,6 +4429,9 @@ unsigned long lazy_symbol_pointer_address)
 		if((symbol->n_type & N_TYPE) != N_ABS)
 		    value += image->vmaddr_slide;
 		*((long *)lazy_symbol_pointer_address) = value;
+                
+                DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_lazy_symbol_reference);
+                                
 		/* release lock for dyld data structures */
 		release_lock();
 		return(value);
@@ -4212,8 +4450,9 @@ unsigned long lazy_symbol_pointer_address)
 	     image->linkedit_segment->fileoff) +
 	    symbol->n_un.n_strx;
 	lookup_symbol(symbol_name, get_primary_image(image, symbol),
-		      get_hint(image, symbol), &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+		      get_hint(image, symbol), get_weak(symbol),
+		      &defined_symbol, &defined_module, &defined_image,
+		      &defined_library_image, NULL);
 	if(defined_symbol != NULL){
 	    link_state = GET_LINK_STATE(*defined_module);
 	    if(link_state == LINKED || link_state == FULLY_LINKED){
@@ -4226,6 +4465,7 @@ unsigned long lazy_symbol_pointer_address)
 			    dyld_image_vmaddr_slide;
 #endif
 		*((long *)lazy_symbol_pointer_address) = value;
+		DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_lazy_symbol_reference);
 		/* release lock for dyld data structures */
 		release_lock();
 		return(value);
@@ -4252,8 +4492,9 @@ unsigned long lazy_symbol_pointer_address)
 	 * undefineds left.  Therefore the lookup_symbol can't fail.
 	 */
 	lookup_symbol(symbol_name, get_primary_image(image, symbol),
-		      get_hint(image, symbol), &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+		      get_hint(image, symbol), get_weak(symbol),
+		      &defined_symbol, &defined_module, &defined_image,
+		      &defined_library_image, NULL);
 	value = defined_symbol->n_value;
 	if((defined_symbol->n_type & N_TYPE) != N_ABS)
 	    value += defined_image->vmaddr_slide;
@@ -4261,6 +4502,7 @@ unsigned long lazy_symbol_pointer_address)
 	if(strcmp(symbol_name, "__exit") == 0)
 	    value = (unsigned long)profiling_exit + dyld_image_vmaddr_slide;
 #endif
+	DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_lazy_symbol_reference);
 	/* release lock for dyld data structures */
 	release_lock();
 	return(value);
@@ -4284,8 +4526,12 @@ enum bool change_symbol_pointers)
 	/* set lock for dyld data structures */
 	set_lock();
 
-	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+	DYLD_TRACE_SYMBOLS_ADDRESSED_START(DYLD_TRACE_bind_symbol_by_name,
+					   address);
+
+	lookup_symbol(symbol_name, NULL, NULL, FALSE, &defined_symbol,
+		      &defined_module, &defined_image, &defined_library_image,
+		      NULL);
 	if(defined_symbol != NULL){
 	    link_state = GET_LINK_STATE(*defined_module);
 	    if(link_state == LINKED || link_state == FULLY_LINKED){
@@ -4301,7 +4547,8 @@ enum bool change_symbol_pointers)
 		    *module = defined_module;
 		if(symbol != NULL)
 		    *symbol = defined_symbol;
-
+                    
+		DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_symbol_by_name);
 		/* release lock for dyld data structures */
 		release_lock();
 		return;
@@ -4323,8 +4570,9 @@ enum bool change_symbol_pointers)
 	 * Now that all the needed modules are linked in there can't be any
 	 * undefineds left.  Therefore the lookup_symbol can't fail.
 	 */
-	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+	lookup_symbol(symbol_name, NULL, NULL, FALSE, &defined_symbol,
+		      &defined_module, &defined_image, &defined_library_image,
+		      NULL);
 	value = defined_symbol->n_value;
 	if((defined_symbol->n_type & N_TYPE) != N_ABS)
 	    value += defined_image->vmaddr_slide;
@@ -4334,6 +4582,7 @@ enum bool change_symbol_pointers)
 	    *module = defined_module;
 	if(symbol != NULL)
 	    *symbol = defined_symbol;
+	DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_bind_symbol_by_name);
 	/* release lock for dyld data structures */
 	release_lock();
 }
@@ -4362,6 +4611,8 @@ link_in_need_modules(
 enum bool bind_now,
 enum bool release_lock_flag)
 {
+	DYLD_TRACE_SYMBOLS_START(DYLD_TRACE_link_in_need_modules);
+
 	/*
 	 * Resolve all non-lazy symbol references this program currently
 	 * has so it can be continued.
@@ -4374,6 +4625,7 @@ enum bool release_lock_flag)
 	     * errors resolving undefined symbols.
 	     */
 	    unload_remove_on_error_libraries();
+            DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_link_in_need_modules);
 	    return(FALSE);
 	}
 
@@ -4391,6 +4643,7 @@ enum bool release_lock_flag)
 	    clear_being_linked_list(TRUE);
 	    clear_undefined_list(TRUE);
 	    unload_remove_on_error_libraries();
+            DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_link_in_need_modules);
 	    return(FALSE);
 	}
 
@@ -4452,6 +4705,7 @@ enum bool release_lock_flag)
 	    release_lock();
 	}
 
+	DYLD_TRACE_SYMBOLS_END(DYLD_TRACE_link_in_need_modules);
 	return(TRUE);
 }
 

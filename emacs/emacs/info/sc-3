@@ -1,6 +1,6 @@
 This is ../info/sc, produced by makeinfo version 4.0 from sc.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * SC: (sc).		Supercite lets you cite parts of messages you're
 			  replying to, in flexible ways.
@@ -10,11 +10,24 @@ END-INFO-DIR-ENTRY
 and attributing the replies for various GNU Emacs mail and news reading
 subsystems.
 
-   Copyright (C) 1993 Barry A. Warsaw
+   Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: sc,  Node: Key Index,  Next: Variable Index,  Prev: Command Index,  Up: Top

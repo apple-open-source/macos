@@ -25,6 +25,7 @@
 #undef environ
 #endif
 
+#include <string.h>
 #import <mach-o/i386/swap.h>
 
 void

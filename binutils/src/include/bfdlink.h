@@ -1,5 +1,6 @@
 /* bfdlink.h -- header file for BFD link routines
-   Copyright 1993, 94, 95, 96, 97, 1999 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
+   Free Software Foundation, Inc.
    Written by Steve Chamberlain and Ian Lance Taylor, Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -34,10 +35,21 @@ enum bfd_link_strip
    if strip_all is used.  */
 enum bfd_link_discard
 {
+  discard_sec_merge,	/* Discard local temporary symbols in SEC_MERGE
+			   sections.  */
   discard_none,		/* Don't discard any locals.  */
   discard_l,		/* Discard local temporary symbols.  */
   discard_all		/* Discard all locals.  */
 };
+
+/* Describes the type of hash table entry structure being used.
+   Different hash table structure have different fields and so
+   support different linking features.  */
+enum bfd_link_hash_table_type
+  {
+    bfd_link_generic_hash_table,
+    bfd_link_elf_hash_table
+  };
 
 /* These are the possible types of an entry in the BFD link hash
    table.  */
@@ -143,6 +155,8 @@ struct bfd_link_hash_table
   struct bfd_link_hash_entry *undefs;
   /* Entries are added to the tail of the undefs list.  */
   struct bfd_link_hash_entry *undefs_tail;
+  /* The type of the ink hash table.  */
+  enum bfd_link_hash_table_type type;
 };
 
 /* Look up an entry in a link hash table.  If FOLLOW is true, this
@@ -188,6 +202,9 @@ struct bfd_link_info
   boolean shared;
   /* true if BFD should pre-bind symbols in a shared object.  */
   boolean symbolic;
+  /* true if BFD should export all symbols in the dynamic symbol table
+     of an executable, rather than only those used.  */
+  boolean export_dynamic;
   /* true if shared objects should be linked directly, not shared.  */
   boolean static_link;
   /* true if the output file should be in a traditional format.  This
@@ -201,6 +218,19 @@ struct bfd_link_info
   /* true if BFD should generate errors for undefined symbols
      even if generating a shared object.  */
   boolean no_undefined;
+  /* true if BFD should allow undefined symbols in shared objects even
+     when no_undefined is set to disallow undefined symbols.  The net
+     result will be that undefined symbols in regular objects will
+     still trigger an error, but undefined symbols in shared objects
+     will be ignored.  The implementation of no_undefined makes the
+     assumption that the runtime linker will choke on undefined
+     symbols.  However there is at least one system (BeOS) where
+     undefined symbols in shared libraries is normal since the kernel
+     patches them at load time to select which function is most
+     appropriate for the current architecture.  I.E. dynamically
+     select an appropriate memset function.  Apparently it is also
+     normal for HPPA shared libraries to have undefined symbols.  */
+  boolean allow_shlib_undefined;
   /* Which symbols to strip.  */
   enum bfd_link_strip strip;
   /* Which local symbols to discard.  */
@@ -255,6 +285,25 @@ struct bfd_link_info
 
   /* May be used to set DT_FLAGS_1 for ELF. */
   bfd_vma flags_1;
+
+  /* True if auto-import thunks for DATA items in pei386 DLLs 
+     should be generated/linked against.  */
+  boolean pei386_auto_import;
+
+  /* True if non-PLT relocs should be merged into one reloc section
+     and sorted so that relocs against the same symbol come together.  */
+  boolean combreloc;
+
+  /* True if executable should not contain copy relocs.
+     Setting this true may result in a non-sharable text segment.  */
+  boolean nocopyreloc;
+
+  /* True if .eh_frame_hdr section and PT_GNU_EH_FRAME ELF segment
+     should be created.  */
+  boolean eh_frame_hdr;
+
+  /* How many spare .dynamic DT_NULL entries should be added?  */
+  unsigned int spare_dynamic_tags;
 };
 
 /* This structures holds a set of callback functions.  These are
@@ -397,7 +446,6 @@ enum bfd_link_order_type
 {
   bfd_undefined_link_order,	/* Undefined.  */
   bfd_indirect_link_order,	/* Built from a section.  */
-  bfd_fill_link_order,		/* Fill with a 16 bit constant.  */
   bfd_data_link_order,		/* Set to explicit data.  */
   bfd_section_reloc_link_order,	/* Relocate against a section.  */
   bfd_symbol_reloc_link_order	/* Relocate against a symbol.  */
@@ -431,13 +479,12 @@ struct bfd_link_order
 	} indirect;
       struct
 	{
-	  /* Value to fill with.  */
-	  unsigned int value;
-	} fill;
-      struct
-	{
-	  /* Data to put into file.  The size field gives the number
-	     of bytes which this field points to.  */
+	  /* Size of contents, or zero when contents size == size
+	     within output section.
+	     A non-zero value allows filling of the output section
+	     with an arbitrary repeated pattern.  */
+	  unsigned int size;
+	  /* Data to put into file.  */
 	  bfd_byte *contents;
 	} data;
       struct

@@ -33,7 +33,8 @@
 #define super IOUserClient
 
 OSDefineMetaClassAndStructors(IOAudioControlUserClient, IOUserClient)
-OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 0);
+OSMetaClassDefineReservedUsed(IOAudioControlUserClient, 0);
+
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 1);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 2);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 3);
@@ -50,6 +51,21 @@ OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 13);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 14);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 15);
 
+// New code here
+void IOAudioControlUserClient::sendChangeNotification(UInt32 notificationType)
+{
+    if (notificationMessage) {
+        kern_return_t kr;
+
+		notificationMessage->type = notificationType;
+        kr = mach_msg_send_from_kernel(&notificationMessage->messageHeader, notificationMessage->messageHeader.msgh_size);
+        if ((kr != MACH_MSG_SUCCESS) && (kr != MACH_SEND_TIMED_OUT)) {
+            IOLog("IOAudioControlUserClient: sendRangeChangeNotification() failed - msg_send returned: %d\n", kr);
+        }
+    }
+}
+
+// Original code here...
 IOAudioControlUserClient *IOAudioControlUserClient::withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type)
 {
     IOAudioControlUserClient *client;
@@ -121,7 +137,7 @@ IOReturn IOAudioControlUserClient::clientDied()
 }
 
 IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
-                                                            UInt32 type,
+                                                            UInt32 type,			// No longer used now that we have the generic sendChangeNotification routine
                                                             UInt32 refCon)
 {
     IOReturn result = kIOReturnSuccess;
@@ -141,7 +157,7 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
         notificationMessage->messageHeader.msgh_reserved = 0;
         notificationMessage->messageHeader.msgh_id = 0;
     
-        notificationMessage->type = type;
+        // notificationMessage->type = type;				// ignored now that we have the generic sendChangeNotification routine
         notificationMessage->ref = refCon;
     } else {
         result = kIOReturnNoDevice;
@@ -152,11 +168,5 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
 
 void IOAudioControlUserClient::sendValueChangeNotification()
 {
-    if (notificationMessage) {
-        kern_return_t kr;
-        kr = mach_msg_send_from_kernel(&notificationMessage->messageHeader, notificationMessage->messageHeader.msgh_size);
-        if ((kr != MACH_MSG_SUCCESS) && (kr != MACH_SEND_TIMED_OUT)) {
-            IOLog("IOAudioControlUserClient: sendValueChangeNotification() failed - msg_send returned: %d\n", kr);
-        }
-    }
+	return sendChangeNotification(kIOAudioControlValueChangeNotification);
 }

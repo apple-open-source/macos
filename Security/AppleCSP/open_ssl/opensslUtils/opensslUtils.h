@@ -46,6 +46,15 @@ private:
 
 unsigned long logSslErrInfo(const char *op);
 
+void throwRsaDsa(
+	const char *op);
+	
+/*
+ * given an openssl-style error, throw appropriate CssmError.
+ */
+void throwOpensslErr(
+	int irtn);
+
 
 #ifdef	__cplusplus
 }

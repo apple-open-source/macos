@@ -1,0 +1,17 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (termcap.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (grot); 
+        Sources = (termcap.c, tparam.c, version.c); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = termcap; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

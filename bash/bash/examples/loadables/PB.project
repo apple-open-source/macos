@@ -1,0 +1,38 @@
+{
+    FILESTABLE = {
+        Documentation = (README); 
+        Headers = (); 
+        Makefiles = (Makefile); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            sprintf.c, 
+            truefalse.c, 
+            sleep.c, 
+            cat.c, 
+            tty.c, 
+            basename.c, 
+            dirname.c, 
+            finfo.c, 
+            getconf.c, 
+            head.c, 
+            hello.c, 
+            logname.c, 
+            necho.c, 
+            pathchk.c, 
+            print.c, 
+            printf.c, 
+            pushd.c, 
+            rmdir.c, 
+            tee.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = loadables; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

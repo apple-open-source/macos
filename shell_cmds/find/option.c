@@ -1,5 +1,3 @@
-/*	$NetBSD: option.c,v 1.9 1998/02/21 22:47:21 christos Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,13 +34,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-#if 0
-static char sccsid[] = "from: @(#)option.c	8.2 (Berkeley) 4/16/94";
-#else
-__RCSID("$NetBSD: option.c,v 1.9 1998/02/21 22:47:21 christos Exp $");
-#endif
+/*
+static char sccsid[] = "@(#)option.c	8.2 (Berkeley) 4/16/94";
+*/
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/find/option.c,v 1.9.2.4 2001/05/06 09:53:22 phk Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -50,49 +47,82 @@ __RCSID("$NetBSD: option.c,v 1.9 1998/02/21 22:47:21 christos Exp $");
 
 #include <err.h>
 #include <fts.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "find.h"
 
-int typecompare __P((const void *, const void *));
-static OPTION *option __P((char *));
-
 /* NB: the following table must be sorted lexically. */
 static OPTION const options[] = {
-	{ "!",		N_NOT,		c_not,		0 },
-	{ "(",		N_OPENPAREN,	c_openparen,	0 },
-	{ ")",		N_CLOSEPAREN,	c_closeparen,	0 },
-	{ "-a",		N_AND,		c_null,		0 },
-	{ "-and",	N_AND,		c_null,		0 },
-	{ "-atime",	N_ATIME,	c_atime,	1 },
-	{ "-ctime",	N_CTIME,	c_ctime,	1 },
-	{ "-depth",	N_DEPTH,	c_depth,	0 },
-	{ "-exec",	N_EXEC,		c_exec,		1 },
-	{ "-follow",	N_FOLLOW,	c_follow,	0 },
-	{ "-fstype",	N_FSTYPE,	c_fstype,	1 },
-	{ "-group",	N_GROUP,	c_group,	1 },
-	{ "-inum",	N_INUM,		c_inum,		1 },
-	{ "-links",	N_LINKS,	c_links,	1 },
-	{ "-ls",	N_LS,		c_ls,		0 },
-	{ "-mtime",	N_MTIME,	c_mtime,	1 },
-	{ "-name",	N_NAME,		c_name,		1 },
-	{ "-newer",	N_NEWER,	c_newer,	1 },
-	{ "-nogroup",	N_NOGROUP,	c_nogroup,	0 },
-	{ "-nouser",	N_NOUSER,	c_nouser,	0 },
-	{ "-o",		N_OR,		c_or,		0 },
-	{ "-ok",	N_OK,		c_exec,		1 },
-	{ "-or",	N_OR,		c_or,		0 },
-	{ "-path", 	N_PATH,		c_path,		1 },
-	{ "-perm",	N_PERM,		c_perm,		1 },
-	{ "-print",	N_PRINT,	c_print,	0 },
-	{ "-print0",	N_PRINT0,	c_print0,	0 },
-	{ "-prune",	N_PRUNE,	c_prune,	0 },
-	{ "-size",	N_SIZE,		c_size,		1 },
-	{ "-type",	N_TYPE,		c_type,		1 },
-	{ "-user",	N_USER,		c_user,		1 },
-	{ "-xdev",	N_XDEV,		c_xdev,		0 }
+	{ "!",		c_simple,	f_not,		0 },
+	{ "(",		c_simple,	f_openparen,	0 },
+	{ ")",		c_simple,	f_closeparen,	0 },
+	{ "-a",		c_and,		NULL,		0 },
+	{ "-amin",	c_Xmin,		f_Xmin,		F_TIME_A },
+	{ "-and",	c_and,		NULL,		0 },
+	{ "-anewer",	c_newer,	f_newer,	F_TIME_A },
+	{ "-atime",	c_Xtime,	f_Xtime,	F_TIME_A },
+	{ "-cmin",	c_Xmin,		f_Xmin,		F_TIME_C },
+	{ "-cnewer",	c_newer,	f_newer,	F_TIME_C },
+	{ "-ctime",	c_Xtime,	f_Xtime,	F_TIME_C },
+	{ "-delete",	c_delete,	f_delete,	0 },
+	{ "-depth",	c_depth,	f_always_true,	0 },
+	{ "-empty",	c_empty,	f_empty,	0 },
+	{ "-exec",	c_exec,		f_exec,		0 },
+	{ "-execdir",	c_exec,		f_exec,		F_EXECDIR },
+	{ "-flags",	c_flags,	f_flags,	0 },
+	{ "-follow",	c_follow,	f_always_true,	0 },
+/*
+ * NetBSD doesn't provide a getvfsbyname(), so this option
+ * is not available if using a NetBSD kernel.
+ */
+#if !defined(__NetBSD__)
+	{ "-fstype",	c_fstype,	f_fstype,	0 },
+#endif
+	{ "-group",	c_group,	f_group,	0 },
+	{ "-iname",	c_name,		f_name,		F_IGNCASE },
+	{ "-inum",	c_inum,		f_inum,		0 },
+	{ "-ipath",	c_name,		f_path,		F_IGNCASE },
+	{ "-iregex",	c_regex,	f_regex,	F_IGNCASE },
+	{ "-links",	c_links,	f_links,	0 },
+	{ "-ls",	c_ls,		f_ls,		0 },
+	{ "-maxdepth",	c_mXXdepth,	f_always_true,	F_MAXDEPTH },
+	{ "-mindepth",	c_mXXdepth,	f_always_true,	0 },
+	{ "-mmin",	c_Xmin,		f_Xmin,		0 },
+	{ "-mnewer",	c_newer,	f_newer,	0 },
+	{ "-mtime",	c_Xtime,	f_Xtime,	0 },
+	{ "-name",	c_name,		f_name,		0 },
+	{ "-newer",	c_newer,	f_newer,	0 },
+	{ "-neweraa",	c_newer,	f_newer,	F_TIME_A | F_TIME2_A },
+	{ "-newerac",	c_newer,	f_newer,	F_TIME_A | F_TIME2_C },
+	{ "-neweram",	c_newer,	f_newer,	F_TIME_A },
+	{ "-newerat",	c_newer,	f_newer,	F_TIME_A | F_TIME2_T },
+	{ "-newerca",	c_newer,	f_newer,	F_TIME_C | F_TIME2_A },
+	{ "-newercc",	c_newer,	f_newer,	F_TIME_C | F_TIME2_C },
+	{ "-newercm",	c_newer,	f_newer,	F_TIME_C },
+	{ "-newerct",	c_newer,	f_newer,	F_TIME_C | F_TIME2_T },
+	{ "-newerma",	c_newer,	f_newer,	F_TIME2_A },
+	{ "-newermc",	c_newer,	f_newer,	F_TIME2_C },
+	{ "-newermm",	c_newer,	f_newer,	0 },
+	{ "-newermt",	c_newer,	f_newer,	F_TIME2_T },
+	{ "-nogroup",	c_nogroup,	f_nogroup,	0 },
+	{ "-nouser",	c_nouser,	f_nouser,	0 },
+	{ "-o",		c_simple,	f_or,		0 },
+	{ "-ok",	c_exec,		f_exec,		F_NEEDOK },
+	{ "-okdir",	c_exec,		f_exec,		F_NEEDOK | F_EXECDIR },
+	{ "-or",	c_simple,	f_or,		0 },
+	{ "-path", 	c_name,		f_path,		0 },
+	{ "-perm",	c_perm,		f_perm,		0 },
+	{ "-print",	c_print,	f_print,	0 },
+	{ "-print0",	c_print,	f_print0,	0 },
+	{ "-prune",	c_simple,	f_prune,	0 },
+	{ "-regex",	c_regex,	f_regex,	0 },
+	{ "-size",	c_size,		f_size,		0 },
+	{ "-type",	c_type,		f_type,		0 },
+	{ "-user",	c_user,		f_user,		0 },
+	{ "-xdev",	c_xdev,		f_always_true,	0 },
 };
 
 /*
@@ -107,7 +137,7 @@ PLAN *
 find_create(argvp)
 	char ***argvp;
 {
-	OPTION *p;
+	register OPTION *p;
 	PLAN *new;
 	char **argv;
 
@@ -116,20 +146,18 @@ find_create(argvp)
 	if ((p = option(*argv)) == NULL)
 		errx(1, "%s: unknown option", *argv);
 	++argv;
-	if (p->arg && !*argv)
-		errx(1, "%s: requires additional arguments", *--argv);
 
-	new = (p->create)(&argv, p->token == N_OK);
-
+	new = (p->create)(p, &argv);
 	*argvp = argv;
 	return (new);
 }
 
-static OPTION *
+OPTION *
 option(name)
 	char *name;
 {
 	OPTION tmp;
+	int typecompare __P((const void *, const void *));
 
 	tmp.name = name;
 	return ((OPTION *)bsearch(&tmp, options,

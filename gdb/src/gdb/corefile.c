@@ -1,5 +1,6 @@
 /* Core dump and executable file functions above target vector, for GDB.
-   Copyright 1986, 1987, 1989, 1991-1994, 2000
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
+   1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -24,7 +25,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
-#include "frame.h"		/* required by inferior.h */
 #include "inferior.h"
 #include "symtab.h"
 #include "command.h"
@@ -33,11 +33,10 @@
 #include "target.h"
 #include "gdbcore.h"
 #include "dis-asm.h"
-#include "language.h"
 #include "gdb_stat.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "top.h"
+#include "completer.h"
 
 extern bfd *exec_bfd;
 
@@ -90,7 +89,7 @@ core_file_command (char *args, int from_tty)
       cleanups = make_cleanup_freeargv (argv);
 
       if (argv[0] == NULL)
-	internal_error ("buildargv returned empty vector");
+	internal_error (__FILE__, __LINE__, "buildargv returned empty vector");
       else if (argv[1] != NULL)
 	error ("more than one core filename was specified");
       else
@@ -98,35 +97,13 @@ core_file_command (char *args, int from_tty)
     }
 
   t = find_core_target ();
-  if (t != NULL)
-    if (!filename)
-      (t->to_detach) (filename, from_tty);
-    else
-      {
-	/* Yes, we were given the path of a core file.  Do we already
-	   have a symbol file?  If not, can we determine it from the
-	   core file?  If we can, do so.
-	 */
-#ifdef HPUXHPPA
-	if (symfile_objfile == NULL)
-	  {
-	    char *symfile;
-	    symfile = t->to_core_file_to_sym_file (filename);
-	    if (symfile)
-	      {
-		char *symfile_copy = xstrdup (symfile);
-
-		make_cleanup (free, symfile_copy);
-		symbol_file_command (symfile_copy, from_tty);
-	      }
-	    else
-	      warning ("Unknown symbols for '%s'; use the 'symbol-file' command.", filename);
-	  }
-#endif
-	(t->to_open) (filename, from_tty);
-      }
-  else
+  if (t == NULL)
     error ("GDB can't read core files on this machine.");
+
+  if (!filename)
+    (t->to_detach) (filename, from_tty);
+  else
+    (t->to_open) (filename, from_tty);
 
   if (cleanups != NULL)
     do_cleanups (cleanups);
@@ -211,12 +188,14 @@ reopen_exec_file (void)
 
   /* If the timestamp of the exec file has changed, reopen it. */
   filename = xstrdup (bfd_get_filename (exec_bfd));
-  make_cleanup (free, filename);
+  make_cleanup (xfree, filename);
   mtime = bfd_get_mtime (exec_bfd);
   res = stat (filename, &st);
 
   if (mtime && mtime != st.st_mtime)
-    exec_file_command (filename, 0);
+    {
+      exec_open (filename, 0);
+    }
 #endif
 }
 
@@ -317,18 +296,42 @@ dis_asm_print_address (bfd_vma addr, struct disassemble_info *info)
   print_address (addr, info->stream);
 }
 
-/* Same as target_write_memory, but report an error if can't write.  */
-void
-write_memory (CORE_ADDR memaddr, char *myaddr, int len)
-{
-  int status;
+/* Read an integer from debugged memory, given address and number of bytes.  */
 
-  status = target_write_memory (memaddr, myaddr, len);
-  if (status != 0)
-    memory_error (status, memaddr);
+struct captured_read_memory_integer_arguments
+{
+  CORE_ADDR memaddr;
+  int len;
+  LONGEST result;
+};
+
+static int
+do_captured_read_memory_integer (void *data)
+{
+  struct captured_read_memory_integer_arguments *args = (struct captured_read_memory_integer_arguments*) data;
+  CORE_ADDR memaddr = args->memaddr;
+  int len = args->len;
+
+  args->result = read_memory_integer (memaddr, len);
+
+  return 0;
 }
 
-/* Read an integer from debugged memory, given address and number of bytes.  */
+int
+safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value)
+{
+  int status;
+  struct captured_read_memory_integer_arguments args;
+  args.memaddr = memaddr;
+  args.len = len;
+
+  status = catch_errors (do_captured_read_memory_integer, &args,
+                        "", RETURN_MASK_ALL);
+  if (!status)
+    *return_value = args.result;
+
+  return status;
+}
 
 LONGEST
 read_memory_integer (CORE_ADDR memaddr, int len)
@@ -374,6 +377,36 @@ read_memory_string (CORE_ADDR memaddr, char *buffer, int max_len)
 	break;
     }
 }
+
+/* Same as target_write_memory, but report an error if can't write.  */
+void
+write_memory (CORE_ADDR memaddr, char *myaddr, int len)
+{
+  int status;
+
+  status = target_write_memory (memaddr, myaddr, len);
+  if (status != 0)
+    memory_error (status, memaddr);
+}
+
+/* Store VALUE at ADDR in the inferior as a LEN-byte unsigned integer.  */
+void
+write_memory_unsigned_integer (CORE_ADDR addr, int len, ULONGEST value)
+{
+  char *buf = alloca (len);
+  store_unsigned_integer (buf, len, value);
+  write_memory (addr, buf, len);
+}
+
+/* Store VALUE at ADDR in the inferior as a LEN-byte signed integer.  */
+void
+write_memory_signed_integer (CORE_ADDR addr, int len, LONGEST value)
+{
+  char *buf = alloca (len);
+  store_signed_integer (buf, len, value);
+  write_memory (addr, buf, len);
+}
+
 
 
 #if 0
@@ -431,7 +464,7 @@ void
 set_gnutarget (char *newtarget)
 {
   if (gnutarget_string != NULL)
-    free (gnutarget_string);
+    xfree (gnutarget_string);
   gnutarget_string = savestring (newtarget, strlen (newtarget));
   set_gnutarget_command (NULL, 0, NULL);
 }
@@ -444,16 +477,15 @@ _initialize_core (void)
 	       "Use FILE as core dump for examining memory and registers.\n\
 No arg means have no core file.  This command has been superseded by the\n\
 `target core' and `detach' commands.", &cmdlist);
-  c->completer = filename_completer;
-  c->completer_word_break_characters =
-    gdb_completer_filename_word_break_characters;
+  set_cmd_completer (c, filename_completer);
+  /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
 
   c = add_set_cmd ("gnutarget", class_files, var_string_noescape,
 		   (char *) &gnutarget_string,
 		   "Set the current BFD target.\n\
 Use `set gnutarget auto' to specify automatic detection.",
 		   &setlist);
-  c->function.sfunc = set_gnutarget_command;
+  set_cmd_sfunc (c, set_gnutarget_command);
   add_show_from_set (c, &showlist);
 
   if (getenv ("GNUTARGET"))

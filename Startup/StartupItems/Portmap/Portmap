@@ -1,33 +1,50 @@
 #!/bin/sh
 
 ##
-# Start the portmap server.
-# portmap converts Sun RPC program numbers into IP port numbers.
+# Portmap server.
 ##
 
 . /etc/rc.common
 
-##
-# portmap is required if there are NFS exports, or if there are
-# NetInfo domains other than "local", or if the local domain has
-# any non-loopback values for "trusted_networks".
-# Explicitly setting NETINFOSERVER=-YES- forces portmap to run.
-##
-if [ "${RPCSERVER:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
-    RPCSERVER=-YES-
-    nfs_exports=$(nicl -raw /var/db/netinfo/local.nidb -list /exports 2> /dev/null | wc -w)
-    ni_not_local=$(/bin/ls -1d /var/db/netinfo/*.nidb | sed 's:/var/db/netinfo/local.nidb::' | wc -w)
-    ni_local_export=$(nicl -raw /var/db/netinfo/local.nidb -read / trusted_networks | sed 's/trusted_networks://' | sed 's/127[^ ]*//g' | wc -w)
+StartService ()
+{
+    ##
+    # portmap is required if there are NFS exports, or if there are
+    # NetInfo domains other than "local", or if the local domain has
+    # any non-loopback values for "trusted_networks".
+    # Explicitly setting NETINFOSERVER=-YES- forces portmap to run.
+    ##
+    if [ "${RPCSERVER:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
+	RPCSERVER=-YES-
+	nfs_exports=$(nicl -raw /var/db/netinfo/local.nidb -list /exports 2> /dev/null | wc -w)
+	ni_not_local=$(/bin/ls -1d /var/db/netinfo/*.nidb | sed 's:/var/db/netinfo/local.nidb::' | wc -w)
+	ni_local_export=$(nicl -raw /var/db/netinfo/local.nidb -read / trusted_networks 2>&1 | sed 's/trusted_networks://' | sed 's/127[^ ]*//g' | wc -w)
 	total=$(($nfs_exports + $ni_not_local + $ni_local_export))
 	if [ "${total}" -eq 0 ]; then
-        RPCSERVER=-NO-
+	    RPCSERVER=-NO-
 	fi
 	if [ "${NETINFOSERVER:=-NO-}" = "-YES-" ]; then
-		RPCSERVER=-YES-
+	    RPCSERVER=-YES-
 	fi
-fi
+	if [ "${NISDOMAIN:=-NO-}" != "-NO-" ]; then
+	    RPCSERVER=-YES-
+	fi
+    fi
 
-if [ "${RPCSERVER}" = "-YES-" ]; then
-    ConsoleMessage "Starting RPC nameserver"
-    portmap
-fi
+    if [ "${RPCSERVER}" = "-YES-" ]; then
+	ConsoleMessage "Starting port mapper"
+	portmap
+    fi
+}
+
+StopService ()
+{
+    return 0
+}
+
+RestartService ()
+{
+    return 0
+}
+
+RunService "$1"

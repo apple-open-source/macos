@@ -21,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <string.h>
 #include "stuff/ofile.h"
 
 /*

@@ -81,9 +81,8 @@ public:
 
     static void initKeys();
 
-    static OSDictionary *createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict = 0);
-    static IOAudioStreamFormat *createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0);
-    
+    static OSDictionary *createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict = 0);
+    static IOAudioStreamFormat *createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0, IOAudioStreamFormatExtension *formatExtension = 0);
 
     IOAudioEngine 				*audioEngine;
     IOWorkLoop					*workLoop;
@@ -125,19 +124,33 @@ public:
     IOAudioClientBuffer			*userClientList;
 
 protected:
-    struct ExpansionData { };
+    struct ExpansionData {
+		IOAudioStreamFormatExtension	streamFormatExtension;
+	};
     
     ExpansionData *reserved;
-    
+
+public:
+// New code added here:
+    virtual const IOAudioStreamFormatExtension *getFormatExtension();
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, bool callDriver = true);
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict, bool callDriver = true);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction);
+    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc);
+	virtual void setTerminalType(const UInt32 terminalType);
+	virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 0);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 1);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 2);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 3);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 4);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 5);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 6);
-    OSMetaClassDeclareReservedUnused(IOAudioStream, 7);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 2);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 3);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 4);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 5);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 6);
+    OSMetaClassDeclareReservedUsed(IOAudioStream, 7);
+
     OSMetaClassDeclareReservedUnused(IOAudioStream, 8);
     OSMetaClassDeclareReservedUnused(IOAudioStream, 9);
     OSMetaClassDeclareReservedUnused(IOAudioStream, 10);

@@ -39,6 +39,7 @@
 #import "dyld_init.h"
 #import "debug.h"
 #import "allocate.h"
+#import "trace.h"
 
 static unsigned long _dyld_image_count(
     void);
@@ -218,10 +219,15 @@ static struct mach_header * _dyld_NSAddImage(
     char *dylib_name,
     unsigned long options);
 /* TODO: figure out how to share these with <mach-o/dyld.h> */
-#define ADDIMAGE_OPTION_NONE                  0x0
-#define ADDIMAGE_OPTION_RETURN_ON_ERROR       0x1
-#define ADDIMAGE_OPTION_WITH_SEARCHING        0x2
-#define ADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 0x4
+#define ADDIMAGE_OPTION_NONE                  		0x0
+#define ADDIMAGE_OPTION_RETURN_ON_ERROR       		0x1
+#define ADDIMAGE_OPTION_WITH_SEARCHING        		0x2
+#define ADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 		0x4
+#define ADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME	0x8
+
+static int _dyld_NSGetExecutablePath(
+    char *buf,
+    unsigned long *bufsize);
 
 static enum bool _dyld_launched_prebound(
     void);
@@ -299,6 +305,7 @@ struct dyld_func dyld_funcs[] = {
     {"__dyld_NSAddLibraryWithSearching",
 	(void (*)(void))_dyld_NSAddLibraryWithSearching },
     {"__dyld_NSAddImage", (void (*)(void))_dyld_NSAddImage },
+    {"__dyld__NSGetExecutablePath", (void (*)(void))_dyld_NSGetExecutablePath },
     {"__dyld_launched_prebound",(void (*)(void))_dyld_launched_prebound },
     {"__dyld_call_module_initializers_for_dylib",
 	(void (*)(void))_dyld_call_module_initializers_for_dylib },
@@ -539,9 +546,11 @@ module_state **module)
     struct library_image *defined_library_image;
     unsigned long value;
     enum link_state link_state;
-
+        
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_lookup_and_bind_with_hint,
+	    symbol_name);
 
 	lookup_symbol_in_hinted_library(symbol_name, library_name_hint,
 	    &defined_symbol, &defined_module, &defined_image,
@@ -556,8 +565,10 @@ module_state **module)
 		    *address = value;
 		if(module != NULL)
 		    *module = defined_module;
+                DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_lookup_and_bind_with_hint);
 		/* release lock for dyld data structures */
 		release_lock();
+
 		return;
 	    }
 	}
@@ -571,6 +582,8 @@ module_state **module)
 	 * be released before it is called.
 	 */
 	bind_symbol_by_name(symbol_name, address, module, NULL, TRUE);
+	
+        DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_lookup_and_bind_with_hint);
 }
 
 /*
@@ -617,6 +630,13 @@ module_state **module)
     unsigned long i;
     struct object_images *p;
 
+        if(dyld_trace)
+            set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_lookup_and_bind_fully,
+	    symbol_name);
+        if(dyld_trace)
+            release_lock();
+	
 	/*
 	 * The locking is done inside bind_symbol_by_name() because it can cause
 	 * the user's undefined symbol handler to be called and the lock must
@@ -627,8 +647,9 @@ module_state **module)
 	/* set lock for dyld data structures */
 	set_lock();
 
-	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+	lookup_symbol(symbol_name, NULL, NULL, FALSE, &defined_symbol,
+		      &defined_module, &defined_image, &defined_library_image,
+		      NULL);
 	link_state = GET_LINK_STATE(*defined_module);
 	if(link_state == FULLY_LINKED){
 	    /* release lock for dyld data structures */
@@ -655,6 +676,7 @@ module_state **module)
 		    }
 		}
 		if(object_image == NULL){
+                    DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_lookup_and_bind_fully);
 		    /* release lock for dyld data structures */
 		    release_lock();
 		    return;
@@ -667,6 +689,7 @@ module_state **module)
 	    /* the lock gets released in link_in_need_modules */
 	    link_in_need_modules(TRUE, TRUE);
 	}
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_lookup_and_bind_fully);
 }
 
 static
@@ -727,6 +750,7 @@ unsigned long options)
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_link_module, moduleName);
 
 	/*
 	 * If the LINK_OPTION_RETURN_ON_ERROR is specified set the global
@@ -743,6 +767,7 @@ unsigned long options)
 
 	object_image = map_bundle_image(moduleName, object_addr, object_size);
 	if(object_image == NULL){
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	    /* release lock for dyld data structures */
 	    release_lock();
 	    return(NULL);
@@ -771,6 +796,7 @@ unsigned long options)
 	     */
 	    object_image->image.private = TRUE;
 	    unload_bundle_image(object_image, FALSE, FALSE);
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	    /* release lock for dyld data structures */
 	    release_lock();
 	    return(NULL);
@@ -810,6 +836,7 @@ unsigned long options)
 	     */
 	    object_image->image.private = TRUE;
 	    unload_bundle_image(object_image, FALSE, FALSE);
+    	    DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	    /* release lock for dyld data structures */
 	    release_lock();
 	    return(NULL);
@@ -848,6 +875,7 @@ unsigned long options)
 		 */
 		object_image->image.private = TRUE;
 		unload_bundle_image(object_image, FALSE, FALSE);
+                DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 		/* release lock for dyld data structures */
 		release_lock();
 		return(NULL);
@@ -868,6 +896,7 @@ unsigned long options)
 	 */
 	gdb_dyld_state_changed();
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	return(&object_image->module);
 }
 
@@ -885,6 +914,7 @@ unsigned long options)
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_unlink_module);
 
 	if(options & UNLINK_OPTION_KEEP_MEMORY_MAPPED)
     	    keepMemoryMapped = TRUE;
@@ -947,6 +977,7 @@ done:
 	 */
 	gdb_dyld_state_changed();
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_unlink_module);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -1127,7 +1158,8 @@ unsigned long objc_module)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_bind_objc_module);
+        
 	/*
 	 * Look through the library images trying to find this module.  Then if 
 	 * found see if it is linked and if not force it to be linked.
@@ -1164,6 +1196,7 @@ unsigned long objc_module)
 		}
 		if(link_state != UNLINKED &&
 		   link_state != PREBOUND_UNLINKED){
+                    DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_bind_objc_module);
 		    release_lock();
 		    return;
 		}
@@ -1197,12 +1230,14 @@ unsigned long objc_module)
 		call_registered_funcs_for_linked_modules();
 		call_image_init_routines(FALSE);
 		call_module_initializers(FALSE, FALSE);
-
+                
+		DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_bind_objc_module);
 		/* release lock for dyld data structures */
 		release_lock();
 		return;
 	    }
 	}
+        DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_bind_objc_module);
 	/* release lock for dyld data structures */
 	release_lock();
 }
@@ -1227,10 +1262,12 @@ unsigned long address)
     struct load_command *lc;
     struct segment_command *sg;
     enum link_state link_state;
+	
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_START(
+	    DYLD_TRACE_bind_fully_image_containing_address);
 	/*
 	 * Look through the object images and then the library images trying
 	 * to find this address.  Then if found then cause the image to be
@@ -1255,11 +1292,15 @@ unsigned long address)
 			    if(link_state == FULLY_LINKED){
 				/* release lock for dyld data structures */
 				release_lock();
+				DYLD_TRACE_LIBFUNC_END(
+				DYLD_TRACE_bind_fully_image_containing_address);
 				return(TRUE);
 			    }
 			    link_object_module(&(p->images[i]), TRUE, FALSE);
 			    link_in_need_modules(TRUE, TRUE);
 			    /* the lock gets released in link_in_need_modules */
+			    DYLD_TRACE_LIBFUNC_END(
+				DYLD_TRACE_bind_fully_image_containing_address);
 			    return(TRUE);
 			}
 		    }
@@ -1300,6 +1341,8 @@ unsigned long address)
 			    }
 			    link_in_need_modules(TRUE, TRUE);
 			    /* the lock gets released in link_in_need_modules */
+			    DYLD_TRACE_LIBFUNC_END(
+				DYLD_TRACE_bind_fully_image_containing_address);
 			    return(TRUE);
 			}
 		    }
@@ -1307,6 +1350,8 @@ unsigned long address)
 		}
 	    }
 	}
+        
+        DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_bind_fully_image_containing_address);
 	/* release lock for dyld data structures */
 	release_lock();
 	return(FALSE);
@@ -1680,10 +1725,14 @@ void)
 {
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_START(
+	    DYLD_TRACE_make_delayed_module_initializer_calls);
+        
 	call_image_init_routines(TRUE);
 	call_module_initializers(TRUE, FALSE);
 
+	DYLD_TRACE_LIBFUNC_END(
+	    DYLD_TRACE_make_delayed_module_initializer_calls);
 	/* release lock for dyld data structures */
 	release_lock();
 }
@@ -1712,7 +1761,8 @@ struct nlist *symbol)
 	 * routine is allowed to be called from.
 	 */
 	lock_set = set_lock_or_in_multiply_defined_handler();
-	
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_NSNameOfSymbol);	
+
 	symbol_name = NULL;
 	if(validate_NSSymbol(symbol, &defined_module,
 		&defined_image, &defined_library_image) == TRUE){
@@ -1724,6 +1774,7 @@ struct nlist *symbol)
 		symbol->n_un.n_strx;
 	}
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSNameOfSymbol);
 	/* release lock for dyld data structures if we set it */
 	if(lock_set == TRUE)
 	    release_lock();
@@ -1749,7 +1800,8 @@ struct nlist *symbol)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_NSAddressOfSymbol);
+        
 	value = 0;
 	if(validate_NSSymbol(symbol, &defined_module,
 		&defined_image, &defined_library_image) == TRUE){
@@ -1758,6 +1810,7 @@ struct nlist *symbol)
 		value += defined_image->vmaddr_slide;
 	}
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddressOfSymbol);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -1782,11 +1835,13 @@ struct nlist *symbol)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_NSModuleForSymbol);
+        
 	defined_module = NULL;
 	(void)validate_NSSymbol(symbol, &defined_module,
 		&defined_image, &defined_library_image);
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSModuleForSymbol);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -1834,9 +1889,11 @@ char *libraryNameHint)
     struct image *defined_image;
     struct library_image *defined_library_image;
     enum link_state link_state;
-
+    
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSLookupAndBindSymbolWithHint,
+	    symbol_name);
 
 	lookup_symbol_in_hinted_library(symbol_name, libraryNameHint,
 	    &defined_symbol, &defined_module, &defined_image,
@@ -1844,6 +1901,8 @@ char *libraryNameHint)
 	if(defined_symbol != NULL){
 	    link_state = GET_LINK_STATE(*defined_module);
 	    if(link_state == LINKED || link_state == FULLY_LINKED){
+                DYLD_TRACE_LIBFUNC_END(
+		    DYLD_TRACE_NSLookupAndBindSymbolWithHint);
 		/* release lock for dyld data structures */
 		release_lock();
 		return(defined_symbol);
@@ -1859,6 +1918,8 @@ char *libraryNameHint)
 	 * be released before it is called.
 	 */
 	bind_symbol_by_name(symbol_name, NULL, NULL, &defined_symbol, TRUE);
+        
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupAndBindSymbolWithHint);
 	return(defined_symbol);
 }
 
@@ -1884,7 +1945,9 @@ char *symbol_name)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSLookupSymbolInModule, 
+	    symbol_name);
+        
 	defined_symbol = NULL;
 /*
 printf("In __dyld_NSLookupAndBindSymbol(module = 0x%x, symbol_name = %s)\n",
@@ -1924,6 +1987,7 @@ printf("p->images[%lu].module = 0x%x name = %s\n", i, p->images[i].module, p->im
 	    }
 	}
 done:
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInModule);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -1953,12 +2017,15 @@ unsigned long options)
     module_state *defined_module;
     struct library_image *defined_library_image;
     struct object_image *object_image;
+    char *image_name;
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSLookupSymbolInImage,
+	    symbol_name);
 
 	defined_symbol = NULL;
-
+	image_name = NULL;
 	/*
 	 * First find the dynamic library for this mach header and lookup the
 	 * the symbol_name in it if the mach header is a loaded dynamic library.
@@ -1968,6 +2035,7 @@ unsigned long options)
 	for(q = &library_images; q != NULL; q = q->next_images){
 	    for(i = 0; i < q->nimages; i++){
 		if(q->images[i].image.mh == mh){
+		    image_name = q->images[i].image.name;
 		    if(force_flat_namespace == FALSE)
 			lookup_image = &(q->images[i].image);
 		    else
@@ -1975,7 +2043,7 @@ unsigned long options)
 		    /*
 		     * look this symbol up in this image.
 		     */
-		    lookup_symbol(symbol_name, lookup_image, NULL,
+		    lookup_symbol(symbol_name, lookup_image, NULL, FALSE,
 				  &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		    image_found = TRUE;
@@ -1986,6 +2054,7 @@ unsigned long options)
 	for(p = &object_images; p != NULL; p = p->next_images){
 	    for(i = 0; i < p->nimages; i++){
 		if(p->images[i].image.mh == mh){
+		    image_name = p->images[i].image.name;
 		    if(force_flat_namespace == FALSE ||
 		       p->images[i].image.private == TRUE)
 			lookup_image = &(p->images[i].image);
@@ -1994,7 +2063,7 @@ unsigned long options)
 		    /*
 		     * look this symbol up in this image.
 		     */
-		    lookup_symbol(symbol_name, lookup_image, NULL,
+		    lookup_symbol(symbol_name, lookup_image, NULL, FALSE,
 			          &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		    image_found = TRUE;
@@ -2014,6 +2083,7 @@ down:
 		return_on_error = TRUE;
 		link_edit_error(DYLD_OTHER_ERROR, DYLD_INVALID_ARGS, NULL);
 	    }
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInImage);
 	    /*
 	     * Release lock for dyld data structures.
 	     * Note release_lock() alwasys clears return_on_error.
@@ -2029,11 +2099,12 @@ down:
 	if(defined_image == NULL){
 	    if(options & LOOKUP_OPTION_RETURN_ON_ERROR){
 		error("NSLookupSymbolInImage() dynamic library: %s does not "
-		      "define symbol: %s",q->images[i].image.name, symbol_name);
+		      "define symbol: %s", image_name, symbol_name);
 		return_on_error = TRUE;
 		link_edit_error(DYLD_OTHER_ERROR, DYLD_INVALID_ARGS,
-				q->images[i].image.name);
+				image_name);
 	    }
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInImage);
 	    /*
 	     * Release lock for dyld data structures.
 	     * Note release_lock() always clears return_on_error.
@@ -2052,8 +2123,10 @@ down:
 	   (link_state == LINKED &&
 	    (options & LOOKUP_OPTION_BIND_FULLY) == 0 &&
 	    (options & LOOKUP_OPTION_BIND_NOW) == 0) ){
-	    /* release lock for dyld data structures */
-	    release_lock();
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInImage);
+            /* release lock for dyld data structures */
+            release_lock();
+		
 	    return(defined_symbol);
 	}
 
@@ -2174,6 +2247,7 @@ down:
 	if(return_on_error == TRUE && return_value == FALSE)
 	    goto back_out_changes;
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInImage);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -2191,6 +2265,7 @@ back_out_changes:
 	clear_being_linked_list(TRUE);
 	clear_undefined_list(TRUE);
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLookupSymbolInImage);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -2275,14 +2350,18 @@ char *symbol_name)
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSIsSymbolNameDefined,
+	    symbol_name);
 
 	defined = FALSE;
-	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
-		      &defined_image, &defined_library_image, NULL);
+	lookup_symbol(symbol_name, NULL, NULL, FALSE, &defined_symbol,
+		      &defined_module, &defined_image, &defined_library_image,
+		      NULL);
 	if(defined_symbol != NULL)
 	    defined = TRUE;
 
-	/* release lock for dyld data structures */
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSIsSymbolNameDefined);
+        /* release lock for dyld data structures */
 	release_lock();
 
 	return(defined);
@@ -2311,7 +2390,9 @@ char *libraryNameHint)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSIsSymbolNameDefinedWithHint,
+	    symbol_name);
+        
 	defined = FALSE;
 
 	lookup_symbol_in_hinted_library(symbol_name, libraryNameHint,
@@ -2321,13 +2402,14 @@ char *libraryNameHint)
 	    defined = TRUE;
 	}
 	else{
-	    lookup_symbol(symbol_name, NULL, NULL, &defined_symbol,
+	    lookup_symbol(symbol_name, NULL, NULL, FALSE, &defined_symbol,
 			  &defined_module, &defined_image,
 			  &defined_library_image, NULL);
 	    if(defined_symbol != NULL)
 		defined = TRUE;
 	}
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSIsSymbolNameDefinedWithHint);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -2356,7 +2438,9 @@ char *symbol_name)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSIsSymbolNameDefinedInImage,
+	    symbol_name);
+        
 	defined_symbol = NULL;
 
 	/*
@@ -2374,7 +2458,7 @@ char *symbol_name)
 		    /*
 		     * look this symbol up in this image.
 		     */
-		    lookup_symbol(symbol_name, lookup_image, NULL,
+		    lookup_symbol(symbol_name, lookup_image, NULL, FALSE,
 			          &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		    goto down;
@@ -2392,7 +2476,7 @@ char *symbol_name)
 		    /*
 		     * look this symbol up in this image.
 		     */
-		    lookup_symbol(symbol_name, lookup_image, NULL,
+		    lookup_symbol(symbol_name, lookup_image, NULL, FALSE,
 			          &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		    goto down;
@@ -2400,8 +2484,10 @@ char *symbol_name)
 	    }
 	}
 down:
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSIsSymbolNameDefinedInImage);
 	/* release lock for dyld data structures */
 	release_lock();
+        
 	return(defined_image != NULL);
 }
 
@@ -2431,7 +2517,8 @@ module_state *module)
 	 * routine is allowed to be called from.
 	 */
 	lock_set = set_lock_or_in_multiply_defined_handler();
-	
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_NSNameOfModule);
+        	
 	module_name = NULL;
 	if(validate_NSModule(module, &defined_image,
 			     &defined_library_image) == TRUE){
@@ -2454,6 +2541,7 @@ module_state *module)
 	    }
 	}
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSNameOfModule);
 	/* release lock for dyld data structures if we set it */
 	if(lock_set == TRUE)
 	    release_lock();
@@ -2485,7 +2573,8 @@ module_state *module)
 	 * routine is allowed to be called from.
 	 */
 	lock_set = set_lock_or_in_multiply_defined_handler();
-	
+	DYLD_TRACE_LIBFUNC_START(DYLD_TRACE_NSLibraryNameForModule);
+        	
 	library_name = NULL;
 	if(validate_NSModule(module, &defined_image,
 			     &defined_library_image) == TRUE){
@@ -2494,6 +2583,7 @@ module_state *module)
 	    }
 	}
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSLibraryNameForModule);
 	/* release lock for dyld data structures if we set it */
 	if(lock_set == TRUE)
 	    release_lock();
@@ -2515,10 +2605,11 @@ char *dylib_name)
 
 	/* set lock for dyld data structures */
 	set_lock();
-
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSAddLibrary, dylib_name);
+        
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, FALSE, NULL);
+	return_value = load_library_image(NULL, p, FALSE, FALSE, NULL);
 	load_dependent_libraries();
 	call_registered_funcs_for_add_images();
 
@@ -2529,6 +2620,7 @@ char *dylib_name)
 	 */
 	gdb_dyld_state_changed();
 
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddLibrary);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -2551,13 +2643,16 @@ char *dylib_name)
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSAddLibraryWithSearching, 
+	    dylib_name);
 
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, TRUE, NULL);
+	return_value = load_library_image(NULL, p, TRUE, FALSE, NULL);
 	load_dependent_libraries();
 	call_registered_funcs_for_add_images();
-
+        
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddLibraryWithSearching);
 	/* release lock for dyld data structures */
 	release_lock();
 
@@ -2573,13 +2668,14 @@ _dyld_NSAddImage(
 char *dylib_name,
 unsigned long options)
 {
-    enum bool return_value, force_searching;
+    enum bool return_value, force_searching, match_filename_by_installname;
     struct image *image;
     struct stat stat_buf;
     char *p;
 
 	/* set lock for dyld data structures */
 	set_lock();
+	DYLD_TRACE_LIBFUNC_NAMED_START(DYLD_TRACE_NSAddImage, dylib_name);
 
 	/*
 	 * If the RETURN_ONLY_IF_LOADED option is used then check the library
@@ -2595,6 +2691,7 @@ unsigned long options)
 		return(image->mh);
 	    }
 	    if(stat(dylib_name, &stat_buf) == -1){
+		DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 		/* release lock for dyld data structures */
 		release_lock();
 		return(NULL);
@@ -2602,10 +2699,12 @@ unsigned long options)
 	    return_value = is_library_loaded_by_stat(dylib_name, NULL,
 						     &stat_buf, &image);
 	    if(return_value == TRUE){
+		DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 		/* release lock for dyld data structures */
 		release_lock();
 		return(image->mh);
 	    }
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	    /* release lock for dyld data structures */
 	    release_lock();
 	    return(NULL);
@@ -2623,12 +2722,18 @@ unsigned long options)
 	    return_on_error = TRUE;
 	else
 	    return_on_error = FALSE;
+	if(options & ADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME)
+	    match_filename_by_installname = TRUE;
+	else
+	    match_filename_by_installname = FALSE;
 
-	return_value = load_library_image(NULL, p, force_searching, &image);
+	return_value = load_library_image(NULL, p, force_searching,
+					  match_filename_by_installname,&image);
 	if(return_on_error == TRUE && return_value == FALSE){
-	    free(p);
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	    /* release lock for dyld data structures */
 	    release_lock();
+            
 	    return(NULL);
 	}
 
@@ -2640,7 +2745,7 @@ unsigned long options)
 	     * returns FALSE since return_on_error was set to true before
 	     * the call to load_library_image().
 	     */
-	    free(p);
+            DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	    /* release lock for dyld data structures */
 	    release_lock();
 	    return(NULL);
@@ -2672,8 +2777,37 @@ unsigned long options)
 	 * by <mach-o/dyld_gdb.h>
 	 */
 	gdb_dyld_state_changed();
-
+    
+	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	return(image->mh);
+}
+
+/*
+ *_dyld_NSGetExecutablePath is the dyld side of _NSGetExecutablePath which
+ * copies the path of the executable into the buffer and returns 0 if the path
+ * was successfully copied in the provided buffer. If the buffer is not large
+ * enough, -1 is returned and the expected buffer size is copied in *bufsize.
+ * Note that _NSGetExecutablePath will return "a path" to the executable not a
+ * "real path" to the executable. That is the path may be a symbolic link and
+ * not the real file. And with deep directories the total bufsize needed could
+ * be more than MAXPATHLEN.
+ */
+static
+int
+_dyld_NSGetExecutablePath(
+char *buf,
+unsigned long *bufsize)
+{
+	/*
+	 * This this string is setup in dyld_init() and never changed we don't
+	 * lock the dyld data structures for this call.
+	 */
+	if(*bufsize < strlen(executables_path) + 1){
+	    *bufsize = strlen(executables_path) + 1;
+	    return(-1);
+	}
+	strcpy(buf, executables_path);
+	return(0);
 }
 
 static

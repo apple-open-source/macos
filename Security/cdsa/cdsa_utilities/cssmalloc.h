@@ -25,7 +25,6 @@
 #include <Security/utilities.h>
 #include <Security/cssm.h>
 #include <cstring>
-#include <set>
 
 #ifdef _CPP_CSSMALLOC
 # pragma export on
@@ -42,24 +41,24 @@ namespace Security
 class CssmAllocator {
 public:
 	virtual ~CssmAllocator();
-	virtual void *malloc(size_t) = 0;
-	virtual void free(void *) = 0;
-	virtual void *realloc(void *, size_t) = 0;
+	virtual void *malloc(size_t) throw(std::bad_alloc) = 0;
+	virtual void free(void *) throw() = 0;
+	virtual void *realloc(void *, size_t) throw(std::bad_alloc) = 0;
 
 	//
 	// Template versions for added expressiveness.
 	// Note that the integers are element counts, not byte sizes.
 	//
-	template <class T> T *alloc()
+	template <class T> T *alloc() throw(std::bad_alloc)
 	{ return reinterpret_cast<T *>(malloc(sizeof(T))); }
 
-	template <class T> T *alloc(uint32 count)
+	template <class T> T *alloc(uint32 count) throw(std::bad_alloc)
 	{ return reinterpret_cast<T *>(malloc(sizeof(T) * count)); }
 
-	template <class T> T *alloc(T *old, uint32 count)
+	template <class T> T *alloc(T *old, uint32 count) throw(std::bad_alloc)
 	{ return reinterpret_cast<T *>(realloc(old, sizeof(T) * count)); }
 	
-	template <class Data> CssmData alloc(const Data &source)
+	template <class Data> CssmData alloc(const Data &source) throw(std::bad_alloc)
 	{
 		size_t length = source.length();
 		return CssmData(memcpy(malloc(length), source.data(), length), length);
@@ -69,14 +68,14 @@ public:
 	// Happier malloc/realloc for any type. Note that these still have
 	// the original (byte-sized) argument profile.
 	//
-	template <class T> T *malloc(size_t size)
+	template <class T> T *malloc(size_t size) throw(std::bad_alloc)
 	{ return reinterpret_cast<T *>(malloc(size)); }
 	
-	template <class T> T *realloc(void *addr, size_t size)
+	template <class T> T *realloc(void *addr, size_t size) throw(std::bad_alloc)
 	{ return reinterpret_cast<T *>(realloc(addr, size)); }
-	
+
 	// All right, if you *really* have to have calloc...
-	void *calloc(size_t size, unsigned int count)
+	void *calloc(size_t size, unsigned int count) throw(std::bad_alloc)
 	{
 		void *addr = malloc(size * count);
 		memset(addr, 0, size * count);
@@ -84,7 +83,7 @@ public:
 	}
 	
 	// compare CssmAllocators for identity
-	virtual bool operator == (const CssmAllocator &alloc) const;
+	virtual bool operator == (const CssmAllocator &alloc) const throw();
 
 public:
 	// allocator chooser options
@@ -106,30 +105,30 @@ public:
 	{ *(CSSM_MEMORY_FUNCS *)this = funcs; }
 	CssmMemoryFunctions() { }
 
-	void *malloc(size_t size) const;
-	void free(void *mem) const { free_func(mem, AllocRef); }
-	void *realloc(void *mem, size_t size) const;
-	void *calloc(uint32 count, size_t size) const;
+	void *malloc(size_t size) const throw(std::bad_alloc);
+	void free(void *mem) const throw() { free_func(mem, AllocRef); }
+	void *realloc(void *mem, size_t size) const throw(std::bad_alloc);
+	void *calloc(uint32 count, size_t size) const throw(std::bad_alloc);
 	
-	bool operator == (const CSSM_MEMORY_FUNCS &other) const
+	bool operator == (const CSSM_MEMORY_FUNCS &other) const throw()
 	{ return !memcmp(this, &other, sizeof(*this)); }
 };
 
-inline void *CssmMemoryFunctions::malloc(size_t size) const
+inline void *CssmMemoryFunctions::malloc(size_t size) const throw(std::bad_alloc)
 {
 	if (void *addr = malloc_func(size, AllocRef))
 		return addr;
 	throw std::bad_alloc();
 }
 
-inline void *CssmMemoryFunctions::calloc(uint32 count, size_t size) const
+inline void *CssmMemoryFunctions::calloc(uint32 count, size_t size) const throw(std::bad_alloc)
 {
 	if (void *addr = calloc_func(count, size, AllocRef))
 		return addr;
 	throw std::bad_alloc();
 }
 
-inline void *CssmMemoryFunctions::realloc(void *mem, size_t size) const
+inline void *CssmMemoryFunctions::realloc(void *mem, size_t size) const throw(std::bad_alloc)
 {
 	if (void *addr = realloc_func(mem, size, AllocRef))
 		return addr;
@@ -144,12 +143,12 @@ class CssmMemoryFunctionsAllocator : public CssmAllocator {
 public:
 	CssmMemoryFunctionsAllocator(const CssmMemoryFunctions &memFuncs) : functions(memFuncs) { }
 	
-	void *malloc(size_t size);
-	void free(void *addr);
-	void *realloc(void *addr, size_t size);
+	void *malloc(size_t size) throw(std::bad_alloc);
+	void free(void *addr) throw();
+	void *realloc(void *addr, size_t size) throw(std::bad_alloc);
 	
-	operator const CssmMemoryFunctions & () const { return functions; }
-	
+	operator const CssmMemoryFunctions & () const throw() { return functions; }
+
 private:
 	const CssmMemoryFunctions functions;
 };
@@ -159,7 +158,7 @@ private:
 //
 // Global C++ allocation hooks to use CssmAllocators
 //
-inline void *operator new (size_t size, CssmAllocator &allocator)
+inline void *operator new (size_t size, CssmAllocator &allocator) throw(std::bad_alloc)
 { return allocator.malloc(size); }
 
 //
@@ -168,14 +167,14 @@ inline void *operator new (size_t size, CssmAllocator &allocator)
 // Use this to cleanly destroy things.
 //
 template <class T>
-inline void destroy(T *obj, CssmAllocator &alloc)
+inline void destroy(T *obj, CssmAllocator &alloc) throw()
 {
 	obj->~T();
 	alloc.free(obj);
 }
 
 // untyped (release memory only, no destructor call)
-inline void destroy(void *obj, CssmAllocator &alloc)
+inline void destroy(void *obj, CssmAllocator &alloc) throw()
 {
 	alloc.free(obj);
 }
@@ -194,18 +193,18 @@ public:
 	CssmAllocatorMemoryFunctions() { /*IFDEBUG(*/ AllocRef = NULL /*)*/ ; }	// later assignment req'd
 	
 private:
-	static void *relayMalloc(size_t size, void *ref);
-	static void relayFree(void *mem, void *ref);
-	static void *relayRealloc(void *mem, size_t size, void *ref);
-	static void *relayCalloc(uint32 count, size_t size, void *ref);
-	
-	static CssmAllocator &allocator(void *ref)
+	static void *relayMalloc(size_t size, void *ref) throw(std::bad_alloc);
+	static void relayFree(void *mem, void *ref) throw();
+	static void *relayRealloc(void *mem, size_t size, void *ref) throw(std::bad_alloc);
+	static void *relayCalloc(uint32 count, size_t size, void *ref) throw(std::bad_alloc);
+
+	static CssmAllocator &allocator(void *ref) throw()
 	{ return *reinterpret_cast<CssmAllocator *>(ref); }
 };
 
 
 //
-// A mixin class to automatically manage your allocator.
+// A mixin class to automagically manage your allocator.
 // To allow allocation (of your object) from any instance of CssmAllocator,
 // inherit from CssmHeap. Your users can then create heap instances of your thing by
 //		new (an-allocator) YourClass(...)
@@ -219,9 +218,9 @@ private:
 //
 class CssmHeap {
 public:    
-	void *operator new (size_t size, CssmAllocator *alloc = NULL);
-	void operator delete (void *addr, size_t size);
-	void operator delete (void *addr, size_t size, CssmAllocator *alloc);
+	void *operator new (size_t size, CssmAllocator *alloc = NULL) throw(std::bad_alloc);
+	void operator delete (void *addr, size_t size) throw();
+	void operator delete (void *addr, size_t size, CssmAllocator *alloc) throw();
 };
 
 
@@ -248,12 +247,12 @@ public:
 	template <class T1> CssmAutoPtr(CssmAllocator &alloc, CssmAutoPtr<T1> &src)
 	: allocator(alloc), mine(rc.release()) { assert(allocator == src.allocator); }
 	
-	~CssmAutoPtr()				{ destroy(mine); }
+	~CssmAutoPtr()				{ allocator.free(mine); }
 	
 	T *get() const throw()		{ return mine; }
 	T *release()				{ T *result = mine; mine = NULL; return result; }
 	void reset()				{ allocator.free(mine); mine = NULL; }
-	
+
 	operator T * () const		{ return mine; }
 	T *operator -> () const		{ return mine; }
 	T &operator * () const		{ assert(mine); return *mine; }
@@ -317,47 +316,38 @@ public:
 
 
 //
-// A CssmAllocator that keeps track of allocations and can throw everything
-// away unless explicitly committed.
+// A generic helper for the unhappily ubiquitous CSSM-style
+// (count, pointer-to-array) style of arrays.
 //
-class TrackingAllocator : public CssmAllocator
-{
+template <class Base, class Wrapper = Base>
+class CssmVector {
 public:
-	TrackingAllocator(CssmAllocator &inAllocator) : mAllocator(inAllocator) {}
-	virtual ~TrackingAllocator();
+    CssmVector(uint32 &cnt, Base * &vec, CssmAllocator &alloc = CssmAllocator::standard())
+        : count(cnt), vector(reinterpret_cast<Wrapper * &>(vec)),
+          allocator(alloc)
+    {
+        count = 0;
+        vector = NULL;
+    }
+    
+    ~CssmVector()	{ allocator.free(vector); }
+        
+    uint32 &count;
+    Wrapper * &vector;
+    CssmAllocator &allocator;
 
-	void *malloc(size_t inSize)
-	{
-		void *anAddress = mAllocator.malloc(inSize);
-		mAllocSet.insert(anAddress);
-		return anAddress;
-	}
-
-	void free(void *inAddress)
-	{
-		mAllocator.free(inAddress);
-		mAllocSet.erase(inAddress);
-	}
-
-	void *realloc(void *inAddress, size_t inNewSize)
-	{
-		void *anAddress = mAllocator.realloc(inAddress, inNewSize);
-		if (anAddress != inAddress)
-		{
-			mAllocSet.erase(inAddress);
-			mAllocSet.insert(anAddress);
-		}
-
-		return anAddress;
-	}
-
-	void commit() { mAllocSet.clear(); }
-private:
-	typedef std::set<void *> AllocSet;
-
-	CssmAllocator &mAllocator;
-	AllocSet mAllocSet;
+public:
+    Wrapper &operator [] (uint32 ix)
+    { assert(ix < count); return vector[ix]; }
+    
+    void operator += (const Wrapper &add)
+    {
+        vector = reinterpret_cast<Wrapper *>(allocator.realloc(vector, (count + 1) * sizeof(Wrapper)));
+        //@@@???compiler bug??? vector = allocator.alloc<Wrapper>(vector, count + 1);
+        vector[count++] = add;
+    }
 };
+
 
 } // end namespace Security
 

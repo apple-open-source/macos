@@ -1,6 +1,7 @@
-# Makefile.in generated automatically by automake 1.4a from Makefile.am
+# Makefile.in generated automatically by automake 1.5 from Makefile.am.
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+# Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -9,6 +10,10 @@
 # but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
+
+@SET_MAKE@
+
+#AUTOMAKE_OPTIONS = ../util/ansi2knr no-dependencies
 
 SHELL = @SHELL@
 
@@ -30,13 +35,9 @@ infodir = @infodir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
-
-DESTDIR =
-
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
-
 top_builddir = ..
 
 ACLOCAL = @ACLOCAL@
@@ -48,9 +49,8 @@ INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
-INSTALL_STRIP_FLAG =
+INSTALL_HEADER = $(INSTALL_DATA)
 transform = @program_transform_name@
-
 NORMAL_INSTALL = :
 PRE_INSTALL = :
 POST_INSTALL = :
@@ -64,7 +64,7 @@ host_triplet = @host@
 target_alias = @target_alias@
 target_triplet = @target@
 AMTAR = @AMTAR@
-AMTARFLAGS = @AMTARFLAGS@
+AUTOKEY = @AUTOKEY@
 AWK = @AWK@
 CC = @CC@
 CFLAGS = @CFLAGS@
@@ -72,267 +72,308 @@ CHUTEST = @CHUTEST@
 CLKTEST = @CLKTEST@
 CPP = @CPP@
 DCFD = @DCFD@
+DEPDIR = @DEPDIR@
+EF_LIBS = @EF_LIBS@
+EF_PROGS = @EF_PROGS@
+EXEEXT = @EXEEXT@
+INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBPARSE = @LIBPARSE@
 LIBRSAREF = @LIBRSAREF@
 LN_S = @LN_S@
-MAKEINFO = @MAKEINFO@
 MAKE_ADJTIMED = @MAKE_ADJTIMED@
+MAKE_CHECK_Y2K = @MAKE_CHECK_Y2K@
 MAKE_LIBPARSE = @MAKE_LIBPARSE@
 MAKE_LIBPARSE_KERNEL = @MAKE_LIBPARSE_KERNEL@
 MAKE_LIBRSAREF = @MAKE_LIBRSAREF@
 MAKE_NTPTIME = @MAKE_NTPTIME@
+MAKE_NTP_GENKEYS = @MAKE_NTP_GENKEYS@
 MAKE_PARSEKMODULE = @MAKE_PARSEKMODULE@
 MAKE_TICKADJ = @MAKE_TICKADJ@
+MAKE_TIMETRIM = @MAKE_TIMETRIM@
+OBJEXT = @OBJEXT@
+OPENSSL = @OPENSSL@
+OPENSSL_INC = @OPENSSL_INC@
+OPENSSL_LIB = @OPENSSL_LIB@
 PACKAGE = @PACKAGE@
+PATH_PERL = @PATH_PERL@
 PATH_SH = @PATH_SH@
 PROPDELAY = @PROPDELAY@
 RANLIB = @RANLIB@
+RSADIR = @RSADIR@
+RSAOBJS = @RSAOBJS@
 RSAREF = @RSAREF@
+RSASRCS = @RSASRCS@
 TESTDCF = @TESTDCF@
 U = @U@
 VERSION = @VERSION@
-
-#AUTOMAKE_OPTIONS = ../util/ansi2knr no-dependencies
-
+am__include = @am__include@
+am__quote = @am__quote@
+install_sh = @install_sh@
 
 AUTOMAKE_OPTIONS = ../util/ansi2knr
-bin_PROGRAMS = ntpdate
+sbin_PROGRAMS = ntpdate ntptimeset
+ntpdate_SOURCES = ntpdate.c ntptime_config.c
+ntptimeset_SOURCES = ntptimeset.c ntptime_config.c
 INCLUDES = -I$(top_srcdir)/include
 # LDADD might need RESLIB and ADJLIB
 LDADD = version.o ../libntp/libntp.a @LIBRSAREF@
-DISTCLEANFILES = .version stamp-v
+DISTCLEANFILES = .version version.c stamp-v
 noinst_HEADERS = ntpdate.h
 #EXTRA_DIST = ntpdate.mak
 ETAGS_ARGS = Makefile.am
 subdir = ntpdate
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = ../config.h
-CONFIG_CLEAN_FILES = 
-PROGRAMS =  $(bin_PROGRAMS)
+CONFIG_HEADER = $(top_builddir)/config.h
+CONFIG_CLEAN_FILES =
+sbin_PROGRAMS = ntpdate$(EXEEXT) ntptimeset$(EXEEXT)
+PROGRAMS = $(sbin_PROGRAMS)
 
-
-DEFS = @DEFS@ -I. -I$(srcdir) -I..
-CPPFLAGS = @CPPFLAGS@
-LIBS = @LIBS@
-ANSI2KNR = ../util/ansi2knr
-ntpdate_SOURCES = ntpdate.c
-ntpdate_OBJECTS =  ntpdate$U.o
+am_ntpdate_OBJECTS = ntpdate$U.$(OBJEXT) ntptime_config$U.$(OBJEXT)
+ntpdate_OBJECTS = $(am_ntpdate_OBJECTS)
 ntpdate_LDADD = $(LDADD)
-ntpdate_DEPENDENCIES =  version.o ../libntp/libntp.a
-ntpdate_LDFLAGS = 
-COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+ntpdate_DEPENDENCIES = version.o ../libntp/libntp.a
+ntpdate_LDFLAGS =
+am_ntptimeset_OBJECTS = ntptimeset$U.$(OBJEXT) \
+	ntptime_config$U.$(OBJEXT)
+ntptimeset_OBJECTS = $(am_ntptimeset_OBJECTS)
+ntptimeset_LDADD = $(LDADD)
+ntptimeset_DEPENDENCIES = version.o ../libntp/libntp.a
+ntptimeset_LDFLAGS =
+
+DEFS = @DEFS@
+DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/ntpdate$U.Po \
+@AMDEP_TRUE@	$(DEPDIR)/ntptime_config$U.Po \
+@AMDEP_TRUE@	$(DEPDIR)/ntptimeset$U.Po
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-DIST_SOURCES =  ntpdate.c
-HEADERS =  $(noinst_HEADERS)
+DIST_SOURCES = $(ntpdate_SOURCES) $(ntptimeset_SOURCES)
+HEADERS = $(noinst_HEADERS)
 
-DIST_COMMON =  README $(noinst_HEADERS) Makefile.am Makefile.in
+DIST_COMMON = README $(noinst_HEADERS) Makefile.am Makefile.in
+SOURCES = $(ntpdate_SOURCES) $(ntptimeset_SOURCES)
 
+all: all-am
 
-DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-
-GZIP_ENV = --best
-SOURCES = ntpdate.c
-OBJECTS = ntpdate$U.o
-
-all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .c .o
-$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps ntpdate/Makefile
-
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
-	cd $(top_builddir) \
-	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
-
-
-mostlyclean-binPROGRAMS:
-
-clean-binPROGRAMS:
-	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-
-distclean-binPROGRAMS:
-
-maintainer-clean-binPROGRAMS:
-
-install-binPROGRAMS: $(bin_PROGRAMS)
+.SUFFIXES: .c .o .obj
+$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
+	cd $(top_srcdir) && \
+	  $(AUTOMAKE) --gnu  ntpdate/Makefile
+Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) && \
+	  CONFIG_HEADERS= CONFIG_LINKS= \
+	  CONFIG_FILES=$(subdir)/$@ $(SHELL) ./config.status
+install-sbinPROGRAMS: $(sbin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	$(mkinstalldirs) $(DESTDIR)$(sbindir)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    f="`echo $$p|sed -e 's/$(EXEEXT)$$//' -e '$(transform)' -e 's/$$/$(EXEEXT)/'`"; \
-	    echo "  $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(sbindir)/$$f"; \
-	     $(INSTALL_PROGRAM) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(sbindir)/$$f; \
+	@list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+	  ; then \
+	    f=`echo $$p1|sed '$(transform);s/$$/$(EXEEXT)/'`; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/$$f"; \
+	   $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/$$f; \
 	  else :; fi; \
 	done
 
-uninstall-binPROGRAMS:
+uninstall-sbinPROGRAMS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f="`echo $$p|sed -e 's/$(EXEEXT)$$//' -e '$(transform)' -e 's/$$/$(EXEEXT)/'`"; \
+	@list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
 	  echo " rm -f $(DESTDIR)$(sbindir)/$$f"; \
 	  rm -f $(DESTDIR)$(sbindir)/$$f; \
 	done
 
-.c.o:
-	$(COMPILE) -c $<
+clean-sbinPROGRAMS:
+	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
+ntpdate$(EXEEXT): $(ntpdate_OBJECTS) $(ntpdate_DEPENDENCIES) 
+	@rm -f ntpdate$(EXEEXT)
+	$(LINK) $(ntpdate_LDFLAGS) $(ntpdate_OBJECTS) $(ntpdate_LDADD) $(LIBS)
+ntptimeset$(EXEEXT): $(ntptimeset_OBJECTS) $(ntptimeset_DEPENDENCIES) 
+	@rm -f ntptimeset$(EXEEXT)
+	$(LINK) $(ntptimeset_LDFLAGS) $(ntptimeset_OBJECTS) $(ntptimeset_LDADD) $(LIBS)
 
 mostlyclean-compile:
-	-rm -f *.o core *.core
-
-clean-compile:
+	-rm -f *.$(OBJEXT) core *.core
 
 distclean-compile:
 	-rm -f *.tab.c
 
-maintainer-clean-compile:
-../util/ansi2knr: ../util/ansi2knr.o
+ANSI2KNR = ../util/ansi2knr
+../util/ansi2knr:
 	cd ../util && $(MAKE) $(AM_MAKEFLAGS) ansi2knr
-
-../util/ansi2knr.o:
-	cd ../util && $(MAKE) $(AM_MAKEFLAGS) ansi2knr.o
-
 
 mostlyclean-kr:
 	-rm -f *_.c
 
-clean-kr:
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/ntpdate$U.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/ntptime_config$U.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/ntptimeset$U.Po@am__quote@
 
-distclean-kr:
+distclean-depend:
+	-rm -rf $(DEPDIR)
 
-maintainer-clean-kr:
-ntpdate$U.o:
+.c.o:
+@AMDEP_TRUE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/$*.Po' tmpdepfile='$(DEPDIR)/$*.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(COMPILE) -c `test -f $< || echo '$(srcdir)/'`$<
 
-ntpdate: $(ntpdate_OBJECTS) $(ntpdate_DEPENDENCIES)
-	@rm -f ntpdate
-	$(LINK) $(ntpdate_LDFLAGS) $(ntpdate_OBJECTS) $(ntpdate_LDADD) $(LIBS)
+.c.obj:
+@AMDEP_TRUE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/$*.Po' tmpdepfile='$(DEPDIR)/$*.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(COMPILE) -c `cygpath -w $<`
+CCDEPMODE = @CCDEPMODE@
 ntpdate_.c: ntpdate.c $(ANSI2KNR)
-	$(CPP) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) `if test -f $(srcdir)/ntpdate.c; then echo $(srcdir)/ntpdate.c; else echo ntpdate.c; fi` | sed 's/^# \([0-9]\)/#line \1/' | $(ANSI2KNR) > ntpdate_.c
-ntpdate_.o : $(ANSI2KNR)
+	$(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) `if test -f $(srcdir)/ntpdate.c; then echo $(srcdir)/ntpdate.c; else echo ntpdate.c; fi` | sed 's/^# \([0-9]\)/#line \1/' | $(ANSI2KNR) > ntpdate_.c || rm -f ntpdate_.c
+ntptime_config_.c: ntptime_config.c $(ANSI2KNR)
+	$(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) `if test -f $(srcdir)/ntptime_config.c; then echo $(srcdir)/ntptime_config.c; else echo ntptime_config.c; fi` | sed 's/^# \([0-9]\)/#line \1/' | $(ANSI2KNR) > ntptime_config_.c || rm -f ntptime_config_.c
+ntptimeset_.c: ntptimeset.c $(ANSI2KNR)
+	$(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) `if test -f $(srcdir)/ntptimeset.c; then echo $(srcdir)/ntptimeset.c; else echo ntptimeset.c; fi` | sed 's/^# \([0-9]\)/#line \1/' | $(ANSI2KNR) > ntptimeset_.c || rm -f ntptimeset_.c
+ntpdate_.$(OBJEXT) ntptime_config_.$(OBJEXT) ntptimeset_.$(OBJEXT) : \
+$(ANSI2KNR)
+uninstall-info-am:
 
 tags: TAGS
 
-ID: $(HEADERS) $(SOURCES) $(LISP)
-	list='$(SOURCES) $(HEADERS)'; \
-	unique=`for i in $$list; do echo $$i; done | \
-	  ${AWK:-awk} '    { files[$$0] = 1; } \
+ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
+	list='$(SOURCES) $(HEADERS) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '    { files[$$0] = 1; } \
 	       END { for (i in files) print i; }'`; \
-	here=`pwd` && cd $(srcdir) \
-	  && mkid -f$$here/ID $$unique $(LISP)
+	mkid -fID $$unique $(LISP)
 
-TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
-	list='$(SOURCES) $(HEADERS)'; \
-	unique=`for i in $$list; do echo $$i; done | \
-	  ${AWK:-awk} '    { files[$$0] = 1; } \
+	list='$(SOURCES) $(HEADERS) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '    { files[$$0] = 1; } \
 	       END { for (i in files) print i; }'`; \
 	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
-	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+	  || etags $(ETAGS_ARGS) $$tags  $$unique $(LISP)
 
-mostlyclean-tags:
-
-clean-tags:
+GTAGS:
+	here=`CDPATH=: && cd $(top_builddir) && pwd` \
+	  && cd $(top_srcdir) \
+	  && gtags -i $(GTAGS_ARGS) $$here
 
 distclean-tags:
-	-rm -f TAGS ID
+	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH
 
-maintainer-clean-tags:
+DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 
-distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+top_distdir = ..
+distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
 
 distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
-	  d=$(srcdir); \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  dir=`echo "$$file" | sed -e 's,/[^/]*$$,,'`; \
+	  if test "$$dir" != "$$file" && test "$$dir" != "."; then \
+	    $(mkinstalldirs) "$(distdir)/$$dir"; \
+	  fi; \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$d/$$file $(distdir)/$$file; \
+	    cp -pR $$d/$$file $(distdir) \
+	    || exit 1; \
 	  else \
 	    test -f $(distdir)/$$file \
-	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
-	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	    || cp -p $$d/$$file $(distdir)/$$file \
+	    || exit 1; \
 	  fi; \
 	done
-ntpdate.o: ntpdate.c ../config.h ../include/ntp_fp.h \
-	../include/ntp_types.h ../include/ntp_machine.h \
-	../include/ntp_proto.h ../include/ntp.h ../include/ntp_io.h \
-	../include/ntp_unixtime.h ntpdate.h ../include/ntp_malloc.h \
-	../include/ntp_string.h ../include/ntp_syslog.h \
-	../include/ntp_select.h ../include/ntp_stdlib.h \
-	../include/l_stdlib.h ../include/recvbuff.h
-
-info-am:
-info: info-am
-dvi-am:
-dvi: dvi-am
 check-am: all-am
 check: check-am
-installcheck-am:
-installcheck: installcheck-am
-install-exec-am: install-binPROGRAMS
-install-exec: install-exec-am
+all-am: Makefile $(PROGRAMS) $(HEADERS)
 
-install-data-am:
+installdirs:
+	$(mkinstalldirs) $(DESTDIR)$(sbindir)
+
+install: install-am
+install-exec: install-exec-am
 install-data: install-data-am
+uninstall: uninstall-am
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
-install: install-am
-uninstall-am: uninstall-binPROGRAMS
-uninstall: uninstall-am
-all-am: Makefile $(PROGRAMS) $(HEADERS)
-all-redirect: all-am
+
+installcheck: installcheck-am
 install-strip:
-	$(MAKE) $(AM_MAKEFLAGS) INSTALL_STRIP_FLAG=-s install
-installdirs:
-	$(mkinstalldirs)  $(DESTDIR)$(sbindir)
-
-
+	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
+	  `test -z '$(STRIP)' || \
+	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
 mostlyclean-generic:
 
 clean-generic:
 
 distclean-generic:
-	-rm -f Makefile $(CONFIG_CLEAN_FILES)
-	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+	-rm -f Makefile $(CONFIG_CLEAN_FILES) stamp-h stamp-h[0-9]*
 	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
-mostlyclean-am:  mostlyclean-binPROGRAMS mostlyclean-compile \
-		mostlyclean-kr mostlyclean-tags mostlyclean-generic
-
-mostlyclean: mostlyclean-am
-
-clean-am:  clean-binPROGRAMS clean-compile clean-kr clean-tags \
-		clean-generic mostlyclean-am
-
+	@echo "This command is intended for maintainers to use"
+	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-distclean-am:  distclean-binPROGRAMS distclean-compile distclean-kr \
-		distclean-tags distclean-generic clean-am
+clean-am: clean-generic clean-sbinPROGRAMS mostlyclean-am
 
 distclean: distclean-am
 
-maintainer-clean-am:  maintainer-clean-binPROGRAMS \
-		maintainer-clean-compile maintainer-clean-kr \
-		maintainer-clean-tags maintainer-clean-generic \
-		distclean-am
-	@echo "This command is intended for maintainers to use;"
-	@echo "it deletes files that may require special tools to rebuild."
+distclean-am: clean-am distclean-compile distclean-depend \
+	distclean-generic distclean-tags
+
+dvi: dvi-am
+
+dvi-am:
+
+info: info-am
+
+info-am:
+
+install-data-am:
+
+install-exec-am: install-sbinPROGRAMS
+
+install-info: install-info-am
+
+install-man:
+
+installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 
-.PHONY: mostlyclean-binPROGRAMS distclean-binPROGRAMS clean-binPROGRAMS \
-maintainer-clean-binPROGRAMS uninstall-binPROGRAMS install-binPROGRAMS \
-mostlyclean-compile distclean-compile clean-compile \
-maintainer-clean-compile mostlyclean-kr distclean-kr clean-kr \
-maintainer-clean-kr tags mostlyclean-tags distclean-tags clean-tags \
-maintainer-clean-tags distdir info-am info dvi-am dvi check check-am \
-installcheck-am installcheck install-exec-am install-exec \
-install-data-am install-data install-am install uninstall-am uninstall \
-all-redirect all-am all install-strip installdirs mostlyclean-generic \
-distclean-generic clean-generic maintainer-clean-generic clean \
-mostlyclean distclean maintainer-clean
+maintainer-clean-am: distclean-am maintainer-clean-generic
+
+mostlyclean: mostlyclean-am
+
+mostlyclean-am: mostlyclean-compile mostlyclean-generic mostlyclean-kr
+
+uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
+
+.PHONY: GTAGS all all-am check check-am clean clean-generic \
+	clean-sbinPROGRAMS distclean distclean-compile distclean-depend \
+	distclean-generic distclean-tags distdir dvi dvi-am info \
+	info-am install install-am install-data install-data-am \
+	install-exec install-exec-am install-info install-info-am \
+	install-man install-sbinPROGRAMS install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-kr tags uninstall uninstall-am \
+	uninstall-info-am uninstall-sbinPROGRAMS
 
 
 $(PROGRAMS): $(LDADD)
@@ -341,9 +382,8 @@ $(PROGRAMS): $(LDADD)
 	cd ../libntp && $(MAKE)
 
 version.o: $(ntpdate_OBJECTS) ../libntp/libntp.a @LIBRSAREF@ Makefile
-	$(top_builddir)/scripts/mkver ntpdate
+	env CSET=`cat $(top_srcdir)/version` $(top_builddir)/scripts/mkver ntpdate
 	$(COMPILE) -c version.c
-
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -86,7 +86,7 @@ subdirs=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="1.11"
+version="1.13"
 x11=default
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
@@ -148,8 +148,12 @@ NO_EDIT="This file was generated automatically by configure.  Do not edit."
 ##
 
 progname=$0
-# if PWD already has a value, it is probably wrong.
-if [ -n "$PWD" ]; then PWD=`pwd`; fi
+
+# APPLE LOCAL: our /bin/sh is really zsh, which (a) keeps PWD current,
+# and (b) doesn't let you assign values to it (emits a read-only warning).
+#
+## if PWD already has a value, it is probably wrong.
+#if [ -n "$PWD" ]; then PWD=`pwd`; fi
 
 case "${progname}" in
 /*) ;;
@@ -450,7 +454,7 @@ case "${fatal}" in
 					fi
 					;;
 				esac
-				echo "Configuring for a ${host_alias} host." 1>&2
+				echo "Configuring for a ${host_alias} host."
 				arguments="--host=$host_alias $arguments"
 			else
 				echo 'Config.guess failed to determine the host type.  You need to specify one.' 1>&2
@@ -1078,6 +1082,12 @@ else
 	GDB_TK=""
 fi
 
+all_build_modules=
+if test x"${build_alias}" != x"${host_alias}"
+then
+  all_build_modules='$(ALL_BUILD_MODULES_LIST)'
+fi
+
 for subdir in . ${subdirs} ; do
 
     # ${subdir} is relative path from . to the directory we're currently
@@ -1378,6 +1388,7 @@ EOF
                     -e "s|^oldincludedir[ 	]*=.*$|oldincludedir = ${oldincludedir}|" \
                     -e "s|^infodir[ 	]*=.*$|infodir = ${infodir}|" \
                     -e "s|^mandir[ 	]*=.*$|mandir = ${mandir}|" \
+		    -e "s|^ALL_BUILD_MODULES =.*|ALL_BUILD_MODULES =${all_build_modules}|" \
 		    -e "/^CC[ 	]*=/{
 			:loop1
 			/\\\\$/ N

@@ -8,34 +8,17 @@
  *
  * Copyright (c) 1987-1993 The Regents of the University of California.
  * Copyright (c) 1994-1997 Sun Microsystems, Inc.
- * Copyright (c) 1998-1999 by Scriptics Corporation.
+ * Copyright (c) 1998-2000 Scriptics Corporation.
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclCmdMZ.c,v 1.1.1.4 2000/12/06 23:03:23 wsanchez Exp $
+ * RCS: @(#) $Id: tclCmdMZ.c,v 1.1.1.5 2002/04/05 16:13:16 jevans Exp $
  */
 
 #include "tclInt.h"
 #include "tclPort.h"
-#include "tclCompile.h"
 #include "tclRegexp.h"
-
-/*
- * Flag values used by Tcl_ScanObjCmd.
- */
-
-#define SCAN_NOSKIP	0x1		  /* Don't skip blanks. */
-#define SCAN_SUPPRESS	0x2		  /* Suppress assignment. */
-#define SCAN_UNSIGNED	0x4		  /* Read an unsigned value. */
-#define SCAN_WIDTH	0x8		  /* A width value was supplied. */
-
-#define SCAN_SIGNOK	0x10		  /* A +/- character is allowed. */
-#define SCAN_NODIGITS	0x20		  /* No digits have been scanned. */
-#define SCAN_NOZERO	0x40		  /* No zero digits have been scanned. */
-#define SCAN_XOK	0x80		  /* An 'x' is allowed. */
-#define SCAN_PTOK	0x100		  /* Decimal point is allowed. */
-#define SCAN_EXPOK	0x200		  /* An exponent is allowed. */
 
 /*
  * Structure used to hold information about variable traces:
@@ -149,7 +132,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
     offset	= 0;
     all		= 0;
     doinline	= 0;
-    
+
     for (i = 1; i < objc; i++) {
 	char *name;
 	int index;
@@ -235,11 +218,18 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
+    /*
+     * Get the length of the string that we are matching against so
+     * we can do the termination test for -all matches.  Do this before
+     * getting the regexp to avoid shimmering problems.
+     */
+    objPtr = objv[1];
+    stringLength = Tcl_GetCharLength(objPtr);
+
     regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
     if (regExpr == NULL) {
 	return TCL_ERROR;
     }
-    objPtr = objv[1];
 
     if (about) {
 	if (TclRegAbout(interp, regExpr) < 0) {
@@ -274,12 +264,6 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 	numMatchesSaved = (objc == 0) ? all : objc;
     }
 
-    /*
-     * Get the length of the string that we are matching against so
-     * we can do the termination test for -all matches.
-     */
-    stringLength = Tcl_GetCharLength(objPtr);
-    
     /*
      * The following loop is to handle multiple matches within the
      * same source string;  each iteration handles one match.  If "-all"
@@ -337,7 +321,11 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 		int start, end;
 		Tcl_Obj *objs[2];
 
-		if (i <= info.nsubs) {
+		/*
+		 * Only adjust the match area if there was a match for
+		 * that area.  (Scriptics Bug 4391/SF Bug #219232)
+		 */
+		if (i <= info.nsubs && info.matches[i].start >= 0) {
 		    start = offset + info.matches[i].start;
 		    end   = offset + info.matches[i].end;
 
@@ -402,6 +390,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 	}
 	offset += info.matches[0].end;
 	all++;
+	eflags |= TCL_REG_NOTBOL;
 	if (offset >= stringLength) {
 	    break;
 	}
@@ -529,6 +518,17 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
 
     objv += i;
 
+    /*
+     * Get the length of the string that we are matching before
+     * getting the regexp to avoid shimmering problems.
+     */
+
+    objPtr = objv[1];
+    wlen = Tcl_GetCharLength(objPtr);
+    wstring = Tcl_GetUnicode(objPtr);
+    subspec = Tcl_GetString(objv[2]);
+    varPtr = objv[3];
+
     regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
     if (regExpr == NULL) {
 	return TCL_ERROR;
@@ -537,12 +537,6 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
     result = TCL_OK;
     resultPtr = Tcl_NewObj();
     Tcl_IncrRefCount(resultPtr);
-
-    objPtr = objv[1];
-    wlen = Tcl_GetCharLength(objPtr);
-    wstring = Tcl_GetUnicode(objPtr);
-    subspec = Tcl_GetString(objv[2]);
-    varPtr = objv[3];
 
     /*
      * The following loop is to handle multiple matches within the
@@ -908,15 +902,34 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 	 * Do nothing.
 	 */
     } else if (splitCharLen == 0) {
+	Tcl_HashTable charReuseTable;
+	Tcl_HashEntry *hPtr;
+	int isNew;
+
 	/*
 	 * Handle the special case of splitting on every character.
+	 *
+	 * Uses a hash table to ensure that each kind of character has
+	 * only one Tcl_Obj instance (multiply-referenced) in the
+	 * final list.  This is a *major* win when splitting on a long
+	 * string (especially in the megabyte range!) - DKF
 	 */
 
+	Tcl_InitHashTable(&charReuseTable, TCL_ONE_WORD_KEYS);
 	for ( ; string < end; string += len) {
 	    len = Tcl_UtfToUniChar(string, &ch);
-	    objPtr = Tcl_NewStringObj(string, len);
+	    /* Assume Tcl_UniChar is an integral type... */
+	    hPtr = Tcl_CreateHashEntry(&charReuseTable, (char*)0 + ch, &isNew);
+	    if (isNew) {
+		objPtr = Tcl_NewStringObj(string, len);
+		/* Don't need to fiddle with refcount... */
+		Tcl_SetHashValue(hPtr, (ClientData) objPtr);
+	    } else {
+		objPtr = (Tcl_Obj*) Tcl_GetHashValue(hPtr);
+	    }
 	    Tcl_ListObjAppendElement(NULL, listPtr, objPtr);
 	}
+	Tcl_DeleteHashTable(&charReuseTable);
     } else {
 	char *element, *p, *splitEnd;
 	int splitLen;
@@ -1021,10 +1034,10 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 	    for (i = 2; i < objc-2; i++) {
 		string2 = Tcl_GetStringFromObj(objv[i], &length2);
 		if ((length2 > 1)
-			&& strncmp(string2, "-nocase", (size_t) length2) == 0) {
+			&& strncmp(string2, "-nocase", (size_t)length2) == 0) {
 		    nocase = 1;
 		} else if ((length2 > 1)
-			&& strncmp(string2, "-length", (size_t) length2) == 0) {
+			&& strncmp(string2, "-length", (size_t)length2) == 0) {
 		    if (i+1 >= objc-2) {
 			goto str_cmp_args;
 		    }
@@ -1185,9 +1198,6 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 	    break;
 	}
 	case STR_INDEX: {
-	    char buf[TCL_UTF_MAX];
-	    Tcl_UniChar unichar;
-
 	    if (objc != 4) {
 	        Tcl_WrongNumArgs(interp, 2, objv, "string charIndex");
 		return TCL_ERROR;
@@ -1201,33 +1211,33 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 	     */
 
 	    if (objv[2]->typePtr == &tclByteArrayType) {
-
-		string1 = (char *)Tcl_GetByteArrayFromObj(objv[2], &length1);
+		string1 = (char *) Tcl_GetByteArrayFromObj(objv[2], &length1);
 
 		if (TclGetIntForIndex(interp, objv[3], length1 - 1,
 			&index) != TCL_OK) {
 		    return TCL_ERROR;
 		}
-		Tcl_SetByteArrayObj(resultPtr,
-			(unsigned char *)(&string1[index]), 1);
+		if ((index >= 0) && (index < length1)) {
+		    Tcl_SetByteArrayObj(resultPtr,
+			    (unsigned char *)(&string1[index]), 1);
+		}
 	    } else {
-		string1 = Tcl_GetStringFromObj(objv[2], &length1);
-		
 		/*
-		 * convert to Unicode internal rep to calulate what
-		 * 'end' really means.
+		 * Get Unicode char length to calulate what 'end' means.
 		 */
+		length1 = Tcl_GetCharLength(objv[2]);
 
-		length2 = Tcl_GetCharLength(objv[2]);
-    
-		if (TclGetIntForIndex(interp, objv[3], length2 - 1,
+		if (TclGetIntForIndex(interp, objv[3], length1 - 1,
 			&index) != TCL_OK) {
 		    return TCL_ERROR;
 		}
-		if ((index >= 0) && (index < length2)) {
-		    unichar = Tcl_GetUniChar(objv[2], index);
-		    length2 = Tcl_UniCharToUtf((int)unichar, buf);
-		    Tcl_SetStringObj(resultPtr, buf, length2);
+		if ((index >= 0) && (index < length1)) {
+		    char buf[TCL_UTF_MAX];
+		    Tcl_UniChar ch;
+
+		    ch      = Tcl_GetUniChar(objv[2], index);
+		    length1 = Tcl_UniCharToUtf(ch, buf);
+		    Tcl_SetStringObj(resultPtr, buf, length1);
 		}
 	    }
 	    break;
@@ -1275,7 +1285,8 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 			strncmp(string2, "-strict", (size_t) length2) == 0) {
 			strict = 1;
 		    } else if ((length2 > 1) &&
-			       strncmp(string2, "-failindex", (size_t) length2) == 0) {
+			    strncmp(string2, "-failindex",
+				    (size_t) length2) == 0) {
 			if (i+1 >= objc-1) {
 			    Tcl_WrongNumArgs(interp, 3, objv,
 					     "?-strict? ?-failindex var? str");
@@ -1592,7 +1603,6 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 
 	    if ((enum options) index == STR_BYTELENGTH) {
 		(void) Tcl_GetStringFromObj(objv[2], &length1);
-		Tcl_SetIntObj(resultPtr, length1);
 	    } else {
 		/*
 		 * If we have a ByteArray object, avoid recomputing the
@@ -1603,12 +1613,11 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 
 		if (objv[2]->typePtr == &tclByteArrayType) {
 		    (void) Tcl_GetByteArrayFromObj(objv[2], &length1);
-		    Tcl_SetIntObj(resultPtr, length1);
 		} else {
-		    Tcl_SetIntObj(resultPtr,
-			    Tcl_GetCharLength(objv[2]));
+		    length1 = Tcl_GetCharLength(objv[2]);
 		}
 	    }
+	    Tcl_SetIntObj(resultPtr, length1);
 	    break;
 	}
 	case STR_MAP: {
@@ -1645,6 +1654,7 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 		 * empty charMap, just return whatever string was given
 		 */
 		Tcl_SetObjResult(interp, objv[objc-1]);
+		return TCL_OK;
 	    } else if (mapElemc & 1) {
 		/*
 		 * The charMap must be an even number of key/value items
@@ -1821,11 +1831,36 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 		return TCL_ERROR;
 	    }
 
+	    if (count == 1) {
+		Tcl_SetObjResult(interp, objv[2]);
+	    } else if (count > 1) {
 	    string1 = Tcl_GetStringFromObj(objv[2], &length1);
 	    if (length1 > 0) {
+		    /*
+		     * Only build up a string that has data.  Instead of
+		     * building it up with repeated appends, we just allocate
+		     * the necessary space once and copy the string value in.
+		     */
+		    length2		= length1 * count;
+		    /*
+		     * Include space for the NULL
+		     */
+		    string2		= (char *) ckalloc((size_t) length2+1);
 		for (index = 0; index < count; index++) {
-		    Tcl_AppendToObj(resultPtr, string1, length1);
+			memcpy(string2 + (length1 * index), string1,
+				(size_t) length1);
 		}
+		    string2[length2]	= '\0';
+		    /*
+		     * We have to directly assign this instead of using
+		     * Tcl_SetStringObj (and indirectly TclInitStringRep)
+		     * because that makes another copy of the data.
+		     */
+		    resultPtr		= Tcl_NewObj();
+		    resultPtr->bytes	= string2;
+		    resultPtr->length	= length2;
+		    Tcl_SetObjResult(interp, resultPtr);
+	    }
 	    }
 	    break;
 	}

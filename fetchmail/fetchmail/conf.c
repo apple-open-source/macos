@@ -311,6 +311,10 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	    stringdump("plugin", ctl->server.plugin);
 	    stringdump("plugout", ctl->server.plugout);
 	    stringdump("principal", ctl->server.principal);
+	    if (ctl->server.esmtp_name)
+	        stringdump("esmtpname",ctl->server.esmtp_name);
+	    if (ctl->server.esmtp_password)
+	        stringdump("esmtppassword",ctl->server.esmtp_password);
 	    booldump("tracepolls", ctl->tracepolls);
 
 	    indent(0);

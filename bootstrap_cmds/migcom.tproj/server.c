@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,7 +78,7 @@ WriteKPD_Iterator(file, in, varying, arg, bracket)
     char string[MAX_STR_LEN];
 
     fprintf(file, "\t{\n");
-    fprintf(file, "\t    register\t%s\t*ptr;\n", it->itServerKPDType);
+    fprintf(file, "\t    register\t%s\t*ptr;\n", it->itKPDType);
     fprintf(file, "\t    register int\ti");
     if (varying && !in)
 	fprintf(file, ", j");
@@ -198,49 +198,6 @@ WriteGlobalDecls(file)
     fprintf(file, "\n");
 }
 
-void
-WriteReplyTypes(file, stats)
-    FILE *file;
-    statement_t *stats;
-{
-    register statement_t *stat;
-
-    fprintf(file, "/* typedefs for all replies */\n\n");
-    for (stat = stats; stat != stNULL; stat = stat->stNext) {
-        if (stat->stKind == skRoutine) {
-            register routine_t *rt;
-            char str[MAX_STR_LEN];
-	    
-	    rt = stat->stRoutine;
-	    sprintf(str, "__Reply__%s_t", rt->rtName);
-	    WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbReply, 
-			    str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
-	}
-    }
-    fprintf(file, "\n");
-}
-
-void
-WriteRequestTypes(file, stats)
-    FILE *file;
-    statement_t *stats;
-{
-    register statement_t *stat;
-
-    fprintf(file, "/* typedefs for all requests */\n\n");
-    for (stat = stats; stat != stNULL; stat = stat->stNext) {
-        if (stat->stKind == skRoutine) {
-            register routine_t *rt;
-            char str[MAX_STR_LEN];
-	    
-	    rt = stat->stRoutine;
-	    sprintf(str, "__Request__%s_t", rt->rtName);
-	    WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
-			    str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
-	}
-    }
-    fprintf(file, "\n");
-}
 
 static void
 WriteForwardDeclarations(file, stats)
@@ -404,27 +361,43 @@ WriteSubsystem(file, stats)
     fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");
     if (ServerHeaderFileName == strNULL) {
 	fprintf(file, "const struct %s {\n", ServerSubsys);
-	fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
+        if (UseRPCTrap) {
+            fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
+        } else {
+            fprintf(file, "\tmig_server_routine_t \tserver;\t/* Server routine */\n");
+        }
 	fprintf(file, "\tmach_msg_id_t\tstart;\t/* Min routine number */\n");
 	fprintf(file, "\tmach_msg_id_t\tend;\t/* Max routine number + 1 */\n");
 	fprintf(file, "\tunsigned int\tmaxsize;\t/* Max msg size */\n");
-	fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base address */\n");
-	fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
+        if (UseRPCTrap) {
+            fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base address */\n");
+            fprintf(file, "\tstruct rpc_routine_descriptor\t/*Array of routine descriptors */\n");
+        } else {
+            fprintf(file, "\tvm_address_t\treserved;\t/* Reserved */\n");
+            fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
+        }
 	fprintf(file, "\t\troutine[%d];\n", rtNumber);
 	if (UseRPCTrap) {
-	  fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
+	  fprintf(file, "\tstruct rpc_routine_arg_descriptor\t/*Array of arg descriptors */\n");
 	  fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
 	}
 	fprintf(file, "} %s = {\n", ServerSubsys);
     } else {
 	fprintf(file, "const struct %s %s = {\n", ServerSubsys, ServerSubsys);
     }
-    fprintf(file, "\t0,\n");
+    if (UseRPCTrap) {
+        fprintf(file, "\t0,\n");
+    } else {
+        fprintf(file, "\t%s_routine,\n", ServerDemux);
+    }
     fprintf(file, "\t%d,\n", SubsystemBase);
     fprintf(file, "\t%d,\n", SubsystemBase + rtNumber);
     fprintf(file, "\tsizeof(union __ReplyUnion__%s),\n", ServerSubsys);
-    fprintf(file, "\t(vm_address_t)&%s,\n", ServerSubsys);
-
+    if (UseRPCTrap) {
+        fprintf(file, "\t(vm_address_t)&%s,\n", ServerSubsys);
+    } else {
+        fprintf(file, "\t(vm_address_t)0,\n");
+    }
     WriteRoutineEntries(file, stats);
 
     if (UseRPCTrap)
@@ -434,6 +407,8 @@ WriteSubsystem(file, stats)
 
     fprintf(file, "};\n\n");
 }
+
+#if NOT_CURRENTLY_USED
 
 static void
 WriteArraySizes(file, stats)
@@ -456,14 +431,18 @@ WriteArraySizes(file, stats)
 	fprintf(file, "\t\t\t0,\n");
 }
 
+#endif /* NOT_CURRENTLY_USED */
+
 void
-WriteRequestUnion(file, stats)
+WriteServerRequestUnion(file, stats)
     FILE *file;
     statement_t *stats;
 {
     register statement_t *stat;
 
     fprintf(file, "/* union of all requests */\n\n");
+    fprintf(file, "#ifndef __RequestUnion__%s__defined\n", ServerSubsys);
+    fprintf(file, "#define __RequestUnion__%s__defined\n", ServerSubsys);
     fprintf(file, "union __RequestUnion__%s {\n", ServerSubsys);
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
         if (stat->stKind == skRoutine) {
@@ -475,16 +454,19 @@ WriteRequestUnion(file, stats)
 	}
     }
     fprintf(file, "};\n");
+    fprintf(file, "#endif /* __RequestUnion__%s__defined */\n", ServerSubsys);
 }
 
 void
-WriteReplyUnion(file, stats)
+WriteServerReplyUnion(file, stats)
     FILE *file;
     statement_t *stats;
 {
     register statement_t *stat;
 
     fprintf(file, "/* union of all replies */\n\n");
+    fprintf(file, "#ifndef __ReplyUnion__%s__defined\n", ServerSubsys);
+    fprintf(file, "#define __ReplyUnion__%s__defined\n", ServerSubsys);
     fprintf(file, "union __ReplyUnion__%s {\n", ServerSubsys);
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
         if (stat->stKind == skRoutine) {
@@ -496,6 +478,7 @@ WriteReplyUnion(file, stats)
 	}
     }
     fprintf(file, "};\n");
+    fprintf(file, "#endif /* __RequestUnion__%s__defined */\n", ServerSubsys);
 }
 
 static void
@@ -509,10 +492,10 @@ WriteDispatcher(file, stats)
     
     if (ServerHeaderFileName == strNULL) {
 	fprintf(file, "\n");
-	WriteRequestUnion(file, stats);
+	WriteServerRequestUnion(file, stats);
 
 	fprintf(file, "\n");
-	WriteReplyUnion(file, stats);
+	WriteServerReplyUnion(file, stats);
     }
 
     /*
@@ -617,6 +600,7 @@ WriteDispatcher(file, stats)
     }
 }
 
+#if NOT_CURRENTLY_USED
 /*
  *  Returns the return type of the server-side work function.
  *  Suitable for "extern %s serverfunc()".
@@ -627,6 +611,7 @@ ServerSideType(rt)
 {
     return rt->rtRetCode->argType->itTransType;
 }
+#endif /* NOT_CURRENTLY_USED */
 
 static void
 WriteRetCode(file, ret)
@@ -663,6 +648,7 @@ WriteLocalVarDecl(file, arg)
 	fprintf(file, "\t%s %s", it->itTransType, arg->argVarName);
 }
 
+#if NOT_CURRENTLY_USED
 static void
 WriteServerArgDecl(file, arg)
     FILE *file;
@@ -673,6 +659,7 @@ WriteServerArgDecl(file, arg)
 	    arg->argByReferenceServer ? "*" : "",
 	    arg->argVarName);
 }
+#endif /* NOT_CURRENTLY_USED */
 
 /*
  *  Writes the local variable declarations which are always
@@ -1726,8 +1713,8 @@ WriteKPD_ool(file, arg)
 	    fprintf(file, "%s%s", count->argName, subindex);
 	else
 	    fprintf(file, "OutP->%s%s", count->argMsgField, subindex);
-	
-        if (howbig > 8)
+
+	if (count->argMultiplier > 1 || howbig > 8)
             fprintf(file, " * %d;\n", 
 		count->argMultiplier * howbig / 8);
         else
@@ -2214,7 +2201,7 @@ WriteFieldDecl(file, arg)
 {
     if (akCheck(arg->argKind, akbSendKPD) ||
 	akCheck(arg->argKind, akbReturnKPD))
-	    WriteFieldDeclPrim(file, arg, FetchServerKPDType);
+    	WriteFieldDeclPrim(file, arg, FetchKPDType);
     else
 	WriteFieldDeclPrim(file, arg, FetchServerType);
 }
@@ -2355,14 +2342,14 @@ WriteRoutine(file, rt)
     if (rt->rtRetCArg != argNULL && !rt->rtSimpleRequest) { 
 	WriteRetCArgCheckError(file, rt);
 	if (rt->rtServerImpl)
-	    WriteCheckTrailerHead(file, rt, FALSE, "In0P");
+	    WriteCheckTrailerHead(file, rt, FALSE);
         WriteServerCall(file, rt, WriteConditionalCallArg);
 	WriteRetCArgFinishError(file, rt);
     }
 
     WriteCheckHead(file, rt);
     if (rt->rtServerImpl)
-        WriteCheckTrailerHead(file, rt, FALSE, "In0P");
+        WriteCheckTrailerHead(file, rt, FALSE);
 
     WriteList(file, rt->rtArgs, WriteTypeCheck, akbSendKPD, "\n", "\n");
 

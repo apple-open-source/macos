@@ -88,6 +88,14 @@ typedef void
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+/*! @const kIOMasterPortDefault
+    @abstract The default mach port used to initiate communication with IOKit.
+    @discussion When specifying a master port to IOKit functions, the NULL argument indicates "use the default". This is a synonym for NULL, if you'd rather use a named constant.
+*/
+
+extern
+const mach_port_t kIOMasterPortDefault;
+
 /*! @function IOMasterPort
     @abstract Returns the mach port used to initiate communication with IOKit.
     @discussion Functions that don't specify an existing object require the IOKit master port to be passed. This function obtains that port.
@@ -103,7 +111,7 @@ IOMasterPort( mach_port_t	bootstrapPort,
 /*! @function IONotificationPortCreate
     @abstract Creates and returns a notification object for receiving IOKit notifications of new devices or state changes.
     @discussion Creates the notification object to receive notifications from IOKit of new device arrivals or state changes. The notification object can be supply a CFRunLoopSource, or mach_port_t to be used to listen for events.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @result A reference to the notification object. */
 
 IONotificationPortRef
@@ -278,11 +286,25 @@ IOIteratorIsValid(
  * IOService, subclass of IORegistryEntry
  */
 
+/*!
+    @function IOServiceGetMatchingService
+    @abstract Look up a registered IOService object that matches a matching dictionary.
+    @discussion This is the preferred method of finding IOService objects currently registered by IOKit. IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
+    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
+    @result The first service matched is returned on success. The service must be released by the caller.
+  */
+
+io_service_t
+IOServiceGetMatchingService(
+	mach_port_t	masterPort,
+	CFDictionaryRef	matching );
+
 /*! @function IOServiceGetMatchingServices
     @abstract Look up registered IOService objects that match a matching dictionary.
     @discussion This is the preferred method of finding IOService objects currently registered by IOKit. IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
-    @param masterPort The master port obtained from IOMasterPort().
-    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can contruct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
+    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @param existing An iterator handle is returned on success, and should be released by the caller when the iteration is finished.
     @result A kern_return_t error code. */
 
@@ -389,7 +411,7 @@ IOServiceWaitQuiet(
 /*! @function IOKitGetBusyState
     @abstract Returns the busyState of all IOServices.
     @discussion Many activities in IOService are asynchronous. When registration, matching, or termination is in progress on an IOService, its busyState is increased by one. Change in busyState to or from zero also changes the IOService's provider's busyState by one, which means that an IOService is marked busy when any of the above activities is ocurring on it or any of its clients. IOKitGetBusyState returns the busy state of the root of the service plane which reflects the busy state of all IOServices.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param busyState The busyState count is returned.
     @result A kern_return_t error code. */
 
@@ -401,7 +423,7 @@ IOKitGetBusyState(
 /*! @function IOKitWaitQuiet
     @abstract Wait for a all IOServices' busyState to be zero.
     @discussion Blocks the caller until all IOServices are non busy, see IOKitGetBusyState.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param waitTime Specifies a maximum time to wait.
     @result Returns an error code if mach synchronization primitives fail, kIOReturnTimeout, or kIOReturnSuccess. */
 
@@ -679,7 +701,7 @@ IOConnectAddClient(
 /*! @function IORegistryGetRootEntry
     @abstract Return a handle to the registry root.
     @discussion This method provides an accessor to the root of the registry for the machine. The root may be passed to a registry iterator when iterating a plane, and contains properties that describe the available planes, and diagnostic information for IOKit.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @result A handle to the IORegistryEntry root instance, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
 
 io_registry_entry_t
@@ -689,7 +711,7 @@ IORegistryGetRootEntry(
 /*! @function IORegistryEntryFromPath
     @abstract Looks up a registry entry by path.
     @discussion This function parses paths to lookup registry entries. The path should begin with '<plane name>:' If there are characters remaining unparsed after an entry has been looked up, this is considered an invalid lookup. Paths are further documented in IORegistryEntry.h
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param path A C-string path.
     @result A handle to the IORegistryEntry witch was found with the path, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
 
@@ -707,7 +729,7 @@ enum {
 /*! @function IORegistryCreateIterator
     @abstract Create an iterator rooted at the registry root.
     @discussion This method creates an IORegistryIterator in the kernel that is set up with options to iterate children of the registry root entry, and to recurse automatically into entries as they are returned, or only when instructed with calls to IORegistryIteratorEnterEntry. The iterator object keeps track of entries that have been recursed into previously to avoid loops.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param plane The name of an existing registry plane. Plane names are defined in IOKitKeys.h, eg. kIOServicePlane.
     @param options kIORegistryIterateRecursively may be set to recurse automatically into each entry as it is returned from IOIteratorNext calls on the registry iterator. 
     @param iterator A created iterator handle, to be released by the caller when it has finished with it.
@@ -1004,7 +1026,7 @@ IOServiceNameMatching(
 /*! @function IOBSDNameMatching
     @abstract Create a matching dictionary that specifies an IOService match based on BSD device name.
     @discussion IOServices that represent BSD devices have an associated BSD name. This function creates a matching dictionary that will match IOService's with a given BSD name.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param options No options are currently defined.
     @param bsdName The BSD name, as a const char *.
     @result The matching dictionary created, is returned on success, or zero on failure. The dictionary is commonly passed to IOServiceGetMatchingServices or IOServiceAddNotification which will consume a reference, otherwise it should be released with CFRelease by the caller. */
@@ -1018,7 +1040,7 @@ IOBSDNameMatching(
 /*! @function IOOpenFirmwarePathMatching
     @abstract Create a matching dictionary that specifies an IOService match based on  an OpenFirmware device path.
     @discussion Certain IOServices (currently, block and ethernet boot devices) may be looked up by a path that specifies their location in the OpenFirmware device tree, represented in the registry by the kIODeviceTreePlane plane. This function creates a matching dictionary that will match IOService's found with a given OpenFirmware device path.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param options No options are currently defined.
     @param path The OpenFirmware device path, as a const char *.
     @result The matching dictionary created, is returned on success, or zero on failure. The dictionary is commonly passed to IOServiceGetMatchingServices or IOServiceAddNotification which will consume a reference, otherwise it should be released with CFRelease by the caller. */
@@ -1034,7 +1056,7 @@ IOOpenFirmwarePathMatching(
 /*! @function IOServiceOFPathToBSDName
     @abstract Utility to look up an IOService from its OpenFirmware device path, and return its BSD device name if available.
     @discussion Certain IOServices (currently, block and ethernet boot devices) may be looked up by a path that specifies their location in the OpenFirmware device tree, represented in the registry by the kIODeviceTreePlane plane. This function looks up an IOService object with a given OpenFirmware device path, and returns its associated BSD device name.
-    @param masterPort The master port obtained from IOMasterPort().
+    @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param openFirmwarePath The OpenFirmware device path, as a const char *.
     @param bsdName The BSD name, as a const char *, is copied to the callers buffer.
     @result A kern_return_t error code. */

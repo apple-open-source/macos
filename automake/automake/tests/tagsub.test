@@ -1,0 +1,29 @@
+#! /bin/sh
+
+# Test to make sure tags and subdirs work correctly.  Bug report by
+# François Pinard.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+SUBDIRS = sub
+END
+
+mkdir sub
+
+cat > sub/Makefile.am << 'END'
+noinst_HEADERS = iguana.h
+END
+
+: > sub/iguana.h
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile sub/Makefile)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^TAGS:.*tags-recursive' Makefile.in

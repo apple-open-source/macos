@@ -255,27 +255,6 @@ launch_thread(launch_args *args)
 	return t;
 }
 
-+ (Thread *)threadWithData:(void *)d
-{
-	unsigned int i;
-	Thread *t;
-
-	t = nil;
-	
-	lock_threads();
-	for (i = 0; i < thread_count; i++)
-	{
-		if (thread_list[i]->data == d)
-		{
-			t = thread_list[i];
-			break;
-		}
-	}
-	unlock_threads();
-
-	return t;
-}
-
 + (void)releaseThread:(Thread *)t
 {
 	unsigned int i, j;
@@ -350,6 +329,8 @@ launch_thread(launch_args *args)
 	shouldTerminate = NO;
 	isRunning = NO;
 	data = NULL;
+	dataLen = 0;
+	server = NULL;
 	state = ThreadStateInitial;
 	unlock_threads();
 
@@ -396,6 +377,26 @@ launch_thread(launch_args *args)
 - (void)setData:(void *)d
 {
 	data = d;
+}
+
+- (void *)server
+{
+	return server;
+}
+
+- (void)setServer:(void *)s
+{
+	server = s;
+}
+
+- (unsigned long)dataLen
+{
+	return dataLen;
+}
+
+- (void)setDataLen:(unsigned long)l
+{
+	dataLen = l;
 }
 
 - (void)run:(SEL)aSelector context:(id)anObject

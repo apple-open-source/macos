@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,9 +23,23 @@
 #ifndef __SCSI_TASK_DEVICE_USER_CLIENT_CLASS_H__
 #define __SCSI_TASK_DEVICE_USER_CLIENT_CLASS_H__
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
 #include <IOKit/IOCFPlugIn.h>
+
+// Private includes
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
+#include "SCSITaskIUnknown.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Structures
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 struct MyConnectionAndPortContext
 {
@@ -35,16 +49,14 @@ struct MyConnectionAndPortContext
 typedef struct MyConnectionAndPortContext MyConnectionAndPortContext;
 
 
-class SCSITaskDeviceClass
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declarations
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+class SCSITaskDeviceClass : public SCSITaskIUnknown
 {
 	
 	public:
-	
-		struct InterfaceMap 
-		{
-			IUnknownVTbl *	pseudoVTable;
-			SCSITaskDeviceClass *	obj;
-		};
 		
 		// Default constructor
 		SCSITaskDeviceClass ( void );
@@ -56,101 +68,87 @@ class SCSITaskDeviceClass
 		// when it is released to remove it from the device's taskSet
 		virtual void RemoveTaskFromTaskSet ( SCSITaskInterface ** task );
 		
+		// Static allocation methods
+		static IOCFPlugInInterface ** 		alloc ( void );
+		static SCSITaskDeviceInterface ** 	alloc ( io_service_t service,
+													io_connect_t connection );
+		
+		// Initialization methods
+		virtual IOReturn InitWithConnection ( 	io_service_t	service,
+												io_connect_t	connection );
+		virtual IOReturn Init ( void );
+		
 	protected:
-		//////////////////////////////////////
-		// cf plugin interfaces
 		
-		static IOCFPlugInInterface 				sIOCFPlugInInterface;
-		InterfaceMap 			   				fIOCFPlugInInterface;
+		static IOCFPlugInInterface				sIOCFPlugInInterface;
 		static SCSITaskDeviceInterface			sSCSITaskDeviceInterface;
-		InterfaceMap							fSCSITaskDeviceInterfaceMap;
-	
-		//////////////////////////////////////
-		// CFPlugIn refcounting
+		struct InterfaceMap						fSCSITaskDeviceInterfaceMap;
 		
-		CFUUIDRef 	fFactoryId;	
-		UInt32 		fRefCount;
-	
-		//////////////////////////////////////	
-		// user client connection
+		io_service_t 			fService;
+		io_connect_t 			fConnection;
+		bool					fHasExclusiveAccess;
+		bool					fIsServicesLayerInterface;
+		CFMutableSetRef			fTaskSet;
 		
-		io_service_t 	fService;
-		io_connect_t 	fConnection;
-		bool			fAddedConnectRef;
-		bool			fHasExclusiveAccess;
-		bool			fIsServicesLayerInterface;
-		CFMutableSetRef	fTaskSet;
-		
-		//////////////////////////////////////	
-		// async callback
-		mach_port_t 				fAsyncPort;
-		CFRunLoopRef				fCFRunLoop;
-		CFRunLoopSourceRef			fCFRunLoopSource;
+		mach_port_t 			fAsyncPort;
+		CFRunLoopSourceRef		fCFRunLoopSource;
+		CFRunLoopRef			fCFRunLoop;
 		
 		// utility function to get "this" pointer from interface
 		static inline SCSITaskDeviceClass * getThis ( void * self )
-			{ return ( SCSITaskDeviceClass * ) ( ( InterfaceMap * ) self)->obj; };
-	
-		//////////////////////////////////////	
-		// IUnknown static methods
+			{ return ( SCSITaskDeviceClass * ) ( ( InterfaceMap * ) self )->obj; };
 		
-		static HRESULT staticQueryInterface ( void * self, REFIID iid, void **ppv );
-		virtual HRESULT QueryInterface ( REFIID iid, void **ppv );
-	
-		static UInt32 staticAddRef ( void * self );
-		virtual UInt32 AddRef ( void );
-	
-		static UInt32 staticRelease ( void * self );
-		virtual UInt32 Release ( void );
+		// CFPlugIn/IOCFPlugIn stuff
+		virtual HRESULT 	QueryInterface ( REFIID iid, void ** ppv );
 		
-		//////////////////////////////////////
-		// CFPlugin methods
+		virtual IOReturn	Probe ( CFDictionaryRef propertyTable, io_service_t service, SInt32 * order );
 		
-		static IOReturn staticProbe ( void * self, CFDictionaryRef propertyTable, 
-									  io_service_t service, SInt32 * order );
-		virtual IOReturn Probe ( CFDictionaryRef propertyTable, io_service_t service, SInt32 * order );
+		virtual IOReturn	Start ( CFDictionaryRef propertyTable, io_service_t service );
 		
-		static IOReturn staticStart ( void * self, CFDictionaryRef propertyTable, io_service_t service );
-		virtual IOReturn Start ( CFDictionaryRef propertyTable, io_service_t service );
+		virtual IOReturn	Stop ( void );
 		
-		static IOReturn staticStop ( void * self );
-		virtual IOReturn Stop ( void );
-		
-		//////////////////////////////////////
-		// SCSITaskDeviceInterface methods
-		
-		static Boolean		staticIsExclusiveAccessAvailable ( void * self );
 		virtual Boolean		IsExclusiveAccessAvailable ( void );
-		
-		static IOReturn		staticAddCallbackDispatcherToRunLoop ( void * self, CFRunLoopRef cfRunLoopRef );
+				
 		virtual IOReturn 	AddCallbackDispatcherToRunLoop ( CFRunLoopRef cfRunLoopRef );
 		
-		static void 		staticRemoveCallbackDispatcherFromRunLoop ( void * self );
 		virtual void 		RemoveCallbackDispatcherFromRunLoop ( void );
 		
-		static IOReturn		staticObtainExclusiveAccess ( void * self );
 		virtual IOReturn 	ObtainExclusiveAccess ( void );
-
-		static IOReturn		staticReleaseExclusiveAccess ( void * self );
+		
 		virtual IOReturn 	ReleaseExclusiveAccess ( void );
-
-		static SCSITaskInterface **		staticCreateSCSITask ( void * self );
+		
 		virtual SCSITaskInterface ** 	CreateSCSITask ( void );
 		
+		// New functions we havenÕt exported yet...
+		virtual IOReturn			CreateDeviceAsyncEventSource ( CFRunLoopSourceRef * source );
+		
+		virtual CFRunLoopSourceRef  GetDeviceAsyncEventSource ( void );
+		
+		virtual IOReturn 			CreateDeviceAsyncPort ( mach_port_t * port );
+		
+		virtual mach_port_t 		GetDeviceAsyncPort ( void );
+		
+		// Static functions (C->C++ Glue Code)
+		static IOReturn 			sProbe ( void * self, CFDictionaryRef propertyTable, io_service_t service, SInt32 * order );
+		static IOReturn 			sStart ( void * self, CFDictionaryRef propertyTable, io_service_t service );
+		static IOReturn 			sStop ( void * self );
+		static Boolean				sIsExclusiveAccessAvailable ( void * self );
+		static IOReturn				sCreateDeviceAsyncEventSource ( void * self, CFRunLoopSourceRef * source );
+		static CFRunLoopSourceRef 	sGetDeviceAsyncEventSource ( void * self );
+		static IOReturn 			sCreateDeviceAsyncPort ( void * self, mach_port_t * port );
+		static mach_port_t 			sGetDeviceAsyncPort ( void * self );
+		static IOReturn				sAddCallbackDispatcherToRunLoop ( void * self, CFRunLoopRef cfRunLoopRef );
+		static void 				sRemoveCallbackDispatcherFromRunLoop ( void * self );
+		static IOReturn				sObtainExclusiveAccess ( void * self );
+		static IOReturn				sReleaseExclusiveAccess ( void * self );
+		static SCSITaskInterface **	sCreateSCSITask ( void * self );
+
 	private:
 		
 		// Disable Copying
 		SCSITaskDeviceClass ( SCSITaskDeviceClass &src );
 		void operator = ( SCSITaskDeviceClass &src );
-		
-	public:
-		
-		static IOCFPlugInInterface ** alloc ( void );
-		static SCSITaskDeviceInterface ** alloc ( io_service_t service, io_connect_t connection );
-		
-		virtual IOReturn initWithConnection ( io_service_t service, io_connect_t connection );
-		virtual IOReturn init ( void );
-		
+				
 };
 
 

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
  * nicl: NetInfo command-line interface
  *
  * Written by Marc Majka
@@ -15,6 +39,7 @@
 #include <NetInfo/dsx500dit.h>
 #include <NetInfo/nilib2.h>
 #include <stdio.h>
+#include <errno.h>
 #include <unistd.h>
 #include <netinfo/ni.h>
 
@@ -38,6 +63,7 @@ static int raw = 0;
 #define PROMPT_PLAIN 1
 #define PROMPT_NI 2
 #define PROMPT_X500 3
+#define PROMPT_DOT 4
 
 #define ATTR_CREATE 0
 #define ATTR_APPEND 1
@@ -72,7 +98,11 @@ static int minargs[] =
 	0,  /* resync */
 	1,  /* authenticate */
 	0,  /* refs */
-	2   /* setrdn */
+	2,  /* setrdn */
+	1,  /* source file */
+	0,  /* echo */
+	0,  /* flush */
+	1   /* load */
 };
 
 #define OP_NOOP 0
@@ -101,16 +131,23 @@ static int minargs[] =
 #define OP_AUTH 23
 #define OP_REFS 24
 #define OP_SETRDN 25
+#define OP_SOURCE 26
+#define OP_ECHO 27
+#define OP_FLUSH 28
+#define OP_LOAD 29
 
 #define OP_CREATE_DIR 1000
 #define OP_WRITE_ATTR 1001
 #define OP_DELETE_DIR 2000
 #define OP_DELETE_ATTR 2001
 
+int nifty_interactive(FILE *, int);
+
 void usage()
 {
 	fprintf(stderr, "usage: %s [options] <datasource> [<command>]\n", myname);
 	fprintf(stderr, "options:\n");
+	fprintf(stderr, "    -c             create a new datasource\n");
 	fprintf(stderr, "    -ro            read-only\n");
 	fprintf(stderr, "    -p             prompt for password\n");
 	fprintf(stderr, "    -u <user>      authenticate as user\n");
@@ -132,14 +169,18 @@ void usage()
 	fprintf(stderr, "    -copy    <path> <new_parent>\n");
 	fprintf(stderr, "    -search  <path> <scopemin> <scopemax> (<key> <val>)...\n"); 
 	fprintf(stderr, "    -path    <path>\n");
+	fprintf(stderr, "    -load    [<delim> <key> <val>...]...\n");
 	fprintf(stderr, "    -setrdn  <path> <key> <val>\n");
 	fprintf(stderr, "    -history [<=>] [<version>]\n");
 	fprintf(stderr, "    -stats\n");
 	fprintf(stderr, "    -domainname\n");
 	fprintf(stderr, "    -rparent\n");
 	fprintf(stderr, "    -resync\n");
-	fprintf(stderr, "    -auth   <user> [<password>]\n");
+	fprintf(stderr, "    -flush\n");
+	fprintf(stderr, "    -auth    <user> [<password>]\n");
 	fprintf(stderr, "    -refs\n");
+	fprintf(stderr, "    -source  <file>\n");
+	fprintf(stderr, "    -echo    <string>\n");
 
 #ifdef META_IS_DASH_M
 	fprintf(stderr, "Preface <key> with \"-m\" for meta-attributes\n");
@@ -155,10 +196,11 @@ void usage()
 }
 
 void
-nifty_print_attribute(dsattribute *a, int meta, FILE *f, int space)
+nifty_print_dsattribute(dsattribute *a, int meta, FILE *f, int space)
 {
 	int i;
 	char buf[64];
+	dsdata *name;
 
 	if (a == NULL)
 	{
@@ -180,8 +222,6 @@ nifty_print_attribute(dsattribute *a, int meta, FILE *f, int space)
 		fprintf(f, " ");
 		if (a->value[i]->type == DataTypeDirectoryID)
 		{
-			dsdata *name;
-
 			name = dsengine_map_name(engine, a->value[i], NameTypeDirectoryID);
 			if (name == NULL)
 			{
@@ -239,7 +279,7 @@ nifty_print_dsrecord(dsrecord *r, FILE *f, u_int32_t detail)
 
 	for (i = 0; i < r->count; i++)
 	{
-		nifty_print_attribute(r->attribute[i], 0, f, space);
+		nifty_print_dsattribute(r->attribute[i], 0, f, space);
 		fprintf(f, "\n");
 	}
 
@@ -250,7 +290,7 @@ nifty_print_dsrecord(dsrecord *r, FILE *f, u_int32_t detail)
 
 	for (i = 0; i < r->meta_count; i++)
 	{
-		nifty_print_attribute(r->meta_attribute[i], 1, f, space);
+		nifty_print_dsattribute(r->meta_attribute[i], 1, f, space);
 		fprintf(f, "\n");
 	}
 
@@ -375,6 +415,86 @@ nifty_getval(int argc, char *argv[], int *x)
 	v = cstring_to_dsdata(argv[0]);
 
 	return v;
+}
+
+dsstatus
+nifty_load(u_int32_t dsid, int argc, char *argv[])
+{
+	/* @key val... @key val... ... */
+	/* ! key val... !key val... ... */
+	/* # key val...  # key val... ... */
+	/* First char defines delimeter */
+	/* backslash escapes delimeter */
+
+	dsrecord *r;
+	dsattribute *a;
+	dsdata *k, *v;
+	dsstatus status;
+	u_int32_t i, off, meta;
+	char delim, *ks;
+
+	if (argc == 0) return DSStatusOK;
+
+	delim = argv[0][0];
+
+	k = NULL;
+	ks = NULL;
+	a = NULL;
+	r = dsrecord_new();
+
+	for (i = 0; i < argc; i++)
+	{
+		if (argv[i][0] == delim)
+		{
+			if (a != NULL)
+			{
+				dsattribute_release(a);
+				a = NULL;
+			}
+
+			/* a new key */
+			ks = argv[i] + 1;
+
+			if (argv[i][1] == '\0')
+			{
+				i++;
+				if (i >= argc) break;
+				ks = argv[i];
+			}
+
+			meta = SELECT_ATTRIBUTE;
+			if (streq(ks, "-m"))
+			{
+				meta = SELECT_META_ATTRIBUTE;
+				i++;
+				if (i >= argc) break;
+				ks = argv[i];
+			}
+
+			if ((ks[0] == '\\') && (ks[1] == delim)) ks++;
+
+			k = cstring_to_dsdata(ks);
+			dsrecord_remove_key(r, k, meta);
+			a = dsattribute_new(k);
+			dsrecord_append_attribute(r, a, meta);
+			dsdata_release(k);
+		}
+		else
+		{
+			off = 0;
+			if ((argv[i][0] == '\\') && (argv[i][1] == delim)) off = 1;
+			v = cstring_to_dsdata(argv[i] + off);
+			dsattribute_append(a, v);
+			dsdata_release(v);
+		}
+	}
+
+	status = dsengine_create(engine, r, dsid);
+	if (a != NULL) dsattribute_release(a);
+	dsrecord_release(r);
+	if (status != DSStatusOK)
+		fprintf(stderr, "%s\n", dsstatus_message(status));
+	return status;
 }
 
 dsstatus
@@ -547,6 +667,11 @@ nifty_delete(u_int32_t dsid, int argc, char *argv[])
 	}
 
 	status = dsengine_save(engine, r);
+	if (status != DSStatusOK) 
+	{
+		fprintf(stderr, "Remove: %s\n", dsstatus_message(status));
+		return status;
+	}
 
 	dsattribute_release(a);
 	dsrecord_release(r);
@@ -651,7 +776,7 @@ nifty_read(u_int32_t dsid, int argc, char *argv[])
 
 		dsdata_release(k);
 
-		nifty_print_attribute(a, meta, stdout, 0);
+		nifty_print_dsattribute(a, meta, stdout, 0);
 		fprintf(stdout, "\n");
 		dsattribute_release(a);
 
@@ -730,12 +855,15 @@ nifty_list(u_int32_t dsid, int argc, char *argv[])
 	dsstatus status;
 	dsdata *k;
 	char str[32];
-	if (argc == 0) k = cstring_to_dsdata("name");
+	if (argc == 0) k = NULL;
 	else k = cstring_to_dsdata(argv[0]);
 
+	l = NULL;
 	status = dsengine_list(engine, dsid, k, 1, 1, &l);
 	dsdata_release(k);
 	if (status != DSStatusOK) return status;
+
+	if (l == NULL) return DSStatusOK;
 
 	for (i = 0; i < l->count; i++)
 	{
@@ -771,7 +899,11 @@ nifty_insert(u_int32_t dsid, int argc, char *argv[])
 	}
 
 	k = nifty_getkey(argc, argv, &x, &meta);
-	if (k == NULL) return DSStatusInvalidKey;
+	if (k == NULL)
+	{
+		fprintf(stderr, "%s\n", dsstatus_message(DSStatusInvalidKey));
+		return DSStatusInvalidKey;
+	}
 
 	a = dsrecord_attribute(r, k, meta);
 	if (a == NULL) 
@@ -899,6 +1031,12 @@ nifty_copy(u_int32_t dsid, int argc, char *argv[])
 	}
 	
 	status = dsengine_copy(engine, dsid, new_dsid);
+	if (status != DSStatusOK)
+	{
+		fprintf(stderr, "Copy failed: %s: %s\n",
+			argv[0], dsstatus_message(status));
+		return status;
+	}
 	return status;
 }
 
@@ -1265,7 +1403,11 @@ nifty_rparent(u_int32_t dsid, int argc, char *argv[])
 	}
 
 	nistatus = ni2_rparent((void *)engine->store->index[0], &addr, &tag);
-	if (nistatus != 0) return DSStatusFailed;
+	if (nistatus != 0)
+	{
+		fprintf(stderr, "%s\n", ni_error(nistatus));
+		return DSStatusFailed;
+	}
 
 	printf("%s/%s\n", inet_ntoa(addr.sin_addr), tag);
 	free(tag);
@@ -1427,6 +1569,47 @@ nifty_setrdn(u_int32_t dsid, int argc, char *argv[])
 }
 
 int
+nifty_source(int argc, char *argv[])
+{
+	FILE *f;
+	int status;
+
+	f = fopen(argv[0], "r");
+	if (f == NULL)
+	{
+		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+		return DSStatusFailed;
+	}
+
+	status = nifty_interactive(f, PROMPT_NONE);
+	fclose(f);
+	return status;
+}
+
+int
+nifty_echo(int argc, char *argv[])
+{
+	int i;
+
+	for (i = 0; i < argc; i++)
+	{
+		printf("%s", argv[i]);
+		if ((i + 1) < argc) printf(" ");
+	}
+
+	printf("\n");
+
+	return DSStatusOK;
+}
+
+int
+nifty_flush_cache(int argc, char *argv[])
+{
+	dsengine_flush_cache(engine);
+	return DSStatusOK;
+}
+
+int
 nifty_cmd(int cc, char *cv[])
 {
 	int status, i, op, dsid, do_path;
@@ -1446,7 +1629,7 @@ nifty_cmd(int cc, char *cv[])
 	}
 
 	else if (streq(cmd, "create"))	op = OP_CREATE;
-	else if (streq(cmd, "createprop"))	op = OP_CREATE;
+	else if (streq(cmd, "createprop")) op = OP_CREATE;
 	else if (streq(cmd, "delete"))	op = OP_DELETE;
 	else if (streq(cmd, "destroy"))	op = OP_DELETE;
 	else if (streq(cmd, "destroyprop"))	op = OP_DELETE;
@@ -1488,13 +1671,7 @@ nifty_cmd(int cc, char *cv[])
 
 	else if (streq(cmd, "setrdn"))		op = OP_SETRDN;
 
-	else if (streq(cmd, "hist"))
-	{
-		op = OP_VHISTORY;
-		do_path = 0;
-	}
-
-	else if (streq(cmd, "history"))
+	else if (streq(cmd, "hist") || streq(cmd, "history"))
 	{
 		op = OP_VHISTORY;
 		do_path = 0;
@@ -1503,6 +1680,30 @@ nifty_cmd(int cc, char *cv[])
 	else if (streq(cmd, "auth") || streq(cmd, "su"))
 	{
 		op = OP_AUTH;
+		do_path = 0;
+	}
+
+	else if (streq(cmd, "source") || streq(cmd, "<"))
+	{
+		op = OP_SOURCE;
+		do_path = 0;
+	}
+
+	else if (streq(cmd, "echo"))
+	{
+		op = OP_ECHO;
+		do_path = 0;
+	}
+
+	else if (streq(cmd, "flush"))
+	{
+		op = OP_FLUSH;
+		do_path = 0;
+	}
+	
+	else if (streq(cmd, "load"))
+	{
+		op = OP_LOAD;
 		do_path = 0;
 	}
 
@@ -1565,6 +1766,9 @@ nifty_cmd(int cc, char *cv[])
 			break;
 		case OP_CREATE:
 			status = nifty_create(dsid, cc, cv);
+			break;
+		case OP_LOAD:
+			status = nifty_load(dsid, cc, cv);
 			break;
 		case OP_DELETE:
 			status = nifty_delete(dsid, cc, cv);
@@ -1638,13 +1842,22 @@ nifty_cmd(int cc, char *cv[])
 		case OP_SETRDN:
 			status = nifty_setrdn(dsid, cc, cv);
 			break;
+		case OP_SOURCE:
+			status = nifty_source(cc, cv);
+			break;
+		case OP_ECHO:
+			status = nifty_echo(cc, cv);
+			break;
+		case OP_FLUSH:
+			status = nifty_flush_cache(cc, cv);
+			break;
 	}
 	
 	return status;
 }
 
 char *
-getString(char **s)
+nifty_get_string(char **s)
 {
 	char *p, *x;
 	int i, esc, quote;
@@ -1709,14 +1922,14 @@ getString(char **s)
 }
 
 int
-nifty_interactive(int prompt)
+nifty_interactive(FILE *in, int prompt)
 {
 	char *s, *p, **iargv, line[INPUT_LENGTH];
-	dsstatus status;
-	int i, iargc, quote, esc;
+	int status, i, iargc, quote, esc, dotcount;
 
 	iargv = NULL;
 	interactive = 1;
+	dotcount = 0;
 
 	forever
 	{
@@ -1725,6 +1938,16 @@ nifty_interactive(int prompt)
 		switch (prompt)
 		{
 			case PROMPT_NONE:
+				break;
+			case PROMPT_DOT:
+				printf(".");
+				fflush(stdout);
+				dotcount++;
+				if (dotcount == 50)
+				{
+					dotcount = 0;
+					printf("\n");
+				}
 				break;
 			case PROMPT_PLAIN:
 				printf("> ");
@@ -1746,15 +1969,16 @@ nifty_interactive(int prompt)
 
 		fflush(stdout);
 
-		status = scanf("%[^\n]%*c", line);
+		status = fscanf(in, "%[^\n]%*c", line);
 		if (status == 0)
 		{
-			rewind(stdin);
+			status = fscanf(in, "%*c");
 			continue;
 		}
 
-		if (status == -1) break;
+		if (status < 0) break;
 		if (streq(line, "quit")) break;
+		if (streq(line, "exit")) break;
 		if (streq(line, "q")) break;
 
 		p = line;
@@ -1764,7 +1988,7 @@ nifty_interactive(int prompt)
 
 		forever
 		{
-			s = getString(&p);
+			s = nifty_get_string(&p);
 			if (s == NULL) break;
 			if (iargc == 0)
 				iargv = (char **)malloc(sizeof(char *));
@@ -1786,7 +2010,7 @@ nifty_interactive(int prompt)
 int
 main(int argc, char *argv[])
 {
-	int i, opt_tag, opt_promptpw, opt_user, opt_password, prompt;
+	int i, opt_tag, opt_promptpw, opt_user, opt_password, opt_create, prompt;
 	u_int32_t flags;
 	char *slash;
 	dsstatus status;
@@ -1813,6 +2037,7 @@ main(int argc, char *argv[])
 	opt_promptpw = 0;
 	opt_user = 0;
 	opt_password = 0;
+	opt_create = 0;
 	interactive = 0;
 	flags = 0;
 
@@ -1832,6 +2057,7 @@ main(int argc, char *argv[])
 		else if (streq(argv[i], "-t")) opt_tag = 1;
 		else if (streq(argv[i], "-raw")) raw = 1;
 		else if (streq(argv[i], "-p")) opt_promptpw = 1;
+		else if (streq(argv[i], "-c")) opt_create = 1;
 		else if (streq(argv[i], "-x500"))
 		{
 			prompt = PROMPT_X500;
@@ -1897,11 +2123,24 @@ main(int argc, char *argv[])
 		exit(DSStatusOK);
 	}
 
-	status = dsengine_open(&engine, argv[i], flags);
-	if (status != DSStatusOK)
+	if (	opt_create == 1)
 	{
-		fprintf(stderr, "open(%s): %s\n", argv[i], dsstatus_message(status));
-		exit(status);
+		status = dsengine_new(&engine, argv[i], flags);
+		if (status != DSStatusOK)
+		{
+			fprintf(stderr, "create(%s): %s\n",
+				argv[i], dsstatus_message(status));
+			exit(status);
+		}
+	}
+	else
+	{
+		status = dsengine_open(&engine, argv[i], flags);
+		if (status != DSStatusOK)
+		{
+			fprintf(stderr, "open(%s): %s\n", argv[i], dsstatus_message(status));
+			exit(status);
+		}
 	}
 
 	if (auth_user != NULL)
@@ -1914,7 +2153,7 @@ main(int argc, char *argv[])
 	i++;
 	if (i >= argc)
 	{
-		status = nifty_interactive(prompt);
+		status = nifty_interactive(stdin, prompt);
 		if (prompt != PROMPT_NONE) printf("Goodbye\n");
 	}
 	else status = nifty_cmd(argc - i, argv + i);

@@ -21,6 +21,9 @@
 #include <stdarg.h>
 
 #include "command.h"
+/* FIXME: we don't have interfaces to the parts of cmd_list_element
+   that we need here yet.  They need to be added... */
+#include "cli/cli-decode.h"
 #include "breakpoint.h"
 #include "gdbcore.h" // file_changed_hook
 //#include "inferior.h"
@@ -211,7 +214,7 @@ static void my_warning_hook(const char *format, va_list ap)
 
 static void my_create_breakpoint_hook(struct breakpoint *b)
 {
-    users_create_bkpt((unsigned long)b->address, b->enable == enabled);
+    users_create_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
     if (saved_create_bkpt)
     	saved_create_bkpt(b);
 }
@@ -223,7 +226,7 @@ static void my_create_breakpoint_hook(struct breakpoint *b)
 
 static void my_delete_breakpoint_hook(struct breakpoint *b)
 {
-    users_delete_bkpt((unsigned long)b->address, b->enable == enabled);
+    users_delete_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
     if (saved_delete_bkpt)
     	saved_delete_bkpt(b);
 }
@@ -235,7 +238,7 @@ static void my_delete_breakpoint_hook(struct breakpoint *b)
 
 static void my_modify_breakpoint_hook(struct breakpoint *b)
 {
-    users_modify_bkpt((unsigned long)b->address, b->enable == enabled);
+    users_modify_bkpt((unsigned long)b->address, b->enable_state == bp_enabled);
     if (saved_modify_bkpt)
     	saved_modify_bkpt(b);
 }

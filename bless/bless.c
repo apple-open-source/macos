@@ -1,174 +1,182 @@
+/*
+ * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/param.h>
-#include <sys/mount.h>
+
+#include "enums.h"
+#include "structs.h"
 
 #include "bless.h"
 
-#define isoption(kfl) (!strcmp(&(*current)[1], commandlineopts[kfl].flag))
-#define fetchoptionarg(buf)  current++; i++; \
-    if(*current) { strncpy(buf, *current, MAXPATHLEN-1); buf[MAXPATHLEN-1] = '\0'; \
-    } else { usage(); }
+#define xstr(s) str(s)
+#define str(s) #s
 
+struct clopt commandlineopts[klast];
+struct clarg actargs[klast];
+
+int modeInfo(BLContext context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
+int modeDevice(BLContext context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
+int modeFolder(BLContext context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
+
+int blesslog(void *context, int loglevel, const char *string);
+static void initConfig();
+void usage(struct clopt[]);
 
 int main (int argc, const char * argv[])
 {
 
-    /* parameter variables */
-    unsigned char folderXpath[MAXPATHLEN];  // Path to OS X folder, usually /System/Library/CoreServices
-    unsigned char folder9path[MAXPATHLEN];  // Path to OS 9 folder, usually /System Folder
-    unsigned char bootXpath[MAXPATHLEN];    // Path to bootx.bootinfo,
-                                            // usually /usr/standalone/ppc/bootx.bootinfo
-
-    UInt32 folderXid = 0;                   // The directory ID specified by folderXpath
-    UInt32 folder9id = 0;                   // The directory ID specified by folder9path
-
-    unsigned char infopath[MAXPATHLEN];    // Volume to print info
-
-
-    unsigned char mountpoint[MNAMELEN];
-    int i, err;
-    char **current;
+    int i;
     
+    BLContextStruct context;
+    struct blesscon bcon;
+
+    bcon.quiet = 0;
+    bcon.verbose = 0;
+
+    context.logstring = blesslog;
+    context.logrefcon = &bcon;
+    
+    
+#ifndef __ppc__
+		// yay, this works on ppc-based arches
+	fprintf(stderr, xstr(PROGRAM) " only runs on PowerPC-based Darwin machines\n");
+	exit(1);
+#endif
+	
+    initConfig();
+	
     if(argc == 1) {
-        usage();
+        usage(commandlineopts);
     }
-    
-    folderXpath[0] = '\0';
-    folder9path[0] = '\0';
-    bootXpath[0] = '\0';
-    
-    for(i=1, current=argv+1; i < argc; i++, current++) {
-      
-        if(isoption(kbootinfo)) {
-            fetchoptionarg(bootXpath);
-        } else if(isoption(kbootblocks)) {
-	  config.bblocks = 1;
-        } else if(isoption(kdebug)) {
-            config.debug = 1;
-        } else if(isoption(kfolder)) {
-            fetchoptionarg(folderXpath);
-        } else if(isoption(kfolder9)) {
-            fetchoptionarg(folder9path);
-        } else if(isoption(kinfo)) {
-            config.info = 1;
-            fetchoptionarg(infopath);
-        } else if(isoption(kplist)) {
-            config.plist = 1;
-        } else if(isoption(kquiet)) {
-            config.quiet = 1;
-        } else if(isoption(ksetOF)) {
-            config.setOF= 1;
-        } else if(isoption(kuse9)) {
-            config.use9= 1;
-        } else if(isoption(kverbose)) {
-            config.verbose= 1;
-        } else {
-            usage();
-        }
-    }
-
-    /* If it was requested, print out the Finder Info words */
-    if(config.info) {
-        unsigned char infom[MAXPATHLEN];
         
-        if(err = getMountPoint(infopath, "", infom)) {
-            errorprintf("Can't get mount point for %s\n", infopath);
+    /* start at 1, since argc >=2 */
+    for(i=1; i < argc; i++) {
+        int j;
+        int found = 0;
+        
+        /* check against each option */
+        for(j=0; j < klast; j++) {
+
+            /* if it matches the option text */
+            if(!strcmp(&(argv[i][1]), commandlineopts[j].flag)) {
+
+                if(commandlineopts[j].takesarg == aRequired) {
+                    i++;
+                    if(i >= argc ) usage(commandlineopts); /* no arg given */
+                    strncpy(actargs[j].argument, argv[i], kMaxArgLength-1);
+					actargs[j].argument[kMaxArgLength-1] = '\0';
+					actargs[j].hasArg = 1;
+					found = 1;
+					break;
+                } else if(commandlineopts[j].takesarg == aOptional) {
+					if((i+1>=argc) || ((i+1<argc) && argv[i+1][0] == '-')) {
+						// if next item appears to be a flag, or doesn't exist, no opt
+						actargs[j].argument[0] = '\0';
+						found = 1;
+						break;
+					} else if(i+1<argc) {
+						// looks like we're taking an argument
+						i++;
+						strncpy(actargs[j].argument, argv[i], kMaxArgLength-1);
+						actargs[j].argument[kMaxArgLength-1] = '\0';
+						actargs[j].hasArg = 1;
+						found = 1;
+						break;
+					}
+				} else if(commandlineopts[j].takesarg == aNone) {
+					actargs[j].argument[0] = '\0';
+					found = 1;
+					break;
+				}
+            }
         }
-        if(err = dumpFI(infom)) {
-            errorprintf("Can't print Finder information\n");
-            exit(1);
-        }
-        exit(0);
-    }
-
-    /* Quick sanity testing of the command-line arguments */
-    if(folderXpath[0] == '\0' && folder9path[0] == '\0')	{ usage(); }
-    if(folderXpath[0] == '\0' && bootXpath[0] != '\0')		{ usage(); }
-    if(folder9path[0] == '\0' && config.use9)			{ usage(); }
-    if(folder9path[0] == '\0' && config.bblocks)		{ usage(); }
-
-    if(!(geteuid() == 0 || getuid() == 0) && !config.debug) {
-      errorprintf("Not run as root, enabling -noexec mode\n");
-      config.debug = 1;
-    }
-
-    /* If user gave options that require BootX creation, do it now. */
-    if(bootXpath[0] != '\0') {
-        if(err = createBootX(bootXpath, folderXpath)) {
-            errorprintf("Could not create BootX at %s/%s\n", folderXpath, BOOTX);
+        
+        /* if the option wasn't found, we have a problem */
+        if(!found) {
+            usage(commandlineopts);
         } else {
-            verboseprintf("BootX created successfully at %s/%s\n", folderXpath, BOOTX);
-        }
-    } else {
-        verboseprintf("No BootX creation requested\n");
+			actargs[j].present = 1;
+		}
     }
 
+	bcon.verbose = actargs[kverbose].present ? 1 : 0;
+	bcon.quiet = actargs[kquiet].present ? 1 : 0;
 
-    /* We shouldn't need to create anything else at this point. Just bless */
-    
-    /* First get any directory IDs we need */
-    if(folderXpath[0] != '\0') {
-        if(err = getFolderID(folderXpath, &folderXid)) {
-            errorprintf("Error while get directory ID of %s\n", folderXpath);
-        } else {
-            verboseprintf("Got directory ID of %ld for %s\n", folderXid, folderXpath);
-        }
+    /* There are three modes of execution: info, device, folder.
+     * These are all one-way function jumps.
+     */
+     
+    /* If it was requested, print out the Finder Info words */
+    if(actargs[kinfo].present) {
+        return modeInfo(&context, commandlineopts, actargs);
     }
 
-    if(folder9path[0] != '\0') {
-        if(err = getFolderID(folder9path, &folder9id)) {
-            errorprintf("Error while get directory ID of %s\n", folder9path);
-        } else {
-            verboseprintf("Got directory ID of %ld for %s\n", folder9id, folder9path);
-        }
-    }
-    
-
-    /* We know that at least one folder has been specified */
-    if(err = getMountPoint(folderXpath, folder9path, mountpoint)) {
-        errorprintf("Can't determine mount point of '%s' and '%s'\n", folderXpath, folder9path);
-	exit(1);
-    } else {
-      verboseprintf("Common mount point of '%s' and '%s' is %s\n", folderXpath, folder9path, mountpoint);
+    if(actargs[kdevice].present) {
+        return modeDevice(&context, commandlineopts, actargs);
     }
 
+	/* default */
+	return modeFolder(&context, commandlineopts, actargs);
+
+}
+
+#define setoption(opt, desc, fflag, hasarg, mode)  commandlineopts[opt].description = desc; \
+                                            commandlineopts[opt].flag = fflag; \
+                                            commandlineopts[opt].takesarg = hasarg; \
+					    commandlineopts[opt].modes = mode
 
 
-    /* Bless the folders */
-    if(err = blessDir(mountpoint, folderXid, folder9id)) {
-        errorprintf("Can't bless directories\n");
-	exit(1);
-    } else {
-      verboseprintf("Volume at %s blessed successfully\n", mountpoint);
+static void initConfig() {
+    int i;
+
+
+    for(i=0; i< klast; i++) {
+		bzero(&actargs[i], sizeof(struct clarg));
     }
 
+setoption(kbootinfo, "Path to a bootx.bootinfo file to be used as a BootX", "bootinfo", aRequired, mFolder);
+setoption(kbootblocks, "Get/set boot blocks if an OS 9 folder was specified", "bootBlocks", aNone, mFolder|mInfo);
+setoption(kbootblockfile, "Data fork file with boot blocks", "bootBlockFile", aRequired, mFolder);
+setoption(kdevice, "Unmounted block device to operate on", "device", aRequired, mDevice|mModeFlag);
+setoption(kfolder, "Darwin/Mac OS X folder to be blessed", "folder", aRequired, mFolder|mModeFlag);
+setoption(kfolder9, "Classic/Mac OS 9 folder to be blessed", "folder9", aRequired, mFolder|mModeFlag);
+setoption(kformat, "Format the device with the given filesystem", "format", aOptional, mDevice);
+setoption(kfsargs, "Extra arguments to newfs", "fsargs", aRequired, mDevice);
+setoption(kinfo, "Print out Finder info fields for the specified volume", "info", aOptional, mInfo|mModeFlag);
+setoption(klabel, "Label for a newly-formatted volume", "label", aRequired, mDevice|mFolder);
+setoption(kmount, "Mount point to use", "mount", aRequired, 
+mFolder|mDevice);
+setoption(kquiet, "Quiet mode", "quiet", aNone, mDevice|mFolder|mInfo);
+setoption(kplist, "Output in plist format", "plist", aNone, mInfo);
+setoption(ksave9, "Save the existing 9 blessed folder", "save9", aNone, mFolder);
+setoption(ksaveX, "Save the existing X blessed folder", "saveX", aNone, mFolder);
+setoption(ksetOF, "Set Open Firmware to boot off this partition", "setOF", aNone, mDevice|mFolder);
+setoption(ksystem, "Fallback system for wrapper or boot blocks", "system", aRequired, mDevice|mFolder);
+setoption(kuse9, "If both an X and 9 folder is specified, prefer the 9 one", "use9", aNone, mFolder);
+setoption(kverbose, "Verbose mode", "verbose", aNone, mDevice|mFolder|mInfo);
+setoption(kwrapper, "Data fork System file to place in HFS+ wrapper", "wrapper", aRequired, mDevice);
+setoption(ksystemfile, "Data fork System file to place in blessed System Folder", "systemfile", aRequired, mFolder);
+setoption(kxcoff, "Path to bootx.xcoff to be used as StartupFile", "xcoff", aRequired, mDevice);
 
-#if !defined(DARWIN)
-    if(config.bblocks) {
-      if(err = setBootBlocks(mountpoint, folder9id)) {
-	errorprintf("Can't set boot blocks for %s\n", mountpoint);
-	exit(1);
-      } else {
-	verboseprintf("Boot blocks set successfully\n");
-      }
-    }
-#endif // !defined(DARWIN)
-
-    /* Set Open Firmware to boot off the specified volume*/
-    if(config.setOF) {
-        if(err = setOpenFirmware(mountpoint)) {
-            errorprintf("Can't set Open Firmware\n");
-            exit(1);
-        } else {
-	  verboseprintf("Open Firmware set successfully\n");
-	}
-    }
-
-    if(config.debug) {
-        verboseprintf("Bless was successful\n");
-    }
-    exit(0);
 }

@@ -17,7 +17,7 @@
  *	
  * External functions:
  *
- *	glob() - match a string against a simple pattern
+ *	jam_glob() - match a string against a simple pattern
  *
  * Internal functions:
  *
@@ -32,11 +32,11 @@
 static void globchars();
 
 /*
- * glob() - match a string against a simple pattern
+ * jam_glob() - match a string against a simple pattern
  */
 
 int
-glob( c, s )
+jam_glob( c, s )
 register char *c;
 register char *s;
 {
@@ -87,7 +87,7 @@ register char *s;
 
 			/* A fast path for the last token in a pattern */
 
-			r = *c ? glob( c, s ) : *s ? -1 : 0;
+			r = *c ? jam_glob( c, s ) : *s ? -1 : 0;
 
 			if( !r )
 				return 0;

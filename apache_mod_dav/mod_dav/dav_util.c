@@ -2080,6 +2080,10 @@ int dav_insert_uri(array_header *uri_array, const char *uri)
     int i;
     const char **pelt;
 
+    /* never insert an empty URI; this index is always DAV_NS_NONE */
+    if (*uri == '\0')
+        return DAV_NS_NONE;
+
     for (i = uri_array->nelts; i--;) {
 	if (strcmp(uri, DAV_GET_URI_ITEM(uri_array, i)) == 0)
 	    return i;

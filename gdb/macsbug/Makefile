@@ -5,7 +5,7 @@
 #                       Makefile to build the gdb MacsBug plugin                       #
 #                                                                                      #
 #                                     Ira L. Ruben                                     #
-#                      Copyright Apple Computer, Inc. 2000-2001                        #
+#                      Copyright Apple Computer, Inc. 2000-2002                        #
 #                                                                                      #
 ########################################################################################
 
@@ -63,7 +63,7 @@
 
 PROJECT				=	MacsBug
 PLUGIN				=       MacsBug_plugin
-VERSION				= 	1.1
+VERSION				= 	1.3
 
 SRCROOT				=	.
 SYMROOT				=	.
@@ -71,13 +71,22 @@ OBJROOT				=	.
 OFILE_DIR			=	$(OBJROOT)/Objects
 API_DIR				=	$(SRCROOT)
 
+GDBROOT				=	$(GDB_BUILD_ROOT)
 GDBDIR				=	/usr/libexec/gdb
 IDIR				=	$(GDBDIR)/plugins/$(PROJECT)
 DSTDIR				=	$(DSTROOT)$(IDIR)
 
 PLUGIN_SUPPORT			= 	$(API_DIR)/gdb_plugin_support
 
-BUILD_VERSION			=	$(shell echo -n `sw_vers | grep 'ProductVersion'` | sed -e 's/.*: //')
+BUILD_VERSION			=	10.1
+
+ifndef BINUTILS_BUILD_ROOT
+BINUTILS_BUILD_ROOT = $(NEXT_ROOT)
+endif
+
+ifndef GDB_BUILD_ROOT
+GDB_BUILD_ROOT = $(NEXT_ROOT)
+endif
 
 # The following defines $(gdb_plugin_support.o) as a function of using the Makefile
 # by buildit or using it explicitly.  Only buildit will use the "install" target.  For
@@ -120,9 +129,9 @@ CFLAGS 				= 	-g 				\
 
 ifneq ($(BUILD_VERSION),10.0)
 LDFLAGS				=	-bundle 			\
-					-bundle_loader $(DSTROOT)$(GDBDIR)/gdb-powerpc-apple-macos10 \
+					-bundle_loader $(GDBROOT)$(GDBDIR)/gdb-powerpc-apple-macos10 \
 					-twolevel_namespace \
-					-F/System/Library/PrivateFrameworks -framework liberty 
+					-F$(BINUTILS_BUILD_ROOT)/System/Library/PrivateFrameworks -framework liberty 
 else
 LDFLAGS				=	-bundle 			\
 					-undefined suppress
@@ -164,7 +173,7 @@ installsrc			:
 	chmod 755 $(SRCROOT)
 	gnutar cf - $(INSTALLSRC_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
-	cd gdb_plugin_support; make installsrc SRCROOT=$(SRCROOT)/gdb_plugin_support; cd ..
+	$(MAKE) -C gdb_plugin_support SRCROOT=$(SRCROOT)/gdb_plugin_support installsrc
 
 clean				:
 	rm -rf $(OFILE_DIR) $(PLUGIN) $(gdb_plugin_support.o)

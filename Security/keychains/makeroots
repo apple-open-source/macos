@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+#
+#
+#
+use strict;
+
+my $dbname = "X509Anchors";
+
+my $count = 0;
+my $created;
+for my $file (@ARGV) {
+	my @cmd = ("certtool", "i", $file, "k=$dbname", "d");
+	do { push @cmd, "c"; $created = 1; } unless $created;
+	print "$file ";
+	die if system @cmd;
+	$count++;
+}
+
+print "$count certificates placed into $dbname\n";
+exit 0;

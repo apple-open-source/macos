@@ -64,9 +64,8 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			/* if no notifications have been registered */
 			return TRUE;
 		case Using_NotifierInformViaRunLoop :
-			/* once activated, a RunLoop notifier cannot be cancelled */
-			_SCErrorSet(kSCStatusNotifierActive);
-			return FALSE;
+			CFRunLoopSourceInvalidate(storePrivate->rls);
+			return TRUE;
 		case Using_NotifierInformViaCallback :
 			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  cancel callback runloop source"));
 

@@ -56,7 +56,7 @@ static char sccsid[] = "@(#)mkglue.c	5.6 (Berkeley) 6/18/88";
  */
 #include <stdio.h>
 #include <string.h>
-#import "config.h"
+#include "config.h"
 #include "y.tab.h"
 #include <ctype.h>
 

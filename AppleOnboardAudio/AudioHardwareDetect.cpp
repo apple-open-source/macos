@@ -56,13 +56,12 @@
 
 OSDefineMetaClassAndStructors(AudioHardwareDetect, OSObject)
 
-    // Class creation function. Can be called from anywhere
+// Class creation function. Can be called from anywhere
 
 AudioHardwareDetect *AudioHardwareDetect::create(UInt32 cntrlID, AudioHardwareDetectInfo myInfo){
- 
     AudioHardwareDetect *myDetect;
 
-            //we verify it is a known type of AudioHardwareDetect
+	// we verify it is a known type of AudioHardwareDetect
     if (kAudioHardwareDetectUnknown == myInfo.detectKind) {
         myDetect = 0; 
         goto EXIT;
@@ -80,10 +79,9 @@ EXIT:
     return myDetect;
 }
 
-    //Private creation method
+// Private creation method
     
 bool AudioHardwareDetect::init(UInt32 cntrlID, AudioHardwareDetectInfo myInfo) {
-
     if(!super::init())
         return false;
     
@@ -98,17 +96,16 @@ bool AudioHardwareDetect::init(UInt32 cntrlID, AudioHardwareDetectInfo myInfo) {
     return(true);
 }
 
-        //Release method (maybe we should implement a release??)
+// Release method (maybe we should implement a release??)
 void AudioHardwareDetect::free(){
     super::free();
 }
 
-        // This is the most useful method : given a series of bits
-        // representing the state of all AudioHardwareDetect, this method
-        // verifies if its device is connected. If yes it returns
-        // it, and otherwise 0.
+// This is the most useful method : given a series of bits
+// representing the state of all AudioHardwareDetect, this method
+// verifies if its device is connected. If yes it returns
+// it, and otherwise 0.
 UInt32 AudioHardwareDetect::refreshDevices(UInt32 inSense){
-       
     UInt32 result;
     
     switch(dKind) {
@@ -125,7 +122,7 @@ UInt32 AudioHardwareDetect::refreshDevices(UInt32 inSense){
             else 
                 result = 0;
             break;
-        case kAudioHardwareDetectGPIO: //We need to add the GPIO detect
+        case kAudioHardwareDetectGPIO: 					// We need to add the GPIO detect
 			debug4IOLog("AudioHardwareDetect::refreshDevices inSense %08lx, dbitMask %08lx, dbitMatch %08lx\n", inSense, dbitMask, dbitMatch) ;
 
             if((inSense & dbitMask) == dbitMatch) {
@@ -173,7 +170,7 @@ void AudioHardwareDetect::ioLog(){
             debugIOLog(" -- Type : AnyInSense\n");
             debug2IOLog(" -- Insense mask is %ld \n",dbitMask);
             break;
-        case kAudioHardwareDetectGPIO: //We need to add the GPIO detect information
+        case kAudioHardwareDetectGPIO: 				// We need to add the GPIO detect information
             debugIOLog(" -- Type : GPIO\n");
             break;
         case kAudioHardwareDetectUnknown:

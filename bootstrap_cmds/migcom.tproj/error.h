@@ -56,7 +56,7 @@ extern void fatal(char *format, ...);
 extern void warn(char *format, ...);
 extern void error(char *format, ...);
 
-extern int errors;
+extern int mig_errors;
 extern void set_program_name(char *name);
 
 #endif	/* _ERROR_H */

@@ -26,6 +26,7 @@
 #include "acls.h"
 #include <Security/utilities.h>
 #include <Security/handleobject.h>
+#include <Security/keyclient.h>
 
 
 class Database;
@@ -59,6 +60,7 @@ public:
 	
     // yield the decoded internal key -- internal attributes
 	operator CssmKey &()		{ return keyValue(); }
+    operator CSSM_KEY & ()		{ return keyValue(); }
 	size_t length()				{ return keyValue().length(); }
 	void *data()				{ return keyValue().data(); }
     
@@ -78,6 +80,16 @@ public:
     
     // key attributes that should not be passed on to the CSP
     static const uint32 managedAttributes = KeyBlob::managedAttributes;
+	// these attributes are internally generated, and invalid on input
+	static const uint32 generatedAttributes =
+		CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE;
+	
+	// a version of KeySpec that self-checks and masks for CSP operation
+	class KeySpec : public CssmClient::KeySpec {
+	public:
+		KeySpec(uint32 usage, uint32 attrs);
+		KeySpec(uint32 usage, uint32 attrs, const CssmData &label);
+	};
 
 private:
 	void setup(const CssmKey &newKey, uint32 attrs);

@@ -23,7 +23,7 @@
  */
 /* Copyright (c) Apple Computer, Inc. All rights reserved. */
 
-#import <config.h>
+#include <config.h>
 
 
 /*

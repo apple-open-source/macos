@@ -3,9 +3,11 @@
     DYNAMIC_CODE_GEN = YES; 
     English_RESOURCES = {}; 
     FILESTABLE = {
-        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
+        English_OTHER_RESOURCES = (Localizable.strings); 
+        FRAMEWORKS = (CoreFoundation.framework, IOKit.framework, SystemConfiguration.framework); 
         FRAMEWORKSEARCH = (/System/Library/PrivateFrameworks); 
         HEADERSEARCH = (
+            ../bootplib, 
             "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders"
         ); 
         H_FILES = (

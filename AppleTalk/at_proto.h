@@ -46,6 +46,10 @@
 #ifndef _AT_PROTO_H_
 #define _AT_PROTO_H_
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 /* Appletalk Stack status Function. */
 
 enum {
@@ -449,4 +453,9 @@ int ddp_config(int fd, ddp_addr_t *addr);
 	/* Used to provide functionality similar to BSD getsockname().
 	   Will be replaced with a sockopt as soon as the ATP and the ADSP
 	   protocols have been socketized */
+	   
+#ifdef  __cplusplus
+}
+#endif
+
 #endif _AT_PROTO_H_

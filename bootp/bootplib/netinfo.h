@@ -1,3 +1,6 @@
+
+#ifndef _S_NETINFO_H
+#define _S_NETINFO_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -66,6 +69,7 @@
 #define NIPROP_NETBOOT_NUMBER	"number"
 #define NIPROP_NETBOOT_SYSID	"sysid"
 #define NIPROP_NETBOOT_LAST_BOOT_TIME	"last_boot_time"
+#define NIPROP_NETBOOT_BOUND	"bound"
 #define NIPROP_SERVES		"serves"
 #define NIPROP__CREATOR		"_creator"
 
@@ -261,3 +265,4 @@ ni_indexforprop(ni_proplist * pl, ni_name name, ni_name value)
 
 }
 
+#endif _S_NETINFO_H

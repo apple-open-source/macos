@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -340,6 +340,8 @@ static pid_t pgrp;
  */
 
 static int one_process = 0;
+
+static int do_detach = 1;
 
 /* set if timeouts are to be handled by the children and not by the parent.
  * i.e. child_timeouts = !standalone || one_process.
@@ -1312,6 +1314,8 @@ char *ap_init_mutex_method(char *t)
     } else
 #endif
     {
+/* Ignore this directive on Windows */
+#ifndef WIN32
     if (server_conf) {
         ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, server_conf,
                     "Requested serialization method '%s' not available",t);
@@ -1320,6 +1324,7 @@ char *ap_init_mutex_method(char *t)
         fprintf(stderr, "Requested serialization method '%s' not available\n", t);
         exit(APEXIT_INIT);
     }
+#endif
     }
     return NULL;
 }
@@ -1354,7 +1359,7 @@ static void usage(char *bin)
     fprintf(stderr, "Usage: %s [-D name] [-d directory] [-f file]\n", bin);
 #endif
     fprintf(stderr, "       %s [-C \"directive\"] [-c \"directive\"]\n", pad);
-    fprintf(stderr, "       %s [-v] [-V] [-h] [-l] [-L] [-S] [-t] [-T]\n", pad);
+    fprintf(stderr, "       %s [-v] [-V] [-h] [-l] [-L] [-S] [-t] [-T] [-F]\n", pad);
     fprintf(stderr, "Options:\n");
 #ifdef SHARED_CORE
     fprintf(stderr, "  -R directory     : specify an alternate location for shared object files\n");
@@ -1372,10 +1377,14 @@ static void usage(char *bin)
     fprintf(stderr, "  -L               : list available configuration directives\n");
     fprintf(stderr, "  -S               : show parsed settings (currently only vhost settings)\n");
 #ifdef NETWARE
+    fprintf(stderr, "  -e               : force the display of configuration file errors to the logger screen\n");
     fprintf(stderr, "  -s               : load Apache without a screen\n");
 #endif
     fprintf(stderr, "  -t               : run syntax check for config files (with docroot check)\n");
     fprintf(stderr, "  -T               : run syntax check for config files (without docroot check)\n");
+#ifndef WIN32
+    fprintf(stderr, "  -F               : run main process in foreground, for process supervisors\n");
+#endif
 #ifdef WIN32
     fprintf(stderr, "  -n name          : name the Apache service for -k options below;\n");
     fprintf(stderr, "  -k stop|shutdown : tell running Apache to shutdown\n");
@@ -1504,7 +1513,7 @@ static void timeout(int sig)
 	if (!current_conn->keptalive) {
 	    /* in some cases we come here before setting the time */
 	    if (log_req->request_time == 0) {
-                log_req->request_time = time(0);
+                log_req->request_time = time(NULL);
 	    }
 	    ap_log_transaction(log_req);
 	}
@@ -1587,20 +1596,21 @@ API_EXPORT(unsigned int) ap_set_callback_and_alarm(void (*fn) (int), int x)
     unsigned int old;
 
 #if defined(WIN32) || defined(NETWARE)
+    time_t now = time(NULL);
 #ifdef NETWARE
     get_tsd
 #endif
     old = alarm_expiry_time;
 
     if (old)
-	old -= time(0);
+	old -= now;
     if (x == 0) {
 	alarm_fn = NULL;
 	alarm_expiry_time = 0;
     }
     else {
 	alarm_fn = fn;
-	alarm_expiry_time = time(NULL) + x;
+	alarm_expiry_time = now + x;
     }
 #else
     if (alarm_fn && x && fn != alarm_fn) {
@@ -2721,6 +2731,7 @@ static void reclaim_child_processes(int terminate)
     struct timeval tv;
     int waitret, tries;
     int not_dead_yet;
+    int ret;
 #ifndef NO_OTHER_CHILD
     other_child_rec *ocr, *nocr;
 #endif
@@ -2730,12 +2741,15 @@ static void reclaim_child_processes(int terminate)
     for (tries = terminate ? 4 : 1; tries <= 12; ++tries) {
 	/* don't want to hold up progress any more than 
 	 * necessary, but we need to allow children a few moments to exit.
-	 * Set delay with an exponential backoff.
+	 * Set delay with an exponential backoff. NOTE: if we get
+ 	 * interupted, we'll wait longer than expected...
 	 */
 	tv.tv_sec = waittime / 1000000;
 	tv.tv_usec = waittime % 1000000;
 	waittime = waittime * 4;
-	ap_select(0, NULL, NULL, NULL, &tv);
+	do {
+	    ret = ap_select(0, NULL, NULL, NULL, &tv);
+	} while (ret == -1 && errno == EINTR);
 
 	/* now see who is done */
 	not_dead_yet = 0;
@@ -3365,19 +3379,24 @@ static void detach(void)
     !defined(BONE)
 /* Don't detach for MPE because child processes can't survive the death of
    the parent. */
-    if ((x = fork()) > 0)
-	exit(0);
-    else if (x == -1) {
-	perror("fork");
-	fprintf(stderr, "%s: unable to fork new process\n", ap_server_argv0);
-	exit(1);
+    if (do_detach) {
+        if ((x = fork()) > 0)
+            exit(0);
+        else if (x == -1) {
+            perror("fork");
+	    fprintf(stderr, "%s: unable to fork new process\n", ap_server_argv0);
+	    exit(1);
+        }
+        RAISE_SIGSTOP(DETACH);
     }
-    RAISE_SIGSTOP(DETACH);
 #endif
 #ifndef NO_SETSID
     if ((pgrp = setsid()) == -1) {
 	perror("setsid");
 	fprintf(stderr, "%s: setsid failed\n", ap_server_argv0);
+	if (!do_detach) 
+	    fprintf(stderr, "setsid() failed probably because you aren't "
+		"running under a process management tool like daemontools\n");
 	exit(1);
     }
 #elif defined(NEXT) || defined(NEWSOS)
@@ -3392,6 +3411,13 @@ static void detach(void)
 #elif defined(MPE)
     /* MPE uses negative pid for process group */
     pgrp = -getpid();
+#elif defined(CYGWIN)
+    /* Cygwin does not take any argument for setpgrp() */
+    if ((pgrp = setpgrp()) == -1) {
+        perror("setpgrp");
+        fprintf(stderr, "%s: setpgrp failed\n", ap_server_argv0);
+        exit(1);
+    }
 #else
     if ((pgrp = setpgrp(getpid(), 0)) == -1) {
 	perror("setpgrp");
@@ -4095,9 +4121,6 @@ static void show_compile_settings(void)
 #ifdef DEFAULT_LOCKFILE
     printf(" -D DEFAULT_LOCKFILE=\"" DEFAULT_LOCKFILE "\"\n");
 #endif
-#ifdef DEFAULT_XFERLOG
-    printf(" -D DEFAULT_XFERLOG=\"" DEFAULT_XFERLOG "\"\n");
-#endif
 #ifdef DEFAULT_ERRORLOG
     printf(" -D DEFAULT_ERRORLOG=\"" DEFAULT_ERRORLOG "\"\n");
 #endif
@@ -4211,8 +4234,15 @@ static void child_main(int child_num_arg)
     }
     GETUSERMODE();
 #else
-    /* Only try to switch if we're running as root */
+    /* 
+     * Only try to switch if we're running as root
+     * In case of Cygwin we have the special super-user named SYSTEM
+     */
+#ifdef CYGWIN
+    if (getuid() == SYSTEM_UID && (
+#else
     if (!geteuid() && (
+#endif
 #ifdef _OSD_POSIX
 	os_init_job_environment(server_conf, ap_user_name, one_process) != 0 || 
 #endif
@@ -4567,6 +4597,17 @@ static void child_main(int child_num_arg)
 	    if(ap_extended_status)
 		increment_counts(my_child_num, r);
 
+#ifdef TPF_HAVE_NSD
+            /* Update the TPF Network Services Database message counters */
+            tpf_tcpip_message_cnt(NSDB_INPUT_CNT,
+                ((struct sockaddr_in *)&sa_server)->sin_port,
+                NSDB_TCP_S, 1);
+
+            tpf_tcpip_message_cnt(NSDB_OUTPUT_CNT,
+                ((struct sockaddr_in *)&sa_server)->sin_port,
+                NSDB_TCP_S, 1);
+#endif /* TPF_HAVE_NSD */
+
 	    if (!current_conn->keepalive || current_conn->aborted)
 		break;
 
@@ -4742,7 +4783,7 @@ static int make_child(server_rec *s, int slot, time_t now)
 static void startup_children(int number_to_start)
 {
     int i;
-    time_t now = time(0);
+    time_t now = time(NULL);
 
     for (i = 0; number_to_start && i < ap_daemons_limit; ++i) {
 	if (ap_scoreboard_image->servers[i].status != SERVER_DEAD) {
@@ -4773,13 +4814,16 @@ static int hold_off_on_exponential_spawning;
  * is greater then ap_daemons_max_free. Usually we will use SIGUSR1
  * to gracefully shutdown, but unfortunatly some OS will need other 
  * signals to ensure that the child process is terminated and the 
- * scoreboard pool is not growing to infinity. This effect has been
- * seen at least on Cygwin 1.x. -- Stipe Tolj <tolj@wapme-systems.de>
+ * scoreboard pool is not growing to infinity. Also set the signal we
+ * use to kill of childs that exceed timeout. This effect has been
+* seen at least on Cygwin 1.x. -- Stipe Tolj <tolj@wapme-systems.de>
  */
 #if defined(CYGWIN)
 #define SIG_IDLE_KILL SIGKILL
+#define SIG_TIMEOUT_KILL SIGUSR2
 #else
 #define SIG_IDLE_KILL SIGUSR1
+#define SIG_TIMEOUT_KILL SIGALRM
 #endif
 
 static void perform_idle_server_maintenance(void)
@@ -4788,7 +4832,7 @@ static void perform_idle_server_maintenance(void)
     int to_kill;
     int idle_count;
     short_score *ss;
-    time_t now = time(0);
+    time_t now = time(NULL);
     int free_length;
     int free_slots[MAX_SPAWN_RATE];
     int last_non_dead;
@@ -4851,7 +4895,7 @@ static void perform_idle_server_maintenance(void)
 		else if (ps->last_rtime + ss->timeout_len < now) {
 		    /* no progress, and the timeout length has been exceeded */
 		    ss->timeout_len = 0;
-		    kill(ps->pid, SIGALRM);
+		    kill(ps->pid, SIG_TIMEOUT_KILL);
 		}
 	    }
 #endif
@@ -5099,7 +5143,7 @@ static void standalone_main(int argc, char **argv)
 			/* we're still doing a 1-for-1 replacement of dead
 			 * children with new children
 			 */
-			make_child(server_conf, child_slot, time(0));
+			make_child(server_conf, child_slot, time(NULL));
 			--remaining_children_to_start;
 		    }
 #ifndef NO_OTHER_CHILD
@@ -5292,7 +5336,7 @@ int REALMAIN(int argc, char *argv[])
     ap_setup_prelinked_modules();
 
     while ((c = getopt(argc, argv,
-				    "D:C:c:xXd:f:vVlLR:StTh"
+				    "D:C:c:xXd:Ff:vVlLR:StTh"
 #ifdef DEBUG_SIGSTOP
 				    "Z:"
 #endif
@@ -5313,6 +5357,9 @@ int REALMAIN(int argc, char *argv[])
 	    break;
 	case 'd':
 	    ap_cpystrn(ap_server_root, optarg, sizeof(ap_server_root));
+	    break;
+	case 'F':
+	    do_detach = 0;
 	    break;
 	case 'f':
 	    ap_cpystrn(ap_server_confname, optarg, sizeof(ap_server_confname));
@@ -5405,17 +5452,25 @@ int REALMAIN(int argc, char *argv[])
         memcpy(tpf_server_name, input_parms.parent.servname,
                INETD_SERVNAME_LENGTH);
         tpf_server_name[INETD_SERVNAME_LENGTH + 1] = '\0';
-        ap_open_logs(server_conf, pconf);
+        ap_open_logs(server_conf, plog);
         ap_tpf_zinet_checks(ap_standalone, tpf_server_name, server_conf);
+        ap_tpf_save_argv(argc, argv);    /* save argv parms for children */
     }
     if (ap_standalone) {
         ap_set_version();
         ap_init_modules(pconf, server_conf);
         version_locked++;
         if(tpf_child) {
+           server_conf->error_log = stderr;
+#ifdef HAVE_SYSLOG
+            /* if ErrorLog is syslog call ap_open_logs from the child since
+               syslog isn't redirected to stderr by the Apache parent */
+            if (strncasecmp(server_conf->error_fname, "syslog", 6) == 0) {
+               ap_open_logs(server_conf, plog);
+            }
+#endif /* HAVE_SYSLOG */
             copy_listeners(pconf);
             reset_tpf_listeners(&input_parms.child);
-            server_conf->error_log = NULL;
 #ifdef SCOREBOARD_FILE
             scoreboard_fd = input_parms.child.scoreboard_fd;
             ap_scoreboard_image = &_scoreboard_image;
@@ -5456,8 +5511,16 @@ int REALMAIN(int argc, char *argv[])
 	}
 	GETUSERMODE();
 #else
-	/* Only try to switch if we're running as root */
+    /* 
+     * Only try to switch if we're running as root
+     * In case of Cygwin we have the special super-user named SYSTEM
+     * with a pre-defined uid.
+     */
+#ifdef CYGWIN
+    if ((getuid() == SYSTEM_UID) && setuid(ap_user_id) == -1) {
+#else
 	if (!geteuid() && setuid(ap_user_id) == -1) {
+#endif
 	    ap_log_error(APLOG_MARK, APLOG_ALERT, server_conf,
 			"setuid: unable to change to uid: %ld",
 			(long) ap_user_id);
@@ -6380,6 +6443,10 @@ void worker_main(void)
     child_handles = (thread *) alloca(nthreads * sizeof(int));
     for (i = 0; i < nthreads; i++) {
 	child_handles[i] = create_thread((void (*)(void *)) child_main, (void *) i);
+        if (child_handles[i] == 0) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, server_conf, 
+                         "create_thread rc = %d", errno);
+        }
     }
     if (nthreads > max_daemons_limit) {
 	max_daemons_limit = nthreads;
@@ -7117,6 +7184,7 @@ int REALMAIN(int argc, char *argv[])
 #endif
 
 #ifdef NETWARE
+    int currentScreen = GetCurrentScreen();
     /* If top_module is not NULL then APACHEC was not exited cleanly
      * and is in a bad state.  Simply clean up and exit.
      */
@@ -7192,7 +7260,7 @@ int REALMAIN(int argc, char *argv[])
 
     while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLz:Z:wiuStThk:n:W:")) != -1) {
 #else /* !WIN32 */
-    while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLsStTh")) != -1) {
+    while ((c = getopt(argc, argv, "D:C:c:Xd:fF:vVlLesStTh")) != -1) {
 #endif
         char **new;
 	switch (c) {
@@ -7271,16 +7339,29 @@ int REALMAIN(int argc, char *argv[])
             break;
 #endif /* WIN32 */
 #ifdef NETWARE
+        case 'e':
+            {
+                int screenHandle;  
+
+                /* Get a screen handle for the console screen. */
+                if ((screenHandle = CreateScreen("System Console", 0)) != NULL)
+                {
+                    SetAutoScreenDestructionMode(1); 
+                    SetCurrentScreen(screenHandle);  /* switch to console screen I/O */
+                }
+            }
+            break;
         case 's':
             if (DestroyScreen(GetCurrentScreen()) == 0)
             {
                 int screenHandle;  
-   
+
                 /* Create a screen handle for the console screen, 
                 even though the console screen exists. */
                 if ((screenHandle = CreateScreen("System Console", 0)) != NULL)
                 {
                     SetCurrentScreen(screenHandle);  /* switch to console screen I/O */
+                    currentScreen = GetCurrentScreen();
                 }
             }
             break;
@@ -7301,6 +7382,11 @@ int REALMAIN(int argc, char *argv[])
                     && ap_server_root[strlen(ap_server_root) - 1] == '/')
                 ap_server_root[strlen(ap_server_root) - 1] = '\0';
 	    break;
+#ifndef WIN32
+	case 'F':
+	    do_detach = 0;
+	    break;
+#endif
 	case 'f':
             ap_cpystrn(ap_server_confname,
                        ap_os_canonical_filename(pcommands, optarg),
@@ -7525,6 +7611,11 @@ int REALMAIN(int argc, char *argv[])
         printf("%s running...\n", ap_get_server_version());
     }
 #elif defined(NETWARE)
+    if (currentScreen != GetCurrentScreen()) {
+        SetCurrentScreen(currentScreen);  /* switch to console screen I/O */
+        SetAutoScreenDestructionMode(0); 
+    }
+
     printf("%s running...\n", ap_get_server_version());
 #endif
 
@@ -7624,7 +7715,7 @@ __declspec(dllimport)
 #endif
 
 
-int ap_main(int argc, char *argv[]); /* Load time linked from libhttpd.dll */
+int ap_main(int argc, char *argv[]); /* Load time linked from cyghttpd.dll */
 
 int main(int argc, char *argv[])
 {
@@ -7690,13 +7781,14 @@ int main(int argc, char *argv[], char *envp[])
      * but only handle the -L option 
      */
     llp_dir = SHARED_CORE_DIR;
-    while ((c = getopt(argc, argv, "D:C:c:Xd:f:vVlLR:SZ:tTh")) != -1) {
+    while ((c = getopt(argc, argv, "D:C:c:Xd:Ff:vVlLR:SZ:tTh")) != -1) {
 	switch (c) {
 	case 'D':
 	case 'C':
 	case 'c':
 	case 'X':
 	case 'd':
+	case 'F':
 	case 'f':
 	case 'v':
 	case 'V':

@@ -1,0 +1,33 @@
+#! /bin/sh
+
+# Test for bug in conditionals.  From Raja R Harinath.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(foo,0.0)
+AC_PROG_CC
+AM_CONDITIONAL(USE_A,[test x = y])
+AM_CONDITIONAL(USE_B,[test x = z])
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+if USE_A
+out=output_a.c
+else
+if USE_B
+out=output_b.c
+else
+out=output_c.c
+endif
+endif
+
+noinst_PROGRAMS=foo
+foo_SOURCES=foo.c $(out)
+END
+
+$ACLOCAL \
+  && $AUTOMAKE -a \
+  && grep 'USE_A_FALSE.*USE_B_FALSE.*output_c\...OBJEXT.' Makefile.in

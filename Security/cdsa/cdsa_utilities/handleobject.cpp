@@ -19,9 +19,6 @@
 //
 // handleobject - give an object a process-global unique handle
 //
-#ifdef __MWERKS__
-#define _CPP_HANDLEOBJECT
-#endif
 #include <Security/handleobject.h>
 
 
@@ -39,11 +36,22 @@ HandleObject::State::State()
 
 
 //
+// HandleObject destructor (virtual)
+//
+HandleObject::~HandleObject()
+{
+	State &st = state();
+	StLock<Mutex> _(st);
+	st.erase(this);
+}
+
+
+//
 // Assign a HandleObject's (new) Handle.
 //
 void HandleObject::State::make(HandleObject *obj)
 {
-    StLock<Mutex> _(mLock);
+    StLock<Mutex> _(*this);
 	for (;;) {
 		Handle handle = reinterpret_cast<uint32>(obj) ^ (++sequence << 19);
 		if (handleMap[handle] == NULL) {
@@ -63,50 +71,52 @@ void HandleObject::State::make(HandleObject *obj)
 //
 void HandleObject::State::erase(HandleObject *obj)
 {
-    StLock<Mutex> _(mLock);
     if (obj->validHandle())
         handleMap.erase(obj->handle());
 }
 
+void HandleObject::State::erase(HandleMap::iterator &it)
+{
+    if (it->second->validHandle())
+        handleMap.erase(it);
+}
+
 
 //
-// This is the main locator driver. It translates an object handle
-// into an object pointer, on the way atomically locking it and/or
-// removing it from the handle map for atomic deletion.
+// Observing proper map locking, locate a handle in the global handle map
+// and return a pointer to its object. Throw CssmError(error) if it cannot
+// be found, or it is corrupt.
 //
-HandleObject *HandleObject::State::locate(CSSM_HANDLE h, LocateMode mode, CSSM_RETURN error)
+HandleObject *HandleObject::State::find(CSSM_HANDLE h, CSSM_RETURN error)
 {
-    for (;;) {
-		{
-			StLock<Mutex> _(mLock);
-			HandleMap::iterator it = handleMap.find(h);
-			if (it == handleMap.end())
-				CssmError::throwMe(error);
-			HandleObject *obj = it->second;
-			if (obj == NULL || obj->handle() != h)
-				CssmError::throwMe(error);
-			if (mode == findTarget)
-				return obj;		// that's all, folks
-			// atomic find-and-lock requested (implicit in remove operation)
-			if (obj->tryLock()) {
-				// got object lock - assured of exit path
-				if (mode == removeTarget) {
-					debug("handleobj", "killing %p", obj);
-					handleMap.erase(h);
-					obj->clearHandle();
-				}
-				return obj;
-			}
-			// obj is busy; relinquish maplock and try again later
-			debug("handleobj", "object %p (handle 0x%lx) is busy - backing off",
-				obj, h);
-		}
-#if _USE_THREADS == _USE_NO_THREADS
-		assert(false);		// impossible; tryLock above always succeeds
-#else // real threads
-        Thread::yield();
-#endif // real threads
-    }
+	StLock<Mutex> _(*this);
+	HandleMap::const_iterator it = handleMap.find(h);
+	if (it == handleMap.end())
+		CssmError::throwMe(error);
+	HandleObject *obj = it->second;
+	if (obj == NULL || obj->handle() != h)
+		CssmError::throwMe(error);
+	return obj;
+}
+
+
+//
+// Look up the handle given in the global handle map.
+// If not found, or if the object is corrupt, throw an exception.
+// Otherwise, hold the State lock and return an iterator to the map entry.
+// Caller must release the State lock in a timely manner.
+//
+HandleObject::HandleMap::iterator HandleObject::State::locate(CSSM_HANDLE h, CSSM_RETURN error)
+{
+	StLock<Mutex> locker(*this);
+	HandleMap::iterator it = handleMap.find(h);
+	if (it == handleMap.end())
+		CssmError::throwMe(error);
+	HandleObject *obj = it->second;
+	if (obj == NULL || obj->handle() != h)
+		CssmError::throwMe(error);
+	locker.release();
+	return it;
 }
 
 

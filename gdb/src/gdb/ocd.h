@@ -1,5 +1,5 @@
 /* Definitions for the Macraigor Systems BDM Wiggler
-   Copyright 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -93,7 +93,7 @@ void ocd_close (int quitting);
 
 void ocd_detach (char *args, int from_tty);
 
-void ocd_resume (int pid, int step, enum target_signal siggnal);
+void ocd_resume (ptid_t ptid, int step, enum target_signal siggnal);
 
 void ocd_prepare_to_store (void);
 
@@ -103,13 +103,15 @@ void ocd_files_info (struct target_ops *ignore);
 
 
 int ocd_xfer_memory (CORE_ADDR memaddr, char *myaddr,
-		     int len, int should_write, struct target_ops *target);
+		     int len, int should_write,
+		     struct mem_attrib *attrib,
+		     struct target_ops *target);
 
 void ocd_mourn (void);
 
 void ocd_create_inferior (char *exec_file, char *args, char **env);
 
-int ocd_thread_alive (int th);
+int ocd_thread_alive (ptid_t th);
 
 void ocd_error (char *s, int error_code);
 

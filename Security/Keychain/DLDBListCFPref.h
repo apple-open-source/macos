@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,12 +17,12 @@
 
 
 /*
-    DLDBListCFPref.h
-*/
+ *  DLDBListCFPref.h
+ */
+#ifndef _SECURITY_DLDBLISTCFPREF_H_
+#define _SECURITY_DLDBLISTCFPREF_H_
 
-#ifndef __DLDBLISTCFPREF_H_
-#define __DLDBLISTCFPREF_H_
-
+#include <Security/cfutilities.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPreferences.h>
 #include <Security/DLDBList.h>
@@ -146,4 +146,4 @@ private:
 
 } // end namespace Security
 
-#endif /* __DLDBLISTCFPREF_H_ */
+#endif /* !_SECURITY_DLDBLISTCFPREF_H_ */

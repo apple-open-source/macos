@@ -1,4 +1,4 @@
-.TH LD 1 "July 28, 2001" "Apple Computer, Inc."
+.TH LD 1 "May 30, 2002" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -113,13 +113,16 @@ option is specified).
 .SH STATIC ARCHIVE LIBRARIES
 .PP
 .I ld
-supports two types of libraries: static archive libraries and dynamic shared libraries. Searching for undefined symbols is peformed differently for dynamic shared libraries than it is for static archive libraries. The searching of dynamic shared libraries is described later. 
+supports two types of libraries: static archive libraries and dynamic shared
+libraries.  Searching for undefined symbols is performed differently for dynamic
+shared libraries than it is for static archive libraries.  The searching of
+dynamic shared libraries is described later. 
 .PP
 When a static archive library is specified as an argument to 
 .IR ld , 
 it is searched exactly once, at the 
 point it is encountered in the argument list.  Only those members defining an unresolved external
-reference, as defined by the static archive libary's table of contents,
+reference, as defined by the static archive library's table of contents,
 are loaded.  To produce the table of contents, all static archive libraries must be processed by 
 .IR ranlib (1).
 .PP
@@ -179,7 +182,7 @@ Two-level and flat namespaces refer to how references to symbols in dynamic
 libraries are resolved to a definition in specific dynamic library.  For
 two-level namespace that resolution is done at static link time when each
 image (program, bundle and shared library) is built.  When a program is using
-images built with two-level namespace their may be different global symbols
+images built with two-level namespace there may be different global symbols
 with the same name being used by different images in the program (this is now
 the default).  When a program is using all flat namespace images then only one
 global symbol for each global symbol name is used by all images of the program
@@ -203,7 +206,7 @@ and
 .BI \-undefined " suppress"
 can't be used.  The specific library definition recorded
 for each reference is the first library that has a definition as listed on the
-link line.  Listing an umbrella framework implys all of its sub-frameworks,
+link line.  Listing an umbrella framework implies all of its sub-frameworks,
 sub-umbrellas and sub-libraries.  For any reference to a definition found in
 an umbrella framework's sub-framework, sub-umbrella or sub-library will be
 recorded as coming from the umbrella framework.  Then at execution time the
@@ -475,6 +478,45 @@ Which cause the treatment of relocation entries in read-only sections as either,
 errors, warnings, or suppressed messages.
 The default is to treat these as errors.
 .TP
+.BI \-sect_diff_relocs " treatment"
+Specifies how section difference relocation enries are to be treated when
+.B \-dynamic
+and
+.B \-execute
+are used.
+To get the best possible code generation the compiler should not generate code
+for executables (MH_EXECUTE format outputs) that have any section difference
+relocation entries.  The
+.IR gcc (1)
+compiler has the
+.B \-mdynamic-no-pic
+flag for generating code for executables.  The default treatment is
+.I suppress,
+where no message is printed.  The other treatments are
+.I error
+or
+.I warning.
+This option can also be specified by setting the environment variable
+.SM LD_SECT_DIFF_RELOCS
+to the treatment values.
+.TP
+.BI \-weak_reference_mismatches " treatment"
+Specifies how to treat mismatches of symbol references in the the object files
+being linked. Normally the all the undefined symbol references of the object
+files being linked should be consistent for each undefined symbol.  That is all
+undefined symbols should either be weak or non-weak references. The default
+treatment is
+.I error,
+where the link fails with an error message.  The other treatments are
+.I weak
+or
+.I non-weak,
+which makes mismatched undefined symbol references either weak or non-weak
+respectfully in the output.  Care must be taken when using the treatment
+.I weak
+as the use of the non-weak symbol references in an object file may cause the
+program to crash when the symbol is not present at execution time.
+.TP
 .B \-prebind
 Have the static linker,
 .IR ld (1),
@@ -488,6 +530,13 @@ addresses.
 If not, the dynamic linker undoes the prebinding and binds normally.
 This option can also be specified by setting the environment variable
 .SM LD_PREBIND.
+If the environment variable
+.SM LD_FORCE_NO_PREBIND
+is set both the option
+.B \-prebind
+.SM LD_PREBIND
+environment variable are ignore and the output is not prebound.
+and the
 .TP
 .B \-noprebind
 Do not have the static linker,
@@ -506,6 +555,23 @@ run on it to fix up the prebinding after the overlapping dynamic libraries
 have been rebuilt.  This option can also be specified by setting the
 environment variable
 .SM LD_PREBIND_ALLOW_OVERLAP.
+.TP
+.B \-prebind_all_twolevel_modules
+Have the static linker,
+.IR ld (1),
+mark all modules from prebound two-level namespace dynamic libraries as used
+by the program even if they are not statically referenced.  This can provide
+improved launch time for programs like Objective-C programs that use symbols
+indirectly through NIB files. This option can also be specified by setting the
+environment variable
+.SM LD_PREBIND_ALL_TWOLEVEL_MODULES.
+.TP
+.B \-nofixprebinding
+Have the static linker,
+.IR ld (1),
+mark the executable so that the dynamic linker will never notify the prebinding
+agent if this launched and its prebinding is out of date.  This is used when
+building the prebinding agent itself.
 .PP
 The following flags are related to libraries:
 .TP 
@@ -642,7 +708,7 @@ This option was previously
 which will continue to be recognized.
 .TP
 .B "\-dylib"
-Produce a Mach-O dynamicly linked shared library format file.  The headers are
+Produce a Mach-O dynamically linked shared library format file.  The headers are
 placed in the first segment.  All sections are placed in their proper segments
 and they are padded to the segment alignment.  This has a file type of
 .SM MH_DYLIB.
@@ -765,6 +831,12 @@ and
 .B "\-seg_addr_table"
 options are ignored and a warning is printed.
 .TP
+.BI "\-seg_addr_table_filename" " pathname"
+Use
+.B pathname
+instead of the install name of the library for matching an entry in the segment
+address table.
+.TP
 .BI "\-segprot" " name max init"
 Specifies the maximum and initial virtual memory protection of the named
 segment,
@@ -781,7 +853,7 @@ are any combination of the characters `r' (for read), `w' (for write),
 `x' (for execute) and '\-' (no access).  The default is `rwx' for the maximum
 protection for all segments.
 The default for the initial protection for all segments is `rw' unless the
-segment contains a section which contains some machine insructions, in which
+segment contains a section which contains some machine instructions, in which
 case the default for the initial protection is `rwx'.
 The default for the initial protection for the
 .SM "``_\|_TEXT''"
@@ -1020,11 +1092,18 @@ flag relative to the dynamic libraries.  If the the bundle being created with
 then the searching of the executable is done before all dynamic libraries.
 .TP 
 .B \-private_bundle
-This specifies that the bundle output file being created with
-.B \-flat_namespace
-in effect is going to be loaded by the executable in the
+This allows symbols defined in the output to also be defined in executable in
+the
 .B \-bundle_loader
-argument with the
+argument
+when
+.B \-flat_namespace
+is in effect.
+This implies that the bundle output file being created is going to be loaded by
+the executable with the
+.B NSLINKMODULE_OPTION_PRIVATE
+option to
+.IR NSLinkModule (3).
 .TP 
 .B \-twolevel_namespace_hints
 Specifies to create the output with the two-level namespace hints table to be
@@ -1060,13 +1139,29 @@ The default is to treat multiply defined symbols in dynamic libraries as
 warnings when
 .B \-twolevel_namespace
 is in effect.
+.TP 
+.BI \-multiply_defined_unused " treatment"
+Specifies how unused multiply defined symbols in dynamic libraries when
+.B \-twolevel_namespace
+is in effect are to be treated.
+An unused multiply defined symbol is one when there is a symbol defined in the
+output that is also defined in the dynamic libraries the output is linked with
+but the symbol in the dynamic library is not used by any reference in the
+output.
+.I treatment
+can be:
+.I error,
+.I warning,
+or
+.I suppress.
+The default for unused multiply defined symbols is to suppress these messages.
 .TP
 .B -nomultidefs
 specifying this flag marks the umbrella being created such that the dynamic
-linker is guaranteed that no multiple defintions of symbols in the umbrella's
+linker is guaranteed that no multiple definitions of symbols in the umbrella's
 sub-images will ever exist.  This allows the dynamic linker to always use the
 two-level namespace lookup hints even if the timestamps of the sub-images
-do not match.  This flag implys
+do not match.  This flag implies
 .BI \-multiply_defined " error".
 
 .PP
@@ -1278,7 +1373,8 @@ is specified, it is prepended to each name in the list file.
 .BI "\-headerpad" " value"
 Specifies the minimum amount of space ("padding") following 
 the headers for the
-.SM MH_EXECUTE format.
+.SM MH_EXECUTE
+format and all output file types with the dynamic linker.
 .I value
 is a hexadecimal number.  
 When a segment's size is rounded up to the segment alignment, there
@@ -1295,6 +1391,10 @@ headers and non-zerofill sections, round this size
 up to the segment alignment, 
 and use the difference between the rounded 
 and unrounded sizes as the minimum amount of padding.)
+.TP
+.B \-headerpad_max_install_names
+Add to the header padding enough space to allow changing all dynamic shared
+library paths recorded in the output file to be changed to MAXPATHLEN in length.
 .TP
 .B \-t
 Trace the progress of the link editor; display the name of each file 
@@ -1349,9 +1449,9 @@ option.  This subframework can then only be linked into the umbrella framework
 with the same
 .I framework_name
 or another subframework with the same umbrella framework name.  Any other
-attempt to staticly link this subframework directly will result in an error
+attempt to statically link this subframework directly will result in an error
 stating to link with the umbrella framework instead.  When building the umbrella
-framework that uses this subframework no addtional options are required.
+framework that uses this subframework no additional options are required.
 However the install name of the umbrella framework, required to be specified
 with
 .BR \-dylib_install_name ,
@@ -1402,11 +1502,7 @@ initialization routine is called before any symbol is used from the library
 including C++ static initializers (and #pragma CALL_ON_MODULE_BIND routines).
 .TP
 .BI \-run_init_lazily
-Mark the dyanmic library to have its library initialization routine and
-module initialization routines run lazily via catching memory faults to its
-writeable segments.  The library's initialization routine must not have any
-side effects that cause semantic differences as to when its initialization
-routine is run.
+This option is obsolete.
 .TP
 .BI \-dylib_compatibility_version " number"
 For dynamic shared library files, this specifies the compatibility version number
@@ -1462,6 +1558,21 @@ option is set.
 .BI \-dylinker_install_name " name"
 For dynamic link editor files, specifies the name of the file
 the dynamic link editor will be installed in for programs that use it.
+.PP
+The following environment variable is used to control the use of incompatible
+features in the output with respect to Mac OS X releases.
+.TP
+.B MACOSX_DEPLOYMENT_TARGET
+This is set to indicate the oldest Mac OS X version that that the output is to
+be used on.  When this is set to a release that is older that the current
+release features that are incompatible with that release will be disabled.  If
+a feature is seen in the input that can't be in the output due to this setting
+a warning is issued.  The current allowable values for this are
+.B 10.1
+and
+.B 10.2
+with the default being
+.B 10.1.
 .PP
 The following environment variables are used by Apple's Build and Integration
 team:

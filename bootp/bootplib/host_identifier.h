@@ -1,3 +1,5 @@
+#ifndef _S_HOST_IDENTIFIER_H
+#define _S_HOST_IDENTIFIER_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -45,3 +47,5 @@ identifierToString(u_char type, void * identifier, int len);
 
 void *
 identifierFromString(u_char * str, u_char * type, int * len);
+
+#endif _S_HOST_IDENTIFIER_H

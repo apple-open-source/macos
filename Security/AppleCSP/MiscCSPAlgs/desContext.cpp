@@ -151,7 +151,7 @@ void DES3Context::init(
 	{
 		StLock<Mutex> _(desInitMutex());
 		for(i=0; i<3; i++) {
-			if(irtn = desinit(&DesInst[i], DES_MODE_STD)) {
+			if((irtn = desinit(&DesInst[i], DES_MODE_STD))) {
 				DESDebug("desinit returned %d\n", irtn);
 				CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 			}

@@ -30,7 +30,6 @@
  */
 /*
  * HISTORY
- * $Log: thread_status.h,v $
  * Revision 1.1.1.1  1997/09/03 20:53:39  roland
  * Initial checkin of SGS release 244
  *
@@ -54,7 +53,6 @@
  * 	Initial version.
  * 	[91/03/30  09:32:42  brezak]
  * 
- * $EndLog$
  */
 
 #ifndef	_HPPA_THREAD_STATE_ 

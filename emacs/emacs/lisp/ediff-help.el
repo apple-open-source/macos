@@ -21,6 +21,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 	 
 (provide 'ediff-help)
@@ -65,7 +67,7 @@ n,SPC -next diff     |     h -hilighting         | rx -restore buf X's old diff
     ~ -rotate buffers|     m -wide display       |
 "
   "Help message usually used for 3-way comparison.
-Normally, not a user option. See `ediff-help-message' for details.")
+Normally, not a user option.  See `ediff-help-message' for details.")
   
 (defconst ediff-long-help-message-compare2
   "
@@ -79,7 +81,7 @@ n,SPC -next diff     |     h -hilighting         | rx -restore buf X's old diff
     ~ -swap variants |     m -wide display       |  
 "
   "Help message usually used for 2-way comparison.
-Normally, not a user option. See `ediff-help-message' for details.")
+Normally, not a user option.  See `ediff-help-message' for details.")
   
 (defconst ediff-long-help-message-narrow2
   "
@@ -93,7 +95,7 @@ n,SPC -next diff     |     h -hilighting         | rx -restore buf X's old diff
     ~ -swap variants |     m -wide display       |  
 "
   "Help message when comparing windows or regions line-by-line.
-Normally, not a user option. See `ediff-help-message' for details.")
+Normally, not a user option.  See `ediff-help-message' for details.")
   
 (defconst ediff-long-help-message-word-mode
   "
@@ -107,7 +109,7 @@ n,SPC -next diff     |     h -hilighting         | rx -restore buf X's old diff
     ~ -swap variants |     m -wide display       |  
 "
   "Help message when comparing windows or regions word-by-word.
-Normally, not a user option. See `ediff-help-message' for details.")
+Normally, not a user option.  See `ediff-help-message' for details.")
   
 (defconst ediff-long-help-message-merge
   "
@@ -119,37 +121,40 @@ n,SPC -next diff     |     h -hilighting         |  r -restore buf C's old diff
   v/V -scroll up/dn  |     X -read-only in buf X | wx -save buf X              
   </> -scroll lt/rt  |     m -wide display       | wd -save diff output        
     ~ -swap variants |     s -shrink window C    |  / -show ancestor buff      
-                     |     $ -show clashes only  |  & -merge w/new default     
+                     |  $$ -show clashes only    |  & -merge w/new default     
+                     |  $* -skip changed regions |
 "
-  "Help message during merging.
-Normally, not a user option. See `ediff-help-message' for details.")
+  "Help message for merge sessions.
+Normally, not a user option.  See `ediff-help-message' for details.")
 
 ;; The actual long help message.
 (ediff-defvar-local ediff-long-help-message ""
-  "Normally, not a user option. See `ediff-help-message' for details.")
+  "Normally, not a user option.  See `ediff-help-message' for details.")
   
 (defconst ediff-brief-message-string
-  "? -quick help "
+  " ? -quick help "
   "Contents of the brief help message.")
 ;; The actual brief help message
 (ediff-defvar-local ediff-brief-help-message ""
-  "Normally, not a user option. See `ediff-help-message' for details.")
+  "Normally, not a user option.  See `ediff-help-message' for details.")
   
 (ediff-defvar-local ediff-brief-help-message-function nil
   "The brief help message that the user can customize.
 If the user sets this to a parameter-less function, Ediff will use it to
-produce the brief help message. This function must return a string.")
+produce the brief help message.  This function must return a string.")
 (ediff-defvar-local ediff-long-help-message-function nil
   "The long help message that the user can customize.
 See `ediff-brief-help-message-function' for more.")
 
-(defvar ediff-use-long-help-message nil
-  "*If t, Ediff displays a long help message. Short help message otherwise.")
+(defcustom ediff-use-long-help-message nil
+  "*If t, Ediff displays a long help message.  Short help message otherwise."
+  :type 'boolean
+  :group 'ediff-window)
 
 ;; The actual help message.
 (ediff-defvar-local ediff-help-message ""
   "The actual help message.
-Normally, the user shouldn't touch this. However, if you want Ediff to
+Normally, the user shouldn't touch this.  However, if you want Ediff to
 start up with different help messages for different jobs, you can change
 the value of this variable and the variables `ediff-help-message-*' in
 `ediff-startup-hook'.") 
@@ -188,12 +193,12 @@ the value of this variable and the variables `ediff-help-message-*' in
     (if ediff-xemacs-p
 	(setq overl (extent-at pos (current-buffer) 'ediff-help-info)
 	      cmd   (ediff-overlay-get overl 'ediff-help-info))
-      (setq cmd (car (mapcar (function (lambda (elt)
-					 (overlay-get elt 'ediff-help-info)))
+      (setq cmd (car (mapcar (lambda (elt)
+			       (overlay-get elt 'ediff-help-info))
 			     (overlays-at pos)))))
     
     (if (not (stringp cmd))
-	(error "Hmm... I don't see an Ediff command around here..."))
+	(error "Hmm...  I don't see an Ediff command around here..."))
     
     (ediff-documentation "Quick Help Commands")
     
@@ -231,7 +236,8 @@ the value of this variable and the variables `ediff-help-message-*' in
 	    ((string= cmd "z/q") (re-search-forward "^`z'"))
 	    ((string= cmd "%") (re-search-forward "^`%'"))
 	    ((string= cmd "C-l") (re-search-forward "^`C-l'"))
-	    ((string= cmd "$") (re-search-forward "^`\\$'"))
+	    ((string= cmd "$$") (re-search-forward "^`\\$\\$'"))
+	    ((string= cmd "$*") (re-search-forward "^`\\$\\*'"))
 	    ((string= cmd "/") (re-search-forward "^`/'"))
 	    ((string= cmd "&") (re-search-forward "^`&'"))
 	    ((string= cmd "s") (re-search-forward "^`s'"))
@@ -308,6 +314,11 @@ the value of this variable and the variables `ediff-help-message-*' in
 			       ediff-long-help-message
 			     ediff-brief-help-message))
   (run-hooks 'ediff-display-help-hook))
+
+;;;###autoload
+(defun ediff-customize ()
+  (interactive)
+  (customize-group "ediff"))
 
 
 ;;; ediff-help.el ends here

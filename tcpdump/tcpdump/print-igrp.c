@@ -23,7 +23,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-igrp.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-igrp.c,v 1.1.1.2 2002/05/29 00:05:37 landonf Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -92,9 +92,7 @@ igrp_print(register const u_char *bp, u_int length, register const u_char *bp2)
 	hdr = (struct igrphdr *)bp;
 	ip = (struct ip *)bp2;
 	cp = (u_char *)(hdr + 1);
-        (void)printf("%s > %s: igrp: ",
-	    ipaddr_string(&ip->ip_src),
-	    ipaddr_string(&ip->ip_dst));
+        (void)printf("igrp:");
 
 	/* Header */
 	TCHECK(*hdr);
@@ -126,7 +124,7 @@ igrp_print(register const u_char *bp, u_int length, register const u_char *bp2)
 			igrp_entry_print((struct igrprte *)cp, 0, 1);
 			--next;
 		} else {
-			(void)printf("[extra bytes %d]", length);
+			(void)printf(" [extra bytes %d]", length);
 			break;
 		}
 		cp += IGRP_RTE_SIZE;
@@ -135,5 +133,5 @@ igrp_print(register const u_char *bp, u_int length, register const u_char *bp2)
 	if (nint == 0 && nsys == 0 && next == 0)
 		return;
 trunc:
-	fputs("[|igrp]", stdout);
+	fputs(" [|igrp]", stdout);
 }

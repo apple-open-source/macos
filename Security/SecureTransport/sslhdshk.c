@@ -21,7 +21,7 @@
 
 	Contains:	SSL 3.0 handshake state machine. 
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -86,7 +86,9 @@
 #include "appleCdsa.h"
 #endif
 
+#include "digests.h"
 #include <string.h>
+#include <assert.h>
 
 #define REQUEST_CERT_CORRECT        0
 
@@ -210,7 +212,6 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             ERR(err = SSLProcessCertificateRequest(message.contents, ctx));
             break;
         case SSL_server_key_exchange:
-             #if _APPLE_CDSA_
        		/* 
         	 * Since this message is optional, and completely at the
         	 * server's discretion, we need to be able to handle this
@@ -223,10 +224,6 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
         		default:
                 	goto wrongMessage;
         	}
-        	#else
-            if (ctx->state != HandshakeKeyExchange)
-                goto wrongMessage;
-            #endif	/* _APPLE_CDSA_ */
             ERR(err = SSLProcessServerKeyExchange(message.contents, ctx));
             break;
         case SSL_server_hello_done:
@@ -284,13 +281,15 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             CASSERT(ctx->protocolSide == SSL_ServerSide);
             if (ctx->sessionID.data != 0)   /* If session ID != 0, client is trying to resume */
             {   if (ctx->resumableSession.data != 0)
-                {   if (ERR(err = SSLRetrieveSessionIDIdentifier(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
+                {   if (ERR(err = SSLRetrieveSessionID(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
                         return err;
                     if (sessionIdentifier.length == ctx->sessionID.length &&
                         memcmp(sessionIdentifier.data, ctx->sessionID.data, ctx->sessionID.length) == 0)
                     {   /* Everything matches; resume the session */
                         //DEBUGMSG("Using resumed SSL3 Session");
-                        if (ERR(err = SSLInstallSessionID(ctx->resumableSession, ctx)) != 0)
+						SSLLogResumSess("===RESUMING SSL3 server-side session\n");
+                        if (ERR(err = SSLInstallSessionFromData(ctx->resumableSession,
+								ctx)) != 0)
                         {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                             return err;
                         }
@@ -318,8 +317,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                         SSLChangeHdskState(ctx, HandshakeChangeCipherSpec);
                         break;
                     }
+					else {
+						SSLLogResumSess(
+							"===FAILED TO RESUME SSL3 server-side session\n");
+					}
                     if (ERR(err = SSLFreeBuffer(&sessionIdentifier, &ctx->sysCtx)) != 0 ||
-                        ERR(err = SSLDeleteSessionID(ctx)) != 0)
+                        ERR(err = SSLDeleteSessionData(ctx)) != 0)
                     {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                         return err;
                     }
@@ -337,11 +340,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 ERR(err = SSLAllocBuffer(&ctx->sessionID, SSL_SESSION_ID_LEN, &ctx->sysCtx));
                 if (err == 0)
                 {   
-                	#ifdef	_APPLE_CDSA_
                 	if((err = sslRand(ctx, &ctx->sessionID)) != 0)
-                	#else
-                	if (ERR(err = ctx->sysCtx.random(ctx->sessionID, ctx->sysCtx.randomRef)) != 0)
-                	#endif
                     {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                         return err;
                     }
@@ -372,45 +371,39 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                         return err;
                     break;
             }
-            #ifdef	_APPLE_CDSA_
-		        /*
-	             * At this point we decide whether to send a server key exchange
-	             * method. For Apple servers, I think we'll ALWAYS do this, because
-	             * of key usage restrictions (can't decrypt and sign with the same
-	             * private key), but conceptually in this code, we do it if 
-	             * enabled by the presence of encryptPrivKey. 
-	             */
-	            #if		SSL_SERVER_KEYEXCH_HACK	
-	            	/*
-	            	 * This is currently how we work with Netscape. It requires
-	            	 * a CSP which can handle private keys which can both
-	            	 * sign and decrypt. 
-	            	 */
-	            	if((ctx->selectedCipherSpec->keyExchangeMethod != SSL_RSA) &&
-	            	   (ctx->encryptPrivKey != NULL)) {
-			        	err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
-			        	if(err) {
-							return err;
-						}
-	            	}
-	            #else	/* !SSL_SERVER_KEYEXCH_HACK */
-	            	/*
-	            	 * This is, I believe the "right" way, but Netscape doesn't
-	            	 * work this way.
-	            	 */
-		            if (ctx->encryptPrivKey != NULL) {
-			        	err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
-			        	if(err) {
-							return err;
-						}
+			/*
+			 * At this point we decide whether to send a server key exchange
+			 * method. For Apple servers, I think we'll ALWAYS do this, because
+			 * of key usage restrictions (can't decrypt and sign with the same
+			 * private key), but conceptually in this code, we do it if 
+			 * enabled by the presence of encryptPrivKey. 
+			 */
+			#if		SSL_SERVER_KEYEXCH_HACK	
+				/*
+					* This is currently how we work with Netscape. It requires
+					* a CSP which can handle private keys which can both
+					* sign and decrypt. 
+					*/
+				if((ctx->selectedCipherSpec->keyExchangeMethod != SSL_RSA) &&
+					(ctx->encryptPrivKey != NULL)) {
+					err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
+					if(err) {
+						return err;
 					}
-				#endif	/* SSL_SERVER_KEYEXCH_HACK */
-            #else	/* !_APPLE_CDSA_ */
-	            /* original SSLRef3.... */
-	            if (ctx->selectedCipherSpec->keyExchangeMethod != SSL_RSA)
-	                if (ERR(err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx)) != 0)
-	                    return err;
-            #endif	/* _APPLE_CDSA_ */
+				}
+			#else	/* !SSL_SERVER_KEYEXCH_HACK */
+				/*
+					* This is, I believe the "right" way, but Netscape doesn't
+					* work this way.
+					*/
+				if (ctx->encryptPrivKey != NULL) {
+					err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
+					if(err) {
+						return err;
+					}
+				}
+			#endif	/* SSL_SERVER_KEYEXCH_HACK */
+
 			#if	ST_SERVER_MODE_ENABLE
             if (ctx->tryClientAuth)
             {   if (ERR(err = SSLPrepareAndQueueMessage(SSLEncodeCertificateRequest, ctx)) != 0)
@@ -431,14 +424,16 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             break;
         case SSL_server_hello:
             if (ctx->resumableSession.data != 0 && ctx->sessionID.data != 0)
-            {   if (ERR(err = SSLRetrieveSessionIDIdentifier(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
+            {   if (ERR(err = SSLRetrieveSessionID(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
                 {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                     return err;
                 }
                 if (sessionIdentifier.length == ctx->sessionID.length &&
                     memcmp(sessionIdentifier.data, ctx->sessionID.data, ctx->sessionID.length) == 0)
                 {   /* Everything matches; resume the session */
-                    if (ERR(err = SSLInstallSessionID(ctx->resumableSession, ctx)) != 0 ||
+					SSLLogResumSess("===RESUMING SSL3 client-side session\n");
+                    if (ERR(err = SSLInstallSessionFromData(ctx->resumableSession,
+							ctx)) != 0 ||
                         ERR(err = SSLInitPendingCiphers(ctx)) != 0 ||
                         ERR(err = SSLFreeBuffer(&sessionIdentifier, &ctx->sysCtx)) != 0)
                     {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
@@ -447,6 +442,9 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                     SSLChangeHdskState(ctx, HandshakeChangeCipherSpec);
                     break;
                 }
+				else {
+					SSLLogResumSess("===FAILED TO RESUME SSL3 client-side session\n");
+				}
                 if (ERR(err = SSLFreeBuffer(&sessionIdentifier, &ctx->sysCtx)) != 0)
                 {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                     return err;
@@ -482,7 +480,6 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             if (ctx->state == HandshakeCertificate)
                 switch (ctx->selectedCipherSpec->keyExchangeMethod)
                 {   case SSL_RSA:
-                	#ifdef	_APPLE_CDSA_
                  	/*
                 	 * I really think the two RSA cases should be
                 	 * handled the same here - the server key exchange is
@@ -491,16 +488,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 	 * we're a client here.
                 	 */                   
                 	case SSL_RSA_EXPORT:
-                    #endif
                     case SSL_DH_DSS:
                     case SSL_DH_DSS_EXPORT:
                     case SSL_DH_RSA:
                     case SSL_DH_RSA_EXPORT:
                         SSLChangeHdskState(ctx, HandshakeHelloDone);
                         break;
-                	#ifndef	_APPLE_CDSA_
-                    case SSL_RSA_EXPORT:
-                    #endif
                     case SSL_DHE_DSS:
                     case SSL_DHE_DSS_EXPORT:
                     case SSL_DHE_RSA:
@@ -541,11 +534,13 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             }
             if (ERR(err = SSLPrepareAndQueueMessage(SSLEncodeKeyExchange, ctx)) != 0)
                 return err;
-            if (ERR(err = SSLCalculateMasterSecret(ctx)) != 0 ||
+			assert(ctx->sslTslCalls != NULL);
+            if (ERR(err = ctx->sslTslCalls->generateMasterSecret(ctx)) != 0 ||
                 ERR(err = SSLInitPendingCiphers(ctx)) != 0)
             {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                 return err;
             }
+			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
             if (ERR(err = SSLFreeBuffer(&ctx->preMasterSecret, &ctx->sysCtx)) != 0)
                 return err;
             if (ctx->certSent)
@@ -559,8 +554,11 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 return err;
             }
             ctx->writeCipher = ctx->writePending;
-            ctx->writeCipher.ready = 0;     /* Can't send data until Finished is sent */
-            memset(&ctx->writePending, 0, sizeof(CipherContext));       /* Zero out old data */
+			/* Can't send data until Finished is sent */
+            ctx->writeCipher.ready = 0;     
+			
+			/* Zero out old data */
+            memset(&ctx->writePending, 0, sizeof(CipherContext));       
             if (ERR(err = SSLPrepareAndQueueMessage(SSLEncodeFinishedMessage, ctx)) != 0)
                 return err;
             /* Finished has been sent; enable data dransfer on write channel */
@@ -571,11 +569,13 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             SSLChangeHdskState(ctx, HandshakeChangeCipherSpec);
             break;
         case SSL_client_key_exchange:
-            if (ERR(err = SSLCalculateMasterSecret(ctx)) != 0 ||
+ 			assert(ctx->sslTslCalls != NULL);
+			if (ERR(err = ctx->sslTslCalls->generateMasterSecret(ctx)) != 0 ||
                 ERR(err = SSLInitPendingCiphers(ctx)) != 0)
             {   ERR(SSLFatalSessionAlert(alert_close_notify, ctx));
                 return err;
             }
+			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
             if (ERR(err = SSLFreeBuffer(&ctx->preMasterSecret, &ctx->sysCtx)) != 0)
                 return err;
             if (ctx->certReceived) {
@@ -612,7 +612,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 SSLChangeHdskState(ctx, HandshakeClientReady);
             }
             if (ctx->peerID.data != 0)
-                ERR(SSLAddSessionID(ctx));
+                ERR(SSLAddSessionData(ctx));
             break;
         default:
             ASSERTMSG("Unknown State");
@@ -641,7 +641,8 @@ SSLPrepareAndQueueMessage(EncodeMessageFunc msgFunc, SSLContext *ctx)
         SSLLogHdskMsg((SSLHandshakeType)rec.contents.data[0], 1);
     }
     
-    if (ERR(err = SSLWriteRecord(rec, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if (ERR(err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
         goto fail;
     
     err = SSLNoErr;
@@ -786,3 +787,4 @@ void SSLLogHdskMsg(SSLHandshakeType msg, char sent)
 }
 
 #endif	/* LOG_HDSK_MSG */
+

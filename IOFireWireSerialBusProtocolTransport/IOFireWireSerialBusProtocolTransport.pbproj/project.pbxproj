@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		075F51C6FFE0D39C11CE15BF = {
 			buildStyles = (
@@ -29,9 +29,12 @@
 			refType = 4;
 		};
 		075F51D0FFE0D39C11CE15BF = {
+			indentWidth = 4;
 			isa = PBXFileReference;
 			path = IOFireWireSerialBusProtocolTransport.cpp;
 			refType = 2;
+			tabWidth = 4;
+			usesTabs = 1;
 		};
 		075F51D9FFE0D39C11CE15BF = {
 			children = (
@@ -63,7 +66,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 1.1.0;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -80,15 +83,15 @@
 			productName = "IOFireWireSerialBusProtocolTransport (Bundle)";
 			productReference = 075F51DAFFE0D39C11CE15BF;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSerialBusProtocolTransport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.0, Copyright Apple Computer, Inc. 1999-2001</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -100,11 +103,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.0</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSerialBusProtocolTransport</key>
@@ -152,9 +155,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -164,14 +167,14 @@
 				8D81654400FFF2FB05CE163F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		075F51DFFFE0D39C11CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		075F51E0FFE0D39C11CE15BF = {
 			buildActionMask = 2147483647;
@@ -179,7 +182,7 @@
 				075F51E1FFE0D39C11CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		075F51E1FFE0D39C11CE15BF = {
 			fileRef = 075F51D0FFE0D39C11CE15BF;
@@ -194,14 +197,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		075F51E3FFE0D39C11CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		075F51E4FFE0D39C11CE15BF = {
 			buildActionMask = 2147483647;
@@ -210,9 +213,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -224,7 +227,7 @@
 				8D4CDBAE010C930105CE163F,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		075F51E7FFE0D67811CE15BF = {
 			buildRules = (

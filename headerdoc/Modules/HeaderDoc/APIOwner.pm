@@ -1,12 +1,14 @@
 #! /usr/bin/perl -w
 #
 # Class name: APIOwner
-# Synopsis: Abstract superclass for Header and CPPClass classes
+# Synopsis: Abstract superclass for Header and OO structures
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/06/06 18:02:45 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Method additions by SKoT McDonald <skot@tomandandy.com> Aug 2001 
+#
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -33,11 +35,12 @@ use HeaderDoc::HeaderElement;
 use HeaderDoc::DBLookup;
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 
-@ISA = qw(HeaderDoc::HeaderElement);
 use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
 
+# Inheritance
+@ISA = qw(HeaderDoc::HeaderElement);
 ################ Portability ###################################
 my $isMacOS;
 my $pathSeparator;
@@ -106,30 +109,36 @@ sub new {
     my $self = {};
     
     bless($self, $class);
-    $self->SUPER::_initialize();
     $self->_initialize();
     return($self);
 }
 
 sub _initialize {
     my($self) = shift;
+
+    $self->SUPER::_initialize();
+    
     $self->{OUTPUTDIR} = undef;
-    $self->{CONSTANTS} = [];
-    $self->{FUNCTIONS} = [];
-    $self->{TYPEDEFS} = [];
-    $self->{STRUCTS} = [];
-    $self->{VARS} = [];
-    $self->{PDEFINES} = [];
-    $self->{ENUMS} = [];
+    $self->{CONSTANTS} = ();
+    $self->{FUNCTIONS} = ();
+    $self->{METHODS} = ();
+    $self->{TYPEDEFS} = ();
+    $self->{STRUCTS} = ();
+    $self->{VARS} = ();
+    $self->{PDEFINES} = ();
+    $self->{ENUMS} = ();
     $self->{CONSTANTSDIR} = undef;
     $self->{DATATYPESDIR} = undef;
     $self->{STRUCTSDIR} = undef;
     $self->{VARSDIR} = undef;
     $self->{FUNCTIONSDIR} = undef;
+    $self->{METHODSDIR} = undef;
     $self->{PDEFINESDIR} = undef;
     $self->{ENUMSDIR} = undef;
     $self->{EXPORTSDIR} = undef;
     $self->{EXPORTINGFORDB} = 0;
+    $self->{TOCTITLEPREFIX} = 'GENERIC_OWNER:';
+    $self->{HEADEROBJECT} = undef;
 } 
 
 sub outputDir {
@@ -153,12 +162,31 @@ sub outputDir {
 	    $self->datatypesDir("$rootOutputDir$pathSeparator"."DataTypes");
 	    $self->structsDir("$rootOutputDir$pathSeparator"."Structs");
 	    $self->functionsDir("$rootOutputDir$pathSeparator"."Functions");
+	    $self->methodsDir("$rootOutputDir$pathSeparator"."Methods");
 	    $self->varsDir("$rootOutputDir$pathSeparator"."Vars");
 	    $self->pDefinesDir("$rootOutputDir$pathSeparator"."PDefines");
 	    $self->enumsDir("$rootOutputDir$pathSeparator"."Enums");
 	    $self->exportsDir("$rootOutputDir$pathSeparator"."Exports");
     }
     return $self->{OUTPUTDIR};
+}
+
+sub tocTitlePrefix {
+    my $self = shift;
+
+    if (@_) {
+        $self->{TOCTITLEPREFIX} = shift;
+    }
+    return $self->{TOCTITLEPREFIX};
+}
+
+sub headerObject {
+    my $self = shift;
+
+    if (@_) {
+        $self->{HEADEROBJECT} = shift;
+    }
+    return $self->{HEADEROBJECT};
 }
 
 sub exportingForDB {
@@ -244,14 +272,24 @@ sub functionsDir {
     return $self->{FUNCTIONSDIR};
 }
 
+sub methodsDir {
+    my $self = shift;
+
+    if (@_) {
+        $self->{METHODSDIR} = shift;
+    }
+    return $self->{METHODSDIR};
+}
+
 sub tocString {
     my $self = shift;
     my $contentFrameName = $self->name();
     $contentFrameName =~ s/(.*)\.h/$1/; 
-    $contentFrameName = &safeName($contentFrameName);  
+    $contentFrameName = &safeName(filename => $contentFrameName);  
     $contentFrameName = $contentFrameName . ".html";
     
     my @funcs = $self->functions();
+    my @methods = $self->methods();
     my @constants = $self->constants();
     my @typedefs = $self->typedefs();
     my @structs = $self->structs();
@@ -265,6 +303,13 @@ sub tocString {
 	    foreach my $obj (sort objName @funcs) {
 	        my $name = $obj->name();
 	        $tocString .= "<nobr>&nbsp;<a href = \"Functions/Functions.html#$name\" target =\"doc\">$name</a></nobr><br>\n";
+	    }
+    }
+    if (@methods) {
+	    $tocString .= "<h4>Methods</h4>\n";
+	    foreach my $obj (sort objName @methods) {
+	        my $name = $obj->name();
+	        $tocString .= "<nobr>&nbsp;<a href = \"Methods/Methods.html#$name\" target =\"doc\">$name</a></nobr><br>\n";
 	    }
     }
     if (@typedefs) {
@@ -305,14 +350,13 @@ sub tocString {
     return $tocString;
 }
 
-
 sub enums {
     my $self = shift;
 
     if (@_) {
         @{ $self->{ENUMS} } = @_;
     }
-    return @{ $self->{ENUMS} };
+    ($self->{ENUMS}) ? return @{ $self->{ENUMS} } : return ();
 }
 
 sub addToEnums {
@@ -332,7 +376,7 @@ sub pDefines {
     if (@_) {
         @{ $self->{PDEFINES} } = @_;
     }
-    return @{ $self->{PDEFINES} };
+    ($self->{PDEFINES}) ? return @{ $self->{PDEFINES} } : return ();
 }
 
 sub addToPDefines {
@@ -352,7 +396,7 @@ sub constants {
     if (@_) {
         @{ $self->{CONSTANTS} } = @_;
     }
-    return @{ $self->{CONSTANTS} };
+    ($self->{CONSTANTS}) ? return @{ $self->{CONSTANTS} } : return ();
 }
 
 sub addToConstants {
@@ -373,7 +417,7 @@ sub functions {
     if (@_) {
         @{ $self->{FUNCTIONS} } = @_;
     }
-    return @{ $self->{FUNCTIONS} };
+    ($self->{FUNCTIONS}) ? return @{ $self->{FUNCTIONS} } : return ();
 }
 
 sub addToFunctions {
@@ -387,6 +431,25 @@ sub addToFunctions {
     return @{ $self->{FUNCTIONS} };
 }
 
+sub methods {
+    my $self = shift;
+
+    if (@_) {
+        @{ $self->{METHODS} } = @_;
+    }
+    ($self->{METHODS}) ? return @{ $self->{METHODS} } : return ();
+}
+
+sub addToMethods {
+    my $self = shift;
+
+    if (@_) {
+        foreach my $item (@_) {
+            push (@{ $self->{METHODS} }, $item);
+        }
+    }
+    return @{ $self->{METHODS} };
+}
 
 sub typedefs {
     my $self = shift;
@@ -394,7 +457,7 @@ sub typedefs {
     if (@_) {
         @{ $self->{TYPEDEFS} } = @_;
     }
-    return @{ $self->{TYPEDEFS} };
+    ($self->{TYPEDEFS}) ? return @{ $self->{TYPEDEFS} } : return ();
 }
 
 sub addToTypedefs {
@@ -414,7 +477,7 @@ sub structs {
     if (@_) {
         @{ $self->{STRUCTS} } = @_;
     }
-    return @{ $self->{STRUCTS} };
+    ($self->{STRUCTS}) ? return @{ $self->{STRUCTS} } : return ();
 }
 
 sub addToStructs {
@@ -434,7 +497,7 @@ sub vars {
     if (@_) {
         @{ $self->{VARS} } = @_;
     }
-    return @{ $self->{VARS} };
+    ($self->{VARS}) ? return @{ $self->{VARS} } : return ();
 }
 
 sub addToVars {
@@ -462,7 +525,7 @@ sub createFramesetFile {
     my $outputFile = "$outDir$pathSeparator$defaultFrameName";    
     my $rootFileName = $self->name();
     $rootFileName =~ s/(.*)\.h/$1/; 
-    $rootFileName = &safeName($rootFileName);
+    $rootFileName = &safeName(filename => $rootFileName);
     open(OUTFILE, ">$outputFile") || die "Can't write $outputFile. \n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
     print OUTFILE "<html><head><title>Documentation for $filename</title></head>\n";
@@ -480,6 +543,28 @@ sub docNavigatorComment {
     return "";
 }
 
+sub createTOCFile {
+    my $self = shift;
+    my $rootDir = $self->outputDir();
+    my $tocTitlePrefix = $self->tocTitlePrefix();
+    my $outputFileName = "toc.html";    
+    my $outputFile = "$rootDir$pathSeparator$outputFileName";    
+    my $fileString = $self->tocString();    
+    my $filename = $self->name();    
+
+	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
+    if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
+	print OUTFILE "<html><head><title>Documentation for $filename</title></head>\n";
+	print OUTFILE "<body bgcolor=\"#cccccc\">\n";
+	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
+	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
+	print OUTFILE "<tr><td width=\"15\"></td><td><b><font size=\"+1\">$filename</font></b></td></tr>\n";
+	print OUTFILE "</table><hr>\n";
+	print OUTFILE $fileString;
+	print OUTFILE "</body></html>\n";
+	close OUTFILE;
+}
+
 sub createContentFile {
     my $self = shift;
     my $class = ref($self);
@@ -488,7 +573,7 @@ sub createContentFile {
     my $rootFileName = $headerName;    
     $rootFileName =~ s/(.*)\.h/$1/; 
     # for now, always shorten long names since some files may be moved to a Mac for browsing
-    if (1 || $isMacOS) {$rootFileName = &safeName($rootFileName);};
+    if (1 || $isMacOS) {$rootFileName = &safeName(filename => $rootFileName);};
     my $outputFileName = "$rootFileName.html";    
     my $rootDir = $self->outputDir();
     my $outputFile = "$rootDir$pathSeparator$outputFileName";    
@@ -525,6 +610,7 @@ sub writeHeaderElements {
     my $self = shift;
     my $rootOutputDir = $self->outputDir();
     my $functionsDir = $self->functionsDir();
+    my $methodsDir = $self->methodsDir();
     my $dataTypesDir = $self->datatypesDir();
     my $structsDir = $self->structsDir();
     my $constantsDir = $self->constantsDir();
@@ -541,6 +627,12 @@ sub writeHeaderElements {
 			unless (mkdir ("$functionsDir", 0777)) {die ("Can't create output folder $functionsDir. \n$!");};
 	    }
 	    $self->writeFunctions();
+    }
+    if ($self->methods()) {
+		if (! -e $methodsDir) {
+			unless (mkdir ("$methodsDir", 0777)) {die ("Can't create output folder $methodsDir. \n$!");};
+	    }
+	    $self->writeMethods();
     }
     
     if ($self->constants()) {
@@ -575,6 +667,7 @@ sub writeHeaderElements {
 	    }
 	    $self->writeEnums();
     }
+
     if ($self->pDefines()) {
 		if (! -e $pDefinesDir) {
 			unless (mkdir ("$pDefinesDir", 0777)) {die ("Can't create output folder $pDefinesDir. \n$!");};
@@ -588,7 +681,6 @@ sub writeHeaderElementsToCompositePage { # All API in a single HTML page -- for 
     my $self = shift;
     my $class = ref($self);
     my $compositePageName = $class->compositePageName();
-
     my $rootOutputDir = $self->outputDir();
     my $name = $self->name();
     my $compositePageString = $self->_getCompositePageString();
@@ -625,6 +717,11 @@ sub _getCompositePageString {
     $contentString= $self->_getFunctionDetailString();
     if (length($contentString)) {
 	    $compositePageString .= "<h2>Functions</h2>\n";
+	    $compositePageString .= $contentString;
+    }
+    $contentString= $self->_getMethodDetailString();
+    if (length($contentString)) {
+	    $compositePageString .= "<h2>Methods</h2>\n";
 	    $compositePageString .= $contentString;
     }
     
@@ -673,6 +770,24 @@ sub _getFunctionDetailString {
     my $contentString = "";
 
     foreach my $obj (sort objName @funcObjs) {
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
+    }
+    return $contentString;
+}
+
+sub writeMethods {
+    my $self = shift;
+    my $methodFile = $self->methodsDir().$pathSeparator."Methods.html";
+    $self->_createHTMLOutputFile($methodFile, $self->_getMethodDetailString(), "Methods");
+}
+
+sub _getMethodDetailString {
+    my $self = shift;
+    my @methObjs = $self->methods();
+    my $contentString = "";
+
+    foreach my $obj (sort objName @methObjs) {
         my $documentationBlock = $obj->documentationBlock();
         $contentString .= $documentationBlock;
     }
@@ -793,11 +908,13 @@ sub writeExportsWithName {
     my $name = shift;
     my $exportsDir = $self->exportsDir();
     my $functionsFile = $exportsDir.$pathSeparator.$name.".ftab";
+    my $methodsFile = $exportsDir.$pathSeparator.$name.".ftab";
     my $parametersFile = $exportsDir.$pathSeparator.$name.".ptab";
     my $structsFile = $exportsDir.$pathSeparator.$name.".stab";
     my $fieldsFile = $exportsDir.$pathSeparator.$name.".mtab";
     my $enumeratorsFile = $exportsDir.$pathSeparator.$name.".ktab";
     my $funcString;
+    my $methString;
     my $paramString;
     my $dataTypeString;
     my $typesFieldString;
@@ -807,10 +924,12 @@ sub writeExportsWithName {
 		unless (mkdir ("$exportsDir", 0777)) {die ("Can't create output folder $exportsDir. $!");};
     }
     ($funcString, $paramString) = $self->_getFunctionsAndParamsExportString();
+    ($methString, $paramString) = $self->_getMethodsAndParamsExportString();
     ($dataTypeString, $typesFieldString) = $self->_getDataTypesAndFieldsExportString();
     $enumeratorsString = $self->_getEnumeratorsExportString();
     
     $self->_createExportFile($functionsFile, $funcString);
+    $self->_createExportFile($methodsFile, $methString);
     $self->_createExportFile($parametersFile, $paramString);
     $self->_createExportFile($structsFile, $dataTypeString);
     $self->_createExportFile($fieldsFile, $typesFieldString);
@@ -902,6 +1021,93 @@ sub _getFunctionsAndParamsExportString {
     $paramString .= "\n";
     return ($funcString, $paramString);
 }
+
+sub _getMethodsAndParamsExportString {
+    my $self = shift;
+    my @methObjs = $self->methods();
+    my $tmpString = "";
+    my @methLines;
+    my @paramLines;
+    my $methString;
+    my $paramString;
+    my $sep = "<tab>";       
+    
+    foreach my $obj (sort objName @methObjs) {
+        my $methName = $obj->name();
+        my $desc = $obj->discussion();
+        my $abstract = $obj->abstract();
+		my $declaration = $obj->declaration();
+        my @taggedParams = $obj->taggedParameters();
+        my @parsedParams = $obj->parsedParameters();
+        my $result = $obj->result();
+        my $methID = HeaderDoc::DBLookup->methodIDForName($methName);
+        # unused fields--declaring them for visibility in the string below
+        my $managerID = "";
+        my $methEnglishName = "";
+        my $specialConsiderations = "";
+        my $versionNotes = "";
+        my $groupName = "";
+        my $order = "";
+        
+        # Replace single internal carriage returns in fields with one space
+        # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
+        # just remove the breaks
+        foreach my $string ($desc, $abstract, $declaration, $result) {
+     		$string =~ s/\n<br><br>\n/\n\n/g;
+     		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
+        }
+        $tmpString = $managerID.$sep.$methID.$sep.$methName.$sep.$methEnglishName.$sep.$abstract.$sep.$desc.$sep.$result.$sep.$specialConsiderations.$sep.$versionNotes.$sep.$groupName.$sep.$order;
+        $tmpString = &convertCharsForFileMaker($tmpString);
+        $tmpString =~ s/$sep/\t/g;
+        push (@methLines, "$tmpString");
+        
+        if (@taggedParams) {
+            my %parsedParmNameToObjHash;
+        	# make lookup hash of parsed params
+        	foreach my $parsedParam (@parsedParams) {
+        		$parsedParmNameToObjHash{$parsedParam->name()} = $parsedParam;
+        	}
+        	foreach my $taggedParam (@taggedParams) {
+        	    my $tName = $taggedParam->name();
+        	    my $pObj;
+		        my $pos = "UNKNOWN_POSITION";
+		        my $type = "UNKNOWN_TYPE";
+
+		        if (exists $parsedParmNameToObjHash{$tName}) {
+		            $pObj = $parsedParmNameToObjHash{$tName};
+		        	$pos = $pObj->position();
+		        	$type = $pObj->type();
+		        } else {
+		        	print "---------------------------------------------------------------------------\n";
+		        	warn "Tagged parameter '$tName' not found in declaration of method $methName.\n";
+		        	warn "Parsed declaration for $methName is:\n$declaration\n";
+		        	warn "Parsed params for $methName are:\n";
+		        	foreach my $pp (@parsedParams) {
+		        	    my $n = $pp->name();
+		        	    print "$n\n";
+		        	}
+		        	print "---------------------------------------------------------------------------\n";
+		        }
+	        	my $paramName = $taggedParam->name();
+	        	my $disc = $taggedParam->discussion();
+	     		$disc =~ s/\n<br><br>\n/\n\n/g;
+	     		$disc =~ s/([^\n])\n([^\n])/$1 $2/g;
+	        	my $tmpParamString = "";
+	        	
+	        	$tmpParamString = $methID.$sep.$methName.$sep.$pos.$sep.$disc.$sep.$sep.$sep.$paramName.$sep.$type;
+        		$tmpParamString = &convertCharsForFileMaker($tmpParamString);
+        		$tmpParamString =~ s/$sep/\t/g;
+	        	push (@paramLines, "$tmpParamString");
+        	}
+        }
+    }
+    $methString = join ("\n", @methLines);
+    $paramString = join ("\n", @paramLines);
+    $methString .= "\n";
+    $paramString .= "\n";
+    return ($methString, $paramString);
+}
+
 
 sub _getDataTypesAndFieldsExportString {
     my $self = shift;
@@ -1175,6 +1381,29 @@ sub _positionOfNameInFuncPtrDec {
     return $pos;
 }
 
+sub _positionOfNameInMethPtrDec {
+    my $self = shift;
+    my $name = shift;    
+    my $dec = shift;
+    $dec =~ s/\n/ /g;
+    
+    my @decParts = split (/\(/, $dec);
+    my $paramList = pop @decParts;
+    
+    my $pos = 0;
+    my $i = 0;
+    my @chunks = split (/,/, $paramList);
+    foreach my $string (@chunks) {
+        $i++;
+        $string = quotemeta($string);
+        if ($string =~ /$name/) {
+            $pos = $i;
+            last;
+        }
+    }
+    return $pos;
+}
+
 sub _createExportFile {
     my $self = shift;
     my $outputFile = shift;    
@@ -1217,22 +1446,26 @@ sub objName { # used for sorting
 sub printObject {
     my $self = shift;
  
-    print "Header\n";
-    $self->SUPER::printObject();
+    print "------------------------------------\n";
+    print "APIOwner\n";
     print "outputDir: $self->{OUTPUTDIR}\n";
     print "constantsDir: $self->{CONSTANTSDIR}\n";
     print "datatypesDir: $self->{DATATYPESDIR}\n";
     print "functionsDir: $self->{FUNCTIONSDIR}\n";
+    print "methodsDir: $self->{METHODSDIR}\n";
     print "typedefsDir: $self->{TYPEDEFSDIR}\n";
     print "constants:\n";
     &printArray(@{$self->{CONSTANTS}});
     print "functions:\n";
     &printArray(@{$self->{FUNCTIONS}});
+    print "methods:\n";
+    &printArray(@{$self->{METHODS}});
     print "typedefs:\n";
     &printArray(@{$self->{TYPEDEFS}});
     print "structs:\n";
     &printArray(@{$self->{STRUCTS}});
-    print "\n";
+    print "Inherits from:\n";
+    $self->SUPER::printObject();
 }
 
 1;

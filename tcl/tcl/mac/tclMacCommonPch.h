@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacCommonPch.h,v 1.1.1.2 2000/04/12 02:02:39 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacCommonPch.h,v 1.1.1.3 2002/04/05 16:13:43 jevans Exp $
  */
 
 #if !__option(enumsalwaysint)
@@ -50,17 +50,6 @@
 
 
 /*
-* The following defines control the behavior of the Macintosh
-* Universial Headers.
-*/
-
-
-#define SystemSevenOrLater 1
-#define STRICT_CONTROLS 1
-#define STRICT_WINDOWS 1
-
-
-/*
 * Define the following symbol if you want
 * comprehensive debugging turned on.
 */
@@ -75,14 +64,8 @@
 #endif
 
 
-
 /*
-* For a while, we will continue to use the old routine names, so that
-* people with older versions of CodeWarrior will still be able to compile
-* the source (albeit they will have to update the project files themselves).
-*
-* At some point, we will convert over to the new routine names.
+* for Metrowerks Pro 6 MSL
 */
 
-
-#define OLDROUTINENAMES 1
+#include <UseDLLPrefix.h>

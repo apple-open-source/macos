@@ -24,8 +24,9 @@
 #ifdef SHLIB
 #include "shlib.h"
 #endif
-#import "stdlib.h"
-#import "mach-o/dyld.h"
+#include "stdlib.h"
+#include "stuff/bool.h"
+#include "mach-o/dyld.h"
 
 void
 _dyld_lookup_and_bind(

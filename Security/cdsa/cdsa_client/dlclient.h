@@ -364,6 +364,9 @@ public:
 	DbCursorImpl(const Object &parent, const CSSM_QUERY &query, CssmAllocator &allocator);
 	DbCursorImpl(const Object &parent, uint32 capacity, CssmAllocator &allocator);
 
+	virtual CssmAllocator &allocator() const;
+	virtual void allocator(CssmAllocator &alloc);
+
 	virtual bool next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniqueRecord &uniqueId) = 0;
 	void abort() { deactivate(); }
 };
@@ -405,13 +408,13 @@ public:
 
 	Db database() const { return parent<Db>(); }
 
+	void free() { deactivate(); }
+
 	// Client must call activate() after calling this function if mUniqueId is successfully set.
 	operator CSSM_DB_UNIQUE_RECORD_PTR *() { if (mActive) free(); return &mUniqueId; }
 
 	operator CSSM_DB_UNIQUE_RECORD *() { return mUniqueId; }
 	operator const CSSM_DB_UNIQUE_RECORD *() const { return mUniqueId; }
-
-	void free() { deactivate(); }
 
 	void activate();
 

@@ -24,6 +24,8 @@
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
+#include <sys/socketvar.h>
+#include <sys/protosw.h>
 
 #include <net/dlil.h>
 
@@ -55,6 +57,8 @@ int pppoe_dlil_pre_output(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *
                           caddr_t route, char *type, char *edst, u_long dl_tag );
 int pppoe_dlil_event();
 int pppoe_dlil_ioctl(u_long dl_tag, struct ifnet *ifp, u_long command, caddr_t data);
+void pppoe_dlil_kern_event(struct socket* so, caddr_t ref, int waitf);
+void pppoe_dlil_detaching(u_int16_t unit);
 
 
 /* -----------------------------------------------------------------------------
@@ -62,14 +66,53 @@ Globals
 ----------------------------------------------------------------------------- */
 
 TAILQ_HEAD(, pppoe_if) 	pppoe_if_head;
+static struct socket	*pppoe_evt_so;
+int	event_socket;
 
 /* -----------------------------------------------------------------------------
 intialize pppoe datalink attachment strutures
 ----------------------------------------------------------------------------- */
 int pppoe_dlil_init()
 {
+    int 		err;
+    struct kev_request 	kev;
 
     TAILQ_INIT(&pppoe_if_head);
+    
+    pppoe_evt_so = 0;
+    
+    /* Create a PF_SYSTEM socket so we can listen for events */
+    err = socreate(PF_SYSTEM, &pppoe_evt_so, SOCK_RAW, SYSPROTO_EVENT);
+    if (err || (pppoe_evt_so == NULL)) {
+        /*
+         * We will not get attaching or detaching events in this case.
+         * We should probably prevent any sockets from binding so we won't
+         * panic later if the interface goes away.
+         */
+        log(LOG_INFO, "pppoe_dlil_init: cannot create socket event, error = %d\n", err);
+        return 0;	// still return OK
+    }
+    
+    /* Install a callback function for the socket */
+    pppoe_evt_so->so_rcv.sb_flags |= SB_NOTIFY|SB_UPCALL;
+    pppoe_evt_so->so_upcall = pppoe_dlil_kern_event;
+    pppoe_evt_so->so_upcallarg = NULL;
+    
+    /* Configure the socket to receive the events we're interested in */
+    kev.vendor_code = KEV_VENDOR_APPLE;
+    kev.kev_class = KEV_NETWORK_CLASS;
+    kev.kev_subclass = KEV_DL_SUBCLASS;
+    err = pppoe_evt_so->so_proto->pr_usrreqs->pru_control(pppoe_evt_so, SIOCSKEVFILT, (caddr_t)&kev, 0, 0);
+    if (err) {
+        /*
+         * We will not get attaching or detaching events in this case.
+         * We should probably prevent any sockets from binding so we won't
+         * panic later if the interface goes away.
+         */
+        log(LOG_INFO, "pppoe_dlil_init: cannot set event filter, error = %d\n", err);
+        return 0;	// still return OK
+    }
+
     return 0;
 }
 
@@ -79,7 +122,14 @@ can't dispose if clients are still attached
 ----------------------------------------------------------------------------- */
 int pppoe_dlil_dispose()
 {
-    return (!TAILQ_EMPTY(&pppoe_if_head));
+    if (!TAILQ_EMPTY(&pppoe_if_head))
+        return 1;
+        
+    if (pppoe_evt_so) {
+        soclose(pppoe_evt_so);
+        pppoe_evt_so = 0;
+    }
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -169,6 +219,55 @@ int pppoe_dlil_detach(u_long dl_tag)
     }
 
     return 0;
+}
+
+/* -----------------------------------------------------------------------------
+upcall function for kernel events
+----------------------------------------------------------------------------- */
+void pppoe_dlil_kern_event(struct socket* so, caddr_t ref, int waitf)
+{
+    struct mbuf 		*m = NULL;
+    struct kern_event_msg 	*msg;
+    struct uio 			auio = { 0 };
+    int 			err, flags;
+    struct net_event_data 	*ev_data;
+    
+    // Get the data
+    auio.uio_resid = 1000000; // large number to get all of the data
+    flags = MSG_DONTWAIT;
+    err = soreceive(so, 0, &auio, &m, 0, &flags);
+    if (err || (m == NULL))
+        return;
+    
+    // cast the mbuf to a kern_event_msg
+    // this is dangerous, doesn't handle linked mbufs
+    msg = mtod(m, struct kern_event_msg *);
+    
+    // check for detaching, assume even filtering is working
+    if (msg->event_code == KEV_DL_IF_DETACHING) {
+        
+        ev_data = (struct net_event_data*)msg->event_data;
+
+        if (ev_data->if_family == APPLE_IF_FAM_ETHERNET)
+            pppoe_dlil_detaching(ev_data->if_unit);
+    }
+    
+    m_free(m);
+}
+
+/* -----------------------------------------------------------------------------
+ethernet unit wants to detach
+----------------------------------------------------------------------------- */
+void pppoe_dlil_detaching(u_int16_t unit)
+{
+    struct pppoe_if  	*pppoeif;
+
+    TAILQ_FOREACH(pppoeif, &pppoe_if_head, next) {
+        if (pppoeif->unit == unit) {
+            pppoe_rfc_lower_detaching(pppoeif->dl_tag);
+            break;
+        }
+    }
 }
 
 /* -----------------------------------------------------------------------------

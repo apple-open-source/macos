@@ -4,7 +4,7 @@
 # Synopsis: Holds constant info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/22 02:27:13 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -33,22 +33,6 @@ use HeaderDoc::APIOwner;
 use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
-
-
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->SUPER::_initialize();
-    $self->_initialize();
-    return($self);
-}
-
-sub _initialize {
-    my($self) = shift;
-}
 
 sub processConstantComment {
     my($self) = shift;

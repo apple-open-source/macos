@@ -11,10 +11,11 @@
             Makefile.postamble, 
             m.template, 
             h.template, 
-            Info.plist,
-            InfoPlist.strings,
-            PkgInfo,
-            version.plist
+            Info.plist, 
+            InfoPlist.strings, 
+            PkgInfo, 
+            version.plist, 
+            cd9660.util.8
         ); 
     }; 
     LANGUAGE = English; 

@@ -1,0 +1,32 @@
+;
+; Definition file for the DLL version of the LIBCURL library from curl
+;
+
+LIBRARY		LIBCURL
+
+DESCRIPTION	'curl libcurl - http://curl.haxx.se'
+
+EXPORTS
+	curl_easy_cleanup @ 1 ; 
+	curl_easy_getinfo @ 2 ; 
+	curl_easy_init @ 3 ; 
+	curl_easy_perform @ 4 ; 
+	curl_easy_setopt @ 5 ; 
+	curl_escape @ 6 ; 
+	curl_formparse @ 7 ; 
+	curl_formfree @ 8 ; 
+	curl_getdate @ 9 ; 
+	curl_getenv @ 10 ; 
+	curl_slist_append @ 11 ; 
+	curl_slist_free_all @ 12 ; 
+	curl_unescape @ 13 ; 
+	curl_version @ 14 ; 
+	curl_maprintf @ 15 ; 
+ 	curl_mfprintf @ 16 ;
+	curl_mprintf @ 17 ;
+ 	curl_msprintf @ 18 ;
+ 	curl_msnprintf @ 19 ;
+ 	curl_mvfprintf @ 20 ;
+	curl_strequal @ 21 ; 
+	curl_strnequal @ 22 ; 
+

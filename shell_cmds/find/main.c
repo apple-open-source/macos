@@ -1,5 +1,3 @@
-/*	$NetBSD: main.c,v 1.10 1998/02/10 21:52:51 cgd Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,14 +34,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#ifndef lint
+char copyright[] =
+"@(#) Copyright (c) 1990, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 5/4/95";
 #else
-__COPYRIGHT("@(#) Copyright (c) 1990, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-__RCSID("$NetBSD: main.c,v 1.10 1998/02/10 21:52:51 cgd Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/find/main.c,v 1.9.6.2 2001/02/25 21:56:59 knu Exp $";
 #endif
 #endif /* not lint */
 
@@ -54,6 +56,8 @@ __RCSID("$NetBSD: main.c,v 1.10 1998/02/10 21:52:51 cgd Exp $");
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <locale.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -67,9 +71,11 @@ int ftsoptions;			/* options for the ftsopen(3) call */
 int isdeprecated;		/* using deprecated syntax */
 int isdepth;			/* do directories on post-order visit */
 int isoutput;			/* user specified output operator */
+int issort;         		/* do hierarchies in lexicographical order */
 int isxargs;			/* don't permit xargs delimiting chars */
+int mindepth = -1, maxdepth = -1; /* minimum and maximum depth */
+int regexp_flags = REG_BASIC;	/* use the "basic" regexp by default*/
 
-int main __P((int, char **));
 static void usage __P((void));
 
 int
@@ -77,30 +83,31 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	char **p, **start;
-	int ch;
+	register char **p, **start;
+	int Hflag, Lflag, ch;
+
+	(void)setlocale(LC_ALL, "");
 
 	(void)time(&now);	/* initialize the time-of-day */
 
-	/* array to hold dir list.  at most (argc - 1) elements. */
-	p = start = alloca(argc * sizeof (char *));
-
+	p = start = argv;
+	Hflag = Lflag = 0;
 	ftsoptions = FTS_NOSTAT | FTS_PHYSICAL;
-	while ((ch = getopt(argc, argv, "HLPXdf:x")) != EOF)
-		switch(ch) {
+	while ((ch = getopt(argc, argv, "EHLPXdf:sx")) != -1)
+		switch (ch) {
+		case 'E':
+			regexp_flags |= REG_EXTENDED;
+			break;
 		case 'H':
-			ftsoptions |= FTS_COMFOLLOW;
-#if 0	/* XXX necessary? */
-			ftsoptions &= ~FTS_LOGICAL;
-#endif
+			Hflag = 1;
+			Lflag = 0;
 			break;
 		case 'L':
-			ftsoptions &= ~FTS_COMFOLLOW;
-			ftsoptions |= FTS_LOGICAL;
+			Lflag = 1;
+			Hflag = 0;
 			break;
 		case 'P':
-			ftsoptions &= ~(FTS_COMFOLLOW|FTS_LOGICAL);
-			ftsoptions |= FTS_PHYSICAL;
+			Hflag = Lflag = 0;
 			break;
 		case 'X':
 			isxargs = 1;
@@ -111,9 +118,8 @@ main(argc, argv)
 		case 'f':
 			*p++ = optarg;
 			break;
-		case 'h':
-			ftsoptions &= ~FTS_PHYSICAL;
-			ftsoptions |= FTS_LOGICAL;
+		case 's':
+			issort = 1;
 			break;
 		case 'x':
 			ftsoptions |= FTS_XDEV;
@@ -123,8 +129,15 @@ main(argc, argv)
 			break;
 		}
 
-	argc -= optind;	
+	argc -= optind;
 	argv += optind;
+
+	if (Hflag)
+		ftsoptions |= FTS_COMFOLLOW;
+	if (Lflag) {
+		ftsoptions &= ~FTS_PHYSICAL;
+		ftsoptions |= FTS_LOGICAL;
+	}
 
 	/*
 	 * Find first option to delimit the file list.  The first argument
@@ -153,6 +166,6 @@ static void
 usage()
 {
 	(void)fprintf(stderr,
-"usage: find [-H | -L | -P] [-Xdhx] [-f file] [file ...] [expression]\n");
+"usage: find [-H | -L | -P] [-EXdsx] [-f file] [file ...] [expression]\n");
 	exit(1);
 }

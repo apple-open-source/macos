@@ -21,7 +21,7 @@
 
 	Contains:	Encryption, decryption and MACing of data
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -88,13 +88,9 @@
 #include "sslutil.h"
 #endif
 
-#ifdef	_APPLE_CDSA_
-#ifndef	_APPLE_GLUE_H_
 #include "appleGlue.h"
-#endif
-#endif
-
 #include <string.h>
+#include <assert.h>
 
 /*
  * Lots of servers fail to provide closure alerts when they disconnect. 
@@ -102,11 +98,6 @@
  * (and the handshake is complete). 
  */
 #define SSL_ALLOW_UNNOTICED_DISCONNECT	1
-
-static SSLErr DecryptSSLRecord(UInt8 type, SSLBuffer *payload, SSLContext *ctx);
-static SSLErr VerifyMAC(UInt8 type, SSLBuffer data, UInt8 *compareMAC, SSLContext *ctx);
-static SSLErr ComputeMAC(UInt8 type, SSLBuffer data, SSLBuffer mac, sslUint64 seqNo, SSLBuffer secret, const HashReference *macHash, SSLContext *ctx);
-static UInt8* SSLEncodeUInt64(UInt8 *p, sslUint64 value);
 
 /* ReadSSLRecord
  *  Attempt to read & decrypt an SSL record.
@@ -136,12 +127,8 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
         {   readData.length = 1 - ctx->amountRead;
             readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
             len = readData.length;
-            #ifdef	_APPLE_CDSA_
             err = sslIoRead(readData, &len, ctx);
             if(err != 0)
-			#else
-            if (ERR(err = ctx->ioCtx.read(readData, &len, ctx->ioCtx.ioRef)) != 0)
-            #endif
             {   if (err == SSLWouldBlockErr)
                     ctx->amountRead += len;
                 else
@@ -172,12 +159,8 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
     {   readData.length = 5 - ctx->amountRead;
         readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
         len = readData.length;
-        #ifdef	_APPLE_CDSA_
         err = sslIoRead(readData, &len, ctx);
         if(err != 0)
-		#else
-        if (ERR(err = ctx->ioCtx.read(readData, &len, ctx->ioCtx.ioRef)) != 0)
-        #endif
         {   
 			switch(err) {
 				case SSLWouldBlockErr:
@@ -191,7 +174,7 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
 					   (len == 0) &&							/* nothing new */
 					   (ctx->state == HandshakeClientReady)) {	/* handshake done */
 					    /*
-						 * This means that the server has discionected without 
+						 * This means that the server has disconnected without 
 						 * sending a closure alert notice. This is technically
 						 * illegal per the SSL3 spec, but about half of the 
 						 * servers out there do it, so we report it as a separate
@@ -248,12 +231,8 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
     {   readData.length = 5 + contentLen - ctx->amountRead;
         readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
         len = readData.length;
-        #ifdef	_APPLE_CDSA_
         err = sslIoRead(readData, &len, ctx);
         if(err != 0)
-		#else
-        if (ERR(err = ctx->ioCtx.read(readData, &len, ctx->ioCtx.ioRef)) != 0)
-        #endif
         {   if (err == SSLWouldBlockErr)
                 ctx->amountRead += len;
             else
@@ -272,7 +251,9 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
  *  amount of plaintext data after adjusting for the block size and removing the MAC
  *  (this function generates its own alerts)
  */
-    if ((err = DecryptSSLRecord(rec->contentType, &cipherFragment, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if ((err = ctx->sslTslCalls->decryptRecord(rec->contentType, 
+			&cipherFragment, ctx)) != 0)
         return err;
     
 /* We appear to have sucessfully received a record; increment the sequence number */
@@ -290,250 +271,36 @@ SSLReadRecord(SSLRecord *rec, SSLContext *ctx)
     return SSLNoErr;
 }
 
-/* SSLWriteRecord does not send alerts on failure, out of the assumption/fear
- *  that this might result in a loop (since sending an alert causes SSLWriteRecord
- *  to be called).
- */
-SSLErr
-SSLWriteRecord(SSLRecord rec, SSLContext *ctx)
-{   SSLErr          err;
-    int             padding = 0, i;
-    WaitingRecord   *out, *queue;
-    SSLBuffer       buf, payload, secret, mac;
-    UInt8           *progress;
-    UInt16          payloadSize,blockSize;
-    
-    if (rec.protocolVersion == SSL_Version_2_0)
-        return SSL2WriteRecord(rec, ctx);
-    
-    CASSERT(rec.protocolVersion == SSL_Version_3_0);
-    CASSERT(rec.contents.length <= 16384);
-    
-    out = 0;
-    /* Allocate a WaitingRecord to store our ready-to-send record in */
-    if ((err = SSLAllocBuffer(&buf, sizeof(WaitingRecord), &ctx->sysCtx)) != 0)
-        return ERR(err);
-    out = (WaitingRecord*)buf.data;
-    out->next = 0;
-    out->sent = 0;
-    /* Allocate enough room for the transmitted record, which will be:
-     *  5 bytes of header +
-     *  encrypted contents +
-     *  macLength +
-     *  padding [block ciphers only] +
-     *  padding length field (1 byte) [block ciphers only]
-     */
-    payloadSize = (UInt16) (rec.contents.length + ctx->writeCipher.hash->digestSize);
-    blockSize = ctx->writeCipher.symCipher->blockSize;
-    if (blockSize > 0)
-    {   padding = blockSize - (payloadSize % blockSize) - 1;
-        payloadSize += padding + 1;
-    }
-    out->data.data = 0;
-    if ((err = SSLAllocBuffer(&out->data, 5 + payloadSize, &ctx->sysCtx)) != 0)
-        goto fail;
-    
-    progress = out->data.data;
-    *(progress++) = rec.contentType;
-    progress = SSLEncodeInt(progress, rec.protocolVersion, 2);
-    progress = SSLEncodeInt(progress, payloadSize, 2);
-    
-    /* Copy the contents into the output buffer */
-    memcpy(progress, rec.contents.data, rec.contents.length);
-    payload.data = progress;
-    payload.length = rec.contents.length;
-    
-    progress += rec.contents.length;
-    /* MAC immediately follows data */
-    mac.data = progress;
-    mac.length = ctx->writeCipher.hash->digestSize;
-    progress += mac.length;
-    
-    /* MAC the data */
-    if (mac.length > 0)     /* Optimize away null case */
-    {   secret.data = ctx->writeCipher.macSecret;
-        secret.length = ctx->writeCipher.hash->digestSize;
-        if ((err = ComputeMAC(rec.contentType, payload, mac, ctx->writeCipher.sequenceNum, secret, ctx->writeCipher.hash, ctx)) != 0)
-            goto fail;
-    }
-    
-    /* Update payload to reflect encrypted data: contents, mac & padding */
-    payload.length = payloadSize;
-    
-    /* Fill in the padding bytes & padding length field with the padding value; the
-     *  protocol only requires the last byte,
-     *  but filling them all in avoids leaking data
-     */
-    if (ctx->writeCipher.symCipher->blockSize > 0)
-        for (i = 1; i <= padding + 1; ++i)
-            payload.data[payload.length - i] = padding;
-    
-    /* Encrypt the data */
-    DUMP_BUFFER_NAME("cleartext data", payload);
-    /* _APPLE_CDSA_ change */
-    if ((err = ctx->writeCipher.symCipher->encrypt(payload, 
-    		payload, 
-    		&ctx->writeCipher, 
-    		ctx)) != 0)
-        goto fail;
-    DUMP_BUFFER_NAME("encrypted data", payload);
-    
-    /* Enqueue the record to be written from the idle loop */
-    if (ctx->recordWriteQueue == 0)
-        ctx->recordWriteQueue = out;
-    else
-    {   queue = ctx->recordWriteQueue;
-        while (queue->next != 0)
-            queue = queue->next;
-        queue->next = out;
-    }
-    
-    /* Increment the sequence number */
-    IncrementUInt64(&ctx->writeCipher.sequenceNum);
-    
-    return SSLNoErr;
-    
-fail:   /* Only for if we fail between when the WaitingRecord is allocated and when it is queued */
-    SSLFreeBuffer(&out->data, &ctx->sysCtx);
-    buf.data = (UInt8*)out;
-    buf.length = sizeof(WaitingRecord);
-    SSLFreeBuffer(&buf, &ctx->sysCtx);
-    return ERR(err);
-}
-
-static SSLErr
-DecryptSSLRecord(UInt8 type, SSLBuffer *payload, SSLContext *ctx)
-{   SSLErr      err;
-    SSLBuffer   content;
-    
-    if ((ctx->readCipher.symCipher->blockSize > 0) &&
-        ((payload->length % ctx->readCipher.symCipher->blockSize) != 0))
-    {   SSLFatalSessionAlert(alert_unexpected_message, ctx);
-        return ERR(SSLProtocolErr);
-    }
-
-    /* Decrypt in place */
-    DUMP_BUFFER_NAME("encrypted data", (*payload));
-    /* _APPLE_CDSA_ change */
-    if ((err = ctx->readCipher.symCipher->decrypt(*payload, 
-    		*payload, 
-    		&ctx->readCipher, 
-    		ctx)) != 0)
-    {   SSLFatalSessionAlert(alert_close_notify, ctx);
-        return ERR(err);
-    }
-    DUMP_BUFFER_NAME("decrypted data", (*payload));
-    
-/* Locate content within decrypted payload */
-    content.data = payload->data;
-    content.length = payload->length - ctx->readCipher.hash->digestSize;
-    if (ctx->readCipher.symCipher->blockSize > 0)
-    {   /* padding can't be equal to or more than a block */
-        if (payload->data[payload->length - 1] >= ctx->readCipher.symCipher->blockSize)
-        {   SSLFatalSessionAlert(alert_unexpected_message, ctx);
-        	errorLog1("DecryptSSLRecord: bad padding length (%d)\n", 
-        		(unsigned)payload->data[payload->length - 1]);
-            return ERR(SSLProtocolErr);
-        }
-        content.length -= 1 + payload->data[payload->length - 1];   /* Remove block size padding */
-    }
-
-/* Verify MAC on payload */
-    if (ctx->readCipher.hash->digestSize > 0)       /* Optimize away MAC for null case */
-        if ((err = VerifyMAC(type, content, payload->data + content.length, ctx)) != 0)
-        {   SSLFatalSessionAlert(alert_bad_record_mac, ctx);
-            return ERR(err);
-        }
-    
-    *payload = content;     /* Modify payload buffer to indicate content length */
-    
-    return SSLNoErr;
-}
-
-static UInt8*
-SSLEncodeUInt64(UInt8 *p, sslUint64 value)
-{   p = SSLEncodeInt(p, value.high, 4);
-    return SSLEncodeInt(p, value.low, 4);
-}
-
-static SSLErr
-VerifyMAC(UInt8 type, SSLBuffer data, UInt8 *compareMAC, SSLContext *ctx)
-{   SSLErr          err;
+/* common for sslv3 and tlsv1, except for the computeMac callout */
+SSLErr SSLVerifyMac(
+	UInt8 type, 
+	SSLBuffer data, 
+	UInt8 *compareMAC, 
+	SSLContext *ctx)
+{   
+	SSLErr          err;
     UInt8           macData[MAX_DIGEST_SIZE];
     SSLBuffer       secret, mac;
     
     secret.data = ctx->readCipher.macSecret;
-    secret.length = ctx->readCipher.hash->digestSize;
+    secret.length = ctx->readCipher.macRef->hash->digestSize;
     mac.data = macData;
-    mac.length = ctx->readCipher.hash->digestSize;
+    mac.length = ctx->readCipher.macRef->hash->digestSize;
     
-    if ((err = ComputeMAC(type, data, mac, ctx->readCipher.sequenceNum, secret, ctx->readCipher.hash, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if ((err = ctx->sslTslCalls->computeMac(type, 
+			data, 
+			mac, 
+			&ctx->readCipher,
+			ctx->readCipher.sequenceNum, 
+			ctx)) != 0)
         return ERR(err);
     
     if ((memcmp(mac.data, compareMAC, mac.length)) != 0) {
-		errorLog0("VerifyMAC: Mac verify failure\n");
+		errorLog0("ssl3VerifyMac: Mac verify failure\n");
         return ERR(SSLProtocolErr);
     }
     return SSLNoErr;
 }
 
-static SSLErr
-ComputeMAC(UInt8 type, SSLBuffer data, SSLBuffer mac, sslUint64 seqNo, SSLBuffer secret,
-            const HashReference *macHash, SSLContext *ctx)
-{   SSLErr          err;
-    UInt8           innerDigestData[MAX_DIGEST_SIZE];
-    UInt8           scratchData[11], *progress;
-    SSLBuffer       digest,digestCtx,scratch;
-    
-    CASSERT(macHash->macPadSize <= MAX_MAC_PADDING);
-    CASSERT(macHash->digestSize <= MAX_DIGEST_SIZE);
-    CASSERT(SSLMACPad1[0] == 0x36 && SSLMACPad2[0] == 0x5C);
-    
-    digestCtx.data = 0;
-    if ((err = SSLAllocBuffer(&digestCtx, macHash->contextSize, &ctx->sysCtx)) != 0)
-        goto exit;
-    
-/* MAC = hash( MAC_write_secret + pad_2 + hash( MAC_write_secret + pad_1 + seq_num + type + length + content ) ) */
-    if ((err = macHash->init(digestCtx)) != 0)
-        goto exit;
-    if ((err = macHash->update(digestCtx, secret)) != 0)    /* MAC secret */
-        goto exit;
-    scratch.data = SSLMACPad1;
-    scratch.length = macHash->macPadSize;
-    if ((err = macHash->update(digestCtx, scratch)) != 0)   /* pad1 */
-        goto exit;
-    progress = scratchData;
-    progress = SSLEncodeUInt64(progress, seqNo);
-    *progress++ = type;
-    progress = SSLEncodeInt(progress, data.length, 2);
-    scratch.data = scratchData;
-    scratch.length = 11;
-    CASSERT(progress = scratchData+11);
-    if ((err = macHash->update(digestCtx, scratch)) != 0)   /* sequenceNo, type & length */
-        goto exit;
-    if ((err = macHash->update(digestCtx, data)) != 0)      /* content */
-        goto exit;
-    digest.data = innerDigestData;
-    digest.length = macHash->digestSize;
-    if ((err = macHash->final(digestCtx, digest)) != 0) /* figure inner digest */
-        goto exit;
-    
-    if ((err = macHash->init(digestCtx)) != 0)
-        goto exit;
-    if ((err = macHash->update(digestCtx, secret)) != 0)    /* MAC secret */
-        goto exit;
-    scratch.data = SSLMACPad2;
-    scratch.length = macHash->macPadSize;
-    if ((err = macHash->update(digestCtx, scratch)) != 0)   /* pad2 */
-        goto exit;
-    if ((err = macHash->update(digestCtx, digest)) != 0)    /* inner digest */
-        goto exit;  
-    if ((err = macHash->final(digestCtx, mac)) != 0)    /* figure the mac */
-        goto exit;
-    
-    err = SSLNoErr; /* redundant, I know */
-    
-exit:
-    SSLFreeBuffer(&digestCtx, &ctx->sysCtx);
-    return ERR(err);
-}
+

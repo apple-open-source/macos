@@ -1,30 +1,31 @@
 This is ../info/mh-e, produced by makeinfo version 4.0 from mh-e.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * MH-E: (mh-e).		Emacs interface to the MH mail system.
 END-INFO-DIR-ENTRY
 
-   This is Edition 1.2, last updated 22 August 1995, of `mh-e, The
+   This is Edition 1.3, last updated 18 February 2001, of `mh-e, The
 Emacs Interface to MH', for mh-e, Version 5.0.2.
 
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "Copying" is included exactly as in the
-original, and provided that the entire resulting derived work is
-distributed under the terms of a permission notice identical to this
-one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that this permission notice may be stated in a
-translation approved by the Free Software Foundation.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: mh-e,  Node: Organizing,  Next: Printing,  Prev: Deleting,  Up: Moving Mail
@@ -164,7 +165,7 @@ mode:
      
      
      
-     --**-Emacs: pick-pattern    (MH-Pick)------All----------------------------
+     --**-Emacs: pick-pattern    (MH-Pick)------All--------------------------
      Pick window
 
    Edit this template by entering your search criteria in an appropriate
@@ -315,14 +316,10 @@ File: mh-e,  Node: Miscellaneous,  Prev: Sequences,  Up: Using mh-e
 Miscellaneous Commands
 ======================
 
-   One other command worth noting is `M-x mh-version'.  Since there
-were a few changes in command letters between Versions 3 and 4, use
-this command to see which version you are running.  This command didn't
-exist before Version 4, so the message `[No match]' indicates that it's
-time to upgrade (*note Getting mh-e::).  In the meantime, use the older
-commands that are listed in *Note Changes to mh-e::.  The output of
-`M-x mh-version' should also be included with any bug report you send
-(*note Bug Reports::).
+   One other command worth noting is `M-x mh-version'. You can compare
+the version this command prints to the latest release (*note Getting
+mh-e::). The output of `M-x mh-version' should always be included with
+any bug report you submit (*note Bug Reports::).
 
 
 File: mh-e,  Node: Customizing mh-e,  Next: Odds and Ends,  Prev: Using mh-e,  Up: Top
@@ -331,12 +328,12 @@ Customizing mh-e
 ****************
 
    Until now, we've talked about the mh-e commands as they work "out of
-the box."  Of course, it is also possible to reconfigure mh-e beyond
-recognition.  The following sections describe all of the customization
-variables, show the defaults, and make recommendations for
-customization.  The outline of this chapter is identical to that of
-*Note Using mh-e::, to make it easier to find the variables you'd need
-to modify to affect a particular command.
+the box."  Of course, it is also possible to reconfigure mh-e to fit
+the needs of even the most demanding user.  The following sections
+describe all of the customization variables, show the defaults, and
+make recommendations for customization.  The outline of this chapter is
+identical to that of *Note Using mh-e::, to make it easier to find the
+variables you'd need to modify to affect a particular command.
 
    However, when customizing your mail environment, first try to change
 what you want in MH, and only change mh-e if changing MH is not
@@ -628,17 +625,9 @@ nice feature indeed.
      
      (defun my-mh-show-mode-hook ()
        "Hook to turn on and customize fonts."
-       (require 'font-lock)                 ; for font-lock-keywords below
-       (make-local-variable 'font-lock-mode-hook) ; don't affect other buffers
-       (add-hook 'font-lock-mode-hook       ; set a hook with inline function
-                 (function                  ; modifies font-lock-keywords when
-                  (lambda ()                ; font-lock-mode run
-                    (setq font-lock-keywords
-                          (append my-mh-keywords font-lock-keywords)))))
-       (font-lock-mode 1))                  ; change the typefaces
+       (font-lock-add-keywords nil my-mh-keywords))
      
-     (if window-system                      ; can't do this on ASCII terminal
-         (add-hook 'mh-show-mode-hook 'my-mh-show-mode-hook))
+     (add-hook 'mh-show-mode-hook 'my-mh-show-mode-hook))
 
    The second hook, `mh-show-hook', is the last thing called after
 messages are displayed.  It's used to affect the behavior of mh-e in
@@ -656,7 +645,7 @@ will display the folder name and the message number, respectively,
 somewhere in the string in that order.  The default value of
 `"{show-%s} %d"' yields a mode line of
 
-     -----{show-+inbox} 4      (MH-Show)--Bot----------------------------------
+     -----{show-+inbox} 4      (MH-Show)--Bot--------------------------------
 
 
 File: mh-e,  Node: Customizing Moving Around,  Prev: Customizing Viewing,  Up: Customizing Reading
@@ -708,9 +697,9 @@ replying to mail.  They are summarized in the following table.
      `send' requires entire message (default: `nil').
 
 `mh-new-draft-cleaned-headers'
-     Remove these header fields from re-edited draft (default:
-     `"^Date:\\| ^Received:\\| ^Message-Id:\\| ^From:\\| ^Sender:\\|
-     ^Delivery-Date:\\| ^Return-Path:"').
+     Remove these header fields from re-edited draft.  The default is:
+          "^Date:\\| ^Received:\\| ^Message-Id:\\| ^From:\\|
+          ^Sender:\\| ^Delivery-Date:\\| ^Return-Path:".
 
    Since mh-e does not use `comp' to create the initial draft, you need
 to set `mh-comp-formfile' to the name of your components file if it
@@ -974,9 +963,10 @@ the `<bold>' directive.
 
      Emacs macros for entering enriched text
      
-     (defvar enriched-text-types '(("b" . "bold") ("i" . "italic") ("f" . "fixed")
-                                   ("s" . "smaller") ("B" . "bigger")
-                                   ("u" . "underline") ("c" . "center"))
+     (defvar enriched-text-types '(("b" . "bold") ("i" . "italic")
+                                   ("f" . "fixed") ("s" . "smaller")
+                                   ("B" . "bigger") ("u" . "underline")
+                                   ("c" . "center"))
        "Alist of (final-character . directive) choices for add-enriched-text.
      Additional types can be found in RFC 1563.")
      
@@ -996,7 +986,7 @@ the `<bold>' directive.
            (goto-char (point-max))      ; move to end of text
            (insert "</" type ">"))))    ; insert terminating directive
 
-   To use the function `add-enriched-text', first create keybindings
+   To use the function `add-enriched-text', first create key bindings
 for it (*note Customizing Sending::).  Then, set the mark with `C-@' or
 `C-SPC', type in the text to be highlighted, and type `C-c t b'.  This
 adds `<bold>' where you set the mark and adds `</bold>' at the location
@@ -1141,4 +1131,86 @@ Deleting Your Mail
    The hook `mh-delete-msg-hook' is called after you mark a message for
 deletion.  For example, the current maintainer of mh-e used this once
 when he kept statistics on his mail usage.
+
+
+File: mh-e,  Node: Customizing Organizing,  Next: Customizing Printing,  Prev: Customizing Deleting,  Up: Customizing Moving Mail
+
+Organizing Your Mail with Folders
+---------------------------------
+
+   By default, operations on folders work only one level at a time.  Set
+`mh-recursive-folders' to non-`nil' to operate on all folders.  This
+mostly means that you'll be able to see all your folders when you press
+<TAB> when prompted for a folder name.  The variable
+`mh-auto-folder-collect' is normally turned on to generate a list of
+folder names in the background as soon as mh-e is loaded.  Otherwise,
+the list is generated when you need a folder name the first time (as
+with `o' (`mh-refile-msg')).  If you have a lot of folders and you have
+`mh-recursive-folders' set, this could take a while, which is why it's
+nice to do the folder collection in the background.
+
+   The function `mh-default-folder-for-message-function' is used by `o'
+(`mh-refile-msg') and `C-c C-f C-f' (`mh-to-fcc') to generate a default
+folder.  The generated folder name should be a string with a `+' before
+it.  For each of my correspondents, I use the same name for both an
+alias and a folder.  So, I wrote a function that takes the address in
+the `From:' header field, finds it in my alias file, and returns the
+alias, which is used as a default folder name.  This is the most
+complicated example given here, and it demonstrates several features of
+Emacs Lisp programming.  You should be able to drop this into
+`~/.emacs', however.  If you use this to store messages in a subfolder
+of your Mail directory, you can modify the line that starts `(format
++%s...'  and insert your subfolder after the folder symbol `+'.
+
+     Creating useful default folder for refiling via mh-default-folder-for-message-function
+     
+     (defun my-mh-folder-from-address ()
+       "Determine folder name from address.
+     Takes the address in the From: header field, and returns its
+     corresponding alias from the user's personal aliases file. Returns
+     `nil' if the address was not found."
+       (require 'rfc822)                         ; for the rfc822 functions
+       (search-forward-regexp "^From: \\(.*\\)") ; grab header field contents
+       (save-excursion                     ; save state
+         (let ((addr (car (rfc822-addresses  ; get address
+                           (buffer-substring (match-beginning 1)
+                                             (match-end 1)))))
+               (buffer (get-buffer-create " *temp*")) ; set local variables
+               folder)
+           (set-buffer buffer)             ; jump to temporary buffer
+           (unwind-protect                 ; run kill-buffer when done
+               (progn                      ; function grouping construct
+                 (insert-file-contents (expand-file-name "aliases"
+                                                         mh-user-path))
+                 (goto-char (point-min))   ; grab aliases file and go to start
+                 (setq folder
+                       ;; Search for the given address, even commented-out
+                       ;; addresses are found!
+                       ;; The function search-forward-regexp sets values that
+                       ;; are later used by match-beginning and match-end.
+                       (if (search-forward-regexp (format "^;*\\(.*\\):.*%s"
+                                                          addr) nil t)
+                           ;; NOTE WELL: this is what the return value looks
+                           ;; like. You can modify the format string to match
+                           ;; your own Mail hierarchy.
+                           (format "+%s" (buffer-substring
+                                           (match-beginning 1)
+                                           (match-end 1))))))
+             (kill-buffer buffer))          ; get rid of our temporary buffer
+           folder)))                        ; function's return value
+     
+     (setq mh-default-folder-for-message-function 'my-mh-folder-from-address)
+
+   The hook `mh-refile-msg-hook' is called after a message is marked to
+be refiled.
+
+   The variable `mh-sortm-args' holds extra arguments to pass on to the
+`sortm' command.  Note: this variable is only consulted when a prefix
+argument is given to `M-x mh-sort-folder'.  It is used to override any
+arguments given in a `sortm:' entry in your MH profile
+(`~/.mh_profile').
+
+* Menu:
+
+* Customizing Scan Line Formats::
 

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/GNU/emacs/emacs/oldXMenu/X10.h,v 1.1.1.2 2000/06/30 17:54:27 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/src/live/emacs/emacs/oldXMenu/X10.h,v 1.1.1.3 2001/10/31 17:59:56 jevans Exp $ */
 /* 
  * Copyright 1985, 1986, 1987 by the Massachusetts Institute of Technology
  *

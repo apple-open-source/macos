@@ -1,8 +1,8 @@
 ;;; cmacexp.el --- expand C macros in a region
 
-;; Copyright (C) 1992, 1994, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1994, 1996, 2000 Free Software Foundation, Inc.
 
-;; Author: Francesco Potorti` <pot@cnuce.cnr.it>
+;; Author: Francesco Potorti` <pot@gnu.org>
 ;; Adapted-By: ESR
 ;; Keywords: c
 
@@ -22,6 +22,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;; USAGE =============================================================
 
@@ -45,7 +47,7 @@
 ;; Put the following in your ~/.emacs file.
 
 ;; If you want the *Macroexpansion* window to be not higher than
-;; necessary: 
+;; necessary:
 ;;(setq c-macro-shrink-window-flag t)
 ;;
 ;; If you use a preprocessor other than /lib/cpp (be careful to set a
@@ -62,7 +64,7 @@
 ;; BUG REPORTS =======================================================
 
 ;; Please report bugs, suggestions, complaints and so on to
-;; pot@cnuce.cnr.it (Francesco Potorti`).
+;; pot@gnu.org (Francesco Potorti`).
 
 ;; IMPROVEMENTS OVER emacs 18.xx cmacexp.el ==========================
 
@@ -84,6 +86,7 @@
 ;; If the start point of the region is inside a macro definition the
 ;; macro expansion is often inaccurate.
 
+;;; Code:
 
 (require 'cc-mode)
 
@@ -105,13 +108,16 @@
   :group 'c-macro)
 
 (defcustom c-macro-preprocessor
-  ;; Cannot rely on standard directory on MS-DOS to find CPP.
-  (cond ((eq system-type 'ms-dos) "cpp -C")
+  ;; Cannot rely on standard directory on MS-DOS to find CPP.  In
+  ;; fact, cannot rely on having cpp.exe, either, in latest GCC
+  ;; versions.
+  (cond ((eq system-type 'ms-dos) "gcc -E -C -o - -")
 	;; Solaris has it in an unusual place.
 	((and (string-match "^[^-]*-[^-]*-\\(solaris\\|sunos5\\)"
 			    system-configuration)
 	      (file-exists-p "/opt/SUNWspro/SC3.0.1/bin/acomp"))
 	 "/opt/SUNWspro/SC3.0.1/bin/acomp -C -E")
+        ((file-exists-p "/usr/ccs/lib/cpp") "/usr/ccs/lib/cpp -C")
 	(t "/lib/cpp -C"))
   "The preprocessor used by the cmacexp package.
 
@@ -205,7 +211,7 @@ For use inside Lisp programs, see also `c-macro-expansion'."
   (let ((oldwinheight (window-height))
 	(alreadythere			;the window was already there
 	 (get-buffer-window (current-buffer)))
-	(popped nil))			;the window popped changing the layout 
+	(popped nil))			;the window popped changing the layout
     (or alreadythere
 	(progn
 	  (display-buffer (current-buffer) t)
@@ -247,7 +253,7 @@ Optional arg DISPLAY non-nil means show messages in the echo area."
 ;; Preprocess the buffer contents, then look for all the lines stored
 ;; in linelist starting from end of buffer.  The last line so found is
 ;; where START was, so return the substring from point to end of
-;; buffer. 
+;; buffer.
   (let ((inbuf (current-buffer))
 	(outbuf (get-buffer-create " *C Macro Expansion*"))
 	(filename (if (and buffer-file-name
@@ -265,9 +271,10 @@ Optional arg DISPLAY non-nil means show messages in the echo area."
 	(startstat ())
 	(startmarker "")
 	(exit-status 0)
-	(tempname (make-temp-name
+	(tempname (make-temp-file
 		   (expand-file-name "cmacexp"
-				     temporary-file-directory))))
+				     (or small-temporary-file-directory
+					 temporary-file-directory)))))
     (unwind-protect
 	(save-excursion
 	  (save-restriction

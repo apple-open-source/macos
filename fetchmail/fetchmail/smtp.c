@@ -15,6 +15,7 @@
 #include "socket.h"
 #include "smtp.h"
 #include "config.h"
+#include "i18n.h"
 
 struct opt
 {
@@ -27,6 +28,7 @@ static struct opt extensions[] =
     {"8BITMIME",	ESMTP_8BITMIME},
     {"SIZE",    	ESMTP_SIZE},
     {"ETRN",		ESMTP_ETRN},
+    {"AUTH ",		ESMTP_AUTH},
 #ifdef ODMR_ENABLE
     {"ATRN",		ESMTP_ATRN},
 #endif /* ODMR_ENABLE */
@@ -55,10 +57,134 @@ int SMTP_helo(int sock,const char *host)
   return ok;
 }
 
-int SMTP_ehlo(int sock, const char *host, int *opt)
+static void SMTP_auth(int sock, char *username, char *password, char *buf)
+/* ESMTP Authentication support for fetchmail by Wojciech Polak */
+{
+
+	static void SMTP_auth_error(int sock, char *msg)
+	{
+		SockPrintf(sock, "*\r\n");
+		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
+		if (outlevel >= O_MONITOR) report(stdout, msg);
+	}
+	
+	int c;
+	char *p = 0;
+	char b64buf[512];
+	char tmp[512];
+
+	if (!username || !password) return;
+
+	memset(b64buf, 0, sizeof(b64buf));
+	memset(tmp, 0, sizeof(tmp));
+
+	if (strstr(buf, "CRAM-MD5")) {
+		unsigned char digest[16];
+		memset(digest, 0, sizeof(digest));
+
+		if (outlevel >= O_MONITOR)
+			report(stdout, GT_("ESMTP CRAM-MD5 Authentication...\n"));
+		SockPrintf(sock, "AUTH CRAM-MD5\r\n");
+		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
+		strncpy(tmp, smtp_response, sizeof(tmp));
+
+		if (strncmp(tmp, "334 ", 4)) { /* Server rejects AUTH */
+			SMTP_auth_error(sock, GT_("Server rejected the AUTH command.\n"));
+			return;
+		}
+
+		p = strchr(tmp, ' ');
+		p++;
+		/* (hmh) from64tobits will not NULL-terminate strings! */
+		if (from64tobits(b64buf, p, sizeof(b64buf) - 1) <= 0) {
+			SMTP_auth_error(sock, GT_("Bad base64 reply from server.\n"));
+			return;
+		}
+		if (outlevel >= O_DEBUG)
+			report(stdout, GT_("Challenge decoded: %s\n"), b64buf);
+		hmac_md5(password, strlen(password),
+			 b64buf, strlen(b64buf), digest, sizeof(digest));
+#ifdef HAVE_SNPRINTF
+		snprintf(tmp, sizeof(tmp),
+#else
+		sprintf(tmp,
+#endif /* HAVE_SNPRINTF */
+		"%s %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		username,  digest[0], digest[1], digest[2], digest[3],
+		digest[4], digest[5], digest[6], digest[7], digest[8],
+		digest[9], digest[10], digest[11], digest[12], digest[13],
+		digest[14], digest[15]);
+
+		to64frombits(b64buf, tmp, strlen(tmp));
+		SockPrintf(sock, "%s\r\n", b64buf);
+		SMTP_ok(sock);
+	}
+	else if (strstr(buf, "PLAIN")) {
+		int len;
+		if (outlevel >= O_MONITOR)
+			report(stdout, GT_("ESMTP PLAIN Authentication...\n"));
+#ifdef HAVE_SNPRINTF
+		snprintf(tmp, sizeof(tmp),
+#else
+		sprintf(tmp,
+#endif /* HAVE_SNPRINTF */
+		"^%s^%s", username, password);
+
+		len = strlen(tmp);
+		for (c = len - 1; c >= 0; c--)
+		{
+			if (tmp[c] == '^')
+				tmp[c] = '\0';
+		}
+		to64frombits(b64buf, tmp, len);
+		SockPrintf(sock, "AUTH PLAIN %s\r\n", b64buf);
+		SMTP_ok(sock);
+	}
+	else if (strstr(buf, "LOGIN")) {
+		if (outlevel >= O_MONITOR)
+			report(stdout, GT_("ESMTP LOGIN Authentication...\n"));
+		SockPrintf(sock, "AUTH LOGIN\r\n");
+		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
+		strncpy(tmp, smtp_response, sizeof(tmp));
+
+		if (strncmp(tmp, "334 ", 4)) { /* Server rejects AUTH */
+			SMTP_auth_error(sock, GT_("Server rejected the AUTH command.\n"));
+			return;
+		}
+
+		p = strchr(tmp, ' ');
+		p++;
+		if (from64tobits(b64buf, p, sizeof(b64buf) - 1) <= 0) {
+			SMTP_auth_error(sock, GT_("Bad base64 reply from server.\n"));
+			return;
+		}
+		to64frombits(b64buf, username, strlen(username));
+		SockPrintf(sock, "%s\r\n", b64buf);
+		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
+		strncpy(tmp, smtp_response, sizeof(tmp));
+		p = strchr(tmp, ' ');
+		if (!p) {
+			SMTP_auth_error(sock, GT_("Bad base64 reply from server.\n"));
+			return;
+		}
+		p++;
+		memset(b64buf, 0, sizeof(b64buf));
+		if (from64tobits(b64buf, p, sizeof(b64buf) - 1) <= 0) {
+			SMTP_auth_error(sock, GT_("Bad base64 reply from server.\n"));
+			return;
+		}
+		to64frombits(b64buf, password, strlen(password));
+		SockPrintf(sock, "%s\r\n", b64buf);
+		SMTP_ok(sock);
+	}
+	return;
+}
+
+int SMTP_ehlo(int sock, const char *host, char *name, char *password, int *opt)
 /* send a "EHLO" message to the SMTP listener, return extension status bits */
 {
   struct opt *hp;
+  char auth_response[511];
 
   SockPrintf(sock,"%cHLO %s\r\n", (smtp_mode == 'S') ? 'E' : smtp_mode, host);
   if (outlevel >= O_MONITOR)
@@ -80,10 +206,16 @@ int SMTP_ehlo(int sock, const char *host, int *opt)
       if (outlevel >= O_MONITOR)
 	  report(stdout, "SMTP< %s\n", smtp_response);
       for (hp = extensions; hp->name; hp++)
-	  if (!strncasecmp(hp->name, smtp_response+4, strlen(hp->name)))
+	  if (!strncasecmp(hp->name, smtp_response+4, strlen(hp->name))) {
 	      *opt |= hp->value;
-      if ((smtp_response[0] == '1' || smtp_response[0] == '2' || smtp_response[0] == '3') && smtp_response[3] == ' ')
+	      if (strncmp(hp->name, "AUTH ", 5) == 0)
+	      	strncpy(auth_response, smtp_response, sizeof(auth_response));
+	  }
+      if ((smtp_response[0] == '1' || smtp_response[0] == '2' || smtp_response[0] == '3') && smtp_response[3] == ' ') {
+	  if (*opt & ESMTP_AUTH)
+		SMTP_auth(sock, name, password, auth_response);
 	  return SM_OK;
+      }
       else if (smtp_response[3] != '-')
 	  return SM_ERROR;
   }

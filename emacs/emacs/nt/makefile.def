@@ -1,5 +1,6 @@
 #
 #  Makefile definition file for building GNU Emacs on Windows NT
+#  Copyright (c) 1994-2001 Free Software Foundation, Inc.
 #  
 #  GNU Emacs is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -136,9 +137,9 @@ BASE_LIBS	= $(libc) $(baselibs) -nodefaultlib:oldnames.lib
 
 # We want any debugging info in the executable.
 !if "$(LINK)" == "link32"
-SYS_LDFLAGS	= 
+SYS_LDFLAGS	= -nologo
 !else
-SYS_LDFLAGS	= -release -incremental:no -version:3.10
+SYS_LDFLAGS	= -nologo -release -incremental:no -version:3.10
 !endif
 
 # Tag the executables to run out of the swapfile when execute off CD or network shares
@@ -178,15 +179,12 @@ DEL		= del
 DEL_TREE	= rd /s/q
 !endif
 
-# The location of the icon file
-EMACS_ICON_PATH = ..\nt\emacs.ico
-
 # Lets us add icons to the GNU Emacs folder
 ADDPM		= ..\nt\$(BLD)\addpm.exe
 
 !if "$(ARCH)" == "i386"
 !if "$(BUILD_TYPE)" == "spd"
-ARCH_CFLAGS     = -nologo -D_X86_=1 -c -Zel -W2 -H63 -Oxsb2 -Oy- -G6dF -Zi -Zp8
+ARCH_CFLAGS     = -nologo -D_X86_=1 -c -Zel -W2 -H63 -Oxsb2 -G6dF -Zi -Zp8
 !else
 ARCH_CFLAGS     = -nologo -D_X86_=1 -c -Zel -W2 -H63 -Od -G3d -Zi -Zp8
 !endif

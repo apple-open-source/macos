@@ -1,5 +1,7 @@
 /* GDB interface to ARM RDI library.
-   Copyright 1997, 1998 Free Software Foundation, Inc.
+
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,13 +28,15 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
 #include "gdbthread.h"
 #include "gdbcore.h"
 #include "breakpoint.h"
+#include "completer.h"
+#include "regcache.h"
+#include "arm-tdep.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -52,13 +56,15 @@ static void arm_rdi_files_info (struct target_ops *ignore);
 
 static int arm_rdi_xfer_memory (CORE_ADDR memaddr, char *myaddr,
 				int len, int should_write,
+				struct mem_attrib *attrib,
 				struct target_ops *target);
 
 static void arm_rdi_prepare_to_store (void);
 
 static void arm_rdi_fetch_registers (int regno);
 
-static void arm_rdi_resume (int pid, int step, enum target_signal siggnal);
+static void arm_rdi_resume (ptid_t pid, int step,
+                            enum target_signal siggnal);
 
 static int arm_rdi_start_remote (char *dummy);
 
@@ -74,7 +80,7 @@ static void arm_rdi_mourn (void);
 
 static void arm_rdi_send (char *buf);
 
-static int arm_rdi_wait (int pid, struct target_waitstatus *status);
+static ptid_t arm_rdi_wait (ptid_t ptid, struct target_waitstatus *status);
 
 static void arm_rdi_kill (void);
 
@@ -147,20 +153,20 @@ voiddummy (void *dummy)
 }
 
 static void
-myprint (PTR arg, const char *format, va_list ap)
+myprint (void *arg, const char *format, va_list ap)
 {
   vfprintf_unfiltered (gdb_stdout, format, ap);
 }
 
 static void
-mywritec (PTR arg, int c)
+mywritec (void *arg, int c)
 {
   if (isascii (c))
     fputc_unfiltered (c, gdb_stdout);
 }
 
 static int
-mywrite (PTR arg, char const *buffer, int len)
+mywrite (void *arg, char const *buffer, int len)
 {
   int i;
   char *e;
@@ -179,7 +185,7 @@ mywrite (PTR arg, char const *buffer, int len)
 }
 
 static void
-mypause (PTR arg)
+mypause (void *arg)
 {
 }
 
@@ -187,13 +193,13 @@ mypause (PTR arg)
    being interrupted more carefully */
 
 static int
-myreadc (PTR arg)
+myreadc (void *arg)
 {
   return fgetc (stdin);
 }
 
 static char *
-mygets (PTR arg, char *buffer, int len)
+mygets (void *arg, char *buffer, int len)
 {
   return fgets (buffer, len, stdin);
 }
@@ -240,7 +246,7 @@ device is attached to the remote system (e.g. /dev/ttya).");
   if (rslt != adp_ok)
     error ("Could not open device \"%s\"", name);
 
-  gdb_config.bytesex = 2 | (TARGET_BYTE_ORDER == BIG_ENDIAN ? 1 : 0);
+  gdb_config.bytesex = 2 | (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? 1 : 0);
   gdb_config.fpe = 1;
   gdb_config.rditype = 2;
   gdb_config.heartbeat_on = 1;
@@ -259,7 +265,7 @@ device is attached to the remote system (e.g. /dev/ttya).");
   rslt = angel_RDI_open (10, &gdb_config, &gdb_hostif, NULL);
   if (rslt == RDIError_BigEndian || rslt == RDIError_LittleEndian)
     ;				/* do nothing, this is the expected return */
-  else if (rslt)
+  else if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_open: %s\n", rdi_error_message (rslt));
       Adp_CloseDevice ();
@@ -267,33 +273,33 @@ device is attached to the remote system (e.g. /dev/ttya).");
     }
 
   rslt = angel_RDI_info (RDIInfo_Target, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
   rslt = angel_RDI_info (RDIInfo_Points, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
   rslt = angel_RDI_info (RDIInfo_Step, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
   rslt = angel_RDI_info (RDIInfo_CoPro, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
   rslt = angel_RDI_info (RDIInfo_SemiHosting, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
 
   rslt = angel_RDI_info (RDIInfo_GetLoadSize, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
@@ -304,7 +310,7 @@ device is attached to the remote system (e.g. /dev/ttya).");
   target_fetch_registers (-1);
 
   rslt = angel_RDI_open (1, &gdb_config, NULL, NULL);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_open: %s\n", rdi_error_message (rslt));
     }
@@ -312,14 +318,14 @@ device is attached to the remote system (e.g. /dev/ttya).");
   arg1 = rom_at_zero ? 0x0 : 0x13b;
 
   rslt = angel_RDI_info (RDIVector_Catch, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
 
   arg1 = (unsigned long) "";
   rslt = angel_RDI_info (RDISet_Cmdline, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
@@ -331,16 +337,16 @@ device is attached to the remote system (e.g. /dev/ttya).");
     for (entry = local_bp_list; entry != NULL; entry = entry->next)
       {
 	if (preventry)
-	  free (preventry);
+	  xfree (preventry);
       }
   }
 
   printf_filtered ("Connected to ARM RDI target.\n");
   closed_already = 0;
-  inferior_pid = 42;
+  inferior_ptid = pid_to_ptid (42);
 }
 
-/* Start an inferior process and set inferior_pid to its pid.
+/* Start an inferior process and set inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ARGS is a string containing the arguments to the program.
    ENV is the environment vector to pass.  Errors reported with error().
@@ -372,7 +378,7 @@ arm_rdi_create_inferior (char *exec_file, char *args, char **env)
   strcat (arg_buf, " ");
   strcat (arg_buf, args);
 
-  inferior_pid = 42;
+  inferior_ptid = pid_to_ptid (42);
   insert_breakpoints ();	/* Needed to get correct instruction in cache */
 
   if (env != NULL)
@@ -391,7 +397,7 @@ arm_rdi_create_inferior (char *exec_file, char *args, char **env)
 			       top_of_memory);
 
 	      rslt = angel_RDI_info (RDIInfo_SetTopMem, &top_of_memory, &arg2);
-	      if (rslt)
+	      if (rslt != RDIError_NoError)
 		{
 		  printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
 		}
@@ -402,7 +408,7 @@ arm_rdi_create_inferior (char *exec_file, char *args, char **env)
 
   arg1 = (unsigned long) arg_buf;
   rslt = angel_RDI_info (RDISet_Cmdline, /* &arg1 */ (unsigned long *) arg_buf, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
@@ -431,12 +437,12 @@ arm_rdi_close (int quitting)
   if (!closed_already)
     {
       rslt = angel_RDI_close ();
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_close: %s\n", rdi_error_message (rslt));
 	}
       closed_already = 1;
-      inferior_pid = 0;
+      inferior_ptid = null_ptid;
       Adp_CloseDevice ();
       generic_mourn_inferior ();
     }
@@ -445,7 +451,7 @@ arm_rdi_close (int quitting)
 /* Tell the remote machine to resume.  */
 
 static void
-arm_rdi_resume (int pid, int step, enum target_signal siggnal)
+arm_rdi_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   int rslt;
   PointHandle point;
@@ -453,33 +459,27 @@ arm_rdi_resume (int pid, int step, enum target_signal siggnal)
   if (0 /* turn on when hardware supports single-stepping */ )
     {
       rslt = angel_RDI_step (1, &point);
-      if (rslt)
-	{
-	  printf_filtered ("RDI_step: %s\n", rdi_error_message (rslt));
-	}
+      if (rslt != RDIError_NoError)
+	printf_filtered ("RDI_step: %s\n", rdi_error_message (rslt));
     }
   else
     {
       char handle[4];
-      CORE_ADDR pc;
+      CORE_ADDR pc = 0;
 
       if (step)
 	{
-	  pc = read_register (PC_REGNUM);
+	  pc = read_register (ARM_PC_REGNUM);
 	  pc = arm_get_next_pc (pc);
 	  arm_rdi_insert_breakpoint (pc, handle);
 	}
+
       execute_status = rslt = angel_RDI_execute (&point);
-      if (rslt == RDIError_BreakpointReached)
-	;
-      else if (rslt)
-	{
-	  printf_filtered ("RDI_execute: %s\n", rdi_error_message (rslt));
-	}
+      if (rslt != RDIError_NoError && rslt != RDIError_BreakpointReached)
+	printf_filtered ("RDI_execute: %s\n", rdi_error_message (rslt));
+
       if (step)
-	{
-	  arm_rdi_remove_breakpoint (pc, handle);
-	}
+	arm_rdi_remove_breakpoint (pc, handle);
     }
 }
 
@@ -510,8 +510,8 @@ interrupt_query (void)
    STATUS just as `wait' would.  Returns "pid" (though it's not clear
    what, if anything, that means in the case of this target).  */
 
-static int
-arm_rdi_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+arm_rdi_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   status->kind = (execute_status == RDIError_NoError ?
 		  TARGET_WAITKIND_EXITED : TARGET_WAITKIND_STOPPED);
@@ -519,7 +519,7 @@ arm_rdi_wait (int pid, struct target_waitstatus *status)
   /* convert stopped code from target into right signal */
   status->value.sig = rdi_error_signal (execute_status);
 
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 /* Read the remote registers into the block REGS.  */
@@ -535,7 +535,7 @@ arm_rdi_fetch_registers (int regno)
   if (regno == -1)
     {
       rslt = angel_RDI_CPUread (255, 0x27fff, rawregs);
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_CPUread: %s\n", rdi_error_message (rslt));
 	}
@@ -546,14 +546,14 @@ arm_rdi_fetch_registers (int regno)
 	  supply_register (regno, (char *) cookedreg);
 	}
       store_unsigned_integer (cookedreg, 4, rawregs[15]);
-      supply_register (PS_REGNUM, (char *) cookedreg);
-      arm_rdi_fetch_registers (PC_REGNUM);
+      supply_register (ARM_PS_REGNUM, (char *) cookedreg);
+      arm_rdi_fetch_registers (ARM_PC_REGNUM);
     }
   else
     {
-      if (regno == PC_REGNUM)
+      if (regno == ARM_PC_REGNUM)
 	rdi_regmask = RDIReg_PC;
-      else if (regno == PS_REGNUM)
+      else if (regno == ARM_PS_REGNUM)
 	rdi_regmask = RDIReg_CPSR;
       else if (regno < 0 || regno > 15)
 	{
@@ -565,7 +565,7 @@ arm_rdi_fetch_registers (int regno)
 	rdi_regmask = 1 << regno;
 
       rslt = angel_RDI_CPUread (255, rdi_regmask, &rawreg);
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_CPUread: %s\n", rdi_error_message (rslt));
 	}
@@ -602,9 +602,9 @@ arm_rdi_store_registers (int regno)
       /* RDI manipulates data in host byte order, so convert now. */
       store_unsigned_integer (rawerreg, 4, rawreg[0]);
 
-      if (regno == PC_REGNUM)
+      if (regno == ARM_PC_REGNUM)
 	rdi_regmask = RDIReg_PC;
-      else if (regno == PS_REGNUM)
+      else if (regno == ARM_PS_REGNUM)
 	rdi_regmask = RDIReg_CPSR;
       else if (regno < 0 || regno > 15)
 	return;
@@ -612,7 +612,7 @@ arm_rdi_store_registers (int regno)
 	rdi_regmask = 1 << regno;
 
       rslt = angel_RDI_CPUwrite (255, rdi_regmask, rawerreg);
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_CPUwrite: %s\n", rdi_error_message (rslt));
 	}
@@ -627,14 +627,15 @@ arm_rdi_store_registers (int regno)
 /* ARGSUSED */
 static int
 arm_rdi_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
-		     int should_write, struct target_ops *target)
+		     int should_write, struct mem_attrib *attrib,
+		     struct target_ops *target)
 {
   int rslt, i;
 
   if (should_write)
     {
       rslt = angel_RDI_write (myaddr, memaddr, &len);
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_write: %s\n", rdi_error_message (rslt));
 	}
@@ -642,7 +643,7 @@ arm_rdi_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
   else
     {
       rslt = angel_RDI_read (memaddr, myaddr, &len);
-      if (rslt)
+      if (rslt != RDIError_NoError)
 	{
 	  printf_filtered ("RDI_read: %s\n", rdi_error_message (rslt));
 	  len = 0;
@@ -661,7 +662,7 @@ arm_rdi_files_info (struct target_ops *ignore)
   unsigned long arg1, arg2;
 
   rslt = angel_RDI_info (RDIInfo_Target, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
@@ -673,14 +674,14 @@ arm_rdi_files_info (struct target_ops *ignore)
     printf_filtered ("Target is real hardware.\n");
 
   rslt = angel_RDI_info (RDIInfo_Step, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
   printf_filtered ("Target can%s single-step.\n", (arg1 & 0x4 ? "" : "not"));
 
   rslt = angel_RDI_info (RDIInfo_Icebreaker, &arg1, &arg2);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
@@ -694,7 +695,7 @@ arm_rdi_kill (void)
   int rslt;
 
   rslt = angel_RDI_open (1, &gdb_config, NULL, NULL);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_open: %s\n", rdi_error_message (rslt));
     }
@@ -729,7 +730,7 @@ arm_rdi_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
   if (arm_pc_is_thumb (addr) || arm_pc_is_thumb_dummy (addr))
     type |= RDIPoint_16Bit;
   rslt = angel_RDI_setbreak (addr, type, 0, &point);
-  if (rslt)
+  if (rslt != RDIError_NoError)
     {
       printf_filtered ("RDI_setbreak: %s\n", rdi_error_message (rslt));
     }
@@ -747,36 +748,27 @@ arm_rdi_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
   int rslt;
   PointHandle point;
-  struct local_bp_list_entry *entry, *preventry;
+  struct local_bp_list_entry **entryp, *dead;
 
-  for (entry = local_bp_list; entry != NULL; entry = entry->next)
+  for (entryp = &local_bp_list; *entryp != NULL; entryp = &(*entryp)->next)
+    if ((*entryp)->addr == addr)
+      break;
+
+  if (*entryp)
     {
-      if (entry->addr == addr)
-	{
-	  break;
-	}
-      preventry = entry;
-    }
-  if (entry)
-    {
-      rslt = angel_RDI_clearbreak (entry->point);
-      if (rslt)
-	{
-	  printf_filtered ("RDI_clearbreak: %s\n", rdi_error_message (rslt));
-	}
+      dead = *entryp;
+      rslt = angel_RDI_clearbreak (dead->point);
+      if (rslt != RDIError_NoError)
+	printf_filtered ("RDI_clearbreak: %s\n", rdi_error_message (rslt));
+
       /* Delete the breakpoint entry locally.  */
-      if (entry == local_bp_list)
-	{
-	  local_bp_list = entry->next;
-	}
-      else
-	{
-	  preventry->next = entry->next;
-	}
-      free (entry);
+      *entryp = dead->next;
+      xfree (dead);
     }
+
   return 0;
 }
+
 
 static char *
 rdi_error_message (int err)
@@ -982,7 +974,7 @@ rdilogfile_command (char *arg, int from_tty)
     }
 
   if (log_filename)
-    free (log_filename);
+    xfree (log_filename);
 
   log_filename = xstrdup (arg);
 
@@ -1020,6 +1012,8 @@ rdilogenable_command (char *args, int from_tty)
 void
 _initialize_remote_rdi (void)
 {
+  struct cmd_list_element *c;
+
   init_rdi_ops ();
   add_target (&arm_rdi_ops);
 
@@ -1027,14 +1021,15 @@ _initialize_remote_rdi (void)
   Adp_SetLogfile (log_filename);
   Adp_SetLogEnable (log_enable);
 
-  add_cmd ("rdilogfile", class_maintenance,
-	   rdilogfile_command,
-	   "Set filename for ADP packet log.\n\
+  c = add_cmd ("rdilogfile", class_maintenance,
+	       rdilogfile_command,
+	       "Set filename for ADP packet log.\n\
 This file is used to log Angel Debugger Protocol packets.\n\
 With a single argument, sets the logfile name to that value.\n\
 Without an argument, shows the current logfile name.\n\
 See also: rdilogenable\n",
 	   &maintenancelist);
+  set_cmd_completer (c, filename_completer);
 
   add_cmd ("rdilogenable", class_maintenance,
 	   rdilogenable_command,
@@ -1047,22 +1042,20 @@ Withough an argument, it will display current state.\n",
 	   &maintenancelist);
 
   add_show_from_set
-    (add_set_cmd ("rdiromatzero", no_class,
-		  var_boolean, (char *) &rom_at_zero,
-		  "Set target has ROM at addr 0.\n\
+    (add_set_boolean_cmd ("rdiromatzero", no_class, &rom_at_zero,
+			  "Set target has ROM at addr 0.\n\
 A true value disables vector catching, false enables vector catching.\n\
 This is evaluated at the time the 'target rdi' command is executed\n",
-		  &setlist),
+			  &setlist),
      &showlist);
 
   add_show_from_set
-    (add_set_cmd ("rdiheartbeat", no_class,
-		  var_boolean, (char *) &rdi_heartbeat,
-		  "Set enable for ADP heartbeat packets.\n\
+    (add_set_boolean_cmd ("rdiheartbeat", no_class, &rdi_heartbeat,
+			  "Set enable for ADP heartbeat packets.\n\
 I don't know why you would want this. If you enable them,\n\
 it will confuse ARM and EPI JTAG interface boxes as well\n\
 as the Angel Monitor.\n",
-		  &setlist),
+			  &setlist),
      &showlist);
 }
 

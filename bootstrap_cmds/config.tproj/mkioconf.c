@@ -1205,7 +1205,7 @@ i386_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#import <bsd/dev/busvar.h>\n");
+	fprintf(fp, "#include <dev/busvar.h>\n");
 	fprintf(fp, "\n");
 	fprintf(fp, "#define C (void *)\n");
 	fprintf(fp, "\n");
@@ -1512,7 +1512,7 @@ m68k_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#include <bsd/dev/m68k/busvar.h>\n");
+	fprintf(fp, "#include <dev/m68k/busvar.h>\n");
 	fprintf(fp, "\n");
 	fprintf(fp, "#define C (void *)\n");
 	fprintf(fp, "\n");
@@ -1708,7 +1708,7 @@ nrw_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#include <bsd/dev/nrw/busvar.h>\n");
+	fprintf(fp, "#include <dev/nrw/busvar.h>\n");
 	fprintf(fp, "\n");
 	nrw_pseudo_inits (fp);
 	(void) fclose(fp);
@@ -1800,7 +1800,7 @@ hppa_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#include <bsd/dev/hppa/busvar.h>\n");
+	fprintf(fp, "#include <dev/hppa/busvar.h>\n");
 	fprintf(fp, "\n");
 	hppa_pseudo_inits (fp);
 	(void) fclose(fp);
@@ -1855,7 +1855,7 @@ sparc_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#include <bsd/dev/busvar.h>\n");
+	fprintf(fp, "#include <dev/busvar.h>\n");
 	fprintf(fp, "\n");
 	sparc_pseudo_inits (fp);
 	(void) fclose(fp);
@@ -1910,7 +1910,7 @@ ppc_ioconf()
 		perror(path("ioconf.c"));
 		exit(1);
 	}
-	fprintf(fp, "#include <bsd/dev/busvar.h>\n");
+	fprintf(fp, "#include <dev/busvar.h>\n");
 	fprintf(fp, "\n");
 	ppc_pseudo_inits (fp);
 	(void) fclose(fp);

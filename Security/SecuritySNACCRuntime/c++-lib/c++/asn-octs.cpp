@@ -32,8 +32,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-octs.cpp,v 1.2 2001/06/27 23:09:15 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-octs.cpp,v 1.3 2002/03/21 05:38:44 dmitch Exp $
 // $Log: asn-octs.cpp,v $
+// Revision 1.3  2002/03/21 05:38:44  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.2.44.1  2002/03/20 00:36:49  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.2  2001/06/27 23:09:15  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -227,7 +233,7 @@ void AsnOcts::ReSet (const char *str)
 void AsnOcts::Print (ostream &os) const
 {
 #ifndef	NDEBUG
-    int i;
+    unsigned i;
     os << "'";
     for (i = 0; i < octetLen; i++)
         os << TO_HEX (octs[i] >> 4) << (TO_HEX (octs[i]));
@@ -279,7 +285,11 @@ void AsnOcts::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
         if (b.ReadError())
         {
             Asn1Error << "BDecOctetString: ERROR - decoded past end of data" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-14);
+			#else
             longjmp (env, -14);
+			#endif
         }
 
         /* add null terminator - this is not included in the str's len */
@@ -308,7 +318,11 @@ void AsnOcts::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
 	(tag != MAKE_TAG_ID (UNIV, CONS, OCTETSTRING_TAG_CODE)))
     {
 	Asn1Error << "AsnOcts::BDec: ERROR tag on OCTET STRING is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-56);
+	#else
 	longjmp (env,-56);
+	#endif
     }
     elmtLen = BDecLen (b, bytesDecoded, env);
     BDecContent (b, tag, elmtLen, bytesDecoded, env);
@@ -368,7 +382,11 @@ FillOctetStringStk (BUF_TYPE b, AsnLen elmtLen0, AsnLen &bytesDecoded, ENV_TYPE 
                 if (refdLen == 0) /* end of data */
                 {
                     Asn1Error << "BDecConsOctetString: ERROR - attempt to decode past end of data" << endl;
+					#if SNACC_EXCEPTION_ENABLE
+					SnaccExcep::throwMe(-15);
+					#else
                     longjmp (env, -15);
+					#endif
                 }
                 refdLen = elmtLen1 - totalRefdLen;
             }
@@ -392,7 +410,11 @@ FillOctetStringStk (BUF_TYPE b, AsnLen elmtLen0, AsnLen &bytesDecoded, ENV_TYPE 
         else  /* wrong tag */
         {
             Asn1Error << "BDecConsOctetString: ERROR - decoded non-OCTET STRING tag inside a constructed OCTET STRING" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-16);
+			#else
             longjmp (env, -16);
+			#endif
         }
     } /* end of for */
 

@@ -54,9 +54,9 @@
 #include "AudioHardwareUtilities.h"
 
 
-    // Information passed to the "create" method. Ususally this information
-    // is extracted by parsing the Open Firmware "sound-objects" properties
-    // of the "sound" node
+// Information passed to the "create" method. Ususally this information
+// is extracted by parsing the Open Firmware "sound-objects" properties
+// of the "sound" node
 
 class AppleOnboardAudio;
 
@@ -72,9 +72,9 @@ typedef struct _s_AudioHardwareOutputInfo {
     
 }AudioHardwareOutputInfo;
 
-    // Different kind of AudioHardwareOutput. We could have created a parent class 
-    // and subclass it for each kind, but as there are not a lot of AudioHardwareOutput
-    // kind.
+// Different kind of AudioHardwareOutput. We could have created a parent class 
+// and subclass it for each kind, but as there are not a lot of AudioHardwareOutput
+// kind.
 
 enum{
     kOutputPortTypeUnknown,
@@ -84,7 +84,7 @@ enum{
     kOutputPortTypeEQ
 };
 
-    //Class declaration
+// Class declaration
 
 class AudioHardwareOutput : public IOAudioPort {
     OSDeclareDefaultStructors(AudioHardwareOutput);
@@ -94,45 +94,45 @@ public:
     static AudioHardwareOutput *create(AudioHardwareOutputInfo theOutputInfo); 
     void attachAudioPluginRef(AppleOnboardAudio *theAudioPlugin);
             
-        //receive a new set of devices
+	// receive a new set of devices
     void deviceIntService( UInt32 currentDevices );
     
-        //setter/getter
+	// setter/getter
     void setMute(bool muteState);
     bool getMute(void);
     void setVolume(UInt32 volLeft, UInt32 volRight);
     UInt32 getVolume(short Channel);
     
-        //debug information
+	// debug information
     void ioLog();
     
 protected:
     bool init(AudioHardwareOutputInfo theOutputInfo);
     void free();
 
-            //state
+	// state
     UInt32 	volumeLeft; 		// left volume value (range linked the IOAudioLevel output volume control) 
     UInt32 	volumeRight;		// right volume value (range linked the IOAudioLevel output volume control)
-    bool	mute;			// the output is muted
-    bool	active;			// the output is active
+    bool	mute;				// the output is muted
+    bool	active;				// the output is active
     
-            //internal information
+	// internal information
     UInt32	oKind;		        // type of output port
-    UInt32	sndHWPort;		// which physical port on the the codec output represents
+    UInt32	sndHWPort;			// which physical port on the the codec output represents
     
-    UInt32	deviceMask;		// mask value to compare with the sndHWSpec field of the driver
+    UInt32	deviceMask;			// mask value to compare with the sndHWSpec field of the driver
     UInt32	deviceMatch;		// match value use determine if this output is active
-    short	nameResID;		// resource ID of STR containing name (UI stuff)
-    short	iconResID;		// resource ID of ICON containing port icon (UI stuff)
-    short 	outputKind;		// kind of output 
+    short	nameResID;			// resource ID of STR containing name (UI stuff)
+    short	iconResID;			// resource ID of ICON containing port icon (UI stuff)
+    short 	outputKind;			// kind of output 
     			
-    bool 	invertMute;		// use only for some iMacs for type Proj5 speaker
+    bool 	invertMute;			// use only for some iMacs for type Proj5 speaker
     
-            // plugin to which it refers. As this example was brought up on the Screamer chip
-            // the object is of type AppleScreamerAudio. THIS IS NOT HERE TO STAY!!!
-            // We should assign a AppleHarwareAudio (or AppleOnboardAudio object).
-            // This reference is passed at creation. However, it would be (in my opinion)
-            // better to create by finding the right class in the IOKit object.
+	// plugin to which it refers. As this example was brought up on the Screamer chip
+	// the object is of type AppleScreamerAudio. THIS IS NOT HERE TO STAY!!!
+	// We should assign a AppleHarwareAudio (or AppleOnboardAudio object).
+	// This reference is passed at creation. However, it would be (in my opinion)
+	// better to create by finding the right class in the IOKit object.
      
     AppleOnboardAudio *pluginRef;
 

@@ -121,9 +121,16 @@
 # Note: on MS Windows, executables, have an extension, so rules and dependencies
 #       for generated tools should use $(EXECUTABLE_EXT) on the end.
 
+SHAREDIR = /usr/share
+MANDIR   = $(SHAREDIR)/man/man8
+MANPAGE  = nologin.8
+
 nologin: nologin.sh
 	$(CP) nologin.sh ${SYM_DIR}/nologin
 
 after_install::
 	$(CP) -p ${SYM_DIR}/nologin $(DSTROOT)$(INSTALLDIR)/nologin
 	$(CHMOD) 555 $(DSTROOT)$(INSTALLDIR)/nologin
+	$(MKDIRS) $(DSTROOT)$(MANDIR)
+	$(CP) -f $(MANPAGE) $(DSTROOT)$(MANDIR)/$(MANPAGE)
+	$(CHMOD) og-w $(DSTROOT)$(MANDIR)/$(MANPAGE)

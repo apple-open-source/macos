@@ -1,0 +1,6 @@
+/usr/include/fs/procfs/prdata.h is missing from the OpenUNIX
+distribution.  The prdata.h file in this directory was acquired
+from UnixWare 2.1.2.
+
+Vic Abell
+October 3, 2001

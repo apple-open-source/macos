@@ -40,55 +40,28 @@
 .Nd substitute user identity
 .Sh SYNOPSIS
 .Nm
-.Op Fl Kflm
-.Op Ar login Op Ar "shell arguments"
+.Op Fl flm
+.Op Ar login 
+.Op Ar -c shell arguments
 .Sh DESCRIPTION
 .Nm
-requests the Kerberos password for
+requests the password for
 .Ar login
-(or for
-.Dq Ar login Ns .root ,
-if no login is provided), and switches to
-that user and group ID after obtaining a Kerberos ticket granting ticket.
+and switches to
+that user and group ID after obtaining proper authentication.
 A shell is then executed, and any additional
 .Ar "shell arguments"
 after the login name
 are passed to the shell.
-.Nm
-will resort to the local password file to find the password for
-.Ar login
-if there is a Kerberos error.
 If
 .Nm
 is executed by root, no password is requested and a shell
-with the appropriate user ID is executed; no additional Kerberos tickets
-are obtained.
-.Pp
-Alternatively, if the user enters the password "s/key", authentication
-will use the S/Key one-time password system as described in
-.Xr skey 1 .
-S/Key is a Trademark of Bellcore.
-.Pp
-By default, the environment is unmodified with the exception of
-.Ev USER ,
-.Ev HOME ,
-and
-.Ev SHELL .
-.Ev HOME
-and
-.Ev SHELL
-are set to the target login's default values.
-.Ev USER
-is set to the target login, unless the target login has a user ID of 0,
-in which case it is unmodified.
-The invoked shell is the target login's.
-This is the traditional behavior of
-.Nm su .
+with the appropriate user ID is executed.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl K
-Do not attempt to use Kerberos to authenticate the user.
+.It Fl c
+Invoke the following command in a subshell as the specified user.
 .It Fl f
 If the invoked shell is
 .Xr csh 1 ,
@@ -118,6 +91,7 @@ is imported from your current environment.
 The invoked shell is the target login's, and
 .Nm
 will change directory to the target login's home directory.
+This option is identical to just passing "-", as in "su -".
 .It Fl m
 Leave the environment unmodified.
 The invoked shell is your login shell, and no directory changes are made.
@@ -139,10 +113,10 @@ overrides any previous ones.
 .Pp
 Only users in group
 .Dq wheel
-(normally gid 0),
-as listed in
-.Pa /etc/group ,
-can
+(normally gid 0)
+or group
+.Dq admin
+(normally gid 20) can
 .Nm
 to
 .Dq root .

@@ -1,5 +1,7 @@
 /* Remote target communications for serial-line targets using SDS' protocol.
-   Copyright 1997 Free Software Foundation, Inc.
+
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -31,12 +33,12 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
 #include "gdbthread.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -55,13 +57,14 @@ static int sds_read_bytes (CORE_ADDR, char *, int);
 
 static void sds_files_info (struct target_ops *ignore);
 
-static int sds_xfer_memory (CORE_ADDR, char *, int, int, struct target_ops *);
+static int sds_xfer_memory (CORE_ADDR, char *, int, int, 
+			    struct mem_attrib *, struct target_ops *);
 
 static void sds_prepare_to_store (void);
 
 static void sds_fetch_registers (int);
 
-static void sds_resume (int, int, enum target_signal);
+static void sds_resume (ptid_t, int, enum target_signal);
 
 static int sds_start_remote (PTR);
 
@@ -85,7 +88,7 @@ static int sds_send (unsigned char *, int);
 
 static int readchar (int);
 
-static int sds_wait (int, struct target_waitstatus *);
+static ptid_t sds_wait (ptid_t, struct target_waitstatus *);
 
 static void sds_kill (void);
 
@@ -126,7 +129,7 @@ static int sds_timeout = 2;
    that sds_open knows that we don't have a file open when the program
    starts.  */
 
-static serial_t sds_desc = NULL;
+static struct serial *sds_desc = NULL;
 
 /* This limit comes from the monitor.  */
 
@@ -150,7 +153,7 @@ static void
 sds_close (int quitting)
 {
   if (sds_desc)
-    SERIAL_CLOSE (sds_desc);
+    serial_close (sds_desc);
   sds_desc = NULL;
 }
 
@@ -159,14 +162,14 @@ sds_close (int quitting)
 static int
 sds_start_remote (PTR dummy)
 {
-  char c;
+  int c;
   unsigned char buf[200];
 
   immediate_quit++;		/* Allow user to interrupt it */
 
   /* Ack any packet which the remote side has already sent.  */
-  SERIAL_WRITE (sds_desc, "{#*\r\n", 5);
-  SERIAL_WRITE (sds_desc, "{#}\r\n", 5);
+  serial_write (sds_desc, "{#*\r\n", 5);
+  serial_write (sds_desc, "{#}\r\n", 5);
 
   while ((c = readchar (1)) >= 0)
     printf_unfiltered ("%c", c);
@@ -200,25 +203,25 @@ device is attached to the remote system (e.g. /dev/ttya).");
 
   unpush_target (&sds_ops);
 
-  sds_desc = SERIAL_OPEN (name);
+  sds_desc = serial_open (name);
   if (!sds_desc)
     perror_with_name (name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (sds_desc, baud_rate))
+      if (serial_setbaudrate (sds_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (sds_desc);
+	  serial_close (sds_desc);
 	  perror_with_name (name);
 	}
     }
 
 
-  SERIAL_RAW (sds_desc);
+  serial_raw (sds_desc);
 
   /* If there is something sitting in the buffer we might take it as a
      response to a command, which would be bad.  */
-  SERIAL_FLUSH_INPUT (sds_desc);
+  serial_flush_input (sds_desc);
 
   if (from_tty)
     {
@@ -346,7 +349,7 @@ static enum target_signal last_sent_signal = TARGET_SIGNAL_0;
 int last_sent_step;
 
 static void
-sds_resume (int pid, int step, enum target_signal siggnal)
+sds_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   unsigned char buf[PBUFSIZ];
 
@@ -402,7 +405,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      return_to_top_level (RETURN_QUIT);
+      throw_exception (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -415,8 +418,8 @@ int kill_kludge;
    STATUS just as `wait' would.  Returns "pid" (though it's not clear
    what, if anything, that means in the case of this target).  */
 
-static int
-sds_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+sds_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   unsigned char buf[PBUFSIZ];
   int retlen;
@@ -432,7 +435,7 @@ sds_wait (int pid, struct target_waitstatus *status)
     {
       just_started = 0;
       status->kind = TARGET_WAITKIND_STOPPED;
-      return inferior_pid;
+      return inferior_ptid;
     }
 
   while (1)
@@ -456,7 +459,7 @@ sds_wait (int pid, struct target_waitstatus *status)
 	}
     }
 got_status:
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 static unsigned char sprs[16];
@@ -657,7 +660,7 @@ sds_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 /* ARGSUSED */
 static int
 sds_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int should_write,
-		 struct target_ops *target)
+		 struct mem_attrib *attrib, struct target_ops *target)
 {
   int res;
 
@@ -686,7 +689,7 @@ readchar (int timeout)
 {
   int ch;
 
-  ch = SERIAL_READCHAR (sds_desc, timeout);
+  ch = serial_readchar (sds_desc, timeout);
 
   if (remote_debug > 1 && ch >= 0)
     fprintf_unfiltered (gdb_stdlog, "%c(%x)", ch, ch);
@@ -745,7 +748,7 @@ putmessage (unsigned char *buf, int len)
      and giving it a checksum.  */
 
   if (len > 170)		/* Prosanity check */
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   if (remote_debug)
     {
@@ -797,7 +800,7 @@ putmessage (unsigned char *buf, int len)
 			      header[0], header[1], header[2]);
 	  gdb_flush (gdb_stdlog);
 	}
-      if (SERIAL_WRITE (sds_desc, buf2, p - buf2))
+      if (serial_write (sds_desc, buf2, p - buf2))
 	perror_with_name ("putmessage: write failed");
 
       return 1;
@@ -999,7 +1002,7 @@ sds_mourn (void)
 static void
 sds_create_inferior (char *exec_file, char *args, char **env)
 {
-  inferior_pid = 42000;
+  inferior_ptid = pid_to_ptid (42000);
 
   /* Clean up from the last time we were running.  */
   clear_proceed_status ();
@@ -1013,7 +1016,7 @@ sds_load (char *filename, int from_tty)
 {
   generic_load (filename, from_tty);
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 }
 
 /* The SDS monitor has commands for breakpoint insertion, although it

@@ -53,9 +53,9 @@ char	force;			/* force fsck even if clean (preen only) */
 char	quick;			/* quick check returns clean, dirty, or failure */
 char	debug;			/* output debugging info */
 char	hotroot;		/* checking root device */
-char guiControl; /* this app should output info for gui control */
-
-int	upgrading;		/* upgrading format */
+char 	guiControl; 	/* this app should output info for gui control */
+char	rebuildCatalogBtree;  /* rebuild catalog btree file */
+int		upgrading;		/* upgrading format */
 
 int	fsmodified;		/* 1 => write done to file system */
 int	fsreadfd;		/* file descriptor for reading file system */
@@ -83,7 +83,7 @@ main(argc, argv)
 		progname = *argv;
 
 
-	while ((ch = getopt(argc, argv, "dfgnpqy")) != EOF) {
+	while ((ch = getopt(argc, argv, "dfgnpqry")) != EOF) {
 		switch (ch) {
 		case 'd':
 			debug++;
@@ -107,7 +107,11 @@ main(argc, argv)
 			break;
 
 		case 'q':
-		    	quick++;
+		 	quick++;
+			break;
+
+		case 'r':
+			rebuildCatalogBtree++;  // this will force a rebuild of catalog file
 			break;
 
 		case 'y':
@@ -188,6 +192,11 @@ checkfilesys(char * filesys)
 
 	if (nflag)
 		repLev = kNeverRepair;
+		
+	if ( rebuildCatalogBtree ) {
+		chkLev = kPartialCheck;
+		repLev = kForceRepairs;  // this will force rebuild of catalog B-Tree file
+	}
 		
 	/*
 	 * go check HFS volume...
@@ -302,6 +311,15 @@ setup(char *dev)
 static void
 usage()
 {
-	(void) fprintf(stderr, "usage: %s [-dfnpquy] special-device\n", progname);
+	(void) fprintf(stderr, "usage: %s [-dfnpqruy] special-device\n", progname);
+	(void) fprintf(stderr, "  d = output debugging info\n");
+	(void) fprintf(stderr, "  f = force fsck even if clean (preen only) \n");
+	(void) fprintf(stderr, "  n = assume a no response \n");
+	(void) fprintf(stderr, "  p = just fix normal inconsistencies \n");
+	(void) fprintf(stderr, "  q = quick check returns clean, dirty, or failure \n");
+	(void) fprintf(stderr, "  r = rebuild catalog btree \n");
+	(void) fprintf(stderr, "  u = usage \n");
+	(void) fprintf(stderr, "  y = assume a yes response \n");
+	
 	exit(1);
 }

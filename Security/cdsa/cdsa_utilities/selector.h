@@ -41,8 +41,9 @@ namespace UnixPlusPlus {
 // each of which can perform I/O. Obviously this is geared towards the UNIX facility.
 //
 class Selector {
-    class Client; friend class Client;
 public:
+    class Client; friend class Client;
+
     Selector();
     virtual ~Selector();
     
@@ -61,9 +62,10 @@ public:
     
 public:
     class Client {
+    public:
         typedef Selector::Type Type;
         friend class Selector;
-    public:
+
         Client() : mSelector(NULL) { }
         virtual void notify(int fd, Type type) = 0;
         virtual ~Client() { }

@@ -1,3 +1,6 @@
+
+#ifndef _S_IN_CKSUM_H
+#define _S_IN_CKSUM_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -20,3 +23,5 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 extern unsigned short in_cksum(void * pkt, int len);
+
+#endif _S_IN_CKSUM_H

@@ -20,10 +20,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * This header contains the IOFDiskPartitionScheme class definition.
+ */
+
 #ifndef _IOFDISKPARTITIONSCHEME_H
 #define _IOFDISKPARTITIONSCHEME_H
 
 #include <IOKit/IOTypes.h>
+
+/*
+ * kIOFDiskPartitionSchemeClass is the name of the IOFDiskPartitionScheme class.
+ */
+
+#define kIOFDiskPartitionSchemeClass "IOFDiskPartitionScheme"
 
 /*
  * FDisk Partition Map Definitions
@@ -109,11 +119,12 @@ struct disk_blk0
 
 #pragma options align=reset              /* (reset to default struct packing) */
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOPartitionScheme.h>
 
@@ -234,6 +245,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOFDISKPARTITIONSCHEME_H */

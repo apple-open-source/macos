@@ -1,5 +1,3 @@
-/*	$NetBSD: sum2.c,v 1.6 1997/10/17 11:37:23 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,19 +31,16 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)sum2.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: sum2.c,v 1.6 1997/10/17 11:37:23 lukem Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/cksum/sum2.c,v 1.4 1999/12/05 20:03:22 charnier Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
 #include <unistd.h>
-
-#include "extern.h"
 
 int
 csum2(fd, cval, clen)

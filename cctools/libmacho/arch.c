@@ -140,10 +140,13 @@ NXGetLocalArchInfo(void)
     struct host_basic_info hbi;
     kern_return_t ret;
     unsigned int count;
+    mach_port_t my_mach_host_self;
 
 	count = HOST_BASIC_INFO_COUNT;
-	ret = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hbi,
+	my_mach_host_self = mach_host_self();
+	ret = host_info(my_mach_host_self, HOST_BASIC_INFO, (host_info_t)&hbi,
 			&count);
+	mach_port_deallocate(mach_task_self(), my_mach_host_self);
 	if(ret != KERN_SUCCESS)
 	    return(NULL);
 

@@ -28,7 +28,9 @@
 #define __AuthorizationWalkers__ 1
 
 #include <Security/Authorization.h>
+#include <Security/AuthorizationPlugin.h>
 #include <Security/walkers.h>
+#include <Security/cssmwalkers.h> // char * walker
 
 namespace Security
 {
@@ -53,6 +55,24 @@ AuthorizationItemSet *walk(Action &operate, AuthorizationItemSet * &itemSet)
 		walk(operate, itemSet->items[n]);
 	return itemSet;
 }
+
+template <class Action>
+void walk(Action &operate, AuthorizationValue &authvalue)
+{
+    operate(authvalue.data, authvalue.length);
+}
+
+template <class Action>
+AuthorizationValueVector *walk(Action &operate, AuthorizationValueVector * &valueVector)
+{
+    operate(valueVector);
+    operate(valueVector->values, valueVector->count * sizeof(AuthorizationValue));
+    for (uint32 n = 0; n < valueVector->count; n++)
+        walk(operate, valueVector->values[n]);
+    return valueVector;
+}
+
+
 
 } // end namespace DataWalkers
 

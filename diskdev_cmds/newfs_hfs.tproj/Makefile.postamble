@@ -19,3 +19,5 @@ after_install:
 	$(MKDIRS) $(DSTROOT)/$(HFSBOOTDATA_DIR)
 	$(CP) hfsbootdata.img $(DSTROOT)/$(HFSBOOTDATA_DIR)/hfsbootdata
 	$(CHMOD) 444 $(DSTROOT)/$(HFSBOOTDATA_DIR)/hfsbootdata
+	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man8
+	install -m 644 -o root -g wheel -c newfs_hfs.8 $(DSTROOT)/usr/share/man/man8

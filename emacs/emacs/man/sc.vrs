@@ -7,7 +7,7 @@
 \initial {B}
 \entry {\code {blank-lines-after-headers (sc-)}}{16}
 \initial {C}
-\entry {\code {citation-delimiter (sc-)}}{5}
+\entry {\code {citation-delimiter (sc-)}}{4}
 \entry {\code {citation-delimiter-regexp (sc-)}}{5}
 \entry {\code {citation-leader (sc-)}}{4}
 \entry {\code {citation-leader-regexp (sc-)}}{5}
@@ -67,7 +67,7 @@
 \entry {\code {sc-attribs-preselect-hook}}{20}
 \entry {\code {sc-auto-fill-region-p}}{16}
 \entry {\code {sc-blank-lines-after-headers}}{16}
-\entry {\code {sc-citation-delimiter}}{5}
+\entry {\code {sc-citation-delimiter}}{4}
 \entry {\code {sc-citation-delimiter-regexp}}{5}
 \entry {\code {sc-citation-leader}}{4}
 \entry {\code {sc-citation-leader-regexp}}{5}

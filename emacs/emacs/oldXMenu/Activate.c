@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/GNU/emacs/emacs/oldXMenu/Activate.c,v 1.1.1.2 2000/06/30 17:54:20 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/src/live/emacs/emacs/oldXMenu/Activate.c,v 1.1.1.3 2001/10/31 17:59:52 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
 
 #include "copyright.h"
@@ -84,7 +84,8 @@
 #include "XMenuInt.h"
 
 int
-XMenuActivate(display, menu, p_num, s_num, x_pos, y_pos, event_mask, data)
+XMenuActivate(display, menu, p_num, s_num, x_pos, y_pos, event_mask, data,
+	      help_callback)
     register Display *display;		/* Display to put menu on. */
     register XMenu *menu;		/* Menu to activate. */
     int *p_num;				/* Pane number selected. */
@@ -93,6 +94,7 @@ XMenuActivate(display, menu, p_num, s_num, x_pos, y_pos, event_mask, data)
     int y_pos;				/* Y coordinate of menu position. */
     unsigned int event_mask;		/* Mouse button event mask. */
     char **data;			/* Pointer to return data value. */
+    void (* help_callback) ();		/* Help callback.  */
 {
     int status;				/* X routine call status. */
     int orig_x;				/* Upper left menu origin X coord. */
@@ -309,6 +311,9 @@ XMenuActivate(display, menu, p_num, s_num, x_pos, y_pos, event_mask, data)
 		    }
 		}			  
 		cur_s = (XMSelect *)event_xmw;
+		help_callback (cur_s->help_string,
+			       cur_p->serial, cur_s->serial);
+		
 		/*
 		 * If the pane we are in is active and the
 		 * selection entered is active then activate

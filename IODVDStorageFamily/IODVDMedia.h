@@ -87,11 +87,12 @@
 
 #define kIODVDMediaTypeRAM "DVD-RAM"
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IODVDBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
@@ -123,6 +124,26 @@ public:
 
     virtual IODVDBlockStorageDriver * getProvider() const;
 
+    /*!
+     * @function reportKey
+     * @discussion
+     * Issue an MMC REPORT KEY command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.  Pass null for the kDVDKeyFormatAGID_Invalidate format
+     * case.
+     * @param keyClass
+     * As documented by MMC.
+     * @param address
+     * As documented by MMC.
+     * @param grantID
+     * As documented by MMC.
+     * @param format
+     * As documented by MMC.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
     virtual IOReturn reportKey( IOMemoryDescriptor * buffer,
                                 const DVDKeyClass    keyClass,
                                 const UInt32         address,
@@ -131,12 +152,49 @@ public:
 
     OSMetaClassDeclareReservedUsed(IODVDMedia, 0); /* 10.1.0 */
 
+    /*!
+     * @function sendKey
+     * @discussion
+     * Issue an MMC SEND KEY command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.  Pass null for the kDVDKeyFormatAGID_Invalidate format
+     * case.
+     * @param keyClass
+     * As documented by MMC.
+     * @param grantID
+     * As documented by MMC.
+     * @param format
+     * As documented by MMC.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
     virtual IOReturn sendKey( IOMemoryDescriptor * buffer,
                               const DVDKeyClass    keyClass,
                               const UInt8          grantID,
                               const DVDKeyFormat   format );
 
     OSMetaClassDeclareReservedUsed(IODVDMedia, 1); /* 10.1.0 */
+
+    /*!
+     * @function readStructure
+     * @discussion
+     * Issue an MMC READ DVD STRUCTURE command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param format
+     * As documented by MMC.
+     * @param address
+     * As documented by MMC.
+     * @param layer
+     * As documented by MMC.
+     * @param grantID
+     * As documented by MMC.
+     * @result
+     * Returns the status of the data transfer.
+     */
 
     virtual IOReturn readStructure( IOMemoryDescriptor *     buffer,
                                     const DVDStructureFormat format,
@@ -146,16 +204,82 @@ public:
 
     OSMetaClassDeclareReservedUsed(IODVDMedia, 2); /* 10.1.0 */
 
+    /*!
+     * @function getSpeed
+     * @discussion
+     * Get the current speed used for data transfers.
+     * @param kilobytesPerSecond
+     * Returns the current speed used for data transfers, in kB/s.
+     *
+     * kDVDSpeedMin specifies the minimum speed for all DVD media (1X).
+     * kDVDSpeedMax specifies the maximum speed supported in hardware.
+     * @result
+     * Returns the status of the operation.
+     */
+
     virtual IOReturn getSpeed(UInt16 * kilobytesPerSecond);
 
     OSMetaClassDeclareReservedUsed(IODVDMedia, 3); /* 10.1.0 */
+
+    /*!
+     * @function setSpeed
+     * @discussion
+     * Set the speed to be used for data transfers.
+     * @param kilobytesPerSecond
+     * Speed to be used for data transfers, in kB/s.
+     *
+     * kDVDSpeedMin specifies the minimum speed for all DVD media (1X).
+     * kDVDSpeedMax specifies the maximum speed supported in hardware.
+     * @result
+     * Returns the status of the operation.
+     */
 
     virtual IOReturn setSpeed(UInt16 kilobytesPerSecond);
 
     OSMetaClassDeclareReservedUsed(IODVDMedia, 4); /* 10.1.0 */
 
-    OSMetaClassDeclareReservedUnused(IODVDMedia,  5);
-    OSMetaClassDeclareReservedUnused(IODVDMedia,  6);
+    /*!
+     * @function readDiscInfo
+     * @discussion
+     * Issue an MMC READ DISC INFORMATION command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn readDiscInfo( IOMemoryDescriptor * buffer,
+                                   UInt16 *             actualByteCount );
+
+    OSMetaClassDeclareReservedUsed(IODVDMedia, 5); /* 10.2.0 */
+
+    /*!
+     * @function readRZoneInfo
+     * @discussion
+     * Issue an MMC READ RZONE INFORMATION (READ TRACK INFORMATION) command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param address
+     * As documented by MMC.
+     * @param addressType
+     * As documented by MMC.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn readRZoneInfo( IOMemoryDescriptor *    buffer,
+                                    UInt32                  address,
+                                    DVDRZoneInfoAddressType addressType,
+                                    UInt16 *                actualByteCount );
+
+    OSMetaClassDeclareReservedUsed(IODVDMedia, 6); /* 10.2.0 */
+
     OSMetaClassDeclareReservedUnused(IODVDMedia,  7);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  8);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  9);
@@ -183,6 +307,6 @@ public:
     OSMetaClassDeclareReservedUnused(IODVDMedia, 31);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IODVDMEDIA_H */

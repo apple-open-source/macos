@@ -40,6 +40,7 @@
 ;; `run-octave' for further information on usage and customization.
 
 ;;; Code:
+(require 'custom)
 
 (defgroup octave nil
   "Major mode for editing Octave source files."
@@ -50,7 +51,7 @@
 (defvar inferior-octave-receive-in-progress nil)
 
 (defconst octave-maintainer-address
-  "Kurt Hornik <Kurt.Hornik@ci.tuwien.ac.at>, bug-gnu-emacs@prep.ai.mit.edu" 
+  "Kurt Hornik <Kurt.Hornik@ci.tuwien.ac.at>, bug-gnu-emacs@gnu.org" 
   "Current maintainer of the Emacs Octave package.")
 
 (defvar octave-abbrev-table nil
@@ -175,7 +176,9 @@ parenthetical grouping.")
 	 'font-lock-keyword-face)
    ;; Fontify all builtin operators.
    (cons "\\(&\\||\\|<=\\|>=\\|==\\|<\\|>\\|!=\\|!\\)"
-	 'font-lock-builtin-face)
+	 (if (boundp 'font-lock-builtin-face)
+	     'font-lock-builtin-face
+	   'font-lock-preprocessor-face))
    ;; Fontify all builtin variables.
    (cons (concat "\\<\\("
 		 (mapconcat 'identity octave-variables "\\|")
@@ -308,8 +311,7 @@ parenthetical grouping.")
 (defcustom octave-auto-indent nil
   "*Non-nil means indent line after a semicolon or space in Octave mode."
   :type 'boolean
-  :group 'octave
-  :version "20.3")
+  :group 'octave)
 
 (defcustom octave-auto-newline nil
   "*Non-nil means automatically newline after a semicolon in Octave mode."

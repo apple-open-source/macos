@@ -734,7 +734,12 @@ void cb_enable(socket_info_t *s)
 	    m.stop = m.start + s->win[1].size - 1;
 	    break;
 	}
+#ifdef __MACOSX__
+	// i/o address ranges can start at 0
+	if ((m.start == 0) && (m.stop == -1)) continue;
+#else
 	if (m.start == 0) continue;
+#endif
 	DEBUG(0, "  bridge %s map %d (flags 0x%x): 0x%x-0x%x\n",
 	      (m.flags & MAP_IOSPACE) ? "io" : "mem",
 	      m.map, m.flags, m.start, m.stop);
@@ -755,9 +760,20 @@ void cb_enable(socket_info_t *s)
     for (i = 0; i < s->functions; i++) {
 	pci_writeb(&c[i].dev, PCI_COMMAND, PCI_COMMAND_MASTER |
 		   PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
+#ifdef __MACOSX__
+	// just steal this from the bridge, OF/BIOS should have set it
+	// up already, ideally we should really be reading this using socket
+	// services, but it since it is the same for all pci devices...
+	{
+	    u_char cls;
+	    IOPCCardReadConfigByte(s->cap.bridge_nub, PCI_CACHE_LINE_SIZE, &cls);
+	    pci_writeb(&c[i].dev, PCI_CACHE_LINE_SIZE, cls);
+	}
+#else
 	/* These are lame but I don't know how to do any better */
-	// MACOSXXX - can we just steal these from the bridge?
 	pci_writeb(&c[i].dev, PCI_CACHE_LINE_SIZE, 8);
+#endif
+	// macosx - this is the same a mac os 9
 	pci_writeb(&c[i].dev, PCI_LATENCY_TIMER, 64);
     }
     

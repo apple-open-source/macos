@@ -12,19 +12,21 @@ NAME = man
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = config.h pathnames.h
+HFILES = ndir.h version.h
 
-CFILES = config.c man.c
+CFILES = glob.c man.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble man.1\
-            man.conf.5 man.conf
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble man.1
+
+NEXTSTEP_PB_CFLAGS += -I../lib -DMACHINE=\"powerpc\" -DSTDC_HEADERS -DPOSIX
+NEXTSTEP_PB_CFLAGS += -DHAS_TROFF -DHAVE_LIBZ=1 -I$(SRCROOT)/lib 
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
-LIBS = 
+LIBS = -L../lib -lman -lz
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

@@ -9,8 +9,8 @@ KEYCHAIN_SOURCES_DIR = $(SRCROOT)/Keychain
 CSPDL_SOURCES_DIR = $(SRCROOT)/AppleCSPDL
 CDSA_UTILITIES_DIR = $(SRCROOT)/cdsa/cdsa_utilities
 CDSA_PLUGINLIB_DIR = $(SRCROOT)/cdsa/cdsa_pluginlib
-GEN_SOURCE_DIR = $(SYMROOT)/derived_src
-GEN_HEADER_DIR = $(SYMROOT)/include/Security
+GEN_SOURCE_DIR = $(BUILT_PRODUCTS_DIR)/derived_src
+GEN_HEADER_DIR = $(BUILT_PRODUCTS_DIR)/include/Security
 
 GEN_ERRORCODES = $(CDSA_UTILITIES_DIR)/generator.pl
 ERRORCODES_GEN = $(patsubst %,$(GEN_SOURCE_DIR)/%,errorcodes.gen)
@@ -54,19 +54,16 @@ clean:
 
 $(ERRORCODES_GEN): $(ERRORCODES_DEPENDS)
 	mkdir -p $(GEN_SOURCE_DIR)
-	(cd $(CDSA_UTILITIES_DIR);\
-	  $(PERL) ./generator.pl $(CDSA_HEADERS_DIR) $(GEN_SOURCE_DIR))
+	$(PERL) $(CDSA_UTILITIES_DIR)/generator.pl $(CDSA_HEADERS_DIR) $(GEN_SOURCE_DIR)
 
 $(APIGLUE_GEN): $(APIGLUE_DEPENDS)
 	mkdir -p $(GEN_SOURCE_DIR)
-	(cd $(CDSA_SOURCES_DIR);\
-	  $(PERL) ./generator.pl $(CDSA_HEADERS_DIR) $(GEN_SOURCE_DIR))
+	  $(PERL) $(CDSA_SOURCES_DIR)/generator.pl $(CDSA_HEADERS_DIR) $(CDSA_SOURCES_DIR)/generator.cfg $(GEN_SOURCE_DIR)
 
 $(SPIGLUE_GEN): $(SPIGLUE_DEPENDS)
 	mkdir -p $(GEN_HEADER_DIR)
 	mkdir -p $(GEN_SOURCE_DIR)
-	(cd $(CDSA_PLUGINLIB_DIR);\
-	  $(PERL) ./generator.pl $(CDSA_HEADERS_DIR) $(GEN_HEADER_DIR) $(GEN_SOURCE_DIR))
+	  $(PERL) $(CDSA_PLUGINLIB_DIR)/generator.pl $(CDSA_HEADERS_DIR) $(CDSA_PLUGINLIB_DIR)/generator.cfg $(GEN_HEADER_DIR) $(GEN_SOURCE_DIR)
 
 $(SCHEMA_GEN): $(SCHEMA_DEPENDS)
 	mkdir -p $(GEN_SOURCE_DIR)

@@ -1,9 +1,9 @@
-;;; kkc.el --- Kana Kanji converter
+;;; kkc.el --- Kana Kanji converter    -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
 
-;; Keywords: mule, multilingual, Japanese, SKK
+;; Keywords: mule, multilingual, Japanese
 
 ;; This file is part of GNU Emacs.
 
@@ -33,7 +33,7 @@
 
 ;;; Code:
 
-(require 'skkdic-utl)
+(require 'ja-dic-utl)
 
 (defvar kkc-input-method-title "漢"
   "String denoting KKC input method.
@@ -61,7 +61,8 @@ This string is shown at mode line when users are in KKC mode.")
   "Save initial setup code for KKC to a file specified by `kkc-init-file-name'"
   (if (and kkc-init-file-flag
 	   (not (eq kkc-init-file-flag t)))
-      (let ((coding-system-for-write 'iso-2022-7bit))
+      (let ((coding-system-for-write 'iso-2022-7bit)
+	    (print-length nil))
 	(write-region (format "(setq kkc-lookup-cache '%S)\n" kkc-lookup-cache)
 		      nil
 		      kkc-init-file-name))))
@@ -131,8 +132,19 @@ This string is shown at mode line when users are in KKC mode.")
 ;; `kkc-current-conversion'.
 (defvar kkc-current-conversions-width nil)
 
-(defvar kkc-show-conversion-list-count 4
-  "Count of successive `kkc-next' or `kkc-prev' to show conversion list.")
+(defcustom kkc-show-conversion-list-count 4
+  "*Count of successive `kkc-next' or `kkc-prev' to show conversion list.
+When you type SPC or C-p successively this count while using the input
+method `japanese', the conversion candidates are shown in the echo
+area while indicating the current selection by `<N>'."
+  :group 'mule
+  :type 'integer)
+
+;; Count of successive invocations of `kkc-next'.
+(defvar kkc-next-count nil)
+
+;; Count of successive invocations of `kkc-prev'.
+(defvar kkc-prev-count nil)
 
 ;; Provided that `kkc-current-key' is [A B C D E F G H I], the current
 ;; conversion target is [A B C D E F], and the sequence of which
@@ -152,7 +164,7 @@ This string is shown at mode line when users are in KKC mode.")
 ;; Cursor type (`box' or `bar') of the current frame.
 (defvar kkc-cursor-type nil)
 
-;; Lookup SKK dictionary to set list of conversions in
+;; Lookup Japanese dictionary to set list of conversions in
 ;; kkc-current-conversions for key sequence kkc-current-key of length
 ;; LEN.  If no conversion is found in the dictionary, don't change
 ;; kkc-current-conversions and return nil.
@@ -201,6 +213,14 @@ This string is shown at mode line when users are in KKC mode.")
 (defvar kkc-converting nil)
 
 ;;;###autoload
+(defvar kkc-after-update-conversion-functions nil
+  "Functions to run after a conversion is selected in `japanese' input method.
+With this input method, a user can select a proper conversion from
+candidate list.  Each time he changes the selection, functions in this
+list are called with two arguments; starting and ending buffer
+positions that contains the current selection.")
+
+;;;###autoload
 (defun kkc-region (from to)
   "Convert Kana string in the current region to Kanji-Kana mixed string.
 Users can select a desirable conversion interactively.
@@ -230,24 +250,41 @@ and the return value is the length of the conversion."
       ;; At first convert the region to the first candidate.
       (let ((current-input-method-title kkc-input-method-title)
 	    (input-method-function nil)
+	    (modified-p (buffer-modified-p))
 	    (first t))
 	(while (not (kkc-lookup-key kkc-length-head nil first))
 	  (setq kkc-length-head (1- kkc-length-head)
 		first nil))
 	(goto-char to)
 	(kkc-update-conversion 'all)
+	(setq kkc-next-count 1 kkc-prev-count 0)
+	(if (and (>= kkc-next-count kkc-show-conversion-list-count)
+		 (>= (length kkc-current-conversions) 3))
+	    (kkc-show-conversion-list-or-next-group))
 
 	;; Then, ask users to select a desirable conversion.
 	(force-mode-line-update)
 	(setq kkc-converting t)
+	;; Hide "... loaded" message.
+	(message nil)
 	(while kkc-converting
+	  (set-buffer-modified-p modified-p)
 	  (let* ((overriding-terminal-local-map kkc-keymap)
 		 (help-char nil)
 		 (keyseq (read-key-sequence nil))
 		 (cmd (lookup-key kkc-keymap keyseq)))
 	    (if (commandp cmd)
 		(condition-case err
-		    (call-interactively cmd)
+		    (progn
+		      (cond ((eq cmd 'kkc-next)
+			     (setq kkc-next-count (1+ kkc-next-count)
+				   kkc-prev-count 0))
+			    ((eq cmd 'kkc-prev)
+			     (setq kkc-prev-count (1+ kkc-prev-count)
+				   kkc-next-count 0))
+			    (t
+			     (setq kkc-next-count 0 kkc-prev-count 0)))
+		      (call-interactively cmd))
 		  (kkc-error (message "%s" (cdr err)) (beep)))
 	      ;; KEYSEQ is not defined in KKC keymap.
 	      ;; Let's put the event back.
@@ -286,15 +323,9 @@ and the return value is the length of the conversion."
   (delete-region (point) (overlay-end kkc-overlay-tail))
   (kkc-terminate))
 
-;; Count of successive invocations of `kkc-next'.
-(defvar kkc-next-count nil)
-
 (defun kkc-next ()
   "Select the next candidate of conversion."
   (interactive)
-  (if (eq this-command last-command)
-      (setq kkc-next-count (1+ kkc-next-count))
-    (setq kkc-next-count 1))
   (let ((idx (1+ (car kkc-current-conversions))))
     (if (< idx 0)
 	(setq idx 1))
@@ -311,15 +342,9 @@ and the return value is the length of the conversion."
 	(kkc-show-conversion-list-update))
     (kkc-update-conversion)))
 
-;; Count of successive invocations of `kkc-next'.
-(defvar kkc-prev-count nil)
-
 (defun kkc-prev ()
   "Select the previous candidate of conversion."
   (interactive)
-  (if (eq this-command last-command)
-      (setq kkc-prev-count (1+ kkc-prev-count))
-    (setq kkc-prev-count 1))
   (let ((idx (1- (car kkc-current-conversions))))
     (if (< idx 0)
 	(setq idx (1- (length kkc-current-conversions))))
@@ -539,7 +564,9 @@ and change the current conversion to the last one in the group."
 	      (idx this-idx)
 	      (max-items (length kkc-show-conversion-list-index-chars))
 	      l)
-	  (while (< idx current-idx)
+	  ;; Set THIS-IDX to the first index of conversion to be shown
+	  ;; in MSG, and reflect it in kkc-current-conversions-width.
+	  (while (<= idx current-idx)
 	    (if (and (<= (+ width (aref width-table idx)) max-width)
 		     (< (- idx this-idx) max-items))
 		(setq width (+ width (aref width-table idx)))
@@ -547,6 +574,9 @@ and change the current conversion to the last one in the group."
 	    (setq idx (1+ idx)
 		  l (cdr l)))
 	  (aset first-slot 0 this-idx)
+	  ;; Set NEXT-IDX to the next index of the last conversion
+	  ;; shown in MSG, and reflect it in
+	  ;; kkc-current-conversions-width.
 	  (while (and (< idx len)
 		      (<= (+ width (aref width-table idx)) max-width)
 		      (< (- idx this-idx) max-items))
@@ -555,10 +585,13 @@ and change the current conversion to the last one in the group."
 		  l (cdr l)))
 	  (aset first-slot 1 (setq next-idx idx))
 	  (setq l (nthcdr this-idx kkc-current-conversions))
-	  (setq msg "")
-	  (setq idx this-idx)
+	  (setq msg (format " %c %s"
+			    (aref kkc-show-conversion-list-index-chars 0)
+			    (car l))
+		idx (1+ this-idx)
+		l (cdr l))
 	  (while (< idx next-idx)
-	    (setq msg (format "%s %c %s "
+	    (setq msg (format "%s  %c %s"
 			      msg
 			      (aref kkc-show-conversion-list-index-chars
 				    (- idx this-idx))
@@ -613,9 +646,13 @@ and change the current conversion to the last one in the group."
 	  (move-overlay kkc-overlay-head
 			(overlay-start kkc-overlay-head) pos)
 	  (delete-region (point) (overlay-end kkc-overlay-tail)))))
-  (goto-char (overlay-end kkc-overlay-tail)))
+  (unwind-protect
+      (run-hook-with-args 'kkc-after-update-conversion-functions
+			  (overlay-start kkc-overlay-head)
+			  (overlay-end kkc-overlay-head))
+    (goto-char (overlay-end kkc-overlay-tail))))
 
 ;;
 (provide 'kkc)
 
-;; kkc.el ends here
+;;; kkc.el ends here

@@ -4,7 +4,7 @@
  *   hp_psymtab_read.c
  */
 
-/* Copyright 1993, 1996 Free Software Foundation, Inc.
+/* Copyright 1993, 1996, 1998, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -131,9 +131,6 @@ struct symloc
 #define SYMLOC(p) ((struct symloc *)((p)->read_symtab_private))
 
 /* FIXME: Shouldn't this stuff be in a .h file somewhere?  */
-/* Nonzero means give verbose info on gdb action.  */
-extern int info_verbose;
-
 /* Complaints about the symbols we have encountered.  */
 extern struct complaint string_table_offset_complaint;
 extern struct complaint lbrac_unmatched_complaint;

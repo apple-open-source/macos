@@ -61,6 +61,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "ext.h"
 #include "fsutil.h"
@@ -70,18 +71,31 @@ readboot(dosfs, boot)
 	int dosfs;
 	struct bootblock *boot;
 {
-	u_char block[DOSBOOTBLOCKSIZE];
-	u_char fsinfo[2 * DOSBOOTBLOCKSIZE];
-	u_char backup[DOSBOOTBLOCKSIZE];
+	u_char block[MAX_SECTOR_SIZE];
+	u_char fsinfo[MAX_SECTOR_SIZE];
 	int ret = FSOK;
 	
-	if (read(dosfs, block, sizeof block) < sizeof block) {
+        /*
+         * [2734381] Some devices have sector sizes greater than 512 bytes.  These devices
+         * tend to return errors if you try to read less than a sector, so we try reading
+         * the maximum sector size (which may end up reading more than one sector).
+         */
+	if (read(dosfs, block, MAX_SECTOR_SIZE) != MAX_SECTOR_SIZE) {
 		perror("could not read boot block");
 		return FSFATAL;
 	}
 
-	if (block[510] != 0x55 || block[511] != 0xaa) {
-		pfatal("Invalid signature in boot block: %02x%02x", block[511], block[510]);
+	/* [2699033]
+	*
+	* The first three bytes are an Intel x86 jump instruction.  It should be one
+	* of the following forms:
+	*    0xE9 0x?? 0x??
+	*    0xEC 0x?? 0x90
+	* where 0x?? means any byte value is OK.
+	*/
+	if (block[0] != 0xE9 && (block[0] != 0xEB || block[2] != 0x90))
+	{
+		pfatal("Invalid BS_jmpBoot in boot block: %02x%02x%02x\n", block[0], block[1], block[2]);
 		return FSFATAL;
 	}
 
@@ -115,7 +129,7 @@ readboot(dosfs, boot)
 		/* check version number: */
 		if (block[42] || block[43]) {
 			/* Correct?				XXX */
-			pfatal("Unknown filesystem version: %x.%x",
+			pfatal("Unknown filesystem version: %x.%x\n",
 			       block[43], block[42]);
 			return FSFATAL;
 		}
@@ -126,8 +140,8 @@ readboot(dosfs, boot)
 
 		if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
 		    != boot->FSInfo * boot->BytesPerSec
-		    || read(dosfs, fsinfo, sizeof fsinfo)
-		    != sizeof fsinfo) {
+		    || read(dosfs, fsinfo, boot->BytesPerSec)
+		    != boot->BytesPerSec) {
 			perror("could not read fsinfo block");
 			return FSFATAL;
 		}
@@ -136,11 +150,7 @@ readboot(dosfs, boot)
 		    || fsinfo[0x1fc]
 		    || fsinfo[0x1fd]
 		    || fsinfo[0x1fe] != 0x55
-		    || fsinfo[0x1ff] != 0xaa
-		    || fsinfo[0x3fc]
-		    || fsinfo[0x3fd]
-		    || fsinfo[0x3fe] != 0x55
-		    || fsinfo[0x3ff] != 0xaa) {
+		    || fsinfo[0x1ff] != 0xaa) {
 			pwarn("Invalid signature in fsinfo block");
 			if (ask(0, "fix")) {
 				memcpy(fsinfo, "RRaA", 4);
@@ -153,8 +163,8 @@ readboot(dosfs, boot)
 				fsinfo[0x3ff] = 0xaa;
 				if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
 				    != boot->FSInfo * boot->BytesPerSec
-				    || write(dosfs, fsinfo, sizeof fsinfo)
-				    != sizeof fsinfo) {
+				    || write(dosfs, fsinfo, boot->BytesPerSec)
+				    != boot->BytesPerSec) {
 					perror("Unable to write FSInfo");
 					return FSFATAL;
 				}
@@ -170,19 +180,6 @@ readboot(dosfs, boot)
 				       + (fsinfo[0x1ee] << 16)
 				       + (fsinfo[0x1ef] << 24);
 		}
-
-		if (lseek(dosfs, boot->Backup * boot->BytesPerSec, SEEK_SET)
-		    != boot->Backup * boot->BytesPerSec
-		    || read(dosfs, backup, sizeof backup) != sizeof  backup) {
-			perror("could not read backup bootblock");
-			return FSFATAL;
-		}
-		if (memcmp(block, backup, DOSBOOTBLOCKSIZE)) {
-			/* Correct?					XXX */
-			pfatal("backup doesn't compare to primary bootblock");
-			return FSFATAL;
-		}
-		/* Check backup FSInfo?					XXX */
 	}
 
 	boot->ClusterOffset = (boot->RootDirEnts * 32 + boot->BytesPerSec - 1)
@@ -192,11 +189,11 @@ readboot(dosfs, boot)
 	    - CLUST_FIRST * boot->SecPerClust;
 
 	if (boot->BytesPerSec % DOSBOOTBLOCKSIZE != 0) {
-		pfatal("Invalid sector size: %u", boot->BytesPerSec);
+		pfatal("Invalid sector size: %u\n", boot->BytesPerSec);
 		return FSFATAL;
 	}
 	if (boot->SecPerClust == 0) {
-		pfatal("Invalid cluster size: %u", boot->SecPerClust);
+		pfatal("Invalid cluster size: %u\n", boot->SecPerClust);
 		return FSFATAL;
 	}
 	if (boot->Sectors) {
@@ -204,17 +201,25 @@ readboot(dosfs, boot)
 		boot->NumSectors = boot->Sectors;
 	} else
 		boot->NumSectors = boot->HugeSectors;
+        
+        /*
+         * Note: NumClusters isn't actually the *number* (or count) of clusters.  It is really
+         * the maximum cluster number plus one (which is the number of clusters plus two;
+         * it is also the number of valid FAT entries).  It is meant to be used
+         * for looping over cluster numbers, or range checking cluster numbers.
+         */
 	boot->NumClusters = (boot->NumSectors - boot->ClusterOffset) / boot->SecPerClust;
 
+        /* Since NumClusters is off by two, use constants that are off by two also. */
 	if (boot->flags&FAT32)
 		boot->ClustMask = CLUST32_MASK;
-	else if (boot->NumClusters < (CLUST_RSRVD&CLUST12_MASK))
+	else if (boot->NumClusters < (4085+2))
 		boot->ClustMask = CLUST12_MASK;
-	else if (boot->NumClusters < (CLUST_RSRVD&CLUST16_MASK))
+	else if (boot->NumClusters < (65526+2))		/* Windows allows 65525 clusters, so we should, too */
 		boot->ClustMask = CLUST16_MASK;
 	else {
-		pfatal("Filesystem too big (%u clusters) for non-FAT32 partition",
-		       boot->NumClusters);
+		pfatal("Filesystem too big (%u clusters) for non-FAT32 partition\n",
+		       boot->NumClusters-2);
 		return FSFATAL;
 	}
 
@@ -237,7 +242,6 @@ readboot(dosfs, boot)
 	}
 	boot->ClusterSize = boot->BytesPerSec * boot->SecPerClust;
 
-	boot->NumFiles = 1;
 	boot->NumFree = 0;
 
 	return ret;
@@ -248,11 +252,11 @@ writefsinfo(dosfs, boot)
 	int dosfs;
 	struct bootblock *boot;
 {
-	u_char fsinfo[2 * DOSBOOTBLOCKSIZE];
+	u_char fsinfo[MAX_SECTOR_SIZE];
 
 	if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
 	    != boot->FSInfo * boot->BytesPerSec
-	    || read(dosfs, fsinfo, sizeof fsinfo) != sizeof fsinfo) {
+	    || read(dosfs, fsinfo, boot->BytesPerSec) != boot->BytesPerSec) {
 		perror("could not read fsinfo block");
 		return FSFATAL;
 	}
@@ -266,8 +270,8 @@ writefsinfo(dosfs, boot)
 	fsinfo[0x1ef] = (u_char)(boot->FSNext >> 24);
 	if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
 	    != boot->FSInfo * boot->BytesPerSec
-	    || write(dosfs, fsinfo, sizeof fsinfo)
-	    != sizeof fsinfo) {
+	    || write(dosfs, fsinfo, boot->BytesPerSec)
+	    != boot->BytesPerSec) {
 		perror("Unable to write FSInfo");
 		return FSFATAL;
 	}

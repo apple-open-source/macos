@@ -26,6 +26,7 @@
 #include <NetInfo/dsutil.h>
 #include <NetInfo/dsx500.h>
 #include <NetInfo/dsindex.h>
+#include <NetInfo/utf-8.h>
 
 /*
  * N.B.  This is also defined in netinfod/ni_file.c
@@ -49,6 +50,8 @@ dsengine_new(dsengine **s, char *name, u_int32_t flags)
 
 	*s = (dsengine *)malloc(sizeof(dsengine));
 	(*s)->store = x;
+	(*s)->delegate = NULL;
+	(*s)->private = NULL;
 
 	/* create root if necessary */
 	r = dsstore_fetch(x, 0);
@@ -319,6 +322,35 @@ dsengine_save(dsengine *s, dsrecord *r)
 
 	dsrecord_release(parent);
 	return dsstore_save(s->store, r);
+}
+
+/*
+ * Save a record quickly.
+ */
+dsstatus
+dsengine_save_fast(dsengine *s, dsrecord *r)
+{
+	u_int32_t i;
+	dsrecord *parent;
+
+	if (s == NULL) return DSStatusInvalidStore;
+
+	i = dsstore_record_super(s->store, r->dsid);
+	if (i == IndexNull) return DSStatusInvalidPath;
+
+	parent = dsstore_fetch(s->store, i);
+	if (parent == NULL)
+	{
+		/* XXX Parent doesn't exist! */
+		return DSStatusInvalidPath;
+	}
+
+	/* Update child in parent's index */
+	dsindex_delete_dsid(parent->index, r->dsid);
+	dsindex_insert_record(parent->index, r);
+
+	dsrecord_release(parent);
+	return dsstore_save_fast(s->store, r, 0);
 }
 
 /*
@@ -632,6 +664,7 @@ _filter_searcher(dsengine *s, u_int32_t dsid, dsfilter *f, u_int32_t scopemin, u
 	dsrecord *r;
 	u_int32_t i, x;
 	dsstatus status;
+	Logic3 eval;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -642,7 +675,12 @@ _filter_searcher(dsengine *s, u_int32_t dsid, dsfilter *f, u_int32_t scopemin, u
 
 	if (scopemin == 0)
 	{
-		if (dsfilter_test(f, r) == L3True)
+		if (s->delegate != NULL)
+			eval = (s->delegate)(f, r, s->private);
+		else
+			eval = dsfilter_test(f, r);
+
+		if (eval == L3True)
 		{
 			if (findall == 0)
 			{
@@ -876,6 +914,15 @@ dsengine_list(dsengine *s, u_int32_t dsid, dsdata *key, u_int32_t scopemin, u_in
 	dsstatus status;
 	
 	if (s == NULL) return DSStatusInvalidStore;
+	if (list == NULL) return DSStatusFailed;
+
+	*list = NULL;
+
+	if ((scopemin == 1) && (scopemax == 1))
+	{
+		return dsstore_list(s->store, dsid, key, SELECT_ATTRIBUTE, list);
+	}
+
 	if (key == NULL) return DSStatusInvalidKey;
 
 	r = dsrecord_new();
@@ -924,6 +971,7 @@ dsengine_list(dsengine *s, u_int32_t dsid, dsdata *key, u_int32_t scopemin, u_in
 			a->value[j] = dsdata_retain(r->attribute[x]->value[j]);
 
 		dsrecord_append_attribute(*list, a, SELECT_ATTRIBUTE);
+		dsattribute_release(a);
 		dsrecord_release(r);
 	}
 
@@ -1040,15 +1088,12 @@ dsengine_netinfo_string_path(dsengine *s, u_int32_t dsid)
 			else if (name->count == 0) dirno = 1;
 		}
 
-		if (dirno == 1)
+		if ((dirno == 1) ||
+			((x = dsdata_to_cstring(name->value[0])) == NULL))
 		{
 			if (r == NULL) sprintf(str, "dir:?");
 			else sprintf(str, "dir:%u", r->dsid);
 			x = str;
-		}
-		else
-		{
-			x = dsdata_to_cstring(name->value[0]);
 		}
 
 		len = strlen(x);
@@ -1080,35 +1125,36 @@ dsengine_netinfo_string_path(dsengine *s, u_int32_t dsid)
  *
  * Here is the algorithm we use to construct a DN:
  *
- *	for each directory in the name
- *   {
- *		if directory has "_rdn" attribute
- *       {
- *			use attribute named by value of rdn attribute as RDN.
- *       }
- *		else if directory has "name "attribute 
- *       {
- *			use "name" as RDN
- *		}
- *       else
- *       {
- *			use DSID=%s as RDN
- *		}
- *   }
+ * for each directory in the name {
+ *  if directory has "_rdn" attribute {
+ *    use attribute named by value of rdn attribute as RDN.
+ *  } else if directory has "name "attribute {
+ *    use "name" as RDN
+ *  } else {
+ *    use DSID=%s as RDN
+ *  }
+ * }
  *
  * A remaining issue is dealing with the fact that NetInfo
  * names are case sensitive but X.500 names are not. We may
  * need to resort to DSID=%s for all RDNs.
+ *
+ * Also, multi-valued RDNs are not supported. We could support
+ * them by having multiple values for the _rdn attribute (for
+ * example, to form a DN cn=foo+sn=bar,c=US) but there are 
+ * tricky canonicalization issues to be dealt with.
+ *
  */
 char *
 dsengine_x500_string_path(dsengine *s, u_int32_t dsid)
 {
-	char *p, *path, str[64], *x;
+	char *p, *path, str[64], *escaped;
 	u_int32_t plen;
 	dsrecord *r;
 	dsattribute *rdn_attr, *name;
 	dsstatus status;
 	dsdata *rdn_key, *default_rdn_key, *name_rdn, *name_dsid;
+	dsdata *x, tmp;
 
 	if (s == NULL) return NULL;
 	if (dsid == 0) return copyString("");
@@ -1118,7 +1164,7 @@ dsengine_x500_string_path(dsengine *s, u_int32_t dsid)
 
 	default_rdn_key = cstring_to_dsdata("name");
 	name_rdn = cstring_to_dsdata("rdn");
-	name_dsid = cstring_to_dsdata("DSID");
+	name_dsid = casecstring_to_dsdata("DSID");
 
 	status = dsengine_fetch(s, dsid, &r);
 	if (status != DSStatusOK) return NULL;
@@ -1146,38 +1192,48 @@ dsengine_x500_string_path(dsengine *s, u_int32_t dsid)
 			rdn_key = dsdata_retain(name_dsid);
 		}
 
-		x = dsdata_to_cstring(rdn_key);
+		escaped = escape_rdn(rdn_key);
+
 		if (path == NULL)
 		{
-			plen = strlen(x) + 1;
+			plen = strlen(escaped) + 1;
 			path = malloc(plen + 1);
-			sprintf(path, "%s=", x);
+			sprintf(path, "%s=", escaped);
 		}
 		else
 		{
-			plen += strlen(x) + 2;
+			plen += strlen(escaped) + 2;
 			p = malloc(plen + 1);
-			sprintf(p, "%s,%s=", path, x);
+			sprintf(p, "%s,%s=", path, escaped);
 			free(path);
 			path = p;
 		}
 
+		free(escaped);
+
 		if (name == NULL || name->count == 0)
 		{
 			sprintf(str, "%u", r->dsid);
-			x = str;
+			tmp.type = DataTypeCStr;
+			tmp.length = strlen(str) + 1;
+			tmp.data = str;
+			tmp.retain = 1;
+			x = &tmp;
 		}
 		else
 		{
-			x = dsdata_to_cstring(name->value[0]);
+			x = name->value[0];
 		}
 
-		plen += strlen(x);
+		escaped = escape_rdn(x);
+
+		plen += strlen(escaped);
 		p = malloc(plen + 1);
-		sprintf(p, "%s%s", path, x);
+		sprintf(p, "%s%s", path, escaped);
 		free(path);
 		path = p;
 
+		free(escaped);
 		dsdata_release(rdn_key);
 		dsattribute_release(name);
 
@@ -1443,8 +1499,10 @@ dsengine_convert_name(dsengine *e, dsdata *name, u_int32_t intype, u_int32_t des
 	switch (name->type)
 	{
 		case DataTypeCStr:
+		case DataTypeCaseCStr:
 		case DataTypeUTF8Str:
-			tname = dsdata_to_cstring(name);
+		case DataTypeCaseUTF8Str:
+			tname = dsdata_to_utf8string(name);
 			break;
 		case DataTypeDirectoryID:
 			match = dsdata_to_dsid(name);
@@ -1523,10 +1581,12 @@ dsengine_convert_name(dsengine *e, dsdata *name, u_int32_t intype, u_int32_t des
 					if (find_user(e, intype, name, &match) != DSStatusOK)
 						return NULL;
 					str = dsengine_netinfo_string_path(e, match);
+					break;
 				case NameTypeX500:
 					if (find_user(e, intype, name, &match) != DSStatusOK)
 						return NULL;
 					str = dsengine_x500_string_path(e, match);
+					break;
 				case NameTypeDirectoryID:
 					if (find_user(e, intype, name, &match) != DSStatusOK)
 						return NULL;
@@ -1535,6 +1595,7 @@ dsengine_convert_name(dsengine *e, dsdata *name, u_int32_t intype, u_int32_t des
 				default:
 					break;
 			}
+			break;
 		case NameTypeDirectoryID:
 			switch (desiredtype)
 			{
@@ -1556,11 +1617,25 @@ dsengine_convert_name(dsengine *e, dsdata *name, u_int32_t intype, u_int32_t des
 				default:
 					break;
 			}
+			break;
 		default:
 			break;
 	}
 
-	if (str != NULL) d = cstring_to_dsdata(str);
+	if (str != NULL) 
+	{
+		if (d != NULL) dsdata_release(d);
+		d = cstring_to_dsdata(str);
+		free(str);
+	}
 
 	return d;
 }
+
+void dsengine_set_filter_test_delegate(dsengine *e, Logic3 (*delegate)(dsfilter *, dsrecord *, void *), void *private)
+{
+	if (e == NULL) return;
+	e->private = private;
+	e->delegate = delegate;
+}
+

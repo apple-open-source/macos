@@ -20,8 +20,8 @@
 // cfnotifier - quick & dirty code to send keychain lock notification
 //
 #include "cfnotifier.h"
+#include <Security/cfutilities.h>
 #include <Security/debugging.h>
-#include <CoreFoundation/CoreFoundation.h>
 
 #include "session.h"
 
@@ -31,6 +31,7 @@ using namespace Security::MachPlusPlus;
 
 #define notificationName	CFSTR("com.apple.securitycore.kcevent")
 #define eventTypeKey		CFSTR("type")
+#define pidKey				CFSTR("pid")
 #define keychainKey		CFSTR("keychain")
 #define itekey			CFSTR("item")
 #define keyGUID			CFSTR("GUID")

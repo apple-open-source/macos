@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,22 +20,30 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * IOReducedBlockServices.h
- *
- * This subclass implements a relay to a protocol and device-specific
- * provider.
- *
- */
 
 #ifndef _IOKIT_IO_REDUCED_BLOCK_SERVICES_H_
 #define _IOKIT_IO_REDUCED_BLOCK_SERVICES_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Generic IOKit related headers
 #include <IOKit/IOTypes.h>
+
+// Generic IOKit storage related headers
 #include <IOKit/storage/IOBlockStorageDevice.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIPeripheralDeviceType0E.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOReducedBlockServices : public IOBlockStorageDevice
 {
@@ -46,7 +54,7 @@ class IOReducedBlockServices : public IOBlockStorageDevice
 protected:
     // Reserve space for future expansion.
     struct IOReducedBlockServicesExpansionData { };
-    IOReducedBlockServicesExpansionData *fIOReducedBlockServicesReserved;
+    IOReducedBlockServicesExpansionData * fIOReducedBlockServicesReserved;
 	
 	IOSCSIPeripheralDeviceType0E *     fProvider;
 	
@@ -112,15 +120,17 @@ public:
     virtual IOReturn	reportWriteProtection ( bool * isWriteProtected );
 
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 1 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 2 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 3 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 4 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 5 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 6 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 7 );
-    OSMetaClassDeclareReservedUnused( IOReducedBlockServices, 8 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 1 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 2 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 3 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 4 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 5 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 6 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 7 );
+    OSMetaClassDeclareReservedUnused ( IOReducedBlockServices, 8 );
+    
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

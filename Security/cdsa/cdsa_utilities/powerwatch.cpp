@@ -50,42 +50,60 @@ void PowerWatcher::ioCallback(void *refCon, io_service_t service,
     natural_t messageType, void *argument)
 {
     PowerWatcher *me = (PowerWatcher *)refCon;
+    enum { allow, refuse, ignore } reaction;
     switch (messageType) {
     case kIOMessageSystemWillSleep:
         debug("powerwatch", "system will sleep");
         me->systemWillSleep();
+        reaction = allow;
         break;
     case kIOMessageSystemHasPoweredOn:
         debug("powerwatch", "system has powered on");
         me->systemIsWaking();
+        reaction = ignore;
         break;
     case kIOMessageSystemWillPowerOff:
         debug("powerwatch", "system will power off");
         me->systemWillPowerDown();
+        reaction = allow;
         break;
-
-#if !defined(NDEBUG)
     case kIOMessageSystemWillNotPowerOff:
         debug("powerwatch", "system will not power off");
+        reaction = ignore;
         break;
     case kIOMessageCanSystemSleep:
         debug("powerwatch", "can system sleep");
+        reaction = allow;
         break;
     case kIOMessageSystemWillNotSleep:
         debug("powerwatch", "system will not sleep");
+        reaction = ignore;
         break;
     case kIOMessageCanSystemPowerOff:
         debug("powerwatch", "can system power off");
+        reaction = allow;
         break;
     default:
         debug("powerwatch",
             "type 0x%x message received (ignored)", messageType);
+        reaction = ignore;
         break;
-#endif //NDEBUG
     }
     
-    // always confirm
-    IOAllowPowerChange(me->mKernelPort, long(argument));
+    // handle acknowledgments
+    switch (reaction) {
+    case allow:
+		debug("powerwatch", "calling IOAllowPowerChange");
+        IOAllowPowerChange(me->mKernelPort, long(argument));
+        break;
+    case refuse:
+		debug("powerwatch", "calling IOCancelPowerChange");
+        IOCancelPowerChange(me->mKernelPort, long(argument));
+        break;
+    case ignore:
+		debug("powerwatch", "sending no response");
+        break;
+    }
 }
 
 

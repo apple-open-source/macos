@@ -26,16 +26,15 @@
 #include "vx-share/regPacket.h"
 #include "frame.h"
 #include "inferior.h"
-#include "gdb_wait.h"
 #include "target.h"
 #include "gdbcore.h"
 #include "command.h"
 #include "symtab.h"
 #include "symfile.h"		/* for struct complaint */
+#include "regcache.h"
 
 #include "gdb_string.h"
 #include <errno.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>

@@ -1,5 +1,5 @@
-# Console window for GDBtk
-# Copyright 1998, 1999 Cygnus Solutions
+# Console window for Insight
+# Copyright 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -19,50 +19,49 @@ body Console::constructor {args} {
   debug "$args"
   _build_win
   eval itk_initialize $args
-  add_hook gdb_busy_hook [list $this busy]
-  add_hook gdb_idle_hook [list $this idle]
-  add_hook gdb_no_inferior_hook [list $this idle]
+  add_hook gdb_no_inferior_hook [list $this idle dummy]
+  
+  # There are a bunch of console prefs that have no UI
+  # for the user to modify them.  In the event that the user
+  # really wants to change them, they will have to be modified
+  # in prefs.tcl or by editing .gdbtkinit.  When these prefs
+  # gain a prefs UI, the user may change them dynamically
+  # and the console window will need notification that they
+  # have changed.  Add them to the following list and
+  # Console::_update_option.
+  foreach option {gdb/console/wrap} {
+    pref add_hook $option [code $this _update_option]
+  }
+
   set gdbtk_state(console) $this
 }
 
 body Console::destructor {} {
   global gdbtk_state
   set gdbtk_state(console) ""
-  remove_hook gdb_busy_hook [list $this busy]
-  remove_hook gdb_idle_hook [list $this idle]
-  remove_hook gdb_no_inferior_hook [list $this idle]
+  remove_hook gdb_no_inferior_hook [list $this idle dummy]
 }
-  
-body Console::_build_win {} {
-  set wrap [pref get gdb/console/wrap]
 
-  if { $wrap } {
-    set hsm none
-  } else {
-    set hsm dynamic
-  }
-  iwidgets::scrolledtext $itk_interior.stext -hscrollmode $hsm \
+body Console::_build_win {} {
+  iwidgets::scrolledtext $itk_interior.stext \
     -vscrollmode dynamic -textbackground white
 
   set _twin [$itk_interior.stext component text]
 
-  if {$wrap} {
-    $_twin configure -wrap word
-  } else {
-    $_twin configure -wrap none
-  }
+  _set_wrap [pref get gdb/console/wrap]
 
   $_twin tag configure prompt_tag -foreground [pref get gdb/console/prompt_fg]
   $_twin tag configure err_tag -foreground [pref get gdb/console/error_fg]
+  $_twin tag configure log_tag -foreground [pref get gdb/console/log_fg]
+  $_twin tag configure target_tag -foreground [pref get gdb/console/target_fg]
   $_twin configure -font [pref get gdb/console/font]
 
   #
   # bind editing keys for console window
   #
   bind $_twin <Return> "$this invoke; break"
-
-  # disable this
-  bind_plain_key $_twin Control-o "break"
+  bind_plain_key $_twin Control-m "$this invoke; break"
+  bind_plain_key $_twin Control-j "$this invoke; break"
 
   # History control.
   bind_plain_key $_twin Control-p "[code $this _previous]; break"
@@ -73,7 +72,8 @@ body Console::_build_win {} {
   bind $_twin <Home> "[code $this _first]; break"
   bind $_twin <Meta-greater> "[code $this _last]; break"
   bind $_twin <End> "[code $this _last]; break"
-  
+  bind_plain_key $_twin Control-o "[code $this _operate_and_get_next]; break"
+
   # Tab completion
   bind_plain_key $_twin KeyPress-Tab "[code $this _complete]; break"
   
@@ -104,7 +104,7 @@ body Console::_build_win {} {
     %W delete {cmdmark + 1 char} insert
     %W see {insert linestart}
   }
-  
+
   # Control-w deletes previous word.
   bind_plain_key $_twin Control-w {
     if {[%W compare {insert -1c wordstart} > cmdmark]} {
@@ -123,13 +123,19 @@ body Console::_build_win {} {
   # movement.  We only need to do this after events we do not
   # explicitly override.  Note that since the edit line is always the
   # last line, we can't possibly go past it, so we don't bother
-  # checking that.
+  # checking that.  Note also that we check for a binding which is
+  # simply `;'; this lets us handle keys already bound via
+  # bind_plain_key.
   foreach event [bind Text] {
-    if {[string match *Key* $event] && [bind $_twin $event] == ""} {
-      bind $_twin $event {
+    if {[string match *Key* $event]
+	&& ([bind $_twin $event] == ""
+	    || [bind $_twin $event] == ";")} {
+      bind $_twin $event [bind Text $event]
+      bind $_twin $event {+
 	if {[%W compare insert <= {cmdmark + 1 char}]} {
 	  %W mark set insert {cmdmark + 1 char}
 	}
+	break
       }
     }
   }
@@ -193,24 +199,29 @@ body Console::_build_win {} {
 
 }
 
-body Console::idle {} {
+body Console::idle {event} {
   set _running 0
+  $_top configure -cursor {}
 }
 
-body Console::busy {} {
+# ------------------------------------------------------------------
+#  METHOD: busy - busy event handler
+# ------------------------------------------------------------------
+body Console::busy {event} {
   set _running 1
+  $_top configure -cursor watch
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  insert - insert new text in the text widget
 # ------------------------------------------------------------------
-body Console::insert {line} {
+body Console::insert {line {tag ""}} {
   if {$_needNL} {
     $_twin insert {insert linestart} "\n"
   }
   # Remove all \r characters from line.
   set line [join [split $line \r] {}]
-  $_twin insert {insert -1 line lineend} $line
+  $_twin insert {insert -1 line lineend} $line $tag
 
   set nlines [lindex [split [$_twin index end] .] 0]
   if {$nlines > $throttle} {
@@ -223,17 +234,23 @@ body Console::insert {line} {
   ::update idletasks
 }
 
-#-------------------------------------------------------------------
-#  METHOD:  einsert - insert error text in the text widget
 # ------------------------------------------------------------------
-body Console::einsert {line} {
-  debug $line
-  if {$_needNL} {
-    $_twin insert end "\n"
+#  NAME:         ConsoleWin::_operate_and_get_next
+#  DESCRIPTION:  Invokes the current command and, if this
+#                command came from the history, arrange for
+#                the next history command to be inserted once this
+#                command is finished.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body Console::_operate_and_get_next {} {
+  if {$_histElement >= 0} {
+    # _pendingHistElement will be used after the new history element
+    # is pushed.  So we must increment it.
+    set _pendingHistElement [expr {$_histElement + 1}]
   }
-  $_twin insert end $line err_tag
-  $_twin see insert
-  set _needNL 0
+  invoke
 }
 
 #-------------------------------------------------------------------
@@ -361,6 +378,12 @@ body Console::_setprompt {{prompt {}}} {
   $_twin insert {insert linestart} $prompt prompt_tag
   $_twin mark set cmdmark "insert -1 char"
   $_twin see insert
+
+  if {$_pendingHistElement >= 0} {
+    set _histElement $_pendingHistElement
+    set _pendingHistElement -1
+    _next
+  }
 }
 
 #-------------------------------------------------------------------
@@ -379,8 +402,19 @@ body Console::activate {{prompt {}}} {
 body Console::invoke {} {
   global gdbtk_state
 
+  set text [$_twin get {cmdmark + 1 char} end ]
+
+  if { "[string range $text 0 1]" == "tk" } {
+    if {! [info complete $text] } {
+      $_twin insert {insert lineend} " \\\n"
+      $_twin see insert
+      return
+    }
+  }
+
   incr _invoking
-  set text [$_twin get {cmdmark + 1 char} {cmdmark lineend}]
+
+  set text [string trimright $text \n]
   if {$text == ""} {
     set text [lindex $_history 0]
     $_twin insert {insert lineend} $text
@@ -514,11 +548,6 @@ body Console::_paste {{check_primary 1}} {
   }
 }
 
-# public method for testing only
-body Console::get_text {} {
-  return $_twin
-}
-
 # ------------------------------------------------------------------
 #  METHOD:  _find_lcp - Return the longest common prefix in SLIST.
 #              Can be empty string.
@@ -614,3 +643,58 @@ body Console::_reset_tab {} {
   bind $_twin <KeyPress> {}
   set _saw_tab 0
 }
+
+
+# ------------------------------------------------------------------
+#  METHOD:  _set_wrap - Set wrap mode
+# ------------------------------------------------------------------
+body Console::_set_wrap {wrap} {
+  if { $wrap } {
+    set hsm none
+    set wv char
+  } else {
+    set hsm dynamic
+    set wv none
+  }
+
+  $itk_interior.stext configure -hscrollmode $hsm
+  $_twin configure -wrap $wv
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  _update_option - Update in response to preference change
+# ------------------------------------------------------------------
+body Console::_update_option {name value} {
+  switch -- $name {
+    gdb/console/wrap {
+      _set_wrap $value
+    }
+
+    gdb/console/prompt_fg {
+      $_twin tag configure prompt_tag -foreground $value
+    }
+
+    gdb/console/error_fg {
+      $_twin tag configure err_tag -foreground $value
+    }
+  }
+}
+
+# ------------------------------------------------------------------
+#  NAME:         public method Console::test
+#  DESCRIPTION:  Executes the given command
+#
+#  ARGUMENTS:    Command to run
+#  RETURNS:      Return value of command
+#
+#  NOTES:        This will only run if env(GDBTK_TEST_RUNNING)==1.
+#                FOR TESTING ONLY
+# ------------------------------------------------------------------
+body Console::test {args} {
+  global env
+
+  if {[info exists env(GDBTK_TEST_RUNNING)] && $env(GDBTK_TEST_RUNNING) == 1} {
+    return [eval $args]
+  }
+}
+

@@ -1,3 +1,31 @@
+2002-02-01  Ben Elliston  <bje@redhat.com>
+
+	* config.guess: Import from master sources, rev 1.229.
+	* config.sub: Import from master sources, rev 1.240.
+
+2002-01-17  H.J. Lu  (hjl@gnu.org)
+
+	* support/config.guess: Import from master sources, rev 1.225.
+	* support/config.sub: Import from master sources, rev 1.238.
+
+2001-07-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* support/config.guess: Update using ../config.sub.
+
+2001-07-16  Andrew Cagney  <ac131313@redhat.com>
+
+	* support/config.sub: Update using ../config.sub.
+
+2001-06-15  Elena Zannoni  <ezannoni@redhat.com>
+
+        * configure.in: Add -fsigned-char to LOCAL_CFLAGS for Linux
+        running on the IBM S/390.
+	* configure: Ditto.
+
+2001-01-07  Michael Sokolov  <msokolov@ivan.Harhan.ORG>
+
+	* rltty.c (save_tty_chars): Fix compilation-stopping typo.
+
 2000-07-10  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* terminal.c (_rl_get_screen_size) [__DJGPP__]: Determine screen

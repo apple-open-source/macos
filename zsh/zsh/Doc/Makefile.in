@@ -1,7 +1,7 @@
 #
 # Makefile for Doc subdirectory
 #
-# Copyright (c) 1995 Richard Coleman
+# Copyright (c) 1995-1997 Richard Coleman
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -24,146 +24,309 @@
 # support, updates, enhancements, or modifications.
 #
 
-SHELL = /bin/sh
+subdir = Doc
+dir_top = ..
 
-# Program to format Texinfo source into Info files.
+@VERSION_MK@
+
+# source/build directories
+VPATH           = @srcdir@
+sdir            = @srcdir@
+sdir_top        = @top_srcdir@
+INSTALL         = @INSTALL@
+
+@DEFS_MK@
+
 MAKEINFO = makeinfo
-# Program to format Texinfo source into DVI files.
 TEXI2DVI = texi2dvi
-# Program to convert DVI files to PostScript
-DVIPS = dvips -D 300
-# Program to convert texinfo files to html
-TEXI2HTML = texi2html
+DVIPS = dvips
+TEXI2HTML = texi2html -expand info -split chapter
 
-top_srcdir = @top_srcdir@
-srcdir     = @srcdir@
-VPATH      = @srcdir@
-
-prefix      = @prefix@
-infodir     = @infodir@
-mandir      = @mandir@
-zshenv      = @zshenv@
-zshrc       = @zshrc@
-zprofile    = @zprofile@
-zlogin      = @zlogin@
-zlogout     = @zlogout@
-manext      = 1
-
-INSTALL      = @INSTALL@
-INSTALL_DATA = @INSTALL_DATA@
-
-SED = sed
-
-.SUFFIXES:
-.SUFFIXES: .man .$(manext)
-
-# we just copy the man page to its new name
-# unless there is a rule below to edit it.
-.man.$(manext):
-	sed -e 's,%zshenv%,$(zshenv),g' \
-	    -e 's,%zshrc%,$(zshrc),g' \
-	    -e 's,%zprofile%,$(zprofile),g' \
-	    -e 's,%zlogin%,$(zlogin),g' \
-	    -e 's,%zlogout%,$(zlogout),g' \
-	    -e 's,%mandir%,man$(manext),g' \
-	    -e 's,%manext%,$(manext),g' $< > $@
+.SUFFIXES: .yo .1
 
 # man pages to install
-MAN = zsh.$(manext) zshbuiltins.$(manext) zshcompctl.$(manext) \
-zshexpn.$(manext) zshmisc.$(manext) zshoptions.$(manext) \
-zshparam.$(manext) zshzle.$(manext) zshall.$(manext)
+MAN = zsh.1 zshbuiltins.1 zshcompctl.1 zshcompwid.1 zshcompsys.1 \
+zshcontrib.1 zshexpn.1 zshmisc.1 zshmodules.1 \
+zshoptions.1 zshparam.1 zshzftpsys.1 zshzle.1 zshall.1
 
-# source for man pages
-DIST_MAN = zsh.man zshbuiltins.man zshcompctl.man zshexpn.man \
-zshmisc.man zshoptions.man zshparam.man zshzle.man zshall.man \
-ansi2knr.man
+# yodl documentation
 
-# auxiliary files
-AUX = Makefile.in zsh.texi intro.ms
+YODLDOC = $(MAN) texi
 
-# all files in this directory included in the distribution
-DIST = $(DIST_MAN) $(AUX)
+MODDOCSRC = \
+Zsh/mod_cap.yo Zsh/mod_clone.yo \
+Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
+Zsh/mod_computil.yo \
+Zsh/mod_deltochar.yo Zsh/mod_example.yo Zsh/mod_files.yo \
+Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_parameter.yo Zsh/mod_sched.yo \
+Zsh/mod_stat.yo Zsh/mod_termcap.yo Zsh/mod_terminfo.yo \
+Zsh/mod_zftp.yo Zsh/mod_zle.yo Zsh/mod_zleparameter.yo \
+Zsh/mod_zprof.yo Zsh/mod_zpty.yo Zsh/mod_zutil.yo
+
+YODLSRC = zmacros.yo zman.yo ztexi.yo Zsh/arith.yo Zsh/builtins.yo \
+Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
+Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
+Zsh/filelist.yo Zsh/files.yo Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
+Zsh/index.yo Zsh/intro.yo Zsh/invoke.yo Zsh/jobs.yo Zsh/metafaq.yo \
+Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo Zsh/manmodmenu.yo $(MODDOCSRC) \
+Zsh/options.yo Zsh/params.yo Zsh/prompt.yo Zsh/redirect.yo Zsh/restricted.yo \
+Zsh/seealso.yo Zsh/zftpsys.yo Zsh/zle.yo
 
 # ========== DEPENDENCIES FOR BUILDING ==========
 
-all: $(MAN) #zsh.info
+all: man texi ../META-FAQ
+.PHONY: all
 
-everything: all zsh_us.ps zsh_a4.ps zsh_toc.html
+everything: all dvi ps html
+.PHONY: everything
 
-zsh.info: zsh.texi
-	@$(MAKEINFO) -I$(srcdir) $(srcdir)/zsh.texi || { \
-	echo Info documentation cannot be compiled without $(MAKEINFO). ; \
-	echo You can find precompiled info files in zsh-doc.tar.gz. ; }
+dvi: zsh.dvi
+.PHONY: dvi
 
-zsh.dvi: zsh.texi
-	$(TEXI2DVI) $(srcdir)/zsh.texi
+zsh.dvi: $(sdir)/zsh.texi
+	$(TEXI2DVI) $(sdir)/zsh.texi
+
+texi: $(sdir)/zsh.texi
+.PHONY: texi
+
+$(sdir)/zsh.texi:
+	$(YODL) -o $@ -I$(sdir) -w ztexi.yo version.yo zsh.yo; \
+	test -f $@
+
+info: zsh.info
+.PHONY: info
+
+zsh.info: $(sdir)/zsh.texi
+	$(MAKEINFO) $(sdir)/zsh.texi
+
+.yo.1:
+	case $@ in \
+	  */*) target=$@ ;; \
+	  *) target=$(sdir)/$@ ;; \
+	esac; \
+	case '$(YODL)' in :*) ;; *) \
+	    $(YODL) -I$(sdir) -w zman.yo version.yo $< | sed -e '1s/\\-/-/g' -e '/^\.'\''/d' > $$target \
+	;; esac; \
+	test -f $$target
+
+ps: us_ps a4_ps
+.PHONY: ps
+
+us_ps: zsh_us.ps
+.PHONY: us_ps
 
 zsh_us.ps: zsh.dvi
 	$(DVIPS) -t letter -o $@ zsh.dvi
 
+a4_ps: zsh_a4.ps
+.PHONY: a4_ps
+
 zsh_a4.ps: zsh.dvi
 	$(DVIPS) -t a4 -o $@ zsh.dvi
 
-zsh_toc.html: zsh.texi
-	$(TEXI2HTML) -expandinfo -split_chapter $(srcdir)/zsh.texi
+html: zsh_toc.html
+.PHONY: html
+
+zsh_toc.html: $(sdir)/zsh.texi
+	$(TEXI2HTML) $(sdir)/zsh.texi
+
+zshall.1: zsh.yo
+	case $@ in \
+	  */*) target=$@ ;; \
+	  *) target=$(sdir)/$@ ;; \
+	esac; \
+	case '$(YODL)' in :*) ;; *) \
+	    $(YODL) -I$(sdir) -DZSHALL -w zman.yo version.yo zsh.yo | sed -e '1s/\\-/-/g' -e '/^\.'\''/d' > $$target \
+	;; esac; \
+	test -f $$target
+
+../META-FAQ: META-FAQ.yo Zsh/metafaq.yo
+	case '$(YODL)' in :*) ;; *) \
+	    $(YODL) -I$(sdir) META-FAQ.yo | sed -e '/NEXTLINE/N' -e '/DELLINE/d' -e '/^SECTHEAD$$/{N;s/^SECTHEAD.//;h;s/./-/g;H;g;}' -e 's/  *$$//' > $(sdir_top)/META-FAQ \
+	;; esac
+	test -f $(sdir_top)/META-FAQ
+
+$(YODLDOC): version.yo
+
+$(sdir)/zsh.texi: $(YODLSRC)
+
+man: $(MAN)
+.PHONY: man
+
+$(MAN): zmacros.yo zman.yo
+
+zsh.1 zshall.1: Zsh/intro.yo Zsh/metafaq.yo Zsh/invoke.yo Zsh/files.yo \
+                Zsh/filelist.yo Zsh/filelist.yo Zsh/seealso.yo
+
+zshbuiltins.1: Zsh/builtins.yo
+
+zshcompctl.1: Zsh/compctl.yo
+
+zshcompwid.1: Zsh/compwid.yo
+
+zshcompsys.1: Zsh/compsys.yo
+
+zshcontrib.1: Zsh/contrib.yo
+
+zshexpn.1: Zsh/expn.yo
+
+zshmisc.1: Zsh/grammar.yo Zsh/redirect.yo Zsh/exec.yo Zsh/func.yo \
+           Zsh/jobs.yo Zsh/arith.yo Zsh/cond.yo Zsh/compat.yo \
+           Zsh/prompt.yo Zsh/restricted.yo
+
+zshmodules.1: Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo $(MODDOCSRC)
+
+zshoptions.1: Zsh/options.yo
+
+zshparam.1: Zsh/params.yo
+
+zshzftpsys.1: Zsh/zftpsys.yo
+
+zshzle.1: Zsh/zle.yo
+
+version.yo: $(sdir_top)/Config/version.mk
+	( \
+	  echo 'STARTDEF()'; \
+	  echo 'def(version)(0)('$(VERSION)')'; \
+	  echo 'def(date)(0)('$(VERSION_DATE)')'; \
+	  echo 'ENDDEF()#' | tr '#' '\\'; \
+	) > $(sdir)/version.yo
+
+Zsh/modlist.yo: $(MODDOCSRC)
+	( \
+	    echo "startitem()"; \
+	    for modfile in $(MODDOCSRC); do \
+		sed -n -e '1{s|^COMMENT(!MOD!\(.*\)$$|item(tt(\1))(|;p;d;}' \
+		    -e '/^!MOD!)$$/q;p' \
+		    < $(sdir)/$$modfile; \
+		echo ")"; \
+	    done; \
+	    echo "enditem()"; \
+	    echo "includefile(Zsh/modmenu.yo)"; \
+	    set '' $(MODDOCSRC); \
+	    mod1= mod2= mod3=; \
+	    test ".$$2" = . || \
+		mod2=`sed -n '1{s|^COMMENT(!MOD!||;p;q;}' < $(sdir)/$$2`; \
+	    while test ".$$2" != .; do \
+		mod3=; \
+		test ".$$3" = . || \
+		    mod3=`sed -n '1{s|^COMMENT(!MOD!||;p;q;}' < $(sdir)/$$3`; \
+		echo "texinode(The $$mod2 Module)($${mod3:+The $$mod3 Module})($${mod1:+The $$mod1 Module})(Zsh Modules)"; \
+		echo "sect(The $$mod2 Module)"; \
+		echo "includefile($${2})"; \
+		shift; \
+		mod1=$$mod2; \
+		mod2=$$mod3; \
+	    done \
+	) > $(sdir)/Zsh/modlist.yo
+
+Zsh/modmenu.yo: $(MODDOCSRC)
+	( \
+	    echo "startmenu()"; \
+	    for modfile in $(MODDOCSRC); do \
+		sed -n '1{s|^COMMENT(!MOD!\(.*\)$$|menu(The \1 Module)|;p;q;}' \
+		    < $(sdir)/$$modfile; \
+	    done; \
+	    echo "endmenu()" \
+	) > $(sdir)/Zsh/modmenu.yo
+
+Zsh/manmodmenu.yo: $(MODDOCSRC)
+	( \
+	    for modfile in $(MODDOCSRC); do \
+		sed -n '1{s|^COMMENT(!MOD!\(.*\)$$|menu(The \1 Module)|;p;q;}' \
+		    < $(sdir)/$$modfile; \
+	    done \
+	) > $(sdir)/Zsh/manmodmenu.yo
 
 # ========== DEPENDENCIES FOR INSTALLING ==========
 
-# install all the documentation
-install: install.man #install.info
+# install just installs the manual pages
+install: install.man
+.PHONY: install
 
-# uninstall all the documentation
-uninstall: uninstall.man #uninstall.info
+# uninstall just unistalls the manual pages
+uninstall: uninstall.man
+.PHONY: uninstall
 
 # install man pages, creating install directory if necessary
-install.man: $(MAN)
-	$(top_srcdir)/mkinstalldirs $(mandir)/man$(manext)
+install.man: man
+	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(mandir)/man1
 	for file in $(MAN); do \
-	  $(INSTALL_DATA) $$file $(mandir)/man$(manext) ; \
+	    $(INSTALL_DATA) $(sdir)/$$file $(DESTDIR)$(mandir)/man1/`echo $$file | sed 's|zsh|$(tzsh)|'` || exit 1; \
 	done
+.PHONY: install.man
 
 # install info pages, creating install directory if necessary
-install.info: zsh.info
-	$(top_srcdir)/mkinstalldirs $(infodir)
-	for file in zsh.info zsh.info-[1-9]*; do \
-	  [ -f "$$file" ] && $(INSTALL_DATA) $$file $(infodir) ; \
-	done
+install.info: texi
+	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(infodir)
+	rm -rf infodir
+	mkdir infodir
+	if ( \
+	    sed '/^@setfilename/s|zsh|$(tzsh)|' \
+		< $(sdir)/zsh.texi > infodir/tzsh.texi && \
+	    (cd infodir && $(MAKEINFO) tzsh.texi) && \
+	    for file in infodir/$(tzsh).info*; do \
+		$(INSTALL_DATA) $$file $(DESTDIR)$(infodir) || exit 1; \
+	    done \
+	); then \
+	    if $(SHELL) -c 'install-info --version' >/dev/null 2>&1; then \
+	      install-info --dir-file=$(DESTDIR)$(infodir)/dir \
+	        $(DESTDIR)$(infodir)/$(tzsh).info; \
+	    else true; fi; \
+	    rm -rf infodir; \
+	    exit 0; \
+	else \
+	    rm -rf infodir; \
+	    exit 1; \
+	fi
+.PHONY: install.info
 
 # uninstall man pages
 uninstall.man:
 	for file in $(MAN); do \
-	  rm -f $(mandir)/man$(manext)/$$file; \
+	    rm -f $(DESTDIR)$(mandir)/man1/`echo $$file | sed 's|zsh|$(tzsh)|'`; \
 	done
+.PHONY: uninstall.man
 
 # uninstall info pages
 uninstall.info:
-	rm -f $(infodir)/zsh.info $(infodir)/zsh.info-[1-9]*
+	rm -f $(DESTDIR)$(infodir)/$(tzsh).info
+	rm -f $(DESTDIR)$(infodir)/$(tzsh).info-[1-9]*
+.PHONY: uninstall.info
+
+# install HTML manual
+install.html: html
+	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(htmldir)
+	for file in zsh*.html; do \
+	    $(INSTALL_DATA) $$file $(DESTDIR)$(htmldir) || exit 1; \
+	done
+.PHONY: install.html
+
+# uninstall HTML manual
+uninstall.html:
+	rm -f $(DESTDIR)$(htmldir)/zsh*.html
+.PHONY: uninstall.html
 
 # ========== DEPENDENCIES FOR CLEANUP ==========
 
-mostlyclean:
-	rm -f *~
+clean-here:
+	rm -f *.html *.info* *.dvi *.ps
+	rm -f *.aux *.cp *.cps *.fn *.fns *.ky *.log
+	rm -f *.pg *.pgs *.toc *.tp *.tps *.vr *.vrs
+	rm -rf infodir
+.PHONY: clean-here
 
-clean: mostlyclean
-	rm -f *.$(manext)
-
-distclean: clean
+distclean-here: clean-here
 	rm -f Makefile
+.PHONY: distclean-here
 
-realclean: distclean
+realclean-here: distclean-here
+	cd $(sdir) && rm -f Zsh/modlist.yo Zsh/modmenu.yo Zsh/manmodmenu.yo
+	cd $(sdir) && rm -f version.yo ../META-FAQ zsh.texi $(MAN)
+.PHONY: realclean-here
 
-superclean: realclean
+@CLEAN_MK@
 
 # ========== DEPENDENCIES FOR MAINTENANCE ==========
 
-subdir = Doc
-
-Makefile: Makefile.in ../config.status
-	cd .. && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= ./config.status
-
-distdir = ../`cat ../distname`/$(subdir)
-dist: $(DIST)
-	@echo "Copying distribution files in $(subdir)"
-	for file in $(DIST); do    \
-	  cp -p $$file $(distdir); \
-	done
+@CONFIG_MK@

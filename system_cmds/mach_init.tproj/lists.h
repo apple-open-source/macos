@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
  * lists.h -- interface to list routines
  */
 
+#import <sys/types.h>
 #import <mach/mach.h>
 #import <mach/boolean.h>
 #import <servers/bootstrap_defs.h>
@@ -46,8 +47,10 @@ struct bootstrap {
 	bootstrap_info_t		*next;		/* list of all bootstraps */
 	bootstrap_info_t		*prev;
 	bootstrap_info_t		*parent;
+	bootstrap_info_t		*deactivate;	/* list being deactivated */
 	mach_port_name_t		bootstrap_port;
 	mach_port_name_t		requestor_port;
+	unsigned int			ref_count;
 };
 
 /* Service types */
@@ -74,8 +77,8 @@ struct service {
 typedef enum {
 	SERVER,		/* Launchable server */
 	RESTARTABLE,	/* Restartable server */
-	ETCINIT,	/* Special processing for /etc/init */
-	MACHINIT	/* mach_init doesn't get launched. */
+	DEMAND,		/* Restartable server - on demand */
+	MACHINIT,	/* mach_init doesn't get launched. */
 } servertype_t;
 
 #define	NULL_SERVER	NULL
@@ -86,25 +89,33 @@ struct server {
 	server_t	*prev;
 	servertype_t	servertype;
 	cmd_t		cmd;		/* server command to exec */
-	int		priority;	/* priority to give server */
+	int			uid;		/* uid to exec server with */
 	mach_port_t	port;		/* server's priv bootstrap port */
-	mach_port_name_t	task_port;	/* server's task port */
+	mach_port_t	task_port;	/* server's task port */
+	pid_t		pid;		/* server's pid */
+	int		activity;		/* count of checkins/registers this instance */
+	int		active_services;/* count of active services */
+	bootstrap_info_t *bootstrap; /* bootstrap context */
 };
 
 #define	NO_PID	(-1)
 
 extern void init_lists(void);
+
 extern server_t *new_server(
-	servertype_t	servertype,
-	const char	*cmd,
-	int		priority);
-extern service_t *new_service(
+	bootstrap_info_t 	*bootstrap,
+	const char			*cmd,
+	int					uid,
+	servertype_t		servertype);
+
+extern service_t 		*new_service(
 	bootstrap_info_t	*bootstrap,
-	const char	*name,
-	mach_port_t		service_port,
-	boolean_t	isActive,
-	servicetype_t	servicetype,
-	server_t	*serverp);
+	const char			*name,
+	mach_port_t			service_port,
+	boolean_t			isActive,
+	servicetype_t		servicetype,
+	server_t			*serverp);
+
 extern bootstrap_info_t *new_bootstrap(
 	bootstrap_info_t	*parent,
 	mach_port_name_t	bootstrap_port,
@@ -112,13 +123,22 @@ extern bootstrap_info_t *new_bootstrap(
 
 extern server_t *lookup_server_by_port(mach_port_t port);
 extern server_t *lookup_server_by_task_port(mach_port_t port);
-extern bootstrap_info_t *lookup_bootstrap_by_port(mach_port_t port);
-extern bootstrap_info_t *lookup_bootstrap_req_by_port(mach_port_t port);
+extern void setup_server(server_t *serverp);
+extern void delete_server(server_t *serverp);
+extern boolean_t active_server(server_t *serverp);
+extern boolean_t useless_server(server_t *serverp);
+
+extern void delete_service(service_t *servicep);
 extern service_t *lookup_service_by_name(bootstrap_info_t *bootstrap, name_t name);
 extern service_t *lookup_service_by_port(mach_port_t port);
-extern server_t *find_init_server(void);
-extern void delete_service(service_t *servicep);
-extern void delete_bootstrap(bootstrap_info_t *bootstrap);
+extern service_t *lookup_service_by_server(server_t *serverp);
+
+extern bootstrap_info_t *lookup_bootstrap_by_port(mach_port_t port);
+extern bootstrap_info_t *lookup_bootstrap_by_req_port(mach_port_t port);
+extern void deactivate_bootstrap(bootstrap_info_t *bootstrap);
+extern void deallocate_bootstrap(bootstrap_info_t *bootstrap);
+extern boolean_t active_bootstrap(bootstrap_info_t *bootstrap);
+
 extern void *ckmalloc(unsigned nbytes);
 
 extern bootstrap_info_t bootstraps;		/* head of list of bootstrap ports */

@@ -1,0 +1,6 @@
+@set EDITION 4.2a
+@set VERSION 4.2a
+@set UPDATED 2001 October 9
+@set UPDATE-MONTH October 2001
+
+@set LASTCHANGE Tue Oct  9 15:03:34 EDT 2001

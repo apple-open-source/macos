@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 
 #include <IOKit/adb/IOADBDevice.h>
 #include <IOKit/hidsystem/IOHIPointing.h>
+#include <IOKit/hid/IOHIDDevice.h>
 
 #define TRUE	1
 #define FALSE	0
@@ -77,12 +78,13 @@ class AppleADBMouseType4 : public AppleADBMouse
 
 private:
     bool Clicking, Dragging, DragLock, typeTrackpad;
-    bool _jitterclick, _jittermove;
+    bool _jitterclick, _jittermove, _ignoreTrackpad;
     UInt16  _jitterdelta;
     UInt64  _jitterclicktime64;
     virtual IOReturn setParamProperties( OSDictionary * dict );
     bool enableEnhancedMode();
     IOService *_pADBKeyboard;
+    IONotifier * _notifierA, * _notifierT;
 
 protected:
   UInt32 deviceSignature;
@@ -95,4 +97,7 @@ public:
   virtual bool start(IOService * provider);
   virtual void packet(UInt8 adbCommand, IOByteCount length, UInt8 * data);
   virtual OSData * copyAccelerationTable();
+  virtual void _check_usb_mouse(); 
+  virtual void free();
+
 };

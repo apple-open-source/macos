@@ -68,7 +68,7 @@ void BS_setKeyPkcs1(
 	try {
 		SC_decodeAsnObj(pkcs1Blob, snaccPubKey);
 	}
-	catch(CssmError cerror) {
+	catch(const CssmError &cerror) {
 		CSSM_RETURN crtn = cerror.cssmError();
 		
 		errorLog1("BS_setKeyPkcs1: SC_decodeAsnObj returned %s\n",
@@ -119,7 +119,7 @@ void BS_GetKeyPkcs1(
 	try {
 		SC_encodeAsnObj(snaccPubKey, pkcs1Blob, maxSize);
 	}
-	catch(CssmError cerror) {
+	catch(const CssmError &cerror) {
 		CSSM_RETURN crtn = cerror.cssmError();
 
 		errorLog1("BS_GetKeyPkcs1: SC_encodeAsnObj returned %s\n",

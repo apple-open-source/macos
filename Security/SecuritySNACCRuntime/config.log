@@ -63,6 +63,10 @@ configure:2652: checking for memcpy
 configure:2652: checking for memcmp
 configure:2709: checking for X
 configure:3543: checking for tclsh
+configure:3576: checking for tcl.h
+configure:3603: checking for ldopen in -lld
+configure:3643: checking for Tcl_CreateInterp in -ltcl
+configure:3680: checking for Tk_CreateWindow in -ltk
 configure:3800: checking for latex
 configure:3835: checking for bibtex
 configure:3870: checking for dvips

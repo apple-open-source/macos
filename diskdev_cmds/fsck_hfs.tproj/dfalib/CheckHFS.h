@@ -28,10 +28,12 @@ enum {
 	kNeverCheck = 0,	/* never check (clean/dirty status only) */
 	kDirtyCheck = 1,	/* only check if dirty */
 	kAlwaysCheck = 2,	/* always check */
+	kPartialCheck = 3,	/* used with kForceRepairs in order to set up environment */
 
 	kNeverRepair = 0,	/* never repair */
 	kMinorRepairs = 1,	/* only do minor repairs (fsck preen) */
 	kMajorRepairs = 2,	/* do all possible repairs */
+	kForceRepairs = 3,	/* force a repair of catalog B-Tree */
 	
 	kNeverLog = 0,
 	kFatalLog = 1,		/* (fsck preen) */

@@ -98,3 +98,9 @@
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 #
+
+MANDIR= /usr/share/man/man8
+
+install_extra:
+	$(MKDIRS) $(DSTROOT)$(MANDIR)
+	install -c -m 444 autodiskmount.8 $(DSTROOT)$(MANDIR)/autodiskmount.8

@@ -50,6 +50,10 @@ Boston, MA 02111-1307, USA.  */
 extern cpp_reader  parse_in;
 #endif
 
+#ifdef OBJCPLUS
+#include "objc-act.h"
+#endif
+
 /* This structure contains information about the initializations
    and/or destructions required for a particular priority level.  */
 typedef struct priority_info_s {
@@ -3930,6 +3934,12 @@ go_next:
 
   finish_repo ();
 
+#ifdef OBJCPLUS
+  /* Wrap up ObjC++ processing only after templates
+     have been instantiated.  */
+  objc_finish ();  
+#endif  
+
   this_time = get_run_time ();
   parse_time -= this_time - start_time;
   varconst_time += this_time - start_time;
@@ -4340,6 +4350,18 @@ build_expr_from_tree (t)
 	    name = build_expr_from_tree (name);
 	  return build_x_function_call (name, args, current_class_ref);
 	}
+
+#ifdef OBJCPLUS
+    case MESSAGE_SEND_EXPR:
+      return finish_message_expr
+	(build_expr_from_tree (TREE_OPERAND (t, 0)),
+	 TREE_OPERAND (t, 1),  /* No need to expand the selector.  */
+	 build_expr_from_tree (TREE_OPERAND (t, 2)));
+
+    case CLASS_REFERENCE_EXPR:
+      return get_class_reference
+	(build_expr_from_tree (TREE_OPERAND (t, 0)));
+#endif
 
     case COND_EXPR:
       return build_x_conditional_expr

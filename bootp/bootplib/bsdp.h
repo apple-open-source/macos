@@ -1,4 +1,7 @@
 
+#ifndef _S_BSDP_H
+#define _S_BSDP_H
+
 /*
  * bsdp.h
  * - Boot Server Discovery Protocol (BSDP) definitions
@@ -11,13 +14,29 @@
  * - created
  */
 
-#import <mach/boolean.h>
+#include <mach/boolean.h>
+#include <string.h>
+#include <sys/types.h>
+#include "dhcp.h"
+#include "dhcp_options.h"
 
-typedef u_int16_t bsdp_priority_t;
-typedef u_int16_t bsdp_version_t;
-typedef u_int32_t bsdp_image_id_t;
-
-#define BSDP_IMAGE_ID_NULL	((bsdp_image_id_t)0)
+/*
+ * The boot_image_id consists of: (highest byte,bit to lowest bit,byte:
+ * struct boot_image_id {
+ *     u_int16_t	attributes;
+ *     u_int16_t	index;
+ * };
+ *
+ * The attributes field contains:
+ * struct bsdp_image_attributes {
+ *     u_int16_t	install:1,
+ *     			kind:7,
+ *                      reserved:8;
+ */
+#define BOOT_IMAGE_ID_NULL	((bsdp_image_id_t)0)
+#define BSDP_IMAGE_ATTRIBUTES_INSTALL	((u_int16_t)0x8000)
+#define BSDP_IMAGE_ATTRIBUTES_KIND_MASK	((u_int16_t)0x7f00)
+#define BSDP_IMAGE_ATTRIBUTES_KIND_MAX	0x7f
 
 #define BSDP_PRIORITY_MIN	((bsdp_priority_t) 0)
 #define BSDP_PRIORITY_MAX	((bsdp_priority_t) 65535)
@@ -25,7 +44,88 @@ typedef u_int32_t bsdp_image_id_t;
 #define BSDP_PRIORITY_BASE	((bsdp_priority_t) 32768)
 
 #define BSDP_VENDOR_CLASS_ID	"AAPLBSDPC"
-#define BSDP_VERSION		((unsigned short)0x0100)
+#define BSDP_VERSION_1_0	((unsigned short)0x0100)
+#define BSDP_VERSION_1_1	((unsigned short)0x0101)
+#define BSDP_VERSION_0_0	((unsigned short)0x0)
+
+typedef enum {
+    bsdp_image_kind_MacOS9 = 0,
+    bsdp_image_kind_MacOSX = 1,
+    bsdp_image_kind_MacOSXServer = 2,
+} bsdp_image_kind_t;
+
+/* 
+ * the maximum length of name
+ * = DHCP_OPTION_SIZE_MAX - OPTION_OFFSET - OPTION_OFFSET
+ * 		- sizeof(bsdp_image_description_t)
+ * = 255 (max option size) 
+ * 		- 2 (vendor specific option's tag/len) 
+ * 		- 2 (this option's tag/len) 
+ * 		- 5 (this struct's boot_image_id + length)
+ * = 246
+ */
+#define BSDP_IMAGE_NAME_MAX 	(DHCP_OPTION_SIZE_MAX - 2 * OPTION_OFFSET - 5)
+typedef struct {
+    u_int8_t			boot_image_id[4];
+    u_int8_t			name_length;
+    u_int8_t			name[0];
+} bsdp_image_description_t;
+
+typedef u_int16_t bsdp_priority_t;
+typedef u_int16_t bsdp_version_t;
+typedef u_int32_t bsdp_image_id_t;
+
+static __inline__ u_int16_t
+bsdp_image_index(bsdp_image_id_t image_id)
+{
+    return (image_id & 0xffff);
+}
+
+static __inline__ u_int16_t
+bsdp_image_attributes(bsdp_image_id_t image_id)
+{
+    return (image_id >> 16);
+}
+
+static __inline__ bsdp_image_id_t
+bsdp_image_id_make(u_int16_t index, u_int16_t attributes)
+{
+    return (index | ((bsdp_image_id_t)attributes << 16));
+}
+
+static __inline__ boolean_t
+bsdp_image_index_is_server_local(u_int16_t index)
+{
+    return (index < 4096);
+}
+
+static __inline__ boolean_t
+bsdp_image_identifier_is_server_local(u_int32_t identifier)
+{
+    return (bsdp_image_index_is_server_local(bsdp_image_index(identifier)));
+}
+
+static __inline__ boolean_t
+bsdp_image_identifier_is_install(u_int32_t identifier)
+{
+    if ((bsdp_image_attributes(identifier) & BSDP_IMAGE_ATTRIBUTES_INSTALL)
+	!= 0) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
+
+static __inline__ bsdp_image_kind_t
+bsdp_image_kind_from_attributes(u_int16_t attr)
+{
+    return ((attr & BSDP_IMAGE_ATTRIBUTES_KIND_MASK) >> 8);
+}
+
+static __inline__ u_int16_t
+bsdp_image_attributes_from_kind(bsdp_image_kind_t kind)
+{
+    return ((kind << 8) & BSDP_IMAGE_ATTRIBUTES_KIND_MASK);
+}
 
 typedef enum {
     bsdptag_message_type_e 		= 1,
@@ -33,13 +133,15 @@ typedef enum {
     bsdptag_server_identifier_e		= 3,
     bsdptag_server_priority_e		= 4,
     bsdptag_reply_port_e		= 5,
-    bsdptag_boot_image_list_e		= 6,
+    bsdptag_boot_image_list_path_e	= 6, /* not used */
     bsdptag_default_boot_image_e	= 7,
     bsdptag_selected_boot_image_e	= 8,
+    bsdptag_boot_image_list_e		= 9,
+    bsdptag_netboot_1_0_firmware_e	= 10,
 
     /* bounds */
     bsdptag_first_e			= 1,
-    bsdptag_last_e			= 8,
+    bsdptag_last_e			= 10,
 } bsdptag_t;
 
 static __inline__ const char *
@@ -52,13 +154,15 @@ bsdptag_name(bsdptag_t tag)
 	"server identifier",		/* 3 */
 	"server priority",		/* 4 */
 	"reply port",			/* 5 */
-	"boot image list",		/* 6 */
+	"boot image list path",		/* 6 */
 	"default boot image",		/* 7 */
 	"selected boot image",		/* 8 */
+	"boot image list",		/* 9 */
+	"netboot 1.0 firmware",		/* 10 */
     };
     if (tag >= bsdptag_first_e && tag <= bsdptag_last_e)
 	return (names[tag]);
-    return (NULL);
+    return ("<unknown>");
 }
 
 typedef enum {
@@ -127,3 +231,4 @@ bsdp_parse_class_id(void * buf, int buf_len, unsigned char * arch,
     return (TRUE);
 }
 
+#endif _S_BSDP_H

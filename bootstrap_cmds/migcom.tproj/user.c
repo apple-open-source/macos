@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +47,7 @@
  * rights to redistribute these changes.
  */
 
+#include <stdlib.h>
 #include <assert.h>
 
 #include <mach/message.h>
@@ -75,7 +76,7 @@ WriteKPD_Iterator(file, in, overwrite, varying, arg, bracket)
     char string[MAX_STR_LEN];
 
     fprintf(file, "\t{\n");
-    fprintf(file, "\t    register\t%s\t*ptr;\n", it->itUserKPDType);
+    fprintf(file, "\t    register\t%s\t*ptr;\n", it->itKPDType);
     fprintf(file, "\t    register int\ti");
     if (varying && !in)
 	fprintf(file, ", j");
@@ -510,13 +511,12 @@ WriteMsgSend(file, rt)
 	fprintf(file, "&InP->Head, %s);\n", SendSize);
 	fprintf(file, "#else\n");
     }
-    fprintf(file, "\tmsg_result = mach_msg_overwrite("
-	    "&InP->Head, MACH_SEND_MSG|%s%s, %s, 0, MACH_PORT_NULL, %s, MACH_PORT_NULL,",
+    fprintf(file, "\tmsg_result = mach_msg("
+	    "&InP->Head, MACH_SEND_MSG|%s%s, %s, 0, MACH_PORT_NULL, %s, MACH_PORT_NULL);\n",
 	    rt->rtMsgOption->argVarName,
 	    rt->rtWaitTime !=argNULL ? "|MACH_SEND_TIMEOUT" : "",
 	    SendSize,
 	    rt->rtWaitTime != argNULL ? rt->rtWaitTime->argVarName:"MACH_MSG_TIMEOUT_NONE");
-    fprintf(file, " (mach_msg_header_t *) 0, 0);\n");
     if (IsKernelUser)
     {
       fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
@@ -582,22 +582,19 @@ WriteMsgSendReceive(file, rt)
     }
 
     /* IsKernelUser to be done! */
-    fprintf(file, "\tmsg_result = mach_msg_overwrite(&InP->Head, MACH_SEND_MSG|%s, %s, 0, ",
+    fprintf(file, "\tmsg_result = mach_msg(&InP->Head, MACH_SEND_MSG|%s, %s, 0, ",
 	    rt->rtMsgOption->argVarName,
 	    SendSize);
-    fprintf(file, " MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL,");
-    fprintf(file, " (mach_msg_header_t *) 0, 0);\n");
-
+    fprintf(file, " MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);\n");
     fprintf(file, "\tif (msg_result != MACH_MSG_SUCCESS)\n");
     WriteReturnMsgError(file, rt, TRUE, argNULL, "msg_result");
     fprintf(file, "\n");
 
-    fprintf(file, "\tmsg_result = mach_msg_overwrite(&Out0P->Head, MACH_RCV_MSG|%s%s%s, 0, sizeof(Reply), InP->Head.msgh_local_port, %s, MACH_PORT_NULL, ",
+    fprintf(file, "\tmsg_result = mach_msg(&Out0P->Head, MACH_RCV_MSG|%s%s%s, 0, sizeof(Reply), InP->Head.msgh_local_port, %s, MACH_PORT_NULL);\n",
 	    rt->rtMsgOption->argVarName,
 	    rt->rtUserImpl != 0 ? "|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)" : "",
 	    rt->rtWaitTime != argNULL ? "|MACH_RCV_TIMEOUT" : "",
 	    rt->rtWaitTime != argNULL ? rt->rtWaitTime->argVarName : "MACH_MSG_TIMEOUT_NONE");
-    fprintf(file, " (mach_msg_header_t *) 0, 0);\n");
     WriteApplMacro(file, "Send", "After", rt);
     WriteMsgCheckReceive(file, rt, "MACH_MSG_SUCCESS");
     fprintf(file, "\n");
@@ -632,17 +629,22 @@ WriteMsgRPC(file, rt)
 	fprintf(file, "\tmsg_result = mach_msg_rpc_from_kernel(&InP->Head, %s, sizeof(Reply));\n", SendSize);
 	fprintf(file, "#else\n");
     }
-    fprintf(file, "\tmsg_result = mach_msg_overwrite(&InP->Head, MACH_SEND_MSG|MACH_RCV_MSG|%s%s%s%s, %s, sizeof(Reply), InP->Head.msgh_reply_port, %s, MACH_PORT_NULL, ",
+    if (rt->rtOverwrite) {
+      fprintf(file, "\tmsg_result = mach_msg_overwrite(&InP->Head, MACH_SEND_MSG|MACH_RCV_MSG|MACH_RCV_OVERWRITE%s%s%s, %s, sizeof(Reply), InP->Head.msgh_reply_port, %s, MACH_PORT_NULL, ",
 	    rt->rtMsgOption->argVarName,
 	    rt->rtUserImpl != 0 ? "|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)" : "",
-	    rt->rtOverwrite ? "|MACH_RCV_OVERWRITE" : "",
 	    rt->rtWaitTime != argNULL ? "|MACH_RCV_TIMEOUT" : "",
 	    SendSize,
 	    rt->rtWaitTime != argNULL? rt->rtWaitTime->argVarName : "MACH_MSG_TIMEOUT_NONE");
-    if (rt->rtOverwrite)
         fprintf(file, " &InOvTemplate->Head, sizeof(OverwriteTemplate));\n");
-    else
-        fprintf(file, " (mach_msg_header_t *) 0, 0);\n");
+    } else {
+      fprintf(file, "\tmsg_result = mach_msg(&InP->Head, MACH_SEND_MSG|MACH_RCV_MSG|%s%s%s, %s, sizeof(Reply), InP->Head.msgh_reply_port, %s, MACH_PORT_NULL);\n",
+	    rt->rtMsgOption->argVarName,
+	    rt->rtUserImpl != 0 ? "|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)" : "",
+	    rt->rtWaitTime != argNULL ? "|MACH_RCV_TIMEOUT" : "",
+	    SendSize,
+	    rt->rtWaitTime != argNULL? rt->rtWaitTime->argVarName : "MACH_MSG_TIMEOUT_NONE");
+    }
     if (IsKernelUser)
       fprintf(file,"#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
     WriteApplMacro(file, "Send", "After", rt);
@@ -1949,7 +1951,7 @@ WriteFieldDecl(file, arg)
 {
     if (akCheck(arg->argKind, akbSendKPD) ||
 	akCheck(arg->argKind, akbReturnKPD))
-	    WriteFieldDeclPrim(file, arg, FetchUserKPDType);
+    	WriteFieldDeclPrim(file, arg, FetchKPDType);
     else
 	WriteFieldDeclPrim(file, arg, FetchUserType);
 }
@@ -2068,7 +2070,8 @@ WriteRPCRoutineDescriptor(file, rt, arg_count, descr_count,
 {
     fprintf(file, "          { (mig_impl_routine_t) 0,\n\
             (mig_stub_routine_t) %s, ", stub_routine);
-    fprintf(file, "%d, %d, %s }", arg_count, descr_count, sig_array);
+    fprintf(file, "%d, %d, %s}", arg_count,
+            descr_count, sig_array);
 }
 
 void
@@ -2115,11 +2118,11 @@ WriteRPCSignature(file, rt)
     fprintf(file, "    kern_return_t rtn;\n");
     descr_count = rtCountArgDescriptors(rt->rtArgs, &arg_count);
     fprintf(file, "    const static struct\n    {\n");
-    fprintf(file, "        struct routine_descriptor rd;\n");
-    fprintf(file, "        struct routine_arg_descriptor rad[%d];\n", descr_count);
+    fprintf(file, "        struct rpc_routine_descriptor rd;\n");
+    fprintf(file, "        struct rpc_routine_arg_descriptor rad[%d];\n", descr_count);
     fprintf(file, "    } sig =\n    {\n");
     WriteRPCRoutineDescriptor(file, rt, arg_count, descr_count,
-			      "0", "0", "sig.rad");
+			      "0", "sig.rad, 0");
     fprintf(file, ",\n");
     fprintf(file, "        {\n");
     WriteRPCRoutineArgDescriptor(file, rt);
@@ -2808,13 +2811,13 @@ WriteRoutine(file, rt)
 
 	WriteCheckIdentity(file, rt);
         if (rt->rtUserImpl)
-	    WriteCheckTrailerHead(file, TRUE);	
+	    WriteCheckTrailerHead(file, rt, TRUE);	
 
 	/* If the reply message has no Out parameters or return values
 	   other than the return code, we can type-check it and
 	   return it directly. */
 
-	if (rt->rtNoReplyArgs) 
+	if (rt->rtNoReplyArgs && !rt->rtUserImpl) 
 	    WriteReturn(file, rt, "\t", stRetCode, "\n");
 	else {
 	    if (UseEventLogger)

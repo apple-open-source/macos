@@ -128,6 +128,37 @@ static void nullAlgParams(
 	snaccAlgId.parameters->value = cbuf;
 }
 
+/*
+ * int --> BigIntegerStr
+ */
+void snaccIntToBigIntegerStr(
+	int i,
+	BigIntegerStr &bigInt)
+{
+	char c[4];
+	int dex;
+	int numChars;
+	
+	if(i >= 0x1000000) {
+		numChars = 4;
+	}
+	else if(i > 0x10000) {
+		numChars = 3;
+	}	
+	else if(i > 0x100) {
+		numChars = 2;
+	}
+	else {
+		numChars = 1;
+	}
+	/* i ==> DER */
+	for(dex=numChars-1; dex>=0; dex--) {
+		c[dex] = i & 0xff;
+		i >>= 8;
+	}
+	
+	bigInt.ReSet(c, 4);
+}
 
 /*
  * Replacements for d2i_RSAPublicKey, etc. 
@@ -635,3 +666,90 @@ CSSM_RETURN DSASigDecode(
 	}
 	return 0;
 }
+
+CSSM_RETURN DHPrivateKeyDecode(
+	DH	 			*openKey, 
+	unsigned char 	*p, 
+	unsigned 		length)
+{
+	DHPrivateKey snaccPrivKey;
+	CssmData cData(p, length);
+	try {
+		SC_decodeAsnObj(cData, snaccPrivKey);
+	}
+	catch(...) {
+		return CSSMERR_CSP_INVALID_KEY;
+	}
+	
+	/* verify alg identifier */
+	if(snaccPrivKey.dHOid != dhKeyAgreement) {
+		sslSnaccDebug("DHPrivateKeyDecode: bad privateKeyAlgorithm");
+		return CSSMERR_CSP_ALGID_MISMATCH;
+	}
+
+	DHParameter	*params = snaccPrivKey.params;
+	if(params == NULL) {
+		/* not optional */
+		sslSnaccDebug("DHPrivateKeyDecode: missing key params");
+		return CSSMERR_CSP_INVALID_KEY;
+	}
+	
+	/* convert snaccPrivKey fields to DH key fields */
+	try {
+		openKey->priv_key = bigIntStrToBn(snaccPrivKey.secretPart);
+		openKey->p	      = bigIntStrToBn(params->prime);
+		openKey->g 	      = bigIntStrToBn(params->base);
+		/* TBD - ignore privateValueLength for now */
+	}
+	catch(...) {
+		/* FIXME - bad sig? memory? */
+		return CSSMERR_CSP_MEMORY_ERROR;
+	}
+	return 0;
+}
+
+CSSM_RETURN	DHPrivateKeyEncode(
+	DH	 			*openKey, 
+	CssmOwnedData	&encodedKey)
+{
+	/* First convert into a snacc-style private key */
+	DHPrivateKey snaccPrivKey;
+	snaccPrivKey.params = new DHParameter;
+	DHParameter *params = snaccPrivKey.params;
+	
+	try {
+		snaccPrivKey.dHOid.Set(dhKeyAgreement_arc);
+		bnToBigIntStr(openKey->priv_key, snaccPrivKey.secretPart);
+		bnToBigIntStr(openKey->p, params->prime);
+		bnToBigIntStr(openKey->g, params->base);
+		if(openKey->length) {
+			/* actually currently not supported */
+			params->privateValueLength = new BigIntegerStr();
+			snaccIntToBigIntegerStr(openKey->length, *params->privateValueLength);
+		}
+	}
+	catch(...) {
+		/* ? */
+		return CSSMERR_CSP_MEMORY_ERROR;
+	}
+	
+	/* conservative guess for max size of encoded key */
+	unsigned maxSize = sizeofBigInt(snaccPrivKey.secretPart) +
+					   sizeofBigInt(params->prime) +
+					   sizeofBigInt(params->base) +
+					   60;		// includes dHOid, tags, lenghts
+	if(openKey->length) {
+		maxSize += sizeofBigInt(*params->privateValueLength);
+	}
+					   
+	/* DER encode */
+	try {
+		SC_encodeAsnObj(snaccPrivKey, encodedKey, maxSize);
+	}
+	catch(...) {
+		/* ? */
+		return CSSMERR_CSP_MEMORY_ERROR;
+	}
+	return 0;
+}
+

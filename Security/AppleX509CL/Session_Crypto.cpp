@@ -28,6 +28,7 @@
 #include "SnaccUtils.h"
 #include "cldebugging.h"
 #include "CSPAttacher.h"
+#include "CertBuilder.h"
 #include <Security/oidscert.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmerrno.h>
@@ -169,7 +170,7 @@ AppleX509CLSession::CertVerify(
 		if(context != NULL) {
 			CSSM_FreeContext(context);
 		}
-		DecodedCert::freeCSSMKey(signerPubKey, *this);
+		CL_freeCSSMKey(signerPubKey, *this);
 		if(ourCcHand != CSSM_INVALID_HANDLE) {
 			CSSM_DeleteContext(ourCcHand);
 		}
@@ -178,7 +179,7 @@ AppleX509CLSession::CertVerify(
 	if(context != NULL) {
 		CSSM_FreeContext(context);
 	}
-	DecodedCert::freeCSSMKey(signerPubKey, *this);
+	CL_freeCSSMKey(signerPubKey, *this);
 	if(ourCcHand != CSSM_INVALID_HANDLE) {
 		CSSM_DeleteContext(ourCcHand);
 	}
@@ -308,5 +309,4 @@ void AppleX509CLSession::verifyData(
 		}
 	}
 }
-
 

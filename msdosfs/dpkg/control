@@ -1,0 +1,4 @@
+Package: msdosfs
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: MSDOS filesystem
+Build-Depends: libsystem, cctools, gcc, files, zsh, jam, file-cmds, text-cmds, shell-cmds, system-cmds, xnu, grep, architecture, csu, diskdev-cmds, corefoundation, carbonheaders

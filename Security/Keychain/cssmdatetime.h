@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 1997-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,27 +17,12 @@
 
 
 /*
-	File:		cssmdatetime.h
-
-	Contains:	defines for the CSSM date and time utilities for the Mac
-
-	Written by:	The Hindsight team
-
-	Copyright:	© 1997-2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-	To Do:
-*/
-
-#ifndef _CSSM_DATE_TIME_UTILS
-#define _CSSM_DATE_TIME_UTILS
+ *  cssmdatetime.h -- defines for the CSSM date and time utilities for the Mac
+ */
+#ifndef _SECURITY_CSSMDATETIME_H_
+#define _SECURITY_CSSMDATETIME_H_
 
 #include <Security/cssm.h>
-
-#ifdef _CPP_CSSM_DATE_TIME_UTILS
-# pragma export on
-#endif
 
 namespace Security
 {
@@ -56,12 +41,9 @@ extern void TimeStringToMacLongDateTime(const CSSM_DATA &inUTCTime, SInt64 &outM
 extern void MacSecondsToTimeString(UInt32 inMacDate, UInt32 inLength, void *outData);
 extern void MacLongDateTimeToTimeString(const SInt64 &inMacDate,
                                         UInt32 inLength, void *outData);
-}; // end namespace CSSMDateTimeUtils
+
+} // end namespace CSSMDateTimeUtils
 
 } // end namespace Security
 
-#ifdef _CPP_CSSM_DATE_TIME_UTILS
-# pragma export off
-#endif
-
-#endif //_CSSM_DATE_TIME_UTILS
+#endif // !_SECURITY_CSSMDATETIME_H_

@@ -60,11 +60,16 @@ We will probably delete this variable in a future Emacs version
 unless we get a substantial number of complaints about the auto-wrap
 feature.")
 
+(defvar skeleton-end-newline t
+  "If non-nil, make sure that the skeleton inserted ends with a newline.
+This just influences the way the default `skeleton-end-hook' behaves.")
+
 (defvar skeleton-end-hook
   (lambda ()
-    (or (eolp) (newline-and-indent)))
+    (or (eolp) (not skeleton-end-newline) (newline-and-indent)))
   "Hook called at end of skeleton but before going to point of interest.
-By default this moves out anything following to next line.
+By default this moves out anything following to next line,
+  unless `skeleton-end-newline' is set to nil.
 The variables `v1' and `v2' are still set when calling this.")
 
 
@@ -256,14 +261,17 @@ If ELEMENT is a string or a character it gets inserted (see also
 `skeleton-transformation').  Other possibilities are:
 
 	\\n	go to next line and indent according to mode
-	_	interesting point, interregion here, point after termination
+	_	interesting point, interregion here
 	>	indent line (or interregion if > _) according to major mode
 	@	add position to `skeleton-positions'
-	&	do next ELEMENT if previous moved point
-	|	do next ELEMENT if previous didn't move point
+	&	do next ELEMENT iff previous moved point
+	|	do next ELEMENT iff previous didn't move point
 	-num	delete num preceding characters (see `skeleton-untabify')
 	resume:	skipped, continue here if quit is signaled
 	nil	skipped
+
+After termination, point will be positioned at the first occurrence
+of _ or @ or at the end of the inserted text.
 
 Further elements can be defined via `skeleton-further-elements'.  ELEMENT may
 itself be a SKELETON with an INTERACTOR.  The user is prompted repeatedly for
@@ -375,6 +383,9 @@ automatically, and you are prompted to fill in the variable parts.")))
 	 opoint)
     (or str
 	(setq str `(setq str (skeleton-read ',(car skeleton) nil ,recursive))))
+    (when (and (eq (cadr skeleton) '\n)
+	       (<= (current-column) (current-indentation)))
+      (setq skeleton (cons nil (cons '> (cddr skeleton)))))
     (while (setq skeleton-modified (eq opoint (point))
 		 opoint (point)
 		 skeleton (cdr skeleton))
@@ -412,21 +423,20 @@ automatically, and you are prompted to fill in the variable parts.")))
 				      (funcall skeleton-transformation element)
 				    element))))
 	((eq element '\n)		; actually (eq '\n 'n)
-	 (if (and skeleton-regions
-		  (eq (nth 1 skeleton) '_))
-	     (progn
-	       (or (eolp)
-		   (newline))
-	       (indent-region (point) (car skeleton-regions) nil))
-	   (if skeleton-newline-indent-rigidly
-	       (indent-to (prog1 (current-indentation)
-			    (newline)))
-	     (newline)
-	     (indent-according-to-mode))))
+	 (cond
+	  ((and skeleton-regions (eq (nth 1 skeleton) '_))
+	   (or (eolp) (newline))
+	   (indent-region (line-beginning-position)
+			  (car skeleton-regions) nil))
+	  ;; \n as last element only inserts \n if not at eol.
+	  ((and (null (cdr skeleton)) (eolp)) nil)
+	  (skeleton-newline-indent-rigidly
+	   (indent-to (prog1 (current-indentation) (newline))))
+	  (t (newline) (indent-according-to-mode))))
 	((eq element '>)
-	 (if (and skeleton-regions
-		  (eq (nth 1 skeleton) '_))
-	     (indent-region (point) (car skeleton-regions) nil)
+	 (if (and skeleton-regions (eq (nth 1 skeleton) '_))
+	     (indent-region (line-beginning-position)
+			    (car skeleton-regions) nil)
 	   (indent-according-to-mode)))
 	((eq element '_)
 	 (if skeleton-regions
@@ -439,13 +449,12 @@ automatically, and you are prompted to fill in the variable parts.")))
 	   (or skeleton-point
 	       (setq skeleton-point (point)))))
 	((eq element '&)
-	 (if skeleton-modified
-	     (setq skeleton (cdr skeleton))))
+	 (when skeleton-modified (pop skeleton)))
 	((eq element '|)
-	 (or skeleton-modified
-	     (setq skeleton (cdr skeleton))))
+	 (unless skeleton-modified (pop skeleton)))
 	((eq element '@)
-	 (setq skeleton-positions (cons (point) skeleton-positions)))
+	 (push (point) skeleton-positions)
+	 (unless skeleton-point (setq skeleton-point (point))))
 	((eq 'quote (car-safe element))
 	 (eval (nth 1 element)))
 	((or (stringp (car-safe element))
@@ -471,7 +480,7 @@ automatically, and you are prompted to fill in the variable parts.")))
 ;;		   t)
 ;;  '(save-excursion
 ;;     (if (re-search-forward page-delimiter nil t)
-;;	 (error "Not on last page.")))
+;;	 (error "Not on last page")))
 ;;  comment-start "Local Variables:" comment-end \n
 ;;  comment-start "mode: " str
 ;;  & -5 | '(kill-line 0) & -1 | comment-end \n
@@ -500,7 +509,7 @@ will attempt to insert pairs of matching characters.")
   "*If this is nil, paired insertion is inhibited before or inside a word.")
 
 
-(defvar skeleton-pair-filter (lambda ())
+(defvar skeleton-pair-filter (lambda () nil)
   "Attempt paired insertion if this function returns nil, before inserting.
 This allows for context-sensitive checking whether pairing is appropriate.")
 
@@ -521,6 +530,8 @@ With no ARG, if `skeleton-pair' is non-nil, pairing can occur.  If the region
 is visible the pair is wrapped around it depending on `skeleton-autowrap'.
 Else, if `skeleton-pair-on-word' is non-nil or we are not before or inside a
 word, and if `skeleton-pair-filter' returns nil, pairing is performed.
+Pairing is also prohibited if we are right after a quoting character
+such as backslash.
 
 If a match is found in `skeleton-pair-alist', that is inserted, else
 the defaults are used.  These are (), [], {}, <> and `' for the
@@ -532,6 +543,7 @@ symmetrical ones, and the same character twice for the others."
 	(skeleton-end-hook))
     (if (or arg
 	    (not skeleton-pair)
+	    (memq (char-syntax (preceding-char)) '(?\\ ?/))
 	    (and (not mark)
 		 (or overwrite-mode
 		     (if (not skeleton-pair-on-word) (looking-at "\\w"))
@@ -595,4 +607,4 @@ symmetrical ones, and the same character twice for the others."
 
 (provide 'skeleton)
 
-;; skeleton.el ends here
+;;; skeleton.el ends here

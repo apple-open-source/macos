@@ -1,5 +1,5 @@
 # Pod::Text -- Convert POD data to formatted ASCII text.
-# $Id: Text.pm,v 1.1.1.4 2000/03/31 05:11:59 wsanchez Exp $
+# $Id: Text.pm,v 1.2 2002/03/14 08:59:08 zarzycki Exp $
 #
 # Copyright 1999 by Russ Allbery <rra@stanford.edu>
 #
@@ -33,7 +33,7 @@ use vars qw(@ISA @EXPORT %ESCAPES $VERSION);
 # We have to export pod2text for backward compatibility.
 @EXPORT = qw(pod2text);
 
-($VERSION = (split (' ', q$Revision: 1.1.1.4 $ ))[1]) =~ s/\.(\d)$/.0$1/;
+($VERSION = (split (' ', q$Revision: 1.2 $ ))[1]) =~ s/\.(\d)$/.0$1/;
 
 
 ############################################################################

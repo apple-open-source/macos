@@ -65,7 +65,9 @@ extern int gDebug;
 						(x)==kDiskStateNewlyEjected ? "NewlyEjected" : \
 						(x)==kDiskStateToBeUnmounted ? "ToBeUnmounted" : \
 						(x)==kDiskStateToBeEjected ? "ToBeEjected" : \
-						(x)==kDiskStateToBeUnmountedAndEjected ? "ToBeUnmountedAndEjected" : \
+(x)==kDiskStateToBeUnmountedAndEjected ? "ToBeUnmountedAndEjected" : \
+(x)==kDiskStateWaitingForMountApproval ? "WaitingForMountApproval" : \
+(x)==kDiskStateMountApprovalDenied ? "ApprovalDenied" : \
 						"<UNKNOWN>"
 
 #define STR(x)			(x) ? (x) : "(null)"
@@ -119,6 +121,7 @@ ClientPtr LookupClientByPID( pid_t pid );
 ClientPtr LookupClientByMachPort( mach_port_t port );
 
 unsigned NumClientsDesiringAsyncNotification( void );
+unsigned NumClientsDesiringAsyncNotificationOfType( int type );
 
 //------------------------------------------------------------------------
 
@@ -173,9 +176,11 @@ enum DiskState {
 	kDiskStateNewlyEjected,				/* newly ejected - need to send post-eject notifications to interested clients */
 	kDiskStateToBeUnmounted,			/* to be unmounted - waiting for pre-unmount acknowledgements from interested clients */
 	kDiskStateToBeEjected,				/* to be ejected - waiting for pre-eject acknowledgements from interested clients */
-    	kDiskStateToBeUnmountedAndEjected,		/* to be unmounted then ejected - waiting for pre-unmount acknowledgements from interested clients */
-    	kDiskStateUnrecognized,				/* unrecognized disks can now be ignored */
-        kDiskStatePostponed,				/* Disk has appeared, but we aren't yet ready to process it */
+    kDiskStateToBeUnmountedAndEjected,		/* to be unmounted then ejected - waiting for pre-unmount acknowledgements from interested clients */
+    kDiskStateUnrecognized,				/* unrecognized disks can now be ignored */
+    kDiskStatePostponed,				/* Disk has appeared, but we aren't yet ready to process it */
+    kDiskStateWaitingForMountApproval,
+    kDiskStateMountApprovalDenied,
 };
 
 typedef enum DiskState DiskState;
@@ -192,30 +197,36 @@ enum DiskFamily {
 typedef enum DiskFamily DiskFamily;
 
 struct Disk {
-	struct Disk *		next;
-	char *			ioBSDName;
-	int			ioBSDUnit;
-	char *			ioContent;
+        struct Disk *		next;
+        char *			ioBSDName;
+        int			ioBSDUnit;
+        char *			ioContent;
         char *			ioMediaNameOrNull;
         char *			ioDeviceTreePath;
-	char *			mountpoint;
+        char *			mountpoint;
         char *			mountedFilesystemName;
-	DiskFamily		family;
-	unsigned		flags;
-	int			sequenceNumber; // -1 if not applicable, i.e., not mounted
-	DiskState		state;
-	AckValues	*	ackValues; // NULL, except while processing an unmount/eject request
+        DiskFamily		family;
+        unsigned		flags;
+        int			sequenceNumber; // -1 if not applicable, i.e., not mounted
+        DiskState		state;
+        AckValues	*	ackValues; // NULL, except while processing an unmount/eject request
         int			mountedUser;
         io_object_t		service;
         int			retainingClient;	// gets set when a client retains, 0 when no one retains, only useful to whole disks
         ClientPtr		lastClientAttemptedForUnrecognizedMessages;
-
+        UInt64			ioSize;
         unsigned int		wholeDiskContainsMountedChild:1;  // only useful to whole disks
         unsigned int		wholeDiskHasBeenYanked:1; 	// only useful to the whole disk
         unsigned int		mountAttempted:1;		// gets set when no user is logged in, in "client" mode
         unsigned int		admCreatedMountPoint:1;		// gets set if adm creates the mountpoint - should alleviate problems with deleting someone elses mounts 
 
-        unsigned int		ejectOnLogout:1;		// only gets set from a property in the ioregistry for a mounted disk image 
+        unsigned int		ejectOnLogout:1;		// only gets set from a property in the ioregistry for a mounted disk image
+        unsigned int		forceTakeOwnershipOnDisk:1; // gets set from mount and own being true
+        unsigned int		approvedForMounting:1; // gets set from mount and own being true
+
+        double			timeAppeared;  // When did we (adm) first see this diskPtr?
+        char *			volName;	// what is the real name on the disk so that apps don't have to probe
+        unsigned int		unmountOrEjectRequestorUID;
 
 };
 
@@ -228,7 +239,6 @@ typedef struct Disk * DiskPtr;
 // if there are any such disks.
 // Otherwise returns kDiskStateIdle
 
-DiskState AreWeBusy( void );
 DiskState AreWeBusyForDisk( DiskPtr diskPtr );
 
 //------------------------------------------------------------------------
@@ -242,13 +252,15 @@ DiskPtr NewDisk(	char * ioBSDName,
 					char * ioDeviceTreePathOrNull,
                                         io_object_t	service,
                                         int	mountingUIDFromDevice,
-					unsigned flags );
+					unsigned flags,
+					UInt64 size );
 
 void FreeDisk( DiskPtr diskPtr );
 
 void PrintDisks(void);
 
 void DiskSetMountpoint( DiskPtr diskPtr, const char * mountpoint );
+void DiskSetVolumeName( DiskPtr diskPtr, const char * volName );
 
 DiskPtr LookupDiskByIOBSDName( char * ioBSDName );
 
@@ -276,8 +288,9 @@ boolean_t IsNetwork( DiskPtr diskPtr );
 
 //------------------------------------------------------------------------
 
-void PrepareToSendPreUnmountMsgs( void );
-void PrepareToSendPreEjectMsgs( void );
+void PrepareToSendPreUnmountMsgs( );
+void PrepareToSendPreEjectMsgs( );
+void PrepareToSendPreMountMsgsForDisk( DiskPtr diskPtr );
 
 void SendUnrecognizedDiskMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole );
 void SendUnrecognizedDiskArbitrationMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole, int diskType );
@@ -285,11 +298,14 @@ void SendUnrecognizedDiskArbitrationMsgs(mach_port_t port, char *devname, char *
 void SendDiskChangedMsgs(char *devname, char *newMountpoint, char *newVolumeName, int flags, int success);
 
 void SendDiskWillBeCheckedMessages( DiskPtr disk );
+
 void SendCallFailedMessage(ClientPtr clientPtr, DiskPtr diskPtr, int failedType, int error);
+void SendCallSucceededMessage(ClientPtr clientPtr, DiskPtr diskPtr, int succeededType);
+
 int SendDiskAppearedMsgs( void );
-void SendUnmountCommitMsgs( void );
-void SendPreUnmountMsgs( void );
-void SendPreEjectMsgs( void );
+void SendPreMountMsgsForDisk( DiskPtr diskPtr );
+void SendPreUnmountMsgsForDisk( DiskPtr diskPtr );
+void SendPreEjectMsgsForDisk( DiskPtr diskPtr );
 void SendUnmountPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, pid_t pid );
 void SendEjectPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, pid_t pid );
 void SendEjectPostNotifyMsgsForAllPartitions( DiskPtr diskPtr, int errorCode, pid_t pid );
@@ -298,11 +314,14 @@ void SendCompletedMsgs( int messageType, int newDisks );
 
 void SendClientWasDisconnectedMsg(ClientPtr Client);
 
-void CompleteEject( void );
-void CompleteUnmount( void );
+void CompleteEjectForDisk( DiskPtr diskPtr );
+void CompleteUnmountForDisk( DiskPtr diskPtr );
 
 char *mountPath( void );
-void cleanUpAfterFork(void);
+void cleanUpAfterFork(int fdp[]);
+boolean_t
+do_exec(const char * dir, const char * argv[], int * result, char * * output);
+
 
 int requestingClientHasPermissionToModifyDisk(pid_t pid, DiskPtr diskPtr, char *right);
 
@@ -313,6 +332,8 @@ kern_return_t DiskArbUnmountAndEjectRequest_async_rpc (
 
 int DiskTypeForDisk(DiskPtr diskPtr);
 ClientPtr GetNextClientForDisk(DiskPtr diskPtr);
+
+int authorizationAllowedForEvent(ClientPtr client, char *event);
 
 //------------------------------------------------------------------------
 
@@ -327,14 +348,40 @@ typedef struct {
     boolean_t	debug;
     DiskPtr	Disks;
     unsigned	NumDisks;
-    int		NumDisksAddedOrDeleted; // incremented each time a disk is added or removed as a flag for debug output
+    int			NumDisksAddedOrDeleted; // incremented each time a disk is added or removed as a flag for debug output
     ClientPtr	Clients;
     unsigned	NumClients;
+    int 		readOnlyBoot;
 } GlobalStruct;
 
 extern GlobalStruct g;
 
 #define INTERNAL_MSG		10  // some random number I picked :)
+
+//------------------------------------------------------------------------
+
+// this structure's parts are significantly overloaded - see each thread for actual usage ...
+
+typedef struct {
+    int			diskAppearedType;
+    mach_port_t	port;
+    char		*ioBSDName;		// stores volume for DiskChanged
+    unsigned	flags;
+    char		*mountpoint;		// stores newMountpoint for DiskChanged
+    int			pid;
+    char		*ioDeviceTreePath;
+    char		*ioContent;		// stores
+    int			sequenceNumber;
+    int			diskType;
+    int			isWritable;
+    int			isRemovable;
+    int			isWhole;
+    double		timeAppeared;
+    char 		*fsName;
+    char		*fsType;
+} DiskThreadRecord;
+
+DiskThreadRecord * NewDiskThreadRecord();
 
 //------------------------------------------------------------------------
 
@@ -357,11 +404,11 @@ extern CFStringRef mountOrFsckFailedWithDiskUtility;
 
 #define YANKED_MESSAGE CFSTR("")
 #define UNINITED_MESSAGE CFSTR("")
-#define UNINITED_HEADER CFSTR("You have inserted a disk containing no volumes that Mac OS X can read. To use the unreadable volumes, click Initialize. To continue with the disk inserted, click Continue.")
-#define UNINITED_HEADER_NO_INIT CFSTR("You have inserted a disk containing no volumes that Mac OS X can read.  To continue with the disk inserted, click Continue.")
-#define YANKED_HEADER CFSTR("The storage device that you just removed was not properly put away before being removed from this computer.  Data on writable volumes on the device may have been damaged or lost.  In the future, please put away the device (Choose its icon and Eject it or Drag it to trash) before removing the device.")
+#define UNINITED_HEADER CFSTR("You have inserted a disk containing no volumes that Mac OS X can read.  To use the unreadable volumes, click Initialize.  To continue with the disk inserted, click Ignore.")
+#define UNINITED_HEADER_NO_INIT CFSTR("You have inserted a disk containing no volumes that Mac OS X can read.  To continue with the disk inserted, click Ignore.")
+#define YANKED_HEADER CFSTR("The device you removed was not properly put away. Data might have been lost or damaged. Before disconnecting a device, you should select its icon in the Finder and choose Eject from the File menu.")
 #define EJECT_BUTTON CFSTR("Eject")
-#define IGNORE_BUTTON CFSTR("Continue")
+#define IGNORE_BUTTON CFSTR("Ignore")
 #define INIT_BUTTON CFSTR("Initialize...")
 #define LAUNCH_BUTTON CFSTR("Launch Disk Utility...")
 #define A_DISK CFSTR("A disk attempting to mount as ")

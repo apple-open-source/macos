@@ -42,6 +42,15 @@ void DigestContext::final(CssmData &data)
 	mDigest.digestFinal((UInt8 *)data.data());
 }
 
+CSPFullPluginSession::CSPContext *DigestContext::clone(CssmAllocator &)
+{
+	/* first clone the low-level digest object */
+	DigestObject *newDigest = mDigest.digestClone();
+	
+	/* now construct a new context */
+	return new DigestContext(session(), *newDigest);
+}
+
 size_t DigestContext::outputSize(bool, size_t) 
 {
 	return mDigest.digestSizeInBytes();

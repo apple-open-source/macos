@@ -1,5 +1,6 @@
 # Makefile for GNU Emacs.
-# Copyright (C) 1985, 87, 88, 93, 94, 95 Free Software Foundation, Inc.
+# Copyright (C) 1985, 87, 88, 93, 94, 95, 99, 2000, 2001
+# Free Software Foundation, Inc.
 
 # This file is part of GNU Emacs.
 
@@ -18,6 +19,14 @@
 # the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+
+# Note that this file is edited by msdos/sed1v2.inp for MSDOS.  That
+# script may need modifying in sync with changes made here.  Try to
+# avoid shell-ism because the DOS build has to use the DOS shell.
+
+# Don't try to replace the ccp processing using autoconf facilities,
+# says rms.
+
 # Here are the things that we expect ../configure to edit.
 # We use $(srcdir) explicitly in dependencies so as not to depend on VPATH.
 srcdir=@srcdir@
@@ -31,6 +40,10 @@ LN_S=@LN_S@
 # Substitute an assignment for the MAKE variable, because
 # BSD doesn't have it as a default.
 @SET_MAKE@
+# Don't use LIBS.  configure puts stuff in it that either shouldn't be
+# linked with Emacs or is duplicated by the cpp stuff below.
+# LIBS = @LIBS@
+LIBOBJS = @LIBOBJS@
 
 # On Xenix and the IBM RS6000, double-dot gets screwed up.
 dot = .
@@ -127,11 +140,7 @@ CC = C_COMPILER
 #endif
 
 #ifndef LIB_MATH
-# ifdef LISP_FLOAT_TYPE
 #  define LIB_MATH -lm
-# else /* ! defined (LISP_FLOAT_TYPE) */
-#  define LIB_MATH
-# endif /* ! defined (LISP_FLOAT_TYPE) */
 #endif /* LIB_MATH */
 
 /* Some s/SYSTEM.h files define this to request special switches in ld.  */
@@ -236,23 +245,6 @@ STARTFILES = START_FILES
 #define C_SWITCH_ASM
 #endif
 
-/* Figure out whether the system cpp can handle long names.
-   Do it by testing it right now.
-   If it loses, arrange to use the GNU cpp.  */
-
-#define LONGNAMEBBBFOOX
-#ifdef LONGNAMEBBBARFOOX
-/* Installed cpp fails to distinguish those names!  */
-/* Arrange to compile the GNU cpp later on */
-#define NEED_CPP
-/* Cause cc to invoke the cpp that comes with Emacs,
-   which will be in a file named localcpp.  */
-MYCPPFLAG= -Blocal
-/* LOCALCPP is the local one or nothing.
-   CPP is the local one or the standard one.  */
-LOCALCPP= localcpp
-#endif /* ! defined (LONGNAMEBBBARFOOX) */
-
 #ifdef USE_X_TOOLKIT
 #define USE_@X_TOOLKIT_TYPE@
 TOOLKIT_DEFINES = -DUSE_@X_TOOLKIT_TYPE@
@@ -329,7 +321,11 @@ LIBXMENU=
 #ifdef USE_X_TOOLKIT
 #define @X_TOOLKIT_TYPE@
 #if defined (LUCID) || defined (ATHENA)
+#if HAVE_XAW3D
+LIBW= -lXaw3d
+#else
 LIBW= -lXaw
+#endif
 #endif
 #ifdef MOTIF
 #if defined (HAVE_MOTIF_2_1) && defined (HAVE_LIBXP)
@@ -372,15 +368,57 @@ LIBXT= $(LIBW) LIBXMU -lXt $(LIBXTR6) -lXext
 LIBXT=
 #endif /* not USE_X_TOOLKIT */
 
+#if HAVE_XPM
+#ifndef LIBXPM
+#define LIBXPM -lXpm
+#endif /* not defined LIBXPM */
+#else /* not HAVE_XPM */
+#define LIBXPM
+#endif /* not HAVE_XPM */
+
+#if HAVE_JPEG
+#ifndef LIBJPEG
+#define LIBJPEG -ljpeg
+#endif /* not defined LIBJPEG */
+#else /* not HAVE_JPEG */
+#define LIBJPEG
+#endif /* not HAVE_JPEG */
+
+#if HAVE_PNG
+#ifndef LIBPNG
+#define LIBPNG -lpng -lz -lm
+#endif /* not defined LIBPNG */
+#else /* not HAVE_PNG */
+#define LIBPNG
+#endif /* not HAVE_PNG */
+
+#if HAVE_TIFF
+#ifndef LIBTIFF
+#define LIBTIFF -ltiff
+#endif /* not defined LIBTIFF */
+#else /* not HAVE_TIFF */
+#define LIBTIFF
+#endif /* not HAVE_TIFF */
+
+#if HAVE_GIF
+#ifndef LIBGIF
+#define LIBGIF -lungif
+#endif /* not defined LIBGIF */
+#else /* not HAVE_GIF */
+#define LIBGIF
+#endif /* not HAVE_GIF */
+
 #ifdef HAVE_X11
 /* LD_SWITCH_X_DEFAULT comes after everything else that specifies
    options for where to find X libraries, but before those libraries.  */
 X11_LDFLAGS = LD_SWITCH_X_SITE LD_SWITCH_X_DEFAULT
-LIBX= $(LIBXMENU) $(X11_LDFLAGS) $(LIBXT) LIB_X11_LIB LIBX11_MACHINE LIBX11_SYSTEM
+LIBX= $(LIBXMENU) $(X11_LDFLAGS) $(LIBXT) LIBTIFF LIBJPEG LIBPNG LIBGIF LIBXPM LIB_X11_LIB LIBX11_MACHINE LIBX11_SYSTEM
 #else /* not HAVE_X11 */
 LIBX= $(LIBXMENU) LD_SWITCH_X_SITE -lX10 LIBX10_MACHINE LIBX10_SYSTEM
 #endif /* not HAVE_X11 */
 #endif /* not HAVE_X_WINDOWS */
+
+LIBSOUND= @LIBSOUND@
 
 #ifndef ORDINARY_LINK
 /* Fix linking if compiled with GCC.  */
@@ -476,34 +514,16 @@ ALL_LDFLAGS = LD_SWITCH_SYSTEM LD_SWITCH_SYSTEM_TEMACS LD_SWITCH_MACHINE \
 #define UNEXEC_SRC unexec.c
 #endif
 
-#ifdef USE_TEXT_PROPERTIES
-#define INTERVAL_SRC intervals.h
-#define INTERVAL_OBJ intervals.o textprop.o
-#else
-#define INTERVAL_SRC
-#define INTERVAL_OBJ
-#endif
+INTERVAL_SRC = intervals.h composite.h
 
-#ifdef HAVE_GETLOADAVG
-#define GETLOADAVG_OBJ
-#else
-#define GETLOADAVG_OBJ getloadavg.o
-#endif
-
-#if HAVE_MKTIME && ! BROKEN_MKTIME
-#define MKTIME_OBJ
-#else
-#define MKTIME_OBJ mktime.o
-#endif
+GETLOADAVG_LIBS = @GETLOADAVG_LIBS@
 
 #ifdef MSDOS
 #ifdef HAVE_X_WINDOWS
-#define MSDOS_OBJ dosfns.o msdos.o
+MSDOS_OBJ = dosfns.o msdos.o
 #else
-#define MSDOS_OBJ dosfns.o msdos.o w16select.o
+MSDOS_OBJ = dosfns.o msdos.o w16select.o
 #endif
-#else
-#define MSDOS_OBJ
 #endif
 
 
@@ -513,20 +533,21 @@ obj=    dispnew.o frame.o scroll.o xdisp.o xmenu.o window.o \
 	charset.o coding.o category.o ccl.o\
 	cm.o term.o xfaces.o $(XOBJ) \
 	emacs.o keyboard.o macros.o keymap.o sysdep.o \
-	buffer.o filelock.o insdel.o marker.o INTERVAL_OBJ \
+	buffer.o filelock.o insdel.o marker.o \
 	minibuf.o fileio.o dired.o filemode.o \
 	cmds.o casetab.o casefiddle.o indent.o search.o regex.o undo.o \
 	alloc.o data.o doc.o editfns.o callint.o \
 	eval.o floatfns.o fns.o print.o lread.o \
 	abbrev.o syntax.o UNEXEC mocklisp.o bytecode.o \
 	process.o callproc.o \
-	region-cache.o \
-	doprnt.o strftime.o MKTIME_OBJ GETLOADAVG_OBJ MSDOS_OBJ
+	region-cache.o sound.o atimer.o \
+	doprnt.o strftime.o intervals.o textprop.o composite.o md5.o \
+	$(MSDOS_OBJ)
 
 /* Object files used on some machine or other.
    These go in the DOC file on all machines
    in case they are needed there.  */
-SOME_MACHINE_OBJECTS = sunfns.o dosfns.o msdos.o intervals.o textprop.o \
+SOME_MACHINE_OBJECTS = sunfns.o dosfns.o msdos.o \
   xterm.o xfns.o xmenu.o xselect.o xrdb.o
 
 
@@ -581,31 +602,13 @@ widgetobj=
 
 /* define otherobj as list of object files that make-docfile
    should not be told about.  */
-otherobj= $(termcapobj) lastfile.o $(mallocobj) $(allocaobj) $(widgetobj)
-
-#ifdef HAVE_FACES
-#define FACE_SUPPORT ${lispsource}facemenu.elc
-#else
-#define FACE_SUPPORT
-#endif
-
-#ifdef LISP_FLOAT_TYPE
-#define FLOAT_SUPPORT ${lispsource}float-sup.elc
-#else
-#define FLOAT_SUPPORT
-#endif
+otherobj= $(termcapobj) lastfile.o $(mallocobj) $(allocaobj) $(widgetobj) $(LIBOBJS)
 
 #ifdef HAVE_MOUSE
 #define MOUSE_SUPPORT ${lispsource}mouse.elc \
   ${lispsource}select.elc ${lispsource}scroll-bar.elc
 #else
 #define MOUSE_SUPPORT
-#endif
-
-#ifdef HAVE_X_WINDOWS
-#define X_WINDOWS_SUPPORT
-#else
-#define X_WINDOWS_SUPPORT
 #endif
 
 #ifdef VMS
@@ -616,7 +619,9 @@ otherobj= $(termcapobj) lastfile.o $(mallocobj) $(allocaobj) $(widgetobj)
 
 #ifdef MSDOS
 #define MSDOS_SUPPORT ${lispsource}ls-lisp.elc ${lispsource}disp-table.elc \
- ${lispsource}dos-fns.elc ${lispsource}dos-w32.elc
+ ${lispsource}dos-fns.elc ${lispsource}dos-w32.elc ${lispsource}dos-vars.elc \
+ ${lispsource}international/ccl.elc ${lispsource}international/codepage.elc
+
 #else
 #define MSDOS_SUPPORT
 #endif
@@ -648,26 +653,34 @@ lisp= \
 	${lispsource}custom.elc \
 	${lispsource}emacs-lisp/lisp-mode.elc \
 	${lispsource}emacs-lisp/lisp.elc \
+	${lispsource}env.elc \
 	${lispsource}faces.elc \
 	${lispsource}files.elc \
 	${lispsource}format.elc \
-	FACE_SUPPORT \
+	${lispsource}facemenu.elc \
 	MOUSE_SUPPORT \
-	FLOAT_SUPPORT \
+	${lispsource}float-sup.elc \
 	${lispsource}frame.elc\
-	X_WINDOWS_SUPPORT \
 	${lispsource}help.elc \
 	${lispsource}indent.elc \
 	${lispsource}isearch.elc \
 	${lispsource}loadup.el \
 	${lispsource}loaddefs.el \
-	${lispsource}bindings.el \
+	${lispsource}bindings.elc \
 	${lispsource}map-ynp.elc \
 	${lispsource}menu-bar.elc \
 	${lispsource}international/mule.elc \
 	${lispsource}international/mule-conf.el \
 	${lispsource}international/mule-cmds.elc \
 	${lispsource}international/characters.elc \
+	${lispsource}international/utf-8.elc \
+	${lispsource}international/latin-1.el \
+	${lispsource}international/latin-2.el \
+	${lispsource}international/latin-3.el \
+	${lispsource}international/latin-4.el \
+	${lispsource}international/latin-5.el \
+	${lispsource}international/latin-8.el \
+	${lispsource}international/latin-9.el \
 	${lispsource}case-table.elc \
 	${lispsource}language/chinese.elc \
 	${lispsource}language/cyrillic.elc \
@@ -694,6 +707,7 @@ lisp= \
 	${lispsource}simple.elc \
 	${lispsource}startup.elc \
 	${lispsource}subr.elc \
+	${lispsource}term/tty-colors.elc \
 	${lispsource}textmodes/fill.elc \
 	${lispsource}textmodes/page.elc \
 	${lispsource}textmodes/paragraphs.elc \
@@ -717,22 +731,35 @@ shortlisp= \
 	../lisp/byte-run.elc \
 	../lisp/cus-start.el \
 	../lisp/custom.elc \
+	../lisp/emacs-lisp/backquote.elc \
 	../lisp/emacs-lisp/lisp-mode.elc \
 	../lisp/emacs-lisp/lisp.elc \
+	../lisp/facemenu.elc \
 	../lisp/faces.elc \
 	../lisp/files.elc \
+	../lisp/float-sup.elc \
 	../lisp/format.elc \
+	../lisp/frame.elc \
 	../lisp/help.elc \
 	../lisp/indent.elc \
 	../lisp/isearch.elc \
 	../lisp/loadup.el \
 	../lisp/loaddefs.el \
-	../lisp/bindings.el \
+	../lisp/bindings.elc \
 	../lisp/map-ynp.elc \
+	../lisp/env.elc \
 	../lisp/international/mule.elc \
 	../lisp/international/mule-conf.el \
 	../lisp/international/mule-cmds.elc \
 	../lisp/international/characters.elc \
+	../lisp/international/utf-8.elc \
+	../lisp/international/latin-1.el \
+	../lisp/international/latin-2.el \
+	../lisp/international/latin-3.el \
+	../lisp/international/latin-4.el \
+	../lisp/international/latin-5.el \
+	../lisp/international/latin-8.el \
+	../lisp/international/latin-9.el \
 	../lisp/case-table.elc \
 	../lisp/language/chinese.elc \
 	../lisp/language/cyrillic.elc \
@@ -753,12 +780,14 @@ shortlisp= \
 	../lisp/language/tibetan.elc \
 	../lisp/language/vietnamese.elc \
 	../lisp/language/misc-lang.elc \
+	../lisp/menu-bar.elc \
 	../lisp/paths.el \
 	../lisp/register.elc \
 	../lisp/replace.elc \
 	../lisp/simple.elc \
 	../lisp/startup.elc \
 	../lisp/subr.elc \
+	../lisp/term/tty-colors.elc \
 	../lisp/textmodes/fill.elc \
 	../lisp/textmodes/page.elc \
 	../lisp/textmodes/paragraphs.elc \
@@ -774,30 +803,28 @@ shortlisp= \
    We use ../lisp/ to start the file names
    to reduce the size of the argument list for make-docfile
    for the sake of systems which can't handle large ones.  */
-SOME_MACHINE_LISP = ${dotdot}/lisp/facemenu.elc \
-  ${dotdot}/lisp/float-sup.elc ${dotdot}/lisp/frame.elc \
-  ${dotdot}/lisp/menu-bar.elc ${dotdot}/lisp/mouse.elc \
+SOME_MACHINE_LISP = ${dotdot}/lisp/mouse.elc \
   ${dotdot}/lisp/select.elc ${dotdot}/lisp/scroll-bar.elc \
   ${dotdot}/lisp/vmsproc.elc ${dotdot}/lisp/vms-patch.elc \
   ${dotdot}/lisp/ls-lisp.elc ${dotdot}/lisp/dos-fns.elc \
-  ${dotdot}/lisp/w32-fns.elc ${dotdot}/lisp/dos-w32.elc
+  ${dotdot}/lisp/w32-fns.elc ${dotdot}/lisp/dos-w32.elc \
+  ${dotdot}/lisp/disp-table.elc ${dotdot}/lisp/dos-vars.elc \
+  ${dotdot}/lisp/international/ccl.elc \
+  ${dotdot}/lisp/international/codepage.elc
 
 /* Construct full set of libraries to be linked.
    Note that SunOS needs -lm to come before -lc; otherwise, you get
    duplicated symbols.  If the standard libraries were compiled
    with GCC, we might need gnulib again after them.  */
-LIBES = $(LOADLIBES) $(LDLIBS) $(LIBX) LIBS_SYSTEM LIBS_MACHINE LIBS_TERMCAP \
-   LIBS_DEBUG $(GNULIB_VAR) LIB_MATH LIB_STANDARD $(GNULIB_VAR)
+LIBES = $(LOADLIBES) $(LIBS) $(LIBX) $(LIBSOUND) \
+   LIBS_SYSTEM LIBS_MACHINE LIBS_TERMCAP \
+   LIBS_DEBUG $(GETLOADAVG_LIBS) $(GNULIB_VAR) LIB_MATH LIB_STANDARD \
+   $(GNULIB_VAR)
 
 /* Enable recompilation of certain other files depending on system type.  */
 
 #ifndef OTHER_FILES
 #define OTHER_FILES
-#endif
-
-/* Enable inclusion of object files in temacs depending on system type.  */
-#ifndef OBJECTS_SYSTEM
-#define OBJECTS_SYSTEM
 #endif
 
 #ifndef OBJECTS_MACHINE
@@ -812,9 +839,9 @@ emacs: temacs ${etc}DOC ${lisp}
 	ln temacs emacs
 #else
 #ifdef HAVE_SHM
-	./temacs -nl -batch -l loadup dump
+	LC_ALL=C ./temacs -nl -batch -l loadup dump
 #else /* ! defined (HAVE_SHM) */
-	./temacs -batch -l loadup dump
+	LC_ALL=C ./temacs -batch -l loadup dump
 #endif /* ! defined (HAVE_SHM) */
 #endif /* ! defined (CANNOT_DUMP) */
 	-./emacs -q -batch -f list-load-path-shadows
@@ -827,7 +854,7 @@ emacs: temacs ${etc}DOC ${lisp}
    for the first time, this prevents any variation between configurations
    in the contents of the DOC file.
    Likewise for ${SOME_MACHINE_LISP}.  */
-${etc}DOC: ${libsrc}make-docfile ${obj} ${lisp}
+${etc}DOC: ${libsrc}make-docfile ${obj} ${shortlisp} ${SOME_MACHINE_LISP}
 	-rm -f ${etc}DOC
 	${libsrc}make-docfile -d ${srcdir} ${SOME_MACHINE_OBJECTS} ${obj} > ${etc}DOC
 	${libsrc}make-docfile -a ${etc}DOC -d ${srcdir} ${SOME_MACHINE_LISP} ${shortlisp}
@@ -840,35 +867,16 @@ ${libsrc}make-docfile:
 #define MAKE_PARALLEL
 #endif
 
-temacs: MAKE_PARALLEL $(LOCALCPP) $(STARTFILES) stamp-oldxmenu ${obj} ${otherobj} OBJECTS_SYSTEM OBJECTS_MACHINE prefix-args
+temacs: MAKE_PARALLEL $(LOCALCPP) $(STARTFILES) stamp-oldxmenu ${obj} ${otherobj} OBJECTS_MACHINE prefix-args
 	$(LD) YMF_PASS_LDFLAGS (${STARTFLAGS} ${ALL_LDFLAGS}) \
     -o temacs ${STARTFILES} ${obj} ${otherobj}  \
-    OBJECTS_SYSTEM OBJECTS_MACHINE ${LIBES}
+    OBJECTS_MACHINE ${LIBES}
 
 /* We don't use ALL_LDFLAGS because LD_SWITCH_SYSTEM and LD_SWITCH_MACHINE
    often contain options that have to do with using Emacs's crt0,
    which are only good with temacs.  */
 prefix-args: prefix-args.c $(config_h)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) ${srcdir}/prefix-args.c -o prefix-args
-
-/* These are needed for C compilation, on the systems that need them */
-#ifdef NEED_CPP
-CPP = ./localcpp
-localcpp:
-	cd ${cppdir}; ${MAKE} ${MFLAGS} EMACS=-DEMACS
-	ln ${cppdir}cpp localcpp  /* Name where ALL_CFLAGS will refer to it */
-/* cc appears to be cretinous and require all of these to exist
-   if -B is specified -- we can't use one local pass and let the
-   others be the standard ones.  What a loser.
-   We can't even use ln, since they are probably
-   on different disks.  */
-	cp /lib/ccom localccom
-	-cp /lib/optim localoptim
-	-cp /lib/c2 localc2
-	cp /bin/as localas
-#else /* ! defined (NEED_CPP) */
-CPP = $(CC) -E
-#endif /* ! defined (NEED_CPP) */
 
 /* Don't lose if this was not defined.  */
 #ifndef OLDXMENU_OPTIONS
@@ -965,7 +973,7 @@ stamp-oldxmenu:
    whenever emacs was #defined, but that's not appropriate for all
    users of alloca in Emacs.  Check out ../lib-src/getopt.c.  */
 alloca.o : alloca.c
-	$(CC) -c $(CPPFLAGS) -Dfree=xfree -Dmalloc=xmalloc \
+	$(CC) -c $(CPPFLAGS) -DEMACS_FREE=xfree \
 	$(ALL_CFLAGS) ${srcdir}/alloca.c
 #else
 #ifndef HAVE_ALLOCA
@@ -994,83 +1002,95 @@ alloca.o : alloca.s $(config_h)
    it is so often changed in ways that do not require any recompilation
    and so rarely changed in ways that do require any.  */
 
-abbrev.o: abbrev.c buffer.h window.h commands.h charset.h $(config_h)
+abbrev.o: abbrev.c buffer.h window.h dispextern.h commands.h charset.h \
+	$(config_h)
 buffer.o: buffer.c buffer.h region-cache.h commands.h window.h \
-   INTERVAL_SRC blockinput.h charset.h $(config_h)
+   dispextern.h $(INTERVAL_SRC) blockinput.h atimer.h systime.h charset.h \
+   $(config_h)
 callint.o: callint.c window.h commands.h buffer.h mocklisp.h \
-   keyboard.h $(config_h)
+   keyboard.h dispextern.h $(config_h)
 callproc.o: callproc.c epaths.h buffer.h commands.h $(config_h) \
-	process.h systty.h syssignal.h charset.h coding.h ccl.h msdos.h
-casefiddle.o: casefiddle.c syntax.h commands.h buffer.h $(config_h)
+	process.h systty.h syssignal.h charset.h coding.h ccl.h msdos.h \
+        composite.h
+casefiddle.o: casefiddle.c syntax.h commands.h buffer.h composite.h $(config_h)
 casetab.o: casetab.c buffer.h $(config_h)
 category.o: category.c category.h buffer.h charset.h $(config_h)
 ccl.o: ccl.c ccl.h charset.h coding.h $(config_h)
-charset.o: charset.c charset.h buffer.h coding.h disptab.h $(config_h)
+charset.o: charset.c charset.h buffer.h coding.h composite.h disptab.h \
+	$(config_h)
 coding.o: coding.c coding.h ccl.h buffer.h charset.h $(config_h)
 cm.o: cm.c cm.h termhooks.h $(config_h)
 cmds.o: cmds.c syntax.h buffer.h charset.h commands.h window.h $(config_h) \
-	msdos.h
+	msdos.h dispextern.h
 pre-crt0.o: pre-crt0.c
 ecrt0.o: ecrt0.c $(config_h)
 	CRT0_COMPILE ${srcdir}/ecrt0.c
-dired.o: dired.c commands.h buffer.h $(config_h) charset.h coding.h regex.h
+dired.o: dired.c commands.h buffer.h $(config_h) charset.h coding.h regex.h \
+   systime.h
 dispnew.o: dispnew.c  commands.h frame.h window.h buffer.h dispextern.h \
    termchar.h termopts.h termhooks.h cm.h disptab.h systty.h systime.h \
-   xterm.h blockinput.h charset.h msdos.h $(config_h)
-doc.o: doc.c $(config_h) epaths.h buffer.h keyboard.h
+   xterm.h blockinput.h atimer.h charset.h msdos.h composite.h keyboard.h \
+   $(config_h)
+doc.o: doc.c $(config_h) epaths.h buffer.h keyboard.h charset.h
 doprnt.o: doprnt.c charset.h $(config_h)
 dosfns.o: buffer.h termchar.h termhooks.h frame.h msdos.h dosfns.h $(config_h)
-editfns.o: editfns.c window.h buffer.h systime.h INTERVAL_SRC charset.h \
-   $(config_h)
+editfns.o: editfns.c window.h buffer.h systime.h $(INTERVAL_SRC) charset.h \
+   coding.h dispextern.h $(config_h)
 emacs.o: emacs.c commands.h systty.h syssignal.h blockinput.h process.h \
-   termhooks.h buffer.h INTERVAL_SRC $(config_h)
-fileio.o: fileio.c window.h buffer.h systime.h INTERVAL_SRC charset.h \
-   coding.h ccl.h msdos.h $(config_h)
+   termhooks.h buffer.h atimer.h systime.h $(INTERVAL_SRC) $(config_h)
+fileio.o: fileio.c window.h buffer.h systime.h $(INTERVAL_SRC) charset.h \
+   coding.h ccl.h msdos.h dispextern.h $(config_h)
 filelock.o: filelock.c buffer.h systime.h epaths.h $(config_h)
 filemode.o: filemode.c  $(config_h)
 frame.o: frame.c xterm.h window.h frame.h termhooks.h commands.h keyboard.h \
-   buffer.h charset.h fontset.h msdos.h $(config_h)
-fontset.o: fontset.h fontset.c ccl.h charset.h frame.h $(config_h)
+   buffer.h charset.h fontset.h msdos.h dosfns.h dispextern.h $(config_h)
+fontset.o: dispextern.h fontset.h fontset.c ccl.h charset.h frame.h \
+   keyboard.h $(config_h)
 getloadavg.o: getloadavg.c $(config_h)
 indent.o: indent.c frame.h window.h indent.h buffer.h $(config_h) termchar.h \
-   termopts.h disptab.h region-cache.h charset.h
-insdel.o: insdel.c window.h buffer.h INTERVAL_SRC blockinput.h charset.h\
-   $(config_h)
+   termopts.h disptab.h region-cache.h charset.h composite.h dispextern.h \
+   keyboard.h
+insdel.o: insdel.c window.h buffer.h $(INTERVAL_SRC) blockinput.h charset.h\
+   dispextern.h atimer.h systime.h $(config_h)
 keyboard.o: keyboard.c termchar.h termhooks.h termopts.h buffer.h charset.h \
    commands.h frame.h window.h macros.h disptab.h keyboard.h syssignal.h \
-   systty.h systime.h dispextern.h syntax.h intervals.h blockinput.h \
-   xterm.h puresize.h msdos.h $(config_h)
+   systty.h systime.h dispextern.h syntax.h $(INTERVAL_SRC) blockinput.h \
+   atimer.h xterm.h puresize.h msdos.h $(config_h)
 keymap.o: keymap.c buffer.h commands.h keyboard.h termhooks.h blockinput.h \
-   puresize.h charset.h $(config_h)
+   atimer.h systime.h puresize.h charset.h intervals.h $(config_h)
 lastfile.o: lastfile.c  $(config_h)
-macros.o: macros.c window.h buffer.h commands.h macros.h keyboard.h $(config_h)
+macros.o: macros.c window.h buffer.h commands.h macros.h keyboard.h \
+	dispextern.h $(config_h)
 malloc.o: malloc.c $(config_h)
 gmalloc.o: gmalloc.c $(config_h)
 ralloc.o: ralloc.c $(config_h)
 vm-limit.o: vm-limit.c mem-limits.h $(config_h)
 marker.o: marker.c buffer.h charset.h $(config_h)
-minibuf.o: minibuf.c syntax.h dispextern.h frame.h window.h \
+minibuf.o: minibuf.c syntax.h dispextern.h frame.h window.h keyboard.h \
    buffer.h commands.h charset.h msdos.h $(config_h)
 mktime.o: mktime.c $(config_h)
 mocklisp.o: mocklisp.c buffer.h $(config_h)
 msdos.o: msdos.c msdos.h dosfns.h systime.h termhooks.h dispextern.h frame.h \
-   termopts.h termchar.h charset.h coding.h ccl.h disptab.h window.h $(config_h)
+   termopts.h termchar.h charset.h coding.h ccl.h disptab.h window.h \
+   keyboard.h $(config_h)
 process.o: process.c process.h buffer.h window.h termhooks.h termopts.h \
-   commands.h syssignal.h systime.h systty.h syswait.h frame.h \
-   blockinput.h charset.h coding.h ccl.h msdos.h $(config_h)
+   commands.h syssignal.h systime.h systty.h syswait.h frame.h dispextern.h \
+   blockinput.h atimer.h charset.h coding.h ccl.h msdos.h composite.h \
+   keyboard.h $(config_h)
 regex.o: regex.c syntax.h buffer.h $(config_h) regex.h category.h charset.h
 region-cache.o: region-cache.c buffer.h region-cache.h
-scroll.o: scroll.c termchar.h dispextern.h frame.h msdos.h $(config_h)
+scroll.o: scroll.c termchar.h dispextern.h frame.h msdos.h keyboard.h \
+   $(config_h)
 search.o: search.c regex.h commands.h buffer.h region-cache.h syntax.h \
-   blockinput.h category.h charset.h $(config_h)
+   blockinput.h atimer.h systime.h category.h charset.h composite.h $(config_h)
 strftime.o: strftime.c $(config_h)
 syntax.o: syntax.c syntax.h buffer.h commands.h category.h charset.h \
-   $(config_h)
+   composite.h $(config_h)
 sysdep.o: sysdep.c $(config_h) dispextern.h termhooks.h termchar.h termopts.h \
-   frame.h syssignal.h systty.h systime.h syswait.h blockinput.h window.h \
-   msdos.h
+   frame.h syssignal.h systty.h systime.h syswait.h blockinput.h atimer.h \
+   window.h msdos.h dosfns.h keyboard.h
 term.o: term.c termchar.h termhooks.h termopts.h $(config_h) cm.h frame.h \
-   disptab.h keyboard.h charset.h coding.h ccl.h msdos.h
+   disptab.h dispextern.h keyboard.h charset.h coding.h ccl.h msdos.h
 termcap.o: termcap.c $(config_h)
 terminfo.o: terminfo.c $(config_h)
 tparam.o: tparam.c $(config_h)
@@ -1079,61 +1099,70 @@ undo.o: undo.c buffer.h commands.h $(config_h)
    of UNEXEC when substituting it in.  */
 UNEXEC_ALIAS=UNEXEC
 $(UNEXEC_ALIAS): UNEXEC_SRC $(config_h)
-w16select.o: w16select.c lisp.h dispextern.h frame.h blockinput.h \
+w16select.o: w16select.c dispextern.h frame.h blockinput.h atimer.h systime.h \
    msdos.h $(config_h)
 widget.o: widget.c xterm.h frame.h dispextern.h widgetprv.h \
    $(srcdir)/../lwlib/lwlib.h $(config_h)
 window.o: window.c indent.h commands.h frame.h window.h buffer.h termchar.h \
-   termhooks.h disptab.h keyboard.h dispextern.h msdos.h $(config_h)
+   termhooks.h disptab.h keyboard.h dispextern.h msdos.h composite.h \
+   $(config_h)
 xdisp.o: xdisp.c macros.h commands.h indent.h buffer.h dispextern.h coding.h \
    termchar.h frame.h window.h disptab.h termhooks.h charset.h $(config_h) \
-   msdos.h
+   msdos.h composite.h fontset.h
 xfaces.o: xfaces.c dispextern.h frame.h xterm.h buffer.h blockinput.h \
-   window.h charset.h msdos.h $(config_h)
-xfns.o: xfns.c buffer.h frame.h window.h keyboard.h xterm.h\
-   $(srcdir)/../lwlib/lwlib.h blockinput.h epaths.h charset.h $(config_h)
+   window.h charset.h msdos.h dosfns.h composite.h atimer.h systime.h $(config_h)
+xfns.o: xfns.c buffer.h frame.h window.h keyboard.h xterm.h dispextern.h \
+   $(srcdir)/../lwlib/lwlib.h blockinput.h atimer.h systime.h epaths.h \
+   charset.h $(config_h)
 xmenu.o: xmenu.c xterm.h termhooks.h window.h dispextern.h frame.h keyboard.h \
-   $(srcdir)/../lwlib/lwlib.h blockinput.h msdos.h $(config_h)
+   $(srcdir)/../lwlib/lwlib.h blockinput.h atimer.h systime.h msdos.h \
+   $(config_h)
 xterm.o: xterm.c xterm.h termhooks.h termopts.h termchar.h window.h \
-  dispextern.h frame.h disptab.h blockinput.h systime.h syssignal.h \
-  keyboard.h gnu.h sink.h sinkmask.h charset.h ccl.h fontset.h $(config_h)
+  dispextern.h frame.h disptab.h blockinput.h atimer.h systime.h syssignal.h \
+  keyboard.h gnu.h charset.h ccl.h fontset.h composite.h \
+  coding.h $(config_h)
 xselect.o: xselect.c dispextern.h frame.h xterm.h blockinput.h charset.h \
-  coding.h ccl.h buffer.h $(config_h)
+  coding.h ccl.h buffer.h atimer.h systime.h $(config_h)
 xrdb.o: xrdb.c $(config_h) epaths.h
 hftctl.o: hftctl.c $(config_h)
+sound.o: sound.c dispextern.h $(config_h)
+atimer.o: atimer.c atimer.h systime.h $(config_h)
 
 /* The files of Lisp proper */
 
 alloc.o: alloc.c frame.h window.h buffer.h  puresize.h syssignal.h keyboard.h \
- blockinput.h charset.h $(config_h) INTERVAL_SRC
+ blockinput.h atimer.h systime.h charset.h dispextern.h $(config_h) $(INTERVAL_SRC)
 bytecode.o: bytecode.c buffer.h syntax.h charset.h $(config_h)
 data.o: data.c buffer.h puresize.h charset.h syssignal.h keyboard.h $(config_h)
-eval.o: eval.c commands.h keyboard.h blockinput.h $(config_h)
+eval.o: eval.c commands.h keyboard.h blockinput.h atimer.h systime.h \
+  $(config_h)
 floatfns.o: floatfns.c $(config_h)
-fns.o: fns.c commands.h $(config_h) frame.h buffer.h keyboard.h \
- frame.h window.h INTERVAL_SRC
+fns.o: fns.c commands.h $(config_h) frame.h buffer.h charset.h keyboard.h \
+ frame.h window.h dispextern.h $(INTERVAL_SRC)
 print.o: print.c process.h frame.h window.h buffer.h keyboard.h charset.h\
-   $(config_h) dispextern.h msdos.h
+   $(config_h) dispextern.h msdos.h composite.h
 lread.o: lread.c commands.h keyboard.h buffer.h epaths.h charset.h $(config_h) \
  termhooks.h msdos.h
 
 /* Text properties support */
-textprop.o: textprop.c buffer.h window.h intervals.h $(config_h)
-intervals.o: intervals.c buffer.h intervals.h keyboard.h puresize.h $(config_h)
+textprop.o: textprop.c buffer.h window.h dispextern.h $(INTERVAL_SRC) \
+	$(config_h)
+intervals.o: intervals.c buffer.h $(INTERVAL_SRC) keyboard.h puresize.h $(config_h)
+composite.o: composite.c buffer.h  charset.h $(INTERVAL_SRC) $(config_h)
 
 /* System-specific programs to be made.
-   OTHER_FILES, OBJECTS_SYSTEM and OBJECTS_MACHINE
+   OTHER_FILES and OBJECTS_MACHINE
    select which of these should be compiled.  */
 
-sunfns.o: sunfns.c buffer.h window.h $(config_h)
+sunfns.o: sunfns.c buffer.h window.h dispextern.h $(config_h)
 
 ${libsrc}emacstool: ${libsrc}emacstool.c
 	cd ${libsrc}; ${MAKE} ${MFLAGS} emacstool
 mostlyclean:
-	rm -f temacs prefix-args core \#* *.o libXMenu11.a liblw.a
+	rm -f temacs prefix-args core *.core \#* *.o libXMenu11.a liblw.a
 	rm -f ../etc/DOC
 clean: mostlyclean
-	rm -f emacs-* emacs
+	rm -f emacs-* emacs bootstrap-emacs
 /**/# This is used in making a distribution.
 /**/# Do not use it on development directories!
 distclean: clean
@@ -1160,14 +1189,56 @@ relock:
 
 /* Arrange to make a tags table TAGS-LISP for ../lisp,
    plus TAGS for the C files, which includes ../lisp/TAGS by reference.  */
-ctagsfiles = [a-zA-Z]*.[hc]
-TAGS: $(srcdir)/$(ctagsfiles)
-	../lib-src/etags --include=TAGS-LISP \
+
+ctagsfiles1 = [xyzXYZ]*.[hc] 
+ctagsfiles2 = [a-wA-W]*.[hc]
+
+TAGS: $(srcdir)/$(ctagsfiles1) $(srcdir)/$(ctagsfiles2)
+	../lib-src/etags --include=TAGS-LISP --include=${lwlibdir}/TAGS \
 	  --regex='/[ 	]*DEFVAR_[A-Z_ 	(]+"\([^"]+\)"/' \
-	  $(srcdir)/$(ctagsfiles)
+	  $(srcdir)/$(ctagsfiles1) $(srcdir)/$(ctagsfiles2)
 frc:
 TAGS-LISP: frc
-	$(MAKE) -f ${lispsource}Makefile TAGS-LISP ETAGS=../lib-src/etags \
-	    lispsource=${lispsource}
-tags: TAGS TAGS-LISP
+	$(MAKE) -f ${lispsource}Makefile TAGS-LISP ETAGS=../lib-src/etags
+
+$(lwlibdir)TAGS:
+	(cd $(lwlibdir); $(MAKE) -f $(lwlibdir)Makefile tags ETAGS=../lib-src/etags)
+
+tags: TAGS TAGS-LISP $(lwlibdir)TAGS
 .PHONY: tags
+
+
+/* Bootstrapping.  */
+
+bootstrap: bootstrap-emacs
+
+/* Build a temacs with a sufficiently large PURESIZE to load the
+   Lisp files from loadup.el in source form.  */
+
+bootstrap-temacs: 
+	LC_ALL=C $(MAKE) $(MFLAGS) temacs ALL_CFLAGS="$(ALL_CFLAGS) -DPURESIZE=5000000 -I../src"
+
+/* Build a DOC file.  */
+
+bootstrap-doc: ${libsrc}make-docfile
+	-rm -f ${etc}DOC
+	els=`echo ${shortlisp} ${SOME_MACHINE_LISP} \
+		| sed -e "s/\\.elc/.el/g"`; \
+	${libsrc}make-docfile -d ${srcdir} $$els ${obj} > ${etc}DOC
+
+/* Dump an Emacs executable named bootstrap-emacs containing the 
+   files from loadup.el in source form.  */
+
+bootstrap-emacs: bootstrap-temacs bootstrap-doc
+#ifdef CANNOT_DUMP
+	ln temacs bootstrap-emacs
+#else
+#ifdef HAVE_SHM
+	./temacs -nl -batch -l loadup bootstrap
+#else /* ! defined (HAVE_SHM) */
+	./temacs --batch --load loadup bootstrap
+#endif /* ! defined (HAVE_SHM) */
+#endif /* ! defined (CANNOT_DUMP) */
+	mv -f emacs bootstrap-emacs
+	rm -f temacs
+

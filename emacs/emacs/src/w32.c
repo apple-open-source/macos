@@ -1,5 +1,5 @@
 /* Utility and Unix shadow routines for GNU Emacs on the Microsoft W32 API.
-   Copyright (C) 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -63,6 +63,10 @@ Boston, MA 02111-1307, USA.
 
 #include <pwd.h>
 
+#ifdef __GNUC__
+#define _ANONYMOUS_UNION
+#define _ANONYMOUS_STRUCT
+#endif
 #include <windows.h>
 
 #ifdef HAVE_SOCKETS	/* TCP connection support, if kernel can do it */
@@ -82,7 +86,8 @@ Boston, MA 02111-1307, USA.
 #include "w32.h"
 #include "ndir.h"
 #include "w32heap.h"
- 
+#include "systime.h"
+
 #undef min
 #undef max
 #define min(x, y) (((x) < (y)) ? (x) : (y))
@@ -91,6 +96,26 @@ Boston, MA 02111-1307, USA.
 extern Lisp_Object Vw32_downcase_file_names;
 extern Lisp_Object Vw32_generate_fake_inodes;
 extern Lisp_Object Vw32_get_true_file_attributes;
+extern Lisp_Object Vw32_num_mouse_buttons;
+
+
+/* Equivalent of strerror for W32 error codes.  */
+char *
+w32_strerror (int error_no)
+{
+  static char buf[500];
+
+  if (error_no == 0)
+    error_no = GetLastError ();
+
+  buf[0] = '\0';
+  if (!FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+		      error_no,
+		      0, /* choose most suitable language */
+		      buf, sizeof (buf), NULL))
+    sprintf (buf, "w32 error %u", error_no);
+  return buf;
+}
 
 static char startup_dir[MAXPATHLEN];
 
@@ -467,7 +492,7 @@ get_long_basename (char * name, char * buf, int size)
   HANDLE dir_handle;
   int len = 0;
 
-  /* must be valid filename, no wild cards or other illegal characters */
+  /* must be valid filename, no wild cards or other invalid characters */
   if (strpbrk (name, "*?|<>\""))
     return 0;
 
@@ -558,7 +583,19 @@ sigsetmask (int signal_mask)
 }
 
 int 
+sigmask (int sig) 
+{ 
+  return 0;
+}
+
+int 
 sigblock (int sig) 
+{ 
+  return 0;
+}
+
+int 
+sigunblock (int sig) 
 { 
   return 0;
 }
@@ -643,7 +680,6 @@ extern Lisp_Object Vsystem_configuration;
 void
 init_environment (char ** argv)
 {
-  int len;
   static const char * const tempdirs[] = {
     "$TMPDIR", "$TEMP", "$TMP", "c:/"
   };
@@ -664,11 +700,11 @@ init_environment (char ** argv)
 	 read-only filesystem, like CD-ROM or a write-protected floppy.
 	 The only way to be really sure is to actually create a file and
 	 see if it succeeds.  But I think that's too much to ask.  */
-      if (tmp && access (tmp, D_OK) == 0)
+      if (tmp && _access (tmp, D_OK) == 0)
 	{
 	  char * var = alloca (strlen (tmp) + 8);
 	  sprintf (var, "TMPDIR=%s", tmp);
-	  putenv (var);
+	  _putenv (strdup (var));
 	  break;
 	}
     }
@@ -685,6 +721,7 @@ init_environment (char ** argv)
     int i;
     LPBYTE lpval;
     DWORD dwType;
+    char locale_name[32];
 
     static struct env_entry
     {
@@ -695,7 +732,7 @@ init_environment (char ** argv)
       {"HOME", "C:/"},
       {"PRELOAD_WINSOCK", NULL},
       {"emacs_dir", "C:/emacs"},
-      {"EMACSLOADPATH", "%emacs_dir%/site-lisp;%emacs_dir%/lisp;%emacs_dir%/leim"},
+      {"EMACSLOADPATH", "%emacs_dir%/site-lisp;%emacs_dir%/../site-lisp;%emacs_dir%/lisp;%emacs_dir%/leim"},
       {"SHELL", "%emacs_dir%/bin/cmdproxy.exe"},
       {"EMACSDATA", "%emacs_dir%/etc"},
       {"EMACSPATH", "%emacs_dir%/bin"},
@@ -704,8 +741,24 @@ init_environment (char ** argv)
 	 is then ignored.  */
       /*  {"INFOPATH", "%emacs_dir%/info"},  */
       {"EMACSDOC", "%emacs_dir%/etc"},
-      {"TERM", "cmd"}
+      {"TERM", "cmd"},
+      {"LANG", NULL},
     };
+
+  /* Get default locale info and use it for LANG.  */
+  if (GetLocaleInfo (LOCALE_USER_DEFAULT,
+                     LOCALE_SABBREVLANGNAME | LOCALE_USE_CP_ACP,
+                     locale_name, sizeof (locale_name)))
+    {
+      for (i = 0; i < (sizeof (env_vars) / sizeof (env_vars[0])); i++)
+        {
+          if (strcmp (env_vars[i].name, "LANG") == 0)
+            {
+              env_vars[i].def_value = locale_name;
+              break;
+            }
+        }
+    }
 
 #define SET_ENV_BUF_SIZE (4 * MAX_PATH)	/* to cover EMACSLOADPATH */
 
@@ -731,11 +784,11 @@ init_environment (char ** argv)
 	    if (*p == '\\') *p = '/';
 		  
 	  _snprintf (buf, sizeof(buf)-1, "emacs_dir=%s", modname);
-	  putenv (strdup (buf));
+	  _putenv (strdup (buf));
 	}
     }
 
-    for (i = 0; i < (sizeof (env_vars) / sizeof (env_vars[0])); i++) 
+    for (i = 0; i < (sizeof (env_vars) / sizeof (env_vars[0])); i++)
       {
 	if (!getenv (env_vars[i].name))
 	  {
@@ -756,14 +809,14 @@ init_environment (char ** argv)
 
 		    ExpandEnvironmentStrings ((LPSTR) lpval, buf1, sizeof(buf1));
 		    _snprintf (buf2, sizeof(buf2)-1, "%s=%s", env_vars[i].name, buf1);
-		    putenv (strdup (buf2));
+		    _putenv (strdup (buf2));
 		  }
 		else if (dwType == REG_SZ)
 		  {
 		    char buf[SET_ENV_BUF_SIZE];
 		  
 		    _snprintf (buf, sizeof(buf)-1, "%s=%s", env_vars[i].name, lpval);
-		    putenv (strdup (buf));
+		    _putenv (strdup (buf));
 		  }
 
 		if (!dont_free)
@@ -819,6 +872,11 @@ init_environment (char ** argv)
     argv[0] = modname;
   }
 
+  /* Determine if there is a middle mouse button, to allow parse_button
+     to decide whether right mouse events should be mouse-2 or
+     mouse-3. */
+  XSETINT (Vw32_num_mouse_buttons, GetSystemMetrics (SM_CMOUSEBUTTONS));
+
   init_user_info ();
 }
 
@@ -827,13 +885,12 @@ init_environment (char ** argv)
    user enter it, so we define EMACS_CONFIGURATION to invoke this runtime
    routine.  */
 
-static char configuration_buffer[32];
-
 char *
 get_emacs_configuration (void)
 {
   char *arch, *oem, *os;
   int build_num;
+  static char configuration_buffer[32];
 
   /* Determine the processor type.  */
   switch (get_processor_type ()) 
@@ -872,8 +929,17 @@ get_emacs_configuration (void)
       break;
     }
 
-  /* Let oem be "*" until we figure out how to decode the OEM field.  */
-  oem = "*";
+  /* Use the OEM field to reflect the compiler/library combination.  */
+#ifdef _MSC_VER
+#define COMPILER_NAME	"msvc"
+#else
+#ifdef __GNUC__
+#define COMPILER_NAME	"mingw"
+#else
+#define COMPILER_NAME	"unknown"
+#endif
+#endif
+  oem = COMPILER_NAME;
 
   switch (osinfo_cache.dwPlatformId) {
   case VER_PLATFORM_WIN32_NT:
@@ -909,13 +975,45 @@ get_emacs_configuration (void)
   return configuration_buffer;
 }
 
+char *
+get_emacs_configuration_options (void)
+{
+  static char options_buffer[256];
+
+/* Work out the effective configure options for this build.  */
+#ifdef _MSC_VER
+#define COMPILER_VERSION	"--with-msvc (%d.%02d)", _MSC_VER / 100, _MSC_VER % 100
+#else
+#ifdef __GNUC__
+#define COMPILER_VERSION	"--with-gcc (%d.%d)", __GNUC__, __GNUC_MINOR__
+#else
+#define COMPILER_VERSION	""
+#endif
+#endif
+
+  sprintf (options_buffer, COMPILER_VERSION);
+#ifdef EMACSDEBUG
+  strcat (options_buffer, " --no-opt");
+#endif
+#ifdef USER_CFLAGS
+  strcat (options_buffer, " --cflags");
+  strcat (options_buffer, USER_CFLAGS);
+#endif
+#ifdef USER_LDFLAGS
+  strcat (options_buffer, " --ldflags");
+  strcat (options_buffer, USER_LDFLAGS);
+#endif
+  return options_buffer;
+}
+
+
 #include <sys/timeb.h>
 
 /* Emulate gettimeofday (Ulrich Leodolter, 1/11/95).  */
 void 
 gettimeofday (struct timeval *tv, struct timezone *tz)
 {
-  struct _timeb tb;
+  struct timeb tb;
   _ftime (&tb);
 
   tv->tv_sec = tb.time;
@@ -1006,7 +1104,7 @@ lookup_volume_info (char * root_dir)
 static void
 add_volume_info (char * root_dir, volume_info_data * info)
 {
-  info->root_dir = strdup (root_dir);
+  info->root_dir = xstrdup (root_dir);
   info->next = volume_cache;
   volume_cache = info;
 }
@@ -1089,15 +1187,15 @@ GetCachedVolumeInformation (char * root_dir)
       }
     else
       {
-	free (info->name);
-	free (info->type);
+	xfree (info->name);
+	xfree (info->type);
       }
 
-    info->name = strdup (name);
+    info->name = xstrdup (name);
     info->serialnum = serialnum;
     info->maxcomp = maxcomp;
     info->flags = flags;
-    info->type = strdup (type);
+    info->type = xstrdup (type);
     info->timestamp = GetTickCount ();
   }
 
@@ -1182,7 +1280,7 @@ map_w32_filename (const char * name, const char ** pPath)
       return shortname;
     }
 
-  if (is_fat_volume (name, &path)) /* truncate to 8.3 */
+  if (is_fat_volume (name, (const char **)&path)) /* truncate to 8.3 */
     {
       register int left = 8;	/* maximum number of chars in part */
       register int extn = 0;	/* extension added? */
@@ -1295,7 +1393,7 @@ static WIN32_FIND_DATA dir_find_data;
 /* Support shares on a network resource as subdirectories of a read-only
    root directory. */
 static HANDLE wnet_enum_handle = INVALID_HANDLE_VALUE;
-HANDLE open_unc_volume (const char *);
+HANDLE open_unc_volume (char *);
 char  *read_unc_volume (HANDLE, char *, int);
 void   close_unc_volume (HANDLE);
 
@@ -1408,7 +1506,7 @@ readdir (DIR *dirp)
 }
 
 HANDLE
-open_unc_volume (const char *path)
+open_unc_volume (char *path)
 {
   NETRESOURCE nr; 
   HANDLE henum;
@@ -1419,7 +1517,7 @@ open_unc_volume (const char *path)
   nr.dwDisplayType = RESOURCEDISPLAYTYPE_SERVER; 
   nr.dwUsage = RESOURCEUSAGE_CONTAINER; 
   nr.lpLocalName = NULL; 
-  nr.lpRemoteName = (LPSTR) map_w32_filename (path, NULL);
+  nr.lpRemoteName = map_w32_filename (path, NULL);
   nr.lpComment = NULL; 
   nr.lpProvider = NULL;   
 
@@ -1435,9 +1533,9 @@ open_unc_volume (const char *path)
 char *
 read_unc_volume (HANDLE henum, char *readbuf, int size)
 {
-  int count;
+  DWORD count;
   int result;
-  int bufsize = 512;
+  DWORD bufsize = 512;
   char *buffer;
   char *ptr;
 
@@ -1465,7 +1563,7 @@ close_unc_volume (HANDLE henum)
 }
 
 DWORD
-unc_volume_file_attributes (const char *path)
+unc_volume_file_attributes (char *path)
 {
   HANDLE henum;
   DWORD attrs;
@@ -1721,14 +1819,20 @@ sys_mktemp (char * template)
 int
 sys_open (const char * path, int oflag, int mode)
 {
-  /* Force all file handles to be non-inheritable. */
-  return _open (map_w32_filename (path, NULL), oflag | _O_NOINHERIT, mode);
+  const char* mpath = map_w32_filename (path, NULL);
+  /* Try to open file without _O_CREAT, to be able to write to hidden
+     and system files. Force all file handles to be
+     non-inheritable. */
+  int res = _open (mpath, (oflag & ~_O_CREAT) | _O_NOINHERIT, mode);
+  if (res >= 0)
+    return res;
+  return _open (mpath, oflag | _O_NOINHERIT, mode);
 }
 
 int
 sys_rename (const char * oldname, const char * newname)
 {
-  int result;
+  BOOL result;
   char temp[MAX_PATH];
 
   /* MoveFile on Windows 95 doesn't correctly change the short file name
@@ -1772,7 +1876,7 @@ sys_rename (const char * oldname, const char * newname)
 	  result = rename (oldname, temp);
 	}
       /* This loop must surely terminate!  */
-      while (result < 0 && (errno == EEXIST || errno == EACCES));
+      while (result < 0 && errno == EEXIST);
       if (result < 0)
 	return -1;
     }
@@ -1792,7 +1896,7 @@ sys_rename (const char * oldname, const char * newname)
   result = rename (temp, newname);
 
   if (result < 0
-      && (errno == EEXIST || errno == EACCES)
+      && errno == EEXIST
       && _chmod (newname, 0666) == 0
       && _unlink (newname) == 0)
     result = rename (temp, newname);
@@ -1946,7 +2050,7 @@ stat (const char * path, struct stat * buf)
     }
 
   name = (char *) map_w32_filename (path, &path);
-  /* must be valid filename, no wild cards or other illegal characters */
+  /* must be valid filename, no wild cards or other invalid characters */
   if (strpbrk (name, "*?|<>\""))
     {
       errno = ENOENT;
@@ -2006,9 +2110,11 @@ stat (const char * path, struct stat * buf)
       /* (This is hacky, but helps when doing file completions on
 	 network drives.)  Optimize by using information available from
 	 active readdir if possible.  */
+      len = strlen (dir_pathname);
+      if (IS_DIRECTORY_SEP (dir_pathname[len-1]))
+	len--;
       if (dir_find_handle != INVALID_HANDLE_VALUE
-	  && (len = strlen (dir_pathname)),
-	  strnicmp (name, dir_pathname, len) == 0
+	  && strnicmp (name, dir_pathname, len) == 0
 	  && IS_DIRECTORY_SEP (name[len])
 	  && stricmp (name + len + 1, dir_static.d_name) == 0)
 	{
@@ -2519,8 +2625,8 @@ sys_strerror(int error_no)
   int i;
   static char unknown_msg[40];
 
-  if (error_no >= 0 && error_no < _sys_nerr)
-    return _sys_errlist[error_no];
+  if (error_no >= 0 && error_no < sys_nerr)
+    return sys_errlist[error_no];
 
   for (i = 0; _wsa_errlist[i].errnum >= 0; i++)
     if (_wsa_errlist[i].errnum == error_no)
@@ -2732,7 +2838,7 @@ sys_gethostname (char * name, int namelen)
     return pfn_gethostname (name, namelen);
 
   if (namelen > MAX_COMPUTERNAME_LENGTH)
-    return !GetComputerName (name, &namelen);
+    return !GetComputerName (name, (DWORD *)&namelen);
 
   h_errno = EFAULT;
   return SOCKET_ERROR;
@@ -2777,8 +2883,6 @@ sys_getservbyname(const char * name, const char * proto)
 int
 sys_shutdown (int s, int how)
 {
-  int rc;
-
   if (winsock_lib == NULL)
     {
       h_errno = ENETDOWN;
@@ -2907,7 +3011,6 @@ sys_pipe (int * phandles)
 {
   int rc;
   unsigned flags;
-  child_process * cp;
 
   /* make pipe handles non-inheritable; when we spawn a child, we
      replace the relevant handle with an inheritable one.  Also put
@@ -3259,7 +3362,7 @@ check_windows_init_file ()
 	}
       else
 	{
-	  close (fd);
+	  _close (fd);
 	}
     }
 }
@@ -3369,6 +3472,9 @@ init_ntproc ()
 
       (*drive)++;
     }
+
+    /* Reset the volume info cache.  */
+    volume_cache = NULL;
   }
   
   /* Check to see if Emacs has been installed correctly.  */

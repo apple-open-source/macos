@@ -1,0 +1,152 @@
+163
+166
+4
+16
+8
+2
+4
+2
+2
+1
+0
+0
+0
+1
+1
+2
+-3
+-2
+1
+0
+2
+131072
+29
+33
+49
+1
+1
+0
+0
+1
+1
+1
+2
+3
+1
+58
+2
+60
+1
+256
+16
+62
+4
+29
+5
+-4
+4
+1
+32
+32
+1
+1
+32
+20
+1,i+=2
+30
+1,j+=2
+20
+1,i+=2
+30
+1,j+=2
+./arith.tests: 1 ? 20 : x+=2: attempted assignment to non-variable (error token is "+=2")
+20
+6
+6,5,3
+263
+255
+255
+127
+36
+40
+10
+10
+10
+10
+10
+10
+36
+36
+62
+63
+./arith.tests: 3425#56: illegal arithmetic base (error token is "3425#56")
+0
+./arith.tests: 7 = 43 : attempted assignment to non-variable (error token is "= 43 ")
+./arith.tests: 2#44: value too great for base (error token is "2#44")
+./arith.tests: 44 / 0 : division by 0 (error token is " ")
+./arith.tests: let: jv += $iv: syntax error: operand expected (error token is "$iv")
+./arith.tests: jv += $iv : syntax error: operand expected (error token is "$iv ")
+./arith.tests: let: rv = 7 + (43 * 6: missing `)' (error token is "6")
+./arith.tests: 0#4: bad number (error token is "0#4")
+./arith.tests: 2#110#11: bad number (error token is "2#110#11")
+abc
+def
+ghi
+ok
+6
+1
+0
+./arith.tests: 4 + : syntax error: operand expected (error token is " ")
+16
+./arith.tests: 4 ? : 3 + 5 : expression expected (error token is ": 3 + 5 ")
+./arith.tests: 1 ? 20 : `:' expected for conditional expression (error token is " ")
+./arith.tests: 4 ? 20 : : expression expected (error token is " ")
+9
+./arith.tests: 0 && B=42 : attempted assignment to non-variable (error token is "=42 ")
+9
+./arith.tests: 1 || B=88 : attempted assignment to non-variable (error token is "=88 ")
+9
+0
+9
+0
+9
+1
+9
+7
+7
+4
+32767
+32768
+131072
+2147483647
+1
+4
+4
+5
+5
+4
+3
+3
+4
+4
+7
+./arith.tests: 7-- : syntax error: operand expected (error token is " ")
+./arith.tests: --x=7 : attempted assignment to non-variable (error token is "=7 ")
+./arith.tests: ++x=7 : attempted assignment to non-variable (error token is "=7 ")
+./arith.tests: x++=7 : attempted assignment to non-variable (error token is "=7 ")
+./arith.tests: x--=7 : attempted assignment to non-variable (error token is "=7 ")
+4
+7
+-7
+7
+7
+8 12
+./arith.tests: ((: x=9 y=41 : syntax error in expression (error token is "y=41 ")
+./arith.tests: a b: syntax error in expression (error token is "b")
+./arith.tests: ((: a b: syntax error in expression (error token is "b")
+42
+42
+42
+42
+42
+42

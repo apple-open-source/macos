@@ -1,3 +1,5 @@
+#ifndef _FIXES_H_
+#define _FIXES_H_
 /* fixes.h (was write.h in the original GAS)
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -52,3 +54,4 @@ extern void fix_new(
 	int	pcrel,		/* TRUE if PC-relative */
 	int	pcrel_reloc,	/* TRUE if must have relocation entry */
 	int	r_type);	/* relocation type */
+#endif /* _FIXES_H_ */

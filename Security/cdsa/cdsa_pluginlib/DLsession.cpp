@@ -47,11 +47,11 @@ DLPluginSession::DLPluginSession(CSSM_MODULE_HANDLE theHandle,
 //
 // Implement CssmAllocator methods from the PluginSession side
 //
-void *DLPluginSession::malloc(size_t size)
+void *DLPluginSession::malloc(size_t size) throw(std::bad_alloc)
 { return PluginSession::malloc(size); }
 
-void DLPluginSession::free(void *addr)
+void DLPluginSession::free(void *addr) throw()
 { return PluginSession::free(addr); }
 
-void *DLPluginSession::realloc(void *addr, size_t size)
+void *DLPluginSession::realloc(void *addr, size_t size) throw(std::bad_alloc)
 { return PluginSession::realloc(addr, size); }

@@ -1,0 +1,248 @@
+! <scp> 12/2/01 correct sin( DENORMAL ), asin(), tan(), and atan() cases to set underflow as in tvtrig.3
+! File TVtrig.4.text
+!
+!ACOS
+37	d	1	0	OK	0
+37	d	1i1	0	i	Q
+37	d	-1i1	0	i	Q
+37	d	2	0	i	Q
+37	d	-2	0	i	Q
+37	d	Hd1	0	i	Q
+37	d	-Hd1	0	i	Q
+!ASIN
+36	d	0	0	OK	0
+36	d	-0	0	OK	-0
+36	d	1i1	0	i	Q
+36	d	-1i1	0	i	Q
+36	d	2	0	i	Q
+36	d	-2	0	i	Q
+36	d	Hd1	0	i	Q
+36	d	-Hd1	0	i	Q
+
+! <scp> 36	d	ed1	0	x	ed1
+! <scp> 36	d	e	0	x	e
+! <scp> 36	d	ei1	0	x	ei1
+! <scp> 36	d	-ed1	0	x	-ed1
+! <scp> 36	d	-e	0	x	-e
+! <scp> 36	d	-ei1	0	x	-ei1
+
+36	=d	ed1	0	ux	ed1
+36	=d	e	0	x	e
+36	=d	ei1	0	x	ei1
+36	=d	-ed1	0	ux	-ed1
+36	=d	-e	0	x	-e
+36	=d	-ei1	0	x	-ei1
+
+!ATAN
+34	d	0	0	OK	0
+34	d	-0	0	OK	-0
+! <scp> 34	d	H	0	x	Pm1
+! <scp> 34	d	-H	0	x	-Pm1
+34	=d	H	0	x	Pm1
+34	=d	-H	0	x	-Pm1
+
+! <scp> 34	d	ed1	0	x	ed1
+34	d	ed1	0	ux	ed1
+34	d	e	0	x	e
+34	d	ei1	0	x	ei1
+! <scp> 34	d	-ed1	0	x	-ed1
+34	d	-ed1	0	ux	-ed1
+34	d	-e	0	x	-e
+34	d	-ei1	0	x	-ei1
+
+!ATAN2
+35	d	0	u1	OK	0
+35	d	-0	u1	OK	-0
+35	d	0	ed1	OK	0
+35	d	-0	ed1	OK	-0
+35	d	0	e	OK	0
+35	d	-0	e	OK	-0
+35	d	0	ei1	OK	0
+35	d	-0	ei1	OK	-0
+35	d	0	1d1	OK	0
+35	d	-0	1d1	OK	-0
+35	d	0	1	OK	0
+35	d	-0	1	OK	-0
+35	d	0	1i1	OK	0
+35	d	-0	1i1	OK	-0
+35	d	0	Hd1	OK	0
+35	d	-0	Hd1	OK	-0
+35	d	0	H	OK	0
+35	d	-0	H	OK	-0
+35	d	0	0	OK	0
+35	d	-0	0	OK	-0
+35	d	0	-u1	x	P
+35	d	-0	-u1	x	-P
+35	d	0	-ed1	x	P
+35	d	-0	-ed1	x	-P
+35	d	0	-e	x	P
+35	d	-0	-e	x	-P
+35	d	0	-ei1	x	P
+35	d	-0	-ei1	x	-P
+35	d	0	-1d1	x	P
+35	d	-0	-1d1	x	-P
+35	d	0	-1	x	P
+35	d	-0	-1	x	-P
+35	d	0	-1i1	x	P
+35	d	-0	-1i1	x	-P
+35	d	0	-Hd1	x	P
+35	d	-0	-Hd1	x	-P
+35	d	0	-H	x	P
+35	d	-0	-H	x	-P
+35	d	0	-0	x	P
+35	d	-0	-0	x	-P
+35	d	u1	0	x	Pm1
+35	d	u1	-0	x	Pm1
+35	d	ed1	0	x	Pm1
+35	d	ed1	-0	x	Pm1
+35	d	e	0	x	Pm1
+35	d	e	-0	x	Pm1
+35	d	ei1	0	x	Pm1
+35	d	ei1	-0	x	Pm1
+35	d	1d1	0	x	Pm1
+35	d	1d1	-0	x	Pm1
+35	d	1	0	x	Pm1
+35	d	1	-0	x	Pm1
+35	d	1i1	0	x	Pm1
+35	d	1i1	-0	x	Pm1
+35	d	Hd1	0	x	Pm1
+35	d	Hd1	-0	x	Pm1
+35	d	H	0	x	Pm1
+35	d	H	-0	x	Pm1
+35	d	-u1	0	x	-Pm1
+35	d	-u1	-0	x	-Pm1
+35	d	-ed1	0	x	-Pm1
+35	d	-ed1	-0	x	-Pm1
+35	d	-e	0	x	-Pm1
+35	d	-e	-0	x	-Pm1
+35	d	-ei1	0	x	-Pm1
+35	d	-ei1	-0	x	-Pm1
+35	d	-1d1	0	x	-Pm1
+35	d	-1d1	-0	x	-Pm1
+35	d	-1	0	x	-Pm1
+35	d	-1	-0	x	-Pm1
+35	d	-1i1	0	x	-Pm1
+35	d	-1i1	-0	x	-Pm1
+35	d	-Hd1	0	x	-Pm1
+35	d	-Hd1	-0	x	-Pm1
+35	d	-H	0	x	-Pm1
+35	d	-H	-0	x	-Pm1
+
+!atan2 (+-y, H) returns +-0 for finite y>0
+35	d	u1	H	OK	0
+35	d	-u1	H	OK	-0
+35	d	ed1	H	OK	0
+35	d	-ed1	H	OK	-0
+35	d	e	H	OK	0
+35	d	-e	H	OK	-0
+35	d	ei1	H	OK	0
+35	d	-ei1	H	OK	-0
+35	d	1d1	H	OK	0
+35	d	-1d1	H	OK	-0
+35	d	1	H	OK	0
+35	d	-1	H	OK	-0
+35	d	1i1	H	OK	0
+35	d	-1i1	H	OK	-0
+35	d	Hd1	H	OK	0
+35	d	-Hd1	H	OK	-0
+
+!atan2 (+-H, x) returns +-Pm1 for finite x
+35	d	H	0i1	x	Pm1
+35	d	-H	0i1	x	-Pm1
+35	d	H	ed1	x	Pm1
+35	d	-H	ed1	x	-Pm1
+35	d	H	e	x	Pm1
+35	d	-H	e	x	-Pm1
+35	d	H	ei1	x	Pm1
+35	d	-H	ei1	x	-Pm1
+35	d	H	1d1	x	Pm1
+35	d	-H	1d1	x	-Pm1
+35	d	H	1	x	Pm1
+35	d	-H	1	x	-Pm1
+35	d	H	1i1	x	Pm1
+35	d	-H	1i1	x	-Pm1
+35	d	H	Hd1	x	Pm1
+35	d	-H	Hd1	x	-Pm1
+35	d	H	0	x	Pm1
+35	d	-H	0	x	-Pm1
+35	d	H	-0i1	x	Pm1
+35	d	-H	-0i1	x	-Pm1
+35	d	H	-ed1	x	Pm1
+35	d	-H	-ed1	x	-Pm1
+35	d	H	-e	x	Pm1
+35	d	-H	-e	x	-Pm1
+35	d	H	-ei1	x	Pm1
+35	d	-H	-ei1	x	-Pm1
+35	d	H	-1d1	x	Pm1
+35	d	-H	-1d1	x	-Pm1
+35	d	H	-1	x	Pm1
+35	d	-H	-1	x	-Pm1
+35	d	H	-1i1	x	Pm1
+35	d	-H	-1i1	x	-Pm1
+35	d	H	-Hd1	x	Pm1
+35	d	-H	-Hd1	x	-Pm1
+35	d	H	-0	x	Pm1
+35	d	-H	-0	x	-Pm1
+
+!atan2 (+-y, -H) returns P for finite y>0
+35	d	0i1	-H	x	P
+35	d	-0i1	-H	x	-P
+35	d	ed1	-H	x	P
+35	d	-ed1	-H	x	-P
+35	d	e	-H	x	P
+35	d	-e	-H	x	-P
+35	d	ei1	-H	x	P
+35	d	-ei1	-H	x	-P
+35	d	1d1	-H	x	P
+35	d	-1d1	-H	x	-P
+35	d	1	-H	x	P
+35	d	-1	-H	x	-P
+35	d	1i1	-H	x	P
+35	d	-1i1	-H	x	-P
+35	d	Hd1	-H	x	P
+35	d	-Hd1	-H	x	-P
+
+
+35	d	H	H	x	Pm2
+35	d	-H	H	x	-Pm2
+35	d	H	-H	x	T
+35	d	-H	-H	x	-T
+!sin
+31	d	0	0	OK	0
+31	d	-0	0	OK	-0
+31	d	H	0	i	Q
+31	d	-H	0	i	Q
+
+! <scp> 31	d	ed1	0	x	ed1
+31	d	ed1	0	ux	ed1
+31	d	e	0	x	e
+31	d	ei1	0	x	ei1
+! <scp> 31	d	-ed1	0	x	-ed1
+31	d	-ed1	0	ux	-ed1
+31	d	-e	0	x	-e
+31	d	-ei1	0	x	-ei1
+
+!cos
+32	d	0	0	OK	1
+32	d	-0	0	OK	1
+32	d	H	0	i	Q
+32	d	-H	0	i	Q
+
+!tan
+33	d	0	0	OK	0
+33	d	-0	0	OK	-0
+33	d	H	0	i	Q
+33	d	-H	0	i	Q
+
+! <scp> 33	d	ed1	0	x	ed1
+33	d	ed1	0	ux	ed1
+33	d	e	0	x	e
+33	d	ei1	0	x	ei1
+! <scp> 33	d	-ed1	0	x	-ed1
+33	d	-ed1	0	ux	-ed1
+33	d	-e	0	x	-e
+33	d	-ei1	0	x	-ei1
+
+
+
+

@@ -4,6 +4,8 @@
 <dict>
 	<key>Initializing network</key>
 	<string>Initializing network</string>
+	<key>Setting host identifier</key>
+	<string>Setting host identifier</string>
 </dict>
 </plist>
 

@@ -5,9 +5,9 @@
 # from a C++ header
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/22 02:27:13 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -30,14 +30,15 @@ BEGIN {
 }
 package HeaderDoc::CPPClass;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
 use HeaderDoc::APIOwner;
-@ISA = qw( HeaderDoc::APIOwner );
 
 use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
 
+# Inheritance
+@ISA = qw( HeaderDoc::APIOwner );
 ################ Portability ###################################
 my $isMacOS;
 my $pathSeparator;
@@ -61,62 +62,22 @@ $year += 1900;
 my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->SUPER::_initialize();
-    $self->_initialize();
-    print "Created new CPPClass object\n" if ($debugging);
-    return($self);
-}
-
 sub _initialize {
     my($self) = shift;
-    $self->{HEADEROBJECT} = undef;
-}
-
-sub headerObject {
-    my $self = shift;
-
-    if (@_) {
-        $self->{HEADEROBJECT} = shift;
-    }
-    return $self->{HEADEROBJECT};
-}
-
-sub createTOCFile {
-    my $self = shift;
-    my $rootDir = $self->outputDir();
-    my $outputFileName = "toc.html";    
-    my $outputFile = "$rootDir$pathSeparator$outputFileName";    
-    my $fileString = $self->tocString();    
-    my $filename = $self->name();    
-
-	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
-    if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
-	print OUTFILE "<html><head><title>Draft Documentation for $filename</title></head>\n";
-	print OUTFILE "<body bgcolor=\"#cccccc\">\n";
-	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
-	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>Class:</b></font></td></tr>\n";
-	print OUTFILE "<tr><td width=\"15\"></td><td><b><font size=\"+1\">$filename</font></b></td></tr>\n";
-	print OUTFILE "</table><hr>\n";
-	print OUTFILE $fileString;
-	print OUTFILE "</body></html>\n";
-	close OUTFILE;
+    $self->SUPER::_initialize();
+    $self->tocTitlePrefix('Class:');
 }
 
 sub tocString {
     my $self = shift;
+    my $localDebug = 0;
     my $contentFrameName = $self->name();
     $contentFrameName =~ s/(.*)\.h/$1/; 
     # for now, always shorten long names since some files may be moved to a Mac for browsing
-    if (1 || $isMacOS) {$contentFrameName = &safeName($contentFrameName);};
+    if (1 || $isMacOS) {$contentFrameName = &safeName(filename => $contentFrameName);};
     $contentFrameName = $contentFrameName . ".html";
     my $header = $self->headerObject();
-    my @funcs = $self->functions();
+    my @funcs = $self->functions();    
     my @constants = $self->constants();
     my @typedefs = $self->typedefs();
     my @structs = $self->structs();
@@ -127,6 +88,7 @@ sub tocString {
     
     my $tocString = "<h3><a href=\"$contentFrameName\" target =\"doc\">Introduction</a></h3>\n";
 
+    
     # output list of functions as TOC
     if (@funcs) {
         my @publics;
@@ -236,6 +198,9 @@ sub tocString {
 	$tocString .= "<br><h4>Other Reference</h4><hr>\n";
 	$tocString .= "<nobr>&nbsp;<a href = \"../../$defaultFrameName\" target =\"_top\">Header</a></nobr><br>\n";
     $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
+    
+	print "*** finished toc\n" if ($localDebug);
+	
     return $tocString;
 }
 
@@ -411,6 +376,17 @@ sub _getVarDetailString {
     return $contentString;
 }
 
+sub getMethodType {
+    my $self = shift;
+	my $declaration = shift;
+	my $methodType = "instm";
+	
+	if ($declaration =~ /^\s*static/) {
+	    $methodType = "clm";
+	}
+	return $methodType;
+}
+
 sub getParamSignature {
     my $self = shift;
 	my $declaration = shift;
@@ -428,29 +404,12 @@ sub getParamSignature {
 	return $sig;
 }
 
-sub getMethodType {
-    my $self = shift;
-	my $declaration = shift;
-	my $methodType = "instm";
-	
-	if ($declaration =~ /^\s*static/) {
-	    $methodType = "clm";
-	}
-	return $methodType;
-}
-
-
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
     
-    return "<-- headerDoc=CPPClass; name=$name-->";
+    return "<-- headerDoc=cl; name=$name-->";
 }
-
-
-
-
-
 
 ################## Misc Functions ###################################
 
@@ -486,9 +445,8 @@ sub linkageAndObjName { # used for sorting
 sub printObject {
     my $self = shift;
  
-    print "CPPClass\n";
     $self->SUPER::printObject();
-    print "headerObject: $self->{HEADEROBJECT}\n";
+    print "CPPClass\n";
     print "\n";
 }
 

@@ -1,7 +1,6 @@
-This is Info file ../info/cl, produced by Makeinfo version 1.68 from
-the input file cl.texi.
+This is ../info/cl, produced by makeinfo version 4.0 from cl.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * CL: (cl).		Partial Common Lisp support for Emacs Lisp.
 END-INFO-DIR-ENTRY
@@ -10,25 +9,25 @@ END-INFO-DIR-ENTRY
 
    Copyright (C) 1993 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the author instead of in
-the original English.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
-File: cl,  Node: Structures,  Next: Assertions,  Prev: Hash Tables,  Up: Top
+File: cl,  Node: Structures,  Next: Assertions,  Prev: Lists,  Up: Top
 
 Structures
 **********
@@ -46,7 +45,7 @@ provides no way to create new distinct types, this package implements
 structures as vectors (or lists upon request) with a special "tag"
 symbol to identify them.
 
- - Special Form: defstruct NAME SLOTS...
+ - Special Form: defstruct name slots...
      The `defstruct' form defines a new structure type called NAME,
      with the specified SLOTS.  (The SLOTS may begin with a string
      which documents the structure type.)  In the simplest case, NAME
@@ -169,7 +168,7 @@ symbol to identify them.
           descriptor.  It is legal to include arguments which don't
           correspond to slot names; these are useful if they are
           referred to in the defaults for optional, keyword, or `&aux'
-          arguments which *do* correspond to slots.
+          arguments which _do_ correspond to slots.
 
           You can specify any number of full-format `:constructor'
           options on a structure.  The default constructor is still
@@ -354,7 +353,7 @@ is less than 3, then the byte-compiler will optimize away the following
 assertions.  Because assertions might be optimized away, it is a bad
 idea for them to include side-effects.
 
- - Special Form: assert TEST-FORM [SHOW-ARGS STRING ARGS...]
+ - Special Form: assert test-form [show-args string args...]
      This form verifies that TEST-FORM is true (i.e., evaluates to a
      non-`nil' value).  If so, it returns `nil'.  If the test is not
      satisfied, `assert' signals an error.
@@ -376,7 +375,7 @@ idea for them to include side-effects.
      Emacs Lisp does not support continuable errors, it makes no sense
      to specify PLACES.
 
- - Special Form: check-type FORM TYPE [STRING]
+ - Special Form: check-type form type [string]
      This form verifies that FORM evaluates to a value of type TYPE.
      If so, it returns `nil'.  If not, `check-type' signals a
      `wrong-type-argument' error.  The default error message lists the
@@ -395,7 +394,7 @@ idea for them to include side-effects.
 
    The following error-related macro is also defined:
 
- - Special Form: ignore-errors FORMS...
+ - Special Form: ignore-errors forms...
      This executes FORMS exactly like a `progn', except that errors are
      ignored during the FORMS.  More precisely, if an error is signaled
      then `ignore-errors' immediately aborts execution of the FORMS and
@@ -428,7 +427,7 @@ which are the most efficient ways of doing these respective operations
 in Lisp.  Thus, there is no performance penalty for using the more
 readable `incf' and `push' forms in your compiled code.
 
-   *Interpreted* code, on the other hand, must expand these macros
+   _Interpreted_ code, on the other hand, must expand these macros
 every time they are executed.  For this reason it is strongly
 recommended that code making heavy use of macros be compiled.  (The
 features labeled "Special Form" instead of "Function" in this manual
@@ -440,7 +439,7 @@ thrown away a hundred times.
    You can find out how a macro expands by using the `cl-prettyexpand'
 function.
 
- - Function: cl-prettyexpand FORM &optional FULL
+ - Function: cl-prettyexpand form &optional full
      This function takes a single Lisp form as an argument and inserts
      a nicely formatted copy of it in the current buffer (which must be
      in Lisp mode so that indentation works properly).  It also expands
@@ -465,7 +464,7 @@ function.
      just leaves it alone.  The temporary variable `G1004' was created
      by `gensym'.)
 
-     If the optional argument FULL is true, then *all* macros are
+     If the optional argument FULL is true, then _all_ macros are
      expanded, including `block', `eval-when', and compiler macros.
      Expansion is done as if FORM were a top-level form in a file being
      compiled.  For example,
@@ -487,13 +486,7 @@ Error Checking
 Common Lisp compliance has in general not been sacrificed for the sake
 of efficiency.  A few exceptions have been made for cases where
 substantial gains were possible at the expense of marginal
-incompatibility.  One example is the use of `memq' (which is treated
-very efficiently by the byte-compiler) to scan for keyword arguments;
-this can become confused in rare cases when keyword symbols are used as
-both keywords and data values at once.  This is extremely unlikely to
-occur in practical code, and the use of `memq' allows functions with
-keyword arguments to be nearly as fast as functions that use
-`&optional' arguments.
+incompatibility.
 
    The Common Lisp standard (as embodied in Steele's book) uses the
 phrase "it is an error if" to indicate a situation which is not
@@ -508,7 +501,7 @@ Functions taking keyword arguments will accept an odd number of
 arguments, treating the trailing keyword as if it were followed by the
 value `nil'.
 
-   Argument lists (as processed by `defun*' and friends) *are* checked
+   Argument lists (as processed by `defun*' and friends) _are_ checked
 rigorously except for the minor point just mentioned; in particular,
 keyword arguments are checked for validity, and `&allow-other-keys' and
 `:allow-other-keys' are fully implemented.  Keyword validity checking
@@ -521,26 +514,12 @@ arguments for validity.
 Optimizing Compiler
 ===================
 
-The byte-compiler that comes with Emacs 18 normally fails to expand
-macros that appear in top-level positions in the file (i.e., outside of
-`defun's or other enclosing forms).  This would have disastrous
-consequences to programs that used such top-level macros as `defun*',
-`eval-when', and `defstruct'.  To work around this problem, the "CL"
-package patches the Emacs 18 compiler to expand top-level macros.  This
-patch will apply to your own macros, too, if they are used in a
-top-level context.  The patch will not harm versions of the Emacs 18
-compiler which have already had a similar patch applied, nor will it
-affect the optimizing Emacs 19 byte-compiler written by Jamie Zawinski
-and Hallvard Furuseth.  The patch is applied to the byte compiler's
-code in Emacs' memory, *not* to the `bytecomp.elc' file stored on disk.
-
-   The Emacs 19 compiler (for Emacs 18) is available from various Emacs
-Lisp archive sites such as `archive.cis.ohio-state.edu'.  Its use is
-highly recommended; many of the Common Lisp macros emit code which can
-be improved by optimization.  In particular, `block's (whether explicit
-or implicit in constructs like `defun*' and `loop') carry a fair
-run-time penalty; the optimizing compiler removes `block's which are
-not actually referenced by `return' or `return-from' inside the block.
+Use of the optimizing Emacs compiler is highly recommended; many of the
+Common Lisp macros emit code which can be improved by optimization.  In
+particular, `block's (whether explicit or implicit in constructs like
+`defun*' and `loop') carry a fair run-time penalty; the optimizing
+compiler removes `block's which are not actually referenced by `return'
+or `return-from' inside the block.
 
 
 File: cl,  Node: Common Lisp Compatibility,  Next: Old CL Compatibility,  Prev: Efficiency Concerns,  Up: Top
@@ -562,15 +541,9 @@ understand full-featured argument lists.  The `&whole' keyword does not
 work in `defmacro' argument lists (except inside recursive argument
 lists).
 
-   In order to allow an efficient implementation, keyword arguments use
-a slightly cheesy parser which may be confused if a keyword symbol is
-passed as the *value* of another keyword argument.  (Specifically,
-`(memq :KEYWORD REST-OF-ARGUMENTS)' is used to scan for `:KEYWORD'
-among the supplied keyword arguments.)
-
    The `eql' and `equal' predicates do not distinguish between IEEE
 floating-point plus and minus zero.  The `equalp' predicate has several
-differences with Common Lisp; *note Predicates::..
+differences with Common Lisp; *note Predicates::.
 
    The `setf' mechanism is entirely compatible, except that
 setf-methods return a list of five values rather than five values
@@ -591,7 +564,7 @@ since Emacs Lisp cannot support multiple return values directly.  The
 macros will be compatible with Common Lisp if `values' or `values-list'
 is always used to return to a `multiple-value-bind' or other
 multiple-value receiver; if `values' is used without
-`multiple-value-...'  or vice-versa the effect will be different from
+`multiple-value-...' or vice-versa the effect will be different from
 Common Lisp.
 
    Many Common Lisp declarations are ignored, and others match the
@@ -632,11 +605,11 @@ this package.
 
    The `member', `floor', `ceiling', `truncate', `round', `mod', and
 `rem' functions are suffixed by `*' in this package to avoid collision
-with existing functions in Emacs 18 or Emacs 19.  The older package
-simply redefined these functions, overwriting the built-in meanings and
-causing serious portability problems with Emacs 19.  (Some more recent
-versions of the Quiroz package changed the names to `cl-member', etc.;
-this package defines the latter names as aliases for `member*', etc.)
+with existing functions in Emacs.  The older package simply redefined
+these functions, overwriting the built-in meanings and causing serious
+portability problems.  (Some more recent versions of the Quiroz package
+changed the names to `cl-member', etc.; this package defines the latter
+names as aliases for `member*', etc.)
 
    Certain functions in the old package which were buggy or inconsistent
 with the Common Lisp standard are incompatible with the conforming
@@ -696,7 +669,7 @@ multiple-value mechanism, just as they did in the old package.  The
 newer `floor*' and friends return their two results in a list rather
 than as multiple values.  Note that older versions of the old package
 used the unadorned names `floor', `ceiling', etc.; `cl-compat' cannot
-use these names because they conflict with Emacs 19 built-ins.
+use these names because they conflict with Emacs built-ins.
 
 
 File: cl,  Node: Porting Common Lisp,  Next: Function Index,  Prev: Old CL Compatibility,  Up: Top
@@ -709,7 +682,7 @@ an Emacs implementation of true Common Lisp.  Some of the remaining
 differences between Emacs Lisp and Common Lisp make it difficult to
 port large Common Lisp applications to Emacs.  For one, some of the
 features in this package are not fully compliant with ANSI or Steele;
-*note Common Lisp Compatibility::..  But there are also quite a few
+*note Common Lisp Compatibility::.  But there are also quite a few
 features that this package does not provide at all.  Here are some
 major omissions that you will want watch out for when bringing Common
 Lisp code into Emacs.
@@ -744,7 +717,7 @@ Lisp code into Emacs.
                   collect (if flag x (funcall func x))))
           
           (defun add-odd-elements (list x)
-            (map-odd-elements (function (lambda (a) (+ a x))) list))
+            (map-odd-elements (lambda (a) (+ a x))) list)
 
      In Common Lisp, the two functions' usages of `x' are completely
      independent.  In Emacs Lisp, the binding to `x' made by
@@ -824,9 +797,9 @@ Lisp code into Emacs.
      rarely be useful.
 
    * Vector constants use square brackets in Emacs Lisp, but `#(a b c)'
-     notation in Common Lisp.  To further complicate matters, Emacs 19
-     introduces its own `#(' notation for something entirely
-     different--strings with properties.
+     notation in Common Lisp.  To further complicate matters, Emacs has
+     its own `#(' notation for something entirely different--strings
+     with properties.
 
    * Characters are distinct from integers in Common Lisp.  The
      notation for character constants is also different:  `#\A' instead
@@ -882,4 +855,188 @@ Lisp code into Emacs.
      much faster than recursion.  Also, Lisp programmers will want to
      note that the current Emacs Lisp compiler does not optimize tail
      recursion.
+
+
+File: cl,  Node: Function Index,  Next: Variable Index,  Prev: Porting Common Lisp,  Up: Top
+
+Function Index
+**************
+
+* Menu:
+
+* acons:                                 Association Lists.
+* adjoin:                                Lists as Sets.
+* assert:                                Assertions.
+* assoc*:                                Association Lists.
+* assoc-if:                              Association Lists.
+* assoc-if-not:                          Association Lists.
+* block:                                 Blocks and Exits.
+* caddr:                                 List Functions.
+* callf:                                 Modify Macros.
+* callf2:                                Modify Macros.
+* case:                                  Conditionals.
+* ceiling*:                              Numerical Functions.
+* check-type:                            Assertions.
+* cl-float-limits:                       Implementation Parameters.
+* cl-prettyexpand:                       Efficiency Concerns.
+* coerce:                                Type Predicates.
+* compiler-macroexpand:                  Macros.
+* concatenate:                           Sequence Functions.
+* copy-list:                             List Functions.
+* copy-tree:                             List Functions.
+* count:                                 Searching Sequences.
+* count-if:                              Searching Sequences.
+* count-if-not:                          Searching Sequences.
+* decf:                                  Modify Macros.
+* declaim:                               Declarations.
+* declare:                               Declarations.
+* define-compiler-macro:                 Macros.
+* define-modify-macro:                   Customizing Setf.
+* define-setf-method:                    Customizing Setf.
+* defmacro*:                             Argument Lists.
+* defsetf:                               Customizing Setf.
+* defstruct:                             Structures.
+* defsubst*:                             Argument Lists.
+* deftype:                               Type Predicates.
+* defun*:                                Argument Lists.
+* delete*:                               Sequence Functions.
+* delete-duplicates:                     Sequence Functions.
+* delete-if:                             Sequence Functions.
+* delete-if-not:                         Sequence Functions.
+* destructuring-bind:                    Macros.
+* do:                                    Iteration.
+* do*:                                   Iteration.
+* do-all-symbols:                        Iteration.
+* do-symbols:                            Iteration.
+* dolist:                                Iteration.
+* dotimes:                               Iteration.
+* ecase:                                 Conditionals.
+* endp:                                  List Functions.
+* eql:                                   Equality Predicates.
+* equalp:                                Equality Predicates.
+* etypecase:                             Conditionals.
+* eval-when:                             Time of Evaluation.
+* eval-when-compile:                     Time of Evaluation.
+* evenp:                                 Predicates on Numbers.
+* every:                                 Mapping over Sequences.
+* fill:                                  Sequence Functions.
+* find:                                  Searching Sequences.
+* find-if:                               Searching Sequences.
+* find-if-not:                           Searching Sequences.
+* first:                                 List Functions.
+* flet:                                  Function Bindings.
+* floatp-safe:                           Predicates on Numbers.
+* floor*:                                Numerical Functions.
+* function*:                             Argument Lists.
+* gcd:                                   Numerical Functions.
+* gensym:                                Creating Symbols.
+* gentemp:                               Creating Symbols.
+* get*:                                  Property Lists.
+* get-setf-method:                       Customizing Setf.
+* getf:                                  Property Lists.
+* ignore-errors:                         Assertions.
+* incf:                                  Modify Macros.
+* intersection:                          Lists as Sets.
+* isqrt:                                 Numerical Functions.
+* labels:                                Function Bindings.
+* lcm:                                   Numerical Functions.
+* ldiff:                                 List Functions.
+* letf:                                  Modify Macros.
+* letf*:                                 Modify Macros.
+* lexical-let:                           Lexical Bindings.
+* lexical-let*:                          Lexical Bindings.
+* list*:                                 List Functions.
+* list-length:                           List Functions.
+* load-time-value:                       Time of Evaluation.
+* locally:                               Declarations.
+* loop <1>:                              Loop Basics.
+* loop:                                  Iteration.
+* macrolet:                              Macro Bindings.
+* make-random-state:                     Random Numbers.
+* map:                                   Mapping over Sequences.
+* mapc:                                  Mapping over Sequences.
+* mapcan:                                Mapping over Sequences.
+* mapcar*:                               Mapping over Sequences.
+* mapcon:                                Mapping over Sequences.
+* mapl:                                  Mapping over Sequences.
+* maplist:                               Mapping over Sequences.
+* member*:                               Lists as Sets.
+* member-if:                             Lists as Sets.
+* member-if-not:                         Lists as Sets.
+* merge:                                 Sorting Sequences.
+* minusp:                                Predicates on Numbers.
+* mismatch:                              Searching Sequences.
+* mod*:                                  Numerical Functions.
+* multiple-value-bind:                   Multiple Values.
+* multiple-value-setq:                   Multiple Values.
+* nintersection:                         Lists as Sets.
+* notany:                                Mapping over Sequences.
+* notevery:                              Mapping over Sequences.
+* nset-difference:                       Lists as Sets.
+* nset-exclusive-or:                     Lists as Sets.
+* nsublis:                               Substitution of Expressions.
+* nsubst:                                Substitution of Expressions.
+* nsubst-if:                             Substitution of Expressions.
+* nsubst-if-not:                         Substitution of Expressions.
+* nsubstitute:                           Sequence Functions.
+* nsubstitute-if:                        Sequence Functions.
+* nsubstitute-if-not:                    Sequence Functions.
+* nunion:                                Lists as Sets.
+* oddp:                                  Predicates on Numbers.
+* pairlis:                               Association Lists.
+* plusp:                                 Predicates on Numbers.
+* pop:                                   Modify Macros.
+* position:                              Searching Sequences.
+* position-if:                           Searching Sequences.
+* position-if-not:                       Searching Sequences.
+* proclaim:                              Declarations.
+* progv:                                 Dynamic Bindings.
+* psetf:                                 Modify Macros.
+* psetq:                                 Assignment.
+* push:                                  Modify Macros.
+* pushnew:                               Modify Macros.
+* random*:                               Random Numbers.
+* random-state-p:                        Random Numbers.
+* rassoc*:                               Association Lists.
+* rassoc-if:                             Association Lists.
+* rassoc-if-not:                         Association Lists.
+* reduce:                                Mapping over Sequences.
+* rem*:                                  Numerical Functions.
+* remf:                                  Property Lists.
+* remove*:                               Sequence Functions.
+* remove-duplicates:                     Sequence Functions.
+* remove-if:                             Sequence Functions.
+* remove-if-not:                         Sequence Functions.
+* remprop:                               Property Lists.
+* replace:                               Sequence Functions.
+* rest:                                  List Functions.
+* return:                                Blocks and Exits.
+* return-from:                           Blocks and Exits.
+* rotatef:                               Modify Macros.
+* round*:                                Numerical Functions.
+* search:                                Searching Sequences.
+* set-difference:                        Lists as Sets.
+* set-exclusive-or:                      Lists as Sets.
+* setf:                                  Basic Setf.
+* shiftf:                                Modify Macros.
+* some:                                  Mapping over Sequences.
+* sort*:                                 Sorting Sequences.
+* stable-sort:                           Sorting Sequences.
+* sublis:                                Substitution of Expressions.
+* subseq:                                Sequence Functions.
+* subsetp:                               Lists as Sets.
+* subst:                                 Substitution of Expressions.
+* subst-if:                              Substitution of Expressions.
+* subst-if-not:                          Substitution of Expressions.
+* substitute:                            Sequence Functions.
+* substitute-if:                         Sequence Functions.
+* substitute-if-not:                     Sequence Functions.
+* symbol-macrolet:                       Macro Bindings.
+* tailp:                                 Lists as Sets.
+* the:                                   Declarations.
+* tree-equal:                            List Functions.
+* truncate*:                             Numerical Functions.
+* typecase:                              Conditionals.
+* typep:                                 Type Predicates.
+* union:                                 Lists as Sets.
 

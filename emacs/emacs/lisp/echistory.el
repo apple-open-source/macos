@@ -22,6 +22,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (require 'electric)			; command loop
@@ -113,9 +115,10 @@ The Command History listing is recomputed each time this mode is invoked."
 		  (save-window-excursion
 		    (list-command-history)
 		    (set-buffer "*Command History*")
-		    (Command-history-setup 'electric-command-history
-					   "Electric History"
-					   electric-history-map))
+		    (Command-history-setup)
+		    (setq major-mode 'electric-command-history)
+		    (setq mode-name "Electric History")
+		    (use-local-map electric-history-map))
 		  (Electric-pop-up-window "*Command History*")
 		  (run-hooks 'electric-command-history-hook)
 		  (if (eobp)
@@ -126,7 +129,7 @@ The Command History listing is recomputed each time this mode is invoked."
 		      (Electric-command-loop 'electric-history-quit
 					     "->" t))))))
       (set-buffer "*Command History*")
-      (Command-history-setup)
+      (command-history-mode)
       (bury-buffer (current-buffer)))
     (if (consp todo)
 	(progn (set-buffer old-buffer)

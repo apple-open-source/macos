@@ -1,0 +1,111 @@
+This is screen.info, produced by makeinfo version 4.0 from
+./screen.texinfo.
+
+START-INFO-DIR-ENTRY
+* Screen: (screen).             Full-screen window manager.
+END-INFO-DIR-ENTRY
+
+   This file documents the `Screen' virtual terminal manager.
+
+   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: screen.info,  Node: Keystroke Index,  Prev: Command Index,  Up: Top
+
+Keystroke Index
+***************
+
+   This is a list of the default key bindings.
+
+   The leading escape character (*note Command Character::) has been
+omitted from the key sequences, since it is the same for all bindings.
+
+* Menu:
+
+* ":                                     Select.
+* ':                                     Select.
+* *:                                     Displays.
+* .:                                     Dump Termcap.
+* 0...9:                                 Select.
+* ::                                     Colon.
+* <:                                     Screen-Exchange.
+* =:                                     Screen-Exchange.
+* >:                                     Screen-Exchange.
+* ?:                                     Help.
+* [:                                     Copy.
+* ]:                                     Paste.
+* a:                                     Command Character.
+* A:                                     Title Command.
+* C:                                     Clear.
+* c:                                     Screen Command.
+* C-[:                                   Copy.
+* C-\:                                   Quit.
+* C-]:                                   Paste.
+* C-a:                                   Other Window.
+* C-c:                                   Screen Command.
+* C-d:                                   Detach.
+* C-f:                                   Flow.
+* C-g:                                   Bell.
+* C-h:                                   Hardcopy.
+* C-i:                                   Info.
+* C-k:                                   Kill.
+* C-l:                                   Redisplay.
+* C-m:                                   Last Message.
+* C-n:                                   Next and Previous.
+* C-p:                                   Next and Previous.
+* C-q:                                   XON/XOFF.
+* C-r:                                   Wrap.
+* C-s:                                   XON/XOFF.
+* C-t:                                   Time.
+* C-v:                                   Digraph.
+* C-w:                                   Windows.
+* C-x:                                   Lock.
+* C-z:                                   Suspend.
+* D:                                     Power Detach.
+* d:                                     Detach.
+* ESC:                                   Copy.
+* f:                                     Flow.
+* F:                                     Fit.
+* H:                                     Log.
+* h:                                     Hardcopy.
+* i:                                     Info.
+* k:                                     Kill.
+* l:                                     Redisplay.
+* L:                                     Login.
+* m:                                     Last Message.
+* M:                                     Monitor.
+* N:                                     Number.
+* n:                                     Next and Previous.
+* p:                                     Next and Previous.
+* q:                                     XON/XOFF.
+* Q:                                     Only.
+* r:                                     Wrap.
+* s:                                     XON/XOFF.
+* S:                                     Split.
+* SPC:                                   Next and Previous.
+* t:                                     Time.
+* TAB:                                   Focus.
+* v:                                     Version.
+* W:                                     Window Size.
+* w:                                     Windows.
+* X:                                     Remove.
+* x:                                     Lock.
+* Z:                                     Reset.
+* z:                                     Suspend.
+* {:                                     History.
+
+

@@ -34,7 +34,8 @@
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOAudioControl, IOService)
-OSMetaClassDefineReservedUnused(IOAudioControl, 0);
+OSMetaClassDefineReservedUsed(IOAudioControl, 0);
+
 OSMetaClassDefineReservedUnused(IOAudioControl, 1);
 OSMetaClassDefineReservedUnused(IOAudioControl, 2);
 OSMetaClassDefineReservedUnused(IOAudioControl, 3);
@@ -59,6 +60,27 @@ OSMetaClassDefineReservedUnused(IOAudioControl, 21);
 OSMetaClassDefineReservedUnused(IOAudioControl, 22);
 OSMetaClassDefineReservedUnused(IOAudioControl, 23);
 
+// New code
+void IOAudioControl::sendChangeNotification(UInt32 notificationType)
+{
+    OSCollectionIterator *iterator;
+    IOAudioControlUserClient *client;
+    
+    if (!userClients) {
+        return;
+    }
+
+    iterator = OSCollectionIterator::withCollection(userClients);
+    if (iterator) {
+        while (client = (IOAudioControlUserClient *)iterator->getNextObject()) {
+            client->sendChangeNotification(notificationType);
+        }
+
+        iterator->release();
+    }
+}
+
+// Original code here...
 IOAudioControl *IOAudioControl::withAttributes(UInt32 type,
                                                OSObject *initialValue,
                                                UInt32 channelID,
@@ -107,9 +129,7 @@ bool IOAudioControl::init(UInt32 type,
     setChannelID(newChannelID);
     setControlID(cntrlID);
 
-    if (subType != 0) {
-        setSubType(subType);
-    }
+	setSubType(subType);
     
     if (channelName) {
         setChannelName(channelName);

@@ -39,7 +39,27 @@ IOBlockStorageDevice::init(OSDictionary * properties)
     return(result);
 }
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  0);
+/* DEPRECATED */ IOReturn
+/* DEPRECATED */ IOBlockStorageDevice::doSyncReadWrite(IOMemoryDescriptor *buffer,
+/* DEPRECATED */                                       UInt32 block,UInt32 nblks)
+/* DEPRECATED */ {
+/* DEPRECATED */    return(kIOReturnUnsupported);
+/* DEPRECATED */ }
+
+IOReturn
+IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
+                                       UInt64 block,UInt64 nblks,
+                                       IOStorageCompletion completion)
+{
+    if ((block >> 32) || (nblks >> 32)) {
+        return(kIOReturnUnsupported);
+    } else {
+        return(doAsyncReadWrite(buffer,(UInt32)block,(UInt32)nblks,completion));
+    }
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 0);
+
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  2);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);

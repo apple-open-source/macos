@@ -71,6 +71,7 @@ private:
 protected:
   virtual const unsigned char * defaultKeymapOfLength(UInt32 * length);
   virtual void setAlphaLockFeedback(bool locked);
+  virtual void setNumLockFeedback(bool locked);
   virtual UInt32 maxKeyCodes();
 
 public:

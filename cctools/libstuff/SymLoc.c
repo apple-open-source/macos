@@ -14,19 +14,21 @@
 const char *
 symLocForDylib(const char *installName, const char *releaseName,
 enum bool *found_project,
-enum bool disablewarnings)
+enum bool disablewarnings,
+enum bool no_error_if_missing)
 {
 	return(LocForDylib(installName, releaseName, "Symbols", found_project,
-			   disablewarnings));
+			   disablewarnings, no_error_if_missing));
 }
 
 const char *
 dstLocForDylib(const char *installName, const char *releaseName,
 enum bool *found_project,
-enum bool disablewarnings)
+enum bool disablewarnings,
+enum bool no_error_if_missing)
 {
 	return(LocForDylib(installName, releaseName, "Roots", found_project,
-			   disablewarnings));
+			   disablewarnings, no_error_if_missing));
 }
 
 // caller is responsible for freeing the returned string (using free(3)) 
@@ -34,7 +36,8 @@ const char *
 LocForDylib(const char *installName, const char *releaseName,
 const char *dirname,
 enum bool *found_project,
-enum bool disablewarnings)
+enum bool disablewarnings,
+enum bool no_error_if_missing)
 {
     struct passwd	*passwd		= NULL;
     struct dirent	*dp		= NULL;
@@ -154,7 +157,8 @@ enum bool disablewarnings)
 
     // process return value
     if (!c) {
-        error("Can't find project that builds %s", installName);
+	if(no_error_if_missing == FALSE)
+	    error("Can't find project that builds %s", installName);
         return NULL;
     } else {
 	*found_project = TRUE;

@@ -14,5 +14,9 @@ Extra_Environment = FLEX=lex FLEXLIB=libl.a			\
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 after_install::
-	$(LN) -f $(RC_Install_Prefix)/bin/lex $(RC_Install_Prefix)/bin/flex
-	$(LN) -fs flex $(RC_Install_Prefix)/bin/flex++
+	$(LN) -f $(DSTROOT)$(USRBINDIR)/lex $(DSTROOT)$(USRBINDIR)/flex
+	$(LN) -f $(DSTROOT)/usr/share/man/man1/lex.1 $(DSTROOT)/usr/share/man/man1/flex++.1
+	$(LN) -f $(DSTROOT)/usr/share/man/man1/lex.1 $(DSTROOT)/usr/share/man/man1/lex++.1
+	$(LN) -f $(DSTROOT)/usr/share/man/man1/lex.1 $(DSTROOT)/usr/share/man/man1/flex.1
+	$(LN) -fs flex $(DSTROOT)$(USRBINDIR)/flex++
+	$(LN) -fs libl.a $(DSTROOT)$(USRLIBDIR)/libfl.a

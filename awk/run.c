@@ -404,7 +404,7 @@ Cell *getline(Node **a, int n)	/* get next line from specific input */
 			tempfree(x);
 		} else {			/* getline <file */
 			setsval(fldtab[0], buf);
-			if (isnumber(fldtab[0]->sval)) {
+			if (awk_isnumber(fldtab[0]->sval)) {
 				fldtab[0]->fval = atof(fldtab[0]->sval);
 				fldtab[0]->tval |= NUM;
 			}
@@ -697,7 +697,7 @@ Cell *indirect(Node **a, int n)	/* $( a[0] ) */
 
 	x = execute(a[0]);
 	m = getfval(x);
-	if (m == 0 && !isnumber(s = getsval(x)))	/* suspicion! */
+	if (m == 0 && !awk_isnumber(s = getsval(x)))	/* suspicion! */
 		ERROR "illegal field $(%s), name \"%s\"", s, x->nval FATAL;
 		/* BUG: can x->nval ever be null??? */
 	tempfree(x);
@@ -1222,7 +1222,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 				sprintf(num, "%d", n);
 				temp = *patbeg;
 				*patbeg = '\0';
-				if (isnumber(s))
+				if (awk_isnumber(s))
 					setsymtab(num, s, atof(s), STR|NUM, (Array *) ap->sval);
 				else
 					setsymtab(num, s, 0.0, STR, (Array *) ap->sval);
@@ -1239,7 +1239,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 		}
 		n++;
 		sprintf(num, "%d", n);
-		if (isnumber(s))
+		if (awk_isnumber(s))
 			setsymtab(num, s, atof(s), STR|NUM, (Array *) ap->sval);
 		else
 			setsymtab(num, s, 0.0, STR, (Array *) ap->sval);
@@ -1259,7 +1259,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 			temp = *s;
 			*s = '\0';
 			sprintf(num, "%d", n);
-			if (isnumber(t))
+			if (awk_isnumber(t))
 				setsymtab(num, t, atof(t), STR|NUM, (Array *) ap->sval);
 			else
 				setsymtab(num, t, 0.0, STR, (Array *) ap->sval);
@@ -1288,7 +1288,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 			temp = *s;
 			*s = '\0';
 			sprintf(num, "%d", n);
-			if (isnumber(t))
+			if (awk_isnumber(t))
 				setsymtab(num, t, atof(t), STR|NUM, (Array *) ap->sval);
 			else
 				setsymtab(num, t, 0.0, STR, (Array *) ap->sval);

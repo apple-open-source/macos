@@ -1,5 +1,8 @@
 /* Remote debugging interface for MIPS remote debugging protocol.
-   Copyright 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.  Written by Ian Lance Taylor
    <ian@cygnus.com>.
 
@@ -24,25 +27,15 @@
 #include "inferior.h"
 #include "bfd.h"
 #include "symfile.h"
-#include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "serial.h"
 #include "target.h"
 #include "remote-utils.h"
 #include "gdb_string.h"
-
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
+#include "gdb_stat.h"
+#include "regcache.h"
 #include <ctype.h>
-
-/* Microsoft C's stat.h doesn't define all the POSIX file modes.  */
-#ifndef S_IROTH
-#define S_IROTH S_IREAD
-#endif
-
 
 
 /* Breakpoint types.  Values 0, 1, and 2 must agree with the watch
@@ -94,9 +87,11 @@ static void mips_close (int quitting);
 
 static void mips_detach (char *args, int from_tty);
 
-static void mips_resume (int pid, int step, enum target_signal siggnal);
+static void mips_resume (ptid_t ptid, int step,
+                         enum target_signal siggnal);
 
-static int mips_wait (int pid, struct target_waitstatus *status);
+static ptid_t mips_wait (ptid_t ptid,
+                               struct target_waitstatus *status);
 
 static int mips_map_regno (int regno);
 
@@ -112,7 +107,9 @@ static int mips_store_word (CORE_ADDR addr, unsigned int value,
 			    char *old_contents);
 
 static int mips_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
-			     int write, struct target_ops *ignore);
+			     int write, 
+			     struct mem_attrib *attrib,
+			     struct target_ops *target);
 
 static void mips_files_info (struct target_ops *ignore);
 
@@ -367,10 +364,10 @@ static int mips_receive_wait = 5;
 static int mips_need_reply = 0;
 
 /* Handle used to access serial I/O stream.  */
-static serial_t mips_desc;
+static struct serial *mips_desc;
 
 /* UDP handle used to download files to target.  */
-static serial_t udp_desc;
+static struct serial *udp_desc;
 static int udp_in_use;
 
 /* TFTP filename used to download files to DDB board, in the form
@@ -460,11 +457,11 @@ static void
 close_ports (void)
 {
   mips_is_open = 0;
-  SERIAL_CLOSE (mips_desc);
+  serial_close (mips_desc);
 
   if (udp_in_use)
     {
-      SERIAL_CLOSE (udp_desc);
+      serial_close (udp_desc);
       udp_in_use = 0;
     }
   tftp_in_use = 0;
@@ -500,7 +497,7 @@ mips_error (char *string,...)
   printf_unfiltered ("Ending remote MIPS debugging.\n");
   target_mourn_inferior ();
 
-  return_to_top_level (RETURN_ERROR);
+  throw_exception (RETURN_ERROR);
 }
 
 /* putc_readable - print a character, displaying non-printable chars in
@@ -556,10 +553,10 @@ mips_expect_timeout (const char *string, int timeout)
     {
       int c;
 
-/* Must use SERIAL_READCHAR here cuz mips_readchar would get confused if we
-   were waiting for the mips_monitor_prompt... */
+      /* Must use serial_readchar() here cuz mips_readchar would get
+	 confused if we were waiting for the mips_monitor_prompt... */
 
-      c = SERIAL_READCHAR (mips_desc, timeout);
+      c = serial_readchar (mips_desc, timeout);
 
       if (c == SERIAL_TIMEOUT)
 	{
@@ -612,7 +609,7 @@ mips_getstring (char *string, int n)
   immediate_quit++;
   while (n > 0)
     {
-      c = SERIAL_READCHAR (mips_desc, remote_timeout);
+      c = serial_readchar (mips_desc, remote_timeout);
 
       if (c == SERIAL_TIMEOUT)
 	{
@@ -631,13 +628,13 @@ mips_getstring (char *string, int n)
 }
 
 /* Read a character from the remote, aborting on error.  Returns
-   SERIAL_TIMEOUT on timeout (since that's what SERIAL_READCHAR
-   returns).  FIXME: If we see the string mips_monitor_prompt from
-   the board, then we are debugging on the main console port, and we
-   have somehow dropped out of remote debugging mode.  In this case,
-   we automatically go back in to remote debugging mode.  This is a
-   hack, put in because I can't find any way for a program running on
-   the remote board to terminate without also ending remote debugging
+   SERIAL_TIMEOUT on timeout (since that's what serial_readchar()
+   returns).  FIXME: If we see the string mips_monitor_prompt from the
+   board, then we are debugging on the main console port, and we have
+   somehow dropped out of remote debugging mode.  In this case, we
+   automatically go back in to remote debugging mode.  This is a hack,
+   put in because I can't find any way for a program running on the
+   remote board to terminate without also ending remote debugging
    mode.  I assume users won't have any trouble with this; for one
    thing, the IDT documentation generally assumes that the remote
    debugging port is not the console port.  This is, however, very
@@ -661,7 +658,7 @@ mips_readchar (int timeout)
 
   if (state == mips_monitor_prompt_len)
     timeout = 1;
-  ch = SERIAL_READCHAR (mips_desc, timeout);
+  ch = serial_readchar (mips_desc, timeout);
 
   if (ch == SERIAL_TIMEOUT && timeout == -1)	/* Watchdog went off */
     {
@@ -887,7 +884,7 @@ mips_send_packet (const char *s, int get_ack)
 	  fprintf_unfiltered (gdb_stdlog, "Writing \"%s\"\n", packet + 1);
 	}
 
-      if (SERIAL_WRITE (mips_desc, packet,
+      if (serial_write (mips_desc, packet,
 			HDR_LENGTH + len + TRLR_LENGTH) != 0)
 	mips_error ("write to target failed: %s", safe_strerror (errno));
 
@@ -1147,7 +1144,7 @@ mips_receive_packet (char *buff, int throw_error, int timeout)
 			     ack + 1);
 	}
 
-      if (SERIAL_WRITE (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
+      if (serial_write (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
 	{
 	  if (throw_error)
 	    mips_error ("write to target failed: %s", safe_strerror (errno));
@@ -1187,7 +1184,7 @@ mips_receive_packet (char *buff, int throw_error, int timeout)
 			 ack + 1);
     }
 
-  if (SERIAL_WRITE (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
+  if (serial_write (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
     {
       if (throw_error)
 	mips_error ("write to target failed: %s", safe_strerror (errno));
@@ -1244,7 +1241,8 @@ mips_request (int cmd,
   if (cmd != '\0')
     {
       if (mips_need_reply)
-	internal_error ("mips_request: Trying to send command before reply");
+	internal_error (__FILE__, __LINE__,
+			"mips_request: Trying to send command before reply");
       sprintf (buff, "0x0 %c 0x%s 0x%s", cmd, paddr_nz (addr), paddr_nz (data));
       mips_send_packet (buff, 1);
       mips_need_reply = 1;
@@ -1254,7 +1252,8 @@ mips_request (int cmd,
     return 0;
 
   if (!mips_need_reply)
-    internal_error ("mips_request: Trying to get reply before command");
+    internal_error (__FILE__, __LINE__,
+		    "mips_request: Trying to get reply before command");
 
   mips_need_reply = 0;
 
@@ -1298,7 +1297,7 @@ mips_exit_cleanups (PTR arg)
 static void
 mips_send_command (const char *cmd, int prompt)
 {
-  SERIAL_WRITE (mips_desc, cmd, strlen (cmd));
+  serial_write (mips_desc, cmd, strlen (cmd));
   mips_expect (cmd);
   mips_expect ("\n");
   if (prompt)
@@ -1319,7 +1318,7 @@ mips_enter_debug (void)
     mips_send_command ("db tty0\r", 0);
 
   sleep (1);
-  SERIAL_WRITE (mips_desc, "\r", sizeof "\r" - 1);
+  serial_write (mips_desc, "\r", sizeof "\r" - 1);
 
   /* We don't need to absorb any spurious characters here, since the
      mips_receive_header will eat up a reasonable number of characters
@@ -1401,14 +1400,14 @@ mips_initialize (void)
       switch (j)
 	{
 	case 0:		/* First, try sending a CR */
-	  SERIAL_FLUSH_INPUT (mips_desc);
-	  SERIAL_WRITE (mips_desc, "\r", 1);
+	  serial_flush_input (mips_desc);
+	  serial_write (mips_desc, "\r", 1);
 	  break;
 	case 1:		/* First, try sending a break */
-	  SERIAL_SEND_BREAK (mips_desc);
+	  serial_send_break (mips_desc);
 	  break;
 	case 2:		/* Then, try a ^C */
-	  SERIAL_WRITE (mips_desc, "\003", 1);
+	  serial_write (mips_desc, "\003", 1);
 	  break;
 	case 3:		/* Then, try escaping from download */
 	  {
@@ -1422,9 +1421,9 @@ mips_initialize (void)
 		   packets. In-case we were downloading a large packet
 		   we flush the output buffer before inserting a
 		   termination sequence. */
-		SERIAL_FLUSH_OUTPUT (mips_desc);
+		serial_flush_output (mips_desc);
 		sprintf (tbuff, "\r/E/E\r");
-		SERIAL_WRITE (mips_desc, tbuff, 6);
+		serial_write (mips_desc, tbuff, 6);
 	      }
 	    else
 	      {
@@ -1444,9 +1443,9 @@ mips_initialize (void)
 
 		for (i = 1; i <= 33; i++)
 		  {
-		    SERIAL_WRITE (mips_desc, srec, 8);
+		    serial_write (mips_desc, srec, 8);
 
-		    if (SERIAL_READCHAR (mips_desc, 0) >= 0)
+		    if (serial_readchar (mips_desc, 0) >= 0)
 		      break;	/* Break immediatly if we get something from
 				   the board. */
 		  }
@@ -1528,7 +1527,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
     nomem (0);
   make_cleanup_freeargv (argv);
 
-  serial_port_name = strsave (argv[0]);
+  serial_port_name = xstrdup (argv[0]);
   if (argv[1])			/* remote TFTP name specified? */
     {
       remote_name = argv[1];
@@ -1542,20 +1541,20 @@ device is attached to the target board (e.g., /dev/ttya).\n"
     unpush_target (current_ops);
 
   /* Open and initialize the serial port.  */
-  mips_desc = SERIAL_OPEN (serial_port_name);
-  if (mips_desc == (serial_t) NULL)
+  mips_desc = serial_open (serial_port_name);
+  if (mips_desc == NULL)
     perror_with_name (serial_port_name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (mips_desc, baud_rate))
+      if (serial_setbaudrate (mips_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (mips_desc);
+	  serial_close (mips_desc);
 	  perror_with_name (serial_port_name);
 	}
     }
 
-  SERIAL_RAW (mips_desc);
+  serial_raw (mips_desc);
 
   /* Open and initialize the optional download port.  If it is in the form
      hostname#portnumber, it's a UDP socket.  If it is in the form
@@ -1565,7 +1564,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
     {
       if (strchr (remote_name, '#'))
 	{
-	  udp_desc = SERIAL_OPEN (remote_name);
+	  udp_desc = serial_open (remote_name);
 	  if (!udp_desc)
 	    perror_with_name ("Unable to open UDP port");
 	  udp_in_use = 1;
@@ -1576,16 +1575,16 @@ device is attached to the target board (e.g., /dev/ttya).\n"
 	     the user didn't specify a local name, assume it's the same
 	     as the part of the remote name after the "host:".  */
 	  if (tftp_name)
-	    free (tftp_name);
+	    xfree (tftp_name);
 	  if (tftp_localname)
-	    free (tftp_localname);
+	    xfree (tftp_localname);
 	  if (local_name == NULL)
 	    if ((local_name = strchr (remote_name, ':')) != NULL)
 	      local_name++;	/* skip over the colon */
 	  if (local_name == NULL)
 	    local_name = remote_name;	/* local name same as remote name */
-	  tftp_name = strsave (remote_name);
-	  tftp_localname = strsave (local_name);
+	  tftp_name = xstrdup (remote_name);
+	  tftp_localname = xstrdup (local_name);
 	  tftp_in_use = 1;
 	}
     }
@@ -1595,7 +1594,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
 
   /* Reset the expected monitor prompt if it's never been set before.  */
   if (mips_monitor_prompt == NULL)
-    mips_monitor_prompt = strsave (new_monitor_prompt);
+    mips_monitor_prompt = xstrdup (new_monitor_prompt);
   mips_monitor = new_monitor;
 
   mips_initialize ();
@@ -1611,7 +1610,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
   /* Try to figure out the processor model if possible.  */
   ptype = mips_read_processor_type ();
   if (ptype)
-    mips_set_processor_type_command (strsave (ptype), 0);
+    mips_set_processor_type_command (xstrdup (ptype), 0);
 
 /* This is really the job of start_remote however, that makes an assumption
    that the target is about to print out a status message of some sort.  That
@@ -1624,7 +1623,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
   set_current_frame (create_new_frame (read_fp (), stop_pc));
   select_frame (get_current_frame (), 0);
   print_stack_frame (selected_frame, -1, 1);
-  free (serial_port_name);
+  xfree (serial_port_name);
 }
 
 static void
@@ -1709,7 +1708,7 @@ mips_detach (char *args, int from_tty)
    where PMON does return a reply.  */
 
 static void
-mips_resume (int pid, int step, enum target_signal siggnal)
+mips_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   int err;
 
@@ -1741,8 +1740,8 @@ mips_signal_from_protocol (int sig)
 
 /* Wait until the remote stops, and return a wait status.  */
 
-static int
-mips_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+mips_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   int rstatus;
   int err;
@@ -1762,7 +1761,7 @@ mips_wait (int pid, struct target_waitstatus *status)
     {
       status->kind = TARGET_WAITKIND_STOPPED;
       status->value.sig = TARGET_SIGNAL_TRAP;
-      return 0;
+      return inferior_ptid;
     }
 
   /* No timeout; we sit here as long as the program continues to execute.  */
@@ -1893,7 +1892,7 @@ mips_wait (int pid, struct target_waitstatus *status)
       status->value.sig = mips_signal_from_protocol (rstatus & 0x7f);
     }
 
-  return 0;
+  return inferior_ptid;
 }
 
 /* We have to map between the register numbers used by gdb and the
@@ -2069,7 +2068,7 @@ static int mask_address_p = 1;
 
 static int
 mips_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		  struct target_ops *ignore)
+		  struct mem_attrib *attrib, struct target_ops *target)
 {
   int i;
   CORE_ADDR addr;
@@ -2187,7 +2186,7 @@ Give up (and stop debugging it)? "))
 	  printf_unfiltered ("Ending remote MIPS debugging.\n");
 	  target_mourn_inferior ();
 
-	  return_to_top_level (RETURN_QUIT);
+	  throw_exception (RETURN_QUIT);
 	}
 
       target_terminal_inferior ();
@@ -2196,7 +2195,7 @@ Give up (and stop debugging it)? "))
   if (remote_debug > 0)
     printf_unfiltered ("Sending break\n");
 
-  SERIAL_SEND_BREAK (mips_desc);
+  serial_send_break (mips_desc);
 
 #if 0
   if (mips_is_open)
@@ -2205,7 +2204,7 @@ Give up (and stop debugging it)? "))
 
       /* Send a ^C.  */
       cc = '\003';
-      SERIAL_WRITE (mips_desc, &cc, 1);
+      serial_write (mips_desc, &cc, 1);
       sleep (1);
       target_mourn_inferior ();
     }
@@ -2234,7 +2233,7 @@ Can't pass arguments to remote MIPS board; arguments ignored.");
 
   init_wait_for_inferior ();
 
-  /* FIXME: Should we set inferior_pid here?  */
+  /* FIXME: Should we set inferior_ptid here?  */
 
   proceed (entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
@@ -2727,7 +2726,7 @@ common_breakpoint (int set, CORE_ADDR addr, int len, enum break_type type)
 	      flags = "f";
 	      break;
 	    default:
-	      abort ();
+	      internal_error (__FILE__, __LINE__, "failed internal consistency check");
 	    }
 
 	  cmd = 'B';
@@ -2775,7 +2774,7 @@ send_srec (char *srec, int len, CORE_ADDR addr)
     {
       int ch;
 
-      SERIAL_WRITE (mips_desc, srec, len);
+      serial_write (mips_desc, srec, len);
 
       ch = mips_readchar (remote_timeout);
 
@@ -2847,6 +2846,9 @@ mips_load_srec (char *args)
 	      reclen = mips_make_srec (srec, '3', s->vma + i, buffer, numbytes);
 	      send_srec (srec, reclen, s->vma + i);
 
+	      if (ui_load_progress_hook)
+		ui_load_progress_hook (s->name, i);
+
 	      if (hashmark)
 		{
 		  putchar_unfiltered ('#');
@@ -2868,7 +2870,7 @@ mips_load_srec (char *args)
 
   send_srec (srec, reclen, abfd->start_address);
 
-  SERIAL_FLUSH_INPUT (mips_desc);
+  serial_flush_input (mips_desc);
 }
 
 /*
@@ -3134,7 +3136,7 @@ pmon_check_ack (char *mesg)
 
   if (!tftp_in_use)
     {
-      c = SERIAL_READCHAR (udp_in_use ? udp_desc : mips_desc,
+      c = serial_readchar (udp_in_use ? udp_desc : mips_desc,
 			   remote_timeout);
       if ((c == SERIAL_TIMEOUT) || (c != 0x06))
 	{
@@ -3230,7 +3232,7 @@ pmon_end_download (int final, int bintotal)
       strcat (cmd, tftp_name);
       strcat (cmd, "\r");
       mips_send_command (cmd, 0);
-      free (cmd);
+      xfree (cmd);
       if (!mips_expect_download ("Downloading from "))
 	return;
       if (!mips_expect_download (tftp_name))
@@ -3268,7 +3270,7 @@ pmon_download (char *buffer, int length)
   if (tftp_in_use)
     fwrite (buffer, 1, length, tftp_file);
   else
-    SERIAL_WRITE (udp_in_use ? udp_desc : mips_desc, buffer, length);
+    serial_write (udp_in_use ? udp_desc : mips_desc, buffer, length);
 }
 
 static void
@@ -3368,6 +3370,9 @@ pmon_load_fast (char *file)
 			    break;
 			  }
 
+			if (ui_load_progress_hook)
+			  ui_load_progress_hook (s->name, i);
+
 			if (hashmark)
 			  {
 			    putchar_unfiltered ('#');
@@ -3406,7 +3411,7 @@ pmon_load_fast (char *file)
 
   if (finished)
     {				/* Ignore the termination message: */
-      SERIAL_FLUSH_INPUT (udp_in_use ? udp_desc : mips_desc);
+      serial_flush_input (udp_in_use ? udp_desc : mips_desc);
     }
   else
     {				/* Deal with termination message: */
@@ -3443,7 +3448,7 @@ mips_load (char *file, int from_tty)
   if (exec_bfd)
     write_pc (bfd_get_start_address (exec_bfd));
 
-  inferior_pid = 0;		/* No process now */
+  inferior_ptid = null_ptid;	/* No process now */
 
 /* This is necessary because many things were based on the PC at the time that
    we attached to the monitor, which is no longer valid now that we have loaded

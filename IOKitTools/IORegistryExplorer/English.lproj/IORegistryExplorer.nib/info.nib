@@ -2,18 +2,25 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
-	<key>IBMainMenuLocation</key>
-	<string>42 450 240 44 0 42 1600 960 </string>
+	<key>IBDocumentLocation</key>
+	<string>7 46 362 295 0 0 1600 1002 </string>
+	<key>IBEditorPositions</key>
+	<dict>
+		<key>29</key>
+		<string>7 346 304 44 0 0 1600 1002 </string>
+	</dict>
+	<key>IBFramework Version</key>
+	<string>248.0</string>
+	<key>IBOpenObjects</key>
+	<array>
+		<integer>29</integer>
+		<integer>21</integer>
+	</array>
+	<key>IBSystem Version</key>
+	<string>5Q45</string>
 	<key>IBUserGuides</key>
 	<dict>
 		<key>Inspector</key>
-		<dict>
-			<key>guideLocations</key>
-			<array/>
-			<key>guidesLocked</key>
-			<string>NO</string>
-		</dict>
-		<key>Main Window</key>
 		<dict>
 			<key>guideLocations</key>
 			<array/>

@@ -1,8 +1,8 @@
-;;; map-ynp.el --- General-purpose boolean question-asker.
+;;; map-ynp.el --- general-purpose boolean question-asker
 
-;; Copyright (C) 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
 
-;; Author: Roland McGrath <roland@gnu.ai.mit.edu>
+;; Author: Roland McGrath <roland@gnu.org>
 ;; Maintainer: FSF
 ;; Keywords: lisp, extensions
 
@@ -96,22 +96,23 @@ Returns the number of actions taken."
 					 list (cdr list))
 				   t)
 			       nil))))))
-    (if (listp last-nonmenu-event)
+    (if (and (listp last-nonmenu-event)
+	     use-dialog-box)
 	;; Make a list describing a dialog box.
-	(let ((object (capitalize (nth 0 help)))
-	      (objects (capitalize (nth 1 help)))
-	      (action (capitalize (nth 2 help))))
-	  (setq map (` (("Yes" . act) ("No" . skip) ("Quit" . exit)
-			((, (if help (concat action " " object " And Quit")
-			      "Do it and Quit")) . act-and-exit)
-			((, (if help (concat action " All " objects)
-			      "Do All")) . automatic)
-			(,@ (mapcar (lambda (elt)
-				      (cons (capitalize (nth 2 elt))
-					    (vector (nth 1 elt))))
-				    action-alist))))
+	(let ((object (if help (capitalize (nth 0 help))))
+	      (objects (if help (capitalize (nth 1 help))))
+	      (action (if help (capitalize (nth 2 help)))))
+	  (setq map `(("Yes" . act) ("No" . skip) ("Quit" . exit)
+		      (,(if help (concat action " " object " And Quit")
+			  "Do it and Quit") . act-and-exit)
+		      (,(if help (concat action " All " objects)
+			  "Do All") . automatic)
+		      ,@(mapcar (lambda (elt)
+				  (cons (capitalize (nth 2 elt))
+					(vector (nth 1 elt))))
+				action-alist))
 		use-menus t
-		mouse-event last-nonmenu-event))			       
+		mouse-event last-nonmenu-event))
       (setq user-keys (if action-alist
 			  (concat (mapconcat (function
 					      (lambda (elt)
@@ -130,8 +131,8 @@ Returns the number of actions taken."
     (unwind-protect
 	(progn
 	  (if (stringp prompter)
-	      (setq prompter (` (lambda (object)
-				  (format (, prompter) object)))))
+	      (setq prompter `(lambda (object)
+				(format ,prompter object))))
 	  (while (funcall next)
 	    (setq prompt (funcall prompter elt))
 	    (cond ((stringp prompt)
@@ -149,7 +150,11 @@ Returns the number of actions taken."
 				(key-description (vector help-char)))
 		       (if minibuffer-auto-raise
 			   (raise-frame (window-frame (minibuffer-window))))
-		       (setq char (read-event))
+		       (while (progn
+				(setq char (read-event))
+				;; If we get -1, from end of keyboard
+				;; macro, try again.
+                                (equal char -1)))
 		       ;; Show the answer to the question.
 		       (message "%s(y, n, !, ., q, %sor %s) %s"
 				prompt user-keys
@@ -172,9 +177,9 @@ Returns the number of actions taken."
 				next (function (lambda () nil))))
 			 ((or (eq def 'quit) (eq def 'exit-prefix))
 			  (setq quit-flag t)
-			  (setq next (` (lambda ()
-					  (setq next '(, next))
-					  '(, elt)))))
+			  (setq next `(lambda ()
+					(setq next ',next)
+					',elt)))
 			 ((eq def 'automatic)
 			  ;; Act on this and all following objects.
 			  (if (funcall prompter elt)
@@ -215,34 +220,34 @@ the current %s and exit."
 			      (set-buffer standard-output)
 			      (help-mode)))
 
-			  (setq next (` (lambda ()
-					  (setq next '(, next))
-					  '(, elt)))))
+			  (setq next `(lambda ()
+				       (setq next ',next)
+				       ',elt)))
 			 ((vectorp def)
 			  ;; A user-defined key.
 			  (if (funcall (aref def 0) elt) ;Call its function.
 			      ;; The function has eaten this object.
 			      (setq actions (1+ actions))
 			    ;; Regurgitated; try again.
-			    (setq next (` (lambda ()
-					    (setq next '(, next))
-					    '(, elt))))))
+			    (setq next `(lambda ()
+					 (setq next ',next)
+					 ',elt))))
 			 ((and (consp char)
 			       (eq (car char) 'switch-frame))
 			  ;; switch-frame event.  Put it off until we're done.
 			  (setq delayed-switch-frame char)
-			  (setq next (` (lambda ()
-					  (setq next '(, next))
-					  '(, elt)))))
+			  (setq next `(lambda ()
+				       (setq next ',next)
+				       ',elt)))
 			 (t
 			  ;; Random char.
 			  (message "Type %s for help."
 				   (key-description (vector help-char)))
 			  (beep)
 			  (sit-for 1)
-			  (setq next (` (lambda ()
-					  (setq next '(, next))
-					  '(, elt)))))))
+			  (setq next `(lambda ()
+				       (setq next ',next)
+				       ',elt)))))
 		  (prompt
 		   (funcall actor elt)
 		   (setq actions (1+ actions))))))

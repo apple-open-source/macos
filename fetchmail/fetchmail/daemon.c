@@ -205,7 +205,7 @@ daemonize (const char *logfile, void (*termhook)(int))
   sigaction (SIGHUP, &sa_new, NULL);
 #endif /* HAVE_SIGACTION */
   if ((childpid = fork()) < 0) {
-    report(stderr, "fork (%)\n", strerror(errno));
+    report(stderr, "fork (%s)\n", strerror(errno));
     return(PS_IOERR);
   }
   else if (childpid > 0) {
@@ -234,12 +234,19 @@ nottyDetach:
   }
 
   if (logfile)
-    fd = open(logfile, O_CREAT|O_WRONLY|O_APPEND, 0666);	/* stdout */
+  {
+    if ((fd = open(logfile, O_CREAT|O_WRONLY|O_APPEND, 0666)) < 0) {	/* stdout */
+      report(stderr, "open %s (%s)\n", logfile, strerror(errno));
+      return(PS_IOERR);
+    }
+  }
   else
+  {
     if (dup(fd) < 0) {				/* stdout */
       report(stderr, "dup (%s)\n", strerror(errno));
       return(PS_IOERR);
     }
+  }
   if (dup(fd) < 0) {				/* stderr */
     report(stderr, "dup (%s)\n", strerror(errno));
     return(PS_IOERR);

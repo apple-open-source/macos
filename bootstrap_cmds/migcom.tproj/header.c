@@ -225,6 +225,54 @@ WriteUserRoutine(file, rt)
 }
 
 void
+WriteUserRequestUnion(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* union of all requests */\n\n");
+    fprintf(file, "#ifndef __RequestUnion__%s%s_subsystem__defined\n", UserPrefix, SubsystemName);
+    fprintf(file, "#define __RequestUnion__%s%s_subsystem__defined\n", UserPrefix, SubsystemName);
+    fprintf(file, "union __RequestUnion__%s%s_subsystem {\n", UserPrefix, SubsystemName);
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+	    
+	    rt = stat->stRoutine;
+	    fprintf(file, "\t__Request__%s_t Request_%s;\n",
+		    rt->rtName, rt->rtUserName);
+	}
+    }
+    fprintf(file, "};\n");
+    fprintf(file, "#endif /* !__RequestUnion__%s%s_subsystem__defined */\n", UserPrefix, SubsystemName);
+}
+
+void
+WriteUserReplyUnion(file, stats)
+    FILE *file;
+    statement_t *stats;
+{
+    register statement_t *stat;
+
+    fprintf(file, "/* union of all replies */\n\n");
+    fprintf(file, "#ifndef __ReplyUnion__%s%s_subsystem__defined\n", UserPrefix, SubsystemName);
+    fprintf(file, "#define __ReplyUnion__%s%s_subsystem__defined\n", UserPrefix, SubsystemName);
+    fprintf(file, "union __ReplyUnion__%s%s_subsystem {\n", UserPrefix, SubsystemName);
+    for (stat = stats; stat != stNULL; stat = stat->stNext) {
+        if (stat->stKind == skRoutine) {
+            register routine_t *rt;
+	    
+	    rt = stat->stRoutine;
+	    fprintf(file, "\t__Reply__%s_t Reply_%s;\n",
+		    rt->rtName, rt->rtUserName);
+	}
+    }
+    fprintf(file, "};\n");
+    fprintf(file, "#endif /* !__RequestUnion__%s%s_subsystem__defined */\n", UserPrefix, SubsystemName);
+}
+
+void
 WriteUserHeader(file, stats)
     FILE *file;
     statement_t *stats;
@@ -256,6 +304,10 @@ WriteUserHeader(file, stats)
 	if (stat->stKind == skRoutine)
 	    WriteUserRoutine(file, stat->stRoutine);
     }
+    WriteRequestTypes(file, stats);
+    WriteUserRequestUnion(file, stats);
+    WriteReplyTypes(file, stats);
+    WriteUserReplyUnion(file, stats);
     WriteEpilog(file, protect, TRUE);
 }
 
@@ -342,15 +394,24 @@ WriteDispatcher(file)
 
     fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");
     fprintf(file, "extern const struct %s {\n", ServerSubsys);
-    fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
+    if (UseRPCTrap) {
+        fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
+    } else {
+        fprintf(file, "\tmig_server_routine_t\tserver;\t/* Server routine */\n");
+    }
     fprintf(file, "\tmach_msg_id_t\tstart;\t/* Min routine number */\n");
     fprintf(file, "\tmach_msg_id_t\tend;\t/* Max routine number + 1 */\n");
     fprintf(file, "\tunsigned int\tmaxsize;\t/* Max msg size */\n");
-    fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base ddress */\n");
-    fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
+    if (UseRPCTrap) {
+        fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base address */\n");
+        fprintf(file, "\tstruct rpc_routine_descriptor\t/*Array of routine descriptors */\n");
+    } else {
+        fprintf(file, "\tvm_address_t\treserved;\t/* Reserved */\n");
+        fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
+    }
     fprintf(file, "\t\troutine[%d];\n", rtNumber);
     if (UseRPCTrap) {
-	fprintf(file, "\tstruct routine_arg_descriptor\t/*Array of arg descriptors */\n");
+	fprintf(file, "\tstruct rpc_routine_arg_descriptor\t/*Array of arg descriptors */\n");
 	fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);
     }
     fprintf(file, "} %s;\n", ServerSubsys);
@@ -386,9 +447,9 @@ WriteServerHeader(file, stats)
     fprintf(file, "__BeforeMigServerHeader\n");
     fprintf(file, "#endif /* __BeforeMigServerHeader */\n\n"); 
     WriteRequestTypes(file, stats);
-    WriteRequestUnion(file, stats);
+    WriteServerRequestUnion(file, stats);
     WriteReplyTypes(file, stats);
-    WriteReplyUnion(file, stats);
+    WriteServerReplyUnion(file, stats);
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
 	if (stat->stKind == skRoutine)
 	    WriteServerRoutine(file, stat->stRoutine);

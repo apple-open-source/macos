@@ -1,5 +1,6 @@
 /* Definitions to make GDB run on a vax under 4.2bsd.
-   Copyright 1986, 1987, 1989, 1991, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1993, 1994, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,8 +19,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+#include "regcache.h"
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -62,11 +62,6 @@ extern CORE_ADDR vax_skip_prologue (CORE_ADDR);
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Return 1 if P points to an invalid floating point value.
-   LEN is the length in bytes -- not relevant on the Vax.  */
-
-#define INVALID_FLOAT(p, len) ((*(short *) p & 0xff80) == 0x8000)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the

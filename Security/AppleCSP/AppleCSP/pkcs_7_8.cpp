@@ -197,7 +197,7 @@ void cspDecodePkcs7(
 	StLock<Mutex>			_(snaccLock);
 	
 	buf.InstallData((char *)encodedBlob.Data, len);
-	if((rtn = setjmp(jbuf)) == 0) {
+	try {
 		int i;
 		EncryptedContentInfo1 *eci;
 		
@@ -224,7 +224,7 @@ void cspDecodePkcs7(
 			(char *)(*eci->encryptedContent),	
 			eci->encryptedContent->Len());
 	}
-	else {
+	catch(...) {
 		errorLog1("cspDecodePkcs7: BDec threw %d\n", rtn);
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 	}
@@ -303,7 +303,7 @@ void cspDecodePkcs8(
 	StLock<Mutex>			_(snaccLock);
 	
 	buf.InstallData((char *)encodedBlob.Data, len);
-	if((rtn = setjmp(jbuf)) == 0) {
+	try {
 		EncryptedPrivateKeyInfo		epki;
 		
 		epki.BDec(buf, len, jbuf);
@@ -315,7 +315,7 @@ void cspDecodePkcs8(
 			(char *)(epki.encryptedKey),	
 			len);
 	}
-	else {
+	catch(...) {
 		errorLog1("cspDecodePkcs8: BDec threw %d\n", rtn);
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 	}

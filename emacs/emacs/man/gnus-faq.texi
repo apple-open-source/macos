@@ -1,14 +1,14 @@
-\input texinfo
+@c Insert  "\input texinfo" at 1st line before texing this file alone.
 @c -*-texinfo-*-
-@c Copyright (C) 1995 Free Software Foundation, Inc.
-@setfilename gnus-faq.info
+@c Copyright (C) 1995, 98, 99, 2000 Free Software Foundation, Inc.
+@setfilename ../info/gnus-faq.info
 
 @node Frequently Asked Questions
 @section Frequently Asked Questions
 
 This is the Gnus Frequently Asked Questions list.
 If you have a Web browser, the official hypertext version is at
-@file{http://www.miranova.com/~steve/gnus-faq.html>}, and has
+@file{http://www.ccs.neu.edu/software/gnus/}, and has
 probably been updated since you got this manual.
 
 @menu
@@ -132,7 +132,7 @@ list is mainly for developers and testers.
 Gnus has a home World Wide Web page at@*
 @file{http://www.ifi.uio.no/~larsi/ding.html}.
    
-Gnus has a write up in the X Windows Applications FAQ at@*
+Gnus has a write up in the X Applications FAQ at@*
 @file{http://www.ee.ryerson.ca:8080/~elf/xapps/Q-III.html}.
    
 The Gnus manual is also available on the World Wide Web. The canonical
@@ -183,7 +183,7 @@ need to download the sources and recompile.
 @item
 Q1.10  Mailcrypt 3.4 doesn't work
 
-This problem is verified to still exist in Gnus 5.0.9 and MailCrypt 3.4.
+This problem is verified to still exist in Gnus 5.0.9 and Mailcrypt 3.4.
 The answer comes from Peter Arius
 <arius@@immd2.informatik.uni-erlangen.de>.
 
@@ -214,9 +214,9 @@ obtained from@*
 @file{ftp://cag.lcs.mit.edu/pub/patl/mailcrypt-3.4.tar.gz}.
 
 @item
-Tiny Mime.
+Tools for Mime.
 
-Tiny Mime is an Emacs MUA interface to MIME.  Installation is
+Tools for Mime is an Emacs MUA interface to MIME.  Installation is
 a two-step process unlike most other packages, so you should
 be prepared to move the byte-compiled code somewhere.  There
 are currently two versions of this package available.  It can
@@ -264,7 +264,7 @@ and Yank} and @i{Reply and Yank} in the Post menu.
 @kbd{C-c C-y} grabs the previous message and prefixes each line with
 @code{ail-indentation-spaces} spaces or @code{mail-yank-prefix} if that is
 non-nil, unless you have set your own @code{mail-citation-hook}, which will
-be called to to do the job.
+be called to do the job.
 
 You might also consider the Supercite package, which allows for pretty
 arbitrarily complex quoting styles.  Some people love it, some people
@@ -306,7 +306,9 @@ The most vital entries in my (still young) all.SCORE:
 (("xref"
   ("alt.fan.oj-simpson" -1000 nil s))
  ("subject"
-  ("\\<\\(make\\|fast\\|big\\)\\s-*\\(money\\|cash\\|bucks?\\)\\>" -1000 nil r)
+  (concat "\\<\\(make\\|fast\\|big\\)\\s-*"
+          "\\(money\\|cash\\|bucks?\\)\\>" 
+   -1000 nil r)
   ("$$$$" -1000 nil s)))
 @end lisp
 
@@ -334,13 +336,17 @@ I  would like to contribute with mine.
   ;; $$$ Make Money $$$
   ("$$" -10 nil s)
   ;; Empty subjects are worthless!
-  ("^ *\\([(<]none[>)]\\|(no subject\\( given\\)?)\\)? *$" -10 nil r)
+  ("^ *\\([(<]none[>)]\\|(no subject\\( given\\)?)\\)? *$" 
+   -10 nil r)
   ;; Sometimes interesting announces occur!
   ("ANN?OU?NC\\(E\\|ING\\)" +10 nil r)
   ;; Some people think they're on mailing lists
   ("\\(un\\)?sub?scribe" -100 nil r)
   ;; Stop Micro$oft NOW!!
-  ("\\(m\\(icro\\)?[s$]\\(oft\\|lot\\)?-?\\)?wind?\\(ows\\|aube\\|oze\\)?[- ]*\\('?95\\|NT\\|3[.]1\\|32\\)" -1001 nil r)
+  ;; ("concat" used to avoid overfull box.)
+  (concat "\\(m\\(icro\\)?[s$]\\(oft\\|lot\\)?-?\\)?"
+          "wind?\\(ows\\|aube\\|oze\\)?[- ]*"
+          "\\('?95\\|NT\\|3[.]1\\|32\\)" -1001 nil r)
   ;; I've nothing to buy
   ("\\(for\\|4\\)[- ]*sale" -100 nil r)
   ;; SELF-DISCIPLINED people
@@ -383,12 +389,19 @@ excessively cross posted articles.
   ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -2 nil r)
   ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -4 nil r)
   ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -8 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -16 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -32 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -64 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -128 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -256 nil r)
-  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -512 nil r))
+  ("^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+    -16 nil r)
+  (concat "^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+          " \\S-+ \\S-+"
+    -32 nil r)
+  (concat "^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+          " \\S-+ \\S-+ \\S-+" -64 nil r)
+  (concat "^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+          " \\S-+ \\S-+ \\S-+ \\S-+" -128 nil r)
+  (concat "^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+          " \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -256 nil r)
+  (concat "^xref: \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+ \\S-+"
+          " \\S-+" \\S-+ \\S-+ \\S-+ \\S-+ \\S-+" -512 nil r))
 @end lisp
 
 @end enumerate
@@ -404,7 +417,7 @@ something like:
 @example
 (defconst mail-yank-ignored-headers
   "^.*:"
-  "Delete these headers from old message when it's inserted in a reply.")
+  "Delete these headers from message when it's inserted in reply.")
 @end example
 
 
@@ -486,8 +499,8 @@ in your @file{.gnus} instead.
 @item
 Q3.1  How do I convert my kill files to score files?
 
-A kill-to-score translator was written by Ethan Bradford
-<ethanb@@ptolemy.astro.washington.edu>.  It is available from@*
+@email{ethanb@@ptolemy.astro.washington.edu, Ethan Bradford} write a
+kill-to-score translator.  It is available from@*
 @file{http://baugi.ifi.uio.no/~larsi/ding-various/gnus-kill-to-score.el}.
 
 
@@ -526,8 +539,9 @@ Luis Fernandes <elf@@mailhost.ee.ryerson.ca>writes:@*
 This is what I use...customize as necessary...
 
 @lisp
-;;; Don't auto-select first article if reading sources, or archives or
-;;; jobs postings, etc. and just display the summary buffer
+;;; Don't auto-select first article if reading sources, or
+;;; archives or jobs postings, etc. and just display the
+;;; summary buffer
 (add-hook 'gnus-select-group-hook
 	  (function
 	   (lambda ()

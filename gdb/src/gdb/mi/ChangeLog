@@ -1,91 +1,369 @@
-2001-08-14  James Ingham  <jingham@inghji.apple.com>
+2002-04-07  Elena Zannoni  <ezannoni@redhat.com>
 
-	* mi-main.c (mi_exec_async_cli_cmd_continuation): Need to call
-	bpstat_do_actions in the async_cli_cmd continuation, so that
-	breakpoint commands will get tripped if the mi commands are used
-	to start the inferior.
+        * mi-cmd-disas.c: Run through indent.
 
-2001-07-06  James Ingham  <jingham@inghji.apple.com>
+2002-04-07  Elena Zannoni  <ezannoni@redhat.com>
 
-	* mi-cmd-stack.c (print_syms_for_block): use safe varobj_get_value
-	so you don't mess up the stack printing if there is an error in
-	the printing the value of the varobj.
+        * mi-cmd-disas.c (dump_insns): New function.
+        (do_mixed_source_and_assembly): New function.
+        (do_assembly_only): New function.
+        (do_disassembly): New function.
+        (mi_cmd_disassemble): Rewrite using smaller, more modular
+        functions.
 
-2001-01-25  James Ingham  <jingham@inghji.apple.com>
+2002-04-05  Jim Blandy  <jimb@redhat.com>
 
-	FIXME: This is a hack for PB.  Change this back when we
-	get PB to run the target asynchronously.
-	* mi-main.c (mi_interpreter_resume): Set the default execution
-	mode to async for the mi.
+	* mi-cmd-stack.c (list_args_or_locals): Pass new arg to
+	get_frame_block.  (See entry in gdb/ChangeLog.)
 
-2001-01-17  James Ingham  <jingham@inghji.apple.com>
+2002-04-05  Elena Zannoni  <ezannoni@redhat.com>
 
-	* mi-cmd-var.c (varobj_update_one): Handle the out of scope
-	return from varobj_update.
+	* mi-cmd-disas.c (mi_cmd_disassemble): Use TARGET_PRINT_INSN
+	instead of tm_print_insn.
+	Update copyright year.
 
-2001-01-10  James Ingham  <jingham@inghji.apple.com>
+2002-04-04  Daniel Jacobowitz  <drow@mvista.com>
 
-	* mi-cmd-stack.c (mi_print_frame_more_info): New function - adds
-	the directory in which the file is found to the stack output.
-	* mi-main.c (mi_interpreter_resume): initialize the
-	print_frame_more_info hook.
+	* mi-cmd-disas.c (mi_cmd_disassemble): Skip end-of-function
+	markers in the line table.
 
-2000-12-15  James Ingham  <jingham@inghji.apple.com>
+2002-03-15  Andrew Cagney  <ac131313@redhat.com>
 
-	* mi-cmd-var.c (mi_cmd_var_info_block): New function, implements
-	the new mi command var-info-block - reporting the valid block for
-	a varobj.
-	(mi_report_var_creation): New function, standardize the mi output 
-	for varobj creation.  Add the in_scope field to the output.
-	(mi_cmd_var_list_children): Added a SHOW_VALUE argument to add the
-	variable value to the output of var-list-children.
-	* mi-cmds.c, mi-cmds.h: add the new command var-info-block.
-
-	* mi-cmd-stack.c (list_args_or_locals): extend to create the
-	varobj's for the args or locals and return those as part of the
-	result.  Also add a flag to list locals for ALL blocks in the
-	current function.
-	(print_syms_for_block): This is where the work to implement the 
-	varobj creation is done.
-	(mi_cmd_stack_list_args): Change the argument parsing to accept the
-	SHOW_VALUE argument = 2, which means create the varobj as well.
-	(mi_cmd_stack_list_locals): Add the ALL_BLOCKS parameter, and 
-	give the same meaning to SHOW_VALUE as for stack_list_args.
+	* mi-main.c (XMALLOC): Delete macro.
+	* mi-out.c (XMALLOC): Ditto.
+	* mi-parse.c (XMALLOC): Ditto.
+	* mi-console.c (XMALLOC): Ditto.
+	* mi-cmd-var.c (XMALLOC): Ditto.
+	* mi-cmd-break.c (XMALLOC): Ditto.
 	
-2000-11-22  James Ingham  <jingham@inghji.apple.com>
+	* mi/mi-cmd-var.c, mi/mi-console.c, mi/mi-out.c: Update copyright
+	* mi/mi-parse.c: Ditto.
 
-	* mi-cmd-var.c (varobj_update_one): print out the stringified typecode
-	if the type has changed.
+2002-02-24  Andrew Cagney  <ac131313@redhat.com>
 
-	* mi-main.c (mi_exec_async_cli_cmd_continuation): Do a gdb_flush
-	after continuation output, otherwise this won't show up when
-	you are not using a line-buffered device.
+	From wiz at danbala:
+	* gdbmi.texinfo: Fix grammar and typos.
+	Fix PR gdb/287.
 
-	* mi-cmd-var.c (mi_cmd_var_create): print out a stringified
-	version of the typecode as well.
-	(print_typecode): New function - stringifies the enum typecode.
-	(mi_cmd_var_update): Allow this to take a list of varobj's to update.
-	(varobj_update_one): Output the varobj's as a list of lists, where 
-	each varobj gets its own label.  This makes the output easier to 
-	parse.
+2002-02-03  Jim Blandy  <jimb@redhat.com>
+
+	* mi-cmd-stack.c (list_args_or_locals): Move declaration of
+	print_me inside the loop body, so it gets re-initialized every
+	iteration.  The cases for the different symbol kinds leave
+	print_me unchanged if they don't want the symbol printed.
+
+2002-01-22  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbmi.texinfo: Remove makeinfo 3.12 hacks.
+
+2002-01-21  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-stack.c: Remove #else clause of #ifdef UI_OUT.
+	* mi-cmd-break.c: Ditto.
+	* mi-main.c: Ditto.
+
+2001-12-30  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdbmi.texinfo: Fix the application of GFDL in the Copyright notice.
+
+2001-10-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* mi-cmd-stack.c (list_args_or_locals): Use ALL_BLOCK_SYMBOLS.
+
+2001-09-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_thread_select): Pass uiout to
+	gdb_thread_select.
+	(mi_cmd_thread_list_ids): Pass uiout to gdb_list_thread_ids.
+
+	* mi-cmd-break.c (breakpoint_notify): Pass uiout to
+	gdb_breakpoint_query.
+
+2001-08-17  Keith Seitz  <keiths@redhat.com>
+
+	* mi-cmd-var.c (varobj_update_one): Update call to
+	varobj_update to reflect recent api change.
+
+2001-07-26  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c: Include "gdb.h".
+	* mi-cmd-break.c: Include "gdb.h".
+
+2001-07-12  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_execute_command): Flush output after ``(gdb)''
+	prompt.  Bug reported by David Whedon.
+	(mi_execute_async_cli_command): Ditto.
+	(mi_exec_async_cli_cmd_continuation): Ditto.
+	(mi_command_loop): Ditto.
+
+2001-07-10  Mark Kettenis  <kettenis@gnu.org>
+
+	* mi-out.c (mi_out_new): Initialize suppress_ouput field of newly
+	created `struct ui_out_data'.
+
+2001-07-09  Kevin Buettner  <kevinb@redhat.com>
+
+	* mi-main.c (register_changed_p, get_register): Use alloca()
+	to allocate space previously allocated via gcc's
+	variable-length array extension.
+	(mi_cmd_data_write_register_values, mi_cmd_data_write_memory):
+	Change type of ``buffer'' to ``void *''.  Don't cast return value
+	from xmalloc().  Add a cleanup to free the xmalloc'd buffer.
+
+2001-07-07  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_evaluate_expression): Replace value_ptr
+	with `struct value *'.
+
+2001-07-08  Kevin Buettner  <kevinb@redhat.com>
+
+	* mi-out.c (mi_table_header, mi_field_int, mi_field_skip)
+	(mi_field_string) Make function declarators match earlier
+	declarations.
+
+2001-07-04  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_ui_out_impl): Initialize is_mi_like_p to one.
+
+2001-06-27  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_table_begin): Include nr_cols and nr_rows in mi1
+	table output.
+	* mi-out.c (mi_table_begin): Only suppress output when mi0. Change
+	the header to a list.
+	(mi_table_body): For mi1, close the header list and open a table
+	body list.
+	(mi_table_end): For mi1, close the body list.
+	(mi_table_header): For mi1, output a tuple containing all the
+	header information.
+	(mi_open, mi_close): Reverse logic of mi_version test.
+	* gdbmi.texinfo (GDB/MI Breakpoint Table Commands): Update.
+
+2001-06-26  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbmi.texinfo (GDB/MI Output Syntax): Delete reference to query
+	packet.
+
+2001-06-26  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-stack.c (list_args_or_locals): Output a list of "args" or
+	"locals" entries.
+	* gdbmi.texinfo (stack-list-locals, stack-list-arguments)
+	(exec-interrupt, target-select, thread-select): Update
+	documentation.
+
+2001-06-26  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames): Output a list of
+	"stack" entries.
+	(mi_cmd_stack_list_args): Ditto for "stack-args".
+	* gdbmi.texinfo (stack-list-frames, stack-list-arguments): Update
+	documentation.
+	(GDB/MI Stack Manipulation Commands): Fix section title.  Was
+	Stack Manipulation Commands in GDB/MI.
+
+2001-06-25  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbmi.texinfo: Update output examples that contain stop reason
+	output, change the args=.... to a list.
+	(exec-return): Ditto.
+
+2001-06-25  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_read_memory): Output the memory contents
+	- memory and data - as a list.
+	* gdbmi.texinfo (data-read-memory): Update documentation.
+
+2001-06-25  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_list_register_values): Output a list of
+	register values.
+	* gdbmi.texinfo (data-list-register-values): Update documentation.
+
+2001-06-25  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_list_register_names): Output a list of
+	register names.
+	(mi_cmd_data_list_register_names): Include the pseudo registers.
+	(mi_cmd_data_list_register_names): Don't leave holes in the list,
+	output "" for NULL registers.
+	* gdbmi.texinfo (data-list-register-names): Update documentation.
+
+2001-06-23  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_list_changed_registers): Output a list of
+	register numbers.
+	* gdbmi.texinfo (data-list-changed-registers): Update
+	documentation.
 	
-	* mi-cmd-stack.c (mi_cmd_stack_list_locals): Allow ALL_BLOCKS flag,
-	and change use of list_args_or_locals accordingly.
-	(mi_cmd_stack_list_args): Add new argument for 
-	list_args_or_locals.
-	(list_args_or_locals): Add a mode which searches all lexical blocks
-	in the current function for locals and lists them all.
+2001-06-23  Andrew Cagney  <ac131313@redhat.com>
 
-2000-11-09  James Ingham  <jingham@inghji.apple.com>
+	* gdbmi.texinfo (data-disassemble): Update documentation of
+	output.  Produces a list of instructions and a list of source
+	lines.
 
-	* mi-cmd-break.c (mi_cmd_break_insert): Add a "-f" flag to set a
-	future breakpoint.
+2001-06-22  Andrew Cagney  <ac131313@redhat.com>
 
-2000-11-08  James Ingham  <jingham@inghji.apple.com>
+	* mi-cmd-disas.c (mi_cmd_disassemble): For "-data-disassemble",
+	output a list instead of a tupple.
 
-	* mi-cmds.c, mi-cmds.h: Add "interpreter-exec" to the command set.
-	* mi-main.c (mi_cmd_interpreter_exec): execute a command in a given 
-	interpreter.
+2001-06-21  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (struct ui_out_data): Replace field first_header with
+	suppress_output.
+	(mi_begin, mi_end): Check suppress_header.
+	(mi_field_int, mi_field_skip): Ditto.
+	(mi_field_string, mi_field_fmt): Ditto.
+	(mi_table_begin): When nr_rows is zero, set suppress_header else,
+	output the start of the header.
+	(mi_table_body): Clear suppress header.
+
+2001-06-21  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_open): For lists, when mi_version > 0, use ``[''.
+	(mi_close): Ditto for ``]''.
+
+2001-06-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_table_header): Add parameter ``col_name''.
+
+2001-06-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c: Include "gdb_assert.h".
+	(mi_table_begin): Add parameter ``nr_rows''.
+
+2001-06-18  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c: Use strncmp as the "mi" test.  Allow "mi", "mi0" and
+	"mi1".
+	(mi_command_loop): Add parameter mi_version, pass to mi_out_new.
+	(mi1_command_loop, mi0_command_loop): New functions.
+	(_initialize_mi_main): Recognize "mi", "mi0" and "mi1".
+	* mi-out.c (mi_out_new): Add parameter mi_version.
+	(struct ui_out_data): Add field mi_version.
+	* mi-out.h (mi_out_new): Update.
+
+2001-06-07  Andrew Cagney  <ac131313@redhat.com>
+
+	* gdbmi.texinfo (GDB/MI Output Syntax): Add tuples and lists to
+	syntax.
+	(GDB/MI Draft Changes to Output Syntax): Delete section.
+	
+Mon Jun 11 17:22:25 2001  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mi-out.c: Fix typo. s/supress/suppress/.
+
+2001-06-09  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_table_end, mi_table_begin, mi_begin, mi_end): Move
+	supress_field_separator updates from here.
+	(mi_open, mi_close): To here.
+	(mi_open): Add parameter name. Output a field_separator.
+	(mi_table_begin): Update.
+	(mi_table_header): Update.
+	(mi_begin): Update.
+
+2001-06-09  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_table_begin): Make char* parameters constant.
+	(mi_table_header): Ditto.
+	(mi_field_int): Ditto.
+	(mi_field_skip): Ditto.
+	(mi_field_string): Ditto.
+	(mi_field_fmt): Ditto.
+	(mi_text): Ditto.
+	(mi_message): Ditto.
+
+2001-05-12  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_close, mi_open): Output ``[]'' when a list.
+
+Fri May 11 13:55:07 2001  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mi-cmd-var.c: Replace ui_out_list_begin, ui_out_list_end and
+ 	make_cleanup_ui_out_list_end with ui_out_tupple_begin,
+ 	ui_out_tupple_end and make_cleanup_ui_out_tupple_begin_end.
+	* mi-cmd-stack.c: Ditto.
+	* mi-cmd-disas.c: Ditto.
+	* mi-main.c: Ditto.
+
+2001-05-10  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_open, mi_close): Replace list_open and list_close.
+	(mi_table_begin): Update.
+	(mi_table_header): Update.
+	(mi_begin): Update.
+	(mi_table_body): Update.
+	(mi_table_end): Update.
+	(mi_end): Update.
+
+Thu May 10 16:28:13 2001  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mi-main.c (mi_execute_async_cli_command): Always initialize
+ 	old_cleanups.
+
+2001-05-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_begin, mi_end): Replace mi_list_begin and
+	mi_list_end.
+	(mi_ui_out_impl): Update.
+
+2001-03-28  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_read_memory): Use xcalloc.
+
+2001-03-26  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* gdbmi.texinfo: Update copyright.  Change Permissions to GFDL.
+
+2001-03-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-disas.c (mi_cmd_disassemble): Initialize ``file_string''
+	and ``line_num''.  Consolidate declaration of argument variables.
+
+2001-03-19  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.h: Remove #ifdef __STDC__.
+
+2001-03-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_list_register_names): Use NUM_REGS, not
+	ARCH_NUM_REGS.
+	(mi_cmd_data_list_changed_registers): Ditto.
+	(mi_cmd_data_list_register_values): Ditto.
+	(mi_cmd_data_write_register_values): Ditto.
+
+2001-03-06  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdbmi.texinfo, mi-cmd-disas.c, mi-cmd-stack.c, mi-cmd-var.c,
+	mi-cmds.c, mi-cmds.h, mi-console.c, mi-console.h, mi-getopt.c,
+	mi-getopt.h, mi-out.c, mi-out.h, mi-parse.c, mi-parse.h: 
+	Update/correct copyright notices.
+
+Wed Feb  7 19:50:37 2001  Andrew Cagney  <cagney@redhat.com>
+
+	* mi-getopt.c: Add __FILE__ and __LINE__ parameter to calls to
+ 	internal_error.
+	* mi-console.c: Ditto.
+	* mi-cmds.c: Ditto.
+	* mi-cmd-break.c: Ditto.
+
+2001-01-27  Fernando Nasser  <fnasser@redhat.com>
+
+	From Momchil Velikov  <velco@fadata.bg>
+	* mi-cmd-disas.c (gdb_dis_asm_read_memory): Add missing memory
+	attributes argument in the call to `xfer_memory'.
+
+2000-12-14  Kevin Buettner  <kevinb@redhat.com>
+
+	* mi-cmd-disas.c, mi-cmd-var.c, mi-console.c, mi-main.c,
+	mi-parse.c: Replace occurrences of free() with xfree().
+
+Fri Nov 17 16:07:23 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mi-main.c: Replace asprintf with xasprintf.
+	* mi-cmd-var.c (mi_cmd_var_create): Ditto.
 
 2000-10-16  Eli Zaretskii  <eliz@is.elta.co.il>
 
@@ -93,7 +371,6 @@
 	multitable changed to "@columnfractions .4 .6".  Suggested by
 	Dmitry Sivachenko <dima@Chg.RU>.
 
->>>>>>> 1.1.1.4
 2000-08-23  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* gdbmi.texinfo: Change flathead -> @sc{gdb/mi}.

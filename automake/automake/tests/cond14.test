@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Test for bug in conditionals.
+# Report from Robert Boehne
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_CONDITIONAL(COND1, true)
+END
+
+cat > Makefile.am << 'END'
+
+if COND1
+BUILD_helldl = helldl
+helldl_SOURCES = dlmain.c
+helldl_DEPENDENCIES = libhello.la
+else
+BUILD_helldl = 
+bin_SCRIPTS = helldl
+helldl$(EXEEXT):
+	rm -f $@
+	echo '#! /bin/sh' > $@
+	echo '-dlopen is unsupported' >> $@
+	chmod +x $@
+endif
+
+bin_PROGRAMS = $(BUILD_helldl)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+num=`grep 'helldl$(EXEEXT):' Makefile.in | wc -l`
+test $num -eq 2

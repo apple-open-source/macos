@@ -37,6 +37,31 @@
 /* Define if <sys/procfs.h> has prfpregset32_t. */
 #undef HAVE_PRFPREGSET32_T
 
+/* Define if <sys/procfs.h> has prsysent_t */
+#undef HAVE_PRSYSENT_T
+
+/* Define if <sys/procfs.h> has pr_sigset_t */
+#undef HAVE_PR_SIGSET_T
+
+/* Define if <sys/procfs.h> has pr_sigaction64_t */
+#undef HAVE_PR_SIGACTION64_T
+
+/* Define if <sys/procfs.h> has pr_siginfo64_t */
+#undef HAVE_PR_SIGINFO64_T
+
+/* Define if <link.h> exists and defines struct link_map which has
+   members with an ``l_'' prefix.  (For Solaris, SVR4, and
+   SVR4-like systems.) */
+#undef HAVE_STRUCT_LINK_MAP_WITH_L_MEMBERS
+
+/* Define if <link.h> exists and defines struct link_map which has
+  members with an ``lm_'' prefix.  (For SunOS.)  */
+#undef HAVE_STRUCT_LINK_MAP_WITH_LM_MEMBERS
+
+/* Define if <link.h> exists and defines a struct so_map which has
+  members with an ``som_'' prefix.  (Found on older *BSD systems.)  */
+#undef HAVE_STRUCT_SO_MAP_WITH_SOM_MEMBERS
+
 /* Define if <sys/link.h> has struct link_map32 */
 #undef HAVE_STRUCT_LINK_MAP32
 
@@ -121,6 +146,12 @@
 
 /* Define if <sys/ptrace.h> defines the PTRACE_GETFPXREGS request.  */
 #undef HAVE_PTRACE_GETFPXREGS
+
+/* Define if <sys/ptrace.h> defines the PT_GETDBREGS request.  */
+#undef HAVE_PT_GETDBREGS
+
+/* Define if <sys/ptrace.h> defines the PT_GETXMMREGS request.  */
+#undef HAVE_PT_GETXMMREGS
 
 /* Define if gnu-regex.c included with GDB should be used. */
 #undef USE_INCLUDED_REGEX

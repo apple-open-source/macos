@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Test to make sure .info-less @setfilename works.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+END
+
+echo '@setfilename textutils' > textutils.texi
+: > texinfo.tex
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^INFO_DEPS.*textutils$' Makefile.in

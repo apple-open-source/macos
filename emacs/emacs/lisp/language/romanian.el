@@ -1,4 +1,4 @@
-;;; romanian.el --- Support for Romanian -*- coding: iso-latin-2; -*-
+;;; romanian.el --- support for Romanian -*- coding: iso-latin-2; -*-
 
 ;; Copyright (C) 1998 Free Software Foundation.
 
@@ -28,11 +28,6 @@
 
 ;;; Code:
 
-(defun setup-romanian-environment ()
-  "Setup multilingual environment (MULE) for Romanian."
-  (interactive)
-  (set-language-environment "Romanian"))
-
 (set-language-info-alist
  "Romanian" '((charset . (ascii latin-iso8859-2))
 	      (coding-system . (iso-8859-2))
@@ -48,5 +43,4 @@
 
 (provide 'romanian)
 
-;; romanian.el ends here
-
+;;; romanian.el ends here

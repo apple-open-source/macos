@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_prot2.c 1.3 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_prot2.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_prot2.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: pmap_prot2.c,v 1.3 2002/02/19 20:36:24 epeyton Exp $";
 #endif
 
 /*
@@ -118,7 +118,7 @@ xdr_pmaplist(xdrs, rp)
 	 */
 	bool_t more_elements;
 	register int freeing = (xdrs->x_op == XDR_FREE);
-	register struct pmaplist **next;
+	register struct pmaplist **next = NULL;
 
 	while (TRUE) {
 		more_elements = (bool_t)(*rp != NULL);

@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Test of flags specific to executable.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = no-dependencies
+bin_PROGRAMS = foo
+foo_SOURCES = foo.c
+foo_CFLAGS = -DBAR
+END
+
+# Make sure `compile' is required.
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+
+: > compile
+
+$AUTOMAKE || exit 1
+
+# Look for $(COMPILE) -c in .c.o rule.
+grep 'COMPILE. [^-]' Makefile.in && exit 1
+
+# Look for foo-foo.o.
+grep '[^-]foo\.o' Makefile.in && exit 1
+
+# Regression test for missing space.
+fgrep ')-c' Makefile.in && exit 1
+
+exit 0

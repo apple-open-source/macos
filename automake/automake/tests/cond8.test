@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test to make sure _PROGRAMS conditionals can be written in a useful
+# way.
+
+. $srcdir/defs || exit 1
+
+echo 'AC_PROG_CC' >> configure.in
+echo 'AM_CONDITIONAL(X, false)' >> configure.in
+
+cat > Makefile.am << 'END'
+if X
+bin_PROGRAMS = x y
+else
+noinst_PROGRAMS = x y
+endif
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

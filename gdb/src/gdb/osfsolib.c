@@ -1,5 +1,6 @@
 /* Handle OSF/1 shared libraries for GDB, the GNU Debugger.
-   Copyright 1993, 94, 95, 96, 98, 1999 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -126,7 +127,7 @@ ldr_read_memory (CORE_ADDR memaddr, char *myaddr, int len, int readstring)
       target_read_string (memaddr, &buffer, len, &result);
       if (result == 0)
 	strcpy (myaddr, buffer);
-      free (buffer);
+      xfree (buffer);
     }
   else
     result = target_read_memory (memaddr, myaddr, len);
@@ -228,7 +229,7 @@ solib_map_sections (char *arg)
   bfd *abfd;
 
   filename = tilde_expand (so->so_name);
-  old_chain = make_cleanup (free, filename);
+  old_chain = make_cleanup (xfree, filename);
 
   scratch_chan = openp (getenv ("PATH"), 1, filename, O_RDONLY, 0,
 			&scratch_pathname);
@@ -252,7 +253,7 @@ solib_map_sections (char *arg)
     }
   /* Leave bfd open, core_xfer_memory and "info files" need it.  */
   so->abfd = abfd;
-  abfd->cacheable = true;
+  abfd->cacheable = 1;
 
   if (!bfd_check_format (abfd, bfd_object))
     {
@@ -445,7 +446,7 @@ xfer_link_map_member (struct so_list *so_list_ptr, struct link_map *lm)
 	error ("xfer_link_map_member: Can't read pathname for load map: %s\n",
 	       safe_strerror (errcode));
       strncpy (so_list_ptr->so_name, buffer, MAX_PATH_SIZE - 1);
-      free (buffer);
+      xfree (buffer);
       so_list_ptr->so_name[MAX_PATH_SIZE - 1] = '\0';
 
       for (i = 0; i < lm->module_info.region_count; i++)
@@ -472,7 +473,7 @@ xfer_link_map_member (struct so_list *so_list_ptr, struct link_map *lm)
 		region_name = "??";
 	      warning ("cannot handle shared library relocation for %s (%s)",
 		       so_list_ptr->so_name, region_name);
-	      free (buffer);
+	      xfree (buffer);
 	    }
 	}
 #endif
@@ -595,14 +596,14 @@ symbol_add_stub (char *arg)
    SYNOPSIS
 
    void solib_add (char *arg_string, int from_tty,
-   struct target_ops *target)
+   struct target_ops *target, int readsyms)
 
    DESCRIPTION
 
  */
 
 void
-solib_add (char *arg_string, int from_tty, struct target_ops *target)
+solib_add (char *arg_string, int from_tty, struct target_ops *target, int readsyms)
 {
   register struct so_list *so = NULL;	/* link map state variable */
 
@@ -612,6 +613,9 @@ solib_add (char *arg_string, int from_tty, struct target_ops *target)
   char *re_err;
   int count;
   int old;
+
+  if (!readsyms)
+    return;
 
   if ((re_err = re_comp (arg_string ? arg_string : ".")) != NULL)
     {
@@ -797,10 +801,11 @@ clear_solib (void)
     {
       if (so_list_head->sections)
 	{
-	  free ((PTR) so_list_head->sections);
+	  xfree (so_list_head->sections);
 	}
       if (so_list_head->abfd)
 	{
+	  remove_target_sections (so_list_head->abfd);
 	  bfd_filename = bfd_get_filename (so_list_head->abfd);
 	  if (!bfd_close (so_list_head->abfd))
 	    warning ("cannot close \"%s\": %s",
@@ -812,8 +817,8 @@ clear_solib (void)
 
       next = so_list_head->next;
       if (bfd_filename)
-	free ((PTR) bfd_filename);
-      free ((PTR) so_list_head);
+	xfree (bfd_filename);
+      xfree (so_list_head);
       so_list_head = next;
     }
 }
@@ -875,7 +880,7 @@ solib_create_inferior_hook (void)
   stop_signal = TARGET_SIGNAL_0;
   do
     {
-      target_resume (-1, 0, stop_signal);
+      target_resume (minus_one_ptid, 0, stop_signal);
       wait_for_inferior ();
     }
   while (stop_signal != TARGET_SIGNAL_TRAP);
@@ -886,8 +891,7 @@ solib_create_inferior_hook (void)
      and will put out an annoying warning.
      Delaying the resetting of stop_soon_quietly until after symbol loading
      suppresses the warning.  */
-  if (auto_solib_add)
-    solib_add ((char *) 0, 0, (struct target_ops *) 0);
+  solib_add ((char *) 0, 0, (struct target_ops *) 0, auto_solib_add);
   stop_soon_quietly = 0;
 }
 
@@ -910,7 +914,7 @@ static void
 sharedlibrary_command (char *args, int from_tty)
 {
   dont_repeat ();
-  solib_add (args, from_tty, (struct target_ops *) 0);
+  solib_add (args, from_tty, (struct target_ops *) 0, 1);
 }
 
 void
@@ -922,13 +926,13 @@ _initialize_solib (void)
 	    "Status of loaded shared object libraries.");
 
   add_show_from_set
-    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+    (add_set_cmd ("auto-solib-add", class_support, var_boolean,
 		  (char *) &auto_solib_add,
 		  "Set autoloading of shared library symbols.\n\
-If nonzero, symbols from all shared object libraries will be loaded\n\
-automatically when the inferior begins execution or when the dynamic linker\n\
-informs gdb that a new library has been loaded.  Otherwise, symbols\n\
-must be loaded manually, using `sharedlibrary'.",
+If \"on\", symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution, when the dynamic linker\n\
+informs gdb that a new library has been loaded, or when attaching to the\n\
+inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);
 }

@@ -22,13 +22,14 @@ HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
          ipconfig_ext.h ipconfig_types.h machcompat.h threadcompat.h\
          dhcp_options.h dynarray.h macnc_options.h ptrlist.h tftplib.h\
          bsdp.h NICache.h bootp_transmit.h NICachePrivate.h nbsp.h\
-         NetBootServer.h
+         NetBootServer.h ioregpath.h cfutil.h nbimages.h\
+         NetBootImageInfo.h
 
 CFILES = arp.c bootp_transmit.c bpflib.c dhcplib.c dhcp_options.c\
          dynarray.c hfsvols.c hostlist.c host_identifier.c inetroute.c\
          interfaces.c in_cksum.c ipcfg.c macnc_options.c nbsp.c\
          netinfo.c NICache.c NIDomain.c ptrlist.c tftplib.c ts_log.c\
-         util.c
+         util.c ioregpath.c cfutil.c nbimages.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             genoptionfiles.c ipconfig.defs
@@ -48,7 +49,7 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS =\
-               -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 
 WINDOWS_PUBLIC_HEADERS_DIR = $(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Headers/$(NAME)

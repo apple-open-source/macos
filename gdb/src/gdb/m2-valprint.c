@@ -1,5 +1,6 @@
 /* Support for printing Modula 2 values for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1988, 1989, 1991, 1992, 1996, 1998, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,10 +20,8 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include "obstack.h"
 #include "symtab.h"
 #include "gdbtypes.h"
-#include "valprint.h"
 #include "m2-lang.h"
 
 /* FIXME:  For now, just explicitly declare c_val_print and use it instead */

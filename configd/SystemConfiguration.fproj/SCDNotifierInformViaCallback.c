@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,7 +107,12 @@ SCDynamicStoreNotifyCallback(SCDynamicStoreRef		store,
 	mach_port_t			port;
 	mach_port_t			oldNotify;
 	int				sc_status;
-	CFMachPortContext		context = { 0, (void *)store, NULL, NULL, NULL };
+	CFMachPortContext		context = { 0
+						  , (void *)store
+						  , CFRetain
+						  , CFRelease
+						  , NULL
+						  };
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyCallback:"));
 
@@ -217,10 +222,12 @@ rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 		/* remove the run loop source(s) */
 		CFRunLoopSourceInvalidate(storePrivate->callbackRunLoopSource);
 		CFRelease(storePrivate->callbackRunLoopSource);
+		storePrivate->callbackRunLoopSource = NULL;
 
 		/* invalidate port */
 		CFMachPortInvalidate(storePrivate->callbackPort);
 		CFRelease(storePrivate->callbackPort);
+		storePrivate->callbackPort = NULL;
 
 		return;
 	}
@@ -228,6 +235,16 @@ rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	/* signal the real runloop source */
 	CFRunLoopSourceSignal(storePrivate->rls);
 	return;
+}
+
+
+static void
+rlsPortInvalidate(CFMachPortRef mp, void *info) {
+	mach_port_t	port	= CFMachPortGetPort(mp);
+
+	// A simple deallocate won't get rid of all the references we've accumulated
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  invalidate = %d"), port);
+	mach_port_destroy(mach_task_self(), port);
 }
 
 
@@ -240,7 +257,12 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("schedule notifications for mode %@"), mode);
 
 	if (storePrivate->rlsRefs++ == 0) {
-		CFMachPortContext	context = { 0, (void *)store, NULL, NULL, NULL };
+		CFMachPortContext	context = { 0
+						  , (void *)store
+						  , CFRetain
+						  , CFRelease
+						  , NULL
+						  };
 		mach_port_t		oldNotify;
 		mach_port_t		port;
 		int			sc_status;
@@ -296,6 +318,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 		}
 
 		storePrivate->callbackPort = CFMachPortCreateWithPort(NULL, port, rlsCallback, &context, NULL);
+		CFMachPortSetInvalidationCallBack(storePrivate->callbackPort, rlsPortInvalidate);
 		storePrivate->callbackRunLoopSource = CFMachPortCreateRunLoopSource(NULL, storePrivate->callbackPort, 0);
 	}
 
@@ -313,6 +336,7 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("cancel notifications for mode %@"), mode);
 
 	CFRunLoopRemoveSource(rl, storePrivate->callbackRunLoopSource, mode);
+
 	if (--storePrivate->rlsRefs == 0) {
 		int		sc_status;
 		kern_return_t	status;
@@ -321,10 +345,12 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 		/* remove the run loop source */
 		CFRelease(storePrivate->callbackRunLoopSource);
+		storePrivate->callbackRunLoopSource = NULL;
 
 		/* invalidate port */
 		CFMachPortInvalidate(storePrivate->callbackPort);
 		CFRelease(storePrivate->callbackPort);
+		storePrivate->callbackPort = NULL;
 
 		status = notifycancel(storePrivate->server, (int *)&sc_status);
 		if (status != KERN_SUCCESS) {
@@ -351,6 +377,11 @@ rlsPerform(void *info)
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  executing notifiction function"));
 
 	changedKeys = SCDynamicStoreCopyNotifiedKeys(store);
+	if (!changedKeys) {
+		/* something happened to the server */
+		return;
+	}
+
 	rlsFunction = storePrivate->rlsFunction;
 
 	if (NULL != storePrivate->rlsContext.retain) {
@@ -360,7 +391,7 @@ rlsPerform(void *info)
 		context_info	= storePrivate->rlsContext.info;
 		context_release	= NULL;
 	}
-	(*rlsFunction)(store, changedKeys, storePrivate->rlsContext.info);
+	(*rlsFunction)(store, changedKeys, context_info);
 	if (context_release) {
 		context_release(context_info);
 	}
@@ -370,12 +401,45 @@ rlsPerform(void *info)
 }
 
 
+static CFTypeRef
+rlsRetain(CFTypeRef cf)
+{
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)cf;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	if (storePrivate->notifyStatus != Using_NotifierInformViaRunLoop) {
+		/* mark RLS active */
+		storePrivate->notifyStatus = Using_NotifierInformViaRunLoop;
+		/* keep a reference to the store */
+		CFRetain(store);
+	}
+
+	return cf;
+}
+
+static void
+rlsRelease(CFTypeRef cf)
+{
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)cf;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	/* mark RLS inactive */
+	storePrivate->notifyStatus = NotifierNotRegistered;
+	storePrivate->rls = NULL;
+
+	/* release our reference to the store */
+	CFRelease(store);
+
+	return;
+}
+
+
 CFRunLoopSourceRef
 SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 				  SCDynamicStoreRef	store,
 				  CFIndex		order)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCreateRunLoopSource:"));
 
@@ -394,8 +458,7 @@ SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 	switch (storePrivate->notifyStatus) {
 		case NotifierNotRegistered :
 		case Using_NotifierInformViaRunLoop :
-			/* set notifier active */
-			storePrivate->notifyStatus = Using_NotifierInformViaRunLoop;
+			/* OK to enable runloop notification */
 			break;
 		default :
 			/* sorry, you can only have one notification registered at once */
@@ -403,23 +466,28 @@ SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 			return NULL;
 	}
 
-	if (!storePrivate->rls) {
-		CFRunLoopSourceContext context;
-
-		context.version         = 0;
-		context.info            = (void *)store;
-		context.retain          = (const void *(*)(const void *))CFRetain;
-		context.release         = (void (*)(const void *))CFRelease;
-		context.copyDescription = (CFStringRef (*)(const void *))CFCopyDescription;
-		context.equal           = (Boolean (*)(const void *, const void *))CFEqual;
-		context.hash            = (CFHashCode (*)(const void *))CFHash;
-		context.schedule        = rlsSchedule;
-		context.cancel          = rlsCancel;
-		context.perform         = rlsPerform;
+	if (storePrivate->rls) {
+		CFRetain(storePrivate->rls);
+	} else {
+		CFRunLoopSourceContext	context = { 0			// version
+						  , (void *)store	// info
+						  , rlsRetain		// retain
+						  , rlsRelease		// release
+						  , CFCopyDescription	// copyDescription
+						  , CFEqual		// equal
+						  , CFHash		// hash
+						  , rlsSchedule		// schedule
+						  , rlsCancel		// cancel
+						  , rlsPerform		// perform
+						  };
 
 		storePrivate->rls = CFRunLoopSourceCreate(allocator, order, &context);
 	}
 
-	return (CFRunLoopSourceRef)CFRetain(storePrivate->rls);
-}
+	if (!storePrivate->rls) {
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
+	return storePrivate->rls;
+}

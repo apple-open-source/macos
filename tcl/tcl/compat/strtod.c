@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: strtod.c,v 1.1.1.2 2000/04/12 02:02:07 wsanchez Exp $
+ * RCS: @(#) $Id: strtod.c,v 1.1.1.3 2002/04/05 16:12:51 jevans Exp $
  */
 
 #include "tcl.h"
@@ -19,6 +19,7 @@
 #   include <stdlib.h>
 #endif
 #include <ctype.h>
+#include "tclPort.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -206,6 +207,10 @@ strtod(string, endPtr)
 	    }
 	    expSign = FALSE;
 	}
+	if (!isdigit(*p)) {
+	    p = pExp;
+	    goto done;
+	}
 	while (isdigit(*p)) {
 	    exp = exp * 10 + (*p - '0');
 	    p += 1;
@@ -232,6 +237,7 @@ strtod(string, endPtr)
     }
     if (exp > maxExponent) {
 	exp = maxExponent;
+	errno = ERANGE;
     }
     dblExp = 1.0;
     for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {

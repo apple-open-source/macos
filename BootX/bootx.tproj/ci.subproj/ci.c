@@ -22,7 +22,7 @@
 /*
  *  ci.c - Functions for accessing Open Firmware's Client Interface
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -202,8 +202,8 @@ CICell PackageToPath(CICell phandle, char *buf, long buflen)
     
     length = ciArgs.args.packageToPath.length;
   } else {
-    ret = CallMethod_3_1(SLWordsIH, "slw_pwd", phandle,
-			 (CICell)buf, buflen, &length);
+    ret = CallMethod(3, 1, SLWordsIH, "slw_pwd", phandle,
+		     (CICell)buf, buflen, &length);
     if (ret != 0) return kCIError;
     
     buf[length] = '\0';
@@ -425,224 +425,39 @@ CICell Seek(CICell ihandle, long long position)
 
 // Other Device Method Invocation
 
-// Lots of CallMethod_n_m functions...
-// n is number of args, m is number of returns.
-
-long CallMethod_0_0(CICell iHandle, char *method)
+// Call the specified method on the given iHandle with the listed arguments.
+long CallMethod(long args, long rets, CICell iHandle, const char *method, ...)
 {
-  CIArgs ciArgs;
-  long ret;
+  va_list argList;
+  CIArgs  ciArgs;
+  long    ret, cnt, error = kCINoError;
+  
+  va_start(argList, method);
   
   ciArgs.service = "call-method";
-  ciArgs.nArgs = 2;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_0_0.iHandle = iHandle;
-  ciArgs.args.callMethod_0_0.method = method;
+  ciArgs.nArgs = args + 2;
+  ciArgs.nReturns = rets + 1;
+  ciArgs.args.callMethod.iHandle = iHandle;
+  ciArgs.args.callMethod.method = method;
+  
+  for (cnt = 0; cnt < args; cnt++) {
+    ciArgs.args.callMethod.cells[args - cnt - 1] = va_arg(argList, CICell);
+  }
   
   ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_0_0.catchResult != 0) return kCICatch;
+  if (ret != 0) error = kCIError;
+  else if (ciArgs.args.callMethod.cells[args] != 0) error = kCICatch;
   
-  return kCINoError;
-}
-
-long CallMethod_0_1(CICell iHandle, char *method, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
+  if (error == kCINoError) {
+    for (cnt = 0; cnt < rets; cnt++) {
+      *(va_arg(argList, CICell *)) =
+	ciArgs.args.callMethod.cells[args + rets - cnt];
+    }
+  }
   
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 2;
-  ciArgs.nReturns = 2;
-  ciArgs.args.callMethod_0_1.iHandle = iHandle;
-  ciArgs.args.callMethod_0_1.method = method;
+  va_end(argList);
   
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_0_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.callMethod_0_1.return1;
-  
-  return kCINoError;
-}
-
-long CallMethod_1_0(CICell iHandle, char *method, CICell arg1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_1_0.iHandle = iHandle;
-  ciArgs.args.callMethod_1_0.method = method;
-  ciArgs.args.callMethod_1_0.arg1 = arg1;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_1_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long CallMethod_1_1(CICell iHandle, char *method, CICell arg1, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 2;
-  ciArgs.args.callMethod_1_1.iHandle = iHandle;
-  ciArgs.args.callMethod_1_1.method = method;
-  ciArgs.args.callMethod_1_1.arg1 = arg1;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_1_0.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.callMethod_1_1.return1;
-  
-  return kCINoError;
-}
-
-long CallMethod_2_0(CICell iHandle, char *method,
-		    CICell arg1, CICell arg2)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 4;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_2_0.iHandle = iHandle;
-  ciArgs.args.callMethod_2_0.method = method;
-  ciArgs.args.callMethod_2_0.arg1 = arg1;
-  ciArgs.args.callMethod_2_0.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_2_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long CallMethod_3_0(CICell iHandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 5;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_3_0.iHandle = iHandle;
-  ciArgs.args.callMethod_3_0.method = method;
-  ciArgs.args.callMethod_3_0.arg1 = arg1;
-  ciArgs.args.callMethod_3_0.arg2 = arg2;
-  ciArgs.args.callMethod_3_0.arg3 = arg3;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_3_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long CallMethod_3_1(CICell iHandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 5;
-  ciArgs.nReturns = 2;
-  ciArgs.args.callMethod_3_1.iHandle = iHandle;
-  ciArgs.args.callMethod_3_1.method = method;
-  ciArgs.args.callMethod_3_1.arg1 = arg1;
-  ciArgs.args.callMethod_3_1.arg2 = arg2;
-  ciArgs.args.callMethod_3_1.arg3 = arg3;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_3_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.callMethod_3_1.return1;
-  
-  return kCINoError;
-}
-
-long CallMethod_4_0(CICell iHandle, char *method,
-		    CICell arg1, CICell arg2, CICell arg3, CICell arg4)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 6;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_4_0.iHandle = iHandle;
-  ciArgs.args.callMethod_4_0.method = method;
-  ciArgs.args.callMethod_4_0.arg1 = arg1;
-  ciArgs.args.callMethod_4_0.arg2 = arg2;
-  ciArgs.args.callMethod_4_0.arg3 = arg3;
-  ciArgs.args.callMethod_4_0.arg4 = arg4;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_4_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long CallMethod_5_0(CICell iHandle, char *method, CICell arg1, CICell arg2,
-		    CICell arg3, CICell arg4, CICell arg5)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 7;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_5_0.iHandle = iHandle;
-  ciArgs.args.callMethod_5_0.method = method;
-  ciArgs.args.callMethod_5_0.arg1 = arg1;
-  ciArgs.args.callMethod_5_0.arg2 = arg2;
-  ciArgs.args.callMethod_5_0.arg3 = arg3;
-  ciArgs.args.callMethod_5_0.arg4 = arg4;
-  ciArgs.args.callMethod_5_0.arg5 = arg5;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_5_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long CallMethod_6_0(CICell iHandle, char *method, CICell arg1, CICell arg2,
-		    CICell arg3, CICell arg4, CICell arg5, CICell arg6)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "call-method";
-  ciArgs.nArgs = 8;
-  ciArgs.nReturns = 1;
-  ciArgs.args.callMethod_6_0.iHandle = iHandle;
-  ciArgs.args.callMethod_6_0.method = method;
-  ciArgs.args.callMethod_6_0.arg1 = arg1;
-  ciArgs.args.callMethod_6_0.arg2 = arg2;
-  ciArgs.args.callMethod_6_0.arg3 = arg3;
-  ciArgs.args.callMethod_6_0.arg4 = arg4;
-  ciArgs.args.callMethod_6_0.arg5 = arg5;
-  ciArgs.args.callMethod_6_0.arg6 = arg6;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.callMethod_6_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
+  return error;
 }
 
 
@@ -674,15 +489,15 @@ CICell Claim(CICell virt, CICell size, CICell align)
     if ((gMMUIH == 0) || (gMMUIH == 0)) return kCIError;
     
     // Get the physical memory
-    ret = CallMethod_3_1(gMemoryIH, "claim", virt, size, 0, &baseaddr);
+    ret = CallMethod(3, 1, gMemoryIH, "claim", virt, size, 0, &baseaddr);
     if ((ret != kCINoError) || (virt != baseaddr)) return kCIError;
     
     // Get the logical memory
-    ret = CallMethod_3_1(gMMUIH, "claim", virt, size, 0, &baseaddr);
+    ret = CallMethod(3, 1, gMMUIH, "claim", virt, size, 0, &baseaddr);
     if ((ret != kCINoError) || (virt != baseaddr)) return kCIError;
     
     // Map them together.
-    ret = CallMethod_4_0(gMMUIH, "map", virt, virt, size, 0);
+    ret = CallMethod(4, 0, gMMUIH, "map", virt, virt, size, 0);
     if (ret != kCINoError) return kCIError;
   }
   
@@ -761,344 +576,36 @@ void Quiesce(void)
 
 // User Interface
 
-// Lots of Interpret_n_m fundtions...
-// n is number of args, m is number of returns.
-
-long Interpret_0_0(char *forthString)
+// Interpret the given forth string with the listed arguments.
+long Interpret(long args, long rets, const char *forthString, ...)
 {
-  CIArgs ciArgs;
-  long ret;
+  va_list argList;
+  CIArgs  ciArgs;
+  long    ret, cnt, error = kCINoError;
+  
+  va_start(argList, forthString);
   
   ciArgs.service = "interpret";
-  ciArgs.nArgs = 1;
-  ciArgs.nReturns = 1;
-  ciArgs.args.interpret_0_0.forth = forthString;
+  ciArgs.nArgs = args + 1;
+  ciArgs.nReturns = rets + 1;
+  ciArgs.args.interpret.forth = forthString;
+  
+  for (cnt = 0; cnt < args; cnt++) {
+    ciArgs.args.interpret.cells[args - cnt - 1] = va_arg(argList, CICell);
+  }
   
   ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_0_0.catchResult != 0) return kCICatch;
+  if (ret != 0) error = kCIError;
+  else if (ciArgs.args.interpret.cells[args] != 0) error = kCICatch;
   
-  return kCINoError;
-}
-
-long Interpret_1_0(char *forthString, CICell arg1)
-{
-  CIArgs ciArgs;
-  long ret;
+  if (error == kCINoError) {
+    for (cnt = 0; cnt < rets; cnt++) {
+      *(va_arg(argList, CICell *)) =
+	ciArgs.args.interpret.cells[args + rets - cnt];
+    }
+  }
   
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 2;
-  ciArgs.nReturns = 1;
-  ciArgs.args.interpret_1_0.forth = forthString;
-  ciArgs.args.interpret_1_0.arg1 = arg1;
+  va_end(argList);
   
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_1_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long Interpret_1_1(char *forthString, CICell arg1, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 2;
-  ciArgs.nReturns = 2;
-  ciArgs.args.interpret_1_1.forth = forthString;
-  ciArgs.args.interpret_1_1.arg1 = arg1;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_1_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_1_1.return1;
-  
-  return kCINoError;
-}
-
-long Interpret_2_1(char *forthString, CICell arg1, CICell arg2, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 2;
-  ciArgs.args.interpret_2_1.forth = forthString;
-  ciArgs.args.interpret_2_1.arg1 = arg1;
-  ciArgs.args.interpret_2_1.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_2_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_2_1.return1;
-  
-  return kCINoError;
-}
-
-long Interpret_3_1(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		  CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 4;
-  ciArgs.nReturns = 2;
-  ciArgs.args.interpret_3_1.forth = forthString;
-  ciArgs.args.interpret_3_1.arg1 = arg1;
-  ciArgs.args.interpret_3_1.arg2 = arg2;
-  ciArgs.args.interpret_3_1.arg3 = arg3;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_3_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_3_1.return1;
-  
-  return kCINoError;
-}
-
-long Interpret_3_2(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		   CICell *ret1, CICell *ret2)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 4;
-  ciArgs.nReturns = 3;
-  ciArgs.args.interpret_3_2.forth = forthString;
-  ciArgs.args.interpret_3_2.arg1 = arg1;
-  ciArgs.args.interpret_3_2.arg2 = arg2;
-  ciArgs.args.interpret_3_2.arg3 = arg3;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_3_2.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_3_2.return1;
-  *ret2 = ciArgs.args.interpret_3_2.return2;
-  
-  return kCINoError;
-}
-
-long Interpret_4_0(char *forthString, CICell arg1, CICell arg2, CICell arg3,
-		  CICell arg4)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 5;
-  ciArgs.nReturns = 1;
-  ciArgs.args.interpret_4_0.forth = forthString;
-  ciArgs.args.interpret_4_0.arg1 = arg1;
-  ciArgs.args.interpret_4_0.arg2 = arg2;
-  ciArgs.args.interpret_4_0.arg3 = arg3;
-  ciArgs.args.interpret_4_0.arg4 = arg4;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_4_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long Interpret_0_1(char *forthString, CICell *ret1)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 1;
-  ciArgs.nReturns = 2;
-  ciArgs.args.interpret_0_1.forth = forthString;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_0_1.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_0_1.return1;
-  
-  return kCINoError;
-}
-
-long Interpret_0_2(char *forthString, CICell *ret1, CICell *ret2)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 1;
-  ciArgs.nReturns = 3;
-  ciArgs.args.interpret_0_2.forth = forthString;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_0_2.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_0_2.return1;
-  *ret2 = ciArgs.args.interpret_0_2.return2;
-  
-  return kCINoError;
-}
-
-long Interpret_0_3(char *forthString, CICell *ret1, CICell *ret2, CICell *ret3)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 1;
-  ciArgs.nReturns = 4;
-  ciArgs.args.interpret_0_3.forth = forthString;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_0_3.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_0_3.return1;
-  *ret2 = ciArgs.args.interpret_0_3.return2;
-  *ret3 = ciArgs.args.interpret_0_3.return3;
-  
-  return kCINoError;
-}
-
-long Interpret_1_3(char *forthString, CICell arg1, CICell *ret1, CICell *ret2,
-		  CICell *ret3)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 2;
-  ciArgs.nReturns = 4;
-  ciArgs.args.interpret_1_3.forth = forthString;
-  ciArgs.args.interpret_1_3.arg1 = arg1;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_1_3.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_1_3.return1;
-  *ret2 = ciArgs.args.interpret_1_3.return2;
-  *ret3 = ciArgs.args.interpret_1_3.return3;
-  
-  return kCINoError;
-}
-
-long Interpret_2_3(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2, CICell *ret3)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 4;
-  ciArgs.args.interpret_2_3.forth = forthString;
-  ciArgs.args.interpret_2_3.arg1 = arg1;
-  ciArgs.args.interpret_2_3.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_2_3.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_2_3.return1;
-  *ret2 = ciArgs.args.interpret_2_3.return2;
-  *ret3 = ciArgs.args.interpret_2_3.return3;
-  
-  return kCINoError;
-}
-
-long Interpret_2_4(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2, CICell *ret3, CICell *ret4)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 5;
-  ciArgs.args.interpret_2_4.forth = forthString;
-  ciArgs.args.interpret_2_4.arg1 = arg1;
-  ciArgs.args.interpret_2_4.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_2_4.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_2_4.return1;
-  *ret2 = ciArgs.args.interpret_2_4.return2;
-  *ret3 = ciArgs.args.interpret_2_4.return3;
-  *ret4 = ciArgs.args.interpret_2_4.return4;
-  
-  return kCINoError;
-}
-
-long Interpret_2_0(char *forthString, CICell arg1, CICell arg2)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 1;
-  ciArgs.args.interpret_2_0.forth = forthString;
-  ciArgs.args.interpret_2_0.arg1 = arg1;
-  ciArgs.args.interpret_2_0.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_2_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
-}
-
-long Interpret_2_2(char *forthString, CICell arg1, CICell arg2, CICell *ret1,
-		  CICell *ret2)
-{
-  CIArgs ciArgs;
-  long ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 3;
-  ciArgs.nReturns = 3;
-  ciArgs.args.interpret_2_2.forth = forthString;
-  ciArgs.args.interpret_2_2.arg1 = arg1;
-  ciArgs.args.interpret_2_2.arg2 = arg2;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_2_2.catchResult != 0) return kCICatch;
-  
-  *ret1 = ciArgs.args.interpret_2_2.return1;
-  *ret2 = ciArgs.args.interpret_2_2.return2;
-  
-  return kCINoError;
-}
-
-long Interpret_3_0(char *forthString, CICell arg1, CICell arg2, CICell arg3)
-{
-  CIArgs ciArgs;
-  int ret;
-  
-  ciArgs.service = "interpret";
-  ciArgs.nArgs = 4;
-  ciArgs.nReturns = 1;
-  ciArgs.args.interpret_3_0.forth = forthString;
-  ciArgs.args.interpret_3_0.arg1 = arg1;
-  ciArgs.args.interpret_3_0.arg2 = arg2;
-  ciArgs.args.interpret_3_0.arg3 = arg3;
-  
-  ret = CallCI(&ciArgs);
-  if (ret != 0) return kCIError;
-  if (ciArgs.args.interpret_3_0.catchResult != 0) return kCICatch;
-  
-  return kCINoError;
+  return error;
 }

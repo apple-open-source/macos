@@ -37,7 +37,7 @@ include $(CoreOSMakefiles)/ReleaseControl/Common.make
 
 CC_Debug += -Wall -Werror
 
-Extra_CC_Flags += -traditional-cpp
+Extra_CC_Flags += -no-cpp-precomp
 
 Environment = ARCH_FLAGS="$(CC_Archs)"	\
 	           COPTS="$(CFLAGS)"	\

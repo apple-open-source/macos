@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  * 21 May 99 wgulland created.
@@ -42,7 +42,7 @@
 
 OSDefineMetaClass( IOFireWireNub, IOService )
 OSDefineAbstractStructors(IOFireWireNub, IOService)
-OSMetaClassDefineReservedUnused(IOFireWireNub, 0);
+//OSMetaClassDefineReservedUnused(IOFireWireNub, 0);
 OSMetaClassDefineReservedUnused(IOFireWireNub, 1);
 OSMetaClassDefineReservedUnused(IOFireWireNub, 2);
 OSMetaClassDefineReservedUnused(IOFireWireNub, 3);
@@ -53,11 +53,15 @@ bool IOFireWireNub::init(OSDictionary * propTable)
 {
     OSNumber *offset;
     if( !IOService::init(propTable))
-        return (false);
+        return false;
 
     offset = OSDynamicCast(OSNumber, propTable->getObject("GUID"));
     if(offset)
         fUniqueID = offset->unsigned64BitValue();
+
+	fConfigDirectorySet = OSSet::withCapacity(1);
+	if( fConfigDirectorySet == NULL )
+		return false;
 
     return true;
 }
@@ -66,7 +70,34 @@ void IOFireWireNub::free()
 {
     if(fDirectory)
         fDirectory->release();
+	
+	if( fConfigDirectorySet )
+		fConfigDirectorySet->release();
+		
     IOService::free();
+}
+
+// getNodeIDGeneration
+//
+//
+
+IOReturn IOFireWireNub::getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID, UInt16 &localID) const
+{ 
+	generation = fGeneration; 
+	nodeID = fNodeID; 
+	localID = fLocalNodeID; 
+	return kIOReturnSuccess;
+}
+
+// getNodeIDGeneration
+//
+//
+
+IOReturn IOFireWireNub::getNodeIDGeneration(UInt32 &generation, UInt16 &nodeID) const
+{
+	generation = fGeneration; 
+	nodeID = fNodeID; 
+	return kIOReturnSuccess;
 }
 
 IOFWSpeed IOFireWireNub::FWSpeed() const
@@ -228,33 +259,57 @@ IOFWPseudoAddressSpace *IOFireWireNub::createPseudoAddressSpace(FWAddress *addr,
 IOReturn IOFireWireNub::getConfigDirectory(IOConfigDirectory *&dir)
 {
     dir = fDirectory;
-    return (kIOReturnSuccess);    
+	fConfigDirectorySet->setObject( fDirectory );
+    
+	return kIOReturnSuccess;    
 }
 
-void IOFireWireNub::setNodeFlags( UInt32 flags )
+IOReturn IOFireWireNub::getConfigDirectoryRef( IOConfigDirectory *&dir )
 {
-    fNodeFlags = flags;
-    
-    // IOLog( "IOFireWireDevice::setNodeFlags fNodeFlags = 0x%08lx\n", fNodeFlags );
-    
-	if( fNodeID != kFWBadNodeID )
-    {
-		if( fNodeFlags & kIOFWDisableAllPhysicalAccess )
-        {
-            IOFireWireLink * fwim = fControl->getLink();
-            fwim->setNodeIDPhysicalFilter( kIOFWAllPhysicalFilters, false );
-        }
-        else if( fNodeFlags & kIOFWDisablePhysicalAccess )
-        {
-            IOFireWireLink * fwim = fControl->getLink();
-            fwim->setNodeIDPhysicalFilter( fNodeID & 63, false );
-        }
-    }
+    dir = fDirectory;
+	fDirectory->retain();
+	
+    return kIOReturnSuccess;    
 }
 
-UInt32 IOFireWireNub::getNodeFlags( void )
+IOReturn IOFireWireNub::setConfigDirectory( IOConfigDirectory *directory )
 {
-    return fNodeFlags;
+	IOConfigDirectory * oldDirectory = fDirectory;
+	
+	directory->retain();
+	fDirectory = directory;
+	
+	if( oldDirectory )
+		oldDirectory->release();
+	
+	return kIOReturnSuccess;
+}
+
+// getBus
+//
+//
+
+IOFireWireBus * IOFireWireNub::getBus() const
+{ 
+	return (IOFireWireBus *)fControl; 
+}
+
+// getController
+//
+//
+
+IOFireWireController * IOFireWireNub::getController() const
+{ 
+	return fControl;
+}
+
+// getUniqueID
+//
+//
+
+const CSRNodeUniqueID& IOFireWireNub::getUniqueID() const
+{ 
+	return fUniqueID; 
 }
 
 /**
@@ -270,7 +325,7 @@ IOReturn IOFireWireNub::newUserClient(task_t		owningTask,
     IOReturn			err = kIOReturnSuccess;
     IOFireWireUserClient *	client;
 
-    if( type != 11)
+    if( type != 11 )
         return( kIOReturnBadArgument);
 
     client = IOFireWireUserClient::withTask(owningTask);
@@ -288,4 +343,16 @@ IOReturn IOFireWireNub::newUserClient(task_t		owningTask,
     return( err );
 }
 
+void IOFireWireNub::setNodeFlags( UInt32 flags )
+{
+}
+
+void IOFireWireNub::clearNodeFlags( UInt32 flags )
+{
+}
+
+UInt32 IOFireWireNub::getNodeFlags( void )
+{
+	return 0;
+}
 

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.init.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tw.init.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
 /*
  * tw.init.c: Handle lists of things to complete
  */

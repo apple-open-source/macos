@@ -262,11 +262,11 @@ public:
 	CssmDbAttributeData(const CSSM_DB_ATTRIBUTE_INFO &info)
 	{ Info = info; NumberOfValues = 0; Value = NULL; }
 
-	CSSM_DB_ATTRIBUTE_FORMAT format() const { return info().format(); }
-
 	CssmDbAttributeInfo &info() { return CssmDbAttributeInfo::overlay(Info); }
 	const CssmDbAttributeInfo &info() const { return CssmDbAttributeInfo::overlay(Info); }
 	void info (const CSSM_DB_ATTRIBUTE_INFO &inInfo) { Info = inInfo; }
+
+	CSSM_DB_ATTRIBUTE_FORMAT format() const { return info().format(); }
 
 	uint32 size() const { return NumberOfValues; }
 
@@ -286,7 +286,7 @@ public:
 	{
 		if (size() < 1) CssmError::throwMe(CSSMERR_DL_MISSING_VALUE);
 		assert(format() == CSSM_DB_ATTRIBUTE_FORMAT_STRING);
-		return string(reinterpret_cast<const char *>(Value[0].Data), Value[0].Length);
+		return Value[0].Length ? string(reinterpret_cast<const char *>(Value[0].Data), Value[0].Length) : string();
 	}		
 	operator bool() const
 	{
@@ -444,6 +444,9 @@ public:
 	operator CssmAllocator &() const { return mValueAllocator; }
 private:
 	CssmAllocator &mValueAllocator;
+	
+	CssmDbAttributeData* findAttribute (const CSSM_DB_ATTRIBUTE_INFO &info);
+	CssmDbAttributeData& getAttributeReference (const CSSM_DB_ATTRIBUTE_INFO &info);
 };
 
 
@@ -453,11 +456,12 @@ private:
 class CssmSelectionPredicate : public PodWrapper<CssmSelectionPredicate, CSSM_SELECTION_PREDICATE> {
 public:
 	CssmSelectionPredicate() { /*IFDEBUG(*/ memset(this, 0, sizeof(*this)) /*)*/ ; }
-	CssmSelectionPredicate(CSSM_DB_OPERATOR inDbOperator)
-	{ dbOperator(inDbOperator); Attribute.NumberOfValues = 0; Attribute.Value = NULL; }
 
 	CSSM_DB_OPERATOR dbOperator() const { return DbOperator; }
 	void dbOperator(CSSM_DB_OPERATOR dbOperator) { DbOperator = dbOperator; }
+
+	CssmSelectionPredicate(CSSM_DB_OPERATOR inDbOperator)
+	{ dbOperator(inDbOperator); Attribute.NumberOfValues = 0; Attribute.Value = NULL; }
 
 	CssmDbAttributeData &attribute() { return CssmDbAttributeData::overlay(Attribute); }
 	const CssmDbAttributeData &attribute() const { return CssmDbAttributeData::overlay(Attribute); }
@@ -579,9 +583,9 @@ public:
 
     // Operators
 	bool operator <(const DLDbIdentifier &other) const
-	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : &*mImpl < &*other.mImpl; }
+	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : mImpl.get() < other.mImpl.get(); }
 	bool operator ==(const DLDbIdentifier &other) const
-	{ return mImpl && other.mImpl ? *mImpl == *other.mImpl : &*mImpl == &*other.mImpl; }
+	{ return mImpl && other.mImpl ? *mImpl == *other.mImpl : mImpl.get() == other.mImpl.get(); }
 
     // Accessors
     const CssmSubserviceUid &ssuid() const { return mImpl->ssuid(); }

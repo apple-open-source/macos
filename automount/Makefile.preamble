@@ -16,7 +16,12 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
+ifeq "$(RC_RELEASE)" "Darwin"
+RECURSIVE_CFLAGS = -DDarwin
+endif
+
 OTHER_CFLAGS =
+
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =	
 

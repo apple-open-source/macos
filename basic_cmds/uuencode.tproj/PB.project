@@ -7,7 +7,7 @@
         OTHER_SOURCES = (
             Makefile.preamble, 
             Makefile, 
-            uuencode.format.5, 
+            uuencode.5, 
             uuencode.1, 
             Makefile.postamble
         ); 

@@ -1,5 +1,3 @@
-/*	$NetBSD: position.c,v 1.6 1997/07/25 06:46:24 phil Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -37,23 +35,23 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)position.c	8.3 (Berkeley) 4/2/94";
-#else
-__RCSID("$NetBSD: position.c,v 1.6 1997/07/25 06:46:24 phil Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/bin/dd/position.c,v 1.20 2002/02/02 06:24:12 imp Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
 #include <sys/mtio.h>
+
+#ifdef __APPLE__
+#include <sys/ioctl.h>
+#endif
 
 #include <err.h>
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "dd.h"
@@ -66,17 +64,25 @@ __RCSID("$NetBSD: position.c,v 1.6 1997/07/25 06:46:24 phil Exp $");
  * output.
  */
 void
-pos_in()
+pos_in(void)
 {
-	int bcnt, cnt, nr, warned;
+	off_t cnt;
+	int warned;
+	ssize_t nr;
+	size_t bcnt;
 
-	/* If not a character, pipe or tape device, try to seek on it. */
-	if (!(in.flags & (ISCHR|ISPIPE|ISTAPE))) {
-		if (lseek(in.fd, (off_t)in.offset * (off_t)in.dbsz, SEEK_CUR)
-		    == -1)
+	/* If known to be seekable, try to seek on it. */
+	if (in.flags & ISSEEK) {
+		errno = 0;
+		if (lseek(in.fd, in.offset * in.dbsz, SEEK_CUR) == -1 &&
+		    errno != 0)
 			err(1, "%s", in.name);
 		return;
 	}
+
+	/* Don't try to read a really weird amount (like negative). */
+	if (in.offset < 0)
+		errx(1, "%s: illegal offset", "iseek/skip");
 
 	/*
 	 * Read the data.  If a pipe, read until satisfy the number of bytes
@@ -121,29 +127,35 @@ pos_in()
 }
 
 void
-pos_out()
+pos_out(void)
 {
 	struct mtop t_op;
-	int cnt, n;
+	off_t cnt;
+	ssize_t n;
 
 	/*
 	 * If not a tape, try seeking on the file.  Seeking on a pipe is
 	 * going to fail, but don't protect the user -- they shouldn't
 	 * have specified the seek operand.
 	 */
-	if (!(out.flags & ISTAPE)) {
-		if (lseek(out.fd,
-		    (off_t)out.offset * (off_t)out.dbsz, SEEK_SET) == -1)
+	if (out.flags & (ISSEEK | ISPIPE)) {
+		errno = 0;
+		if (lseek(out.fd, out.offset * out.dbsz, SEEK_CUR) == -1 &&
+		    errno != 0)
 			err(1, "%s", out.name);
 		return;
 	}
+
+	/* Don't try to read a really weird amount (like negative). */
+	if (out.offset < 0)
+		errx(1, "%s: illegal offset", "oseek/seek");
 
 	/* If no read access, try using mtio. */
 	if (out.flags & NOREAD) {
 		t_op.mt_op = MTFSR;
 		t_op.mt_count = out.offset;
 
-		if (ioctl(out.fd, MTIOCTOP, &t_op) < 0)
+		if (ioctl(out.fd, MTIOCTOP, &t_op) == -1)
 			err(1, "%s", out.name);
 		return;
 	}
@@ -153,7 +165,7 @@ pos_out()
 		if ((n = read(out.fd, out.db, out.dbsz)) > 0)
 			continue;
 
-		if (n < 0)
+		if (n == -1)
 			err(1, "%s", out.name);
 
 		/*
@@ -166,9 +178,13 @@ pos_out()
 		if (ioctl(out.fd, MTIOCTOP, &t_op) == -1)
 			err(1, "%s", out.name);
 
-		while (cnt++ < out.offset)
-			if ((n = write(out.fd, out.db, out.dbsz)) != out.dbsz)
+		while (cnt++ < out.offset) {
+			n = write(out.fd, out.db, out.dbsz);
+			if (n == -1)
 				err(1, "%s", out.name);
+			if ((size_t)n != out.dbsz)
+				errx(1, "%s: write failure", out.name);
+		}
 		break;
 	}
 }

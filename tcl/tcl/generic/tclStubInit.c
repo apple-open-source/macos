@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclStubInit.c,v 1.1.1.3 2000/12/06 23:03:30 wsanchez Exp $
+ * RCS: @(#) $Id: tclStubInit.c,v 1.1.1.4 2002/04/05 16:13:26 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -238,6 +238,8 @@ TclIntStubs tclIntStubs = {
     TclpMatchFilesTypes, /* 160 */
     TclChannelTransform, /* 161 */
     TclChannelEventScriptInvoker, /* 162 */
+    TclGetInstructionTable, /* 163 */
+    TclExpandCodeArray, /* 164 */
 };
 
 TclIntPlatStubs tclIntPlatStubs = {
@@ -277,12 +279,13 @@ TclIntPlatStubs tclIntPlatStubs = {
     TclpMakeFile, /* 18 */
     TclpOpenFile, /* 19 */
     TclWinAddProcess, /* 20 */
-    TclpAsyncMark, /* 21 */
+    NULL, /* 21 */
     TclpCreateTempFile, /* 22 */
     TclpGetTZName, /* 23 */
     TclWinNoBackslash, /* 24 */
     TclWinGetPlatform, /* 25 */
     TclWinSetInterfaces, /* 26 */
+    TclWinFlushDirtyChannels, /* 27 */
 #endif /* __WIN32__ */
 #ifdef MAC_TCL
     TclpSysAlloc, /* 0 */
@@ -292,10 +295,10 @@ TclIntPlatStubs tclIntPlatStubs = {
     FSpGetDefaultDir, /* 4 */
     FSpSetDefaultDir, /* 5 */
     FSpFindFolder, /* 6 */
-    GetGlobalMouse, /* 7 */
-    FSpGetDirectoryID, /* 8 */
-    FSpOpenResFileCompat, /* 9 */
-    FSpCreateResFileCompat, /* 10 */
+    GetGlobalMouseTcl, /* 7 */
+    FSpGetDirectoryIDTcl, /* 8 */
+    FSpOpenResFileCompatTcl, /* 9 */
+    FSpCreateResFileCompatTcl, /* 10 */
     FSpLocationFromPath, /* 11 */
     FSpPathFromLocation, /* 12 */
     TclMacExitHandler, /* 13 */
@@ -309,7 +312,7 @@ TclIntPlatStubs tclIntPlatStubs = {
     TclMacUnRegisterResourceFork, /* 21 */
     TclMacCreateEnv, /* 22 */
     TclMacFOpenHack, /* 23 */
-    NULL, /* 24 */
+    TclpGetTZName, /* 24 */
     TclMacChmod, /* 25 */
 #endif /* MAC_TCL */
 };
@@ -683,7 +686,7 @@ TclStubs tclStubs = {
     Tcl_StackChannel, /* 281 */
     Tcl_UnstackChannel, /* 282 */
     Tcl_GetStackedChannel, /* 283 */
-    NULL, /* 284 */
+    Tcl_SetMainLoop, /* 284 */
     NULL, /* 285 */
     Tcl_AppendObjToObj, /* 286 */
     Tcl_CreateEncoding, /* 287 */

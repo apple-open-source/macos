@@ -126,11 +126,12 @@ CssmDbAttributeData::deleteValues(CssmAllocator &inAllocator)
 	{
 		for (uint32 anIndex = 0; anIndex < NumberOfValues; anIndex++)
 		{
-			if (Value[anIndex].Length)
+			if (Value[anIndex].Data)
 			{
 				inAllocator.free(Value[anIndex].Data);
-				Value[anIndex].Length = 0;
 			}
+
+			Value[anIndex].Length = 0;
 		}
 
 		inAllocator.free(Value);
@@ -262,10 +263,90 @@ CssmAutoDbRecordAttributeData::clear()
 	ArrayBuilder<CssmDbAttributeData>::clear();
 }
 
+
+
+static bool CompareAttributeInfos (const CSSM_DB_ATTRIBUTE_INFO &a, const CSSM_DB_ATTRIBUTE_INFO &b)
+{
+	// check the format of the names
+	if (a.AttributeNameFormat != b.AttributeNameFormat)
+	{
+		return false;
+	}
+	
+	switch (a.AttributeNameFormat)
+	{
+		case CSSM_DB_ATTRIBUTE_NAME_AS_STRING:
+		{
+			return strcmp (a.Label.AttributeName, b.Label.AttributeName) == 0;
+		}
+		
+		case CSSM_DB_ATTRIBUTE_NAME_AS_OID:
+		{
+			if (a.Label.AttributeOID.Length != b.Label.AttributeOID.Length)
+			{
+				return false;
+			}
+			
+			return memcmp (a.Label.AttributeOID.Data, b.Label.AttributeOID.Data, a.Label.AttributeOID.Length) == 0;
+		}
+		
+		
+		case CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER:
+		{
+			return a.Label.AttributeID == b.Label.AttributeID;
+		}
+	}
+	
+	return true; // just to keep the compiler from complaining
+}
+
+
+
+CssmDbAttributeData* CssmAutoDbRecordAttributeData::findAttribute (const CSSM_DB_ATTRIBUTE_INFO &info)
+{
+	// walk through the data, looking for an attribute of the same type
+	int i;
+	for (i = 0; i < size (); ++i)
+	{
+		CssmDbAttributeData& d = at (i);
+		CSSM_DB_ATTRIBUTE_INFO &inInfo = d.info ();
+		
+		if (CompareAttributeInfos (info, inInfo))
+		{
+			return &d;
+		}
+	}
+	
+	// found nothing?
+	return NULL;
+}
+
+
+
+CssmDbAttributeData& CssmAutoDbRecordAttributeData::getAttributeReference (const CSSM_DB_ATTRIBUTE_INFO &info)
+{
+	// Either find an existing reference to an attribute in the list, or make a new one.
+	CssmDbAttributeData *anAttr = findAttribute (info);
+	if (anAttr) // was this already in the list?
+	{
+		// clean it up
+		anAttr->deleteValues (mValueAllocator);
+	}
+	else
+	{
+		// make a new one
+		anAttr = &add();
+	}
+	
+	return *anAttr;
+}
+
+
+
 CssmDbAttributeData &
 CssmAutoDbRecordAttributeData::add(const CSSM_DB_ATTRIBUTE_INFO &info)
 {
-	CssmDbAttributeData &anAttr = add();
+	CssmDbAttributeData& anAttr = getAttributeReference (info);
 	anAttr.info(info);
 	return anAttr;
 }
@@ -273,7 +354,7 @@ CssmAutoDbRecordAttributeData::add(const CSSM_DB_ATTRIBUTE_INFO &info)
 CssmDbAttributeData &
 CssmAutoDbRecordAttributeData::add(const CSSM_DB_ATTRIBUTE_INFO &info, const CssmPolyData &value)
 {
-	CssmDbAttributeData &anAttr = add();
+	CssmDbAttributeData &anAttr = getAttributeReference (info);
 	anAttr.set(info, value, mValueAllocator);
 	return anAttr;
 }

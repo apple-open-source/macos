@@ -24,42 +24,79 @@
 
 #include <Security/cssmaclpod.h>
 #include <Security/cssmcred.h>
+#include <Security/refcount.h>
+#include <Security/globalizer.h>
 
-namespace Security
-{
-
-namespace CssmClient
-{
+namespace Security {
+namespace CssmClient {
 
 class CSP;
 
+
 //
-// AclClient -- abstract interface implemented by objects that can manipulate their acls
+// Any client-side object that has CSSM-layer ACLs shall be
+// derived from AclBearer and implement its methods accordingly.
+// Note the (shared/virtual) RefCount - you should handle AclBearer
+// references via RefPointers.
 //
-class AclClient
-{
-public:	
+class AclBearer : public virtual RefCount {
+public:
+	virtual ~AclBearer();
+
 	// Acl manipulation
-	virtual void getAcl(const char *selectionTag, AutoAclEntryInfoList &aclInfos) const = 0;
-	virtual void changeAcl(const CSSM_ACCESS_CREDENTIALS *accessCred,
-						   const CSSM_ACL_EDIT &aclEdit) = 0;
+	virtual void getAcl(AutoAclEntryInfoList &aclInfos,
+		const char *selectionTag = NULL) const = 0;
+	virtual void changeAcl(const CSSM_ACL_EDIT &aclEdit,
+		const CSSM_ACCESS_CREDENTIALS *cred = NULL) = 0;
+	
+	void addAcl(const AclEntryInput &input, const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+	void changeAcl(CSSM_ACL_HANDLE handle, const AclEntryInput &input,
+		const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+	void deleteAcl(CSSM_ACL_HANDLE handle, const CSSM_ACCESS_CREDENTIALS *cred = NULL);
+	void deleteAcl(const char *tag = NULL, const CSSM_ACCESS_CREDENTIALS *cred = NULL);
 
 	// Acl owner manipulation
 	virtual void getOwner(AutoAclOwnerPrototype &owner) const = 0;
-	virtual void changeOwner(const CSSM_ACCESS_CREDENTIALS *accessCred,
-							 const CSSM_ACL_OWNER_PROTOTYPE &newOwner) = 0;
+	virtual void changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
+		const CSSM_ACCESS_CREDENTIALS *cred = NULL) = 0;
+};
 
-#if 0
-	// Create a random owner
-	static void makeRandomOwner(CSP &csp, AutoAclOwnerPrototype &owner, AutoCredentials &cred);
-	void setOwnerAndAcl(const AutoCredentials &cred, const AutoAclOwnerPrototype &newOwner,
-						uint32 numEntries, const CSSM_ACL_ENTRY_INFO *entries);
-#endif
+
+//
+// An AclFactory helps create and maintain CSSM-layer AccessCredentials
+// and matching samples. There is state in an AclFactory, though simple
+// uses may not care about it.
+//
+class AclFactory {
+public:
+	AclFactory();
+	virtual ~AclFactory();
+	
+	// these values are owned by the AclFactory and persist
+	// until it is destroyed. You don't own the memory.
+	const AccessCredentials *nullCred() const;
+	const AccessCredentials *promptCred() const;
+	const AccessCredentials *unlockCred() const;
+
+public:
+    // HHS password change credentials are used, amazingly enough, to change passwords...
+    class PasswordChangeCredentials
+    {
+    protected:
+        AutoCredentials* mCredentials;
+        CssmAllocator& mAllocator;
+    
+    public:
+        PasswordChangeCredentials (const CssmData& password,
+                                   CssmAllocator& allocator);
+        ~PasswordChangeCredentials ();
+        
+        operator const AccessCredentials* () {return mCredentials;}
+    };
 };
 
 
 } // end namespace CssmClient
-
 } // end namespace Security
 
 #endif // _H_CDSA_CLIENT_ACLCLIENT

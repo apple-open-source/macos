@@ -27,7 +27,6 @@
  */
 
 #include "libsaio.h"
-#include "kernBootStruct.h"
 #include "stringConstants.h"
 #include "legacy/configTablePrivate.h"
 
@@ -35,7 +34,7 @@ extern KERNBOOTSTRUCT *kernBootStruct;
 extern char *Language;
 extern char *LoadableFamilies;
 
-static void eatThru(char val, char **table_p);
+static void eatThru(char val, const char **table_p);
 
 static inline int isspace(char c)
 {
@@ -46,7 +45,7 @@ static inline int isspace(char c)
  * Compare a string to a key with quoted characters
  */
 static inline int
-keyncmp(char *str, char *key, int n)
+keyncmp(const char *str, const char *key, int n)
 {
     int c;
     while (n--) {
@@ -76,9 +75,9 @@ keyncmp(char *str, char *key, int n)
     return 0;
 }
 
-static void eatThru(char val, char **table_p)
+static void eatThru(char val, const char **table_p)
 {
-	register char *table = *table_p;
+	register const char *table = *table_p;
 	register BOOL found = NO;
 
 	while (*table && !found)
@@ -170,7 +169,7 @@ newStringFromList(
 /* 
  * compress == compress escaped characters to one character
  */
-int stringLength(char *table, int compress)
+int stringLength(const char *table, int compress)
 {
 	int ret = 0;
 
@@ -193,10 +192,10 @@ int stringLength(char *table, int compress)
 
 // looks in table for strings of format << "key" = "value"; >>
 // or << "key"; >>
-BOOL getValueForStringTableKey(char *table, char *key, char **val, int *size)
+BOOL getValueForStringTableKey(const char *table, const char *key, const char **val, int *size)
 {
 	int keyLength;
-	char *tableKey;
+	const char *tableKey;
 
 	do
 	{
@@ -249,11 +248,12 @@ char *newStringForStringTableKey(
 	char *key
 )
 {
-    char *val, *newstr, *p;
+    const char *val;
+    char *newstr, *p;
     int size;
     
     if (getValueForStringTableKey(table, key, &val, &size)) {
-	newstr = malloc(size+1);
+	newstr = (char *)malloc(size+1);
 	for (p = newstr; size; size--, p++, val++) {
 	    if ((*p = *val) == '\\') {
 		switch (*++val) {
@@ -283,11 +283,12 @@ char *newStringForStringTableKey(
 char *
 newStringForKey(char *key)
 {
-    char *val, *newstr;
+    const char *val;
+    char *newstr;
     int size;
     
     if (getValueForKey(key, &val, &size) && size) {
-	newstr = malloc(size + 1);
+	newstr = (char *)malloc(size + 1);
 	strncpy(newstr, val, size);
 	return newstr;
     } else {
@@ -301,7 +302,7 @@ newStringForKey(char *key)
  * non-whitespace characters, or enclosed in quotes.
  */
 
-static char *getToken(char *line, char **begin, int *len)
+static const char *getToken(const char *line, const char **begin, int *len)
 {
     if (*line == '\"') {
 	*begin = ++line;
@@ -317,9 +318,9 @@ static char *getToken(char *line, char **begin, int *len)
     return line;
 }
 
-BOOL getValueForBootKey(char *line, char *match, char **matchval, int *len)
+BOOL getValueForBootKey(const char *line, const char *match, const char **matchval, int *len)
 {
-    char *key, *value;
+    const char *key, *value;
     int key_len, value_len;
     
     while (*line) {
@@ -346,10 +347,10 @@ BOOL getValueForBootKey(char *line, char *match, char **matchval, int *len)
 }
 
 BOOL getBoolForKey(
-    char *key
+    const char *key
 )
 {
-    char *val;
+    const char *val;
     int size;
     
     if (getValueForKey(key, &val, &size) && (size >= 1) &&
@@ -359,11 +360,11 @@ BOOL getBoolForKey(
 }
 
 BOOL getIntForKey(
-    char *key,
+    const char *key,
     int *value
 )
 {
-    char *val;
+    const char *val;
     int size, sum;
     
     if (getValueForKey(key, &val, &size)) {
@@ -377,8 +378,8 @@ BOOL getIntForKey(
 }
 
 BOOL getValueForKey(
-    char *key,
-    char **val,
+    const char *key,
+    const char **val,
     int *size
 )
 {
@@ -401,7 +402,7 @@ loadLocalizableStrings(
 {
     char buf[256], *config;
     register int count, fd = -1;
-    char *device_dir = usrDevices();
+    const char *device_dir = usrDevices();
     
     sprintf(buf, LOCALIZABLE_PATH, device_dir, name,
 	    Language, tableName);
@@ -462,7 +463,7 @@ int sysConfigValid;
 
 void
 addConfig(
-    char *config
+    const char *config
 )
 {
     char *configPtr = kernBootStruct->configEnd;
@@ -488,7 +489,7 @@ addConfig(
  * Allocates an extra number of bytes for table expansion.
  */
 int
-loadConfigFile( char *configFile, char **table, BOOL allocTable)
+loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
 {
     char *configPtr = kernBootStruct->configEnd;
     int fd, count;
@@ -530,15 +531,15 @@ loadConfigFile( char *configFile, char **table, BOOL allocTable)
  
 int
 loadConfigDir(
-    char *bundleName,	// bundle directory name (e.g. "System")
+    const char *bundleName,	// bundle directory name (e.g. "System")
     BOOL useDefault,	// use Default.table instead of instance tables
-    char **table,	// returns pointer to config table
+    const char **table,	// returns pointer to config table
     BOOL allocTable	// malloc the table and return in *table
 )
 {
     char *buf;
     int i, max, ret;
-    char *device_dir = usrDevices();
+    const char *device_dir = usrDevices();
     
     buf = malloc(256);
     ret = 0;
@@ -598,13 +599,14 @@ static int sysconfig_dev;
  */
 int
 loadSystemConfig(
-    char *which,
+    const char *which,
     int size
 )
 {
-    char *buf, *bp, *cp;
+    char *buf, *bp;
+    const char *cp;
     int ret, len, doDefault=0;
-    char *device_dir = usrDevices();
+    const char *device_dir = usrDevices();
 
 #if 0
 		printf("In Load system config which=%d ; size=%d\n", which, size);

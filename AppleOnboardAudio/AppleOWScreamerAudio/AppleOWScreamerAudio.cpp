@@ -46,24 +46,18 @@ unsigned char SGSShadowRegs[kSGSNumRegs] =
                                           0x20, 	/* Reg 1: Vol  = 0dB				*/
                                           0xFF, 	/* Reg 2: Bass = 0dB, Treble = 0dB		*/
                                           0x00, 	/* Reg 3: Internal Spkr - Left  Atten = 0dB	*/
-                                          0x0A,         /* Reg 4: Line Out	- Left  Atten = -10dB	*/
-                                          0x00,         /* Reg 5: Internal Spkr - Right Atten = 0dB	*/
+                                          0x0A,     /* Reg 4: Line Out	- Left  Atten = -10dB	*/
+                                          0x00,     /* Reg 5: Internal Spkr - Right Atten = 0dB	*/
                                           0x0A };	/* Reg 6: Line Out	- Right Atten = -10dB   */
 #define	sgsBalMuteBit		0x020	// When this bit is set in the output fader/ balance regs, the channel is muted
 #define	sgsBalVolBits		0x1F	// mask for volume steps
-#define kVolReg			0x01	// volume register
-#define	kLFAttnReg		0x03	// Left Front (ie everything except the rear spkr jack)
-#define	kRFAttnReg		0x05	// Right Front
-#define	kLRAttnReg		0x04	// Left Rear (the rear speaker jack only)
-#define	kRRAttnReg		0x06	// Right Rear
-
-//#define DEBUGMODE 1
+#define kVolReg				0x01	// volume register
+#define	kLFAttnReg			0x03	// Left Front (ie everything except the rear spkr jack)
+#define	kRFAttnReg			0x05	// Right Front
+#define	kLRAttnReg			0x04	// Left Rear (the rear speaker jack only)
+#define	kRRAttnReg			0x06	// Right Rear
 
 #define NUM_POWER_STATES	2
-
-/*
- *
- */
 
 static void 	writeCodecControlReg( volatile awacsOW_regmap_t *ioBaseAwacs, int value );
 static void 	writeSoundControlReg( volatile awacsOW_regmap_t *ioBaseAwacs, int value );
@@ -102,10 +96,10 @@ static UInt32 readCodecStatusReg( volatile awacsOW_regmap_t *ioBaseAwacs )
   return OSReadLittleInt32( &ioBaseAwacs->CodecStatusRegister, 0 );
 }
 
-//static int readClippingCountReg( volatile awacsOW_regmap_t *ioBaseAwacs )
-//{
-//  return OSReadLittleInt32( &ioBaseAwacs->ClippingCountRegister, 0 );
-//}
+// static int readClippingCountReg( volatile awacsOW_regmap_t *ioBaseAwacs )
+// {
+//	return OSReadLittleInt32( &ioBaseAwacs->ClippingCountRegister, 0 );
+// }
 
 static void writeSGSRegs()
 {
@@ -218,11 +212,11 @@ bool AppleOWScreamerAudio::start(IOService *provider)
 
     initHardware();
     
-    /*
-     * Mask out the input bits in the cached status register so that the AudioComponents
-     * get updated to the correct values the first time we update the device status
-     * (Everything is initialized on the assumption that nothing is plugged in)
-     */
+	/*
+	* Mask out the input bits in the cached status register so that the AudioComponents
+	* get updated to the correct values the first time we update the device status
+	* (Everything is initialized on the assumption that nothing is plugged in)
+	*/
     codecStatus &= ~kAllSense;
 
     CLEAN_RELEASE(perch);
@@ -282,7 +276,7 @@ void AppleOWScreamerAudio::initHardware()
 
     codecControlRegister[0] |= (kMicInput | kDefaultMicGain);
 
-    // Gossamer passes sound right through to be later controlled
+    // Beige G3 passes sound right through to be later controlled
     // by the SGS audio processor--turn on these pass-thru ports.
     if ( iicAudioDevicePresent ) {
         codecControlRegister[1] |= (kParallelOutputEnable);
@@ -304,7 +298,7 @@ void AppleOWScreamerAudio::recalibrate()
     tempCodecControlReg1 = codecControlRegister[1];
 
     tempCodecControlReg1 |= (kMuteInternalSpeaker | kMuteHeadphone);
-    //tempCodecControlReg1 |= kRecalibrate;
+    // tempCodecControlReg1 |= kRecalibrate;
 
     IOSleep(10);
     writeCodecControlReg(ioBase, tempCodecControlReg1);
@@ -320,7 +314,7 @@ IOService* AppleOWScreamerAudio::probe(IOService *provider, SInt32* score){
     super::probe(provider, score);
     *score = kIODefaultProbeScore;
     sound = provider->childFromPath("sound", gIODTPlane);
-         //we are on a old world if there is no sound entry
+	// we are on a old world if there is no sound entry
     if(!sound) {
         *score = *score+1;
         return(this);
@@ -331,7 +325,6 @@ IOService* AppleOWScreamerAudio::probe(IOService *provider, SInt32* score){
     }
 
     return(0);
-
 }
 
 IOReturn AppleOWScreamerAudio::performPowerStateChange(IOAudioDevicePowerState oldPowerState,
@@ -400,6 +393,17 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
         return false;
     }
 
+	// [2731278] Create output selector that is used to tell the HAL what the current output is (speaker, headphone, etc.)
+	outputSelector = IOAudioSelectorControl::createOutputSelector ('ispk', kIOAudioControlChannelIDAll);
+	if (NULL != outputSelector) {
+		driverDMAEngine->addDefaultAudioControl(outputSelector);
+		// No value change handler because this is a read only control
+		outputSelector->addAvailableSelection(kIOAudioOutputPortSubTypeInternalSpeaker, "Internal speaker");
+		outputSelector->addAvailableSelection(kIOAudioOutputPortSubTypeHeadphones, "Headphones");
+		// Don't release it because we might use it later.
+	}
+	// end [2731278]
+
     outVolLeft = IOAudioLevelControl::createVolumeControl(32,0,32,
                                           (-22 << 16) + (32768), /* -22.5 in fixed point 16.16 */
                                           0,
@@ -429,7 +433,20 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     driverDMAEngine->addDefaultAudioControl(outVolRight);
     outVolRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeRightChangeHandler, this);
 
-    
+	// Create a toggle control for reporting the status of the headphone jack
+	headphoneConnection = IOAudioToggleControl::create (FALSE,
+										kIOAudioControlChannelIDAll,
+										kIOAudioControlChannelNameAll,
+										kHeadphoneInsert,
+										kIOAudioControlTypeJack,
+										kIOAudioControlUsageOutput);
+
+	if (NULL != headphoneConnection) {
+		driverDMAEngine->addDefaultAudioControl (headphoneConnection);
+		// no value change handler because this isn't a settable control
+		// Don't release it because we might reference it later
+	}
+
     outMute = IOAudioToggleControl::createMuteControl(false,
                                       kIOAudioControlChannelIDAll,
                                       kIOAudioControlChannelNameAll,
@@ -465,7 +482,7 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     }
 
     driverDMAEngine->addDefaultAudioControl(inGainLeft);
-    inGainLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
+    inGainLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainLeftChangeHandler, this);
     
     inGainRight = IOAudioLevelControl::createVolumeControl(65535,
                                           0,
@@ -482,6 +499,20 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     driverDMAEngine->addDefaultAudioControl(inGainRight);
     inGainRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
      
+	// Create a jack control to let the HAL/Sound Manager know that some input source is plugged in
+	inputConnection = IOAudioToggleControl::create (FALSE,
+										kIOAudioControlChannelIDAll,
+										kIOAudioControlChannelNameAll,
+										kInputInsert,
+										kIOAudioControlTypeJack,
+										kIOAudioControlUsageInput);
+
+	if (NULL != inputConnection) {
+		driverDMAEngine->addDefaultAudioControl (inputConnection);
+		// no value change handler because this isn't a settable control
+		// Don't release it because we might reference it later
+	}
+
     /*
      * Build passthru port
      */
@@ -500,7 +531,7 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
     if (!playthruToggle) {
         return false;
     }
-   // passThru->addAudioControl(playthruToggle);
+	// passThru->addAudioControl(playthruToggle);
       
     attachAudioPort(outputPort, driverDMAEngine, 0);
     attachAudioPort(inputPort, 0, driverDMAEngine);
@@ -519,14 +550,19 @@ bool AppleOWScreamerAudio::createPorts(IOAudioEngine *driverDMAEngine)
 
 void AppleOWScreamerAudio::checkStatus(bool force)
 {
-    UInt32 newCodecStatus;
-    UInt32 InsenseStatus;
-    bool OmicPlugged, OheadPlugged, micPlugged, headPlugged;
-    newCodecStatus = readCodecStatusReg(ioBase);
+	UInt32				newCodecStatus;
+	UInt32				InsenseStatus;
+	bool				OmicPlugged;
+	bool				OheadPlugged;
+	bool				micPlugged;
+	bool				headPlugged;
+	OSNumber *					activeOutput;
 
-        //get the old status In fact this stuff is pretty rydimentary
+    newCodecStatus = readCodecStatusReg (ioBase);
+
+	// get the old status In fact this stuff is pretty rydimentary
     InsenseStatus = codecStatus & 0x0000000F;
-    if(duringInitialization) {
+    if (duringInitialization) {
         OmicPlugged = false;
         OheadPlugged = false;
     } else {
@@ -539,26 +575,55 @@ void AppleOWScreamerAudio::checkStatus(bool force)
         micPlugged = ((InsenseStatus & kSndHWInSense1) == kSndHWInSense1);
         headPlugged = ((InsenseStatus & kSndHWInSense2) == kSndHWInSense2);
 
-                //change  in the headphone
-        if(headPlugged != OheadPlugged) {
-            if(headPlugged) {
+		// change in the headphone
+        if (headPlugged != OheadPlugged) {
+            if (headPlugged) {
                 curActiveSpkr = kHeadPhoneSpkr;  
-                setToneHardwareMuteRear(false);		// Enable ext/rear speakers
-                setToneHardwareMuteFront(true);		// Mute front
-                setToneHardwareMuteBoomer(true);
+                setToneHardwareMuteRear (false);		// Enable ext/rear speakers
+                setToneHardwareMuteFront (true);		// Mute front
+                setToneHardwareMuteBoomer (true);
             } else {
                 curActiveSpkr = kCpuSpkr;
-                setToneHardwareMuteBoomer(false);
-                setToneHardwareMuteFront(false);	// Enable tone front
-                setToneHardwareMuteRear(true);
+                setToneHardwareMuteBoomer (false);
+                setToneHardwareMuteFront (false);	// Enable tone front
+                setToneHardwareMuteRear (true);
             }
+
+			// For [2926907]
+			if (NULL != headphoneConnection) {
+				OSNumber *			headphoneState;
+	
+				headphoneState = OSNumber::withNumber ((long long unsigned int)headPlugged, 32);
+				(void)headphoneConnection->hardwareValueChanged (headphoneState);
+			}
+			// end [2926907]
+
+			if (NULL != outputSelector) {
+				if(headPlugged) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeHeadphones, 32);
+					outputSelector->hardwareValueChanged (activeOutput);
+				} else {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
+					outputSelector->hardwareValueChanged (activeOutput);
+				}
+			}
         }
         
-        if(micPlugged != OmicPlugged) {
-            if(micPlugged) 
-                sndHWSetActiveInputExclusive(kSndHWInput2);
-            else 
-                sndHWSetActiveInputExclusive(kSndHWInputNone);
+        if (micPlugged != OmicPlugged) {
+            if (micPlugged) {
+                sndHWSetActiveInputExclusive (kSndHWInput2);
+            } else {
+                sndHWSetActiveInputExclusive (kSndHWInputNone);
+			}
+
+			// For [2829546]
+			if (NULL != inputConnection) {
+				OSNumber *			inputState;
+	
+				inputState = OSNumber::withNumber ((long long unsigned int)micPlugged, 32);
+				(void)inputConnection->hardwareValueChanged (inputState);
+			}
+			// end [2829546]
         }
 
         codecStatus = newCodecStatus;
@@ -660,8 +725,7 @@ IOReturn AppleOWScreamerAudio::readsgs7433( UInt8 RegIndex, unsigned char *RegVa
 }
 
 
-// A few sndHWLib function
-
+// A few sndHWLib functions
 UInt32  AppleOWScreamerAudio::sndHWGetProgOutput(void ){
     return (sndHWGetRegister(kAWACsProgOutputReg) & kAWACsProgOutputField) >> kAWACsProgOutputShift;
 }
@@ -687,7 +751,6 @@ UInt32 AppleOWScreamerAudio::sndHWGetRegister(UInt32 regNum){
     return(codecControlRegister[regNum]);
 }
 
-
 IOReturn AppleOWScreamerAudio::sndHWSetRegister(UInt32 regNum, UInt32 value){
     IOReturn myReturn = kIOReturnSuccess;
     
@@ -695,7 +758,6 @@ IOReturn AppleOWScreamerAudio::sndHWSetRegister(UInt32 regNum, UInt32 value){
     writeCodecControlReg(ioBase, codecControlRegister[regNum]);
     return(myReturn);
 }
-
 
 IOReturn AppleOWScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
     
@@ -707,7 +769,7 @@ IOReturn AppleOWScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
 	
     needsRecalibrate = (input != sndHWGetActiveInputExclusive());
 	
-        // start with all inputs off
+	// start with all inputs off
     inputReg = sndHWGetRegister(kAWACsInputReg) & ~kAWACsInputField;
     pcmciaReg = sndHWGetRegister(kAWACsPCMCIAAttenReg) & ~kAWACsPCMCIAAttenField;
     	
@@ -733,7 +795,7 @@ IOReturn AppleOWScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
             break;
     }
 	
-        //this should disappear. We put the gain input to the max value
+	// this should disappear. We put the gain input to the max value
     
     gainReg = sndHWGetRegister(kAWACsGainReg) & ~kAWACsGainField;		// get and clear current gain setting
 
@@ -743,14 +805,12 @@ IOReturn AppleOWScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
 
     sndHWSetRegister(kAWACsInputReg, inputReg);
 	
-    //if (needsRecalibrate) 
-     //   GC_Recalibrate();
+	// if (needsRecalibrate) 
+		// GC_Recalibrate();
       
 EXIT:
     return(result);
 }
-
-
 
 UInt32 	 AppleOWScreamerAudio::sndHWGetActiveInputExclusive(void){
     UInt32		input;
@@ -818,11 +878,8 @@ void AppleOWScreamerAudio::WritePRAMVol(  UInt32 leftVol, UInt32 rightVol  )
 	IODTPlatformExpert * 		platform = NULL;
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
-        	
 
-
-
-        if (platform)
+	if (platform)
 	{
 		pramVolume = VolumeToPRAMValue(leftVol,rightVol);
 		
@@ -830,12 +887,11 @@ void AppleOWScreamerAudio::WritePRAMVol(  UInt32 leftVol, UInt32 rightVol  )
 		platform->readXPRAM((IOByteCount)kPRamVolumeAddr,&curPRAMVol, (IOByteCount)1);
 		
 		
-                    // Update only if there is a change
+		// Update only if there is a change
 		if (pramVolume != (curPRAMVol & 0x07))
 		{
 			// clear bottom 3 bits of volume control byte from PRAM low memory image
 			curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
-			
 			
 			// write out the volume control byte to PRAM
 			platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
@@ -843,10 +899,9 @@ void AppleOWScreamerAudio::WritePRAMVol(  UInt32 leftVol, UInt32 rightVol  )
 	}
 }
 
-
 /****************************** Control Handler***********************************/
 /*   These functions are needed to deal with the change of DMA attached control  */
-/*   									         */
+/*   									         								 */
 /*********************************************************************************/
 
 IOReturn AppleOWScreamerAudio::volumeLeftChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
@@ -877,7 +932,6 @@ IOReturn AppleOWScreamerAudio::volumeLeftChanged(IOAudioControl *volumeControl, 
     return(result);
 }
 
-    
 IOReturn AppleOWScreamerAudio::volumeRightChangeHandler(IOService *target, IOAudioControl *volumeControl, SInt32 oldValue, SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
     AppleOWScreamerAudio *audioDevice;
@@ -906,7 +960,6 @@ IOReturn AppleOWScreamerAudio::volumeRightChanged(IOAudioControl *volumeControl,
 
 }
 
-    
 IOReturn AppleOWScreamerAudio::outputMuteChangeHandler(IOService *target, IOAudioControl *muteControl, SInt32 oldValue, SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
     AppleOWScreamerAudio *audioDevice;
@@ -920,19 +973,19 @@ IOReturn AppleOWScreamerAudio::outputMuteChanged(IOAudioControl *muteControl, SI
     IOReturn result = kIOReturnSuccess;
     SInt32 value;
     value = newValue;
-                //pass it to the AudioHardwareOutputObjects
+	// pass it to the AudioHardwareOutputObjects
     if (iicAudioDevicePresent ) {
         unsigned char chipInReg;
-                    // READ
+		// READ
         readsgs7433 ( kInFuncReg, &chipInReg);
 	
-            // MODIFY
+		// MODIFY
         if( value )					// accept any non 0 as audioMuted
             chipInReg |= SGSChipMuteBit;		// Mute sound - set mute bit		
         else
             chipInReg &= ~SGSChipMuteBit;		// Unmute it - clear mute bit
 
-                    // WRITE
+		// WRITE
         result= writesgs7433 ( kInFuncReg, chipInReg);
            
     } else {
@@ -944,7 +997,7 @@ IOReturn AppleOWScreamerAudio::outputMuteChanged(IOAudioControl *muteControl, SI
     }
     writeCodecControlReg( ioBase, codecControlRegister[1] );
                 
-            //write the PRAM stuff
+	// write the PRAM stuff
     if (value)
         WritePRAMVol(0,0);
     else
@@ -952,7 +1005,6 @@ IOReturn AppleOWScreamerAudio::outputMuteChanged(IOAudioControl *muteControl, SI
         
     return result;
 }
-
 
 IOReturn AppleOWScreamerAudio::gainLeftChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
@@ -975,7 +1027,6 @@ IOReturn AppleOWScreamerAudio::gainLeftChanged(IOAudioControl *gainControl, SInt
             
     return result;
 }
-
 
 IOReturn AppleOWScreamerAudio::gainRightChangeHandler(IOService *target, IOAudioControl *gainControl, SInt32 oldValue, SInt32 newValue){
     IOReturn result = kIOReturnSuccess;
@@ -1023,7 +1074,7 @@ IOReturn AppleOWScreamerAudio::passThruChanged(IOAudioControl *passThruControl, 
 
 
 IOReturn AppleOWScreamerAudio::setToneHardwareVolume(UInt32 volLeft, UInt32 volRight){
-        //for now we are doing manipulation on each bit
+	// for now we are doing manipulation on each bit
     setToneHardwareBalance(volLeft, volRight);
     gVolLeft = volLeft;
     gVolRight = volRight;
@@ -1034,13 +1085,13 @@ IOReturn AppleOWScreamerAudio::setToneHardwareBalance(UInt32 volLeft, UInt32 vol
     unsigned char attnl, attnr;
     unsigned char LFvalue, RFValue;
 
-               //first deal with the left side
+	// first deal with the left side
     if(volLeft != gVolLeft) {
         readsgs7433 ( kLFAttnReg, &LFvalue);
         if( 0 == volLeft) {
-            LFvalue |= sgsBalMuteBit; //0 we mute
+            LFvalue |= sgsBalMuteBit;		// 0 we mute
         } else {
-            if(0 == gVolLeft) { //we are leaving an unmute state
+            if(0 == gVolLeft) {				// we are leaving an unmute state
                 LFvalue &= ~sgsBalMuteBit;
             }
             attnl = (unsigned char) (31-volLeft+1);
@@ -1050,14 +1101,14 @@ IOReturn AppleOWScreamerAudio::setToneHardwareBalance(UInt32 volLeft, UInt32 vol
         writesgs7433( kLFAttnReg, LFvalue);
         writesgs7433( kLRAttnReg, LFvalue);
     }
-        //now we deal with the right side
+	// now we deal with the right side
     if(volRight != gVolRight) {
         readsgs7433 ( kRFAttnReg, &RFValue);
         if( 0 == volRight) {
-            RFValue|= sgsBalMuteBit; //0 we mute
+            RFValue|= sgsBalMuteBit;		// 0 we mute
         } else {
-            if(0 == gVolRight)  {//we are laeving an unmute state
-                RFValue&= ~sgsBalMuteBit; //0 we mute
+            if(0 == gVolRight)  {			// we are laeving an unmute state
+                RFValue&= ~sgsBalMuteBit;	// 0 we mute
             }
             attnr = (unsigned char) (31-volRight+1);
             RFValue &=sgsBalMuteBit;

@@ -83,12 +83,14 @@ static char rcsid[] = "$OpenBSD: ar.c,v 1.3 1997/01/15 23:42:11 millert Exp $";
 
 #include "archive.h"
 #include "extern.h"
+#include "stuff/execute.h"
 
 CHDR chdr;
 u_int options;
 char *archive, *envtmp, *posarg, *posname;
 static void badoptions __P((char *));
 static void usage __P((void));
+char *progname;
 
 /*
  * main --
@@ -101,11 +103,13 @@ main(argc, argv)
 	int argc;
 	char **argv;
 {
-	int c;
+	int c, retval, verbose;
 	char *p;
 	int (*fcall) __P((char **));
 
 	fcall = 0;
+	verbose = 0;
+	progname = argv[0];
 
 	if (argc < 3)
 		usage();
@@ -128,7 +132,7 @@ main(argc, argv)
 	 * extended format #1.  The new option -L allows ar to use the extended 
 	 * format and the old -T option causes the truncation of names.
 	 */
-	while ((c = getopt(argc, argv, "abcdilLmopqrTtuvx")) != -1) {
+	while ((c = getopt(argc, argv, "abcdilLmopqrsTtuVvx")) != -1) {
 		switch(c) {
 		case 'a':
 			options |= AR_A;
@@ -169,6 +173,9 @@ main(argc, argv)
 			options |= AR_R;
 			fcall = replace;
 			break;
+		case 's':
+			options |= AR_S;
+			break;
 		case 'T':
 			options |= AR_TR;
 			break;
@@ -178,6 +185,9 @@ main(argc, argv)
 			break;
 		case 'u':
 			options |= AR_U;
+			break;
+		case 'V':
+			verbose = 1;
 			break;
 		case 'v':
 			options |= AR_V;
@@ -194,9 +204,9 @@ main(argc, argv)
 	argv += optind;
 	argc -= optind;
 
-	/* One of -dmpqrtx required. */
-	if (!(options & (AR_D|AR_M|AR_P|AR_Q|AR_R|AR_T|AR_X))) {
-		warnx("one of options -dmpqrtx is required");
+	/* One of -dmpqrtsx required. */
+	if (!(options & (AR_D|AR_M|AR_P|AR_Q|AR_R|AR_S|AR_T|AR_X))) {
+		warnx("one of options -dmpqrtsx is required");
 		usage();
 	}
 	/* Only one of -a and -bi allowed. */
@@ -212,26 +222,26 @@ main(argc, argv)
 		}
 		posname = rname(posarg);
 	}
-	/* -d only valid with -Tv. */
-	if (options & AR_D && options & ~(AR_D|AR_TR|AR_V))
+	/* -d only valid with -Tsv. */
+	if (options & AR_D && options & ~(AR_D|AR_TR|AR_S|AR_V))
 		badoptions("-d");
-	/* -m only valid with -abiTv. */
-	if (options & AR_M && options & ~(AR_A|AR_B|AR_M|AR_TR|AR_V))
+	/* -m only valid with -abiTsv. */
+	if (options & AR_M && options & ~(AR_A|AR_B|AR_M|AR_TR|AR_S|AR_V))
 		badoptions("-m");
-	/* -p only valid with -Tv. */
-	if (options & AR_P && options & ~(AR_P|AR_TR|AR_V))
+	/* -p only valid with -Tsv. */
+	if (options & AR_P && options & ~(AR_P|AR_TR|AR_S|AR_V))
 		badoptions("-p");
-	/* -q only valid with -cTv. */
-	if (options & AR_Q && options & ~(AR_C|AR_Q|AR_TR|AR_V))
+	/* -q only valid with -cTsv. */
+	if (options & AR_Q && options & ~(AR_C|AR_Q|AR_TR|AR_S|AR_V))
 		badoptions("-q");
-	/* -r only valid with -abcuTv. */
-	if (options & AR_R && options & ~(AR_A|AR_B|AR_C|AR_R|AR_U|AR_TR|AR_V))
+	/* -r only valid with -abcuTsv. */
+	if (options & AR_R && options & ~(AR_A|AR_B|AR_C|AR_R|AR_U|AR_TR|AR_S|AR_V))
 		badoptions("-r");
-	/* -t only valid with -Tv. */
-	if (options & AR_T && options & ~(AR_T|AR_TR|AR_V))
+	/* -t only valid with -Tsv. */
+	if (options & AR_T && options & ~(AR_T|AR_TR|AR_S|AR_V))
 		badoptions("-t");
-	/* -x only valid with -ouTv. */
-	if (options & AR_X && options & ~(AR_O|AR_U|AR_TR|AR_V|AR_X))
+	/* -x only valid with -ouTsv. */
+	if (options & AR_X && options & ~(AR_O|AR_U|AR_TR|AR_S|AR_V|AR_X))
 		badoptions("-x");
 
 	if (!(archive = *argv++)) {
@@ -245,7 +255,23 @@ main(argc, argv)
 		usage();
 	}
 
-	exit((*fcall)(argv));
+	if(fcall != 0){
+	    retval = (*fcall)(argv);
+	    if(retval != EXIT_SUCCESS || (options & AR_S) != AR_S)
+		exit(retval);
+	}
+
+	/* run ranlib -f on the archive */
+	reset_execute_list();
+	add_execute_list("ranlib");
+	add_execute_list("-f");
+	add_execute_list(archive);
+	if(execute_list(verbose) == 0){
+	    (void)fprintf(stderr, "%s: internal ranlib command failed\n",
+			  progname);
+	    exit(EXIT_FAILURE);
+	}
+	exit(EXIT_SUCCESS);
 }
 
 static void
@@ -261,14 +287,14 @@ static void
 usage()
 {
 
-	(void)fprintf(stderr, "usage:  ar -d [-TLv] archive file ...\n");
-	(void)fprintf(stderr, "\tar -m [-TLv] archive file ...\n");
-	(void)fprintf(stderr, "\tar -m [-abiTLv] position archive file ...\n");
-	(void)fprintf(stderr, "\tar -p [-TLv] archive [file ...]\n");
-	(void)fprintf(stderr, "\tar -q [-cTLv] archive file ...\n");
-	(void)fprintf(stderr, "\tar -r [-cuTLv] archive file ...\n");
-	(void)fprintf(stderr, "\tar -r [-abciuTLv] position archive file ...\n");
-	(void)fprintf(stderr, "\tar -t [-TLv] archive [file ...]\n");
-	(void)fprintf(stderr, "\tar -x [-ouTLv] archive [file ...]\n");
+	(void)fprintf(stderr, "usage:  ar -d [-TLsv] archive file ...\n");
+	(void)fprintf(stderr, "\tar -m [-TLsv] archive file ...\n");
+	(void)fprintf(stderr, "\tar -m [-abiTLsv] position archive file ...\n");
+	(void)fprintf(stderr, "\tar -p [-TLsv] archive [file ...]\n");
+	(void)fprintf(stderr, "\tar -q [-cTLsv] archive file ...\n");
+	(void)fprintf(stderr, "\tar -r [-cuTLsv] archive file ...\n");
+	(void)fprintf(stderr, "\tar -r [-abciuTLsv] position archive file ...\n");
+	(void)fprintf(stderr, "\tar -t [-TLsv] archive [file ...]\n");
+	(void)fprintf(stderr, "\tar -x [-ouTLsv] archive [file ...]\n");
 	exit(1);
 }	

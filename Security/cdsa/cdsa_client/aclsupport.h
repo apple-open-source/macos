@@ -49,7 +49,9 @@ public:
 	void enabled(bool enabled);
 
 	bool sameSignature(const char *path); // return true if object at path has same signature
-	CssmAutoData calcSignature(const char *path); // generate a signature
+
+protected:
+	void calcSignature(const char *path, CssmOwnedData &signature); // generate a signature
 
 private:
 	CssmAutoData mSignature;
@@ -86,6 +88,7 @@ private:
 	bool mAlwaysAskUser;
 	bool mIsCustomACL;
 	CssmAutoData mLabel;
+	CssmAutoData mSelector;
 
 	CSSM_ACL_HANDLE mHandle;
 };

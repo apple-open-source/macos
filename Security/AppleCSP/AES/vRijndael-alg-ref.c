@@ -681,4 +681,4 @@ void vBlockDecrypt128(
 	return;
 }
 
-#endif	/* !ppc */
+#endif	/* defined(__ppc__) && defined(ALTIVEC_ENABLE) */

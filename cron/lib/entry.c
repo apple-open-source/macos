@@ -413,6 +413,15 @@ load_entry(file, error_func, pw, envp)
 		ecode = e_mem;
 		goto eof;
 	}
+
+	if( e->cmd[0] == '@' ) {
+		if( strncmp(e->cmd+1, "AppleNotOnBattery", 17) == 0 ) {
+			e->flags |= NOT_BATTERY;
+			e->cmd += 18;
+			for( ; isspace(e->cmd[0]); e->cmd++ );
+		}
+	}
+
 	Debug(DPARS, ("load_entry()...returning successfully\n"))
 
 	/* success, fini, return pointer to the entry we just created...

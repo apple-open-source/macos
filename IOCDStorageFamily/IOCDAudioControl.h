@@ -39,11 +39,12 @@
 
 #define kIOCDAudioControlClass "IOCDAudioControl"
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOCDBlockStorageDriver.h>
 
@@ -179,6 +180,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOCDAudioControl,  7);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOCDAUDIOCONTROL_H */

@@ -101,11 +101,6 @@ Boston, MA 02111-1307, USA.  */
 /* We don't have -loldX, and we don't need it.  */
 #define LIB_XMENU_LIB
 
-/* Jean-Pierre Radley <jpr@jpr.com> reports in
-   <news:19970906220024.40892@jpr.com> (1997-09-07)
-   that mktime is broken in sco5 releases at least through 5.0.4.  */
-#define BROKEN_MKTIME 1
-
 /* SCO does have TIOCGWINSZ.  */
 #undef BROKEN_TIOCGWINSZ
 #define NEED_PTEM_H
@@ -126,25 +121,21 @@ Boston, MA 02111-1307, USA.  */
 #define MAIL_PROGRAM_NAME "/usr/lib/mail/execmail"
 #endif
 
-/* miano@acosta.enet.dec.com says these are needed.  */
-#define bcopy(b1,b2,len) memmove (b2, b1, len)
-#define bzero(b,len) memset (b, 0, len)
-#define bcmp(b1,b2,len) memcmp (b1, b2, len)
-
 /* Tell process_send_signal to use VSUSP instead of VSWTCH.  */
 #define PREFER_VSUSP
 
 /* SCO Unix has Posix signals, but in 3.2.5 something broken that causes
  * all keyboard-quit signals to be lost after the first one. */
 #undef POSIX_SIGNALS
-#define sigblock(sig) (sigprocmask (SIG_BLOCK, SIGEMPTYMASK | sig, NULL))
+#define sigblock(sig)					\
+     (sigprocmask_set = SIGEMPTYMASK | (sig),		\
+      sigprocmask (SIG_BLOCK, &sigprocmask_set, NULL))
+#define sigunblock(sig)						\
+     (sigprocmask_set = SIGFULLMASK & ~(sig),			\
+      sigprocmask (SIG_SETMASK, &sigprocmask_set, NULL))
 
 #ifndef PENDING_OUTPUT_COUNT
 #define PENDING_OUTPUT_COUNT(FILE) ((FILE)->__ptr - (FILE)->__base)
-#endif
-
-#ifndef HAVE_VFORK
-#define HAVE_VFORK
 #endif
 
 /* Use ELF and get real shared libraries */ 
@@ -169,3 +160,5 @@ Boston, MA 02111-1307, USA.  */
 #define START_FILES pre-crt0.o /usr/ccs/lib/crt1.o /usr/ccs/lib/values-Xt.o
 #undef LIB_STANDARD
 #define LIB_STANDARD -lc /usr/ccs/lib/crtn.o
+
+#define NARROWPROTO 1

@@ -1,0 +1,44 @@
+#! /bin/sh
+# Make sure that PACKAGE and VERSION are AC_DEFINEd when requested.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+# -------------------------------------------------------------------
+# Do not upgrade this file to use the modern AC_INIT/AM_INIT_AUTOMAKE
+# forms.  The day these obsolete AC_INIT and AM_INIT_AUTOMAKE forms
+# are dropped, just erase the file.
+# nodefine2.test contains the modern version of this test.
+# -------------------------------------------------------------------
+
+# First, check that PACKAGE and VERSION are output by default.
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE([UnIqUe_PaCkAgE], [UnIqUe_VeRsIoN])
+AC_OUTPUT(output)
+END
+
+echo 'DEFS = @DEFS@' > output.in
+
+$ACLOCAL
+$AUTOCONF
+./configure
+
+grep 'DEFS.*-DVERSION=\\"UnIqUe' output
+
+# Then, check that PACKAGE and VERSION are not output if requested.
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE([UnIqUe_PaCkAgE], [UnIqUe_VeRsIoN], [no])
+AC_OUTPUT(output)
+END
+
+$ACLOCAL
+$AUTOCONF
+./configure
+
+grep 'DEFS.*-DVERSION=\\"UnIqUe' output && exit 1
+:

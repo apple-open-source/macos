@@ -1,3 +1,7 @@
+
+#ifndef _S_MACNC_OPTIONS_H
+#define _S_MACNC_OPTIONS_H
+
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -85,3 +89,4 @@ boolean_t
 macNCopt_str_to_type(unsigned char * str, 
 		     int type, void * buf, int * len_p,
 		     unsigned char * err);
+#endif _S_MACNC_OPTIONS_H

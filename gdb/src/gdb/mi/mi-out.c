@@ -1,5 +1,7 @@
 /* MI Command Set - output generating routines.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+
+   Copyright 2000, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -21,47 +23,55 @@
 
 #include "defs.h"
 #include "ui-out.h"
+#include "ui-file.h"
 #include "mi-out.h"
 
-/* Convenience macro for allocting typesafe memory. */
-
-#ifndef XMALLOC
-#define XMALLOC(TYPE) (TYPE*) xmalloc (sizeof (TYPE))
-#endif
+/* This comes from the mi-main.c.  I need it because the notify
+   code has to "put" the temporary notify buffer before discarding
+   it. */
+   
+extern struct ui_file *raw_stdout;
 
 struct ui_out_data
   {
-    int supress_field_separator;
-    int first_header;
+    int suppress_field_separator;
+    int suppress_output;
+    int mi_version;
     struct ui_file *buffer;
   };
 
 /* These are the MI output functions */
 
-static void mi_table_begin (struct ui_out *uiout, int nbrofcols, char *tblid);
+static void mi_table_begin (struct ui_out *uiout, int nbrofcols,
+			    int nr_rows, const char *tblid);
 static void mi_table_body (struct ui_out *uiout);
 static void mi_table_end (struct ui_out *uiout);
 static void mi_table_header (struct ui_out *uiout, int width,
-			     enum ui_align alig, char *colhdr);
-static void mi_list_begin (struct ui_out *uiout, int list_flag, char *lstid);
-static void mi_list_end (struct ui_out *uiout, int list_flag);
+			     enum ui_align alig, const char *col_name,
+			     const char *colhdr);
+static void mi_begin (struct ui_out *uiout, enum ui_out_type type,
+		      int level, const char *id);
+static void mi_end (struct ui_out *uiout, enum ui_out_type type, int level);
 static void mi_field_int (struct ui_out *uiout, int fldno, int width,
-			  enum ui_align alig, char *fldname, int value);
+			  enum ui_align alig, const char *fldname, int value);
 static void mi_field_skip (struct ui_out *uiout, int fldno, int width,
-			   enum ui_align alig, char *fldname);
+			   enum ui_align alig, const char *fldname);
 static void mi_field_string (struct ui_out *uiout, int fldno, int width,
-			     enum ui_align alig, char *fldname,
+			     enum ui_align alig, const char *fldname,
 			     const char *string);
 static void mi_field_fmt (struct ui_out *uiout, int fldno,
 			  int width, enum ui_align align,
-			  char *fldname, char *format, va_list args);
+			  const char *fldname, const char *format,
+			  va_list args);
 static void mi_spaces (struct ui_out *uiout, int numspaces);
-static void mi_text (struct ui_out *uiout, char *string);
-static void mi_text_fmt (struct ui_out *uiout, char *format, va_list args);
-static void mi_message (struct ui_out *uiout, int verbosity, char *format,
+static void mi_text (struct ui_out *uiout, const char *string);
+static void mi_text_fmt (struct ui_out *uiout, const char *format, va_list args);
+static void mi_message (struct ui_out *uiout, int verbosity, const char *format,
 			va_list args);
 static void mi_wrap_hint (struct ui_out *uiout, char *identstring);
 static void mi_flush (struct ui_out *uiout);
+static void mi_notify_begin (struct ui_out *uiout, char *class);
+static void mi_notify_end (struct ui_out *uiout);
 
 /* This is the MI ui-out implementation functions vector */
 
@@ -74,8 +84,8 @@ struct ui_out_impl mi_ui_out_impl =
   mi_table_body,
   mi_table_end,
   mi_table_header,
-  mi_list_begin,
-  mi_list_end,
+  mi_begin,
+  mi_end,
   mi_field_int,
   mi_field_skip,
   mi_field_string,
@@ -85,15 +95,19 @@ struct ui_out_impl mi_ui_out_impl =
   mi_text_fmt,
   mi_message,
   mi_wrap_hint,
-  mi_flush
+  mi_flush,
+  mi_notify_begin,
+  mi_notify_end,
+  1, /* Needs MI hacks.  */
 };
 
 /* Prototypes for local functions */
 
 extern void _initialize_mi_out (void);
 static void field_separator (struct ui_out *uiout);
-static void list_open (struct ui_out *uiout);
-static void list_close (struct ui_out *uiout);
+static void mi_open (struct ui_out *uiout, const char *name,
+		     enum ui_out_type type);
+static void mi_close (struct ui_out *uiout, enum ui_out_type type);
 
 static void out_field_fmt (struct ui_out *uiout, int fldno, char *fldname,
 			   char *format,...);
@@ -101,15 +115,26 @@ static void out_field_fmt (struct ui_out *uiout, int fldno, char *fldname,
 /* Mark beginning of a table */
 
 void
-mi_table_begin (struct ui_out *uiout, int nbrofcols, char *tblid)
+mi_table_begin (struct ui_out *uiout,
+		int nr_cols,
+		int nr_rows,
+		const char *tblid)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  field_separator (uiout);
-  if (tblid)
-    fprintf_unfiltered (data->buffer, "%s=", tblid);
-  list_open (uiout);
-  data->first_header = 0;
-  data->supress_field_separator = 1;
+  mi_open (uiout, tblid, ui_out_type_tuple);
+  if (data->mi_version == 0)
+    {
+      if (nr_rows == 0)
+	data->suppress_output = 1;
+      else
+	mi_open (uiout, "hdr", ui_out_type_list);
+      return;
+    }
+  mi_field_int (uiout, -1/*fldno*/, -1/*width*/, -1/*alin*/,
+		"nr_rows", nr_rows);
+  mi_field_int (uiout, -1/*fldno*/, -1/*width*/, -1/*alin*/,
+		"nr_cols", nr_cols);
+  mi_open (uiout, "hdr", ui_out_type_list);
 }
 
 /* Mark beginning of a table body */
@@ -118,9 +143,13 @@ void
 mi_table_body (struct ui_out *uiout)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   /* close the table header line if there were any headers */
-  if (data->first_header)
-    list_close (uiout);
+  mi_close (uiout, ui_out_type_list);
+  if (data->mi_version == 0)
+    return;
+  mi_open (uiout, "body", ui_out_type_list);
 }
 
 /* Mark end of a table */
@@ -129,56 +158,76 @@ void
 mi_table_end (struct ui_out *uiout)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  list_close (uiout);
-  /* If table was empty this flag did not get reset yet */
-  data->supress_field_separator = 0;
+  data->suppress_output = 0;
+  if (data->mi_version == 0)
+    {
+      mi_close (uiout, ui_out_type_tuple);
+      return;
+    }
+  mi_close (uiout, ui_out_type_list); /* body */
+  mi_close (uiout, ui_out_type_tuple);
 }
 
 /* Specify table header */
 
 void
-mi_table_header (struct ui_out *uiout, int width, int alignment, char *colhdr)
+mi_table_header (struct ui_out *uiout, int width, enum ui_align alignment,
+		 const char *col_name,
+		 const char *colhdr)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  if (!data->first_header++)
+  if (data->suppress_output)
+    return;
+  if (data->mi_version == 0)
     {
-      fputs_unfiltered ("hdr=", data->buffer);
-      list_open (uiout);
+      mi_field_string (uiout, 0, width, alignment, 0, colhdr);
+      return;
     }
-  mi_field_string (uiout, 0, width, alignment, 0, colhdr);
+  mi_open (uiout, NULL, ui_out_type_tuple);
+  mi_field_int (uiout, 0, 0, 0, "width", width);
+  mi_field_int (uiout, 0, 0, 0, "alignment", alignment);
+  mi_field_string (uiout, 0, 0, 0, "col_name", col_name);
+  mi_field_string (uiout, 0, width, alignment, "colhdr", colhdr);
+  mi_close (uiout, ui_out_type_tuple);
 }
 
 /* Mark beginning of a list */
 
 void
-mi_list_begin (struct ui_out *uiout, int list_flag, char *lstid)
+mi_begin (struct ui_out *uiout,
+	  enum ui_out_type type,
+	  int level,
+	  const char *id)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  field_separator (uiout);
-  data->supress_field_separator = 1;
-  if (lstid)
-    fprintf_unfiltered (data->buffer, "%s=", lstid);
-  list_open (uiout);
+  if (data->suppress_output)
+    return;
+  mi_open (uiout, id, type);
 }
 
 /* Mark end of a list */
 
 void
-mi_list_end (struct ui_out *uiout, int list_flag)
+mi_end (struct ui_out *uiout,
+	enum ui_out_type type,
+	int level)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  list_close (uiout);
-  /* If list was empty this flag did not get reset yet */
-  data->supress_field_separator = 0;
+  if (data->suppress_output)
+    return;
+  mi_close (uiout, type);
 }
 
 /* output an int field */
 
 void
-mi_field_int (struct ui_out *uiout, int fldno, int width, int alignment,
-	      char *fldname, int value)
+mi_field_int (struct ui_out *uiout, int fldno, int width,
+              enum ui_align alignment, const char *fldname, int value)
 {
   char buffer[20];		/* FIXME: how many chars long a %d can become? */
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
 
   sprintf (buffer, "%d", value);
   mi_field_string (uiout, fldno, width, alignment, fldname, buffer);
@@ -187,9 +236,12 @@ mi_field_int (struct ui_out *uiout, int fldno, int width, int alignment,
 /* used to ommit a field */
 
 void
-mi_field_skip (struct ui_out *uiout, int fldno, int width, int alignment,
-	       char *fldname)
+mi_field_skip (struct ui_out *uiout, int fldno, int width,
+               enum ui_align alignment, const char *fldname)
 {
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   mi_field_string (uiout, fldno, width, alignment, fldname, "");
 }
 
@@ -200,11 +252,13 @@ void
 mi_field_string (struct ui_out *uiout,
 		 int fldno,
 		 int width,
-		 int align,
-		 char *fldname,
+		 enum ui_align align,
+		 const char *fldname,
 		 const char *string)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   field_separator (uiout);
   if (fldname)
     fprintf_unfiltered (data->buffer, "%s=", fldname);
@@ -219,9 +273,13 @@ mi_field_string (struct ui_out *uiout,
 void
 mi_field_fmt (struct ui_out *uiout, int fldno,
 	      int width, enum ui_align align,
-	      char *fldname, char *format, va_list args)
+	      const char *fldname,
+	      const char *format,
+	      va_list args)
 {
   struct ui_out_data *data = ui_out_data (uiout);
+  if (data->suppress_output)
+    return;
   field_separator (uiout);
   if (fldname)
     fprintf_unfiltered (data->buffer, "%s=\"", fldname);
@@ -237,17 +295,17 @@ mi_spaces (struct ui_out *uiout, int numspaces)
 }
 
 void
-mi_text (struct ui_out *uiout, char *string)
+mi_text (struct ui_out *uiout, const char *string)
 {
 }
 
 void
-mi_text_fmt (struct ui_out *uiout, char *format, va_list args)
+mi_text_fmt (struct ui_out *uiout, const char *format, va_list args)
 {
 }
 
 void
-mi_message (struct ui_out *uiout, int verbosity, char *format, va_list args)
+mi_message (struct ui_out *uiout, int verbosity, const char *format, va_list args)
 {
 }
 
@@ -262,6 +320,47 @@ mi_flush (struct ui_out *uiout)
 {
   struct ui_out_data *data = ui_out_data (uiout);
   gdb_flush (data->buffer);
+}
+
+struct ui_file *notify_buffer;
+struct ui_file *notify_suspended_buffer;
+
+static void 
+mi_notify_begin (struct ui_out *uiout, char *class)
+{
+  struct ui_out_data *data = ui_out_data (uiout);
+  if (notify_buffer != NULL)
+    {
+      /* This should not happen, but try to recover... */
+      if (notify_suspended_buffer != NULL)
+        {
+          ui_file_delete (notify_buffer);
+          notify_buffer = NULL;
+          data->buffer = notify_suspended_buffer;
+          notify_suspended_buffer = NULL;
+        }
+      error ("Called to start an mi notify with a notify already started.");
+      return;
+    }
+    
+  notify_suspended_buffer = data->buffer;
+  notify_buffer = mem_fileopen();
+  data->buffer = notify_buffer;
+  fprintf_unfiltered (data->buffer, "=%s", class);
+}
+
+static void 
+mi_notify_end (struct ui_out *uiout)
+{
+  struct ui_out_data *data = ui_out_data (uiout);
+  mi_out_put (uiout, raw_stdout);
+  fputs_unfiltered ("\n", raw_stdout);  
+  gdb_flush (raw_stdout);
+
+  ui_file_delete (data->buffer);
+  notify_buffer = NULL;
+  data->buffer = notify_suspended_buffer;
+  notify_suspended_buffer = NULL;
 }
 
 /* local functions */
@@ -297,24 +396,58 @@ static void
 field_separator (struct ui_out *uiout)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  if (data->supress_field_separator)
-    data->supress_field_separator = 0;
+  if (data->suppress_field_separator)
+    data->suppress_field_separator = 0;
   else
     fputc_unfiltered (',', data->buffer);
 }
 
 static void
-list_open (struct ui_out *uiout)
+mi_open (struct ui_out *uiout,
+	 const char *name,
+	 enum ui_out_type type)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  fputc_unfiltered ('{', data->buffer);
+  field_separator (uiout);
+  data->suppress_field_separator = 1;
+  if (name)
+    fprintf_unfiltered (data->buffer, "%s=", name);
+  switch (type)
+    {
+    case ui_out_type_tuple:
+      fputc_unfiltered ('{', data->buffer);
+      break;
+    case ui_out_type_list:
+      if (data->mi_version == 0)
+	fputc_unfiltered ('{', data->buffer);
+      else
+	fputc_unfiltered ('[', data->buffer);
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
 }
 
 static void
-list_close (struct ui_out *uiout)
+mi_close (struct ui_out *uiout,
+	  enum ui_out_type type)
 {
   struct ui_out_data *data = ui_out_data (uiout);
-  fputc_unfiltered ('}', data->buffer);
+  switch (type)
+    {
+    case ui_out_type_tuple:
+      fputc_unfiltered ('}', data->buffer);
+      break;
+    case ui_out_type_list:
+      if (data->mi_version == 0)
+	fputc_unfiltered ('}', data->buffer);
+      else
+	fputc_unfiltered (']', data->buffer);
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
+  data->suppress_field_separator = 0;
 }
 
 /* add a string to the buffer */
@@ -355,11 +488,13 @@ mi_out_put (struct ui_out *uiout,
 /* initalize private members at startup */
 
 struct ui_out *
-mi_out_new (void)
+mi_out_new (int mi_version)
 {
   int flags = 0;
   struct ui_out_data *data = XMALLOC (struct ui_out_data);
-  data->supress_field_separator = 0;
+  data->suppress_field_separator = 0;
+  data->suppress_output = 0;
+  data->mi_version = mi_version;
   /* FIXME: This code should be using a ``string_file'' and not the
      TUI buffer hack. */
   data->buffer = mem_fileopen ();

@@ -37,171 +37,192 @@
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <NetInfo/network.h>
-#include <NetInfo/socket_lock.h>
-
-#define socket_close close
-
-static interface_list_t *my_interfaces = NULL;
+#include <ifaddrs.h>
 
 interface_list_t *
 sys_interfaces(void)
 {
-	struct ifconf ifc;
-	struct ifreq *ifr;
-	char buf[1024]; /* XXX */
-	int offset, addrlen, extra, delta;
-	int sock;
 	interface_t *iface;
+	struct ifaddrs *ifa, *p;
+	interface_list_t *l;
 
-	if (my_interfaces != NULL) return my_interfaces;
+	if (getifaddrs(&ifa) < 0) return NULL;
 
-	socket_lock();
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
-	socket_unlock();
+	l = (interface_list_t *)calloc(1, sizeof(interface_list_t));
+	l->count = 0;
+	l->interface = NULL;
 
-	if (sock < 0) return NULL;
-
-	ifc.ifc_len = sizeof(buf);
-	ifc.ifc_buf = buf;
-
-	if (ioctl(sock, SIOCGIFCONF, (char *)&ifc) < 0)
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		socket_close(sock);
-		return NULL;
-	}
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
 
-	my_interfaces = (interface_list_t *)malloc(sizeof(interface_list_t));
-	my_interfaces->count = 0;
-	my_interfaces->interface = NULL;
-
-	delta = sizeof(struct ifreq);
-	addrlen = delta - IFNAMSIZ;
-	extra = 0;
-
-	offset = 0;
-
-	while (offset <= ifc.ifc_len)
-	{
-		ifr = (struct ifreq *)(ifc.ifc_buf + offset);
-
-#ifndef _NO_SOCKADDR_LENGTH_
-		extra = ifr->ifr_addr.sa_len - addrlen;
-		if (extra < 0) extra = 0;
-#endif
-
-		offset = offset + delta + extra;
-
-		if (ifr->ifr_addr.sa_family != AF_INET) continue;
-		if (ioctl(sock, SIOCGIFFLAGS, (char *)ifr) < 0) continue;
-
-		my_interfaces->count++;
-		if (my_interfaces->count == 1)
+		l->count++;
+		if (l->count == 1)
 		{
-			my_interfaces->interface = (interface_t *)malloc(sizeof(interface_t));
+			l->interface = (interface_t *)malloc(sizeof(interface_t));
 		}
 		else
 		{
-			my_interfaces->interface = (interface_t *)realloc(my_interfaces->interface, my_interfaces->count * sizeof(interface_t));
+			l->interface = (interface_t *)realloc(l->interface, l->count * sizeof(interface_t));
 		}
 
-		iface = &(my_interfaces->interface[my_interfaces->count - 1]);
+		iface = &(l->interface[l->count - 1]);
 		memset(iface, 0, sizeof(interface_t));
-
-		memmove(iface->name, ifr->ifr_name, IFNAMSIZ);
-		iface->flags = ifr->ifr_ifru.ifru_flags;
-		iface->addr.s_addr = ((struct sockaddr_in *)&(ifr->ifr_addr))->sin_addr.s_addr;
-		ioctl(sock, SIOCGIFNETMASK, (char *)ifr);
-		iface->mask.s_addr = ((struct sockaddr_in *)&(ifr->ifr_addr))->sin_addr.s_addr;
+		iface->name = strdup(p->ifa_name);
+		iface->flags = p->ifa_flags;
+		iface->addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+		iface->mask.s_addr = ((struct sockaddr_in *)(p->ifa_netmask))->sin_addr.s_addr;
 		iface->netaddr.s_addr = iface->addr.s_addr & iface->mask.s_addr;
 		iface->bcast.s_addr = iface->netaddr.s_addr | (~iface->mask.s_addr);
 	}
 
-	socket_close(sock);
-	return my_interfaces;
+	freeifaddrs(ifa);
+
+	return l;
 }
 
 void
-sys_interfaces_release(void)
+sys_interfaces_release(interface_list_t *l)
 {
-	if (my_interfaces == NULL) return;
+	int i;
 
-	free(my_interfaces->interface);
-	free(my_interfaces);
-	my_interfaces = NULL;
+	if (l == NULL) return;
+
+	for (i = 0; i < l->count; i++)
+	{
+		if (l->interface[i].name != NULL) free(l->interface[i].name);
+	}
+
+	free(l->interface);
+	free(l);
+	l = NULL;
 }
 
 int
 sys_is_my_address(struct in_addr *a)
 {
-	int i;
-	interface_list_t *l;
+	struct ifaddrs *ifa, *p;
 
-	l = sys_interfaces();
-	if (l == NULL) return 0;
-	
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return 0;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (a->s_addr == l->interface[i].addr.s_addr) return 1;
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+
+		if (a->s_addr == ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr)
+		{
+			freeifaddrs(ifa);
+			return 1;
+		}
 	}
+
+	freeifaddrs(ifa);
 	return 0;
 }
 
 int
 sys_is_my_network(struct in_addr *a)
 {
-	int i;
-	interface_list_t *l;
+	struct ifaddrs *ifa, *p;
+	struct in_addr addr, mask, netaddr;
 
-	l = sys_interfaces();
-	if (l == NULL) return 0;
-	
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return 0;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (l->interface[i].flags & IFF_POINTOPOINT) continue;
-		if (a->s_addr == l->interface[i].netaddr.s_addr) return 1;
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+		if (p->ifa_flags & IFF_POINTOPOINT) continue;
+
+		addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+		mask.s_addr = ((struct sockaddr_in *)(p->ifa_netmask))->sin_addr.s_addr;
+		netaddr.s_addr = addr.s_addr & mask.s_addr;
+		if (a->s_addr == netaddr.s_addr)
+		{
+			freeifaddrs(ifa);
+			return 1;
+		}
+
 	}
+
+	freeifaddrs(ifa);
 	return 0;
 }
 
 int
 sys_is_my_broadcast(struct in_addr *a)
 {
-	int i;
-	interface_list_t *l;
+	struct ifaddrs *ifa, *p;
+	struct in_addr addr, mask, netaddr, bcast;
 
-	l = sys_interfaces();
-	if (l == NULL) return 0;
-	
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return 0;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (l->interface[i].flags & IFF_POINTOPOINT) continue;
-		if (a->s_addr == l->interface[i].bcast.s_addr) return 1;
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+		if (p->ifa_flags & IFF_POINTOPOINT) continue;
+
+		addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+		mask.s_addr = ((struct sockaddr_in *)(p->ifa_netmask))->sin_addr.s_addr;
+		netaddr.s_addr = addr.s_addr & mask.s_addr;
+		bcast.s_addr = netaddr.s_addr | (~mask.s_addr);
+		if (a->s_addr == bcast.s_addr)
+		{
+			freeifaddrs(ifa);
+			return 1;
+		}
 	}
+
+	freeifaddrs(ifa);
 	return 0;
 }
+
 
 int
 sys_is_on_attached_network(struct in_addr *a)
 {
-	int i;
-	interface_list_t *l;
-	unsigned long n;
-	
-	l = sys_interfaces();
-	if (l == NULL) return 0;
+	struct ifaddrs *ifa, *p;
+	struct in_addr addr, mask, netaddr, n;
 
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return 0;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (!(l->interface[i].flags & IFF_POINTOPOINT))
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+
+		addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+
+		if (p->ifa_flags & IFF_POINTOPOINT)
 		{
-			n = a->s_addr & l->interface[i].mask.s_addr;
-			if (n == l->interface[i].netaddr.s_addr) return 1;
+			if (a->s_addr == addr.s_addr)
+			{
+				freeifaddrs(ifa);
+				return 1;
+			}
 		}
 		else
 		{
-			if (a->s_addr == l->interface[i].addr.s_addr) return 1;
+			mask.s_addr = ((struct sockaddr_in *)(p->ifa_netmask))->sin_addr.s_addr;
+			netaddr.s_addr = addr.s_addr & mask.s_addr;
+			n.s_addr = a->s_addr & mask.s_addr;
+			if (n.s_addr == netaddr.s_addr)
+			{
+				freeifaddrs(ifa);
+				return 1;
+			}
 		}
 	}
+
+	freeifaddrs(ifa);
 	return 0;
 }
 
@@ -222,47 +243,83 @@ sys_is_general_broadcast(struct in_addr *a)
 int
 sys_is_standalone(void)
 {
-	interface_list_t *l;
+	struct ifaddrs *ifa, *p;
+	struct in_addr addr;
 
-	l = sys_interfaces();
-	if (l == NULL) return 1;
-	if (l->count == 0) return 1;
-	if (l->count > 1) return 0;
-	if (l->interface[0].addr.s_addr == INADDR_LOOPBACK) return 1;
-	return 0;
+	if (getifaddrs(&ifa) < 0) return 1;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
+	{
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+
+		addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+		if (addr.s_addr == INADDR_LOOPBACK) continue;
+	
+		freeifaddrs(ifa);
+		return 0;
+	}
+
+	freeifaddrs(ifa);
+	return 1;
 }
 
 char *
 interface_name_for_addr(struct in_addr *a)
 {
-	int i;
-	interface_list_t *l;
+	struct ifaddrs *ifa, *p;
+	char *name;
 
-	l = sys_interfaces();
-	if (l == NULL) return NULL;
-	
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return NULL;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (a->s_addr == l->interface[i].addr.s_addr) return l->interface[i].name;
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+
+		if (a->s_addr == ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr)
+		{
+			name = strdup(p->ifa_name);
+			freeifaddrs(ifa);
+			return name;
+		}
 	}
+
+	freeifaddrs(ifa);
 	return NULL;
 }
-
 
 interface_t *
 interface_with_name(char *n)
 {
-	int i;
-	interface_list_t *l;
+	interface_t *iface;
+	struct ifaddrs *ifa, *p;
 
-	l = sys_interfaces();
-	if (l == NULL) return 0;
-	
-	for (i = 0; i < l->count; i++)
+	if (getifaddrs(&ifa) < 0) return NULL;
+
+	for (p = ifa; p != NULL; p = p->ifa_next)
 	{
-		if (!strcmp(n, l->interface[i].name)) return &(l->interface[i]);
+		if (p->ifa_addr == NULL) continue;
+		if ((p->ifa_flags & IFF_UP) == 0) continue;
+		if (p->ifa_addr->sa_family != AF_INET) continue;
+		if (strcmp(p->ifa_name, n) != 0) continue;
+
+		iface = (interface_t *)malloc(sizeof(interface_t));
+		memset(iface, 0, sizeof(interface_t));
+		iface->name = strdup(p->ifa_name);
+		iface->flags = p->ifa_flags;
+		iface->addr.s_addr = ((struct sockaddr_in *)(p->ifa_addr))->sin_addr.s_addr;
+		iface->mask.s_addr = ((struct sockaddr_in *)(p->ifa_netmask))->sin_addr.s_addr;
+		iface->netaddr.s_addr = iface->addr.s_addr & iface->mask.s_addr;
+		iface->bcast.s_addr = iface->netaddr.s_addr | (~iface->mask.s_addr);
+
+		freeifaddrs(ifa);
+		return iface;
 	}
+
+	freeifaddrs(ifa);
 
 	return NULL;
 }
-

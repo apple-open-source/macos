@@ -2,8 +2,8 @@
 \entry {\code {\code {mail-citation-hook}}}{36}
 \entry {\code {\code {mh-auto-folder-collect}}}{39}
 \entry {\code {\code {mh-before-quit-hook}}}{42}
-\entry {\code {\code {mh-before-send-letter-hook}}}{38}
-\entry {\code {\code {mh-before-send-letter-hook}, example}}{38}
+\entry {\code {\code {mh-before-send-letter-hook}}}{37}
+\entry {\code {\code {mh-before-send-letter-hook}, example}}{37}
 \entry {\code {\code {mh-bury-show-buffer}}}{30}
 \entry {\code {\code {mh-bury-show-buffer}, example}}{27}
 \entry {\code {\code {mh-clean-message-header}}}{31}
@@ -32,13 +32,13 @@
 \entry {\code {\code {mh-lpr-command-format}}}{42}
 \entry {\code {\code {mh-lpr-command-format}, example}}{27}
 \entry {\code {\code {mh-mhn-args}}}{37}
-\entry {\code {\code {mh-mime-content-types}}}{37}
-\entry {\code {\code {mh-mime-content-types}, example}}{37}
+\entry {\code {\code {mh-mime-content-types}}}{36}
+\entry {\code {\code {mh-mime-content-types}, example}}{36}
 \entry {\code {\code {mh-msg-number-regexp}}}{41}
 \entry {\code {\code {mh-msg-search-regexp}}}{41}
 \entry {\code {\code {mh-new-draft-cleaned-headers}}}{35}
 \entry {\code {\code {mh-new-draft-cleaned-headers}, example}}{35}
-\entry {\code {\code {mh-note-copied}}}{42}
+\entry {\code {\code {mh-note-copied}}}{41}
 \entry {\code {\code {mh-note-cur}}}{42}
 \entry {\code {\code {mh-note-deleted}}}{41}
 \entry {\code {\code {mh-note-dist}}}{42}
@@ -65,7 +65,7 @@
 \entry {\code {\code {mh-show-buffer-mode-line-buffer-id}}}{32}
 \entry {\code {\code {mh-show-hook}}}{32}
 \entry {\code {\code {mh-show-hook}, example}}{32}
-\entry {\code {\code {mh-show-mode-hook}}}{32}
+\entry {\code {\code {mh-show-mode-hook}}}{31}
 \entry {\code {\code {mh-show-mode-hook}, example}}{32}
 \entry {\code {\code {mh-signature-file-name}}}{36}
 \entry {\code {\code {mh-sortm-args}}}{40}

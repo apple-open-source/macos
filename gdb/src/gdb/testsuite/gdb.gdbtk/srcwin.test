@@ -1,4 +1,4 @@
-#   Copyright (C) 1999 Cygnus Solutions
+#   Copyright (C) 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,16 +71,10 @@ proc click {win bbox event} {
 #####                 #####
 
 # Load the test executable
-if {$tcl_platform(platform) == "windows"} {
-  set file [file join $objdir list.exe]
-} else {
-  set file [file join $objdir list]
-}
-
-# This isn't a test case, since if this fails, we're hosed.
-if {[catch {gdb_cmd "file $file" 1} t]} {
-  # an error occured loading the file
-  gdbtk_test_error "loading \"$file\": $t"
+set program [file join $objdir list]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
 }
 
 set srcwin [ManagedWin::open SrcWin]
@@ -89,7 +83,7 @@ set twin [$stw test_get twin]
 
 # get things started
 gdb_cmd "break main"
-run_executable
+gdbtk_test_run
 
 # Test: srcwin-1.1
 # Desc: Check for something in source window
@@ -296,7 +290,7 @@ gdbtk_test srcwin-2.6 "goto function bar" {
     foreach {k v i} $z {
       if {$k == "tagon"} {
 	if {$v == "BROWSE_TAG"} {
-	  if {$i == "5.2"} {
+	  if {$i == "10.2"} {
 	    incr r
 	  } else {
 	    incr r 5
@@ -340,9 +334,9 @@ gdbtk_test srcwin-2.7 "goto function oof" {
     foreach {k v i} $z {
       if {$k == "tagon"} {
 	if {$v == "BROWSE_TAG"} {
-	  if {$i == "32.2"} {
+	  if {$i == "38.2"} {
 	    set line_number [$twin get "$i wordstart" "$i wordend"]
-	    if {$line_number == "32"} {
+	    if {$line_number == "38"} {
 	      incr r
 	    } else {
 	      incr r -100
@@ -475,7 +469,7 @@ gdbtk_test srcwin-2.10 "step" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -519,7 +513,7 @@ gdbtk_test srcwin-2.11 "set BP and continue" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -565,14 +559,16 @@ gdbtk_test srcwin-3.1 "stack up (1)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    # return n + 1;
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
 	    }
 	  }
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "22.2"} {
+	    # oof (67);
+	    if {$i == "26.2"} {
 	      incr r
 	    } else {
 	      incr r 10
@@ -611,14 +607,16 @@ gdbtk_test srcwin-3.2 "stack up (2)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    # return n + 1;
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
 	    }
 	  }
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "7.2"} {
+	    # long_line ();
+	    if {$i == "12.2"} {
 	      incr r
 	    } else {
 	      incr r 10
@@ -657,7 +655,7 @@ gdbtk_test srcwin-3.3 "stack up (3)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -714,45 +712,47 @@ gdbtk_test srcwin-3.4 "stack up (4)" {
   set r
 } {1}
 
+# Disabled for now because there are different correct results.
+# Test should be rewritten to include those.
 # Test: srcwin-3.5
 # Desc: "stack up" when we are at the top
-gdbtk_test srcwin-3.5 "stack up when at the top" {
-  $srcwin stack up
-  set r 0
-  set name [$statbar.name get]
-  set func [$statbar.func get]
-
+#gdbtk_test srcwin-3.5 "stack up when at the top" {
+#  $srcwin stack up
+#  set r 0
+#  set name [$statbar.name get]
+#  set func [$statbar.func get]
+#
   # check contents of name and function comboboxes
-  if {$name != "list0.c"} {set r -1}
-  if {$func != "main"} {set r -2}
+#  if {$name != "list0.c"} {set r -1}
+#  if {$func != "main"} {set r -2}
 
   # check that the correct file is displayed
-  set twin [$stw test_get twin]
-  set a [$twin get 1.0 end]
-  if {[string compare $file1(source) $a]} {set r -3}
+#  set twin [$stw test_get twin]
+#  set a [$twin get 1.0 end]
+#  if {[string compare $file1(source) $a]} {set r -3}
   
   # check for PC_TAG and STACK_TAG on correct lines
-  if {$r == 0} {
-    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
-      foreach {k v i} $z {
-	if {$k == "tagon"} {
-	  if {$v == "STACK_TAG"} {
-	    if {$i == "12.2"} {
-	      incr r
-	    } else {
-	      incr r 5
-	    }
-	  }
-	  if {$v == "PC_TAG"} {incr r 10}
-	  if {$v == "BROWSE_TAG"} {incr r 100}
-	}
-      }
-    } else {
-      set r -4
-    }
-  }
-  set r
-} {1}
+#  if {$r == 0} {
+#    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+#      foreach {k v i} $z {
+#	if {$k == "tagon"} {
+#	  if {$v == "STACK_TAG"} {
+#	    if {$i == "12.2"} {
+#	      incr r
+#	    } else {
+#	      incr r 5
+#	    }
+#	  }
+#	  if {$v == "PC_TAG"} {incr r 10}
+#	  if {$v == "BROWSE_TAG"} {incr r 100}
+#	}
+#      }
+#    } else {
+#      set r -4
+#    }
+#  }
+#  set r
+#} {1}
 
 # Test: srcwin-3.6
 # Desc: "stack down"  test
@@ -777,7 +777,7 @@ gdbtk_test srcwin-3.6 "stack down" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -817,7 +817,7 @@ gdbtk_test srcwin-3.7 "stack bottom" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -857,7 +857,7 @@ gdbtk_test srcwin-3.8 "stack down when at bottom" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -897,7 +897,7 @@ gdbtk_test srcwin-4.1 "set BP in another file" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "BROWSE_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -906,7 +906,7 @@ gdbtk_test srcwin-4.1 "set BP in another file" {
 	  if {$v == "STACK_TAG"} {incr r 10}
 	  if {$v == "PC_TAG"} {incr r 100}
 	} elseif {$k == "image"} {
-	  if {$i == "8.0"} {
+	  if {$i == "9.0"} {
 	    incr r
 	  } else {
 	    set r -200
@@ -950,7 +950,7 @@ gdbtk_test srcwin-4.2 "temporary BP" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "BROWSE_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -959,7 +959,7 @@ gdbtk_test srcwin-4.2 "temporary BP" {
 	  if {$v == "STACK_TAG"} {incr r 10}
 	  if {$v == "PC_TAG"} {incr r 100}
 	} elseif {$k == "image"} {
-	  if {$i == "8.0"} {
+	  if {$i == "9.0"} {
 	    incr r
 	  } else {
 	    set r -200
@@ -979,7 +979,7 @@ gdbtk_test srcwin-4.2 "temporary BP" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -1016,7 +1016,7 @@ gdbtk_test srcwin-4.3 "BP Balloons" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -1078,19 +1078,19 @@ gdbtk_test srcwin-4.3 "BP Balloons" {
 gdbtk_test srcwin-4.4 "Click on line to set BP" {
   set r 0
 
-  # click mouse button 1 at index 14.1
-  if {![click $twin [$twin bbox 14.1] <Button-1>]} {
-    set r "Click failed on line 14.1"
+  # click mouse button 1 at index 20.1
+  if {![click $twin [$twin bbox 20.1] <Button-1>]} {
+    set r "Click failed on line 20.1"
   } else {
 
-    # now look for BP at line 14
+    # now look for BP at line 20
     foreach bpnum [gdb_get_breakpoint_list] {
       set bpinfo [gdb_get_breakpoint_info $bpnum]
       lassign $bpinfo file func line pc type enabled disposition \
 	ignore_count commands cond thread hit_count
       set file [lindex [file split $file] end]
       if {$file == "list0.h"} {
-	if {$line == "14"} {
+	if {$line == "20"} {
 	  if {$enabled == "1"} {incr r}
 	  if {$func == "foo"} {incr r}
 	  if {$type == "breakpoint"} {incr r}
@@ -1106,65 +1106,36 @@ gdbtk_test srcwin-4.4 "Click on line to set BP" {
 # Test: srcwin-4.5
 # Desc: Continue till here popup
 gdbtk_test srcwin-4.5 "Continue till here popup" {
-  set r 
   set twin [$stw test_get twin]
 
-  # click mouse button 1 at index 12.1
-  set b [$twin bbox 12.1]
-  if {![click $twin $b <ButtonPress-3>]} {
-    set r "Click failed on $b"
-  } else {
-  
-    # Hack. Just release the botton 10 pixels to the right and below
-    # where the press was.  This should select the first entry in the
-    # popup menu, "Continue to Here". This should be made more robust.
-    if {[llength $b] == 4} {
-      set x [expr [lindex $b 0] + [lindex $b 2] / 2 + 10]
-      set y [expr [lindex $b 1] + [lindex $b 3] / 2 + 10]
-      if {![click $twin [list $x $y 0 0] <ButtonRelease-3>]} {
-	set r "Click failed at $x $y"
-      } else {
+  # Get coordinates of line 16
+  set b [$twin bbox 16.1]
+  set y [expr {[lindex $b 1] + ([lindex $b 3] / 2)}]
 
-	# check for PC_TAG on the correct line
-	if {$r == 0} {
-	  if {![catch {set z [$twin dump 1.0 end]}]} {
-	    foreach {k v i} $z {
-	      if {$k == "tagon"} {
-		if {$v == "PC_TAG"} {
-		  if {$i == "12.2"} {
-		    incr r
-		  } else {
-		    incr r 5
-		  }
-		}
-		if {$v == "STACK_TAG"} {incr r 10}
-		if {$v == "BROWSE_TAG"} {incr r 100}
-	      } elseif {$k == "image"} {
-		switch $i {
-		  10.0 {incr r}
-		  12.0 {incr r}
-		  14.0 {incr r}
-		  default {incr r 1000}
-		}
-	      }
-	    }
-	  } else {
-	    set r -4
-	  }
-	}
-      }
-    } else {
-      set r "Line 12.1 was not visible..."
-    }
-    # should have seen on PC_TAG at line 12, plus BP images at 10.0, 12.0 and 14.0
+  # Continue to here
+  $stw continue_to_here $twin $y
+
+  # Where is the PC_TAG?
+  set pcs {}
+  set tags [$twin tag ranges PC_TAG]
+  foreach {start end} $tags {
+    lappend pcs [expr {int($start)}]
   }
-  set r
-} {4}
+
+  # Where are breakpoints?
+  set bps {}
+  set imgs [$twin dump -image 1.0 end]
+  foreach {foo bar line} $imgs {
+    lappend bps $line
+  }
+
+  list $pcs $bps
+} {16 {10.0 20.0}}
 
 # 5.1 balloon variables
 # Test: srcwin-5.1
 # Desc: variable balloon test
-# continues to BP at line 14 and checks to see that value was updated
+# continues to BP at line 20 and checks to see that value was updated
 gdbtk_test srcwin-5.1 "variable balloon test" {
   # move pointer out of the way
   warp_pointer . 0 0 
@@ -1172,13 +1143,13 @@ gdbtk_test srcwin-5.1 "variable balloon test" {
   set twin [$stw test_get twin]
 
   # move pointer to variable "x" and check balloon
-  set index [string first "x++" [$twin get 10.0 10.end]]
-  move_mouse_to $twin [$twin bbox 10.$index]
+  set index [string first "x++" [$twin get 20.0 20.end]]
+  move_mouse_to $twin [$twin bbox 20.$index]
   sleep 1
   if {[winfo ismapped $balloon]} {
-    if {![string compare "x=6" [$balloon.label cget -text]]} {incr r}
+    if {![string compare "x=5" [$balloon.label cget -text]]} {incr r}
     gdb_immediate "continue" 1
-    if {![string compare "x=8" [$balloon.label cget -text]]} {incr r}
+    if {![string compare "x=9" [$balloon.label cget -text]]} {incr r}
   } else {
     set r -1
   }
@@ -1214,8 +1185,3 @@ gdbtk_test srcwin-6.1 "mixed mode disassembly of include file" {
 } {1}
 
 gdbtk_test_done
-
-# Local variables:
-# mode: tcl
-# change-log-default-name: "ChangeLog-gdbtk"
-# End:

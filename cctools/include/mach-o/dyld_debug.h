@@ -24,9 +24,9 @@
 #ifndef _DYLD_DEBUG_
 #define _DYLD_DEBUG_
 
-#import <mach/mach.h>
+#include <mach/mach.h>
 #ifndef DYLD_BUILD /* do not include this when building dyld itself */
-#import <mach-o/dyld.h>
+#include <mach-o/dyld.h>
 #endif /* !defined(DYLD_BUILD) */
 /*
  * The dyld debugging API.

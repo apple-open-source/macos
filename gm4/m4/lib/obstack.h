@@ -129,8 +129,8 @@ Summary:
 #endif
 #endif
 
-#include <stddef.h>
 #endif
+#include <stddef.h>
 
 #if defined (__STDC__) && __STDC__
 #define PTR_INT_TYPE ptrdiff_t

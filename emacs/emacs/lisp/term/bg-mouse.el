@@ -1,6 +1,6 @@
-;;; bg-mouse.el --- GNU Emacs code for BBN Bitgraph mouse.
+;;; bg-mouse.el --- GNU Emacs code for BBN Bitgraph mouse
 
-;; Copyright (C) Free Software Foundation, Inc. Oct 1985.
+;; Copyright (C) 2001 Free Software Foundation, Inc. Oct 1985.
 
 ;; Author: John Robinson <jr@bbn-unix.arpa>
 ;;	Stephen Gildea <gildea@bbn.com>
@@ -23,6 +23,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -77,7 +79,7 @@ To reinitialize the mouse if the terminal is reset, type ESC : RET"
        (bg-mouse-window (bg-window-from-x-y screen-mouse-x screen-mouse-y))
        (bg-cursor-window (selected-window))
        (edges (window-edges bg-mouse-window))
-       (minibuf-p (= screen-mouse-y (1- (screen-height))))
+       (minibuf-p (= screen-mouse-y (1- (frame-height))))
        (in-modeline-p (and (not minibuf-p)
 			   (= screen-mouse-y (1- (nth 3 edges)))))
        (in-scrollbar-p (and (not minibuf-p) (not in-modeline-p)
@@ -250,27 +252,11 @@ X and Y are 0-based character positions in the window."
 
 ;;; Returns the window that screen position (x, y) is in or nil if none,
 ;;; meaning we are in the echo area with a non-active minibuffer.
-;;; If coordinates-in-window-p were not in an X-windows-specific file
-;;; we could use that.  In Emacs 19 can even use locate-window-from-coordinates
 (defun bg-window-from-x-y (x y)
   "Find window corresponding to screen coordinates.
 X and Y are 0-based character positions on the screen."
-  (let ((edges (window-edges))
-	(window nil))
-    (while (and (not (eq window (selected-window)))
-		(or (<  y (nth 1 edges))
-		    (>= y (nth 3 edges))
-		    (<  x (nth 0 edges))
-		    (>= x (nth 2 edges))))
-      (setq window (next-window window))
-      (setq edges (window-edges window)))
-    (cond ((eq window (selected-window))
-	   nil)				;we've looped: not found
-	  ((not window)
-	   (selected-window))		;just starting: current window
-	  (t
-	    window))
-    ))
+  (get-window-with-predicate (lambda (w) 
+			       (coordinates-in-window-p (cons x y) w))))
 
 (defun bg-command-execute (bg-command)
   (if (commandp bg-command)

@@ -20,7 +20,7 @@
  */
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-atm.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-atm.c,v 1.1.1.2 2002/05/29 00:05:34 landonf Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -53,6 +53,7 @@ atm_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 	u_int length = h->len;
 	u_short ethertype;
 
+	++infodelay;
 	ts_print(&h->ts);
 
 	if (caplen < 8) {
@@ -141,4 +142,7 @@ atm_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 		default_print(p, caplen);
  out:
 	putchar('\n');
+	--infodelay;
+	if (infoprint)
+		info(0);
 }

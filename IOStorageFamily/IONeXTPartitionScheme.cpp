@@ -237,12 +237,7 @@ OSSet * IONeXTPartitionScheme::scan(SInt32 * score)
     {
         // Read the next NeXT map into our buffer.
 
-///m:2333367:workaround:commented:start
-//      status = media->read(this, labelIndex * bufferSize, buffer);
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-        status = media->IOStorage::read(this, labelIndex * bufferSize, buffer);
-///m:2333367:workaround:added:stop
+        status = media->read(this, labelIndex * bufferSize, buffer);
         if ( status != kIOReturnSuccess )  goto scanErr;
 
         labelBlock = ((labelIndex * bufferSize) + labelBase) / mediaBlockSize;
@@ -489,7 +484,7 @@ IOMedia * IONeXTPartitionScheme::instantiateMediaObject(
                 /* base               */ partitionBase,
                 /* size               */ partitionSize,
                 /* preferredBlockSize */ partitionBlockSize,
-                /* isEjectable        */ media->isEjectable(),
+                /* attributes         */ media->getAttributes(),
                 /* isWhole            */ false,
                 /* isWritable         */ media->isWritable(),
                 /* contentHint        */ partitionHint ) )

@@ -45,19 +45,25 @@
 #include <sys/cdefs.h>
 #endif
 
+#define IN_ADDR_DOMAIN_STRING "in-addr.arpa"
+#define LOCAL_DOMAIN_STRING "local"
+#define LOCAL_DOMAIN_MULTICAST_ADDR "224.0.0.251"
+#define DNS_SERVICE_PORT 53
+#define DNS_LOCAL_DOMAIN_SERVICE_PORT 5353
+
 /*
  * Status returned in a dns_reply_t
  */
-#define DNS_STATUS_OK				0
-#define DNS_STATUS_BAD_HANDLE		1
-#define DNS_STATUS_MALFORMED_QUERY	2
-#define DNS_STATUS_TIMEOUT			3
-#define DNS_STATUS_SEND_FAILED		4
-#define DNS_STATUS_RECEIVE_FAILED	5
-#define DNS_STATUS_CONNECTION_FAILED	6
-#define DNS_STATUS_WRONG_SERVER		7
-#define DNS_STATUS_WRONG_XID		8
-#define DNS_STATUS_WRONG_QUESTION	9
+#define DNS_STATUS_OK					0
+#define DNS_STATUS_BAD_HANDLE			1
+#define DNS_STATUS_MALFORMED_QUERY		2
+#define DNS_STATUS_TIMEOUT				3
+#define DNS_STATUS_SEND_FAILED			4
+#define DNS_STATUS_RECEIVE_FAILED		5
+#define DNS_STATUS_CONNECTION_FAILED		6
+#define DNS_STATUS_WRONG_SERVER			7
+#define DNS_STATUS_WRONG_XID				8
+#define DNS_STATUS_WRONG_QUESTION		9
 
 #define DNS_MAX_DNAME_LENGTH 63
 
@@ -84,31 +90,31 @@
 #define DNS_FLAGS_RCODE_REFUSED         0x0005
 
 #define DNS_TYPE_A		1
-#define DNS_TYPE_NS	2
+#define DNS_TYPE_NS		2
 #define DNS_TYPE_CNAME	5
-#define DNS_TYPE_SOA	6
-#define DNS_TYPE_MB	7
-#define DNS_TYPE_MG	8
-#define DNS_TYPE_MR	9
+#define DNS_TYPE_SOA		6
+#define DNS_TYPE_MB		7
+#define DNS_TYPE_MG		8
+#define DNS_TYPE_MR		9
 #define DNS_TYPE_NULL	10
-#define DNS_TYPE_WKS	11
-#define DNS_TYPE_PTR	12
+#define DNS_TYPE_WKS		11
+#define DNS_TYPE_PTR		12
 #define DNS_TYPE_HINFO	13
 #define DNS_TYPE_MINFO	14
-#define DNS_TYPE_MX	15
-#define DNS_TYPE_TXT	16
-#define DNS_TYPE_RP	17
+#define DNS_TYPE_MX		15
+#define DNS_TYPE_TXT		16
+#define DNS_TYPE_RP		17
 #define DNS_TYPE_AFSDB	18
-#define DNS_TYPE_X25	19
+#define DNS_TYPE_X25		19
 #define DNS_TYPE_ISDN	20
-#define DNS_TYPE_RT	21
+#define DNS_TYPE_RT		21
 #define DNS_TYPE_AAAA	28
-#define DNS_TYPE_LOC	29
-#define DNS_TYPE_SRV	33
+#define DNS_TYPE_LOC		29
+#define DNS_TYPE_SRV		33
 #define DNS_TYPE_AXFR	252
 #define DNS_TYPE_MAILB	253
 #define DNS_TYPE_MAILA	254
-#define DNS_TYPE_ANY	255
+#define DNS_TYPE_ANY		255
 
 #define DNS_CLASS_IN 1
 #define DNS_CLASS_CS 2
@@ -116,24 +122,6 @@
 #define DNS_CLASS_HS 4
 
 #define DNS_HEADER_SIZE 12
-
-/*
- * Control for printing a reply (last arg to dns_print_reply)
- */
-#define DNS_PRINT_XID        0x0001
-#define DNS_PRINT_QR         0x0002
-#define DNS_PRINT_OPCODE     0x0004
-#define DNS_PRINT_AA         0x0008
-#define DNS_PRINT_TC         0x0010
-#define DNS_PRINT_RD         0x0020
-#define DNS_PRINT_RA         0x0040
-#define DNS_PRINT_PR         0x0080
-#define DNS_PRINT_RCODE      0x0100
-#define DNS_PRINT_QUESTION   0x0200
-#define DNS_PRINT_ANSWER     0x0400
-#define DNS_PRINT_AUTHORITY  0x0800
-#define DNS_PRINT_ADDITIONAL 0x1000
-#define DNS_PRINT_SERVER     0x2000
 
 #define DNS_LOG_NONE     0x0000
 #define DNS_LOG_STDERR   0x0001
@@ -152,11 +140,18 @@ typedef struct
 {
 	u_int16_t xid;
 	char *domain;
+	u_int32_t latency_adjust;
 	struct sockaddr_in *server;
+	u_int32_t *server_latency;
 	u_int32_t server_count;
 	u_int32_t selected_server;
 	char **search;
 	u_int32_t search_count;
+#ifdef DNS_EXCLUSION
+	char **exclude;
+	u_int32_t exclude_count;
+	u_int32_t exclusive;
+#endif
 	struct timeval timeout;
 	struct timeval server_timeout;	
 	u_int32_t server_retries;
@@ -192,6 +187,7 @@ typedef struct
 	u_int16_t type;
 	u_int16_t class;
 } dns_question_t;
+
 
 typedef struct
 {
@@ -245,7 +241,8 @@ typedef struct
 
 typedef struct
 {
-	char *string;
+	u_int32_t string_count;
+	char **strings;
 } dns_TXT_record_t;
 
 typedef struct
@@ -435,6 +432,11 @@ void dns_set_server_retries __P((dns_handle_t *, u_int32_t));
 dns_reply_t *dns_parse_packet __P((char *));
 
 /*
+ * Builds a reply packet from a reply structure
+ */
+char *dns_build_reply __P((dns_reply_t *, u_int16_t *));
+
+/*
  * Parses a query packet into a question structure 
  */
 dns_question_t *dns_parse_question __P((char *, char **));
@@ -447,7 +449,7 @@ dns_resource_record_t *dns_parse_resource_record __P((char *, char **));
 /*
  * Builds a query packet from a question structure 
  */
-char *dns_build_query __P((dns_handle_t *, dns_question_t *dnsq, u_int32_t *));
+char *dns_build_query __P((dns_handle_t *, dns_question_t *, u_int32_t *));
 
 /*
  * Resolve a query
@@ -495,15 +497,5 @@ dns_reply_list_t * dns_zone_transfer(dns_handle_t *, u_int16_t);
 void dns_open_log __P((dns_handle_t *, char *, int, FILE *, int, int, int (*)(int, char *)));
 void dns_close_log __P((dns_handle_t *));
 void dns_log __P((dns_handle_t *, int, char *));
-
-/*
- * Print utilities 
- */
-void dns_print_type __P((u_int16_t, FILE *));
-void dns_print_class __P((u_int16_t, FILE *));
-void dns_print_question __P((dns_question_t *, FILE *));
-void dns_print_resource_record __P((dns_resource_record_t *, FILE *));
-void dns_print_reply __P((dns_reply_t *, FILE *, u_int16_t));
-void dns_print_handle __P((dns_handle_t *, FILE *));
 
 #endif __DNS_CLIENT_H__

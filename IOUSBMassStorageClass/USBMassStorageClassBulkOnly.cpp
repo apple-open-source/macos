@@ -315,6 +315,19 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			// Release the memory descriptor for the CBW
 			boRequestBlock->boPhaseDesc->release();
 
+			if(( resultingStatus == kIOReturnDeviceError )
+				|| ( resultingStatus == kIOReturnNotResponding ))
+			{
+				// An error occurred, probably a timeout error,
+				// and the command was not successfully sent to the device.
+				status = StartDeviceRecovery();
+				if ( status == kIOReturnSuccess )
+				{
+					commandInProgress = true;
+				}
+				break;
+			}
+
 			// If there is to be no data transfer then we are done and can return to the caller
 			if ( GetDataTransferDirection( boRequestBlock->request ) == kSCSIDataTransfer_NoDataTransfer )
 			{
@@ -344,7 +357,6 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 				break;
 			}
 
-
 			// Start a bulk in or out transaction
 			status = BulkOnlyTransferData( boRequestBlock, kBulkOnlyBulkIOComplete ); 
 			if ( status == kIOReturnSuccess )
@@ -356,20 +368,17 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 		
 		case kBulkOnlyBulkIOComplete:
 		{
-			//cmdPBPtr->commandPB.actualCount 	+=	usbPB->usbActCount;			// Update the users byte count
 			status 		=	resultingStatus;			// and status
 
    			STATUS_LOG(("%s: kBulkOnlyBulkIOComplete returned %d\n", getName(), resultingStatus));
 			
 			if ( resultingStatus == kIOReturnSuccess)
 			{
+				// Bulk transfer is done, get the Command Status Wrapper from the device
+				status = BulkOnlyReceiveCSWPacket( boRequestBlock, kBulkOnlyStatusReceived );
+				if ( status == kIOReturnSuccess )
 				{
-					// Bulk transfer is done, get the Command Status Wrapper from the device
-					status = BulkOnlyReceiveCSWPacket( boRequestBlock, kBulkOnlyStatusReceived );
-					if ( status == kIOReturnSuccess )
-					{
-						commandInProgress = true;
-					}
+					commandInProgress = true;
 				}
 			}
 			else
@@ -489,23 +498,38 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			}
 			else if( boRequestBlock->boCSW.cswTag == boRequestBlock->boCBW.cbwTag) 
 			{
-				// Since the CBW and CSW tags match, process t
-				// Process the CSW and determine appropriate response
+				// Since the CBW and CSW tags match, process
+				// the CSW to determine the appropriate response.
 				switch( boRequestBlock->boCSW.cswStatus )
 				{
 					case kCSWCommandPassedError:
 					{
 						// The device reports no error on the command, and the command has
 						// the same tag as the command that was sent, check to make sure all data was retrieved
-						if( SetRealizedDataTransferCount( boRequestBlock->request, GetRequestedDataTransferCount( boRequestBlock->request )) )
+						if( boRequestBlock->boCSW.cswDataResidue != 0 )
+						{
+   							STATUS_LOG(("%s: kBulkOnlyStatusReceived data residue error %d\n", getName(), 
+   								USBToHostLong( boRequestBlock->boCSW.cswDataResidue )));
+							SetRealizedDataTransferCount( boRequestBlock->request, 
+								GetRequestedDataTransferCount( boRequestBlock->request ) - USBToHostLong( boRequestBlock->boCSW.cswDataResidue ));
+
+							// Since the device reported that no error occurred, reporting an underrrun error
+							// will cause the client to fail the command since there will be no associated 
+							// sense data to indicate an underrun.  Instead, return kIOReturnSuccess and let the 
+							// client examine the realized byte count to determine if it received all of the data
+							// that was expected.
+							status = kIOReturnSuccess;
+						}
+						else if( SetRealizedDataTransferCount( boRequestBlock->request, GetRequestedDataTransferCount( boRequestBlock->request )) )
 						{
 							// We were able to get all the data for the device
 							status = kIOReturnSuccess;
 						}
 						else
 						{
-							// An error occurred and we did not get all the data
-							status = kIOUSBPipeStalled;
+							// An error occurred preventing the realized data from being set,
+							// return an error.
+							status = kIOReturnError;
 						}
 					}
 					break;
