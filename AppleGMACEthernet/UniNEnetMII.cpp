@@ -219,7 +219,7 @@ bool UniNEnet::miiInitializePHY( UInt8 phy )
 	UInt16           phyWord; 
 
 
-	ELG( phyBCMType, phy, 'miIP', "miiInitializePHY" );
+	ELG( fPHYType, phy, 'miIP', "miiInitializePHY" );
 
 		// Clear enable auto-negotiation bit
 
@@ -227,13 +227,12 @@ bool UniNEnet::miiInitializePHY( UInt8 phy )
 	phyWord &= ~MII_CONTROL_AUTONEGOTIATION;
 	miiWriteWord( phyWord, MII_CONTROL, phy );
 
-		/* Advertise 10/100 Half/Full duplex capable to link partner:	*/
+		/* Advertise 10/100 Half/Full duplex and Pause to link partner:	*/
 
 	miiReadWord( &phyWord, MII_ADVERTISEMENT, phy );
-	phyWord	|= (MII_ANAR_100BASETX_FD
-			|   MII_ANAR_100BASETX
-			|   MII_ANAR_10BASET_FD
-			|   MII_ANAR_10BASET );
+	phyWord	|=	MII_ANAR_100BASETX_FD	|   MII_ANAR_100BASETX
+			|	MII_ANAR_10BASET_FD		|   MII_ANAR_10BASET
+			|	MII_ANAR_PAUSE;
 	miiWriteWord( phyWord, MII_ADVERTISEMENT, phy );
 
 

@@ -169,19 +169,11 @@ IOPCCard16Enabler::setPowerState(unsigned long powerState,
 {
     DEBUG(1, "IOPCCard16Enabler::setPowerState state=%d\n", powerState);
     
-#ifdef CHEETAH_STYLE_PM
-    if (powerState) {
-#else
     if ((powerState == kIOPCCard16DeviceOnState) || (powerState == kIOPCCard16DeviceDozeState)) {
-#endif
 	if (!(state & DEV_SUSPEND)) return IOPMAckImplied;
 	state &= ~DEV_SUSPEND;
 
-#ifdef CHEETAH_STYLE_PM
-    } else {
-#else
     } else if (powerState == kIOPCCard16DeviceOffState) {
-#endif
 	if (state & DEV_SUSPEND) return IOPMAckImplied;
 	state |= DEV_SUSPEND;
     }
@@ -483,6 +475,7 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
     CS_CHECK(GetConfigurationInfo, handle, &conf);
     configuration.Vcc = conf.Vcc;
 
+#ifndef __MACOSX__
     /* Use power settings for Vcc and Vpp if present */
     /*  Note that the CIS values need to be rescaled */
     if (cfg->vcc.present & (1<<CISTPL_POWER_VNOM)) {
@@ -491,6 +484,7 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
 	    return false;
 	}
     }
+#endif
 	    
     if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM)) {
 	configuration.Vpp1 = configuration.Vpp2 = 

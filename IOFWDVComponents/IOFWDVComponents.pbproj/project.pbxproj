@@ -354,7 +354,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d25</string>
+	<string>1.1.1d26</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -1163,7 +1163,7 @@
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d25</string>
+	<string>1.1.1d26</string>
 </dict>
 </plist>
 ";
@@ -1476,7 +1476,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d25</string>
+	<string>1.1.1d26</string>
 </dict>
 </plist>
 ";

@@ -36,6 +36,7 @@
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOMessage.h>
 
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOFWCommand.h>
@@ -89,11 +90,33 @@ static IOPMPowerState ourPowerStates[number_of_power_states] = {
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// Local Device object (mainly for user client to hook up to)
+// magic matching nub (mainly for protocol user clients to hook up to)
+class IOFireWireMagicMatchingNub : public IOService
+{
+    OSDeclareDefaultStructors(IOFireWireMagicMatchingNub)
+
+public:
+    virtual bool matchPropertyTable( OSDictionary * table );
+    
+};
+
+OSDefineMetaClassAndStructors(IOFireWireMagicMatchingNub, IOService)
+
+bool IOFireWireMagicMatchingNub::matchPropertyTable( OSDictionary * table )
+{
+    OSObject *clientClass;
+    clientClass = table->getObject("IOClass");
+    if(!clientClass)
+        return false;
+        
+    return clientClass->isEqualTo( getProperty( "IODesiredChild" ) );
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// Local Device object (mainly for user clients to hook up to)
 class IOFireWireLocalNode : public IOFireWireNub
 {
     OSDeclareDefaultStructors(IOFireWireLocalNode)
-
 /*------------------Useful info about device (also available in the registry)--------*/
 protected:
 /*-----------Methods provided to FireWire device clients-------------*/
@@ -106,6 +129,20 @@ public:
      */
     virtual bool init(OSDictionary * propTable);
     virtual bool attach(IOService * provider );
+
+	virtual void handleClose(   IOService *	  forClient,
+                            IOOptionBits	  options ) ;
+	virtual bool handleOpen( 	IOService *	  forClient,
+                            IOOptionBits	  options,
+                            void *		  arg ) ;
+
+    /*
+     * Trick method to create protocol user clients
+     */
+    virtual IOReturn setProperties( OSObject * properties );
+
+ protected:
+	UInt32	fOpenCount ;
 };
 
 OSDefineMetaClassAndStructors(IOFireWireLocalNode, IOFireWireNub)
@@ -151,6 +188,62 @@ void IOFireWireLocalNode::setNodeProperties(UInt32 gen, UInt16 nodeID,
     prop = OSNumber::withNumber((selfIDs[0] & kFWSelfID0SP) >> kFWSelfID0SPPhase, 32);
     setProperty(gFireWireSpeed, prop);
     prop->release();
+}
+
+bool IOFireWireLocalNode::handleOpen( 	IOService *	  forClient,
+                            IOOptionBits	  options,
+                            void *		  arg )
+{
+	bool ok = true ;
+
+	if ( fOpenCount == 0)
+		ok = IOFireWireNub::handleOpen( this, 0, NULL ) ;
+	
+	if ( ok )
+		fOpenCount++ ;
+
+    return ok;
+}
+
+void IOFireWireLocalNode::handleClose(   IOService *	  forClient,
+                            IOOptionBits	  options )
+{
+	if ( fOpenCount )
+	{
+		fOpenCount-- ;
+		if ( fOpenCount == 0)
+			IOFireWireNub::handleClose( this, 0 );
+	}
+}
+
+IOReturn IOFireWireLocalNode::setProperties( OSObject * properties )
+{
+    OSDictionary *dict = OSDynamicCast(OSDictionary, properties);
+    OSDictionary *summon;
+    if(!dict)
+        return kIOReturnUnsupported;
+    summon = OSDynamicCast(OSDictionary, dict->getObject("SummonNub"));
+    if(!summon) {
+        return kIOReturnBadArgument;
+    }
+    IOFireWireMagicMatchingNub *nub = NULL;
+    IOReturn ret = kIOReturnBadArgument;
+    do {
+        nub = new IOFireWireMagicMatchingNub;
+        if(!nub->init(summon))
+            break;
+        if (!nub->attach(this))	
+            break;
+        nub->registerService(kIOServiceSynchronous);
+        // Kill nub if nothing matched
+        if(!nub->getClient()) {
+            nub->detach(this);
+        }
+        ret = kIOReturnSuccess;
+    } while (0);
+    if(nub)
+        nub->release();
+    return ret;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -246,6 +339,18 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
     while (fTimeoutQ.fHead) {
         AbsoluteTime now, dead;
         clock_get_uptime(&now);
+#if 0
+        IOLog("processTimeout, time is %lx:%lx\n", now.hi, now.lo);
+        {
+            IOFWCommand *t = fTimeoutQ.fHead;
+            while(t) {
+                AbsoluteTime d = t->getDeadline();
+                IOLog("%s:%p deadline %lx:%lx\n",
+                    t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+                t = t->getNext();
+            }
+        }
+#endif
         dead = fTimeoutQ.fHead->getDeadline();
         if(CMP_ABSOLUTETIME(&dead, &now) == 1)
             break;	// Command with earliest deadline is OK.
@@ -261,21 +366,79 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
     };
     if(fTimeoutQ.fHead) {
         src->wakeAtTime(fTimeoutQ.fHead->getDeadline());
+        //AbsoluteTime now;
+        //clock_get_uptime(&now);
+        //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
+        //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, now.hi, now.lo);
     }
     else {
+        //IOLog("processTimeout, timeoutQ empty\n");
         src->cancelTimeout();
     }
 }
 
 void IOFireWireController::timeoutQ::headChanged(IOFWCommand *oldHead)
 {
+#if 0
+    {
+        IOFWCommand *t = fHead;
+        if(oldHead)
+            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
+                oldHead->getMetaClass()->getClassName(), oldHead);
+        else
+            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
+            
+        while(t) {
+            AbsoluteTime d = t->getDeadline();
+            IOLog("%s:%p deadline %lx:%lx\n",
+                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+            t = t->getNext();
+        }
+    }
+#endif
     if(!fHead) {
+        //IOLog("timeoutQ empty\n");
         fTimer->cancelTimeout();
     }
     else {
         fTimer->wakeAtTime(fHead->getDeadline());
+        //AbsoluteTime now;
+        //clock_get_uptime(&now);
+        //IOLog("timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
+        //        fHead->getDeadline().hi, fHead->getDeadline().lo, now.hi, now.lo);
     }
 }
+void IOFireWireController::timeoutQ::busReset()
+{
+#if 0
+    {
+        IOFWCommand *t = fHead;
+        if(oldHead)
+            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
+                oldHead->getMetaClass()->getClassName(), oldHead);
+        else
+            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
+            
+        while(t) {
+            AbsoluteTime d = t->getDeadline();
+            IOLog("%s:%p deadline %lx:%lx\n",
+                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+            t = t->getNext();
+        }
+    }
+#endif
+    IOFWCommand *cmd;
+    cmd = fHead;
+    while(cmd) {
+        IOFWCommand *next;
+        next = cmd->getNext();
+        if(cmd->cancelOnReset()) {
+            cmd->cancel(kIOFireWireBusReset);
+        }
+        cmd = next;
+    }
+}
+
 
 void IOFireWireController::pendingQ::headChanged(IOFWCommand *oldHead)
 {
@@ -288,7 +451,6 @@ bool IOFireWireController::init(IOFireWireLink *fwim)
 {
     if(!IOFireWireBus::init())
         return false;
-
     fFWIM = fwim;
     
     // Create firewire symbols.
@@ -307,7 +469,7 @@ bool IOFireWireController::init(IOFireWireLink *fwim)
         gIOFireWirePlane = IORegistryEntry::makePlane( kIOFireWirePlane );
     }
 
-    fLocalAddresses = OSSet::withCapacity(3);	// Local ROM + CSR registers + SBP-2 ORBs
+    fLocalAddresses = OSSet::withCapacity(5);	// Local ROM + CSR registers + SBP-2 ORBs + FCP + PCR
     if(fLocalAddresses)
         fSpaceIterator =  OSCollectionIterator::withCollection(fLocalAddresses);
 
@@ -563,8 +725,6 @@ bool IOFireWireController::finalize( IOOptionBits options )
 // to send our custom kIOFWMessageServiceIsRequestingClose to clients
 bool IOFireWireController::requestTerminate( IOService * provider, IOOptionBits options )
 {
-    IOLog("IOFWControl::requestTerminate(%p, 0x%x)\n",
-        provider, options);
     OSIterator *childIterator;
     childIterator = getClientIterator();
     if( childIterator) {
@@ -775,7 +935,6 @@ void IOFireWireController::processBusReset()
         fBusState = kWaitingSelfIDs;
         unsigned int i;
         UInt32 oldgen = fBusGeneration;
-        fTimer->cancelTimeout();
         // Set all current device nodeIDs to something invalid
         fBusGeneration++;
         OSIterator *childIterator;
@@ -786,6 +945,9 @@ void IOFireWireController::processBusReset()
                 IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
                 if(found && !found->isInactive())
                     found->setNodeROM(oldgen, kFWBadNodeID, NULL);
+                else if(OSDynamicCast(IOFireWireLocalNode, child)) {
+                    ((IOFireWireLocalNode *)child)->messageClients(kIOMessageServiceIsSuspended);
+                }
             }
             childIterator->release();
         }
@@ -804,16 +966,19 @@ void IOFireWireController::processBusReset()
             }
         }
 
-	// Clear out the old firewire plane
+        // Clear out the old firewire plane
         if(fNodes[fRootNodeID]) {
             fNodes[fRootNodeID]->detachAll(gIOFireWirePlane);
-	}
+        }
         for(i=0; i<=fRootNodeID; i++) {
             if(fNodes[i]) {
-		fNodes[i]->release();
-		fNodes[i] = NULL;
+                fNodes[i]->release();
+                fNodes[i] = NULL;
             }
-	}
+        }
+        
+        // Cancel all commands in timeout queue that want to complete on bus reset
+        fTimeoutQ.busReset();
     }
 }
 
@@ -958,6 +1123,10 @@ for(i=0; i<numOwnIDs; i++)
 
     fBusMgr = false;	// Update if we find one.
     
+    // OK for stuff that only needs our ID and the irmID to continue.
+    if(localNode) {
+        localNode->messageClients(kIOMessageServiceIsResumed);
+    }
     fDelayedStateChangeCmd->reinit(1000 * kScanBusDelay, delayedStateChange, NULL);
     fDelayedStateChangeCmd->submit();
 }
@@ -1026,7 +1195,9 @@ void IOFireWireController::finishedBusScan()
     
     // Now do simple bus manager stuff, if there isn't a better candidate.
     // This might cause us to issue a bus reset...
-    if(!fBusMgr && fLocalNodeID == fIRMNodeID) {
+    // Skip if we're about to reset anyway, since we might be in the process of setting
+    // another node to root.
+    if(fBusState != kPendingReset && !fBusMgr && fLocalNodeID == fIRMNodeID) {
         int maxHops;
         int i;
         // Do lazy gap count optimization.  Assume the bus is a daisy-chain (worst
@@ -1085,15 +1256,10 @@ void IOFireWireController::finishedBusScan()
         fDelayedStateChangeCmd->reinit(1000 * kDevicePruneDelay, delayedStateChange, NULL); // One second
         fDelayedStateChangeCmd->submit();
     }
+
     // Run all the commands that are waiting for reset processing to end
     IOFWCmdQ &resetQ(getAfterResetHandledQ());
     resetQ.executeQueue(true);
-
-    // Anything on queue now is associated with a device not on the bus, I think...
-    IOFWCommand *cmd;
-    while(cmd = resetQ.fHead) {
-        cmd->cancel(kIOReturnTimeout);
-    }
 
     // Tell all active isochronous channels to re-allocate bandwidth
     IOFWIsochChannel *found;
@@ -1101,6 +1267,13 @@ void IOFireWireController::finishedBusScan()
     while( (found = (IOFWIsochChannel *) fAllocChannelIterator->getNextObject())) {
         found->handleBusReset();
     }
+
+    // Anything on queue now is associated with a device not on the bus, I think...
+    IOFWCommand *cmd;
+    while(cmd = resetQ.fHead) {
+        cmd->cancel(kIOReturnTimeout);
+    }
+
 }
 
 void IOFireWireController::buildTopology(bool doFWPlane)
@@ -1462,12 +1635,11 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 #endif
             {
                 IOReturn ret;
-                int length = (data[3] & kFWAsynchDataLength) >> kFWAsynchDataLengthPhase ;
-                FWAddress addr((data[1] & kFWAsynchDestinationOffsetHigh) >> 
-			kFWAsynchDestinationOffsetHighPhase, data[2]);
-                IOFWSpeed speed = FWSpeed(sourceID);
-                IOMemoryDescriptor *buf = NULL;
-		IOByteCount offset;
+                int 					length = (data[3] & kFWAsynchDataLength) >> kFWAsynchDataLengthPhase ;
+                FWAddress 	addr((data[1] & kFWAsynchDestinationOffsetHigh) >> kFWAsynchDestinationOffsetHighPhase, data[2]);
+                IOFWSpeed 				speed = FWSpeed(sourceID);
+                IOMemoryDescriptor *	buf = NULL;
+				IOByteCount offset;
 
                 ret = doReadSpace(sourceID, speed, addr, length,
                                     &buf, &offset, (IOFWRequestRefCon)(tLabel));
@@ -1723,6 +1895,36 @@ IOFireWireController::createPseudoAddressSpace(FWAddress *addr, UInt32 len,
         space = NULL;
     }
     return space;
+}
+
+IOFWPseudoAddressSpace *
+IOFireWireController::createInitialAddressSpace(UInt32 addressLo, UInt32 len,
+                            FWReadCallback reader, FWWriteCallback writer, void *refcon)
+{
+    IOFWPseudoAddressSpace *space;
+    space = new IOFWPseudoAddressSpace;
+    if(!space)
+        return NULL;
+    if(!space->initFixed(this, FWAddress(kCSRRegisterSpaceBaseAddressHi, addressLo),
+            len, reader, writer, refcon)) {
+        space->release();
+        space = NULL;
+    }
+    return space;
+}
+
+IOFWAddressSpace *
+IOFireWireController::getAddressSpace(FWAddress address)
+{
+    fPendingQ.fSource->closeGate();
+    IOFWAddressSpace * found;
+    fSpaceIterator->reset();
+    while( (found = (IOFWAddressSpace *) fSpaceIterator->getNextObject())) {
+        if(found->contains(address))
+            break;
+    }
+    fPendingQ.fSource->openGate();
+    return found;
 }
 
 IOReturn IOFireWireController::AddUnitDirectory(IOLocalConfigDirectory *unitDir)
@@ -2014,7 +2216,6 @@ IOReturn IOFireWireController::makeRoot(UInt32 generation, UInt16 nodeID)
 
     return res;
 }
-
 
 bool IOFireWireController::isLockRequest(IOFWRequestRefCon refcon)
 {

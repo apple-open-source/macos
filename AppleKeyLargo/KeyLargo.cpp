@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1998-2001 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Josh de Cesare
+ *  DRI: Dave Radcliffe
  *
  */
 
@@ -77,9 +77,12 @@ bool KeyLargo::start(IOService *provider)
   IORegistryEntry *viaPMU;
   OSData          *tmpData;
   UInt32          pmuVersion;
-
-    // Get the bus speed from the Device Tree.
+  UInt32		  fcrValue;
+ 
+  // Get the bus speed from the Device Tree.
   IORegistryEntry *entry;
+  
+  keyLargoService = provider;
   
   entry = fromPath("/", gIODTPlane);
   tmpData = OSDynamicCast(OSData, entry->getProperty("clock-frequency"));
@@ -105,7 +108,12 @@ bool KeyLargo::start(IOService *provider)
   keyLargo_safeWriteRegUInt32 = OSSymbol::withCString("keyLargo_safeWriteRegUInt32");
   keyLargo_safeReadRegUInt32 = OSSymbol::withCString("keyLargo_safeReadRegUInt32");
   keyLargo_powerMediaBay = OSSymbol::withCString("powerMediaBay");
+  keyLargo_enableSCC = OSSymbol::withCString("EnableSCC");
+  keyLargo_powerModem = OSSymbol::withCString("PowerModem");
+  keyLargo_modemResetLow = OSSymbol::withCString("ModemResetLow");
+  keyLargo_modemResetHigh = OSSymbol::withCString("ModemResetHigh");
   keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
+  keyLargo_powerI2S = OSSymbol::withCString("keyLargo_powerI2S");
   
   // Call MacIO's start.
   if (!super::start(provider))
@@ -120,9 +128,6 @@ bool KeyLargo::start(IOService *provider)
   // get the base address of KeyLargo.
   keyLargoBaseAddress = fMemory->getVirtualAddress();
 
-  // Re-tune the clocks
-  AdjustBusSpeeds ( );
-
   tmpData = OSDynamicCast(OSData, provider->getProperty("device-id"));
   if (tmpData == 0) return false;
   keyLargoDeviceId = *(long *)tmpData->getBytesNoCopy();
@@ -131,6 +136,35 @@ bool KeyLargo::start(IOService *provider)
   if (tmpData == 0) return false;
   keyLargoVersion = *(long *)tmpData->getBytesNoCopy();
   
+  // ***Adding an FCR property in the IORegistry
+  keyLargo_FCRNode = OSSymbol::withCString("fcr-values");
+
+  fcrValue = readRegUInt32(kKeyLargoFCR0);
+  fcrs[0] = OSNumber::withNumber(fcrValue, 32);
+  fcrValue = readRegUInt32(kKeyLargoFCR1);
+  fcrs[1] = OSNumber::withNumber(fcrValue, 32);
+  fcrValue = readRegUInt32(kKeyLargoFCR2);
+  fcrs[2] = OSNumber::withNumber(fcrValue, 32);
+  fcrValue = readRegUInt32(kKeyLargoFCR3);
+  fcrs[3] = OSNumber::withNumber(fcrValue, 32);
+  fcrValue = readRegUInt32(kKeyLargoFCR4);
+  fcrs[4] = OSNumber::withNumber(fcrValue, 32);
+  if (keyLargoDeviceId == kPangeaDeviceId25) 
+	fcrValue = readRegUInt32(kKeyLargoFCR5);
+  else
+	fcrValue = 0;
+  fcrs[5] = OSNumber::withNumber(fcrValue, 32);
+
+  fcrArray = OSArray::withObjects(fcrs, 6, 0);
+  if (fcrArray)
+	keyLargoService->setProperty(keyLargo_FCRNode, (OSArray *)fcrArray);
+  
+  // Set clock reference counts
+  setReferenceCounts ();
+  
+  // Re-tune the clocks
+  AdjustBusSpeeds ( );
+
   enableCells();
 
 
@@ -178,7 +212,6 @@ bool KeyLargo::start(IOService *provider)
     }
   }
 
-  
   return true;
 }
 
@@ -192,6 +225,10 @@ void KeyLargo::stop(IOService *provider)
     }
   }
 
+  // release the fcr handles
+  keyLargoService->release();  
+  fcrArray->release();
+  
   if (mutex != NULL)
     IOSimpleLockFree( mutex );
 }
@@ -260,10 +297,12 @@ void KeyLargo::turnOffKeyLargoIO(bool restart)
     regTemp &= ~kKeyLargoFCR0SleepBitsClear;
     writeRegUInt32(kKeyLargoFCR0, regTemp);
 
-    // Set MediaBay Dev1 Enable before IDE Resets.
-    regTemp = readRegUInt32(kKeyLargoMediaBay);
-    regTemp |= kKeyLargoMB0DevEnable;
-    writeRegUInt32(kKeyLargoMediaBay, regTemp);
+	if (keyLargoDeviceId == kKeyLargoDeviceId22) {	// Media bay on KeyLargo only
+		// Set MediaBay Dev1 Enable before IDE Resets.
+		regTemp = readRegUInt32(kKeyLargoMediaBay);
+		regTemp |= kKeyLargoMB0DevEnable;
+		writeRegUInt32(kKeyLargoMediaBay, regTemp);
+	}
 
     regTemp = readRegUInt32(kKeyLargoFCR1);
     regTemp |= kKeyLargoFCR1SleepBitsSet;
@@ -502,6 +541,108 @@ void KeyLargo::powerWireless(bool powerOn)
     cardStatus.cardPower = powerOn;
 }
 
+/*
+ * Set reference counts based on initial configuration
+ *
+ * The purpose of this function is to take the initial configuration as set
+ * by Open Firmware, determine which cells are in use, based on the port mux
+ * setup and which cells and clocks are enabled and keep a reference count
+ * for each of the clocks that are used by multiple cells.  
+ *
+ * Elsewhere, as we turn things off and on, when a reference count for a clock
+ * goes to zero, we can turn that clock off.
+ */
+void KeyLargo::setReferenceCounts (void)
+{
+	UInt32 fcr0, fcr1, fcr3, fcr5;
+	bool chooseSCCA, chooseSCCB, chooseI2S0, chooseI2S1, chooseAudio;
+
+	clk31RefCount = 0;
+	clk45RefCount = 0;
+	clk49RefCount = 0;
+	clk32RefCount = 0;
+	fcr0 = readRegUInt32(kKeyLargoFCR0);
+	fcr1 = readRegUInt32(kKeyLargoFCR1);
+	fcr3 = readRegUInt32(kKeyLargoFCR3);
+  
+	if (keyLargoDeviceId == kKeyLargoDeviceId22) {			// KeyLargo
+		chooseSCCB = (fcr0 & kKeyLargoFCR0ChooseSCCB);
+		fcr5 = 0;
+	} else {													// Pangea
+		chooseSCCB = true;
+		fcr5 = readRegUInt32(kKeyLargoFCR5);
+	}
+  
+	chooseSCCA = (fcr0 & kKeyLargoFCR0ChooseSCCA);
+	chooseI2S1 = !chooseSCCA;
+
+	chooseAudio = (fcr1 & kKeyLargoFCR1ChooseAudio);
+	chooseI2S0 = !chooseAudio;
+
+	if (chooseSCCA && (fcr0 & kKeyLargoFCR0SccAEnable)) {
+		clk31RefCount++;
+		clk45RefCount++;
+	}
+  
+	if (chooseSCCB && (fcr0 & kKeyLargoFCR0SccBEnable)) {
+		clk31RefCount++;
+		clk45RefCount++;
+	}
+  
+	if (chooseI2S0 && (fcr1 & kKeyLargoFCR1I2S0Enable)) {
+		clk45RefCount++;
+		clk49RefCount++;
+	}
+
+	if (chooseI2S1 && (fcr1 & kKeyLargoFCR1I2S1Enable)) {
+		clk45RefCount++;
+		clk49RefCount++;
+	}
+
+	if (chooseAudio && (fcr1 & kKeyLargoFCR1AudioCellEnable)) {
+		clk45RefCount++;
+		clk49RefCount++;
+	}
+
+	/*
+	 * If the VIA is enabled, count the 31MHz clock if we're on Key Largo.
+	 * But on Pangea, kPangeaFCR5ViaUseClk31 determines if this clock is
+	 * actually in use.
+	 */
+	if (fcr3 & kKeyLargoFCR3ViaClk16Enable)
+		if (keyLargoDeviceId == kKeyLargoDeviceId22 || fcr5 & kPangeaFCR5ViaUseClk31)
+			clk31RefCount++;
+
+	// Pangea only
+	if (keyLargoDeviceId == kPangeaDeviceId25) {
+		if (!(fcr5 & kPangeaFCR5ViaUseClk31))
+			clk32RefCount++;
+		if (!(fcr5 & kPangeaFCR5SCCUseClk31))
+			clk32RefCount++;
+	}
+
+#if 0
+#define PRINTBOOL(b) (b) ? "true" : "false"
+#define PRINTNOT(n) (n) ? "" : "NOT"
+	kprintf ("KeyLargo::setReferenceCounts - chooseSCCA %s and %s enabled\n", 
+		PRINTBOOL(chooseSCCA), PRINTNOT(fcr0 & kKeyLargoFCR0SccAEnable));
+	kprintf ("KeyLargo::setReferenceCounts - chooseSCCB %s and %s enabled\n", 
+		PRINTBOOL(chooseSCCB), PRINTNOT(fcr0 & kKeyLargoFCR0SccBEnable));
+	kprintf ("KeyLargo::setReferenceCounts - chooseI2S0 %s and %s enabled\n", 
+		PRINTBOOL(chooseI2S0), PRINTNOT(fcr1 & kKeyLargoFCR1I2S0Enable));
+	kprintf ("KeyLargo::setReferenceCounts - chooseI2S1 %s and %s enabled\n", 
+		PRINTBOOL(chooseI2S1), PRINTNOT(fcr1 & kKeyLargoFCR1I2S1Enable));
+	kprintf ("KeyLargo::setReferenceCounts - chooseAudio %s and %s enabled\n", 
+		PRINTBOOL(chooseAudio), PRINTNOT(fcr1 & kKeyLargoFCR1AudioCellEnable));
+	kprintf ("KeyLargo::setReferenceCounts - VIA %s enabled\n", 
+		PRINTNOT(fcr3 & kKeyLargoFCR3ViaClk16Enable));
+	kprintf ("KeyLargo::setReferenceCounts - clk31RefCount = %d, clk45RefCount = %d, clk49RefCount = %d\n",
+		clk31RefCount, clk45RefCount, clk49RefCount);
+#endif
+
+	return;
+}
+
 void KeyLargo::enableCells()
 {
     UInt32 *fcr0Address = (UInt32*)(keyLargoBaseAddress + 0x38); // offset on the scc register KFCR00
@@ -620,7 +761,7 @@ void KeyLargo::writeRegUInt32(unsigned long offset, UInt32 data)
 
 void KeyLargo::safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data)
 {
-  IOInterruptState intState;
+  IOInterruptState	intState;
 
   if ( mutex  != NULL )
      intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -631,6 +772,20 @@ void KeyLargo::safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data
   
   if ( mutex  != NULL )
      IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+
+    // ***If we are writing a 32-bit reg, we want to see if it's an FCR register.
+    // If it is, we want to update the fcr values in memory so we can update the
+    // property later.
+    
+	if (offset >= kKeyLargoFCR0 && offset <= kKeyLargoFCR5 && fcrArray) {
+		OSNumber* value = OSNumber::withNumber(currentReg, 32);
+		
+		((OSArray *)fcrArray)->replaceObject((offset - kKeyLargoFCRBase) >> 2, value);
+		keyLargoService->setProperty(keyLargo_FCRNode, (OSArray *)fcrArray);
+		value->release();
+	}
+	
+	return;
 }
 
 UInt32 KeyLargo::safeReadRegUInt32(unsigned long offset)
@@ -791,7 +946,8 @@ void KeyLargo::saveKeyLargoState(void)
 
     savedKeyLargoConfigRegistersState = &savedKeyLargState.savedConfigRegistersState;
 
-    savedKeyLargoConfigRegistersState->mediaBay = *(UInt32 *)(keyLargoBaseAddr + kMediaBayRegOffset);
+	if (keyLargoDeviceId == kKeyLargoDeviceId22) 	// Media bay on KeyLargo only
+		savedKeyLargoConfigRegistersState->mediaBay = *(UInt32 *)(keyLargoBaseAddr + kMediaBayRegOffset);
 
     for (i = 0; i < 5; i++)
     {
@@ -902,8 +1058,10 @@ void KeyLargo::restoreKeyLargoState(void)
 
     savedKeyLargoConfigRegistersState = &savedKeyLargState.savedConfigRegistersState;
 
-    *(UInt32 *)(keyLargoBaseAddr + kMediaBayRegOffset) = savedKeyLargoConfigRegistersState->mediaBay;
-    eieio();
+	if (keyLargoDeviceId == kKeyLargoDeviceId22) {	// Media bay on KeyLargo only
+		*(UInt32 *)(keyLargoBaseAddr + kMediaBayRegOffset) = savedKeyLargoConfigRegistersState->mediaBay;
+		eieio();
+	}
 
 
     for (i = 0; i < 5; i++)
@@ -1038,6 +1196,7 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
                                         void *param1, void *param2,
                                         void *param3, void *param4)
 {  
+		
     if (functionName == keyLargo_resetUniNEthernetPhy)
     {
         resetUniNEthernetPhy();
@@ -1064,7 +1223,7 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
 
     if (functionName == keyLargo_turnOffIO)
     {
-        if (keyLargoDeviceId == kKeyLargoDeviceId25)
+        if (keyLargoDeviceId == kPangeaDeviceId25)
             turnOffPangeaIO((bool)param1);
         else
             turnOffKeyLargoIO((bool)param1);
@@ -1107,29 +1266,33 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
     if (functionName == keyLargo_powerMediaBay)
     {
         bool powerOn = (param1 != NULL);
+
+		if (keyLargoDeviceId == kPangeaDeviceId25) 	// No media bay on Pangea
+			return kIOReturnUnsupported;
+	
         powerMediaBay(powerOn, (UInt8)param2);
         return kIOReturnSuccess;
     }
     
-    if (functionName->isEqualTo("EnableSCC"))
+	if (functionName == keyLargo_enableSCC)
     {
         EnableSCC((bool)param1, (UInt8)param2, (bool)param3);
         return kIOReturnSuccess;
     }
 
-    if (functionName->isEqualTo("PowerModem"))
+	if (functionName == keyLargo_powerModem)
     {
         PowerModem((bool)param1);
         return kIOReturnSuccess;
     }
 
-    if (functionName->isEqualTo("ModemResetLow"))
+	if (functionName == keyLargo_modemResetLow)
     {
         ModemResetLow();
         return kIOReturnSuccess;
     }
 
-    if (functionName->isEqualTo("ModemResetHigh"))
+	if (functionName == keyLargo_modemResetHigh)
     {
         ModemResetHigh();
         return kIOReturnSuccess;
@@ -1142,119 +1305,160 @@ IOReturn KeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
+    if (functionName == keyLargo_powerI2S)
+    {
+        PowerI2S((bool)param1, (UInt32)param2);
+        return kIOReturnSuccess;
+    }
+
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
+/*
+ * EnableSCC - power on or off the SCC cell
+ *
+ * state - true to power on, false to power off
+ * device - 0 for SCCA, 1 for SCCB
+ * type - true to use I2S1 under SCCA or IrDA under SCCB, 0 for not
+ */
 void KeyLargo::EnableSCC(bool state, UInt8 device, bool type)
 {
-    UInt32 bitsToSet, bitsToClear, currentReg = 0;
+    UInt32 bitsToSet, bitsToClear, currentReg = 0, currentReg3 = 0, currentReg5 = 0;
     IOInterruptState intState;
+		
+		
+	if (state) {												// Powering on
+		bitsToSet = kKeyLargoFCR0SccCellEnable;					// Enables SCC Cell
         
-    if (state)
-    {
-        bitsToSet = (1 << 6);			// Enables SCC Cell
-        
-        if(device == 0) // SCCA
-        {
-            bitsToSet |= (1 << 4);		// Enables SCC Interface A
+        if(device == 0) {					// SCCA
+            bitsToSet |= kKeyLargoFCR0SccAEnable;				// Enables SCC Interface A
 
-            if(type) // I2S1
-            {
-                bitsToClear |= (1 << 1);	// Enables SCC Interface A to support I2S1
-            }
+            if(type) 						// I2S1
+                bitsToClear |= kKeyLargoFCR0ChooseSCCA;			// Enables SCC Interface A to support I2S1
             else // SCC
-            {
-                bitsToSet |= (1 << 1);		// Enables SCC Interface A to support SCCA
-            }
+                bitsToSet |= kKeyLargoFCR0ChooseSCCA;			// Enables SCC Interface A to support SCCA
         }
-        if(device == 1) // SCCB
-        {
-            bitsToSet |= (1 << 5);		// Enables SCC Interface B
+		
+        if(device == 1) {					// SCCB
+            bitsToSet |= kKeyLargoFCR0SccBEnable;				// Enables SCC Interface B
 
-            if(type) // IrDA
-            {                
-                bitsToSet |= (1 << 17);		// irda 19.584 MHz clock
-                bitsToSet |= (1 << 16);		// irda 32 mhz clock on
-                bitsToSet |= (1 << 15);		// IrDA Enable
-                bitsToClear |= (1 << 14);	// fast connect
-                bitsToClear |= (1 << 13);	// default0
-                bitsToClear |= (1 << 12);	// default1	
-                bitsToSet |= (1 << 10);		// use ir source 1
-                bitsToClear |= (1 << 9);	// do not use ir source 2
-                bitsToClear |= (1 << 8);	// high band for 1mbit.  0 for low speed?
-                //bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
-                bitsToClear |= (1 << 0);	// Enables SCC Interface B to support IrDA
-            }
-            else // SCC
-            {
-                bitsToSet |= (1 << 0);		// Enables SCC Interface B to support SCCB
-            }
+			if (keyLargoDeviceId == kKeyLargoDeviceId22) {		// irda only on KeyLargo, not Pangea
+				if(type) {						// IrDA
+					bitsToSet |= kKeyLargoFCR0IRDAClk19Enable;		// irda 19.584 MHz clock
+					bitsToSet |= kKeyLargoFCR0IRDAClk32Enable;		// irda 32 mhz clock on
+					bitsToSet |= kKeyLargoFCR0IRDAEnable;			// IrDA Enable
+					bitsToClear |= kKeyLargoFCR0IRDAFastCon;		// fast connect
+					bitsToClear |= kKeyLargoFCR0IRDADefault0;		// default0
+					bitsToClear |= kKeyLargoFCR0IRDADefault1;		// default1	
+					bitsToSet |= kKeyLargoFCR0UseIRSource1;			// use ir source 1
+					bitsToClear |= kKeyLargoFCR0UseIRSource2;		// do not use ir source 2
+					bitsToClear |= kKeyLargoFCR0HighBandFor1MB;		// high band for 1mbit.  0 for low speed?
+					//bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
+					bitsToClear |= kKeyLargoFCR0ChooseSCCB;			// Enables SCC Interface B to support IrDA
+				} else // SCC
+					bitsToSet |= kKeyLargoFCR0ChooseSCCB;			// Enables SCC Interface B to support SCCB
+			}
         }
                 
         if ( mutex  != NULL ) 			// Take Lock
             intState = IOSimpleLockLockDisableInterrupt(mutex);
   
+		// Read current value of register
         currentReg = readRegUInt32( (unsigned long)kKeyLargoFCR0);
+		
+		// Increment reference count, but only if we're not currently enabled
+		if (!(currentReg & kKeyLargoFCR0SccCellEnable)) {
+			currentReg3 = readRegUInt32( (unsigned long)kKeyLargoFCR3);
+			if (!(clk31RefCount++)) {
+				currentReg3 |= kKeyLargoFCR3Clk31Enable;	// turn on clock
+			}
+			if (!(clk45RefCount++)) {
+				currentReg3 |= kKeyLargoFCR3Clk45Enable;	// turn on clock
+			}
+			writeRegUInt32( (unsigned long)kKeyLargoFCR3, (UInt32)currentReg3 );
+
+			if (keyLargoDeviceId == kPangeaDeviceId25) {
+				currentReg5 = readRegUInt32( (unsigned long)kKeyLargoFCR5);
+				if (!(currentReg5 & kPangeaFCR5SCCUseClk31) &&  !(clk32RefCount++)) {
+					currentReg5 |= kPangeaFCR5Clk32Enable;	// turn on clock
+					writeRegUInt32( (unsigned long)kKeyLargoFCR5, (UInt32)currentReg5 );
+				}
+			}
+		}
+		
+		// Modify current value of register...
         currentReg |= bitsToSet;
         currentReg &= ~bitsToClear;
         
+		// ...and write it back
         writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
 
-        // Reset the SCC
-        currentReg |= (1 << 3);
-        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
-
-        IODelay(15000);
-
-        currentReg &= ~(1 << 3);
-        writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
-
-        if(device == 1 && (type))	// Reset the IrDA:
-        {
-            currentReg = (1 << 11);
+        if(device == 1 && (type)) {		// Reset the IrDA:
+            currentReg |= kKeyLargoFCR0IRDASWReset;
             writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
 
             IODelay(15000);
 
-            currentReg &= ~(1 << 11);
+            currentReg &= ~kKeyLargoFCR0IRDASWReset;
             writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
         }
         
         if ( mutex  != NULL )			// Release Lock
             IOSimpleLockUnlockEnableInterrupt(mutex, intState);
-    }
-    else
-    {
+    } else {
         if(device == 0)
-        {
-            bitsToClear |= (1 << 4);		// Disables SCC A
-        }
-        if(device == 1)
-        {
-            bitsToClear |= (1 << 5);		// Disables SCC B
+            bitsToClear |= kKeyLargoFCR0SccAEnable;				// Disables SCC A
+
+        if(device == 1) {
+            bitsToClear |= kKeyLargoFCR0SccBEnable;				// Disables SCC B
             
-            if (type)
-            {
-                bitsToClear |= (1 << 17);	// irda 19.584 MHz clock
-                bitsToClear |= (1 << 16);	// irda 32 mhz clock on
-                bitsToClear |= (1 << 15);	// IrDA Enable
-                bitsToClear |= (1 << 14);	// fast connect
-                bitsToClear |= (1 << 13);	// default0
-                bitsToClear |= (1 << 12);	// default1	
-                bitsToClear |= (1 << 10);	// use ir source 1
-                bitsToClear |= (1 << 9);	// do not use ir source 2
-                bitsToClear |= (1 << 8);	// high band for 1mbit.  0 for low speed?
-                //bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
-            }
+			if (keyLargoDeviceId == kKeyLargoDeviceId22) {		// irda only on KeyLargo, not Pangea
+				if (type) {
+					bitsToClear |= kKeyLargoFCR0IRDAClk19Enable;	// irda 19.584 MHz clock
+					bitsToClear |= kKeyLargoFCR0IRDAClk32Enable;	// irda 32 mhz clock on
+					bitsToClear |= kKeyLargoFCR0IRDAEnable;			// IrDA Enable
+					bitsToClear |= kKeyLargoFCR0IRDAFastCon;		// fast connect
+					bitsToClear |= kKeyLargoFCR0IRDADefault0;		// default0
+					bitsToClear |= kKeyLargoFCR0IRDADefault1;		// default1	
+					bitsToClear |= kKeyLargoFCR0UseIRSource1;		// use ir source 1
+					bitsToClear |= kKeyLargoFCR0UseIRSource2;		// do not use ir source 2
+					bitsToClear |= kKeyLargoFCR0HighBandFor1MB;		// high band for 1mbit.  0 for low speed?
+					//bitsToClear |= (1 << 2);	// SlowPCLK.    0 for SCCPCLK at 24.576 MHZ, 1 for 15.6672 MHz
+				}
+			}
         }
 
         if ( mutex  != NULL ) 			// Take Lock
             intState = IOSimpleLockLockDisableInterrupt(mutex);
-  
+
+		// Read current value of register
         currentReg = readRegUInt32( (unsigned long)kKeyLargoFCR0);
+
+		// Turn off clocks we no longer need - but only if we're really disabling the cell
+		if (currentReg & kKeyLargoFCR0SccCellEnable) {
+			currentReg3 = readRegUInt32( (unsigned long)kKeyLargoFCR3);
+			if (clk31RefCount && !(--clk31RefCount)) {
+				currentReg3 &= ~kKeyLargoFCR3Clk31Enable;	// turn off clock if refCount reaches zero
+			}
+			if (clk45RefCount && !(--clk45RefCount)) {
+				currentReg3 &= ~kKeyLargoFCR3Clk45Enable;	// turn off clock if refCount reaches zero
+			}
+			writeRegUInt32( (unsigned long)kKeyLargoFCR3, (UInt32)currentReg3 );
+
+			if (keyLargoDeviceId == kPangeaDeviceId25) {
+				currentReg5 = readRegUInt32( (unsigned long)kKeyLargoFCR5);
+				if (!(currentReg5 & kPangeaFCR5SCCUseClk31) &&  clk32RefCount && !(--clk32RefCount)) {
+					currentReg5 |= kPangeaFCR5Clk32Enable;	// turn on clock
+					writeRegUInt32( (unsigned long)kKeyLargoFCR5, (UInt32)currentReg5 );
+				}
+			}
+		}
+
+		// Modify current value of register...
         currentReg |= bitsToSet;
         currentReg &= ~bitsToClear;
         
+		// ...and write it back
         writeRegUInt32( (unsigned long)kKeyLargoFCR0, (UInt32)currentReg );
 
         if ( mutex  != NULL )			// Release Lock
@@ -1266,7 +1470,7 @@ void KeyLargo::EnableSCC(bool state, UInt8 device, bool type)
 
 void KeyLargo::PowerModem(bool state)
 {
-    if (keyLargoDeviceId == kKeyLargoDeviceId25)
+    if (keyLargoDeviceId == kPangeaDeviceId25)
     {
         if (state)
         {
@@ -1304,6 +1508,48 @@ void KeyLargo::ModemResetHigh()
         eieio();
         *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
         eieio();
+}
+
+void KeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
+{
+	UInt32 fcr1Bits, fcr3Bits;
+	
+	if (cellNum == 0) {
+		fcr1Bits = kKeyLargoFCR1I2S0CellEnable |
+						kKeyLargoFCR1I2S0ClkEnable |
+						kKeyLargoFCR1I2S0Enable;
+		fcr3Bits = kKeyLargoFCR3I2S0Clk18Enable;
+	} else if (cellNum == 1) {
+		fcr1Bits = kKeyLargoFCR1I2S1CellEnable |
+						kKeyLargoFCR1I2S1ClkEnable |
+						kKeyLargoFCR1I2S1Enable;
+		fcr3Bits = kKeyLargoFCR3I2S1Clk18Enable;
+	} else
+		return; 		// bad cellNum ignored
+
+
+	if (powerOn) {
+		if (!(clk45RefCount++)) {
+			fcr3Bits |= kKeyLargoFCR3Clk45Enable;	// turn on clock
+		}
+		if (!(clk49RefCount++)) {
+			fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn on clock
+		}
+		// turn on all I2S bits
+		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, fcr1Bits);
+		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, fcr3Bits);
+	} else {
+		if (clk45RefCount && !(--clk45RefCount)) {
+			fcr3Bits |= kKeyLargoFCR3Clk45Enable;	// turn off clock if refCount reaches zero
+		}
+		if (clk49RefCount && !(--clk49RefCount)) {
+			fcr3Bits |= kKeyLargoFCR3Clk49Enable;	// turn off clock if refCount reaches zero
+		}
+		// turn off all I2S bits
+		safeWriteRegUInt32 (kKeyLargoFCR1, fcr1Bits, 0);
+		safeWriteRegUInt32 (kKeyLargoFCR3, fcr3Bits, 0);
+	}
+	return;
 }
 
 void KeyLargo::resetUniNEthernetPhy(void)

@@ -294,7 +294,7 @@ bool AppleBurgundyAudio::initHardware(IOService* provider)
 
     gCanPollSatus = true;
     checkStatus(true);    
-    flushAudioControls();
+//    flushAudioControls();
         
     nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
     addTimerEvent(this, &AppleBurgundyAudio::timerCallback, timerInterval);
@@ -369,7 +369,7 @@ void AppleBurgundyAudio::sndHWInitialize(IOService *provider){
     map = provider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMADeviceIndex);
     ioBaseBurgundy = (UInt8 *)map->getVirtualAddress();
     
-    if(!ioBaseBurgundy) IOLog("We have no mermory map !!!\n");
+    if(!ioBaseBurgundy) debugIOLog("We have no mermory map !!!\n");
     curInsense = 0xFFFF;
         
 		//update local variables for the settling time 
@@ -1092,7 +1092,7 @@ void	AppleBurgundyAudio::ReserveMux(UInt8 mux, UInt32 physicalInput){
 IOReturn AppleBurgundyAudio::setModemSound(bool state) {
     IOReturn myReturn = kIOReturnSuccess;
 
-	IOLog ("+ AppleBurgundyAudio::setModemSound(%d)\n", state);
+	debug2IOLog ("+ AppleBurgundyAudio::setModemSound(%d)\n", state);
 	// make sure that the imic is not enabled when playthrough is turned on -- there will be no FEEDBACK!!!
 
 	if(TRUE == state) {
@@ -1103,6 +1103,6 @@ IOReturn AppleBurgundyAudio::setModemSound(bool state) {
 		super::setModemSound(state);
 	}
 
-	IOLog ("- AppleBurgundyAudio::setModemSound(%d)\n", state);
+	debug2IOLog ("- AppleBurgundyAudio::setModemSound(%d)\n", state);
     return(myReturn);
 }

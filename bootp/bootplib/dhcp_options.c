@@ -694,7 +694,7 @@ dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
     if (len < (sizeof(*pkt) + RFC_MAGIC_SIZE)) {
 	if (err) {
 	    sprintf(err, "packet is too short: %d < %d",
-		    len, sizeof(*pkt) + RFC_MAGIC_SIZE);
+		    len, (int)sizeof(*pkt) + RFC_MAGIC_SIZE);
 	}
 	return (FALSE);
     }

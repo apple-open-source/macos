@@ -466,15 +466,18 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 				
 		if ( TEST_UNIT_READY ( request ) == true )
 	    {
-	    	STATUS_LOG ( ( "sending TUR.\n" ) );
+			
+			STATUS_LOG ( ( "sending TUR.\n" ) );
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
+	    	
 		}
+		
 		else
 		{
 			PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
 		}
-
+		
 		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 		{
 			
@@ -491,15 +494,18 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 					
 					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize ) == true )
 				    {
+				    	
 				    	STATUS_LOG ( ( "sending REQ_SENSE.\n" ) );
 				    	// The command was successfully built, now send it
 				    	serviceResponse = SendCommand ( request, 0 );
+				    	
 					}
+					
 					else
 					{
 						PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
 					}
-
+					
 					if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 					{
 						
@@ -533,9 +539,12 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 							// Device requires a start command before we can tell if media is there
 							if ( START_STOP_UNIT ( request, 0x00, 0x00, 0x00, 0x01 ) == true )
 							{
+								
 								STATUS_LOG ( ( "Sending START_STOP_UNIT.\n" ) );
 								serviceResponse = SendCommand ( request, 0 );
+								
 							}
+							
 							else
 							{
 								PANIC_NOW ( ( "IOSCSIReducedBlockCommandsDevice::CheckMediaPresence malformed command" ) );
@@ -551,10 +560,12 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 						else if ( ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x3A ) && 
 							 	  ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
 						{
+							
 							STATUS_LOG ( ( "No Media.\n" ) );
 							// No media is present, return false
 							driveReady = true;
 							mediaPresent = false;
+							
 						}
 						
 						else
@@ -584,6 +595,7 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 			
 			else
 			{
+				
 				STATUS_LOG ( ( "%s::drive READY, media present\n", getName ( ) ) );
 				// Media is present, return true
 				driveReady = true;
@@ -593,15 +605,17 @@ IOSCSIReducedBlockCommandsDevice::CheckMediaPresence ( void )
 			
 		}
         
-        else
-        {
-            // the command failed - perhaps the device was hot unplugged
-            // give other threads some time to run.
-            IOSleep ( 200 );
-        }
-    
-    // check isInactive in case device was hot unplugged during sleep
-    // and we are in an infinite loop here
+		else
+		{
+			
+			// the command failed - perhaps the device was hot unplugged
+			// give other threads some time to run.
+			IOSleep ( 200 );
+			
+		}
+		
+	// check isInactive in case device was hot unplugged during sleep
+	// and we are in an infinite loop here
 	} while ( ( driveReady == false ) && ( isInactive ( ) == false ) );
 	
 	bufferDesc->release ( );

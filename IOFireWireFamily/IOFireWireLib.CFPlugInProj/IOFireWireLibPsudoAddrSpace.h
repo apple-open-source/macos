@@ -128,7 +128,11 @@ class IOFireWirePseudoAddressSpaceImp: public IOFireWireIUnknown
 									IOReturn						result,
 									FWClientCommandID				commandID,
 									UInt32							packetCount) ;
-	static void				ReadHandler() {}
+	static void				Reader(
+									IOFireWireLibPseudoAddressSpaceRef refCon,
+									IOReturn						result,
+									void**							args,
+									int								numArgs) ;
 	
 	// NotificationHandler()
 	// This routine receives all messages from the kernel user client's 
@@ -196,6 +200,7 @@ class IOFireWirePseudoAddressSpaceImp: public IOFireWireIUnknown
 	
 	io_async_ref_t					mPacketAsyncRef ;
 	io_async_ref_t					mSkippedPacketAsyncRef ;
+	io_async_ref_t					mReadPacketAsyncRef ;
 	
 } ;
 

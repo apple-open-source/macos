@@ -32,6 +32,10 @@ public:
 
     virtual IOReturn setHardwarePowerOn();
     virtual IOReturn setHardwarePowerOff();
+	virtual Boolean wantsIdleCalls (void) {return FALSE;}
+	virtual void setIdlePowerState (void) {return;}
+	virtual void setFullPowerState (void) {return;}
+	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState) {return 0;}
 
 protected:    
     virtual bool init(AppleOnboardAudio  *pluginRef);
@@ -55,6 +59,8 @@ public:
 
     virtual IOReturn setHardwarePowerOn();
     virtual IOReturn setHardwarePowerOff();
+	virtual void setIdlePowerState (void);
+	virtual void setFullPowerState (void);
 
 private:
     bool init(AppleOnboardAudio *pluginRef);
@@ -79,7 +85,9 @@ public:
     static AudioProj6PowerObject* createAudioProj6PowerObject(AppleOnboardAudio *pluginRef);                                                            
     virtual IOReturn setHardwarePowerOff();	
     virtual IOReturn setHardwarePowerOn();
-    
+	virtual void setIdlePowerState (void);
+	virtual void setFullPowerState (void);
+
     bool init(AppleOnboardAudio *pluginRef);
 
 private:
@@ -136,6 +144,12 @@ public:
 								
     virtual IOReturn setHardwarePowerOff();	
     virtual IOReturn setHardwarePowerOn();
+	virtual void setIdlePowerState (void);
+	virtual void setFullPowerState (void);
+
+private:
+    bool init(AppleOnboardAudio *pluginRef);
+
 };
 
     //for Screamer base G4 and iMac DVs
@@ -179,9 +193,15 @@ class AudioProj14PowerObject : public AudioPowerObject {
     
 public:
     static AudioProj14PowerObject* createAudioProj14PowerObject(AppleOnboardAudio *pluginRef);
-								
+
     virtual IOReturn setHardwarePowerOff();	
     virtual IOReturn setHardwarePowerOn();
+	virtual void setIdlePowerState (void);
+	virtual void setFullPowerState (void);
+	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState);
+
+private:
+	bool init(AppleOnboardAudio *pluginRef);
 };
     
     //for iBook dual USB
@@ -194,6 +214,13 @@ public:
 								
     virtual IOReturn setHardwarePowerOff();	
     virtual IOReturn setHardwarePowerOn();
+	virtual Boolean wantsIdleCalls (void);
+	virtual void setIdlePowerState (void);
+	virtual void setFullPowerState (void);
+	virtual UInt32 GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState);
+
+private:
+	bool init(AppleOnboardAudio *pluginRef);
 };
     
 #endif

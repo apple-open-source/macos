@@ -25,14 +25,12 @@
 #define _IOKIT_IOPCCARD16DEVICE_H
 
 // supported power management states, see powerStates array in attach
-#ifndef CHEETAH_STYLE_PM
 enum {
     kIOPCCard16DeviceOffState		= 0,
     kIOPCCard16DeviceDozeState		= 1,
     kIOPCCard16DeviceOnState		= 2,
     kIOPCCard16DevicePowerStateCount	= 3,
 };
-#endif
 
 class IOPCCard16Enabler;
 class IODeviceMemory;

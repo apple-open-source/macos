@@ -495,6 +495,7 @@ enum {
 #define kDallasDetectInt			"extint-gpio16"
 #define kKWDallasDetectInt			"keywest-gpio16"
 #define kVideoPropertyEntry			"video"
+#define kOneWireBus					"one-wire-bus"
 
 #define kGPIODTEntry				"gpio"
 #define kI2CDTEntry					"i2c"
@@ -504,6 +505,7 @@ enum {
 
 #define kNumInputs					"#-inputs"
 #define kDeviceID					"device-id"
+#define kSpeakerID					"speaker-id"
 #define kCompatible					"compatible"
 #define kAAPLAddress				"AAPL,address"
 #define kI2CAddress					"i2c-address"
@@ -636,7 +638,7 @@ struct EQPrefs {
 	UInt32					genreType;				//	'jazz', 'clas', etc...
 	UInt32					eqCount;				//	number of eq[n] array elements
 	UInt32					nameID;					//	resource id of STR identifying the filter genre
-	EQPrefsElement			eq[6];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
+	EQPrefsElement			eq[11];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
 };
 typedef EQPrefs *EQPrefsPtr;
 

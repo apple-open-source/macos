@@ -36,7 +36,7 @@
 #include <IOKit/firewire/IOFireWireNub.h>
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
-#include <IOKit/firewire/IOFireWireUserClient.h>
+#include "IOFireWireUserClient.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

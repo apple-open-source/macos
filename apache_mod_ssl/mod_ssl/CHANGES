@@ -23,6 +23,18 @@
       / __/ | (_) |
   __ |_____(_)___/ ___________________________________________
               
+  Changes with mod_ssl 2.8.5 (20-May-2001 to 16-Oct-2001)
+
+   *) Upgraded to Apache 1.3.22
+
+   *) Fixed check whether server certificate wildcard CommonName (CN)
+      matches the configured server name.
+
+   *) Use correct ANSI C prototypes also in (semi-automatically
+      generated) ssl_engine_dh.c
+
+   *) Fixed buffer overflow in ssl_expr_eval_func_file().
+
   Changes with mod_ssl 2.8.4 (04-May-2001 to 20-May-2001)
 
    *) Removed old db1/ndbm.h kludge from mod_ssl.h, because it should be

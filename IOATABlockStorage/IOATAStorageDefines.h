@@ -162,18 +162,39 @@ enum
 	kATASupportsWriteCacheBit				= 5
 };
 
-/* Bits for features published in Word 83 of device identify data */
-enum
-{
-	kATASupportsAdvancedPowerManagementBit 	= 3
-};
-
-/* Masks for features published in Words 82 and 83 of device identify data */
+/* Masks for features published in Word 82 of device identify data */
 enum
 {
 	kATASupportsPowerManagementMask 		= (1 << kATASupportsPowerManagementBit),
-	kATASupportsWriteCacheMask				= (1 << kATASupportsWriteCacheBit),
-	kATASupportsAdvancedPowerManagementMask = (1 << kATASupportsAdvancedPowerManagementBit)
+	kATASupportsWriteCacheMask				= (1 << kATASupportsWriteCacheBit)
+};
+
+/* Bits for features published in Word 83 of device identify data */
+enum
+{
+	kATASupportsCompactFlashBit				= 2,
+	kATASupportsAdvancedPowerManagementBit 	= 3,
+	
+	kATASupports48BitAddressingBit			= 10,
+	
+	kATASupportsFlushCacheBit				= 12,
+	kATASupportsFlushCacheExtendedBit		= 13,
+	
+};
+
+/* Masks for features published in Word 83 of device identify data */
+enum
+{
+	kATASupportsCompactFlashMask			= (1 << kATASupportsCompactFlashBit),
+	kATASupportsAdvancedPowerManagementMask = (1 << kATASupportsAdvancedPowerManagementBit),
+	
+	kATASupports48BitAddressingMask			= (1 << kATASupports48BitAddressingBit),
+	
+	kATASupportsFlushCacheMask				= (1 << kATASupportsFlushCacheBit),
+	kATASupportsFlushCacheExtendedMask		= (1 << kATASupportsFlushCacheExtendedBit),
+	
+	// Mask to ensure data is valid
+	kATADataIsValidMask						= 0xC000
 };
 
 /* ATA supported features */
@@ -181,7 +202,9 @@ enum
 {
 	kIOATAFeaturePowerManagement			= 0x01,
 	kIOATAFeatureWriteCache					= 0x02,
-	kIOATAFeatureAdvancedPowerManagement 	= 0x04
+	kIOATAFeatureAdvancedPowerManagement 	= 0x04,
+	kIOATAFeatureCompactFlash				= 0x08,
+	kIOATAFeature48BitLBA					= 0x10
 };
 
 /* ATA Advanced Power Management settings (valid settings range from 1-254),

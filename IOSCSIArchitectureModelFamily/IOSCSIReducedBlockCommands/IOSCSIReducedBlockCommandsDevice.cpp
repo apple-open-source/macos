@@ -458,7 +458,7 @@ IOSCSIReducedBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 						inquiryBufferCount) == true )
 		{
 			// The command was successfully built, now send it
-			serviceResponse = SendCommand( request, 0 );
+			serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{
@@ -629,7 +629,7 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 	if ( TEST_UNIT_READY ( request ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -639,7 +639,7 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 	{
 		
-		if ( GetTaskStatus( request ) == kSCSITaskStatus_CHECK_CONDITION )
+		if ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
 		{
 			
 			validSense = GetAutoSenseData( request, &senseBuffer );
@@ -652,7 +652,7 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 				if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize ) == false )
 			    {
 			    	// The command was successfully built, now send it
-			    	serviceResponse = SendCommand( request, 0 );
+			    	serviceResponse = SendCommand ( request, 0 );
 				}
 				else
 				{
@@ -695,7 +695,7 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 		if ( PREVENT_ALLOW_MEDIUM_REMOVAL ( request, 1 ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{
@@ -711,14 +711,14 @@ IOSCSIReducedBlockCommandsDevice::PollForMedia ( void )
 	if ( READ_CAPACITY ( request, bufferDesc ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
 		PANIC_NOW(( "IOSCSIReducedBlockCommandsDevice::PollForMedia malformed command" ));
 	}
 	
-	taskStatus = GetTaskStatus( request );
+	taskStatus = GetTaskStatus ( request );
 	ReleaseSCSITask ( request );	
 	bufferDesc->release ( );
 	
@@ -777,7 +777,7 @@ IOSCSIReducedBlockCommandsDevice::CheckWriteProtection ( void )
 						17 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -905,7 +905,7 @@ IOSCSIReducedBlockCommandsDevice::IssueRead ( 	IOMemoryDescriptor *	buffer,
 					( SCSICmdField2Byte ) blockCount ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -988,7 +988,7 @@ IOSCSIReducedBlockCommandsDevice::IssueWrite (	IOMemoryDescriptor *	buffer,
 						( SCSICmdField2Byte ) blockCount ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1143,7 +1143,7 @@ IOSCSIReducedBlockCommandsDevice::EjectTheMedia ( void )
 		if ( SYNCHRONIZE_CACHE( request ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{
@@ -1158,7 +1158,7 @@ IOSCSIReducedBlockCommandsDevice::EjectTheMedia ( void )
 	if ( PREVENT_ALLOW_MEDIUM_REMOVAL ( request, 0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1168,7 +1168,7 @@ IOSCSIReducedBlockCommandsDevice::EjectTheMedia ( void )
 	if ( START_STOP_UNIT ( request, 0, 0, 1, 0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1234,7 +1234,7 @@ IOSCSIReducedBlockCommandsDevice::SynchronizeCache ( void )
 	if ( SYNCHRONIZE_CACHE ( request ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{

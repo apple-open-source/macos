@@ -3,6 +3,11 @@
 	00C6990B002BCF867F000001 = {
 		activeExec = 0;
 	};
+	010D072FFFFA58D511CE168A = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{38, 650}, {750, 502}}";
+		};
+	};
 	013E928F0017D9B711CE16D4 = {
 		activeExec = 0;
 	};
@@ -14,6 +19,11 @@
 	};
 	018F9560FFDDC63011CA29EB = {
 		activeExec = 0;
+	};
+	03254963FFDDCA0611CA29EB = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 671}, {750, 502}}";
+		};
 	};
 	0325496CFFDDCAD711CA29EB = {
 		activeExec = 0;
@@ -35,16 +45,20 @@
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
 		activeTarget = 089C1673FE841209C02AAC07;
+		addToTargets = (
+			C587DA87015A664F05CE172C,
+		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{1360, 675}";
+				ContentSize = "{1413, 1069}";
 				LeftSlideOut = {
 					ActiveTab = 0;
-					Frame = "{{0, 23}, {1360, 652}}";
+					Frame = "{{0, 23}, {1413, 1046}}";
 					Split0 = {
-						Frame = "{{519, 0}, {841, 652}}";
+						ActiveTab = 2;
+						Frame = "{{427, 0}, {986, 1046}}";
 						Split0 = {
-							Frame = "{{0, 25}, {841, 627}}";
+							Frame = "{{0, 594}, {986, 452}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -80,9 +94,9 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1134, 34}}";
-							BuildTranscriptFrame = "{{0, 43}, {1134, 152}}";
-							Frame = "{{0, 0}, {1132, 193}}";
+							BuildMessageFrame = "{{0, 0}, {988, 368}}";
+							BuildTranscriptFrame = "{{0, 377}, {988, 194}}";
+							Frame = "{{0, 0}, {986, 569}}";
 						};
 						Tab3 = {
 							Frame = "{{0, 0}, {1157, 556}}";
@@ -91,7 +105,7 @@
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {494, 652}}";
+						Frame = "{{0, 0}, {402, 1046}}";
 					};
 					Tab1 = {
 						ClassesFrame = "{{0, 0}, {202, 56}}";
@@ -103,12 +117,12 @@
 						Frame = "{{0, 0}, {200, 100}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {272, 441}}";
+						Frame = "{{0, 0}, {272, 1046}}";
 						Split0 = {
-							Frame = "{{0, 0}, {272, 213}}";
+							Frame = "{{0, 0}, {272, 499}}";
 						};
 						Split1 = {
-							Frame = "{{0, 222}, {272, 219}}";
+							Frame = "{{0, 508}, {272, 538}}";
 						};
 						SplitCount = 2;
 					};
@@ -124,5 +138,13 @@
 	};
 	089C1673FE841209C02AAC07 = {
 		activeExec = 0;
+	};
+	3B3C360D013326260ECE145B = {
+		activeExec = 0;
+	};
+	C587DA87015A664F05CE172C = {
+		activeExec = 0;
+		customExecs = {
+		};
 	};
 }

@@ -240,6 +240,9 @@ ipconfig_method_from_string(const char * m, ipconfig_method_t * method)
     else if (strcmp(m, "INFORM") == 0) {
 	*method = ipconfig_method_inform_e;
     }
+    else if (strcmp(m, "LINKLOCAL") == 0) {
+	*method = ipconfig_method_linklocal_e;
+    }
     else if (strcmp(m, "NONE") == 0) {
 	*method = ipconfig_method_none_e;
     }
@@ -332,7 +335,7 @@ static struct {
       " <interface name | \"\" > <option name> | <option code>" },
     { "getpacket", S_get_packet, 1, " <interface name>" },
     { "set", S_set, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM > <method args>" },
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | NONE > <method args>" },
     { NULL, NULL, NULL },
 };
 

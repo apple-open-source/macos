@@ -39,6 +39,21 @@
 #include "IOFireWireLib.h"
 #include "IOFireWireFamilyCommon.h"
 
+#if IOFIREWIRELIBDEBUG
+	#define IOFireWireLibLog_(x) printf x
+	#define IOFireWireLibLogIfNil_(x, y) \
+	{ if ((void*)(x) == NULL) { IOFireWireLibLog_(y); } }
+	#define IOFireWireLibLogIfErr_(x, y) \
+	{ if ((x) != 0) { IOFireWireLibLog_(y); } }
+	#define IOFireWireLibLogIfFalse_(x, y) \
+	{ if (!(x)) { IOFireWireLibLog_(y); } }
+#else
+	#define IOFireWireLibLog_(x)
+	#define IOFireWireLibLogIfNil_(x, y)
+	#define IOFireWireLibLogIfErr_(x, y)
+	#define IOFireWireLibLogIfFalse_(x, y)
+#endif
+
 #define kIOFireWireLibConnection 11
 
 __BEGIN_DECLS
@@ -128,7 +143,12 @@ class IOFireWireDeviceInterfaceImp: public IOFireWireIUnknown
 	// (see also FWUserPseudoAddressSpace, below)
 	//
 	virtual const IOReturn	AddCallbackDispatcherToRunLoop(CFRunLoopRef inRunLoop) ;
-	virtual void			RemoveCallbackDispatcherFromRunLoop() ;	
+	virtual void			RemoveDispatcherFromRunLoop( 
+									CFRunLoopRef		inRunLoop,
+									CFRunLoopSourceRef	inRunLoopSource,
+									CFStringRef			inMode) ;	
+	const CFRunLoopRef&		GetRunLoop()			{ return mRunLoop ; }
+	const CFRunLoopSourceRef& GetRunLoopSource()	{ return mRunLoopSource ; }
 
 	// Is notification active? (i.e. Will I be notified of incoming packet writes/reads/drops?)
 	virtual const Boolean	NotificationIsOn() { return mNotifyIsOn; }
@@ -378,6 +398,7 @@ class IOFireWireDeviceInterfaceImp: public IOFireWireIUnknown
 	io_async_ref_t				mBusResetDoneAsyncRef ;
 	IOFireWireBusResetHandler	mBusResetHandler ;
 	IOFireWireBusResetDoneHandler mBusResetDoneHandler ;
+	const void*					mUserRefCon ;
 	
 	CFRunLoopRef				mRunLoop ;
 	CFRunLoopSourceRef			mRunLoopSource ;
@@ -694,6 +715,11 @@ class IOFireWireDeviceInterfaceCOM: public IOFireWireDeviceInterfaceImp
 									IOFireWireLibDeviceRef 	self, 
 									IOByteCount 			size, 
 									REFIID 					iid ) ;
+	static void*			SGetRefCon(
+									IOFireWireLibDeviceRef 	self)		{ return (void*)GetThis(self)->mUserRefCon ; }
+	static void				SSetRefCon(
+									IOFireWireLibDeviceRef 	self,
+									const void*				inRefCon )	{ GetThis(self)->mUserRefCon = inRefCon ; }
 	static void				SPrintDCLProgram(
 									IOFireWireLibDeviceRef 	self, 
 									const DCLCommandStruct*	inDCL,

@@ -116,9 +116,10 @@ IOSCSIProtocolInterface::start ( IOService * provider )
 		return false;
 	}
 	
-	fPowerAckInProgress			= false;
-	fPowerTransitionInProgress 	= false;
-	fPowerManagementInitialized = false;
+	fPowerAckInProgress				= false;
+	fPowerTransitionInProgress 		= false;
+	fPowerManagementInitialized 	= false;
+	fUserClientExclusiveControlled	= false;
 	
 	// Allocate the thread on which to do power management
 	fPowerManagementThread = thread_call_allocate (

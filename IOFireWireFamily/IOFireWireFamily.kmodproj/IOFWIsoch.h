@@ -95,6 +95,7 @@ struct DCLCommandStruct
 	UInt32					operands[1];			// DCL operands (size varies)
 };
 
+
 struct DCLTransferPacketStruct
 {
 	DCLCommandPtr			pNextDCLCommand;		// Next DCL command.

@@ -129,10 +129,11 @@ private:
 	static void		AsyncReadWriteComplete ( SCSITaskIdentifier completedTask );
 	
 protected:
+	
     // Reserve space for future expansion.
     struct IOSCSIMultimediaCommandsDeviceExpansionData { };
-    IOSCSIMultimediaCommandsDeviceExpansionData *fIOSCSIMultimediaCommandsDeviceReserved;
-	
+    IOSCSIMultimediaCommandsDeviceExpansionData * fIOSCSIMultimediaCommandsDeviceReserved;
+		
 	// This method will retreive the SCSI Primary Command Set object for
 	// the class.  For subclasses, this will be overridden using a
 	// dynamic cast on the subclasses base command set object.
@@ -754,23 +755,25 @@ public:
 						SCSICmdField1Byte 			CONTROL );
 	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 1 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 8 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 9 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 10 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 11 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 12 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 13 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 14 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 15 );
-    OSMetaClassDeclareReservedUnused( IOSCSIMultimediaCommandsDevice, 16 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	1 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	2 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	3 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	4 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	5 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	6 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	7 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	8 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	9 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 10 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 11 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 12 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 13 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 14 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 15 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 16 );
+    
 };
 
 #endif /* defined(KERNEL) && defined(__cplusplus) */

@@ -126,8 +126,8 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	    continue;
 	if (inet_aton(ip_nl_p->ninl_val[0], &iaddr) == 0)
 	    continue;
-	expiry = strtoul(lease_nl_p->ninl_val[0], NULL, NULL);
-	if (expiry == ULONG_MAX && errno == ERANGE) {
+	expiry = strtol(lease_nl_p->ninl_val[0], NULL, NULL);
+	if (expiry == LONG_MAX && errno == ERANGE) {
 	    continue;
 	}
 	if (time_in_p->tv_sec > expiry
@@ -219,8 +219,8 @@ S_lease_time_expiry(ni_proplist * pl_p)
     ni_name 		str = S_lease_propval(pl_p);
 
     if (str) {
-	expiry = strtoul(str, NULL, NULL);
-	if (expiry == ULONG_MAX && errno == ERANGE) {
+	expiry = strtol(str, NULL, NULL);
+	if (expiry == LONG_MAX && errno == ERANGE) {
 	    syslog(LOG_INFO, "S_lease_time_expiry: lease '%s' bad", str);
 	    return (0);
 	}
@@ -242,14 +242,14 @@ lease_from_subnet(id subnet, dhcp_lease_t * min_lease,
     *max_lease = max_lease_length;
     nl_p = [subnet lookup:SUBNETPROP_LEASE_MIN];
     if (nl_p != NULL && nl_p->ninl_len) {
-	*min_lease = (dhcp_lease_t) strtoul(nl_p->ninl_val[0], NULL, NULL);
+	*min_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, NULL);
 	if (debug)
 	    printf("min_lease is %d\n", *min_lease); 
     }
 
     nl_p = [subnet lookup:SUBNETPROP_LEASE_MAX];
     if (nl_p != NULL && nl_p->ninl_len) {
-	*max_lease = (dhcp_lease_t) strtoul(nl_p->ninl_val[0], NULL, NULL);
+	*max_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, NULL);
 	if (debug)
 	    printf("max_lease is %d\n", *max_lease); 
     }

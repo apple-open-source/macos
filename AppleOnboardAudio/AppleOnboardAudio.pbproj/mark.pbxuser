@@ -1,0 +1,193 @@
+// !$*UTF8*$!
+{
+	00C6990B002BCF867F000001 = {
+		activeExec = 0;
+	};
+	010D072FFFFA58D511CE168A = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{245, 461}, {750, 502}}";
+		};
+	};
+	010D0731FFFA595911CE168A = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{222, 482}, {750, 502}}";
+		};
+	};
+	017D8EFD0032206011CE16D4 = {
+		activeExec = 0;
+	};
+	017EA98300C2DA887F000001 = {
+		activeExec = 0;
+	};
+	018F9560FFDDC63011CA29EB = {
+		activeExec = 0;
+	};
+	0325496CFFDDCAD711CA29EB = {
+		activeExec = 0;
+	};
+	03254978FFDDCCFB11CA29EB = {
+		activeExec = 0;
+	};
+	03254995FFDDD25B11CA29EB = {
+		activeExec = 0;
+	};
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
+		activeTarget = 089C1673FE841209C02AAC07;
+		addToTargets = (
+			F6AB50530188E72D01CE1665,
+		);
+		perUserDictionary = {
+			PBXWorkspaceConfiguration = {
+				ContentSize = "{1238, 999}";
+				LeftSlideOut = {
+					ActiveTab = 0;
+					Frame = "{{0, 23}, {1238, 976}}";
+					Split0 = {
+						Frame = "{{341, 0}, {897, 976}}";
+						Split0 = {
+							Frame = "{{0, 25}, {897, 951}}";
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Debugger = {
+								Frame = "{{0, 0}, {484, 208}}";
+								Split0 = {
+									Frame = "{{0, 25}, {484, 183}}";
+									Split0 = {
+										Frame = "{{0, 0}, {236, 183}}";
+									};
+									Split1 = {
+										Frame = "{{245, 0}, {239, 183}}";
+									};
+									SplitCount = 2;
+								};
+								SplitCount = 1;
+								Tab0 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								Tab1 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								TabCount = 2;
+							};
+							Frame = "{{0, 0}, {484, 208}}";
+							LauncherConfigVersion = 4;
+						};
+						Tab1 = {
+							Frame = "{{0, 0}, {484, 208}}";
+							LauncherConfigVersion = 3;
+							Runner = {
+								Frame = "{{0, 0}, {484, 208}}";
+							};
+						};
+						Tab2 = {
+							BuildMessageFrame = "{{0, 0}, {1015, 187}}";
+							BuildTranscriptFrame = "{{0, 196}, {1015, 0}}";
+							Frame = "{{0, 0}, {1013, 194}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {897, 295}}";
+						};
+						TabCount = 4;
+					};
+					SplitCount = 1;
+					Tab0 = {
+						Frame = "{{0, 0}, {316, 976}}";
+					};
+					Tab1 = {
+						ClassesFrame = "{{0, 0}, {202, 56}}";
+						Frame = "{{0, 0}, {200, 100}}";
+						MembersFrame = "{{0, 65}, {202, 35}}";
+						OptionsSetName = "Hierarchy, all classes";
+					};
+					Tab2 = {
+						Frame = "{{0, 0}, {200, 100}}";
+					};
+					Tab3 = {
+						Frame = "{{0, 0}, {200, 976}}";
+						Split0 = {
+							Frame = "{{0, 0}, {200, 680}}";
+						};
+						Split1 = {
+							Frame = "{{0, 689}, {200, 287}}";
+						};
+						SplitCount = 2;
+					};
+					Tab4 = {
+						Frame = "{{0, 0}, {250, 100}}";
+					};
+					TabCount = 5;
+				};
+				WindowLocation = "{302, 117}";
+			};
+		};
+		userBookmarkGroup = F629065201B2B55301CE1662;
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	AD440DB0017FA6A304CE15E3 = {
+		activeExec = 0;
+	};
+	F629065201B2B55301CE1662 = {
+		children = (
+			F629065301B2B55301CE1662,
+		);
+		isa = PBXBookmarkGroup;
+		name = Root;
+	};
+	F629065301B2B55301CE1662 = {
+		fRef = 03254973FFDDCC5211CA29EB;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: initHardware";
+		rLen = 0;
+		rLoc = 9309;
+		rType = 0;
+		vrLen = 2241;
+		vrLoc = 7711;
+	};
+	F62ADEDD017DE08E01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{38, 650}, {750, 502}}";
+		};
+	};
+	F62ADEDE017DE08E01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{38, 173}, {867, 979}}";
+		};
+	};
+	F62ADEE0017DE08E01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 671}, {750, 502}}";
+		};
+	};
+	F635ED2A0187708A01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{38, 213}, {829, 939}}";
+		};
+	};
+	F635ED2B0187708A01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{61, 629}, {750, 502}}";
+		};
+	};
+	F6635A27017C7E0C01CE1665 = {
+		activeExec = 0;
+	};
+	F6635A3C017C901C01CE1665 = {
+		activeExec = 0;
+	};
+	F6AB4FE80188A93E01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 671}, {750, 502}}";
+		};
+	};
+	F6AB50530188E72D01CE1665 = {
+		activeExec = 0;
+		customExecs = {
+		};
+	};
+}

@@ -175,7 +175,7 @@ wackBridgeBusNumbers(IOPCIDevice * bridgeDevice)
 
 OSDefineMetaClassAndStructorsWithInit(IOPCCardBridge, IOPCI2PCIBridge, IOPCCardBridge::metaInit());
 
-OSMetaClassDefineReservedUnused(IOPCCardBridge,  0);
+OSMetaClassDefineReservedUsed(IOPCCardBridge,  0);		// requestCardEjection
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  1);
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  2);
 OSMetaClassDefineReservedUnused(IOPCCardBridge,  3);
@@ -583,8 +583,8 @@ IOPCCardBridge::initializeDriverServices(void)
     client_reg.dev_info = bind.dev_info = &dev_info;
     client_reg.Attributes = INFO_MASTER_CLIENT;
     client_reg.EventMask = CS_EVENT_CARD_INSERTION | CS_EVENT_CARD_REMOVAL |
-			   CS_EVENT_EJECTION_REQUEST | CS_EVENT_INSERTION_REQUEST |
-			   CS_EVENT_PM_RESUME;
+			   CS_EVENT_EJECTION_REQUEST | CS_EVENT_EJECTION_COMPLETE |
+			   CS_EVENT_INSERTION_REQUEST | CS_EVENT_PM_RESUME;
     client_reg.event_handler = &cardEventHandler;
     client_reg.Version = 0x0210;
 
@@ -1012,8 +1012,25 @@ IOPCCardBridge::cardEventHandler(cs_event_t event, int priority,
 	if (s->bridge) (s->bridge)->acknowledgeSetPowerState();
 	break;
     
-    case CS_EVENT_EJECTION_REQUEST:
+//    case CS_EVENT_EJECTION_REQUEST:
 //	return handle_request(s, event);
+//	break;
+
+    case CS_EVENT_EJECTION_COMPLETE:
+	{
+	    const OSSymbol * matchString = OSSymbol::withCString(kIOPCCardEjectCategory);
+	    if (!matchString) break;
+    
+	    IOService * provider = OSDynamicCast(IOService, s->bridge->getProvider());
+	    if (!provider) break;
+    
+	    IOPCCardEjectController * driver = OSDynamicCast(IOPCCardEjectController,
+							    provider->getClientWithCategory(matchString));
+	    matchString->release();
+	    if (!driver) break;
+		
+	    driver->ejectCard();
+	}
 	break;
 	
     default:
@@ -1311,11 +1328,7 @@ IOPCCardBridge::start(IOService * provider)
 	if (!super::start(provider)) break;
 	
 	// set current pm state
-#ifdef CHEETAH_STYLE_PM
-	changePowerStateTo(1);
-#else
 	changePowerStateTo(kIOPCIDeviceOnState);
-#endif
 
 	// Allocate the interruptController instance.
 	interruptController = new IOPCCardInterruptController;
@@ -1430,11 +1443,7 @@ IOPCCardBridge::setBridgePowerState(unsigned long powerState,
 	socket_info_t *s = &socket_table[i];
 	if (s->bridge != this) continue;
 
-#ifdef CHEETAH_STYLE_PM
-	if (powerState) {
-#else
 	if ((powerState == kIOPCIDeviceOnState) || (powerState == 1)) {
-#endif
 	    if (!(s->state & SOCKET_SUSPEND)) return IOPMAckImplied;
 	    s->state &= ~SOCKET_SUSPEND;
 	    
@@ -1446,11 +1455,7 @@ IOPCCardBridge::setBridgePowerState(unsigned long powerState,
 		
 		return 1000000;  // max time to power up in usec
 	    }
-#ifdef CHEETAH_STYLE_PM
-	} else {
-#else
 	} else if (powerState == kIOPCIDeviceOffState) {
-#endif
 	    if (s->state & SOCKET_SUSPEND) return IOPMAckImplied;
 	    s->state |= SOCKET_SUSPEND;
 	    
@@ -1559,6 +1564,24 @@ IOPCCardBridge::ioDeviceMemory(void)
 {
     return getDynamicBridgeIOSpace();
 }
+
+int
+IOPCCardBridge::requestCardEjection(IOService * bridgeDevice)
+{
+    // do we need locking here?
+
+    for (unsigned i = 0; i < sockets; i++) {
+
+	if (socket_table[i].handle &&
+	    socket_table[i].bridge && 
+	    socket_table[i].bridge->getProvider() == bridgeDevice) {
+		
+		return gIOPCCardCommandGate->runCommand((void *)EjectCard, socket_table[i].handle, 0, 0);
+	}
+    }
+    return CS_BAD_ADAPTER;
+}
+
 
 //*****************************************************************************
 //*****************************************************************************

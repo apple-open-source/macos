@@ -45,7 +45,7 @@
 
 #define super IOSCSIPrimaryCommandsDevice
 #define kPowerStatusBufferSize	8
-
+#define kPowerStatusByte		5
 
 //---------------------------------------------------------------------------
 // We have 4 default power states. ACTIVE, IDLE, STANDBY, and SLEEP in order
@@ -95,9 +95,10 @@ IOSCSIMultimediaCommandsDevice::GetNumberOfPowerStateTransitions ( void )
 	// power states, so we just return 0 power state changes. Otherwise,
 	// we return the normal number of power transitions from active state
 	// to sleep state.
-
+	
 	
 	state = HandleGetUserClientExclusivityState ( );
+	
 	if ( state == false )
 	{
 		numTransitions = kMMCPowerStateActive - kMMCPowerStateSleep;
@@ -584,7 +585,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 			{
 				
 				STATUS_LOG ( ( "case kMMCPowerStateActive\n" ) );
-                                
+				
 				if ( fMediaPresent == true )
 				{
 					
@@ -655,10 +656,13 @@ IOSCSIMultimediaCommandsDevice::CheckMediaPresence ( void )
 				
 		if ( TEST_UNIT_READY ( request, 0 ) == true )
 	    {
+	    	
 	    	STATUS_LOG ( ( "sending TUR.\n" ) );
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
+	    	
 		}
+		
 		else
 		{
 			PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckMediaPresence malformed command" ) );
@@ -680,10 +684,13 @@ IOSCSIMultimediaCommandsDevice::CheckMediaPresence ( void )
 					
 					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0  ) == true )
 				    {
+				    	
 				    	STATUS_LOG ( ( "sending REQ_SENSE.\n" ) );
 				    	// The command was successfully built, now send it
 				    	serviceResponse = SendCommand ( request, 0 );
+				    	
 					}
+					
 					else
 					{
 						PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckMediaPresence malformed command" ) );
@@ -865,7 +872,7 @@ IOSCSIMultimediaCommandsDevice::GetCurrentPowerStateOfDrive ( UInt32 * powerStat
 				// According to MMC, the powerStatus byte (6th byte) goes from
 				// high to low, whereas our states go from low to high. Compensate
 				// by subtracting the returned state from the number of power states.
-				*powerState = kMMCNumPowerStates - powerStatus[5];
+				*powerState = kMMCNumPowerStates - powerStatus[kPowerStatusByte];
 				status 		= kIOReturnSuccess;
 				
 			}

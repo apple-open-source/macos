@@ -44,7 +44,7 @@ void AudioPowerObject::free(){
     audioPluginRef->release();
     OSObject::free();
 }
-    
+
 IOReturn AudioPowerObject::setHardwarePowerOn(){
 
     IOReturn result = kIOReturnSuccess;
@@ -86,7 +86,17 @@ bool AudioProj10PowerObject::init(AppleOnboardAudio *pluginRef){
     DEBUG_IOLOG("- AudioProj10PowerObject::init\n");
 }
 
+void AudioProj10PowerObject::setIdlePowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
+	}
+}
 
+void AudioProj10PowerObject::setFullPowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+}
 
 IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
     DEBUG_IOLOG("+ AudioProj10PowerObject::setHardwarePowerOn\n");
@@ -180,7 +190,18 @@ bool AudioProj6PowerObject::init(AppleOnboardAudio *pluginRef){
     DEBUG_IOLOG("- AudioProj6PowerObject::init\n");
 }
 
-								
+void AudioProj6PowerObject::setIdlePowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
+	}
+}
+
+void AudioProj6PowerObject::setFullPowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+}
+
 IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
     IOService *HeathRow = 0;
@@ -271,22 +292,86 @@ IOReturn AudioProj4PowerObject::setHardwarePowerOn(){
 
 OSDefineMetaClassAndStructors(AudioProj8PowerObject, AudioPowerObject)
 
-AudioProj8PowerObject* AudioProj8PowerObject::createAudioProj8PowerObject(AppleOnboardAudio *pluginRef){
+AudioProj8PowerObject* AudioProj8PowerObject::createAudioProj8PowerObject(AppleOnboardAudio *pluginRef)
+{
+    DEBUG_IOLOG("+ myAudioProj8PowerObject::createAudioProj10PowerObject\n");
     AudioProj8PowerObject* myAudioProj8PowerObject=0;
-    
+    myAudioProj8PowerObject = new AudioProj8PowerObject ;
+    if(myAudioProj8PowerObject) 
+    {
+        if(!(myAudioProj8PowerObject->init(pluginRef)))
+        {
+            myAudioProj8PowerObject->release();
+            myAudioProj8PowerObject = 0;
+        }            
+    }
+    DEBUG_IOLOG("- myAudioProj8PowerObject::createAudioProj10PowerObject\n");
     return(myAudioProj8PowerObject);
 }
 								
+bool AudioProj8PowerObject::init(AppleOnboardAudio *pluginRef)
+{
+    DEBUG_IOLOG("+ AudioProj8PowerObject::init\n");
+    return (AudioPowerObject::init(pluginRef));
+    DEBUG_IOLOG("- AudioProj8PowerObject::init\n");
+}
 
-IOReturn AudioProj8PowerObject::setHardwarePowerOff(){
+void AudioProj8PowerObject::setIdlePowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
+	}
+}
+
+void AudioProj8PowerObject::setFullPowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+}
+
+IOReturn AudioProj8PowerObject::setHardwarePowerOff()
+{
     IOReturn result = kIOReturnSuccess;
+    UInt32 progOut;
+    debugIOLog ("+ AudioProj8PowerObject::setHardwarePowerOff\n");
+    
+    // note the difference between this and some of the other setHardwarePowerOff methods
+    // it may be necessary to check for the existance and availability of i2c services before 
+    // asking the driver to execute a state change.  So far this seems to work.
+    if(audioPluginRef) {
+         singleMuteState = audioPluginRef->getMuteState();
+         audioPluginRef->setMuteState(false);
+    }
+    
+    progOut = audioPluginRef->sndHWGetProgOutput();
+    progOut &= ~kSndHWProgOutput0;
+    audioPluginRef->sndHWSetProgOutput(progOut);
+    
+    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
+    audioPluginRef->setDeviceDetectionInActive();
+
+    debugIOLog("- AudioProj8PowerObject::setHardwarePowerOff");
     
     return result;
 }
 	
-IOReturn AudioProj8PowerObject::setHardwarePowerOn(){
+IOReturn AudioProj8PowerObject::setHardwarePowerOn()
+{
+    debugIOLog("+ AudioProj8PowerObject::setHardwarePowerOn\n");
     IOReturn result = kIOReturnSuccess;
+    UInt32 progOut;
     
+    if(audioPluginRef) {
+        progOut = audioPluginRef->sndHWGetProgOutput();
+        progOut |= kSndHWProgOutput0;
+        audioPluginRef->sndHWSetProgOutput(progOut);
+    }
+    
+    if(audioPluginRef) {
+        audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+        audioPluginRef->setDeviceDetectionActive();
+        audioPluginRef->setMuteState(singleMuteState);
+    }
+    debugIOLog("- AudioProj8PowerObject::setHardwarePowerOn\n");
     return result;
 }
 
@@ -316,7 +401,6 @@ bool AudioProj7PowerObject::init(AppleOnboardAudio *pluginRef){
     DEBUG_IOLOG("- AudioProj10PowerObject::init\n");
 }
 
-								
 IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
@@ -384,24 +468,71 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
 OSDefineMetaClassAndStructors(AudioProj14PowerObject, AudioPowerObject)
 
 AudioProj14PowerObject* AudioProj14PowerObject::createAudioProj14PowerObject(AppleOnboardAudio *pluginRef){
-    AudioProj14PowerObject* myAudioProj14PowerObject =0;
+    AudioProj14PowerObject* myAudioProj14PowerObject = NULL;
+
+    DEBUG_IOLOG("+ AudioProj14PowerObject::createAudioProj14PowerObject\n");
+    myAudioProj14PowerObject = new AudioProj14PowerObject;
     
-    return(myAudioProj14PowerObject);
+    if(myAudioProj14PowerObject) {
+        if(!(myAudioProj14PowerObject->init(pluginRef))){
+            myAudioProj14PowerObject->release();
+            myAudioProj14PowerObject = 0;
+        }            
+    }
+    DEBUG_IOLOG("+ AudioProj14PowerObject::createAudioProj14PowerObject\n");
+
+    return (myAudioProj14PowerObject);
 }
-								
+
+bool AudioProj14PowerObject::init(AppleOnboardAudio *pluginRef){
+    DEBUG_IOLOG("+ AudioProj14PowerObject::init\n");
+    return (AudioPowerObject::init(pluginRef));
+    DEBUG_IOLOG("- AudioProj14PowerObject::init\n");
+}
+
+void AudioProj14PowerObject::setIdlePowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
+	}
+}
+
+void AudioProj14PowerObject::setFullPowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+}
+
 IOReturn AudioProj14PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
-    
+
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
+	}
+
     return result;
 }
 
 IOReturn AudioProj14PowerObject::setHardwarePowerOn(){
     IOReturn result = kIOReturnSuccess;
     
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+
     return result;
 }
 
+UInt32 AudioProj14PowerObject::GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState) {
+	UInt32						microSecondsRequired;
 
+	if (kIOAudioDeviceActive == newPowerState && kIOAudioDeviceSleep == oldPowerState) {
+		microSecondsRequired = 2000000;
+	} else {
+		microSecondsRequired = 0;
+	}
+
+	return microSecondsRequired;
+}
     
 
     //for iBook dual USB
@@ -410,19 +541,72 @@ IOReturn AudioProj14PowerObject::setHardwarePowerOn(){
 OSDefineMetaClassAndStructors(AudioProj16PowerObject, AudioPowerObject)
 
 AudioProj16PowerObject* AudioProj16PowerObject::createAudioProj16PowerObject(AppleOnboardAudio *pluginRef){
-    AudioProj16PowerObject* myAudioProj16PowerObject=0;
+    AudioProj16PowerObject* myAudioProj16PowerObject = NULL;
+
+    DEBUG_IOLOG("+ AudioProj16PowerObject::createAudioProj16PowerObject\n");
+    myAudioProj16PowerObject = new AudioProj16PowerObject;
     
-    return(myAudioProj16PowerObject);
+    if(myAudioProj16PowerObject) {
+        if(!(myAudioProj16PowerObject->init(pluginRef))){
+            myAudioProj16PowerObject->release();
+            myAudioProj16PowerObject = 0;
+        }            
+    }
+    DEBUG_IOLOG("+ AudioProj16PowerObject::createAudioProj16PowerObject\n");
+
+    return (myAudioProj16PowerObject);
 }
-								
+
+bool AudioProj16PowerObject::init(AppleOnboardAudio *pluginRef){
+    DEBUG_IOLOG("+ AudioProj16PowerObject::init\n");
+    return (AudioPowerObject::init(pluginRef));
+    DEBUG_IOLOG("- AudioProj16PowerObject::init\n");
+}
+
+Boolean AudioProj16PowerObject::wantsIdleCalls (void) {
+	return TRUE;
+}
+
+void AudioProj16PowerObject::setIdlePowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceIdle);
+	}
+}
+
+void AudioProj16PowerObject::setFullPowerState (void) {
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+}
+
 IOReturn AudioProj16PowerObject::setHardwarePowerOff(){
     IOReturn result = kIOReturnSuccess;
-    
+
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
+	}
+
     return result;
 }
 
 IOReturn AudioProj16PowerObject::setHardwarePowerOn(){
     IOReturn result = kIOReturnSuccess;
     
+    if(audioPluginRef) {
+	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
+	}
+
     return result;
+}
+
+UInt32 AudioProj16PowerObject::GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState) {
+	UInt32						microSecondsRequired;
+
+	if (kIOAudioDeviceActive == newPowerState && kIOAudioDeviceSleep == oldPowerState) {
+		microSecondsRequired = 2000000;
+	} else {
+		microSecondsRequired = 0;
+	}
+
+	return microSecondsRequired;
 }

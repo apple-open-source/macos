@@ -50,8 +50,6 @@ OSMetaClassDefineReservedUnused(IOFWLocalIsochPort, 1);
 
 bool IOFWLocalIsochPort::init(IODCLProgram *program, IOFireWireController *control)
 {
-//	IOLog("+IOFWLocalIsochPort::init: this=0x%08lX, program=0x%08lX\n", this, program) ;
-
     if(!IOFWIsochPort::init())
 	return false;
     fProgram = program; // belongs to us.
@@ -90,9 +88,7 @@ IOReturn IOFWLocalIsochPort::allocatePort(IOFWSpeed speed, UInt32 chan)
     if(kIOReturnSuccess != res)
 		return res; 
 		
-//	IOLog("IOFWLocalIsochPort::allocatePort: this=0x%08lX, fProgram=0x%08lX, speed=%u, chan=%u\n", this, fProgram, speed, chan) ;
     return fProgram->compile(speed, chan);	// Not on workloop
-//	return kIOReturnError ;
 }
 
 IOReturn IOFWLocalIsochPort::releasePort()

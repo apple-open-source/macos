@@ -262,6 +262,7 @@ ni_relsearch(
 	}
 	unescape(&key);
 	unescape(&val);
+	NI_INIT(&idl);
 	status = ni_lookup(ni, id, key, val, &idl);
 	if (status != NI_OK) {
 	  	ni_name_free(&key);

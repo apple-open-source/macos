@@ -308,7 +308,11 @@ enum
     kCSRChannelsAvailable63_32		= kCSRRegisterSpaceBaseAddressLo + 0x0228,
     kConfigROMBaseAddress		= kCSRRegisterSpaceBaseAddressLo + 0x0400,
     kConfigBIBHeaderAddress		= kConfigROMBaseAddress,
-    kConfigBIBBusNameAddress		= kConfigROMBaseAddress + 4
+    kConfigBIBBusNameAddress		= kConfigROMBaseAddress + 4,
+    
+    kPCRBaseAddress				= kCSRRegisterSpaceBaseAddressLo + 0x900,
+    kFCPCommandAddress			= kCSRRegisterSpaceBaseAddressLo + 0xb00,
+    kFCPResponseAddress			= kCSRRegisterSpaceBaseAddressLo + 0xd00
 };
 
 
@@ -346,7 +350,7 @@ enum
 
 	kFWLocalBusID				= 1023,
 	kFWBroadcastNodeID			= 63,
-        kFWBadNodeID				= 0xffff,
+    kFWBadNodeID				= 0xffff,
 
 	kFWLocalBusAddress			= kFWLocalBusID << kFWAddressBusIDPhase,
 	kFWBroadcastAddress			= kFWBroadcastNodeID << kFWAddressNodeIDPhase
@@ -589,29 +593,6 @@ enum
 	kFWExtendedTCodeBoundedAdd	= 5,
 	kFWExtendedTCodeWrapAdd		= 6,
 	kFWExtendedTCodeVendorDependent	= 7
-};
-
-enum
-{
-	kFWResponseComplete		= 0,	// OK!
-	kFWResponseConflictError	= 4,	// Resource conflict, may retry
-	kFWResponseDataError		= 5,	// Data not available
-	kFWResponseTypeError		= 6,	// Operation not supported
-	kFWResponseAddressError		= 7,	// Address not valid in target device
-        kFWResponseBusResetError	= 16,	// Pseudo response generated locally
-        kFWResponsePending		= 17	// Pseudo response, real response sent later.
-};
-
-enum
-{
-        kFWAckTimeout			= -1,	// Pseudo ack generated locally
-	kFWAckComplete			= 1,
-	kFWAckPending			= 2,
-	kFWAckBusyX			= 4,
-	kFWAckBusyA			= 5,
-	kFWAckBusyB			= 6,
-	kFWAckDataError			= 13,
-	kFWAckTypeError			= 14
 };
 
 

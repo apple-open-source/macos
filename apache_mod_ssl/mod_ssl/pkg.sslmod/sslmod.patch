@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslmod.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 20-May-2001
+## Created on: 16-Oct-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -29,8 +29,8 @@
 | extra --activate-module=ssl is required.
 +---------------------------------------------------------------------------
 Index: src/Configuration.tmpl
---- src/Configuration.tmpl	1999/08/17 11:21:38	1.1.1.5
-+++ src/Configuration.tmpl	2000/10/09 12:15:02	1.21
+--- src/Configuration.tmpl	2001/10/16 11:47:06	1.1.1.6
++++ src/Configuration.tmpl	2001/10/16 11:57:38	1.22
 @@ -26,6 +26,43 @@
  # not enabled).  The AddModule directive can be used to enable such a
  # module.  By default no such modules are defined.
@@ -75,7 +75,7 @@ Index: src/Configuration.tmpl
  
  ################################################################
  # Makefile configuration
-@@ -435,4 +495,10 @@
+@@ -442,4 +502,10 @@
  ## should be the last (highest priority) module.
  
  AddModule modules/standard/mod_setenvif.o

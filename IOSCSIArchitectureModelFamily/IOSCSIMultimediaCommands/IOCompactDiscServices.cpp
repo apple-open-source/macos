@@ -251,9 +251,10 @@ IOReturn
 IOCompactDiscServices::setProperties ( OSObject * properties )
 {
 	
-	IOReturn		status 		= kIOReturnSuccess;
-	OSDictionary *	dict 		= OSDynamicCast ( OSDictionary, properties );
-	UInt8			trayState	= 0xFF;
+	IOReturn		status 				= kIOReturnSuccess;
+	OSDictionary *	dict 				= OSDynamicCast ( OSDictionary, properties );
+	UInt8			trayState			= 0xFF;
+	Boolean			userClientActive	= false;
 	
 	STATUS_LOG ( ( "IOCompactDiscServices: setProperties called\n" ) );
 	
@@ -265,12 +266,34 @@ IOCompactDiscServices::setProperties ( OSObject * properties )
 	if ( dict->getObject ( "TrayState" ) != NULL )
 	{
 		
-		STATUS_LOG ( ( "IOCompactDiscServices: setProperties TrayState\n" ) );
-		status = fProvider->GetTrayState ( &trayState );
-		if ( status == kIOReturnSuccess )
+		userClientActive = fProvider->GetUserClientExclusivityState ( );
+		if ( userClientActive == false )
+		{
+		
+			fProvider->CheckPowerState ( );
+			
+			STATUS_LOG ( ( "IOCompactDiscServices: setProperties TrayState\n" ) );
+			status = fProvider->GetTrayState ( &trayState );
+			
+			STATUS_LOG ( ( "GetTrayState returned status = 0x%08x, trayState = %d\n",
+							status, trayState ) );
+			
+			if ( status == kIOReturnSuccess )
+			{
+				
+				status = fProvider->SetTrayState ( !trayState );
+				STATUS_LOG ( ( "SetTrayState returned status = 0x%08x\n",
+							status ) );
+				
+			}
+			
+		}
+		
+		else
 		{
 			
-			status = fProvider->SetTrayState ( !trayState );
+			// The user client is active, reject this call.
+			status = kIOReturnExclusiveAccess;
 			
 		}
 		
@@ -278,7 +301,10 @@ IOCompactDiscServices::setProperties ( OSObject * properties )
 	
 	else
 	{
+		
+		// Wasn't a "TrayState" call...
 		status = kIOReturnBadArgument;
+		
 	}
 	
 	STATUS_LOG ( ( "IOCompactDiscServices: leave setProperties\n" ) );

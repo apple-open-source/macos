@@ -171,10 +171,106 @@ IOReturn clipAppleDBDMAToOutputStream(const void *mixBuf, void *sampleBuf, UInt3
         if (inSample >= 0) {
                 outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
         } else {
-                outputBuf[sampleIndex] = (SInt16) (inSample * 32768.0);
+                outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
         }
     }*/
 
+    return kIOReturnSuccess;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Clip the data and invert the right channel
+// This makes the iMac's speakers back in phase
+IOReturn clipAppleDBDMAToOutputStreamInvertRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+{
+    UInt32 		sampleIndex, maxSampleIndex;
+    float *		floatMixBuf;
+    SInt16 *	outputBuf;
+    Boolean 	isTwoChannel;
+    
+    floatMixBuf = (float *)mixBuf;
+    outputBuf = (SInt16 *)sampleBuf;
+  
+    maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
+    isTwoChannel = (2 == streamFormat->fNumChannels); // save a register indirection in a tight loop
+    
+    for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) 
+    {
+        float inSample;
+        
+        inSample = floatMixBuf[sampleIndex];
+        
+        if (inSample > 1.0) 
+        {
+            inSample = 1.0;
+        }
+        else if (inSample < -1.0) 
+        {
+            inSample = -1.0;
+        }
+        
+        
+        if (inSample >= 0) 
+        {
+            outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
+        } 
+        else 
+        {
+            outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
+        }
+            
+        // if right channel invert it
+        if (isTwoChannel && sampleIndex % 2)
+        {
+             outputBuf[sampleIndex] ^= (SInt16)0xFFFFFFFF;
+        }
+    }
+    
+    return kIOReturnSuccess;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Clip the data, mix the right channel to the left, and mute the right channel
+IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+{
+    UInt32 		sampleIndex, maxSampleIndex;
+    float *		floatMixBuf;
+    SInt16 *	outputBuf;
+    
+    floatMixBuf = (float *)mixBuf;
+    outputBuf = (SInt16 *)sampleBuf;
+  
+    maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
+    
+    for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex += 2) 
+    {
+        float inSample;
+        
+		// Mix the left sample with the right sample
+        inSample = floatMixBuf[sampleIndex] + floatMixBuf[sampleIndex + 1];
+		
+        if (inSample > 1.0) 
+        {
+            inSample = 1.0;
+        }
+        else if (inSample < -1.0) 
+        {
+            inSample = -1.0;
+        }
+        
+		if (inSample >= 0) 
+		{
+			outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
+		} 
+		else 
+		{
+			outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
+		}
+
+		// Mute the right channel
+		outputBuf[sampleIndex + 1] = 0;
+    }
+    
     return kIOReturnSuccess;
 }
 
@@ -189,7 +285,68 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
 
     floatMixBuf = (float *)mixBuf;
     outputBuf = (SInt16 *)sampleBuf;
+ 
+    maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
 
+	// Filter out the highs and lows for use with the iSub
+	if (1 == streamFormat->fNumChannels) {
+		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+	} else if (2 == streamFormat->fNumChannels) {
+		StereoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState);
+	}
+
+	for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+		highSample = high[sampleIndex];
+		if (highSample > 1.0) {
+			highSample = 1.0;
+		} else if (highSample < -1.0) {
+			highSample = -1.0;
+		}
+
+		if (highSample >= 0) { 
+			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+		} else {
+			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+		}
+
+		iSubSampleFloat = low[sampleIndex];
+		if (iSubSampleFloat > 1.0) {
+			iSubSampleFloat = 1.0;
+		} else if (iSubSampleFloat < -1.0) {
+			iSubSampleFloat = -1.0;
+		}
+
+		if (iSubSampleFloat >= 0) {
+			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+		} else {
+			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+		}
+
+		if (*iSubBufferOffset >= iSubBufferLen) {
+			*iSubBufferOffset = 0;
+			(*loopCount)++;
+		}
+
+		iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+	}
+
+    return kIOReturnSuccess;
+}
+
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen)
+{
+    UInt32 sampleIndex, maxSampleIndex;
+    float *floatMixBuf;
+    SInt16 *outputBuf;
+	float highSample;
+	Float32	iSubSampleFloat;
+	SInt16	iSubSampleInt;
+    register Boolean isTwoChannel;
+    floatMixBuf = (float *)mixBuf;
+    outputBuf = (SInt16 *)sampleBuf;
+    
+    isTwoChannel = (2 == streamFormat->fNumChannels); // save a register indirection in a tight loop
+    
 	maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
 
 	// Filter out the highs and lows for use with the iSub
@@ -210,8 +367,14 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
 		if (highSample >= 0) { 
 			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
 		} else {
-			outputBuf[sampleIndex] = (SInt16) (highSample * 32768.0);
+			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
 		}
+        
+        // if right channel then invert it
+        if (isTwoChannel && sampleIndex % 2)
+        {
+             outputBuf[sampleIndex] ^= (SInt16)0xFFFFFFFF;
+        }
 
 		iSubSampleFloat = low[sampleIndex];
 		if (iSubSampleFloat > 1.0) {
@@ -223,7 +386,71 @@ IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, P
 		if (iSubSampleFloat >= 0) {
 			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 		} else {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32768.0);
+			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+		}
+
+		if (*iSubBufferOffset >= iSubBufferLen) {
+			*iSubBufferOffset = 0;
+			(*loopCount)++;
+		}
+
+		iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+	}
+
+    return kIOReturnSuccess;
+}
+
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen)
+{
+    UInt32 sampleIndex, maxSampleIndex;
+    float *floatMixBuf;
+    SInt16 *outputBuf;
+	float highSample;
+	Float32	iSubSampleFloat;
+	SInt16	iSubSampleInt;
+    floatMixBuf = (float *)mixBuf;
+    outputBuf = (SInt16 *)sampleBuf;
+    
+	maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
+
+	// Filter out the highs and lows for use with the iSub
+	if (1 == streamFormat->fNumChannels) {
+		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+	} else if (2 == streamFormat->fNumChannels) {
+		StereoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState);
+	}
+
+	for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+		// Mix the left and right channels together
+		highSample = high[sampleIndex] + high[sampleIndex + 1];
+		if (highSample > 1.0) {
+			highSample = 1.0;
+		} else if (highSample < -1.0) {
+			highSample = -1.0;
+		}
+
+		// Mute right channel
+        if (sampleIndex % 2) {
+			outputBuf[sampleIndex] = 0;
+		} else {
+			if (highSample >= 0) { 
+				outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+			} else {
+				outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+			}
+		}
+        
+		iSubSampleFloat = low[sampleIndex];
+		if (iSubSampleFloat > 1.0) {
+			iSubSampleFloat = 1.0;
+		} else if (iSubSampleFloat < -1.0) {
+			iSubSampleFloat = -1.0;
+		}
+
+		if (iSubSampleFloat >= 0) {
+			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+		} else {
+			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 		}
 
 		if (*iSubBufferOffset >= iSubBufferLen) {
@@ -256,7 +483,7 @@ IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, 
         if (inputSample >= 0) {
             *floatDestBuf = inputSample / 32767.0;
         } else {
-            *floatDestBuf = inputSample / 32768.0;
+            *floatDestBuf = inputSample / 32767.0;
         }
                 
         ++inputBuf;

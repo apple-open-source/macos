@@ -3,14 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 33;
+	objectVersion = 34;
 	objects = {
 		013905A7FFB1ECE711CA2B4D = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -85,14 +85,6 @@
 				);
 			};
 		};
-		016FA20EFFB1F76211CA2B4D = {
-			fileRef = 016FA202FFB1F76211CA2B4D;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		016FA20FFFB1F76211CA2B4D = {
 			fileRef = 016FA203FFB1F76211CA2B4D;
 			isa = PBXBuildFile;
@@ -157,8 +149,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
-				MODULE_VERSION = 1.1;
-				OPTIMIZATION_CFLAGS = "";
+				MODULE_VERSION = 1.1.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -193,11 +184,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI Matching</key>
@@ -215,6 +206,12 @@
 			</array>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
+			<key>RxRingElements: 32,64,128,256,512,1024,2048,4096,8192</key>
+			<integer>64</integer>
+			<key>TxPacketQueueSize</key>
+			<integer>256</integer>
+			<key>TxRingElements: 32,64,128,256,512,1024,2048,4096,8192</key>
+			<integer>256</integer>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
@@ -261,7 +258,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				016FA20DFFB1F76211CA2B4D,
-				016FA20EFFB1F76211CA2B4D,
 				016FA20FFFB1F76211CA2B4D,
 				016FA211FFB1F76211CA2B4D,
 				175EBB21FFB2331C11CA2B4D,

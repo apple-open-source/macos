@@ -41,12 +41,12 @@
 #include <IOKit/firewire/IOFWAddressSpace.h>
 #include <IOKit/firewire/IOFireWireLink.h>
 
-#include <IOKit/firewire/IOFWUserClientPsdoAddrSpace.h>
-#include <IOKit/firewire/IOFWUserClientPhysAddrSpace.h>
-#include <IOKit/firewire/IOFWUserCommand.h>
-#include <IOKit/firewire/IOFireWireUserClient.h>
-#include <IOKit/firewire/IOFWUserIsochPort.h>
-#include <IOKit/firewire/IOFWUserIsochChannel.h>
+#include "IOFWUserClientPsdoAddrSpace.h"
+#include "IOFWUserClientPhysAddrSpace.h"
+#include "IOFWUserCommand.h"
+#include "IOFireWireUserClient.h"
+#include "IOFWUserIsochPort.h"
+#include "IOFWUserIsochChannel.h"
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
@@ -133,7 +133,15 @@ IOFireWireUserClient::start( IOService * provider )
 		if (result)
 			result = (NULL != (fUserUnitDirectories = OSSet::withCapacity(0)) ) ;
 
-		if (!result)
+		#ifdef IOFIREWIREUSERCLIENTDEBUG
+		if ( result )
+			result = (NULL != (fStatistics = new IOFireWireUserClientStatistics ) ) ;
+		
+		if ( result )
+			result = ( NULL != ( fStatistics->dict = OSDictionary::withCapacity(4)) ) ;
+		#endif
+		
+/*		if (!result)
 		{
 			if (fUserPseudoAddrSpaces)
 				fUserPseudoAddrSpaces->release() ;
@@ -147,13 +155,219 @@ IOFireWireUserClient::start( IOService * provider )
 				fUserCommandObjects->release() ;
 			if (fUserUnitDirectories)
 				fUserUnitDirectories->release() ;
-		}
+
+			#ifdef IOFIREWIREUSERCLIENTDEBUG
+			if ( fStatistics->dict )
+				fStatistics->dict->release() ;
+			if ( fStatistics )
+				delete fStatistics ;
+			#endif
+		} */
 
 		IOLockUnlock(fSetLock) ;
 	}
 	
-
+	#ifdef IOFIREWIREUSERCLIENTDEBUG
+	if ( result )
+	{
+		result = ( NULL != ( fStatistics->isochCallbacks = OSNumber::withNumber( (long long unsigned int) 0, 64 ) ) ) ;
+		
+		if ( result )
+			result = ( NULL != (fStatistics->pseudoAddressSpaces = OSSet::withCapacity( 10 ) ) ) ;
+		
+		if ( result && setProperty( "Statistics", fStatistics->dict ) )
+		{
+			fStatistics->dict->setObject( "isoch-callbacks", fStatistics->isochCallbacks ) ;
+			fStatistics->dict->setObject( "pseudo-addr-spaces", fStatistics->pseudoAddressSpaces ) ;
+		}
+	}
+	#endif
+	
     return result ;
+}
+
+void
+IOFireWireUserClient::deallocateSets()
+{
+	IOLockLock(fSetLock) ;
+
+	#if IOFIREWIREUSERCLIENTDEBUG > 0
+	if ( fStatistics )
+	{
+		if ( fStatistics->dict )
+			fStatistics->dict->release() ;
+		
+		if ( fStatistics->isochCallbacks )
+			fStatistics->isochCallbacks->release() ;
+		
+		if ( fStatistics->pseudoAddressSpaces )
+			fStatistics->pseudoAddressSpaces->release() ;		
+	}
+	
+	delete fStatistics ;
+
+	#endif
+	
+	OSCollectionIterator* 	iterator ;
+	IOReturn				err		= kIOReturnSuccess ;
+
+	if ( fUserPseudoAddrSpaces )
+	{
+		iterator	= OSCollectionIterator::withCollection( fUserPseudoAddrSpaces )  ;
+		
+		if ( !iterator )
+			IOLog("%s %u: Couldn't get iterator to clean up pseudo address spaces\n", __FILE__, __LINE__) ;
+		else
+		{
+			IOFWUserClientPseudoAddrSpace*	addrSpace ;
+			while ( NULL != (addrSpace = OSDynamicCast( IOFWUserClientPseudoAddrSpace, iterator->getNextObject() ) ) )
+				addrSpace->deactivate() ;
+			
+			iterator->release() ;
+		}
+		
+		fUserPseudoAddrSpaces->release() ;
+	}
+	
+	if (fUserPhysicalAddrSpaces)
+	{
+		iterator	= OSCollectionIterator::withCollection( fUserPhysicalAddrSpaces )  ;
+		
+		if ( !iterator )
+			IOLog("%s %u: Couldn't get iterator to clean up physical address spaces\n", __FILE__, __LINE__) ;
+		else
+		{
+			IOFWUserClientPhysicalAddressSpace*	physAddrSpace ;
+			while ( NULL != (physAddrSpace = OSDynamicCast( IOFWUserClientPhysicalAddressSpace, iterator->getNextObject() ) ) )
+				physAddrSpace->deactivate() ;
+			
+			iterator->release() ;
+		}
+		
+		fUserPhysicalAddrSpaces->release() ;
+	}
+	
+	if (fUserIsochChannels)
+	{
+		iterator	= OSCollectionIterator::withCollection(fUserIsochChannels) ;
+		err			= kIOReturnSuccess ;
+
+		if (!iterator)
+			IOLog("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release channels!\n") ;
+		else
+		{
+			IOFWUserIsochChannel*	channel ;
+			while (NULL != (channel = OSDynamicCast(IOFWUserIsochChannel, iterator->getNextObject()) ))
+			{
+				err = channel->userReleaseChannelComplete() ;
+				if ( err )
+					IOLog("IOFireWireUserClient::clientClose: channel->userReleaseChannelComplete failed with error 0x%08lX\n", (UInt32) err) ;
+			}
+
+			iterator->release() ;
+		}
+
+		fUserIsochChannels->flushCollection() ;
+		fUserIsochChannels->release() ;
+	}
+	
+	if (fUserIsochPorts)
+	{
+		iterator	= OSCollectionIterator::withCollection(fUserIsochPorts) ;
+		err			= kIOReturnSuccess ;
+
+		if (!iterator)
+			IOLog("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release ports!\n") ;
+		else
+		{
+			IOFWUserIsochPortProxy*		portProxy ;
+			while (NULL != (portProxy = OSDynamicCast(IOFWUserIsochPortProxy, iterator->getNextObject()) ))
+			{
+				err = portProxy->stop() ;
+				if ( err )
+					IOLog("IOFireWireUserClient::clientClose: port->stop() failed with error 0x%08lX\n", (UInt32) err) ;
+				else
+				{
+					err = portProxy->releasePort() ;
+					if ( err )
+						IOLog("IOFireWireUserClient::clientClose: port->releaseChannel() failed with error 0x%08lX\n", (UInt32) err) ;
+				}
+			}
+			
+			iterator->release() ;
+		}
+
+		fUserIsochPorts->flushCollection() ;
+		fUserIsochPorts->release() ;
+	}
+	
+	if (fUserCommandObjects)
+	{
+		fUserCommandObjects->flushCollection() ;
+		fUserCommandObjects->release() ;	// should we find a way to cancel these or wait for them to complete?
+	}
+	
+	if (fUserUnitDirectories)
+	{
+		iterator	= OSCollectionIterator::withCollection(fUserUnitDirectories) ;
+		err		= kIOReturnSuccess ;
+
+		if (!iterator)
+		{
+			IOFireWireUserClientLogIfNil_(iterator, ("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release ports!\n")) ;
+		}
+		else
+		{
+			IOLocalConfigDirectory*		configDir ;
+			while (NULL != (configDir = OSDynamicCast(IOLocalConfigDirectory, iterator->getNextObject()) ))
+			{
+				err = fOwner->getController()->RemoveUnitDirectory(configDir) ;
+				if ( err )
+					IOLog("IOFireWireUserClient::clientClose: port->stop() failed with error 0x%08lX\n", (UInt32) err) ;
+			}
+			
+			iterator->release() ;
+		}
+
+		fUserUnitDirectories->flushCollection() ;
+		fUserUnitDirectories->release() ;
+	}
+	
+	IOLockUnlock(fSetLock) ;
+}
+
+void
+IOFireWireUserClient::free()
+{
+	IOLockFree(fSetLock) ;	
+	
+	IOUserClient::free() ;
+}
+
+IOReturn
+IOFireWireUserClient::clientClose()
+{
+	deallocateSets() ;
+
+	IOReturn	result = userClose() ;
+
+	if ( result == kIOReturnSuccess )
+		IOLog("IOFireWireUserClient::clientClose(): client left user client open, should call close. Closing...\n") ;
+	else if ( result == kIOReturnNotOpen )
+		result = kIOReturnSuccess ;
+
+	if ( !terminate() )
+		IOLog("IOFireWireUserClient::clientClose: terminate failed!, fOwner->isOpen(this) returned %u\n", fOwner->isOpen(this)) ;
+
+    return kIOReturnSuccess;
+}
+
+IOReturn
+IOFireWireUserClient::clientDied( void )
+{
+	IOFireWireUserClientLog_(("+IOFireWireUserClient::clientDied: retain=%u\n", getRetainCount() )) ;
+
+    return( clientClose() );
 }
 
 #pragma mark -
@@ -390,7 +604,7 @@ IOFireWireUserClient::initMethodTable()
 	fMethods[kFWPseudoAddrSpace_Release].func		= (IOMethod) & IOFireWireUserClient::releaseAddressSpace ;
 	fMethods[kFWPseudoAddrSpace_Release].count0		= 1 ;
 	fMethods[kFWPseudoAddrSpace_Release].count1		= 0 ;
-	fMethods[kFWPseudoAddrSpace_Release].flags		= kIOUCStructIStructO ;
+	fMethods[kFWPseudoAddrSpace_Release].flags		= kIOUCScalarIScalarO ;
 	
 	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].object	= this ;
 	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].func 	= (IOMethod) & IOFireWireUserClient::getPseudoAddressSpaceInfo ;
@@ -400,7 +614,7 @@ IOFireWireUserClient::initMethodTable()
 	
 	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].object	= this ;
 	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].func	= (IOMethod) & IOFireWireUserClient::clientCommandIsComplete ;
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].count0	= 2 ;
+	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].count0	= 3 ;
 	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].count1	= 0 ;
 	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].flags	= kIOUCScalarIScalarO ;
 	
@@ -619,12 +833,6 @@ IOFireWireUserClient::initAsyncMethodTable()
 	fAsyncMethods[kFWSetAsyncRef_BusResetDone].count1	= 0 ;
 	fAsyncMethods[kFWSetAsyncRef_BusResetDone].flags	= kIOUCScalarIScalarO ;
 
-/*	fAsyncMethods[kFireWireRunDCL].object					= this;
-	fAsyncMethods[kFireWireRunDCL].func						= (IOAsyncMethod)&IOFireWireUserClient::runDCL;
-	fAsyncMethods[kFireWireRunDCL].count0 					= 1;
-	fAsyncMethods[kFireWireRunDCL].count1 					= 0;
-	fAsyncMethods[kFireWireRunDCL].flags 					= kIOUCScalarIScalarO;*/
-
 	fAsyncMethods[kFWSetAsyncRef_Packet].object				= this ;
 	fAsyncMethods[kFWSetAsyncRef_Packet].func				= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_Packet ;
 	fAsyncMethods[kFWSetAsyncRef_Packet].count0				= 3 ;
@@ -643,122 +851,21 @@ IOFireWireUserClient::initAsyncMethodTable()
 	fAsyncMethods[kFWSetAsyncRef_Read].count1				= 0 ;
 	fAsyncMethods[kFWSetAsyncRef_Read].flags				= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWCommand_Submit].object					= this ;
-	fAsyncMethods[kFWCommand_Submit].func					= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_Submit ;
-	fAsyncMethods[kFWCommand_Submit].count0					= 0xFFFFFFFF ;	// variable
-	fAsyncMethods[kFWCommand_Submit].count1					= 0xFFFFFFFF ;
-	fAsyncMethods[kFWCommand_Submit].flags					= kIOUCStructIStructO ;
+	fAsyncMethods[kFWCommand_Submit].object				= this ;
+	fAsyncMethods[kFWCommand_Submit].func				= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_Submit ;
+	fAsyncMethods[kFWCommand_Submit].count0				= 0xFFFFFFFF ;	// variable
+	fAsyncMethods[kFWCommand_Submit].count1				= 0xFFFFFFFF ;
+	fAsyncMethods[kFWCommand_Submit].flags				= kIOUCStructIStructO ;
 
-	fAsyncMethods[kFWCommand_SubmitAbsolute].object			= this ;
-	fAsyncMethods[kFWCommand_SubmitAbsolute].func			= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_SubmitAbsolute ;
-	fAsyncMethods[kFWCommand_SubmitAbsolute].count0			= 0xFFFFFFFF ; // variable
-	fAsyncMethods[kFWCommand_SubmitAbsolute].count1			= 0xFFFFFFFF ;
-	fAsyncMethods[kFWCommand_SubmitAbsolute].flags			= kIOUCStructIStructO ;
-	
+	fAsyncMethods[kFWCommand_SubmitAbsolute].object		= this ;
+	fAsyncMethods[kFWCommand_SubmitAbsolute].func		= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_SubmitAbsolute ;
+	fAsyncMethods[kFWCommand_SubmitAbsolute].count0		= 0xFFFFFFFF ; // variable
+	fAsyncMethods[kFWCommand_SubmitAbsolute].count1		= 0xFFFFFFFF ;
+	fAsyncMethods[kFWCommand_SubmitAbsolute].flags		= kIOUCStructIStructO ;
+
 }
 
-IOReturn IOFireWireUserClient::clientClose( void )
-{
-	// check if user left any allocated address spaces, etc...
-	// "it's a dirty job, but someone has got to clean up this mess!!"
-	IOLockLock(fSetLock) ;
 
-	if (fUserPseudoAddrSpaces)
-		fUserPseudoAddrSpaces->release() ;
-
-	if (fUserPhysicalAddrSpaces)
-		fUserPhysicalAddrSpaces->release() ;
-	
-	OSCollectionIterator* 	iterator ;
-	IOReturn				result		= kIOReturnSuccess ;
-
-	if (fUserIsochChannels)
-	{
-		iterator	= OSCollectionIterator::withCollection(fUserIsochChannels) ;
-		result		= kIOReturnSuccess ;
-
-		if (!iterator)
-			IOLog("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release channels!\n") ;
-		else
-		{
-			IOFWUserIsochChannel*	channel ;
-			while (NULL != (channel = OSDynamicCast(IOFWUserIsochChannel, iterator->getNextObject()) ))
-			{
-				if (kIOReturnSuccess != (result = channel->userReleaseChannelComplete()) )
-					IOLog("IOFireWireUserClient::clientClose: channel->userReleaseChannelComplete failed with error 0x%08lX\n", (UInt32) result) ;
-			}
-
-			iterator->release() ;
-		}
-
-		fUserIsochChannels->release() ;
-	}
-	
-	if (fUserIsochPorts)
-	{
-		iterator	= OSCollectionIterator::withCollection(fUserIsochPorts) ;
-		result		= kIOReturnSuccess ;
-
-		if (!iterator)
-			IOLog("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release ports!\n") ;
-		else
-		{
-			IOFWUserIsochPortProxy*		portProxy ;
-			while (NULL != (portProxy = OSDynamicCast(IOFWUserIsochPortProxy, iterator->getNextObject()) ))
-			{
-//				IOLog("IOFireWireUserclient::clientClose: stopping port 0x%08lX\n", portProxy) ;
-				
-				if (kIOReturnSuccess != (result = portProxy->stop()) )
-					IOLog("IOFireWireUserClient::clientClose: port->stop() failed with error 0x%08lX\n", (UInt32) result) ;
-				else
-					if (kIOReturnSuccess != (result = portProxy->releasePort()) )
-						IOLog("IOFireWireUserClient::clientClose: port->releaseChannel() failed with error 0x%08lX\n", (UInt32) result) ;
-			}
-			
-			iterator->release() ;
-		}
-
-		fUserIsochPorts->release() ;
-	}
-	
-	if (fUserCommandObjects)
-		fUserCommandObjects->release() ;	// should we find a way to cancel these or wait for them to complete?
-	
-	if (fUserUnitDirectories)
-	{
-		iterator	= OSCollectionIterator::withCollection(fUserUnitDirectories) ;
-		result		= kIOReturnSuccess ;
-
-		if (!iterator)
-			IOFireWireUserClientLogIfNil_(iterator, ("IOFireWireUserClient::clientClose: Couldn't get iterator to stop and release ports!\n")) ;
-		else
-		{
-			IOLocalConfigDirectory*		configDir ;
-			while (NULL != (configDir = OSDynamicCast(IOLocalConfigDirectory, iterator->getNextObject()) ))
-			{
-				
-				if (kIOReturnSuccess != (result = fOwner->getController()->RemoveUnitDirectory(configDir)) )
-					IOLog("IOFireWireUserClient::clientClose: port->stop() failed with error 0x%08lX\n", (UInt32) result) ;
-			}
-			
-			iterator->release() ;
-		}
-
-		fUserUnitDirectories->release() ;
-	}
-	
-	IOLockUnlock(fSetLock) ;
-	IOLockFree(fSetLock) ;
-	
-	terminate() ;
-
-    return kIOReturnSuccess;
-}
-
-IOReturn IOFireWireUserClient::clientDied( void )
-{
-    return( clientClose() );
-}
 
 IOExternalMethod* 
 IOFireWireUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
@@ -794,22 +901,7 @@ IOFireWireUserClient::registerNotificationPort(
 	fNotificationPort = port ;
 	fNotificationRefCon = refCon ;
 
-
     return( kIOReturnUnsupported);
-}
-
-IOReturn
-IOFireWireUserClient::interestHandler(
-	void*					target,
-	void* 					refCon,
-	UInt32					messageType,
-	IOService*				provider,
-	void*					messageArgument,
-	vm_size_t				argSize )
-{
-	IOLog("IOFireWireUserClient::interestHandler called") ;
-
-	return kIOReturnSuccess ;
 }
 
 IOReturn
@@ -818,18 +910,13 @@ IOFireWireUserClient::userOpen()
 
 	IOReturn result = kIOReturnSuccess ;		
 	
-	if (fOwner->isOpen())
-		result = kIOReturnExclusiveAccess ;
-	else
+	if (fOwner->open(this))
 	{
-		if (fOwner->open(this))
-		{
-			fOpenClient = this ;
-			result = kIOReturnSuccess ;
-		}
-		else
-			result = kIOReturnExclusiveAccess ;
+		fOpenClient = this ;
+		result = kIOReturnSuccess ;
 	}
+	else
+		result = kIOReturnExclusiveAccess ;
 
 	return result ;
 }
@@ -860,6 +947,8 @@ IOFireWireUserClient::userOpenWithSessionRef(IOService*	sessionRef)
 			}
 		}
 	}
+	else
+		result = kIOReturnNotOpen ;
 		
 	return result ;
 }
@@ -869,7 +958,7 @@ IOFireWireUserClient::userClose()
 {
 	IOReturn result = kIOReturnSuccess ;
 	
-	if (!fOwner->isOpen())
+	if (!fOwner->isOpen( this ))
 		result = kIOReturnNotOpen ;
 	else
 	{
@@ -896,9 +985,8 @@ IOFireWireUserClient::readQuad(UInt64 addr, UInt32 failOnReset, UInt32 generatio
 		}
 		cmd->setGeneration(generation) ;
 
-        res = cmd->submit();
+        res = cmd->submit();        // We block here until the command finishes
 
-        // We block here until the command finishes
         if(kIOReturnSuccess == res)
             res = cmd->getStatus();
 
@@ -965,7 +1053,8 @@ IOFireWireUserClient::read(
 		}
 		cmd->setGeneration(inParams->generation) ;
 
-		mem->prepare() ;
+		if ( kIOReturnSuccess != mem->prepare() )
+			IOLog("%s %u: prepare failed\n", __FILE__, __LINE__) ;
         res = cmd->submit();
 		mem->complete() ;
 
@@ -1011,7 +1100,8 @@ IOFireWireUserClient::readAbsolute(
 
 		cmd->setGeneration(inParams->generation) ;
 
-		mem->prepare() ;
+		if ( kIOReturnSuccess != mem->prepare() )
+			IOLog("%s %u: prepare failed\n", __FILE__, __LINE__) ;
         res = cmd->submit();
 		mem->complete() ;
 		
@@ -1275,12 +1365,6 @@ IOReturn IOFireWireUserClient::message( UInt32 type, IOService * provider, void 
     return kIOReturnSuccess;
 }
 
-IOReturn
-IOFireWireUserClient::Test()
-{
-	return kIOReturnUnsupported ;
-}
-
 #pragma mark -
 #pragma mark --user client/DCL
 
@@ -1291,8 +1375,6 @@ IOFireWireUserClient::getOSStringData(
 	char*				inStringBuffer,
 	UInt32*				outStringLen)
 {
-//	IOLog("IOFireWireUserClient::getOSStringData: inStringRef=%08lX, inStringLen=%08lX, inStringBuffer=%08lX\n", inStringRef, inStringLen, inStringBuffer) ;
-
 	*outStringLen = 0 ;
 
 	if (!OSDynamicCast(OSString, inStringRef))
@@ -1300,13 +1382,9 @@ IOFireWireUserClient::getOSStringData(
 	
 	UInt32 len = MIN(inStringLen, inStringRef->getLength()) ;
 
-//	IOLog("len=%08lX\n", len) ;
-
 	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inStringBuffer, len, kIODirectionOut, fTask) ;
 	if (!mem)
 		return kIOReturnNoMemory ;
-
-//	IOLog("mem=%08lX\n", mem) ;
 
 	IOReturn result = mem->prepare() ;
 	
@@ -1349,11 +1427,11 @@ IOFireWireUserClient::getOSDataData(
 
 IOReturn
 IOFireWireUserClient::unitDirCreate(
-	IOLocalConfigDirectory**	outDir)
+	FWKernUnitDirRef*	outDir)
 {
 	FWKernUnitDirRef newUnitDir = IOLocalConfigDirectory::create() ;
 
-	IOFireWireUserClientLogIfNil_(*outDir, ("IOFireWireUserClient::UnitDirCreate: IOLocalConfigDirectory::create returned @ %8p\n", result)) ;
+	IOFireWireUserClientLogIfNil_(*outDir, ("IOFireWireUserClient::UnitDirCreate: IOLocalConfigDirectory::create returned nil\n")) ;
 	if (!newUnitDir)
 		return kIOReturnNoMemory ;
 		
@@ -1365,7 +1443,7 @@ IOFireWireUserClient::unitDirCreate(
 
 IOReturn
 IOFireWireUserClient::unitDirRelease(
-	IOLocalConfigDirectory*	inDir)
+	FWKernUnitDirRef	inDir)
 {
 	IOReturn	result = kIOReturnSuccess ;
 	IOLocalConfigDirectory* dir = OSDynamicCast(IOLocalConfigDirectory, inDir) ;
@@ -1381,7 +1459,7 @@ IOFireWireUserClient::unitDirRelease(
 
 IOReturn
 IOFireWireUserClient::addEntry_Buffer(
-	IOLocalConfigDirectory*	inDir, 
+	FWKernUnitDirRef		inDir, 
 	int 					key,
 	char*					buffer,
 	UInt32					kr_size)
@@ -1410,7 +1488,7 @@ IOFireWireUserClient::addEntry_Buffer(
 
 IOReturn
 IOFireWireUserClient::addEntry_UInt32(
-	IOLocalConfigDirectory*	inDir,
+	FWKernUnitDirRef		inDir,
 	int						key,
 	UInt32					value)
 {
@@ -1481,9 +1559,6 @@ IOReturn
 IOFireWireUserClient::publish(
 	IOLocalConfigDirectory*	inDir)
 {	
-//	IOLog(	"IOFireWireFamily: IOFireWireUserClient::Publish() (dir=%08lX)\n",
-//			(UInt32) inDir );
-	
 	IOReturn				kr = kIOReturnSuccess ;
 	IOLocalConfigDirectory*	dir ;
 	
@@ -1492,7 +1567,6 @@ IOFireWireUserClient::publish(
 
 	if ( kIOReturnSuccess == kr )
 	{
-//		IOLog("...adding unit directory\n") ;
 	    kr = fOwner->getController()->AddUnitDirectory(dir) ;		
 	}
 
@@ -1525,99 +1599,44 @@ IOFireWireUserClient::allocateAddressSpace(
 	FWAddrSpaceCreateParams*	inParams,
 	FWKernAddrSpaceRef* 		outKernAddrSpaceRef)
 {
-	IOReturn		result				= kIOReturnSuccess ;
-	FWAddress		newFWAddress ;
-	
-	*outKernAddrSpaceRef = 0 ;	// in case we fail
-	
-	// same code as IOFireWireController::createPseudoAddressSpace
+	IOReturn		err				= kIOReturnSuccess ;
 	
 	IOFWUserClientPseudoAddrSpace* newPseudoAddrSpace		= new IOFWUserClientPseudoAddrSpace;
 
-	if (NULL == newPseudoAddrSpace)
-		result = kIOReturnNoMemory ;
+	if ( !newPseudoAddrSpace )
+		return kIOReturnNoMemory ;
 
-	IOMemoryDescriptor*			newBackingStore = NULL ;
-	if ( NULL != inParams->backingStore )
+	if ( !newPseudoAddrSpace->initAll( this, inParams ) )
 	{
-		newBackingStore =	IOMemoryDescriptor::withAddress(
-									(vm_address_t) inParams->backingStore,
-									(IOByteCount) inParams->size,
-									kIODirectionOut,
-									fTask) ;
-		if ( NULL == newBackingStore )
-			result = kIOReturnNoMemory ;
+		newPseudoAddrSpace->release() ;
+		return kIOReturnNoMemory ;
 	}
 
-	IOMemoryDescriptor*	theNewMemoryDescriptor	= 0 ;
-	if( kIOReturnSuccess == result )
-	{
-		IOLog("IOFireWireUserClient: created pseudo address space refCon = %08lX\n", (UInt32)this) ;
+	if ( !err )
+		err = newPseudoAddrSpace->activate() ;
 
-		theNewMemoryDescriptor =	IOMemoryDescriptor::withAddress(
-											(vm_address_t) inParams->queueBuffer,
-											(IOByteCount) inParams->queueSize,
-											kIODirectionOut,
-											fTask) ;
-
-		if (theNewMemoryDescriptor == NULL)
-			result = kIOReturnNoMemory ;
-	}
-	
-	if ( kIOReturnSuccess == result)
+	if ( !err )
 	{
-			FWReadCallback	readerToBe	= (inParams->flags & kFWAddressSpaceNoReadAccess) ? 
-											0 : & IOFWUserClientPseudoAddrSpace::pseudoAddrSpaceReader ;
-		FWWriteCallback	writerToBe	= (inParams->flags & kFWAddressSpaceNoWriteAccess) ? 
-											0 : & IOFWUserClientPseudoAddrSpace::pseudoAddrSpaceWriter ;
+		err = addObjectToSet(newPseudoAddrSpace, fUserPseudoAddrSpaces) ;
 		
-//		FWReadCallback		readerToBe 		= NULL ;
-//		FWWriteCallback		writerToBe 		= NULL ;
-		if (!newPseudoAddrSpace->initAll(
-											this,
-											theNewMemoryDescriptor,
-											newBackingStore,
-											inParams->refCon,
-											fOwner->getController(),
-											& newFWAddress,
-											inParams->size,
-											readerToBe,
-											writerToBe,
-											(void*) this))
-		{
-			result = kIOReturnError ;
-		}
+		if ( err )
+			newPseudoAddrSpace->deactivate() ;
 	}
 
-	if (kIOReturnSuccess == result)
-		result = newPseudoAddrSpace->activate() ;
-
-	if (kIOReturnSuccess == result)
-	{
-/*		IOLockLock(fSetLock) ;
-		
-		UInt32 needCapacity = 1 + fUserPseudoAddrSpaces->getCount() ;
-		if (fUserPseudoAddrSpaces->ensureCapacity(needCapacity) >= needCapacity)
-		{
-			fUserPseudoAddrSpaces->setObject(newPseudoAddrSpace) ;
-			newPseudoAddrSpace->release() ; // the OSSet has it...
-		}
-		else
-			result = kIOReturnNoMemory ;
-			
-		IOLockUnlock(fSetLock) ;*/
-		result = addObjectToSet(newPseudoAddrSpace, fUserPseudoAddrSpaces) ;
-	}
-
-	if (kIOReturnSuccess != result)
+	if ( err )
 	{
 		newPseudoAddrSpace->release() ;
 		newPseudoAddrSpace = NULL ;
 	}
 
+#	if IOFIREWIREUSERCLIENTDEBUG > 0
+	if ( newPseudoAddrSpace )
+		fStatistics->pseudoAddressSpaces->setObject( newPseudoAddrSpace ) ;
+#	endif
+
 	*outKernAddrSpaceRef = (FWKernAddrSpaceRef) newPseudoAddrSpace ;
 
-	return result ;
+	return err ;
 }
 
 IOReturn
@@ -1629,16 +1648,13 @@ IOFireWireUserClient::releaseAddressSpace(
 	if (!OSDynamicCast(IOFWUserClientPseudoAddrSpace, inAddrSpace))
 		result = kIOReturnBadArgument ;
 
-//	IOLockLock(fSetLock) ;
-//	
-//	inAddrSpace->deactivate() ;
-//	fUserPseudoAddrSpaces->removeObject(inAddrSpace) ;
-//
-//	IOLockUnlock(fSetLock) ;
-
 	inAddrSpace->deactivate() ;
 	removeObjectFromSet(inAddrSpace, fUserPseudoAddrSpaces) ;
 	
+#	if IOFIREWIREUSERCLIENTDEBUG > 0
+	fStatistics->pseudoAddressSpaces->removeObject( inAddrSpace ) ;
+#	endif
+
 	return result ;
 }
 
@@ -1810,7 +1826,8 @@ IOFireWireUserClient::setAsyncRef_BusResetDone(
 IOReturn
 IOFireWireUserClient::clientCommandIsComplete(
 	FWKernAddrSpaceRef		inAddrSpaceRef,
-	FWClientCommandID		inCommandID)
+	FWClientCommandID		inCommandID,
+	IOReturn				inResult)
 {
 	IOReturn	result = kIOReturnSuccess ;
 	IOFWUserClientPseudoAddrSpace*	me	= OSDynamicCast(IOFWUserClientPseudoAddrSpace, inAddrSpaceRef) ;
@@ -1819,7 +1836,7 @@ IOFireWireUserClient::clientCommandIsComplete(
 		result = kIOReturnBadArgument ;
 
 	if (kIOReturnSuccess == result)
-		me->clientCommandIsComplete(inCommandID) ;
+		me->clientCommandIsComplete(inCommandID, inResult) ;
 
 	return result ;
 }
@@ -1940,16 +1957,12 @@ IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress(
 	FWAddress tempAddress ;
 	IOReturn result = inDirRef->getKeyOffset(key, tempAddress, outString) ;
 
-//	IOLog("IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress: result=0x%08lX, addr=%08lX:%08lX\n", result, tempAddress.addressHi, tempAddress.addressLo) ;
-
 	if (kIOReturnSuccess == result)
 	{
 		*addressHi = tempAddress.nodeID << 16 | tempAddress.addressHi ;
 		*addressLo = tempAddress.addressLo ;
 		if (*outString)
 			*outStringLen = (*outString)->getLength() ;
-
-//		IOLog("IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress: result=%08lX, converted addr=%08lX:%08lX\n", result, *addressHi, *addressLo) ;
 	}
 	
 	return result ;
@@ -2003,8 +2016,6 @@ IOFireWireUserClient::configDirectoryGetIndexValue_Data(
 	
 	IOReturn result = inDirRef->getIndexValue(index, *outDataRef) ;
 	
-//	IOLog("IOFireWireUserClient::configDirectoryGetIndexValue_Data: outDataRef=%08lX, result=%08lX", *outDataRef, result) ;
-
 	if (kIOReturnSuccess == result)
 		if (*outDataRef)
 			*outDataLen = (*outDataRef)->getLength() ;
@@ -2019,19 +2030,12 @@ IOFireWireUserClient::configDirectoryGetIndexValue_String(
 	FWKernOSStringRef*			outString,
 	UInt32*						outStringLen)
 {
-	IOLog("IOFireWireUserClient::configDirectoryGetIndexValue_String\n") ;
-
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
-	
-	IOLog("AB0\n") ;
 	
 	IOReturn result = inDirRef->getIndexValue(index, *outString) ;
 	if ( (*outString) && (kIOReturnSuccess == result) )
 		*outStringLen = (*outString)->getLength() ;
-	
-	
-//	IOLog("returning result=%08lX, outString=%08lX, outStringLen=%08lX\n", result, *outString, *outStringLen) ;
 	
 	return result ;
 }
@@ -2047,17 +2051,6 @@ IOFireWireUserClient::configDirectoryGetIndexValue_ConfigDirectory(
 	
 	IOReturn result = inDirRef->getIndexValue(index, *outDirRef) ;
 
-// zzz we shouldn't be releasing config directories
-/*	UInt32 needCapacity = 1 + fUserConfigDirectories->getCount() ;
-	if (fUserConfigDirectories->ensureCapacity(needCapacity) >= needCapacity)
-	{
-		fUserConfigDirectories->setObject(*outDirRef) ;
-		(*outDirRef)->release() ;	// OSSet has the reference.
-	}
-	else
-		result = kIOReturnNoMemory ; */
-		
-	
 	return result ;
 }
 
@@ -2079,8 +2072,6 @@ IOFireWireUserClient::configDirectoryGetIndexOffset_FWAddress(
 		*addressHi = (tempAddress.nodeID << 16) | tempAddress.addressHi ;
 		*addressLo = tempAddress.addressLo ;
 	}
-	
-//	IOLog("IOFireWireUserClient::configDirectoryGetIndexOffset_FWAddress: address=%08lX:%08lX, result=0x%08lX\n", *addressHi, *addressLo, result) ;
 
 	return result ;
 }
@@ -2156,6 +2147,8 @@ IOFireWireUserClient::configDirectoryGetNumEntries(
 	return kIOReturnSuccess ;
 }
 
+#pragma mark -
+#pragma mark --- physical addr spaces ----------
 //
 // --- physical addr spaces ----------
 //
@@ -2199,31 +2192,7 @@ IOFireWireUserClient::allocatePhysicalAddressSpace(
 	}
 	
 	if (kIOReturnSuccess == result)
-	{
-/*		IOLockLock(fSetLock) ;
-	
-		UInt32 needCapacity = 1 + fUserPhysicalAddrSpaces->getCount() ;
-		
-		#if DEBUGGING_LEVEL > 0
-		IOLog("IOFireWireUserClient::allocatePhysicalAddressSpace: OSSet needCapacity=%08lX, currentCapacity=%08lX\n", 
-				needCapacity, fUserPhysicalAddrSpaces->getCapacity()) ;
-		#endif
-
-		if (fUserPhysicalAddrSpaces->ensureCapacity(needCapacity) >= needCapacity)
-		{
-			fUserPhysicalAddrSpaces->setObject(addrSpace) ;
-			addrSpace->release() ; // the OSSet has it...
-
-			#if DEBUGGING_LEVEL > 0
-			IOLog("IOFireWireUserClient::allocatePhysicalAddressSpace: adding to set successful\n") ;
-			#endif
-		}
-		else
-			result = kIOReturnNoMemory ;
-		
-		IOLockUnlock(fSetLock) ;*/
 		result = addObjectToSet(addrSpace, fUserPhysicalAddrSpaces) ;
-	}
 		
 	if (kIOReturnSuccess != result)
 	{
@@ -2248,7 +2217,6 @@ IOFireWireUserClient::allocatePhysicalAddressSpace(
 	
 	return result ;
 	
-//	return kIOReturnError ;
 }
 
 IOReturn
@@ -2258,12 +2226,6 @@ IOFireWireUserClient::releasePhysicalAddressSpace(
 	if (!OSDynamicCast(IOFWUserClientPhysicalAddressSpace, inAddrSpace))
 		return kIOReturnBadArgument ;
 	
-/*	IOLockLock(fSetLock) ;
-
-	inAddrSpace->deactivate() ;
-	fUserPhysicalAddrSpaces->removeObject(inAddrSpace) ;
-	
-	IOLockUnlock(fSetLock) ;*/
 	inAddrSpace->deactivate() ;
 	removeObjectFromSet(inAddrSpace, fUserPhysicalAddrSpaces) ;
 	
@@ -2412,54 +2374,53 @@ IOFireWireUserClient::getPhysicalAddressSpaceSegments(
 // async
 
 IOReturn
+IOFireWireUserClient::lazyAllocateUserCommand(
+	FWUserCommandSubmitParams*	inParams,
+	IOFWUserCommand**			outCommand)
+{
+	// lazy allocate new command
+	IOReturn	result = kIOReturnSuccess ;
+	
+	*outCommand = IOFWUserCommand::withSubmitParams(inParams, this) ;
+
+	if (!*outCommand)
+		result = kIOReturnNoMemory ;
+	else
+		result = addObjectToSet(*outCommand, fUserCommandObjects) ;
+	
+	return result ;
+}
+
+IOReturn
 IOFireWireUserClient::userAsyncCommand_Submit(
 	OSAsyncReference			asyncRef,
 	FWUserCommandSubmitParams*	inParams,
 	FWUserCommandSubmitResult*	outResult,
-	UInt32						inSize,
-	UInt32*						outSize)
+	IOByteCount					inParamsSize,
+	IOByteCount*				outResultSize)
 {
-//	IOLog("command submitted with inSize=%08lX, outSize=%08lX, *outSize=0x%08lX\n", inSize, outSize, *outSize) ;
 
 	IOReturn			result	= kIOReturnSuccess ;
 	IOFWUserCommand*	me		= inParams->kernCommandRef ;
 	
 	if (me)
 	{
-		me = OSDynamicCast(IOFWUserCommand, inParams->kernCommandRef) ;
-		if (!me)
-			result = kIOReturnBadArgument ;
+		IOFireWireUserClientLog_(("using existing command object\n")) ;
+
+		if (!OSDynamicCast(IOFWUserCommand, me))
+			return kIOReturnBadArgument ;
 	}
 	else
 	{
-		// lazy allocate new command
-		me = IOFWUserCommand::withSubmitParams(inParams, this) ;
-
-		if (!me)
-			result = kIOReturnNoMemory ;
-		else
-		{
-			IOLockLock(fSetLock) ;
+		IOFireWireUserClientLog_(("lazy allocating command object\n")) ;
 	
-			UInt32 needCapacity = 1 + fUserCommandObjects->getCount() ;
-			if (fUserCommandObjects->ensureCapacity(needCapacity) >= needCapacity)
-			{
-				fUserCommandObjects->setObject(me) ;
-				me->release() ; // the OSSet has it...
-				
-				outResult->kernCommandRef = me ;
-			}
-			else
-				result = kIOReturnNoMemory ;
-	
-			IOLockUnlock(fSetLock) ;
-		}
+		result = lazyAllocateUserCommand(inParams, & me) ;
+		outResult->kernCommandRef = me ;
 	}
 	
 	// assume 'me' valid
 	if (kIOReturnSuccess == result)
 	{
-//		IOLog("IOFireWireUserClient::userAsyncCommand_Submit: callback=%08lX\n", inParams->callback) ;
 		IOUserClient::setAsyncReference( asyncRef, 
 										 (mach_port_t) asyncRef[0], 
 										 (void*)inParams->callback, 
@@ -2467,10 +2428,8 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 
 		me->setAsyncReference(asyncRef) ;
 		result = me->submit( inParams, outResult ) ;
-//		IOLog("IOFireWireUserClient::userAsyncCommand_Submit: submit result=%08lX\n", result) ;
 	}
 
-//	IOLog("IOFireWireUserClient::userAsyncCommand_Submit: result=%08lX\n", result) ;
 	return result ;
 }
 
@@ -2478,9 +2437,37 @@ IOReturn
 IOFireWireUserClient::userAsyncCommand_SubmitAbsolute(
 	OSAsyncReference			asyncRef,
 	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult)
+	FWUserCommandSubmitResult*	outResult,
+	IOByteCount					inParamsSize,
+	IOByteCount*				outResultSize)
 {
-	return kIOReturnUnsupported ;
+	IOReturn			result	= kIOReturnSuccess ;
+	IOFWUserCommand*	me		= inParams->kernCommandRef ;
+	
+	if (me)
+	{
+		if (!OSDynamicCast(IOFWUserCommand, me))
+			return kIOReturnBadArgument ;
+	}
+	else
+	{
+		result = lazyAllocateUserCommand(inParams, & me) ;
+		outResult->kernCommandRef = me ;
+	}
+	
+	// assume 'me' valid
+	if (kIOReturnSuccess == result)
+	{
+		IOUserClient::setAsyncReference( asyncRef, 
+										 (mach_port_t) asyncRef[0], 
+										 (void*)inParams->callback, 
+										 (void*)inParams->refCon) ;
+
+		me->setAsyncReference(asyncRef) ;
+		result = me->submit( inParams, outResult ) ;
+	}
+
+	return result ;
 }
 
 IOReturn
@@ -2492,9 +2479,7 @@ IOFireWireUserClient::userAsyncCommand_Release(
 	if (!OSDynamicCast(IOFWUserCommand, inCommandRef))
 		result = kIOReturnBadArgument ;
 
-	IOLockLock(fSetLock) ;
-	fUserCommandObjects->removeObject(inCommandRef) ;
-	IOLockUnlock(fSetLock) ;
+	removeObjectFromSet(inCommandRef, fUserCommandObjects) ;
 	
 	return result ;
 }

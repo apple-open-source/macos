@@ -965,7 +965,7 @@ SCSIBlockCommands::READ_12 (
 								kSCSIDataTransfer_FromTargetToInitiator,
 								dataBuffer,
 								transferCount );	
-
+	
 	return true;
 	
 }

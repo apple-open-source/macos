@@ -93,7 +93,10 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
    	theCBIRequestBlock->cbiDevRequest.pData				= &theCBIRequestBlock->cbiCDB;
 
 	// Send the command over the control endpoint
-	status = GetInterfaceReference()->DeviceRequest( &theCBIRequestBlock->cbiDevRequest, &theCBIRequestBlock->cbiCompletion );
+	status = GetInterfaceReference()->GetDevice()->DeviceRequest( 	&theCBIRequestBlock->cbiDevRequest, 
+														//GetTimeoutDuration( theCBIRequestBlock->request ),  // Use the client's timeout for both
+														//GetTimeoutDuration( theCBIRequestBlock->request ),
+														&theCBIRequestBlock->cbiCompletion );
    	STATUS_LOG(("%s: SendSCSICommandForCBIProtocol DeviceRequest returned %d\n", 
    				getName(), 
    				status));

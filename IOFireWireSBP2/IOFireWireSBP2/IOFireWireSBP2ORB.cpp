@@ -588,6 +588,8 @@ void IOFireWireSBP2ORB::deallocatePageTable( void )
 
 void IOFireWireSBP2ORB::deallocateBufferAddressSpace( void )
 {
+    fControl->closeGate();
+    
     if( fBufferAddressSpaceAllocated )
     {
         fBufferAddressSpace->deactivate();
@@ -595,6 +597,8 @@ void IOFireWireSBP2ORB::deallocateBufferAddressSpace( void )
         fBufferDescriptor->release();
         fBufferAddressSpaceAllocated = false;
     }
+    
+    fControl->openGate();
 }
 
 // setCommandBuffersAsRanges
@@ -653,13 +657,15 @@ IOReturn IOFireWireSBP2ORB::releaseCommandBuffers( void )
 IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescriptor, UInt32 offset, UInt32 length )
 {
     IOReturn status = kIOReturnSuccess;
-    
+ 
+	fControl->closeGate();
+   
     //
     // count ptes
     //
     
     UInt32 		pte = 0;
-    vm_size_t 	pos = offset;
+    vm_size_t 		pos = offset;
     UInt32 		step = 0;
     UInt32		toMap = 0;
 	
@@ -724,14 +730,20 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
         if( pte > fPageTableSize / sizeof(FWSBP2PTE) )
 		{
 			if( fCommandFlags & kFWSBP2CommandFixedSize )
-				return kIOReturnNoMemory;
-			else
 			{
-				// reallocate
-				status = allocatePageTable( pte );
-				if( status != kIOReturnSuccess )
-					return kIOReturnNoMemory;
+            	fControl->openGate();
+            	return kIOReturnNoMemory;
 			}
+            else
+			{
+                // reallocate
+                status = allocatePageTable( pte );
+                if( status != kIOReturnSuccess )
+                {
+                    fControl->openGate();
+                    return kIOReturnNoMemory;
+                }
+            }
 		}
 	}
     
@@ -877,7 +889,9 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 			}
 		}
     }
-    
+ 
+    fControl->openGate();
+       
     return status;
 }
 
@@ -900,6 +914,8 @@ IOMemoryDescriptor * IOFireWireSBP2ORB::getCommandBufferDescriptor( void )
 
 IOReturn IOFireWireSBP2ORB::setCommandBlock( void * buffer, UInt32 length )
 {
+    fControl->closeGate();
+    
     UInt32 maxCommandBlockSize = fLogin->getMaxCommandBlockSize();
     
     if( length > maxCommandBlockSize )
@@ -907,6 +923,8 @@ IOReturn IOFireWireSBP2ORB::setCommandBlock( void * buffer, UInt32 length )
 
     bzero( &fORBBuffer->commandBlock[0], maxCommandBlockSize );
     bcopy( buffer, &fORBBuffer->commandBlock[0], length );
+
+    fControl->openGate();
 
     return kIOReturnSuccess;
 }
@@ -917,6 +935,8 @@ IOReturn IOFireWireSBP2ORB::setCommandBlock( void * buffer, UInt32 length )
 
 IOReturn IOFireWireSBP2ORB::setCommandBlock( IOMemoryDescriptor * memory )
 {
+    fControl->closeGate();
+    
     UInt32 maxCommandBlockSize = fLogin->getMaxCommandBlockSize();
     IOByteCount length = memory->getLength();
     
@@ -925,6 +945,8 @@ IOReturn IOFireWireSBP2ORB::setCommandBlock( IOMemoryDescriptor * memory )
 
     bzero( &fORBBuffer->commandBlock[0], maxCommandBlockSize );
     memory->readBytes(0, &fORBBuffer->commandBlock[0], length );
+
+    fControl->openGate();
 
     return kIOReturnSuccess;
 }
@@ -973,11 +995,15 @@ void IOFireWireSBP2ORB::setCommandTimeout( UInt32 timeout )
 {
     IOReturn ORBTimeoutReinitStatus;
     
+    fControl->closeGate();
+    
     fTimeoutDuration = timeout;
 	ORBTimeoutReinitStatus = fTimeoutCommand->reinit( fTimeoutDuration * 1000, IOFireWireSBP2ORB::orbTimeoutStatic, this );    
     
     //zzz perhaps this should pass error back to user
     FWPANICASSERT( ORBTimeoutReinitStatus == kIOReturnSuccess );
+    
+    fControl->openGate();
 }
 
 UInt32 IOFireWireSBP2ORB::getCommandTimeout( void )

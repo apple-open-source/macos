@@ -60,7 +60,7 @@
 #define MII_CONTROL_COLLISION_TEST			0x80
 #define MII_CONTROL_SPEED_SELECTION_2		0x40
 
-	/* MII Status register bits:	*/
+	/* 1 - MII Status register bits:	*/
 
 #define MII_STATUS_100BASET4				0x8000
 #define MII_STATUS_100BASETX_FD				0x4000
@@ -74,7 +74,7 @@
 #define MII_STATUS_JABBER_DETECT			0x2
 #define MII_STATUS_EXTENDED_CAPABILITY		0x1
 
-	/* MII ANAR (Auto-Negotiation Advertisement Register) register bits:	*/
+	/* 4 - MII ANAR (Auto-Negotiation Advertisement Register) register bits:	*/
 
 #define MII_ANAR_ASYM_PAUSE			0x800 
 #define MII_ANAR_PAUSE				0x400
@@ -84,7 +84,7 @@
 #define MII_ANAR_10BASET_FD			0x40
 #define MII_ANAR_10BASET			0x20
 
-	/* MII ANLPAR register bits:	*/
+	/* 5 - MII ANLPAR register bits:	*/
 
 #define MII_LPAR_NEXT_PAGE		0x8000
 #define MII_LPAR_ACKNOWLEDGE	0x4000
@@ -165,10 +165,12 @@
 #define MII_BCM5400_MODEL	0x04
 #define MII_BCM5401_MODEL	0x05
 #define MII_BCM5411_MODEL	0x07		// 0x6071
+#define MII_BCM5421_MODEL	0x0E		// 0x60E0
 #define MII_BCM5400_REV		0x01
 #define MII_BCM5400_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5400_MODEL << 4))
 #define MII_BCM5401_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5401_MODEL << 4))
 #define MII_BCM5411_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5411_MODEL << 4))
+#define MII_BCM5421_ID		((MII_BCM5400_OUI << 10) | (MII_BCM5421_MODEL << 4))
 #define MII_BCM5400_MASK	0xFFFFFFF0
 
 
@@ -194,48 +196,6 @@
 
 #define MII_BCM5400_AUXSTATUS_LINKMODE_MASK	0x0700
 #define MII_BCM5400_AUXSTATUS_LINKMODE_BIT	0x0100  
-
-
-	/*** MII ST10040 Specific	***/
-
-	/* MII ST10040 ID:		*/
-
-#define MII_ST10040_OUI		0x1e0400
-#define MII_ST10040_MODEL	0x00
-#define MII_ST10040_REV		0x01
-#define MII_ST10040_ID		((MII_ST10040_OUI << 10) | (MII_ST10040_MODEL << 4))
-#define MII_ST10040_MASK	0xFFFFFFF0
-
-
-	/* MII ST10040 Regs:	*/
-
-#define MII_ST10040_CHIPST	0x14
-
-	/* MII ST10040 CHIPST register bits:	*/
-
-#define MII_ST10040_CHIPST_LINK				0x2000
-#define MII_ST10040_CHIPST_DUPLEX			0x1000
-#define MII_ST10040_CHIPST_SPEED			0x0800
-#define MII_ST10040_CHIPST_NEGOTIATION		0x0020
-
-
-	/*** MII DP83843 Specific: ***/
-
-	/* MII DP83843 ID:		*/
-
-#define MII_DP83843_OUI		0x080017
-#define MII_DP83843_MODEL	0x01
-#define MII_DP83843_REV		0x00
-#define MII_DP83843_ID		((MII_DP83843_OUI << 10) | (MII_DP83843_MODEL << 4))
-#define MII_DP83843_MASK	0xFFFFFFF0
-
-	/* MII DP83843 PHYSTS register bits:	*/
-
-#define MII_DP83843_PHYSTS					0x10
-#define MII_DP83843_PHYSTS_LINK				0x0001
-#define MII_DP83843_PHYSTS_SPEED10			0x0002
-#define MII_DP83843_PHYSTS_DUPLEX			0x0004
-#define MII_DP83843_PHYSTS_NEGOTIATION		0x0020
 
 
 

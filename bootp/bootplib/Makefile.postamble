@@ -118,7 +118,7 @@ gen: genoptionfiles
 sharepoints:
 	cc -Wno-four-char-constants -o shp $(OTHER_CFLAGS) -DTEST_SHAREPOINTS sharepoints.c -F$(NEXT_ROOT)/System/Library/PrivateFrameworks -framework ServerControl -framework ServerPrefix -framework AFPDefines
 
-nilist:
+nilist: NICache.c NICache.h
 	cc -g -o nilist -DNICACHE_TEST NICache.c dynarray.c ptrlist.c netinfo.c host_identifier.c util.c NIDomain.c
 
 afpusers:

@@ -107,7 +107,8 @@
 <tr><td align="center" bgcolor="#e9e9e9">
 <strong>プラットフォーム固有の情報</strong>
 </td></tr><tr><td>
-<a href="windows.html">Microsoft Windows</a>
+<a href="windows.html">Microsoft Windows</a> |
+<a href="cygwin.html">Cygwin</a>
 </td></tr><tr><td>
 <a href="netware.html">Novell Netware 5</a>
 </td></tr><tr><td>
@@ -175,7 +176,11 @@
 href="http://httpd.apache.org/docs-project/">Apache HTTP Server
 Documentation Project</a> によりメンテナンスされています。</p>
 
-<!--#include virtual="footer.html" -->
+    <hr />
+
+    <h3 align="CENTER">Apache HTTP Server</h3>
+    <a href="./"><img src="images/index.gif" alt="Index" /></a>
+
 </body>
 </html>
 

@@ -50,18 +50,31 @@ typedef unsigned char Byte ;
 	{ if ((x) != 0) { IOFireWireUserClientLog_(y); } }
 	#define IOFireWireUserClientLogIfFalse_(x, y) \
 	{ if (!(x)) { IOFireWireUserClientLog_(y); } }
+	#define IOFireWireUserClientLogIfTrue_(x, y) \
+	{ if ((x)) { IOFireWireUserClientLog_(y) ; } }
 #else
 	#define IOFireWireUserClientLog_(x)
 	#define IOFireWireUserClientLogIfNil_(x, y)
 	#define IOFireWireUserClientLogIfErr_(x, y)
 	#define IOFireWireUserClientLogIfFalse_(x, y)
+	#define IOFireWireUserClientLogIfTrue_(x, y)
 #endif
 
 typedef struct AsyncRefHolder_t
 {
 	OSAsyncReference	asyncRef ;
 	void*				userRefCon ;
+	void*				obj ;
 } AsyncRefHolder ;
+
+class IOFireWireUserClientStatistics
+{
+ public:
+	OSDictionary*		dict ;
+
+	OSNumber*			isochCallbacks ;
+	OSSet*				pseudoAddressSpaces ;
+} ;
 
 
 class IOFireWireDevice;
@@ -69,12 +82,6 @@ class IOFireWireDevice;
 class IOFireWireUserClient : public IOUserClient
 {
     OSDeclareDefaultStructors(IOFireWireUserClient)
-
-//	friend class IOFWUserClientPseudoAddrSpace ;	// zzz - does this violate IOKit convention?
-//	friend class IOFWUserClientPhysicalAddressSpace ;
-//	friend class IOFWUserIsochPort ;
-//	friend class IOFWUserCommand ;
-//	friend class IOFWUserReadQuadletCommand ;
 
 private:
     IOFireWireNub *			fOwner;
@@ -98,65 +105,61 @@ private:
 	IONotifier*				fNotifier ;
 	IOService*				fOpenClient ;
 
-    static void 					kernPongProc(
-											void*					refcon,
-											void* 					userProc,
-											void* 					dclCommand);
-
 public:
-    inline static IOReturn 			sendAsyncResult(
+    static IOFireWireUserClient*	withTask(
+											task_t 					owningTask);
+ 	virtual bool 					start(
+											IOService * provider );
+	void							deallocateSets() ; 
+	virtual void					free() ;
+    virtual IOReturn 				clientClose( void );
+    virtual IOReturn 				clientDied( void );
+	const task_t					getOwningTask() const {return fTask;}
+	IOFireWireNub*					getOwner() const { return fOwner; }
+
+	// --- startup ----------
+	void							initMethodTable() ;
+	void							initIsochMethodTable() ;
+	void							initAsyncMethodTable() ;
+	void							initIsochAsyncMethodTable() ;
+
+	// --- open/close ----------
+	IOReturn						userOpen() ;
+	IOReturn						userOpenWithSessionRef(IOService*	session) ;
+	IOReturn						userClose() ;
+	
+	// --- utils ----------
+	inline static IOReturn 			sendAsyncResult(
 											OSAsyncReference 		reference,
 											IOReturn 				result, 
 											void*					args[], 
 											UInt32 					numArgs)
-											{ return IOUserClient::sendAsyncResult(reference, result, args, numArgs) ; }
-									
-    static IOFireWireUserClient*	withTask(
-											task_t 					owningTask);
-    virtual IOReturn 				clientClose( void );
-    virtual IOReturn 				clientDied( void );
-	virtual IOExternalMethod*		getTargetAndMethodForIndex(IOService **target, UInt32 index) ;
-	virtual IOExternalAsyncMethod*	getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index) ;
-	virtual const task_t			getOwningTask() const {return fTask;}
-	virtual IOFireWireNub*			getOwner() const { return fOwner; }
-    virtual IOReturn				registerNotificationPort(
-                                            mach_port_t 			port,
-                                            UInt32					/* type */,
-                                            UInt32					refCon) ;
-	virtual bool 					start(
-											IOService * provider );
-
-	// --- utils ----------
+											{ return IOUserClient::sendAsyncResult(reference, result, args, numArgs) ; }									
     inline static void 				setAsyncReference(
 											OSAsyncReference 		asyncRef,
 											mach_port_t 			wakePort,
 											void*					callback, 
 											void*					refcon)
 											{ IOUserClient::setAsyncReference(asyncRef, wakePort, callback, refcon) ; }
+	virtual IOExternalMethod*		getTargetAndMethodForIndex(
+											IOService **			target, 
+											UInt32 					index) ;
+	virtual IOExternalAsyncMethod*	getAsyncTargetAndMethodForIndex(
+											IOService **			target, 
+											UInt32 					index) ;
+	virtual IOReturn				registerNotificationPort(
+											mach_port_t 			port,
+											UInt32					,//type,
+											UInt32					refCon) ;
+
+	// --- allocation management ----------
 	virtual IOReturn				addObjectToSet(
 											OSObject* 				object, 
 											OSSet* 					set) ;
 	virtual void					removeObjectFromSet(
 											OSObject* 				object, 
 											OSSet* 					set) ;
-	virtual void					initMethodTable() ;
-	virtual void					initIsochMethodTable() ;
-	virtual void					initAsyncMethodTable() ;
-	virtual void					initIsochAsyncMethodTable() ;
-	
-	static IOReturn 				interestHandler(
-											void*					target,
-											void* 					refCon,
-											UInt32					messageType,
-											IOService*				provider,
-											void*					messageArgument,
-											vm_size_t				argSize );
-											
-	// --- open/close ----------
-	virtual IOReturn				userOpen() ;
-	virtual IOReturn				userOpenWithSessionRef(IOService*	session) ;
-	virtual IOReturn				userClose() ;
-	
+
 	// --- read ----------------
 	virtual IOReturn				readQuad(
 											UInt64					addr,
@@ -188,19 +191,9 @@ public:
     virtual IOReturn 				write(
 											FWReadWriteParams* 		inParams,
 											UInt32*					outSize) ;
-/*											FWAddress				addr,
-											void*					buf,
-											UInt32 					size,
-											UInt32					failOnReset,
-											UInt32					generation); */
     virtual IOReturn 				writeAbsolute(
 											FWReadWriteParams* 		inParams,
 											UInt32*					outSize) ;
-/*											FWAddress				addr,
-											void*					buf,
-											UInt32 					size,
-											UInt32					failOnReset,
-											UInt32					generation); */
 	// --- compare/swap ----------
     virtual IOReturn 				compareSwap(
 											UInt64					addr,
@@ -228,23 +221,6 @@ public:
 											UInt32 					type,
 											IOService* 				provider,
 											void* 					argument );
-    virtual IOReturn 				Test();
-
-    // --- DCL Methods ----------
-	
-//	virtual IOReturn 				compileDCL(
-//											UInt32 					dclStart,
-//											UInt32 					dclBase,
-//											UInt32 					dclSize,
-//											UInt32 					dataBase,
-//											UInt32 					dataSize,
-//											UInt32*					program);
-//	virtual IOReturn 				runDCL(
-//											OSAsyncReference 		asyncRef,
-//											UInt32 					program);
-//	virtual IOReturn 				stopDCL(
-//											UInt32 					program);
-
 	// --- my conversion helpers -------
 	virtual IOReturn				getOSStringData(
 											FWKernOSStringRef		inStringRef,
@@ -261,30 +237,30 @@ public:
     // --- CSR ROM Methods ----------
 	//
 	virtual IOReturn				unitDirCreate(
-											IOLocalConfigDirectory**	outDir) ;
+											FWKernUnitDirRef*		outDir) ;
 	virtual IOReturn				unitDirRelease(
-											IOLocalConfigDirectory*	dir) ;
+											FWKernUnitDirRef		dir) ;
 	virtual IOReturn				addEntry_Buffer(
-											IOLocalConfigDirectory*	dir, 
+											FWKernUnitDirRef		dir, 
 											int 					key,
 											char*					buffer,
 											UInt32					kr_size ) ;
 	virtual IOReturn				addEntry_UInt32(
-											IOLocalConfigDirectory*	inDir,
+											FWKernUnitDirRef		inDir,
 											int						key,
 											UInt32					value) ;
 	virtual IOReturn				addEntry_FWAddr(
-											IOLocalConfigDirectory*	dir, 
+											FWKernUnitDirRef		dir, 
 											int 					key,
 											FWAddress				value ) ;
 	virtual IOReturn				addEntry_UnitDir(
-											IOLocalConfigDirectory*	dir,
+											FWKernUnitDirRef		dir,
 											int						key,
-											IOLocalConfigDirectory*	value) ;
+											FWKernUnitDirRef		value) ;
 	virtual IOReturn				publish(
-											IOLocalConfigDirectory*	inDir ) ;
+											FWKernUnitDirRef		inDir ) ;
 	virtual IOReturn				unpublish(
-											IOLocalConfigDirectory*	inDir) ;
+											FWKernUnitDirRef		inDir) ;
 
 	//
     // --- Address Spaces Methods ----------
@@ -341,7 +317,8 @@ public:
 											void*) ;
 	virtual IOReturn				clientCommandIsComplete(
 											FWKernAddrSpaceRef		inAddrSpaceRef,
-											FWClientCommandID		inCommandID) ;											
+											FWClientCommandID		inCommandID,
+											IOReturn				inResult ) ;
 
 	//
 	//	--- physical address space stuff ----------
@@ -364,93 +341,21 @@ public:
 	//
 	//	--- async commands ----------
 	//
-/*	virtual IOReturn				readQuadAsync(
-											OSAsyncReference			asyncRef,
-											FWReadWriteQuadAsyncParams*	inParams,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				readQuadAbsoluteAsync(
-											OSAsyncReference			asyncRef,
-											FWReadWriteQuadAsyncParams*	inParams,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				readAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteAsyncParams*	inParams,
-											mach_msg_type_number_t*	outSize,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				readAbsoluteAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteAsyncParams*	inParams,
-											mach_msg_type_number_t*	outSize,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				writeQuadAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteQuadAsyncParams*	inParams,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				writeQuadAbsoluteAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteQuadAsyncParams*	inParams,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				writeAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteAsyncParams*	inParams,
-											mach_msg_type_number_t*	outSize,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				writeAbsoluteAsync(
-											OSAsyncReference		asyncRef,
-											FWReadWriteAsyncParams*	inParams,
-											mach_msg_type_number_t*	outSize,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				compareSwapAsync(
-											OSAsyncReference		asyncRef,
-											FWCompareSwapAsyncParams* inParams,
-											void*,
-											void*,
-											void*,
-											void*,
-											void*) ;
-	virtual IOReturn				compareSwapAbsoluteAsync(
-											OSAsyncReference		asyncRef,
-											FWCompareSwapAsyncParams* inParams,
-											void*,
-											void*,
-											void*,
-											void*,
-											void*) ;*/
+	virtual IOReturn				lazyAllocateUserCommand(
+											FWUserCommandSubmitParams*	inParams,
+											IOFWUserCommand**			outCommand) ;
 	virtual IOReturn				userAsyncCommand_Submit(
 											OSAsyncReference			asyncRef,
 											FWUserCommandSubmitParams*	inParams,
 											FWUserCommandSubmitResult*	outResult,
-											UInt32						inParamsSize,
-											UInt32*						outResultSize) ;
+											IOByteCount					inParamsSize,
+											IOByteCount*				outResultSize) ;
 	virtual IOReturn				userAsyncCommand_SubmitAbsolute(
 											OSAsyncReference			asyncRef,
 											FWUserCommandSubmitParams*	inParams,
-											FWUserCommandSubmitResult*	outResult) ;
-
+											FWUserCommandSubmitResult*	outResult,
+											IOByteCount					inParamsSize,
+											IOByteCount*				outResultSize) ;
 	static void						asyncReadWriteCommandCompletion(
 											void *					refcon, 
 											IOReturn 				status, 
@@ -602,26 +507,12 @@ public:
 								FWKernIsochChannelRef*	outIsochChannelRef) ;
 	virtual IOReturn	isochChannelRelease(
 								FWKernIsochChannelRef	inChannelRef) ;
-/*	virtual IOReturn	isochChannelSetTalker(
-								FWKernIsochChannelRef	inChannelRef,
-								FWKernIsochPortRef		inTalkerRef) ;
-	virtual IOReturn	isochChannelAddListener(
-								FWKernIsochChannelRef	inChannelRef,
-								FWKernIsochPortRef		inListenerRef) ;
-	virtual IOReturn	isochChannelAllocateChannel(
-								FWKernIsochChannelRef	inChannelRef) ;
-	virtual IOReturn	isochChannelReleaseChannel(
-								FWKernIsochChannelRef	inChannelRef) ;
-	virtual IOReturn	isochChannelStart(
-								FWKernIsochChannelRef	inChannelRef) ;
-	virtual IOReturn	isochChannelStop(
-								FWKernIsochChannelRef	inChannelRef) ;*/
 	virtual IOReturn	isochChannelUserAllocateChannelBegin(
 								FWKernIsochChannelRef	inChannelRef,
 								IOFWSpeed				inSpeed,
-//								UInt32					inAllowedChansHi,
-//								UInt32					inAllowedChansLo,
-								UInt64					inAllowedChans,
+								UInt32					inAllowedChansHi,
+								UInt32					inAllowedChansLo,
+//								UInt64					inAllowedChans,
 								IOFWSpeed*				outSpeed,
 								UInt32*					outChannel) ;
 	virtual IOReturn	isochChannelUserReleaseChannelComplete(
@@ -643,6 +534,14 @@ public:
 	virtual IOReturn	userAsyncCommand_Cancel(
 								FWKernCommandRef		inCommandRef,
 								IOReturn				reason) { return kIOReturnUnsupported; }
+
+	//
+	// --- statistics ----------
+	const IOFireWireUserClientStatistics*	
+						getStatistics()			{ return fStatistics ; }
+
+ protected:
+	IOFireWireUserClientStatistics*		fStatistics ;
 };
 
 #endif /* ! _IOKIT_IOFIREWIREUSERCLIENT_H */

@@ -87,6 +87,9 @@
  * - this also eliminates problems with the subnet route getting lost
  *   when an interface is de-configured, yet another interface is on
  *   the same subnet
+ * September 10, 2001	Dieter Siegmund (dieter@apple.com)
+ * - added multiple service per interface support
+ * - separated ad-hoc/link-local address configuration into its own service
  */
 
 #import <stdlib.h>
@@ -143,6 +146,7 @@
 
 #import "dprintf.h"
 
+typedef ptrlist_t	IFStateList_t;
 
 #define kDHCPClientPreferencesID	CFSTR("DHCPClient.xml")
 #define kDHCPClientApplicationPref	CFSTR("Application")
@@ -151,6 +155,22 @@
 #ifndef kSCEntNetDHCP
 #define kSCEntNetDHCP			CFSTR("DHCP")
 #endif kSCEntNetDHCP
+
+#ifndef kSCValNetIPv4ConfigMethodLinkLocal
+#define kSCValNetIPv4ConfigMethodLinkLocal	CFSTR("LinkLocal")
+#endif kSCValNetIPv4ConfigMethodLinkLocal
+
+
+#define MAX_RETRIES			7
+#define INITIAL_WAIT_SECS		4
+#define MAX_WAIT_SECS			8
+#define GATHER_SECS			2
+#define LINK_INACTIVE_WAIT_SECS		4
+#define ARP_PROBE_COUNT			3
+#define ARP_GRATUITOUS_COUNT		1
+#define ARP_RETRY_SECS			1
+#define ARP_RETRY_USECS			0
+
 
 #define USE_FLAT_FILES			"UseFlatFiles"
 
@@ -161,10 +181,53 @@
 /* global variables */
 u_short 			G_client_port = IPPORT_BOOTPC;
 boolean_t 			G_dhcp_accepts_bootp = FALSE;
+boolean_t			G_dhcp_failure_configures_linklocal = TRUE;
+boolean_t			G_dhcp_success_deconfigures_linklocal = FALSE;
 u_short 			G_server_port = IPPORT_BOOTPS;
+
+/* 
+ * Global: G_link_inactive_secs
+ * Purpose:
+ *   Time to wait after the link goes inactive before unpublishing 
+ *   the interface state information
+ */
 u_long				G_link_inactive_secs = LINK_INACTIVE_WAIT_SECS;
-u_long				G_gather_secs = GATHER_TIME_SECS;
+
+/*
+ * Global: G_gather_secs
+ * Purpose:
+ *   Time to wait for the ideal packet after receiving 
+ *   the first acceptable packet.
+ */ 
+u_long				G_gather_secs = GATHER_SECS;
+
+/*
+ * Global: G_initial_wait_secs
+ * Purpose:
+ *   First timeout interval in seconds.
+ */ 
+u_long				G_initial_wait_secs = INITIAL_WAIT_SECS;
+
+/*
+ * Global: G_max_retries
+ * Purpose:
+ *   Number of times to retry sending the packet.
+ */ 
 u_long				G_max_retries = MAX_RETRIES;
+
+/*
+ * Global: G_max_wait_secs
+ * Purpose:
+ *   Maximum timeout interval.  Timeouts timeout[i] are chosen as:
+ *   i = 0:
+ *     timeout[0] = G_initial_wait_secs;
+ *   i > 0:
+ *     timeout[i] = min(timeout[i - 1] * 2, G_max_wait_secs);
+ *   If G_initial_wait_secs = 4, G_max_wait_secs = 16, the sequence is:
+ *     4, 8, 16, 16, ...
+ */ 
+u_long				G_max_wait_secs = MAX_WAIT_SECS;
+
 boolean_t 			G_must_broadcast = FALSE;
 int				G_verbose = FALSE;
 int				G_debug = FALSE;
@@ -178,7 +241,7 @@ const struct in_addr		G_ip_broadcast = { INADDR_BROADCAST };
 const struct in_addr		G_ip_zeroes = { 0 };
 
 /* local variables */
-static ptrlist_t		S_ifstate_list;
+static IFStateList_t		S_ifstate_list;
 static interface_list_t	*	S_interfaces = NULL;
 static SCDynamicStoreRef	S_scd_session = NULL;
 static CFStringRef		S_setup_service_prefix = NULL;
@@ -187,6 +250,12 @@ static char * 			S_computer_name = NULL;
 static CFStringRef		S_computer_name_key = NULL;
 static CFStringRef		S_dhcp_preferences_key = NULL;
 static boolean_t		S_verbose = FALSE;
+static int			S_arp_probe_count = ARP_PROBE_COUNT;
+static int			S_arp_gratuitous_count = ARP_GRATUITOUS_COUNT;
+static struct timeval		S_arp_retry = { 
+  ARP_RETRY_SECS,
+  ARP_RETRY_USECS
+};
 
 #define PROP_SERVICEID		CFSTR("ServiceID")
 
@@ -196,6 +265,44 @@ S_add_dhcp_parameters();
 
 static void
 configuration_changed(SCDynamicStoreRef session);
+
+static boolean_t
+get_media_status(char * name, boolean_t * media_status);
+
+static ipconfig_status_t
+config_method_start(Service_t * service_p, ipconfig_method_t method,
+		    ipconfig_method_data_t * data,
+		    unsigned int data_len);
+
+static ipconfig_status_t
+config_method_stop(Service_t * service_p);
+
+static ipconfig_status_t
+config_method_media(Service_t * service_p);
+
+static ipconfig_status_t
+config_method_renew(Service_t * service_p);
+
+static void
+service_publish_clear(Service_t * service_p);
+
+static int
+inet_attach_interface(char * ifname);
+
+static int
+inet_detach_interface(char * ifname);
+
+static boolean_t
+all_services_ready();
+
+static Service_t *
+IFState_linklocal_service(IFState_t * ifstate);
+
+static __inline__ IFState_t *
+service_ifstate(Service_t * service_p)
+{
+    return (service_p->ifstate);
+}
 
 /*
  * Function: S_is_our_hardware_address
@@ -583,9 +690,9 @@ dhcp_lease_clear(char * idstr)
 static boolean_t
 S_same_subnet(struct in_addr ip1, struct in_addr ip2, struct in_addr mask)
 {
-    u_long m = ntohl(mask.s_addr);
-    u_long val1 = ntohl(ip1.s_addr);
-    u_long val2 = ntohl(ip2.s_addr);
+    u_long m = iptohl(mask);
+    u_long val1 = iptohl(ip1);
+    u_long val2 = iptohl(ip2);
 
     if ((val1 & m) != (val2 & m)) {
 	return (FALSE);
@@ -686,14 +793,256 @@ inet_aifaddr(int s, char * name, const struct in_addr * addr,
 	((struct sockaddr_in *)&ifra.ifra_mask)->sin_addr = *mask;
     }
     if (broadcast) {
-	ifra.ifra_mask = G_blank_sin;
+	ifra.ifra_broadaddr = G_blank_sin;
 	((struct sockaddr_in *)&ifra.ifra_broadaddr)->sin_addr = *broadcast;
     }
     return (ioctl(s, SIOCAIFADDR, &ifra));
 }
 
-IFState_t *
-IFState_lookup_if(ptrlist_t * list, char * ifname)
+static void
+Service_free(void * arg)
+{
+    Service_t *		service_p = (Service_t *)arg;
+    
+    SCLog(G_verbose, LOG_INFO, CFSTR("Service_free(%@)"), service_p->serviceID);
+    
+    config_method_stop(service_p);
+    service_publish_clear(service_p);
+    my_CFRelease(&service_p->serviceID);
+    if (service_p->user_rls) {
+	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), service_p->user_rls,
+			      kCFRunLoopDefaultMode);
+	my_CFRelease(&service_p->user_rls);
+    }
+    if (service_p->user_notification != NULL) {
+	CFUserNotificationCancel(service_p->user_notification);
+	my_CFRelease(&service_p->user_notification);
+    }
+
+    bzero(service_p, sizeof(*service_p));
+    free(service_p);
+    return;
+}
+
+static Service_t *
+Service_init(IFState_t * ifstate, CFStringRef serviceID,
+	     ipconfig_method_t method, 
+	     void * method_data, unsigned int method_data_len,
+	     ipconfig_status_t * status_p)
+{
+    Service_t *		service_p = NULL;
+    ipconfig_status_t	status = ipconfig_status_success_e;
+
+    if (method == ipconfig_method_linklocal_e) {
+	Service_t * ll_service_p = IFState_linklocal_service(ifstate);
+
+	if (ll_service_p) {
+	    if (ll_service_p->parent_service_p) {
+		linklocal_service_stop(ll_service_p->parent_service_p);
+	    }
+	    else {
+		/* this should not happen */
+		goto failed;
+	    }
+	}
+    }
+
+    service_p = (Service_t *)malloc(sizeof(*service_p));
+    if (service_p == NULL) {
+	status = ipconfig_status_allocation_failed_e;
+	goto failed;
+    }
+    bzero(service_p, sizeof(*service_p));
+    service_p->method = method;
+    service_p->ifstate = ifstate;
+    if (serviceID) {
+	service_p->serviceID = (void *)CFRetain(serviceID);
+    }
+    else {
+	service_p->serviceID = (void *)
+	    CFStringCreateWithFormat(NULL, NULL, 
+				     CFSTR("%s-%s"),
+				     ipconfig_method_string(method),
+				     if_name(service_interface(service_p)));
+    }
+    status = config_method_start(service_p, method, method_data, 
+				 method_data_len);
+    if (status != ipconfig_status_success_e) {
+	goto failed;
+    }
+    *status_p = status;
+    return (service_p);
+
+ failed:
+    if (service_p) {
+	my_CFRelease(&service_p->serviceID);
+	free(service_p);
+    }
+    *status_p = status;
+    return (NULL);
+}
+
+static Service_t *
+IFState_service_with_ID(IFState_t * ifstate, CFStringRef serviceID)
+{
+    int		j;
+
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	if (CFEqual(serviceID, service_p->serviceID)) {
+	    return (service_p);
+	}
+    }
+    return (NULL);
+}
+
+static Service_t *
+IFState_service_with_ip(IFState_t * ifstate, struct in_addr iaddr)
+{
+    int		j;
+
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	if (service_p->info.addr.s_addr == iaddr.s_addr) {
+	    return (service_p);
+	}
+    }
+    return (NULL);
+}
+
+static Service_t *
+IFState_linklocal_service(IFState_t * ifstate)
+{
+    int		j = 0;
+
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	if (service_p->method == ipconfig_method_linklocal_e) {
+	    return (service_p);
+	}
+    }
+    return (NULL);
+}
+
+static void
+IFState_service_free(IFState_t * ifstate, CFStringRef serviceID)
+{
+    int		j;
+
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	if (CFEqual(serviceID, service_p->serviceID)) {
+	    dynarray_free_element(&ifstate->services, j);
+	    return;
+	}
+    }
+    return;
+}
+
+ipconfig_status_t
+IFState_service_add(IFState_t * ifstate, CFStringRef serviceID, 
+		    ipconfig_method_t method, 
+		    void * method_data, unsigned int method_data_len,
+		    Service_t * * ret_service_p)
+{
+    interface_t *	if_p = ifstate->if_p;
+    Service_t *		service_p = NULL;
+    ipconfig_status_t	status = ipconfig_status_success_e;
+
+    /* attach IP */
+    inet_attach_interface(if_name(ifstate->if_p));
+
+    /* try to configure the service */
+    service_p = Service_init(ifstate, serviceID, method, 
+			     method_data, method_data_len,
+			     &status);
+    if (service_p == NULL) {
+	my_log(LOG_DEBUG, "status from %s was %s",
+	       ipconfig_method_string(method), 
+	       ipconfig_status_string(status));
+	if (dynarray_count(&ifstate->services) == 0) {
+	    /* no services configured, detach IP again */
+	    inet_detach_interface(if_name(if_p));
+	}
+	all_services_ready();
+    }
+    else {
+	dynarray_add(&ifstate->services, service_p);
+    }
+    if (ret_service_p) {
+	*ret_service_p = service_p;
+    }
+    return (status);
+}
+
+static void
+IFState_update_media_status(IFState_t * ifstate) 
+{
+    char * 		ifname = if_name(ifstate->if_p);
+    link_status_t	link = {FALSE, FALSE};
+
+    link.valid = get_media_status(ifname, &link.active);
+    if (link.valid == FALSE) {
+	SCLog(G_verbose, LOG_INFO, CFSTR("%s link is unknown"),
+	      ifname);
+    }
+    else {
+	SCLog(G_verbose, LOG_INFO, CFSTR("%s link is %s"),
+	      ifname, link.active ? "up" : "down");
+    }
+    ifstate->link = link;
+    return;
+}
+
+static IFState_t *
+IFState_init(interface_t * if_p)
+{
+    IFState_t * ifstate;
+
+    ifstate = malloc(sizeof(*ifstate));
+    if (ifstate == NULL) {
+	my_log(LOG_ERR, "IFState_init: malloc ifstate failed");
+	return (NULL);
+    }
+    bzero(ifstate, sizeof(*ifstate));
+    ifstate->if_p = if_dup(if_p);
+    ifstate->ifname 
+	= (void *) CFStringCreateWithCString(NULL, if_name(if_p),
+					     kCFStringEncodingMacRoman);
+    IFState_update_media_status(ifstate);
+    dynarray_init(&ifstate->services, Service_free, NULL);
+    return (ifstate);
+}
+
+static IFState_t *
+IFStateList_linklocal_service(IFStateList_t * list, Service_t * * ret_service_p)
+{
+    int 		i;
+
+    for (i = 0; i < ptrlist_count(list); i++) {
+	IFState_t *		ifstate = ptrlist_element(list, i);
+	Service_t *		service_p;
+
+	service_p = IFState_linklocal_service(ifstate);
+	if (service_p) {
+	    if (ret_service_p) {
+		*ret_service_p = service_p;
+	    }
+	    return (ifstate);
+	}
+    }
+    if (ret_service_p) {
+	*ret_service_p = NULL;
+    }
+    return (NULL);
+}
+
+static IFState_t *
+IFStateList_ifstate_with_name(IFStateList_t * list, char * ifname)
 {
     int i;
 
@@ -703,63 +1052,95 @@ IFState_lookup_if(ptrlist_t * list, char * ifname)
 	    return (element);
     }
     return (NULL);
-    
-}
-
-static boolean_t
-get_media_status(char * name, boolean_t * media_status);
-
-static void
-ifstate_update_media_status(IFState_t * ifstate) 
-{
-    ifstate->link.valid = get_media_status(if_name(ifstate->if_p),
-					   &ifstate->link.active);
-    return;
 }
 
 static IFState_t *
-IFState_make_if(interface_t * if_p)
+IFStateList_ifstate_create(IFStateList_t * list, interface_t * if_p)
 {
     IFState_t *   	ifstate;
 
-    ifstate = IFState_lookup_if(&S_ifstate_list, if_name(if_p));
+    ifstate = IFStateList_ifstate_with_name(list, if_name(if_p));
     if (ifstate == NULL) {
-	ifstate = malloc(sizeof(*ifstate));
-	if (ifstate == NULL) {
-	    my_log(LOG_ERR, "make_ifstate: malloc ifstate failed");
-	    return (NULL);
+	ifstate = IFState_init(if_p);
+	if (ifstate) {
+	    ptrlist_add(list, ifstate);
 	}
-	bzero(ifstate, sizeof(*ifstate));
-	ifstate->if_p = if_dup(if_p);
-	ifstate->ifname = (void *)
-	    CFStringCreateWithCString(NULL,
-				      if_name(if_p),
-				      kCFStringEncodingMacRoman);
-	ifstate_update_media_status(ifstate);
-	ifstate->our_addrs_start = if_inet_count(if_p);
-	ifstate->method = ipconfig_method_none_e;
-	ptrlist_add(&S_ifstate_list, ifstate);
     }
     return (ifstate);
 }
 
-
-#ifdef DEBUG
+#if 0
 static void
-dump_ifstate_list(ptrlist_t * list)
+IFStateList_print(IFStateList_t * list)
 {
     int i;
-
+  
     printf("-------start--------\n");
     for (i = 0; i < ptrlist_count(list); i++) {
-	IFState_t *	element = ptrlist_element(list, i);
-	printf("%s: %s\n", if_name(element->if_p), 
-	       ipconfig_method_string(element->method));
+	IFState_t *	ifstate = ptrlist_element(list, i);
+	int		j;
+
+	printf("%s:", if_name(ifstate->if_p));
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	    printf("%s%s", (j == 0) ? "" : ", ",
+		   ipconfig_method_string(service_p->method));
+	}
+	printf("\n");
     }
     printf("-------end--------\n");
     return;
 }
-#endif DEBUG
+#endif 0
+
+static IFState_t *
+IFStateList_service_with_ID(IFStateList_t * list, CFStringRef serviceID,
+			    Service_t * * ret_service)
+{
+    int 	i;
+
+    for (i = 0; i < ptrlist_count(list); i++) {
+	IFState_t *	ifstate = ptrlist_element(list, i);
+	Service_t *	service_p;
+
+	service_p = IFState_service_with_ID(ifstate, serviceID);
+	if (service_p) {
+	    if (ret_service) {
+		*ret_service = service_p;
+	    }
+	    return (ifstate);
+	}
+    }
+    if (ret_service) {
+	*ret_service = NULL;
+    }
+    return (NULL);
+}
+
+static IFState_t *
+IFStateList_service_with_ip(IFStateList_t * list, struct in_addr iaddr,
+			    Service_t * * ret_service)
+{
+    int 	i;
+
+    for (i = 0; i < ptrlist_count(list); i++) {
+	IFState_t *	ifstate = ptrlist_element(list, i);
+	Service_t *	service_p;
+
+	service_p = IFState_service_with_ip(ifstate, iaddr);
+	if (service_p) {
+	    if (ret_service) {
+		*ret_service = service_p;
+	    }
+	    return (ifstate);
+	}
+    }
+    if (ret_service) {
+	*ret_service = NULL;
+    }
+    return (NULL);
+}
 
 unsigned
 count_params(dhcpol_t * options, u_char * tags, int size)
@@ -775,28 +1156,26 @@ count_params(dhcpol_t * options, u_char * tags, int size)
 }
 
 static void
-ifstate_clear(IFState_t * ifstate)
+service_clear(Service_t * service_p)
 {
-    if (ifstate->published.msg) {
-	free(ifstate->published.msg);
-	ifstate->published.msg = NULL;
+    if (service_p->published.msg) {
+	free(service_p->published.msg);
+	service_p->published.msg = NULL;
     }
-    ifstate->published.ready = FALSE;
-    dhcpol_free(&ifstate->published.options);
-    if (ifstate->published.pkt) {
-	free(ifstate->published.pkt);
+    service_p->published.ready = FALSE;
+    dhcpol_free(&service_p->published.options);
+    if (service_p->published.pkt) {
+	free(service_p->published.pkt);
     }
-    ifstate->published.pkt = 0;
-    ifstate->published.pkt_size = 0;
-
+    bzero(&service_p->published, sizeof(service_p->published));
     return;
 }
 
 static void
-ifstate_publish_clear(IFState_t * ifstate)
+service_publish_clear(Service_t * service_p)
 {
-    ifstate_clear(ifstate);
-    if (S_scd_session != NULL && ifstate->serviceID) {
+    service_clear(service_p);
+    if (S_scd_session != NULL && service_p->serviceID) {
 	CFMutableArrayRef	array;
 	CFStringRef		key;
 
@@ -808,7 +1187,7 @@ ifstate_publish_clear(IFState_t * ifstate)
 	/* ipv4 */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
-							  ifstate->serviceID,
+							  service_p->serviceID,
 							  kSCEntNetIPv4);
 	if (key) {
 	    CFArrayAppendValue(array, key);
@@ -818,7 +1197,7 @@ ifstate_publish_clear(IFState_t * ifstate)
 	/* dns */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
-							  ifstate->serviceID,
+							  service_p->serviceID,
 							  kSCEntNetDNS);
 	if (key) {
 	    CFArrayAppendValue(array, key);
@@ -828,7 +1207,7 @@ ifstate_publish_clear(IFState_t * ifstate)
 	/* netinfo */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
-							  ifstate->serviceID,
+							  service_p->serviceID,
 							  kSCEntNetNetInfo);
 	if (key) {
 	    CFArrayAppendValue(array, key);
@@ -838,7 +1217,7 @@ ifstate_publish_clear(IFState_t * ifstate)
 	/* dhcp */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
-							  ifstate->serviceID,
+							  service_p->serviceID,
 							  kSCEntNetDHCP);
 	if (key) {
 	    CFArrayAppendValue(array, key);
@@ -851,23 +1230,28 @@ ifstate_publish_clear(IFState_t * ifstate)
 }
 
 static boolean_t
-ifstate_all_ready()
+all_services_ready()
 {
-    boolean_t		all_ready = TRUE;
     int 		i;
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list); i++) {
-	IFState_t *	scan = ptrlist_element(&S_ifstate_list, i);
-	
-	if (scan->published.ready == FALSE) {
-	    all_ready = FALSE;
-	    break;
+	int		j;
+	IFState_t *	ifstate = ptrlist_element(&S_ifstate_list, i);
+
+	if (dynarray_count(&ifstate->services) == 0
+	    && ifstate->startup_ready == FALSE) {
+	    return (FALSE);
+	}
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	    if (service_p->published.ready == FALSE) {
+		return (FALSE);
+	    }
 	}
     }
-    if (all_ready) {
-	unblock_startup(S_scd_session);
-    }
-    return (all_ready);
+    unblock_startup(S_scd_session);
+    return (TRUE);
 }
 
 static boolean_t
@@ -990,13 +1374,13 @@ publish_service(CFStringRef serviceID, CFDictionaryRef ipv4_dict,
 }
 
 static CFDictionaryRef
-make_dhcp_dict(IFState_t * ifstate)
+make_dhcp_dict(Service_t * service_p)
 {
     CFMutableDictionaryRef	dict;
     struct completion_results *	pub;
     int				tag;
 
-    pub = &ifstate->published;
+    pub = &service_p->published;
     if (pub->pkt == NULL) {
 	return (NULL);
     }
@@ -1023,7 +1407,7 @@ make_dhcp_dict(IFState_t * ifstate)
 	free(option);
     }
 
-    if (ifstate->method == ipconfig_method_dhcp_e) {
+    if (service_p->method == ipconfig_method_dhcp_e) {
 	CFDateRef	start;
 	
 	start = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
@@ -1035,9 +1419,8 @@ make_dhcp_dict(IFState_t * ifstate)
 }
 
 void
-ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size)
+service_publish_success(Service_t * service_p, void * pkt, int pkt_size)
 {
-    int				address_count = 0;
     CFMutableArrayRef		array = NULL;
     CFDictionaryRef		dhcp_dict = NULL;
     CFMutableDictionaryRef	dns_dict = NULL;
@@ -1048,6 +1431,7 @@ ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size)
     int				i;
     char *			host_name = NULL;
     int				host_name_len = 0;
+    inet_addrinfo_t *		info_p;
     CFMutableDictionaryRef	ipv4_dict = NULL;
     CFMutableDictionaryRef	netinfo_dict = NULL;
     struct in_addr *		netinfo_addresses = NULL;
@@ -1055,24 +1439,33 @@ ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size)
     u_char *			netinfo_tag = NULL;
     int				netinfo_tag_len = 0;
     struct completion_results *	pub;
+    boolean_t			publish_parent = FALSE;
     struct in_addr *		router = NULL;
     int				router_len = 0;
+    CFStringRef			str;
 
-    if (ifstate->serviceID == NULL) {
+    if (service_p->serviceID == NULL) {
 	return;
     }
 
-    ifstate_clear(ifstate);
-    pub = &ifstate->published;
+    service_clear(service_p);
+    pub = &service_p->published;
+    info_p = &service_p->info;
     pub->ready = TRUE;
     pub->status = ipconfig_status_success_e;
 
+    if (service_p->parent_service_p != NULL) {
+	if (service_p->parent_service_p->info.addr.s_addr != 0) {
+	    return;
+	}
+	publish_parent = TRUE;
+    }
     if (pkt_size) {
 	pub->pkt = malloc(pkt_size);
 	if (pub->pkt == NULL) {
-	    syslog(LOG_ERR, "ifstate_publish_success %s: malloc failed",
-		   if_name(ifstate->if_p));
-	    ifstate_all_ready();
+	    syslog(LOG_ERR, "service_publish_success %s: malloc failed",
+		   if_name(service_interface(service_p)));
+	    all_services_ready();
 	    return;
 	}
 	bcopy(pkt, pub->pkt, pkt_size);
@@ -1089,46 +1482,29 @@ ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size)
 					  &kCFTypeDictionaryKeyCallBacks,
 					  &kCFTypeDictionaryValueCallBacks);
     /* set the ip address array */
-    array = CFArrayCreateMutable(NULL, if_inet_count(ifstate->if_p), 
-				 &kCFTypeArrayCallBacks);
-    for (i = ifstate->our_addrs_start; i < if_inet_count(ifstate->if_p); i++) {
-	inet_addrinfo_t * 	if_inet = if_inet_addr_at(ifstate->if_p, i);
-	CFStringRef		str;
-
-
-	if (if_inet->addr.s_addr == 0)
-	    continue;
-	str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-				       IP_LIST(&if_inet->addr));
-	if (str == NULL)
-	    continue;
+    array = CFArrayCreateMutable(NULL, 1,  &kCFTypeArrayCallBacks);
+    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
+				   IP_LIST(&info_p->addr));
+    if (array && str) {
 	CFArrayAppendValue(array, str);
-	address_count++;
-	CFRelease(str);
+	CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array);
     }
-    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array);
-    CFRelease(array);
-
+    my_CFRelease(&str);
+    my_CFRelease(&array);
+    
     /* set the ip mask array */
-    array = CFArrayCreateMutable(NULL, if_inet_count(ifstate->if_p), 
-				 &kCFTypeArrayCallBacks);
-    for (i = ifstate->our_addrs_start; i < if_inet_count(ifstate->if_p); i++) {
-	inet_addrinfo_t * 	if_inet = if_inet_addr_at(ifstate->if_p, i);
-	CFStringRef		str;
-
-	if (if_inet->addr.s_addr == 0)
-	    continue;
-
-	str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), 
-				       IP_LIST(&if_inet->mask));
+    array = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), 
+				   IP_LIST(&info_p->mask));
+    if (array && str) {
 	CFArrayAppendValue(array, str);
-	CFRelease(str);
+	CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4SubnetMasks, array);
     }
-    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4SubnetMasks, array);
-    CFRelease(array);
+    my_CFRelease(&str);
+    my_CFRelease(&array);
 
     CFDictionarySetValue(ipv4_dict, CFSTR("InterfaceName"),
-			 ifstate->ifname);
+			 service_ifstate(service_p)->ifname);
 
     /* find relevant options */
     host_name = (char *)
@@ -1242,58 +1618,59 @@ ifstate_publish_success(IFState_t * ifstate, void * pkt, int pkt_size)
     }
 
     /* publish the DHCP options */
-    dhcp_dict = make_dhcp_dict(ifstate);
+    dhcp_dict = make_dhcp_dict(service_p);
 
-    publish_service(ifstate->serviceID, ipv4_dict, dns_dict,
-		    netinfo_dict, dhcp_dict);
-
+    if (publish_parent) {
+	publish_service(service_p->parent_service_p->serviceID, 
+			ipv4_dict, dns_dict,
+			netinfo_dict, dhcp_dict);
+    }
+    else {
+	publish_service(service_p->serviceID, ipv4_dict, dns_dict,
+			netinfo_dict, dhcp_dict);
+    }
     my_CFRelease(&ipv4_dict);
     my_CFRelease(&dns_dict);
     my_CFRelease(&netinfo_dict);
     my_CFRelease(&dhcp_dict);
 
-    ifstate_all_ready();
+    all_services_ready();
     return;
 }
 
 void
-ifstate_publish_failure(IFState_t * ifstate, ipconfig_status_t status,
+service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
+			     char * msg, boolean_t sync)
+{
+    if (service_p->child_service_p 
+	&& service_p->child_service_p->info.addr.s_addr) {
+	service_publish_success(service_p->child_service_p, NULL, 0);
+	service_clear(service_p);
+
+    }
+    else {
+	service_publish_clear(service_p);
+    }
+    service_p->published.ready = TRUE;
+    service_p->published.status = status;
+    if (msg) {
+	service_p->published.msg = strdup(msg);
+    }
+    syslog(LOG_DEBUG, "%s %s: status = '%s'",
+	   ipconfig_method_string(service_p->method),
+	   if_name(service_interface(service_p)), 
+	   ipconfig_status_string(status));
+    if (sync == TRUE) {
+	all_services_ready();
+    }
+    return;
+}
+
+void
+service_publish_failure(Service_t * service_p, ipconfig_status_t status,
 			char * msg)
 {
-    ifstate_publish_clear(ifstate);
-
-    ifstate->published.ready = TRUE;
-    ifstate->published.status = status;
-    if (msg)
-	ifstate->published.msg = strdup(msg);
-    syslog(LOG_DEBUG, "%s %s: status = '%s'",
-	   ipconfig_method_string(ifstate->method),
-	   if_name(ifstate->if_p), ipconfig_status_string(status));
-    ifstate_all_ready();
-    return;
-}
-
-void
-ifstate_remove_addresses(IFState_t * ifstate)
-{
-    inet_addrinfo_t * info;
-
-    while (info = if_inet_addr_at(ifstate->if_p, 
-				  ifstate->our_addrs_start)) {
-	my_log(LOG_DEBUG, "%s: removing %s",
-	       if_name(ifstate->if_p), inet_ntoa(info->addr));
-	inet_remove(ifstate, info->addr);
-    }
-}
-
-static void
-ifstate_set_ready(IFState_t * ifstate, ipconfig_status_t status)
-{
-    if (ifstate->published.ready == FALSE) {
-	ifstate->published.ready = TRUE;
-	ifstate->published.status = status;
-    }
-    ifstate_all_ready();
+    service_publish_failure_sync(service_p, status, msg, TRUE);
     return;
 }
 
@@ -1320,9 +1697,8 @@ arpcache_flush(const struct in_addr ip, const struct in_addr broadcast)
 }
 
 static int
-inet_set_autoaddr(IFState_t * ifstate, int val)
+inet_set_autoaddr(char * ifname, int val)
 {
-    interface_t *	if_p = ifstate->if_p;
     int 		s = inet_dgram_socket();
     int			ret = 0;
 
@@ -1330,13 +1706,13 @@ inet_set_autoaddr(IFState_t * ifstate, int val)
 	ret = errno;
 	my_log(LOG_ERR, 
 	       "inet_set_autoaddr(%s, %d): socket() failed, %s (%d)",
-	       if_name(if_p), val, strerror(errno), errno);
+	       ifname, val, strerror(errno), errno);
     }
     else {
-	if (siocautoaddr(s, if_name(if_p), val) < 0) {
+	if (siocautoaddr(s, ifname, val) < 0) {
 	    ret = errno;
 	    my_log(LOG_DEBUG, "inet_set_autoaddr(%s, %d) failed, %s (%d)", 
-		   if_name(if_p), val, strerror(errno), errno);
+		   ifname, val, strerror(errno), errno);
 
 	}
 	close(s);
@@ -1345,20 +1721,71 @@ inet_set_autoaddr(IFState_t * ifstate, int val)
 }
 
 int
-inet_enable_autoaddr(IFState_t * ifstate)
+service_enable_autoaddr(Service_t * service_p)
 {
-    return (inet_set_autoaddr(ifstate, 1));
+    return (inet_set_autoaddr(if_name(service_interface(service_p)), 1));
 }
 
 int
-inet_disable_autoaddr(IFState_t * ifstate)
+service_disable_autoaddr(Service_t * service_p)
 {
     arpcache_flush(G_ip_zeroes, G_ip_zeroes);
-    return (inet_set_autoaddr(ifstate, 0));
+    return (inet_set_autoaddr(if_name(service_interface(service_p)), 0));
 }
 
-int
-inet_attach_interface(IFState_t * ifstate)
+Service_t *
+linklocal_service_start(Service_t * parent_service_p)
+{
+    IFState_t *		ifstate = service_ifstate(parent_service_p);
+    IFState_t *		linklocal_ifstate;
+    Service_t *		service_p;
+    ipconfig_status_t	status;
+
+    if (parent_service_p->child_service_p) {
+	return (parent_service_p->child_service_p);
+    }
+    linklocal_ifstate = IFStateList_linklocal_service(&S_ifstate_list, 
+						      &service_p);
+    if (linklocal_ifstate) {
+	if (linklocal_ifstate != ifstate) {
+	    return (NULL);
+	}
+	else {
+	    return (service_p);
+	}
+    }
+
+    /* no services are link-local, start one on this interface */
+    status = IFState_service_add(ifstate, NULL, ipconfig_method_linklocal_e,
+				 NULL, 0, &service_p);
+    if (status != ipconfig_status_success_e) {
+	my_log(LOG_INFO, "ipconfigd: failed to start ad hoc service on %s, %s",
+	       if_name(ifstate->if_p),
+	       ipconfig_status_string(status));
+    }
+    if (service_p) {
+	service_p->parent_service_p = parent_service_p;
+	parent_service_p->child_service_p = service_p;
+    }
+    return (service_p);
+}
+
+void
+linklocal_service_stop(Service_t * parent_service_p)
+{
+    Service_t *		service_p;
+
+    service_p = parent_service_p->child_service_p;
+    if (service_p) {
+	IFState_service_free(service_ifstate(service_p), 
+			     service_p->serviceID);
+	parent_service_p->child_service_p = NULL;
+    }
+    return;
+}
+
+static int
+inet_attach_interface(char * ifname)
 {
     int ret = 0;
     int s = inet_dgram_socket();
@@ -1368,12 +1795,12 @@ inet_attach_interface(IFState_t * ifstate)
 	goto done;
     }
 
-    if (siocprotoattach(s, if_name(ifstate->if_p)) < 0) {
+    if (siocprotoattach(s, ifname) < 0) {
 	ret = errno;
 	my_log(LOG_DEBUG, "siocprotoattach(%s) failed, %s (%d)", 
-	       if_name(ifstate->if_p), strerror(errno), errno);
+	       ifname, strerror(errno), errno);
     }
-    (void)ifflags_set(s, if_name(ifstate->if_p), IFF_UP);
+    (void)ifflags_set(s, ifname, IFF_UP);
     close(s);
 
  done:
@@ -1381,7 +1808,7 @@ inet_attach_interface(IFState_t * ifstate)
 }
 
 static int
-inet_detach_interface(IFState_t * ifstate)
+inet_detach_interface(char * ifname)
 {
     int ret = 0;
     int s = inet_dgram_socket();
@@ -1390,10 +1817,10 @@ inet_detach_interface(IFState_t * ifstate)
 	ret = errno;
 	goto done;
     }
-    if (siocprotodetach(s, if_name(ifstate->if_p)) < 0) {
+    if (siocprotodetach(s, ifname) < 0) {
 	ret = errno;
 	my_log(LOG_DEBUG, "siocprotodetach(%s) failed, %s (%d)", 
-	       if_name(ifstate->if_p), strerror(errno), errno);
+	       ifname, strerror(errno), errno);
     }
     close(s);
 
@@ -1402,8 +1829,56 @@ inet_detach_interface(IFState_t * ifstate)
 }
 
 static boolean_t
-subnet_route(int cmd, struct in_addr netaddr, struct in_addr netmask,
-	     char * ifname)
+host_route(int cmd, struct in_addr iaddr)
+{
+    int 			len;
+    boolean_t			ret = TRUE;
+    int 			rtm_seq = 0;
+    struct {
+	struct rt_msghdr	hdr;
+	struct sockaddr_in	dst;
+	struct sockaddr_in	gway;
+    } 				rtmsg;
+    int 			sockfd = -1;
+
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+	my_log(LOG_INFO, "host_route: open routing socket failed, %s",
+	       strerror(errno));
+	ret = FALSE;
+	goto done;
+    }
+
+    memset(&rtmsg, 0, sizeof(rtmsg));
+    rtmsg.hdr.rtm_type = cmd;
+    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC | RTF_HOST;
+    rtmsg.hdr.rtm_version = RTM_VERSION;
+    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
+    rtmsg.dst.sin_len = sizeof(rtmsg.dst);
+    rtmsg.dst.sin_family = AF_INET;
+    rtmsg.dst.sin_addr = iaddr;
+    rtmsg.gway.sin_len = sizeof(rtmsg.gway);
+    rtmsg.gway.sin_family = AF_INET;
+    rtmsg.gway.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+    len = sizeof(rtmsg);
+    rtmsg.hdr.rtm_msglen = len;
+    if (write(sockfd, &rtmsg, len) < 0) {
+	my_log(LOG_DEBUG, "host_route: write routing socket failed, %s",
+	       strerror(errno));
+	ret = FALSE;
+    }
+ done:
+    if (sockfd >= 0) {
+	close(sockfd);
+    }
+    return (ret);
+}
+
+
+static boolean_t
+subnet_route(int cmd, struct in_addr gateway, struct in_addr netaddr, 
+	     struct in_addr netmask, char * ifname)
 {
     int 			len;
     boolean_t			ret = TRUE;
@@ -1435,6 +1910,7 @@ subnet_route(int cmd, struct in_addr netaddr, struct in_addr netmask,
     rtmsg.dst.sin_addr = netaddr;
     rtmsg.gway.sin_len = sizeof(rtmsg.gway);
     rtmsg.gway.sin_family = AF_INET;
+    rtmsg.gway.sin_addr = gateway;
     rtmsg.mask.sin_len = sizeof(rtmsg.mask);
     rtmsg.mask.sin_family = AF_INET;
     rtmsg.mask.sin_addr = netmask;
@@ -1517,47 +1993,12 @@ S_get_service_order(SCDynamicStoreRef session)
     return (order);
 }
 
-static int
-S_ifstate_find_netaddr(IFState_t * ifstate, struct in_addr netaddr)
-{
-    int 		i;
-    interface_t * 	if_p = ifstate->if_p;
-
-    for (i = ifstate->our_addrs_start; i < if_inet_count(if_p); i++) {
-	inet_addrinfo_t *	info = if_inet_addr_at(if_p, i);
-
-	if (netaddr.s_addr == info->netaddr.s_addr) {
-	    return (i);
-	}
-    }
-    return (INDEX_BAD);
-}
-
-static int
-S_ifstate_first_addr(IFState_t * ifstate)
-{
-    int 		i;
-    interface_t * 	if_p = ifstate->if_p;
-
-    for (i = ifstate->our_addrs_start; i < if_inet_count(if_p); i++) {
-	inet_addrinfo_t *	info = if_inet_addr_at(if_p, i);
-	u_int32_t		ipval;
-
-	ipval = iptohl(info->netaddr);
-	if (IN_LINKLOCAL(ipval)) {
-	    continue;
-	}
-	return (i);
-    }
-    return (INDEX_BAD);
-}
-
 boolean_t
-S_subnet_route_interface(struct in_addr netaddr, struct in_addr netmask,
-			 interface_t * * if_p_p, int * count_p)
+S_subnet_route_service(struct in_addr netaddr, struct in_addr netmask, 
+		       Service_t * * ret_service_p, int * count_p)
 {
-    unsigned int	best_rank = RANK_LOWEST;
-    interface_t *	best_if_p = NULL;
+    unsigned int	best_rank = RANK_LOWEST + 1;
+    Service_t *		best_service_p = NULL;
     int			match_count = 0;
     int 		i;
     boolean_t		ret = TRUE;
@@ -1570,24 +2011,30 @@ S_subnet_route_interface(struct in_addr netaddr, struct in_addr netmask,
     }
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list); i++) {
-	int		addr_index;
 	unsigned int	rank;
 	IFState_t *	ifstate = ptrlist_element(&S_ifstate_list, i);
-	interface_t *	if_p = ifstate->if_p;
+	int		j;
 	
-	if (ifstate->method == ipconfig_method_none_e
-	    || ifstate->serviceID == NULL) {
-	    continue;
-	}
-	addr_index = S_ifstate_find_netaddr(ifstate, netaddr);
-	if (addr_index == INDEX_BAD) {
-	    continue;
-	}
-	match_count++;
-	rank = S_get_service_rank(service_order, ifstate->serviceID);
-	if (rank < best_rank) {
-	    best_if_p = if_p;
-	    best_rank = rank;
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t * 		service_p;
+	    inet_addrinfo_t *		info_p;
+
+	    service_p = dynarray_element(&ifstate->services, j);
+	    info_p = &service_p->info;
+
+	    if (info_p->addr.s_addr == 0) {
+		continue;
+	    }
+	    if (netmask.s_addr != info_p->mask.s_addr
+		|| in_subnet(netaddr, netmask, info_p->addr) == FALSE) {
+		continue;
+	    }
+	    match_count++;
+	    rank = S_get_service_rank(service_order, service_p->serviceID);
+	    if (rank < best_rank) {
+		best_service_p = service_p;
+		best_rank = rank;
+	    }
 	}
     }
  done:
@@ -1595,8 +2042,8 @@ S_subnet_route_interface(struct in_addr netaddr, struct in_addr netmask,
     if (count_p) {
 	*count_p = match_count;
     }
-    if (if_p_p) {
-	*if_p_p = best_if_p;
+    if (ret_service_p) {
+	*ret_service_p = best_service_p;
     }
     return (ret);
 }
@@ -1607,30 +2054,33 @@ order_services(SCDynamicStoreRef session)
     int i;
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list); i++) {
-	int			addr_index;
-	interface_t *		best_if_p = NULL;
 	IFState_t *		ifstate = ptrlist_element(&S_ifstate_list, i);
-	inet_addrinfo_t *	info;
-	interface_t *		if_p = ifstate->if_p;
-	int			subnet_count = 0;
+	int			j;
 
-	if (ifstate->method == ipconfig_method_none_e
-	    || ifstate->serviceID == NULL) {
-	    continue;
-	}
-	addr_index = S_ifstate_first_addr(ifstate);
-	if (addr_index == INDEX_BAD) {
-	    continue;
-	}
-	info = if_inet_addr_at(if_p, addr_index);
-	if (S_subnet_route_interface(info->netaddr, info->mask,
-				     &best_if_p, &subnet_count) == TRUE) {
-	    /* adjust the subnet route if more than one if is on it */
-	    if (best_if_p && subnet_count > 1) {
-		subnet_route(RTM_DELETE, info->netaddr, info->mask, NULL);
-		subnet_route(RTM_ADD, info->netaddr, info->mask, 
-			     if_name(best_if_p));
-		arpcache_flush(G_ip_zeroes, info->broadcast);
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t *			best_service_p = NULL;
+	    inet_addrinfo_t *		info_p;
+	    Service_t * 		service_p;
+	    int				subnet_count = 0;
+
+	    service_p = dynarray_element(&ifstate->services, j);
+	    info_p = &service_p->info;
+
+	    if (info_p->addr.s_addr == 0) {
+		continue;
+	    }
+	    if (S_subnet_route_service(info_p->netaddr, info_p->mask,
+				       &best_service_p, 
+				       &subnet_count) == TRUE) {
+		/* adjust the subnet route if multiple interfaces on subnet */
+		if (best_service_p && subnet_count > 1) {
+		    subnet_route(RTM_DELETE, G_ip_zeroes, info_p->netaddr, 
+				 info_p->mask, NULL);
+		    subnet_route(RTM_ADD, best_service_p->info.addr,
+				 info_p->netaddr, info_p->mask, 
+				 if_name(service_interface(best_service_p)));
+		    arpcache_flush(G_ip_zeroes, info_p->broadcast);
+		}
 	    }
 	}
     }
@@ -1638,143 +2088,136 @@ order_services(SCDynamicStoreRef session)
 }
 
 int
-inet_add(IFState_t * ifstate, struct in_addr ip, 
-	 const struct in_addr * mask, const struct in_addr * broadcast)
+service_set_address(Service_t * service_p, 
+		    struct in_addr addr,
+		    struct in_addr mask, 
+		    struct in_addr broadcast)
 {
-    interface_t *	if_p = ifstate->if_p;
-    struct in_addr	netmask = { 0 };
-    struct in_addr	netaddr = { 0 };
-    struct in_addr	netbroadcast = { 0 };
+    interface_t *	if_p = service_interface(service_p);
     int			ret = 0;
+    struct in_addr	netaddr = { 0 };
     int 		s = inet_dgram_socket();
 
-    if (mask == NULL || mask->s_addr == 0 
-	|| mask->s_addr == G_ip_broadcast.s_addr) {
-	u_int32_t ipval = ntohl(ip.s_addr);
+    if (mask.s_addr == 0) {
+	u_int32_t ipval = ntohl(addr.s_addr);
 
 	if (IN_CLASSA(ipval)) {
-	    netmask.s_addr = htonl(IN_CLASSA_NET);
+	    mask.s_addr = htonl(IN_CLASSA_NET);
 	}
 	else if (IN_CLASSB(ipval)) {
-	    netmask.s_addr = htonl(IN_CLASSB_NET);
+	    mask.s_addr = htonl(IN_CLASSB_NET);
 	}
 	else {
-	    netmask.s_addr = htonl(IN_CLASSC_NET);
+	    mask.s_addr = htonl(IN_CLASSC_NET);
 	}
     }
-    else {
-	netmask = *mask;
+    if (broadcast.s_addr == 0) {
+	broadcast = hltoip(iptohl(addr) | ~iptohl(mask));
     }
+    netaddr = hltoip(iptohl(addr) & iptohl(mask));
 
-    my_log(LOG_DEBUG, "inet_add: %s " IP_FORMAT " netmask " IP_FORMAT, 
-	   if_name(if_p), IP_LIST(&ip), IP_LIST(&netmask));
+    my_log(LOG_DEBUG, 
+	   "service_set_address(%s): " IP_FORMAT " netmask " IP_FORMAT 
+	   " broadcast " IP_FORMAT, if_name(if_p), 
+	   IP_LIST(&addr), IP_LIST(&mask), IP_LIST(&broadcast));
     if (s < 0) {
 	ret = errno;
 	my_log(LOG_ERR, 
-	       "inet_add(%s): socket() failed, %s (%d)",
+	       "service_set_address(%s): socket() failed, %s (%d)",
 	       if_name(if_p), strerror(errno), errno);
     }
     else {
-	int			i;
-	inet_addrinfo_t 	info;
+	inet_addrinfo_t *	info_p = &service_p->info;
 
-	if (inet_aifaddr(s, if_name(if_p), &ip, &netmask, broadcast) < 0) {
+	if (inet_aifaddr(s, if_name(if_p), &addr, &mask, &broadcast) < 0) {
 	    ret = errno;
-	    my_log(LOG_DEBUG, "inet_add(%s) " 
+	    my_log(LOG_DEBUG, "service_set_address(%s) " 
 		   IP_FORMAT " inet_aifaddr() failed, %s (%d)", if_name(if_p),
-		   IP_LIST(&ip), strerror(errno), errno);
+		   IP_LIST(&addr), strerror(errno), errno);
 	}
 	if_setflags(if_p, if_flags(if_p) | IFF_UP);
 	ifflags_set(s, if_name(if_p), IFF_UP);
-	bzero(&info, sizeof(info));
-	info.addr = ip;
-	info.mask = netmask;
-	info.netaddr = netaddr = hltoip(iptohl(ip) & iptohl(netmask));
-	if (broadcast) {
-	    info.broadcast = *broadcast;
-	}
-	else {
-	    info.broadcast = hltoip(iptohl(ip) | ~iptohl(netmask));
-	}
-	netbroadcast = info.broadcast;
-	i = if_inet_find_ip(if_p, info.addr);
-	if (i != INDEX_BAD) {
-	    if (i < ifstate->our_addrs_start) {
-		ifstate->our_addrs_start--;
-	    }
-	}
-	if_inet_addr_add(if_p, &info);
+	bzero(info_p, sizeof(*info_p));
+	info_p->addr = addr;
+	info_p->mask = mask;
+	info_p->netaddr = netaddr;
+	info_p->broadcast = broadcast;
 	close(s);
+	(void)host_route(RTM_DELETE, addr);
+	(void)host_route(RTM_ADD, addr);
     }
     if (ret == EEXIST) {
-	interface_t * 	if_p = NULL;
+	Service_t * best_service_p = NULL;
 
-	if (S_subnet_route_interface(netaddr, netmask, &if_p, NULL) == TRUE) {
-	    if (if_p) {
-		subnet_route(RTM_DELETE, netaddr, netmask, NULL);
-		subnet_route(RTM_ADD, netaddr, netmask, if_name(if_p));
-	    }
-	    else {
-		subnet_route(RTM_DELETE, netaddr, netmask, NULL);
+	if (S_subnet_route_service(netaddr, mask, &best_service_p, NULL) 
+	    == TRUE) {
+	    subnet_route(RTM_DELETE, G_ip_zeroes, netaddr, mask, NULL);
+	    if (best_service_p) {
+		subnet_route(RTM_ADD, best_service_p->info.addr, 
+			     netaddr, mask, 
+			     if_name(service_interface(best_service_p)));
 	    }
 	}
-	arpcache_flush(G_ip_zeroes, netbroadcast);
+	arpcache_flush(G_ip_zeroes, broadcast);
     }
     return (ret);
 }
 
 int
-inet_remove(IFState_t * ifstate, struct in_addr ip)
+service_remove_address(Service_t * service_p)
 {
-    interface_t *	if_p = ifstate->if_p;
-    struct in_addr	netmask = { 0 };
-    struct in_addr	netaddr = { 0 };
+    Service_t * 	best_service_p = NULL;
+    interface_t *	if_p = service_interface(service_p);
+    inet_addrinfo_t *	info_p = &service_p->info;
+    inet_addrinfo_t	saved_info;
     int			ret = 0;
-    int 		s = inet_dgram_socket();
+    int 		s;
 
-    my_log(LOG_DEBUG, "inet_remove: %s " IP_FORMAT, 
-	   if_name(if_p), IP_LIST(&ip));
+    if (info_p->addr.s_addr == 0) {
+	return (0);
+    }
+
+    /* grab a copy of the IP addressing info, then clear it */
+    saved_info = service_p->info;
+    bzero(info_p, sizeof(*info_p));
+
+    s = inet_dgram_socket();
+    my_log(LOG_DEBUG, "service_remove_address(%s) " IP_FORMAT, 
+	   if_name(if_p), IP_LIST(&saved_info.addr));
     if (s < 0) {
 	ret = errno;
 	my_log(LOG_DEBUG, 
-	       "inet_remove (%s):socket() failed, %s (%d)",
+	       "service_remove_address(%s) socket() failed, %s (%d)",
 	       if_name(if_p), strerror(errno), errno);
     }	
     else {
-	int		i;
-	struct in_addr	broadcast = G_ip_zeroes;
-
-	i = if_inet_find_ip(if_p, ip);
-	if (i != INDEX_BAD) {
-	    inet_addrinfo_t *	info = if_inet_addr_at(if_p, i);
-
-	    netmask = info->mask;
-	    netaddr = info->netaddr;
-	    broadcast = info->broadcast;
-	}
-	if (inet_difaddr(s, if_name(if_p), &ip) < 0) {
+	if (inet_difaddr(s, if_name(if_p), &saved_info.addr) < 0) {
 	    ret = errno;
-	    my_log(LOG_DEBUG, "inet_remove(%s) " 
+	    my_log(LOG_DEBUG, "service_remove_address(%s) " 
 		   IP_FORMAT " failed, %s (%d)", if_name(if_p),
-		   IP_LIST(&ip), strerror(errno), errno);
+		   IP_LIST(&saved_info.addr), strerror(errno), errno);
 	}
-	if_inet_addr_remove(if_p, ip);
 	close(s);
-	arpcache_flush(ip, broadcast);
     }
-    if (ip.s_addr != 0 && netmask.s_addr != 0) {
-	interface_t * 	if_p = NULL;
+    arpcache_flush(saved_info.addr, saved_info.broadcast);
 
-	if (S_subnet_route_interface(netaddr, netmask, &if_p, NULL) == TRUE) {
-	    if (if_p) {
-		subnet_route(RTM_DELETE, netaddr, netmask, NULL);
-		subnet_route(RTM_ADD, netaddr, netmask, if_name(if_p));
-	    }
-	    else {
-		subnet_route(RTM_DELETE, netaddr, netmask, NULL);
-	    }
+    if (S_subnet_route_service(saved_info.netaddr, saved_info.mask, 
+			       &best_service_p, NULL) == TRUE) {
+	subnet_route(RTM_DELETE, G_ip_zeroes, saved_info.netaddr, 
+		     saved_info.mask, NULL);
+	if (best_service_p) {
+	    subnet_route(RTM_ADD, best_service_p->info.addr, 
+			 saved_info.netaddr, saved_info.mask, 
+			 if_name(service_interface(best_service_p)));
 	}
     }
+
+    /* if no other service refers to this IP, remove the route */
+    if (IFStateList_service_with_ip(&S_ifstate_list, saved_info.addr, NULL)
+	== NULL) {
+	(void)host_route(RTM_DELETE, saved_info.addr);
+    }
+
     return (ret);
 }
 
@@ -1800,45 +2243,24 @@ set_loopback()
     close(s);
 }
 
-static __inline__ boolean_t
-ifstate_all_done()
-{
-    int i;
-
-    for (i = 0; i < ptrlist_count(&S_ifstate_list);  i++) {
-	IFState_t * s = ptrlist_element(&S_ifstate_list, i);
-
-	switch (s->method) {
-	  case ipconfig_method_inform_e:
-	  case ipconfig_method_dhcp_e:
-	  case ipconfig_method_bootp_e:
-	      if (s->published.ready == FALSE)
-		  return (FALSE);
-	      break;
-	  default:
-	      break;
-	}
-    }
-    return (TRUE);
-}
-
-boolean_t
-ifstate_get_option(IFState_t * ifstate, int option_code, void * option_data,
+static boolean_t
+service_get_option(Service_t * service_p, int option_code, void * option_data,
 		   unsigned int * option_dataCnt)
 {
     boolean_t ret = FALSE;
 
-    switch (ifstate->method) {
+    switch (service_p->method) {
       case ipconfig_method_inform_e:
       case ipconfig_method_dhcp_e:
       case ipconfig_method_bootp_e: {
 	  void * data;
 	  int	 len;
 	  
-	  if (ifstate->published.ready == FALSE 
-	      || ifstate->published.pkt == NULL)
+	  if (service_p->published.ready == FALSE 
+	      || service_p->published.pkt == NULL) {
 	      break; /* out of switch */
-	  data = dhcpol_find(&ifstate->published.options, option_code,
+	  }
+	  data = dhcpol_find(&service_p->published.options, option_code,
 			     &len, NULL);
 	  if (data) {
 	      if (len > *option_dataCnt) {
@@ -1904,14 +2326,29 @@ get_if_option(char * name, int option_code, void * option_data,
     boolean_t		ret = FALSE;
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list);  i++) {
-	IFState_t * s = ptrlist_element(&S_ifstate_list, i);
-	boolean_t 	name_match = (strcmp(if_name(s->if_p), name) == 0);
-	
-	if (name[0] == '\0' || name_match) {
-	    ret = ifstate_get_option(s, option_code, option_data,
+	IFState_t * 	ifstate = ptrlist_element(&S_ifstate_list, i);
+	int		j;
+	boolean_t 	name_match = FALSE;
+
+	if (name[0] != '\0') {
+	    if (strcmp(if_name(ifstate->if_p), name) == 0) {
+		name_match = TRUE;
+	    }
+	    else {
+		continue;
+	    }
+	}
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t * service_p = dynarray_element(&ifstate->services, j);
+
+	    ret = service_get_option(service_p, option_code, option_data,
 				     option_dataCnt);
-	    if (ret == TRUE || name_match)
-		break; /* out of for */
+	    if (ret == TRUE) {
+		break; /* out of inner for() */
+	    }
+	}
+	if (ret == TRUE || name_match == TRUE) {
+	    break; /* out of outer for() */
 	}
     } /* for */
     return (ret);
@@ -1924,21 +2361,29 @@ get_if_packet(char * name, void * packet_data, unsigned int * packet_dataCnt)
     boolean_t		ret = FALSE;
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list);  i++) {
-	IFState_t * s = ptrlist_element(&S_ifstate_list, i);
-	if (strcmp(if_name(s->if_p), name) == 0) {
-	    switch (s->method) {
+	IFState_t * 	ifstate = ptrlist_element(&S_ifstate_list, i);
+	int		j;
+
+	if (strcmp(if_name(ifstate->if_p), name))
+	    continue;
+
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t * service_p = dynarray_element(&ifstate->services, j);
+	    
+	    switch (service_p->method) {
 	      case ipconfig_method_inform_e:
 	      case ipconfig_method_dhcp_e:
 	      case ipconfig_method_bootp_e: {
-		  if (s->published.ready == FALSE || s->published.pkt == NULL)
+		  if (service_p->published.ready == FALSE 
+		      || service_p->published.pkt == NULL)
 		      break; /* out of switch */
 		
-		  if (s->published.pkt_size > *packet_dataCnt) {
+		  if (service_p->published.pkt_size > *packet_dataCnt) {
 		      ret = FALSE;
 		      break;
 		  }
-		  *packet_dataCnt = s->published.pkt_size;
-		  bcopy(s->published.pkt, packet_data, *packet_dataCnt);
+		  *packet_dataCnt = service_p->published.pkt_size;
+		  bcopy(service_p->published.pkt, packet_data, *packet_dataCnt);
 		  ret = TRUE;
 		  break; /* out of for */
 	      }
@@ -1967,6 +2412,10 @@ static ipconfig_func_t *
 lookup_func(ipconfig_method_t method)
 {
     switch (method) {
+      case ipconfig_method_linklocal_e: {
+	  return linklocal_thread;
+	  break;
+      }
       case ipconfig_method_inform_e: {
 	  return inform_thread;
 	  break;
@@ -1985,6 +2434,7 @@ lookup_func(ipconfig_method_t method)
 	  return bootp_thread;
 	  break;
       }
+
       default:
 	  break;
     }
@@ -1992,13 +2442,13 @@ lookup_func(ipconfig_method_t method)
 }
 
 static ipconfig_status_t
-config_method_start(IFState_t * ifstate, ipconfig_method_t method,
+config_method_start(Service_t * service_p, ipconfig_method_t method,
 		    ipconfig_method_data_t * data,
 		    unsigned int data_len)
 {
     start_event_data_t		start_data;
     ipconfig_func_t *		func;
-    interface_t * 		if_p = ifstate->if_p;
+    interface_t * 		if_p = service_interface(service_p);
 
     /*
      * The correct check is for broadcast interfaces, but
@@ -2008,10 +2458,11 @@ config_method_start(IFState_t * ifstate, ipconfig_method_t method,
     if ((if_flags(if_p) & IFF_BROADCAST) == 0
 	|| (if_link_arptype(if_p) != ARPHRD_ETHER)) {
 	switch (method) {
+	  case ipconfig_method_linklocal_e:
 	  case ipconfig_method_inform_e:
 	  case ipconfig_method_dhcp_e:
 	  case ipconfig_method_bootp_e:
-	      /* can't do DHCP/BOOTP over non-broadcast interfaces */
+	      /* no ARP/DHCP/BOOTP over non-broadcast interfaces */
 	      return (ipconfig_status_invalid_operation_e);
 	  default:
 	      break;
@@ -2023,11 +2474,11 @@ config_method_start(IFState_t * ifstate, ipconfig_method_t method,
     }
     start_data.config.data = data;
     start_data.config.data_len = data_len;
-    return (*func)(ifstate, IFEventID_start_e, &start_data);
+    return (*func)(service_p, IFEventID_start_e, &start_data);
 }
 
 static ipconfig_status_t
-config_method_change(IFState_t * ifstate, ipconfig_method_t method,
+config_method_change(Service_t * service_p, ipconfig_method_t method,
 		    ipconfig_method_data_t * data,
 		    unsigned int data_len, boolean_t * needs_stop)
 {
@@ -2037,9 +2488,6 @@ config_method_change(IFState_t * ifstate, ipconfig_method_t method,
 
     *needs_stop = FALSE;
 
-    if (method == ipconfig_method_none_e) {
-	return (ipconfig_status_success_e);
-    }
     func = lookup_func(method);
     if (func == NULL) {
 	return (ipconfig_status_operation_not_supported_e);
@@ -2047,7 +2495,7 @@ config_method_change(IFState_t * ifstate, ipconfig_method_t method,
     change_data.config.data = data;
     change_data.config.data_len = data_len;
     change_data.needs_stop = FALSE;
-    status = (*func)(ifstate, IFEventID_change_e, &change_data);
+    status = (*func)(service_p, IFEventID_change_e, &change_data);
     *needs_stop = change_data.needs_stop;
     return (status);
 }
@@ -2073,72 +2521,43 @@ if_gifmedia(int sockfd, char * name, boolean_t * status)
 }
 
 static ipconfig_status_t
-config_method_stop(IFState_t * ifstate, ipconfig_method_t method)
+config_method_event(Service_t * service_p, IFEventID_t event)
 {
     ipconfig_status_t	status = ipconfig_status_success_e;
     ipconfig_func_t *	func;
-
-    if (method == ipconfig_method_none_e) {
-	goto done;
-    }
+    ipconfig_method_t	method = service_p->method;
 
     func = lookup_func(method);
     if (func == NULL) {
+	SCLog(TRUE, LOG_INFO, 
+	      CFSTR("config_method_event(%s): lookup_func(%d) failed"), 
+	      IFEventID_names(event), method);
 	status = ipconfig_status_internal_error_e;
 	goto done;
     }
-    (*func)(ifstate, IFEventID_stop_e, NULL);
+    (*func)(service_p, event, NULL);
 
  done:
     return (status);
+    
 }
 
 static ipconfig_status_t
-config_method_media(IFState_t * ifstate, link_status_t new_status)
+config_method_stop(Service_t * service_p)
 {
-    ipconfig_func_t *	func;
-
-    ifstate->link = new_status;
-    if (ifstate->method == ipconfig_method_none_e) {
-	return (ipconfig_status_success_e);
-    }
-
-    func = lookup_func(ifstate->method);
-    if (func == NULL) {
-	return (ipconfig_status_internal_error_e);
-    }
-    (*func)(ifstate, IFEventID_media_e, NULL);
-    return (ipconfig_status_success_e);
+    return (config_method_event(service_p, IFEventID_stop_e));
 }
 
 static ipconfig_status_t
-config_method_renew(IFState_t * ifstate)
+config_method_media(Service_t * service_p)
 {
-    ipconfig_func_t *	func;
-
-    if (ifstate->method == ipconfig_method_none_e) {
-	return (ipconfig_status_success_e);
-    }
-    func = lookup_func(ifstate->method);
-    if (func == NULL) {
-	return (ipconfig_status_internal_error_e);
-    }
-    (*func)(ifstate, IFEventID_renew_e, NULL);
-    return (ipconfig_status_success_e);
+    return (config_method_event(service_p, IFEventID_media_e));
 }
 
-static boolean_t
-serviceID_equal(void * val1, void * val2)
+static ipconfig_status_t
+config_method_renew(Service_t * service_p)
 {
-    CFStringRef str1 = val1;
-    CFStringRef str2 = val2;
-
-    if (val1 == val2)
-	return (TRUE);
-
-    if (val1 == NULL || val2 == NULL)
-	return (FALSE);
-    return (CFEqual(str1, str2));
+    return (config_method_event(service_p, IFEventID_renew_e));
 }
 
 ipconfig_status_t
@@ -2148,7 +2567,6 @@ set_if(char * name, ipconfig_method_t method,
 {
     interface_t * 	if_p = ifl_find_name(S_interfaces, name);
     IFState_t *   	ifstate;
-    ipconfig_status_t	status = ipconfig_status_success_e;
 
     if (G_verbose)
 	my_log(LOG_INFO, "set %s %s", name, ipconfig_method_string(method));
@@ -2156,63 +2574,25 @@ set_if(char * name, ipconfig_method_t method,
 	my_log(LOG_INFO, "set: unknown interface %s", name);
 	return (ipconfig_status_interface_does_not_exist_e);
     }
-    ifstate = IFState_make_if(if_p);
+    ifstate = IFStateList_ifstate_create(&S_ifstate_list, if_p);
     if (ifstate == NULL) {
 	return (ipconfig_status_allocation_failed_e);
     }
-    if (ifstate->method == method 
-	&& serviceID_equal(serviceID, ifstate->serviceID) == TRUE) {
-	boolean_t	needs_stop = FALSE;
-	status = config_method_change(ifstate, method, method_data,
-				      method_data_len, &needs_stop);
-	if (status != ipconfig_status_success_e
-	    || needs_stop == FALSE) {
-	    ifstate_set_ready(ifstate, status);
-	    return (status);
-	}
-    }
-    status = config_method_stop(ifstate, ifstate->method);
-    if (status != ipconfig_status_success_e) {
-	ifstate_set_ready(ifstate, status);
-	return (status);
-    }
-    ifstate->method = ipconfig_method_none_e;
-    ifstate_publish_clear(ifstate);
-    my_CFRelease(&ifstate->serviceID);
+    ifstate->startup_ready = TRUE;
+
+    /* stop existing services */
+    dynarray_free(&ifstate->services);
 
     if (method == ipconfig_method_none_e) {
-	inet_detach_interface(ifstate);
+	inet_detach_interface(if_name(if_p));
+	return (ipconfig_status_success_e);
     }
-    else {
-	inet_attach_interface(ifstate);
-	status = config_method_start(ifstate, method,
-				     method_data, method_data_len);
-	my_log(LOG_DEBUG, "status from %s was %s",
-	       ipconfig_method_string(method), 
-	       ipconfig_status_string(status));
-	if (status == ipconfig_status_success_e) {
-	    ifstate->method = method;
-	    if (serviceID) {
-		ifstate->serviceID = (void *)CFRetain(serviceID);
-	    }
-	    else {
-		ifstate->serviceID = (void *)
-		    CFStringCreateWithFormat(NULL, NULL, 
-					     CFSTR("%s-%s"),
-					     if_name(if_p),
-					     ipconfig_method_string(method));
-	    }
-	}
-	else {
-	    /* 
-	     * make sure that errors not handled by the
-	     * configuration method mark the interface as
-	     * ready as well
-	     */
-	    ifstate_set_ready(ifstate, status);
-	}
-    }
-    return (status);
+
+    dynarray_init(&ifstate->services, Service_free, NULL);
+
+    /* add a new service */
+    return (IFState_service_add(ifstate, serviceID, method, method_data,
+				method_data_len, NULL));
 }
 
 static boolean_t
@@ -2281,6 +2661,8 @@ ipconfig_cfstring_from_method(ipconfig_method_t method)
 	    return (kSCValNetIPv4ConfigMethodINFORM);
 	case ipconfig_method_manual_e:
 	    return (kSCValNetIPv4ConfigMethodManual);
+    	case ipconfig_method_linklocal_e:
+	    return (kSCValNetIPv4ConfigMethodLinkLocal);
         default:
 	    break;
     }
@@ -2301,6 +2683,9 @@ ipconfig_method_from_cfstring(CFStringRef m, ipconfig_method_t * method)
     }
     else if (CFEqual(m, kSCValNetIPv4ConfigMethodINFORM)) {
 	*method = ipconfig_method_inform_e;
+    }
+    else if (CFEqual(m, kSCValNetIPv4ConfigMethodLinkLocal)) {
+	*method = ipconfig_method_linklocal_e;
     }
     else {
 	return (FALSE);
@@ -2492,7 +2877,7 @@ load_cache_from_iftab(SCDynamicStoreRef session)
 	     * so that at startup we wait for all interfaces that are present
 	     */
 	    if (if_p) {
-		(void)IFState_make_if(if_p);
+		(void)IFStateList_ifstate_create(&S_ifstate_list, if_p);
 	    }
 
 	    /* add serviceID in the order in which they are defined in iftab */
@@ -2842,28 +3227,308 @@ lookup_entity(CFArrayRef all, CFStringRef ifn_cf)
     return (NULL);
 }
 
+static CFArrayRef
+interface_services_copy(CFArrayRef all, CFStringRef ifn_cf)
+{
+    int 		i;
+    CFMutableArrayRef	list = NULL;
+
+    if (all == NULL) {
+	return (NULL);
+    }
+
+    list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (list == NULL) {
+	return (NULL);
+    }
+    for (i = 0; i < CFArrayGetCount(all); i++) {
+	CFDictionaryRef	item = CFArrayGetValueAtIndex(all, i);
+	CFStringRef	name;
+
+	name = CFDictionaryGetValue(item, kSCPropNetInterfaceDeviceName);
+	if (CFEqual(name, ifn_cf)) {
+	    CFArrayAppendValue(list, item);
+	}
+    }
+    if (CFArrayGetCount(list) == 0) {
+	my_CFRelease(&list);
+    }
+    return (list);
+}
+
+typedef struct {
+    CFStringRef			serviceID;
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    int				method_data_len;
+} ServiceConfig_t;
+
 static void
-handle_configuration_changed(SCDynamicStoreRef session,
-			     CFArrayRef all_ipv4)
+ServiceConfig_list_free(ServiceConfig_t * * list_p_p, int count)
+{
+    int 		i;
+    ServiceConfig_t * 	list_p = *list_p_p;
+
+    for (i = 0; i < count; i++) {
+	if (list_p[i].serviceID)
+	    my_CFRelease(&list_p[i].serviceID);
+	if (list_p[i].method_data)
+	    free(list_p[i].method_data);
+    }
+    free(list_p);
+    *list_p_p = NULL;
+    return;
+}
+
+static __inline__ boolean_t
+ipconfig_method_is_dynamic(ipconfig_method_t method)
+{
+    if (method == ipconfig_method_dhcp_e
+	|| method == ipconfig_method_bootp_e) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
+
+static __inline__ boolean_t
+ipconfig_method_is_manual(ipconfig_method_t method)
+{
+    if (method == ipconfig_method_manual_e
+	|| method == ipconfig_method_inform_e) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
+
+static ServiceConfig_t *
+ServiceConfig_list_lookup_method(ServiceConfig_t * config_list, int count, 
+				 ipconfig_method_t method, 
+				 ipconfig_method_data_t * method_data,
+				 int method_data_len)
+{
+    ServiceConfig_t *	config;
+    int 		i;
+
+    switch (method) {
+      case ipconfig_method_linklocal_e: {
+	  for (config = config_list, i = 0; i < count; i++, config++) {
+	      if (method == config->method) {
+		return (config);
+	      }
+	  }
+	  break;
+      }
+      case ipconfig_method_dhcp_e:
+      case ipconfig_method_bootp_e: {
+	  for (config = config_list, i = 0; i < count; i++, config++) {
+	      if (ipconfig_method_is_dynamic(config->method))
+		return (config);
+	  }
+	  break;
+      }
+      case ipconfig_method_manual_e:
+      case ipconfig_method_inform_e: {
+	  for (config = config_list, i = 0; i < count; i++, config++) {
+	      if (ipconfig_method_is_manual(config->method)
+		  && (method_data->ip[0].addr.s_addr
+		      == config->method_data->ip[0].addr.s_addr)) {
+		  return (config);
+	      }
+	  }	  
+	  break;
+      }
+      default: {
+	break;
+      }
+    }
+    return (NULL);
+}
+
+static ServiceConfig_t *
+ServiceConfig_list_lookup_service(ServiceConfig_t * config_list, int count, 
+				  CFStringRef serviceID)
+{
+    ServiceConfig_t *	config;
+    int 		i;
+
+    for (config = config_list, i = 0; i < count; i++, config++) {
+	if (CFEqual(serviceID, config->serviceID)) {
+	    return (config);
+	}
+    }
+    return (NULL);
+}
+
+static ServiceConfig_t *
+ServiceConfig_list_init(CFArrayRef all_ipv4, char * ifname, int * count_p)
+{
+    ServiceConfig_t *	config_list = NULL;
+    int			count = 0;
+    int			i;
+    CFArrayRef 		if_service_list;
+    int			if_service_count;
+    CFStringRef		ifn_cf = NULL;
+
+    ifn_cf = CFStringCreateWithCString(NULL, ifname,
+				       kCFStringEncodingMacRoman);
+    if (ifn_cf == NULL) {
+	goto done;
+    }
+    if_service_list = interface_services_copy(all_ipv4, ifn_cf);
+    if (if_service_list == NULL) {
+	goto done;
+    }
+    if_service_count = CFArrayGetCount(if_service_list);
+    config_list = (ServiceConfig_t *) calloc(if_service_count, 
+					     sizeof(*config_list));
+    if (config_list == NULL) {
+	goto done;
+    }
+
+    for (i = 0; i < if_service_count; i++) {
+	CFDictionaryRef		ipv4_dict;
+	ipconfig_method_t	method;
+	ipconfig_method_data_t *method_data;
+	int			method_data_len;
+	CFStringRef		serviceID;
+
+	ipv4_dict = CFArrayGetValueAtIndex(if_service_list, i);
+	serviceID = CFDictionaryGetValue(ipv4_dict,
+					 PROP_SERVICEID);
+	method_data = ipconfig_method_data_from_dict(ipv4_dict, &method,
+						     &method_data_len);
+	if (method_data == NULL) {
+	    continue;
+	}
+	if (ServiceConfig_list_lookup_method(config_list, count, method, 
+					     method_data, method_data_len)) {
+	    boolean_t	is_manual = ipconfig_method_is_manual(method);
+
+	    if (is_manual) {
+		my_log(LOG_INFO, "%s: %s " IP_FORMAT " duplicate service",
+		       ifname, ipconfig_method_string(method),
+		       IP_LIST(&method_data->ip[0].addr));
+	    }
+	    else {
+		my_log(LOG_INFO, "%s: %s ignored",
+		       ifname, ipconfig_method_string(method));
+	    }
+	    free(method_data);
+	    continue;
+	}
+	config_list[count].serviceID = CFRetain(serviceID);
+	config_list[count].method = method;
+	config_list[count].method_data = method_data;
+	config_list[count].method_data_len = method_data_len;
+	count++;
+    }
+ done:
+    if (config_list && count == 0) {
+	ServiceConfig_list_free(&config_list, count);
+    }
+    my_CFRelease(&ifn_cf);
+    my_CFRelease(&if_service_list);
+    *count_p = count;
+    return (config_list);
+}
+
+static void
+free_inactive_services(char * ifname, ServiceConfig_t * config_list, int count)
+{
+    int			j;
+    IFState_t *		ifstate;
+    CFMutableArrayRef	list = NULL;
+
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, ifname);
+    if (ifstate == NULL) {
+	goto done;
+    }
+    list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (list == NULL) {
+	goto done;
+    }
+    
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t * service_p = dynarray_element(&ifstate->services, j);
+	CFStringRef serviceID = service_p->serviceID;
+
+	if (service_p->parent_service_p) {
+	    /* parent will clean up this service on its own */
+	    continue;
+	}
+	if (ServiceConfig_list_lookup_service(config_list, count,
+					      serviceID) == NULL) {
+	    CFArrayAppendValue(list, serviceID);
+	}
+    }
+
+    for (j = 0; j < CFArrayGetCount(list); j++) {
+	CFStringRef serviceID = CFArrayGetValueAtIndex(list, j);
+
+	IFState_service_free(ifstate, serviceID);
+    }
+
+ done:
+    my_CFRelease(&list);
+    return;
+}
+
+ipconfig_status_t
+set_service(IFState_t * ifstate, ServiceConfig_t * config)
+{
+    CFStringRef		serviceID = config->serviceID;
+    Service_t *		service_p;
+    IFState_t *		this_ifstate = NULL;
+
+    service_p = IFState_service_with_ID(ifstate, serviceID);
+    if (service_p) {
+	boolean_t		needs_stop = FALSE;
+	ipconfig_status_t	status;
+
+	if (service_p->method == config->method) {
+	    status = config_method_change(service_p, config->method, 
+					  config->method_data,
+					  config->method_data_len, 
+					  &needs_stop);
+	    if (status == ipconfig_status_success_e
+		&& needs_stop == FALSE) {
+		return (ipconfig_status_success_e);
+	    }
+	}
+	IFState_service_free(ifstate, serviceID);
+    }
+    else {
+	this_ifstate = IFStateList_service_with_ID(&S_ifstate_list, 
+						    serviceID,
+						    &service_p);
+	if (this_ifstate) {
+	    /* service is on other interface, stop it now */
+	    IFState_service_free(this_ifstate, serviceID);
+	}
+    }
+    return (IFState_service_add(ifstate, serviceID, config->method,
+				config->method_data, config->method_data_len,
+				NULL));
+}
+
+static void
+handle_configuration_changed(SCDynamicStoreRef session, CFArrayRef all_ipv4)
 {
     int i;
+
     for (i = 0; i < ifl_count(S_interfaces); i++) {
-	CFStringRef		ifn_cf = NULL;
+	ServiceConfig_t *	config;
+	int			count = 0;
+	IFState_t *		ifstate;
+	ServiceConfig_t *	if_services = NULL;
 	interface_t *		if_p = ifl_at_index(S_interfaces, i);
-	CFDictionaryRef		ipv4_dict;
 	ipconfig_status_t	status;
-	
+
 	if (strcmp(if_name(if_p), "lo0") == 0) {
 	    continue;
 	}
-	ifn_cf = CFStringCreateWithCString(NULL,
-					   if_name(if_p),
-					   kCFStringEncodingMacRoman);
-	if (ifn_cf == NULL) {
-	    goto loop_done;
-	}
-	ipv4_dict = lookup_entity(all_ipv4, ifn_cf);
-	if (ipv4_dict == NULL) {
+	if_services = ServiceConfig_list_init(all_ipv4, if_name(if_p), &count);
+	if (if_services == NULL) {
 	    status = set_if(if_name(if_p), ipconfig_method_none_e, NULL, 0,
 			    NULL);
 	    if (status != ipconfig_status_success_e) {
@@ -2872,43 +3537,22 @@ handle_configuration_changed(SCDynamicStoreRef session,
 		       ipconfig_method_string(ipconfig_method_none_e),
 		       ipconfig_status_string(status));
 	    }
+	    continue;
 	}
-	else {
-	    ipconfig_method_t		method;
-	    ipconfig_method_data_t *	method_data = NULL;
-	    int				method_data_len = 0;
-	    CFStringRef			serviceID;
-	    
-	    serviceID = CFDictionaryGetValue(ipv4_dict,
-					     PROP_SERVICEID);
-	    method_data = ipconfig_method_data_from_dict(ipv4_dict, &method,
-							 &method_data_len);
-	    if (method_data == NULL) {
-		status = set_if(if_name(if_p), ipconfig_method_none_e, NULL, 0,
-				NULL);
-		if (status != ipconfig_status_success_e) {
-		    my_log(LOG_INFO, "ipconfigd: set %s %s failed, %s",
-			   if_name(if_p),
-			   ipconfig_method_string(ipconfig_method_none_e),
-			   ipconfig_status_string(status));
-		}
+
+	/* stop services that are no longer active */
+	free_inactive_services(if_name(if_p), if_services, count);
+
+	ifstate = IFStateList_ifstate_create(&S_ifstate_list, if_p);
+	if (ifstate) {
+	    int k;
+
+	    /* update each of the services that are configured */
+	    for (k = 0, config = if_services; k < count; k++, config++) {
+		(void)set_service(ifstate, config);
 	    }
-	    else {
-		status = set_if(if_name(if_p), method, 
-				method_data, method_data_len, 
-				(void *)serviceID);
-		if (status != ipconfig_status_success_e) {
-		    my_log(LOG_INFO, "ipconfigd: set %s %s failed, %s",
-			   if_name(if_p), ipconfig_method_string(method),
-			   ipconfig_status_string(status));
-		}
-	    }
-	    if (method_data) {
-		free(method_data);
-	    }
-	} 
-    loop_done:
-	my_CFRelease(&ifn_cf);
+	}
+	ServiceConfig_list_free(&if_services, count);
     }
     return;
 }
@@ -2960,7 +3604,7 @@ configure_from_cache(SCDynamicStoreRef session)
 	if (dict == NULL) {
 	    goto loop_done;
 	}
-	(void)IFState_make_if(if_p);
+	(void)IFStateList_ifstate_create(&S_ifstate_list, if_p);
 	count++;
     loop_done:
 	my_CFRelease(&ifn_cf);
@@ -3110,6 +3754,8 @@ update_interface_list()
 	ifl_free(&S_interfaces);
     }
     S_interfaces = new_interfaces;
+
+    /* XXX remove ifstate/services for any interfaces that have been removed */
     return (TRUE);
 }
 
@@ -3208,35 +3854,34 @@ fork_child()
 }
 #endif MAIN
 
-ipconfig_status_t
+void
 state_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 {
     CFStringRef			ifn_cf = NULL;
     char			ifn[IFNAMSIZ + 1];
     IFState_t *   		ifstate;
-    link_status_t		link = {FALSE, FALSE};
-    ipconfig_status_t		istatus = ipconfig_status_internal_error_e;
+    int 			j;
     
     ifn_cf = parse_component(cache_key, S_state_interface_prefix);
     if (ifn_cf == NULL) {
-	return (ipconfig_status_internal_error_e);
+	return;
     }
     cfstring_to_cstring(ifn_cf, ifn, sizeof(ifn));
-    link.valid = get_media_status(ifn, &link.active);
-    if (link.valid == FALSE) {
-	goto done;
-    }
-    ifstate = IFState_lookup_if(&S_ifstate_list, ifn);
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, ifn);
     if (ifstate == NULL) {
 	goto done;
     }
-    SCLog(G_verbose, LOG_INFO, CFSTR("%s link is %s"),
-	  ifn, link.active ? "up" : "down");
-    istatus = config_method_media(ifstate, link);
+    IFState_update_media_status(ifstate);
+
+    for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	config_method_media(service_p);
+    }
 
  done:
     my_CFRelease(&ifn_cf);
-    return (istatus);
+    return;
 }
 
 static void
@@ -3248,10 +3893,15 @@ dhcp_preferences_changed(SCDynamicStoreRef session)
     S_add_dhcp_parameters();
 
     for (i = 0; i < ptrlist_count(&S_ifstate_list); i++) {
-	IFState_t *	element = ptrlist_element(&S_ifstate_list, i);
+	IFState_t *	ifstate = ptrlist_element(&S_ifstate_list, i);
+	int		j;
 
-	/* ask each interface to renew immediately to pick up new options */
-	config_method_renew(element);
+	/* ask each service to renew immediately to pick up new options */
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t *	service_p = dynarray_element(&ifstate->services, j);
+
+	    config_method_renew(service_p);
+	}
     }
     return;
 }
@@ -3309,7 +3959,9 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
     }
     /* an interface was added */
     if (iflist_changed) {
-	config_changed = update_interface_list();
+	if (update_interface_list()) {
+	    config_changed = TRUE;
+	}
     }
     /* configuration changed */
     if (config_changed) {
@@ -3323,7 +3975,7 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 	CFStringRef	cache_key = CFArrayGetValueAtIndex(changes, i);
 
 	if (CFStringHasPrefix(cache_key, kSCDynamicStoreDomainState)) {
-	    (void)state_key_changed(session, cache_key);
+	    state_key_changed(session, cache_key);
 	}
     }
     /* service order may have changed */
@@ -3345,20 +3997,26 @@ user_confirm(CFUserNotificationRef userNotification,
 
     /* clean-up the notification */
     for (i = 0; i < ptrlist_count(&S_ifstate_list); i++) {
-	IFState_t *	element = ptrlist_element(&S_ifstate_list, i);
-	if (element->user_notification == userNotification) {
-	    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), element->user_rls, 
-				  kCFRunLoopDefaultMode);
-	    my_CFRelease(&element->user_rls);
-	    my_CFRelease(&element->user_notification);
-	    break;
+	IFState_t *	ifstate = ptrlist_element(&S_ifstate_list, i);
+	int		j;
+
+	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
+	    Service_t * service_p = dynarray_element(&ifstate->services, j);
+	    if (service_p->user_notification == userNotification) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), 
+				      service_p->user_rls, 
+				      kCFRunLoopDefaultMode);
+		my_CFRelease(&service_p->user_rls);
+		my_CFRelease(&service_p->user_notification);
+		return;
+	    }
 	}
     }
     return;
 }
 
 void
-ifstate_tell_user(IFState_t * ifstate, char * msg)
+service_tell_user(Service_t * service_p, char * msg)
 {
     CFStringRef			alert_string = NULL;
     CFMutableDictionaryRef	dict = NULL;
@@ -3380,14 +4038,14 @@ ifstate_tell_user(IFState_t * ifstate, char * msg)
     CFDictionarySetValue(dict, kCFUserNotificationDefaultButtonTitleKey, 
 			 CFSTR("OK"));
 #endif 0
-    if (ifstate->user_rls) {
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), ifstate->user_rls,
+    if (service_p->user_rls) {
+	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), service_p->user_rls,
 			      kCFRunLoopDefaultMode);
-	my_CFRelease(&ifstate->user_rls);
+	my_CFRelease(&service_p->user_rls);
     }
-    if (ifstate->user_notification != NULL) {
-	CFUserNotificationCancel(ifstate->user_notification);
-	my_CFRelease(&ifstate->user_notification);
+    if (service_p->user_notification != NULL) {
+	CFUserNotificationCancel(service_p->user_notification);
+	my_CFRelease(&service_p->user_notification);
     }
     notify = CFUserNotificationCreate(NULL, 0, 0, &error, dict);
     my_CFRelease(&dict);
@@ -3405,15 +4063,15 @@ ifstate_tell_user(IFState_t * ifstate, char * msg)
     else {
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, 
 			   kCFRunLoopDefaultMode);
-	ifstate->user_rls = rls;
-	ifstate->user_notification = notify;
+	service_p->user_rls = rls;
+	service_p->user_notification = notify;
     }
  done:
     return;
 }
 #else
 void
-ifstate_tell_user(IFState_t * ifstate, char * msg)
+service_tell_user(Service_t * service_p, char * msg)
 {
 }
 #endif
@@ -3594,6 +4252,28 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key,
     return (ret);
 }
 
+#include <math.h>
+static struct timeval
+S_get_plist_timeval(CFDictionaryRef plist, CFStringRef key,
+		    struct timeval def)
+{
+    CFNumberRef 	n;
+    struct timeval	ret = def;
+
+    n = CFDictionaryGetValue(plist, key);
+    if (n) {
+	double	f;
+
+	if (CFNumberGetValue(n, kCFNumberDoubleType, &f) == TRUE) {
+	    ret.tv_sec = (int)floor(f);
+	    ret.tv_usec = (int)((f - floor(f)) * 1000000.0);
+	}
+    }
+    SCLog(G_verbose, LOG_INFO, CFSTR("%@ = %d.%06d"), key, ret.tv_sec,
+	  ret.tv_usec);
+    return (ret);
+}
+
 static u_char *
 S_get_char_array(CFArrayRef arr, int * len)
 {
@@ -3724,15 +4404,41 @@ S_set_globals(const char * bundleDir)
 	u_char *	dhcp_params = NULL;
 	int		n_dhcp_params = 0;
 
+	G_verbose = S_get_plist_boolean(plist, CFSTR("Verbose"), FALSE);
 	G_dhcp_accepts_bootp 
 	    = S_get_plist_boolean(plist, CFSTR("DHCPAcceptsBOOTP"), FALSE);
-	G_verbose = S_get_plist_boolean(plist, CFSTR("Verbose"), FALSE);
+	G_dhcp_failure_configures_linklocal
+	    = S_get_plist_boolean(plist, 
+				  CFSTR("DHCPFailureConfiguresLinkLocal"), 
+				  TRUE);
+	G_dhcp_success_deconfigures_linklocal
+	    = S_get_plist_boolean(plist, 
+				  CFSTR("DHCPSuccessDeconfiguresLinkLocal"), 
+				  FALSE);
 	G_must_broadcast 
 	    = S_get_plist_boolean(plist, CFSTR("MustBroadcast"), FALSE);
-	G_max_retries = S_get_plist_int(plist, CFSTR("RetryCount"), 2);
-	G_gather_secs = S_get_plist_int(plist, CFSTR("GatherTimeSeconds"), 2);
+	G_max_retries = S_get_plist_int(plist, CFSTR("RetryCount"), 
+					MAX_RETRIES);
+	G_gather_secs = S_get_plist_int(plist, CFSTR("GatherTimeSeconds"), 
+					GATHER_SECS);
 	G_link_inactive_secs 
-	    = S_get_plist_int(plist, CFSTR("LinkInactiveWaitTimeSeconds"), 4);
+	    = S_get_plist_int(plist, CFSTR("LinkInactiveWaitTimeSeconds"), 
+			      LINK_INACTIVE_WAIT_SECS);
+	G_initial_wait_secs 
+	    = S_get_plist_int(plist, CFSTR("InitialRetryTimeSeconds"), 
+			      INITIAL_WAIT_SECS);
+	G_max_wait_secs 
+	    = S_get_plist_int(plist, CFSTR("MaximumRetryTimeSeconds"), 
+			      MAX_WAIT_SECS);
+	S_arp_probe_count
+	    = S_get_plist_int(plist, CFSTR("ARPProbeCount"), 
+			      ARP_PROBE_COUNT);
+	S_arp_gratuitous_count
+	    = S_get_plist_int(plist, CFSTR("ARPGratuitousCount"), 
+			      ARP_GRATUITOUS_COUNT);
+	S_arp_retry
+	    = S_get_plist_timeval(plist, CFSTR("ARPRetryTimeSeconds"), 
+				  S_arp_retry);
 	dhcp_params 
 	    = S_get_plist_char_array(plist,
 				     kDHCPRequestedParameterList,
@@ -3809,7 +4515,9 @@ start(const char *bundleName, const char *bundleDir)
 	return;
     }
 
-    G_arp_session = arp_session_init(S_is_our_hardware_address);
+    G_arp_session = arp_session_init(S_is_our_hardware_address, &S_arp_retry,
+				     &S_arp_probe_count, 
+				     &S_arp_gratuitous_count);
     if (G_arp_session == NULL) {
 	my_log(LOG_DEBUG, "arp_session_init() failed");
 	return;

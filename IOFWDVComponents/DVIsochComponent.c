@@ -2519,7 +2519,7 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
                 inputFormat = (in[5] >> 2) & 0x1f; // Fish out STYPE field
             }
         }
-        status->version = 				0x200;
+        //status->version = 				0x200;
         status->physicallyConnected =	true;
         status->readEnabled = 			deviceDescriptionPtr->readLocks;
         status->writeEnabled = 			deviceDescriptionPtr->writeLocks;
@@ -2531,7 +2531,10 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         status->deviceActive = 			deviceDescriptionPtr->active;
         status->inputStandard =			deviceDescriptionPtr->standard;
         status->inputFormat =			inputFormat;
-        //status->outputFormats = 		deviceDescriptionPtr->fDVFormats;
+        
+        // Does caller want extended status?
+        if(status->version == 0x200)
+            status->outputFormats = 	deviceDescriptionPtr->fDVFormats;
 // JKL *** what to to with this? does this mean deviceID, cameraFWClientID, or localNodeFWClientID
 // Think this is for clock to set the localFWReferenceID
         status->localNodeID	= 		(PsuedoID) deviceDescriptionPtr->fID;

@@ -71,6 +71,7 @@
 typedef signed long int32;
 typedef int uid_t;
 typedef int gid_t;
+typedef int tid_t;
 
 #include "ap_config.h"
 #include <string.h>
@@ -112,7 +113,8 @@ typedef int gid_t;
 
 #define crypt(buf,salt)	    (buf)
 #define sleep(t) delay(t*1000)
-#define getpid GetThreadID
+#define getpid() ((pid_t)GetThreadGroupID())
+#define gettid() ((tid_t)GetThreadID())
 /* Netware doesn't have symlinks so S_ISLNK is always false */
 #define S_ISLNK(m) 0
 /* Netware doesn't have isnan,isinf so they always return false */
@@ -122,7 +124,7 @@ typedef int gid_t;
 #define strcasecmp(s1, s2) stricmp(s1, s2)
 #define strncasecmp(s1, s2, n) strnicmp(s1, s2, n)
 #define mktemp(s) tmpnam(s)
-#define _getch(c) getch(c)
+#define _getch getch
 
 #define opendir_411(p) os_opendir(p)
 #define opendir(p) os_opendir(p)
@@ -136,18 +138,28 @@ DIR *os_readdir (DIR *dirP);
 void AMCSocketCleanup(void);
 void clean_parent_exit(int code);
 
+#ifdef __GNUC__
+static
+#endif
 inline int ap_os_is_path_absolute(const char *file)
 {
-    char *s = strchr (file, ':');
+    char *s = strstr (file, "://");
+
+    /* First make sure we aren't looking at a URL such as
+        a proxy:http://blah.
+    */
+    if (!s) {
+        s = strchr (file, ':');
     
-    if (s) {
-        if (strncmp(s, "://", 3) != 0)
-	    /* XXX: we assume that everything before the : is letters */
-            return 1;
-    }
-    else {
-        if (file[0] == '/')
-            return 1;
+        if (s) {
+            if (strncmp(s, "://", 3) != 0)
+	        /* XXX: we assume that everything before the : is letters */
+                return 1;
+        }
+        else {
+            if (file[0] == '/')
+                return 1;
+        }
     }
     	
     return 0;
@@ -164,5 +176,6 @@ char *remove_filename(char*);
 char *bslash2slash(char*);
 void init_name_space(void);
 int ap_os_is_filename_valid(const char *file);
+char *ap_os_http_method(void *r);
 #endif /*! APACHE_OS_H*/
 

@@ -33,7 +33,7 @@
 
 #include <IOKit/OSMessageNotification.h>
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include <IOKit/firewire/IOFireWireUserClient.h>
+#include"IOFireWireUserClient.h"
 
 typedef union IOFWPacketHeader_t
 {
@@ -54,7 +54,7 @@ typedef union IOFWPacketHeader_t
         OSAsyncReference*			whichAsyncRef ;
         UInt32						argCount ;
         
-        UInt32						args[8] ;
+        UInt32						args[10] ;
     } CommonHeader ;
 
     struct IncomingPacket_t
@@ -106,6 +106,9 @@ typedef union IOFWPacketHeader_t
         UInt32						speed ;
         UInt32						addrHi ;
         UInt32						addrLo ;
+		int							tLabel ;
+		IOFWRequestRefCon			reqrefcon ;
+		UInt32						generation ;
 		
 	} ReadPacket ;
 
@@ -157,17 +160,20 @@ class IOFWUserClientPseudoAddrSpace: public IOFWPseudoAddressSpace
 	OSDeclareDefaultStructors(IOFWUserClientPseudoAddrSpace)
 
 public:
-	virtual bool					initAll(
-											IOFireWireUserClient*		me,
-                                            IOMemoryDescriptor*			inPacketQueueBuffer,
-											IOMemoryDescriptor*			inBackingStore,
-											UInt32						inRefCon,
-											IOFireWireController*		control,
-                							FWAddress*					addr,
-											UInt32 						len, 
-											FWReadCallback 				reader,
-											FWWriteCallback 			writer,
-											void*						refcon);
+//	virtual bool					initAll(
+//											IOFireWireUserClient*		me,
+//											IOMemoryDescriptor*			inPacketQueueBuffer,
+//											IOMemoryDescriptor*			inBackingStore,
+//											UInt32						inRefCon,
+//											IOFireWireController*		control,
+//											FWAddress*					addr,
+//											UInt32 						len, 
+//											FWReadCallback 				reader,
+//											FWWriteCallback 			writer,
+//											void*						refcon);
+	virtual bool					initAll( 
+											IOFireWireUserClient*		inUserClient, 
+											FWAddrSpaceCreateParams* 	inParams) ;
 
 	// override deactivate so we can delete any notification related structures...
 	virtual void					free() ;
@@ -178,6 +184,27 @@ public:
 	const UInt32					getLength() { return fLen; }
 	const UInt32					getUserRefCon() { return fUserRefCon ;}
 	const IOFireWireUserClient&		getUserClient() { return *fUserClient ;}
+
+    static 	UInt32 					simpleReader(
+											void*					refcon,
+											UInt16 					nodeID,
+											IOFWSpeed &				speed,
+											FWAddress 				addr,
+											UInt32 					len,
+											IOMemoryDescriptor**	buf,
+											IOByteCount* 			offset,
+                                            IOFWRequestRefCon		reqrefcon)
+											{ return IOFWPseudoAddressSpace::simpleReader(refcon, nodeID, speed, addr, len, buf, offset, reqrefcon); }
+    
+    static 	UInt32 					simpleWriter(
+											void*					refcon,
+											UInt16 					nodeID,
+											IOFWSpeed&				speed,
+											FWAddress 				addr,
+											UInt32 					len,
+											const void*				buf,
+                                            IOFWRequestRefCon		reqrefcon)
+											{ return IOFWPseudoAddressSpace::simpleWriter(refcon, nodeID, speed, addr, len, buf, reqrefcon); }
 
     static UInt32					pseudoAddrSpaceReader(
                                             void*					refCon,
@@ -203,25 +230,32 @@ public:
 	virtual void					setAsyncRef_Read(
 											OSAsyncReference		inAsyncRef) ;
 	virtual void					clientCommandIsComplete(
-											FWClientCommandID		inCommandID) ;
+											FWClientCommandID		inCommandID,
+											IOReturn				inResult ) ;
 	void							sendPacketNotification(
 											IOFWPacketHeader*		inPacketHeader) ;
 private:
     IOMemoryDescriptor*		fPacketQueueBuffer ;
-	IOMemoryDescriptor*		fBackingStore ;
+//	IOMemoryDescriptor*		fBackingStore ;
+	
+	IOLock*					fLock ;
 	
 	UInt32					fUserRefCon ;
 	IOFireWireUserClient*	fUserClient ;
 	IOFWPacketHeader*		fLastWrittenHeader ;
 	IOFWPacketHeader*		fLastReadHeader ;
 	UInt32					fBufferAvailable ;
-	IOLock*					fLock ;
 	FWAddress				fAddress ;
-
+	
 	OSAsyncReference		fSkippedPacketAsyncNotificationRef ;
 	OSAsyncReference		fPacketAsyncNotificationRef ;
 	OSAsyncReference		fReadAsyncNotificationRef ;
 	bool					fWaitingForUserCompletion ;
+	
+	UInt32					fFlags ;
+	
+	Boolean					fPacketQueuePrepared ;
+	Boolean					fBackingStorePrepared ;
 } ;
 
 #endif //__IOFWUserClientPsduAddrSpace_H__

@@ -103,7 +103,7 @@ static unsigned char dh512_g[] =
     0x02,
 };
 
-static DH *get_dh512()
+static DH *get_dh512(void)
 {
     DH *dh;
 
@@ -134,7 +134,7 @@ static unsigned char dh1024_g[] =
     0x02,
 };
 
-static DH *get_dh1024()
+static DH *get_dh1024(void)
 {
     DH *dh;
 

@@ -2557,7 +2557,7 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 					SCSICmdField2Byte 			ALLOCATION_LENGTH,
 					SCSICmdField1Byte 			CONTROL )
 {
-	
+		
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_TOC_PMA_ATIP called\n" ) );
 	DEBUG_ASSERT ( ( request != NULL ) );
 	
@@ -2569,16 +2569,16 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 		return false;
 		
 	}
-
+	
 	// did we receive a valid FORMAT parameter?
-	if ( FORMAT > 5 )
+	if ( ( FORMAT & kSCSICmdFieldMask4Bit ) > 5 )
 	{
 		
 		ERROR_LOG ( ( "FORMAT = %x not valid \n", FORMAT ) );
 		return false;
 		
 	}
-
+	
 	// did we receive a valid TRACK_SESSION_NUMBER?
 	if ( IsParameterValid ( TRACK_SESSION_NUMBER,
 							kSCSICmdFieldMask1Byte ) == false )
@@ -2620,10 +2620,31 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 		
 	}
 	
-	// If the FORMAT field is 4 or greater, then they are using MMC-2 style of
-	// the command which changed the field for where FORMAT should be
-	if ( FORMAT & 0x04 )
+	// Should we use “old-style” ATAPI SFF-8020i way?
+	if ( FORMAT <= 0x03 )
 	{
+		
+		// Use the ATAPI-SFF 8020i "old style" way of issuing READ_TOC_PMA_ATIP
+		
+		// fill out the cdb appropriately  
+		SetCommandDescriptorBlock (	request,
+									kSCSICmd_READ_TOC_PMA_ATIP,
+									MSF << 1,
+									0x00,
+									0x00,
+									0x00,
+									0x00,
+									TRACK_SESSION_NUMBER,
+									( ALLOCATION_LENGTH >> 8 ) & 0xFF,
+									  ALLOCATION_LENGTH        & 0xFF,
+									( FORMAT & 0x03 ) << 6 );
+		
+	}
+	
+	else
+	{
+		
+		// Use the MMC-2 "new style" way of issuing READ_TOC_PMA_ATIP
 		
 		// fill out the cdb appropriately  
 		SetCommandDescriptorBlock (	request,
@@ -2640,25 +2661,6 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 		
 	}
 	
-	// Use the ATAPI-SFF 8020i "old style" way of issuing READ_TOC_PMA_ATIP
-	else
-	{
-		
-		// fill out the cdb appropriately  
-		SetCommandDescriptorBlock (	request,
-									kSCSICmd_READ_TOC_PMA_ATIP,
-									MSF << 1,
-									0x00,
-									0x00,
-									0x00,
-									0x00,
-									TRACK_SESSION_NUMBER,
-									( ALLOCATION_LENGTH >> 8 ) & 0xFF,
-									  ALLOCATION_LENGTH        & 0xFF,
-									( FORMAT & 0x03 ) << 6 );
-		
-	}
-		
 	SetDataTransferControl ( 	request,
                            		0,
 								kSCSIDataTransfer_FromTargetToInitiator,

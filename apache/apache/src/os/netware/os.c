@@ -56,8 +56,12 @@
  * University of Illinois, Urbana-Champaign.
  */
 
+#define WS_SSL
+
 #include "httpd.h"
 #include "ap_config.h"
+#include "http_config.h"
+#include "http_log.h"
 #include <dirent.h>
 
 extern char ap_server_root[MAX_STRING_LEN];
@@ -133,6 +137,19 @@ char *bslash2slash(char* str)
     return str;
 }
 
+void check_clean_load(module *top_module)
+{
+    if (top_module != NULL) {
+        module *m;
+
+        ap_log_error(APLOG_MARK, APLOG_CRIT, NULL,
+            "abnormal shutdown detected, performing a clean shutdown: please restart apache");
+        for (m = top_module; m; m = m->next)
+            ap_os_dso_unload((ap_os_dso_handle_t)m->dynamic_load_handle);
+        exit(1);
+    }
+}
+
 void init_name_space()
 {
     UnAugmentAsterisk(TRUE);
@@ -151,19 +168,25 @@ char *ap_os_canonical_filename(pool *pPool, const char *szFile)
     char *slash_test;
 	
     bslash2slash(pNewName);
-    if ((pNewName[0] == '/') && (strchr (pNewName, ':') == NULL))
-    {
-        char vol[256];
+    /* Don't try to canonicalize a filename that isn't even valid
+        This way we don't mess up proxy requests or other kinds
+        of special filenames.
+    */
+    if (ap_os_is_filename_valid(pNewName)) {
+        if ((pNewName[0] == '/') && (strchr (pNewName, ':') == NULL))
+        {
+            char vol[256];
 
-        _splitpath (ap_server_root, vol, NULL, NULL, NULL);
-        pNewName = ap_pstrcat (pPool, vol, pNewName, NULL);
-    }
-    if ((slash_test = strchr(pNewName, ':')) && (*(slash_test+1) != '/'))
-    {
-        char vol[_MAX_VOLUME+1];
+            _splitpath (ap_server_root, vol, NULL, NULL, NULL);
+            pNewName = ap_pstrcat (pPool, vol, pNewName, NULL);
+        }
+        if ((slash_test = strchr(pNewName, ':')) && (*(slash_test+1) != '/'))
+        {
+            char vol[_MAX_VOLUME+1];
         
-        _splitpath (pNewName, vol, NULL, NULL, NULL);
-        pNewName = ap_pstrcat (pPool, vol, "/", pNewName+strlen(vol), NULL);
+            _splitpath (pNewName, vol, NULL, NULL, NULL);
+            pNewName = ap_pstrcat (pPool, vol, "/", pNewName+strlen(vol), NULL);
+        }
     }
     strlwr(pNewName);
     return pNewName;
@@ -210,7 +233,7 @@ int ap_os_is_filename_valid(const char *file)
 		"COM4", "LPT1", "LPT2", "LPT3", "PRN", "NUL", NULL 
     };
 
-	// First check to make sure that we have a file so that we don't abend
+	/* First check to make sure that we have a file so that we don't abend */
 	if (file == NULL)
 		return 0;
 
@@ -323,4 +346,31 @@ DIR *os_readdir (DIR *dirP)
     }
     else
         return readdir_411 (dirP);
+}
+
+char *ap_os_http_method(void *r)
+{
+    int s = ((request_rec*)r)->connection->client->fd;
+    long e;
+	struct sslserveropts *getOpts;
+	size_t getOptLen = sizeof(getOpts);
+    char *http_method = "http";
+
+    getOpts = ap_pcalloc(((request_rec*)r)->pool, getOptLen);
+    if (WSAIoctl(s, SO_SSL_GET_SERVER, 0, 0, (char *)getOpts, getOptLen, &getOptLen, NULL, NULL)) {
+		e = WSAGetLastError();
+		if(e == WSAEFAULT)
+		{
+            getOpts = ap_pcalloc(((request_rec*)r)->pool, getOptLen);
+            if (WSAIoctl(s, SO_SSL_GET_SERVER, 0, 0, (char *)getOpts, getOptLen, &getOptLen, NULL, NULL)) {
+				errno = WSAGetLastError();
+            }
+            else
+                http_method = "https";
+		}
+        else
+		    errno = e;
+	}
+
+   return http_method;
 }

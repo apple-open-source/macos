@@ -271,9 +271,10 @@ IOReturn
 IODVDServices::setProperties ( OSObject * properties )
 {
 	
-	IOReturn		status 		= kIOReturnSuccess;
-	OSDictionary *	dict 		= OSDynamicCast ( OSDictionary, properties );
-	UInt8			trayState	= 0xFF;
+	IOReturn		status 				= kIOReturnSuccess;
+	OSDictionary *	dict 				= OSDynamicCast ( OSDictionary, properties );
+	UInt8			trayState			= 0xFF;
+	Boolean			userClientActive	= false;
 	
 	STATUS_LOG ( ( "IODVDServices: setProperties called\n" ) );
 	
@@ -285,26 +286,45 @@ IODVDServices::setProperties ( OSObject * properties )
 	if ( dict->getObject ( "TrayState" ) != NULL )
 	{
 		
-		STATUS_LOG ( ( "IODVDServices: setProperties TrayState\n" ) );
-		status = fProvider->GetTrayState ( &trayState );
+		userClientActive = fProvider->GetUserClientExclusivityState ( );
+		if ( userClientActive == false )
+		{
 		
-		STATUS_LOG ( ( "GetTrayState returned status = 0x%08x, trayState = %d\n",
-						status, trayState ) );
+			fProvider->CheckPowerState ( );
+			
+			STATUS_LOG ( ( "IODVDServices: setProperties TrayState\n" ) );
+			status = fProvider->GetTrayState ( &trayState );
+			
+			STATUS_LOG ( ( "GetTrayState returned status = 0x%08x, trayState = %d\n",
+							status, trayState ) );
+			
+			if ( status == kIOReturnSuccess )
+			{
+				
+				status = fProvider->SetTrayState ( !trayState );
+				STATUS_LOG ( ( "SetTrayState returned status = 0x%08x\n",
+							status ) );
+				
+			}
 		
-		if ( status == kIOReturnSuccess )
+		}
+		
+		else
 		{
 			
-			status = fProvider->SetTrayState ( !trayState );
-			STATUS_LOG ( ( "SetTrayState returned status = 0x%08x\n",
-						status ) );
-						
+			// The user client is active, reject this call.
+			status = kIOReturnExclusiveAccess;
+			
 		}
 		
 	}
 	
 	else
 	{
+		
+		// Wasn't a "TrayState" call...
 		status = kIOReturnBadArgument;
+		
 	}
 	
 	STATUS_LOG ( ( "IODVDServices: leave setProperties\n" ) );
@@ -575,6 +595,7 @@ IODVDServices::doAsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 		clientData->transferSegBuffer = ( UInt8 * ) IOMalloc ( nblks * _CACHE_BLOCK_SIZE_ );
 		if ( clientData->transferSegBuffer != NULL )
 		{
+			
 			IOSimpleLockLock ( fDataCacheLock );
 
 			// Determine what data can be used from the cache

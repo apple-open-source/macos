@@ -210,8 +210,17 @@ int nbp_register(entity, fd, retry)
 		return (-1);
 	}
 
+	/* This gets the config for the *default* interface. */
 	if (ddp_config(fd, &ddp_addr) < 0)
 		return (-1);
+		
+	/* Keep the ddptype and ddp_addr.inet.socket, set address fields to zero. Setting 
+		these values to zero allows nbp_mh_register in kernel to register the entity on 
+		all active interfaces (2762709). */
+	reg.addr.net = 0;
+	reg.addr.node = 0;
+	reg.addr.socket = ddp_addr.inet.socket;
+	reg.ddptype = ddp_addr.ddptype;
 
 	if (nbp_iswild(entity)) {
 		fprintf(stderr,"nbp_register: object and type cannot be wild\n"); 
@@ -222,16 +231,11 @@ int nbp_register(entity, fd, retry)
 	if (nbp_reg_lookup(entity, retry))
 		return (-1);
 
+	reg.name = *entity;
+
 	if ((if_id = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
 		return(-1);
-
-	reg.name = *entity;
-	/* The net and node will be 0 if no bind() has been done on the
-	   socket, but that's fine since they will be automatically filled in
-	   with address information from the default interface in the kernel. */
-	reg.addr = ddp_addr.inet;
-	reg.ddptype = ddp_addr.ddptype;
-
+	
 	if ((ioctl(if_id, AIOCNBPREG, (caddr_t)&reg)) < 0) {
 		(void)close(if_id);
 		return(-1);

@@ -922,10 +922,10 @@ static int read_types_multi(negotiation_state *neg)
     forbidden.all = 1;
 
     while ((dir_entry = readdir(dirp))) {
+        array_header *exception_list;
         request_rec *sub_req;
 
         /* Do we have a match? */
-
         if (strncmp(dir_entry->d_name, filp, prefix_len)) {
             continue;
         }
@@ -955,7 +955,70 @@ static int read_types_multi(negotiation_state *neg)
         else if (sub_req->status == HTTP_FORBIDDEN)
             forbidden.any = 1;
 
-        if (sub_req->status != HTTP_OK || !sub_req->content_type) {
+        /* 
+         * mod_mime will _always_ provide us the base name in the
+         * ap-mime-exception-list, if it processed anything.  If
+         * this list is empty, give up immediately, there was
+         * nothing interesting.  For example, looking at the files
+         * readme.txt and readme.foo, we will throw away .foo if
+         * it's an insignificant file (e.g. did not identify a 
+         * language, charset, encoding, content type or handler,)
+         */
+        exception_list = 
+            (array_header *) ap_table_get(sub_req->notes,
+                                          "ap-mime-exceptions-list");
+        if (!exception_list) {
+            ap_destroy_sub_req(sub_req);
+            continue;
+        }
+
+        /* Each unregonized bit better match our base name, in sequence.
+         * A test of index.html.foo will match index.foo or index.html.foo,
+         * but it will never transpose the segments and allow index.foo.html
+         * because that would introduce too much CPU consumption.  Better that
+         * we don't attempt a many-to-many match here.
+         */
+        {
+            int nexcept = exception_list->nelts;
+            char **cur_except = (char**)exception_list->elts;
+            char *segstart = filp, *segend, saveend;
+
+            while (*segstart && nexcept) {
+                if (!(segend = strchr(segstart, '.')))
+                    segend = strchr(segstart, '\0');
+                saveend = *segend;
+                *segend = '\0';
+
+#ifdef CASE_BLIND_FILESYSTEM
+                if (strcasecmp(segstart, *cur_except) == 0) {
+#else
+                if (strcmp(segstart, *cur_except) == 0) {
+#endif
+                    --nexcept;
+                    ++cur_except;
+                }
+
+                if (!saveend)
+                    break;
+
+                *segend = saveend;
+                segstart = segend + 1;
+            }
+
+            if (nexcept) {
+                /* Something you don't know is, something you don't know...
+                 */
+                ap_destroy_sub_req(sub_req);
+                continue;
+            }
+        }
+
+        /* 
+         * ###: be warned, the _default_ content type is already
+         * picked up here!  If we failed the subrequest, or don't 
+         * know what we are serving, then continue.
+         */
+        if (sub_req->status != HTTP_OK || (!sub_req->content_type)) {
             ap_destroy_sub_req(sub_req);
             continue;
         }
@@ -963,7 +1026,6 @@ static int read_types_multi(negotiation_state *neg)
         /* If it's a map file, we use that instead of the map
          * we're building...
          */
-
         if (((sub_req->content_type) &&
              !strcmp(sub_req->content_type, MAP_FILE_MAGIC_TYPE)) ||
             ((sub_req->handler) &&
@@ -2648,6 +2710,8 @@ static int handle_multi(request_rec *r)
      */
     ap_pool_join(r->pool, sub_req->pool);
     r->mtime = 0; /* reset etag info for subrequest */
+    r->uri = sub_req->uri;
+    r->args = sub_req->args;
     r->filename = sub_req->filename;
     r->handler = sub_req->handler;
     r->content_type = sub_req->content_type;

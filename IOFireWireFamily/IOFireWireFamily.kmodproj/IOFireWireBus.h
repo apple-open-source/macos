@@ -117,10 +117,16 @@ static const IORegistryPlane * gIOFireWirePlane;
     // Force given node to be root (via root holdoff Phy packet)
     virtual IOReturn makeRoot(UInt32 generation, UInt16 nodeID) = 0;
 
+    // Create address space at fixed address in initial register space
+    virtual IOFWPseudoAddressSpace *createInitialAddressSpace(UInt32 addressLo, UInt32 len,
+                                FWReadCallback reader, FWWriteCallback writer, void *refcon) = 0;
+
+    // Get address space object for given address, if any
+    virtual IOFWAddressSpace *getAddressSpace(FWAddress address) = 0;
     
 private:
-    OSMetaClassDeclareReservedUnused(IOFireWireBus, 0);
-    OSMetaClassDeclareReservedUnused(IOFireWireBus, 1);
+    OSMetaClassDeclareReservedUsed(IOFireWireBus, 0);
+    OSMetaClassDeclareReservedUsed(IOFireWireBus, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 3);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 4);

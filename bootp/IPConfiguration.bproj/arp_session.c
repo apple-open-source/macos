@@ -71,6 +71,11 @@
 extern char *  			ether_ntoa(struct ether_addr *e);
 extern struct ether_addr *	ether_aton(char *);
 
+#define ARP_PROBE_COUNT		3
+#define ARP_GRATUITOUS_COUNT	1
+#define ARP_RETRY_SECS		1
+#define ARP_RETRY_USECS		0
+
 #ifdef TEST_ARP_SESSION
 #define my_log		syslog
 #endif TEST_ARP_SESSION
@@ -241,8 +246,11 @@ arp_read(void * arg1, void * arg2)
     }
     n = read(session->bpf_fd, session->receive_buf, session->receive_bufsize);
     if (n < 0) {
+	if (errno == EAGAIN) {
+	    return;
+	}
 	my_log(LOG_ERR, "arp_read: read(%s) failed, %s (%d)", 
-	       if_name, strerror(errno), errno);
+	       if_name(client->if_p), strerror(errno), errno);
 	sprintf(client->errmsg, "arp_read: read(%s) failed, %s (%d)", 
 	       if_name(client->if_p), strerror(errno), errno);
 	goto failed;
@@ -253,58 +261,57 @@ arp_read(void * arg1, void * arg2)
 	struct bpf_hdr * 	bpf = (struct bpf_hdr *)offset;
 	struct ether_arp *	earp;
 	arp_result_func_t *	func;
+	short			op;
 	char *			pkt_start;
 	arp_result_t 		result;
+	int			skip;
 	
 	dprintf(("bpf remaining %d header %d captured %d\n", n, 
 		 bpf->bh_hdrlen, bpf->bh_caplen));
-	    
+
 	pkt_start = offset + bpf->bh_hdrlen;
 	earp = (struct ether_arp *)(pkt_start + sizeof(struct ether_header));
 	if (session->debug) {
 	    dump_arp(earp);
 	}
-	if (ntohs(earp->ea_hdr.ar_op) != ARPOP_REPLY
-	    || ntohs(earp->ea_hdr.ar_hrd) != ARPHRD_ETHER
-	    || ntohs(earp->ea_hdr.ar_pro) != ETHERTYPE_IP
-	    || (client->target_ip.s_addr 
-		!= ((struct in_addr *)earp->arp_spa)->s_addr)
-	    || bcmp(earp->arp_tha, if_link_address(client->if_p), 
-		    sizeof(earp->arp_tha))
-	    || (client->sender_ip.s_addr 
-		!= ((struct in_addr *)earp->arp_tpa)->s_addr)
-	    || (*session->is_our_address)(client->if_p, earp->ea_hdr.ar_hrd,
+	op = ntohs(earp->ea_hdr.ar_op);
+	if (bpf->bh_caplen 
+	    >= (sizeof(struct ether_arp) + sizeof(struct ether_header))
+	    && (op == ARPOP_REPLY || op == ARPOP_REQUEST)
+	    && ntohs(earp->ea_hdr.ar_hrd) == ARPHRD_ETHER
+	    && ntohs(earp->ea_hdr.ar_pro) == ETHERTYPE_IP
+	    && (client->target_ip.s_addr 
+		== ((struct in_addr *)earp->arp_spa)->s_addr)
+	    && (*session->is_our_address)(client->if_p, earp->ea_hdr.ar_hrd,
 					  earp->arp_sha,
-					  earp->ea_hdr.ar_hln) == TRUE) {
-	    int skip = bpf->bh_caplen + bpf->bh_hdrlen;
-
-	    if (skip == 0) {
-		break;
-	    }
-	    offset += skip;
-	    n -= skip;
-	    continue;
+					  earp->ea_hdr.ar_hln) == FALSE) {
+	    /* IP is in use by some other host */
+	    timer_cancel(session->timer_callout);
+	    func = client->func;
+	    c_arg1 = client->arg1;
+	    c_arg2 = client->arg2;
+	    client->func = client->arg1 = client->arg2 = NULL;
+	    session->pending_client = NULL;
+	    
+	    /* Address is in use, fill in the structure and return it */
+	    bzero(&result, sizeof(result));
+	    result.in_use = TRUE;
+	    result.ip_address = client->target_ip;
+	    result.hwtype = ntohs(earp->ea_hdr.ar_hrd);
+	    result.hwlen = earp->ea_hdr.ar_hln;
+	    result.hwaddr = earp->arp_sha;
+	    (*func)(c_arg1, c_arg2, &result);
+	    
+	    /* start any pending client */
+	    arp_start(session);
+	    break;
 	}
-	/* clean-up before calling the client */
-	timer_cancel(session->timer_callout);
-	func = client->func;
-	c_arg1 = client->arg1;
-	c_arg2 = client->arg2;
-	client->func = client->arg1 = client->arg2 = NULL;
-	session->pending_client = NULL;
-
-	/* Address is in use, fill in the structure and return it */
-	bzero(&result, sizeof(result));
-	result.in_use = TRUE;
-	result.ip_address = client->target_ip;
-	result.hwtype = ntohs(earp->ea_hdr.ar_hrd);
-	result.hwlen = earp->ea_hdr.ar_hln;
-	result.hwaddr = earp->arp_sha;
-	(*func)(c_arg1, c_arg2, &result);
-
-	/* start any pending client */
-	arp_start(session);
-	break;
+	skip = BPF_WORDALIGN(bpf->bh_caplen + bpf->bh_hdrlen);
+	if (skip == 0) {
+	    break;
+	}
+	offset += skip;
+	n -= skip;
     }
     return;
  failed:
@@ -326,12 +333,20 @@ arp_open_fd(arp_session_t * session, arp_client_t * client)
     int status;
 
     if (session->bpf_fd < 0) {
+	int opt;
+
 	session->bpf_fd = bpf_new();
 	if (session->bpf_fd < 0) {
 	    my_log(LOG_ERR, "arp_open_fd: bpf_new(%s) failed, %s (%d)", 
 		   if_name(client->if_p), strerror(errno), errno);
 	    sprintf(client->errmsg, "arp_open_fd: bpf_new(%s) failed, %s (%d)", 
 		   if_name(client->if_p), strerror(errno), errno);
+	    goto failed;
+	}
+	opt = 1;
+	status = ioctl(session->bpf_fd, FIONBIO, &opt);
+	if (status < 0) {
+	    my_log(LOG_ERR, "ioctl FIONBIO failed %s", strerror(errno));
 	    goto failed;
 	}
 
@@ -374,7 +389,7 @@ arp_open_fd(arp_session_t * session, arp_client_t * client)
     status = bpf_setif(session->bpf_fd, if_name(client->if_p));
     if (status < 0) {
 	my_log(LOG_ERR, "arp_open_fd: bpf_setif(%s) failed: %s (%d)", 
-	       if_name, strerror(errno), errno);
+	       if_name(client->if_p), strerror(errno), errno);
 	sprintf(client->errmsg, "arp_open_fd: bpf_setif(%s) failed: %s (%d)", 
 	       if_name(client->if_p), strerror(errno), errno);
 	goto failed;
@@ -386,7 +401,8 @@ arp_open_fd(arp_session_t * session, arp_client_t * client)
 }
 
 static int
-arp_transmit(arp_session_t * session, arp_client_t * client)
+arp_transmit(arp_session_t * session, arp_client_t * client, 
+	     boolean_t send_gratuitous)
 {
     struct ether_header*eh_p;
     struct ether_arp *	earp;
@@ -416,13 +432,19 @@ arp_transmit(arp_session_t * session, arp_client_t * client)
 
     bcopy(if_link_address(client->if_p), earp->arp_sha,
 	  sizeof(earp->arp_sha));
-    *((struct in_addr *)earp->arp_spa) = client->sender_ip;
+    if (send_gratuitous == TRUE
+	&& client->sender_ip.s_addr == 0) {
+	*((struct in_addr *)earp->arp_spa) = client->target_ip;
+    }
+    else {
+	*((struct in_addr *)earp->arp_spa) = client->sender_ip;
+    }
     *((struct in_addr *)earp->arp_tpa) = client->target_ip;
 
     status = bpf_write(session->bpf_fd, txbuf, sizeof(*eh_p) + sizeof(*earp));
     if (status < 0) {
 	my_log(LOG_ERR, "arp_transmit(%s) failed, %s (%d)", 
-	       if_name, strerror(errno), errno);
+	       if_name(client->if_p), strerror(errno), errno);
 	sprintf(client->errmsg, "arp_transmit(%s) failed, %s (%d)", 
 	       if_name(client->if_p), strerror(errno), errno);
 	return (0);
@@ -434,9 +456,9 @@ arp_transmit(arp_session_t * session, arp_client_t * client)
  * Function: arp_retransmit
  *
  * Purpose:
- *   Transmit an ARP packet up to ARP_PROBE_TRIES times.
+ *   Transmit an ARP packet with timeout retry.
  *   Calls arp_error if the transmit failed.
- *   When we've tried ARP_PROBE_TRIES times, call the
+ *   When we've tried often enough, call the
  *   client function with a result structure indicating
  *   no errors and the IP is not in use.
  */
@@ -445,12 +467,16 @@ arp_retransmit(void * arg1, void * arg2, void * arg3)
 {
     arp_client_t * 	client;
     arp_session_t * 	session = (arp_session_t *)arg1;
+    int			tries_left;
 
     client = session->pending_client;
     if (client == NULL)
 	return;
 
-    if (session->pending_client_try == ARP_PROBE_TRIES) {
+    tries_left = (session->probe_count + session->gratuitous_count)
+	- session->pending_client_try;
+
+    if (tries_left <= 0) {
 	void *			c_arg1 = client->arg1;
 	void *			c_arg2 = client->arg2;
 	arp_result_func_t *	func = client->func;
@@ -465,15 +491,11 @@ arp_retransmit(void * arg1, void * arg2, void * arg3)
 	(*func)(c_arg1, c_arg2, &result);
 	return;
     }
-
     session->pending_client_try++;
 
-    if (arp_transmit(session, client)) {
-	struct timeval t;
-
-	t.tv_sec = ARP_PROBE_TRY_INTERVAL_SECS;
-	t.tv_usec = ARP_PROBE_TRY_INTERVAL_USECS;
-	timer_set_relative(session->timer_callout, t, 
+    if (arp_transmit(session, client, 
+		     (tries_left == session->gratuitous_count))) {
+	timer_set_relative(session->timer_callout, session->retry, 
 			   (timer_func_t *)arp_retransmit,
 			   session, NULL, NULL);
     }
@@ -607,7 +629,8 @@ arp_cancel_probe(arp_client_t * client)
 }
 
 arp_session_t *
-arp_session_init(arp_our_address_func_t * func)
+arp_session_init(arp_our_address_func_t * func, struct timeval * tv_p,
+		 int * probe_count, int * gratuitous_count)
 {
     arp_session_t * 	session;
     timer_callout_t *	timer;
@@ -629,6 +652,25 @@ arp_session_init(arp_our_address_func_t * func)
     }
     else {
 	session->is_our_address = func;
+    }
+    if (tv_p) {
+	session->retry = *tv_p;
+    }
+    else {
+	session->retry.tv_sec = ARP_RETRY_SECS;
+	session->retry.tv_usec = ARP_RETRY_USECS;
+    }
+    if (probe_count) {
+	session->probe_count = *probe_count;
+    }
+    else {
+	session->probe_count = ARP_PROBE_COUNT;
+    }
+    if (gratuitous_count) {
+	session->gratuitous_count = *gratuitous_count;
+    }
+    else {
+	session->gratuitous_count = ARP_GRATUITOUS_COUNT;
     }
     return (session);
 }
@@ -695,7 +737,7 @@ main(int argc, char * argv[])
     struct in_addr     	target_ip;
 
     if (argc < 4) {
-	printf("usage: arpcheck <ifname> <sender ip> <target ip>\n");
+	printf("usage: arptest <ifname> <sender ip> <target ip>\n");
 	exit(1);
     }
 
@@ -717,7 +759,10 @@ main(int argc, char * argv[])
 	exit(1);
     }
 
-    p = arp_session_init(NULL);
+    {
+	int gratuitous = 0;
+	p = arp_session_init(NULL, NULL, NULL, &gratuitous);
+    }
     if (p == NULL) {
 	fprintf(stderr, "arp_session_init failed\n");
 	exit(1);

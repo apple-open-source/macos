@@ -187,8 +187,8 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket(
 	}
 
 	// Set the LUN (not needed until LUN support is added).
-	//boRequestBlock->boCBW.cbwLUN 			= (requestPB->LogicalUnitNumber & kCBWLUNMask);				// Bits 0-3: LUN, 4-7: Reserved
-	boRequestBlock->boCBW.cbwCDBLength 		= GetCommandDescriptorBlockSize(boRequestBlock->request);		// Bits 0-4: CDB Length, 5-7: Reserved
+	boRequestBlock->boCBW.cbwLUN 			= GetLogicalUnitNumber( boRequestBlock->request ) & kCBWLUNMask;				// Bits 0-3: LUN, 4-7: Reserved
+	boRequestBlock->boCBW.cbwCDBLength 		= GetCommandDescriptorBlockSize( boRequestBlock->request );		// Bits 0-4: CDB Length, 5-7: Reserved
 	GetCommandDescriptorBlock( boRequestBlock->request, &boRequestBlock->boCBW.cbwCDB );
 
 	// Once timeouts are support, set the timeout value for the request 

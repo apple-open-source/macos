@@ -1135,6 +1135,10 @@ static const char *set_add_default_charset(cmd_parms *cmd,
     }
     return NULL;
 }
+static const char *set_accept_mutex(cmd_parms *cmd, void *dummy, char *arg)
+{
+	return ap_init_mutex_method(arg);
+}
 
 static const char *set_document_root(cmd_parms *cmd, void *dummy, char *arg)
 {
@@ -2521,6 +2525,21 @@ static const char *set_threadstacksize(cmd_parms *cmd, void *dummy, char *stacks
 }
 #endif
 
+/* Though the AcceptFilter functionality is not available across
+ * all platforms - we still allow the config directive to appear
+ * on all platforms and do intentionally not tie it to the compile
+ * time flag SO_ACCEPTFILTER. This makes configuration files significantly
+ * more portable; especially as an <IfModule http_core.c> or some
+ * other construct is not possible.
+ */
+static const char *set_acceptfilter(cmd_parms *cmd, void *dummy, int flag)
+{
+#ifdef SO_ACCEPTFILTER
+    ap_acceptfilter = flag;
+#endif
+    return NULL;
+}
+
 static const char *set_listener(cmd_parms *cmd, void *dummy, char *ips)
 {
     listen_rec *new;
@@ -3159,6 +3178,19 @@ static const command_rec core_cmds[] = {
   "to die." },
 { "ListenBacklog", set_listenbacklog, NULL, RSRC_CONF, TAKE1,
   "Maximum length of the queue of pending connections, as used by listen(2)" },
+{ "AcceptFilter", set_acceptfilter, NULL, RSRC_CONF, FLAG,
+  "Switch AcceptFiltering on/off (default is "
+#ifdef AP_ACCEPTFILTER_OFF
+	"off"
+#else
+	"on"
+#endif
+	")."
+#ifndef SO_ACCEPTFILTER
+	"This feature is currently not compiled in; so this directive "
+	"is ignored."
+#endif
+   },
 { "CoreDumpDirectory", set_coredumpdir, NULL, RSRC_CONF, TAKE1,
   "The location of the directory Apache changes to before dumping core" },
 { "Include", include_config, NULL, (RSRC_CONF | ACCESS_CONF), TAKE1,
@@ -3187,6 +3219,34 @@ static const command_rec core_cmds[] = {
   (void*)XtOffsetOf(core_dir_config, limit_req_body),
   OR_ALL, TAKE1,
   "Limit (in bytes) on maximum size of request message body" },
+{ "AcceptMutex", set_accept_mutex, NULL, RSRC_CONF, TAKE1,
+  "Serialized Accept Mutex; the methods " 
+#ifdef HAVE_USLOCK_SERIALIZED_ACCEPT
+    "'uslock' "                           
+#endif
+#ifdef HAVE_PTHREAD_SERIALIZED_ACCEPT
+    "'pthread' "
+#endif
+#ifdef HAVE_SYSVSEM_SERIALIZED_ACCEPT
+    "'sysvsem' "
+#endif
+#ifdef HAVE_FCNTL_SERIALIZED_ACCEPT
+    "'fcntl' "
+#endif
+#ifdef HAVE_FLOCK_SERIALIZED_ACCEPT
+    "'flock' "
+#endif
+#ifdef HAVE_OS2SEM_SERIALIZED_ACCEPT
+    "'os2sem' "
+#endif
+#ifdef HAVE_TPF_CORE_SERIALIZED_ACCEPT
+    "'tpfcore' "
+#endif
+#ifdef HAVE_NONE_SERIALIZED_ACCEPT
+    "'none' "
+#endif
+    "are compiled in"
+},
 
 /* EBCDIC Conversion directives: */
 #ifdef CHARSET_EBCDIC

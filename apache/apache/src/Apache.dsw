@@ -171,6 +171,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "mod_mime_magic"=".\os\win32\mod_mime_magic.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ApacheCore
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "mod_proxy"=".\os\win32\mod_proxy.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -231,7 +246,37 @@ Package=<4>
 
 ###############################################################################
 
+Project: "mod_unique_id"=".\os\win32\mod_unique_id.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ApacheCore
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "mod_usertrack"=".\os\win32\mod_usertrack.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name ApacheCore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mod_vhost_alias"=".\os\win32\mod_vhost_alias.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -297,6 +342,9 @@ Package=<4>
     Project_Dep_Name mod_info
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name mod_mime_magic
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name mod_proxy
     End Project Dependency
     Begin Project Dependency
@@ -309,7 +357,13 @@ Package=<4>
     Project_Dep_Name mod_status
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name mod_unique_id
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name mod_usertrack
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name mod_vhost_alias
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name htdigest

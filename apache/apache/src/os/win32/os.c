@@ -65,6 +65,7 @@
 #include <stdio.h>
 #include <time.h>
 #include "os.h"
+#include "errno.h"
 
 /* Win95 doesn't like trailing /s. NT and Unix don't mind. This works 
  * around the problem.
@@ -80,12 +81,18 @@ API_EXPORT(int) os_stat(const char *szPath, struct stat *pStat)
     int n;
     int len = strlen(szPath);
     
-    if ((len == 0) || (len >= MAX_PATH)) {
+    if (len == 0) {
+        errno = ENOENT;
+        return -1;
+    }
+
+    if (len >= MAX_PATH) {
+        errno = ENAMETOOLONG;
         return -1;
     }
 
     if (szPath[0] == '/' && szPath[1] == '/') {
-	char buf[_MAX_PATH];
+	char buf[MAX_PATH];
 	char *s;
 	int nSlashes = 0;
 
@@ -99,6 +106,7 @@ API_EXPORT(int) os_stat(const char *szPath, struct stat *pStat)
 	/* then we need to add one more to get \\machine\share\ */
 	if (nSlashes == 3) {
             if (++len >= MAX_PATH) {
+                errno = ENAMETOOLONG;
                 return -1;
             }
 	    *s++ = '\\';

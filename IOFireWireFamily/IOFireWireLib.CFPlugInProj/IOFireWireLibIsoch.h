@@ -92,6 +92,10 @@ typedef IOReturn	(*IOFireWireLibIsochPortGetSupportedCallback)(
 	void 		(*SetRefCon)	( IOFireWireLibIsochPortRef self, void* inRefCon) ;	\
 	void*		(*GetRefCon)	( IOFireWireLibIsochPortRef self)
 
+/*!	@class IOFireWireIsochPortInterface
+	@abstract An interface which represents a talker or listener 
+		on an isochronous channel. This is a superclass containing all isochronous
+		port functionality not specific to any kind of bus transaction. */
 typedef struct IOFireWireIsochPortInterface_t
 {
 	IUNKNOWN_C_GUTS ;

@@ -127,7 +127,7 @@ bool
 IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport ( void )
 {
 	
-	bool setupSuccessful = false;
+	bool 		setupSuccessful = false;
 	
 	// Initialize the device characteristics flags
 	fSupportedCDFeatures 			= 0;
@@ -141,7 +141,7 @@ IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport ( void )
 	fCurrentDiscSpeed				= 0;
 	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::InitializeDeviceSupport called\n" ) );
-
+		
 	// Make sure the drive is ready for us!
 	if ( ClearNotReadyStatus ( ) == false )
 	{
@@ -264,7 +264,7 @@ IOSCSIMultimediaCommandsDevice::TerminateDeviceSupport ( void )
 		fPollingThread = NULL;
 		
 	}
-   
+		
 }
 
 
@@ -839,7 +839,7 @@ IOSCSIMultimediaCommandsDevice::DetermineIfMediaIsRemovable ( void )
 		}
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-				( GetTaskStatus( request ) == kSCSITaskStatus_GOOD ) )
+				( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
 			break;
@@ -991,7 +991,8 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfigurationSize ( UInt32 * size )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		*size 	= *( UInt32 * ) &featureHeader[0] + kProfileDataLengthFieldSize;
+		// Swap to proper endian-ness since we are reading a multiple-byte field
+		*size 	= OSReadBigInt32 ( &featureHeader[0], 0 ) + kProfileDataLengthFieldSize;
 		status 	= kIOReturnSuccess;
 		
 		STATUS_LOG ( ( "size = %ld\n", *size ) );
@@ -1051,8 +1052,10 @@ IOSCSIMultimediaCommandsDevice::GetDeviceConfiguration ( void )
 	
 	if ( numProfiles < 1 )
 	{
+		
 		status = kIOReturnError;
 		return status;
+		
 	}
 	
 	STATUS_LOG ( ( "numProfiles = %d\n", numProfiles ) );
@@ -1203,7 +1206,7 @@ IOSCSIMultimediaCommandsDevice::ParseFeatureList ( UInt32 numProfiles, UInt8 * f
 	while ( numProfiles-- )
 	{
 		
-		profileNumber = *( UInt16 * ) profilePtr;
+		profileNumber = OSReadBigInt16 ( profilePtr, 0 );
 		
 		switch ( profileNumber )
 		{
@@ -1301,7 +1304,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		*size 	= ( *( UInt16 * ) parameterHeader ) + sizeof ( UInt16 );
+		*size 	= OSReadBigInt16 ( parameterHeader, 0 ) + sizeof ( UInt16 );
 		status 	= kIOReturnSuccess;
 		
 		STATUS_LOG ( ( "size = %ld\n", *size ) );
@@ -1537,7 +1540,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed ( UInt16 * kilobytesPerSecon
 		{
 			
 			mechanicalCapabilitiesPtr = &mechanicalCapabilitiesPtr[kModeSenseParameterHeaderSize + 14];
-			*kilobytesPerSecond = *( UInt16 * ) mechanicalCapabilitiesPtr;
+			*kilobytesPerSecond = OSReadBigInt16 ( mechanicalCapabilitiesPtr, 0 );
 			status = kIOReturnSuccess;
 			
 		}
@@ -1724,6 +1727,9 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 				// We got an error from the drive and will not be able to access
 				// this medium at all. Just eject it...
 				
+				ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::PollForMedia Mechanical error occurred, ASC = 0x%02x, ASCQ = 0x%02x\n",
+							   senseBuffer.ADDITIONAL_SENSE_CODE, senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
 				EjectTheMedia ( );
 				
 			}
@@ -1835,7 +1841,7 @@ IOSCSIMultimediaCommandsDevice::PollForMedia ( void )
 	fMediaPresent	= true;
 	fMediaChanged	= true;
 	fPollingMode 	= kPollingMode_Suspended;
-
+	
 	// Message up the chain that we have media
 	messageClients ( kIOMessageMediaStateHasChanged,
 					 ( void * ) kIOMediaStateOnline,
@@ -1940,7 +1946,7 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 	DVDPhysicalFormatInfo	physicalFormatInfo;
 	IOMemoryDescriptor *	bufferDesc;
 	bool					mediaTypeFound = false;
-
+	
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	// If device supports READ_DVD_STRUCTURE, issue one to find
@@ -2012,7 +2018,7 @@ IOSCSIMultimediaCommandsDevice::CheckForDVDMediaType ( void )
 		}
 	
 	}
-
+	
 	if ( fMediaType != kCDMediaTypeUnknown )
 	{
 		mediaTypeFound = true;
@@ -2065,7 +2071,7 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 	
 	else
 	{
-		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command" ) );
+		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 1" ) );
 	}
 	
 	STATUS_LOG ( ( "%s::%s serviceResponse = %x\n", getName ( ), __FUNCTION__, serviceResponse ) );
@@ -2107,7 +2113,7 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 			
 			else
 			{
-				PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command" ) );
+				PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 2" ) );
 			}
 			
 			bufferDesc->release ( );
@@ -2176,16 +2182,20 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 										sizeof ( atipBuffer ),
 										0 ) == true )
 			{
+				
 				// The command was successfully built, now send it
 				serviceResponse = SendCommand ( request, 0 );
+				
 			}
 			
 			else
 			{
-				PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command" ) );
+				PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 3" ) );
 			}
 	
 			bufferDesc->release ( );
+			bufferDesc = NULL;
+			
 			taskStatus = GetTaskStatus ( request );
 			
 			if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -2222,16 +2232,20 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 												kTrackInfoBufferSize,
 												0 ) == true )
 				{
+					
 					// The command was successfully built, now send it
 					serviceResponse = SendCommand ( request, 0 );
+					
 				}
 				
 				else
 				{
-					PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command" ) );
+					PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 4" ) );
 				}
 				
 				bufferDesc->release ( );
+				bufferDesc = NULL;
+				
 				taskStatus = GetTaskStatus ( request );
 				
 				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -2242,7 +2256,7 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 					{
 						
 						STATUS_LOG ( ( "media is blank\n" ) );
-						// Yes it's blank, make sure the blockCount zero.
+						// Yes it's blank, make sure the blockCount is zero.
 						fMediaBlockCount = 0;
 						
 					}
@@ -2254,6 +2268,14 @@ IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 			}
 			
 		}
+		
+	}	
+	
+	if ( bufferDesc != NULL )
+	{
+		
+		bufferDesc->release ( );
+		bufferDesc = NULL;
 		
 	}
 	
@@ -2377,7 +2399,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 	IOSCSIMultimediaCommandsDevice	*	taskOwner;
 	void *								clientData;
 	SCSITask *							scsiRequest;
-		
+	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
 	if ( scsiRequest == NULL )
 	{
@@ -2420,7 +2442,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 			if ( senseIsValid )
 			{
 				
-				ERROR_LOG ( ( "ASC = 0x%02x, ASCQ = 0x%02x\n", 
+				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n", 
 				senseDataBuffer.ADDITIONAL_SENSE_CODE,
 				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
 				
@@ -2715,8 +2737,6 @@ IOSCSIMultimediaCommandsDevice::GetTrayState ( UInt8 * trayState )
 	UInt8					statusBuffer[8];
 	IOMemoryDescriptor *	buffer;
 	
-	CheckPowerState ( );
-	
 	request = GetSCSITask ( );
 	
 	buffer = IOMemoryDescriptor::withAddress ( 	statusBuffer,
@@ -2753,6 +2773,7 @@ IOSCSIMultimediaCommandsDevice::GetTrayState ( UInt8 * trayState )
 	
 	else
 	{
+		
 		// The device doesn't support the GET_EVENT_STATUS_NOTIFICATION.
 		// Assume the tray is shut.
 		ERROR_LOG ( ( "GET_EVENT_STATUS_NOTIFICATION failed.\n" ) );
@@ -2777,12 +2798,12 @@ IOSCSIMultimediaCommandsDevice::SetTrayState ( UInt8 trayState )
 	SCSITaskIdentifier		request;
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
-	CheckPowerState ( );
-	
 	if ( fMediaPresent )
 	{
+		
 		ERROR_LOG ( ( "Media present, not permitted to send SetTrayState\n" ) );
 		return kIOReturnNotPermitted;
+		
 	}
 	
 	request = GetSCSITask ( );
@@ -2801,8 +2822,10 @@ IOSCSIMultimediaCommandsDevice::SetTrayState ( UInt8 trayState )
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
+		
 		STATUS_LOG ( ( "START_STOP_UNIT succeeded.\n" ) );
 		status = kIOReturnSuccess;
+		
 	}
 	
 	ReleaseSCSITask ( request );
@@ -2810,6 +2833,7 @@ IOSCSIMultimediaCommandsDevice::SetTrayState ( UInt8 trayState )
 	return status;
 	
 }
+
 
 IOReturn
 IOSCSIMultimediaCommandsDevice::EjectTheMedia ( void )
@@ -2853,7 +2877,7 @@ IOSCSIMultimediaCommandsDevice::EjectTheMedia ( void )
 		}
 		
 	}
-
+	
 	if ( PREVENT_ALLOW_MEDIUM_REMOVAL ( request, 0, 0 ) == true )
 	{
 		// The command was successfully built, now send it
@@ -2881,7 +2905,7 @@ IOSCSIMultimediaCommandsDevice::EjectTheMedia ( void )
 	ResetMediaCharacteristics ( );
 	
 	fMediaIsWriteProtected = true;
-
+	
 	fCurrentDiscSpeed = 0;
 	
 	if ( fLowPowerPollingEnabled == false )
@@ -2946,8 +2970,10 @@ IOSCSIMultimediaCommandsDevice::SynchronizeCache ( void )
 	
 	if ( SYNCHRONIZE_CACHE ( request, 0, 0, 0, 0, 0 ) == true )
 	{
+		
 		// The command was successfully built, now send it
 		serviceResponse = SendCommand ( request, 0 );
+		
 	}
 	
 	else
@@ -2986,7 +3012,7 @@ IOSCSIMultimediaCommandsDevice::ReportBlockSize ( UInt64 * blockSize )
 IOReturn
 IOSCSIMultimediaCommandsDevice::ReportEjectability ( bool * isEjectable )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s mediaIsRemovable = %d\n", getName ( ),
 					__FUNCTION__, ( int ) fMediaIsRemovable ) );
 	
@@ -2999,13 +3025,13 @@ IOSCSIMultimediaCommandsDevice::ReportEjectability ( bool * isEjectable )
 IOReturn
 IOSCSIMultimediaCommandsDevice::ReportLockability ( bool * isLockable )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s isLockable = %d\n", getName ( ),
 					__FUNCTION__, ( int ) true ) );
 	
 	*isLockable = true;
 	return kIOReturnSuccess;
-
+	
 }
 
 
@@ -3013,14 +3039,14 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::ReportPollRequirements ( bool * pollIsRequired,
 														 bool * pollIsExpensive )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
 	
 	*pollIsRequired 	= false;
 	*pollIsExpensive 	= false;
 	
 	return kIOReturnSuccess;
-
+	
 }
 
 
@@ -3028,7 +3054,7 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::ReportMaxReadTransfer ( UInt64 		blockSize,
 														UInt64 * 	max )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
 	
 	*max = blockSize * 256;
@@ -3043,19 +3069,23 @@ IOSCSIMultimediaCommandsDevice::ReportMaxValidBlock ( UInt64 * maxBlock )
 	
 	if ( fMediaBlockCount == 0 )
 	{
+		
 		// If the capacity is zero, return that for
 		// the max valid block.
 		*maxBlock = 0;
+		
 	}
 	
 	else
 	{
+		
 		// Since the driver stores the number of blocks, and
 		// blocks are addressed starting at zero, subtract one
 		// to get the maximum valid block.
 		*maxBlock = fMediaBlockCount - 1;
+		
 	}
-
+	
 	STATUS_LOG ( ( "%s::%s maxBlockHi = 0x%x, maxBlockLo = 0x%x\n", getName ( ),
 					__FUNCTION__, ( *maxBlock ), ( *maxBlock ) >> 32 ) );
 	
@@ -3068,9 +3098,9 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::ReportMaxWriteTransfer ( UInt64		blockSize,
 														 UInt64 *	max )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s.\n", getName ( ), __FUNCTION__ ) );
-
+	
 	return ReportMaxReadTransfer ( blockSize, max );
 	
 }
@@ -3080,9 +3110,9 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::ReportMediaState ( 	bool * mediaPresent,
 													bool * changed )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s.\n", getName ( ), __FUNCTION__ ) );
-
+	
 	STATUS_LOG ( ( "fMediaPresent = %d.\n", fMediaPresent ) );
 	STATUS_LOG ( ( "fMediaChanged = %d.\n", fMediaChanged ) );
 	
@@ -3093,7 +3123,7 @@ IOSCSIMultimediaCommandsDevice::ReportMediaState ( 	bool * mediaPresent,
 	{
 		
 		fMediaChanged = !fMediaChanged;
-	
+		
 	}
 	
 	return kIOReturnSuccess;
@@ -3104,7 +3134,7 @@ IOSCSIMultimediaCommandsDevice::ReportMediaState ( 	bool * mediaPresent,
 IOReturn
 IOSCSIMultimediaCommandsDevice::ReportRemovability ( bool * isRemovable )
 {
-
+	
 	STATUS_LOG ( ( "%s::%s isRemovable = %d.\n", getName ( ),
 					__FUNCTION__, fMediaIsRemovable ) );
 	
@@ -3190,8 +3220,10 @@ IOSCSIMultimediaCommandsDevice::AsyncReadCD ( 	IOMemoryDescriptor *	buffer,
 	
 	else
 	{
+		
 		status = kIOReturnUnsupported;
-		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::IssueRead malformed command" ) );
+		ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::IssueRead malformed command" ) );
+		
 	}
 	
 	return status;
@@ -3234,7 +3266,7 @@ IOSCSIMultimediaCommandsDevice::ReadISRC ( UInt8 track, CDISRC isrc )
 	}
 	
 	desc->release ( );
-
+	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
@@ -3263,7 +3295,7 @@ IOSCSIMultimediaCommandsDevice::ReadISRC ( UInt8 track, CDISRC isrc )
 	}
 	
 	ReleaseSCSITask ( request );
-
+	
 	STATUS_LOG ( ( "%s::%s status = %ld\n", getName ( ),
 					__FUNCTION__, ( UInt32 ) status ) );
 		
@@ -3307,7 +3339,7 @@ IOSCSIMultimediaCommandsDevice::ReadMCN ( CDMCN mcn )
 	}
 	
 	desc->release ( );
-
+	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
@@ -3349,37 +3381,102 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 {
 	
-	IOReturn				status = kIOReturnError;
-	SCSITaskIdentifier		request;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	IOBufferMemoryDescriptor *	doubleBuffer	= NULL;
+	SCSITaskIdentifier			request			= NULL;
+	SCSIServiceResponse			serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	IOReturn					status			= kIOReturnSuccess;
+	IOMemoryDescriptor *		bufferToUse		= NULL;
 	
-	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC called, tocMaxSize = %ld\n",
-					buffer->getLength ( ) ) );
+	// If they ask for 4 bytes, use 0xFFFE to make sure we get the whole TOC
+	if ( buffer->getLength ( ) == sizeof ( CDTOC ) )
+	{
+
+		UInt8 *	zeroPtr = 0;
+		
+		STATUS_LOG ( ( "2ble buffer using 0xFFFE as size\n" ) );
+		
+		doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( 0xFFFE, kIODirectionIn );
+		if ( doubleBuffer == NULL )
+		{
+			
+			ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
+			status = kIOReturnNoMemory;
+			goto ErrorExit;
+			
+		}
+		
+		bufferToUse = doubleBuffer;
+		zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
+		bzero ( zeroPtr, doubleBuffer->getLength ( ) );
+		
+	}
+	
+	// If they ask for an odd number of bytes, pad it to make it even
+	else if ( ( buffer->getLength ( ) & 1 ) == 1 )
+	{
+		
+		UInt8 *	zeroPtr = 0;
+		
+		STATUS_LOG ( ( "2ble buffer using %ld as size\n", buffer->getLength ( ) + 1 ) );
+		
+		doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( buffer->getLength ( ) + 1, kIODirectionIn );
+		if ( doubleBuffer == NULL )
+		{
+			
+			ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
+			status = kIOReturnNoMemory;
+			goto ErrorExit;
+			
+		}
+		
+		bufferToUse = doubleBuffer;
+		zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
+		bzero ( zeroPtr, doubleBuffer->getLength ( ) );
+		
+	}
+	
+	// Else, it's all good...
+	else
+	{
+		
+		STATUS_LOG ( ( "No 2ble buffer\n" ) );
+		bufferToUse = buffer;
+		
+	}
 	
 	request = GetSCSITask ( );
 	
 	if ( READ_TOC_PMA_ATIP (	request,
-								buffer,
-								1,
+								bufferToUse,
+								1,			// MSF bit set
 								0x02,
 								0,
-								buffer->getLength ( ),
+								bufferToUse->getLength ( ),
 								0 ) == true )
 	{
+		
 		// The command was successfully built, now send it
 		serviceResponse = SendCommand ( request, 0 );
+		
 	}
 	
 	else
 	{
-		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC malformed command" ) );
+		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 5" ) );
 	}
 	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
-		status = kIOReturnSuccess;
+		UInt8 *			ptr;
+		UInt16			sizeOfTOC;
+		IOByteCount		bufLength;	// not used
+		
+		ptr = ( UInt8 * ) bufferToUse->getVirtualSegment ( 0, &bufLength );
+		
+		// Get the size of the TOC data returned
+		sizeOfTOC = OSReadBigInt16 ( ptr, 0 ) + sizeof ( UInt16 );
 		
 		// We have successfully gotten a TOC, check if the driver was able to 
 		// determine a block count from READ CAPACITY.  If the media has a reported
@@ -3391,63 +3488,65 @@ IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 		{
 			
 			UInt8			lastSessionNum;
-			UInt16			sizeOfTOC;
 			UInt32 			index;
-			UInt8 *			ptr;
-			IOByteCount		bufLength;
+			UInt8 *			beginPtr;
 			bool			needsBCDtoHexConv = false;
 			UInt32			numLBAfromMSF;
 			
-			ptr = ( UInt8 * ) buffer->getVirtualSegment ( 0, &bufLength );
+			beginPtr = ptr;
 			
-			STATUS_LOG ( ( "bufLength = %ld\n", bufLength ) );
+		#if ( SCSI_MMC_DEVICE_DEBUGGING_LEVEL >= 2 )
+			if ( sizeOfTOC != GetRealizedDataTransferCount ( request ) )
+				ERROR_LOG ( ( "sizeOfTOC != Realized Data Transfer Count\n size = %d, xfer count = %ld\n",
+								sizeOfTOC, ( UInt32 ) GetRealizedDataTransferCount ( request ) ) );
+		#endif
 			
-			// Make sure the buffer is greater than 4 bytes. If it is not,
-			// don't touch the buffer (could cause a kernel panic).
-			if ( bufLength > 4 )
+			if ( sizeOfTOC <= sizeof ( CDTOC ) )
 			{
 				
-				// Get the size of the TOC data returned
-				sizeOfTOC = *( ( UInt16 * ) &ptr[0] );
+				ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
 				
-				// Get the number of the last session on the disc.
-				// Since this number will be match to the appropriate
-				// data in the returned TOC, the format of this (Hex or BCD)
-				// has no impact on its use.		
-				lastSessionNum = ptr[3];
+				status = kIOReturnError;
+				goto ErrorExit;
 				
-				// Find the A2 point for the last session
-				for ( index = 4; index < buffer->getLength ( ) - 4; index += 11 )
+			}
+			
+			// Get the number of the last session on the disc.
+			// Since this number will be match to the appropriate
+			// data in the returned TOC, the format of this (Hex or BCD)
+			// has no impact on its use.		
+			lastSessionNum = ptr[3];
+			
+			// Find the A2 point for the last session
+			for ( index = 4; index < ( sizeOfTOC - 4 ); index += 11 )
+			{
+				
+				// Check if this Track Descriptor is for the last session
+				if ( ptr[index] != lastSessionNum )
+				{
+					// Not for the last session, go on to the next descriptor.
+					continue;
+				}
+				
+				// If we got here, then this Track Descriptor is for the last session,
+				// now check to see if it is the A2 point.
+				if ( ptr[index + 3] != 0xA2 )
+				{
+					continue;
+				}
+				
+				// If we got here, then this Track Descriptor is for the last session,
+				// and is the A2 point.
+				// Now check if the beginning of the lead out is greater than
+				// the disc capacity (plus the 2 second leadin or 150 blocks) plus 75 sector
+				// tolerance.
+				numLBAfromMSF = ( ( ( ptr[index + 8] * 60 ) + ( ptr[index + 9] ) ) * 75 ) + ( ptr[index + 10] );
+				
+				if ( numLBAfromMSF > ( ( fMediaBlockCount + 150 ) + 75 ) )
 				{
 					
-					// Check if this Track Descriptor is for the last session
-					if ( ptr[index] != lastSessionNum )
-					{
-						// Not for the last session, go on to the next descriptor.
-						continue;
-					}
-					
-					// If we got here, then this Track Descriptor is for the last session,
-					// now check to see if it is the A2 point.
-					if ( ptr[index + 3] != 0xA2 )
-					{
-						continue;
-					}
-					
-					// If we got here, then this Track Descriptor is for the last session,
-					// and is the A2 point.
-					// Now check if the beginning of the lead out is greater than
-					// the disc capacity (plus the 2 second leadin or 150 blocks) plus 75 sector
-					// tolerance.
-					numLBAfromMSF = ( ( ( ptr[index + 8] * 60 ) + ( ptr[index + 9] ) ) * 75 ) + ( ptr[index + 10] );
-					
-					if ( numLBAfromMSF > ( ( fMediaBlockCount + 150 ) + 75 ) )
-					{
-						
-						needsBCDtoHexConv = true;
-						break;
-						
-					}
+					needsBCDtoHexConv = true;
+					break;
 					
 				}
 				
@@ -3456,13 +3555,15 @@ IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 			if ( needsBCDtoHexConv == true )
 			{
 				
+				ERROR_LOG ( ( "Drive needs BCD->HEX conversion\n" ) );
+				
 				// Convert First/Last session info
-				ptr[2] = ConvertBCDToHex ( ptr[2] );
-				ptr[3] = ConvertBCDToHex ( ptr[3] );
-				ptr = &ptr[4];
+				ptr[2] 	= ConvertBCDToHex ( ptr[2] );
+				ptr[3] 	= ConvertBCDToHex ( ptr[3] );
+				ptr 	= &ptr[4];
 				
 				// Loop over track descriptors finding the BCD values and change them to hex.
-				for ( index = 0; index < buffer->getLength ( ) - 4; index += 11 )
+				for ( index = 0; index < ( sizeOfTOC - 4 ); index += 11 )
 				{
 					
 					if ( ( ptr[index + 3] == 0xA0 ) || ( ptr[index + 3] == 0xA1 ) )
@@ -3494,12 +3595,62 @@ IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 				
 			}
 			
+			if ( bufferToUse != buffer )
+			{
+				
+				STATUS_LOG ( ( "Writing Bytes\n" ) );
+				buffer->writeBytes ( 0, beginPtr, min ( buffer->getLength ( ), sizeOfTOC ) );
+				
+			}
+			
+		}
+		
+		else
+		{
+			
+			if ( sizeOfTOC <= sizeof ( CDTOC ) )
+			{
+				
+				ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
+				status = kIOReturnError;
+				goto ErrorExit;
+				
+			}
+			
 		}
 		
 	}
 	
-	ReleaseSCSITask ( request );
+	else
+	{
 		
+		// We got an error on the READ_TOC_PMA_ATIP. We shouldn't get one unless the media
+		// is blank, so return an error.
+		status = kIOReturnError;
+		goto ErrorExit;
+		
+	}
+	
+	
+ErrorExit:
+	
+	
+	if ( request != NULL )
+	{
+		
+		ReleaseSCSITask ( request );
+		request = NULL;
+		
+	}
+	
+	if ( doubleBuffer != NULL )
+	{
+		
+		doubleBuffer->release ( );
+		doubleBuffer = NULL;
+		
+	}
+	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC status = %d\n", status ) );
 	
 	return status;
@@ -3554,8 +3705,10 @@ IOSCSIMultimediaCommandsDevice::AudioPause ( bool pause )
 		
 		if ( PAUSE_RESUME ( request, !pause, 0 ) == true )
 		{
+			
 			// The command was successfully built, now send it
 			serviceResponse = SendCommand ( request, 0 );
+			
 		}
 		
 		else
@@ -3575,7 +3728,7 @@ IOSCSIMultimediaCommandsDevice::AudioPause ( bool pause )
 		}
 		
 		ReleaseSCSITask ( request );
-				
+		
 	}
 	
 	return status;
@@ -3587,18 +3740,33 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::AudioPlay ( CDMSF timeStart, CDMSF timeStop )
 {
 	
-	IOReturn				status = kIOReturnUnsupported;
-	SCSITaskIdentifier		request;
+	IOReturn				status 			= kIOReturnUnsupported;
+	SCSITaskIdentifier		request			= NULL;
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-
+	SCSICmdField4Byte		STARTING_MSF 	= 0;
+	SCSICmdField4Byte		ENDING_MSF 		= 0;
+	
 	if ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask )
 	{
+		
+		// Do some bit shifting to be endian neutral
+		STARTING_MSF 	= ( timeStart.minute << 24 ) |
+						  ( timeStart.second << 16 ) |
+						  ( timeStart.frame << 8 );
+		
+		ENDING_MSF 		= ( timeStop.minute << 24 ) |
+						  ( timeStop.second << 16 ) |
+						  ( timeStop.frame << 8 );
+		
+		// These are multi-byte fields, so use OSWriteBigInt32 to make them correct.
+		OSWriteBigInt32 ( &STARTING_MSF, 0, STARTING_MSF );
+		OSWriteBigInt32 ( &ENDING_MSF, 0, ENDING_MSF );
 		
 		request = GetSCSITask ( );
 		
 		if ( PLAY_AUDIO_MSF ( 	request,
-								*( UInt32 * ) &timeStart,
-								*( UInt32 * ) &timeStop,
+								STARTING_MSF,
+								ENDING_MSF,
 								0 ) == true )
 		{
 			// The command was successfully built, now send it
@@ -3635,21 +3803,32 @@ IOSCSIMultimediaCommandsDevice::AudioScan ( CDMSF timeStart, bool reverse )
 	IOReturn				status = kIOReturnUnsupported;
 	SCSITaskIdentifier		request;
 	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSICmdField4Byte		SCAN_STARTING_ADDRESS_FIELD = 0;
 	
 	if ( fSupportedCDFeatures & kCDFeaturesAnalogAudioMask )
 	{
 		
 		request = GetSCSITask ( );
 		
+		// Do some bit shifting to be endian neutral
+		SCAN_STARTING_ADDRESS_FIELD = ( timeStart.minute << 24 ) |
+									  ( timeStart.second << 16 ) |
+									  ( timeStart.frame << 8 );
+		
+		// Use OSWriteBigInt32 to make sure it is written correctly.
+		OSWriteBigInt32 ( &SCAN_STARTING_ADDRESS_FIELD, 0, SCAN_STARTING_ADDRESS_FIELD );
+		
 		if ( SCAN ( request,
 					reverse,
 					0,
-					*( UInt32 * ) &timeStart,
-					0x01,
+					SCAN_STARTING_ADDRESS_FIELD,
+					0x01,												
 					0 ) == true )
 		{
+			
 			// The command was successfully built, now send it
 			serviceResponse = SendCommand ( request, 0 );
+			
 		}
 		
 		else
@@ -3692,8 +3871,10 @@ IOSCSIMultimediaCommandsDevice::AudioStop ( void )
 		
 		if ( STOP_PLAY_SCAN ( request, 0 ) == true )
 		{
+			
 			// The command was successfully built, now send it
 			serviceResponse = SendCommand ( request, 0 );
+			
 		}
 		
 		else
@@ -3956,7 +4137,22 @@ IOSCSIMultimediaCommandsDevice::ReportKey ( IOMemoryDescriptor * 	buffer,
 		
 		else
 		{
+			
+			SCSI_Sense_Data		senseDataBuffer;
+			bool				senseIsValid;
+			
+			senseIsValid = GetAutoSenseData ( request, &senseDataBuffer );
+			if ( senseIsValid )
+			{
+				
+				ERROR_LOG ( ( "REPORT_KEY failed : ASC = 0x%02x, ASCQ = 0x%02x\n", 
+				senseDataBuffer.ADDITIONAL_SENSE_CODE,
+				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
 			status = kIOReturnError;
+			
 		}
 		
 		ReleaseSCSITask ( request );
@@ -4008,7 +4204,22 @@ IOSCSIMultimediaCommandsDevice::SendKey ( 	IOMemoryDescriptor * 	buffer,
 		
 		else
 		{
+			
+			SCSI_Sense_Data		senseDataBuffer;
+			bool				senseIsValid;
+			
+			senseIsValid = GetAutoSenseData ( request, &senseDataBuffer );
+			if ( senseIsValid )
+			{
+				
+				ERROR_LOG ( ( "SEND_KEY failed : ASC = 0x%02x, ASCQ = 0x%02x\n", 
+				senseDataBuffer.ADDITIONAL_SENSE_CODE,
+				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
 			status = kIOReturnError;
+			
 		}
 		
 		ReleaseSCSITask ( request );
@@ -4061,7 +4272,22 @@ IOSCSIMultimediaCommandsDevice::ReadDVDStructure (	IOMemoryDescriptor * 		buffer
 	
 	else
 	{
+		
+		SCSI_Sense_Data		senseDataBuffer;
+		bool				senseIsValid;
+		
+		senseIsValid = GetAutoSenseData ( request, &senseDataBuffer );
+		if ( senseIsValid )
+		{
+			
+			ERROR_LOG ( ( "READ_DVD_STRUCTURE failed : ASC = 0x%02x, ASCQ = 0x%02x\n", 
+			senseDataBuffer.ADDITIONAL_SENSE_CODE,
+			senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+			
+		}
+		
 		status = kIOReturnError;
+		
 	}
 	
 	ReleaseSCSITask ( request );
@@ -5957,20 +6183,20 @@ IOSCSIMultimediaCommandsDevice::WRITE_AND_VERIFY_10 (
 	
 }
 
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 6 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 8 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 9 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 10 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 11 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 12 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 13 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 14 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 15 );
-OSMetaClassDefineReservedUnused( IOSCSIMultimediaCommandsDevice, 16 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  1 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  2 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  3 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  4 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  5 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  6 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  7 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  8 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  9 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 10 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 11 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 12 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 13 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 14 );
+OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice, 15 );

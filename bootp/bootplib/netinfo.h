@@ -65,6 +65,7 @@
 #define NIPROP_NETBOOT_IMAGE_ID	"image_id"
 #define NIPROP_NETBOOT_NUMBER	"number"
 #define NIPROP_NETBOOT_SYSID	"sysid"
+#define NIPROP_NETBOOT_LAST_BOOT_TIME	"last_boot_time"
 #define NIPROP_SERVES		"serves"
 #define NIPROP__CREATOR		"_creator"
 

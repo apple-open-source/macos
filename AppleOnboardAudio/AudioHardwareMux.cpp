@@ -68,6 +68,7 @@ bool AudioHardwareMux::init(AudioHardwareMuxInfo theInfo) {
 
 
 void AudioHardwareMux::free(){
+    //pluginRef->release();
     super::free();
 }
 

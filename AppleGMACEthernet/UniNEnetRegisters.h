@@ -27,16 +27,12 @@
  *
  */
 
-/*
- *      Miscellaneous defines...
- */
-#define RX_RING_LENGTH_FACTOR	1		// valid from 0 to 8
-#define RX_RING_LENGTH			(32 * (1 << RX_RING_LENGTH_FACTOR))	// 64 pkt descs		/* Packet descriptors	*/
-#define RX_RING_WRAP_MASK		(RX_RING_LENGTH -1)
 
-#define TX_RING_LENGTH_FACTOR	2		// valid from 0 to 8
+#define RX_RING_LENGTH_FACTOR	1	// valid from 0 to 8. Overridden by IORegistry value
+#define RX_RING_LENGTH			(32 * (1 << RX_RING_LENGTH_FACTOR))	// 64 pkt descs		/* Packet descriptors	*/
+
+#define TX_RING_LENGTH_FACTOR	2	// valid from 0 to 8. Overridden by IORegistry value
 #define TX_RING_LENGTH			(32 * (1 << TX_RING_LENGTH_FACTOR))	// 128 pkt descs
-#define TX_RING_WRAP_MASK		(TX_RING_LENGTH -1)
 
 #define TX_DESC_PER_INT         32
 
@@ -316,8 +312,9 @@
 #define kRxConfiguration_Checksum_Start_Offset		(kRxHwCksumStartOffset << 13)	// start checksumming
 #define kRxConfiguration_RX_DMA_Threshold			0x01000000	// 128 bytes
 
+		// 0x4020 - PauseThresholds register:
 #define kPauseThresholds_Factor					64
-#define kPauseThresholds_OFF_Threshold_Shift	0	// 9 bit field
+#define kPauseThresholds_OFF_Threshold_Shift	0	// 9 bit fields
 #define kPauseThresholds_ON_Threshold_Shift		12
 
 #define FACTOR33 ((RX_INT_LATENCY_uS * 1000) / (2048 * PCI_PERIOD_33MHz))
@@ -332,7 +329,9 @@
 #define kTxMACSoftwareResetCommand_Reset	1	// 1 bit register
 #define kRxMACSoftwareResetCommand_Reset	1
 
-#define kSendPauseCommand_default	0x1BF0
+///#define kSendPauseCommand_default	0x1BF0	// SlotTime units 7152 ???
+#define kSendPauseCommand_default	0xFFFF	// SlotTime units
+
 														// 0x6010:
 #define kTX_MAC_Status_Frame_Transmitted		0x001
 #define kTX_MAC_Status_Tx_Underrun				0x002
@@ -377,7 +376,7 @@
 #define kRxMACConfiguration_Address_Filter_Enable	0x040
 #define kRxMACConfiguration_Disable_Discard_On_Err	0x080
 #define kRxMACConfiguration_Rx_Carrier_Extension	0x100
-
+															// 6038:
 #define kMACControlConfiguration_Send_Pause_Enable		0x1
 #define kMACControlConfiguration_Receive_Pause_Enable	0x2
 #define kMACControlConfiguration_Pass_MAC_Control		0x4
@@ -396,10 +395,7 @@
 
 #define kSlotTime_default		0x0040
 #define kMinFrameSize_default	0x0040
-#define kMaxFrameSize_default	0x05EE		// 1518
-
-#define kGEMMacMaxFrameSize_Aligned	((kMaxFrameSize_default + 7) & ~7)
-
+#define kMaxFrameSize_default	0x05EE	// 1518 = 14 address + 1500 data + 4 FCS
 
 #define kPASize_default			0x07
 #define kJamSize_default		0x04
@@ -456,14 +452,6 @@
 #define kSerialinkControl_LockRefClk		0x04
 
 
-
-	/* Descriptor definitions:								*/
-	/* Note: Own is in the high bit of frameDataSize field:	*/
-
-#define kGEMRxDescFrameSize_Mask	0x7FFF
-#define kGEMRxDescFrameSize_Own		0x8000
-
-
 	/* Rx flags field:	*/
 
 #define kGEMRxDescFlags_HashValueBit	0x00001000
@@ -475,14 +463,14 @@
 
 		/* Rx descriptor:	*/
 
-	typedef struct _GEMRxDescriptor
+	struct RxDescriptor
 	{
 		UInt16		tcpPseudoChecksum;
 		UInt16		frameDataSize;
 		UInt32		flags;
 		UInt32		bufferAddrLo;
 		UInt32		bufferAddrHi;
-	} GEMRxDescriptor;
+	};
 
 	/* Note: Own is in the high bit of frameDataSize field	*/
 
@@ -498,13 +486,13 @@
 #define kGEMRxDescFlags_BadCRC                  0x40000000
 
 
-	typedef struct _GEMTxDescriptor
+	struct TxDescriptor
 	{
 		UInt32		flags0;
 		UInt32		flags1;
 		UInt32		bufferAddrLo;
 		UInt32		bufferAddrHi;
-	} GEMTxDescriptor;
+	};
 
 
 #define kGEMTxDescFlags0_ChecksumStart_Shift	15

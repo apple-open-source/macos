@@ -103,6 +103,7 @@ protected:
     {
         IOTimerEventSource *fTimer;
         virtual void headChanged(IOFWCommand *oldHead);
+        void busReset();
     };
     struct pendingQ: public IOFWCmdQ
     {
@@ -343,6 +344,11 @@ public:
 
    // Force given node to be root (via root holdoff Phy packet)
     virtual IOReturn makeRoot(UInt32 generation, UInt16 nodeID) ;
+
+    virtual IOFWPseudoAddressSpace *createInitialAddressSpace(UInt32 addressLo, UInt32 len,
+                                FWReadCallback reader, FWWriteCallback writer, void *refcon);
+    
+    virtual IOFWAddressSpace *getAddressSpace(FWAddress address);
     
     // Are we currently scanning the bus?
     bool scanningBus() const

@@ -739,7 +739,7 @@ IOSCSIBlockCommandsDevice::DetermineMediaPresence( void )
 	if( TEST_UNIT_READY( request, 0 ) == true )
     {
     	// The command was successfully built, now send it, set timeout to 10 seconds.
-    	serviceResponse = SendCommand( request, 10 * 1000 );
+    	serviceResponse = SendCommand ( request, 10 * 1000 );
 	}
 	else
 	{
@@ -750,7 +750,7 @@ IOSCSIBlockCommandsDevice::DetermineMediaPresence( void )
 	
 	if( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 	{
-		if( GetTaskStatus( request ) == kSCSITaskStatus_CHECK_CONDITION )
+		if( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
 		{
 			bool					validSense;
 			SCSI_Sense_Data			senseBuffer;
@@ -773,7 +773,7 @@ IOSCSIBlockCommandsDevice::DetermineMediaPresence( void )
 				if( REQUEST_SENSE( request, bufferDesc, kSenseDefaultSize, 0 ) == true )
 			    {
 			    	// The command was successfully built, now send it
-			    	serviceResponse = SendCommand( request, 0 );
+			    	serviceResponse = SendCommand ( request, 0 );
 				}
 				else
 				{
@@ -786,7 +786,7 @@ IOSCSIBlockCommandsDevice::DetermineMediaPresence( void )
 				bufferDesc->release();
 				
 				if ( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
-		 			( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
+		 			( GetTaskStatus ( request ) != kSCSITaskStatus_GOOD ) )
 		 		{
 					ERROR_LOG ( ( "%s: REQUEST_SENSE failed\n", getName() ) );
 					ReleaseSCSITask( request );
@@ -847,7 +847,7 @@ IOSCSIBlockCommandsDevice::PreventMediumRemoval( void )
 	if ( PREVENT_ALLOW_MEDIUM_REMOVAL( request, 1, 0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -857,7 +857,7 @@ IOSCSIBlockCommandsDevice::PreventMediumRemoval( void )
 	}
 	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-	 	( GetTaskStatus( request ) == kSCSITaskStatus_GOOD ) )
+	 	( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		
 		mediumLocked = true;
@@ -905,7 +905,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 *
 	if ( READ_CAPACITY( request, bufferDesc, 0, 0x00, 0, 0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -915,7 +915,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 *
 	}
 		
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus( request ) == kSCSITaskStatus_GOOD ) )
+		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 	{
 		*blockSize 	= ( UInt64 ) OSSwapBigToHostInt32 ( capacityData[1] );
 		*blockCount = ( UInt64 ) ( OSSwapBigToHostInt32 ( capacityData[0] ) + 1 );
@@ -976,7 +976,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		if( REQUEST_SENSE( request, bufferDesc, kSenseDefaultSize, 0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 
 		// release the sense data buffer;
@@ -1002,7 +1002,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 								0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{
@@ -1011,7 +1011,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		}
 
 		if( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-			 ( GetTaskStatus( request ) == kSCSITaskStatus_GOOD ) )
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
 			STATUS_LOG ( ( "%s: Returned Mode sense data: ", getName() ) );
@@ -1052,7 +1052,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 							0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{
@@ -1061,7 +1061,7 @@ IOSCSIBlockCommandsDevice::DetermineMediumWriteProtectState( void )
 		}
 		
 		if( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-			( GetTaskStatus( request ) == kSCSITaskStatus_GOOD ) )
+			( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 
 			STATUS_LOG ( ( "%s: Returned Mode sense data: ", getName() ) );
@@ -1111,7 +1111,7 @@ IOSCSIBlockCommandsDevice::PollForMediaRemoval( void )
 	if( TEST_UNIT_READY( request, 0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1120,7 +1120,7 @@ IOSCSIBlockCommandsDevice::PollForMediaRemoval( void )
 	
 	if( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 	{
-		if( GetTaskStatus( request ) == kSCSITaskStatus_CHECK_CONDITION )
+		if( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
 		{
 			bool						validSense;
 			SCSI_Sense_Data				senseBuffer;
@@ -1142,7 +1142,7 @@ IOSCSIBlockCommandsDevice::PollForMediaRemoval( void )
 				if( REQUEST_SENSE( request, bufferDesc, kSenseDefaultSize, 0 ) == true )
 			    {
 			    	// The command was successfully built, now send it
-			    	serviceResponse = SendCommand( request, 0 );
+			    	serviceResponse = SendCommand ( request, 0 );
 				}
 				else
 				{
@@ -1152,7 +1152,7 @@ IOSCSIBlockCommandsDevice::PollForMediaRemoval( void )
 				bufferDesc->release();
 				
 				if ( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
-		 			( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
+		 			( GetTaskStatus ( request ) != kSCSITaskStatus_GOOD ) )
 		 		{
 					ERROR_LOG ( ( "%s: REQUEST_SENSE failed\n", getName() ) );
 					ReleaseSCSITask( request );
@@ -1205,7 +1205,7 @@ IOSCSIBlockCommandsDevice::AsyncReadWriteComplete( SCSITaskIdentifier request )
 	clientData	= scsiRequest->GetApplicationLayerReference();
 	
 	if (( scsiRequest->GetServiceResponse() == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		( scsiRequest->GetTaskStatus() == kSCSITaskStatus_GOOD )) 
+		( scsiRequest->GetTaskStatus () == kSCSITaskStatus_GOOD )) 
 	{
 		status = kIOReturnSuccess;
 	}
@@ -1255,7 +1255,7 @@ IOSCSIBlockCommandsDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 					0 ) == false )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1302,7 +1302,7 @@ IOSCSIBlockCommandsDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
 		STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::IssueRead send command.\n" ) );
-    	SendCommand( request, 0, &this->AsyncReadWriteComplete );
+    	SendCommand ( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
 	{
@@ -1337,7 +1337,7 @@ IOSCSIBlockCommandsDevice::IssueWrite( 	IOMemoryDescriptor *	buffer,
 					0 ) == true )
     {
     	// The command was successfully built, now send it
-    	serviceResponse = SendCommand( request, 0 );
+    	serviceResponse = SendCommand ( request, 0 );
 	}
 	else
 	{
@@ -1385,7 +1385,7 @@ IOSCSIBlockCommandsDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
 		STATUS_LOG ( ( "IOSCSIBlockCommandsDevice::IssueWrite send command.\n" ) );
-    	SendCommand( request, 0, &this->AsyncReadWriteComplete );
+    	SendCommand ( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
 	{
@@ -1502,7 +1502,7 @@ IOSCSIBlockCommandsDevice::EjectTheMedium( void )
 			if ( PREVENT_ALLOW_MEDIUM_REMOVAL( request, 0, 0 ) == true )
 		    {
 		    	// The command was successfully built, now send it
-		    	serviceResponse = SendCommand( request, 0 );
+		    	serviceResponse = SendCommand ( request, 0 );
 			}
 			else
 			{
@@ -1512,7 +1512,7 @@ IOSCSIBlockCommandsDevice::EjectTheMedium( void )
 			if ( START_STOP_UNIT( request, 0, 0, 1, 0, 0 ) == true )
 		    {
 		    	// The command was successfully built, now send it
-		    	serviceResponse = SendCommand( request, 0 );
+		    	serviceResponse = SendCommand ( request, 0 );
 			}
 			else
 			{
@@ -1520,7 +1520,7 @@ IOSCSIBlockCommandsDevice::EjectTheMedium( void )
 			}
 
 			if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-			 	( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
+			 	( GetTaskStatus ( request ) != kSCSITaskStatus_GOOD ) )
 			{
 				// The eject command failed.  This is most likely a manually ejectable
 				// device, start the polling to determine when the media has been removed.
@@ -1533,7 +1533,7 @@ IOSCSIBlockCommandsDevice::EjectTheMedium( void )
 		if ( SYNCHRONIZE_CACHE( request, 0, 0, 0, 0, 0 ) == true )
 	    {
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand( request, 0 );
+	    	serviceResponse = SendCommand ( request, 0 );
 		}
 		else
 		{

@@ -53,6 +53,7 @@ bool AudioHardwareInput::init(AudioHardwareInputInfo theInfo) {
 
 
 void AudioHardwareInput::free(){
+    //pluginRef->release();
     super::free();
 }
 

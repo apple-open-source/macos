@@ -39,7 +39,7 @@ OSData *IOFWPseudoAddressSpace::allocatedAddresses = NULL;
  */
 OSDefineMetaClass( IOFWAddressSpace, OSObject )
 OSDefineAbstractStructors(IOFWAddressSpace, OSObject)
-OSMetaClassDefineReservedUnused(IOFWAddressSpace, 0);
+//OSMetaClassDefineReservedUnused(IOFWAddressSpace, 0);
 OSMetaClassDefineReservedUnused(IOFWAddressSpace, 1);
 
 bool IOFWAddressSpace::init(IOFireWireBus *bus)
@@ -89,9 +89,15 @@ IOReturn IOFWAddressSpace::activate()
 {
     return fControl->allocAddress(this);
 }
+
 void IOFWAddressSpace::deactivate()
 {
     fControl->freeAddress(this);
+}
+
+UInt32 IOFWAddressSpace::contains(FWAddress addr)
+{
+    return 0;
 }
 
 /*
@@ -353,7 +359,7 @@ bool IOFWPseudoAddressSpace::initAll(IOFireWireBus *control,
 		FWReadCallback reader, FWWriteCallback writer, void *refCon)
 {
     if(!IOFWAddressSpace::init(control))
-	return false;
+		return false;
     if(allocateAddress(addr, len) != kIOReturnSuccess)
         return false;
 
@@ -404,11 +410,9 @@ UInt32 IOFWPseudoAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress
 	return kFWResponseAddressError;
     if(addr.addressLo < fBase.addressLo)
 	return kFWResponseAddressError;
-    if(addr.addressLo > fBase.addressLo+fLen)
+    if(addr.addressLo + len > fBase.addressLo+fLen)
 	return kFWResponseAddressError;
     if(!fReader)
-        return kFWResponseTypeError;
-    if(!fWriter && fControl->isLockRequest(refcon))
         return kFWResponseTypeError;
 
     return fReader(fRefCon, nodeID, speed, addr, len, buf, offset, refcon);
@@ -421,12 +425,24 @@ UInt32 IOFWPseudoAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddres
 	return kFWResponseAddressError;
     if(addr.addressLo < fBase.addressLo)
 	return kFWResponseAddressError;
-    if(addr.addressLo > fBase.addressLo+fLen)
+    if(addr.addressLo + len > fBase.addressLo+fLen)
 	return kFWResponseAddressError;
     if(!fWriter)
-        return kFWResponseTypeError;
-    if(!fReader && fControl->isLockRequest(refcon))
         return kFWResponseTypeError;
 
     return fWriter(fRefCon, nodeID, speed, addr, len, buf, refcon);
 }
+
+UInt32 IOFWPseudoAddressSpace::contains(FWAddress addr)
+{
+    UInt32 offset;
+    if(addr.addressHi != fBase.addressHi)
+        return 0;
+    if(addr.addressLo < fBase.addressLo)
+        return 0;
+    offset = addr.addressLo - fBase.addressLo;
+    if(offset > fLen)
+        return 0;
+    return fLen - offset;
+}
+

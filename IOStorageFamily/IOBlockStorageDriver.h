@@ -368,8 +368,20 @@ public:
 
 protected:
 
-    struct ExpansionData { /* */ };
+    struct ExpansionData
+    {
+        bool   mediaDirtied;
+        UInt64 maxReadBlockTransfer;
+        UInt64 maxWriteBlockTransfer;
+    };
     ExpansionData * _expansionData;
+
+    #define _mediaDirtied          \
+                    IOBlockStorageDriver::_expansionData->mediaDirtied
+    #define _maxReadBlockTransfer  \
+                    IOBlockStorageDriver::_expansionData->maxReadBlockTransfer
+    #define _maxWriteBlockTransfer \
+                    IOBlockStorageDriver::_expansionData->maxWriteBlockTransfer
 
     OSSet *         _openClients;
     OSNumber *      _statistics[kStatisticsCount];
@@ -561,8 +573,10 @@ protected:
      * This method is part of a sequence of methods invoked for each read/write
      * request.  The first is prepareRequest, which allocates and prepares some
      * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media block boundaries; and the third is executeRequest,
-     * which implements the actual transfer from the block storage device.
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
      *
      * This method's implementation is not typically overidden.
      * @param byteStart
@@ -589,8 +603,10 @@ protected:
      * This method is part of a sequence of methods invoked for each read/write
      * request.  The first is prepareRequest, which allocates and prepares some
      * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media block boundaries; and the third is executeRequest,
-     * which implements the actual transfer from the block storage device.
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
      *
      * This method's implementation is not typically overidden.
      * @param byteStart
@@ -612,14 +628,16 @@ protected:
     /*!
      * @function executeRequest
      * @discussion
-     * Execute an asynchrnous storage request.  The request is guaranteed to be
+     * Execute an asynchronous storage request.  The request is guaranteed to be
      * block-aligned.
      *
      * This method is part of a sequence of methods invoked for each read/write
      * request.  The first is prepareRequest, which allocates and prepares some
      * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media block boundaries; and the third is executeRequest,
-     * which implements the actual transfer from the block storage device.
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
      * @param byteStart
      * Starting byte offset for the data transfer.
      * @param buffer
@@ -737,11 +755,13 @@ public:
      * The read method is the receiving end for all read requests from the
      * storage framework (through the media object created by this driver).
      *
-     * This method kicks off a sequence of three methods for each read or write
+     * This method initiates a sequence of methods (stages) for each read/write
      * request.  The first is prepareRequest, which allocates and prepares some
      * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media block boundaries; and the third is executeRequest,
-     * which implements the actual transfer from the block storage device.
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
      *
      * This method's implementation is not typically overidden.
      * @param client
@@ -766,11 +786,13 @@ public:
      * The write method is the receiving end for all write requests from the
      * storage framework (through the media object created by this driver).
      *
-     * This method kicks off a sequence of three methods for each read or write
+     * This method initiates a sequence of methods (stages) for each read/write
      * request.  The first is prepareRequest, which allocates and prepares some
      * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media block boundaries; and the third is executeRequest,
-     * which implements the actual transfer from the block storage device.
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
      *
      * This method's implementation is not typically overidden.
      * @param client
@@ -967,6 +989,17 @@ protected:
 
     IOLock *      _deblockRequestWriteLock;
     thread_call_t _pollerCall;
+
+    /*
+     * This is the completion routine for the broken up breaker subrequests.
+     * It verifies the success of the just-completed stage,  transitions to
+     * the next stage, then builds and issues a transfer for the next stage.
+     */
+
+    static void breakUpRequestCompletion(void *   target,
+                                         void *   parameter,
+                                         IOReturn status,
+                                         UInt64   actualByteCount);
 
     /*
      * This is the completion routine for the aligned deblocker subrequests.
@@ -1281,7 +1314,42 @@ protected:
      * @endgroup
      */
 
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  0);
+protected:
+
+    /*!
+     * @function breakUpRequest
+     * @discussion
+     * The breakUpRequest method checks to see if the incoming request exceeds
+     * our transfer constraints, and if so, breaks up the request into smaller
+     * sub-requests.
+     *
+     * This method is part of a sequence of methods invoked for each read/write
+     * request.  The first is prepareRequest, which allocates and prepares some
+     * context for the transfer; the second is deblockRequest, which aligns the
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
+     *
+     * This method's implementation is not typically overidden.
+     * @param byteStart
+     * Starting byte offset for the data transfer.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param completion
+     * Completion routine to call once the data transfer is complete.
+     * @param context
+     * Additional context information for the data transfer (eg. block size).
+     */
+
+    virtual void breakUpRequest(UInt64               byteStart,
+                                IOMemoryDescriptor * buffer,
+                                IOStorageCompletion  completion,
+                                Context *            context);
+
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDriver, 0); /* 10.1.2 */
+
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  1);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  2);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  3);

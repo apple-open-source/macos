@@ -75,12 +75,12 @@ typedef struct {
     timer_callout_t *		timer;
     struct in_addr		our_ip;
     struct in_addr		our_mask;
-} IFState_manual_t;
+} Service_manual_t;
 
 static void
-manual_cancel_pending_events(IFState_t * ifstate)
+manual_cancel_pending_events(Service_t * service_p)
 {
-    IFState_manual_t *	manual = (IFState_manual_t *)ifstate->private;
+    Service_manual_t *	manual = (Service_manual_t *)service_p->private;
 
     if (manual == NULL)
 	return;
@@ -94,10 +94,10 @@ manual_cancel_pending_events(IFState_t * ifstate)
 }
 
 static void
-manual_inactive(IFState_t * ifstate)
+manual_inactive(Service_t * service_p)
 {
-    ifstate_remove_addresses(ifstate);
-    ifstate_publish_failure(ifstate, ipconfig_status_media_inactive_e,
+    service_remove_address(service_p);
+    service_publish_failure(service_p, ipconfig_status_media_inactive_e,
 			    NULL);
     return;
 }
@@ -105,20 +105,21 @@ manual_inactive(IFState_t * ifstate)
 static void
 manual_link_timer(void * arg0, void * arg1, void * arg2)
 {
-    manual_inactive((IFState_t *) arg0);
+    manual_inactive((Service_t *) arg0);
     return;
 }
 
 static void
-manual_start(IFState_t * ifstate, IFEventID_t evid, void * event_data)
+manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 {
-    IFState_manual_t *	manual = (IFState_manual_t *)ifstate->private;
+    interface_t *	if_p = service_interface(service_p);
+    Service_manual_t *	manual = (Service_manual_t *)service_p->private;
 
     switch (evid) {
       case IFEventID_start_e: {
-	  manual_cancel_pending_events(ifstate);
+	  manual_cancel_pending_events(service_p);
 	  arp_probe(manual->arp, 
-		    (arp_result_func_t *)manual_start, ifstate,
+		    (arp_result_func_t *)manual_start, service_p,
 		    (void *)IFEventID_arp_e, G_ip_zeroes,
 		    manual->our_ip);
 	  break;
@@ -128,8 +129,7 @@ manual_start(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 
 	  if (result->error) {
 	      my_log(LOG_ERR, "MANUAL %s: arp probe failed, %s", 
-		     if_name(ifstate->if_p),
-		     arp_client_errmsg(manual->arp));
+		     if_name(if_p), arp_client_errmsg(manual->arp));
 	      /* continue without it anyways */
 	  }
 	  else {
@@ -140,25 +140,26 @@ manual_start(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 			   IP_FORMAT " in use by " EA_FORMAT,
 			   IP_LIST(&manual->our_ip), 
 			   EA_LIST(result->hwaddr));
-		  ifstate_tell_user(ifstate, msg);
+		  service_tell_user(service_p, msg);
 		  my_log(LOG_ERR, "MANUAL %s: %s", 
-			 if_name(ifstate->if_p), msg);
-		  ifstate_remove_addresses(ifstate);
-		  (void)inet_remove(ifstate, manual->our_ip);
-		  ifstate_publish_failure(ifstate, 
+			 if_name(if_p), msg);
+		  service_remove_address(service_p);
+		  service_publish_failure(service_p, 
 					  ipconfig_status_address_in_use_e,
 					  msg);
 		  break;
 	      }
 	  }
-	  if (ifstate->link.valid == TRUE && ifstate->link.active == FALSE) {
-	      manual_inactive(ifstate);
+	  if (service_link_status(service_p)->valid == TRUE 
+	      && service_link_status(service_p)->active == FALSE) {
+	      manual_inactive(service_p);
 	      break;
 	  }
 
 	  /* set the new address */
-	  (void)inet_add(ifstate, manual->our_ip, &manual->our_mask, NULL);
-	  ifstate_publish_success(ifstate, NULL, 0);
+	  (void)service_set_address(service_p, manual->our_ip, 
+				    manual->our_mask, G_ip_zeroes);
+	  service_publish_success(service_p, NULL, 0);
 	  break;
       }
       default: {
@@ -169,9 +170,10 @@ manual_start(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 }
 
 ipconfig_status_t
-manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
+manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 {
-    IFState_manual_t *	manual = (IFState_manual_t *)ifstate->private;
+    interface_t *	if_p = service_interface(service_p);
+    Service_manual_t *	manual = (Service_manual_t *)service_p->private;
     ipconfig_status_t	status = ipconfig_status_success_e;
 
     switch (evid) {
@@ -181,48 +183,50 @@ manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 
 	  if (manual) {
 	      my_log(LOG_DEBUG, "MANUAL %s: re-entering start state", 
-		     if_name(ifstate->if_p));
+		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  status = validate_method_data_addresses(&evdata->config,
 						  ipconfig_method_manual_e,
-						  if_name(ifstate->if_p));
+						  if_name(if_p));
 	  if (status != ipconfig_status_success_e)
 	      break;
 	  manual = malloc(sizeof(*manual));
 	  if (manual == NULL) {
 	      my_log(LOG_ERR, "MANUAL %s: malloc failed", 
-		     if_name(ifstate->if_p));
+		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      break;
 	  }
-	  ifstate->private = manual;
+	  service_p->private = manual;
 	  bzero(manual, sizeof(*manual));
 	  manual->our_ip = ipcfg->ip[0].addr;
 	  manual->our_mask = ipcfg->ip[0].mask;
-	  if (if_flags(ifstate->if_p) & IFF_LOOPBACK) {
+	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      /* set the new address */
-	      (void)inet_add(ifstate, manual->our_ip, 
-			     &manual->our_mask, NULL);
-	      ifstate_publish_success(ifstate, NULL, 0);
+	      (void)service_set_address(service_p, manual->our_ip, 
+					manual->our_mask, G_ip_zeroes);
+	      service_publish_success(service_p, NULL, 0);
 	      break;
 	  }
 	  manual->timer = timer_callout_init();
 	  if (manual->timer == NULL) {
 	      my_log(LOG_ERR, "MANUAL %s: timer_callout_init failed", 
-		     if_name(ifstate->if_p));
+		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  manual->arp = arp_client_init(G_arp_session, ifstate->if_p);
+	  manual->arp = arp_client_init(G_arp_session, if_p);
+					
 	  if (manual->arp == NULL) {
 	      my_log(LOG_ERR, "MANUAL %s: arp_client_init failed", 
-		     if_name(ifstate->if_p));
+		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  my_log(LOG_DEBUG, "MANUAL %s: starting", if_name(ifstate->if_p));
-	  manual_start(ifstate, IFEventID_start_e, NULL);
+	  my_log(LOG_DEBUG, "MANUAL %s: starting", 
+		 if_name(if_p));
+	  manual_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       stop:
@@ -231,8 +235,8 @@ manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 	      break;
 	  }
 
-	  /* remove IP address(es) */
-	  ifstate_remove_addresses(ifstate);
+	  /* remove IP address */
+	  service_remove_address(service_p);
 
 	  /* clean-up resources */
 	  if (manual->arp) {
@@ -244,7 +248,7 @@ manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 	  if (manual) {
 	      free(manual);
 	  }
-	  ifstate->private = NULL;
+	  service_p->private = NULL;
 	  break;
       }
       case IFEventID_change_e: {
@@ -253,13 +257,13 @@ manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 
 	  if (manual == NULL) {
 	      my_log(LOG_DEBUG, "MANUAL %s: private data is NULL", 
-		     if_name(ifstate->if_p));
+		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
 	  status = validate_method_data_addresses(&evdata->config,
 						  ipconfig_method_manual_e,
-						  if_name(ifstate->if_p));
+						  if_name(if_p));
 	  if (status != ipconfig_status_success_e)
 	      break;
 	  evdata->needs_stop = FALSE;
@@ -268,30 +272,30 @@ manual_thread(IFState_t * ifstate, IFEventID_t evid, void * event_data)
 	  }
 	  else if (ipcfg->ip[0].mask.s_addr != manual->our_mask.s_addr) {
 	      manual->our_mask = ipcfg->ip[0].mask;
-	      (void)inet_add(ifstate, manual->our_ip, &manual->our_mask, 
-			     NULL);
+	      (void)service_set_address(service_p, manual->our_ip, 
+					manual->our_mask, G_ip_zeroes);
 	      /* publish new mask */
-	      ifstate_publish_success(ifstate, NULL, 0);
+	      service_publish_success(service_p, NULL, 0);
 	  }
 	  break;
       }
       case IFEventID_media_e: {
 	  if (manual == NULL)
 	      return (ipconfig_status_internal_error_e);
-	  if (ifstate->link.valid == TRUE) {
-	      if (ifstate->link.active == TRUE) {
-		  manual_start(ifstate, IFEventID_start_e, NULL);
+	  if (service_link_status(service_p)->valid == TRUE) {
+	      if (service_link_status(service_p)->active == TRUE) {
+		  manual_start(service_p, IFEventID_start_e, NULL);
 	      }
 	      else {
 		  struct timeval tv;
 
 		  /* if link goes down and stays down long enough, unpublish */
-		  manual_cancel_pending_events(ifstate);
+		  manual_cancel_pending_events(service_p);
 		  tv.tv_sec = G_link_inactive_secs;
 		  tv.tv_usec = 0;
 		  timer_set_relative(manual->timer, tv, 
 				     (timer_func_t *)manual_link_timer,
-				     ifstate, NULL, NULL);
+				     service_p, NULL, NULL);
 	      }
 	  }
 	  break;

@@ -389,6 +389,7 @@ IOSCSIPrimaryCommandsDevice::setAggressiveness ( UInt32 type, UInt32 minutes )
 	{
 		
 		STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice: setting idle timer to %ld min\n", minutes ) );
+		
 		numStateTransitions = GetNumberOfPowerStateTransitions ( );
 		if ( numStateTransitions != 0 )
 		{

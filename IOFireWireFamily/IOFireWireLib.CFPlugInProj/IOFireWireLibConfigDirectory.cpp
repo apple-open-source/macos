@@ -173,8 +173,6 @@ IOFireWireLibConfigDirectoryImp::GetKeyValue(int key, IOFireWireLibConfigDirecto
 							& kernelStringRef,
 							& stringLen) ;
 
-//	fprintf(stderr, "IOFireWireLibConfigDirectoryImp::GetKeyValue: kernelDirectoryRef=0x%08lX\n", kernelDirectoryRef) ;
-
 	IUnknownVTbl**	iUnknown = nil ;
 	if (kIOReturnSuccess == result)
 	{

@@ -679,7 +679,7 @@ static u_int __init ti113x_set_opts(socket_info_t *s, char *buf)
     p->cardctl |= TI113X_CCR_SPKROUTEN;
     if (!old) flip(p->sysctl, TI122X_SCR_P2CCLK, p2cclk);
 #ifdef __MACOSX__
-    if (!old) p->sysctl |= TI122X_SCR_MRBURSTUP | TI113X_SCR_KEEPCLK;  // MACOSXXX 9 also sets TI113X_SCR_VCCPROT
+    p->sysctl |= TI122X_SCR_MRBURSTUP | TI113X_SCR_KEEPCLK | TI113X_SCR_VCCPROT;
 #endif
     switch (irq_mode) {
     case 0:

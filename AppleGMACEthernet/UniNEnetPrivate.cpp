@@ -37,7 +37,6 @@
 
 
 	extern void			*kernel_pmap;
-	extern globals		g;
 
 
 /*
@@ -45,61 +44,51 @@
  */
 bool UniNEnet::allocateMemory()
 {
-    UInt32              rxRingSize, txRingSize;
-    UInt32              i, n;
-    UInt8               *virtAddr;
-    UInt32              physBase;
-    UInt32              physAddr;
+	UInt32		rxRingSize, txRingSize;
 
  
-    /* 
-     * Calculate total space for DMA channel commands
-     */
-    txRingSize = (TX_RING_LENGTH * sizeof(enet_txdma_cmd_t) + 2048 - 1) & ~(2048-1);
-    rxRingSize = (RX_RING_LENGTH * sizeof(enet_dma_cmd_t)   + 2048 - 1) & ~(2048-1);
-	ELG( IOThreadSelf(), txRingSize << 16 | rxRingSize, 'Allo', "allocateMemory" );
+		/* Allocate memory for DMA ring elements:	*/
 
-    dmaCommandsSize = round_page( txRingSize + rxRingSize ); 
-    /*
-     * Allocate required memory
-     */
-    if ( !dmaCommands )
-    {
-      dmaCommands = (UInt8 *)IOMallocContiguous( dmaCommandsSize, PAGE_SIZE, 0 );
+    txRingSize = fTxRingElements * sizeof( TxDescriptor );
+	fTxDescriptorRing = (TxDescriptor*)IOMallocContiguous(	txRingSize,
+															PAGE_SIZE, 0 );
+	if ( !fTxDescriptorRing )
+	{
+		ALRT( 0, txRingSize, '-Tx-', "UniNEnet::allocateMemory - failed to alloc Tx Ring" );
+		return false;
+	}
+	ELG( txRingSize, fTxDescriptorRing, '=TxR', "UniNEnet::allocateMemory - Tx Ring alloc'd" );
 
-      if ( dmaCommands == 0  )
-      {
-          IOLog( "Ethernet(UniN): Cant allocate channel dma commands\n\r" );
-          return false;
-      }
-    }
 
-    /*
-     * If we needed more than one page, then make sure we received contiguous memory.
-     */
-    n = (dmaCommandsSize - PAGE_SIZE) / PAGE_SIZE;
-    physBase = pmap_extract(kernel_pmap, (vm_address_t) dmaCommands);
+    rxRingSize = fRxRingElements * sizeof( RxDescriptor );
+	fRxDescriptorRing = (RxDescriptor*)IOMallocContiguous(	rxRingSize,
+															PAGE_SIZE, 0 );
+	if ( !fRxDescriptorRing )
+	{
+		ALRT( 0, rxRingSize, '-Rx-', "UniNEnet::allocateMemory - failed to alloc Rx Ring" );
+		return false;
+	}
+	ELG( rxRingSize, fRxDescriptorRing, '=RxR', "UniNEnet::allocateMemory - Rx Ring alloc'd" );
 
-    virtAddr = (UInt8 *) dmaCommands;
-    for( i=0; i < n; i++, virtAddr += PAGE_SIZE )
-    {
-        physAddr =  pmap_extract(kernel_pmap, (vm_address_t) virtAddr);      
-        if (physAddr != (physBase + i * PAGE_SIZE) )
-        {
-            IOLog( "Ethernet(UniN): Cant allocate contiguous memory for dma commands\n\r" );
-            return false;
-        }
-    }           
+		/* set up the Tx and Rx mBuf pointer arrays:	*/
 
-		/*  Setup the receive ring pointer	*/
-    rxDMACommands = (enet_dma_cmd_t*)dmaCommands;
+	fTxMbuf = (mbuf**)IOMalloc( sizeof( mbuf* ) * fTxRingElements );
+	if ( !fTxMbuf )
+	{
+		ALRT( 0, 0, 'mpT-', "UniNEnet::allocateMemory - alloc Tx mbuf pointers failed" );
+		return false;
+	}
+	bzero( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );	// clear out all the fTxMbuf pointers
 
-		/* Setup the transmit ring pointer	*/
-    txDMACommands = (enet_txdma_cmd_t*)(dmaCommands + rxRingSize);
-    
-	bzero( rxMbuf, sizeof( rxMbuf ) );		// clear out all the rxMbuf pointers
-	bzero( txMbuf, sizeof( txMbuf ) );		// clear out all the txMbuf pointers
+	fRxMbuf = (mbuf**)IOMalloc( sizeof( mbuf* ) * fRxRingElements );
+	if ( !fRxMbuf )
+	{
+		ALRT( 0, 0, 'mpR-', "UniNEnet::allocateMemory - alloc Rx mbuf pointers failed" );
+		return false;
+	}
+	bzero( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );	// clear out all the fRxMbuf pointers
 
+	ELG( fTxMbuf, fRxMbuf, 'arys', "UniNEnet::allocateMemory - mbuf pointer arrays" );
     return true;
 }/* end allocateMemory */
 
@@ -121,34 +110,32 @@ bool UniNEnet::initTxRing()
 	UInt32		     i;
 
 
-	ELG( this, txDMACommands, 'ITxR', "initTxRing" );
+	ELG( this, fTxDescriptorRing, 'ITxR', "initTxRing" );
 
-    /*
-     * Clear the transmit DMA command memory
-     */  
-    bzero( (void *)txDMACommands, sizeof(enet_txdma_cmd_t) * TX_RING_LENGTH);
+		/* Clear the transmit DMA command memory	*/
+
+    bzero( (void*)fTxDescriptorRing, sizeof( TxDescriptor ) * fTxRingElements );
     txCommandHead = 0;
     txCommandTail = 0;
     
-    txDMACommandsPhys = pmap_extract(kernel_pmap, (vm_address_t) txDMACommands);
+    fTxDescriptorRingPhys = pmap_extract( kernel_pmap, (vm_address_t)fTxDescriptorRing );
 
-    if ( txDMACommandsPhys == 0 )
+    if ( fTxDescriptorRingPhys == 0 )
     {
-        IOLog( "Ethernet(UniN): Bad dma command buf - %08x\n\r",
-               (int)txDMACommands );
+        IOLog( "UniNEnet::initTxRing - Bad dma command buf - %08x\n\r", (int)fTxDescriptorRing );
     }
  
-	for ( i = 0; i < TX_RING_LENGTH; i++ )
-	{  
-		if ( txMbuf[ i ] )
+	for ( i = 0; i < fTxRingElements; i++ )
+	{
+		if ( fTxMbuf[ i ] )
 		{
-			ELG( i, txMbuf[ i ], 'txpf', "UniNEnet::initTxRing - free the packet" );
-			freePacket( txMbuf[ i ] );
-			txMbuf[ i ] = 0;
+			ELG( i, fTxMbuf[ i ], 'txpf', "UniNEnet::initTxRing - free the packet" );
+			freePacket( fTxMbuf[ i ] );
+			fTxMbuf[ i ] = 0;
         }
 	}
 
-    txCommandsAvail = TX_RING_LENGTH - 1; 
+    fTxElementsAvail = fTxRingElements - 1; 
 
     txIntCnt  = 0;
     txWDCount = 0;
@@ -157,114 +144,96 @@ bool UniNEnet::initTxRing()
 }/* end initTxRing */
 
 
-/*-------------------------------------------------------------------------
- *
- * Setup the Receive ring
- * ----------------------
- * Each receive ring entry consists of two DMA commands to receive data
- * into a network buffer (possibly) spanning a page boundary. The second
- * DMA command in each entry generates a host interrupt.
- * The last entry in the ring is followed by a DMA branch to the first
- * entry. 
- *
- *-------------------------------------------------------------------------*/
+	/* initRxRing - Setup the Receive ring.										*/
+	/* Each receive ring entry consists of two DMA commands to receive data		*/
+	/* into a network buffer (possibly) spanning a page boundary. The second	*/
+	/* DMA command in each entry generates a host interrupt. The last entry		*/
+	/* in the ring is followed by a DMA branch to the first entry.				*/
 
 bool UniNEnet::initRxRing()
 {
     UInt32   i;
     bool     status;
-    
-	ELG( this, rxDMACommands, 'IRxR', "initRxRing" );
 
-		/* Clear the receive DMA command memory	*/
-	bzero( (void*)rxDMACommands, sizeof( enet_dma_cmd_t ) * RX_RING_LENGTH );
 
-    rxDMACommandsPhys = pmap_extract(kernel_pmap, (vm_address_t) rxDMACommands);
-    if ( rxDMACommandsPhys == 0 )
+	ELG( fRxMbuf, fRxDescriptorRing, 'IRxR', "initRxRing" );
+
+		/* Clear the Rx DMA commands:	*/
+
+	bzero( (void*)fRxDescriptorRing, sizeof( RxDescriptor ) * fRxRingElements );
+
+    fRxDescriptorRingPhys = pmap_extract( kernel_pmap, (vm_address_t)fRxDescriptorRing );
+    if ( fRxDescriptorRingPhys == 0 )
     {
-        IOLog( "Ethernet(UniN): Bad dma command buf - %08x\n\r",
-               (int) rxDMACommands );
+        IOLog( "UniNEnet::initRxRing - Bad dma command buf - %08x\n\r",	(int)fRxDescriptorRing );
         return false;
     }
 
-		/* Allocate a receive buffer for each entry in the Receive ring	*/
-	for ( i = 0; i < RX_RING_LENGTH; i++ ) 
+		/* Allocate a receive buffer for each entry in the Receive ring.	*/
+		/* Make the last one be the one for the bit bucket.					*/
+
+	for ( i = 0; i < fRxRingElements; i++ )
     {
-        if (rxMbuf[i] == NULL)    
+        if ( fRxMbuf[i] == NULL )
         {
-            rxMbuf[i] = allocatePacket(NETWORK_BUFSIZE);
-            if (rxMbuf[i] == NULL)    
+            fRxMbuf[i] = allocatePacket( NETWORK_BUFSIZE );
+            if ( fRxMbuf[i] == NULL )
             {
-                IOLog("Ethernet(UniN): NULL packet in initRxRing\n");
+                IOLog( "UniNEnet::initRxRing - NULL packet\n" );
                 return false;
             }
-		///	ELG( i, rxMbuf[i], '=RxP', "UniNEnet::initRxRing" );
+		///	ELG( i, fRxMbuf[i], '=RxP', "UniNEnet::initRxRing" );
         }
 
-        /*
-        * Set the DMA commands for the ring entry to transfer data to the Mbuf.
-        */
-        status = updateDescriptorFromMbuf(rxMbuf[i], &rxDMACommands[i], true);
-        if (status == false)
+			/* Set the DMA commands for the ring entry to transfer data	*/
+			/* to the mbuf.												*/
+        status = genRxDescriptor( i );
+        if ( status == false )
         {
-            IOLog("Ethernet(UniN): updateDescriptorFromMbuf error in "
-                  "initRxRing\n");
+            IOLog( "UniNEnet::initRxRing genRxDescriptor error\n" );
             return false;
         }
-    }
+    }/* end FOR Rx ring length */
 
-    /*
-     * Set the receive queue head to point to the first entry in the ring.
-     * Set the receive queue tail to point to a DMA Stop command after the
-     * last ring entry
-     */    
-    i-=4;
+		/* Set the receive queue head to point to the first entry in the ring.	*/
+
     rxCommandHead = 0;
-    rxCommandTail = i;
+    rxCommandTail = i - 4;
 
     return true;
 }/* end initRxRing */
 
-
-	/*-------------------------------------------------------------------------
-	 * 
-	 *
-	 *
-	 *-------------------------------------------------------------------------*/
 
 void UniNEnet::flushRings( bool flushTx, bool flushRx )
 {
 	UInt32		i;
 
 
-	ELG( TX_RING_LENGTH, RX_RING_LENGTH, 'FluR', "flushRings" );
+	ELG( fTxRingElements, fRxRingElements, 'FluR', "flushRings" );
 
-	if ( flushRx )
+
+	if ( flushTx )			// Free all mbufs from the transmit ring:
 	{
-			// Free all mbufs from the receive ring:
-	
-		for ( i = 0; i < RX_RING_LENGTH; i++ )
+		for ( i = 0; i < fTxRingElements; i++ )
 		{
-			if ( rxMbuf[ i ] )
+			if ( fTxMbuf[ i ] )
 			{
-				ELG( i, rxMbuf[ i ], 'flRx', "UniNEnet::flushRings" );
-				freePacket( rxMbuf[ i ] );
-				rxMbuf[i] = 0;
+				ELG( i, fTxMbuf[ i ], 'flTx', "UniNEnet::flushRings" );
+				freePacket( fTxMbuf[ i ] );
+				fTxMbuf[ i ] = 0;
 			}
 		}
 	}
 
-	if ( flushTx )
+	if ( flushRx )			// Free all mbufs from the receive ring:
 	{
-			// Free all mbufs from the transmit ring.
-
-		for ( i = 0; i < TX_RING_LENGTH; i++ )
+		for ( i = 0; i < fRxRingElements; i++ )
 		{
-			if ( txMbuf[ i ] )
+			if ( fRxMbuf[ i ] )
 			{
-				ELG( i, txMbuf[ i ], 'flTx', "UniNEnet::flushRings" );
-				freePacket( txMbuf[ i ] );
-				txMbuf[ i ] = 0;
+				ELG( i, fRxMbuf[ i ], 'flRx', "UniNEnet::flushRings" );
+				freePacket( fRxMbuf[ i ] );
+				fRxMbuf[i] = 0;
 			}
 		}
 	}
@@ -297,9 +266,9 @@ void UniNEnet::startChip()
 	gemReg |= kTxMACConfiguration_TxMac_Enable;
 	WRITE_REGISTER( TxMACConfiguration, gemReg  );
 
-	rxMacConfigReg	= kRxMACConfiguration_Rx_Mac_Enable		// Rx MAC enable
-					| kRxMACConfiguration_Strip_FCS;
-	WRITE_REGISTER( RxMACConfiguration, rxMacConfigReg  );
+	fRxMACConfiguration	= kRxMACConfiguration_Rx_Mac_Enable		// Rx MAC enable
+						| kRxMACConfiguration_Strip_FCS;
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration  );
 
 	gemReg = ~(kStatus_TX_INT_ME | kStatus_RX_DONE);	/// add kStatus_MIF_Interrupt for WOL
 	WRITE_REGISTER( InterruptMask, gemReg );
@@ -335,9 +304,9 @@ void UniNEnet::stopChip()
 	gemReg &= ~kTxMACConfiguration_TxMac_Enable;
 	WRITE_REGISTER( TxMACConfiguration, gemReg  );
 
-    rxMacConfigReg  = READ_REGISTER( RxMACConfiguration );	// clr Rx MAC enable
-    rxMacConfigReg &= ~kRxMACConfiguration_Rx_Mac_Enable;    
-	WRITE_REGISTER( RxMACConfiguration, rxMacConfigReg  );
+    fRxMACConfiguration  = READ_REGISTER( RxMACConfiguration );	// clr Rx MAC enable
+    fRxMACConfiguration &= ~kRxMACConfiguration_Rx_Mac_Enable;    
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration  );
 
 	IOSleep( 4 );		/// Wait 3.2 ms (Rx) or poll for enables to clear.
 
@@ -345,7 +314,38 @@ void UniNEnet::stopChip()
 }/* end stopChip */
 
 
-bool UniNEnet::getPhyType()
+	static MediumTable gMediumTableGEM[] =		/* PCI fiber optic card	*/
+	{
+		{ kIOMediumEthernetNone                                  ,   0   },
+		{ kIOMediumEthernetAuto                                  ,   0   },
+		{ kIOMediumEthernet1000BaseSX | kIOMediumOptionFullDuplex,	1000 },
+	};
+
+
+	static MediumTable gMediumTable100[] =
+	{
+		{ kIOMediumEthernetNone                                  ,   0   },
+		{ kIOMediumEthernetAuto                                  ,   0   },
+		{ kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,	10   },
+		{ kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,	10   },
+		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,	100  },
+		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,	100  },
+	};
+
+
+	static MediumTable gMediumTableGigabit[] =
+	{
+		{ kIOMediumEthernetNone                                  ,   0   },
+		{ kIOMediumEthernetAuto                                  ,   0   },
+		{ kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,	10   },
+		{ kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,	10   },
+		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,	100  },
+		{ kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,	100  },
+		{ kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex,	1000 }
+	};
+
+
+void UniNEnet::getPhyType()
 {
 	UInt16		*pPhyType;
 	UInt16		phyWord;
@@ -353,18 +353,32 @@ bool UniNEnet::getPhyType()
 
 	ELG( this, phyId, 'gPhT', "getPhyType" );
 
-	miiResetPHY( phyId );
-
-	pPhyType = (UInt16 *)&phyType;
-	miiReadWord( pPhyType,   MII_ID0, phyId );
-	miiReadWord( pPhyType+1, MII_ID1, phyId );
-
-	ELG( phyId, phyType, '=FyT', "UniNEnet::getPhyType" );
-
-	if ( (phyType & MII_BCM5400_MASK) == MII_BCM5400_ID )
+	if ( fBuiltin )
 	{
-		phyBCMType = 5400;
+		miiResetPHY( phyId );
+
+		pPhyType = (UInt16 *)&phyType;
+		miiReadWord( pPhyType,   MII_ID0, phyId );
+		miiReadWord( pPhyType+1, MII_ID1, phyId );
+
+		setProperty( "PHY ID", phyType, sizeof( phyType ) * 8 );
+
+		ELG( phyId, phyType, '=FyT', "UniNEnet::getPhyType" );
+	}
+
+	if ( !fBuiltin )
+	{
+		fPHYType = ' GEM';
+
+		fpgMediumTable		= gMediumTableGEM;
+		fMediumTableCount	=  sizeof( gMediumTableGEM ) / sizeof( MediumTable ) ;
+		setProperty( "PHY type", "GEM integrated" );
+	}
+	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5400_ID )
+	{
+		fPHYType = 0x5400;
 		ELG( this, phyId, '5400', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Broadcom 5400" );
 
 		miiReadWord( &phyWord, MII_BCM5400_AUXCONTROL, phyId );
 		phyWord |= MII_BCM5400_AUXCONTROL_PWR10BASET;
@@ -385,11 +399,15 @@ bool UniNEnet::getPhyType()
 		miiReadWord( &phyWord, MII_BCM5400_AUXCONTROL, phyId );
 		phyWord &= ~MII_BCM5400_AUXCONTROL_PWR10BASET;
 		miiWriteWord( phyWord, MII_BCM5400_AUXCONTROL, phyId );
-	}              
+
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
+	}
 	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5401_ID )
 	{
-		phyBCMType = 5401;
+		fPHYType = 0x5401;
 		ELG( this, phyId, '5401', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Broadcom 5401" );
 
 			// "0x1" in the low nibble which is Rev. B0 Silicon
 			// "0x3" in the low nibble which is Rev. B2 Silicon	
@@ -425,11 +443,15 @@ bool UniNEnet::getPhyType()
 		miiReadWord( &phyWord, MII_BCM5201_MULTIPHY, 0x1F );
 		phyWord |= MII_BCM5201_MULTIPHY_SERIALMODE;
 		miiWriteWord( phyWord, MII_BCM5201_MULTIPHY, 0x1F );
+
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
 	}/* end else IF 5401 */
 	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5411_ID )	// 5411:
 	{
-		phyBCMType = 5411;
+		fPHYType = 0x5411;
 		ELG( this, phyId, '5411', "UniNEnet::getPhyType - Broadcom 5411" );
+		setProperty( "PHY type", "Broadcom 5411" );
 
 		miiWriteWord( 0x8C23, 0x01C, phyId );	// setting some undocumented voltage
 		miiWriteWord( 0x8CA3, 0x01C, phyId );
@@ -446,20 +468,41 @@ bool UniNEnet::getPhyType()
 		IODelay( 10 );
 
 		miiResetPHY( 0x1F );
+
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
 	}/* end IF 5411 */
+	else if ( ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID)		// 0x01410C2x
+	       || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_1) )	// 0x01410C6x
+	{
+		fPHYType = 0x1011;
+		ELG( this, phyId, '1011', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Marvell" );
+
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
+	}/* end else IF Marvell */
 	else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
 	{
-		phyBCMType = 5201;
+		fPHYType = 0x5201;
 		ELG( this, phyId, '5201', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Broadcom 5201" );
+
+		fpgMediumTable		= gMediumTable100;
+		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
 	}
 	else
 	{
-		phyBCMType = 0;
+		fPHYType = 0;
 		ELG( this, phyType, 'phy?', "UniNEnet::getPhyType" );
-	}
-	// IOLog("DEBUG:UniNEnet: phy type = %d\n", phyBCMType);
+		setProperty( "PHY type", "Unknown" );
 
-    return true;
+		fpgMediumTable		= gMediumTable100;
+		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
+	}
+	//	IOLog( "DEBUG:UniNEnet: phy type = %d\n", fPHYType );
+
+    return;
 }/* end getPhyType */
 
 
@@ -503,7 +546,7 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );
 
 	WRITE_REGISTER( SendPauseCommand,		kSendPauseCommand_default );
-	WRITE_REGISTER( MACControlConfiguration,kMACControlConfiguration_Receive_Pause_Enable );
+	WRITE_REGISTER( MACControlConfiguration, 0 );
 	WRITE_REGISTER( InterruptMask,			kInterruptMask_None );
 	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
 	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
@@ -558,11 +601,11 @@ bool UniNEnet::initChip()
     IOGetTime(&timeStamp); 
 	WRITE_REGISTER( RandomNumberSeed, timeStamp.tv_nsec & 0xFFFF );
 
-	WRITE_REGISTER( TxDescriptorBaseLow, txDMACommandsPhys );
+	WRITE_REGISTER( TxDescriptorBaseLow, fTxDescriptorRingPhys );
 	WRITE_REGISTER( TxDescriptorBaseHigh, 0 );
 
 	temp	= kTxConfiguration_TxFIFO_Threshold
-			| TX_RING_LENGTH_FACTOR << kTxConfiguration_Tx_Desc_Ring_Size_Shift;
+			| fTxRingLengthFactor << kTxConfiguration_Tx_Desc_Ring_Size_Shift;
 	WRITE_REGISTER( TxConfiguration, temp );
 
 	WRITE_REGISTER( TxMACConfiguration, 0 );
@@ -570,25 +613,29 @@ bool UniNEnet::initChip()
 
     setDuplexMode( (phyId == 0xff) ? true : false );
    
-	WRITE_REGISTER( RxDescriptorBaseLow,	rxDMACommandsPhys );
+	WRITE_REGISTER( RxDescriptorBaseLow,	fRxDescriptorRingPhys );
 	WRITE_REGISTER( RxDescriptorBaseHigh,	0 );
 
-	WRITE_REGISTER( RxKick, RX_RING_LENGTH - 4 );
+	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
 
 	temp	= kRxConfiguration_RX_DMA_Threshold
 	///		| kRxConfiguration_Batch_Disable	may cause 4x primary interrupts
-			| RX_RING_LENGTH_FACTOR << kRxConfiguration_Rx_Desc_Ring_Size_Shift
+			| fRxRingLengthFactor << kRxConfiguration_Rx_Desc_Ring_Size_Shift
 			| kRxConfiguration_Checksum_Start_Offset;
 	WRITE_REGISTER( RxConfiguration, temp );
 
-	rxMacConfigReg = 0;
-	WRITE_REGISTER( RxMACConfiguration,	rxMacConfigReg );
+	fRxMACConfiguration = 0;
+	WRITE_REGISTER( RxMACConfiguration,	fRxMACConfiguration );
 	IOSleep( 4 ); 		// it takes time to clear the enable bit
+
+		/* Set flow control pause thresholds:								*/
+		/* Pause off when within 2 max packets of FIFO full.				*/
+		/* Pause on  when FIFO drops to almost 1 max packet of FIFO empty.	*/
 
 	rxFifoSize	= READ_REGISTER( RxFIFOSize );	// 64-byte (kPauseThresholds_Factor) chunks
 
-    rxOff  = rxFifoSize - ((kGEMMacMaxFrameSize_Aligned + 8) * 2 / kPauseThresholds_Factor);
-    rxOn   = rxFifoSize - ((kGEMMacMaxFrameSize_Aligned + 8) * 3 / kPauseThresholds_Factor);
+    rxOff  = rxFifoSize - (kMaxFrameSize_default * 2 / kPauseThresholds_Factor);
+    rxOn   = kMaxFrameSize_default / kPauseThresholds_Factor + 1;
 
 	WRITE_REGISTER( PauseThresholds,
 					  (rxOff << kPauseThresholds_OFF_Threshold_Shift)
@@ -643,16 +690,32 @@ void UniNEnet::setDuplexMode( bool duplexMode )
 
 void UniNEnet::restartReceiver()
 {
+	UInt16		i;
+	UInt16		u16;
 
-    // Perform a software reset to the logic in the RX MAC.
-    // The MAC config register should be re-programmed following
-    // the reset. Everything else *should* be unaffected.
+
+	ELG( 0, READ_REGISTER( StatusAlias ), 'Alas', "restartReceiver" );
+	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "restartReceiver" );
+	ELG( 0, READ_REGISTER( TxConfiguration ), 'TxCf', "restartReceiver" );
+	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "restartReceiver" );
+	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "restartReceiver" );
+
+	ELG( READ_REGISTER( RxKick ), READ_REGISTER( RxCompletion ), 'RxKC', "restartReceiver" );
+	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( RxConfiguration ), 'RxCf', "restartReceiver" );
+	ELG( READ_REGISTER( RxFIFOShadowWritePointer ), READ_REGISTER( RxFIFOWritePointer ), 'RxWp', "restartReceiver" );
+	ELG( READ_REGISTER( RxFIFOPacketCounter ), READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "restartReceiver" );
+///	ELG( READ_REGISTER( xxxx ), READ_REGISTER( xxxx ), 'xxxx', "restartReceiver" );
+
+		// Perform a software reset to the logic in the RX MAC.
+		// The MAC config register should be re-programmed following
+		// the reset. Everything else *should* be unaffected. Tain't so:
+		// the MACControlConfiguration, 0x6038, gets its Pause enable bit reset.
 
 	WRITE_REGISTER( RxMACSoftwareResetCommand, kRxMACSoftwareResetCommand_Reset );
 
     // Poll until the reset bit is cleared by the hardware.
 
-    for ( int i = 0; i < 5000; i++ )
+    for ( i = 0; i < 5000; i++ )
     {
 		if ( ( READ_REGISTER( RxMACSoftwareResetCommand )
 				& kRxMACSoftwareResetCommand_Reset ) == 0 )
@@ -670,7 +733,7 @@ void UniNEnet::restartReceiver()
 
 	WRITE_REGISTER( RxMACConfiguration, 0 );
 
-    for ( int i = 0; i < 5000; i++ )
+    for ( i = 0; i < 5000; i++ )
     {
 		if ( ( READ_REGISTER( RxMACConfiguration )
 				& kRxMACConfiguration_Rx_Mac_Enable ) == 0 )
@@ -680,32 +743,42 @@ void UniNEnet::restartReceiver()
         IODelay(1);
     }
 
-    // Update MAC config register.
+		/* Ensure all elements in the Rx ring have my ownership:	*/
 
-	WRITE_REGISTER( RxMACConfiguration, rxMacConfigReg );
+	u16 = OSSwapConstInt16( kGEMRxDescFrameSize_Own );
+	for ( i = 0; i < fRxRingElements; ++i )
+		fRxDescriptorRing[ i ].frameDataSize |= u16;
+
+	WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );// Pause etc bits
+
+		// Restore (re-enable Rx MAC) MAC config register.
+
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 	return;
 }/* end restartReceiver */
 
 
 bool UniNEnet::transmitPacket( struct mbuf *packet )
 {
-	GEMTxDescriptor		*dp;			// descriptor pointer
-	UInt32              i,j,k;
-	struct mbuf         *m;
-	UInt32              dataPhys;
+	TxDescriptor	*dp;			// descriptor pointer
+	UInt32			i,j,k;
+	mbuf			*m;
+	UInt32			dataPhys;
+	UInt32			demandMask;
+	UInt16			param0, param1;
 
-    
+
     for ( m = packet, i=1; m->m_next; m=m->m_next, i++ )
       ;
       
 	ELG( i, packet, '  Tx', "UniNEnet::transmitPacket" );
     
-	if ( i > txCommandsAvail )  
+	if ( i > fTxElementsAvail )  
 		return false;
 
 	j = txCommandTail;
     
-	OSAddAtomic( -i, (SInt32*)&txCommandsAvail );
+	OSAddAtomic( -i, (SInt32*)&fTxElementsAvail );
 
     m = packet;
 
@@ -717,27 +790,23 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 		if ( dataPhys == 0 )
 			 dataPhys = pmap_extract( kernel_pmap, mtod( m, vm_offset_t ) );
 
-		dp = &txDMACommands[ j ].desc_seg[ 0 ];
+		dp = &fTxDescriptorRing[ j ];
 		OSWriteLittleInt32( &dp->bufferAddrLo,	0, dataPhys );
 		OSWriteLittleInt32( &dp->flags0,		0, m->m_len );
 		dp->flags1 = 0;
 		txIntCnt++;
-		j = (j + 1) & TX_RING_WRAP_MASK;
+		j = (j + 1) & (fTxRingElements - 1);
     } while ( (m = m->m_next) != 0 );
 
-	txMbuf[ k ] = packet;	// save the packet mbuf address in the last segment's index
+	fTxMbuf[ k ] = packet;		// save the packet mbuf address in the last segment's index
 
-	txDMACommands[ k ].desc_seg[ 0 ].flags0             |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_EndOfFrame );
-	txDMACommands[ txCommandTail ].desc_seg[ 0 ].flags0 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_StartOfFrame );
+	fTxDescriptorRing[ k ].flags0             |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_EndOfFrame );
+	fTxDescriptorRing[ txCommandTail ].flags0 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_StartOfFrame );
     if ( txIntCnt >= TX_DESC_PER_INT )
     {
-		txDMACommands[ txCommandTail ].desc_seg[ 0 ].flags1 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags1_Int );
+		fTxDescriptorRing[ txCommandTail ].flags1 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags1_Int );
         txIntCnt = txIntCnt % TX_DESC_PER_INT;
     }
-
-#ifdef HDW_CHECKSUM
-	UInt32				demandMask;
-	UInt16				param0, param1;
 
 	getChecksumDemand(	packet,
 						kChecksumFamilyTCPIP,
@@ -746,12 +815,11 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 						&param1 );				// stuff offset
 	if ( demandMask & kChecksumTCPSum16 )
 	{
-		txDMACommands[ txCommandTail ].desc_seg[ 0 ].flags0
+		fTxDescriptorRing[ txCommandTail ].flags0
 			|= OSSwapHostToLittleConstInt32(	kGEMTxDescFlags0_ChecksumEnable
 											|	param0 << kGEMTxDescFlags0_ChecksumStart_Shift
 											|	param1 << kGEMTxDescFlags0_ChecksumStuff_Shift );
 	}
-#endif // HDW_CHECKSUM
 
     txCommandTail = j;
           
@@ -761,56 +829,59 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 }/* end transmitPacket */
 
 
-/*-------------------------------------------------------------------------
- * _receivePacket
- * --------------
- * This routine runs the receiver in polled-mode (yuk!) for the kernel debugger.
- * Don't mess with the interrupt source here that can deadlock in the debugger
- *
- * The _receivePackets allocate MBufs and pass them up the stack. The kernel
- * debugger interface passes a buffer into us. To reconsile the two interfaces,
- * we allow the receive routine to continue to allocate its own buffers and
- * transfer any received data to the passed-in buffer. This is handled by 
- * _receivePacket calling _packetToDebugger.
- *-------------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+	 * receivePacket
+	 * --------------
+	 * This routine runs the receiver in polled-mode (yuk!) for the kernel debugger.
+	 * Don't mess with the interrupt source here that can deadlock in the debugger
+	 *
+	 * The _receivePackets allocate MBufs and pass them up the stack. The kernel
+	 * debugger interface passes a buffer into us. To reconcile the two interfaces,
+	 * we allow the receive routine to continue to allocate its own buffers and
+	 * transfer any received data to the passed-in buffer. This is handled by 
+	 * receivePacket calling _packetToDebugger.
+	 *-------------------------------------------------------------------------*/
 
-void UniNEnet::receivePacket( void *   pkt,
-                              UInt32 * pkt_len,
-                              UInt32   timeout )
+void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 {
-    mach_timespec_t	startTime;
-    mach_timespec_t	currentTime;
-    UInt32          elapsedTimeMS;
+	mach_timespec_t		startTime, currentTime;
+	UInt32				elapsedTimeMS;
+
 
 ///	ELG( 0, ready, 'kdRx', "receivePacket - kernel debugger routine" );
 
     *pkt_len = 0;
 
-    if (ready == false)
-    {
+    if ( ready == false )
         return;
-    }
 
 #if USE_ELG
-	UInt32		elgFlag = g.evLogFlag;	// if kernel debugging, turn off ELG
-	g.evLogFlag = 0;
+	UInt32		elgFlag = fpELG->evLogFlag;	// if kernel debugging, turn off ELG
+	fpELG->evLogFlag = 0;
 #endif // USE_ELG
 
     debuggerPkt     = pkt;
     debuggerPktSize = 0;
 
-    IOGetTime(&startTime);
+	IOGetTime( &startTime );
     do
     {
         receivePackets( true );
-        IOGetTime( &currentTime );
-        elapsedTimeMS = (currentTime.tv_nsec - startTime.tv_nsec) / (1000*1000);
-    } 
+
+		IOGetTime( &currentTime );
+		if ( currentTime.tv_nsec < startTime.tv_nsec )
+		{
+			currentTime.tv_nsec += 1000000000; // a billion here, a billion there
+			currentTime.tv_sec  -= 1;
+		}
+		elapsedTimeMS  = (currentTime.tv_sec  - startTime.tv_sec)  * 1000;
+		elapsedTimeMS += (currentTime.tv_nsec - startTime.tv_nsec) / 1000000;
+	}
     while ( (debuggerPktSize == 0) && (elapsedTimeMS < timeout) );
 
     *pkt_len = debuggerPktSize;
 #if USE_ELG
-	g.evLogFlag = elgFlag;
+	fpELG->evLogFlag = elgFlag;
 #endif // USE_ELG
 
     return;
@@ -821,7 +892,7 @@ void UniNEnet::receivePacket( void *   pkt,
 	 * packetToDebugger
 	 * -----------------
 	 * This is called by _receivePackets when we are polling for kernel debugger
-	 * packets. It copies the MBuf contents to the buffer passed by the debugger.
+	 * packets. It copies the mbuf contents to the buffer passed by the debugger.
 	 * It also sets the var debuggerPktSize which will break the polling loop.
 	 *-------------------------------------------------------------------------*/
 
@@ -846,97 +917,100 @@ void UniNEnet::packetToDebugger( struct mbuf *packet, u_int size )
 
 void UniNEnet::sendPacket( void *pkt, UInt32 pkt_len )
 {
-    mach_timespec_t	startTime;
-    mach_timespec_t	currentTime;
-    UInt32		elapsedTimeMS;
+	mach_timespec_t		startTime, currentTime;
+	UInt32				elapsedTimeMS;
+
 
 ///	ELG( pkt, pkt_len, 'Send', "sendPacket" );
 
-    if (!ready || !pkt || (pkt_len > ETHERMAXPACKET))
-    {
+    if ( !ready || !pkt || (pkt_len > ETHERMAXPACKET) )
         return;
-    }
 
 #if USE_ELG
-	UInt32		elgFlag = g.evLogFlag;	// if kernel debugging, turn off ELG
-	g.evLogFlag = 0;
+	UInt32		elgFlag = fpELG->evLogFlag;	// if kernel debugging, turn off ELG
+	fpELG->evLogFlag = 0;
 #endif // USE_ELG
 
-    /*
-     * Wait for the transmit ring to empty
-     */
-    IOGetTime(&startTime); 
-    do
-    {   
-      debugTransmitInterruptOccurred();
-      IOGetTime(&currentTime);
-      elapsedTimeMS = (currentTime.tv_nsec - startTime.tv_nsec) / (1000*1000);
+			/* Wait for the transmit ring to empty	*/
+    IOGetTime( &startTime ); 
+	do
+	{   
+		debugTransmitInterruptOccurred();
+		IOGetTime( &currentTime );
+		if ( currentTime.tv_nsec < startTime.tv_nsec )
+		{
+			currentTime.tv_nsec += 1000000000; // a billion here, a billion there
+			currentTime.tv_sec  -= 1;
+		}
+		elapsedTimeMS  = (currentTime.tv_sec  - startTime.tv_sec)  * 1000;
+		elapsedTimeMS += (currentTime.tv_nsec - startTime.tv_nsec) / 1000000;
 	}
 	while ( (txCommandHead != txCommandTail) && (elapsedTimeMS < TX_KDB_TIMEOUT) ); 
     
     if ( txCommandHead != txCommandTail )
     {
-      IOLog( "Ethernet(UniN): Polled tranmit timeout - 1\n\r");
+      IOLog( "UniNEnet::sendPacket - Polled transmit timeout - 1\n\r" );
       return;
     }
 
-    /*
-     * Allocate a MBuf and copy the debugger transmit data into it.
-     *
-     * jliu - no allocation, just recycle the same buffer dedicated to
-     * KDB transmit.
-     */
-    txDebuggerPkt->m_next = 0;
-    txDebuggerPkt->m_data = (caddr_t) pkt;
-    txDebuggerPkt->m_pkthdr.len = txDebuggerPkt->m_len = pkt_len;
+		/* Allocate a MBuf and copy the debugger transmit data into it.
+		 *
+		 * jliu - no allocation, just recycle the same buffer dedicated to
+		 * KDB transmit.
+		 */
+    txDebuggerPkt->m_next		= 0;
+    txDebuggerPkt->m_data		= (caddr_t)pkt;
+    txDebuggerPkt->m_pkthdr.len	= txDebuggerPkt->m_len = pkt_len;
 
-    /*
-     * Send the debugger packet. txDebuggerPkt must not be freed by
-     * the transmit routine.
-     */
-    transmitPacket(txDebuggerPkt);
+		/* Send the debugger packet.								*/
+		/* txDebuggerPkt must not be freed by the transmit routine.	*/
+    transmitPacket( txDebuggerPkt );
 
-    /*
-     * Poll waiting for the transmit ring to empty again
-     */
+		/* Poll waiting for the transmit ring to empty again:	*/
     do 
     {
         debugTransmitInterruptOccurred();
-        IOGetTime(&currentTime);
-        elapsedTimeMS = (currentTime.tv_nsec - startTime.tv_nsec) / (1000*1000);
+		IOGetTime( &currentTime );
+		if ( currentTime.tv_nsec < startTime.tv_nsec )
+		{
+			currentTime.tv_nsec += 1000000000; // a billion here, a billion there
+			currentTime.tv_sec  -= 1;
+		}
+		elapsedTimeMS  = (currentTime.tv_sec  - startTime.tv_sec)  * 1000;
+		elapsedTimeMS += (currentTime.tv_nsec - startTime.tv_nsec) / 1000000;
     }
-    while ( (txCommandHead != txCommandTail) &&
-            (elapsedTimeMS < TX_KDB_TIMEOUT) ); 
+    while ( (txCommandHead != txCommandTail) && (elapsedTimeMS < TX_KDB_TIMEOUT) );
 
     if ( txCommandHead != txCommandTail )
     {
-        IOLog( "Ethernet(UniN): Polled tranmit timeout - 2\n\r");
+        IOLog( "UniNEnet::sendPacket - Polled transmit timeout - 2\n\r" );
     }
 #if USE_ELG
-	g.evLogFlag = elgFlag;
+	fpELG->evLogFlag = elgFlag;
 #endif // USE_ELG
 
 	return;
 }/* end sendPacket */
 
 
-/*-------------------------------------------------------------------------
- * _sendDummyPacket
- * ----------------
- * The UniN receiver seems to be locked until we send our first packet.
- *
- *-------------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+	 * sendDummyPacket
+	 * ----------------
+	 * The UniN receiver seems to be locked until we send our first packet.
+	 *
+	 *-------------------------------------------------------------------------*/
+
 void UniNEnet::sendDummyPacket()
 {
     union
     {
-        UInt8                 bytes[64];
-        IOEthernetAddress     enet_addr[2];
+        UInt8                 bytes[ 64 ];
+        IOEthernetAddress     enet_addr[ 2 ];
     } dummyPacket;
 
 	ELG( &dummyPacket, sizeof( dummyPacket ), 'SenD', "sendDummyPacket" );
 
-    bzero( &dummyPacket, sizeof(dummyPacket) );
+    bzero( &dummyPacket, sizeof( dummyPacket ) );
 
 
     dummyPacket.enet_addr[0] = myAddress;   
@@ -945,7 +1019,6 @@ void UniNEnet::sendDummyPacket()
     sendPacket( (void*)dummyPacket.bytes, (unsigned int)sizeof( dummyPacket ) );
 	return;
 }/* end sendDummyPacket */
-
 
 
 /*-------------------------------------------------------------------------
@@ -966,9 +1039,9 @@ bool UniNEnet::receiveInterruptOccurred()
 	 *
 	 *-------------------------------------------------------------------------*/
 
-bool UniNEnet::receivePackets( bool fDebugger )
+bool UniNEnet::receivePackets( bool debuggerParam )
 {
-	struct mbuf	*packet;
+	mbuf		*packet;
 	UInt32		i, last;
 	int			receivedFrameSize = 0;
 	UInt16		dmaFlags;
@@ -977,7 +1050,7 @@ bool UniNEnet::receivePackets( bool fDebugger )
 	bool		passPacketUp;
 	bool		reusePkt;
 	bool		status;
-	bool		useNetif = !fDebugger && netifEnabled;
+	bool		useNetif = !debuggerParam && netifEnabled;
 	bool		packetsQueued = false;
 	bool		replaced;
 
@@ -985,35 +1058,30 @@ bool UniNEnet::receivePackets( bool fDebugger )
     last      = (UInt32)-1;  
     i         = rxCommandHead;
 
-	ELG( rxCommandTail, rxCommandHead, 'Rx I', "receivePackets" );
+//	ELG( rxCommandTail, rxCommandHead, 'Rx I', "receivePackets" );
 
     while ( 1 )
     {
         passPacketUp = false;
         reusePkt     = false;
 
-		dmaFlags = OSReadLittleInt16( &rxDMACommands[ i ].desc_seg[ 0 ].frameDataSize,     0 );
-		checksum = OSReadLittleInt16( &rxDMACommands[ i ].desc_seg[ 0 ].tcpPseudoChecksum, 0 );
+		dmaFlags = OSReadLittleInt16( &fRxDescriptorRing[ i ].frameDataSize,     0 );
+		checksum = OSReadLittleInt16( &fRxDescriptorRing[ i ].tcpPseudoChecksum, 0 );
 
-        /* 
-         * If the current entry has not been written, then stop at this entry
-         */
-        if ( dmaFlags & kGEMRxDescFrameSize_Own )
-        {
-            break;
-        }
+			/*  If the current entry has not been written, then stop at this entry	*/
 
+		if ( dmaFlags & kGEMRxDescFrameSize_Own )
+			break;
 
         receivedFrameSize	= dmaFlags & kGEMRxDescFrameSize_Mask;
-		rxPktStatus			= OSReadLittleInt32( &rxDMACommands[ i ].desc_seg[ 0 ].flags, 0 );
+		rxPktStatus			= OSReadLittleInt32( &fRxDescriptorRing[ i ].flags, 0 );
+		ELG( rxPktStatus, receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
 
+			/* Reject packets that are runts or that have other mutations.	*/
 
-        /*
-         * Reject packets that are runts or that have other mutations.
-         */
-        if ( receivedFrameSize < (ETHERMINPACKET - ETHERCRC) || 
-                     receivedFrameSize > (ETHERMAXPACKET + ETHERCRC) ||
-                         rxPktStatus & kGEMRxDescFlags_BadCRC )
+		if ( receivedFrameSize < (ETHERMINPACKET - ETHERCRC)
+		 ||  receivedFrameSize > (ETHERMAXPACKET + ETHERCRC)
+		 ||  rxPktStatus & kGEMRxDescFlags_BadCRC )
 		{
             reusePkt = true;
 			NETWORK_STAT_ADD( inputErrors );
@@ -1024,52 +1092,46 @@ bool UniNEnet::receivePackets( bool fDebugger )
         }
         else if ( useNetif == false )
         {
-            /*
-             * Always reuse packets in debugger mode. We also refuse to
-             * pass anything up the stack unless the driver is open. The
-             * hardware is enabled before the stack has opened us, to
-             * allow earlier debug interface registration. But we must
-             * not pass any packets up.
-             */
-            reusePkt = true;
-            if (fDebugger)
-            {
-                packetToDebugger(rxMbuf[i], receivedFrameSize);
-            }
+				/* Always reuse packets in debugger mode. We also refuse
+				 * to pass anything up the stack unless the driver is open.
+				 * The hardware is enabled before the stack has opened us
+				 * to allow earlier debug interface registration.
+				 * But we must not pass any packets up.
+				 */
+			reusePkt = true;
+			if ( debuggerParam )
+                packetToDebugger( fRxMbuf[ i ], receivedFrameSize );
         }
         
  
-        /*
-         * Before we pass this packet up the networking stack. Make sure we
-         * can get a replacement. Otherwise, hold on to the current packet and
-         * increment the input error count.
-         * Thanks Justin!
-         */
+			/* Before we pass this packet up the networking stack, Make sure we	*/
+			/* can get a replacement. Otherwise, hold on to the current packet	*/
+			/* and increment the input error count. Thanks Justin!				*/
 
         packet = 0;
 
         if ( reusePkt == false )
         {
-            packet = replaceOrCopyPacket(&rxMbuf[i], receivedFrameSize, &replaced);
+            packet = replaceOrCopyPacket( &fRxMbuf[i], receivedFrameSize, &replaced );
 
             reusePkt = true;
 
-            if (packet && replaced)
+            if ( packet && replaced )
             {
-                status = updateDescriptorFromMbuf(rxMbuf[i], &rxDMACommands[i], true);
+                status = genRxDescriptor( i );
 
-                if (status)
+                if ( status )
                 {
                     reusePkt = false;
                 }
                 else
                 {
-					ELG( packet, rxMbuf[i], 'upd-', "UniNEnet::receivePackets" );
-                    // Assume descriptor has not been corrupted.
-                    freePacket(rxMbuf[i]);  // release new packet.
-                    rxMbuf[i] = packet;     // get the old packet back.
+					ELG( packet, fRxMbuf[i], 'upd-', "UniNEnet::receivePackets" );
+						// Assume descriptor has not been corrupted.
+					freePacket( fRxMbuf[i] );	// release new packet.
+                    fRxMbuf[i] = packet;		// get the old packet back.
                     packet = 0;             // pass up nothing.
-                    IOLog("Ethernet(UniN): updateDescriptorFromMbuf error\n");
+                    IOLog( "UniNEnet::receivePackets - genRxDescriptor error\n" );
                 }
             }
             
@@ -1082,17 +1144,17 @@ bool UniNEnet::receivePackets( bool fDebugger )
 
         if ( reusePkt == true )
         {
-			rxDMACommands[i].desc_seg[0].flags         = 0;
-			rxDMACommands[i].desc_seg[0].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
+			fRxDescriptorRing[i].flags         = 0;
+			fRxDescriptorRing[i].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
         }
 
         last = i;	/* Keep track of the last receive descriptor processed	*/
-		i = (i + 1) & RX_RING_WRAP_MASK;
+		i = (i + 1) & (fRxRingElements - 1);
 
 		if ( (i & 3) == 0 )		// only kick modulo 4
-			WRITE_REGISTER( RxKick, (i - 4) & RX_RING_WRAP_MASK );
+			WRITE_REGISTER( RxKick, (i - 4) & (fRxRingElements - 1) );
 
-        if ( fDebugger )
+        if ( debuggerParam )
             break;
 
 			/* Transfer received packet to the network stack:	*/
@@ -1101,7 +1163,7 @@ bool UniNEnet::receivePackets( bool fDebugger )
         {
             KERNEL_DEBUG(	DBG_UniN_RXCOMPLETE | DBG_FUNC_NONE, 
                 			(int)packet, (int)receivedFrameSize, 0, 0, 0 );
-#ifdef HDW_CHECKSUM
+
 			if ( (receivedFrameSize > 64) && (checksum != 0) )
 				setChecksumResult(	packet,
 									kChecksumFamilyTCPIP,
@@ -1110,7 +1172,7 @@ bool UniNEnet::receivePackets( bool fDebugger )
 									checksum,					// param0: actual cksum
 									kRxHwCksumStartOffset );	// param1: 1st byte cksum'd 
 
-#endif // HDW_CHECKSUM
+			ELG( packet, receivedFrameSize, 'RxP+', "UniNEnet::receivePackets - packet up." );
 			networkInterface->inputPacket( packet, receivedFrameSize, true );
 			NETWORK_STAT_ADD( inputPackets );
 			packetsQueued = true;
@@ -1135,8 +1197,8 @@ bool UniNEnet::receivePackets( bool fDebugger )
 
 bool UniNEnet::transmitInterruptOccurred()
 {
-	UInt32			i;
-	bool			serviced	= false;
+	UInt32		i, elemCnt = 0;
+	bool		serviced	= false;
 
 
 	i = READ_REGISTER( TxCompletion );
@@ -1144,29 +1206,31 @@ bool UniNEnet::transmitInterruptOccurred()
 
 	while ( i != txCommandHead )	// i and txCommandHead race each other
 	{
-		do		// This DO reduces READ_REGISTER calls which access the PCI bus
-		{		/* Free the MBuf we just transmitted	*/
+		do		/* This DO loop reduces READ_REGISTERs accessing the PCI bus.	*/
+		{		/* Free the MBufs we just transmitted:	*/
 
 			KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
-							txMbuf[ txCommandHead ], 0, 0, 0, 0 );
+							fTxMbuf[ txCommandHead ], 0, 0, 0, 0 );
+			elemCnt++;
 
-			OSIncrementAtomic( (SInt32*)&txCommandsAvail );	// ???put outside loop?
-
-			if ( txMbuf[ txCommandHead ] )
+			if ( fTxMbuf[ txCommandHead ] )
 			{
-			//	ELG( txCommandHead, txMbuf[ txCommandHead ], 'TxPF', "UniNEnet::receivePackets - free the packet" );
-				freePacket( txMbuf[ txCommandHead ] );
-				txMbuf[ txCommandHead ] = 0;
-				NETWORK_STAT_ADD( outputPackets );
+			//	ELG( txCommandHead, fTxMbuf[ txCommandHead ], 'TxPF', "UniNEnet::receivePackets - free the packet" );
+				freePacket( fTxMbuf[ txCommandHead ], kDelayFree );
+				fTxMbuf[ txCommandHead ] = 0;
+				NETWORK_STAT_ADD( outputPackets );	/// ??? move outside loop
 			}
 
-			txCommandHead = (txCommandHead + 1) & TX_RING_WRAP_MASK;
+			txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
 
 		} while ( i != txCommandHead );		// loop til txCommandHead catches i
 
 		serviced = true;
 		i = READ_REGISTER( TxCompletion );	// see if i advanced during last batch
 	}/* end WHILE */
+
+	OSAddAtomic( elemCnt, (SInt32*)&fTxElementsAvail );
+	fpNetStats->outputPackets += releaseFreePackets();	
 
 	return serviced;
 }/* end transmitInterruptOccurred */
@@ -1207,20 +1271,20 @@ void UniNEnet::debugTransmitInterruptOccurred()
 			 * to show up on the transmit mbuf ring.
 			 */
 
-		OSIncrementAtomic( (SInt32*)&txCommandsAvail );
+		OSIncrementAtomic( (SInt32*)&fTxElementsAvail );
 
 		KERNEL_DEBUG(	DBG_UniN_TXCOMPLETE | DBG_FUNC_NONE,
-						(int)txMbuf[ txCommandHead ],
-						(int)txMbuf[ txCommandHead ]->m_pkthdr.len, 0, 0, 0 );
+						(int)fTxMbuf[ txCommandHead ],
+						(int)fTxMbuf[ txCommandHead ]->m_pkthdr.len, 0, 0, 0 );
 
-		if ( txMbuf[ txCommandHead ] )
+		if ( fTxMbuf[ txCommandHead ] )
 		{
-			if ( txMbuf[ txCommandHead ] != txDebuggerPkt )
-				debugQueue->enqueue( txMbuf[ txCommandHead ] );
-			txMbuf[ txCommandHead ] = 0;
+			if ( fTxMbuf[ txCommandHead ] != txDebuggerPkt )
+				debugQueue->enqueue( fTxMbuf[ txCommandHead ] );
+			fTxMbuf[ txCommandHead ] = 0;
 		}
 
-		txCommandHead = (txCommandHead + 1) & TX_RING_WRAP_MASK;
+		txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
 	}/* end WHILE */
 
     return;
@@ -1250,68 +1314,38 @@ void UniNEnet::debugTransmitCleanup()
 }/* end debugTransmitCleanup */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
-bool UniNEnet::updateDescriptorFromMbuf(struct mbuf * m,  enet_dma_cmd_t *desc, bool isReceive)
+bool UniNEnet::genRxDescriptor( UInt32 i )
 {
-    struct IOPhysicalSegment    	segVector[1];
-    UInt32			segments;
-
-    segments = mbufCursor->getPhysicalSegmentsWithCoalesce(m, segVector);
-    
-    if ( segments == 0 || segments > 1 )
-    {
-        IOLog("Ethernet(UniN): updateDescriptorFromMbuf error, %d segments\n", (int)segments);
-        return false;
-    }    
-    
-    if ( isReceive )
-    {
-        enet_dma_cmd_t      *rxCmd = (enet_dma_cmd_t *)desc;
-
-		OSWriteLittleInt32( &rxCmd->desc_seg[0].bufferAddrLo,  0, segVector[0].location );
-		OSWriteLittleInt16( &rxCmd->desc_seg[0].frameDataSize, 0, segVector[0].length | kGEMRxDescFrameSize_Own );
-		rxCmd->desc_seg[0].flags = 0;
-    }
-    else
-    {
-        enet_txdma_cmd_t    *txCmd = (enet_txdma_cmd_t *)desc;
-
-		OSWriteLittleInt32( &txCmd->desc_seg[0].bufferAddrLo, 0, segVector[0].location );
-		OSWriteLittleInt32( &txCmd->desc_seg[0].flags0, 0, segVector[0].length
-													|	kGEMTxDescFlags0_StartOfFrame
-													|	kGEMTxDescFlags0_EndOfFrame );
-
-		txCmd->desc_seg[0].flags1 = 0;
-		txIntCnt += 1;
-		if ( (txIntCnt % TX_DESC_PER_INT) == 0 )	/// Divide???
-			txCmd->desc_seg[0].flags1 = OSSwapHostToLittleConstInt32( kGEMTxDescFlags1_Int );
-    }                                          
-
-    return true;
-}/* end updateDescriptorFromMbuf */
+	IOPhysicalSegment	segVector[ 2 ];
+	UInt32				segments;
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
+    segments = mbufCursor->getPhysicalSegmentsWithCoalesce( fRxMbuf[i], segVector );
+
+	if ( segments != 1 )
+	{
+		ALRT( fRxMbuf[i], segments, 'seg-', "UniNEnet::genRxDescriptor - segments != 1" );
+		return false;
+	}
+
+	OSWriteLittleInt32( &fRxDescriptorRing[i].bufferAddrLo,  0, segVector[0].location );
+	OSWriteLittleInt16( &fRxDescriptorRing[i].frameDataSize, 0, segVector[0].length | kGEMRxDescFrameSize_Own );
+	fRxDescriptorRing[ i ].flags = 0;
+
+	return true;
+}/* end genRxDescriptor */
+
 
 void UniNEnet::monitorLinkStatus( bool firstPoll )
 {
-	UInt32				gemReg;
     UInt16          	phyStatus;
     UInt16          	linkStatus;
     UInt16          	linkMode;
     UInt16          	lpAbility;
     UInt16          	phyStatusChange;
     bool            	fullDuplex = false;
-    UInt32          	linkSpeed = 0;
+    bool				clockWasOff = false;
+	UInt32          	linkSpeed = 0;
     IOMediumType    	mediumType = kIOMediumEthernetNone;
     IONetworkMedium	*medium;
 
@@ -1324,6 +1358,16 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
         linkStatusPrev = kLinkStatusUnknown;
     }
 
+    if(enetClockOff)
+    {
+        // pangea ethernet clock is off, temporarily it on to get the phyStatus
+        OSSynchronizeIO();
+        callPlatformFunction("EnableUniNEthernetClock", true, (void*)true, 0, 0, 0);
+        OSSynchronizeIO();
+        enetClockOff = false;
+        clockWasOff = true;
+    }
+
     if ( phyId == 0xff )
     {
 		phyStatus = READ_REGISTER( PCSMIIStatus )				& 0x0000FFFF;
@@ -1332,12 +1376,19 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
     else 
     {
         if ( miiReadWord( &phyStatus, MII_STATUS, phyId) != true )
-        {
             return;
-        }
-        miiReadWord( &lpAbility, MII_STATUS, phyId);
+		miiReadWord( &lpAbility, MII_LINKPARTNER, phyId );
     }
 	ELG( lpAbility, phyStatus, ' mls', "monitorLinkStatus - LinkPartnerAbility and Status" );
+
+    if(clockWasOff)
+    {
+        // if it was off in the first place, turn it back off
+        OSSynchronizeIO();
+        callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
+        OSSynchronizeIO();
+        enetClockOff = true;
+    }
 
     phyStatusChange = (phyStatusPrev ^ phyStatus) &
                       ( MII_STATUS_LINK_STATUS |
@@ -1358,15 +1409,25 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
             miiReadWord(&phyStatus, MII_STATUS, phyId);
         }
 
-		gemReg = READ_REGISTER( MACControlConfiguration );
-		if ( lpAbility & MII_LPAR_PAUSE )
-			 gemReg |=  kMACControlConfiguration_Send_Pause_Enable;
-		else gemReg &= ~kMACControlConfiguration_Send_Pause_Enable;
-		WRITE_REGISTER( MACControlConfiguration, gemReg );
+        // skip this is the clock is off
+        if(!enetClockOff)
+        {
+			fMACControlConfiguration  = READ_REGISTER( MACControlConfiguration );
+			fMACControlConfiguration |=  kMACControlConfiguration_Receive_Pause_Enable;
 
+			if ( lpAbility & MII_LPAR_PAUSE )
+				fMACControlConfiguration |=  kMACControlConfiguration_Send_Pause_Enable;
+			else fMACControlConfiguration &= ~kMACControlConfiguration_Send_Pause_Enable;
+	
+			WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );
+		}
+		
         if ( (phyStatus & MII_STATUS_LINK_STATUS) &&
              ( firstPoll || (phyStatus & MII_STATUS_NEGOTIATION_COMPLETE) ) )
         {
+            // the link is up, turn the clock on
+            wakeUp(true);
+
             if ( phyId == 0xff )
             {
                 linkSpeed  = 1000;
@@ -1395,7 +1456,8 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
             }
             else if ( ((phyType & MII_BCM5400_MASK) == MII_BCM5400_ID)
 				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5401_ID)		/// mlj temporary quick fix
-				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5411_ID) )	/// mlj temporary quick fix
+				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5411_ID)		/// mlj temporary quick fix
+				  ||  ((phyType & MII_BCM5400_MASK) == MII_BCM5421_ID) )	/// mlj temporary quick fix
             {
                 miiReadWord( &linkStatus, MII_BCM5400_AUXSTATUS, phyId );
 
@@ -1651,12 +1713,13 @@ void UniNEnet::updateHashTableMask()
 {
     UInt32      i;
 
-    rxMacConfigReg = READ_REGISTER( RxMACConfiguration );
-	ELG( this, rxMacConfigReg, 'updH', "updateHashTableMask" );
+
+	fRxMACConfiguration = READ_REGISTER( RxMACConfiguration );
+	ELG( this, fRxMACConfiguration, 'updH', "updateHashTableMask" );
 
 	WRITE_REGISTER( RxMACConfiguration,
-					rxMacConfigReg & ~(kRxMACConfiguration_Rx_Mac_Enable
-								   |   kRxMACConfiguration_Hash_Filter_Enable) );
+					fRxMACConfiguration & ~(kRxMACConfiguration_Rx_Mac_Enable
+										  | kRxMACConfiguration_Hash_Filter_Enable) );
 		/// Fix this to have a time limit around 3.2 ms
 	while ( READ_REGISTER( RxMACConfiguration )	& (kRxMACConfiguration_Rx_Mac_Enable
 												|  kRxMACConfiguration_Hash_Filter_Enable) )
@@ -1665,6 +1728,6 @@ void UniNEnet::updateHashTableMask()
     for ( i= 0; i < 16; i++ )
 		WRITE_REGISTER( HashTable[ i ], hashTableMask[ 15 - i ] );
 
-    rxMacConfigReg |= kRxMACConfiguration_Hash_Filter_Enable;
-	WRITE_REGISTER( RxMACConfiguration, rxMacConfigReg );
+    fRxMACConfiguration |= kRxMACConfiguration_Hash_Filter_Enable;
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 }

@@ -326,6 +326,13 @@ case "$PLAT" in
 	RULE_SHARED_CORE=no
 	DEF_SHARED_CORE=no
 	;;
+    *-ibm-aix5.1)
+	OS='IBM AIX 5.1'
+	CFLAGS="$CFLAGS -DAIX=51 -DUSE_PTHREAD_SERIALIZED_ACCEPT -U__STR__"
+	LDFLAGS="$LDFLAGS -lm -lpthread"
+	RULE_SHARED_CORE=no
+	DEF_SHARED_CORE=no
+	;;
     ia64-ibm-aix*)
        OS='IBM AIX IA64'
        CFLAGS="$CFLAGS -DAIXIA64 -U__STR__"
@@ -660,7 +667,7 @@ case "$PLAT" in
 	;;
     *-siemens-sysv4*)
 	OS='SVR4'
-	CFLAGS="$CFLAGS -DSVR4 -D_XPG_IV -DHAS_DLFCN -DUSE_MMAP_FILES -DUSE_SYSVSEM_SERIALIZED_ACCEPT -DNEED_UNION_SEMUN"
+	CFLAGS="$CFLAGS -DSVR4 -D_XPG_IV -DHAS_DLFCN -DUSE_MMAP_FILES -DNEED_UNION_SEMUN"
 	DEF_WANTHSREGEX=yes
 	LIBS="$LIBS -lsocket -lnsl -lc"
 	DBM_LIB=""
@@ -791,7 +798,7 @@ case "$PLAT" in
     *-BeOS*)
 	PLATOSVER=`uname -r`
         case "$PLATOSVER" in
-            5.1*)
+            5.0.4*)
                 OS="BeOS BONE"
                 LIBS="-lbind -lsocket -lbe -lroot"
                 CFLAGS="$CFLAGS -DBONE"
@@ -840,6 +847,13 @@ case "$PLAT" in
 	OSDIR="os/cygwin"
 	CFLAGS="$CFLAGS -DCYGWIN"
 	DEF_WANTHSREGEX=yes
+	DBM_LIB="-lgdbm"
+	LIBS="$LIBS -lcrypt $DBM_LIB"
+	;;
+    *atheos*)
+	DEF_WANTSREGEX=yes
+	OS='AtheOS'
+	CFLAGS="$CFLAGS -DATHEOS"
 	LIBS="$LIBS -lcrypt"
 	;;
     *) # default: Catch systems we don't know about
@@ -1156,7 +1170,14 @@ if [ "x$using_shlib" = "x1" ] ; then
 	*-apple-darwin*)
 	    LD_SHLIB="cc"
 	    CFLAGS_SHLIB=""
-	    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -bundle_loader /usr/sbin/httpd'
+	    case "$PLAT" in
+		*-apple-darwin1.4 )
+		    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -bundle_loader /usr/sbin/httpd'
+		    ;;
+		* )
+		    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -undefined suppress'
+		    ;;
+	    esac
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    LDFLAGS_SHLIB_EXPORT=""
 	    SHLIB_SUFFIX_DEPTH=0
@@ -1395,16 +1416,18 @@ if [ "x$using_shlib" = "x1" ] ; then
             ;;
 	*-cygwin*)
 	    DEF_SHARED_CORE=yes
-	    LDFLAGS_SHLIB="-g"
+	    LDFLAGS_SHLIB="--export-all"
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    SHLIB_SUFFIX_NAME=dll
+	    SHMOD_SUFFIX_NAME=dll
 	    SHLIB_SUFFIX_DEPTH=0
-	    DLL_IMPORT_LIB='lib$(TARGET).a'
-	    DLL_IMPORT_DEF='lib$(TARGET).def'
-	    LD_SHLIB='dllwrap --export-all --output-def $(DLL_IMPORT_DEF) --implib $(DLL_IMPORT_LIB) --driver-name $(CC)'
-	    LD_SHCORE_LIBS='$(LIBS)'
+	    LD_SHLIB='dllwrap'
+	    LD_SHCORE_DEF=''
+	    LD_SHCORE_LIBS="$LIBS"
 	    LIBS_SHLIB='$(EXTRA_LIBS)'
-	    SHARED_CORE_EP=''
+	    SHARED_CORE_EP='lib$(TARGET).ep'
+	    SHCORE_IMPLIB='lib$(TARGET).dll'
+	    OS_MODULE_INCLUDE='Makefile.Cygwin'
 	    ;;
 	*)
 	    ##  ok, no known explict support for shared objects
@@ -1617,6 +1640,14 @@ case "$PLAT" in
 		LIBS="$LIBS -ldl"
 		TLIB='-ldl'
 	    fi
+	fi
+	# Test for the presence of the "union semun":
+	if TCADDINCL='#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>' ./helpers/TestCompile sizeof "union semun"; then
+            : Okay, union semun is defined
+	else
+	    CFLAGS="$CFLAGS -DNEED_UNION_SEMUN"
 	fi
 	# Test for the presence of the _rini_struct typedef:
 	if TCADDINCL='#include <pwd.h>' ./helpers/TestCompile sizeof _rini_struct; then
@@ -1839,22 +1870,31 @@ fi
 ####################################################################
 ## Add in the Expat library if needed/wanted.
 ##
-if [ -d ./lib/expat-lite/ ]; then
-    if [ "x$RULE_EXPAT" = "xdefault" ]; then
+
+# set the default, based on whether expat-lite is bundled. if it is present,
+# then we can always include expat.
+if [ "x$RULE_EXPAT" = "xdefault" ]; then
+    if [ -d ./lib/expat-lite/ ]; then
         RULE_EXPAT=yes
-    fi
-else
-    if [ "$xRULE_EXPAT" = "xyes" ]; then
-        echo "ERROR: RULE_EXPAT set to \"yes\" but is not available."
-	exit 1
     else
         RULE_EXPAT=no
     fi
 fi
+
 if [ "x$RULE_EXPAT" = "xyes" ]; then
-    EXPATLIB="lib/expat-lite/libexpat.a"
-    APLIBDIRS="expat-lite $APLIBDIRS"
-    CFLAGS="$CFLAGS -DUSE_EXPAT -I\$(SRCDIR)/lib/expat-lite"
+    if ./helpers/TestCompile lib expat; then
+        echo " + using system Expat"
+        LIBS="$LIBS -lexpat"
+    else
+        if [ ! -d ./lib/expat-lite/ ]; then
+            echo "ERROR: RULE_EXPAT set to \"yes\" but is not available."
+	    exit 1
+        fi
+        echo " + using builtin Expat"
+        EXPATLIB="lib/expat-lite/libexpat.a"
+        APLIBDIRS="expat-lite $APLIBDIRS"
+        CFLAGS="$CFLAGS -DUSE_EXPAT -I\$(SRCDIR)/lib/expat-lite"
+    fi
 fi
 
 ####################################################################
@@ -1896,7 +1936,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 	#    select the special subtarget for shared core generation
 	SUBTARGET=target_shared
 	#    determine additional suffixes for libhttpd.so
-	V=1 R=3 P=20
+	V=1 R=3 P=21
 	if [ "x$SHLIB_SUFFIX_DEPTH" = "x0" ]; then
 	    SHLIB_SUFFIX_LIST=""
 	fi
@@ -1930,12 +1970,6 @@ fi
 if [ "x$using_shlib" = "x1" ] ; then
     if [ "x$TCFLAGS_SHLIB" = "x" ]; then
 	echo "CFLAGS_SHLIB=$CFLAGS_SHLIB -DSHARED_MODULE" >> Makefile.config
-    fi
-    if [ "x$TDLL_IMPORT_DEF" = "x" ]; then
-	echo "DLL_IMPORT_DEF=$DLL_IMPORT_DEF" >> Makefile.config
-    fi
-    if [ "x$TDLL_IMPORT_LIB" = "x" ]; then
-	echo "DLL_IMPORT_LIB=$DLL_IMPORT_LIB" >> Makefile.config
     fi
     if [ "x$TLD_SHLIB" = "x" ]; then
 	echo "LD_SHLIB=$LD_SHLIB" >> Makefile.config

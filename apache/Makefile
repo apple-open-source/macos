@@ -131,6 +131,7 @@ APXS_DST = $(DSTROOT)$(USRSBINDIR)/apxs
 
 LocalWebServer = $(NSLOCALDIR)$(NSLIBRARYSUBDIR)/WebServer
 ConfigDir      = /private/etc/httpd
+ProxyDir       = /private/var/run/proxy
 ConfigFile     = $(ConfigDir)/httpd.conf
 DocRoot        = $(LocalWebServer)/Documents
 CGIDir         = $(LocalWebServer)/CGI-Executables
@@ -149,6 +150,7 @@ install-local:
 	$(_v) $(LN) -fs "$(Documentation)" "$(DSTROOT)$(DocRoot)/manual"
 	$(_v) $(CHMOD) -R g+w "$(DSTROOT)$(DocRoot)"
 	$(_v) $(CHMOD) -R g+w "$(DSTROOT)$(CGIDir)"
+	$(_v) $(CHOWN) -R www.www "$(DSTROOT)$(ProxyDir)"
 	@echo "Fixing up configuration"
 	$(_v) perl -i -pe 's|-arch\s+\S+\s*||g' $(DSTROOT)$(USRSBINDIR)/apxs
 	$(_v) $(CP) $(DSTROOT)$(ConfigFile).default $(DSTROOT)$(ConfigFile)

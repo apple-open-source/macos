@@ -1,4 +1,4 @@
-/*
+ /*
  *  AppleOnboardAudio.h
  *  AppleOnboardAudio
  *
@@ -8,6 +8,10 @@
  */
  
  
+#include <IOKit/IOCommandGate.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+
 #include "AppleOnboardAudio.h"
 
 OSDefineMetaClassAndAbstractStructors(AppleOnboardAudio, IOAudioDevice)
@@ -81,11 +85,14 @@ void AppleOnboardAudio::free()
     CLEAN_RELEASE(AudioOutputs);
     CLEAN_RELEASE(AudioInputs);
     CLEAN_RELEASE(theAudioDeviceTreeParser);
+
+	if (NULL != powerMgrIntEventSource)
+		workLoop->removeEventSource (powerMgrIntEventSource);
+
+	publishResource ("setModemSound", NULL);
     super::free();
     DEBUG_IOLOG("- AppleOnboardAudio::free, (void)\n");
-
 }
-
 
 IOService* AppleOnboardAudio::probe(IOService* provider, SInt32* score)
 {
@@ -160,28 +167,30 @@ IOReturn AppleOnboardAudio::configureAudioInputs(IOService *provider) {
     AudioHardwareInput *theInput;
     AudioHardwareMux *theMux;
     DEBUG_IOLOG("+ AppleOnboardAudio::configureAudioDetects\n");
-    
-    if(!theAudioDeviceTreeParser) 
-        goto BAIL;
+
+    FailIf (NULL == theAudioDeviceTreeParser, BAIL);
 
     AudioInputs = theAudioDeviceTreeParser->createInputsArrayWithMuxes();
 
-    if(!AudioInputs)
-        goto BAIL;
-    
+	FailIf (NULL == AudioInputs, BAIL);
+
     for(idx = 0; idx < AudioInputs->getCount(); idx++) {
         theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
-        if( theInput) {
-            theInput->attachAudioPluginRef((AppleOnboardAudio *) this);       
+        if (NULL != theInput) {
+			theInput->attachAudioPluginRef((AppleOnboardAudio *) this);       
         } else {
-            theMux = OSDynamicCast(AudioHardwareMux, AudioInputs->getObject(idx));
-            if(theMux) theMux->attachAudioPluginRef((AppleOnboardAudio *) this);       
+			theMux = OSDynamicCast(AudioHardwareMux, AudioInputs->getObject(idx));
+			if (NULL != theMux) {
+				theMux->attachAudioPluginRef((AppleOnboardAudio *) this);
+			} else {
+				DEBUG_IOLOG ("!!!It's not an input and it's not a mux!!!\n");
+			}
         }
     }
 
 EXIT:
-    DEBUG2_IOLOG("- AppleOnboardAudio::configureAudioDetects, %d \n", (result == kIOReturnSuccess));
-    return(result);
+    DEBUG2_IOLOG("- %d = AppleOnboardAudio::configureAudioDetects\n", result);
+    return (result);
 BAIL:
     result = kIOReturnError;
     goto EXIT;
@@ -220,7 +229,19 @@ void AppleOnboardAudio::setCurrentDevices(UInt32 devices){
         currentDevices = devices;
         changedDeviceHandler(odevice);
     }
-
+    
+    // if this CPU has a phase inversion feature see if we need to enable phase inversion    
+    if (fCPUNeedsPhaseInversion)
+    {
+        bool state;
+        
+        if (currentDevices == 0 || currentDevices & kSndHWInternalSpeaker) // may only need the kSndHWInternalSpeaker check
+            state = true;
+        else
+            state = false;
+        
+         driverDMAEngine->setPhaseInversion(state);
+    }
 }
 
 void AppleOnboardAudio::changedDeviceHandler(UInt32 olddevices){
@@ -246,13 +267,17 @@ void AppleOnboardAudio::changedDeviceHandler(UInt32 olddevices){
 
 #pragma mark +IOAUDIO INIT
 bool AppleOnboardAudio::initHardware(IOService *provider){
-    bool result = true;
+	IOWorkLoop				*workLoop;
+    bool					result;
+
     DEBUG_IOLOG("+ AppleOnboardAudio::initHardware\n");
 
+	result = TRUE;
     if (!super::initHardware(provider)) {
         goto BAIL;
     }
 
+	ourPowerState = kIOAudioDeviceActive;
     sndHWInitialize(provider);
     theAudioDeviceTreeParser = AudioDeviceTreeParser::createWithEntryProvider(provider);
  
@@ -270,19 +295,43 @@ bool AppleOnboardAudio::initHardware(IOService *provider){
 	// Have to create the audio controls before calling activateAudioEngine
     createDefaultsPorts(); 
 
-    if( kIOReturnSuccess != activateAudioEngine(driverDMAEngine)){
+    if (kIOReturnSuccess != activateAudioEngine(driverDMAEngine)){
         driverDMAEngine->release();
         goto BAIL;
     }
-    
+
+	workLoop = getWorkLoop();
+	FailIf (NULL == workLoop, BAIL);
+
+	// Make an interrupt event source to service Power Manager requests
+	powerMgrIntEventSource = IOInterruptEventSource::interruptEventSource (this, PowerMgrInterruptHandler);
+	FailIf (NULL == powerMgrIntEventSource, BAIL);
+	workLoop->addEventSource (powerMgrIntEventSource);
+	powerMgrIntEventSource->enable ();
+
+	// Give drivers a chance to do something after the DMA engine and IOAudioFamily have been created/started
+	sndHWPostDMAEngineInit (provider);
+
+	// Set the default volume to that stored in the PRAM in case we don't get a setValue call from the Sound prefs before being activated.
+	if (NULL != outVolLeft && NULL != outVolRight) {
+		outVolLeft->setValue (PRAMToVolumeValue ());
+		outVolRight->setValue (PRAMToVolumeValue ());
+	}
+
     flushAudioControls();
-       
+
+	// Install power change handler so we get notified about shutdown
+	registerPrioritySleepWakeInterest (&sysPowerDownHandler, this, 0);
+
+	// Tell the world about us so the User Client can find us.
+	registerService();
+
     publishResource("setModemSound", this);
 EXIT:
     DEBUG_IOLOG("- AppleOnboardAudio::initHardware\n"); 
     return(result);
 BAIL:
-    result = false;
+    result = FALSE;
     goto EXIT;
 }
 
@@ -290,17 +339,26 @@ IOReturn AppleOnboardAudio::configureDMAEngines(IOService *provider){
     IOReturn result = kIOReturnSuccess;
     bool hasInput;
     
-                //All this config should go in a single method
+	// All this config should go in a single method
     if(!theAudioDeviceTreeParser)
         goto BAIL;                        
 
-    if( theAudioDeviceTreeParser->getNumberOfInputs() > 0)
+    if (theAudioDeviceTreeParser->getNumberOfInputs() > 0)
         hasInput = true;
     else 
         hasInput = false;
         
     driverDMAEngine = new AppleDBDMAAudioDMAEngine;
-    if (!driverDMAEngine->init(0, provider, hasInput)) {
+    // make sure we get an engine
+    FailIf(NULL == driverDMAEngine,BAIL);
+    //tell the uber class if it has to worry about reversing the phase of a channel
+    fCPUNeedsPhaseInversion = theAudioDeviceTreeParser->getPhaseInversion();
+    
+    // it will be set when the device polling starts
+    driverDMAEngine->setPhaseInversion(false);
+    
+    if (!driverDMAEngine->init(0, provider, this, hasInput)) 
+    {
         driverDMAEngine->release();
         goto BAIL;
     }
@@ -312,211 +370,182 @@ BAIL:
     goto EXIT;
 }
 
-IOReturn AppleOnboardAudio::createDefaultsPorts(){
+IOReturn AppleOnboardAudio::createDefaultsPorts() {
 
     IOAudioPort *outputPort = 0;
     IOAudioPort *inputPort = 0;
-    IOReturn result = kIOReturnSuccess;
+    IOReturn result;
     OSDictionary *AOAprop = 0, *theRange = 0;
     OSNumber *theNumber;
     OSData *theData;
     SInt32 OutminLin, OutmaxLin, InminLin, InmaxLin; 
     IOFixed OutminDB, OutmaxDB, InminDB, InmaxDB;
-    bool hasIMic;
     UInt32 idx;
-         
+
     DEBUG_IOLOG("+ AppleOnboardAudio::createDefaultsPorts\n");
-    if (!driverDMAEngine) goto BAIL;
+
+	result = kIOReturnSuccess;
+	FailIf (NULL == driverDMAEngine, BAIL);
+	FailIf (NULL == (AOAprop = OSDynamicCast(OSDictionary, this->getProperty("AOAAttributes"))), BAIL);
 
     /*
-     * Create out part port : 2 level (obne for each side and one mute)
+     * Create out part port : 2 level (one for each side and one mute)
      */
+	if (NULL != (theRange= OSDynamicCast(OSDictionary, AOAprop->getObject("RangeOut")))) {
+		outputPort = IOAudioPort::withAttributes(kIOAudioPortTypeOutput, "Main Output port");
+		if (NULL != outputPort) {
+			theNumber = OSDynamicCast(OSNumber, theRange->getObject("minLin"));
+			OutminLin = (SInt32) theNumber->unsigned32BitValue();
+			theNumber = OSDynamicCast(OSNumber, theRange->getObject("maxLin"));
+			OutmaxLin = (SInt32) theNumber->unsigned32BitValue();
+			theData = OSDynamicCast(OSData, theRange->getObject("minLog"));
+			OutminDB = *((IOFixed*) theData->getBytesNoCopy());
+			theData = OSDynamicCast(OSData, theRange->getObject("maxLog"));
+			OutmaxDB = *((IOFixed*) theData->getBytesNoCopy());
+			
+			fMaxVolume = OutmaxLin;
+			fMinVolume = OutminLin;
+			
+			outVolLeft = IOAudioLevelControl::createVolumeControl(OutmaxLin, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
+												kIOAudioControlChannelIDDefaultLeft,
+												kIOAudioControlChannelNameLeft,
+												kOutVolLeft, 
+												kIOAudioControlUsageOutput);
+			if (NULL != outVolLeft) {
+				driverDMAEngine->addDefaultAudioControl(outVolLeft);
+				outVolLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeLeftChangeHandler, this);
+			}
+		
+			outVolRight = IOAudioLevelControl::createVolumeControl(OutmaxLin, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
+												kIOAudioControlChannelIDDefaultRight,
+												kIOAudioControlChannelNameRight,
+												kOutVolRight, 
+												kIOAudioControlUsageOutput);
+			if (NULL != outVolRight) {
+				driverDMAEngine->addDefaultAudioControl(outVolRight);
+				outVolRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeRightChangeHandler, this);
+			}
+			
+			outMute = IOAudioToggleControl::createMuteControl(false,
+											kIOAudioControlChannelIDAll,
+											kIOAudioControlChannelNameAll,
+											kOutMute, 
+											kIOAudioControlUsageOutput);
+			if (NULL != outMute) {
+				driverDMAEngine->addDefaultAudioControl(outMute);
+				outMute->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputMuteChangeHandler, this);
+			}
 
-
-
-    outputPort = IOAudioPort::withAttributes(kIOAudioPortTypeOutput, "Main Output port");
-    if (!outputPort) {
-        return kIOReturnError;
-    }
-
-    if ( !(AOAprop = OSDynamicCast(OSDictionary, this->getProperty("AOAAttributes")))) {
-        return kIOReturnError;
-    }
-    
-    if(!(theRange= OSDynamicCast(OSDictionary, AOAprop->getObject("RangeOut")))) {
-           return kIOReturnError;
-    }
-    
-    theNumber = OSDynamicCast(OSNumber, theRange->getObject("minLin"));
-    OutminLin = (SInt32) theNumber->unsigned32BitValue();
-    theNumber = OSDynamicCast(OSNumber, theRange->getObject("maxLin"));
-    OutmaxLin = (SInt32) theNumber->unsigned32BitValue();
-    theData = OSDynamicCast(OSData, theRange->getObject("minLog"));
-    OutminDB = *((IOFixed*) theData->getBytesNoCopy());
-    theData = OSDynamicCast(OSData, theRange->getObject("maxLog"));
-    OutmaxDB = *((IOFixed*) theData->getBytesNoCopy());
-    
-    fMaxVolume = OutmaxLin;
-    fMinVolume = OutminLin;
-    
-    outVolLeft = IOAudioLevelControl::createVolumeControl(OutmaxLin, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
-                                          kIOAudioControlChannelIDDefaultLeft,
-                                          kIOAudioControlChannelNameLeft,
-                                          kOutVolLeft, 
-                                          kIOAudioControlUsageOutput);
-    if (!outVolLeft) {
-        return false;
-    }
-
-    driverDMAEngine->addDefaultAudioControl(outVolLeft);
-    outVolLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeLeftChangeHandler, this);
-
-    outVolRight = IOAudioLevelControl::createVolumeControl(OutmaxLin, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
-                                          kIOAudioControlChannelIDDefaultRight,
-                                          kIOAudioControlChannelNameRight,
-                                          kOutVolRight, 
-                                          kIOAudioControlUsageOutput);
-    if (!outVolRight) {
-        return false;
-    }
-
-    driverDMAEngine->addDefaultAudioControl(outVolRight);
-    outVolRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)volumeRightChangeHandler, this);
-    
-    outMute = IOAudioToggleControl::createMuteControl(false,
-                                      kIOAudioControlChannelIDAll,
-                                      kIOAudioControlChannelNameAll,
-                                      kOutMute, 
-                                      kIOAudioControlUsageOutput);
-    if (!outMute) {
-        return false;
-    }
-
-    driverDMAEngine->addDefaultAudioControl(outMute);
-    outMute->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputMuteChangeHandler, this);
+			attachAudioPort(outputPort, driverDMAEngine, 0);
+			outputPort->release();
+		}
+	}
 
     /*
-     * Create  input port : 2 level controls associated to it
+     * Create input port and level controls (if any) associated to it
      */
-    if(!(theAudioDeviceTreeParser->getNumberOfInputs() > 0)) goto EXIT;
-    inputPort = IOAudioPort::withAttributes(kIOAudioPortTypeInput, "Main Input Port");
-    if (!inputPort) {
-        return false;
-    }
-
-     if(!(theRange= OSDynamicCast(OSDictionary, AOAprop->getObject("RangeIn")))) {
-           return kIOReturnError;
-    }
-    
-    theNumber = OSDynamicCast(OSNumber, theRange->getObject("minLin"));
-    InminLin = (SInt32) theNumber->unsigned32BitValue();
-    theNumber = OSDynamicCast(OSNumber, theRange->getObject("maxLin"));
-    InmaxLin = (SInt32) theNumber->unsigned32BitValue();
-    theData = OSDynamicCast(OSData, theRange->getObject("minLog"));
-    InminDB = *((IOFixed*) theData->getBytesNoCopy());
-    theData = OSDynamicCast(OSData, theRange->getObject("maxLog"));
-    InmaxDB = *((IOFixed*) theData->getBytesNoCopy());
-
-
-    inGainLeft = IOAudioLevelControl::createVolumeControl((InmaxLin-InminLin)/2, InminLin, InmaxLin, InminDB, InmaxDB,
-                                          kIOAudioControlChannelIDDefaultLeft,
-                                          kIOAudioControlChannelNameLeft,
-                                          kInGainLeft, 
-                                          kIOAudioControlUsageInput);
-    if (!inGainLeft) {
-        return false;
-    }
-
-    driverDMAEngine->addDefaultAudioControl(inGainLeft);
-    inGainLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
-
-
-    inGainRight = IOAudioLevelControl::createVolumeControl((InmaxLin-InminLin)/2, InminLin, InmaxLin, InminDB, InmaxDB,
-                                          kIOAudioControlChannelIDDefaultRight,
-                                          kIOAudioControlChannelNameRight,
-                                          kInGainRight, 
-                                          kIOAudioControlUsageInput);
-    if (!inGainRight) {
-        return false;
-    }
-
-    driverDMAEngine->addDefaultAudioControl(inGainRight);
-    inGainRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
-
-        //create the input selector
-    hasIMic = false;
-    if(AudioInputs) {
-        AudioHardwareInput *theInput;
-        for(idx = 0; idx< AudioInputs->getCount(); idx++) {
-            theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
-            if(theInput)
-                if( 'imic' == theInput->getInputPortType()) hasIMic = true;
-        }
-    }
-    
-    if(hasIMic)
-        inputSelector = IOAudioSelectorControl::createInputSelector('imic',
-                                                        kIOAudioControlChannelIDAll,
-                                                        kIOAudioControlChannelNameAll,
-                                                        kInputSelector);
-    else 
-        inputSelector = IOAudioSelectorControl::createInputSelector('emic',
-                                                        kIOAudioControlChannelIDAll,
-                                                        kIOAudioControlChannelNameAll,
-                                                        kInputSelector);
-                                                        
-        //getting the input : for now we add only imic and emic
-        
- 
-        
-        //getting the input : for now we add only imic, emic, zoomed video, and the no input source
-	if(AudioInputs) {
-		AudioHardwareInput *theInput;
-		for(idx = 0; idx< AudioInputs->getCount(); idx++) {
-			theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
-			if(theInput) {
-				switch(theInput->getInputPortType()) {
-					case 'imic' :
-						inputSelector->addAvailableSelection('imic', "Internal microphone");
-						break;
-					case 'emic' :
-						inputSelector->addAvailableSelection('emic', "External microphone/Line In");
-						break;
-					case 'zvpc' :
-						inputSelector->addAvailableSelection('zvpc', "Zoomed Video");
-						break;
-					case 'none' :
-						inputSelector->addAvailableSelection('none', "No input");
-						break;
-					default:
-						break;
+    if ((theAudioDeviceTreeParser->getNumberOfInputs() > 0)) {
+		if (NULL != (theRange= OSDynamicCast(OSDictionary, AOAprop->getObject("RangeIn")))) {
+			inputPort = IOAudioPort::withAttributes(kIOAudioPortTypeInput, "Main Input Port");
+			if (NULL != inputPort) {
+				theNumber = OSDynamicCast(OSNumber, theRange->getObject("minLin"));
+				InminLin = (SInt32) theNumber->unsigned32BitValue();
+				theNumber = OSDynamicCast(OSNumber, theRange->getObject("maxLin"));
+				InmaxLin = (SInt32) theNumber->unsigned32BitValue();
+				theData = OSDynamicCast(OSData, theRange->getObject("minLog"));
+				InminDB = *((IOFixed*) theData->getBytesNoCopy());
+				theData = OSDynamicCast(OSData, theRange->getObject("maxLog"));
+				InmaxDB = *((IOFixed*) theData->getBytesNoCopy());
+			
+				inGainLeft = IOAudioLevelControl::createVolumeControl((InmaxLin-InminLin)/2, InminLin, InmaxLin, InminDB, InmaxDB,
+													kIOAudioControlChannelIDDefaultLeft,
+													kIOAudioControlChannelNameLeft,
+													kInGainLeft, 
+													kIOAudioControlUsageInput);
+				if (NULL != inGainLeft) {
+					driverDMAEngine->addDefaultAudioControl(inGainLeft);
+					inGainLeft->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
 				}
+			
+				inGainRight = IOAudioLevelControl::createVolumeControl((InmaxLin-InminLin)/2, InminLin, InmaxLin, InminDB, InmaxDB,
+													kIOAudioControlChannelIDDefaultRight,
+													kIOAudioControlChannelNameRight,
+													kInGainRight, 
+													kIOAudioControlUsageInput);
+				if (NULL != inGainRight) {
+					driverDMAEngine->addDefaultAudioControl(inGainRight);
+					inGainRight->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)gainRightChangeHandler, this);
+				}
+
+				attachAudioPort(inputPort, 0, driverDMAEngine);
+				inputPort->release();
+			}
+		}
+
+		// create the input selectors
+		if(AudioInputs) {
+			AudioHardwareInput *theInput;
+			UInt32				inputType;
+
+			inputSelector = NULL;
+			for(idx = 0; idx < AudioInputs->getCount(); idx++) {
+				theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
+				if(theInput) {
+					inputType = theInput->getInputPortType();
+					DEBUG2_IOLOG ("Creating input selector of type %4s\n", (char*)&inputType);
+					if (NULL == inputSelector && 'none' != inputType) {
+						inputSelector = IOAudioSelectorControl::createInputSelector(inputType,
+																		kIOAudioControlChannelIDAll,
+																		kIOAudioControlChannelNameAll,
+																		kInputSelector);
+						if (NULL != inputSelector) {
+							driverDMAEngine->addDefaultAudioControl(inputSelector);
+							inputSelector->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)inputSelectorChangeHandler, this);	
+						}
+					}
+
+					if (NULL != inputSelector) {
+						DEBUG2_IOLOG ("Calling addAvailableSelection with type %4s\n", (char*)&inputType);
+						switch(inputType) {
+							case 'imic' :
+								inputSelector->addAvailableSelection('imic', "Internal microphone");
+								break;
+							case 'emic' :
+								inputSelector->addAvailableSelection('emic', "External microphone/Line In");
+								break;
+							case 'sinj' :
+								inputSelector->addAvailableSelection('sinj', "Sound Input");
+								break;
+							case 'line' :
+								inputSelector->addAvailableSelection('line', "Line In");
+								break;
+							case 'zvpc' :
+								inputSelector->addAvailableSelection('zvpc', "Zoomed Video");
+								break;
+							default:
+								break;
+						}
+					}
+				}
+			}
+		}
+
+		if (NULL != outputPort) {
+			playthruToggle = IOAudioToggleControl::createMuteControl(true,
+												kIOAudioControlChannelIDAll,
+												kIOAudioControlChannelNameAll,
+												kPassThruToggle, 
+												kIOAudioControlUsagePassThru);
+		
+			if (NULL != playthruToggle) {
+				driverDMAEngine->addDefaultAudioControl(playthruToggle);
+				playthruToggle->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)passThruChangeHandler, this);
 			}
 		}
 	}
 
-    driverDMAEngine->addDefaultAudioControl(inputSelector);
-    inputSelector->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)inputSelectorChangeHandler, this);
-
-    playthruToggle = IOAudioToggleControl::createMuteControl(true,
-                                         kIOAudioControlChannelIDAll,
-                                         kIOAudioControlChannelNameAll,
-                                         kPassThruToggle, 
-                                         kIOAudioControlUsagePassThru);
-    if (!playthruToggle) {
-         return false;
-    }
-    driverDMAEngine->addDefaultAudioControl(playthruToggle);
-    playthruToggle->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)passThruChangeHandler, this);
-
-    attachAudioPort(outputPort, driverDMAEngine, 0);
-    attachAudioPort(inputPort, 0, driverDMAEngine);
-
-    inputPort->release();
-    outputPort->release();
-
 EXIT:    
-    DEBUG2_IOLOG("- AppleOnboardAudio::createDefaultsPorts, %d\n", (result == kIOReturnSuccess));
+    DEBUG2_IOLOG("- %d = AppleOnboardAudio::createDefaultsPorts\n", result);
     return result;
 BAIL:
     result = kIOReturnError;
@@ -543,7 +572,7 @@ IORegistryEntry * AppleOnboardAudio::FindEntryByNameAndProperty (const IORegistr
 			tmpNumber = OSDynamicCast (OSNumber, tmpReg->getProperty (key));
 			if (NULL != tmpNumber && tmpNumber->unsigned32BitValue () == value) {
 				theEntry = tmpReg;
-                                theEntry->retain();
+				theEntry->retain();
 			}
 		}
 	}
@@ -942,30 +971,119 @@ BAIL:
     goto EXIT;
 }
 
+void AppleOnboardAudio::GoIdlePower (void) {
+	if (NULL != theAudioPowerObject) {
+		if (TRUE == theAudioPowerObject->wantsIdleCalls () && kIOAudioDeviceActive == ourPowerState) {
+			ourPowerState = kIOAudioDeviceIdle;
+			theAudioPowerObject->setIdlePowerState ();
+		} else if (TRUE == shuttingDown) {
+			theAudioPowerObject->setIdlePowerState ();
+		}
+	}
+}
+
+void AppleOnboardAudio::GoFullPower (void) {
+	if (NULL != theAudioPowerObject && TRUE == theAudioPowerObject->wantsIdleCalls () && kIOAudioDeviceActive != ourPowerState) {
+		ourPowerState = kIOAudioDeviceActive;
+		theAudioPowerObject->setFullPowerState ();
+	}
+}
+
+// This function is called on the workloop when performPowerStateChange calls powerMgrIntEventSource->interruptOccurred
+void AppleOnboardAudio::PowerMgrInterruptHandler (OSObject *owner, IOInterruptEventSource *source, int count) {
+	AppleOnboardAudio *			appleOnboardAudio;
+
+	debugIOLog ("+ AppleOnboardAudio::PowerMgrInterruptHandler\n");
+
+	appleOnboardAudio = OSDynamicCast (AppleOnboardAudio, owner);
+	FailIf (!appleOnboardAudio, EXIT);
+
+	debug3IOLog ("oldPowerState = %d, newPowerState = %d\n", appleOnboardAudio->fOldPowerState, appleOnboardAudio->fNewPowerState);
+
+	if (appleOnboardAudio->fNewPowerState != appleOnboardAudio->fOldPowerState) {
+		switch (appleOnboardAudio->fNewPowerState) {
+			case kIOAudioDeviceSleep:
+				appleOnboardAudio->theAudioPowerObject->setHardwarePowerOff ();
+				break;
+			case kIOAudioDeviceActive:
+				appleOnboardAudio->theAudioPowerObject->setHardwarePowerOn ();
+				break;
+			default:
+				;
+		}
+	}
+
+EXIT:
+    debugIOLog ("- AppleOnboardAudio::PowerMgrInterruptHandler\n");
+    return;
+}
+
 IOReturn AppleOnboardAudio::performPowerStateChange(IOAudioDevicePowerState oldPowerState,
                                                         IOAudioDevicePowerState newPowerState,
                                                         UInt32 *microsecondsUntilComplete)
 {
-    IOReturn result = kIOReturnSuccess;
-    
-    DEBUG_IOLOG("+ AppleOnboardAudio::performPowerStateChange\n");
+	IOReturn				result;
 
-    result = super::performPowerStateChange(oldPowerState, newPowerState, microsecondsUntilComplete);
-    if (result != kIOReturnSuccess) goto BAIL;
-    
-    if (newPowerState == kIOAudioDeviceSleep) {
-        result = theAudioPowerObject->setHardwarePowerOff();
-    } else if (oldPowerState == kIOAudioDeviceSleep) {
-        result = theAudioPowerObject->setHardwarePowerOn();
-    }
+    debug3IOLog ("+ AppleOnboardAudio::performPowerStateChange (%d, %d)\n", oldPowerState, newPowerState);
 
-EXIT:
-    DEBUG2_IOLOG("- AppleOnboardAudio::performPowerStateChange, result = %d\n", (result == kIOReturnSuccess));
-    return result;
-BAIL:
-    goto EXIT;
+	// We don't deal with idle requests from the family because it sends us one right after it sends an audio stop
+	if (ourPowerState != newPowerState && (kIOAudioDeviceActive == newPowerState || kIOAudioDeviceSleep == newPowerState)) {
+		fOldPowerState = oldPowerState;
+		fNewPowerState = newPowerState;
+		ourPowerState = newPowerState;
+
+		*microsecondsUntilComplete = theAudioPowerObject->GetTimeToChangePowerState (oldPowerState, newPowerState);
+		result = super::performPowerStateChange (oldPowerState, newPowerState, microsecondsUntilComplete);
+
+		powerMgrIntEventSource->interruptOccurred (NULL, NULL, NULL);
+	} else {
+		result = kIOReturnSuccess;
+	}
+
+	debugIOLog ("- AppleOnboardAudio::performPowerStateChange\n");
+
+	return result;
 }
 
+//********************************************************************************
+//
+// Receives a notification when the RootDomain changes state. 
+//
+// Allows us to take action on system sleep, power down, and restart after
+// applications have received their power change notifications and replied,
+// but before drivers have powered down. We tell the device to go to sleep for a 
+// silent shutdown on P80 and DACA.
+//*********************************************************************************
+IOReturn AppleOnboardAudio::sysPowerDownHandler (void * target, void * refCon, UInt32 messageType, IOService * provider, void * messageArgument, vm_size_t argSize) {
+	AppleOnboardAudio *				appleOnboardAudio;
+	IOReturn						result;
+//	char							message[100];
+
+	result = kIOReturnUnsupported;
+	appleOnboardAudio = OSDynamicCast (AppleOnboardAudio, (OSObject *)target);
+	FailIf (NULL == appleOnboardAudio, Exit);
+
+	switch (messageType) {
+		case kIOMessageSystemWillPowerOff:
+		case kIOMessageSystemWillRestart:
+			// Interested applications have been notified of an impending power
+			// change and have acked (when applicable).
+			// This is our chance to save whatever state we can before powering
+			// down.
+//			Debugger ("about to shut down the hardware");
+			appleOnboardAudio->shuttingDown = TRUE;
+			appleOnboardAudio->GoIdlePower ();
+			result = kIOReturnSuccess;
+			break;
+		default:
+//			sprintf (message, "unknown selector %lx", messageType);
+//			Debugger (message);
+			break;
+	}
+
+Exit:
+	return result;
+}
 
 
 #pragma mark +MODEM SOUND
@@ -1031,17 +1149,16 @@ IOReturn AppleOnboardAudio::callPlatformFunction( const OSSymbol * functionName,
 #pragma mark +PRAM VOLUME
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	Calculates the PRAM volume value for stereo volume.
- UInt8 AppleOnboardAudio::VolumeToPRAMValue( UInt32 leftVol, UInt32 rightVol )
-{
+UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 leftVol, UInt32 rightVol) {
 	UInt32			pramVolume;						// Volume level to store in PRAM
 	UInt32 			averageVolume;					// summed volume
     const UInt32 	volumeRange = (fMaxVolume - fMinVolume+1);
     UInt32 			volumeSteps;
-    
+
 	averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
     volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
     pramVolume = averageVolume / volumeSteps;    
-    
+
 	// Since the volume level in PRAM is only worth three bits,
 	// we round small values up to 1. This avoids SysBeep from
 	// flashing the menu bar when it thinks sound is off and
@@ -1049,40 +1166,275 @@ IOReturn AppleOnboardAudio::callPlatformFunction( const OSSymbol * functionName,
 
 	if ((pramVolume == 0) && (leftVol != 0 || rightVol !=0 ))
 		pramVolume = 1;
-		
+
 	return (pramVolume & 0x07);
 }
 
-void AppleOnboardAudio::WritePRAMVol(  UInt32 leftVol, UInt32 rightVol  )
-{
-	UInt8				pramVolume;
-	UInt8 				curPRAMVol;
-	IODTPlatformExpert * 		platform = NULL;
+UInt32 AppleOnboardAudio::PRAMToVolumeValue (void) {
+	const UInt32 	volumeRange = (fMaxVolume - fMinVolume + 1);
+	UInt32 			volumeSteps;
+
+	volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
+
+	return (volumeSteps * ReadPRAMVol ());
+}
+
+void AppleOnboardAudio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
+	UInt8						pramVolume;
+	UInt8 						curPRAMVol;
+	IODTPlatformExpert * 		platform;
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
     
     debug3IOLog("AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
     
-    if (platform)
-	{
+    if (platform) {
 		pramVolume = VolumeToPRAMValue(leftVol,rightVol);
 		
 		// get the old value to compare it with
-		platform->readXPRAM((IOByteCount)kPRamVolumeAddr,&curPRAMVol, (IOByteCount)1);
+		platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 		
-                    // Update only if there is a change
-		if (pramVolume != (curPRAMVol & 0x07))
-		{
+		// Update only if there is a change
+		if (pramVolume != (curPRAMVol & 0x07)) {
 			// clear bottom 3 bits of volume control byte from PRAM low memory image
 			curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
             debug2IOLog("AppleOnboardAudio::WritePRAMVol curPRAMVol=0x%x\n",curPRAMVol);
-			
+
 			// write out the volume control byte to PRAM
 			platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
 		}
 	}
 }
 
+UInt8 AppleOnboardAudio::ReadPRAMVol (void) {
+	UInt8						curPRAMVol;
+	IODTPlatformExpert * 		platform;
 
+	curPRAMVol = 0;
+	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
 
- 
+    if (platform) {
+		platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
+		curPRAMVol &= 0x07;
+	}
+
+	return curPRAMVol;
+}
+
+#if 0
+//===========================================================================================================================
+//	newUserClient
+//===========================================================================================================================
+
+IOReturn AppleOnboardAudio::newUserClient( task_t 			inOwningTask,
+										 void *				inSecurityID,
+										 UInt32 			inType,
+										 IOUserClient **	outHandler )
+{
+	#pragma unused( inType )
+	
+    IOReturn 			err;
+    IOUserClient *		userClientPtr;
+    bool				result;
+	
+	debug2IOLog( "creating user client for task 0x%08lX\n", ( UInt32 ) inOwningTask );
+	
+	// Create the user client object.
+	
+	err = kIOReturnNoMemory;
+	userClientPtr = AOAUserClient::Create( this, inOwningTask );
+	FailIf (!userClientPtr, exit);
+    
+	// Set up the user client.
+	
+	err = kIOReturnError;
+	result = userClientPtr->attach( this );
+	FailIf (!result, exit);
+
+	result = userClientPtr->start( this );
+	FailIf (!result, exit);
+	
+	// Success.
+	
+    *outHandler = userClientPtr;
+	err = kIOReturnSuccess;
+	
+exit:
+	debug2IOLog( "newUserClient done (err=%d)\n", err );
+	if( err != kIOReturnSuccess )
+	{
+		if( userClientPtr )
+		{
+			userClientPtr->detach( this );
+			userClientPtr->release();
+		}
+	}
+	return( err );
+}
+
+#if 0
+#pragma mark -
+#endif
+
+//===========================================================================================================================
+//	Static member variables
+//===========================================================================================================================
+
+///
+/// Method Table
+///
+
+const IOExternalMethod		AOAUserClient::sMethods[] =
+{
+	//	Shutdown
+	{
+		NULL,												// object
+		( IOMethod ) &AOAUserClient::Shutdown,				// func
+		kIOUCScalarIScalarO,								// flags
+		0,													// count of input parameters
+		0													// count of output parameters
+	}
+};
+
+const IOItemCount		AOAUserClient::sMethodCount = sizeof( AOAUserClient::sMethods ) / 
+																  sizeof( AOAUserClient::sMethods[ 0 ] );
+
+OSDefineMetaClassAndStructors( AOAUserClient, IOUserClient )
+
+//===========================================================================================================================
+//	Create
+//===========================================================================================================================
+
+AOAUserClient *	AOAUserClient::Create( AppleOnboardAudio *inDriver, task_t inTask )
+{
+    AOAUserClient *		userClient;
+    
+    userClient = new AOAUserClient;
+	if( !userClient )
+	{
+		debugIOLog( "create user client object failed\n" );
+		goto exit;
+	}
+    
+    if( !userClient->initWithDriver( inDriver, inTask ) )
+	{
+		debugIOLog( "initWithDriver failed\n" );
+		
+		userClient->release();
+		userClient = NULL;
+		goto exit;
+	}
+	
+	debug2IOLog( "User client created for task 0x%08lX\n", ( UInt32 ) inTask );
+	
+exit:
+	return( userClient );
+}
+
+//===========================================================================================================================
+//	initWithDriver
+//===========================================================================================================================
+
+bool	AOAUserClient::initWithDriver( AppleOnboardAudio *inDriver, task_t inTask )
+{
+	bool		result;
+	
+	debugIOLog( "initWithDriver\n" );
+	
+	result = false;
+    if( !initWithTask( inTask, NULL, 0 ) )
+	{
+		debugIOLog( "initWithTask failed\n" );
+		goto exit;
+    }
+    if( !inDriver )
+	{
+		debugIOLog( "initWithDriver failed (null input driver)\n" );
+        goto exit;
+    }
+    
+    mDriver 	= inDriver;
+    mClientTask = inTask;
+    result		= true;
+	
+exit:
+	return( result );
+}
+
+//===========================================================================================================================
+//	free
+//===========================================================================================================================
+
+void	AOAUserClient::free( void )
+{
+	debugIOLog( "free\n" );
+	
+    IOUserClient::free();
+}
+
+//===========================================================================================================================
+//	clientClose
+//===========================================================================================================================
+
+IOReturn	AOAUserClient::clientClose( void )
+{
+	debugIOLog( "clientClose\n" );
+	
+    if( !isInactive() )
+	{
+        mDriver = NULL;
+    }
+    return( kIOReturnSuccess );
+}
+
+//===========================================================================================================================
+//	clientDied
+//===========================================================================================================================
+
+IOReturn	AOAUserClient::clientDied( void )
+{
+	debugIOLog( "clientDied\n" );
+
+    return( clientClose() );
+}
+
+//===========================================================================================================================
+//	getTargetAndMethodForIndex
+//===========================================================================================================================
+
+IOExternalMethod *	AOAUserClient::getTargetAndMethodForIndex( IOService **outTarget, UInt32 inIndex )
+{
+	IOExternalMethod *		methodPtr;
+	
+	methodPtr = NULL;
+	if( inIndex <= sMethodCount ) {
+        *outTarget = this;
+		methodPtr = ( IOExternalMethod * ) &sMethods[ inIndex ];
+    } else {
+		debug2IOLog( "getTargetAndMethodForIndex - bad index (index=%lu)\n", inIndex );
+	}
+	return( methodPtr );
+}
+
+//===========================================================================================================================
+//	Shutdown
+//===========================================================================================================================
+
+IOReturn	AOAUserClient::Shutdown( void ) {
+	debugIOLog( "Shutdown\n" );
+
+	if (NULL != mDriver) {
+		if (kIOAudioDeviceActive == mDriver->ourPowerState) {
+			debugIOLog ("turning off the sound hardware\n");
+			mDriver->shuttingDown = TRUE;
+			mDriver->GoIdlePower ();
+		} else {
+			debugIOLog ("hardware is already off\n");
+		}
+	} else {
+		debugIOLog ("mDriver is NULL!!!!\n");
+	}
+	
+	return( kIOReturnSuccess );
+}
+#endif

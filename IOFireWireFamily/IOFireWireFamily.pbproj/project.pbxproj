@@ -152,24 +152,6 @@
 			path = IOFireWireFamily.kmodproj/IOFWUserIsochPort.cpp;
 			refType = 4;
 		};
-		013163B100CC49117F000001 = {
-			fileRef = 013163AB00CC49117F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		013163B200CC49117F000001 = {
-			fileRef = 013163AC00CC49117F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		013163B300CC49117F000001 = {
-			fileRef = 013163AD00CC49117F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		013163B400CC49117F000001 = {
 			fileRef = 013163AB00CC49117F000001;
 			isa = PBXBuildFile;
@@ -400,17 +382,12 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/firewire";
 			dstSubfolderSpec = 0;
 			files = (
-				F5FA88F200D180FE01CE2124,
-				013163B100CC49117F000001,
-				013163B200CC49117F000001,
-				013163B300CC49117F000001,
 				01F3CFE4FFE5B82F11CE206C,
 				01F3CFE5FFE5B82F11CE206C,
-				01F3CFE6FFE5B82F11CE206C,
+				8CC990CA0173CB9504CE206D,
 				01F3CFE7FFE5B82F11CE206C,
 				01F3CFE8FFE5B82F11CE206C,
 				01F3CFE9FFE5B82F11CE206C,
-				080C09570017B8AD7F000001,
 				01F3CFEAFFE5B82F11CE206C,
 				01F3CFEBFFE5B82F11CE206C,
 				01F3CFECFFE5B82F11CE206C,
@@ -423,8 +400,6 @@
 				01F3CFF2FFE5B82F11CE206C,
 				0160F3030011005A11CE237E,
 				01F3CFF3FFE5B82F11CE206C,
-				03610212000A540C11CE2050,
-				0361021A000A54CB11CE2050,
 				0162E5AB001FC5B211CE2124,
 				01955137003A7B457F000001,
 			);
@@ -439,12 +414,6 @@
 		};
 		01F3CFE5FFE5B82F11CE206C = {
 			fileRef = 0212CDABFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01F3CFE6FFE5B82F11CE206C = {
-			fileRef = 0212CDB1FFE5A54911CE206C;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -657,12 +626,6 @@
 			path = IOFireWireFamily.kmodproj/IOFWAddressSpace.cpp;
 			refType = 4;
 		};
-		0212CDB1FFE5A54911CE206C = {
-			isa = PBXFileReference;
-			name = IOFWAddressSpace.h;
-			path = IOFireWireFamily.kmodproj/IOFWAddressSpace.h;
-			refType = 4;
-		};
 		0212CDB2FFE5A54911CE206C = {
 			isa = PBXFileReference;
 			name = IOFWCommand.cpp;
@@ -803,12 +766,6 @@
 		};
 		0212CDCBFFE5A54911CE206C = {
 			fileRef = 0212CDAFFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0212CDCCFFE5A54911CE206C = {
-			fileRef = 0212CDB1FFE5A54911CE206C;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -998,10 +955,10 @@
 				0160F2FF0010FFF211CE237E,
 				0212CDABFFE5A54911CE206C,
 				0212CDADFFE5A54911CE206C,
-				0212CDB1FFE5A54911CE206C,
 				0212CDB3FFE5A54911CE206C,
 				0212CDB5FFE5A54911CE206C,
 				0212CDB7FFE5A54911CE206C,
+				8CC990C80173CB1D04CE206D,
 				0212CDBCFFE5A54911CE206C,
 				0212CDBEFFE5A54911CE206C,
 				0212CDBFFFE5A54911CE206C,
@@ -1092,7 +1049,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireLib version 1.1.1</string>
+	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1104,11 +1061,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d40</string>
+	<string>1.1.2d43</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1443,12 +1400,6 @@
 			isa = PBXTargetDependency;
 			target = 02B2D11AFFFD5D3111CE2050;
 		};
-		03610212000A540C11CE2050 = {
-			fileRef = 0212CDAFFFE5A54911CE206C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		03610213000A548E11CE2050 = {
 			isa = PBXFileReference;
 			name = IOFWUserClientPsdoAddrSpace.h;
@@ -1469,12 +1420,6 @@
 		};
 		03610216000A549811CE2050 = {
 			fileRef = 03610215000A549811CE2050;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0361021A000A54CB11CE2050 = {
-			fileRef = 03610213000A548E11CE2050;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1508,6 +1453,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -1568,12 +1514,6 @@
 			settings = {
 			};
 		};
-		080C09570017B8AD7F000001 = {
-			fileRef = 080C09530017B84F7F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		089C1669FE841209C02AAC07 = {
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
@@ -1625,7 +1565,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.1.1d40;
+				MODULE_VERSION = 1.1.2d43;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1651,7 +1591,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1663,11 +1603,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d40</string>
+	<string>1.1.2d43</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -1719,7 +1659,6 @@
 				0212CDC9FFE5A54911CE206C,
 				0212CDCAFFE5A54911CE206C,
 				0212CDCBFFE5A54911CE206C,
-				0212CDCCFFE5A54911CE206C,
 				0212CDCDFFE5A54911CE206C,
 				0212CDCEFFE5A54911CE206C,
 				0212CDCFFFE5A54911CE206C,
@@ -1740,6 +1679,7 @@
 				013163B600CC49117F000001,
 				0119100100CC4E527F000001,
 				8C30A5B60111F11D04CE206D,
+				8CC990C90173CB1D04CE206D,
 			);
 			isa = PBXHeadersBuildPhase;
 			name = Headers;
@@ -1901,6 +1841,24 @@
 			settings = {
 			};
 		};
+		8CC990C80173CB1D04CE206D = {
+			isa = PBXFileReference;
+			name = IOFWAddressSpace.h;
+			path = IOFireWireFamily.kmodproj/IOFWAddressSpace.h;
+			refType = 4;
+		};
+		8CC990C90173CB1D04CE206D = {
+			fileRef = 8CC990C80173CB1D04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8CC990CA0173CB9504CE206D = {
+			fileRef = 8CC990C80173CB1D04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 //8C0
 //8C1
 //8C2
@@ -1911,12 +1869,6 @@
 //F52
 //F53
 //F54
-		F5FA88F200D180FE01CE2124 = {
-			fileRef = 01190FFF00CC4E527F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F5FA88F400D180FE01CE2124 = {
 			fileRef = 0212CDBAFFE5A54911CE206C;
 			isa = PBXBuildFile;

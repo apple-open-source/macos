@@ -1646,7 +1646,7 @@
 				MODULE_NAME = com.apple.nke.ppp;
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
-				MODULE_VERSION = 1.1;
+				MODULE_VERSION = 1.1.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1683,11 +1683,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>NSPrincipalClass</key>

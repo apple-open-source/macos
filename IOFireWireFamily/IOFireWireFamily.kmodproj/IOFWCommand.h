@@ -80,11 +80,13 @@ protected:
     IOFWCommand *	fQueuePrev;
     IOFWCommand *	fQueueNext;
     IOFWCmdQ *		fQueue;
-    UInt32		fTimeout;	// How long (in microsecs) after execute() to timeout
+    UInt32			fTimeout;	// How long (in microsecs) after execute() to timeout
     AbsoluteTime	fDeadline;	// Time after which this command has timed out.
     IOSyncer *		fSyncWakeup;
-    bool		fSync;
-
+    UInt8			fSync;
+    UInt8			fCancelOnReset;
+    UInt8			spare[2];
+    
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -149,6 +151,12 @@ public:
     const AbsoluteTime &getDeadline() const
 	{ return fDeadline; };
 
+    bool cancelOnReset() const
+    { return fCancelOnReset; };
+
+    bool Busy() const
+        { return fStatus == kIOReturnBusy || fStatus == kIOFireWirePending;};
+        
     friend class IOFWCmdQ;
 
 private:
@@ -349,7 +357,7 @@ public:
 				bool failOnReset=false);
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion=NULL, void *refcon=NULL);
-    
+
 private:
     OSMetaClassDeclareReservedUnused(IOFWReadCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWReadCommand, 1);

@@ -26,6 +26,8 @@
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageClass.h>
 
+#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
+
 // Macros for printing debugging information
 #if (USB_MASS_STORAGE_DEBUG == 1)
 #define STATUS_LOG(x)	IOLog x
@@ -249,37 +251,11 @@ IOUSBMassStorageClass::start( IOService * provider )
 					255);
     STATUS_LOG(("%s: Product name: %s\n", getName(), fProductString));
 */
-    // Determine the value of the highest supported Logical Unit Number
-    STATUS_LOG(("%s: Determine the maximum LUN\n", getName()));
-    if( GetInterfaceProtocol() == kProtocolBulkOnly )
-    {
-        // The device is a Bulk Only transport device, issue the
-        // GetMaxLUN call to determine what the maximum value is.
-        // Currently we will only support LUN of 0.
-        fMaxLogicalUnitNumber = 0;
-    }
-    else
-    {
-    	// CBI and CB protocols do not support LUNs so for these the 
-    	// maximum LUN will always bo zero.
-        fMaxLogicalUnitNumber = 0;
-    }
 
-    STATUS_LOG(("%s: Maximum supported LUN is: %d\n", 
-    			getName(), 
-    			fMaxLogicalUnitNumber));
-    	
    	STATUS_LOG(("%s: successfully configured\n", getName()));
 
- 	// If this is a BO device that supports multiple LUNs, we will need 
-	// to spawn off a nub for each valid LUN.  If this is a CBI/CB
-	// device or a BO device that only supports LUN 0, this object can
-	// register itself as the nub.  
- 	if ( fMaxLogicalUnitNumber == 0 )
- 	{    
- 		InitializePowerManagement( GetInterfaceReference() );
- 		BeginProvidedServices();       
-    }
+	InitializePowerManagement( GetInterfaceReference() );
+	BeginProvidedServices();       
     
     return true;
 
@@ -313,6 +289,8 @@ IOUSBMassStorageClass::message( UInt32 type, IOService * provider, void * argume
 {
 	IOReturn	result;
 	
+	STATUS_LOG ( ("%s: message = %lx called\n", getName(), type ) );
+	IOLog("%s: message = %lx called\n", getName(), type );
 	switch( type )
 	{
 		case kIOMessageServiceIsTerminated:
@@ -358,7 +336,7 @@ IOUSBMassStorageClass::message( UInt32 type, IOService * provider, void * argume
 			result = kIOReturnSuccess;
 		}
 		break;
-		
+					
 		default:
 		{
 			result = super::message( type, provider, argument );
@@ -371,8 +349,107 @@ IOUSBMassStorageClass::message( UInt32 type, IOService * provider, void * argume
 bool	
 IOUSBMassStorageClass::BeginProvidedServices( void )
 {
+#if 0
 	registerService();
 	
+	return true;
+#endif
+ 	// If this is a BO device that supports multiple LUNs, we will need 
+	// to spawn off a nub for each valid LUN.  If this is a CBI/CB
+	// device or a BO device that only supports LUN 0, this object can
+	// register itself as the nub.  
+    STATUS_LOG(("%s: Determine the maximum LUN\n", getName()));
+    if( GetInterfaceProtocol() == kProtocolBulkOnly )
+    {
+    	IOReturn	status;
+    	
+        // The device is a Bulk Only transport device, issue the
+        // GetMaxLUN call to determine what the maximum value is.
+
+		// Build the USB command
+		fUSBDeviceRequest.bmRequestType 	= USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
+	   	fUSBDeviceRequest.bRequest 			= 0xFE;
+	   	fUSBDeviceRequest.wValue			= 0;
+		fUSBDeviceRequest.wIndex			= 0;
+
+		fUSBDeviceRequest.wLength			= 1;
+	   	fUSBDeviceRequest.pData				= &fMaxLogicalUnitNumber;
+		
+		// Send the command over the control endpoint
+		status = GetInterfaceReference()->DeviceRequest( &fUSBDeviceRequest );
+		if ( status != kIOReturnSuccess )
+		{
+        	fMaxLogicalUnitNumber = 0;
+        	if( status == kIOUSBPipeStalled )
+        	{
+        		UInt8	eStatus[2];
+
+        		// Throw in an extra Get Status to clear up devices that stall the
+        		// control pipe like the early Iomega devices.
+        		GetStatusEndpointStatus( GetControlPipe(), &eStatus[0], NULL);
+        	}
+        }
+    }
+    else
+    {
+    	// CBI and CB protocols do not support LUNs so for these the 
+    	// maximum LUN will always bo zero.
+        fMaxLogicalUnitNumber = 0;
+    }
+
+    STATUS_LOG(("%s: Maximum supported LUN is: %d\n", 
+    			getName(), 
+    			fMaxLogicalUnitNumber));
+    	
+   	STATUS_LOG(("%s: successfully configured\n", getName()));
+
+ 	// If this is a BO device that supports multiple LUNs, we will need 
+	// to spawn off a nub for each valid LUN.  If this is a CBI/CB
+	// device or a BO device that only supports LUN 0, this object can
+	// register itself as the nub.  
+ 	if ( fMaxLogicalUnitNumber == 0 )
+ 	{    
+		registerService();
+    }
+    else
+    {
+        for ( int loopLUN = 0; loopLUN <= fMaxLogicalUnitNumber; loopLUN++)
+        {
+		    STATUS_LOG ( ( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN entering.\n" ) );
+
+			IOSCSILogicalUnitNub * 	nub = new IOSCSILogicalUnitNub;
+			
+			if ( nub == NULL )
+			{
+				PANIC_NOW(( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN failed\n" ));
+				return false;
+			}
+			
+			nub->init( 0 );
+			
+			if ( nub->attach( this ) == false )
+			{
+				// panic since the nub can't attach
+				PANIC_NOW(( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN unable to attach nub" ));
+				return false;
+			}
+						
+			nub->SetLogicalUnitNumber( loopLUN );
+			if( nub->start( this ) == false )
+			{
+				nub->detach( this );
+			}
+			else
+			{
+				nub->registerService( kIOServiceSynchronous );
+			}
+
+			nub->release();
+			
+			STATUS_LOG ( ( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN exiting.\n" ) );
+		}
+    }
+
 	return true;
 }
 
@@ -756,7 +833,36 @@ IOUSBMassStorageClass::GetNextBulkOnlyCommandTag( void )
 }
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 1 );
+OSMetaClassDefineReservedUsed(IOUSBMassStorageClass,  1);
+// Will get called when a device has been resumed
+IOReturn
+IOUSBMassStorageClass::HandlePowerOn ( void )
+{
+#if 0
+	UInt8	eStatus[2];
+        	
+	// The USB hub port that the device is connected to has been resumed,
+	// check to see if the device is still respodning correctly and if not, 
+	// fix it so that it is. 
+	STATUS_LOG(("%s: HandlePowerOn", getName() ));
+	if ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess)
+	{
+		// The endpoint status could not be retrieved meaning that the device has
+		// stopped responding.  Begin the device reset sequence.
+		
+    			STATUS_LOG(("%s: kIOMessageServiceIsResumed GetStatusEndpointStatus error.\n", getName() ));
+	
+		(GetInterfaceReference()->GetDevice())->ResetDevice();
+		
+		// Once the device has been reset, send notification to the client so that the
+		// device can be reconfigured for use.
+		SendNotification_VerifyDeviceState();
+	}
+#endif
+	return kIOReturnSuccess;
+	
+}
+
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 2 );
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 3 );
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 4 );

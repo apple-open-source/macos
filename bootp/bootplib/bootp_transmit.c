@@ -192,14 +192,19 @@ bootp_transmit(int sockfd, char sendbuf[2048],
     }
     else if (sockfd >= 0) { /* send using socket */
 	struct sockaddr_in 	dst;
+	ssize_t			send_status;
+
 	bzero(&dst, sizeof(dst));
 	dst.sin_len = sizeof(struct sockaddr_in);
 	dst.sin_family = AF_INET;
 	dst.sin_port = htons(dest_port);
 	dst.sin_addr = dest_ip;
-	status = sendto(sockfd, data, len, 0,
-		        (struct sockaddr *)&dst, 
-			sizeof(struct sockaddr_in));
+	send_status = sendto(sockfd, data, len, 0,
+			     (struct sockaddr *)&dst, 
+			     sizeof(struct sockaddr_in));
+	if (send_status < len)
+	    status = -1;
+
     }
     else {
 	ts_log(LOG_ERR, 

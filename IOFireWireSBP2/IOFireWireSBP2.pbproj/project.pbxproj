@@ -86,7 +86,7 @@
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.1.1d23;
+				MODULE_VERSION = 1.1.2d24;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -111,7 +111,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -123,11 +123,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d23</string>
+	<string>1.1.2d24</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSBP2</key>
@@ -333,7 +333,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.1, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -345,11 +345,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1d23</string>
+	<string>1.1.2d24</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>

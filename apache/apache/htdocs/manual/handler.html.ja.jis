@@ -13,7 +13,13 @@
  vlink="#000080"
  alink="#FF0000"
 >
-<!--#include virtual="header.html" -->
+    <div align="CENTER">
+      <img src="images/sub.gif" alt="[APACHE DOCUMENTATION]" /> 
+
+      <h3>Apache HTTP Server</h3>
+    </div>
+
+
 <h1 align="CENTER">Apache のハンドラの使用</h1>
 
 <ul>
@@ -145,6 +151,10 @@ href="mod/mod_mime.html#multipleext">複数の拡張子のあるファイル</a>
 メディアタイプの名前空間を侵さないように、ハンドラの名前にはスラッシュ
 を含まない、ダッシュ (訳注: "-") で分離された名前を付ける習慣になっています。</P>
 
-<!--#include virtual="footer.html" -->
+    <hr />
+
+    <h3 align="CENTER">Apache HTTP Server</h3>
+    <a href="./"><img src="images/index.gif" alt="Index" /></a>
+
 </body>
 </html>

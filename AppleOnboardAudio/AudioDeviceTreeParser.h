@@ -29,6 +29,7 @@ public :
     UInt32 getLayoutID();
     
     SInt16 getPowerObjectType();
+    bool getPhaseInversion();
     SInt16 getInitOperationType();
     OSArray *getDSPFeatures(); 
     OSArray *createOutputsArray(); 

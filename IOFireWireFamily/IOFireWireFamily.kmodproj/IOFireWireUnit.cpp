@@ -112,6 +112,9 @@ bool IOFireWireUnit::handleOpen( 	IOService *	  forClient,
                             IOOptionBits	  options,
                             void *		  arg )
 {
+	if ( isOpen() )
+		return false ;
+
     bool ok;
     ok = fDevice->open(this, options, arg);
     if(ok)

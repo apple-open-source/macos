@@ -30,7 +30,7 @@
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/firewire/IOFWCommand.h>
-#include <IOKit/firewire/IOFireWireUserClient.h>
+#include"IOFireWireUserClient.h"
 
 class IOFWUserCommand: public OSObject
 {
@@ -57,20 +57,39 @@ class IOFWUserCommand: public OSObject
 										IOReturn 				status, 
 										IOFireWireNub *			device, 
 										IOFWCommand *			fwCmd) ;
-	virtual IOReturn			submit(
-										FWUserCommandSubmitParams*	inParams,
-										FWUserCommandSubmitResult*	outResult) = 0 ;
+	static void					asyncReadQuadletCommandCompletion(
+										void *					refcon, 
+										IOReturn 				status, 
+										IOFireWireNub *			device, 
+										IOFWCommand *			fwCmd) ;
+//	virtual IOReturn			submit(
+//										FWUserCommandSubmitParams*	inParams,
+//										FWUserCommandSubmitResult*	outResult) = 0 ;
 	virtual void				setRefCon(
 										void*					inRefCon)
 										{ fUserRefCon = inRefCon; }
 	virtual void*				getRefCon() { return fUserRefCon; }
 	
+//	virtual IOReturn			submitRead(
+//										FWUserCommandSubmitParams*	inParams,
+//										FWUserCommandSubmitResult*	outResult) ;
+//	virtual IOReturn			submitWrite(
+//										FWUserCommandSubmitParams*	inParams,
+//										FWUserCommandSubmitResult*	outResult) ;
+	virtual IOReturn			submit(
+										FWUserCommandSubmitParams*	inParams,
+										FWUserCommandSubmitResult*	outResult) = 0 ;
+
  protected:
 	OSAsyncReference				fAsyncRef ;
 	IOFWAsyncCommand*				fCommand ;
 	const IOFireWireUserClient*		fUserClient ;
-	IOMemoryDescriptor*				fMem ;
 	void*							fUserRefCon ;
+
+	IOMemoryDescriptor*				fMem ;
+	UInt32*							fQuads ;	// 
+	UInt32							fNumQuads ;
+	Boolean							fCopyFlag ;
 } ;
 
 class IOFWUserReadCommand: public IOFWUserCommand
@@ -89,7 +108,7 @@ public:
 										FWUserCommandSubmitResult*	outResult) ;
 } ;
 
-class IOFWUserReadQuadletCommand: public IOFWUserCommand
+/*class IOFWUserReadQuadletCommand: public IOFWUserCommand
 {
 	OSDeclareDefaultStructors(IOFWUserReadQuadletCommand)
 
@@ -102,19 +121,15 @@ class IOFWUserReadQuadletCommand: public IOFWUserCommand
 	// --- free ----------------------------------										
 	virtual void				free() ;
 	
-	// --- IOFWCommand methods -------------------
-	virtual IOReturn			submit(
-										FWUserCommandSubmitParams*	inParams,
-										FWUserCommandSubmitResult*	outResult) ;
-	static void					asyncReadQuadletCommandCompletion(
-										void *					refcon, 
-										IOReturn 				status, 
-										IOFireWireNub *			device, 
-										IOFWCommand *			fwCmd) ;
+//	// --- IOFWCommand methods -------------------
+//	virtual IOReturn			submit(
+//										FWUserCommandSubmitParams*	inParams,
+//										FWUserCommandSubmitResult*	outResult) ;
+
  protected:
 	UInt32*		fQuads ;
 	UInt32		fNumQuads ;
-} ;
+} ; */
 
 class IOFWUserWriteCommand: public IOFWUserCommand
 {
@@ -133,7 +148,7 @@ class IOFWUserWriteCommand: public IOFWUserCommand
 
 } ;
 
-class IOFWUserWriteQuadletCommand: public IOFWUserCommand
+/*class IOFWUserWriteQuadletCommand: public IOFWUserCommand
 {
 	OSDeclareDefaultStructors(IOFWUserWriteQuadletCommand)
 
@@ -143,14 +158,14 @@ class IOFWUserWriteQuadletCommand: public IOFWUserCommand
 										const FWUserCommandSubmitParams*	inParams,
 										const IOFireWireUserClient*			inUserClient ) ;
 
-	// --- IOFWCommand methods -------------------
-	virtual IOReturn			submit(
-										FWUserCommandSubmitParams*	inParams,
-										FWUserCommandSubmitResult*	outResult) ;
+//	// --- IOFWCommand methods -------------------
+//	virtual IOReturn			submit(
+//										FWUserCommandSubmitParams*	inParams,
+//										FWUserCommandSubmitResult*	outResult) ;
 
  protected:
 	UInt32		fNumQuads ;
-} ;
+} ; */
 
 class IOFWUserCompareSwapCommand: public IOFWUserCommand
 {

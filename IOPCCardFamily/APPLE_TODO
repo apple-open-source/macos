@@ -30,8 +30,6 @@ write funky cis tuple code
 write and call a new macosx version of exit_pcmcia_cs()
 	- the pccard card family doesn't unload yet
 
-write code to hook up eject buttons on wallstreet
-
 update code base to pcmcia-cs-3.1.26 (currently pcmcia-cs-3.1.22)
 	- fix the cardbus code, it should delay the creation of the nub
 		- switch CS cardbus to pci "space" addressing instead of the nub
@@ -47,7 +45,7 @@ fix rsrc_mgr.c it should be rewritten in terms of IOKit, ie IORangeAllocator
         
 fix the Zoom Video code, it is not tested/complete.
 
-fix? cardbus2pci bridges are rumored to be broken on X
+fix cardbus2pci bridges are broken on X
 	- need to add code to check for OF created nubs?
 	- need additional pci bridge scanning/setup code?
 

@@ -92,10 +92,12 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
                 goto Exit;
         //controlInst = OpenComponent(control);
         // get the local node's fw ref id
+        devStatus.version = 0x200;
         result = IDHGetDeviceStatus( theInst, currentIsochConfig, &devStatus);
         if(result)
                 goto Exit;
         printf("input format is 0x%x\n", devStatus.inputFormat);
+        printf("output formats are 0x%x\n", devStatus.outputFormats);
                 
         //result = FWClockPrivSetFWReferenceID(clockInst, (FWReferenceID) devStatus.localNodeID );
         //if(result)

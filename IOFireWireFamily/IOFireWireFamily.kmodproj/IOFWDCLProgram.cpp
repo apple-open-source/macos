@@ -144,7 +144,7 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
     while(op) {
         UInt32		opcode;
         IOLog("(0x%p)", op);
-        op = convertDCLPtrToKernel(op);
+//        op = convertDCLPtrToKernel(op);
         // Dispatch off of opcode.
         opcode = op->opcode & ~kFWDCLOpFlagMask;
         IOLog("Opcode 0x%p:", op);
