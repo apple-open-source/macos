@@ -1,10 +1,10 @@
 {
     FILESTABLE = {
         C_FILES = (); 
-        H_FILES = (extern.h, pathnames.h); 
+        H_FILES = (ls.h, ls_extern.h, extern.h, pathnames.h); 
         M_FILES = (); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (ftpcmd.y, ftpd.c, logwtmp.c, popen.c, vers.c); 
+        OTHER_LINKED = (ftpcmd.y, ftpd.c, logwtmp.c, popen.c, vers.c, ls.c, cmp.c, util.c, print.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, ftpd.8); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

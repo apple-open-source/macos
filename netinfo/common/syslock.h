@@ -56,8 +56,8 @@ typedef struct
 	condition_t condition;
 #endif
 	thread_id_t thread;
+	unsigned int locked;
 	bool_t recursive;
-	bool_t locked;
 } syslock;
 
 syslock *syslock_new(bool_t recursive);

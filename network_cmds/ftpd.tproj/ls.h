@@ -1,29 +1,10 @@
+
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1989, 1993
+ *	The Regents of the University of California.  All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*-
- * Copyright (c) 1990 The Regents of the University of California.
- * All rights reserved.
+ * This code is derived from software contributed to Berkeley by
+ * Michael Fischbein.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,11 +33,49 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ *	from: @(#)ls.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD: src/bin/ls/ls.h,v 1.14 2000/07/04 23:09:23 assar Exp $
  */
 
-#ifndef lint
-/*static char sccsid[] = "from: @(#)vers.c	5.1 (Berkeley) 6/24/90";*/
-static char rcsid[] = "$Id: vers.c,v 1.1.1.1 1999/05/02 03:57:40 wsanchez Exp $";
-#endif /* not lint */
+#define NO_PRINT	1
 
-char version[] = "Version 5.60";
+extern long blocksize;		/* block size units */
+
+extern int f_accesstime;	/* use time of last access */
+extern int f_flags;		/* show flags associated with a file */
+extern int f_inode;		/* print inode */
+extern int f_longform;		/* long listing format */
+extern int f_octal;		/* print unprintables in octal */
+extern int f_octal_escape;	/* like f_octal but use C escapes if possible */
+extern int f_nonprint;		/* show unprintables as ? */
+extern int f_sectime;		/* print the real time for all files */
+extern int f_size;		/* list size in short listing */
+extern int f_statustime;	/* use time of last mode change */
+extern int f_notabs;		/* don't use tab-separated multi-col output */
+extern int f_type;		/* add type character for non-regular files */
+#ifdef COLORLS
+extern int f_color;		/* add type in color for non-regular files */
+#endif
+
+typedef struct {
+	FTSENT *list;
+	u_long btotal;
+	int bcfile;
+	int entries;
+	int maxlen;
+	int s_block;
+	int s_flags;
+	int s_group;
+	int s_inode;
+	int s_nlink;
+	int s_size;
+	int s_user;
+} DISPLAY;
+
+typedef struct {
+	char *user;
+	char *group;
+	char *flags;
+	char data[1];
+} NAMES;

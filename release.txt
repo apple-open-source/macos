@@ -1,6 +1,8 @@
-# Mac OS X 10.0.1 SUCheetah4L13
-IOSerialFamily	7	Other
-Libc	167	Other
+# Mac OS X 10.0.2 SU2Cheetah4P12
+configd	24.1	Other
+Libinfo	78.2	Other
 Libsystem	50	Other
-OpenSSH	7.1	Other
-xnu	124.1	Other
+netinfo	208.1	Other
+network_cmds	77	Other
+ntp	13	Other
+xnu	124.7	Other

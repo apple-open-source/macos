@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,15 +32,19 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #ifndef lint
+#if 0
 static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 4/6/94";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/ftpd/popen.c,v 1.20 2001/03/19 19:11:00 jlemon Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <netinet/in.h>
 
 #include <errno.h>
 #include <glob.h>
@@ -74,6 +55,13 @@ static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 4/6/94";
 #include <unistd.h>
 
 #include "extern.h"
+#include "pathnames.h"
+#include <syslog.h>
+#include <time.h>
+#include <varargs.h>
+
+#define	MAXUSRARGS	100
+#define	MAXGLOBARGS	1000
 
 /*
  * Special version of popen which avoids call to shell.  This ensures noone
@@ -90,9 +78,9 @@ ftpd_popen(program, type)
 	char *cp;
 	FILE *iop;
 	int argc, gargc, pdes[2], pid;
-	char **pop, *argv[100], *gargv[1000];
+	char **pop, *argv[MAXUSRARGS], *gargv[MAXGLOBARGS];
 
-	if (*type != 'r' && *type != 'w' || type[1])
+	if (((*type != 'r') && (*type != 'w')) || type[1])
 		return (NULL);
 
 	if (!pids) {
@@ -106,28 +94,38 @@ ftpd_popen(program, type)
 		return (NULL);
 
 	/* break up string into pieces */
-	for (argc = 0, cp = program;; cp = NULL)
+	for (argc = 0, cp = program; argc < MAXUSRARGS; cp = NULL) {
 		if (!(argv[argc++] = strtok(cp, " \t\n")))
 			break;
+	}
+	argv[argc - 1] = NULL;
 
 	/* glob each piece */
 	gargv[0] = argv[0];
-	for (gargc = argc = 1; argv[argc]; argc++) {
+	for (gargc = argc = 1; argv[argc] && gargc < (MAXGLOBARGS-1); argc++) {
 		glob_t gl;
 		int flags = GLOB_BRACE|GLOB_NOCHECK|GLOB_QUOTE|GLOB_TILDE;
 
 		memset(&gl, 0, sizeof(gl));
+		gl.gl_matchc = MAXGLOBARGS;
+#if !defined(GLOB_MAXPATH)
+#define GLOB_MAXPATH 0x1000
+#endif
+		flags |= GLOB_MAXPATH;
 		if (glob(argv[argc], flags, NULL, &gl))
 			gargv[gargc++] = strdup(argv[argc]);
 		else
-			for (pop = gl.gl_pathv; *pop; pop++)
+			for (pop = gl.gl_pathv; *pop && gargc < (MAXGLOBARGS-1);
+			     pop++)
 				gargv[gargc++] = strdup(*pop);
 		globfree(&gl);
 	}
 	gargv[gargc] = NULL;
 
 	iop = NULL;
-	switch(pid = vfork()) {
+	fflush(NULL);
+	pid = (strcmp(gargv[0], _PATH_LS) == 0) ? fork() : vfork();
+	switch(pid) {
 	case -1:			/* error */
 		(void)close(pdes[0]);
 		(void)close(pdes[1]);
@@ -147,6 +145,20 @@ ftpd_popen(program, type)
 				(void)close(pdes[0]);
 			}
 			(void)close(pdes[1]);
+		}
+		if (strcmp(gargv[0], _PATH_LS) == 0) {
+			/* Reset getopt for ls_main() */
+			optreset = optind = optopt = 1;
+			/* Close syslogging to remove pwd.db missing msgs */
+			closelog();
+			/* Trigger to sense new /etc/localtime after chroot */
+			if (getenv("TZ") == NULL) {
+				setenv("TZ", "", 0);
+				tzset();
+				unsetenv("TZ");
+				tzset();
+			}
+			exit(ls_main(gargc, gargv));
 		}
 		execv(gargv[0], gargv);
 		_exit(1);
